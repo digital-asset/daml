@@ -3,9 +3,6 @@
 
 package com.daml.platform.store.cache
 
-import java.time.Instant
-import java.util.concurrent.atomic.AtomicReference
-
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
 import akka.{Done, NotUsed}
@@ -15,7 +12,6 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.cache.ContractKeyStateValue._
 import com.daml.platform.store.cache.ContractStateValue._
 import com.daml.platform.store.cache.MutableCacheBackedContractStore._
@@ -29,6 +25,8 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyState,
 }
 
+import java.time.Instant
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
@@ -38,6 +36,7 @@ private[platform] class MutableCacheBackedContractStore(
     metrics: Metrics,
     contractsReader: LedgerDaoContractsReader,
     signalNewLedgerHead: SignalNewLedgerHead,
+    startIndexExclusive: (Offset, Long),
     private[cache] val keyCache: StateCache[GlobalKey, ContractKeyStateValue],
     private[cache] val contractsCache: StateCache[ContractId, ContractStateValue],
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
@@ -45,7 +44,7 @@ private[platform] class MutableCacheBackedContractStore(
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  private[cache] val cacheIndex = new CacheIndex()
+  private[cache] val cacheIndex = new CacheIndex(startIndexExclusive)
 
   def push(event: ContractStateEvent): Unit = {
     debugEvents(event)
@@ -114,7 +113,7 @@ private[platform] class MutableCacheBackedContractStore(
   private def readThroughContractsCache(contractId: ContractId)(implicit
       loggingContext: LoggingContext
   ) = {
-    val currentCacheSequentialId = cacheIndex.getSequentialId
+    val currentCacheSequentialId = cacheIndex.getEventSequentialId
     val fetchStateRequest =
       Timed.future(
         metrics.daml.index.lookupContract,
@@ -211,7 +210,7 @@ private[platform] class MutableCacheBackedContractStore(
   private def readThroughKeyCache(
       key: GlobalKey
   )(implicit loggingContext: LoggingContext) = {
-    val currentCacheSequentialId = cacheIndex.getSequentialId
+    val currentCacheSequentialId = cacheIndex.getEventSequentialId
     val eventualResult = contractsReader.lookupKeyState(key, currentCacheSequentialId)
     val eventualValue = eventualResult.map(toKeyCacheValue)
 
@@ -306,13 +305,13 @@ private[platform] object MutableCacheBackedContractStore {
   // Signal externally that the cache has caught up until the provided ledger head offset
   type SignalNewLedgerHead = Offset => Unit
   // Subscribe to the contract state events stream starting at a specific event_offset and event_sequential_id
-  // or from the beginning, if not provided
   type SubscribeToContractStateEvents =
-    Option[(Offset, Long)] => Source[ContractStateEvent, NotUsed]
+    ((Offset, EventSequentialId)) => Source[ContractStateEvent, NotUsed]
 
   def apply(
       contractsReader: LedgerDaoContractsReader,
       signalNewLedgerHead: SignalNewLedgerHead,
+      startIndexExclusive: (Offset, Long),
       metrics: Metrics,
       maxContractsCacheSize: Long,
       maxKeyCacheSize: Long,
@@ -324,6 +323,7 @@ private[platform] object MutableCacheBackedContractStore {
       metrics,
       contractsReader,
       signalNewLedgerHead,
+      startIndexExclusive,
       ContractKeyStateCache(maxKeyCacheSize, metrics),
       ContractsStateCache(maxContractsCacheSize, metrics),
     )
@@ -332,6 +332,7 @@ private[platform] object MutableCacheBackedContractStore {
       subscribeToContractStateEvents: SubscribeToContractStateEvents,
       contractsReader: LedgerDaoContractsReader,
       signalNewLedgerHead: SignalNewLedgerHead,
+      startIndexExclusive: (Offset, Long),
       metrics: Metrics,
       maxContractsCacheSize: Long,
       maxKeyCacheSize: Long,
@@ -345,6 +346,7 @@ private[platform] object MutableCacheBackedContractStore {
     private val contractStore = MutableCacheBackedContractStore(
       contractsReader,
       signalNewLedgerHead,
+      startIndexExclusive,
       metrics,
       maxContractsCacheSize,
       maxKeyCacheSize,
@@ -391,15 +393,15 @@ private[platform] object MutableCacheBackedContractStore {
       s"Contract not found for contract id $contractId. Hint: this could be due racing with a concurrent archival."
   }
 
-  private[cache] class CacheIndex {
-    private val offsetRef: AtomicReference[Option[(Offset, EventSequentialId)]] =
-      new AtomicReference(Option.empty)
+  private[cache] class CacheIndex(initValue: (Offset, Long)) {
+    private val offsetRef: AtomicReference[(Offset, EventSequentialId)] =
+      new AtomicReference(initValue)
 
     def set(offset: Offset, sequentialId: EventSequentialId): Unit =
-      offsetRef.set(Some(offset -> sequentialId))
+      offsetRef.set(offset -> sequentialId)
 
-    def get: Option[(Offset, EventSequentialId)] = offsetRef.get()
+    def get: (Offset, EventSequentialId) = offsetRef.get()
 
-    def getSequentialId: EventSequentialId = get.map(_._2).getOrElse(EventSequentialId.beforeBegin)
+    def getEventSequentialId: EventSequentialId = get._2
   }
 }
