@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
+eval "$(dev-env/bin/dade assist)"
+
 # The `SYSTEM_PULLREQUEST_TARGETBRANCH` environment variable is defined by
 # Azure Pipelines; in order to run this script locally, define it beforehand
 # as the branch being targeted. For example:
@@ -49,12 +51,11 @@ function check_non_lf_protos() {
   readonly BUF_IMAGE_TMPDIR="$(mktemp -d)"
   trap 'rm -rf ${BUF_IMAGE_TMPDIR}' EXIT
 
-  echo "Checking protobufs against target '${BUF_GIT_TARGET_TO_CHECK}'"
-  eval "$(dev-env/bin/dade assist)"
+  echo "Checking protobufs against git target '${BUF_GIT_TARGET_TO_CHECK}'"
   for buf_module in "${BUF_MODULES_AGAINST_STABLE[@]}"; do
     # Starting with version 1.17 we split the default `buf.yaml` file into multiple config files
     # This in turns requires that we pass the `--against-config` flag for any check that is run on versions > 1.17
-    if [[ $BUF_CONFIG_UPDATED ]]
+    if [[ $BUF_CONFIG_UPDATED = true ]]
     then
       buf breaking --config "${buf_module}" --against "$BUF_GIT_TARGET_TO_CHECK" --against-config "${buf_module}"
     else
@@ -98,7 +99,11 @@ USAGE
   readonly LATEST_STABLE_TAG="$(git tag ${GIT_TAG_SCOPE} | grep -v "snapshot" | sort -V | tail -1)"
   # The current stable release is v1.17 and it includes the buf config file with the default name `buf.yml`.
   # Once we have the v1.18 release we can remove this check for the updated config (KVL-1131)
-  BUF_CONFIG_UPDATED=[[ $LATEST_STABLE_TAG =~ "1.17."* ]]
+  if [[ $LATEST_STABLE_TAG =~ "v1.17."* ]]; then
+    BUF_CONFIG_UPDATED=false
+  else
+    BUF_CONFIG_UPDATED=true
+  fi
   BUF_GIT_TARGET_TO_CHECK=".git#tag=${LATEST_STABLE_TAG}"
   ;;
 --target)
@@ -109,7 +114,6 @@ USAGE
   #
   # The files are always split for versions > 1.17, and there is no way of opening a PR against a target <= 1.17 which includes this check
   BUF_CONFIG_UPDATED=true
-  # This lets buf checkout the head commit of the TARGET
   BUF_GIT_TARGET_TO_CHECK=".git#branch=${TARGET}"
   ;;
 *)
