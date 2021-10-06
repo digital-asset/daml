@@ -72,7 +72,7 @@ Usage: ./check-protobuf-stability.sh [options]
 Options:
   -h, --help: shows this help
   --stable:     check against the latest stable tag (default)
-  --head:       check against the head commit
+  --target:     check against the tip of the target branch
 USAGE
   exit
   ;;
@@ -93,8 +93,8 @@ USAGE
   BUF_CONFIG_UPDATED=false
   BUF_GIT_TARGET_TO_CHECK=".git#tag=${LATEST_STABLE_TAG}"
   ;;
---head)
-  # Check against the head of the target branch.
+--target)
+  # Check against the tip of the target branch.
   #
   # This check ensures that backwards compatibility is never broken on the target branch,
   # which is stricter than guaranteeing compatibility between release tags.
