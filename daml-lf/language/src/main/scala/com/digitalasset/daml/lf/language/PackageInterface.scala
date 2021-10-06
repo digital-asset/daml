@@ -182,14 +182,14 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   private[this] def lookupInterface(
       name: TypeConName,
       context: => Reference,
-  ): Either[LookupError, DefInterface] =
+  ): Either[LookupError, DefInterfaceSignature] =
     lookupModule(name.packageId, name.qualifiedName.module, context).flatMap(
       _.interfaces
         .get(name.qualifiedName.name)
         .toRight(LookupError(Reference.Interface(name), context))
     )
 
-  def lookupInterface(name: TypeConName): Either[LookupError, DefInterface] =
+  def lookupInterface(name: TypeConName): Either[LookupError, DefInterfaceSignature] =
     lookupInterface(name, Reference.Interface(name))
 
   private[this] def lookupChoice(
@@ -211,15 +211,23 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
       ifaceName: TypeConName,
       chName: ChoiceName,
       context: => Reference,
-  ): Either[LookupError, InterfaceChoice] =
-    lookupInterface(ifaceName, context).flatMap(
-      _.choices.get(chName).toRight(LookupError(Reference.Choice(ifaceName, chName), context))
+  ): Either[LookupError, Either[InterfaceChoice, TemplateChoiceSignature]] =
+    lookupInterface(ifaceName, context).flatMap(iface =>
+      iface.virtualChoices.get(chName) match {
+        case Some(choice) =>
+          Right(Left(choice))
+        case None =>
+          iface.fixedChoices.get(chName) match {
+            case Some(choice) => Right(Right(choice))
+            case None => Left(LookupError(Reference.Choice(ifaceName, chName), context))
+          }
+      }
     )
 
   def lookupInterfaceChoice(
       ifaceName: TypeConName,
       chName: ChoiceName,
-  ): Either[LookupError, InterfaceChoice] =
+  ): Either[LookupError, Either[InterfaceChoice, TemplateChoiceSignature]] =
     lookupInterfaceChoice(ifaceName, chName, Reference.Choice(ifaceName, chName))
 
   private[this] def lookupInterfaceMethod(

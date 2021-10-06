@@ -724,7 +724,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val (dottedName, interface) = nameWithDef
       val builder = PLF.DefInterface.newBuilder()
       builder.setTyconInternedDname(dottedNameTable.insert(dottedName))
-      builder.accumulateLeft(interface.choices.sortByKey)(_ addChoices _)
+      builder.accumulateLeft(interface.virtualChoices.sortByKey)(_ addChoices _)
       // TODO https://github.com/digital-asset/daml/issues/11006
       //   encode interface methods as well
       builder.build()

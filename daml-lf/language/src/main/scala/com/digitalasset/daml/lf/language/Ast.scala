@@ -637,27 +637,52 @@ object Ast {
   type TemplateKeySignature = GenTemplateKey[Unit]
   val TemplateKeySignature = new GenTemplateKeyCompanion[Unit]
 
-  final case class DefInterface(
-      choices: Map[ChoiceName, InterfaceChoice],
+  final case class GenDefInterface[E](
+      virtualChoices: Map[ChoiceName, InterfaceChoice],
+      fixedChoices: Map[ChoiceName, GenTemplateChoice[E]],
       methods: Map[MethodName, InterfaceMethod],
-  )
+  ) {
+    virtualChoices.keys.foreach(name =>
+      if (fixedChoices.isDefinedAt(name))
+        throw PackageError(s"collision on interface choice name $name")
+    )
+  }
 
-  object DefInterface {
+  final class GenDefInterfaceCompanion[E] {
     def apply(
-        choices: Iterable[(ChoiceName, InterfaceChoice)],
+        virtualChoices: Iterable[(ChoiceName, InterfaceChoice)],
+        fixedChoices: Iterable[(ChoiceName, GenTemplateChoice[E])],
         methods: Iterable[(MethodName, InterfaceMethod)],
-    ): DefInterface = {
-      val choiceMap = toMapWithoutDuplicate(
-        choices,
+    ): GenDefInterface[E] = {
+      val virtualChoiceMap = toMapWithoutDuplicate(
+        virtualChoices,
+        (name: ChoiceName) => throw PackageError(s"collision on interface choice name $name"),
+      )
+      val fixedChoiceMap = toMapWithoutDuplicate(
+        fixedChoices,
         (name: ChoiceName) => throw PackageError(s"collision on interface choice name $name"),
       )
       val methodMap = toMapWithoutDuplicate(
         methods,
         (name: MethodName) => throw PackageError(s"collision on interface method name $name"),
       )
-      DefInterface(choiceMap, methodMap)
+      GenDefInterface(virtualChoiceMap, fixedChoiceMap, methodMap)
     }
+    def unapply(arg: GenDefInterface[E]): Some[
+      (
+          Map[ChoiceName, InterfaceChoice],
+          Map[ChoiceName, GenTemplateChoice[E]],
+          Map[MethodName, InterfaceMethod],
+      )
+    ] =
+      Some((arg.virtualChoices, arg.fixedChoices, arg.methods))
   }
+
+  type DefInterface = GenDefInterface[Expr]
+  val DefInterface = new GenDefInterfaceCompanion[Expr]
+
+  type DefInterfaceSignature = GenDefInterface[Unit]
+  val DefInterfaceSignature = new GenDefInterfaceCompanion[Unit]
 
   final case class InterfaceChoice(
       name: ChoiceName,
@@ -925,7 +950,7 @@ object Ast {
       definitions: Map[DottedName, GenDefinition[E]],
       templates: Map[DottedName, GenTemplate[E]],
       exceptions: Map[DottedName, GenDefException[E]],
-      interfaces: Map[DottedName, DefInterface],
+      interfaces: Map[DottedName, GenDefInterface[E]],
       featureFlags: FeatureFlags,
   ) {
     templates.keysIterator.foreach(name =>
@@ -953,7 +978,7 @@ object Ast {
         definitions: Iterable[(DottedName, GenDefinition[E])],
         templates: Iterable[(DottedName, GenTemplate[E])],
         exceptions: Iterable[(DottedName, GenDefException[E])],
-        interfaces: Iterable[(DottedName, DefInterface)],
+        interfaces: Iterable[(DottedName, GenDefInterface[E])],
         featureFlags: FeatureFlags,
     ): GenModule[E] = {
 
@@ -990,7 +1015,7 @@ object Ast {
           Map[DottedName, GenDefinition[E]],
           Map[DottedName, GenTemplate[E]],
           Map[DottedName, GenDefException[E]],
-          Map[DottedName, DefInterface],
+          Map[DottedName, GenDefInterface[E]],
           FeatureFlags,
       )
     ] = Some(

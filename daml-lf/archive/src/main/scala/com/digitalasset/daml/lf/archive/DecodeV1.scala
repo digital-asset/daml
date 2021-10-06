@@ -284,7 +284,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       } else {
         lfModule.getInterfacesList.asScala.foreach { defn =>
           val defName = getInternedDottedName(defn.getTyconInternedDname)
-          interfaces += (defName -> decodeDefInterface(defn))
+          interfaces += (defName -> decodeDefInterface(defName, defn))
         }
       }
 
@@ -662,15 +662,19 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       DefException(decodeExpr(lfException.getMessage, s"$exceptionName:message"))
 
     private[this] def decodeDefInterface(
-        lfInterface: PLF.DefInterface
+        id: DottedName,
+        lfInterface: PLF.DefInterface,
     ): DefInterface =
       DefInterface(
-        lfInterface.getChoicesList.asScala.toList
+        lfInterface.getChoicesList.asScala.view
           .map(decodeInterfaceChoice)
-          .map(choice => (choice.name, choice)),
-        lfInterface.getMethodsList.asScala.toList
+          .map(choice => choice.name -> choice),
+        lfInterface.getFixedChoicesList.asScala.view
+          .map(decodeChoice(id, _))
+          .map(choice => choice.name -> choice),
+        lfInterface.getMethodsList.asScala.view
           .map(decodeInterfaceMethod)
-          .map(method => (method.name, method)),
+          .map(method => method.name -> method),
       )
 
     private[this] def decodeInterfaceChoice(

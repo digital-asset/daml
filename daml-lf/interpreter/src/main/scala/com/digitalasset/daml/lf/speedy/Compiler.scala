@@ -338,7 +338,7 @@ private[lf] final class Compiler(
     module.interfaces.foreach { case (ifaceName, iface) =>
       val identifier = Identifier(pkgId, QualifiedName(module.name, ifaceName))
       addDef(compileFetchInterface(identifier))
-      iface.choices.values.foreach(
+      iface.virtualChoices.values.foreach(
         builder += compileChoiceInterface(identifier, _)
       )
     }

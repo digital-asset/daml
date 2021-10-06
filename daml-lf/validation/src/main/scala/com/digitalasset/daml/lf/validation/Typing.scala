@@ -308,8 +308,8 @@ private[validation] object Typing {
       // uniquess of choice names is already checked on construction of the choice map.
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, ifaceName))
       val env = Env(langVersion, interface, ContextDefInterface(tyConName), Map.empty)
-      defInterface.choices.values.foreach { env.checkIfaceChoice(_) }
-      defInterface.methods.values.foreach { env.checkIfaceMethod(_) }
+      defInterface.virtualChoices.values.foreach(env.checkIfaceChoice(_))
+      defInterface.methods.values.foreach(env.checkIfaceMethod(_))
     }
   }
 
@@ -468,9 +468,9 @@ private[validation] object Typing {
     }
 
     def checkIfaceImplementation(tplTcon: TypeConName, impl: TemplateImplements): Unit = {
-      val DefInterface(choices, methods) =
+      val DefInterfaceSignature(virtualChoices, _, methods) =
         handleLookup(ctx, interface.lookupInterface(impl.interface))
-      choices.values.foreach { case InterfaceChoice(name, consuming, argType, returnType) =>
+      virtualChoices.values.foreach { case InterfaceChoice(name, consuming, argType, returnType) =>
         val tplChoice = handleLookup(ctx, interface.lookupChoice(tplTcon, name))
         if (tplChoice.consuming != consuming)
           throw EBadInterfaceChoiceImplConsuming(
@@ -920,10 +920,15 @@ private[validation] object Typing {
         cid: Expr,
         arg: Expr,
     ): Type = {
-      val choice = handleLookup(ctx, interface.lookupInterfaceChoice(tpl, chName))
       checkExpr(cid, TContractId(TTyCon(tpl)))
-      checkExpr(arg, choice.argType)
-      TUpdate(choice.returnType)
+      handleLookup(ctx, interface.lookupInterfaceChoice(tpl, chName)) match {
+        case Left(virtualChoice) =>
+          checkExpr(arg, virtualChoice.argType)
+          TUpdate(virtualChoice.returnType)
+        case Right(fixedChoice) =>
+          checkExpr(arg, fixedChoice.argBinder._2)
+          TUpdate(fixedChoice.returnType)
+      }
     }
 
     private def typeOfExerciseByKey(
