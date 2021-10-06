@@ -508,6 +508,18 @@ excluded_test_tool_tests = [
         ],
     },
     {
+        "start": "1.3.0",
+        "end": "1.4.0",
+        "platform_ranges": [
+            {
+                "start": "1.18.0-snapshot.20210928.7948.1",
+                "exclusions": [
+                    "CommandDeduplicationIT:CDDeduplicateSubmitter",  # Fixed in later ledger API test tools
+                ],
+            },
+        ],
+    },
+    {
         "start": "1.5.0",
         "end": "1.16.0",
         "platform_ranges": [
