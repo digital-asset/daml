@@ -6,7 +6,7 @@ package com.daml.platform.store.backend.common
 import java.sql.Connection
 import java.time.Instant
 
-import anorm.SqlParser.{array, binaryStream, byteArray, flatten, get, int, long, str}
+import anorm.SqlParser.{array, byteArray, flatten, get, int, long, str}
 import anorm.{Macro, Row, RowParser, SQL, SimpleSql, SqlParser, SqlQuery, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.configuration.Configuration
@@ -604,17 +604,17 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       array[String]("create_signatories").? ~
       array[String]("create_observers").? ~
       str("create_agreement_text").? ~
-      binaryStream("create_key_value").? ~
+      byteArray("create_key_value").? ~
       int("create_key_value_compression").? ~
-      binaryStream("create_argument").? ~
+      byteArray("create_argument").? ~
       int("create_argument_compression").? ~
       array[String]("tree_event_witnesses") ~
       array[String]("flat_event_witnesses") ~
       array[String]("submitters").? ~
       str("exercise_choice").? ~
-      binaryStream("exercise_argument").? ~
+      byteArray("exercise_argument").? ~
       int("exercise_argument_compression").? ~
-      binaryStream("exercise_result").? ~
+      byteArray("exercise_result").? ~
       int("exercise_result_compression").? ~
       array[String]("exercise_actors").? ~
       array[String]("exercise_child_event_ids").? ~

@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import java.io.InputStream
+import java.io.ByteArrayInputStream
 
 import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
@@ -50,14 +50,14 @@ object TransactionLogUpdatesReader {
             Compression.Algorithm
               .assertLookup(raw.exerciseArgumentCompression)
               .decompress(
-                raw.exerciseArgument.mandatory("exercise_argument")
+                new ByteArrayInputStream(raw.exerciseArgument.mandatory("exercise_argument"))
               )
           ),
-          exerciseResult = raw.exerciseResult.map { inputStream =>
+          exerciseResult = raw.exerciseResult.map { byteArray =>
             ValueSerializer.deserializeValue(
               Compression.Algorithm
                 .assertLookup(raw.exerciseResultCompression)
-                .decompress(inputStream)
+                .decompress(new ByteArrayInputStream(byteArray))
             )
           },
           consuming = raw.eventKind == EventKind.ConsumingExercise,
@@ -102,8 +102,8 @@ object TransactionLogUpdatesReader {
         throw InvalidEventKind(unknownKind)
     }
 
-  private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: InputStream) =
-    ValueSerializer.deserializeValue(algorithm.decompress(value))
+  private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: Array[Byte]) =
+    ValueSerializer.deserializeValue(algorithm.decompress(new ByteArrayInputStream(value)))
 
   final case class FieldMissingError(field: String) extends RuntimeException {
     override def getMessage: String = s"Missing mandatory field $field"

@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import java.io.InputStream
+import java.io.ByteArrayInputStream
 
 import com.daml.platform.store.appendonlydao.events
 import com.daml.platform.store.dao.events.ContractStateEvent
@@ -69,7 +69,7 @@ object ContractStateEventsReader {
   private def getCachedOrDecompressContract(
       contractId: ContractId,
       templateId: events.Identifier,
-      createArgument: InputStream,
+      createArgument: Array[Byte],
       maybeCreateArgumentCompression: Option[Int],
       lfValueTranslation: LfValueTranslation,
   ): Contract = {
@@ -88,7 +88,7 @@ object ContractStateEventsReader {
 
   private def decompressKey(
       templateId: events.Identifier,
-      maybeCreateKeyValue: Option[InputStream],
+      maybeCreateKeyValue: Option[Array[Byte]],
       maybeCreateKeyValueCompression: Option[Int],
   ): Option[Key] =
     for {
@@ -99,8 +99,8 @@ object ContractStateEventsReader {
       keyValue = decompressAndDeserialize(createKeyValueCompression, createKeyValue)
     } yield Key.assertBuild(templateId, keyValue.value)
 
-  private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: InputStream) =
-    ValueSerializer.deserializeValue(algorithm.decompress(value))
+  private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: Array[Byte]) =
+    ValueSerializer.deserializeValue(algorithm.decompress(new ByteArrayInputStream(value)))
 
   case class CreateMissingError(field: String) extends NoStackTrace {
     override def getMessage: String =
