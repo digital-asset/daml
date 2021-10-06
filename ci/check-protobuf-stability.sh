@@ -41,7 +41,6 @@ function check_lf_protos() {
 # Other protobufs are checked against the chosen git target
 function check_non_lf_protos() {
 
-
   declare -a BUF_MODULES_AGAINST_STABLE=(
     "buf-kvutils.yaml"
     "buf-ledger-api.yaml"
@@ -55,8 +54,7 @@ function check_non_lf_protos() {
   for buf_module in "${BUF_MODULES_AGAINST_STABLE[@]}"; do
     # Starting with version 1.17 we split the default `buf.yaml` file into multiple config files
     # This in turns requires that we pass the `--against-config` flag for any check that is run on versions > 1.17
-    if [[ $BUF_CONFIG_UPDATED = true ]]
-    then
+    if [[ $BUF_CONFIG_UPDATED ]]; then
       buf breaking --config "${buf_module}" --against "$BUF_GIT_TARGET_TO_CHECK" --against-config "${buf_module}"
     else
       buf breaking --config "${buf_module}" --against "$BUF_GIT_TARGET_TO_CHECK"
@@ -90,7 +88,7 @@ USAGE
   # from previous release branches (say, against both 1.17.1 and 1.16.2
   # created after the release/1.17.x branch).
   #
-  # Check against the most recent stable (non-snapshot) tag reachable from the current branch,
+  # We rather check against the most recent stable (non-snapshot) tag reachable from the current branch,
   # under the assumption that if a previous release branch contains a protobuf change,
   # then it will also be present in former ones (previous/former with regards to versioning).
   if [[ "${TARGET}" =~ ${RELEASE_BRANCH_REGEX} ]]; then
