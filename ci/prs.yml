@@ -115,7 +115,7 @@ jobs:
         # API, there is still value in getting the notification on Slack, as
         # we do have the build number and from there we can click through to
         # the PR. Hence the `|| echo ""`.
-        PR_HANDLER=$(head -1 release/rotation | awk '{print $1}')
+        PR_HANDLER=$(awk '/^[^#]/ {print $1}' release/rotation | head -n 1)
 
         case "$(status)" in
           Succeeded*)
