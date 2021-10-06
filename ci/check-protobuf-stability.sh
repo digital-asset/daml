@@ -57,6 +57,16 @@ function check_non_lf_protos() {
 
 }
 
+is_check_skipped() {
+  for sha in $(git rev-list "$TARGET"..); do
+    commit_message=$(git show -s --format=%b "$sha")
+    if [[ $commit_message == *"[break-proto]" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 case "${1:---stable}" in
 -h | --help)
   cat <<USAGE
@@ -114,5 +124,9 @@ USAGE
   ;;
 esac
 
-check_lf_protos
-check_non_lf_protos
+if is_check_skipped; then
+  echo "Skipping check for protobuf compatibility"
+else
+  check_lf_protos
+  check_non_lf_protos
+fi
