@@ -18,7 +18,7 @@ BUF_GIT_TARGET_TO_CHECK=""
 # Will be removed once we have a stable tag released after the split point
 BUF_CONFIG_UPDATED=true
 
-# LF protobufs are checked against local snapshosts.
+# LF protobufs are checked against local snapshots.
 function check_lf_protos() {
 
     readonly stable_snapshot_dir="daml-lf/transaction/src/stable/protobuf"
