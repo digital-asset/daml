@@ -6,6 +6,8 @@ package data
 
 import java.security.MessageDigest
 
+import com.daml.scalautil.Statement.discard
+
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import scalaz.Order
@@ -28,7 +30,7 @@ object Utf8 {
     while (i < len) {
       // if s(i) is a high surrogate the current codepoint uses 2 chars
       val next = if (s(i).isHighSurrogate) i + 2 else i + 1
-      arr += s.substring(i, next)
+      discard(arr += s.substring(i, next))
       i = next
     }
     arr.result()
@@ -90,8 +92,8 @@ object Utf8 {
       } else if (Character.MAX_VALUE < cp && cp <= Character.MAX_CODE_POINT) {
         // cp is from one of the Supplementary Plans,
         // then it needs 2 UTF16 Chars to be encoded.
-        builder += Character.highSurrogate(cp.toInt)
-        builder += Character.lowSurrogate(cp.toInt)
+        discard(builder += Character.highSurrogate(cp.toInt))
+        discard(builder += Character.lowSurrogate(cp.toInt))
       } else {
         // cp is not a legal Unicode code point
         illegalCodePoint = Some(cp)

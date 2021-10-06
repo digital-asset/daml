@@ -12,6 +12,7 @@ import com.daml.lf.language.Ast.{Package, PackageSignature}
 import com.daml.lf.language.{PackageInterface, Util => AstUtil}
 import com.daml.lf.speedy.Compiler
 import com.daml.nameof.NameOf
+import com.daml.scalautil.Statement.discard
 
 import scala.jdk.CollectionConverters._
 import scala.collection.concurrent.{Map => ConcurrentMap}
@@ -137,7 +138,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
             val deps = pkg.directDeps.foldLeft(pkg.directDeps) { case (deps, dependency) =>
               deps union packageDeps.get(dependency)
             }
-            packageDeps.put(pkgId, deps)
+            discard(packageDeps.put(pkgId, deps))
             signatures.put(pkgId, pkgSignature)
           }
         }

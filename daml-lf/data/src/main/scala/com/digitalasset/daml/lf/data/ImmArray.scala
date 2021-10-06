@@ -3,6 +3,8 @@
 
 package com.daml.lf.data
 
+import com.daml.scalautil.Statement.discard
+
 import ScalazEqual.{equalBy, orderBy, toIterableForScalazInstances}
 import scalaz.syntax.applicative._
 import scalaz.{Applicative, Equal, Foldable, Order, Traverse}
@@ -265,7 +267,7 @@ final class ImmArray[+A] private (
     var i = 0
     while (i < length) {
       val a = uncheckedGet(i)
-      if (f.isDefinedAt(a)) builder += f(a)
+      if (f.isDefinedAt(a)) discard(builder += f(a))
       i += 1
     }
     builder.result()

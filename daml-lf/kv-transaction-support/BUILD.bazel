@@ -6,12 +6,13 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
     "lf_scalacopts",
+    "lf_scalacopts_stricter",
 )
 
 da_scala_library(
     name = "kv-transaction-support",
     srcs = glob(["src/main/**/*.scala"]),
-    scalacopts = lf_scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-kv-transaction-support:__VERSION__"],
     visibility = ["//ledger/participant-state/kvutils:__subpackages__"],
     deps = [

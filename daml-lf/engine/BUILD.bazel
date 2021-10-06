@@ -7,6 +7,7 @@ load(
     "da_scala_test",
     "da_scala_test_suite",
     "lf_scalacopts",
+    "lf_scalacopts_stricter",
 )
 
 da_scala_library(
@@ -16,7 +17,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_paiges_core",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-engine:__VERSION__"],
     versioned_scala_deps = {
         "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
@@ -29,6 +30,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-lf/validation",
         "//libs-scala/nameof",
+        "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
