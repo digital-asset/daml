@@ -9,7 +9,7 @@ package com.daml.error
   * In such cases, we include the resource identifier as part of the error message.
   * This enum allows an error to provide identifiers of a resource
   */
-sealed trait ErrorResource {
+trait ErrorResource {
   def asString: String
 }
 

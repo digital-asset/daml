@@ -47,7 +47,7 @@ jobs:
           git branch -D $branch || true
           git checkout -b $branch
           git add .
-          git -c user.name="Azure Pipelines DAML Build" \
+          git -c user.name="Azure Pipelines Daml Build" \
               -c user.email="support@digitalasset.com" \
               commit \
               -m "$(printf "$title\n\n$body\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
@@ -88,10 +88,14 @@ jobs:
           # labels, PRs are issues as far as the GH API is concerned.
       }
       rotate() {
-          local tmp
-          tmp=$(mktemp)
-          cp release/rotation $tmp
-          (tail -n +2 $tmp; head -1 $tmp) > release/rotation
+          # limitation: comments in the middle of the rotation will be hoisted to the top
+          local comments rotation
+          comments=$(mktemp)
+          rotation=$(mktemp)
+          awk '/^#/' release/rotation > $comments
+          awk '/^[^#]/' release/rotation > $rotation
+          cp $comments release/rotation
+          (tail -n +2 $rotation; head -1 $rotation) >> release/rotation
       }
       release_message() {
           local handler=$1
@@ -119,8 +123,8 @@ jobs:
 
       reset
 
-      NEXT_SLACK=$(head -1 release/rotation | awk '{print $1}')
-      NEXT_GH=$(head -1 release/rotation | awk '{print $2}')
+      NEXT_SLACK=$(awk '/^[^#]/ {print $1}' release/rotation | head -n 1)
+      NEXT_GH=$(awk '/^[^#]/ {print $2}' release/rotation | head -n 1)
 
       PREV="v$(head -1 LATEST | awk '{print $2}')"
       ./release.sh new snapshot
