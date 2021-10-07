@@ -323,8 +323,9 @@ private[daml] class AstRewriter(
 
   def apply(x: DefInterface): DefInterface =
     x match {
-      case DefInterface(virtualChoices, fixedChoices, methods) =>
+      case DefInterface(param, virtualChoices, fixedChoices, methods) =>
         DefInterface(
+          param,
           virtualChoices.transform((_, v) => apply(v)),
           fixedChoices.transform((_, v) => apply(v)),
           methods.transform((_, v) => apply(v)),

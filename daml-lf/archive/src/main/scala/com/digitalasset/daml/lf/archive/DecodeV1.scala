@@ -666,13 +666,14 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         lfInterface: PLF.DefInterface,
     ): DefInterface =
       DefInterface(
-        lfInterface.getChoicesList.asScala.view
+        param = getInternedName(lfInterface.getParamInternedStr, "DefInterface.param"),
+        virtualChoices = lfInterface.getChoicesList.asScala.view
           .map(decodeInterfaceChoice)
           .map(choice => choice.name -> choice),
-        lfInterface.getFixedChoicesList.asScala.view
+        fixedChoices = lfInterface.getFixedChoicesList.asScala.view
           .map(decodeChoice(id, _))
           .map(choice => choice.name -> choice),
-        lfInterface.getMethodsList.asScala.view
+        methods = lfInterface.getMethodsList.asScala.view
           .map(decodeInterfaceMethod)
           .map(method => method.name -> method),
       )

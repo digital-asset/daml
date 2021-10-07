@@ -468,7 +468,7 @@ private[validation] object Typing {
     }
 
     def checkIfaceImplementation(tplTcon: TypeConName, impl: TemplateImplements): Unit = {
-      val DefInterfaceSignature(virtualChoices, _, methods) =
+      val DefInterfaceSignature(_, virtualChoices, _, methods) =
         handleLookup(ctx, interface.lookupInterface(impl.interface))
       virtualChoices.values.foreach { case InterfaceChoice(name, consuming, argType, returnType) =>
         val tplChoice = handleLookup(ctx, interface.lookupChoice(tplTcon, name))

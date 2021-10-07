@@ -638,6 +638,7 @@ object Ast {
   val TemplateKeySignature = new GenTemplateKeyCompanion[Unit]
 
   final case class GenDefInterface[E](
+      param: ExprVarName, // Binder for template argument.
       virtualChoices: Map[ChoiceName, InterfaceChoice],
       fixedChoices: Map[ChoiceName, GenTemplateChoice[E]],
       methods: Map[MethodName, InterfaceMethod],
@@ -650,6 +651,7 @@ object Ast {
 
   final class GenDefInterfaceCompanion[E] {
     def apply(
+        param: ExprVarName, // Binder for template argument.
         virtualChoices: Iterable[(ChoiceName, InterfaceChoice)],
         fixedChoices: Iterable[(ChoiceName, GenTemplateChoice[E])],
         methods: Iterable[(MethodName, InterfaceMethod)],
@@ -666,16 +668,17 @@ object Ast {
         methods,
         (name: MethodName) => throw PackageError(s"collision on interface method name $name"),
       )
-      GenDefInterface(virtualChoiceMap, fixedChoiceMap, methodMap)
+      GenDefInterface(param, virtualChoiceMap, fixedChoiceMap, methodMap)
     }
     def unapply(arg: GenDefInterface[E]): Some[
       (
+          ExprVarName,
           Map[ChoiceName, InterfaceChoice],
           Map[ChoiceName, GenTemplateChoice[E]],
           Map[MethodName, InterfaceMethod],
       )
     ] =
-      Some((arg.virtualChoices, arg.fixedChoices, arg.methods))
+      Some((arg.param, arg.virtualChoices, arg.fixedChoices, arg.methods))
   }
 
   type DefInterface = GenDefInterface[Expr]
