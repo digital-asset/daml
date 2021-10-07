@@ -1,10 +1,7 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
+package com.daml.error.definitions
 
-package com.daml.platform.apiserver.error
-
+import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.SubmissionErrorGroup
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
-import com.daml.platform.apiserver.error.ErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.SubmissionErrorGroup
 import org.slf4j.event.Level
 
 object SubmissionErrors extends SubmissionErrorGroup {

@@ -1,11 +1,11 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.apiserver.error
+package com.daml.error.definitions
 
 import com.daml.error._
-import com.daml.platform.apiserver.error.ErrorGroups.ProtoDeserializationErrorGroup
-import com.daml.platform.apiserver.error.ProtoDeserializationError.ProtoDeserializationFailure
+import com.daml.error.definitions.ErrorGroups.ProtoDeserializationErrorGroup
+import com.daml.error.definitions.ProtoDeserializationError.ProtoDeserializationFailure
 import com.google.protobuf.InvalidProtocolBufferException
 
 trait ProtoDeserializationError extends Product with Serializable {

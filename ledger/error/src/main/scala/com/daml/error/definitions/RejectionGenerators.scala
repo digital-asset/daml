@@ -1,19 +1,15 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
-package com.daml.platform.apiserver.error
+package com.daml.error.definitions
 
 import com.daml.error.{BaseError, ErrorCode, ErrorCodeLoggingContext}
 import com.daml.ledger.participant.state
 import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
-import com.daml.lf.engine.{Error => LfError}
-import com.daml.lf.interpretation.{Error => LfInterpretationError}
-import com.daml.platform.store.ErrorCause
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
 
 import scala.util.{Failure, Success, Try}
+import com.daml.lf.engine.{Error => LfError}
+import com.daml.lf.interpretation.{Error => LfInterpretationError}
 
 class RejectionGenerators(conformanceMode: Boolean) {
   private val adjustErrors = Map(
