@@ -809,11 +809,13 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
 
 
 checkIface :: MonadGamma m => DefInterface -> m ()
-checkIface DefInterface{intName, intChoices, intMethods} = do
-  checkUnique (EDuplicateInterfaceChoiceName intName) $ NM.names intChoices
+checkIface DefInterface{intName, intVirtualChoices, intFixedChoices, intMethods} = do
+  checkUnique (EDuplicateInterfaceChoiceName intName) $ NM.names intVirtualChoices `union` NM.names intFixedChoices
   checkUnique (EDuplicateInterfaceMethodName intName) $ NM.names intMethods
-  forM_ intChoices checkIfaceChoice
+  forM_ intVirtualChoices checkIfaceChoice
   forM_ intMethods checkIfaceMethod
+  -- TODO https://github.com/digital-asset/daml/issues/11137
+  --    check interface fixed choices
 
 checkIfaceChoice :: MonadGamma m => InterfaceChoice -> m ()
 checkIfaceChoice InterfaceChoice{ifcArgType,ifcRetType} = do
@@ -884,10 +886,12 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
 checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> TemplateImplements -> m ()
 checkIfaceImplementation tplTcon TemplateImplements{..} = do
   let tplName = qualObject tplTcon
-  DefInterface {intChoices, intMethods} <- inWorld $ lookupInterface tpiInterface
+  DefInterface {intVirtualChoices, intMethods} <- inWorld $ lookupInterface tpiInterface
+  -- TODO https://github.com/digital-asset/daml/issues/11137
+  --   check interface fixed choices don't collide with template choices (maybe)
 
-  -- check choices
-  forM_ intChoices $ \InterfaceChoice {ifcName, ifcConsuming, ifcArgType, ifcRetType} -> do
+  -- check virtual choices
+  forM_ intVirtualChoices $ \InterfaceChoice {ifcName, ifcConsuming, ifcArgType, ifcRetType} -> do
     TemplateChoice {chcConsuming, chcArgBinder, chcReturnType} <-
       inWorld $ lookupChoice (tplTcon, ifcName)
     unless (chcConsuming == ifcConsuming) $

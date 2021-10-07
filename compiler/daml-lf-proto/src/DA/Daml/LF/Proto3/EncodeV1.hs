@@ -998,10 +998,10 @@ encodeDefInterface :: DefInterface -> Encode P.DefInterface
 encodeDefInterface DefInterface{..} = do
     defInterfaceLocation <- traverse encodeSourceLoc intLocation
     defInterfaceTyconInternedDname <- encodeDottedNameId unTypeConName intName
-    defInterfaceChoices <- encodeNameMap encodeInterfaceChoice intChoices
+    defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
+    defInterfaceChoices <- encodeNameMap encodeInterfaceChoice intVirtualChoices
+    defInterfaceFixedChoices <- encodeNameMap encodeTemplateChoice intFixedChoices
     defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
-    defInterfaceParamInternedStr <- encodeNameId id "this" -- TODO https://github.com/digital-asset/daml/issues/11137
-    let defInterfaceFixedChoices = V.empty -- TODO https://github.com/digital-asset/daml/issues/11137
     pure $ P.DefInterface{..}
 
 encodeInterfaceChoice :: InterfaceChoice -> Encode P.InterfaceChoice
