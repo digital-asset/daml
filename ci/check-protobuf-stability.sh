@@ -124,6 +124,7 @@ USAGE
   ;;
 esac
 
+
 if is_check_skipped; then
   echo "Skipping check for protobuf compatibility"
 else
