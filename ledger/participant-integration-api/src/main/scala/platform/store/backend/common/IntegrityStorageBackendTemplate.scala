@@ -6,7 +6,7 @@ package com.daml.platform.store.backend.common
 import anorm.{RowParser, SQL}
 
 import java.sql.Connection
-import anorm.SqlParser.long
+import anorm.SqlParser.{long, str}
 import anorm.~
 import com.daml.platform.store.backend.IntegrityStorageBackend
 
@@ -43,6 +43,25 @@ private[backend] trait IntegrityStorageBackendTemplate extends IntegrityStorageB
        |FETCH NEXT $maxReportedDuplicates ROWS ONLY
        |""".stripMargin)
 
+  private val allEventIds: String =
+    s"""
+       |SELECT event_offset, node_index FROM participant_events_create
+       |UNION ALL
+       |SELECT event_offset, node_index FROM participant_events_consuming_exercise
+       |UNION ALL
+       |SELECT event_offset, node_index FROM participant_events_non_consuming_exercise
+       |""".stripMargin
+
+  private val SQL_DUPLICATE_OFFSETS = SQL(s"""
+       |WITH event_ids AS ($allEventIds)
+       |SELECT event_offset as offset, node_index, count(*) as count
+       |FROM event_ids, parameters
+       |WHERE event_offset <= parameters.ledger_end
+       |GROUP BY event_offset, node_index
+       |HAVING count(*) > 1
+       |FETCH NEXT $maxReportedDuplicates ROWS ONLY
+       |""".stripMargin)
+
   case class EventSequentialIdsRow(min: Long, max: Long, count: Long)
 
   private val eventSequantialIdsParser: RowParser[EventSequentialIdsRow] =
@@ -53,20 +72,30 @@ private[backend] trait IntegrityStorageBackendTemplate extends IntegrityStorageB
       }
 
   override def verifyIntegrity()(connection: Connection): Unit = {
-    val duplicates = SQL_DUPLICATE_EVENT_SEQUENTIAL_IDS
+    val duplicateSeqIds = SQL_DUPLICATE_EVENT_SEQUENTIAL_IDS
       .as(long("id").*)(connection)
+    val duplicateOffsets = SQL_DUPLICATE_OFFSETS
+      .as(str("offset").*)(connection)
     val summary = SQL_EVENT_SEQUENTIAL_IDS_SUMMARY
       .as(eventSequantialIdsParser.single)(connection)
 
-    // Verify that there are no duplicate ids.
-    if (duplicates.nonEmpty) {
+    // Verify that there are no duplicate offsets (events with the same offset and node index).
+    if (duplicateOffsets.nonEmpty) {
       throw new RuntimeException(
-        s"Found ${duplicates.length} duplicate event sequential ids. Examples: ${duplicates.mkString(", ")}"
+        s"Found ${duplicateOffsets.length} duplicate offsets. Examples: ${duplicateOffsets.mkString(", ")}"
       )
     }
 
-    // Verify that all ids are sequential (i.e., there are no "holes" in the ids).
-    // Since we already know that there are not duplicates, it is enough to check that the count is consistent with the range.
+    // Verify that there are no duplicate event sequential ids.
+    if (duplicateSeqIds.nonEmpty) {
+      throw new RuntimeException(
+        s"Found ${duplicateSeqIds.length} duplicate event sequential ids. Examples: ${duplicateSeqIds
+          .mkString(", ")}"
+      )
+    }
+
+    // Verify that all event sequential ids are in fact sequential (i.e., there are no "holes" in the ids).
+    // Since we already know that there are no duplicates, it is enough to check that the count is consistent with the range.
     if (summary.count != summary.max - summary.min + 1) {
       throw new RuntimeException(
         s"Event sequential ids are not consecutive. Min=${summary.min}, max=${summary.max}, count=${summary.count}."
