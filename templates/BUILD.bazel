@@ -111,7 +111,7 @@ genrule(
 
         DIR=$$(pwd)
         cd $$OUT/..
-        $$DIR/$(execpath //bazel_tools/sh:mktgz) $@ templates-tarball
+        $$DIR/$(execpath //bazel_tools/sh:mktgz) $$DIR/$@ templates-tarball
     """,
     tools = [
         "//bazel_tools/sh:mktgz",
