@@ -62,8 +62,11 @@ genrule(
     ],
     outs = ["templates-tarball.tar.gz"],
     cmd = """
-        SRC=templates
-        OUT=templates-tarball
+        SRC=$$(mktemp -d)
+        OUT=$$(mktemp -d)
+        trap "rm -rf $$SRC $$OUT" EXIT
+
+        cp -rL templates/* $$SRC/
 
         PATCH_TOOL=$$PWD/$(location @patch_dev_env//:patch)
         cp -rL $$SRC/create-daml-app $$SRC/gsg-trigger
@@ -105,7 +108,7 @@ genrule(
         mkdir -p $$OUT/daml-patterns
         tar xf $(location //docs:daml-patterns) --strip-components=1 -C $$OUT/daml-patterns
 
-        $(execpath //bazel_tools/sh:mktgz) $@ templates-tarball
+        $(execpath //bazel_tools/sh:mktgz) $@ $$OUT
     """,
     tools = [
         "//bazel_tools/sh:mktgz",
