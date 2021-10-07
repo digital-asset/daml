@@ -231,6 +231,8 @@
   type: jar-scala
 - target: //libs-scala/timer-utils:timer-utils
   type: jar-scala
+- target: //libs-scala/timestamp-conversions/java-lf:java-lf
+  type: jar-scala
 - target: //libs-scala/timestamp-conversions/java-protobuf:java-protobuf
   type: jar-scala
 - target: //libs-scala/timestamp-conversions/java-scala:java-scala
