@@ -12,8 +12,8 @@ da_scala_library(
     name = "error",
     srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [
-         "@maven//:org_typelevel_cats_core",
-         "@maven//:io_spray_spray_json",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:io_spray_spray_json",
     ],
     tags = ["maven_coordinates=com.daml:error:__VERSION__"],
     versioned_scala_deps = {

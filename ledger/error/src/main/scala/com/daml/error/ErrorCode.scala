@@ -65,7 +65,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     val ErrorCode.StatusInfo(codeGrpc, message, contextMap, correlationId) =
       getStatusInfo(err)
 
-    // provide error id and context via ErrorInfo
+    // Provide error id and context via ErrorInfo
     val errInfoBld = com.google.rpc.ErrorInfo.newBuilder().setReason(id)
     if (!code.category.securitySensitive) {
       contextMap.foreach { case (k, v) => errInfoBld.putMetadata(k, v) }
@@ -79,8 +79,8 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     }
     val errInfo = com.google.protobuf.Any.pack(errInfoBld.build())
 
-    // add retry info
-    val retryInfoO = err.retryable.map { ri =>
+    // Build retry info
+    val retryInfo = err.retryable.map { ri =>
       val millis = ri.duration.toMillis % 1000
       val seconds = (ri.duration.toMillis - millis) / 1000
       val dt = com.google.protobuf.Duration
@@ -123,7 +123,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
       .setCode(codeGrpc.value())
       .setMessage(message)
 
-    (Seq(errInfo) ++ retryInfoO.toList ++ requestInfo.toList ++ resourceInfo)
+    (Seq(errInfo) ++ retryInfo.toList ++ requestInfo.toList ++ resourceInfo)
       .foldLeft(statusBuilder) { case (acc, item) =>
         acc.addDetails(item)
       }
@@ -144,13 +144,6 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
   /** True if this error may appear on the API */
   protected def exposedViaApi: Boolean = category.grpcCode.nonEmpty
 
-  /** Log the cause while adding the context into the MDC
-    *
-    * We add the context twice to the MDC: first, every map item is added directly
-    * and then we add a second string version as "err-context". When we log to file,
-    * we add the err-context to the log output.
-    * When we log to JSON, we ignore the err-context field.
-    */
   def log(err: BaseError, extra: Map[String, String] = Map())(implicit
       errorCodeLoggingContext: ErrorCodeLoggingContext
   ): Unit = errorCodeLoggingContext.logError(this, err, logLevel, extra)

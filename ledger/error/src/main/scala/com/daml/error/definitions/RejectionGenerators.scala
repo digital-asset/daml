@@ -1,6 +1,9 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.error.definitions
 
-import com.daml.error.{BaseError, ErrorCode, ErrorCodeLoggingContext}
+import com.daml.error.{BaseError, ErrorCause, ErrorCode, ErrorCodeLoggingContext}
 import com.daml.ledger.participant.state
 import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
 import io.grpc.Status.Code
@@ -212,15 +215,15 @@ class RejectionGenerators(conformanceMode: Boolean) {
         reject
     }
   }
+}
 
-  sealed trait ErrorCauseExport
-  object ErrorCauseExport {
-    final case class DamlLf(error: LfError) extends ErrorCauseExport
-    final case class LedgerTime(retries: Int, explain: String) extends ErrorCauseExport
+sealed trait ErrorCauseExport
+object ErrorCauseExport {
+  final case class DamlLf(error: LfError) extends ErrorCauseExport
+  final case class LedgerTime(retries: Int, explain: String) extends ErrorCauseExport
 
-    def fromErrorCause(err: ErrorCause): ErrorCauseExport = err match {
-      case ErrorCause.DamlLf(error) => DamlLf(error)
-      case x: ErrorCause.LedgerTime => LedgerTime(x.retries, x.explain)
-    }
+  def fromErrorCause(err: ErrorCause): ErrorCauseExport = err match {
+    case ErrorCause.DamlLf(error) => DamlLf(error)
+    case x: ErrorCause.LedgerTime => LedgerTime(x.retries, x.explain)
   }
 }

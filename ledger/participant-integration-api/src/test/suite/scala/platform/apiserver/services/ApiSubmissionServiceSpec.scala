@@ -14,7 +14,11 @@ import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId, PartyDetails, 
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
-import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationNew, IndexPartyManagementService, IndexSubmissionService}
+import com.daml.ledger.participant.state.index.v2.{
+  CommandDeduplicationNew,
+  IndexPartyManagementService,
+  IndexSubmissionService,
+}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf

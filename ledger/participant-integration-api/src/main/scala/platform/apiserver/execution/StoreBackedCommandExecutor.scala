@@ -13,7 +13,16 @@ import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesS
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto
 import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.engine.{Engine, Result, ResultDone, ResultError, ResultNeedContract, ResultNeedKey, ResultNeedPackage, Error => DamlLfError}
+import com.daml.lf.engine.{
+  Engine,
+  Result,
+  ResultDone,
+  ResultError,
+  ResultNeedContract,
+  ResultNeedKey,
+  ResultNeedPackage,
+  Error => DamlLfError,
+}
 import com.daml.lf.transaction.Node
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
