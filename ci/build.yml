@@ -413,6 +413,7 @@ jobs:
     - template: tell-slack-failed.yml
     - template: report-end.yml
 
+# For main and PRs targeting main, we simply check against the most recent stable tag.
 - job: compatibility_stable_protobuf
   pool:
     name: ubuntu_20_04
