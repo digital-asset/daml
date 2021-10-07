@@ -14,6 +14,7 @@ eval "$(dev-env/bin/dade assist)"
 TARGET="${SYSTEM_PULLREQUEST_TARGETBRANCH:-main}"
 echo "The target branch is '${TARGET}'."
 
+readonly BREAKING_PROTOBUF_CHANGE_TRAILER_KEY="Breaks-protobuf"
 # LF protobufs are checked against local snapshots.
 function check_lf_protos() {
 
@@ -59,12 +60,17 @@ function check_non_lf_protos() {
 
 is_check_skipped() {
   for sha in $(git rev-list "$TARGET"..); do
-    breaks_proto_trailer_value=$(git show -s --format='%(trailers:key=Breaks-Proto,valueonly)' "$sha" | xargs)
+    breaks_proto_trailer_value=$(git show -s --format="%(trailers:key=${BREAKING_PROTOBUF_CHANGE_TRAILER_KEY},valueonly)" "$sha" | xargs)
     if [[ $breaks_proto_trailer_value == "true" ]]; then
       return 0
     fi
   done
   return 1
+}
+
+check_protos() {
+  check_lf_protos
+  check_non_lf_protos
 }
 
 case "${1:---stable}" in
@@ -77,11 +83,11 @@ Options:
   --stable:     check against the latest stable tag (default)
   --target:     check against the tip of the target branch
       When checking against a target branch, the check can be skipped by adding the following trailer:
-          Breaks-protobuf: true
+          $BREAKING_PROTOBUF_CHANGE_TRAILER_KEY: true
       Example commit message:
          This commit breaks protobufs when checking against the target branch.
 
-         Breaks-Proto: true
+         $BREAKING_PROTOBUF_CHANGE_TRAILER_KEY: true
 USAGE
   exit
   ;;
@@ -113,8 +119,7 @@ USAGE
     BUF_CONFIG_UPDATED=true
   fi
   BUF_GIT_TARGET_TO_CHECK=".git#tag=${LATEST_STABLE_TAG}"
-  check_lf_protos
-  check_non_lf_protos
+  check_protos
   ;;
 --target)
   # Check against the tip of the target branch.
@@ -125,12 +130,11 @@ USAGE
   # The files are always split for versions > 1.17, and there is no way of opening a PR against a target <= 1.17 which includes this check
   BUF_CONFIG_UPDATED=true
   BUF_GIT_TARGET_TO_CHECK=".git#branch=origin/${TARGET}"
-  # The target check can be skipped by including a git trailer key-value into one of the commits (`Breaks-Proto: true`)
+  # The target check can be skipped by including the following trailer `Breaks-Proto: true` into the commit message
   if is_check_skipped; then
     echo "Skipping check for protobuf compatibility"
   else
-    check_lf_protos
-    check_non_lf_protos
+    check_protos
   fi
   ;;
 *)
