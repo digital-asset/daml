@@ -109,8 +109,9 @@ genrule(
         mkdir -p $$OUT/daml-patterns
         tar xf $(location //docs:daml-patterns) --strip-components=1 -C $$OUT/daml-patterns
 
+        DIR=$$(pwd)
         cd $$OUT/..
-        $(execpath //bazel_tools/sh:mktgz) $@ templates-tarball
+        $$DIR/$(execpath //bazel_tools/sh:mktgz) $@ templates-tarball
     """,
     tools = [
         "//bazel_tools/sh:mktgz",
