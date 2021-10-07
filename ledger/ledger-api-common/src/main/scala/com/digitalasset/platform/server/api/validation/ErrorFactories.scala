@@ -173,13 +173,13 @@ trait ErrorFactories {
     grpcError(statusBuilder.build())
   }
 
-  /** Transforms Protobuf [[Status]] objects that may contain metadata packed as [[ErrorInfo]] objects
+  /** Transforms Protobuf [[Status]] objects, possibly including metadata packed as [[ErrorInfo]] objects,
     * into exceptions with metadata in the trailers.
     *
-    * Asynchronous errors i.e. failed Completions contain Protobuf [[Status]] objects themselves.
+    * Asynchronous errors, i.e. failed completions, contain Protobuf [[Status]] objects themselves.
     *
     * @param status A Protobuf [[Status]] object.
-    * @return An exception with no stack trace filled in.
+    * @return An exception without a stack trace.
     */
   def grpcError(status: Status): StatusRuntimeException = new ApiException(
     StatusProto.toStatusRuntimeException(status)
