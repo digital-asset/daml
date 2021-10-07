@@ -3,6 +3,7 @@
 
 package com.daml.platform.apiserver.execution
 
+import com.daml.error.ErrorCause
 import com.daml.ledger.api.domain.Commands
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.ContractStore
@@ -11,7 +12,6 @@ import com.daml.lf.data.Time
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.store.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -7,20 +7,9 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.{
-  Filters,
-  LedgerId,
-  LedgerOffset,
-  TransactionFilter,
-  TransactionId,
-}
+import com.daml.ledger.api.domain.{Filters, LedgerId, LedgerOffset, TransactionFilter, TransactionId}
 import com.daml.ledger.api.messages.transaction._
-import com.daml.ledger.api.v1.transaction_service.{
-  GetFlatTransactionResponse,
-  GetTransactionResponse,
-  GetTransactionTreesResponse,
-  GetTransactionsResponse,
-}
+import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionResponse, GetTransactionTreesResponse, GetTransactionsResponse}
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
 import com.daml.lf.data.Ref.Party
@@ -30,7 +19,6 @@ import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.ErrorCodesVersionSwitcher
-import com.daml.platform.apiserver.error.LedgerApiErrors
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService._
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.platform.server.api.services.domain.TransactionService
@@ -39,6 +27,7 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc._
 import scalaz.syntax.tag._
 import com.daml.error.DamlErrorCodeLoggingContext.asDamlErrorCodeLoggingContext
+import com.daml.error.definitions.LedgerApiErrors
 
 import scala.concurrent.{ExecutionContext, Future}
 

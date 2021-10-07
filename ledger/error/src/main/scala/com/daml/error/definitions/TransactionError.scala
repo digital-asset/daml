@@ -1,11 +1,11 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.apiserver.error
-import com.daml.error
+package com.daml.error.definitions
+
+import com.daml.error.ErrorCode.{formatContextAsString, truncateResourceForTransport}
+import com.daml.error.{BaseError, ErrorCode, ErrorCodeLoggingContext}
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.{FinalReason, RejectionReasonTemplate}
-import error.ErrorCode.{formatContextAsString, truncateResourceForTransport}
-import error.{BaseError, ErrorCode, ErrorCodeLoggingContext}
 import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.StatusRuntimeException
 

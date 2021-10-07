@@ -1,15 +1,15 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.apiserver.error
+package com.daml.error.definitions
 
 import cats.data.EitherT
 import com.daml.error._
+import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.PackageServiceErrorGroup
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.Error
 import com.daml.lf.{VersionRange, language, validation}
-import com.daml.platform.apiserver.error.ErrorGroups.ParticipantErrorGroup.PackageServiceErrorGroup
 
 import scala.concurrent.{ExecutionContext, Future}
 

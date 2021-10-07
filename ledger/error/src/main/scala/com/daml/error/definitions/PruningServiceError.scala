@@ -1,10 +1,10 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.apiserver.error
+package com.daml.error.definitions
 
 import com.daml.error._
-import com.daml.platform.apiserver.error.ErrorGroups.ParticipantErrorGroup.PruningServiceErrorGroup
+import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.PruningServiceErrorGroup
 
 trait PruningServiceError extends BaseError
 object PruningServiceError extends PruningServiceErrorGroup {

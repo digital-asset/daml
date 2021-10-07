@@ -1,19 +1,16 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
-package com.daml.platform.apiserver.error
+package com.daml.error.definitions
 
 import com.daml.error._
+import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LedgerApiErrorGroup
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.Error.Validation.ReplayMismatch
-import com.daml.lf.engine.{Error => LfError}
-import com.daml.lf.interpretation.{Error => LfInterpretationError}
 import com.daml.lf.language.{LanguageVersion, LookupError, Reference}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.{VersionRange, language}
-import com.daml.platform.apiserver.error.ErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LedgerApiErrorGroup
+import com.daml.lf.engine.{Error => LfError}
+import com.daml.lf.interpretation.{Error => LfInterpretationError}
 
 object LedgerApiErrors extends LedgerApiErrorGroup {
 
