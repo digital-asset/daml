@@ -123,7 +123,7 @@ jobs:
         # API, there is still value in getting the notification on Slack, as
         # we do have the build number and from there we can click through to
         # the PR. Hence the `|| echo ""`.
-        PR_HANDLER=$(next_in_rotation)
+        PR_HANDLER=$(next_in_rotation_slack)
 
         case "$(status)" in
           Succeeded*)

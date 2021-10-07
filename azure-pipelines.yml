@@ -135,7 +135,7 @@ jobs:
         msg=$(git log -n1 --format=%b HEAD | head -1)
         # Keep this line in sync with RELEASE_PR_NOTIF in ci/cron/wednesday.yml
         if [ "$msg" = "This PR has been created by a script, which is not very smart" ]; then
-            pr_handler="<@$(next_in_rotation)>"
+            pr_handler="<@$(next_in_rotation_slack)>"
         else
             pr_handler=""
         fi

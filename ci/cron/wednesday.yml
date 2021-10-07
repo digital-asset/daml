@@ -92,7 +92,7 @@ jobs:
           tmp=$(mktemp)
           next=$(next_in_rotation)
           grep -v "$next" release/rotation > $tmp
-          grep    "$next" release/rotation >> $tmp
+          echo "$next" >> $tmp
           mv $tmp release/rotation
       }
       release_message() {
@@ -121,8 +121,8 @@ jobs:
 
       reset
 
-      NEXT_SLACK=$(next_in_rotation)
-      NEXT_GH=$(grep "$NEXT_SLACK" release/rotation | awk '{print $2}')
+      NEXT_SLACK=$(next_in_rotation_slack)
+      NEXT_GH=$(next_in_rotation_github)
 
       PREV="v$(head -1 LATEST | awk '{print $2}')"
       ./release.sh new snapshot
