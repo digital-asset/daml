@@ -28,7 +28,7 @@ function check_lf_protos() {
       echo ${checkSum} | sha256sum -c
     done
 
-    (eval "$(dev-env/bin/dade assist)"; buf breaking --config "buf-lf-transaction.yaml" --against ${stable_snapshot_dir})
+    buf breaking --config "buf-lf-transaction.yaml" --against ${stable_snapshot_dir}
 
 }
 
