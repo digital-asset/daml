@@ -141,8 +141,7 @@ object InterfaceReader {
           case dfn: Ast.DataEnum =>
             enum(fullName, tyVars, dfn)
           case Ast.DataInterface =>
-            // TODO https://github.com/digital-asset/daml/issues/10810
-            sys.error("Interface not supported")
+            \/-((fullName, iface.InterfaceType.Normal(DefDataType(ImmArraySeq.empty, Iface()))))
         }
 
         locate(Symbol("name"), rootErrOf[ErrorLoc](result)) match {

@@ -129,6 +129,7 @@ object DamlLfCodec {
         propType -> JsString(tagTypeEnum),
         propConstructors -> JsArray(e.constructors.map(JsString(_)).toVector),
       )
+    case _: Model.DamlLfInterface => sys.error("Interface not supported")
   }
 
   def damlLfDefDataTypeToJsValue(value: Model.DamlLfDefDataType): JsValue = JsObject(

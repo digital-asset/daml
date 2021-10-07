@@ -6,7 +6,7 @@ import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.codegen.backend.java.JavaEscaper
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface.InterfaceType.{Normal, Template}
-import com.daml.lf.iface.{Enum, DefDataType, Record, Variant}
+import com.daml.lf.iface.{Enum, DefDataType, Record, Variant, Iface}
 import com.squareup.javapoet.{ClassName, FieldSpec, JavaFile, TypeSpec}
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
@@ -56,6 +56,9 @@ object ClassForType extends StrictLogging {
             .builder(javaPackage, EnumClass.generate(className, enum))
             .build()
         )
+
+      case Some(Normal(DefDataType(_, Iface()))) =>
+        sys.error("Interfaces are not supported")
 
       case Some(Template(record, template)) =>
         val typeSpec =

@@ -65,6 +65,9 @@ trait NavigatorModelAliases[Cid] {
   type DamlLfEnum = iface.Enum
   val DamlLfEnum = iface.Enum
 
+  type DamlLfInterface = iface.Iface
+  val DamlLfInterface = iface.Iface
+
   type ApiValue = V
   type ApiRecordField = (Option[DamlLfRef.Name], ApiValue)
   type ApiRecord = V.ValueRecord

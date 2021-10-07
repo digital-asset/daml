@@ -538,6 +538,7 @@ object DamlDataTypeGen {
       case iface.Record(fields) => defaultImports -> toScalaDamlRecordType(fields)
       case iface.Variant(fields) => defaultImports -> toScalaDamlVariantType(fields.toList)
       case iface.Enum(values) => toScalaDamlEnumType(values.toList)
+      case iface.Iface() => sys.error("Interfaces are not supported")
     }
 
     val filePath = damlScalaName.toFileName

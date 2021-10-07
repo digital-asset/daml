@@ -69,6 +69,8 @@ object project {
                   Left("record" -> fields)
                 case DamlLfVariant(constructors) =>
                   Left("variant" -> constructors)
+                case DamlLfInterface() =>
+                  sys.error("Interface not supported")
               }
               next match {
                 case Left((description, fields)) =>

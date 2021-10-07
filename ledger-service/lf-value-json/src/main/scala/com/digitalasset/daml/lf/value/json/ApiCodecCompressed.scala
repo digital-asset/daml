@@ -203,6 +203,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
       case iface.Variant(fields) => Some(fields.toImmArray map (_._1))
       case iface.Enum(ctors) => Some(ctors.toImmArray)
       case iface.Record(_) => None
+      case iface.Iface() => sys.error("Interfaces are not supported.")
     }))
     Tag subst (Tag unsubst V.orderInstance(scope))
   }
@@ -225,6 +226,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
       defs: Model.DamlLfTypeLookup,
   ): V = {
     (dt, value).match2 {
+      case iface.Iface() => sys.error("Interfaces are not supported")
       case Model.DamlLfRecord(fields) => {
         case JsObject(v) =>
           V.ValueRecord(
