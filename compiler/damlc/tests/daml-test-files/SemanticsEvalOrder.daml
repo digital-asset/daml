@@ -204,12 +204,12 @@ evExpUpFetchErr = scenario do
 
 -- "exercise with actors" is not testable from Daml.
 
--- @ERROR EvExpUpExerciseWithoutActorsErr1 OK
-evExpUpExerciseWithoutActorsErr1 = scenario do
+-- @ERROR EvExpUpExerciseWithoutActorsErr1 Right-to-left
+evExpUpExerciseWithoutActorsErr1 = scenario do -- The *only* test which checks speedy's argument evaluation order
   let _ : Update () =
           exercise @T @Archive
-              (error "EvExpUpExerciseWithoutActorsErr1 OK")
-              (error "EvExpUpExerciseWithoutActorsErr1 failed")
+              (error "EvExpUpExerciseWithoutActorsErr1 Left-to-right")
+              (error "EvExpUpExerciseWithoutActorsErr1 Right-to-left")
   pure ()
 
 -- @ERROR EvExpUpExerciseWithoutActorsErr2 OK

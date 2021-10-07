@@ -521,6 +521,8 @@ private[lf] object Speedy {
       }
     }
 
+    private[this] val evaluateFunctionArgsRightToLeft: Boolean = true // instead of left-to-right
+
     /** The function has been evaluated to a value, now start evaluating the arguments. */
     private[speedy] def executeApplication(vfun: SValue, newArgs: Array[SExpr]): Unit = {
       vfun match {
@@ -536,6 +538,7 @@ private[lf] object Speedy {
           // Not enough arguments. Push a continuation to construct the PAP.
           if (othersLength < 0) {
             this.pushKont(KPap(this, prim, actuals, arity))
+            this.evaluateArgumentsL2R(actuals, newArgs, newArgsLimit)
           } else {
             // Too many arguments: Push a continuation to re-apply the over-applied args.
             if (othersLength > 0) {
@@ -547,14 +550,19 @@ private[lf] object Speedy {
             prim match {
               case closure: SValue.PClosure =>
                 // Push a continuation to execute the function body when the arguments have been evaluated
-                this.pushKont(KFun(this, closure, actuals))
-
+                if (evaluateFunctionArgsRightToLeft) {
+                  this.pushKont(KFun(this, closure, actuals, expectR2L = Some(newArgsLimit)))
+                  this.evaluateArgumentsR2L(actuals, newArgs, newArgsLimit)
+                } else {
+                  this.pushKont(KFun(this, closure, actuals, expectR2L = None))
+                  this.evaluateArgumentsL2R(actuals, newArgs, newArgsLimit)
+                }
               case SValue.PBuiltin(builtin) =>
                 // Push a continuation to execute the builtin when the arguments have been evaluated
                 this.pushKont(KBuiltin(this, builtin, actuals))
+                this.evaluateArgumentsL2R(actuals, newArgs, newArgsLimit)
             }
           }
-          this.evaluateArguments(actuals, newArgs, newArgsLimit)
 
         case _ =>
           throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Applying non-PAP: $vfun")
@@ -568,18 +576,34 @@ private[lf] object Speedy {
       *      arguments are pushed into a continuation, they are not removed from the original array
       *      which is passed here as 'args'.
       */
-    private[speedy] def evaluateArguments(
+    private[speedy] def evaluateArgumentsL2R( // eval args in *left-to-right* order
         actuals: util.ArrayList[SValue],
         args: Array[SExpr],
         n: Int,
     ) = {
+      assert(n >= 1)
       var i = 1
       while (i < n) {
-        val arg = args(n - i)
+        val arg = args(n - i) // n-1,n-2,..1 -- push R->L, so eval L->R
         this.pushKont(KPushTo(this, actuals, arg))
         i = i + 1
       }
       this.ctrl = args(0)
+    }
+
+    private[speedy] def evaluateArgumentsR2L( // eval args in *right-to-left* order
+        actuals: util.ArrayList[SValue],
+        args: Array[SExpr],
+        n: Int,
+    ) = {
+      assert(n >= 1)
+      var i = 1
+      while (i < n) {
+        val arg = args(i - 1) // 0,1,.. n-2 -- push L->R, so eval R->L
+        this.pushKont(KPushTo(this, actuals, arg))
+        i = i + 1
+      }
+      this.ctrl = args(n - 1)
     }
 
     private[speedy] def print(count: Int) = {
@@ -972,6 +996,7 @@ private[lf] object Speedy {
       machine: Machine,
       closure: SValue.PClosure,
       actuals: util.ArrayList[SValue],
+      expectR2L: Option[Int], // None: expect left-to-right
   ) extends Kont
       with SomeArrayEquals {
 
@@ -979,9 +1004,34 @@ private[lf] object Speedy {
 
     def execute(v: SValue) = {
       discard[Boolean](actuals.add(v))
+
+      val actuals1 =
+        expectR2L match {
+          case None => actuals
+          case Some(newN) =>
+            // need to rejig actuals to compensate for right-to-left order
+            val n = actuals.size
+            val actualsX = new util.ArrayList[SValue](n)
+            assert(n > 0)
+            assert(newN >= 0)
+            assert(newN <= n)
+            val oldN = n - newN
+            assert(oldN >= 0)
+            var i = 0
+            while (i < n) {
+              discard[Boolean](actualsX.add(if (i < oldN) {
+                actuals.get(i)
+              } else {
+                actuals.get(oldN + n - i - 1)
+              }))
+              i += 1
+            }
+            actualsX
+        }
+
       // Set frame/actuals to allow access to the function arguments and closure free-varables.
       machine.restoreBase(savedBase)
-      machine.restoreFrameAndActuals(closure.frame, actuals)
+      machine.restoreFrameAndActuals(closure.frame, actuals1)
       // Maybe push a continuation for the profiler
       val label = closure.label
       if (label != null) {
