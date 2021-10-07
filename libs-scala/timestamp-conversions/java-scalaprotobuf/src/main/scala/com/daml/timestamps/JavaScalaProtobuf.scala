@@ -4,8 +4,9 @@
 package com.daml.timestamps
 
 import com.google.protobuf.duration.{Duration => ScalaProtoDuration}
+import com.google.protobuf.timestamp.{Timestamp => ScalaProtoTimestamp}
 
-import java.time.{Duration => JavaDuration}
+import java.time.{Duration => JavaDuration, Instant => JavaTimestamp}
 
 object JavaScalaProtobuf {
   implicit class JavaToProtoDurationConversions(duration: JavaDuration) {
@@ -16,5 +17,15 @@ object JavaScalaProtobuf {
   implicit class ScalaProtoToJavaDurationConversions(duration: ScalaProtoDuration) {
     def asJava: JavaDuration =
       duration.asJavaDuration
+  }
+
+  implicit class JavaToProtoTimestampConversions(timestamp: JavaTimestamp) {
+    def asScalaProto: ScalaProtoTimestamp =
+      ScalaProtoTimestamp.of(timestamp.getEpochSecond, timestamp.getNano)
+  }
+
+  implicit class ScalaProtoToJavaTimestampConversions(timestamp: ScalaProtoTimestamp) {
+    def asJava: JavaTimestamp =
+      timestamp.asJavaInstant
   }
 }
