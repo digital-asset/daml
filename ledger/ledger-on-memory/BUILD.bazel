@@ -231,6 +231,7 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
+        "--additional=ParticipantPruningIT",
         "--additional=AppendOnlyCommandDeduplicationParallelIT",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
