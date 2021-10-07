@@ -326,7 +326,7 @@ private[lf] final class Compiler(
         )
       }
 
-      tmpl.choices.values.foreach(x => addDef(compileChoice(identifier, tmpl, x)))
+      tmpl.choices.values.foreach(x => addDef(compileChoice(identifier, tmpl.param, x)))
 
       tmpl.key.foreach { tmplKey =>
         addDef(compileFetchByKey(identifier, tmpl, tmplKey))
@@ -338,6 +338,9 @@ private[lf] final class Compiler(
     module.interfaces.foreach { case (ifaceName, iface) =>
       val identifier = Identifier(pkgId, QualifiedName(module.name, ifaceName))
       addDef(compileFetchInterface(identifier))
+      iface.fixedChoices.values.foreach(
+        builder += compileChoice(identifier, iface.param, _)
+      )
       iface.virtualChoices.values.foreach(
         builder += compileChoiceInterface(identifier, _)
       )
@@ -984,7 +987,7 @@ private[lf] final class Compiler(
 
   private[this] def compileChoiceBody(
       tmplId: TypeConName,
-      tmpl: Template,
+      param: ExprVarName,
       choice: TemplateChoice,
   )(
       choiceArgPos: Position,
@@ -997,7 +1000,7 @@ private[lf] final class Compiler(
         tmplId
       )(svar(cidPos), mbKey.fold(SEValue.None: SExpr)(pos => SBSome(svar(pos))))
     ) { tmplArgPos =>
-      addExprVar(tmpl.param, tmplArgPos)
+      addExprVar(param, tmplArgPos)
       let(
         SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
           svar(choiceArgPos),
@@ -1038,7 +1041,7 @@ private[lf] final class Compiler(
 
   private[this] def compileChoice(
       tmplId: TypeConName,
-      tmpl: Template,
+      param: ExprVarName,
       choice: TemplateChoice,
   ): (SDefinitionRef, SDefinition) =
     // Compiles a choice into:
@@ -1050,7 +1053,7 @@ private[lf] final class Compiler(
     //   in <retValue>
     topLevelFunction(ChoiceDefRef(tmplId, choice.name), 3) {
       case List(cidPos, choiceArgPos, tokenPos) =>
-        compileChoiceBody(tmplId, tmpl, choice)(
+        compileChoiceBody(tmplId, param, choice)(
           choiceArgPos,
           cidPos,
           None,
@@ -1078,7 +1081,7 @@ private[lf] final class Compiler(
       case List(keyPos, choiceArgPos, tokenPos) =>
         let(encodeKeyWithMaintainers(keyPos, tmplKey)) { keyWithMPos =>
           let(SBUFetchKey(tmplId)(svar(keyWithMPos))) { cidPos =>
-            compileChoiceBody(tmplId, tmpl, choice)(
+            compileChoiceBody(tmplId, tmpl.param, choice)(
               choiceArgPos,
               cidPos,
               Some(keyWithMPos),
