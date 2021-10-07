@@ -88,14 +88,12 @@ jobs:
           # labels, PRs are issues as far as the GH API is concerned.
       }
       rotate() {
-          # limitation: comments in the middle of the rotation will be hoisted to the top
-          local comments rotation
-          comments=$(mktemp)
-          rotation=$(mktemp)
-          awk '/^#/' release/rotation > $comments
-          awk '/^[^#]/' release/rotation > $rotation
-          cp $comments release/rotation
-          (tail -n +2 $rotation; head -1 $rotation) >> release/rotation
+          local tmp next
+          tmp=$(mktemp)
+          next=$(next_in_rotation)
+          grep -v "$next" release/rotation > $tmp
+          echo "$next" >> $tmp
+          mv $tmp release/rotation
       }
       release_message() {
           local handler=$1
@@ -123,8 +121,8 @@ jobs:
 
       reset
 
-      NEXT_SLACK=$(awk '/^[^#]/ {print $1}' release/rotation | head -n 1)
-      NEXT_GH=$(awk '/^[^#]/ {print $2}' release/rotation | head -n 1)
+      NEXT_SLACK=$(next_in_rotation_slack)
+      NEXT_GH=$(next_in_rotation_github)
 
       PREV="v$(head -1 LATEST | awk '{print $2}')"
       ./release.sh new snapshot
