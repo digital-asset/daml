@@ -52,7 +52,6 @@ compile_deps = [
     "//ledger/ledger-api-domain",
     "//ledger/ledger-api-health",
     "//ledger/ledger-configuration",
-    "//ledger/ledger-grpc",
     "//ledger/ledger-offset",
     "//ledger/ledger-resources",
     "//ledger/metrics",

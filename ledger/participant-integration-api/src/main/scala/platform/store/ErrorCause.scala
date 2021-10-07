@@ -5,11 +5,11 @@ package com.daml.platform.store
 
 import com.daml.lf.engine.{Error => LfError}
 
-private[platform] sealed abstract class ErrorCause extends Product with Serializable {
+sealed abstract class ErrorCause extends Product with Serializable {
   def explain: String
 }
 
-private[platform] object ErrorCause {
+object ErrorCause {
 
   final case class DamlLf(error: LfError) extends ErrorCause {
 
