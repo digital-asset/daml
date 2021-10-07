@@ -8,6 +8,7 @@ steps:
 - bash: |
     set -euo pipefail
     TMP=$(mktemp)
+    PROJ_DIR="$(pwd)"
     cat > $TMP <<'END'
     escape_slack() {
       local r
@@ -147,6 +148,9 @@ steps:
     setvar() {
       echo "Setting '$1' to '$2'"
       echo "##vso[task.setvariable variable=$1;isOutput=true]$2"
+    }
+    next_in_rotation() {
+      awk '/^[^#]/ {print $1}' "$PROJ_DIR/release/rotation" | head -n 1
     }
 
     END

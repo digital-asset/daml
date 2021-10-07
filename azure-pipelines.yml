@@ -131,10 +131,11 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        source $(bash-lib)
         msg=$(git log -n1 --format=%b HEAD | head -1)
         # Keep this line in sync with RELEASE_PR_NOTIF in ci/cron/wednesday.yml
         if [ "$msg" = "This PR has been created by a script, which is not very smart" ]; then
-            pr_handler="<@$(awk '/^[^#]/ {print $1}' release/rotation | head -n 1)>"
+            pr_handler="<@$(next_in_rotation)>"
         else
             pr_handler=""
         fi
