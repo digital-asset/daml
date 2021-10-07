@@ -76,7 +76,8 @@ Options:
   -h, --help: shows this help
   --stable:     check against the latest stable tag (default)
   --target:     check against the tip of the target branch
-      When using target, the check can be skipped by adding to the commit message a trailer line with key "Breaks-Proto" and value "true"
+      When checking against a target branch, the check can be skipped by adding the following trailer:
+          Breaks-protobuf: true
       Example commit message:
          This commit breaks protobufs when checking against the target branch.
 
