@@ -6,6 +6,8 @@ package com.daml.platform.apiserver.services.transaction
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.error.DamlErrorCodeLoggingContext
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{
   Filters,
@@ -37,8 +39,6 @@ import com.daml.platform.server.api.services.grpc.GrpcTransactionService
 import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc._
 import scalaz.syntax.tag._
-import com.daml.error.DamlErrorCodeLoggingContext.asDamlErrorCodeLoggingContext
-import com.daml.error.definitions.LedgerApiErrors
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -76,7 +76,7 @@ private[apiserver] final class ApiTransactionService private (
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends TransactionService
     with ErrorFactories {
-  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+  private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
     transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
@@ -150,7 +150,7 @@ private[apiserver] final class ApiTransactionService private (
               .withDescription(msg)
               .asRuntimeException(),
             v2 = LedgerApiErrors.CommandValidation.InvalidArgument
-              .Reject(msg)
+              .Reject(msg)(new DamlErrorCodeLoggingContext(logger, loggingContext, None))
               .asGrpcError,
           )
         )

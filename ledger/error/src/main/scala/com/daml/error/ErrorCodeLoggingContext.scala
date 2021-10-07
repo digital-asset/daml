@@ -7,17 +7,7 @@ import com.daml.error.ErrorCode.formatContextAsString
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import org.slf4j.event.Level
 
-trait CanLog {
-  def info(message: String): Unit
-  def info(message: String, throwable: Throwable): Unit
-
-  def warn(message: String): Unit
-  def warn(message: String, throwable: Throwable): Unit
-
-  def error(message: String): Unit
-  def error(message: String, throwable: Throwable): Unit
-}
-
+/** Abstracts away from the logging tech stack used. */
 trait ErrorCodeLoggingContext extends CanLog {
   def properties: Map[String, String]
   def correlationId: Option[String]
@@ -29,14 +19,17 @@ trait ErrorCodeLoggingContext extends CanLog {
   ): Unit
 }
 
-object DamlErrorCodeLoggingContext {
-  implicit def asDamlErrorCodeLoggingContext(implicit
-      loggingContext: LoggingContext,
-      logger: ContextualizedLogger,
-  ): DamlErrorCodeLoggingContext =
-    // TODO error codes: figure whether we can provide something for that correlation id
-    new DamlErrorCodeLoggingContext(logger, loggingContext, None)
+trait CanLog {
+  def info(message: String): Unit
+  def info(message: String, throwable: Throwable): Unit
+
+  def warn(message: String): Unit
+  def warn(message: String, throwable: Throwable): Unit
+
+  def error(message: String): Unit
+  def error(message: String, throwable: Throwable): Unit
 }
+
 class DamlErrorCodeLoggingContext(
     logger: ContextualizedLogger,
     loggingContext: LoggingContext,
