@@ -4,6 +4,8 @@
 package com.daml.error
 
 import com.daml.error.ErrorCode.formatContextAsString
+import com.daml.error.ErrorCodeLoggingContext.loggingValueToString
+import com.daml.logging.entries.LoggingValue
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import org.slf4j.event.Level
 
@@ -36,7 +38,9 @@ class DamlErrorCodeLoggingContext(
     val correlationId: Option[String],
 ) extends ErrorCodeLoggingContext {
   override def properties: Map[String, String] =
-    loggingContext.entries.contents.view.mapValues(_.toString).toMap
+    loggingContext.entries.contents.view.map { case (key, value) =>
+      key -> loggingValueToString(value)
+    }.toMap
 
   def info(message: String): Unit = logger.info(message)(loggingContext)
   def info(message: String, throwable: Throwable): Unit =
@@ -71,5 +75,24 @@ class DamlErrorCodeLoggingContext(
         case (_, Some(tr)) => logger.error(message, tr)
       }
     }(loggingContext)
+  }
+}
+
+object ErrorCodeLoggingContext {
+  // TODO error-codes: Extract this function into `LoggingContext` companion (and test)
+  private[error] val loggingValueToString: LoggingValue => String = {
+    case LoggingValue.Empty => ""
+    case LoggingValue.False => "false"
+    case LoggingValue.True => "true"
+    case LoggingValue.OfString(value) => s"'$value'"
+    case LoggingValue.OfInt(value) => value.toString
+    case LoggingValue.OfLong(value) => value.toString
+    case LoggingValue.OfIterable(sequence) =>
+      sequence.map(loggingValueToString).mkString("[", ", ", "]")
+    case LoggingValue.Nested(entries) =>
+      entries.contents.view
+        .map { case (key, value) => s"$key: ${loggingValueToString(value)}" }
+        .mkString("{", ", ", "}")
+    case LoggingValue.OfJson(json) => json.toString()
   }
 }

@@ -4,7 +4,6 @@
 package com.daml.error
 
 import com.daml.error.ErrorCode.{ValidMetadataKeyRegex, truncateResourceForTransport}
-import com.daml.logging.entries.LoggingValue
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
@@ -211,23 +210,6 @@ object ErrorCode {
   private val ValidMetadataKeyRegex: Regex = "[^(a-zA-Z0-9-_)]".r
   private val MaxContentBytes = 2000
   private[error] val MaxCauseLogLength = 512
-
-  // TODO error-codes: Extract this function into `LoggingContext` companion (and test)
-  private val loggingValueToString: LoggingValue => String = {
-    case LoggingValue.Empty => ""
-    case LoggingValue.False => "false"
-    case LoggingValue.True => "true"
-    case LoggingValue.OfString(value) => s"'$value'"
-    case LoggingValue.OfInt(value) => value.toString
-    case LoggingValue.OfLong(value) => value.toString
-    case LoggingValue.OfIterable(sequence) =>
-      sequence.map(loggingValueToString).mkString("[", ", ", "]")
-    case LoggingValue.Nested(entries) =>
-      entries.contents.view
-        .map { case (key, value) => s"$key: ${loggingValueToString(value)}" }
-        .mkString("{", ", ", "}")
-    case LoggingValue.OfJson(json) => json.toString()
-  }
 
   class ApiException(status: io.grpc.Status, metadata: io.grpc.Metadata)
       extends StatusRuntimeException(status, metadata)
