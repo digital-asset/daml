@@ -264,11 +264,6 @@ private[platform] object Conversions {
   def contractId(columnName: String): RowParser[Value.ContractId] =
     SqlParser.get[Value.ContractId](columnName)(columnToContractId)
 
-  def flatEventWitnessesColumn(columnName: String): RowParser[Set[Ref.Party]] =
-    SqlParser
-      .get[Array[String]](columnName)(ArrayColumnToStringArray.arrayColumnToStringArray)
-      .map(_.iterator.map(Ref.Party.assertFromString).toSet)
-
   // ContractIdString
 
   implicit val contractIdStringMetaParameter: ParameterMetaData[Ref.ContractIdString] =

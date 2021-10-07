@@ -4,6 +4,7 @@ package com.daml.platform.store.appendonlydao
 
 import java.sql.Connection
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -35,6 +36,7 @@ import com.daml.platform.store.Conversions._
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackend, UpdateToDbDto}
+import com.daml.platform.store.cache.StringInterningCache
 import com.daml.platform.store.dao.{
   DeduplicationKeyMaker,
   LedgerDao,
@@ -69,6 +71,8 @@ private class JdbcLedgerDao(
     sequentialIndexer: SequentialWriteDao,
     participantId: Ref.ParticipantId,
     storageBackend: StorageBackend[_],
+    stringInterningCache: AtomicReference[StringInterningCache],
+    ledgerEnd: AtomicReference[(Offset, Long)],
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -103,12 +107,11 @@ private class JdbcLedgerDao(
 
   override def lookupLedgerEndOffsetAndSequentialId()(implicit
       loggingContext: LoggingContext
-  ): Future[(Offset, Long)] =
+  ): Future[ParameterStorageBackend.LedgerEnd] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.getLedgerEndOffsetAndSequentialId) { connection =>
-        val end = storageBackend.ledgerEndOrBeforeBegin(connection)
-        end.lastOffset -> end.lastEventSeqId
-      }
+      .executeSql(metrics.daml.index.db.getLedgerEndOffsetAndSequentialId)(
+        storageBackend.ledgerEndOrBeforeBegin
+      )
 
   override def lookupInitialLedgerEnd()(implicit
       loggingContext: LoggingContext
@@ -136,7 +139,7 @@ private class JdbcLedgerDao(
       loggingContext: LoggingContext
   ): Future[Option[(Offset, Configuration)]] =
     dbDispatcher.executeSql(metrics.daml.index.db.lookupConfiguration)(
-      storageBackend.ledgerConfiguration
+      storageBackend.ledgerConfiguration(ledgerEnd.get()._1)
     )
 
   override def getConfigurationEntries(
@@ -168,7 +171,7 @@ private class JdbcLedgerDao(
       dbDispatcher.executeSql(
         metrics.daml.index.db.storeConfigurationEntryDbMetrics
       ) { implicit conn =>
-        val optCurrentConfig = storageBackend.ledgerConfiguration(conn)
+        val optCurrentConfig = storageBackend.ledgerConfiguration(ledgerEnd.get()._1)(conn)
         val optExpectedGeneration: Option[Long] =
           optCurrentConfig.map { case (_, c) => c.generation + 1 }
         val finalRejectionReason: Option[String] =
@@ -455,25 +458,31 @@ private class JdbcLedgerDao(
       Future.successful(List.empty)
     else
       dbDispatcher
-        .executeSql(metrics.daml.index.db.loadParties)(storageBackend.parties(parties))
+        .executeSql(metrics.daml.index.db.loadParties)(
+          storageBackend.parties(parties, ledgerEnd.get()._1)
+        )
 
   override def listKnownParties()(implicit
       loggingContext: LoggingContext
   ): Future[List[PartyDetails]] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.loadAllParties)(storageBackend.knownParties)
+      .executeSql(metrics.daml.index.db.loadAllParties)(
+        storageBackend.knownParties(ledgerEnd.get()._1)
+      )
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
   ): Future[Map[Ref.PackageId, PackageDetails]] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.loadPackages)(storageBackend.lfPackages)
+      .executeSql(metrics.daml.index.db.loadPackages)(storageBackend.lfPackages(ledgerEnd.get()._1))
 
   override def getLfArchive(
       packageId: Ref.PackageId
   )(implicit loggingContext: LoggingContext): Future[Option[Archive]] =
     dbDispatcher
-      .executeSql(metrics.daml.index.db.loadArchive)(storageBackend.lfArchive(packageId))
+      .executeSql(metrics.daml.index.db.loadArchive)(
+        storageBackend.lfArchive(packageId, ledgerEnd.get()._1)
+      )
       .map(_.map(data => ArchiveParser.assertFromByteArray(data)))(
         servicesExecutionContext
       )
@@ -697,12 +706,14 @@ private class JdbcLedgerDao(
       eventProcessingParallelism = eventsProcessingParallelism,
       metrics = metrics,
       lfValueTranslation = translation,
+      ledgerEnd = ledgerEnd,
+      stringInterningCache = stringInterningCache,
     )(
       servicesExecutionContext
     )
 
   override val contractsReader: ContractsReader =
-    ContractsReader(dbDispatcher, metrics, storageBackend)(
+    ContractsReader(dbDispatcher, metrics, storageBackend, ledgerEnd, stringInterningCache)(
       servicesExecutionContext
     )
 
@@ -712,11 +723,12 @@ private class JdbcLedgerDao(
       storageBackend,
       queryNonPruned,
       metrics,
+      stringInterningCache,
     )
 
   private val postCommitValidation =
     if (performPostCommitValidation)
-      new PostCommitValidation.BackedBy(storageBackend, validatePartyAllocation)
+      new PostCommitValidation.BackedBy(storageBackend, validatePartyAllocation, ledgerEnd)
     else
       PostCommitValidation.Skip
 
@@ -790,6 +802,30 @@ private class JdbcLedgerDao(
     }
   }
 
+  override def updateStringInterningCache(lastStringInterningId: Int)(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit] = synchronized { // TODO because we first dereference, then update
+    import scala.util.chaining._
+    val currentCache = stringInterningCache.get()
+    if (lastStringInterningId == currentCache.lastId)
+      Future.unit
+    else
+      dbDispatcher.executeSql(metrics.daml.index.db.storeTransactionDbMetrics)(
+        conn => // TODO FIXME db metrics
+          storageBackend
+            .loadStringInterningEntries(currentCache.lastId, lastStringInterningId)(conn)
+            .pipe(StringInterningCache.from(_, currentCache))
+            .pipe(stringInterningCache.set)
+            .tap(_ =>
+              println(
+                s"update on read side to $lastStringInterningId so size will be now ${stringInterningCache.get().map.size}"
+              )
+            )
+      )
+  }
+
+  override def updateLedgerEnd(offset: Offset, eventSeqId: Long): Unit =
+    ledgerEnd.set(offset -> eventSeqId)
 }
 
 private[platform] object JdbcLedgerDao {
@@ -963,6 +999,8 @@ private[platform] object JdbcLedgerDao {
       ),
       participantId,
       storageBackend,
+      new AtomicReference(StringInterningCache.from(Nil)),
+      new AtomicReference(Offset.beforeBegin -> 0L), // TODO fix constants
     )
   }
 

@@ -21,13 +21,16 @@ import scala.reflect.ClassTag
 private[backend] abstract class Field[FROM, TO, CONVERTED](implicit
     classTag: ClassTag[CONVERTED]
 ) {
-  def extract: FROM => TO
+  def extract: (String => Int) => FROM => TO
   def convert: TO => CONVERTED
   def selectFieldExpression(inputFieldName: String): String = inputFieldName
 
-  final def toArray(input: Vector[FROM]): Array[CONVERTED] =
+  final def toArray(
+      input: Vector[FROM],
+      resolveStringInterningId: String => Int,
+  ): Array[CONVERTED] =
     input.view
-      .map(extract andThen convert)
+      .map(extract(resolveStringInterningId) andThen convert)
       .toArray(classTag)
 
   final def prepareData(preparedStatement: PreparedStatement, index: Int, value: Any): Unit =
@@ -55,40 +58,46 @@ private[backend] trait TrivialOptionalField[FROM, TO >: Null <: AnyRef]
   override def convert: Option[TO] => TO = _.orNull
 }
 
-private[backend] case class StringField[FROM](extract: FROM => String)
+private[backend] case class StringField[FROM](extract: (String => Int) => FROM => String)
     extends TrivialField[FROM, String]
 
-private[backend] case class StringOptional[FROM](extract: FROM => Option[String])
+private[backend] case class StringOptional[FROM](extract: (String => Int) => FROM => Option[String])
     extends TrivialOptionalField[FROM, String]
 
-private[backend] case class Bytea[FROM](extract: FROM => Array[Byte])
+private[backend] case class Bytea[FROM](extract: (String => Int) => FROM => Array[Byte])
     extends TrivialField[FROM, Array[Byte]]
 
-private[backend] case class ByteaOptional[FROM](extract: FROM => Option[Array[Byte]])
-    extends TrivialOptionalField[FROM, Array[Byte]]
+private[backend] case class ByteaOptional[FROM](
+    extract: (String => Int) => FROM => Option[Array[Byte]]
+) extends TrivialOptionalField[FROM, Array[Byte]]
 
-private[backend] case class IntOptional[FROM](extract: FROM => Option[Int])
+private[backend] case class Integer[FROM](extract: (String => Int) => FROM => Int)
+    extends TrivialField[FROM, Int]
+
+private[backend] case class IntOptional[FROM](extract: (String => Int) => FROM => Option[Int])
     extends Field[FROM, Option[Int], java.lang.Integer] {
-  override def convert: Option[Int] => Integer = _.map(Int.box).orNull
+  override def convert: Option[Int] => java.lang.Integer = _.map(Int.box).orNull
 }
 
-private[backend] case class Bigint[FROM](extract: FROM => Long) extends TrivialField[FROM, Long]
+private[backend] case class Bigint[FROM](extract: (String => Int) => FROM => Long)
+    extends TrivialField[FROM, Long]
 
-private[backend] case class BigintOptional[FROM](extract: FROM => Option[Long])
+private[backend] case class BigintOptional[FROM](extract: (String => Int) => FROM => Option[Long])
     extends Field[FROM, Option[Long], java.lang.Long] {
   override def convert: Option[Long] => java.lang.Long = _.map(Long.box).orNull
 }
 
-private[backend] case class SmallintOptional[FROM](extract: FROM => Option[Int])
+private[backend] case class SmallintOptional[FROM](extract: (String => Int) => FROM => Option[Int])
     extends Field[FROM, Option[Int], java.lang.Integer] {
-  override def convert: Option[Int] => Integer = _.map(Int.box).orNull
+  override def convert: Option[Int] => java.lang.Integer = _.map(Int.box).orNull
 }
 
-private[backend] case class BooleanField[FROM](extract: FROM => Boolean)
+private[backend] case class BooleanField[FROM](extract: (String => Int) => FROM => Boolean)
     extends TrivialField[FROM, Boolean]
 
-private[backend] case class BooleanOptional[FROM](extract: FROM => Option[Boolean])
-    extends Field[FROM, Option[Boolean], java.lang.Boolean] {
+private[backend] case class BooleanOptional[FROM](
+    extract: (String => Int) => FROM => Option[Boolean]
+) extends Field[FROM, Option[Boolean], java.lang.Boolean] {
   override def convert: Option[Boolean] => lang.Boolean = _.map(Boolean.box).orNull
 }
 
@@ -97,12 +106,24 @@ private[backend] object Timestamp {
     TimeUnit.SECONDS.toMicros(i.getEpochSecond) + TimeUnit.NANOSECONDS.toMicros(i.getNano.toLong)
 }
 
-private[backend] case class StringArray[FROM](extract: FROM => Iterable[String])
+private[backend] case class StringArray[FROM](extract: (String => Int) => FROM => Iterable[String])
     extends Field[FROM, Iterable[String], Array[String]] {
   override def convert: Iterable[String] => Array[String] = _.toArray
 }
 
-private[backend] case class StringArrayOptional[FROM](extract: FROM => Option[Iterable[String]])
-    extends Field[FROM, Option[Iterable[String]], Array[String]] {
+private[backend] case class StringArrayOptional[FROM](
+    extract: (String => Int) => FROM => Option[Iterable[String]]
+) extends Field[FROM, Option[Iterable[String]], Array[String]] {
   override def convert: Option[Iterable[String]] => Array[String] = _.map(_.toArray).orNull
+}
+
+private[backend] case class IntArray[FROM](extract: (String => Int) => FROM => Iterable[Int])
+    extends Field[FROM, Iterable[Int], Array[Int]] {
+  override def convert: Iterable[Int] => Array[Int] = _.toArray
+}
+
+private[backend] case class IntArrayOptional[FROM](
+    extract: (String => Int) => FROM => Option[Iterable[Int]]
+) extends Field[FROM, Option[Iterable[Int]], Array[Int]] {
+  override def convert: Option[Iterable[Int]] => Array[Int] = _.map(_.toArray).orNull
 }

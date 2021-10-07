@@ -47,18 +47,18 @@ SELECT
     NULL::text as event_id,
     contract_id,
     template_id,
-    NULL::text[] as flat_event_witnesses,
+    NULL::integer[] as flat_event_witnesses,
     tree_event_witnesses,
     create_argument,
-    NULL::text[] as create_signatories,
-    NULL::text[] as create_observers,
+    NULL::integer[] as create_signatories,
+    NULL::integer[] as create_observers,
     NULL::text as create_agreement_text,
     NULL::bytea as create_key_value,
     NULL::text as create_key_hash,
     NULL::text as exercise_choice,
     NULL::bytea as exercise_argument,
     NULL::bytea as exercise_result,
-    NULL::text[] as exercise_actors,
+    NULL::integer[] as exercise_actors,
     NULL::text[] as exercise_child_event_ids,
     create_argument_compression,
     NULL::smallint as create_key_value_compression,
@@ -91,7 +91,7 @@ SELECT
     NULL::text as exercise_choice,
     NULL::bytea as exercise_argument,
     NULL::bytea as exercise_result,
-    NULL::text[] as exercise_actors,
+    NULL::integer[] as exercise_actors,
     NULL::text[] as exercise_child_event_ids,
     create_argument_compression,
     create_key_value_compression,
@@ -116,8 +116,8 @@ SELECT
     flat_event_witnesses,
     tree_event_witnesses,
     NULL::bytea as create_argument,
-    NULL::text[] as create_signatories,
-    NULL::text[] as create_observers,
+    NULL::integer[] as create_signatories,
+    NULL::integer[] as create_observers,
     NULL::text as create_agreement_text,
     create_key_value,
     NULL::text as create_key_hash,
@@ -149,8 +149,8 @@ SELECT
     flat_event_witnesses,
     tree_event_witnesses,
     NULL::bytea as create_argument,
-    NULL::text[] as create_signatories,
-    NULL::text[] as create_observers,
+    NULL::integer[] as create_signatories,
+    NULL::integer[] as create_observers,
     NULL::text as create_agreement_text,
     create_key_value,
     NULL::text as create_key_hash,
@@ -173,6 +173,7 @@ FROM participant_events_non_consuming_exercise
 
 -- new field: the sequential_event_id up to which all events have been ingested
 ALTER TABLE parameters ADD COLUMN ledger_end_sequential_id bigint;
+ALTER TABLE parameters ADD COLUMN ledger_end_string_interning_id integer;
 UPDATE parameters SET ledger_end_sequential_id = (
     SELECT max(event_sequential_id) FROM participant_events
 );

@@ -4,9 +4,11 @@
 package com.daml.platform.store.appendonlydao.events
 
 import java.sql.Connection
+import java.util.concurrent.atomic.AtomicReference
 
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
+import com.daml.platform.store.cache.StringInterningCache
 
 private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] {
 
@@ -105,7 +107,8 @@ private[events] object EventsTableFlatEventsRangeQueries {
   }
 
   final class GetTransactions(
-      storageBackend: EventStorageBackend
+      storageBackend: EventStorageBackend,
+      stringInterningCache: AtomicReference[StringInterningCache],
   ) extends EventsTableFlatEventsRangeQueries[EventsRange[Long]] {
 
     override protected def query(
@@ -121,6 +124,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
             fetchSizeHint = fetchSizeHint,
           ),
           filterParams = filterParams,
+          stringInterningCache = stringInterningCache.get(),
         )
       )
 
@@ -128,7 +132,8 @@ private[events] object EventsTableFlatEventsRangeQueries {
   }
 
   final class GetActiveContracts(
-      storageBackend: EventStorageBackend
+      storageBackend: EventStorageBackend,
+      stringInterningCache: AtomicReference[StringInterningCache],
   ) extends EventsTableFlatEventsRangeQueries[EventsRange[(Offset, Long)]] {
 
     override protected def query(
@@ -145,6 +150,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
           ),
           filterParams = filterParams,
           endInclusiveOffset = range.endInclusive._1,
+          stringInterningCache = stringInterningCache.get(),
         )
       )
 

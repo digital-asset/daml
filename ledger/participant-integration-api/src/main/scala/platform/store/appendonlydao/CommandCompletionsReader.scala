@@ -3,6 +3,8 @@
 
 package com.daml.platform.store.appendonlydao
 
+import java.util.concurrent.atomic.AtomicReference
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -13,6 +15,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.appendonlydao.events.QueryNonPruned
 import com.daml.platform.store.backend.CompletionStorageBackend
+import com.daml.platform.store.cache.StringInterningCache
 import com.daml.platform.store.dao.LedgerDaoCommandCompletionsReader
 
 private[appendonlydao] final class CommandCompletionsReader(
@@ -20,6 +23,7 @@ private[appendonlydao] final class CommandCompletionsReader(
     storageBackend: CompletionStorageBackend,
     queryNonPruned: QueryNonPruned,
     metrics: Metrics,
+    stringInterningCache: AtomicReference[StringInterningCache],
 ) extends LedgerDaoCommandCompletionsReader {
 
   private def offsetFor(response: CompletionStreamResponse): Offset =
@@ -43,6 +47,7 @@ private[appendonlydao] final class CommandCompletionsReader(
                 endInclusive = endInclusive,
                 applicationId = applicationId,
                 parties = parties,
+                stringInterningCache = stringInterningCache.get(),
               )(connection),
               startExclusive,
               pruned =>

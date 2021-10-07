@@ -4,6 +4,7 @@
 package com.daml.platform.store.appendonlydao.events
 
 import java.sql.Connection
+import java.util.concurrent.atomic.AtomicReference
 
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
@@ -27,6 +28,7 @@ import com.daml.platform.ApiOffset
 import com.daml.platform.store.appendonlydao.{DbDispatcher, PaginatingAsyncStream}
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.StorageBackend
+import com.daml.platform.store.cache.StringInterningCache
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -53,6 +55,8 @@ private[appendonlydao] final class TransactionsReader(
     eventProcessingParallelism: Int,
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
+    ledgerEnd: AtomicReference[(Offset, Long)], // TODO make it just an accessor function
+    stringInterningCache: AtomicReference[StringInterningCache],
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 
@@ -60,9 +64,9 @@ private[appendonlydao] final class TransactionsReader(
   private val eventSeqIdReader =
     new EventsRange.EventSeqIdReader(storageBackend.maxEventSequentialIdOfAnObservableEvent)
   private val getTransactions =
-    new EventsTableFlatEventsRangeQueries.GetTransactions(storageBackend)
+    new EventsTableFlatEventsRangeQueries.GetTransactions(storageBackend, stringInterningCache)
   private val getActiveContracts =
-    new EventsTableFlatEventsRangeQueries.GetActiveContracts(storageBackend)
+    new EventsTableFlatEventsRangeQueries.GetActiveContracts(storageBackend, stringInterningCache)
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -162,6 +166,8 @@ private[appendonlydao] final class TransactionsReader(
             wildCardParties = requestingParties,
             partiesAndTemplates = Set.empty,
           ),
+          ledgerEnd.get()._1,
+          stringInterningCache.get(),
         )
       )
       .flatMap(rawEvents =>
@@ -205,6 +211,7 @@ private[appendonlydao] final class TransactionsReader(
                   wildCardParties = requestingParties,
                   partiesAndTemplates = Set.empty,
                 ),
+                stringInterningCache = stringInterningCache.get(),
               ),
             range = EventsRange(range.startExclusive._2, range.endInclusive._2),
             pageSize = pageSize,
@@ -263,6 +270,8 @@ private[appendonlydao] final class TransactionsReader(
             wildCardParties = requestingParties,
             partiesAndTemplates = Set.empty,
           ),
+          ledgerEnd.get()._1,
+          stringInterningCache.get(),
         )
       )
       .flatMap(rawEvents =>
@@ -310,6 +319,7 @@ private[appendonlydao] final class TransactionsReader(
             query = storageBackend.rawEvents(
               startExclusive = range.startExclusive,
               endInclusive = range.endInclusive,
+              stringInterningCache = stringInterningCache.get(),
             )(conn),
             minOffsetExclusive = startExclusive._1,
             error = pruned =>
@@ -439,7 +449,11 @@ private[appendonlydao] final class TransactionsReader(
         dispatcher.executeSql(dbMetrics.getContractStateEvents) { implicit conn =>
           queryNonPruned.executeSql(
             storageBackend
-              .contractStateEvents(range.startExclusive, range.endInclusive)(conn),
+              .contractStateEvents(
+                range.startExclusive,
+                range.endInclusive,
+                stringInterningCache.get(),
+              )(conn),
             startExclusive._1,
             pruned =>
               s"Contract state events request from ${range.startExclusive.toHexString} to ${range.endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}",

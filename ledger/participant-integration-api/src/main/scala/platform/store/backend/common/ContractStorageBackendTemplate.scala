@@ -6,20 +6,15 @@ package com.daml.platform.store.backend.common
 import java.sql.Connection
 import java.time.Instant
 
-import anorm.SqlParser.{byteArray, int, long, str}
-import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
+import anorm.SqlParser.{array, byteArray, int, long}
+import anorm.{ResultSetParser, Row, RowParser, SimpleSql, ~}
 import com.daml.lf.data.Ref
-import com.daml.platform.store.Conversions.{
-  contractId,
-  flatEventWitnessesColumn,
-  identifier,
-  instantFromMicros,
-  offset,
-}
+import com.daml.platform.store.Conversions.{contractId, instantFromMicros, offset}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.{ContractStorageBackend, StorageBackend}
+import com.daml.platform.store.cache.StringInterningCache
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyAssigned,
   KeyState,
@@ -32,14 +27,18 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
 
   def queryStrategy: QueryStrategy
 
-  override def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId] =
+  override def contractKeyGlobally(key: Key, validAt: Long)(
+      connection: Connection
+  ): Option[ContractId] =
     contractKey(
       resultColumns = List("contract_id"),
       resultParser = contractId("contract_id"),
     )(
       readers = None,
       key = key,
-      validAt = None,
+      validAt = validAt,
+      stringInterningCache =
+        StringInterningCache(Map.empty, Map.empty, 0), // TODO pull out to a constant
     )(connection)
 
   private def emptyContractIds: Throwable =
@@ -52,31 +51,34 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       s"The following contracts have not been found: ${missingContractIds.map(_.coid).mkString(", ")}"
     )
 
-  protected def maximumLedgerTimeSqlLiteral(id: ContractId): SimpleSql[Row] = {
+  protected def maximumLedgerTimeSqlLiteral(
+      id: ContractId,
+      lastEventSequentialId: Long,
+  ): SimpleSql[Row] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
     SQL"""
   WITH archival_event AS (
          SELECT participant_events.*
-           FROM participant_events, parameters
+           FROM participant_events
           WHERE contract_id = $id
             AND event_kind = 20  -- consuming exercise
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND event_sequential_id <= $lastEventSequentialId
           FETCH NEXT 1 ROW ONLY
        ),
        create_event AS (
          SELECT ledger_effective_time
-           FROM participant_events, parameters
+           FROM participant_events
           WHERE contract_id = $id
             AND event_kind = 10  -- create
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND event_sequential_id <= $lastEventSequentialId
           FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
        ),
        divulged_contract AS (
          SELECT ledger_effective_time
-           FROM participant_events, parameters
+           FROM participant_events
           WHERE contract_id = $id
             AND event_kind = 0 -- divulgence
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND event_sequential_id <= $lastEventSequentialId
           ORDER BY event_sequential_id
             -- prudent engineering: make results more stable by preferring earlier divulgence events
             -- Results might still change due to pruning.
@@ -96,13 +98,16 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
   // TODO append-only: revisit this approach when doing cleanup, so we can decide if it is enough or not.
   // TODO append-only: consider pulling up traversal logic to upper layer
   override def maximumLedgerTime(
-      ids: Set[ContractId]
+      ids: Set[ContractId],
+      lastEventSequentialId: Long,
   )(connection: Connection): Try[Option[Instant]] = {
     if (ids.isEmpty) {
       Failure(emptyContractIds)
     } else {
       def lookup(id: ContractId): Option[Option[Instant]] =
-        maximumLedgerTimeSqlLiteral(id).as(instantFromMicros("ledger_effective_time").?.singleOpt)(
+        maximumLedgerTimeSqlLiteral(id, lastEventSequentialId).as(
+          instantFromMicros("ledger_effective_time").?.singleOpt
+        )(
           connection
         )
 
@@ -121,31 +126,58 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
     }
   }
 
-  override def keyState(key: Key, validAt: Long)(connection: Connection): KeyState =
+  override def keyState(
+      key: Key,
+      validAt: Long,
+      stringInterningCache: StringInterningCache,
+  )(connection: Connection): KeyState =
     contractKey(
       resultColumns = List("contract_id", "flat_event_witnesses"),
       resultParser = (
         contractId("contract_id")
-          ~ flatEventWitnessesColumn("flat_event_witnesses")
+          ~ array[Int]("flat_event_witnesses")
       ).map { case cId ~ stakeholders =>
-        KeyAssigned(cId, stakeholders)
+        KeyAssigned(
+          cId,
+          stakeholders.view.map(stringInterningCache.idMap).map(Ref.Party.assertFromString).toSet,
+        )
       },
     )(
       readers = None,
       key = key,
-      validAt = Some(validAt),
+      validAt = validAt,
+      stringInterningCache =
+        StringInterningCache(Map.empty, Map.empty, 0), // TODO pull out to a constant
     )(connection).getOrElse(KeyUnassigned)
 
-  private val fullDetailsContractRowParser: RowParser[StorageBackend.RawContractState] =
-    (str("template_id").?
-      ~ flatEventWitnessesColumn("flat_event_witnesses")
+  private val fullDetailsContractRowParser
+      : RowParser[StringInterningCache => StorageBackend.RawContractState] =
+    (int("template_id").?
+      ~ array[Int]("flat_event_witnesses")
       ~ byteArray("create_argument").?
       ~ int("create_argument_compression").?
       ~ int("event_kind") ~ instantFromMicros("ledger_effective_time").?)
-      .map(SqlParser.flatten)
-      .map(StorageBackend.RawContractState.tupled)
+      .map {
+        case internedTemplateId ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ eventKind ~ ledgerEffectiveTime =>
+          stringInterningCache =>
+            StorageBackend.RawContractState(
+              templateId = internedTemplateId.map(stringInterningCache.idMap),
+              flatEventWitnesses = flatEventWitnesses.view
+                .map(stringInterningCache.idMap)
+                .map(Ref.Party.assertFromString)
+                .toSet,
+              createArgument = createArgument,
+              createArgumentCompression = createArgumentCompression,
+              eventKind = eventKind,
+              ledgerEffectiveTime = ledgerEffectiveTime,
+            )
+      }
 
-  override def contractState(contractId: ContractId, before: Long)(
+  override def contractState(
+      contractId: ContractId,
+      before: Long,
+      stringInterningCache: StringInterningCache,
+  )(
       connection: Connection
   ): Option[StorageBackend.RawContractState] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
@@ -165,37 +197,47 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
            ORDER BY event_sequential_id DESC
            FETCH NEXT 1 ROW ONLY"""
       .as(fullDetailsContractRowParser.singleOpt)(connection)
+      .map(_(stringInterningCache))
   }
 
-  private val contractStateRowParser: RowParser[StorageBackend.RawContractStateEvent] =
+  private val contractStateRowParser
+      : RowParser[StringInterningCache => StorageBackend.RawContractStateEvent] =
     (int("event_kind") ~
       contractId("contract_id") ~
-      identifier("template_id").? ~
+      int("template_id").? ~
       instantFromMicros("ledger_effective_time").? ~
       byteArray("create_key_value").? ~
       int("create_key_value_compression").? ~
       byteArray("create_argument").? ~
       int("create_argument_compression").? ~
       long("event_sequential_id") ~
-      flatEventWitnessesColumn("flat_event_witnesses") ~
+      array[Int]("flat_event_witnesses") ~
       offset("event_offset")).map {
       case eventKind ~ contractId ~ templateId ~ ledgerEffectiveTime ~ createKeyValue ~ createKeyCompression ~ createArgument ~ createArgumentCompression ~ eventSequentialId ~ flatEventWitnesses ~ offset =>
-        StorageBackend.RawContractStateEvent(
-          eventKind,
-          contractId,
-          templateId,
-          ledgerEffectiveTime,
-          createKeyValue,
-          createKeyCompression,
-          createArgument,
-          createArgumentCompression,
-          flatEventWitnesses,
-          eventSequentialId,
-          offset,
-        )
+        stringInterningCache =>
+          StorageBackend.RawContractStateEvent(
+            eventKind,
+            contractId,
+            templateId.map(stringInterningCache.idMap).map(Ref.Identifier.assertFromString),
+            ledgerEffectiveTime,
+            createKeyValue,
+            createKeyCompression,
+            createArgument,
+            createArgumentCompression,
+            flatEventWitnesses.view
+              .map(stringInterningCache.idMap)
+              .map(Ref.Party.assertFromString)
+              .toSet,
+            eventSequentialId,
+            offset,
+          )
     }
 
-  override def contractStateEvents(startExclusive: Long, endInclusive: Long)(
+  override def contractStateEvents(
+      startExclusive: Long,
+      endInclusive: Long,
+      stringInterningCache: StringInterningCache,
+  )(
       connection: Connection
   ): Vector[StorageBackend.RawContractStateEvent] =
     SQL"""
@@ -219,48 +261,53 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
                and (event_kind = 10 or event_kind = 20)
            ORDER BY event_sequential_id ASC"""
       .asVectorOf(contractStateRowParser)(connection)
+      .map(_(stringInterningCache))
 
-  private val contractRowParser: RowParser[StorageBackend.RawContract] =
-    (str("template_id")
+  private val contractRowParser: RowParser[StringInterningCache => StorageBackend.RawContract] =
+    (int("template_id")
       ~ byteArray("create_argument")
       ~ int("create_argument_compression").?)
-      .map(SqlParser.flatten)
-      .map { case (templateId, createArgument, createArgumentCompression) =>
-        new StorageBackend.RawContract(templateId, createArgument, createArgumentCompression)
+      .map { case internedTemplateId ~ createArgument ~ createArgumentCompression =>
+        stringInterningCache =>
+          new StorageBackend.RawContract(
+            templateId = stringInterningCache.idMap(internedTemplateId),
+            createArgument = createArgument,
+            createArgumentCompression = createArgumentCompression,
+          )
       }
-
   protected def activeContractSqlLiteral(
       contractId: ContractId,
       treeEventWitnessesClause: CompositeSql,
       resultColumns: List[String],
       coalescedColumns: String,
+      lastEventSequentialId: Long,
   ): SimpleSql[Row] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
     SQL"""  WITH archival_event AS (
                SELECT participant_events.*
-                 FROM participant_events, parameters
+                 FROM participant_events
                 WHERE contract_id = $contractId
                   AND event_kind = 20  -- consuming exercise
-                  AND event_sequential_id <= parameters.ledger_end_sequential_id
+                  AND event_sequential_id <= $lastEventSequentialId
                   AND $treeEventWitnessesClause  -- only use visible archivals
                 FETCH NEXT 1 ROW ONLY
              ),
              create_event AS (
                SELECT contract_id, #${resultColumns.mkString(", ")}
-                 FROM participant_events, parameters
+                 FROM participant_events
                 WHERE contract_id = $contractId
                   AND event_kind = 10  -- create
-                  AND event_sequential_id <= parameters.ledger_end_sequential_id
+                  AND event_sequential_id <= $lastEventSequentialId
                   AND $treeEventWitnessesClause
                 FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
              ),
              -- no visibility check, as it is used to backfill missing template_id and create_arguments for divulged contracts
              create_event_unrestricted AS (
                SELECT contract_id, #${resultColumns.mkString(", ")}
-                 FROM participant_events, parameters
+                 FROM participant_events
                 WHERE contract_id = $contractId
                   AND event_kind = 10  -- create
-                  AND event_sequential_id <= parameters.ledger_end_sequential_id
+                  AND event_sequential_id <= $lastEventSequentialId
                 FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
              ),
              divulged_contract AS (
@@ -271,11 +318,10 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
                       -- therefore only communicates the change in visibility to the IndexDB, but
                       -- does not include a full divulgence event.
                       #$coalescedColumns
-                 FROM participant_events divulgence_events LEFT OUTER JOIN create_event_unrestricted ON (divulgence_events.contract_id = create_event_unrestricted.contract_id),
-                      parameters
+                 FROM participant_events divulgence_events LEFT OUTER JOIN create_event_unrestricted ON (divulgence_events.contract_id = create_event_unrestricted.contract_id)
                 WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
                   AND divulgence_events.event_kind = 0 -- divulgence
-                  AND divulgence_events.event_sequential_id <= parameters.ledger_end_sequential_id
+                  AND divulgence_events.event_sequential_id <= $lastEventSequentialId
                   AND $treeEventWitnessesClause
                 ORDER BY divulgence_events.event_sequential_id
                   -- prudent engineering: make results more stable by preferring earlier divulgence events
@@ -299,27 +345,38 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
   )(
       readers: Set[Ref.Party],
       contractId: ContractId,
+      lastEventSequentialId: Long,
+      stringInterningCache: StringInterningCache,
   )(connection: Connection): T = {
     val treeEventWitnessesClause: CompositeSql =
       queryStrategy.arrayIntersectionNonEmptyClause(
         columnName = "tree_event_witnesses",
         parties = readers,
+        stringInterningCache = stringInterningCache,
       )
     val coalescedColumns: String = resultColumns
       .map(columnName =>
         s"COALESCE(divulgence_events.$columnName, create_event_unrestricted.$columnName)"
       )
       .mkString(", ")
-    activeContractSqlLiteral(contractId, treeEventWitnessesClause, resultColumns, coalescedColumns)
+    activeContractSqlLiteral(
+      contractId,
+      treeEventWitnessesClause,
+      resultColumns,
+      coalescedColumns,
+      lastEventSequentialId,
+    )
       .as(resultSetParser)(connection)
   }
 
-  private val contractWithoutValueRowParser: RowParser[String] =
-    str("template_id")
+  private val contractWithoutValueRowParser: RowParser[Int] =
+    int("template_id")
 
   override def activeContractWithArgument(
       readers: Set[Ref.Party],
       contractId: ContractId,
+      lastEventSequentialId: Long,
+      stringInterningCache: StringInterningCache,
   )(connection: Connection): Option[StorageBackend.RawContract] = {
     activeContract(
       resultSetParser = contractRowParser.singleOpt,
@@ -327,12 +384,16 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
     )(
       readers = readers,
       contractId = contractId,
-    )(connection)
+      lastEventSequentialId = lastEventSequentialId,
+      stringInterningCache = stringInterningCache,
+    )(connection).map(_(stringInterningCache))
   }
 
   override def activeContractWithoutArgument(
       readers: Set[Ref.Party],
       contractId: ContractId,
+      lastEventSequentialId: Long,
+      stringInterningCache: StringInterningCache,
   )(connection: Connection): Option[String] =
     activeContract(
       resultSetParser = contractWithoutValueRowParser.singleOpt,
@@ -340,9 +401,16 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
     )(
       readers = readers,
       contractId = contractId,
-    )(connection)
+      lastEventSequentialId = lastEventSequentialId,
+      stringInterningCache = stringInterningCache,
+    )(connection).map(stringInterningCache.idMap)
 
-  override def contractKey(readers: Set[Ref.Party], key: Key)(
+  override def contractKey(
+      readers: Set[Ref.Party],
+      key: Key,
+      validAt: Long,
+      stringInterningCache: StringInterningCache,
+  )(
       connection: Connection
   ): Option[ContractId] =
     contractKey(
@@ -351,7 +419,8 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
     )(
       readers = Some(readers),
       key = key,
-      validAt = None,
+      validAt = validAt,
+      stringInterningCache = stringInterningCache,
     )(connection)
 
   private def contractKey[T](
@@ -360,7 +429,8 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
   )(
       readers: Option[Set[Ref.Party]],
       key: Key,
-      validAt: Option[Long],
+      validAt: Long,
+      stringInterningCache: StringInterningCache,
   )(
       connection: Connection
   ): Option[T] = {
@@ -380,6 +450,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
         queryStrategy.arrayIntersectionNonEmptyClause(
           columnName = "last_contract_key_create.flat_event_witnesses",
           _,
+          stringInterningCache,
         )
       )
     val participantEventsFlatEventWitnessesClause =
@@ -387,27 +458,19 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
         queryStrategy.arrayIntersectionNonEmptyClause(
           columnName = "participant_events.flat_event_witnesses",
           _,
+          stringInterningCache,
         )
       )
-    val validAtClause = validAt match {
-      case Some(validAt) =>
-        cSQL"AND event_sequential_id <= $validAt"
-
-      case None =>
-        cSQL""
-    }
-    def ifNoValidAt(s: String): String = if (validAt.isEmpty) s else ""
 
     import com.daml.platform.store.Conversions.HashToStatement
     SQL"""
          WITH last_contract_key_create AS (
                 SELECT participant_events.*
-                  FROM participant_events#${ifNoValidAt(", parameters")}
+                  FROM participant_events
                  WHERE event_kind = 10 -- create
                    AND create_key_hash = ${key.hash}
-                   #${ifNoValidAt("AND event_sequential_id <= parameters.ledger_end_sequential_id")}
                        -- do NOT check visibility here, as otherwise we do not abort the scan early
-                   $validAtClause
+                   AND event_sequential_id <= $validAt
                  ORDER BY event_sequential_id DESC
                  FETCH NEXT 1 ROW ONLY
               )
@@ -416,12 +479,11 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
          WHERE $lastContractKeyFlatEventWitnessesClause -- check visibility only here
            NOT EXISTS       -- check no archival visible
                 (SELECT 1
-                   FROM participant_events#${ifNoValidAt(", parameters")}
+                   FROM participant_events
                   WHERE event_kind = 20 AND -- consuming exercise
-                    #${ifNoValidAt("event_sequential_id <= parameters.ledger_end_sequential_id AND")}
                     $participantEventsFlatEventWitnessesClause
                     contract_id = last_contract_key_create.contract_id
-                    $validAtClause
+                    AND event_sequential_id <= $validAt
                 )"""
       .as(resultParser.singleOpt)(connection)
   }

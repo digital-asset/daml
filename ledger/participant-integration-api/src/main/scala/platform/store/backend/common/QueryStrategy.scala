@@ -5,6 +5,7 @@ package com.daml.platform.store.backend.common
 
 import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
+import com.daml.platform.store.cache.StringInterningCache
 
 trait QueryStrategy {
 
@@ -38,6 +39,7 @@ trait QueryStrategy {
   def arrayIntersectionNonEmptyClause(
       columnName: String,
       parties: Set[Ref.Party],
+      stringInterningCache: StringInterningCache,
   ): CompositeSql
 
   /** Would be used in column selectors in GROUP BY situations to see whether a boolean column had true

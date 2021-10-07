@@ -22,6 +22,7 @@ import com.daml.platform.store.backend.common.{
   ParameterStorageBackendTemplate,
   PartyStorageBackendTemplate,
   QueryStrategy,
+  StringInterningStorageBackendTemplate,
   Timestamp,
 }
 import com.daml.platform.store.backend.{
@@ -38,6 +39,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
+import com.daml.platform.store.cache.StringInterningCache
 
 import javax.sql.DataSource
 import scala.util.control.NonFatal
@@ -54,7 +56,8 @@ private[backend] object OracleStorageBackend
     with ContractStorageBackendTemplate
     with CompletionStorageBackendTemplate
     with PartyStorageBackendTemplate
-    with IntegrityStorageBackendTemplate {
+    with IntegrityStorageBackendTemplate
+    with StringInterningStorageBackendTemplate {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -127,8 +130,11 @@ private[backend] object OracleStorageBackend
     )
   }
 
-  override def batch(dbDtos: Vector[DbDto]): AppendOnlySchema.Batch =
-    OracleSchema.schema.prepareData(dbDtos)
+  override def batch(
+      dbDtos: Vector[DbDto],
+      resolveStringInterningId: String => Int,
+  ): AppendOnlySchema.Batch =
+    OracleSchema.schema.prepareData(dbDtos, resolveStringInterningId)
 
   override def insertBatch(connection: Connection, batch: AppendOnlySchema.Batch): Unit =
     OracleSchema.schema.executeUpdate(batch, connection)
@@ -138,6 +144,7 @@ private[backend] object OracleStorageBackend
     override def arrayIntersectionNonEmptyClause(
         columnName: String,
         parties: Set[Ref.Party],
+        stringInterningCache: StringInterningCache,
     ): CompositeSql =
       cSQL"EXISTS (SELECT 1 FROM JSON_TABLE(#$columnName, '$$[*]' columns (value PATH '$$')) WHERE value IN (${parties
         .map(_.toString)}))"
@@ -160,6 +167,7 @@ private[backend] object OracleStorageBackend
     override def filteredEventWitnessesClause(
         witnessesColumnName: String,
         parties: Set[Ref.Party],
+        stringInterningCache: StringInterningCache,
     ): CompositeSql =
       if (parties.size == 1)
         cSQL"(json_array(${parties.head.toString}))"
@@ -173,19 +181,21 @@ private[backend] object OracleStorageBackend
     override def submittersArePartiesClause(
         submittersColumnName: String,
         parties: Set[Ref.Party],
+        stringInterningCache: StringInterningCache,
     ): CompositeSql =
-      cSQL"(${OracleQueryStrategy.arrayIntersectionNonEmptyClause(submittersColumnName, parties)})"
+      cSQL"(${OracleQueryStrategy.arrayIntersectionNonEmptyClause(submittersColumnName, parties, stringInterningCache)})"
 
     override def witnessesWhereClause(
         witnessesColumnName: String,
         filterParams: FilterParams,
+        stringInterningCache: StringInterningCache,
     ): CompositeSql = {
       val wildCardClause = filterParams.wildCardParties match {
         case wildCardParties if wildCardParties.isEmpty =>
           Nil
 
         case wildCardParties =>
-          cSQL"(${OracleQueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, wildCardParties)})" :: Nil
+          cSQL"(${OracleQueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, wildCardParties, stringInterningCache)})" :: Nil
       }
       val partiesTemplatesClauses =
         filterParams.partiesAndTemplates.iterator.map { case (parties, templateIds) =>
@@ -193,6 +203,7 @@ private[backend] object OracleStorageBackend
             OracleQueryStrategy.arrayIntersectionNonEmptyClause(
               witnessesColumnName,
               parties,
+              stringInterningCache,
             )
           cSQL"( ($clause) AND (template_id IN (${templateIds.map(_.toString)})) )"
         }.toList

@@ -10,12 +10,12 @@ import com.daml.platform.store.backend.common.{AppendOnlySchema, Field, Schema, 
 private[oracle] object OracleSchema {
   private val OracleFieldStrategy = new FieldStrategy {
     override def stringArray[FROM, _](
-        extractor: FROM => Iterable[String]
+        extractor: (String => Int) => FROM => Iterable[String]
     ): Field[FROM, Iterable[String], _] =
       OracleStringArray(extractor)
 
     override def stringArrayOptional[FROM, _](
-        extractor: FROM => Option[Iterable[String]]
+        extractor: (String => Int) => FROM => Option[Iterable[String]]
     ): Field[FROM, Option[Iterable[String]], _] =
       OracleStringArrayOptional(extractor)
 

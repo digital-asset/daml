@@ -29,7 +29,7 @@ import com.daml.scalautil.Statement.discard
 
 import scala.collection.mutable
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 
 private[index] object ReadOnlySqlLedgerWithMutableCache {
   final class Owner(
@@ -50,16 +50,24 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         context: ResourceContext
     ): Resource[ReadOnlySqlLedgerWithMutableCache] =
       for {
-        (ledgerEndOffset, ledgerEndSequentialId) <- Resource.fromFuture(
+        ledgerEnd <- Resource.fromFuture(
           ledgerDao.lookupLedgerEndOffsetAndSequentialId()
         )
+        _ <- Resource.fromFuture(
+          ledgerDao.updateStringInterningCache(ledgerEnd.lastStringInterningId)
+        )
+        _ = ledgerDao.updateLedgerEnd(ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId)
         prefetchingDispatcher <- dispatcherOffsetSeqIdOwner(
-          ledgerEndOffset,
-          ledgerEndSequentialId,
+          ledgerEnd.lastOffset,
+          ledgerEnd.lastEventSeqId,
         ).acquire()
-        generalDispatcher <- dispatcherOwner(ledgerEndOffset).acquire()
+        generalDispatcher <- dispatcherOwner(ledgerEnd.lastOffset).acquire()
         dispatcherLagMeter <- Resource.successful(
-          new DispatcherLagMeter(generalDispatcher.signalNewHead)(
+          new DispatcherLagMeter((offset, eventSeqId) => {
+            ledgerDao.updateLedgerEnd(offset, eventSeqId)
+            // the order here is very important: first we need to make stuff available for point-wise lookups and SQL queries, and only then we can make it available on the streams. (consider example: completion arrived on a stream, but the transaction cannot be looked up)
+            generalDispatcher.signalNewHead(offset)
+          })(
             metrics.daml.execution.cache.dispatcherLag
           )
         )
@@ -67,7 +75,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
           prefetchingDispatcher,
           generalDispatcher,
           dispatcherLagMeter,
-          ledgerEndOffset -> ledgerEndSequentialId,
+          ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId,
         ).acquire()
       } yield ledger
 
@@ -232,8 +240,8 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
   ) extends SignalNewLedgerHead {
     private val ledgerHeads = mutable.Map.empty[Offset, Long]
 
-    override def apply(offset: Offset): Unit = {
-      delegate(offset)
+    override def apply(offset: Offset, sequentialEventId: Long): Unit = {
+      delegate(offset, sequentialEventId)
       ledgerHeads.synchronized {
         ledgerHeads.remove(offset).foreach { startNanos =>
           val endNanos = System.nanoTime()
@@ -275,6 +283,9 @@ private final class ReadOnlySqlLedgerWithMutableCache(
       dispatcher,
     ) {
 
+  implicit private val ec: ExecutionContextExecutor =
+    mat.executionContext // TODO verify this is ok for the for comprehension below
+
   protected val (ledgerEndUpdateKillSwitch, ledgerEndUpdateDone) =
     RestartSource
       .withBackoff(
@@ -282,12 +293,19 @@ private final class ReadOnlySqlLedgerWithMutableCache(
       )(() =>
         Source
           .tick(0.millis, 100.millis, ())
-          .mapAsync(1)(_ => ledgerDao.lookupLedgerEndOffsetAndSequentialId())
+          .mapAsync(1)(_ =>
+            for {
+              ledgerEnd <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
+              _ <- ledgerDao.updateStringInterningCache(ledgerEnd.lastStringInterningId)
+            } yield ledgerEnd
+          )
       )
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .toMat(Sink.foreach { case newLedgerHead @ (offset, _) =>
-        dispatcherLagger.startTimer(offset)
-        contractStateEventsDispatcher.signalNewHead(newLedgerHead)
+      .toMat(Sink.foreach { ledgerEnd =>
+        dispatcherLagger.startTimer(ledgerEnd.lastOffset)
+        contractStateEventsDispatcher.signalNewHead(
+          ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId
+        )
       })(
         Keep.both[UniqueKillSwitch, Future[Done]]
       )

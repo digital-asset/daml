@@ -16,7 +16,7 @@ object DbDto {
       event_offset: Option[String],
       command_id: Option[String],
       workflow_id: Option[String],
-      application_id: Option[String],
+      application_id: Option[String], // TODO maybe intern?
       submitters: Option[Set[String]],
       contract_id: String,
       template_id: Option[String],
@@ -135,4 +135,5 @@ object DbDto {
 
   final case class CommandDeduplication(deduplication_key: String) extends DbDto
 
+  final case class StringInterning(id: Int, s: String) extends DbDto
 }

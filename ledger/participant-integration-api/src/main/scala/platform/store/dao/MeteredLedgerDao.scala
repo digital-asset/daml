@@ -19,6 +19,7 @@ import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.store.backend.ParameterStorageBackend
 import com.daml.platform.store.dao.events.TransactionsWriter
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.entries.{
@@ -49,7 +50,7 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
 
   def lookupLedgerEndOffsetAndSequentialId()(implicit
       loggingContext: LoggingContext
-  ): Future[(Offset, Long)] =
+  ): Future[ParameterStorageBackend.LedgerEnd] =
     Timed.future(
       metrics.daml.index.db.lookupLedgerEndSequentialId,
       ledgerDao.lookupLedgerEndOffsetAndSequentialId(),
@@ -148,6 +149,17 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       metrics.daml.index.db.prune,
       ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts),
     )
+
+  override def updateStringInterningCache(lastStringInterningId: Int)(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit] =
+    Timed.future(
+      metrics.daml.index.db.prune, // TODO fix metrics
+      ledgerDao.updateStringInterningCache(lastStringInterningId),
+    )
+
+  override def updateLedgerEnd(offset: Offset, eventSeqId: Long): Unit =
+    ledgerDao.updateLedgerEnd(offset, eventSeqId)
 }
 
 private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)

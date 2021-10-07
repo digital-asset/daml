@@ -52,13 +52,14 @@ case class SequentialWriteDaoImpl[DB_BATCH](
         .getOrElse(Vector.empty)
 
       dbDtos
-        .pipe(storageBackend.batch)
+        .pipe(storageBackend.batch(_, _ => 1)) // TODO add support for sandbox-classic
         .pipe(storageBackend.insertBatch(connection, _))
 
       storageBackend.updateLedgerEnd(
         ParameterStorageBackend.LedgerEnd(
           lastOffset = offset,
           lastEventSeqId = lastEventSeqId,
+          lastStringInterningId = 0, // TODO add support for sandbox-classic
         )
       )(connection)
     }

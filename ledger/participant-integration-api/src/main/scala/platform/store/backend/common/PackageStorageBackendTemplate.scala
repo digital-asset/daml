@@ -21,9 +21,9 @@ private[backend] trait PackageStorageBackendTemplate extends PackageStorageBacke
   private val SQL_SELECT_PACKAGES =
     SQL(
       """select packages.package_id, packages.source_description, packages.known_since, packages.package_size
-        |from packages, parameters
-        |where packages.ledger_offset <= parameters.ledger_end
-        |""".stripMargin
+        |from packages
+        |where packages.ledger_offset <= {ledgerEndOffset}
+        |""".stripMargin // TODO here the parameters join could be also removed, but not strictly needed for interning
     )
 
   private case class ParsedPackageData(
@@ -41,8 +41,9 @@ private[backend] trait PackageStorageBackendTemplate extends PackageStorageBacke
       "known_since",
     )
 
-  def lfPackages(connection: Connection): Map[PackageId, PackageDetails] =
+  def lfPackages(ledgerEndOffset: Offset)(connection: Connection): Map[PackageId, PackageDetails] =
     SQL_SELECT_PACKAGES
+      .on("ledgerEndOffset" -> ledgerEndOffset.toHexString.toString)
       .as(PackageDataParser.*)(connection)
       .map(d =>
         PackageId.assertFromString(d.packageId) -> PackageDetails(
@@ -54,17 +55,22 @@ private[backend] trait PackageStorageBackendTemplate extends PackageStorageBacke
       .toMap
 
   private val SQL_SELECT_PACKAGE =
-    SQL("""select packages.package
-          |from packages, parameters
+    SQL(
+      """select packages.package
+          |from packages
           |where package_id = {package_id}
-          |and packages.ledger_offset <= parameters.ledger_end
-          |""".stripMargin)
+          |and packages.ledger_offset <= {ledgerEndOffset}
+          |""".stripMargin
+    ) // TODO here the parameters join could be also removed, but not strictly needed for interning
 
-  def lfArchive(packageId: PackageId)(connection: Connection): Option[Array[Byte]] = {
+  def lfArchive(packageId: PackageId, ledgerEndOffset: Offset)(
+      connection: Connection
+  ): Option[Array[Byte]] = {
     import com.daml.platform.store.Conversions.packageIdToStatement
     SQL_SELECT_PACKAGE
       .on(
-        "package_id" -> packageId
+        "package_id" -> packageId,
+        "ledgerEndOffset" -> ledgerEndOffset.toHexString.toString,
       )
       .as[Option[Array[Byte]]](SqlParser.byteArray("package").singleOpt)(connection)
   }

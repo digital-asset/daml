@@ -34,6 +34,16 @@ object ComposableQuery {
         .SQL(valueParts: _*)
     }
 
+    def debugSQL(args: QueryPart*): SimpleSql[Row] = {
+      val (stringParts, valueParts) = flattenComposite(sc.parts, args)
+
+      println(s"DEBUG: ${stringParts.mkString("?")}")
+
+      anorm
+        .SqlStringInterpolation(StringContext(stringParts: _*))
+        .SQL(valueParts: _*)
+    }
+
     def cSQL(args: QueryPart*): CompositeSql = CompositeSql(sc.parts, args)
   }
 

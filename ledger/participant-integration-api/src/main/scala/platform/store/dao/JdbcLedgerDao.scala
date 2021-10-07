@@ -49,6 +49,7 @@ import com.daml.platform.indexer.{CurrentOffset, OffsetStep}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
+import com.daml.platform.store.backend.ParameterStorageBackend
 import com.daml.platform.store.dao.CommandCompletionsTable.prepareCompletionsDelete
 import com.daml.platform.store.dao.PersistenceResponse.Ok
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
@@ -59,6 +60,7 @@ import com.daml.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry,
 }
+import javax.naming.OperationNotSupportedException
 import scalaz.syntax.tag._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
@@ -133,7 +135,7 @@ private class JdbcLedgerDao(
     */
   override def lookupLedgerEndOffsetAndSequentialId()(implicit
       loggingContext: LoggingContext
-  ): Future[(Offset, Long)] =
+  ): Future[ParameterStorageBackend.LedgerEnd] =
     throw new UnsupportedOperationException("not supported")
 
   override def lookupInitialLedgerEnd()(implicit
@@ -1055,6 +1057,14 @@ private class JdbcLedgerDao(
       divulgedContracts,
     )
   }
+
+  override def updateStringInterningCache(lastStringInterningId: Int)(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit] =
+    throw new OperationNotSupportedException("not supported for the mutable schema")
+
+  override def updateLedgerEnd(offset: Offset, eventSeqId: Long): Unit =
+    throw new OperationNotSupportedException("not supported for the mutable schema")
 }
 
 private[platform] object JdbcLedgerDao {

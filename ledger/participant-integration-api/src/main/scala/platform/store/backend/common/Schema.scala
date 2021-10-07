@@ -10,7 +10,7 @@ import com.daml.platform.store.backend.DbDto
 import scala.reflect.ClassTag
 
 private[backend] trait Schema[FROM] {
-  def prepareData(in: Vector[FROM]): Array[Array[Array[_]]]
+  def prepareData(in: Vector[FROM], resolveStringInterningId: String => Int): Array[Array[Array[_]]]
   def executeUpdate(data: Array[Array[Array[_]]], connection: Connection): Unit
 }
 
@@ -19,47 +19,70 @@ private[backend] object AppendOnlySchema {
   type Batch = Array[Array[Array[_]]]
 
   private[backend] trait FieldStrategy {
-    def string[FROM, _](extractor: FROM => String): Field[FROM, String, _] =
+    def string[FROM, _](extractor: (String => Int) => FROM => String): Field[FROM, String, _] =
       StringField(extractor)
 
-    def stringOptional[FROM, _](extractor: FROM => Option[String]): Field[FROM, Option[String], _] =
+    def stringOptional[FROM, _](
+        extractor: (String => Int) => FROM => Option[String]
+    ): Field[FROM, Option[String], _] =
       StringOptional(extractor)
 
     def stringArray[FROM, _](
-        extractor: FROM => Iterable[String]
+        extractor: (String => Int) => FROM => Iterable[String]
     ): Field[FROM, Iterable[String], _] =
       StringArray(extractor)
 
     def stringArrayOptional[FROM, _](
-        extractor: FROM => Option[Iterable[String]]
+        extractor: (String => Int) => FROM => Option[Iterable[String]]
     ): Field[FROM, Option[Iterable[String]], _] =
       StringArrayOptional(extractor)
 
-    def bytea[FROM, _](extractor: FROM => Array[Byte]): Field[FROM, Array[Byte], _] =
+    def intArray[FROM, _](
+        extractor: (String => Int) => FROM => Iterable[Int]
+    ): Field[FROM, Iterable[Int], _] =
+      IntArray(extractor)
+
+    def intArrayOptional[FROM, _](
+        extractor: (String => Int) => FROM => Option[Iterable[Int]]
+    ): Field[FROM, Option[Iterable[Int]], _] =
+      IntArrayOptional(extractor)
+
+    def bytea[FROM, _](
+        extractor: (String => Int) => FROM => Array[Byte]
+    ): Field[FROM, Array[Byte], _] =
       Bytea(extractor)
 
     def byteaOptional[FROM, _](
-        extractor: FROM => Option[Array[Byte]]
+        extractor: (String => Int) => FROM => Option[Array[Byte]]
     ): Field[FROM, Option[Array[Byte]], _] =
       ByteaOptional(extractor)
 
-    def bigint[FROM, _](extractor: FROM => Long): Field[FROM, Long, _] =
+    def bigint[FROM, _](extractor: (String => Int) => FROM => Long): Field[FROM, Long, _] =
       Bigint(extractor)
 
-    def bigintOptional[FROM, _](extractor: FROM => Option[Long]): Field[FROM, Option[Long], _] =
+    def bigintOptional[FROM, _](
+        extractor: (String => Int) => FROM => Option[Long]
+    ): Field[FROM, Option[Long], _] =
       BigintOptional(extractor)
 
-    def smallintOptional[FROM, _](extractor: FROM => Option[Int]): Field[FROM, Option[Int], _] =
+    def smallintOptional[FROM, _](
+        extractor: (String => Int) => FROM => Option[Int]
+    ): Field[FROM, Option[Int], _] =
       SmallintOptional(extractor)
 
-    def intOptional[FROM, _](extractor: FROM => Option[Int]): Field[FROM, Option[Int], _] =
+    def int[FROM, _](extractor: (String => Int) => FROM => Int): Field[FROM, Int, _] =
+      Integer(extractor)
+
+    def intOptional[FROM, _](
+        extractor: (String => Int) => FROM => Option[Int]
+    ): Field[FROM, Option[Int], _] =
       IntOptional(extractor)
 
-    def boolean[FROM, _](extractor: FROM => Boolean): Field[FROM, Boolean, _] =
+    def boolean[FROM, _](extractor: (String => Int) => FROM => Boolean): Field[FROM, Boolean, _] =
       BooleanField(extractor)
 
     def booleanOptional[FROM, _](
-        extractor: FROM => Option[Boolean]
+        extractor: (String => Int) => FROM => Option[Boolean]
     ): Field[FROM, Option[Boolean], _] =
       BooleanOptional(extractor)
 
@@ -73,80 +96,110 @@ private[backend] object AppendOnlySchema {
   def apply(fieldStrategy: FieldStrategy): Schema[DbDto] = {
     val eventsDivulgence: Table[DbDto.EventDivulgence] =
       fieldStrategy.insert("participant_events_divulgence")(
-        "event_offset" -> fieldStrategy.stringOptional(_.event_offset),
-        "command_id" -> fieldStrategy.stringOptional(_.command_id),
-        "workflow_id" -> fieldStrategy.stringOptional(_.workflow_id),
-        "application_id" -> fieldStrategy.stringOptional(_.application_id),
-        "submitters" -> fieldStrategy.stringArrayOptional(_.submitters),
-        "contract_id" -> fieldStrategy.string(_.contract_id),
-        "template_id" -> fieldStrategy.stringOptional(_.template_id),
-        "tree_event_witnesses" -> fieldStrategy.stringArray(_.tree_event_witnesses),
-        "create_argument" -> fieldStrategy.byteaOptional(_.create_argument),
-        "event_sequential_id" -> fieldStrategy.bigint(_.event_sequential_id),
-        "create_argument_compression" -> fieldStrategy.smallintOptional(
+        "event_offset" -> fieldStrategy.stringOptional(_ => _.event_offset),
+        "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
+        "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
+        "application_id" -> fieldStrategy.stringOptional(_ => _.application_id),
+        "submitters" -> fieldStrategy.intArrayOptional(resolveStringInterningId =>
+          _.submitters.map(_.map(resolveStringInterningId))
+        ),
+        "contract_id" -> fieldStrategy.string(_ => _.contract_id),
+        "template_id" -> fieldStrategy.intOptional(resolveStringInterningId =>
+          _.template_id.map(resolveStringInterningId)
+        ),
+        "tree_event_witnesses" -> fieldStrategy.intArray(resolveStringInterningId =>
+          _.tree_event_witnesses.map(resolveStringInterningId)
+        ),
+        "create_argument" -> fieldStrategy.byteaOptional(_ => _.create_argument),
+        "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
+        "create_argument_compression" -> fieldStrategy.smallintOptional(_ =>
           _.create_argument_compression
         ),
       )
 
     val eventsCreate: Table[DbDto.EventCreate] =
       fieldStrategy.insert("participant_events_create")(
-        "event_offset" -> fieldStrategy.stringOptional(_.event_offset),
-        "transaction_id" -> fieldStrategy.stringOptional(_.transaction_id),
-        "ledger_effective_time" -> fieldStrategy.bigintOptional(_.ledger_effective_time),
-        "command_id" -> fieldStrategy.stringOptional(_.command_id),
-        "workflow_id" -> fieldStrategy.stringOptional(_.workflow_id),
-        "application_id" -> fieldStrategy.stringOptional(_.application_id),
-        "submitters" -> fieldStrategy.stringArrayOptional(_.submitters),
-        "node_index" -> fieldStrategy.intOptional(_.node_index),
-        "event_id" -> fieldStrategy.stringOptional(_.event_id),
-        "contract_id" -> fieldStrategy.string(_.contract_id),
-        "template_id" -> fieldStrategy.stringOptional(_.template_id),
-        "flat_event_witnesses" -> fieldStrategy.stringArray(_.flat_event_witnesses),
-        "tree_event_witnesses" -> fieldStrategy.stringArray(_.tree_event_witnesses),
-        "create_argument" -> fieldStrategy.byteaOptional(_.create_argument),
-        "create_signatories" -> fieldStrategy.stringArrayOptional(_.create_signatories),
-        "create_observers" -> fieldStrategy.stringArrayOptional(_.create_observers),
-        "create_agreement_text" -> fieldStrategy.stringOptional(_.create_agreement_text),
-        "create_key_value" -> fieldStrategy.byteaOptional(_.create_key_value),
-        "create_key_hash" -> fieldStrategy.stringOptional(_.create_key_hash),
-        "event_sequential_id" -> fieldStrategy.bigint(_.event_sequential_id),
-        "create_argument_compression" -> fieldStrategy.smallintOptional(
+        "event_offset" -> fieldStrategy.stringOptional(_ => _.event_offset),
+        "transaction_id" -> fieldStrategy.stringOptional(_ => _.transaction_id),
+        "ledger_effective_time" -> fieldStrategy.bigintOptional(_ => _.ledger_effective_time),
+        "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
+        "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
+        "application_id" -> fieldStrategy.stringOptional(_ => _.application_id),
+        "submitters" -> fieldStrategy.intArrayOptional(resolveStringInterningId =>
+          _.submitters.map(_.map(resolveStringInterningId))
+        ),
+        "node_index" -> fieldStrategy.intOptional(_ => _.node_index),
+        "event_id" -> fieldStrategy.stringOptional(_ => _.event_id),
+        "contract_id" -> fieldStrategy.string(_ => _.contract_id),
+        "template_id" -> fieldStrategy.intOptional(resolveStringInterningId =>
+          _.template_id.map(resolveStringInterningId)
+        ),
+        "flat_event_witnesses" -> fieldStrategy.intArray(resolveStringInterningId =>
+          _.flat_event_witnesses.map(resolveStringInterningId)
+        ),
+        "tree_event_witnesses" -> fieldStrategy.intArray(resolveStringInterningId =>
+          _.tree_event_witnesses.map(resolveStringInterningId)
+        ),
+        "create_argument" -> fieldStrategy.byteaOptional(_ => _.create_argument),
+        "create_signatories" -> fieldStrategy.intArrayOptional(resolveStringInterningId =>
+          _.create_signatories.map(_.map(resolveStringInterningId))
+        ),
+        "create_observers" -> fieldStrategy.intArrayOptional(resolveStringInterningId =>
+          _.create_observers.map(_.map(resolveStringInterningId))
+        ),
+        "create_agreement_text" -> fieldStrategy.stringOptional(_ => _.create_agreement_text),
+        "create_key_value" -> fieldStrategy.byteaOptional(_ => _.create_key_value),
+        "create_key_hash" -> fieldStrategy.stringOptional(_ => _.create_key_hash),
+        "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
+        "create_argument_compression" -> fieldStrategy.smallintOptional(_ =>
           _.create_argument_compression
         ),
-        "create_key_value_compression" -> fieldStrategy.smallintOptional(
+        "create_key_value_compression" -> fieldStrategy.smallintOptional(_ =>
           _.create_key_value_compression
         ),
       )
 
     val exerciseFields: Vector[(String, Field[DbDto.EventExercise, _, _])] =
       Vector[(String, Field[DbDto.EventExercise, _, _])](
-        "event_id" -> fieldStrategy.stringOptional(_.event_id),
-        "event_offset" -> fieldStrategy.stringOptional(_.event_offset),
-        "contract_id" -> fieldStrategy.string(_.contract_id),
-        "transaction_id" -> fieldStrategy.stringOptional(_.transaction_id),
-        "ledger_effective_time" -> fieldStrategy.bigintOptional(_.ledger_effective_time),
-        "node_index" -> fieldStrategy.intOptional(_.node_index),
-        "command_id" -> fieldStrategy.stringOptional(_.command_id),
-        "workflow_id" -> fieldStrategy.stringOptional(_.workflow_id),
-        "application_id" -> fieldStrategy.stringOptional(_.application_id),
-        "submitters" -> fieldStrategy.stringArrayOptional(_.submitters),
-        "create_key_value" -> fieldStrategy.byteaOptional(_.create_key_value),
-        "exercise_choice" -> fieldStrategy.stringOptional(_.exercise_choice),
-        "exercise_argument" -> fieldStrategy.byteaOptional(_.exercise_argument),
-        "exercise_result" -> fieldStrategy.byteaOptional(_.exercise_result),
-        "exercise_actors" -> fieldStrategy.stringArrayOptional(_.exercise_actors),
-        "exercise_child_event_ids" -> fieldStrategy.stringArrayOptional(_.exercise_child_event_ids),
-        "template_id" -> fieldStrategy.stringOptional(_.template_id),
-        "flat_event_witnesses" -> fieldStrategy.stringArray(_.flat_event_witnesses),
-        "tree_event_witnesses" -> fieldStrategy.stringArray(_.tree_event_witnesses),
-        "event_sequential_id" -> fieldStrategy.bigint(_.event_sequential_id),
-        "create_key_value_compression" -> fieldStrategy.smallintOptional(
+        "event_id" -> fieldStrategy.stringOptional(_ => _.event_id),
+        "event_offset" -> fieldStrategy.stringOptional(_ => _.event_offset),
+        "contract_id" -> fieldStrategy.string(_ => _.contract_id),
+        "transaction_id" -> fieldStrategy.stringOptional(_ => _.transaction_id),
+        "ledger_effective_time" -> fieldStrategy.bigintOptional(_ => _.ledger_effective_time),
+        "node_index" -> fieldStrategy.intOptional(_ => _.node_index),
+        "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
+        "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
+        "application_id" -> fieldStrategy.stringOptional(_ => _.application_id),
+        "submitters" -> fieldStrategy.intArrayOptional(resolveStringInterningId =>
+          _.submitters.map(_.map(resolveStringInterningId))
+        ),
+        "create_key_value" -> fieldStrategy.byteaOptional(_ => _.create_key_value),
+        "exercise_choice" -> fieldStrategy.stringOptional(_ => _.exercise_choice),
+        "exercise_argument" -> fieldStrategy.byteaOptional(_ => _.exercise_argument),
+        "exercise_result" -> fieldStrategy.byteaOptional(_ => _.exercise_result),
+        "exercise_actors" -> fieldStrategy.intArrayOptional(resolveStringInterningId =>
+          _.exercise_actors.map(_.map(resolveStringInterningId))
+        ),
+        "exercise_child_event_ids" -> fieldStrategy.stringArrayOptional(_ =>
+          _.exercise_child_event_ids
+        ),
+        "template_id" -> fieldStrategy.intOptional(resolveStringInterningId =>
+          _.template_id.map(resolveStringInterningId)
+        ),
+        "flat_event_witnesses" -> fieldStrategy.intArray(resolveStringInterningId =>
+          _.flat_event_witnesses.map(resolveStringInterningId)
+        ),
+        "tree_event_witnesses" -> fieldStrategy.intArray(resolveStringInterningId =>
+          _.tree_event_witnesses.map(resolveStringInterningId)
+        ),
+        "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
+        "create_key_value_compression" -> fieldStrategy.smallintOptional(_ =>
           _.create_key_value_compression
         ),
-        "exercise_argument_compression" -> fieldStrategy.smallintOptional(
+        "exercise_argument_compression" -> fieldStrategy.smallintOptional(_ =>
           _.exercise_argument_compression
         ),
-        "exercise_result_compression" -> fieldStrategy.smallintOptional(
+        "exercise_result_compression" -> fieldStrategy.smallintOptional(_ =>
           _.exercise_result_compression
         ),
       )
@@ -159,21 +212,21 @@ private[backend] object AppendOnlySchema {
 
     val configurationEntries: Table[DbDto.ConfigurationEntry] =
       fieldStrategy.insert("configuration_entries")(
-        "ledger_offset" -> fieldStrategy.string(_.ledger_offset),
-        "recorded_at" -> fieldStrategy.bigint(_.recorded_at),
-        "submission_id" -> fieldStrategy.string(_.submission_id),
-        "typ" -> fieldStrategy.string(_.typ),
-        "configuration" -> fieldStrategy.bytea(_.configuration),
-        "rejection_reason" -> fieldStrategy.stringOptional(_.rejection_reason),
+        "ledger_offset" -> fieldStrategy.string(_ => _.ledger_offset),
+        "recorded_at" -> fieldStrategy.bigint(_ => _.recorded_at),
+        "submission_id" -> fieldStrategy.string(_ => _.submission_id),
+        "typ" -> fieldStrategy.string(_ => _.typ),
+        "configuration" -> fieldStrategy.bytea(_ => _.configuration),
+        "rejection_reason" -> fieldStrategy.stringOptional(_ => _.rejection_reason),
       )
 
     val packageEntries: Table[DbDto.PackageEntry] =
       fieldStrategy.insert("package_entries")(
-        "ledger_offset" -> fieldStrategy.string(_.ledger_offset),
-        "recorded_at" -> fieldStrategy.bigint(_.recorded_at),
-        "submission_id" -> fieldStrategy.stringOptional(_.submission_id),
-        "typ" -> fieldStrategy.string(_.typ),
-        "rejection_reason" -> fieldStrategy.stringOptional(_.rejection_reason),
+        "ledger_offset" -> fieldStrategy.string(_ => _.ledger_offset),
+        "recorded_at" -> fieldStrategy.bigint(_ => _.recorded_at),
+        "submission_id" -> fieldStrategy.stringOptional(_ => _.submission_id),
+        "typ" -> fieldStrategy.string(_ => _.typ),
+        "rejection_reason" -> fieldStrategy.stringOptional(_ => _.rejection_reason),
       )
 
     val packages: Table[DbDto.Package] =
@@ -181,50 +234,63 @@ private[backend] object AppendOnlySchema {
         tableName = "packages",
         keyFieldIndex = 0,
       )(
-        "package_id" -> fieldStrategy.string(_.package_id),
-        "upload_id" -> fieldStrategy.string(_.upload_id),
-        "source_description" -> fieldStrategy.stringOptional(_.source_description),
-        "package_size" -> fieldStrategy.bigint(_.package_size),
-        "known_since" -> fieldStrategy.bigint(_.known_since),
-        "ledger_offset" -> fieldStrategy.string(_.ledger_offset),
-        "package" -> fieldStrategy.bytea(_._package),
+        "package_id" -> fieldStrategy.string(_ => _.package_id),
+        "upload_id" -> fieldStrategy.string(_ => _.upload_id),
+        "source_description" -> fieldStrategy.stringOptional(_ => _.source_description),
+        "package_size" -> fieldStrategy.bigint(_ => _.package_size),
+        "known_since" -> fieldStrategy.bigint(_ => _.known_since),
+        "ledger_offset" -> fieldStrategy.string(_ => _.ledger_offset),
+        "package" -> fieldStrategy.bytea(_ => _._package),
       )
 
     val partyEntries: Table[DbDto.PartyEntry] =
       fieldStrategy.insert("party_entries")(
-        "ledger_offset" -> fieldStrategy.string(_.ledger_offset),
-        "recorded_at" -> fieldStrategy.bigint(_.recorded_at),
-        "submission_id" -> fieldStrategy.stringOptional(_.submission_id),
-        "party" -> fieldStrategy.stringOptional(_.party),
-        "display_name" -> fieldStrategy.stringOptional(_.display_name),
-        "typ" -> fieldStrategy.string(_.typ),
-        "rejection_reason" -> fieldStrategy.stringOptional(_.rejection_reason),
-        "is_local" -> fieldStrategy.booleanOptional(_.is_local),
+        "ledger_offset" -> fieldStrategy.string(_ => _.ledger_offset),
+        "recorded_at" -> fieldStrategy.bigint(_ => _.recorded_at),
+        "submission_id" -> fieldStrategy.stringOptional(_ => _.submission_id),
+        "party" -> fieldStrategy.stringOptional(_ => _.party),
+        "display_name" -> fieldStrategy.stringOptional(_ => _.display_name),
+        "typ" -> fieldStrategy.string(_ => _.typ),
+        "rejection_reason" -> fieldStrategy.stringOptional(_ => _.rejection_reason),
+        "is_local" -> fieldStrategy.booleanOptional(_ => _.is_local),
+        "party_id" -> fieldStrategy.intOptional(resolveStringInterningId =>
+          _.party.map(resolveStringInterningId)
+        ), // TODO maybe just keep this and drop the string party entirely?
       )
 
     val commandCompletions: Table[DbDto.CommandCompletion] =
       fieldStrategy.insert("participant_command_completions")(
-        "completion_offset" -> fieldStrategy.string(_.completion_offset),
-        "record_time" -> fieldStrategy.bigint(_.record_time),
-        "application_id" -> fieldStrategy.string(_.application_id),
-        "submitters" -> fieldStrategy.stringArray(_.submitters),
-        "command_id" -> fieldStrategy.string(_.command_id),
-        "transaction_id" -> fieldStrategy.stringOptional(_.transaction_id),
-        "rejection_status_code" -> fieldStrategy.intOptional(_.rejection_status_code),
-        "rejection_status_message" -> fieldStrategy.stringOptional(_.rejection_status_message),
-        "rejection_status_details" -> fieldStrategy.byteaOptional(_.rejection_status_details),
-        "submission_id" -> fieldStrategy.stringOptional(_.submission_id),
-        "deduplication_offset" -> fieldStrategy.stringOptional(_.deduplication_offset),
-        "deduplication_duration_seconds" -> fieldStrategy.bigintOptional(
+        "completion_offset" -> fieldStrategy.string(_ => _.completion_offset),
+        "record_time" -> fieldStrategy.bigint(_ => _.record_time),
+        "application_id" -> fieldStrategy.string(_ => _.application_id),
+        "submitters" -> fieldStrategy.intArray(resolveStringInterningId =>
+          _.submitters.map(resolveStringInterningId)
+        ),
+        "command_id" -> fieldStrategy.string(_ => _.command_id),
+        "transaction_id" -> fieldStrategy.stringOptional(_ => _.transaction_id),
+        "rejection_status_code" -> fieldStrategy.intOptional(_ => _.rejection_status_code),
+        "rejection_status_message" -> fieldStrategy.stringOptional(_ => _.rejection_status_message),
+        "rejection_status_details" -> fieldStrategy.byteaOptional(_ => _.rejection_status_details),
+        "submission_id" -> fieldStrategy.stringOptional(_ => _.submission_id),
+        "deduplication_offset" -> fieldStrategy.stringOptional(_ => _.deduplication_offset),
+        "deduplication_duration_seconds" -> fieldStrategy.bigintOptional(_ =>
           _.deduplication_duration_seconds
         ),
-        "deduplication_duration_nanos" -> fieldStrategy.intOptional(_.deduplication_duration_nanos),
-        "deduplication_start" -> fieldStrategy.bigintOptional(_.deduplication_start),
+        "deduplication_duration_nanos" -> fieldStrategy.intOptional(_ =>
+          _.deduplication_duration_nanos
+        ),
+        "deduplication_start" -> fieldStrategy.bigintOptional(_ => _.deduplication_start),
       )
 
     val commandSubmissionDeletes: Table[DbDto.CommandDeduplication] =
       fieldStrategy.delete("participant_command_submissions")(
-        "deduplication_key" -> fieldStrategy.string(_.deduplication_key)
+        "deduplication_key" -> fieldStrategy.string(_ => _.deduplication_key)
+      )
+
+    val stringInterning: Table[DbDto.StringInterning] =
+      fieldStrategy.insert("string_interning")(
+        "id" -> fieldStrategy.int(_ => _.id),
+        "s" -> fieldStrategy.string(_ => _.s),
       )
 
     val executes: Seq[Array[Array[_]] => Connection => Unit] = List(
@@ -238,25 +304,33 @@ private[backend] object AppendOnlySchema {
       partyEntries.executeUpdate,
       commandCompletions.executeUpdate,
       commandSubmissionDeletes.executeUpdate,
+      stringInterning.executeUpdate,
     )
 
     new Schema[DbDto] {
-      override def prepareData(in: Vector[DbDto]): Array[Array[Array[_]]] = {
+      override def prepareData(
+          in: Vector[DbDto],
+          resolveStringInterningId: String => Int,
+      ): Array[Array[Array[_]]] = {
         def collectWithFilter[T <: DbDto: ClassTag](filter: T => Boolean): Vector[T] =
           in.collect { case dbDto: T if filter(dbDto) => dbDto }
         def collect[T <: DbDto: ClassTag]: Vector[T] = collectWithFilter[T](_ => true)
         import DbDto._
         Array(
-          eventsDivulgence.prepareData(collect[EventDivulgence]),
-          eventsCreate.prepareData(collect[EventCreate]),
-          eventsConsumingExercise.prepareData(collectWithFilter[EventExercise](_.consuming)),
-          eventsNonConsumingExercise.prepareData(collectWithFilter[EventExercise](!_.consuming)),
-          configurationEntries.prepareData(collect[ConfigurationEntry]),
-          packageEntries.prepareData(collect[PackageEntry]),
-          packages.prepareData(collect[Package]),
-          partyEntries.prepareData(collect[PartyEntry]),
-          commandCompletions.prepareData(collect[CommandCompletion]),
-          commandSubmissionDeletes.prepareData(collect[CommandDeduplication]),
+          eventsDivulgence.prepareData(collect[EventDivulgence], resolveStringInterningId),
+          eventsCreate.prepareData(collect[EventCreate], resolveStringInterningId),
+          eventsConsumingExercise
+            .prepareData(collectWithFilter[EventExercise](_.consuming), resolveStringInterningId),
+          eventsNonConsumingExercise
+            .prepareData(collectWithFilter[EventExercise](!_.consuming), resolveStringInterningId),
+          configurationEntries.prepareData(collect[ConfigurationEntry], resolveStringInterningId),
+          packageEntries.prepareData(collect[PackageEntry], resolveStringInterningId),
+          packages.prepareData(collect[Package], resolveStringInterningId),
+          partyEntries.prepareData(collect[PartyEntry], resolveStringInterningId),
+          commandCompletions.prepareData(collect[CommandCompletion], resolveStringInterningId),
+          commandSubmissionDeletes
+            .prepareData(collect[CommandDeduplication], resolveStringInterningId),
+          stringInterning.prepareData(collect[StringInterning], resolveStringInterningId),
         )
       }
 

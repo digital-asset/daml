@@ -26,12 +26,10 @@ private[backend] trait ConfigurationStorageBackendTemplate extends Configuration
       |    configuration_entries.configuration,
       |    configuration_entries.rejection_reason
       |  from
-      |    configuration_entries,
-      |    parameters
+      |    configuration_entries
       |  where
       |    ({startExclusive} is null or ledger_offset>{startExclusive}) and
-      |    ledger_offset <= {endInclusive} and
-      |    parameters.ledger_end >= ledger_offset
+      |    ledger_offset <= {endInclusive}
       |  order by ledger_offset asc
       |  offset {queryOffset} rows
       |  fetch next {pageSize} rows only
@@ -47,11 +45,10 @@ private[backend] trait ConfigurationStorageBackendTemplate extends Configuration
        |    configuration_entries.configuration,
        |    configuration_entries.rejection_reason
        |  from
-       |    configuration_entries,
-       |    parameters
+       |    configuration_entries
        |  where
        |    configuration_entries.typ = '$acceptType' and
-       |    parameters.ledger_end >= ledger_offset
+       |    {ledger_end_offset} >= ledger_offset
        |  order by ledger_offset desc
        |  fetch next 1 row only""".stripMargin
   )
@@ -86,9 +83,11 @@ private[backend] trait ConfigurationStorageBackendTemplate extends Configuration
           })
       }
 
-  def ledgerConfiguration(connection: Connection): Option[(Offset, Configuration)] =
+  def ledgerConfiguration(
+      ledgerEndOffset: Offset
+  )(connection: Connection): Option[(Offset, Configuration)] =
     SQL_GET_LATEST_CONFIGURATION_ENTRY
-      .on()
+      .on("ledger_end_offset" -> ledgerEndOffset.toHexString.toString)
       .asVectorOf(configurationEntryParser)(connection)
       .collectFirst { case (offset, ConfigurationEntry.Accepted(_, configuration)) =>
         offset -> configuration

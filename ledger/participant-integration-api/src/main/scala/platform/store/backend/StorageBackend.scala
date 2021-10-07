@@ -22,6 +22,7 @@ import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
 import com.daml.platform.store.backend.h2.H2StorageBackend
 import com.daml.platform.store.backend.oracle.OracleStorageBackend
 import com.daml.platform.store.backend.postgresql.{PostgresDataSourceConfig, PostgresStorageBackend}
+import com.daml.platform.store.cache.StringInterningCache
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.scalautil.NeverEqualsOverride
@@ -49,7 +50,8 @@ trait StorageBackend[DB_BATCH]
     with EventStorageBackend
     with DataSourceStorageBackend
     with DBLockStorageBackend
-    with IntegrityStorageBackend {
+    with IntegrityStorageBackend
+    with StringInterningStorageBackend {
 
   /** Truncates all storage backend tables, EXCEPT the packages table.
     * Does not touch other tables, like the Flyway history table.
@@ -73,8 +75,9 @@ trait IngestionStorageBackend[DB_BATCH] {
     *
     * @param dbDtos is a collection of DbDto from which the batch is formed
     * @return the database-specific batch DTO, which can be inserted via insertBatch
+    *         // TODO FIX scaladoc
     */
-  def batch(dbDtos: Vector[DbDto]): DB_BATCH
+  def batch(dbDtos: Vector[DbDto], resolveStringInterningId: String => Int): DB_BATCH
 
   /** Using a JDBC connection, a batch will be inserted into the database.
     * No significant CPU load, mostly blocking JDBC communication with the database backend.
@@ -121,7 +124,11 @@ trait ParameterStorageBackend {
     */
   final def ledgerEndOrBeforeBegin(connection: Connection): ParameterStorageBackend.LedgerEnd =
     ledgerEnd(connection).getOrElse(
-      ParameterStorageBackend.LedgerEnd(Offset.beforeBegin, EventSequentialId.beforeBegin)
+      ParameterStorageBackend.LedgerEnd(
+        Offset.beforeBegin,
+        EventSequentialId.beforeBegin,
+        0,
+      ) // TODO constantify
     )
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
@@ -153,12 +160,14 @@ trait ParameterStorageBackend {
 }
 
 object ParameterStorageBackend {
-  case class LedgerEnd(lastOffset: Offset, lastEventSeqId: Long)
+  case class LedgerEnd(lastOffset: Offset, lastEventSeqId: Long, lastStringInterningId: Int)
   case class IdentityParams(ledgerId: LedgerId, participantId: ParticipantId)
 }
 
 trait ConfigurationStorageBackend {
-  def ledgerConfiguration(connection: Connection): Option[(Offset, Configuration)]
+  def ledgerConfiguration(ledgerEndOffset: Offset)(
+      connection: Connection
+  ): Option[(Offset, Configuration)]
   def configurationEntries(
       startExclusive: Offset,
       endInclusive: Offset,
@@ -174,14 +183,20 @@ trait PartyStorageBackend {
       pageSize: Int,
       queryOffset: Long,
   )(connection: Connection): Vector[(Offset, PartyLedgerEntry)]
-  def parties(parties: Seq[Ref.Party])(connection: Connection): List[PartyDetails]
-  def knownParties(connection: Connection): List[PartyDetails]
+  def parties(parties: Seq[Ref.Party], ledgerEndOffset: Offset)(
+      connection: Connection
+  ): List[PartyDetails]
+  def knownParties(ledgerEndOffset: Offset)(connection: Connection): List[PartyDetails]
 }
 
 trait PackageStorageBackend {
-  def lfPackages(connection: Connection): Map[Ref.PackageId, PackageDetails]
+  def lfPackages(ledgerEndOffset: Offset)(
+      connection: Connection
+  ): Map[Ref.PackageId, PackageDetails]
 
-  def lfArchive(packageId: Ref.PackageId)(connection: Connection): Option[Array[Byte]]
+  def lfArchive(packageId: Ref.PackageId, ledgerEndOffset: Offset)(
+      connection: Connection
+  ): Option[Array[Byte]]
 
   def packageEntries(
       startExclusive: Offset,
@@ -208,6 +223,7 @@ trait CompletionStorageBackend {
       endInclusive: Offset,
       applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
+      stringInterningCache: StringInterningCache,
   )(connection: Connection): List[CompletionStreamResponse]
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
@@ -218,22 +234,51 @@ trait CompletionStorageBackend {
 }
 
 trait ContractStorageBackend {
-  def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId]
-  def maximumLedgerTime(ids: Set[ContractId])(connection: Connection): Try[Option[Instant]]
-  def keyState(key: Key, validAt: Long)(connection: Connection): KeyState
-  def contractState(contractId: ContractId, before: Long)(
+  def contractKeyGlobally(key: Key, validAt: Long)(connection: Connection): Option[ContractId]
+  def maximumLedgerTime(ids: Set[ContractId], lastEventSequentialId: Long)(
+      connection: Connection
+  ): Try[Option[Instant]]
+  def keyState(
+      key: Key,
+      validAt: Long,
+      stringInterningCache: StringInterningCache,
+  )(connection: Connection): KeyState
+  def contractState(
+      contractId: ContractId,
+      before: Long,
+      stringInterningCache: StringInterningCache,
+  )(
       connection: Connection
   ): Option[StorageBackend.RawContractState]
-  def activeContractWithArgument(readers: Set[Ref.Party], contractId: ContractId)(
+  def activeContractWithArgument(
+      readers: Set[Ref.Party],
+      contractId: ContractId,
+      lastEventSequentialId: Long,
+      stringInterningCache: StringInterningCache,
+  )(
       connection: Connection
   ): Option[StorageBackend.RawContract]
-  def activeContractWithoutArgument(readers: Set[Ref.Party], contractId: ContractId)(
+  def activeContractWithoutArgument(
+      readers: Set[Ref.Party],
+      contractId: ContractId,
+      lastEventSequentialId: Long,
+      stringInterningCache: StringInterningCache,
+  )(
       connection: Connection
   ): Option[String]
-  def contractKey(readers: Set[Ref.Party], key: Key)(
+  def contractKey(
+      readers: Set[Ref.Party],
+      key: Key,
+      validAt: Long,
+      stringInterningCache: StringInterningCache,
+  )(
       connection: Connection
   ): Option[ContractId]
-  def contractStateEvents(startExclusive: Long, endInclusive: Long)(
+  def contractStateEvents(
+      startExclusive: Long,
+      endInclusive: Long,
+      stringInterningCache: StringInterningCache,
+  )(
       connection: Connection
   ): Vector[StorageBackend.RawContractStateEvent]
 }
@@ -254,28 +299,39 @@ trait EventStorageBackend {
   def transactionEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,
+      stringInterningCache: StringInterningCache,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
   def activeContractEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,
       endInclusiveOffset: Offset,
+      stringInterningCache: StringInterningCache,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
   def flatTransaction(
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,
+      ledgerEndOffset: Offset,
+      stringInterningCache: StringInterningCache,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
   def transactionTreeEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,
+      stringInterningCache: StringInterningCache,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]]
   def transactionTree(
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,
+      ledgerEndOffset: Offset,
+      stringInterningCache: StringInterningCache,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]]
 
   /** Max event sequential id of observable (create, consuming and nonconsuming exercise) events. */
   def maxEventSequentialIdOfAnObservableEvent(offset: Offset)(connection: Connection): Option[Long]
-  def rawEvents(startExclusive: Long, endInclusive: Long)(
+  def rawEvents(
+      startExclusive: Long,
+      endInclusive: Long,
+      stringInterningCache: StringInterningCache,
+  )(
       connection: Connection
   ): Vector[RawTransactionEvent]
 }
@@ -350,6 +406,12 @@ trait IntegrityStorageBackend {
     * It is not expected that it is used during regular index/indexer operation.
     */
   def verifyIntegrity()(connection: Connection): Unit
+}
+
+trait StringInterningStorageBackend {
+  def loadStringInterningEntries(fromIdExclusive: Int, untilIdInclusive: Int)(
+      connection: Connection
+  ): Iterable[(Int, String)]
 }
 
 object StorageBackend {

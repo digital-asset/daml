@@ -110,6 +110,7 @@ trait PartyStorageBackendTemplate extends PartyStorageBackend {
   private def queryParties(
       parties: Option[Set[String]],
       connection: Connection,
+      ledgerEndOffset: Offset,
   ): Vector[PartyDetails] = {
     val partyFilter = parties match {
       case Some(requestedParties) => cSQL"party_entries.party in ($requestedParties) AND"
@@ -121,9 +122,9 @@ trait PartyStorageBackendTemplate extends PartyStorageBackend {
             party,
             max(ledger_offset) ledger_offset,
             #${queryStrategy.booleanOrAggregationFunction}(is_local) is_local
-          FROM party_entries, parameters
+          FROM party_entries
           WHERE
-            ledger_offset <= parameters.ledger_end AND
+            ledger_offset <= ${ledgerEndOffset.toHexString.toString} AND
             $partyFilter
             typ = 'accept'
           GROUP BY party
@@ -135,13 +136,17 @@ trait PartyStorageBackendTemplate extends PartyStorageBackend {
         FROM party_entries INNER JOIN relevant_offsets ON
           party_entries.party = relevant_offsets.party AND
           party_entries.ledger_offset = relevant_offsets.ledger_offset
-       """.asVectorOf(partyDetailsParser)(connection)
+       """.asVectorOf(partyDetailsParser)(
+      connection
+    ) // TODO here the parameters join could be also removed, but not strictly needed for interning (in fact we have all the parties in cache, so would be worth revisiting potential improvements here)
   }
 
-  override def parties(parties: Seq[Ref.Party])(connection: Connection): List[PartyDetails] =
-    queryParties(Some(parties.view.map(_.toString).toSet), connection).toList
+  override def parties(parties: Seq[Ref.Party], ledgerEndOffset: Offset)(
+      connection: Connection
+  ): List[PartyDetails] =
+    queryParties(Some(parties.view.map(_.toString).toSet), connection, ledgerEndOffset).toList
 
-  override def knownParties(connection: Connection): List[PartyDetails] =
-    queryParties(None, connection).toList
+  override def knownParties(ledgerEndOffset: Offset)(connection: Connection): List[PartyDetails] =
+    queryParties(None, connection, ledgerEndOffset).toList
 
 }

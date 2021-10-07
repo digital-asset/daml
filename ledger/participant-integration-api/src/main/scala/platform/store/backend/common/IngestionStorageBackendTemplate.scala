@@ -24,6 +24,7 @@ private[backend] trait IngestionStorageBackendTemplate[DB_BATCH]
         "DELETE FROM participant_events_non_consuming_exercise WHERE event_offset > {ledger_offset}"
       ),
       SQL("DELETE FROM party_entries WHERE ledger_offset > {ledger_offset}"),
+      SQL("DELETE FROM string_interning WHERE id > {last_string_interning_id}"),
     )
 
   override def deletePartiallyIngestedData(
@@ -34,6 +35,7 @@ private[backend] trait IngestionStorageBackendTemplate[DB_BATCH]
         import com.daml.platform.store.Conversions.OffsetToStatement
         query
           .on("ledger_offset" -> existingLedgerEnd.lastOffset)
+          .on("ledger_offset" -> existingLedgerEnd.lastStringInterningId)
           .execute()(connection)
         ()
       }

@@ -29,6 +29,7 @@ import com.daml.platform.store.backend.common.{
   ParameterStorageBackendTemplate,
   PartyStorageBackendTemplate,
   QueryStrategy,
+  StringInterningStorageBackendTemplate,
   Timestamp,
 }
 import com.daml.platform.store.backend.{
@@ -39,6 +40,7 @@ import com.daml.platform.store.backend.{
   common,
 }
 
+import com.daml.platform.store.cache.StringInterningCache
 import javax.sql.DataSource
 import scala.util.control.NonFatal
 
@@ -54,7 +56,8 @@ private[backend] object H2StorageBackend
     with ContractStorageBackendTemplate
     with CompletionStorageBackendTemplate
     with PartyStorageBackendTemplate
-    with IntegrityStorageBackendTemplate {
+    with IntegrityStorageBackendTemplate
+    with StringInterningStorageBackendTemplate {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -131,8 +134,11 @@ private[backend] object H2StorageBackend
     )
   }
 
-  override def batch(dbDtos: Vector[DbDto]): AppendOnlySchema.Batch =
-    H2Schema.schema.prepareData(dbDtos)
+  override def batch(
+      dbDtos: Vector[DbDto],
+      resolveStringInterningId: String => Int,
+  ): AppendOnlySchema.Batch =
+    H2Schema.schema.prepareData(dbDtos, resolveStringInterningId)
 
   override def insertBatch(connection: Connection, batch: AppendOnlySchema.Batch): Unit =
     H2Schema.schema.executeUpdate(batch, connection)
@@ -159,6 +165,7 @@ FETCH NEXT 1 ROW ONLY;
     override def arrayIntersectionNonEmptyClause(
         columnName: String,
         parties: Set[Ref.Party],
+        stringInterningCache: StringInterningCache,
     ): CompositeSql =
       if (parties.isEmpty)
         cSQL"false"
@@ -179,6 +186,7 @@ FETCH NEXT 1 ROW ONLY;
     override def filteredEventWitnessesClause(
         witnessesColumnName: String,
         parties: Set[Ref.Party],
+        stringInterningCache: StringInterningCache,
     ): CompositeSql = {
       val partiesArray = parties.view.map(_.toString).toArray
       cSQL"array_intersection(#$witnessesColumnName, $partiesArray)"
@@ -187,22 +195,25 @@ FETCH NEXT 1 ROW ONLY;
     override def submittersArePartiesClause(
         submittersColumnName: String,
         parties: Set[Ref.Party],
+        stringInterningCache: StringInterningCache,
     ): CompositeSql =
       H2QueryStrategy.arrayIntersectionNonEmptyClause(
         columnName = submittersColumnName,
         parties = parties,
+        stringInterningCache = stringInterningCache,
       )
 
     override def witnessesWhereClause(
         witnessesColumnName: String,
         filterParams: FilterParams,
+        stringInterningCache: StringInterningCache,
     ): CompositeSql = {
       val wildCardClause = filterParams.wildCardParties match {
         case wildCardParties if wildCardParties.isEmpty =>
           Nil
 
         case wildCardParties =>
-          cSQL"(${H2QueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, wildCardParties)})" :: Nil
+          cSQL"(${H2QueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, wildCardParties, stringInterningCache)})" :: Nil
       }
       val partiesTemplatesClauses =
         filterParams.partiesAndTemplates.iterator.map { case (parties, templateIds) =>
@@ -210,6 +221,7 @@ FETCH NEXT 1 ROW ONLY;
             H2QueryStrategy.arrayIntersectionNonEmptyClause(
               witnessesColumnName,
               parties,
+              stringInterningCache,
             )
           val templateIdsArray = templateIds.view.map(_.toString).toArray
           cSQL"( ($clause) AND (template_id = ANY($templateIdsArray)) )"
@@ -278,7 +290,10 @@ FETCH NEXT 1 ROW ONLY;
       connection: Connection,
   ): Unit = ()
 
-  override def maximumLedgerTimeSqlLiteral(id: ContractId): SimpleSql[Row] = {
+  override def maximumLedgerTimeSqlLiteral(
+      id: ContractId,
+      lastEventSequentialId: Long,
+  ): SimpleSql[Row] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
     SQL"""
   WITH archival_event AS (
@@ -321,6 +336,7 @@ FETCH NEXT 1 ROW ONLY;
       treeEventWitnessesClause: CompositeSql,
       resultColumns: List[String],
       coalescedColumns: String,
+      lastEventSequentialId: Long,
   ): SimpleSql[Row] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
     SQL"""  WITH archival_event AS (

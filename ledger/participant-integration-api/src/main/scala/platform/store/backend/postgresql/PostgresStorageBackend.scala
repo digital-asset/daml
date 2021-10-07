@@ -30,6 +30,7 @@ import com.daml.platform.store.backend.common.{
   ParameterStorageBackendTemplate,
   PartyStorageBackendTemplate,
   QueryStrategy,
+  StringInterningStorageBackendTemplate,
   Timestamp,
 }
 import com.daml.platform.store.backend.{
@@ -39,6 +40,7 @@ import com.daml.platform.store.backend.{
   StorageBackend,
   common,
 }
+import com.daml.platform.store.cache.StringInterningCache
 
 import javax.sql.DataSource
 import org.postgresql.ds.PGSimpleDataSource
@@ -55,7 +57,8 @@ private[backend] object PostgresStorageBackend
     with ContractStorageBackendTemplate
     with CompletionStorageBackendTemplate
     with PartyStorageBackendTemplate
-    with IntegrityStorageBackendTemplate {
+    with IntegrityStorageBackendTemplate
+    with StringInterningStorageBackendTemplate {
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
@@ -65,8 +68,11 @@ private[backend] object PostgresStorageBackend
   ): Unit =
     PGSchema.schema.executeUpdate(postgresDbBatch, connection)
 
-  override def batch(dbDtos: Vector[DbDto]): AppendOnlySchema.Batch =
-    PGSchema.schema.prepareData(dbDtos)
+  override def batch(
+      dbDtos: Vector[DbDto],
+      resolveStringInterningId: String => Int,
+  ): AppendOnlySchema.Batch =
+    PGSchema.schema.prepareData(dbDtos, resolveStringInterningId)
 
   private val SQL_INSERT_COMMAND: String =
     """insert into participant_command_submissions as pcs (deduplication_key, deduplicate_until)
@@ -156,10 +162,12 @@ private[backend] object PostgresStorageBackend
     override def arrayIntersectionNonEmptyClause(
         columnName: String,
         parties: Set[Ref.Party],
+        stringInterningCache: StringInterningCache,
     ): CompositeSql = {
       import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-      val partiesArray: Array[String] = parties.map(_.toString).toArray
-      cSQL"#$columnName::text[] && $partiesArray::text[]"
+      val partiesArray: Array[java.lang.Integer] =
+        parties.flatMap(party => stringInterningCache.map.get(party).map(Int.box)).toArray
+      cSQL"#$columnName::int[] && $partiesArray::int[]"
     }
 
     override def arrayContains(arrayColumnName: String, elementColumnName: String): String =
@@ -174,41 +182,70 @@ private[backend] object PostgresStorageBackend
     override def filteredEventWitnessesClause(
         witnessesColumnName: String,
         parties: Set[Party],
-    ): CompositeSql =
-      if (parties.size == 1)
-        cSQL"array[${parties.head.toString}]::text[]"
-      else {
-        val partiesArray: Array[String] = parties.view.map(_.toString).toArray
-        cSQL"array(select unnest(#$witnessesColumnName) intersect select unnest($partiesArray::text[]))"
-      }
+        stringInterningCache: StringInterningCache,
+    ): CompositeSql = {
+      val internedParties: Array[java.lang.Integer] = parties.view
+        .flatMap(party => stringInterningCache.map.get(party.toString).map(Int.box))
+        .toArray
+      if (internedParties.length == 1)
+        cSQL"array[${internedParties.head}]::integer[]"
+      else
+        cSQL"array(select unnest(#$witnessesColumnName) intersect select unnest($internedParties::integer[]))" // TODO why are we doing this in SQL??
+    }
 
     override def submittersArePartiesClause(
         submittersColumnName: String,
         parties: Set[Party],
+        stringInterningCache: StringInterningCache,
     ): CompositeSql = {
-      val partiesArray = parties.view.map(_.toString).toArray
-      cSQL"(#$submittersColumnName::text[] && $partiesArray::text[])"
+      val partiesArray: Array[java.lang.Integer] = parties.view
+        .flatMap(party => stringInterningCache.map.get(party.toString).map(Int.box))
+        .toArray
+      cSQL"(#$submittersColumnName::integer[] && $partiesArray::integer[])"
     }
 
     override def witnessesWhereClause(
         witnessesColumnName: String,
         filterParams: FilterParams,
+        stringInterningCache: StringInterningCache,
     ): CompositeSql = {
       val wildCardClause = filterParams.wildCardParties match {
         case wildCardParties if wildCardParties.isEmpty =>
           Nil
 
         case wildCardParties =>
-          val partiesArray = wildCardParties.view.map(_.toString).toArray
-          cSQL"(#$witnessesColumnName::text[] && $partiesArray::text[])" :: Nil
+          val partiesArray: Array[java.lang.Integer] = wildCardParties.view
+            .flatMap(party => stringInterningCache.map.get(party.toString).map(Int.box))
+            .toArray
+          if (partiesArray.isEmpty)
+            Nil
+          else
+            cSQL"(#$witnessesColumnName::integer[] && $partiesArray::integer[])" :: Nil
       }
       val partiesTemplatesClauses =
-        filterParams.partiesAndTemplates.iterator.map { case (parties, templateIds) =>
-          val partiesArray = parties.view.map(_.toString).toArray
-          val templateIdsArray = templateIds.view.map(_.toString).toArray
-          cSQL"( (#$witnessesColumnName::text[] && $partiesArray::text[]) AND (template_id = ANY($templateIdsArray::text[])) )"
-        }.toList
-      (wildCardClause ::: partiesTemplatesClauses).mkComposite("(", " OR ", ")")
+        filterParams.partiesAndTemplates.iterator
+          .map { case (parties, templateIds) =>
+            (
+              parties.flatMap(s => stringInterningCache.map.get(s.toString)),
+              templateIds.flatMap(s => stringInterningCache.map.get(s.toString)),
+            )
+          }
+          .filterNot(_._1.isEmpty)
+          .filterNot(_._2.isEmpty)
+          .map { case (parties, templateIds) =>
+            val partiesArray: Array[java.lang.Integer] = parties.view.map(Int.box).toArray
+            val templateIdsArray: Array[java.lang.Integer] =
+              templateIds.view
+                .map(Int.box)
+                .toArray // TODO anorm does not like primitive arrays it seem, so we need to box it
+            cSQL"( (#$witnessesColumnName::integer[] && $partiesArray::integer[]) AND (template_id = ANY($templateIdsArray::integer[])) )"
+          }
+          .toList
+
+      wildCardClause ::: partiesTemplatesClauses match {
+        case Nil => cSQL"false"
+        case allClauses => allClauses.mkComposite("(", " OR ", ")")
+      }
     }
   }
 

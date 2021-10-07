@@ -5,8 +5,10 @@ package com.daml.platform.store.appendonlydao.events
 
 import java.sql.Connection
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicReference
 
 import com.daml.ledger.api.domain
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v1, v2}
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.platform.store.appendonlydao.events.PostCommitValidation._
@@ -56,6 +58,7 @@ private[appendonlydao] object PostCommitValidation {
   final class BackedBy(
       dao: PartyStorageBackend with ContractStorageBackend,
       validatePartyAllocation: Boolean,
+      ledgerEnd: AtomicReference[(Offset, Long)], // TODO make it just an accessor function
   ) extends PostCommitValidation {
 
     def validate(
@@ -92,7 +95,7 @@ private[appendonlydao] object PostCommitValidation {
         None
       } else {
         dao
-          .maximumLedgerTime(referredContracts)(connection)
+          .maximumLedgerTime(referredContracts, ledgerEnd.get()._2)(connection)
           .map(validateCausalMonotonicity(_, transactionLedgerEffectiveTime))
           .getOrElse(Some(Rejection.UnknownContract))
       }
@@ -117,7 +120,8 @@ private[appendonlydao] object PostCommitValidation {
         transaction: CommittedTransaction
     )(implicit connection: Connection): Option[Rejection] = {
       val informees = transaction.informees
-      val allocatedInformees = dao.parties(informees.toSeq)(connection).map(_.party)
+      val allocatedInformees =
+        dao.parties(informees.toSeq, ledgerEnd.get()._1)(connection).map(_.party)
       if (allocatedInformees.toSet == informees)
         None
       else
@@ -135,7 +139,7 @@ private[appendonlydao] object PostCommitValidation {
         transaction: CommittedTransaction
     )(implicit connection: Connection): Option[Rejection] =
       transaction
-        .foldInExecutionOrder[Result](Right(State.empty(dao)))(
+        .foldInExecutionOrder[Result](Right(State.empty(dao, ledgerEnd)))(
           exerciseBegin = (acc, _, exe) => {
             val newAcc = acc.flatMap(validateKeyUsages(exe, _))
             (newAcc, true)
@@ -214,6 +218,7 @@ private[appendonlydao] object PostCommitValidation {
       private val currentState: ActiveState,
       private val rollbackStack: List[ActiveState],
       private val dao: PartyStorageBackend with ContractStorageBackend,
+      private val ledgerEnd: AtomicReference[(Offset, Long)],
   ) {
 
     def validateCreate(
@@ -265,14 +270,17 @@ private[appendonlydao] object PostCommitValidation {
     private def lookup(key: Key)(implicit connection: Connection): Option[ContractId] =
       currentState.contracts.get(key.hash).orElse {
         if (currentState.removed(key.hash)) None
-        else dao.contractKeyGlobally(key)(connection)
+        else dao.contractKeyGlobally(key, ledgerEnd.get()._2)(connection)
       }
 
   }
 
   private object State {
-    def empty(dao: PartyStorageBackend with ContractStorageBackend): State =
-      State(ActiveState(Map.empty, Set.empty), Nil, dao)
+    def empty(
+        dao: PartyStorageBackend with ContractStorageBackend,
+        ledgerEnd: AtomicReference[(Offset, Long)],
+    ): State =
+      State(ActiveState(Map.empty, Set.empty), Nil, dao, ledgerEnd)
   }
 
   sealed trait Rejection {

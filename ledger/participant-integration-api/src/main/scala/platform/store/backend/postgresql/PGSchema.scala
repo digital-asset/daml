@@ -10,17 +10,27 @@ import com.daml.platform.store.backend.common.{AppendOnlySchema, Field, Schema, 
 private[postgresql] object PGSchema {
   private val PGFieldStrategy = new FieldStrategy {
     override def stringArray[FROM, _](
-        extractor: FROM => Iterable[String]
+        extractor: (String => Int) => FROM => Iterable[String]
     ): Field[FROM, Iterable[String], _] =
       PGStringArray(extractor)
 
     override def stringArrayOptional[FROM, _](
-        extractor: FROM => Option[Iterable[String]]
+        extractor: (String => Int) => FROM => Option[Iterable[String]]
     ): Field[FROM, Option[Iterable[String]], _] =
       PGStringArrayOptional(extractor)
 
+    override def intArray[FROM, _](
+        extractor: (String => Int) => FROM => Iterable[Int]
+    ): Field[FROM, Iterable[Int], _] =
+      PGIntArray(extractor)
+
+    override def intArrayOptional[FROM, _](
+        extractor: (String => Int) => FROM => Option[Iterable[Int]]
+    ): Field[FROM, Option[Iterable[Int]], _] =
+      PGIntArrayOptional(extractor)
+
     override def smallintOptional[FROM, _](
-        extractor: FROM => Option[Int]
+        extractor: (String => Int) => FROM => Option[Int]
     ): Field[FROM, Option[Int], _] =
       PGSmallintOptional(extractor)
 

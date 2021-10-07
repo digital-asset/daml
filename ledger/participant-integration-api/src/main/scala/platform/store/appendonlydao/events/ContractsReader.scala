@@ -5,14 +5,17 @@ package com.daml.platform.store.appendonlydao.events
 
 import java.io.ByteArrayInputStream
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicReference
 
 import com.codahale.metrics.Timer
+import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
 import com.daml.platform.store.appendonlydao.events.ContractsReader._
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.ContractStorageBackend
+import com.daml.platform.store.cache.StringInterningCache
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
@@ -22,6 +25,8 @@ private[appendonlydao] sealed class ContractsReader(
     storageBackend: ContractStorageBackend,
     dispatcher: DbDispatcher,
     metrics: Metrics,
+    ledgerEnd: AtomicReference[(Offset, Long)], // TODO make it just an accessor function
+    stringInterningCache: AtomicReference[StringInterningCache],
 )(implicit ec: ExecutionContext)
     extends LedgerDaoContractsReader {
 
@@ -32,7 +37,7 @@ private[appendonlydao] sealed class ContractsReader(
       metrics.daml.index.db.lookupMaximumLedgerTime,
       dispatcher
         .executeSql(metrics.daml.index.db.lookupMaximumLedgerTimeDbMetrics)(
-          storageBackend.maximumLedgerTime(ids)
+          storageBackend.maximumLedgerTime(ids, ledgerEnd.get()._2)
         )
         .map(_.get),
     )
@@ -49,7 +54,7 @@ private[appendonlydao] sealed class ContractsReader(
     Timed.future(
       metrics.daml.index.db.lookupKey,
       dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics)(
-        storageBackend.keyState(key, validAt)
+        storageBackend.keyState(key, validAt, stringInterningCache.get())
       ),
     )
 
@@ -60,7 +65,7 @@ private[appendonlydao] sealed class ContractsReader(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
         .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(
-          storageBackend.contractState(contractId, before)
+          storageBackend.contractState(contractId, before, stringInterningCache.get())
         )
         .map(_.map {
           case raw if raw.eventKind == 10 =>
@@ -100,7 +105,12 @@ private[appendonlydao] sealed class ContractsReader(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
         .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(
-          storageBackend.activeContractWithArgument(readers, contractId)
+          storageBackend.activeContractWithArgument(
+            readers,
+            contractId,
+            ledgerEnd.get()._2,
+            stringInterningCache.get(),
+          )
         )
         .map(_.map { raw =>
           toContract(
@@ -129,7 +139,12 @@ private[appendonlydao] sealed class ContractsReader(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
         .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(
-          storageBackend.activeContractWithoutArgument(readers, contractId)
+          storageBackend.activeContractWithoutArgument(
+            readers,
+            contractId,
+            ledgerEnd.get()._2,
+            stringInterningCache.get(),
+          )
         )
         .map(
           _.map(templateId =>
@@ -149,7 +164,7 @@ private[appendonlydao] sealed class ContractsReader(
     Timed.future(
       metrics.daml.index.db.lookupKey,
       dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics)(
-        storageBackend.contractKey(readers, key)
+        storageBackend.contractKey(readers, key, ledgerEnd.get()._2, stringInterningCache.get())
       ),
     )
 }
@@ -160,11 +175,15 @@ private[appendonlydao] object ContractsReader {
       dispatcher: DbDispatcher,
       metrics: Metrics,
       storageBackend: ContractStorageBackend,
+      ledgerEnd: AtomicReference[(Offset, Long)],
+      stringInterningCache: AtomicReference[StringInterningCache],
   )(implicit ec: ExecutionContext): ContractsReader = {
     new ContractsReader(
       storageBackend = storageBackend,
       dispatcher = dispatcher,
       metrics = metrics,
+      ledgerEnd = ledgerEnd,
+      stringInterningCache = stringInterningCache,
     )
   }
 

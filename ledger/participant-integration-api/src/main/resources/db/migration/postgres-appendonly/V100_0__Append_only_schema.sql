@@ -57,12 +57,12 @@ CREATE TABLE participant_events_divulgence (
     -- * submitter info (only visible on submitting participant)
     command_id text,
     application_id text,
-    submitters text[],
+    submitters integer[],
 
     -- * shared event information
     contract_id text NOT NULL,
-    template_id text,
-    tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- informees
+    template_id integer,
+    tree_event_witnesses integer[] DEFAULT '{}'::integer[] NOT NULL, -- informees
 
     -- * contract data
     create_argument bytea,
@@ -90,21 +90,21 @@ CREATE TABLE participant_events_create (
     -- * submitter info (only visible on submitting participant)
     command_id text,
     application_id text,
-    submitters text[],
+    submitters integer[],
 
     -- * event metadata
     event_id text NOT NULL,       -- string representation of (transaction_id, node_index)
 
     -- * shared event information
     contract_id text NOT NULL,
-    template_id text NOT NULL,
-    flat_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- stakeholders
-    tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- informees
+    template_id integer NOT NULL,
+    flat_event_witnesses integer[] DEFAULT '{}'::integer[] NOT NULL, -- stakeholders
+    tree_event_witnesses integer[] DEFAULT '{}'::integer[] NOT NULL, -- informees
 
     -- * contract data
     create_argument bytea NOT NULL,
-    create_signatories text[] NOT NULL,
-    create_observers text[] NOT NULL,
+    create_signatories integer[] NOT NULL,
+    create_observers integer[] NOT NULL,
     create_agreement_text text,
     create_key_value bytea,
     create_key_hash text,
@@ -137,16 +137,16 @@ CREATE TABLE participant_events_consuming_exercise (
     -- * submitter info (only visible on submitting participant)
     command_id text,
     application_id text,
-    submitters text[],
+    submitters integer[],
 
     -- * event metadata
     event_id text NOT NULL,        -- string representation of (transaction_id, node_index)
 
     -- * shared event information
     contract_id text NOT NULL,
-    template_id text NOT NULL,
-    flat_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- stakeholders
-    tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- informees
+    template_id integer NOT NULL,
+    flat_event_witnesses integer[] DEFAULT '{}'::integer[] NOT NULL, -- stakeholders
+    tree_event_witnesses integer[] DEFAULT '{}'::integer[] NOT NULL, -- informees
 
     -- * information about the corresponding create event
     create_key_value bytea,        -- used for the mutable state cache
@@ -155,7 +155,7 @@ CREATE TABLE participant_events_consuming_exercise (
     exercise_choice text NOT NULL,
     exercise_argument bytea NOT NULL,
     exercise_result bytea,
-    exercise_actors text[] NOT NULL,
+    exercise_actors integer[] NOT NULL,
     exercise_child_event_ids text[] NOT NULL,
 
     -- * compression flags
@@ -184,16 +184,16 @@ CREATE TABLE participant_events_non_consuming_exercise (
     -- * submitter info (only visible on submitting participant)
     command_id text,
     application_id text,
-    submitters text[],
+    submitters integer[],
 
     -- * event metadata
     event_id text NOT NULL,        -- string representation of (transaction_id, node_index)
 
     -- * shared event information
     contract_id text NOT NULL,
-    template_id text NOT NULL,
-    flat_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- stakeholders
-    tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- informees
+    template_id integer NOT NULL,
+    flat_event_witnesses integer[] DEFAULT '{}'::integer[] NOT NULL, -- stakeholders
+    tree_event_witnesses integer[] DEFAULT '{}'::integer[] NOT NULL, -- informees
 
     -- * information about the corresponding create event
     create_key_value bytea,        -- used for the mutable state cache
@@ -202,7 +202,7 @@ CREATE TABLE participant_events_non_consuming_exercise (
     exercise_choice text NOT NULL,
     exercise_argument bytea NOT NULL,
     exercise_result bytea,
-    exercise_actors text[] NOT NULL,
+    exercise_actors integer[] NOT NULL,
     exercise_child_event_ids text[] NOT NULL,
 
     -- * compression flags
@@ -212,223 +212,16 @@ CREATE TABLE participant_events_non_consuming_exercise (
 );
 
 
----------------------------------------------------------------------------------------------------
--- Data migration
----------------------------------------------------------------------------------------------------
 
--- Insert all create events and use the participant_contracts table
--- to fill in the create_key_hash for _active_ contracts.
-INSERT INTO participant_events_create
-(
-    event_sequential_id,
-    event_offset,
-    transaction_id,
-    ledger_effective_time,
-    command_id,
-    workflow_id,
-    application_id,
-    submitters,
-    node_index,
-    event_id,
-    contract_id,
-    template_id,
-    flat_event_witnesses,
-    tree_event_witnesses,
-    create_argument,
-    create_argument_compression,
-    create_signatories,
-    create_observers,
-    create_agreement_text,
-    create_key_value,
-    create_key_value_compression,
-    create_key_hash
-)
-SELECT
-    participant_events.event_sequential_id,
-    participant_events.event_offset,
-    participant_events.transaction_id,
-    participant_events.ledger_effective_time,
-    participant_events.command_id,
-    participant_events.workflow_id,
-    participant_events.application_id,
-    participant_events.submitters,
-    participant_events.node_index,
-    participant_events.event_id,
-    participant_events.contract_id,
-    participant_events.template_id,
-    participant_events.flat_event_witnesses,
-    participant_events.tree_event_witnesses,
-    participant_events.create_argument,
-    participant_events.create_argument_compression,
-    participant_events.create_signatories,
-    participant_events.create_observers,
-    participant_events.create_agreement_text,
-    participant_events.create_key_value,
-    participant_events.create_key_value_compression,
-    participant_contracts.create_key_hash -- only works for active contracts
-FROM participant_events LEFT JOIN participant_contracts USING (contract_id)
-WHERE participant_events.exercise_consuming IS NULL -- create events
-ORDER BY participant_events.event_sequential_id;
+CREATE TABLE string_interning (
+    id integer PRIMARY KEY NOT NULL,
+    s text
+);
 
--- Insert all consuming exercise events
-INSERT INTO participant_events_consuming_exercise
-(
-    event_sequential_id,
-    event_offset,
-    transaction_id,
-    ledger_effective_time,
-    command_id,
-    workflow_id,
-    application_id,
-    submitters,
-    node_index,
-    event_id,
-    contract_id,
-    template_id,
-    flat_event_witnesses,
-    tree_event_witnesses,
-    create_key_value,
-    create_key_value_compression,
-    exercise_choice,
-    exercise_argument,
-    exercise_argument_compression,
-    exercise_result,
-    exercise_result_compression,
-    exercise_actors,
-    exercise_child_event_ids
-)
-SELECT
-    participant_events.event_sequential_id,
-    participant_events.event_offset,
-    participant_events.transaction_id,
-    participant_events.ledger_effective_time,
-    participant_events.command_id,
-    participant_events.workflow_id,
-    participant_events.application_id,
-    participant_events.submitters,
-    participant_events.node_index,
-    participant_events.event_id,
-    participant_events.contract_id,
-    participant_events.template_id,
-    participant_events.flat_event_witnesses,
-    participant_events.tree_event_witnesses,
-    participant_events.create_key_value,
-    participant_events.create_key_value_compression,
-    participant_events.exercise_choice,
-    participant_events.exercise_argument,
-    participant_events.exercise_argument_compression,
-    participant_events.exercise_result,
-    participant_events.exercise_result_compression,
-    participant_events.exercise_actors,
-    participant_events.exercise_child_event_ids
-FROM participant_events
-WHERE participant_events.exercise_consuming = TRUE -- consuming exercise events
-ORDER BY participant_events.event_sequential_id;
+ALTER TABLE participant_command_completions
+  ALTER COLUMN submitters TYPE integer[] USING '{}'::integer[]; -- malicious: no migration PoC
 
--- Insert all non-consuming exercise events
-INSERT INTO participant_events_non_consuming_exercise
-(
-    event_sequential_id,
-    event_offset,
-    transaction_id,
-    ledger_effective_time,
-    command_id,
-    workflow_id,
-    application_id,
-    submitters,
-    node_index,
-    event_id,
-    contract_id,
-    template_id,
-    flat_event_witnesses,
-    tree_event_witnesses,
-    create_key_value,
-    create_key_value_compression,
-    exercise_choice,
-    exercise_argument,
-    exercise_argument_compression,
-    exercise_result,
-    exercise_result_compression,
-    exercise_actors,
-    exercise_child_event_ids
-)
-SELECT
-    participant_events.event_sequential_id,
-    participant_events.event_offset,
-    participant_events.transaction_id,
-    participant_events.ledger_effective_time,
-    participant_events.command_id,
-    participant_events.workflow_id,
-    participant_events.application_id,
-    participant_events.submitters,
-    participant_events.node_index,
-    participant_events.event_id,
-    participant_events.contract_id,
-    participant_events.template_id,
-    participant_events.flat_event_witnesses,
-    participant_events.tree_event_witnesses,
-    participant_events.create_key_value,
-    participant_events.create_key_value_compression,
-    participant_events.exercise_choice,
-    participant_events.exercise_argument,
-    participant_events.exercise_argument_compression,
-    participant_events.exercise_result,
-    participant_events.exercise_result_compression,
-    participant_events.exercise_actors,
-    participant_events.exercise_child_event_ids
-FROM participant_events
-WHERE participant_events.exercise_consuming = FALSE -- non-consuming exercise events
-ORDER BY participant_events.event_sequential_id;
+ALTER TABLE party_entries
+  ADD column party_id integer NOT NULL DEFAULT 0; -- malicious: no migration PoC
 
--- Temporary sequence to generate sequential IDs that appear after
--- all other already existing sequential IDs.
-CREATE SEQUENCE temp_divulgence_sequential_id START 1;
-
--- Divulgence events did not exist before, we need to assign a new sequential ID for them.
--- They will all be inserted after all other events, i.e., at a point later than the transaction
--- that actually lead to the divulgence. This is OK, as we only use them for lookups.
--- In addition, we want to avoid rewriting the event_sequential_id of other events
--- for data continuity reasons.
-WITH divulged_contracts AS (
-    SELECT nextval('temp_divulgence_sequential_id') +
-           (SELECT coalesce(max(event_sequential_id), 0) FROM participant_events) as event_sequential_id,
-           contract_id,
-           array_agg(contract_witness) as divulgees
-    FROM participant_contract_witnesses
-             INNER JOIN participant_contracts USING (contract_id)
-             LEFT JOIN participant_events USING (contract_id)
-    WHERE (NOT create_stakeholders @> array [contract_witness])
-      AND exercise_consuming IS NULL -- create events only
-      AND (tree_event_witnesses IS NULL OR NOT tree_event_witnesses @> array [contract_witness])
-    GROUP BY contract_id
-) INSERT INTO participant_events_divulgence (
-    event_sequential_id,
-    event_offset,
-    command_id,
-    workflow_id,
-    application_id,
-    submitters,
-    contract_id,
-    template_id,
-    tree_event_witnesses,
-    create_argument,
-    create_argument_compression
-)
-SELECT
-    event_sequential_id,
-    -- The following 5 fields are metadata of the transaction that lead to the divulgence.
-    -- We can't reconstruct this information from the old schema.
-    NULL,
-    NULL,
-    '',
-    NULL,
-    NULL,
-    contract_id,
-    template_id,
-    divulgees,
-    create_argument,
-    create_argument_compression
-FROM divulged_contracts INNER JOIN participant_contracts USING (contract_id);
-
--- Drop temporary objects
-DROP SEQUENCE temp_divulgence_sequential_id;
+CREATE INDEX idx_party_entries_party_id_and_ledger_offset ON party_entries(party_id, ledger_offset);

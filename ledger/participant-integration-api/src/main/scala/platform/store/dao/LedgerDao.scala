@@ -26,6 +26,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.store.backend.ParameterStorageBackend
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.dao.events.{ContractStateEvent, FilterRelation, TransactionsWriter}
 import com.daml.platform.store.entries.{
@@ -122,9 +123,10 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset]
 
   /** Looks up the current ledger end as the offset and event sequential id */
-  def lookupLedgerEndOffsetAndSequentialId()(implicit
+  def lookupLedgerEndOffsetAndSequentialId()(
+      implicit // TODO perhaps rename
       loggingContext: LoggingContext
-  ): Future[(Offset, Long)]
+  ): Future[ParameterStorageBackend.LedgerEnd]
 
   /** Looks up the current external ledger end offset */
   def lookupInitialLedgerEnd()(implicit loggingContext: LoggingContext): Future[Option[Offset]]
@@ -230,6 +232,14 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit]
+
+  // TODO very clumsy, but with the combinatorial situation on append-only/sandbox-classic/mutable-cache not sure there is a better solution for now
+  def updateStringInterningCache(lastStringInterningId: Int)(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit]
+
+  // TODO very clumsy, but with the combinatorial situation on append-only/sandbox-classic/mutable-cache not sure there is a better solution for now
+  def updateLedgerEnd(offset: Offset, eventSeqId: Long): Unit
 }
 
 private[platform] trait LedgerWriteDao extends ReportsHealth {

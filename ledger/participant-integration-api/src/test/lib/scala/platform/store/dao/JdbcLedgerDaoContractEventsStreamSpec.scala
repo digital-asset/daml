@@ -72,8 +72,8 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement {
 
       contractStateEvents <- contractEventsOf(
         ledgerDao.transactionsReader.getContractStateEvents(
-          startExclusive = before,
-          endInclusive = after,
+          startExclusive = before.lastOffset -> before.lastEventSeqId,
+          endInclusive = after.lastOffset -> after.lastEventSeqId,
         )
       )
     } yield {

@@ -86,6 +86,7 @@ private final class ReadOnlySqlLedgerWithTranslationCache(
         Source
           .tick(0.millis, 100.millis, ())
           .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd())
+      // TODO support needs to be added here for append-only and string interning
       )
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
       .toMat(Sink.foreach(dispatcher.signalNewHead))(
