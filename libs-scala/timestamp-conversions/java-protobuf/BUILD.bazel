@@ -1,0 +1,42 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
+    "lf_scalacopts_stricter",
+)
+
+scalacopts = lf_scalacopts_stricter
+
+da_scala_library(
+    name = "java-protobuf",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = scalacopts,
+    tags = ["maven_coordinates=com.daml:timestamps-java-protobuf:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_test_suite(
+    name = "java-javaprotobuf-tests",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+    ],
+    scalacopts = scalacopts,
+    deps = [
+        ":java-protobuf",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
