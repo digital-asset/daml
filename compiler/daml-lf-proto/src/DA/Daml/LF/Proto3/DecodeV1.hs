@@ -233,8 +233,12 @@ decodeDefInterface LF1.DefInterface {..} =
   DefInterface
     <$> traverse decodeLocation defInterfaceLocation
     <*> decodeDottedNameId TypeConName defInterfaceTyconInternedDname
+    <*> decodeNameId ExprVarName defInterfaceParamInternedStr
     <*> decodeNM DuplicateChoice decodeInterfaceChoice defInterfaceChoices
+    <*> decodeNM DuplicateChoice decodeChoice defInterfaceFixedChoices
     <*> decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods
+    -- TODO https://github.com/digital-asset/daml/issues/11137
+    --   maybe also check that choice names are unique between virtual choices & fixed choices
 
 decodeInterfaceChoice :: LF1.InterfaceChoice -> Decode InterfaceChoice
 decodeInterfaceChoice LF1.InterfaceChoice {..} =

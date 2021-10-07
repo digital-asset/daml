@@ -435,7 +435,9 @@ convertInterfaces env tyThings = interfaceClasses
       pure DefInterface
         { intLocation = Nothing
         , intName = mkTypeCon [name]
-        , intChoices = NM.fromList choices
+        , intParam = ExprVarName "this"
+        , intVirtualChoices = NM.fromList choices
+        , intFixedChoices = NM.empty -- TODO https://github.com/digital-asset/daml/issues/11137
         , intMethods = NM.fromList methods
         }
     convertChoice :: ChoiceData -> ConvertM InterfaceChoice

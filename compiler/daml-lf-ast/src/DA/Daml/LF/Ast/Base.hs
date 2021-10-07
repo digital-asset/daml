@@ -926,7 +926,9 @@ data DefException = DefException
 data DefInterface = DefInterface
   { intLocation :: !(Maybe SourceLoc)
   , intName :: !TypeConName
-  , intChoices :: !(NM.NameMap InterfaceChoice)
+  , intParam :: ExprVarName
+  , intVirtualChoices :: !(NM.NameMap InterfaceChoice)
+  , intFixedChoices :: !(NM.NameMap TemplateChoice)
   , intMethods :: !(NM.NameMap InterfaceMethod)
   }
   deriving (Eq, Data, Generic, NFData, Show)

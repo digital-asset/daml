@@ -158,7 +158,9 @@ lookupInterfaceChoice ::
      (Qualified TypeConName, ChoiceName) -> World -> Either LookupError InterfaceChoice
 lookupInterfaceChoice (ifaceRef, chName) world = do
   iface <- lookupInterface ifaceRef world
-  case NM.lookup chName (intChoices iface) of
+  case NM.lookup chName (intVirtualChoices iface) of
+    -- TODO https://github.com/digital-asset/daml/issues/11137
+    --   lookup fixed choices as well
     Nothing -> Left (LEChoice ifaceRef chName)
     Just choice -> Right choice
 
