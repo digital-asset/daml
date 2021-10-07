@@ -59,7 +59,7 @@ function check_non_lf_protos() {
 }
 
 is_check_skipped() {
-  for sha in $(git rev-list "$TARGET"..); do
+  for sha in $(git rev-list origin/"$TARGET"..); do
     breaks_proto_trailer_value=$(git show -s --format="%(trailers:key=${BREAKING_PROTOBUF_CHANGE_TRAILER_KEY},valueonly)" "$sha" | xargs)
     if [[ $breaks_proto_trailer_value == "true" ]]; then
       return 0
