@@ -3,7 +3,7 @@
 
 .. _deploy-ref_overview:
 
-Overview of Daml ledgers
+Overview of Daml Drivers
 ========================
 
 This is an overview of Daml deployment options. Instructions on how to deploy to a specific ledger
