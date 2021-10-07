@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 import akka.stream.scaladsl.Sink
@@ -13,6 +14,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlPartyAllocationEntry,
 }
+import com.daml.ledger.participant.state.kvutils.export.SubmissionInfo
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.LogAppendingReadServiceFactorySpec._
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v2.Update
@@ -33,7 +35,7 @@ final class LogAppendingReadServiceFactorySpec
   "LogAppendingReadServiceFactory" should {
     "handle empty blocks" in {
       val factory = createFactory()
-      factory.appendBlock(Seq.empty)
+      factory.appendBlock(submissionInfo, Seq.empty)
 
       factory.createReadService
         .stateUpdates(None)
@@ -43,7 +45,7 @@ final class LogAppendingReadServiceFactorySpec
 
     "handle non-empty blocks" in {
       val factory = createFactory()
-      factory.appendBlock(List(aSerializedLogEntryId -> aWrappedLogEntry))
+      factory.appendBlock(submissionInfo, List(aSerializedLogEntryId -> aWrappedLogEntry))
 
       factory.createReadService
         .stateUpdates(None)
@@ -58,7 +60,7 @@ final class LogAppendingReadServiceFactorySpec
       val factory = createFactory()
       val readService = factory.createReadService
 
-      factory.appendBlock(List(aSerializedLogEntryId -> aWrappedLogEntry))
+      factory.appendBlock(submissionInfo, List(aSerializedLogEntryId -> aWrappedLogEntry))
 
       readService
         .stateUpdates(None)
@@ -102,4 +104,11 @@ object LogAppendingReadServiceFactorySpec {
 
   private val aSerializedLogEntryId = Raw.LogEntryId(aLogEntryId)
   private val aWrappedLogEntry = Envelope.enclose(aLogEntry)
+
+  private val submissionInfo = SubmissionInfo(
+    participantId = Ref.ParticipantId.assertFromString(AParticipantId),
+    "correlation ID",
+    Raw.Envelope.empty,
+    Instant.EPOCH,
+  )
 }
