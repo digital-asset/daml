@@ -3,11 +3,8 @@
 
 package com.daml.platform.apiserver.error
 import com.daml.error
-import com.daml.ledger.participant.state.v2.Update.CommandRejected.{
-  FinalReason,
-  RejectionReasonTemplate,
-}
-import error.ErrorCode.truncateResourceForTransport
+import com.daml.ledger.participant.state.v2.Update.CommandRejected.{FinalReason, RejectionReasonTemplate}
+import error.ErrorCode.{formatContextAsString, truncateResourceForTransport}
 import error.{BaseError, ErrorCode, ErrorCodeLoggingContext}
 import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.StatusRuntimeException
@@ -39,7 +36,7 @@ trait TransactionError extends BaseError {
     // TODO error codes: avoid appending the context to the description. right now, we need to do that as the ledger api server is throwing away any error details
     val message =
       if (code.category.securitySensitive) messageWithoutContext
-      else messageWithoutContext + "; " + code.formatContextAsString(contextMap)
+      else messageWithoutContext + "; " + formatContextAsString(contextMap)
 
     val definiteAnswerKey =
       "definite_answer" // TODO error codes: Can we use a constant from some upstream class?
