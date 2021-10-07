@@ -6,6 +6,7 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
+    "lf_scalacopts_stricter",
     "silencer_plugin",
 )
 
@@ -15,7 +16,7 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-language:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
