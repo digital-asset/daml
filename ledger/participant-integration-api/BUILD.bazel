@@ -281,6 +281,7 @@ da_scala_test_suite(
         "//ledger-api/sample-service",
         "//ledger-api/testing-utils",
         "//ledger/caching",
+        "//ledger/error",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",
