@@ -35,7 +35,7 @@ final class LogAppendingReadServiceFactorySpec
   "LogAppendingReadServiceFactory" should {
     "handle empty blocks" in {
       val factory = createFactory()
-      factory.appendBlock(submissionInfo, Seq.empty)
+      factory.appendBlock(aSubmissionInfo, Seq.empty)
 
       factory.createReadService
         .stateUpdates(None)
@@ -45,7 +45,7 @@ final class LogAppendingReadServiceFactorySpec
 
     "handle non-empty blocks" in {
       val factory = createFactory()
-      factory.appendBlock(submissionInfo, List(aSerializedLogEntryId -> aWrappedLogEntry))
+      factory.appendBlock(aSubmissionInfo, List(aSerializedLogEntryId -> aWrappedLogEntry))
 
       factory.createReadService
         .stateUpdates(None)
@@ -60,7 +60,7 @@ final class LogAppendingReadServiceFactorySpec
       val factory = createFactory()
       val readService = factory.createReadService
 
-      factory.appendBlock(submissionInfo, List(aSerializedLogEntryId -> aWrappedLogEntry))
+      factory.appendBlock(aSubmissionInfo, List(aSerializedLogEntryId -> aWrappedLogEntry))
 
       readService
         .stateUpdates(None)
@@ -79,34 +79,34 @@ object LogAppendingReadServiceFactorySpec {
     new LogAppendingReadServiceFactory(metrics)
   }
 
-  private val AnEntryId = "AnEntryId"
+  private val anEntryId = "AnEntryId"
   private val aLogEntryId =
-    DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFromUtf8(AnEntryId)).build()
+    DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFromUtf8(anEntryId)).build()
 
-  private val APartyName = "aParty"
-  private val AParticipantId = "aParticipant"
-  private val ATimestampInSeconds = 1234L
+  private val aPartyName = "aParty"
+  private val aParticipantId = "aParticipant"
+  private val aTimestampInSeconds = 1234L
   private val aLogEntry = DamlLogEntry
     .newBuilder()
     .setPartyAllocationEntry(
-      DamlPartyAllocationEntry.newBuilder().setParty(APartyName).setParticipantId(AParticipantId)
+      DamlPartyAllocationEntry.newBuilder().setParty(aPartyName).setParticipantId(aParticipantId)
     )
-    .setRecordTime(com.google.protobuf.Timestamp.newBuilder.setSeconds(ATimestampInSeconds))
+    .setRecordTime(com.google.protobuf.Timestamp.newBuilder.setSeconds(aTimestampInSeconds))
     .build()
 
   private val aPartyAddedToParticipantUpdate = Update.PartyAddedToParticipant(
-    Ref.Party.assertFromString(APartyName),
+    Ref.Party.assertFromString(aPartyName),
     "",
-    Ref.ParticipantId.assertFromString(AParticipantId),
-    Timestamp.assertFromLong(Duration(ATimestampInSeconds, TimeUnit.SECONDS).toMicros),
+    Ref.ParticipantId.assertFromString(aParticipantId),
+    Timestamp.assertFromLong(Duration(aTimestampInSeconds, TimeUnit.SECONDS).toMicros),
     None,
   )
 
   private val aSerializedLogEntryId = Raw.LogEntryId(aLogEntryId)
   private val aWrappedLogEntry = Envelope.enclose(aLogEntry)
 
-  private val submissionInfo = SubmissionInfo(
-    participantId = Ref.ParticipantId.assertFromString(AParticipantId),
+  private val aSubmissionInfo = SubmissionInfo(
+    participantId = Ref.ParticipantId.assertFromString(aParticipantId),
     "correlation ID",
     Raw.Envelope.empty,
     Instant.EPOCH,
