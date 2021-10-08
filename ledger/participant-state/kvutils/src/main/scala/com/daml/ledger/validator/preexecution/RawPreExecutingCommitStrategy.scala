@@ -3,19 +3,11 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntry,
-  DamlLogEntryId,
-  DamlStateKey,
-  DamlStateValue,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, DamlLogEntryId}
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
 import com.daml.ledger.validator.preexecution.RawPreExecutingCommitStrategy.{InputState, ReadSet}
-import com.daml.ledger.validator.{
-  StateKeySerializationStrategy,
-  StateSerializationStrategy,
-  inParallel,
-}
+import com.daml.ledger.validator.{StateKeySerializationStrategy, StateSerializationStrategy, inParallel}
 import com.daml.lf.data.Ref
 
 import scala.concurrent.{ExecutionContext, Future}

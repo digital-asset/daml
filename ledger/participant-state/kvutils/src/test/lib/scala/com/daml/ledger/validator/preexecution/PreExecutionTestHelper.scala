@@ -3,12 +3,11 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.validator.HasDamlStateValue
 import com.daml.ledger.validator.reading.StateReader
 import com.daml.logging.LoggingContext
 
-import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 
 object PreExecutionTestHelper {

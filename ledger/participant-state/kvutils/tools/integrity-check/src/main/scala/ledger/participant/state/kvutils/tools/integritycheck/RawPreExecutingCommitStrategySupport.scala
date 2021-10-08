@@ -8,22 +8,10 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.stream.Materializer
 import com.daml.ledger.on.memory.{InMemoryLedgerStateAccess, InMemoryState, Index}
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
-import com.daml.ledger.participant.state.kvutils.export.{
-  NoOpLedgerDataExporter,
-  SubmissionInfo,
-  WriteSet,
-}
-import com.daml.ledger.validator.preexecution.{
-  EqualityBasedPostExecutionConflictDetector,
-  PreExecutingSubmissionValidator,
-  PreExecutingValidatingCommitter,
-  RawKeyValuePairsWithLogEntry,
-  RawPostExecutionWriter,
-  RawPreExecutingCommitStrategy,
-  TimeBasedWriteSetSelector,
-}
+import com.daml.ledger.participant.state.kvutils.export.{NoOpLedgerDataExporter, SubmissionInfo, WriteSet}
+import com.daml.ledger.participant.state.kvutils.store.DamlStateValue
+import com.daml.ledger.validator.preexecution._
 import com.daml.ledger.validator.{SerializingStateReader, StateKeySerializationStrategy}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext

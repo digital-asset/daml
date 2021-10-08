@@ -4,22 +4,11 @@
 package com.daml.ledger.validator.batch
 
 import com.daml.caching.Cache
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.validator.caching.{
-  CacheUpdatePolicy,
-  CachingCommitStrategy,
-  CachingStateReader,
-}
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.validator.caching.{CacheUpdatePolicy, CachingCommitStrategy, CachingStateReader}
 import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
-import com.daml.ledger.validator.{
-  CommitStrategy,
-  DamlLedgerStateReader,
-  DefaultStateKeySerializationStrategy,
-  LedgerStateOperations,
-  LogAppendingCommitStrategy,
-  StateKeySerializationStrategy,
-}
+import com.daml.ledger.validator._
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}

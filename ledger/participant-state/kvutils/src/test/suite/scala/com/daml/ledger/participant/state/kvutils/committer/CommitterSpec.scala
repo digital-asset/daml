@@ -14,6 +14,8 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Err
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, theDefaultConfig}
 import com.daml.ledger.participant.state.kvutils.committer.CommitterSpec._
+import com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationEntry
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp

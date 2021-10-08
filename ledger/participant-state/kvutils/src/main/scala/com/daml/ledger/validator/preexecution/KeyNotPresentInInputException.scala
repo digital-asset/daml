@@ -3,7 +3,7 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
+import com.daml.ledger.participant.state.kvutils.store.DamlStateKey
 
 final class KeyNotPresentInInputException(key: DamlStateKey)
     extends IllegalStateException(
