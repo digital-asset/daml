@@ -54,7 +54,7 @@ private[backend] trait IntegrityStorageBackendTemplate extends IntegrityStorageB
 
   private val SQL_DUPLICATE_OFFSETS = SQL(s"""
        |WITH event_ids AS ($allEventIds)
-       |SELECT event_offset as offset, node_index, count(*) as count
+       |SELECT event_offset, node_index, count(*) as count
        |FROM event_ids, parameters
        |WHERE event_offset <= parameters.ledger_end
        |GROUP BY event_offset, node_index
@@ -75,7 +75,7 @@ private[backend] trait IntegrityStorageBackendTemplate extends IntegrityStorageB
     val duplicateSeqIds = SQL_DUPLICATE_EVENT_SEQUENTIAL_IDS
       .as(long("id").*)(connection)
     val duplicateOffsets = SQL_DUPLICATE_OFFSETS
-      .as(str("offset").*)(connection)
+      .as(str("event_offset").*)(connection)
     val summary = SQL_EVENT_SEQUENTIAL_IDS_SUMMARY
       .as(eventSequantialIdsParser.single)(connection)
 
