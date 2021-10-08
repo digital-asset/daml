@@ -4,13 +4,11 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.participant.state.kvutils.Conversions.{
-  buildTimestamp,
-  configDedupKey,
-  configurationStateKey,
-}
+import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, configDedupKey, configurationStateKey}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateValue, DamlSubmissionDedupValue}
+import com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationEntry
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.entries.LoggingEntries

@@ -4,10 +4,11 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.time.Duration
+
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.{DeduplicationPeriod => ApiDeduplicationPeriod}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlCommandDedupKey, DamlStateKey}
+import com.daml.ledger.participant.state.kvutils.store.{DamlCommandDedupKey, DamlStateKey}
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.daml.lf.crypto

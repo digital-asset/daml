@@ -13,11 +13,8 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer._
-import com.daml.ledger.participant.state.kvutils.committer.transaction.validation.{
-  LedgerTimeValidator,
-  ModelConformanceValidator,
-  TransactionConsistencyValidator,
-}
+import com.daml.ledger.participant.state.kvutils.committer.transaction.validation.{LedgerTimeValidator, ModelConformanceValidator, TransactionConsistencyValidator}
+import com.daml.ledger.participant.state.kvutils.store._
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.lf.data.Ref.Party
@@ -31,7 +28,6 @@ import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
-
 // The parameter inStaticTimeMode indicates that the ledger is running in static time mode.
 //
 // Command deduplication is always based on wall clock time and not ledger time. In static time mode,

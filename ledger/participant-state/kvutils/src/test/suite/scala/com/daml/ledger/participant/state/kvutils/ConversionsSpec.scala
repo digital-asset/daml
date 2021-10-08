@@ -6,10 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.participant.state.kvutils.Conversions.{partyStateKey, _}
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{
-  DisclosureEntry,
-  DivulgenceEntry,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{DisclosureEntry, DivulgenceEntry}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
@@ -31,8 +28,10 @@ import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.{Table, forAll}
 import org.scalatest.wordspec.AnyWordSpec
-
 import java.time.{Duration, Instant}
+
+import com.daml.ledger.participant.state.kvutils.store.DamlStateKey
+
 import scala.annotation.nowarn
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.collection.mutable

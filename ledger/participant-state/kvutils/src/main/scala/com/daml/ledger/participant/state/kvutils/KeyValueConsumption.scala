@@ -7,6 +7,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.store.DamlStateKey
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2.{DivulgedContract, TransactionMeta, Update}
 import com.daml.lf.data.Ref
@@ -22,7 +23,6 @@ import com.google.rpc.status.Status
 import org.slf4j.LoggerFactory
 
 import scala.jdk.CollectionConverters._
-
 /** Utilities for producing [[Update]] events from [[DamlLogEntry]]'s committed to a
   * key-value based ledger.
   */

@@ -7,6 +7,7 @@ import java.util.UUID
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Raw
+import com.daml.ledger.participant.state.kvutils.store._
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.data.Ref
 import com.daml.lf.value.ValueOuterClass.Identifier

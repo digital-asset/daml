@@ -7,6 +7,7 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.store.DamlStateKey
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.daml.lf.data.Ref
@@ -17,7 +18,6 @@ import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
 import scala.jdk.CollectionConverters._
-
 /** Methods to produce the [[DamlSubmission]] message.
   *
   * [[DamlSubmission]] is processed for committing with [[KeyValueCommitting.processSubmission]].

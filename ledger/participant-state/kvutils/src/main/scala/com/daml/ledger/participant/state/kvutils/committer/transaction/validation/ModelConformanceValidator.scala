@@ -3,32 +3,17 @@
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction.validation
 
-import com.daml.ledger.participant.state.kvutils.Conversions.{
-  contractIdToStateKey,
-  packageStateKey,
-  parseTimestamp,
-}
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlContractState, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.committer.transaction.{
-  DamlTransactionEntrySummary,
-  Rejection,
-  Rejections,
-  Step,
-}
+import com.daml.ledger.participant.state.kvutils.Conversions.{contractIdToStateKey, packageStateKey, parseTimestamp}
+import com.daml.ledger.participant.state.kvutils.committer.transaction.{DamlTransactionEntrySummary, Rejection, Rejections, Step}
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
+import com.daml.ledger.participant.state.kvutils.store.{DamlContractState, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.lf.archive
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, Result}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.Transaction.{
-  DuplicateKeys,
-  InconsistentKeys,
-  KeyActive,
-  KeyInput,
-  KeyInputError,
-}
+import com.daml.lf.transaction.Transaction._
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext

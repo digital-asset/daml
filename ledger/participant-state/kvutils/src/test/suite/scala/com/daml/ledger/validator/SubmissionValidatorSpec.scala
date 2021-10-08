@@ -8,16 +8,12 @@ import java.time.Clock
 import com.codahale.metrics.MetricRegistry
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.wire.{DamlSubmission, DamlSubmissionBatch}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
 import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, anyLoggingContext}
 import com.daml.ledger.validator.SubmissionValidatorSpec._
-import com.daml.ledger.validator.TestHelper.{
-  FakeStateAccess,
-  aLogEntry,
-  aLogEntryId,
-  aParticipantId,
-}
+import com.daml.ledger.validator.TestHelper.{FakeStateAccess, aLogEntry, aLogEntryId, aParticipantId}
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
