@@ -29,7 +29,7 @@ import scala.concurrent.{ExecutionContext => EC, Future}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 object LedgerClientJwt {
-  import Grpc.Error, Grpc.Category._
+  import Grpc.{EFuture, Error}, Grpc.Category._
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
@@ -66,7 +66,7 @@ object LedgerClientJwt {
     (
         Jwt,
         OneAnd[Set, Ref.Party],
-    ) => Future[Error[PermissionDenied] \/ List[api.domain.PartyDetails]]
+    ) => EFuture[PermissionDenied, List[api.domain.PartyDetails]]
 
   type AllocateParty =
     (Jwt, Option[Ref.Party], Option[String]) => Future[api.domain.PartyDetails]
@@ -208,6 +208,8 @@ object LedgerClientJwt {
   object Grpc {
     import io.grpc.StatusRuntimeException
 
+    type EFuture[E, A] = Future[Error[E] \/ A]
+
     final case class Error[+E](e: E, message: String)
 
     // like Code but with types
@@ -225,7 +227,7 @@ object LedgerClientJwt {
       private[LedgerClientJwt] implicit final class `Future Status Category ops`[A](
           private val fa: Future[A]
       ) extends AnyVal {
-        def requireHandling[E](c: Code PartialFunction E)(implicit ec: EC): Future[Error[E] \/ A] =
+        def requireHandling[E](c: Code PartialFunction E)(implicit ec: EC): EFuture[E, A] =
           fa map \/.right[Error[E], A] recover Function.unlift {
             case sre: StatusRuntimeException =>
               c.lift(sre.getStatus.getCode) map (e => -\/(Error(e, sre.getMessage)))
