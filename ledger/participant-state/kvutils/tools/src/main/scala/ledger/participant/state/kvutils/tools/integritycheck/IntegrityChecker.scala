@@ -212,7 +212,7 @@ class IntegrityChecker[LogResult](
             throw new UnreadableWriteSetException(message)
           }
         }
-        expectedReadServiceFactory.appendBlock(expectedWriteSet)
+        expectedReadServiceFactory.appendBlock(submissionInfo, expectedWriteSet)
         if (!config.indexOnly) {
           commitStrategySupport.commit(submissionInfo) map { actualWriteSet =>
             val orderedActualWriteSet =
@@ -220,7 +220,7 @@ class IntegrityChecker[LogResult](
                 actualWriteSet.sortBy(_._1)
               else
                 actualWriteSet
-            actualReadServiceFactory.appendBlock(orderedActualWriteSet)
+            actualReadServiceFactory.appendBlock(submissionInfo, orderedActualWriteSet)
 
             if (config.performByteComparison)
               writeSetComparison.compareWriteSets(expectedWriteSet, orderedActualWriteSet) match {
