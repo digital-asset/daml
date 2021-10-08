@@ -92,21 +92,20 @@ private[dao] final class TransactionsReader(
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
 
-    val query = (range: EventsRange[(Offset, Long)]) => {
-      implicit connection: Connection =>
-        logger.debug(s"getFlatTransactions query($range)")
-        QueryNonPruned.executeSqlOrThrow(
-          EventsTableFlatEvents
-            .preparePagedGetFlatTransactions(sqlFunctions)(
-              range = EventsRange(range.startExclusive._2, range.endInclusive._2),
-              filter = filter,
-              pageSize = pageSize,
-            )
-            .executeSql,
-          range.startExclusive._1,
-          pruned =>
-            s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
-        )
+    val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
+      logger.debug(s"getFlatTransactions query($range)")
+      QueryNonPruned.executeSqlOrThrow(
+        EventsTableFlatEvents
+          .preparePagedGetFlatTransactions(sqlFunctions)(
+            range = EventsRange(range.startExclusive._2, range.endInclusive._2),
+            filter = filter,
+            pageSize = pageSize,
+          )
+          .executeSql,
+        range.startExclusive._1,
+        pruned =>
+          s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+      )
     }
 
     val events: Source[EventsTable.Entry[Event], NotUsed] =
@@ -177,21 +176,20 @@ private[dao] final class TransactionsReader(
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
 
-    val query = (range: EventsRange[(Offset, Long)]) => {
-      implicit connection: Connection =>
-        logger.debug(s"getTransactionTrees query($range)")
-        QueryNonPruned.executeSqlOrThrow(
-          EventsTableTreeEvents
-            .preparePagedGetTransactionTrees(sqlFunctions)(
-              eventsRange = EventsRange(range.startExclusive._2, range.endInclusive._2),
-              requestingParties = requestingParties,
-              pageSize = pageSize,
-            )
-            .executeSql,
-          range.startExclusive._1,
-          pruned =>
-            s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
-        )
+    val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
+      logger.debug(s"getTransactionTrees query($range)")
+      QueryNonPruned.executeSqlOrThrow(
+        EventsTableTreeEvents
+          .preparePagedGetTransactionTrees(sqlFunctions)(
+            eventsRange = EventsRange(range.startExclusive._2, range.endInclusive._2),
+            requestingParties = requestingParties,
+            pageSize = pageSize,
+          )
+          .executeSql,
+        range.startExclusive._1,
+        pruned =>
+          s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+      )
     }
 
     val events: Source[EventsTable.Entry[TreeEvent], NotUsed] =
@@ -257,21 +255,20 @@ private[dao] final class TransactionsReader(
 
     val requestedRangeF: Future[EventsRange[(Offset, Long)]] = getAcsEventSeqIdRange(activeAt)
 
-    val query = (range: EventsRange[(Offset, Long)]) => {
-      implicit connection: Connection =>
-        logger.debug(s"getActiveContracts query($range)")
-        QueryNonPruned.executeSqlOrThrow(
-          EventsTableFlatEvents
-            .preparePagedGetActiveContracts(sqlFunctions)(
-              range = range,
-              filter = filter,
-              pageSize = pageSize,
-            )
-            .executeSql,
-          activeAt,
-          pruned =>
-            s"Active contracts request after ${activeAt.toHexString} precedes pruned offset ${pruned.toHexString}",
-        )
+    val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
+      logger.debug(s"getActiveContracts query($range)")
+      QueryNonPruned.executeSqlOrThrow(
+        EventsTableFlatEvents
+          .preparePagedGetActiveContracts(sqlFunctions)(
+            range = range,
+            filter = filter,
+            pageSize = pageSize,
+          )
+          .executeSql,
+        activeAt,
+        pruned =>
+          s"Active contracts request after ${activeAt.toHexString} precedes pruned offset ${pruned.toHexString}",
+      )
     }
 
     val events: Source[EventsTable.Entry[Event], NotUsed] =

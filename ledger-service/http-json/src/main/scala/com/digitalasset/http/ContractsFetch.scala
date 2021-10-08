@@ -250,7 +250,7 @@ private class ContractsFetch(
     import com.daml.lf.crypto.Hash
     for {
       ac <- domain.ActiveContract fromLedgerApi ce leftMap (de =>
-        new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"): Exception,
+        new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"): Exception
       )
       lfKey <- ac.key.traverse(apiValueToLfValue).leftMap(_.cause: Exception)
       lfArg <- apiValueToLfValue(ac.payload) leftMap (_.cause: Exception)
@@ -402,7 +402,7 @@ private[http] object ContractsFetch {
               ),
               signatories = domain.Party.unsubst(dbc.signatories),
               observers = domain.Party.unsubst(dbc.observers),
-            ),
+            )
           )
         ))
     }.void
