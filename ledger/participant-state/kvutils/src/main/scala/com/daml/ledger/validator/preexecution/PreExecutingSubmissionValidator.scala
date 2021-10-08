@@ -8,7 +8,12 @@ import com.daml.ledger.participant.state.kvutils.store.DamlStateKey
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
 import com.daml.ledger.validator.reading.StateReader
-import com.daml.ledger.validator.{HasDamlStateValue, HashingLogEntryIdComputationStrategy, LogEntryIdComputationStrategy, ValidationFailed}
+import com.daml.ledger.validator.{
+  HasDamlStateValue,
+  HashingLogEntryIdComputationStrategy,
+  LogEntryIdComputationStrategy,
+  ValidationFailed,
+}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}

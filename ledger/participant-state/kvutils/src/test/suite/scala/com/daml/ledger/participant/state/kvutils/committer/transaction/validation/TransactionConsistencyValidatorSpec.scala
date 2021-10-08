@@ -8,10 +8,29 @@ import java.util.UUID
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, createTransactionEntry, getTransactionRejectionReason, lfTuple}
-import com.daml.ledger.participant.state.kvutils.committer.transaction.{DamlTransactionEntrySummary, Rejections}
-import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult, StepStop}
-import com.daml.ledger.participant.state.kvutils.store.{DamlContractKey, DamlContractKeyState, DamlContractState, DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.TestHelpers.{
+  createCommitContext,
+  createTransactionEntry,
+  getTransactionRejectionReason,
+  lfTuple,
+}
+import com.daml.ledger.participant.state.kvutils.committer.transaction.{
+  DamlTransactionEntrySummary,
+  Rejections,
+}
+import com.daml.ledger.participant.state.kvutils.committer.{
+  CommitContext,
+  StepContinue,
+  StepResult,
+  StepStop,
+}
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlContractKey,
+  DamlContractKeyState,
+  DamlContractState,
+  DamlStateKey,
+  DamlStateValue,
+}
 import com.daml.ledger.validator.TestHelper.{makeContractIdStateKey, makeContractIdStateValue}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.SubmittedTransaction

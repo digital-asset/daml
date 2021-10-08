@@ -4,10 +4,26 @@
 package com.daml.ledger.participant.state.kvutils.committer.transaction.validation
 
 import com.daml.ledger.participant.state.kvutils.Conversions
-import com.daml.ledger.participant.state.kvutils.committer.transaction.{DamlTransactionEntrySummary, Rejection, Rejections, Step}
+import com.daml.ledger.participant.state.kvutils.committer.transaction.{
+  DamlTransactionEntrySummary,
+  Rejection,
+  Rejections,
+  Step,
+}
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
-import com.daml.ledger.participant.state.kvutils.store.{DamlContractKey, DamlContractKeyState, DamlContractState, DamlStateKey}
-import com.daml.lf.transaction.Transaction.{DuplicateKeys, InconsistentKeys, KeyActive, KeyCreate, NegativeKeyLookup}
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlContractKey,
+  DamlContractKeyState,
+  DamlContractState,
+  DamlStateKey,
+}
+import com.daml.lf.transaction.Transaction.{
+  DuplicateKeys,
+  InconsistentKeys,
+  KeyActive,
+  KeyCreate,
+  NegativeKeyLookup,
+}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 

@@ -5,7 +5,10 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.Duration
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, DamlTransactionRejectionEntry}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlLogEntry,
+  DamlTransactionRejectionEntry,
+}
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.store.DamlStateValue
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
@@ -17,7 +20,16 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{FrontStack, Ref, SortedLookupList}
 import com.daml.lf.transaction.Node.NodeCreate
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ValueList, ValueOptional, ValueParty, ValueRecord, ValueTextMap, ValueUnit, ValueVariant}
+import com.daml.lf.value.Value.{
+  ContractId,
+  ValueList,
+  ValueOptional,
+  ValueParty,
+  ValueRecord,
+  ValueTextMap,
+  ValueUnit,
+  ValueVariant,
+}
 import com.daml.logging.LoggingContext
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers

@@ -9,8 +9,15 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.Conversions.configurationStateKey
-import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, createEmptyTransactionEntry, theDefaultConfig}
-import com.daml.ledger.participant.state.kvutils.committer.transaction.{DamlTransactionEntrySummary, Rejections}
+import com.daml.ledger.participant.state.kvutils.TestHelpers.{
+  createCommitContext,
+  createEmptyTransactionEntry,
+  theDefaultConfig,
+}
+import com.daml.ledger.participant.state.kvutils.committer.transaction.{
+  DamlTransactionEntrySummary,
+  Rejections,
+}
 import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepStop}
 import com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationEntry
 import com.daml.ledger.participant.state.kvutils.store.{DamlCommandDedupValue, DamlStateValue}

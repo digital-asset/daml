@@ -18,6 +18,7 @@ import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
 import scala.jdk.CollectionConverters._
+
 /** Methods to produce the [[DamlSubmission]] message.
   *
   * [[DamlSubmission]] is processed for committing with [[KeyValueCommitting.processSubmission]].
