@@ -5,7 +5,7 @@ package com.daml.http
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.http.util.Logging.{InstanceUUID, RequestID}
+import util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api
 import com.daml.ledger.api.v1.package_service
@@ -22,12 +22,14 @@ import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.google.protobuf
-import scalaz.OneAnd
+import io.grpc.Status, Status.Code, Code.{values => _, _}
+import scalaz.{OneAnd, -\/, \/}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext => EC, Future}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 object LedgerClientJwt {
+  import Grpc.Error, Grpc.Category._
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
@@ -61,7 +63,10 @@ object LedgerClientJwt {
     Jwt => Future[List[api.domain.PartyDetails]]
 
   type GetParties =
-    (Jwt, OneAnd[Set, Ref.Party]) => Future[List[api.domain.PartyDetails]]
+    (
+        Jwt,
+        OneAnd[Set, Ref.Party],
+    ) => Future[Error[PermissionDenied] \/ List[api.domain.PartyDetails]]
 
   type AllocateParty =
     (Jwt, Option[Ref.Party], Option[String]) => Future[api.domain.PartyDetails]
@@ -95,7 +100,7 @@ object LedgerClientJwt {
   def submitAndWaitForTransactionTree(client: DamlLedgerClient): SubmitAndWaitForTransactionTree =
     (jwt, req) => client.commandServiceClient.submitAndWaitForTransactionTree(req, bearer(jwt))
 
-  def getTermination(client: DamlLedgerClient)(implicit ec: ExecutionContext): GetTermination =
+  def getTermination(client: DamlLedgerClient)(implicit ec: EC): GetTermination =
     (jwt, ledgerId) =>
       client.transactionClient.getLedgerEnd(ledgerId, bearer(jwt)).map {
         _.offset flatMap {
@@ -164,8 +169,11 @@ object LedgerClientJwt {
   def listKnownParties(client: DamlLedgerClient): ListKnownParties =
     jwt => client.partyManagementClient.listKnownParties(bearer(jwt))
 
-  def getParties(client: DamlLedgerClient): GetParties =
-    (jwt, partyIds) => client.partyManagementClient.getParties(partyIds, bearer(jwt))
+  def getParties(client: DamlLedgerClient)(implicit ec: EC): GetParties =
+    (jwt, partyIds) =>
+      client.partyManagementClient.getParties(partyIds, bearer(jwt)).requireHandling {
+        case PERMISSION_DENIED => PermissionDenied
+      }
 
   def allocateParty(client: DamlLedgerClient): AllocateParty =
     (jwt, identifierHint, displayName) =>
@@ -195,4 +203,35 @@ object LedgerClientJwt {
         logger.trace("sending upload dar request to ledger")
         client.packageManagementClient.uploadDarFile(darFile = byteString, token = bearer(jwt))
       }
+
+  // a shim error model to stand in for https://github.com/digital-asset/daml/issues/9834
+  object Grpc {
+    import io.grpc.StatusRuntimeException
+
+    final case class Error[+E](e: E, message: String)
+
+    // like Code but with types
+    // only needs to contain types that may be reported to the json-api user;
+    // if it is an "internal error" there is no need to call it out for handling
+    // e.g. Unauthenticated never needs to be specially handled, because we should
+    // have caught that the jwt token was missing and reported that to client already
+    object Category {
+      // XXX SC we might be able to assign singleton types to the Codes instead in 2.13+
+      type PermissionDenied = PermissionDenied.type
+      case object PermissionDenied
+      type InvalidArgument = InvalidArgument.type
+      case object InvalidArgument
+
+      private[LedgerClientJwt] implicit final class `Future Status Category ops`[A](
+          private val fa: Future[A]
+      ) extends AnyVal {
+        def requireHandling[E](c: Code PartialFunction E)(implicit ec: EC): Future[Error[E] \/ A] =
+          fa map \/.right[Error[E], A] recover Function.unlift {
+            case sre: StatusRuntimeException =>
+              c.lift(sre.getStatus.getCode) map (e => -\/(Error(e, sre.getMessage)))
+            case _ => None
+          }
+      }
+    }
+  }
 }

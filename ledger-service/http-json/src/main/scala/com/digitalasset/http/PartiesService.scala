@@ -4,10 +4,11 @@
 package com.daml.http
 
 import com.daml.lf.data.Ref
-import com.daml.http.EndpointsCompanion.{Error, InvalidUserInput}
+import com.daml.http.EndpointsCompanion.{Error, InvalidUserInput, Unauthorized}
 import com.daml.http.util.FutureUtil._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api
+import LedgerClientJwt.Grpc
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
 import scalaz.std.string._
@@ -54,7 +55,9 @@ class PartiesService(
   ): Future[Error \/ (Set[domain.PartyDetails], Set[domain.Party])] = {
     val et: ET[(Set[domain.PartyDetails], Set[domain.Party])] = for {
       apiPartyIds <- either(toLedgerApiPartySet(identifiers)): ET[OneAnd[Set, Ref.Party]]
-      apiPartyDetails <- rightT(getParties(jwt, apiPartyIds)): ET[List[api.domain.PartyDetails]]
+      apiPartyDetails <- eitherT(getParties(jwt, apiPartyIds)).leftMap {
+        e: Grpc.Error[Grpc.Category.PermissionDenied] => Unauthorized(e.message)
+      }: ET[List[api.domain.PartyDetails]]
       domainPartyDetails = apiPartyDetails.iterator
         .map(domain.PartyDetails.fromLedgerApi)
         .toSet: Set[domain.PartyDetails]
