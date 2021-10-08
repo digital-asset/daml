@@ -7,7 +7,12 @@ import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
 import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.validator.{CommitStrategy, LedgerStateOperations, LogAppendingCommitStrategy, StateKeySerializationStrategy}
+import com.daml.ledger.validator.{
+  CommitStrategy,
+  LedgerStateOperations,
+  LogAppendingCommitStrategy,
+  StateKeySerializationStrategy,
+}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 

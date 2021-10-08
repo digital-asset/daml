@@ -23,6 +23,7 @@ import com.google.rpc.status.Status
 import org.slf4j.LoggerFactory
 
 import scala.jdk.CollectionConverters._
+
 /** Utilities for producing [[Update]] events from [[DamlLogEntry]]'s committed to a
   * key-value based ledger.
   */

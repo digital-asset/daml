@@ -4,8 +4,16 @@
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import com.daml.ledger.configuration.protobuf.LedgerConfiguration
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, DamlLogEntryId, DamlPartyAllocationEntry}
-import com.daml.ledger.participant.state.kvutils.store.{DamlPartyAllocation, DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlLogEntry,
+  DamlLogEntryId,
+  DamlPartyAllocationEntry,
+}
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlPartyAllocation,
+  DamlStateKey,
+  DamlStateValue,
+}
 import com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationEntry
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.RawWriteSetComparisonSpec._
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.WriteSetComparison.rawHexString

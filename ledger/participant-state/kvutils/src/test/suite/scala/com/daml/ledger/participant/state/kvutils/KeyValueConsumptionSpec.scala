@@ -10,7 +10,11 @@ import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, parseInstant}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry.PayloadCase._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{TimeBounds, logEntryToUpdate, outOfTimeBoundsEntryToUpdate}
+import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
+  TimeBounds,
+  logEntryToUpdate,
+  outOfTimeBoundsEntryToUpdate,
+}
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationEntry
 import com.daml.ledger.participant.state.v2.Update

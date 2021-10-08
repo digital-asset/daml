@@ -13,7 +13,12 @@ import com.daml.ledger.participant.state.kvutils.wire.{DamlSubmission, DamlSubmi
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
 import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, anyLoggingContext}
 import com.daml.ledger.validator.SubmissionValidatorSpec._
-import com.daml.ledger.validator.TestHelper.{FakeStateAccess, aLogEntry, aLogEntryId, aParticipantId}
+import com.daml.ledger.validator.TestHelper.{
+  FakeStateAccess,
+  aLogEntry,
+  aLogEntryId,
+  aParticipantId,
+}
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
