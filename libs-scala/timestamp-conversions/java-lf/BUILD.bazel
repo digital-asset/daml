@@ -20,6 +20,7 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/data",
+        "//libs-scala/timestamp-conversions/java-scala",
     ],
 )
 
@@ -39,5 +40,6 @@ da_scala_test_suite(
     deps = [
         ":java-lf",
         "//daml-lf/data",
+        "//libs-scala/timestamp-conversions/java-scala",
     ],
 )

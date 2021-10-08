@@ -3,7 +3,7 @@
 
 package com.daml.timestamps
 
-import com.daml.timestamps.JavaScala._
+import com.daml.timestamps.AsScalaAsJava._
 import com.daml.timestamps.JavaScalaProtobuf._
 import com.google.protobuf.duration.{Duration => ScalaProtoDuration}
 

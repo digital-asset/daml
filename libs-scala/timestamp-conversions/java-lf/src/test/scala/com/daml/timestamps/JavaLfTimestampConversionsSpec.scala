@@ -4,7 +4,8 @@
 package com.daml.timestamps
 
 import com.daml.lf.data.Time.{Timestamp => LfTimestamp}
-import com.daml.timestamps.JavaLf._
+import com.daml.timestamps.AsScalaAsJava._
+import com.daml.timestamps.AsLf._
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

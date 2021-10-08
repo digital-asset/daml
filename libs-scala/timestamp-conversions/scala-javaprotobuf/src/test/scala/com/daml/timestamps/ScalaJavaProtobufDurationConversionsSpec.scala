@@ -4,7 +4,7 @@
 package com.daml.timestamps
 
 import com.daml.scalautil.Statement.discard
-import com.daml.timestamps.JavaScala._
+import com.daml.timestamps.AsScalaAsJava._
 import com.daml.timestamps.ScalaJavaProtobuf._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
