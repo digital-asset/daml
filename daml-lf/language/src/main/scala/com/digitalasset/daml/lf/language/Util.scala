@@ -230,6 +230,17 @@ object Util {
         )
     }
 
+  private def toSignature(interface: DefInterface): DefInterfaceSignature =
+    interface match {
+      case DefInterface(param, virtualChoices, fixedChoices, methods) =>
+        DefInterfaceSignature(
+          param,
+          virtualChoices,
+          fixedChoices.transform((_, choice) => toSignature(choice)),
+          methods,
+        )
+    }
+
   private[this] def toSignature(module: Module): ModuleSignature =
     module match {
       case Module(name, definitions, templates, exceptions, interfaces, featureFlags) =>
@@ -242,7 +253,7 @@ object Util {
           },
           templates = templates.transform((_, template) => toSignature(template)),
           exceptions = exceptions.transform((_, _) => DefExceptionSignature),
-          interfaces = interfaces,
+          interfaces = interfaces.transform((_, iface) => toSignature(iface)),
           featureFlags = featureFlags,
         )
     }
