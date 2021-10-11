@@ -11,6 +11,7 @@ import com.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.daml.lf.validation.AlphaEquiv._
 import com.daml.lf.validation.Util._
 import com.daml.lf.validation.iterable.TypeIterable
+import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
 
@@ -21,8 +22,7 @@ private[validation] object Typing {
   /* Typing */
 
   private def checkUniq[A](xs: Iterator[A], mkError: A => ValidationError): Unit = {
-    (xs foldLeft Set.empty[A])((acc, x) => if (acc(x)) throw mkError(x) else acc + x)
-    ()
+    discard((xs foldLeft Set.empty[A])((acc, x) => if (acc(x)) throw mkError(x) else acc + x))
   }
 
   private def kindOfBuiltin(bType: BuiltinType): Kind = bType match {
@@ -601,8 +601,7 @@ private[validation] object Typing {
           val (exprFieldNames, fieldExprs) = recordExpr.unzip
           val (typeFieldNames, fieldTypes) = recordType.unzip
           if (exprFieldNames != typeFieldNames) throw EFieldMismatch(ctx, typ, recordExpr)
-          (fieldExprs zip fieldTypes).map((checkExpr _).tupled)
-          ()
+          (fieldExprs zip fieldTypes).foreach((checkExpr _).tupled)
         case _ =>
           throw EExpectedRecordType(ctx, typ)
       }
@@ -852,7 +851,7 @@ private[validation] object Typing {
     private def typeOfLet(binding: Binding, body: Expr): Type = binding match {
       case Binding(Some(vName), typ0, expr) =>
         checkType(typ0, KStar)
-        val typ1 = checkExpr(expr, typ0)
+        val typ1 = resolveExprType(expr, typ0)
         introExprVar(vName, typ1).typeOf(body)
       case Binding(_, _, bound @ _) =>
         typeOf(body)
@@ -861,7 +860,7 @@ private[validation] object Typing {
     private def checkCons(elemType: Type, front: ImmArray[Expr], tailExpr: Expr): Unit = {
       checkType(elemType, KStar)
       if (front.isEmpty) throw EEmptyConsFront(ctx)
-      front.map(checkExpr(_, elemType))
+      front.foreach(checkExpr(_, elemType))
       checkExpr(tailExpr, TList(elemType))
       ()
     }
@@ -897,7 +896,7 @@ private[validation] object Typing {
     }
 
     private def typeOfCreate(tpl: TypeConName, arg: Expr): Type = {
-      handleLookup(ctx, interface.lookupTemplate(tpl))
+      discard(handleLookup(ctx, interface.lookupTemplate(tpl)))
       checkExpr(arg, TTyCon(tpl))
       TUpdate(TContractId(TTyCon(tpl)))
     }
@@ -944,19 +943,19 @@ private[validation] object Typing {
     }
 
     private def typeOfFetch(tpl: TypeConName, cid: Expr): Type = {
-      handleLookup(ctx, interface.lookupTemplate(tpl))
+      discard(handleLookup(ctx, interface.lookupTemplate(tpl)))
       checkExpr(cid, TContractId(TTyCon(tpl)))
       TUpdate(TTyCon(tpl))
     }
 
     private def typeOfFetchInterface(tpl: TypeConName, cid: Expr): Type = {
-      handleLookup(ctx, interface.lookupInterface(tpl))
+      discard(handleLookup(ctx, interface.lookupInterface(tpl)))
       checkExpr(cid, TContractId(TTyCon(tpl)))
       TUpdate(TTyCon(tpl))
     }
 
     private def checkImplements(tpl: TypeConName, iface: TypeConName): Unit = {
-      handleLookup(ctx, interface.lookupInterface(iface))
+      discard(handleLookup(ctx, interface.lookupInterface(iface)))
       val template = handleLookup(ctx, interface.lookupTemplate(tpl))
       if (!template.implements.contains(iface))
         throw ETemplateDoesNotImplementInterface(ctx, tpl, iface)
@@ -1049,7 +1048,7 @@ private[validation] object Typing {
         checkExpr(name, TText)
         TScenario(TParty)
       case ScenarioEmbedExpr(typ, exp) =>
-        checkExpr(exp, TScenario(typ))
+        resolveExprType(exp, TScenario(typ))
     }
 
     // checks that typ contains neither variables, nor quantifiers, nor synonyms
@@ -1070,8 +1069,7 @@ private[validation] object Typing {
     private def checkExceptionType(typ: Type): Unit = {
       typ match {
         case TTyCon(tyCon) =>
-          handleLookup(ctx, interface.lookupException(tyCon))
-          ()
+          discard(handleLookup(ctx, interface.lookupException(tyCon)))
         case _ =>
           throw EExpectedExceptionType(ctx, typ)
       }
@@ -1183,12 +1181,16 @@ private[validation] object Typing {
         typ
     }
 
-    def checkExpr(expr: Expr, typ0: Type): Type = {
+    def resolveExprType(expr: Expr, typ0: Type): Type = {
       val exprType = typeOf(expr)
       val typ = expandTypeSynonyms(typ0)
       if (!alphaEquiv(exprType, typ))
         throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
       exprType
+    }
+
+    def checkExpr(expr: Expr, typ0: Type): Unit = {
+      discard[Type](resolveExprType(expr, typ0))
     }
   }
 

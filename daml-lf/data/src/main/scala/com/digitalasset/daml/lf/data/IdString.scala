@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.lf.data
 
+import com.daml.scalautil.Statement.discard
+
 import java.io.{StringReader, StringWriter}
 
 import com.google.common.io.{BaseEncoding, ByteStreams}
@@ -162,7 +164,7 @@ private object HexStringModuleImpl extends StringModuleImpl with HexStringModule
   override def encode(a: Bytes): T = {
     val writer = new StringWriter()
     val os = baseEncode.encodingStream(writer)
-    ByteStreams.copy(a.toInputStream, os)
+    discard[Long](ByteStreams.copy(a.toInputStream, os))
     writer.toString
   }
 
@@ -230,7 +232,7 @@ private final class ConcatenableMatchingStringModule(
 
   override def concat(s: T, ss: T*): Either[String, T] = {
     val b = new StringBuilder
-    b ++= s
+    discard(b ++= s)
     ss.foreach(b ++= _)
     if (b.length <= maxLength) Right(b.result()) else Left(s"id ${b.result()} too Long")
   }
