@@ -991,7 +991,7 @@ private[lf] final class Compiler(
       cidPos: Position,
       mbKey: Option[Position], // defined for byKey operation
       tokenPos: Position,
-  ) = withEnv{ _ =>
+  ) = withEnv { _ =>
     let(
       SBUFetch(
         tmplId
@@ -1004,11 +1004,9 @@ private[lf] final class Compiler(
           svar(choiceArgPos),
           svar(cidPos),
           compile(choice.controllers),
-          {
-            choice.choiceObservers match {
-              case Some(observers) => compile(observers)
-              case None => SEValue.EmptyList
-            }
+          choice.choiceObservers match {
+            case Some(observers) => compile(observers)
+            case None => SEValue.EmptyList
           },
         )
       ) { _ =>
