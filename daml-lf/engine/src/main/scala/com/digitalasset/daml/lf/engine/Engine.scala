@@ -336,9 +336,9 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         case SResultError(err) =>
           err match {
             case SError.SErrorCrash(where, reason) =>
-              discard[Error.Interpretation.Internal](Error.Interpretation.Internal(where, reason))
+              return ResultError(Error.Interpretation.Internal(where, reason))
             case SError.SErrorDamlException(error) =>
-              discard[Error.Interpretation.DamlException](Error.Interpretation.DamlException(error))
+              return ResultError(Error.Interpretation.DamlException(error))
           }
         case SResultNeedPackage(pkgId, context, callback) =>
           return Result.needPackage(
