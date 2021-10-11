@@ -117,6 +117,7 @@ conformance_test(
         "--additional=AppendOnlyCommandDeduplicationParallelIT",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=ContractIdIT:Accept",
     ],
 )
 
