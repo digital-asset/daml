@@ -12,10 +12,10 @@ module DA.Experimental.Interface(
 import GHC.Types (primitive)
 
 interfaceCreate: t -> Update (ContractId t)
-interfaceCreate = primitive @"$INTERFACE_CREATE"
+interfaceCreate payload = primitive @"$RESOLVE_VIRTUAL_CREATE" payload payload
 
 interfaceSignatory: t -> [Party]
-interfaceSignatory = primitive @"$INTERFACE_SIGNATORIES"
+interfaceSignatory payload = primitive @"$RESOLVE_VIRTUAL_SIGNATORY" payload payload
 
 interfaceObserver: t -> [Party]
-interfaceObserver = primitive @"$INTERFACE_OBSERVERS"
+interfaceObserver payload = primitive @"$RESOLVER_VIRTUAL_OBSERVER"  payload payload

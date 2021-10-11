@@ -1072,8 +1072,8 @@ private[lf] object SBuiltin {
     }
   }
 
-  // Similar to SBUFetch but doesn't perform any checks on the template id, and is never "by key".
-  final case class SBUPreFetchInterface(ifaceId: TypeConName) extends OnLedgerBuiltin(1) {
+  // Similar to SBUFetch but and is never performed "by key".
+  final case class SBUFetchInterface(ifaceId: TypeConName) extends OnLedgerBuiltin(1) {
     override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -1081,105 +1081,63 @@ private[lf] object SBuiltin {
     ): Unit = {
       val coid = getSContractId(args, 0)
       onLedger.cachedContracts.get(coid) match {
-        case Some(cached) => {
-          machine.returnValue = cached.value
-        }
-        case None => {
+        case Some(cached) =>
+          machine.compiledPackages.getDefinition(
+            ImplementsDefRef(cached.templateId, ifaceId)
+          ) match {
+            case Some(_) =>
+              machine.returnValue = cached.value
+            case None =>
+              machine.ctrl = SEDamlException(
+                // TODO https://github.com/digital-asset/daml/issues/10810:
+                //   Create a more specific exception.
+                IE.WronglyTypedContract(coid, ifaceId, cached.templateId)
+              )
+          }
+        case None =>
           throw SpeedyHungry(
             SResultNeedContract(
               coid,
               ifaceId, // not actually used, maybe this param should be dropped from SResultNeedContract
               onLedger.committers,
               { case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _) =>
-                val keyExpr = SEApp(SEVal(KeyDefRef(actualTmplId)), Array(SELocS(1)))
-                machine.pushKont(KCacheContract(machine, actualTmplId, coid))
-                machine.ctrl = SELet1(
-                  SEImportValue(Ast.TTyCon(actualTmplId), arg),
-                  cachedContractStruct(
-                    SELocS(1),
-                    SEApp(SEVal(SignatoriesDefRef(actualTmplId)), Array(SELocS(1))),
-                    SEApp(SEVal(ObserversDefRef(actualTmplId)), Array(SELocS(1))),
-                    keyExpr,
-                  ),
-                )
+                machine.compiledPackages.getDefinition(
+                  ImplementsDefRef(actualTmplId, ifaceId)
+                ) match {
+                  case Some(_) =>
+                    machine.pushKont(KCacheContract(machine, actualTmplId, coid))
+                    machine.ctrl = SELet1(
+                      SEImportValue(Ast.TTyCon(actualTmplId), arg),
+                      cachedContractStruct(
+                        SELocS(1),
+                        SEApp(SEVal(SignatoriesDefRef(actualTmplId)), Array(SELocS(1))),
+                        SEApp(SEVal(ObserversDefRef(actualTmplId)), Array(SELocS(1))),
+                        SEApp(SEVal(KeyDefRef(actualTmplId)), Array(SELocS(1))),
+                      ),
+                    )
+                  case None =>
+                    machine.ctrl =
+                      // TODO https://github.com/digital-asset/daml/issues/10810:
+                      //   Create a more specific exception.
+                      SEDamlException(IE.WronglyTypedContract(coid, ifaceId, actualTmplId))
+                }
               },
             )
           )
-        }
       }
     }
   }
 
-  // SBUFetchInterface uses the contract payload obtained from SBUPreFetchInterface
-  // to call the proper FetchDefRef with the actual template id, and performs an
-  // implements check.
-  //
-  // Interfaces have a "toll-free" representation with the underlying template,
-  // since the template's SRecord already includes the type constructor (templateId)
-  // of its template, we shouldn't need to wrap or change the fetched template value
-  // in any way. (Unless we later need to enforce the distinction between templates
-  // and interfaces at the speedy value level.)
-  final case class SBUFetchInterface(
-      ifaceId: TypeConName
-  ) extends SBuiltin(2) {
-    override private[speedy] def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-    ): Unit = {
-      val coid = getSContractId(args, 0)
-      val SRecord(tmplId, _, _) = getSRecord(args, 1)
-      // After SBUPreFetchInterface, the template's package should already be loaded
-      // in compiledPackages, so SImplementsDefRef will be defined if the template
-      // implements the interface.
-      machine.compiledPackages.getDefinition(ImplementsDefRef(tmplId, ifaceId)) match {
-        case Some(_) =>
-          machine.ctrl = FetchDefRef(tmplId)(
-            SEValue(SContractId(coid)),
-            SEValue(SToken),
-          )
-        case None =>
-          machine.ctrl = SEDamlException(
-            IE.WronglyTypedContract(coid, ifaceId, tmplId)
-            // TODO https://github.com/digital-asset/daml/issues/10810:
-            //   Maybe create a more specific exception.
-          )
-      }
-    }
+  // Return a definition matching the templateId of a given payload
+  sealed class SBResolveVirtual(toDef: Ref.Identifier => SDefinitionRef) extends SBuiltin(1) {
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
+      machine.ctrl = SEVal(toDef(getSRecord(args, 0).id))
   }
 
-  // Very similar to SBUFetchInterface. We use the payload from SBUPreFetchInterface
-  // to call the appropriate ChoiceDefRef with the actual template id, and performs
-  // an implements check.
-  final case class SBUChoiceInterface(
-      ifaceId: TypeConName,
-      choiceName: ChoiceName,
-  ) extends SBuiltin(3) {
-    override private[speedy] def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-    ): Unit = {
-      val coid = getSContractId(args, 0)
-      val choiceArg = args.get(1)
-      val SRecord(tmplId, _, _) = getSRecord(args, 2)
-      // After SBUPreFetchInterface, the template's package should already be loaded
-      // in compiledPackages, so SImplementsDefRef will be defined if the template
-      // implements the interface.
-      machine.compiledPackages.getDefinition(ImplementsDefRef(tmplId, ifaceId)) match {
-        case Some(_) =>
-          machine.ctrl = ChoiceDefRef(tmplId, choiceName)(
-            SEValue(SContractId(coid)),
-            SEValue(choiceArg),
-            SEValue(SToken),
-          )
-        case None =>
-          machine.ctrl = SEDamlException(
-            IE.WronglyTypedContract(coid, ifaceId, tmplId)
-            // TODO https://github.com/digital-asset/daml/issues/10810:
-            //   Maybe create a more specific exception.
-          )
-      }
-    }
-  }
+  final case object SBResolveVirtualFetch extends SBResolveVirtual(FetchDefRef)
+
+  final case class SBResolveVirtualChoice(choiceName: ChoiceName)
+      extends SBResolveVirtual(ChoiceDefRef(_, choiceName))
 
   // Convert an interface to a given template type if possible. Since interfaces have the
   // same representation as the underlying template, we only need to perform a check
@@ -1693,36 +1651,18 @@ private[lf] object SBuiltin {
 
   object SBExperimental {
 
-    private sealed abstract class SBExperimental(val name: String, arity: Int)
-        extends SBuiltin(arity)
-
-    private object SBExperimentalAnswer extends SBExperimental("ANSWER", 1) {
-      override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) = {
+    private object SBExperimentalAnswer extends SBuiltin(1) {
+      override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) =
         machine.returnValue = SInt64(42L)
-      }
     }
 
-    private final class SBExperimentalInterfaceDef(
-        toSDefRef: Identifier => SDefinitionRef,
-        name: String,
-        arity: Int,
-    ) extends SBExperimental(name, arity) {
-      override private[speedy] def execute(
-          args: util.ArrayList[SValue],
-          machine: Machine,
-      ): Unit = {
-        val tmplId = getSRecord(args, 0).id
-        machine.ctrl = SEApp(SEVal(toSDefRef(tmplId)), args.asScala.view.map(SEValue(_)).toArray)
-      }
-    }
-
-    private val mapping: Map[String, SEBuiltin] =
-      List[SBExperimental](
-        SBExperimentalAnswer,
-        new SBExperimentalInterfaceDef(CreateDefRef, "INTERFACE_CREATE", 2),
-        new SBExperimentalInterfaceDef(SignatoriesDefRef, "INTERFACE_SIGNATORIES", 1),
-        new SBExperimentalInterfaceDef(ObserversDefRef, "INTERFACE_OBSERVERS", 1),
-      ).map(x => x.name -> SEBuiltin(x)).toMap
+    private val mapping: Map[String, SExpr] =
+      List(
+        "ANSWER" -> SBExperimentalAnswer,
+        "RESOLVE_VIRTUAL_CREATE" -> new SBResolveVirtual(CreateDefRef),
+        "RESOLVE_VIRTUAL_SIGNATORY" -> new SBResolveVirtual(SignatoriesDefRef),
+        "RESOLVE_VIRTUAL_OBSERVER" -> new SBResolveVirtual(ObserversDefRef),
+      ).view.map { case (name, builtin) => name -> SEBuiltin(builtin) }.toMap
 
     def apply(name: String): SExpr =
       mapping.getOrElse(name, SBError(SEValue(SText(s"experimental $name not supported."))))
