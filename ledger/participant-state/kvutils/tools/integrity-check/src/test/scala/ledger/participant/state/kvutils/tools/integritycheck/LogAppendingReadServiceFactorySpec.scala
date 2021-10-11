@@ -3,17 +3,19 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-import akka.actor.ActorSystem
-import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,
   DamlPartyAllocationEntry,
 }
+import com.daml.ledger.participant.state.kvutils.export.SubmissionInfo
+import com.daml.ledger.participant.state.kvutils.tools.integritycheck.LogAppendingReadServiceFactorySpec._
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.lf.data.Ref
@@ -25,12 +27,15 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.duration.Duration
 
-final class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matchers {
+final class LogAppendingReadServiceFactorySpec
+    extends AsyncWordSpec
+    with Matchers
+    with AkkaBeforeAndAfterAll {
 
   "LogAppendingReadServiceFactory" should {
     "handle empty blocks" in {
       val factory = createFactory()
-      factory.appendBlock(Seq.empty)
+      factory.appendBlock(aSubmissionInfo, Seq.empty)
 
       factory.createReadService
         .stateUpdates(None)
@@ -40,7 +45,7 @@ final class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matche
 
     "handle non-empty blocks" in {
       val factory = createFactory()
-      factory.appendBlock(List(aSerializedLogEntryId -> aWrappedLogEntry))
+      factory.appendBlock(aSubmissionInfo, List(aSerializedLogEntryId -> aWrappedLogEntry))
 
       factory.createReadService
         .stateUpdates(None)
@@ -55,7 +60,7 @@ final class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matche
       val factory = createFactory()
       val readService = factory.createReadService
 
-      factory.appendBlock(List(aSerializedLogEntryId -> aWrappedLogEntry))
+      factory.appendBlock(aSubmissionInfo, List(aSerializedLogEntryId -> aWrappedLogEntry))
 
       readService
         .stateUpdates(None)
@@ -66,36 +71,44 @@ final class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matche
         }
     }
   }
+}
 
-  private def createFactory() = new LogAppendingReadServiceFactory(metrics)
+object LogAppendingReadServiceFactorySpec {
+  private def createFactory() = {
+    val metrics = new Metrics(new MetricRegistry)
+    new LogAppendingReadServiceFactory(metrics)
+  }
 
-  private lazy val actorSystem: ActorSystem = ActorSystem("LogAppendingReadServiceFactorySpec")
-  private lazy implicit val materializer: Materializer = Materializer(actorSystem)
-  private lazy val metrics = new Metrics(new MetricRegistry)
+  private val anEntryId = "AnEntryId"
+  private val aLogEntryId =
+    DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFromUtf8(anEntryId)).build()
 
-  private val AnEntryId = "AnEntryId"
-  private lazy val aLogEntryId =
-    DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFromUtf8(AnEntryId)).build()
-
-  private lazy val APartyName = "aParty"
-  private lazy val AParticipantId = "aParticipant"
-  private lazy val ATimestampInSeconds = 1234L
-  private lazy val aLogEntry = DamlLogEntry
+  private val aPartyName = "aParty"
+  private val aParticipantId = "aParticipant"
+  private val aTimestampInSeconds = 1234L
+  private val aLogEntry = DamlLogEntry
     .newBuilder()
     .setPartyAllocationEntry(
-      DamlPartyAllocationEntry.newBuilder().setParty(APartyName).setParticipantId(AParticipantId)
+      DamlPartyAllocationEntry.newBuilder().setParty(aPartyName).setParticipantId(aParticipantId)
     )
-    .setRecordTime(com.google.protobuf.Timestamp.newBuilder.setSeconds(ATimestampInSeconds))
+    .setRecordTime(com.google.protobuf.Timestamp.newBuilder.setSeconds(aTimestampInSeconds))
     .build()
 
-  private lazy val aPartyAddedToParticipantUpdate = Update.PartyAddedToParticipant(
-    Ref.Party.assertFromString(APartyName),
+  private val aPartyAddedToParticipantUpdate = Update.PartyAddedToParticipant(
+    Ref.Party.assertFromString(aPartyName),
     "",
-    Ref.ParticipantId.assertFromString(AParticipantId),
-    Timestamp.assertFromLong(Duration(ATimestampInSeconds, TimeUnit.SECONDS).toMicros),
+    Ref.ParticipantId.assertFromString(aParticipantId),
+    Timestamp.assertFromLong(Duration(aTimestampInSeconds, TimeUnit.SECONDS).toMicros),
     None,
   )
 
-  private lazy val aSerializedLogEntryId = Raw.LogEntryId(aLogEntryId)
-  private lazy val aWrappedLogEntry = Envelope.enclose(aLogEntry)
+  private val aSerializedLogEntryId = Raw.LogEntryId(aLogEntryId)
+  private val aWrappedLogEntry = Envelope.enclose(aLogEntry)
+
+  private val aSubmissionInfo = SubmissionInfo(
+    participantId = Ref.ParticipantId.assertFromString(aParticipantId),
+    "correlation ID",
+    Raw.Envelope.empty,
+    Instant.EPOCH,
+  )
 }

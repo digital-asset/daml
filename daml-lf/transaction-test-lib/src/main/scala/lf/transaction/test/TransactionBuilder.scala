@@ -182,20 +182,20 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
 object TransactionBuilder {
 
   type TxValue = value.Value.VersionedValue
-  type Node = Node.GenNode[NodeId]
-  type TxNode = Node.GenNode[NodeId]
+  type Node = Node.GenNode
+  type TxNode = Node.GenNode
 
   type Create = Node.NodeCreate
-  type Exercise = Node.NodeExercises[NodeId]
+  type Exercise = Node.NodeExercises
   type Fetch = Node.NodeFetch
   type LookupByKey = Node.NodeLookupByKey
-  type Rollback = Node.NodeRollback[NodeId]
+  type Rollback = Node.NodeRollback
   type KeyWithMaintainers = Node.KeyWithMaintainers[Value]
 
-  type TxExercise = Node.NodeExercises[NodeId]
-  type TxRollback = Node.NodeRollback[NodeId]
+  type TxExercise = Node.NodeExercises
+  type TxRollback = Node.NodeRollback
   type TxKeyWithMaintainers = Node.KeyWithMaintainers[TxValue]
-  type TxRollBack = Node.NodeRollback[NodeId]
+  type TxRollBack = Node.NodeRollback
 
   val Create = Node.NodeCreate
   val Exercise = Node.NodeExercises

@@ -34,7 +34,9 @@ class PollingChecker(
   timer.schedule(
     new TimerTask {
       override def run(): Unit = {
-        Try(check())
+        if (!isClosed) { // Timer can fire at most one additional TimerTask after being cancelled. This is to safeguard that corner case.
+          Try(check())
+        }
         ()
       }
     },
@@ -52,7 +54,9 @@ class PollingChecker(
     logger.debug(s"Checking...")
     Try(checkBody) match {
       case _ if closed =>
-        throw new Exception("Checker is already closed")
+        throw new Exception(
+          "Internal Error: This check should not be called from outside by the time the PollingChecker is closed."
+        )
 
       case Success(_) =>
         logger.debug(s"Check successful.")
@@ -65,6 +69,8 @@ class PollingChecker(
   }
 
   private var closed: Boolean = false
+
+  def isClosed: Boolean = synchronized(closed)
 
   def close(): Unit = synchronized {
     closed = true

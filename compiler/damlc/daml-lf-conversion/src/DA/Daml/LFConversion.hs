@@ -176,6 +176,7 @@ data Env = Env
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envImplements :: MS.Map TypeConName [GHC.TyCon]
     ,envInterfaceInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) (GHC.Expr GHC.CoreBndr)
+    ,envInterfaceChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envInterfaces :: S.Set TypeConName
     ,envIsGenerated :: Bool
     ,envTypeVars :: !(MS.Map Var TypeVarName)
@@ -420,34 +421,34 @@ convertInterfaces :: Env -> [TyThing] -> ConvertM [Definition]
 convertInterfaces env tyThings = interfaceClasses
   where
     interfaceClasses = sequence
-        [ DInterface <$> convertInterface interface cls
+        [ DInterface <$> convertInterface interface cls choiceData
         | ATyCon t <- tyThings
         , Just cls <- [tyConClass_maybe t]
         , Just interface <- [T.stripPrefix "Is" (getOccText t)]
         , TypeConName [interface] `S.member` (envInterfaces env)
+        , choiceData <- [MS.findWithDefault [] (TypeConName [interface]) $ envInterfaceChoiceData env]
         ]
-    convertInterface :: T.Text -> Class -> ConvertM DefInterface
-    convertInterface name cls = do
-      choices <- sequence
-        [ convertChoice arg res
-        |
-          TypeCon (NameIn DA_Internal_Template_Functions "HasExercise") [_, arg, res] <- classSCTheta cls]
-      -- Drop toIface/fromIface/toIfaceContractId/fromIfaceContractId to get only user-defined methods.
+    convertInterface :: T.Text -> Class -> [ChoiceData] -> ConvertM DefInterface
+    convertInterface name cls choiceData = do
       methods <- mapM convertMethod (drop 4 $ classMethods cls)
+      choices <- mapM convertChoice choiceData
       pure DefInterface
         { intLocation = Nothing
         , intName = mkTypeCon [name]
-        , intChoices = NM.fromList choices
+        , intParam = ExprVarName "this"
+        , intVirtualChoices = NM.fromList choices
+        , intFixedChoices = NM.empty -- TODO https://github.com/digital-asset/daml/issues/11137
         , intMethods = NM.fromList methods
         }
-    convertChoice :: TyCoRep.Type -> TyCoRep.Type -> ConvertM InterfaceChoice
-    convertChoice arg res = do
-        arg@(TCon (Qualified { qualObject = TypeConName[choice]})) <- convertType env arg
-        res <- convertType env res
+    convertChoice :: ChoiceData -> ConvertM InterfaceChoice
+    convertChoice (ChoiceData ty _expr) = do
+        TConApp _ [_ :-> _ :-> arg@(TConApp choiceTyCon _) :-> TUpdate res, consumingTy] <- convertType env ty
+        let choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choiceTyCon)
+        consuming <- convertConsuming consumingTy
         pure InterfaceChoice
           { ifcLocation = Nothing
-          , ifcName = ChoiceName choice
-          , ifcConsuming = True
+          , ifcName = choiceName
+          , ifcConsuming = consuming == Consuming
           , ifcArgType = arg
           , ifcRetType = res
           }
@@ -463,6 +464,15 @@ convertInterfaces env tyThings = interfaceClasses
           , ifmType = retTy
           }
 
+convertConsuming :: LF.Type -> ConvertM Consuming
+convertConsuming consumingTy = case consumingTy of
+      TConApp Qualified { qualObject = TypeConName con } _
+          | con == ["NonConsuming"] -> pure NonConsuming
+          | con == ["PreConsuming"] -> pure PreConsuming
+          | con == ["Consuming"] -> pure Consuming
+          | con == ["PostConsuming"] -> pure PostConsuming
+      _ -> unhandled "choice consumption type" (show consumingTy)
+
 convertModule
     :: LF.Version
     -> MS.Map UnitId DalfPackage
@@ -470,15 +480,17 @@ convertModule
     -> Bool
     -> NormalizedFilePath
     -> CoreModule
+    -> [GHC.Module]
     -> ModDetails
     -> Either FileDiagnostic LF.Module
-convertModule lfVersion pkgMap stablePackages isGenerated file x details = runConvertM (ConversionEnv file Nothing) $ do
+convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModules details = runConvertM (ConversionEnv file Nothing) $ do
     definitions <- concatMapM (\bind -> resetFreshVarCounters >> convertBind env bind) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
+    depOrphanModules <- convertDepOrphanModules env depOrphanModules
     templates <- convertTemplateDefs env
     exceptions <- convertExceptionDefs env
     interfaces <- convertInterfaces env (eltsUFM (cm_types x))
-    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ templates ++ exceptions ++ definitions ++ interfaces))
+    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ templates ++ exceptions ++ definitions ++ interfaces ++ depOrphanModules))
     where
         ghcModName = GHC.moduleName $ cm_module x
         thisUnitId = GHC.moduleUnitId $ cm_module x
@@ -516,6 +528,12 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x details = runCo
             , "_choice_" `T.isPrefixOf` getOccText name
             , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
             ]
+        ifChoiceData = MS.fromListWith (++)
+            [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
+            | (name, v) <- binds
+            , "_interface_choice_" `T.isPrefixOf` getOccText name
+            , ty@(TypeCon _ [_, TypeCon _ [TypeCon tplTy _]]) <- [varType name]
+            ]
         templateBinds = scrapeTemplateBinds binds
         exceptionBinds
             | lfVersion `supports` featureExceptions =
@@ -532,6 +550,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x details = runCo
           , envStablePackages = stablePackages
           , envLfVersion = lfVersion
           , envInterfaces = interfaceCons
+          , envInterfaceChoiceData = ifChoiceData
           , envTemplateBinds = templateBinds
           , envExceptionBinds = exceptionBinds
           , envImplements = tplImplements
@@ -708,6 +727,14 @@ convertClassDef env tycon
         ++ [minimalDef | not minimalIsDefault && newStyle]
         -- NOTE (SF): No reason to generate fundep & minimal metadata with old-style typeclasses,
         -- since data-dependencies support for old-style typeclasses is extremely limited.
+
+convertDepOrphanModules :: Env -> [GHC.Module] -> ConvertM [Definition]
+convertDepOrphanModules env orphanModules = do
+    qualifiedDepOrphanModules <- S.fromList <$>
+        mapM (convertQualifiedModuleName () env) orphanModules
+    let moduleImportsType = encodeModuleImports qualifiedDepOrphanModules
+        moduleImportsDef = DValue (mkMetadataStub moduleImportsName moduleImportsType)
+    pure [moduleImportsDef]
 
 defNewtypeWorker :: NamedThing a => LF.ModuleName -> a -> TypeConName -> DataCon
     -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition
@@ -899,13 +926,7 @@ convertChoice env tbinds (ChoiceData ty expr)
         ESome{someBody} -> pure $ Just someBody
         _ -> unhandled "choice observers function" optObservers
 
-    consuming <- case consumingTy of
-        TConApp Qualified { qualObject = TypeConName con } _
-            | con == ["NonConsuming"] -> pure NonConsuming
-            | con == ["PreConsuming"] -> pure PreConsuming
-            | con == ["Consuming"] -> pure Consuming
-            | con == ["PostConsuming"] -> pure PostConsuming
-        _ -> unhandled "choice consumption type" (show consumingTy)
+    consuming <- convertConsuming consumingTy
     let update = action `ETmApp` EVar self `ETmApp` EVar this `ETmApp` EVar arg
     archiveSelf <- useSingleMethodDict env fArchive (`ETmApp` EVar self)
     update <- pure $
@@ -938,7 +959,9 @@ convertBind env (name, x)
     -- This is inlined in the choice in the template so we can just drop this.
     | "_choice_" `T.isPrefixOf` getOccText name
     = pure []
-
+    -- We only need this to get additional info for interface choices.
+    | "_interface_choice_" `T.isPrefixOf` getOccText name
+    = pure []
     -- These are only used as markers for the LF conversion.
     | "_implements_" `T.isPrefixOf` getOccText name
     = pure []
@@ -1915,14 +1938,18 @@ rewriteStableQualified env q@(Qualified pkgRef modName obj) =
       Nothing -> q
       Just pkgId -> Qualified (PRImport pkgId) modName obj
 
-convertQualified :: NamedThing a => (T.Text -> t) -> Env -> a -> ConvertM (Qualified t)
-convertQualified toT env x = do
-  pkgRef <- nameToPkgRef env x
-  let modName = convertModuleName $ GHC.moduleName $ nameModule $ getName x
+convertQualifiedModuleName :: a -> Env -> GHC.Module -> ConvertM (Qualified a)
+convertQualifiedModuleName x env (GHC.Module unitId moduleName) = do
+  pkgRef <- unitIdToPkgRef env unitId
+  let modName = convertModuleName moduleName
   pure $ rewriteStableQualified env $ Qualified
     pkgRef
     modName
-    (toT $ getOccText x)
+    x
+
+convertQualified :: NamedThing a => (T.Text -> t) -> Env -> a -> ConvertM (Qualified t)
+convertQualified toT env x = do
+  convertQualifiedModuleName (toT (getOccText x)) env (nameModule (getName x))
 
 convertQualifiedTySyn :: NamedThing a => Env -> a -> ConvertM (Qualified TypeSynName)
 convertQualifiedTySyn = convertQualified (\t -> mkTypeSyn [t])
@@ -1932,8 +1959,12 @@ convertQualifiedTyCon = convertQualified (\t -> mkTypeCon [t])
 
 nameToPkgRef :: NamedThing a => Env -> a -> ConvertM LF.PackageRef
 nameToPkgRef env x =
-  maybe (pure LF.PRSelf) (convertUnitId thisUnitId pkgMap . moduleUnitId) $
-  Name.nameModule_maybe $ getName x
+  maybe (pure LF.PRSelf) (unitIdToPkgRef env . moduleUnitId) $
+    Name.nameModule_maybe $ getName x
+
+unitIdToPkgRef :: Env -> UnitId -> ConvertM LF.PackageRef
+unitIdToPkgRef env unitId =
+  convertUnitId thisUnitId pkgMap unitId
   where
     thisUnitId = envModuleUnitId env
     pkgMap = envPkgMap env

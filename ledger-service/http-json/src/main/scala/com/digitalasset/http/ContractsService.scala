@@ -14,14 +14,9 @@ import com.daml.http.domain.TemplateId.toLedgerApiValue
 import com.daml.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
 import com.daml.http.json.JsonProtocol.LfValueCodec
 import com.daml.http.query.ValuePredicate
-import util.{
-  AbsoluteBookmark,
-  ApiValueToLfValueConverter,
-  ContractStreamStep,
-  InsertDeleteStep,
-  toLedgerId,
-}
-import com.daml.http.util.ContractStreamStep.{Acs, LiveBegin}
+import com.daml.fetchcontracts.util.{AbsoluteBookmark, ContractStreamStep, InsertDeleteStep}
+import util.{ApiValueToLfValueConverter, toLedgerId}
+import com.daml.fetchcontracts.util.ContractStreamStep.{Acs, LiveBegin}
 import com.daml.http.util.FutureUtil.toFuture
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt
@@ -513,12 +508,14 @@ class ContractsService(
         terminates,
       )
 
-    import ContractsFetch.{acsFollowingAndBoundary, transactionsFollowingBoundary},
-    ContractsFetch.GraphExtensions._
+    import com.daml.fetchcontracts.AcsTxStreams.{
+      acsFollowingAndBoundary,
+      transactionsFollowingBoundary,
+    }, com.daml.fetchcontracts.util.GraphExtensions._
     val contractsAndBoundary = startOffset.cata(
       so =>
         Source
-          .single(Tag unsubst util.AbsoluteBookmark(so.offset))
+          .single(Tag unsubst AbsoluteBookmark(so.offset))
           .viaMat(transactionsFollowingBoundary(transactionsSince).divertToHead)(Keep.right),
       source.viaMat(acsFollowingAndBoundary(transactionsSince).divertToHead)(Keep.right),
     )

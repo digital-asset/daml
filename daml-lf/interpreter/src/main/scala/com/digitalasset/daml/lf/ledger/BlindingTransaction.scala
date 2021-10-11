@@ -66,7 +66,7 @@ object BlindingTransaction {
         nodeId: NodeId,
     ): BlindState =
       tx.nodes.get(nodeId) match {
-        case Some(action: Node.GenActionNode[NodeId]) =>
+        case Some(action: Node.GenActionNode) =>
           val witnesses = parentExerciseWitnesses union action.informeesOfNode
 
           // actions of every type are disclosed to their witnesses
@@ -83,7 +83,7 @@ object BlindingTransaction {
               state
                 .divulgeCoidTo(parentExerciseWitnesses -- fetch.stakeholders, fetch.coid)
 
-            case ex: Node.NodeExercises[NodeId] =>
+            case ex: Node.NodeExercises =>
               val state1 =
                 state.divulgeCoidTo(
                   (parentExerciseWitnesses union ex.choiceObservers) -- ex.stakeholders,
@@ -98,7 +98,7 @@ object BlindingTransaction {
                 )
               }
           }
-        case Some(rollback: Node.NodeRollback[NodeId]) =>
+        case Some(rollback: Node.NodeRollback) =>
           // Rollback nodes are disclosed to the witnesses of the parent exercise.
           val state = state0.discloseNode(parentExerciseWitnesses, nodeId)
           rollback.children.foldLeft(state) { (s, childNodeId) =>

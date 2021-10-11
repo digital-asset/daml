@@ -51,6 +51,7 @@ alias(
             "//ledger/ledger-api-domain",
             "//ledger/ledger-api-health",
             "//ledger/ledger-configuration",
+            "//ledger/ledger-offset",
             "//ledger/ledger-on-sql",
             "//ledger/ledger-resources",
             "//ledger/metrics",

@@ -7,7 +7,7 @@ import com.daml.lf.data.{InsertOrdSet, Relation}
 
 object Graphs {
 
-  case class Cycle[X](vertices: List[X])
+  final case class Cycle[X](vertices: List[X])
 
   type Graph[X] = Relation.Relation[X, X]
 

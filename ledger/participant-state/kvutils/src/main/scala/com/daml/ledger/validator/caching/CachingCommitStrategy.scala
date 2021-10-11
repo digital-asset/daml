@@ -5,8 +5,8 @@ package com.daml.ledger.validator.caching
 
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.validator.{
   CommitStrategy,
   LedgerStateOperations,

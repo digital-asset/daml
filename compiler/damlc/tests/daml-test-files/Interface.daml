@@ -8,7 +8,8 @@ module Interface where
 import DA.Assert ((===))
 
 interface Token where
---  getAmount : Decimal
+  getAmount : Int
+
   choice Split : (ContractId Token, ContractId Token)
     with
       splitAmount : Int
@@ -16,6 +17,10 @@ interface Token where
   choice Transfer : ContractId Token
     with
       newOwner : Party
+
+  nonconsuming choice Noop : ()
+    with
+      nothing : ()
 
 template Asset
   with
@@ -25,6 +30,8 @@ template Asset
   where
     signatory issuer, owner
     implements Token where
+      let getAmount = amount
+
       choice Split : (ContractId Token, ContractId Token)
         with
           splitAmount : Int
@@ -43,6 +50,13 @@ template Asset
           cid <- create this with owner = newOwner
           pure (toTokenContractId cid)
 
+      nonconsuming choice Noop : ()
+        with
+          nothing : ()
+        controller owner
+        do
+          pure ()
+
 main = scenario do
   p <- getParty "Alice"
   p `submit` do
@@ -51,13 +65,16 @@ main = scenario do
       owner = p
       amount = 15
     let cidToken1 = toTokenContractId cidAsset1
+    _ <- exercise cidToken1 (Noop ())
     (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)
     token2 <- fetch cidToken2
+    getAmount token2 === 10
     case fromToken token2 of
       None -> abort "expected Asset"
       Some Asset {amount} ->
         amount === 10
     token3 <- fetch cidToken3
+    getAmount token3 === 5
     case fromToken token3 of
       None -> abort "expected Asset"
       Some Asset {amount} ->

@@ -12,7 +12,7 @@ import com.daml.lf.transaction.Node.{
   NodeFetch,
   NodeLookupByKey,
 }
-import com.daml.lf.transaction.{BlindingInfo, GenTransaction, Transaction}
+import com.daml.lf.transaction.{BlindingInfo, GenTransaction, NodeId, Transaction}
 import com.daml.lf.ledger._
 import com.daml.lf.data.Relation.Relation
 
@@ -46,11 +46,11 @@ object Blinding {
     * transaction has Nid references that are not present in its nodes. Use `isWellFormed`
     * if you are getting the transaction from a third party.
     */
-  def divulgedTransaction[Nid](
-      divulgences: Relation[Nid, Party],
+  def divulgedTransaction(
+      divulgences: Relation[NodeId, Party],
       party: Party,
-      tx: GenTransaction[Nid],
-  ): GenTransaction[Nid] = {
+      tx: GenTransaction,
+  ): GenTransaction = {
     val partyDivulgences = Relation.invert(divulgences)(party)
     // Note that this relies on the local divulgence to be well-formed:
     // if an exercise node is divulged to A but some of its descendants
@@ -58,7 +58,10 @@ object Blinding {
     val filteredNodes = tx.nodes.filter { case (k, _) => partyDivulgences.contains(k) }
 
     @tailrec
-    def go(filteredRoots: BackStack[Nid], remainingRoots: FrontStack[Nid]): ImmArray[Nid] = {
+    def go(
+        filteredRoots: BackStack[NodeId],
+        remainingRoots: FrontStack[NodeId],
+    ): ImmArray[NodeId] = {
       remainingRoots match {
         case FrontStack() => filteredRoots.toImmArray
         case FrontStackCons(root, remainingRoots) =>
@@ -66,11 +69,11 @@ object Blinding {
             go(filteredRoots :+ root, remainingRoots)
           } else {
             tx.nodes(root) match {
-              case nr: NodeRollback[Nid] =>
+              case nr: NodeRollback =>
                 go(filteredRoots, nr.children ++: remainingRoots)
               case _: NodeFetch | _: NodeCreate | _: NodeLookupByKey =>
                 go(filteredRoots, remainingRoots)
-              case ne: NodeExercises[Nid] =>
+              case ne: NodeExercises =>
                 go(filteredRoots, ne.children ++: remainingRoots)
             }
           }

@@ -1197,6 +1197,16 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case class SBCallInterface(
+      ifaceId: TypeConName,
+      methodName: MethodName,
+  ) extends SBuiltin(1) {
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val record = getSRecord(args, 0)
+      machine.ctrl = ImplementsMethodDefRef(record.id, ifaceId, methodName)(SEValue(record))
+    }
+  }
+
   /** $insertFetch[tid]
     *    :: ContractId a
     *    -> List Party    (signatories)
@@ -1692,13 +1702,30 @@ private[lf] object SBuiltin {
       }
     }
 
-    def apply(name: String): SExpr =
-      mapping.getOrElse(name, SBError(SEValue(SText(s"experimental $name not supported."))))
+    private final class SBExperimentalInterfaceDef(
+        toSDefRef: Identifier => SDefinitionRef,
+        name: String,
+        arity: Int,
+    ) extends SBExperimental(name, arity) {
+      override private[speedy] def execute(
+          args: util.ArrayList[SValue],
+          machine: Machine,
+      ): Unit = {
+        val tmplId = getSRecord(args, 0).id
+        machine.ctrl = SEApp(SEVal(toSDefRef(tmplId)), args.asScala.view.map(SEValue(_)).toArray)
+      }
+    }
 
     private val mapping: Map[String, SEBuiltin] =
       List[SBExperimental](
-        SBExperimentalAnswer
+        SBExperimentalAnswer,
+        new SBExperimentalInterfaceDef(CreateDefRef, "INTERFACE_CREATE", 2),
+        new SBExperimentalInterfaceDef(SignatoriesDefRef, "INTERFACE_SIGNATORIES", 1),
+        new SBExperimentalInterfaceDef(ObserversDefRef, "INTERFACE_OBSERVERS", 1),
       ).map(x => x.name -> SEBuiltin(x)).toMap
+
+    def apply(name: String): SExpr =
+      mapping.getOrElse(name, SBError(SEValue(SText(s"experimental $name not supported."))))
 
   }
 

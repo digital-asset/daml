@@ -215,7 +215,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected final def exerciseNode(
       targetCid: ContractId,
       key: Option[KeyWithMaintainers[LfValue]] = None,
-  ): NodeExercises[NodeId] =
+  ): NodeExercises =
     NodeExercises(
       targetCoid = targetCid,
       templateId = someTemplateId,
@@ -262,7 +262,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     tx.transaction.fold(Set.empty[ContractId]) {
       case (set, (_, create: NodeCreate)) =>
         set + create.coid
-      case (set, (_, exercise: Node.NodeExercises[NodeId])) if exercise.consuming =>
+      case (set, (_, exercise: Node.NodeExercises)) if exercise.consuming =>
         set - exercise.targetCoid
       case (set, _) =>
         set

@@ -496,6 +496,16 @@ main =
                       "  alice <- allocateParty \"alice\"",
                       "  _ <- submit alice $ createAndExerciseCmd (T alice alice) (InventObserver \"bob\")",
                       "  _ <- allocatePartyWithHint \"bob\" (PartyIdHint \"bob\")",
+                      "  pure ()",
+                      "partyWithEmptyDisplayName = do",
+                      "  p1 <- allocateParty \"\"",
+                      "  p2 <- allocatePartyWithHint \"\" (PartyIdHint \"hint\")",
+                      "  details <- listKnownParties",
+                      "  let [p1Details, p2Details] = details",
+                      "  assertEq p1Details.displayName (Some \"\")",
+                      "  assertEq p2Details.displayName (Some \"\")",
+                      "  assertEq p2Details.party (fromSome $ partyFromText \"hint\")",
+                      "  t1 <- submit p1 $ createCmd T { owner = p1, observer = p2 }",
                       "  pure ()"
                     ]
                 expectScriptSuccess rs (vr "partyManagement") $ \r ->
@@ -504,6 +514,8 @@ main =
                   matchRegex r "Tried to allocate a party that already exists:  alice"
                 expectScriptFailure rs (vr "duplicatePartyFromText") $ \r ->
                   matchRegex r "Tried to allocate a party that already exists:  bob"
+                expectScriptSuccess rs (vr "partyWithEmptyDisplayName") $ \r ->
+                  matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n\n$"
             , testCase "queryContractId/Key" $ do
                 rs <-
                   runScripts

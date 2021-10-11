@@ -271,8 +271,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     }
   }
 
-  private val serverTlsConfig = TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)
-  private val clientTlsConfig = TlsConfiguration(enabled = true, clientCrt, clientPem, caCrt)
+  final val serverTlsConfig = TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)
+  final val clientTlsConfig = TlsConfiguration(enabled = true, clientCrt, clientPem, caCrt)
   private val noTlsConfig = TlsConfiguration(enabled = false, None, None, None)
 
   def jwtForParties(actAs: List[String], readAs: List[String], ledgerId: String) = {

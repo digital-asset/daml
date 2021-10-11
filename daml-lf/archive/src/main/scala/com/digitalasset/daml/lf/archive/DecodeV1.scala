@@ -284,7 +284,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       } else {
         lfModule.getInterfacesList.asScala.foreach { defn =>
           val defName = getInternedDottedName(defn.getTyconInternedDname)
-          interfaces += (defName -> decodeDefInterface(defn))
+          interfaces += (defName -> decodeDefInterface(defName, defn))
         }
       }
 
@@ -662,15 +662,20 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       DefException(decodeExpr(lfException.getMessage, s"$exceptionName:message"))
 
     private[this] def decodeDefInterface(
-        lfInterface: PLF.DefInterface
+        id: DottedName,
+        lfInterface: PLF.DefInterface,
     ): DefInterface =
       DefInterface(
-        lfInterface.getChoicesList.asScala.toList
+        param = getInternedName(lfInterface.getParamInternedStr, "DefInterface.param"),
+        virtualChoices = lfInterface.getChoicesList.asScala.view
           .map(decodeInterfaceChoice)
-          .map(choice => (choice.name, choice)),
-        lfInterface.getMethodsList.asScala.toList
+          .map(choice => choice.name -> choice),
+        fixedChoices = lfInterface.getFixedChoicesList.asScala.view
+          .map(decodeChoice(id, _))
+          .map(choice => choice.name -> choice),
+        methods = lfInterface.getMethodsList.asScala.view
           .map(decodeInterfaceMethod)
-          .map(method => (method.name, method)),
+          .map(method => method.name -> method),
       )
 
     private[this] def decodeInterfaceChoice(
@@ -1144,8 +1149,13 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           )
 
         case PLF.Expr.SumCase.CALL_INTERFACE =>
-          // TODO https://github.com/digital-asset/daml/issues/10810
-          throw Error.Parsing("Expr.call_interface not yet implemented")
+          assertSince(LV.Features.interfaces, "Expr.call_interface")
+          val callInterface = lfExpr.getCallInterface
+          ECallInterface(
+            iface = decodeTypeConName(callInterface.getInterfaceType),
+            method = getInternedName(callInterface.getMethodInternedName, "ECallInterface.method"),
+            value = decodeExpr(callInterface.getInterfaceExpr, definition),
+          )
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("Expr.SUM_NOT_SET")

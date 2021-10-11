@@ -4,14 +4,10 @@
 package com.daml.ledger.validator.caching
 
 import com.daml.caching.{Cache, WeightedCache}
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntry,
-  DamlLogEntryId,
-  DamlStateKey,
-  DamlStateValue,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, DamlLogEntryId}
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.validator.CommitStrategy
 import com.daml.ledger.validator.TestHelper._
 import com.daml.ledger.validator.caching.CachingCommitStrategySpec._

@@ -24,6 +24,13 @@ import com.daml.ledger.participant.state.kvutils.committer.{
   StepResult,
   StepStop,
 }
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlContractKey,
+  DamlContractKeyState,
+  DamlContractState,
+  DamlStateKey,
+  DamlStateValue,
+}
 import com.daml.ledger.validator.TestHelper.{makeContractIdStateKey, makeContractIdStateValue}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.SubmittedTransaction

@@ -12,7 +12,7 @@ load(
 )
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@os_info//:os_info.bzl", "is_windows")
-load("@scala_version//:index.bzl", "scala_version_suffix")
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
 
 hj_scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
@@ -60,6 +60,7 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger-service/http-json-ledger-client:{}".format(edition),
             "//ledger-service/cli-opts",
             "//ledger-service/db-backend",
+            "//ledger-service/fetch-contracts",
             "//ledger-service/jwt",
             "//ledger-service/lf-value-json",
             "//ledger-service/utils",
@@ -185,6 +186,12 @@ daml_compile(
     visibility = ["//ledger-service:__subpackages__"],
 )
 
+daml_compile(
+    name = "User",
+    srcs = ["src/it/daml/User.daml"],
+    visibility = ["//ledger-service:__subpackages__"],
+)
+
 [
     da_scala_test(
         name = "tests-{}".format(edition),
@@ -223,6 +230,7 @@ daml_compile(
             "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
             "//ledger-service/db-backend",
+            "//ledger-service/fetch-contracts",
             "//ledger/metrics",
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/cli-opts",
@@ -283,7 +291,13 @@ alias(
             "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
+            "//ledger-api/testing-utils",
+            "//ledger-service/fetch-contracts",
+            "//ledger/ledger-resources",
             "//ledger/metrics",
+            "//ledger/sandbox:sandbox-scala-tests-lib",
+            "//ledger/sandbox-common",
+            "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-testing:{}".format(edition),
             "//ledger-service/db-backend",
@@ -326,8 +340,13 @@ alias(
             "src/it/scala/**/*.scala",
             "src/it/edition/{}/**/*.scala".format(edition),
         ]),
+        args = [
+            "-l",
+            "skip_scala_2_12",
+        ] if scala_major_version == "2.12" else [],
         data = [
             ":Account.dar",
+            ":User.dar",
             "//docs:quickstart-model.dar",
             "//ledger/test-common:dar-files",
             "//ledger/test-common/test-certificates",
@@ -369,17 +388,24 @@ alias(
             "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
+            "//ledger-api/testing-utils",
             "//ledger-service/db-backend",
+            "//ledger-service/fetch-contracts",
+            "//ledger/ledger-api-auth",
+            "//ledger/ledger-resources",
             "//ledger/metrics",
+            "//ledger/sandbox:sandbox-scala-tests-lib",
+            "//ledger/sandbox-common",
+            "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-testing:{}".format(edition),
             "//ledger-service/jwt",
             "//ledger-service/utils",
-            "//ledger/ledger-api-auth",
             "//libs-scala/contextualized-logging",
             "//libs-scala/db-utils",
             "//libs-scala/ports",
             "//libs-scala/postgresql-testing",
+            "//libs-scala/resources",
             "//libs-scala/scala-utils",
             "//runtime-components/non-repudiation",
             "//runtime-components/non-repudiation-postgresql",
@@ -435,6 +461,7 @@ test_suite(
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
             "//ledger-api/testing-utils",
+            "//ledger-service/fetch-contracts",
             "//ledger/ledger-configuration",
             "//libs-scala/contextualized-logging",
             "//ledger-service/http-json-cli:{}".format(edition),
@@ -495,6 +522,7 @@ da_scala_benchmark_jmh(
         "//daml-lf/interface",
         "//language-support/scala/bindings",
         "//ledger-service/db-backend",
+        "//ledger-service/fetch-contracts",
         "//ledger-service/http-json-cli:base",
         "//ledger-service/utils",
         "//ledger/metrics",

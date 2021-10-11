@@ -14,8 +14,8 @@ archive Protobuf definitions, compilers, type checkers, and archive
 (de/en)coders.
 
 In addition of development speed, those hooks also adds some
-confidence non-development feature are not impacted when prototyping
-new Daml feature as few part of the stack had to be modified.
+confidence non-development features are not impacted when prototyping
+new Daml feature as few parts of the stack have to be modified.
 
 Daml-LF Experimental Specification
 ----------------------------------

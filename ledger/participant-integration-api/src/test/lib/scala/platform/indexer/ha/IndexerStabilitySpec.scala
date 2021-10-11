@@ -16,7 +16,6 @@ import org.scalatest.time.{Millis, Seconds, Span}
 
 import java.sql.Connection
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Success
 
 trait IndexerStabilitySpec
     extends AsyncFlatSpec
@@ -28,8 +27,6 @@ trait IndexerStabilitySpec
 
   // To be overriden by the spec implementation
   def jdbcUrl: String
-
-  def haModeSupported: Boolean
 
   // The default EC is coming from AsyncTestSuite and is serial, do not use it
   implicit val ec: ExecutionContext = system.dispatcher
@@ -104,15 +101,6 @@ trait IndexerStabilitySpec
         Future.successful(())
       }
       .map(_ => succeed)
-  }.transform { result =>
-    if (haModeSupported) {
-      result
-    } else {
-      // If HA mode is not supported, the test must fail, but there are multiple reasons why it can fail.
-      // E.g., duplicate parameter table initialization, or duplicate event sequential ids.
-      assert(result.isFailure, "The test must fail if HA mode is not supported")
-      Success(succeed)
-    }
   }
 
   // Finds the first non-aborted indexer that has subscribed to the ReadService stream

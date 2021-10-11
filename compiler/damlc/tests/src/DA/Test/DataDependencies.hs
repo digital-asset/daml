@@ -1205,6 +1205,37 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             ]
         callProcessSilent damlc [ "build", "--project-root", tmpDir </> "proj" ]
 
+    , dataDependenciesTest "Using orphan instances transitively"
+        -- This test checks that orphan instances are imported
+        -- transitively via data-dependencies.
+        [
+            (,) "Type.daml"
+            [ "module Type where"
+            , "data T = T"
+            ]
+        ,   (,) "OrphanInstance.daml"
+            [ "{-# OPTIONS_GHC -Wno-orphans #-}"
+            , "module OrphanInstance where"
+            , "import Type"
+            , "instance Show T where show T = \"T\""
+            ]
+        ,   (,) "Wrapper.daml"
+            [ "module Wrapper where"
+            , "import OrphanInstance ()"
+            ]
+        ]
+        [
+            (,) "Main.daml"
+            [ "module Main where"
+            , "import Type"
+            , "import Wrapper ()"
+            , "test = scenario do"
+            , "  debug (show T)"
+            -- If orphan instances were not imported transitively,
+            -- we'd get a missing instance error from GHC.
+            ]
+        ]
+
     , testCaseSteps "User-defined exceptions" $ \step -> withTempDir $ \tmpDir -> do
         step "building project to be imported via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "lib")
@@ -1382,6 +1413,10 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
   where
     simpleImportTest :: String -> [String] -> [String] -> TestTree
     simpleImportTest title lib main =
+        dataDependenciesTest title [("Lib.daml", lib)] [("Main.daml", main)]
+
+    dataDependenciesTest :: String -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
+    dataDependenciesTest title libModules mainModules =
         testCaseSteps title $ \step -> withTempDir $ \tmpDir -> do
             step "building project to be imported via data-dependencies"
             createDirectoryIfMissing True (tmpDir </> "lib")
@@ -1392,7 +1427,8 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
                 , "version: 0.1.0"
                 , "dependencies: [daml-prim, daml-stdlib]"
                 ]
-            writeFileUTF8 (tmpDir </> "lib" </> "Lib.daml") $ unlines lib
+            forM_ libModules $ \(path, contents) ->
+                writeFileUTF8 (tmpDir </> "lib" </> path) $ unlines contents
             callProcessSilent damlc
                 [ "build"
                 , "--project-root", tmpDir </> "lib"
@@ -1409,5 +1445,6 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
                 , "data-dependencies: "
                 , "  - " <> (tmpDir </> "lib" </> "lib.dar")
                 ]
-            writeFileUTF8 (tmpDir </> "main" </> "Main.daml") $ unlines main
+            forM_ mainModules $ \(path, contents) ->
+                writeFileUTF8 (tmpDir </> "main" </> path) $ unlines contents
             callProcessSilent damlc ["build", "--project-root", tmpDir </> "main"]

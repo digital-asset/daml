@@ -357,7 +357,7 @@ class SubmitRequestValidatorTest
         }
       }
 
-      "not allow deduplication time exceeding maximum deduplication duration" in {
+      "not allow deduplication duration exceeding maximum deduplication duration" in {
         val durationSecondsExceedingMax =
           internal.maxDeduplicationDuration.plusSeconds(1).getSeconds
         forAll(
@@ -385,7 +385,7 @@ class SubmitRequestValidatorTest
         }
       }
 
-      "default to maximum deduplication time if deduplication is missing" in {
+      "default to maximum deduplication duration if deduplication is missing" in {
         val commandsValidator = new CommandsValidator(ledgerId)
         commandsValidator.validateCommands(
           api.commands.copy(deduplicationPeriod = DeduplicationPeriodProto.Empty),

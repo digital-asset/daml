@@ -138,7 +138,7 @@ private[backend] trait StorageBackendTestsCompletions
     }
   }
 
-  it should "correctly persist and retrieve command deduplication times" in {
+  it should "correctly persist and retrieve command deduplication durations" in {
     val party = someParty
     val seconds = 100L
     val nanos = 10
@@ -180,7 +180,7 @@ private[backend] trait StorageBackendTestsCompletions
     }
   }
 
-  it should "fail on broken command deduplication times in DB" in {
+  it should "fail on broken command deduplication durations in DB" in {
     val party = someParty
     val seconds = 100L
     val nanos = 10

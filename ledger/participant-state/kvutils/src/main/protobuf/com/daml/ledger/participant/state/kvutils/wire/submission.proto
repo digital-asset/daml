@@ -8,12 +8,13 @@ option java_multiple_files = true;
 option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils.Wire";
 
 import "com/daml/ledger/participant/state/kvutils/daml_kvutils.proto";
+import "com/daml/ledger/participant/state/kvutils/store/state.proto";
 
 // A submission to the ledger: a payload and its inputs if any.
 // Produced by [[KeyValueSubmission]].
 // Transformed into `DamlLogEntry` when committed.
 message DamlSubmission {
-  repeated DamlStateKey input_daml_state = 1;
+  repeated com.daml.ledger.participant.state.kvutils.store.DamlStateKey input_daml_state = 1;
   oneof payload {
     DamlTransactionEntry transaction_entry = 2;
     DamlPackageUploadEntry package_upload_entry = 3;

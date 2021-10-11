@@ -31,9 +31,9 @@ object TransactionNormalizer {
       tx.nodes
         .filter { case (nid, _) => keepNids.contains(nid) }
         .transform {
-          case (_, node: Node.NodeExercises[NodeId]) =>
+          case (_, node: Node.NodeExercises) =>
             node.copy(children = node.children.filter(keepNids.contains))
-          case (_, node: Node.NodeRollback[NodeId]) =>
+          case (_, node: Node.NodeRollback) =>
             node.copy(children = node.children.filter(keepNids.contains))
           case (_, keep) =>
             keep

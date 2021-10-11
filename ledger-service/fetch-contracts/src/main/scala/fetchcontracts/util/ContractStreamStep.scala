@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.http
+package com.daml.fetchcontracts
 package util
 
 import InsertDeleteStep.{Cid, Inserts}
@@ -12,7 +12,7 @@ import scalaz.syntax.functor._
 
 import scala.collection.compat._
 
-private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product with Serializable {
+private[daml] sealed abstract class ContractStreamStep[+D, +C] extends Product with Serializable {
   import ContractStreamStep._
 
   def toInsertDelete: InsertDeleteStep[D, C] = this match {
@@ -81,7 +81,7 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
   }
 }
 
-private[http] object ContractStreamStep extends WithLAV1[ContractStreamStep] {
+private[daml] object ContractStreamStep extends WithLAV1[ContractStreamStep] {
   final case class Acs[+C](inserts: Inserts[C]) extends ContractStreamStep[Nothing, C]
   final case class LiveBegin(offset: BeginBookmark[domain.Offset])
       extends ContractStreamStep[Nothing, Nothing]

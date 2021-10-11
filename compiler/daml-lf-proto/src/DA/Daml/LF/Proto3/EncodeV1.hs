@@ -998,7 +998,9 @@ encodeDefInterface :: DefInterface -> Encode P.DefInterface
 encodeDefInterface DefInterface{..} = do
     defInterfaceLocation <- traverse encodeSourceLoc intLocation
     defInterfaceTyconInternedDname <- encodeDottedNameId unTypeConName intName
-    defInterfaceChoices <- encodeNameMap encodeInterfaceChoice intChoices
+    defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
+    defInterfaceChoices <- encodeNameMap encodeInterfaceChoice intVirtualChoices
+    defInterfaceFixedChoices <- encodeNameMap encodeTemplateChoice intFixedChoices
     defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
     pure $ P.DefInterface{..}
 

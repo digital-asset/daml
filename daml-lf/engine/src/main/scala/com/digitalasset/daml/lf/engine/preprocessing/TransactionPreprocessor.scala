@@ -68,12 +68,12 @@ private[preprocessing] final class TransactionPreprocessor(
 
     val result = tx.roots.foldLeft(BackStack.empty[speedy.Command]) { (acc, id) =>
       tx.nodes.get(id) match {
-        case Some(node: Node.GenActionNode[_]) =>
+        case Some(node: Node.GenActionNode) =>
           node match {
             case create: Node.NodeCreate =>
               val cmd = commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
               acc :+ cmd
-            case exe: Node.NodeExercises[_] =>
+            case exe: Node.NodeExercises =>
               val cmd = exe.key match {
                 case Some(key) if exe.byKey =>
                   commandPreprocessor.unsafePreprocessExerciseByKey(
@@ -96,7 +96,7 @@ private[preprocessing] final class TransactionPreprocessor(
             case _: Node.NodeLookupByKey =>
               invalidRootNode(id, s"Transaction contains a lookup by key root node $id")
           }
-        case Some(_: Node.NodeRollback[NodeId]) =>
+        case Some(_: Node.NodeRollback) =>
           invalidRootNode(id, s"invalid transaction, root refers to a rollback node $id")
         case None =>
           invalidRootNode(id, s"invalid transaction, root refers to non-existing node $id")

@@ -34,11 +34,11 @@ private[lf] object PartialTransaction {
   }
 
   type NodeIdx = Value.NodeIdx
-  type Node = Node.GenNode[NodeId]
+  type Node = Node.GenNode
   type LeafNode = Node.LeafOnlyActionNode
 
-  private type TX = GenTransaction[NodeId]
-  private type ExerciseNode = Node.NodeExercises[NodeId]
+  private type TX = GenTransaction
+  private type ExerciseNode = Node.NodeExercises
 
   private final case class IncompleteTxImpl(
       val transaction: TX,
@@ -325,9 +325,9 @@ private[lf] case class PartialTransaction(
       // so we need to compute them.
       val rootNodes = {
         val allChildNodeIds: Set[NodeId] = nodes.values.iterator.flatMap {
-          case rb: Node.NodeRollback[NodeId] => rb.children.toSeq
+          case rb: Node.NodeRollback => rb.children.toSeq
           case _: Node.LeafOnlyActionNode => Nil
-          case ex: Node.NodeExercises[NodeId] => ex.children.toSeq
+          case ex: Node.NodeExercises => ex.children.toSeq
         }.toSet
 
         nodes.keySet diff allChildNodeIds
@@ -609,7 +609,7 @@ private[lf] case class PartialTransaction(
           case _ => keys
         },
       ),
-    ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(optLocation, ec), auth)
+    ).noteAuthFails(nid, CheckAuthorization.authorizeExercise(optLocation, makeExNode(ec)), auth)
   }
 
   /** Close normally an exercise context.
@@ -658,7 +658,7 @@ private[lf] case class PartialTransaction(
 
   private[this] def makeExNode(ec: ExercisesContextInfo): ExerciseNode = {
     val version = packageToTransactionVersion(ec.templateId.packageId)
-    Node.NodeExercises[NodeId](
+    Node.NodeExercises(
       targetCoid = ec.targetId,
       templateId = ec.templateId,
       choiceId = ec.choiceId,

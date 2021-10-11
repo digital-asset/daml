@@ -106,7 +106,7 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
     transaction
       .fold[Set[Ref.Party]](Set.empty) { case (parties, (_, node)) =>
         node match {
-          case _: NodeRollback[_] => Set.empty
+          case _: NodeRollback => Set.empty
           case nf: NodeFetch =>
             parties
               .union(nf.signatories)
@@ -116,7 +116,7 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
             parties
               .union(nc.signatories)
               .union(nc.stakeholders)
-          case ne: NodeExercises[_] =>
+          case ne: NodeExercises =>
             parties
               .union(ne.signatories)
               .union(ne.stakeholders)

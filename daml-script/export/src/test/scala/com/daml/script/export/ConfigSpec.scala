@@ -137,6 +137,18 @@ class ConfigSpec extends AnyFreeSpec with Matchers with OptionValues {
         optConfig.value.accessToken.value.token.value shouldBe token
       }
     }
+    "--max-inbound-message-size" - {
+      "unset" in {
+        val args = defaultRequiredArgs
+        val optConfig = Config.parse(args)
+        optConfig.value.maxInboundMessageSize shouldBe Config.DefaultMaxInboundMessageSize
+      }
+      "--max-inbound-message-size 9388608" in {
+        val args = defaultRequiredArgs ++ Array("--max-inbound-message-size", "9388608")
+        val optConfig = Config.parse(args)
+        optConfig.value.maxInboundMessageSize shouldBe 9388608
+      }
+    }
     "Output type" - {
       "missing" in {
         val args = ledgerArgs ++ partyArgs

@@ -6,12 +6,12 @@ package com.daml.platform.store.backend
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-private[backend] trait StorageBackendTestsDebug extends Matchers with StorageBackendSpec {
+private[backend] trait StorageBackendTestsIntegrity extends Matchers with StorageBackendSpec {
   this: AsyncFlatSpec =>
 
   import StorageBackendTestValues._
 
-  behavior of "DebugStorageBackend"
+  behavior of "IntegrityStorageBackend"
 
   it should "find duplicate event ids" in {
     val updates = Vector(

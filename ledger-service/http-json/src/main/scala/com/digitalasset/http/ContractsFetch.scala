@@ -3,21 +3,8 @@
 
 package com.daml.http
 
-import akka.NotUsed
-import akka.stream.scaladsl.{
-  Broadcast,
-  Concat,
-  Flow,
-  GraphDSL,
-  Keep,
-  Partition,
-  RunnableGraph,
-  Sink,
-  SinkQueueWithCancel,
-  Source,
-}
-import akka.stream.{ClosedShape, FanOutShape2, FlowShape, Graph, Materializer}
-import com.daml.scalautil.Statement.discard
+import akka.stream.scaladsl.{Flow, GraphDSL, Keep, RunnableGraph, Sink, Source}
+import akka.stream.{ClosedShape, FanOutShape2, Materializer}
 import com.daml.http.dbbackend.{ContractDao, SupportedJdbcDriver}
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.TemplateId
@@ -26,18 +13,21 @@ import com.daml.http.util.ApiValueToLfValueConverter.apiValueToLfValue
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue
 }
-import com.daml.http.util.IdentifierConverters.apiIdentifier
 import com.daml.http.util.Logging.{InstanceUUID}
-import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
+import com.daml.fetchcontracts.util.{
+  AbsoluteBookmark,
+  BeginBookmark,
+  ContractStreamStep,
+  InsertDeleteStep,
+  LedgerBegin,
+}
 import com.daml.scalautil.ExceptionOps._
 import com.daml.scalautil.nonempty.NonEmpty
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
-import scalaz.Order
 import scalaz.OneAnd._
 import scalaz.std.set._
 import scalaz.std.vector._
@@ -49,11 +39,10 @@ import scalaz.syntax.functor._
 import scalaz.syntax.foldable._
 import scalaz.syntax.order._
 import scalaz.syntax.std.option._
-import scalaz.{-\/, OneAnd, \/, \/-}
+import scalaz.{OneAnd, \/}
 import spray.json.{JsNull, JsValue}
-import scalaz.Liskov.<~<
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 private class ContractsFetch(
@@ -63,6 +52,8 @@ private class ContractsFetch(
 )(implicit dblog: doobie.LogHandler, sjd: SupportedJdbcDriver.TC) {
 
   import ContractsFetch._
+  import com.daml.fetchcontracts.AcsTxStreams._
+  import com.daml.fetchcontracts.util.AkkaStreamsDoobie.{connectionIOFuture, sinkCioSequence_}
   import sjd.retrySqlStates
 
   private[this] val logger = ContextualizedLogger.get(getClass)
@@ -105,7 +96,7 @@ private class ContractsFetch(
             go(
               maxAttempts - 1,
               laggingTids.toList,
-              domain.Offset.toTerminates(newOff),
+              Terminates fromDomain newOff,
             )
           else
             fconn.raiseError(
@@ -173,8 +164,7 @@ private class ContractsFetch(
           case LedgerBegin =>
             fconn.pure(AbsoluteBookmark(absEnd))
           case AbsoluteBookmark(feedback) =>
-            val feedbackTerminator =
-              domain.Offset.toTerminates(feedback)
+            val feedbackTerminator = Terminates fromDomain feedback
             // contractsFromOffsetIo can go _past_ absEnd, because the ACS ignores
             // this argument; see https://github.com/digital-asset/daml/pull/8226#issuecomment-756446537
             // for an example of this happening.  We deal with this race condition
@@ -260,7 +250,7 @@ private class ContractsFetch(
     import com.daml.lf.crypto.Hash
     for {
       ac <- domain.ActiveContract fromLedgerApi ce leftMap (de =>
-        new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"): Exception,
+        new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"): Exception
       )
       lfKey <- ac.key.traverse(apiValueToLfValue).leftMap(_.cause: Exception)
       lfArg <- apiValueToLfValue(ac.payload) leftMap (_.cause: Exception)
@@ -372,173 +362,6 @@ private[http] object ContractsFetch {
 
   type PreInsertContract = DBContract[TemplateId.RequiredPkg, JsValue, JsValue, Seq[domain.Party]]
 
-  def partition[A, B]: Graph[FanOutShape2[A \/ B, A, B], NotUsed] =
-    GraphDSL.create() { implicit b =>
-      import GraphDSL.Implicits._
-      val split = b.add(
-        Partition[A \/ B](
-          2,
-          {
-            case -\/(_) => 0
-            case \/-(_) => 1
-          },
-        )
-      )
-      val as = b.add(Flow[A \/ B].collect { case -\/(a) => a })
-      val bs = b.add(Flow[A \/ B].collect { case \/-(b) => b })
-      discard { split ~> as }
-      discard { split ~> bs }
-      new FanOutShape2(split.in, as.out, bs.out)
-    }
-
-  def project2[A, B]: Graph[FanOutShape2[(A, B), A, B], NotUsed] =
-    GraphDSL.create() { implicit b =>
-      import GraphDSL.Implicits._
-      val split = b add Broadcast[(A, B)](2)
-      val left = b add Flow.fromFunction((_: (A, B))._1)
-      val right = b add Flow.fromFunction((_: (A, B))._2)
-      discard { split ~> left }
-      discard { split ~> right }
-      new FanOutShape2(split.in, left.out, right.out)
-    }
-
-  def last[A](ifEmpty: A): Flow[A, A, NotUsed] =
-    Flow[A].fold(ifEmpty)((_, later) => later)
-
-  private def max[A: Order](ifEmpty: A): Flow[A, A, NotUsed] =
-    Flow[A].fold(ifEmpty)(_ max _)
-
-  /** Plan inserts, deletes from an in-order batch of create/archive events. */
-  private def partitionInsertsDeletes(
-      txes: Iterable[lav1.event.Event]
-  ): InsertDeleteStep.LAV1 = {
-    val csb = Vector.newBuilder[lav1.event.CreatedEvent]
-    val asb = Map.newBuilder[String, lav1.event.ArchivedEvent]
-    import lav1.event.Event
-    import Event.Event._
-    txes foreach {
-      case Event(Created(c)) => discard { csb += c }
-      case Event(Archived(a)) => discard { asb += ((a.contractId, a)) }
-      case Event(Empty) => () // nonsense
-    }
-    val as = asb.result()
-    InsertDeleteStep(csb.result() filter (ce => !as.contains(ce.contractId)), as)
-  }
-
-  object GraphExtensions {
-    implicit final class `Graph FOS2 funs`[A, Y, Z, M](
-        private val g: Graph[FanOutShape2[A, Y, Z], M]
-    ) extends AnyVal {
-      private def divertToMat[N, O](oz: Sink[Z, N])(mat: (M, N) => O): Flow[A, Y, O] =
-        Flow fromGraph GraphDSL.create(g, oz)(mat) { implicit b => (gs, zOut) =>
-          import GraphDSL.Implicits._
-          gs.out1 ~> zOut
-          new FlowShape(gs.in, gs.out0)
-        }
-
-      /** Several of the graphs here have a second output guaranteed to deliver only one value.
-        * This turns such a graph into a flow with the value materialized.
-        */
-      def divertToHead(implicit noM: M <~< NotUsed): Flow[A, Y, Future[Z]] = {
-        type CK[-T] = (T, Future[Z]) => Future[Z]
-        divertToMat(Sink.head)(noM.subst[CK](Keep.right[NotUsed, Future[Z]]))
-      }
-    }
-  }
-
-  /** Like `acsAndBoundary`, but also include the events produced by `transactionsSince`
-    * after the ACS's last offset, terminating with the last offset of the last transaction,
-    * or the ACS's last offset if there were no transactions.
-    */
-  private[http] def acsFollowingAndBoundary(
-      transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed]
-  ): Graph[FanOutShape2[
-    lav1.active_contracts_service.GetActiveContractsResponse,
-    ContractStreamStep.LAV1,
-    BeginBookmark[String],
-  ], NotUsed] =
-    GraphDSL.create() { implicit b =>
-      import GraphDSL.Implicits._
-      import ContractStreamStep.{LiveBegin, Acs}
-      type Off = BeginBookmark[String]
-      val acs = b add acsAndBoundary
-      val dupOff = b add Broadcast[Off](2)
-      val liveStart = Flow fromFunction { off: Off =>
-        LiveBegin(domain.Offset.tag.subst(off))
-      }
-      val txns = b add transactionsFollowingBoundary(transactionsSince)
-      val allSteps = b add Concat[ContractStreamStep.LAV1](3)
-      // format: off
-      discard { dupOff <~ acs.out1 }
-      discard {           acs.out0.map(ces => Acs(ces.toVector)) ~> allSteps }
-      discard { dupOff       ~> liveStart                        ~> allSteps }
-      discard {                      txns.out0                   ~> allSteps }
-      discard { dupOff            ~> txns.in }
-      // format: on
-      new FanOutShape2(acs.in, allSteps.out, txns.out1)
-    }
-
-  /** Interpreting the transaction stream so it conveniently depends on
-    * the ACS graph, if desired.  Deliberately matching output shape
-    * to `acsFollowingAndBoundary`.
-    */
-  private[http] def transactionsFollowingBoundary(
-      transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed]
-  ): Graph[FanOutShape2[
-    BeginBookmark[String],
-    ContractStreamStep.Txn.LAV1,
-    BeginBookmark[String],
-  ], NotUsed] =
-    GraphDSL.create() { implicit b =>
-      import GraphDSL.Implicits._
-      type Off = BeginBookmark[String]
-      val dupOff = b add Broadcast[Off](2)
-      val mergeOff = b add Concat[Off](2)
-      val txns = Flow[Off]
-        .flatMapConcat(off => transactionsSince(domain.Offset.tag.subst(off).toLedgerApi))
-        .map(transactionToInsertsAndDeletes)
-      val txnSplit = b add project2[ContractStreamStep.Txn.LAV1, domain.Offset]
-      import domain.Offset.`Offset ordering`
-      val lastTxOff = b add last(LedgerBegin: Off)
-      type EndoBookmarkFlow[A] = Flow[BeginBookmark[A], BeginBookmark[A], NotUsed]
-      val maxOff = b add domain.Offset.tag.unsubst[EndoBookmarkFlow, String](
-        max(LedgerBegin: BeginBookmark[domain.Offset])
-      )
-      // format: off
-      discard { txnSplit.in <~ txns <~ dupOff }
-      discard {                        dupOff                                       ~> mergeOff ~> maxOff }
-      discard { txnSplit.out1.map(off => AbsoluteBookmark(off.unwrap)) ~> lastTxOff ~> mergeOff }
-      // format: on
-      new FanOutShape2(dupOff.in, txnSplit.out0, maxOff.out)
-    }
-
-  /** Split a series of ACS responses into two channels: one with contracts, the
-    * other with a single result, the last offset.
-    */
-  private[this] def acsAndBoundary
-      : Graph[FanOutShape2[lav1.active_contracts_service.GetActiveContractsResponse, Seq[
-        lav1.event.CreatedEvent,
-      ], BeginBookmark[String]], NotUsed] =
-    GraphDSL.create() { implicit b =>
-      import GraphDSL.Implicits._
-      import lav1.active_contracts_service.{GetActiveContractsResponse => GACR}
-      val dup = b add Broadcast[GACR](2)
-      val acs = b add (Flow fromFunction ((_: GACR).activeContracts))
-      val off = b add Flow[GACR]
-        .collect { case gacr if gacr.offset.nonEmpty => AbsoluteBookmark(gacr.offset) }
-        .via(last(LedgerBegin: BeginBookmark[String]))
-      discard { dup ~> acs }
-      discard { dup ~> off }
-      new FanOutShape2(dup.in, acs.out, off.out)
-    }
-
-  private def transactionToInsertsAndDeletes(
-      tx: lav1.transaction.Transaction
-  ): (ContractStreamStep.Txn.LAV1, domain.Offset) = {
-    val offset = domain.Offset.fromLedgerApi(tx)
-    (ContractStreamStep.Txn(partitionInsertsDeletes(tx.events), offset), offset)
-  }
-
   private def surrogateTemplateIds[K <: TemplateId.RequiredPkg](
       ids: Set[K]
   )(implicit
@@ -553,30 +376,6 @@ private[http] object ContractsFetch {
       .traverse(k => surrogateTemplateId(k.packageId, k.moduleName, k.entityName) tupleLeft k)
       .map(_.toMap)
   }
-
-  private def sinkCioSequence_[Ign](
-      f: SinkQueueWithCancel[doobie.ConnectionIO[Ign]]
-  )(implicit ec: ExecutionContext): doobie.ConnectionIO[Unit] = {
-    import doobie.ConnectionIO
-    import doobie.free.{connection => fconn}
-    def go(): ConnectionIO[Unit] = {
-      val next = f.pull()
-      connectionIOFuture(next)
-        .flatMap(_.cata(cio => cio flatMap (_ => go()), fconn.pure(())))
-    }
-    fconn.handleErrorWith(
-      go(),
-      t => {
-        f.cancel()
-        fconn.raiseError(t)
-      },
-    )
-  }
-
-  private def connectionIOFuture[A](
-      fa: Future[A]
-  )(implicit ec: ExecutionContext): doobie.ConnectionIO[A] =
-    fconn.async[A](k => fa.onComplete(ta => k(ta.toEither)))
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def insertAndDelete(
@@ -603,23 +402,10 @@ private[http] object ContractsFetch {
               ),
               signatories = domain.Party.unsubst(dbc.signatories),
               observers = domain.Party.unsubst(dbc.observers),
-            ),
+            )
           )
         ))
     }.void
-  }
-
-  private def transactionFilter(
-      parties: OneAnd[Set, domain.Party],
-      templateIds: List[TemplateId.RequiredPkg],
-  ): lav1.transaction_filter.TransactionFilter = {
-    import lav1.transaction_filter._
-
-    val filters =
-      if (templateIds.isEmpty) Filters.defaultInstance
-      else Filters(Some(lav1.transaction_filter.InclusiveFilters(templateIds.map(apiIdentifier))))
-
-    TransactionFilter(domain.Party.unsubst(parties.toVector).map(_ -> filters).toMap)
   }
 
   private final case class FetchContext(

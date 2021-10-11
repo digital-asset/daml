@@ -116,7 +116,7 @@ private[lf] object Pretty {
         "create" &: prettyContractInst(create.coinst)
       case fetch: NodeFetch =>
         "fetch" &: prettyContractId(fetch.coid)
-      case ex: NodeExercises[NodeId] =>
+      case ex: NodeExercises =>
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
@@ -214,7 +214,7 @@ private[lf] object Pretty {
         }
       case ea: NodeFetch =>
         "ensure active" &: prettyContractId(ea.coid)
-      case ex: NodeExercises[NodeId] =>
+      case ex: NodeExercises =>
         val children =
           if (ex.children.nonEmpty)
             text("children:") / stack(ex.children.toList.map(prettyEventInfo(l, txId)))
@@ -391,6 +391,7 @@ private[lf] object Pretty {
 
     import com.daml.lf.language.Ast._
     import com.daml.lf.speedy.SExpr._
+
     def prettyAlt(index: Int)(alt: SCaseAlt): Doc = {
       val (pat, newIndex) = alt.pattern match {
         case SCPNil => (text("nil"), index)

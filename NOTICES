@@ -91,7 +91,7 @@ Apache HttpMime 4.5.12 : Apache License 2.0
 Apache Xalan (Java) 2.7.2 : Apache License 2.0
 Apache Xerces2 J 2.12.0 : Apache License 2.0
 Apache XML Commons 1.4.01 : Apache License 2.0
-argparse 1.0.10 : MIT License
+argparse 1.0.10 : Python Software Foundation License 2.0
 array-filter 1.0.0 : MIT License
 array-flatten 1.1.1 : MIT License
 array.prototype.flat 1.2.4 : MIT License
@@ -208,7 +208,6 @@ commonjs-assert v1.5.0 : MIT License
 Commons IO 2.5 : Apache License 2.0
 comonad 5.0.8 : BSD 3-clause "New" or "Revised" License
 compilerPlugin 0.11.3 : Apache License 2.0
-component/path-to-regexp 0.1.7 : MIT License
 concat-stream 1.6.2 : MIT License
 conduit-extra 1.3.5 : MIT License
 conduit-parse 0.2.1.0 : Public Domain
@@ -388,7 +387,6 @@ Glob 0.10.1 : BSD 3-clause "New" or "Revised" License
 glob-parent 5.1.2 : ISC License
 global-modules 1.0.0 : MIT License
 global-prefix 1.0.2 : MIT License
-Globule 1.3.2 : BSD 3-clause "New" or "Revised" License
 Google Android Annotations Library 4.1.1.4 : Apache License 2.0
 google-gson 2.8.2 : Apache License 2.0
 Gozala/events 1.1.1 : MIT License
@@ -579,13 +577,13 @@ Java Servlet API 3.1.0 : (Common Development and Distribution License 1.1 OR Sun
 JavaPoet 1.11.1 : Apache License 2.0
 Javassist 3_26_0_ga : (Mozilla Public License 1.1 OR GNU Lesser General Public License v2.1 or later OR Apache License 2.0)
 JCommander Library 1.12 : Apache License 2.0
-Jetty :: Asynchronous HTTP Client 9.4.27.v20200227 : (Apache License 2.0 OR Eclipse Public License 1.0)
-Jetty :: Servlet Handling 9.4.18.v20190429 : (Apache License 2.0 OR Eclipse Public License 1.0)
 Jetty :: Websocket :: API 9.4.27.v20200227 : (Apache License 2.0 OR Eclipse Public License 1.0)
 Jetty :: Websocket :: Client 9.4.27.v20200227 : (Apache License 2.0 OR Eclipse Public License 1.0)
 Jetty :: Websocket :: Common 9.4.27.v20200227 : (Apache License 2.0 OR Eclipse Public License 1.0)
 Jetty :: Websocket :: Server 9.4.18.v20190429 : (Apache License 2.0 OR Eclipse Public License 1.0)
 Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429 : (Apache License 2.0 OR Eclipse Public License 1.0)
+Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.18.v20190429 : (Apache License 2.0 OR Eclipse Public License 1.0)
+Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.27.v20200227 : (Apache License 2.0 OR Eclipse Public License 1.0)
 Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429 : (Apache License 2.0 OR Eclipse Public License 1.0)
 Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227 : (Apache License 2.0 OR Eclipse Public License 1.0)
 jgm/zip-archive 0.4.1 : BSD 3-clause "New" or "Revised" License
@@ -701,8 +699,8 @@ mwc-random 0.15.0.1 : BSD 3-clause "New" or "Revised" License
 ndmitchell/nsis v0.3.3 : BSD 3-clause "New" or "Revised" License
 nearley 2.20.1 : MIT License
 Negotiator 0.6.2 : MIT License
+Netty Project 4.1.58.Final : Apache License 2.0
 Netty Project 4.1.67.Final : Apache License 2.0
-Netty Project netty-4.1.58.Final : Apache License 2.0
 Netty/TomcatNative [BoringSSL - Static] 2.0.40.Final : Apache License 2.0
 Netty/Transport/Native/Unix/Common 4.1.58.Final : Apache License 2.0
 network-bsd 2.8.1.0 : BSD 3-clause "New" or "Revised" License
@@ -727,6 +725,7 @@ node-findup-sync 4.0.0 : MIT License
 node-glob 5.0.15 : ISC License
 node-glob 7.1.7 : ISC License
 node-glob v7.1.6 : ISC License
+node-globule 1.3.2 : MIT License
 node-hooker 0.2.3 : MIT License
 node-http2 4.0.1 : MIT License
 node-lru-cache 2.7.3 : ISC License
@@ -825,6 +824,7 @@ path-parse 1.0.7 : MIT License
 path-platform 0.11.15 : MIT License
 path-root 0.1.1 : MIT License
 path-root-regex 0.1.2 : MIT License
+path-to-regexp 0.1.7 : MIT License
 PCollections 2.1.3 : MIT License
 Pebble 3.1.4 : BSD 3-clause "New" or "Revised" License
 pem 0.2.4 : BSD 3-clause "New" or "Revised" License
@@ -1198,7 +1198,7 @@ zlib 0.6.2.3 : BSD 3-clause "New" or "Revised" License
 Licenses: 
 
 Apache License 2.0
-(acorn-node 1.8.2, akka-actor 2.6.13, akka-actor-testkit-typed 2.6.13, akka-actor-typed 2.6.13, akka-http 10.2.1, akka-http-core 10.2.1, akka-http-spray-json 10.2.1, akka-http-testkit 10.2.1, akka-parsing 10.2.1, akka-protobuf-v3 2.6.13, akka-slf4j 2.6.13, akka-stream 2.6.13, akka-stream-testkit 2.6.13, akka-testkit 2.6.13, annotation 0.5.4, anorm 2.6.8, anorm-tokenizer 2.6.8, Apache Commons Codec 1.14, Apache Commons Exec 1.3, Apache Commons Lang 3.9, Apache Commons Logging 1.2, Apache Commons Math 3.2, Apache Commons Net 3.6, Apache Commons Pool commons-pool-2.8.0, Apache Commons Text 1.4, Apache HttpClient 4.5.12, Apache HttpComponents Core 4.4.13, Apache HttpMime 4.5.12, Apache Xalan (Java) 2.7.2, Apache Xerces2 J 2.12.0, Apache XML Commons 1.4.01, Awaitility 3.1.6, boopickle 1.3.3, Byte Buddy byte-buddy-1.10.18, byte-buddy-agent 1.10.18, Caffeine cache 2.8.0, cats-effect 2.5.1, Circe core 0.13.0, Circe generic 0.13.0, Circe jawn 0.13.0, Circe numbers 0.13.0, Circe parser 0.13.0, circe-yaml 0.13.0, com.google.api.grpc:proto-google-common-protos 2.0.1, Commons IO 2.5, compilerPlugin 0.11.3, config - com.typesafe:config 1.4.1, core 2.3.3, dash-ast 1.0.0, doctrine v3.0.0, error-prone annotations 2.4.0, FindBugs jsr305 3.0.2, flyway-core 7.13.0, gatling-app 3.5.1, gatling-charts 3.5.1, gatling-charts-highcharts 3.5.1, gatling-commons 3.5.1, gatling-commons-shared 3.5.1, gatling-commons-shared-unstable 3.5.1, gatling-core 3.5.1, gatling-graphite 3.5.1, gatling-http 3.5.1, gatling-http-client 3.5.1, gatling-jdbc 3.5.1, gatling-jms 3.5.1, gatling-jsonpath 3.5.1, gatling-netty-util 3.5.1, gatling-recorder 3.5.1, gatling-redis 3.5.1, get-assigned-identifiers 1.2.0, ghcide 0.1.0, Google Android Annotations Library 4.1.1.4, google-gson 2.8.2, Graphite Integration for Metrics 4.1.2, Guava InternalFutureFailureAccess and InternalFutures 1.0.1, Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava, Guava: Google Core Libraries for Java v29.0, HikariCP 3.2.0, HtmlUnit 2.39.0, HtmlUnit CSS Parser 1.5.0, HtmlUnit NekoHtml 2.39.0, htmlunit-driver 2.39.0, io.grpc:grpc-api 1.35.0, io.grpc:grpc-context 1.35.0, io.grpc:grpc-core 1.35.0, io.grpc:grpc-netty 1.35.0, io.grpc:grpc-protobuf 1.35.0, io.grpc:grpc-protobuf-lite 1.35.0, io.grpc:grpc-services 1.35.0, io.grpc:grpc-stub 1.35.0, J2ObjC Annotations 1.3, Jackson module: Paranamer 2.9.9, jackson-annotations jackson-annotations-2.12.0, jackson-core 2.12.0, jackson-databind 2.12.0, jackson-module-scala 2.9.9, JavaPoet 1.11.1, Javassist 3_26_0_ga, JCommander Library 1.12, Jetty :: Asynchronous HTTP Client 9.4.27.v20200227, Jetty :: Servlet Handling 9.4.18.v20190429, Jetty :: Websocket :: API 9.4.27.v20200227, Jetty :: Websocket :: Client 9.4.27.v20200227, Jetty :: Websocket :: Common 9.4.27.v20200227, Jetty :: Websocket :: Server 9.4.18.v20190429, Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227, Joda Convert v2.2.1, Joda Time v2.10.8, JSONStream 0.10.0, JSONStream 1.3.5, junit 0.7.26, JVM Integration for Metrics 4.1.2, lenses 0.11.3, logstash-logback-encoder logstash-logback-encoder-6.6, macro-visit 0.1.2, main-tester 0.2.0.1, Metrics Core 4.1.2, Metrics Integration with JMX 4.1.2, munit 0.7.26, Netty Project 4.1.67.Final, Netty Project netty-4.1.58.Final, Netty/TomcatNative [BoringSSL - Static] 2.0.40.Final, Netty/Transport/Native/Unix/Common 4.1.58.Final, objenesis 3.1, OkHttp 3.11.0, OkIO 1.14.0, OpenTelemetry 0.16.0, OpenTelemetry Java 0.16.0, OpenTelemetry Java 0.16.0-alpha, org.apiguardian:apiguardian-api 1.0.0, org.opentest4j:opentest4j 1.0.0, paiges-core 0.3.2, parboiled 2.1.8, perfmark:perfmark-api 0.23.0, Prometheus Java Simpleclient 0.8.1, Prometheus Java Simpleclient Common 0.8.1, Prometheus Java Simpleclient Dropwizard 0.8.1, Prometheus Java Simpleclient Httpserver 0.8.1, proto3-wire 1.2.0, protoc-bridge 0.9.2, protoc-gen 0.9.2, quicklens 1.6.1, RabbitMQ amqp-client 5.5.3, RedisClient 3.30, rxjava 2.2.1, sangria 2.0.1, sangria-marshalling-api 1.0.4, sangria-streaming-api 1.0.1, scala-collection-compat 2.3.2, scala-java8-compat 0.9.0, scala-logging 3.9.2, scala-parallel-collections 1.0.0, scala-parser-combinators 1.1.2, scala-swing 3.0.0, scala-xml 1.3.0, scalacheck-1.15 3.2.9.0, scalactic 3.2.9, scalapb-runtime 0.11.3, scalapb-runtime-grpc 0.11.3, scalatest 3.2.9, scalatest-compatible 3.2.9, scalatest-core 3.2.9, scalatest-diagrams 3.2.9, scalatest-featurespec 3.2.9, scalatest-flatspec 3.2.9, scalatest-freespec 3.2.9, scalatest-funspec 3.2.9, scalatest-funsuite 3.2.9, scalatest-matchers-core 3.2.9, scalatest-mustmatchers 3.2.9, scalatest-propspec 3.2.9, scalatest-refspec 3.2.9, scalatest-shouldmatchers 3.2.9, scalatest-wordspec 3.2.9, Selenium 3.12.0, Selenium 3.141.59, selenium-3.141 3.2.9.0, selenium-edge-driver 3.12.0, selenium-opera-driver 3.12.0, shasum-object 1.0.0, Silencer 1.7.5, SnakeYAML 1.26, spark-java 2.9.1, spray-json 1.3.5, ssl-config-core 0.4.2, t-digest 3.1, TestNG 6.7, testng-6.7 3.2.9.0, Toxiproxy Java Client 2.1.3, TypeScript 3.7.4, unbescape 1.1.6.RELEASE, undeclared-identifiers 1.1.3, uuidjs 4.2.8, wartremover 2.4.16, websocket-driver-node 0.7.4, websocket-extensions-node 0.1.4, Xalan Java Serializer 2.7.2, Xerial SQLite JDBC 3.36.0.1)
+(acorn-node 1.8.2, akka-actor 2.6.13, akka-actor-testkit-typed 2.6.13, akka-actor-typed 2.6.13, akka-http 10.2.1, akka-http-core 10.2.1, akka-http-spray-json 10.2.1, akka-http-testkit 10.2.1, akka-parsing 10.2.1, akka-protobuf-v3 2.6.13, akka-slf4j 2.6.13, akka-stream 2.6.13, akka-stream-testkit 2.6.13, akka-testkit 2.6.13, annotation 0.5.4, anorm 2.6.8, anorm-tokenizer 2.6.8, Apache Commons Codec 1.14, Apache Commons Exec 1.3, Apache Commons Lang 3.9, Apache Commons Logging 1.2, Apache Commons Math 3.2, Apache Commons Net 3.6, Apache Commons Pool commons-pool-2.8.0, Apache Commons Text 1.4, Apache HttpClient 4.5.12, Apache HttpComponents Core 4.4.13, Apache HttpMime 4.5.12, Apache Xalan (Java) 2.7.2, Apache Xerces2 J 2.12.0, Apache XML Commons 1.4.01, Awaitility 3.1.6, boopickle 1.3.3, Byte Buddy byte-buddy-1.10.18, byte-buddy-agent 1.10.18, Caffeine cache 2.8.0, cats-effect 2.5.1, Circe core 0.13.0, Circe generic 0.13.0, Circe jawn 0.13.0, Circe numbers 0.13.0, Circe parser 0.13.0, circe-yaml 0.13.0, com.google.api.grpc:proto-google-common-protos 2.0.1, Commons IO 2.5, compilerPlugin 0.11.3, config - com.typesafe:config 1.4.1, core 2.3.3, dash-ast 1.0.0, doctrine v3.0.0, error-prone annotations 2.4.0, FindBugs jsr305 3.0.2, flyway-core 7.13.0, gatling-app 3.5.1, gatling-charts 3.5.1, gatling-charts-highcharts 3.5.1, gatling-commons 3.5.1, gatling-commons-shared 3.5.1, gatling-commons-shared-unstable 3.5.1, gatling-core 3.5.1, gatling-graphite 3.5.1, gatling-http 3.5.1, gatling-http-client 3.5.1, gatling-jdbc 3.5.1, gatling-jms 3.5.1, gatling-jsonpath 3.5.1, gatling-netty-util 3.5.1, gatling-recorder 3.5.1, gatling-redis 3.5.1, get-assigned-identifiers 1.2.0, ghcide 0.1.0, Google Android Annotations Library 4.1.1.4, google-gson 2.8.2, Graphite Integration for Metrics 4.1.2, Guava InternalFutureFailureAccess and InternalFutures 1.0.1, Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava, Guava: Google Core Libraries for Java v29.0, HikariCP 3.2.0, HtmlUnit 2.39.0, HtmlUnit CSS Parser 1.5.0, HtmlUnit NekoHtml 2.39.0, htmlunit-driver 2.39.0, io.grpc:grpc-api 1.35.0, io.grpc:grpc-context 1.35.0, io.grpc:grpc-core 1.35.0, io.grpc:grpc-netty 1.35.0, io.grpc:grpc-protobuf 1.35.0, io.grpc:grpc-protobuf-lite 1.35.0, io.grpc:grpc-services 1.35.0, io.grpc:grpc-stub 1.35.0, J2ObjC Annotations 1.3, Jackson module: Paranamer 2.9.9, jackson-annotations jackson-annotations-2.12.0, jackson-core 2.12.0, jackson-databind 2.12.0, jackson-module-scala 2.9.9, JavaPoet 1.11.1, Javassist 3_26_0_ga, JCommander Library 1.12, Jetty :: Websocket :: API 9.4.27.v20200227, Jetty :: Websocket :: Client 9.4.27.v20200227, Jetty :: Websocket :: Common 9.4.27.v20200227, Jetty :: Websocket :: Server 9.4.18.v20190429, Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.27.v20200227, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227, Joda Convert v2.2.1, Joda Time v2.10.8, JSONStream 0.10.0, JSONStream 1.3.5, junit 0.7.26, JVM Integration for Metrics 4.1.2, lenses 0.11.3, logstash-logback-encoder logstash-logback-encoder-6.6, macro-visit 0.1.2, main-tester 0.2.0.1, Metrics Core 4.1.2, Metrics Integration with JMX 4.1.2, munit 0.7.26, Netty Project 4.1.58.Final, Netty Project 4.1.67.Final, Netty/TomcatNative [BoringSSL - Static] 2.0.40.Final, Netty/Transport/Native/Unix/Common 4.1.58.Final, objenesis 3.1, OkHttp 3.11.0, OkIO 1.14.0, OpenTelemetry 0.16.0, OpenTelemetry Java 0.16.0, OpenTelemetry Java 0.16.0-alpha, org.apiguardian:apiguardian-api 1.0.0, org.opentest4j:opentest4j 1.0.0, paiges-core 0.3.2, parboiled 2.1.8, perfmark:perfmark-api 0.23.0, Prometheus Java Simpleclient 0.8.1, Prometheus Java Simpleclient Common 0.8.1, Prometheus Java Simpleclient Dropwizard 0.8.1, Prometheus Java Simpleclient Httpserver 0.8.1, proto3-wire 1.2.0, protoc-bridge 0.9.2, protoc-gen 0.9.2, quicklens 1.6.1, RabbitMQ amqp-client 5.5.3, RedisClient 3.30, rxjava 2.2.1, sangria 2.0.1, sangria-marshalling-api 1.0.4, sangria-streaming-api 1.0.1, scala-collection-compat 2.3.2, scala-java8-compat 0.9.0, scala-logging 3.9.2, scala-parallel-collections 1.0.0, scala-parser-combinators 1.1.2, scala-swing 3.0.0, scala-xml 1.3.0, scalacheck-1.15 3.2.9.0, scalactic 3.2.9, scalapb-runtime 0.11.3, scalapb-runtime-grpc 0.11.3, scalatest 3.2.9, scalatest-compatible 3.2.9, scalatest-core 3.2.9, scalatest-diagrams 3.2.9, scalatest-featurespec 3.2.9, scalatest-flatspec 3.2.9, scalatest-freespec 3.2.9, scalatest-funspec 3.2.9, scalatest-funsuite 3.2.9, scalatest-matchers-core 3.2.9, scalatest-mustmatchers 3.2.9, scalatest-propspec 3.2.9, scalatest-refspec 3.2.9, scalatest-shouldmatchers 3.2.9, scalatest-wordspec 3.2.9, Selenium 3.12.0, Selenium 3.141.59, selenium-3.141 3.2.9.0, selenium-edge-driver 3.12.0, selenium-opera-driver 3.12.0, shasum-object 1.0.0, Silencer 1.7.5, SnakeYAML 1.26, spark-java 2.9.1, spray-json 1.3.5, ssl-config-core 0.4.2, t-digest 3.1, TestNG 6.7, testng-6.7 3.2.9.0, Toxiproxy Java Client 2.1.3, TypeScript 3.7.4, unbescape 1.1.6.RELEASE, undeclared-identifiers 1.1.3, uuidjs 4.2.8, wartremover 2.4.16, websocket-driver-node 0.7.4, websocket-extensions-node 0.1.4, Xalan Java Serializer 2.7.2, Xerial SQLite JDBC 3.36.0.1)
 
 Apache License
 Version 2.0, January 2004
@@ -2635,7 +2635,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 ---
 
 BSD 3-clause "New" or "Revised" License
-(aeson-compat 0.3.9, aeson-extra 0.4.1.3, aeson-pretty 0.8.8, ansi-terminal 0.11, ansi-wl-pprint 0.6.9, asn1-encoding 0.9.6, asn1-parse 0.9.5, asn1-types 0.3.4, assoc 1.0.2, base16-bytestring 1.0.1.0, base64 0.4.2.3, base64-bytestring 1.1.0.0, basvandijk/lifted-base 0.2.3.12, bifunctors 5.5.11, blaze-builder 0.4.2.1, blaze-html 0.9.1.2, blaze-markup 0.8.2.8, bos/attoparsec 0.13.2.5, byteable 0.1.1, cereal-conduit 0.8.0, charset 0.3.8, cmark-gfm 0.2.2, cmdargs 0.10.21, comonad 5.0.8, constraints-extras 0.3.1.0, contravariant v1.5.3, corsis/clock 0.8.2, cryptohash-md5 0.11.100.1, cryptohash-sha1 0.11.100.1, cryptonite 0.29, data-default 0.7.1.1, data-default-class 0.1.2.0, data-default-instances-containers 0.0.1, data-default-instances-dlist 0.0.1, data-default-instances-old-locale 0.0.1, data-diverse 4.7.0.0, data-fix 0.3.1, Decimal 0.5.2, dependent-map 0.4.0.0, Diff 0.4.0, digest 0.0.1.2, distributive 0.6.2.1, either 5.0.1.1, ekmett/exceptions 0.10.4, ekmett/free v5.1.7, ekmett/profunctors v5.6.2, ekmett/void v0.7.3, entropy 0.4.1.6, extra 1.7.1, fast-logger 3.0.5, file-embed 0.0.14.0, filepattern 0.1.2, foldl 1.4.11, GaloisInc/cereal 0.5.8.1, generics-sop 0.5.1.1, ghc-lib-parser-ex 8.8.5.8, Globule 1.3.2, haskell TLS 0.11.9, haskell TLS 1.6.11, haskell TLS 1.6.6, haskell TLS 1.6.7, haskell TLS 1.7.5, haskell TLS tls-v1.5.5, haskell-foundation/foundation foundation-v0.0.12, haskell-lexer 1.1, haskell-opengl/StateVar 1.2.1, haskell-parsers v0.12.10, haskell-reflection v2.1.6, haskell-src 1.0.3.1, haskell-vector v0.12.3.0, haskell/network 3.1.1.1, heaps 0.4, HLint 2.2.11, hoist-non-react-statics v3.3.2, hostname 1.0, hourglass 0.2.12, hpp 0.6.3, hs-aeson 1.0.2.0, hs-aeson 1.5.6.0, hs-connection connection-v0.3.1, hslogger 1.3.1.0, http-conduit 2.3.8, http-types 0.12.3, HUnit 1.6.2.0, indexed-profunctors 0.1.1, insert-ordered-containers 0.2.5, Janino 3.1.4, Janino Commons Compiler 3.1.4, JLine 3.7.1, JMESPath Core 0.5.0, JMESPath Jackson 0.5.0, jpeg-js v0.4.3, kan-extensions 5.2.2, language-c 0.9.0.1, libghc-monoid-subclasses-prof 1.1, lsp-test 0.14.0.0, managed 1.0.8, maoe/lifted-async v0.10.2, memory 0.15.0, mwc-random 0.15.0.1, ndmitchell/nsis v0.3.3, network-bsd 2.8.1.0, network-info 0.2.0.10, network-uri 2.6.4.1, old-locale 1.0.0.7, old-time 1.1.0.3, Only 0.1, open-browser 0.2.1.0, optics-core 0.3.0.1, optics-extra 0.3, optics-th 0.3.0.2, optional-args 1.0.2, optparse-applicative 0.16.1.0, optparse-generic 1.4.4, parallel 3.2.2.0, parameterized 0.5.0.0, parser-combinators 1.2.1, path-io 1.6.3, Pebble 3.1.4, pem 0.2.4, phadej/cabal-doctest 1.0.8, primitive 0.7.1.0, Protocol Buffer Java API 3.17.1, Protocol Buffer Java Util Package 3.12.0, qs -  QS Querystring v6.9.6, QuickCheck 2.14.2, quickcheck-instances 0.3.25.2, random 1.2.0, refact 0.3.0.2, reflections 0.9.12, rope-utf16-splay 0.3.2.0, rst-selector-parser 2.2.3, safe 0.3.19, scalacheck 1.15.4, scalameter 0.19, scalameter-core 0.19, scalaz-concurrent 7.2.33, scalaz-core 7.2.33, scalaz-effect 7.2.33, scalaz-iteratee 7.2.33, scalaz-scalacheck-binding 7.2.33-scalacheck-1.15, scientific 0.3.7.0, scodec-bits 1.1.27, sebfisch's primes 0.2.1.0, semigroupoids 5.3.5, semigroups 0.19.1, shake 0.18.5, simonmar/async 2.2.3, simple-smt 0.9.4, socks 0.6.1, some 1.0.2, Soostone/retry 0.8.1.2, sorted-list 0.2.1.0, spl/dlist 1.0, split 0.2.3.4, splitmix 0.1.0.3, stache 2.3.0, stm-chans 3.0.0.4, stm-conduit 4.0.1, strict 0.4.0.1, syb 0.7.2.1, tagged v0.8.6.1, tar 0.5.1.1, tasty-ant-xml 1.1.8, temporary 1.3, terminal-size 0.3.2.1, test-interface 1.0, text-short 0.1.3, th-compat 0.1.2, these 1.1.0.1, these v1.1.1.1, tibbe/hashable 1.3.0.0, time-compat 1.9.5, time-locale-compat 0.1.1.5, transformers-base 0.4.5.2, transformers-compat 0.6.6, turtle 1.5.22, type-equality 1, uniplate 1.6.13, unix-compat 0.5.3, unordered-containers 0.2.14.0, utf8-string v1.0.2, uuid 1.3.15, uuid-types 1.0.5, vector-algorithms 0.8.0.4, wcwidth 0.0.2, xml 1.3.14, zip 1.7.1, zlib 0.6.2.3)
+(aeson-compat 0.3.9, aeson-extra 0.4.1.3, aeson-pretty 0.8.8, ansi-terminal 0.11, ansi-wl-pprint 0.6.9, asn1-encoding 0.9.6, asn1-parse 0.9.5, asn1-types 0.3.4, assoc 1.0.2, base16-bytestring 1.0.1.0, base64 0.4.2.3, base64-bytestring 1.1.0.0, basvandijk/lifted-base 0.2.3.12, bifunctors 5.5.11, blaze-builder 0.4.2.1, blaze-html 0.9.1.2, blaze-markup 0.8.2.8, bos/attoparsec 0.13.2.5, byteable 0.1.1, cereal-conduit 0.8.0, charset 0.3.8, cmark-gfm 0.2.2, cmdargs 0.10.21, comonad 5.0.8, constraints-extras 0.3.1.0, contravariant v1.5.3, corsis/clock 0.8.2, cryptohash-md5 0.11.100.1, cryptohash-sha1 0.11.100.1, cryptonite 0.29, data-default 0.7.1.1, data-default-class 0.1.2.0, data-default-instances-containers 0.0.1, data-default-instances-dlist 0.0.1, data-default-instances-old-locale 0.0.1, data-diverse 4.7.0.0, data-fix 0.3.1, Decimal 0.5.2, dependent-map 0.4.0.0, Diff 0.4.0, digest 0.0.1.2, distributive 0.6.2.1, either 5.0.1.1, ekmett/exceptions 0.10.4, ekmett/free v5.1.7, ekmett/profunctors v5.6.2, ekmett/void v0.7.3, entropy 0.4.1.6, extra 1.7.1, fast-logger 3.0.5, file-embed 0.0.14.0, filepattern 0.1.2, foldl 1.4.11, GaloisInc/cereal 0.5.8.1, generics-sop 0.5.1.1, ghc-lib-parser-ex 8.8.5.8, haskell TLS 0.11.9, haskell TLS 1.6.11, haskell TLS 1.6.6, haskell TLS 1.6.7, haskell TLS 1.7.5, haskell TLS tls-v1.5.5, haskell-foundation/foundation foundation-v0.0.12, haskell-lexer 1.1, haskell-opengl/StateVar 1.2.1, haskell-parsers v0.12.10, haskell-reflection v2.1.6, haskell-src 1.0.3.1, haskell-vector v0.12.3.0, haskell/network 3.1.1.1, heaps 0.4, HLint 2.2.11, hoist-non-react-statics v3.3.2, hostname 1.0, hourglass 0.2.12, hpp 0.6.3, hs-aeson 1.0.2.0, hs-aeson 1.5.6.0, hs-connection connection-v0.3.1, hslogger 1.3.1.0, http-conduit 2.3.8, http-types 0.12.3, HUnit 1.6.2.0, indexed-profunctors 0.1.1, insert-ordered-containers 0.2.5, Janino 3.1.4, Janino Commons Compiler 3.1.4, JLine 3.7.1, JMESPath Core 0.5.0, JMESPath Jackson 0.5.0, jpeg-js v0.4.3, kan-extensions 5.2.2, language-c 0.9.0.1, libghc-monoid-subclasses-prof 1.1, lsp-test 0.14.0.0, managed 1.0.8, maoe/lifted-async v0.10.2, memory 0.15.0, mwc-random 0.15.0.1, ndmitchell/nsis v0.3.3, network-bsd 2.8.1.0, network-info 0.2.0.10, network-uri 2.6.4.1, old-locale 1.0.0.7, old-time 1.1.0.3, Only 0.1, open-browser 0.2.1.0, optics-core 0.3.0.1, optics-extra 0.3, optics-th 0.3.0.2, optional-args 1.0.2, optparse-applicative 0.16.1.0, optparse-generic 1.4.4, parallel 3.2.2.0, parameterized 0.5.0.0, parser-combinators 1.2.1, path-io 1.6.3, Pebble 3.1.4, pem 0.2.4, phadej/cabal-doctest 1.0.8, primitive 0.7.1.0, Protocol Buffer Java API 3.17.1, Protocol Buffer Java Util Package 3.12.0, qs -  QS Querystring v6.9.6, QuickCheck 2.14.2, quickcheck-instances 0.3.25.2, random 1.2.0, refact 0.3.0.2, reflections 0.9.12, rope-utf16-splay 0.3.2.0, rst-selector-parser 2.2.3, safe 0.3.19, scalacheck 1.15.4, scalameter 0.19, scalameter-core 0.19, scalaz-concurrent 7.2.33, scalaz-core 7.2.33, scalaz-effect 7.2.33, scalaz-iteratee 7.2.33, scalaz-scalacheck-binding 7.2.33-scalacheck-1.15, scientific 0.3.7.0, scodec-bits 1.1.27, sebfisch's primes 0.2.1.0, semigroupoids 5.3.5, semigroups 0.19.1, shake 0.18.5, simonmar/async 2.2.3, simple-smt 0.9.4, socks 0.6.1, some 1.0.2, Soostone/retry 0.8.1.2, sorted-list 0.2.1.0, spl/dlist 1.0, split 0.2.3.4, splitmix 0.1.0.3, stache 2.3.0, stm-chans 3.0.0.4, stm-conduit 4.0.1, strict 0.4.0.1, syb 0.7.2.1, tagged v0.8.6.1, tar 0.5.1.1, tasty-ant-xml 1.1.8, temporary 1.3, terminal-size 0.3.2.1, test-interface 1.0, text-short 0.1.3, th-compat 0.1.2, these 1.1.0.1, these v1.1.1.1, tibbe/hashable 1.3.0.0, time-compat 1.9.5, time-locale-compat 0.1.1.5, transformers-base 0.4.5.2, transformers-compat 0.6.6, turtle 1.5.22, type-equality 1, uniplate 1.6.13, unix-compat 0.5.3, unordered-containers 0.2.14.0, utf8-string v1.0.2, uuid 1.3.15, uuid-types 1.0.5, vector-algorithms 0.8.0.4, wcwidth 0.0.2, xml 1.3.14, zip 1.7.1, zlib 0.6.2.3)
 
 Copyright (c) <YEAR>, <OWNER>
 All rights reserved.
@@ -3514,7 +3514,7 @@ TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
 ---
 
 Eclipse Public License 1.0
-(H2 Database Engine version-1.4.200, Jetty :: Asynchronous HTTP Client 9.4.27.v20200227, Jetty :: Servlet Handling 9.4.18.v20190429, Jetty :: Websocket :: API 9.4.27.v20200227, Jetty :: Websocket :: Client 9.4.27.v20200227, Jetty :: Websocket :: Common 9.4.27.v20200227, Jetty :: Websocket :: Server 9.4.18.v20190429, Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227, JUnit 4.12, Logback 1.2.3, org.junit.platform:junit-platform-commons 1.0.0, org.junit.platform:junit-platform-engine 1.0.0, org.junit.platform:junit-platform-launcher 1.0.0, org.junit.platform:junit-platform-runner 1.0.0, org.junit.platform:junit-platform-suite-api 1.0.0)
+(H2 Database Engine version-1.4.200, Jetty :: Websocket :: API 9.4.27.v20200227, Jetty :: Websocket :: Client 9.4.27.v20200227, Jetty :: Websocket :: Common 9.4.27.v20200227, Jetty :: Websocket :: Server 9.4.18.v20190429, Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.27.v20200227, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227, JUnit 4.12, Logback 1.2.3, org.junit.platform:junit-platform-commons 1.0.0, org.junit.platform:junit-platform-engine 1.0.0, org.junit.platform:junit-platform-launcher 1.0.0, org.junit.platform:junit-platform-runner 1.0.0, org.junit.platform:junit-platform-suite-api 1.0.0)
 
 Eclipse Public License - v 1.0
 ==============================
@@ -9240,7 +9240,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(grunt-legacy-log 3.0.0)
+(grunt-legacy-log 3.0.0, node-globule 1.3.2)
 
 Copyright (c) 2018 "Cowboy" Ben Alman
 
@@ -9941,7 +9941,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(argparse 1.0.10, function-bind 1.1.1, isarray 1.0.0, isarray 2.0.5)
+(function-bind 1.1.1, isarray 1.0.0, isarray 2.0.5)
 
 License: Expat
 
@@ -11548,7 +11548,7 @@ SOFTWARE
 ---
 
 MIT License
-(array-flatten 1.1.1, component/path-to-regexp 0.1.7)
+(array-flatten 1.1.1, path-to-regexp 0.1.7)
 
 The MIT License (MIT)
 
@@ -13137,33 +13137,6 @@ SOFTWARE
 ---
 
 MIT License
-(path-root 0.1.1)
-
-The MIT License (MIT)
-
-Copyright (c) 2016, Jon Schlinkert.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE
-
----
-
-MIT License
 (cipher-base 1.0.4, create-hash 1.2.0, create-hmac 1.1.7, evp_bytestokey 1.0.3)
 
 The MIT License (MIT)
@@ -14289,6 +14262,40 @@ License: Expat
 Files: debian/*
 Copyright: 2016, Sruthi Chandran <srud@disroot.org>
  2019, Xavier Guimard <yadd@debian.org>
+License: Expat
+
+License: Expat
+
+Permission is hereby granted, free of charge, to any person
+ obtaining a copy of this software and associated documentation files
+ (the "Software"), to deal in the Software without restriction,
+ including without limitation the rights to use, copy, modify, merge,
+ publish, distribute, sublicense, and/or sell copies of the Software,
+ and to permit persons to whom the Software is furnished to do so,
+ subject to the following conditions:
+ .
+ The above copyright notice and this permission notice shall be
+ included in all copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE
+
+---
+
+MIT License
+(path-root 0.1.1)
+
+Upstream-Contact: https://github.com/jonschlinkert/path-root/issues
+Source: https://github.com/jonschlinkert/path-root
+
+Files: *
+Copyright: 2016 Jon Schlinkert (https://github.com/jonschlinkert)
 License: Expat
 
 License: Expat
@@ -15902,6 +15909,64 @@ Public Domain
 (conduit-parse 0.2.1.0, dependent-sum 0.7.1.0, dependent-sum-template 0.1.0.3, filelock 0.1.1.5, monad-loops 0.4.3, th-extras 0.0.0.4, XZ for Java 1.8)
 
 Public domain code is not subject to any license.
+
+---
+
+Python Software Foundation License 2.0
+(argparse 1.0.10)
+
+This license was approved as the official PSF License Version 2 on October 22,
+2004. The only differences between this and version 1 of the PSF license consist
+of removing Python version numbers (like 2.1.1 or 2.3).
+
+
+
+PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2
+============================================
+
+--------------------------------------------
+
+  1.  This LICENSE AGREEMENT is between the Python Software Foundation ("PSF"),
+    and the Individual or Organization ("Licensee") accessing and otherwise using
+    this software ("Python") in source or binary form and its associated
+    documentation.
+
+  2.  Subject to the terms and conditions of this License Agreement, PSF hereby
+    grants Licensee a nonexclusive, royalty-free, world-wide license to
+    reproduce, analyze, test, perform and/or display publicly, prepare derivative
+    works, distribute, and otherwise use Python alone or in any derivative
+    version, provided, however, that PSF's License Agreement and PSF's notice of
+    copyright, i.e., "Copyright (c) 2001, 2002, 2003, 2004 Python Software
+    Foundation; All Rights Reserved" are retained in Python alone or in any
+    derivative version prepared by Licensee.
+
+  3. In the event Licensee prepares a derivative work that is based on or
+    incorporates Python or any part thereof, and wants to make the derivative
+    work available to others as provided herein, then Licensee hereby agrees to
+    include in any such work a brief summary of the changes made to Python.
+
+  4.  PSF is making Python available to Licensee on an "AS IS" basis. PSF MAKES
+    NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR IMPLIED. BY WAY OF EXAMPLE, BUT
+    NOT LIMITATION, PSF MAKES NO AND DISCLAIMS ANY REPRESENTATION OR WARRANTY OF
+    MERCHANTABILITY OR FITNESS FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF
+    PYTHON WILL NOT INFRINGE ANY THIRD PARTY RIGHTS.
+
+  5.  PSF SHALL NOT BE LIABLE TO LICENSEE OR ANY OTHER USERS OF PYTHON FOR ANY
+    INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES OR LOSS AS A RESULT OF
+    MODIFYING, DISTRIBUTING, OR OTHERWISE USING PYTHON, OR ANY DERIVATIVE
+    THEREOF, EVEN IF ADVISED OF THE POSSIBILITY THEREOF.
+
+  6.  This License Agreement will automatically terminate upon a material breach
+    of its terms and conditions.
+
+  7.  Nothing in this License Agreement shall be deemed to create any
+    relationship of agency, partnership, or joint venture between PSF and
+    Licensee. This License Agreement does not grant permission to use PSF
+    trademarks or trade name in a trademark sense to endorse or promote products
+    or services of Licensee, or any third party.
+
+  8.  By copying, installing or otherwise using Python, Licensee agrees to be
+    bound by the terms and conditions of this License Agreement.
 
 ---
 

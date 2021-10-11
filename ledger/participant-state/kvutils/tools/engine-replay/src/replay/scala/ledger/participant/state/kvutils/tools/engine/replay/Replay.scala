@@ -194,7 +194,7 @@ private[replay] object Replay {
 
       val benchmarks = transactions.flatMap { entry =>
         entry.tx.roots.map(entry.tx.nodes) match {
-          case ImmArray(exe: Node.NodeExercises[_]) =>
+          case ImmArray(exe: Node.NodeExercises) =>
             val inputContracts = entry.tx.inputContracts
             List(
               BenchmarkState(

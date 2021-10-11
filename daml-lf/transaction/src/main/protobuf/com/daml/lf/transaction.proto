@@ -11,7 +11,7 @@
 // * 13 -- no change w.r.t. 12
 // * 14 -- add rollback nodes
 //         add byKey flag to fetch and exercise node
-// * dev (special staging area for the next version to be released)
+// * dev -- special staging area for the next version to be released
 syntax = "proto3";
 
 package com.daml.lf.transaction;

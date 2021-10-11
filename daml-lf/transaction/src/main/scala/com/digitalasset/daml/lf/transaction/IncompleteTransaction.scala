@@ -9,8 +9,8 @@ import com.daml.lf.data.Ref.Location
 trait IncompleteTransaction {
 
   type Nid = NodeId
-  type TX = GenTransaction[Nid]
-  type ExerciseNode = Node.NodeExercises[Nid]
+  type TX = GenTransaction
+  type ExerciseNode = Node.NodeExercises
 
   def transaction: TX
 

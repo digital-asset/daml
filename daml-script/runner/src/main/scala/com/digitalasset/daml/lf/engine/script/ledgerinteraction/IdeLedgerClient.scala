@@ -174,13 +174,13 @@ class IdeLedgerClient(
           )
           node match {
             case create: NodeCreate => ScriptLedgerClient.CreateResult(create.coid)
-            case exercise: NodeExercises[NodeId] =>
+            case exercise: NodeExercises =>
               ScriptLedgerClient.ExerciseResult(
                 exercise.templateId,
                 exercise.choiceId,
                 exercise.exerciseResult.get,
               )
-            case _: NodeFetch | _: NodeLookupByKey | _: NodeRollback[_] =>
+            case _: NodeFetch | _: NodeLookupByKey | _: NodeRollback =>
               throw new IllegalArgumentException(s"Invalid root node: $node")
           }
         }
@@ -234,7 +234,7 @@ class IdeLedgerClient(
           transaction.nodes(id) match {
             case create: NodeCreate =>
               Some(ScriptLedgerClient.Created(create.templateId, create.coid, create.arg))
-            case exercise: NodeExercises[NodeId] =>
+            case exercise: NodeExercises =>
               Some(
                 ScriptLedgerClient.Exercised(
                   exercise.templateId,
@@ -244,7 +244,7 @@ class IdeLedgerClient(
                   exercise.children.collect(Function.unlift(convEvent(_))).toList,
                 )
               )
-            case _: NodeFetch | _: NodeLookupByKey | _: NodeRollback[_] => None
+            case _: NodeFetch | _: NodeLookupByKey | _: NodeRollback => None
           }
         ScriptLedgerClient.TransactionTree(
           transaction.roots.collect(Function.unlift(convEvent(_))).toList
@@ -278,7 +278,10 @@ class IdeLedgerClient(
           }
         } else {
           // Allocate a fresh name based on the display name.
-          val candidates = displayName #:: LazyList.from(1).map(displayName + _.toString())
+          // Empty party ids are not allowed, fall back to "party" on empty display name.
+          val namePrefix = if (displayName.isEmpty) { "party" }
+          else { displayName }
+          val candidates = namePrefix #:: LazyList.from(1).map(namePrefix + _.toString())
           Success(candidates.find(s => !(usedNames contains s)).get)
         }
       // Create and store the new party.

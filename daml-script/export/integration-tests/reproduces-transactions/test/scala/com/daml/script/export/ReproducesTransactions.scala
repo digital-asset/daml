@@ -135,6 +135,7 @@ trait ReproducesTransactions
         ),
         start = offset,
         end = ledgerEnd,
+        maxInboundMessageSize = Config.DefaultMaxInboundMessageSize,
         exportType = Some(
           ExportScript(
             outputPath = tmpDir,

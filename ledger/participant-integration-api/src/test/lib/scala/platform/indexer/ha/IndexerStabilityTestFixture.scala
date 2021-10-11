@@ -60,7 +60,6 @@ object IndexerStabilityTestFixture {
       jdbcUrl = jdbcUrl,
       startupMode = IndexerStartupMode.MigrateAndStart,
       enableAppendOnlySchema = true,
-      haConfig = HaConfig(enable = true),
     )
 
     newLoggingContext { implicit loggingContext =>

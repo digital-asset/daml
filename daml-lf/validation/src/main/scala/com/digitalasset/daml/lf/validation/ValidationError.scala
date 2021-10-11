@@ -458,6 +458,26 @@ final case class EBadInterfaceChoiceImplRetType(
     s"The implementation of the choice $choice of interface $iface in template $template differs from the interface definition in the return type.\nExpected: $ifaceRetType\n But got: $tplRetType"
 }
 
+final case class EMissingInterfaceMethod(
+    context: Context,
+    template: TypeConName,
+    iface: TypeConName,
+    method: MethodName,
+) extends ValidationError {
+  override protected def prettyInternal: String =
+    s"Template $template is missing method '$method' in its implementation of interface $iface."
+}
+
+final case class EUnknownInterfaceMethod(
+    context: Context,
+    template: TypeConName,
+    iface: TypeConName,
+    method: MethodName,
+) extends ValidationError {
+  override protected def prettyInternal: String =
+    s"Template $template implements method '$method' in its implementation of interface $iface, but this method is not part of the interface."
+}
+
 final case class ETemplateDoesNotImplementInterface(
     context: Context,
     template: TypeConName,

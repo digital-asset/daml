@@ -34,6 +34,8 @@ import qualified Data.HashMap.Strict as HMS
 import Data.List
 import qualified Data.NameMap as NM
 import GHC.Generics
+import Data.Either.Extra (maybeToEither)
+import Control.Applicative
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Pretty ()
@@ -154,20 +156,19 @@ lookupChoice (tplRef, chName) world = do
     Nothing -> Left (LEChoice tplRef chName)
     Just choice -> Right choice
 
-lookupInterfaceChoice ::
-     (Qualified TypeConName, ChoiceName) -> World -> Either LookupError InterfaceChoice
+lookupInterfaceChoice :: (Qualified TypeConName, ChoiceName) -> World ->
+  Either LookupError (Either InterfaceChoice TemplateChoice)
 lookupInterfaceChoice (ifaceRef, chName) world = do
-  iface <- lookupInterface ifaceRef world
-  case NM.lookup chName (intChoices iface) of
-    Nothing -> Left (LEChoice ifaceRef chName)
-    Just choice -> Right choice
+  DefInterface{..} <- lookupInterface ifaceRef world
+  maybeToEither (LEChoice ifaceRef chName) $
+        Left  <$> NM.lookup chName intVirtualChoices
+    <|> Right <$> NM.lookup chName intFixedChoices
 
 lookupInterfaceMethod :: (Qualified TypeConName, MethodName) -> World -> Either LookupError InterfaceMethod
 lookupInterfaceMethod (ifaceRef, methodName) world = do
   iface <- lookupInterface ifaceRef world
-  case NM.lookup methodName (intMethods iface) of
-      Nothing -> Left (LEInterfaceMethod ifaceRef methodName)
-      Just method -> Right method
+  maybeToEither (LEInterfaceMethod ifaceRef methodName) $
+      NM.lookup methodName (intMethods iface)
 
 instance Pretty LookupError where
   pPrint = \case

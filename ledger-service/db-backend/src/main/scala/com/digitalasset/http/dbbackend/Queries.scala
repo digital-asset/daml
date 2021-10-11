@@ -684,7 +684,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
 
   private[this] val contractKeyHashIndexName = Fragment.const0(s"${tablePrefix}ckey_hash_idx")
   private[this] val contractKeyHashIndex = CreateIndex(
-    sql"""CREATE UNIQUE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
+    sql"""CREATE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
   )
 
   protected[this] override def extraDatabaseDdls =
@@ -845,7 +845,7 @@ private final class OracleQueries(
 
   private[this] val contractKeyHashIndexName = Fragment.const0(s"${tablePrefix}ckey_hash_idx")
   private[this] val contractKeyHashIndex = CreateIndex(
-    sql"""CREATE UNIQUE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
+    sql"""CREATE INDEX $contractKeyHashIndexName ON $contractTableName (key_hash)"""
   )
 
   private[this] val indexPayload = CreateIndex(sql"""

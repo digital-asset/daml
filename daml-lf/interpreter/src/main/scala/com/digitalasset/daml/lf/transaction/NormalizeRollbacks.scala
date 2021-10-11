@@ -19,11 +19,10 @@ import com.daml.lf.data.Trampoline.{Bounce, Land, Trampoline}
 
 private[lf] object NormalizeRollbacks {
 
-  private[this] type Nid = NodeId
-  private[this] type TX = GenTransaction[Nid]
-  private[this] type Node = GenNode[Nid]
+  private[this] type TX = GenTransaction
+  private[this] type Node = GenNode
   private[this] type LeafNode = LeafOnlyActionNode
-  private[this] type ExeNode = NodeExercises[Nid]
+  private[this] type ExeNode = NodeExercises
 
   // Normalize a transaction so rollback nodes satisfy the normalization rules.
   // see `makeRoll` below
@@ -33,7 +32,7 @@ private[lf] object NormalizeRollbacks {
   // `Canonical` in the sense that only properly normalized nodes can be represented.
   // Although this doesn't ensure correctness, one class of bugs is avoided.
 
-  def normalizeTx(txOriginal: TX): (TX, ImmArray[Nid]) = {
+  def normalizeTx(txOriginal: TX): (TX, ImmArray[NodeId]) = {
 
     // Here we traverse the original transaction structure.
     // During the transformation, an original `Node` is mapped into a List[Norm]
@@ -43,13 +42,15 @@ private[lf] object NormalizeRollbacks {
 
     txOriginal match {
       case GenTransaction(nodesOriginal, rootsOriginal) =>
-        def traverseNids[R](xs: List[Nid])(k: Vector[Norm] => Trampoline[R]): Trampoline[R] = {
+        def traverseNodeIds[R](
+            xs: List[NodeId]
+        )(k: Vector[Norm] => Trampoline[R]): Trampoline[R] = {
           Bounce { () =>
             xs match {
               case Nil => k(Vector.empty)
               case x :: xs =>
                 traverseNode(nodesOriginal(x)) { norms1 =>
-                  traverseNids(xs) { norms2 =>
+                  traverseNodeIds(xs) { norms2 =>
                     Bounce { () =>
                       k(norms1 ++ norms2)
                     }
@@ -64,12 +65,12 @@ private[lf] object NormalizeRollbacks {
             node match {
 
               case NodeRollback(children) =>
-                traverseNids(children.toList) { norms =>
+                traverseNodeIds(children.toList) { norms =>
                   makeRoll(norms)(k)
                 }
 
-              case exe: NodeExercises[_] =>
-                traverseNids(exe.children.toList) { norms =>
+              case exe: NodeExercises =>
+                traverseNodeIds(exe.children.toList) { norms =>
                   k(Vector(Norm.Exe(exe, norms.toList)))
                 }
 
@@ -79,7 +80,7 @@ private[lf] object NormalizeRollbacks {
           }
         }
         //pass 1
-        traverseNids(rootsOriginal.toList) { norms =>
+        traverseNodeIds(rootsOriginal.toList) { norms =>
           //pass 2
           pushNorms(initialState, norms.toList) { (finalState, roots) =>
             Land(
@@ -144,16 +145,20 @@ private[lf] object NormalizeRollbacks {
 
   // There is no connection between the ids in the original and normalized transaction.
 
-  private[this] case class State(index: Int, nodeMap: Map[Nid, Node], seedIds: BackStack[Nid]) {
+  private[this] case class State(
+      index: Int,
+      nodeMap: Map[NodeId, Node],
+      seedIds: BackStack[NodeId],
+  ) {
 
-    def next[R](k: (State, Nid) => Trampoline[R]): Trampoline[R] = {
+    def next[R](k: (State, NodeId) => Trampoline[R]): Trampoline[R] = {
       k(copy(index = index + 1), NodeId(index))
     }
 
-    def push[R](nid: Nid, node: Node)(k: (State, Nid) => Trampoline[R]): Trampoline[R] = {
+    def push[R](nid: NodeId, node: Node)(k: (State, NodeId) => Trampoline[R]): Trampoline[R] = {
       k(copy(nodeMap = nodeMap + (nid -> node)), nid)
     }
-    def pushSeedId[R](nid: Nid)(k: State => Trampoline[R]): Trampoline[R] =
+    def pushSeedId[R](nid: NodeId)(k: State => Trampoline[R]): Trampoline[R] =
       k(copy(seedIds = seedIds :+ nid))
   }
 
@@ -164,7 +169,9 @@ private[lf] object NormalizeRollbacks {
 
   private val initialState = State(0, Map.empty, BackStack.empty)
 
-  private def pushAct[R](s: State, x: Norm.Act)(k: (State, Nid) => Trampoline[R]): Trampoline[R] = {
+  private def pushAct[R](s: State, x: Norm.Act)(
+      k: (State, NodeId) => Trampoline[R]
+  ): Trampoline[R] = {
     Bounce { () =>
       s.next { (s, me) =>
         x match {
@@ -190,7 +197,7 @@ private[lf] object NormalizeRollbacks {
   }
 
   private def pushRoll[R](s: State, x: Norm.Roll)(
-      k: (State, Nid) => Trampoline[R]
+      k: (State, NodeId) => Trampoline[R]
   ): Trampoline[R] = {
     s.next { (s, me) =>
       x match {
@@ -213,7 +220,7 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
-  private def pushNorm[R](s: State, x: Norm)(k: (State, Nid) => Trampoline[R]): Trampoline[R] = {
+  private def pushNorm[R](s: State, x: Norm)(k: (State, NodeId) => Trampoline[R]): Trampoline[R] = {
     x match {
       case act: Norm.Act => pushAct(s, act)(k)
       case roll: Norm.Roll => pushRoll(s, roll)(k)
@@ -221,7 +228,7 @@ private[lf] object NormalizeRollbacks {
   }
 
   private def pushNorms[R](s: State, xs: List[Norm])(
-      k: (State, List[Nid]) => Trampoline[R]
+      k: (State, List[NodeId]) => Trampoline[R]
   ): Trampoline[R] = {
     Bounce { () =>
       xs match {

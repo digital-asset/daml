@@ -273,8 +273,27 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     object GenericInterpretationError
         extends ErrorCode(
           id = "DAML_INTERPRETATION_ERROR",
-          // TODO error codes: this is a bad error message and needs to be fixed by also adjusting the expected ledger-api conformance tests
-          ErrorCategory.InvalidIndependentOfSystemState, // (is INVALID_ARGUMENT, should be PRECONDITION_FAILED)
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+
+      case class Error(override val cause: String)(implicit
+          loggingContext: LoggingContext,
+          logger: ContextualizedLogger,
+          correlationId: CorrelationId,
+      ) extends LoggingTransactionErrorImpl(
+            cause = cause
+          )
+
+    }
+
+    @Explanation(
+      """This error occurs if the Daml transaction failed during interpretation due to an invalid argument."""
+    )
+    @Resolution("This error type occurs if there is an application error.")
+    object InvalidArgumentInterpretationError
+        extends ErrorCode(
+          id = "DAML_INTERPRETER_INVALID_ARGUMENT",
+          ErrorCategory.InvalidIndependentOfSystemState,
         ) {
 
       case class Error(override val cause: String)(implicit
@@ -292,10 +311,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     )
     @Resolution("This error indicates an application error.")
     object ContractNotActive
-    // Is INVALID_ARGUMENT, SHOULD BE NOT_EXISTS
         extends ErrorCode(
           id = "CONTRACT_NOT_ACTIVE",
-          ErrorCategory.InvalidIndependentOfSystemState,
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
 
       case class Reject(
@@ -351,8 +369,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       object ContractNotFound
           extends ErrorCode(
             id = "CONTRACT_NOT_FOUND",
-            // TODO error codes: this is a bad error message and needs to be fixed by also adjusting the expected ledger-api conformance tests
-            ErrorCategory.IsAbortShouldBePrecondition, // IS ABORTED, should be NOT_EXISTS
+            ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
           ) {
 
         case class Reject(
@@ -381,8 +398,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       object ContractKeyNotFound
           extends ErrorCode(
             id = "CONTRACT_KEY_NOT_FOUND",
-            // TODO error codes: this is a bad error message and needs to be fixed by also adjusting the expected ledger-api conformance tests
-            ErrorCategory.InvalidIndependentOfSystemState, // IS INVALID_ARGUMENT, should be NOT_EXISTS
+            ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
           ) {
 
         case class Reject(

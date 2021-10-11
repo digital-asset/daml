@@ -596,8 +596,8 @@ typeOfExerciseInterface :: MonadGamma m =>
 typeOfExerciseInterface tpl chName cid arg = do
   choice <- inWorld (lookupInterfaceChoice (tpl, chName))
   checkExpr cid (TContractId (TCon tpl))
-  checkExpr arg (ifcArgType choice)
-  pure (TUpdate (ifcRetType choice))
+  checkExpr arg (either ifcArgType chcArgType choice)
+  pure (TUpdate (either ifcRetType chcReturnType choice))
 
 typeOfExerciseByKey :: MonadGamma m =>
   Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
@@ -807,13 +807,17 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
   where
     base = checkType synType KStar
 
-
-checkIface :: MonadGamma m => DefInterface -> m ()
-checkIface DefInterface{intName, intChoices, intMethods} = do
-  checkUnique (EDuplicateInterfaceChoiceName intName) $ NM.names intChoices
+-- | Check that an interface definition is well defined.
+checkIface :: MonadGamma m => Module -> DefInterface -> m ()
+checkIface m DefInterface{intName, intParam, intVirtualChoices, intFixedChoices, intMethods} = do
+  checkUnique (EDuplicateInterfaceChoiceName intName) $ NM.names intVirtualChoices `union` NM.names intFixedChoices
   checkUnique (EDuplicateInterfaceMethodName intName) $ NM.names intMethods
-  forM_ intChoices checkIfaceChoice
+  forM_ intVirtualChoices checkIfaceChoice
   forM_ intMethods checkIfaceMethod
+
+  let tcon = Qualified PRSelf (moduleName m) intName
+  introExprVar intParam (TCon tcon) $ do
+    forM_ intFixedChoices (checkTemplateChoice tcon)
 
 checkIfaceChoice :: MonadGamma m => InterfaceChoice -> m ()
 checkIfaceChoice InterfaceChoice{ifcArgType,ifcRetType} = do
@@ -884,10 +888,10 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
 checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> TemplateImplements -> m ()
 checkIfaceImplementation tplTcon TemplateImplements{..} = do
   let tplName = qualObject tplTcon
-  DefInterface {intChoices, intMethods} <- inWorld $ lookupInterface tpiInterface
+  DefInterface {intVirtualChoices, intMethods} <- inWorld $ lookupInterface tpiInterface
 
-  -- check choices
-  forM_ intChoices $ \InterfaceChoice {ifcName, ifcConsuming, ifcArgType, ifcRetType} -> do
+  -- check virtual choices
+  forM_ intVirtualChoices $ \InterfaceChoice {ifcName, ifcConsuming, ifcArgType, ifcRetType} -> do
     TemplateChoice {chcConsuming, chcArgBinder, chcReturnType} <-
       inWorld $ lookupChoice (tplTcon, ifcName)
     unless (chcConsuming == ifcConsuming) $
@@ -943,7 +947,7 @@ checkModule m@(Module _modName _path _flags synonyms dataTypes values templates 
   traverse_ (with (ContextDefDataType m) $ checkDefDataType m) dataTypes
   -- NOTE(SF): Interfaces should be checked before templates, because the typechecking
   -- for templates relies on well-typed interface definitions.
-  traverse_ (with (ContextDefInterface m) checkIface) interfaces
+  traverse_ (with (ContextDefInterface m) (checkIface m)) interfaces
   traverse_ (with (\t -> ContextTemplate m t TPWhole) $ checkTemplate m) templates
   traverse_ (with (ContextDefException m) (checkDefException m)) exceptions
   traverse_ (with (ContextDefValue m) checkDefValue) values

@@ -73,6 +73,14 @@ jobs:
             exit 1
         fi
 
+- job: compatiblity_target_protobuf
+  pool:
+    name: ubuntu_20_04
+    demands: assignment -equals default
+  steps:
+    - checkout: self
+    - bash: ci/check-protobuf-stability.sh --target
+
 # required for collect_build_data
 - job: release
   condition: false
@@ -115,7 +123,7 @@ jobs:
         # API, there is still value in getting the notification on Slack, as
         # we do have the build number and from there we can click through to
         # the PR. Hence the `|| echo ""`.
-        PR_HANDLER=$(head -1 release/rotation | awk '{print $1}')
+        PR_HANDLER=$(next_in_rotation_slack)
 
         case "$(status)" in
           Succeeded*)
