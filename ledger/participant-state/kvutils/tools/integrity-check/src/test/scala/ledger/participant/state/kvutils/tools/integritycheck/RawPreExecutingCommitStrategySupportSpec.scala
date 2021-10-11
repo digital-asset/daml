@@ -9,14 +9,13 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlConfigurationSubmission,
   DamlLogEntry,
   DamlPartyAllocationEntry,
 }
 import com.daml.ledger.participant.state.kvutils.export.{SubmissionInfo, WriteSet}
 import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlSubmissionDedupKey}
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.RawPreExecutingCommitStrategySupportSpec._
-import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
+import com.daml.ledger.participant.state.kvutils.wire.{DamlConfigurationSubmission, DamlSubmission}
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
