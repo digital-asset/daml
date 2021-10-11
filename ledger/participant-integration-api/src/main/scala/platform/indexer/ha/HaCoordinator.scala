@@ -60,7 +60,6 @@ case class HaConfig(
     mainLockCheckerPeriodMillis: Long = 1000,
     indexerLockId: Int = 0x646d6c0, // note 0x646d6c equals ASCII encoded "dml"
     indexerWorkerLockId: Int = 0x646d6c1,
-    enable: Boolean = false, // TODO ha: remove as stable
 )
 
 object HaCoordinator {
@@ -111,17 +110,23 @@ object HaCoordinator {
 
         preemptableSequence.executeSequence { sequenceHelper =>
           import sequenceHelper._
-          logger.info("Starting databaseLockBasedHaCoordinator")
+          logger.info("Starting IndexDB HA Coordinator")
           for {
             mainConnection <- go[Connection](connectionFactory())
-            _ = logger.info("Step 1: creating main-connection - DONE")
+            _ = logger.debug("Step 1: creating main-connection - DONE")
             _ = registerRelease {
-              logger.info("Releasing main connection...")
+              logger.debug("Releasing main connection...")
               mainConnection.close()
-              logger.info("Released main connection")
+              logger.debug("Step 8: Released main connection")
+              logger.info("Stepped down as leader, IndexDB HA Coordinator shut down")
             }
+            _ = logger.info("Waiting to be elected as leader")
             _ <- retry(haConfig.mainLockAcquireRetryMillis)(acquireMainLock(mainConnection))
-            _ = logger.info("Step 2: acquire exclusive Indexer Main Lock on main-connection - DONE")
+            _ = logger.info("Elected as leader: starting initialization")
+            _ = logger.info("Waiting for previous IndexDB HA Coordinator to finish work")
+            _ = logger.debug(
+              "Step 2: acquire exclusive Indexer Main Lock on main-connection - DONE"
+            )
             exclusiveWorkerLock <- retry[Lock](
               haConfig.workerLockAcquireRetryMillis,
               haConfig.workerLockAcquireMaxRetry,
@@ -129,10 +134,13 @@ object HaCoordinator {
               acquireLock(mainConnection, indexerWorkerLockId, LockMode.Exclusive)
             )
             _ = logger.info(
+              "Previous IndexDB HA Coordinator finished work, starting DB connectivity polling"
+            )
+            _ = logger.debug(
               "Step 3: acquire exclusive Indexer Worker Lock on main-connection - DONE"
             )
             _ <- go(storageBackend.release(exclusiveWorkerLock)(mainConnection))
-            _ = logger.info(
+            _ = logger.debug(
               "Step 4: release exclusive Indexer Worker Lock on main-connection - DONE"
             )
             mainLockChecker <- go[PollingChecker](
@@ -143,29 +151,31 @@ object HaCoordinator {
                   handle.killSwitch, // meaning: this PollingChecker will shut down the main preemptableSequence
               )
             )
-            _ = logger.info(
+            _ = logger.debug(
               "Step 5: activate periodic checker of the exclusive Indexer Main Lock on the main connection - DONE"
             )
             _ = registerRelease {
-              logger.info(
+              logger.debug(
                 "Releasing periodic checker of the exclusive Indexer Main Lock on the main connection..."
               )
+              logger.info("Stepping down as leader, stopping DB connectivity polling")
               mainLockChecker.close()
-              logger.info(
-                "Released periodic checker of the exclusive Indexer Main Lock on the main connection"
+              logger.debug(
+                "Step 7: Released periodic checker of the exclusive Indexer Main Lock on the main connection"
               )
             }
             protectedHandle <- goF(initializeExecution(workerConnection => {
               // this is the checking routine on connection creation
               // step 1: acquire shared worker-lock
-              logger.info(s"Preparing worker connection. Step 1: acquire lock.")
+              logger.debug(s"Preparing worker connection. Step 1: acquire lock.")
               acquireLock(workerConnection, indexerWorkerLockId, LockMode.Shared)
               // step 2: check if main connection still holds the lock
-              logger.info(s"Preparing worker connection. Step 2: checking main lock.")
+              logger.debug(s"Preparing worker connection. Step 2: checking main lock.")
               mainLockChecker.check()
-              logger.info(s"Preparing worker connection DONE.")
+              logger.debug(s"Preparing worker connection DONE.")
             }))
-            _ = logger.info("Step 6: initialize protected execution - DONE")
+            _ = logger.debug("Step 6: initialize protected execution - DONE")
+            _ = logger.info("Elected as leader: initialization complete")
             _ <- merge(protectedHandle)
           } yield ()
         }

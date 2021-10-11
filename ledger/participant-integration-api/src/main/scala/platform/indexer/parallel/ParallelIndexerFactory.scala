@@ -53,7 +53,7 @@ object ParallelIndexerFactory {
         Some(metrics.daml.parallelIndexer.batching.executor -> metrics.registry),
       )
       haCoordinator <-
-        if (storageBackend.dbLockSupported && haConfig.enable) {
+        if (storageBackend.dbLockSupported) {
           for {
             executionContext <- ResourceOwner
               .forExecutorService(() =>
