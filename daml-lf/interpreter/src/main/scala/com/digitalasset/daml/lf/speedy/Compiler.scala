@@ -1022,35 +1022,37 @@ private[lf] final class Compiler(
   }
 
   // TODO https://github.com/digital-asset/daml/issues/10810:
-  //   Factorise with compileChoiceBody above
-  // Version of compileChoiceBody that does not Fetch
-  private[this] def compileChoiceBody2(
-      tmplId: TypeConName,
+  //   Factorise this with compileChoiceBody above
+  private[this] def compileFixedChoiceBody(
+      ifaceId: TypeConName,
       param: ExprVarName,
       choice: TemplateChoice,
-      byKey: Boolean,
   )(
+      choiceArgPos: Position,
       cidPos: Position,
-      payloadPos: Position,
-      argPos: Position,
       tokenPos: Position,
-  ) = withEnv { _ =>
-    addExprVar(param, payloadPos)
-    let(
-      SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = byKey)(
-        svar(argPos),
-        svar(cidPos), {
-          addExprVar(choice.argBinder._1, argPos)
-          compile(choice.controllers)
-        },
-        choice.choiceObservers match {
-          case Some(observers) => compile(observers)
-          case None => SEValue.EmptyList
-        },
-      )
-    ) { _ =>
-      addExprVar(choice.selfBinder, cidPos)
-      SEScopeExercise(tmplId, app(compile(choice.update), svar(tokenPos)))
+  ) = {
+    let(SBUFetchInterface(ifaceId)(svar(cidPos))) { payloadPos =>
+      addExprVar(param, payloadPos)
+      addExprVar(choice.argBinder._1, choiceArgPos)
+      let(
+        // TODO https://github.com/digital-asset/daml/issues/10810:
+        //   Here we are inserting an Exercise Node with the interface Id instead
+        //   of the template Id. Review if that can cause issues.
+        SBUBeginExercise(ifaceId, choice.name, choice.consuming, byKey = false)(
+          svar(choiceArgPos),
+          svar(cidPos),
+          compile(choice.controllers), {
+            choice.choiceObservers match {
+              case Some(observers) => compile(observers)
+              case None => SEValue.EmptyList
+            }
+          },
+        )
+      ) { _ =>
+        addExprVar(choice.selfBinder, cidPos)
+        SEScopeExercise(ifaceId, app(compile(choice.update), svar(tokenPos)))
+      }
     }
   }
 
@@ -1079,16 +1081,11 @@ private[lf] final class Compiler(
   ): (SDefinitionRef, SDefinition) =
     topLevelFunction(ChoiceDefRef(ifaceId, choice.name), 3) {
       case List(cidPos, choiceArgPos, tokenPos) =>
-        withEnv { _ =>
-          let(SBUFetchInterface(ifaceId)(svar(cidPos))) { payloadPos =>
-            compileChoiceBody2(ifaceId, param, choice, byKey = false)(
-              cidPos,
-              payloadPos,
-              choiceArgPos,
-              tokenPos,
-            )
-          }
-        }
+        compileFixedChoiceBody(ifaceId, param, choice)(
+          choiceArgPos,
+          cidPos,
+          tokenPos,
+        )
     }
 
   private[this] def compileChoice(
