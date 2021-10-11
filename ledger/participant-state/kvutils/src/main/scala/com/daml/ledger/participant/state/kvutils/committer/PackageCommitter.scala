@@ -29,6 +29,7 @@ import com.google.protobuf.ByteString
 
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
+
 private[committer] object PackageCommitter {
   final case class Result(
       uploadEntry: DamlPackageUploadEntry.Builder,
