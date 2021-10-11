@@ -17,10 +17,6 @@ patches we backport to the 1.0 release branch).
    that changes the `LATEST` file to remove the `-snapshot` suffix on the
    corresponding snapshot, and add the `Standard-Change` label.
 
-1. **[RC]** Before blessing a snapshot as a release candidate, make sure that
-   the [Component Status](../docs/source/support/component-statuses.rst) page
-   is up to date.
-
 1. **[SNAPSHOT]** For most snapshot releases, the PR is created automatically.
    Double-check the snapshot version: it may need incrementing. Ask on Slack
    (`#team-daml`) if you're not sure.
