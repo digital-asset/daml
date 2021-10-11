@@ -46,12 +46,14 @@ class TransactionStreamTerminationIT
     jdbcUrl = Some("jdbc:h2:mem:static_time;db_close_delay=-1"),
     timeProviderType = Some(TimeProviderType.Static),
   )
-  def commandClientConfig =
+
+  private def commandClientConfig =
     CommandClientConfiguration(
       maxCommandsInFlight = config.commandConfig.maxCommandsInFlight,
-      maxParallelSubmissions = config.commandConfig.maxParallelSubmissions,
+      maxParallelSubmissions = config.maxParallelSubmissions,
       defaultDeduplicationTime = JDuration.ofSeconds(30),
     )
+
   private val applicationId = "transaction-stream-termination-test"
 
   private def newTransactionClient(ledgerId: domain.LedgerId) =
@@ -82,7 +84,7 @@ class TransactionStreamTerminationIT
             _.commands.ledgerId := actualLedgerId.unwrap,
             _.commands.applicationId := applicationId,
             _.commands.commands := List(
-              Command(
+              Command.of(
                 Command.Command.Create(
                   CreateCommand(
                     Some(templateIds.dummy),

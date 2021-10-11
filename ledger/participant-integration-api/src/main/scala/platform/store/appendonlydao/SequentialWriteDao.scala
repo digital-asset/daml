@@ -5,18 +5,19 @@ package com.daml.platform.store.appendonlydao
 
 import java.sql.Connection
 
-import com.daml.ledger.participant.state.v1.{Offset, Update}
-import com.daml.platform.store.backend.{DbDto, StorageBackend}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.platform.store.backend.{DbDto, IngestionStorageBackend, ParameterStorageBackend}
 
 import scala.util.chaining.scalaUtilChainingOps
 
 trait SequentialWriteDao {
-  def store(connection: Connection, offset: Offset, update: Option[Update]): Unit
+  def store(connection: Connection, offset: Offset, update: Option[state.Update]): Unit
 }
 
 case class SequentialWriteDaoImpl[DB_BATCH](
-    storageBackend: StorageBackend[DB_BATCH],
-    updateToDbDtos: Offset => Update => Iterator[DbDto],
+    storageBackend: IngestionStorageBackend[DB_BATCH] with ParameterStorageBackend,
+    updateToDbDtos: Offset => state.Update => Iterator[DbDto],
 ) extends SequentialWriteDao {
 
   private var lastEventSeqId: Long = _
@@ -24,7 +25,7 @@ case class SequentialWriteDaoImpl[DB_BATCH](
 
   private def lazyInit(connection: Connection): Unit =
     if (!lastEventSeqIdInitialized) {
-      lastEventSeqId = storageBackend.ledgerEnd(connection).lastEventSeqId.getOrElse(0)
+      lastEventSeqId = storageBackend.ledgerEndOrBeforeBegin(connection).lastEventSeqId
       lastEventSeqIdInitialized = true
     }
 
@@ -41,7 +42,7 @@ case class SequentialWriteDaoImpl[DB_BATCH](
       case notEvent => notEvent
     }.toVector
 
-  override def store(connection: Connection, offset: Offset, update: Option[Update]): Unit =
+  override def store(connection: Connection, offset: Offset, update: Option[state.Update]): Unit =
     synchronized {
       lazyInit(connection)
 
@@ -54,12 +55,11 @@ case class SequentialWriteDaoImpl[DB_BATCH](
         .pipe(storageBackend.batch)
         .pipe(storageBackend.insertBatch(connection, _))
 
-      storageBackend.updateParams(
-        connection,
-        StorageBackend.Params(
-          ledgerEnd = offset,
-          eventSeqId = lastEventSeqId,
-        ),
-      )
+      storageBackend.updateLedgerEnd(
+        ParameterStorageBackend.LedgerEnd(
+          lastOffset = offset,
+          lastEventSeqId = lastEventSeqId,
+        )
+      )(connection)
     }
 }

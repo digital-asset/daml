@@ -5,18 +5,18 @@ package com.daml.platform.sandbox.cli
 
 import java.io.File
 import java.time.Duration
-
 import com.daml.buildinfo.BuildInfo
 import com.daml.jwt.JwtVerifierConfigurationCli
 import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.ledger.api.tls.TlsVersion.TlsVersion
+import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
+import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.lf.data.Ref
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.configuration.CommandConfiguration
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.configuration.MetricsReporter
 import com.daml.platform.sandbox.cli.CommonCliBase._
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.services.time.TimeProviderType
@@ -83,7 +83,7 @@ class CommonCliBase(name: LedgerName) {
 
       opt[String]("participant-id")
         .optional()
-        .action((id, c) => c.copy(participantId = v1.ParticipantId.assertFromString(id)))
+        .action((id, c) => c.copy(participantId = Ref.ParticipantId.assertFromString(id)))
         .text(s"Participant ID. Defaults to '${SandboxConfig.DefaultParticipantId}'.")
 
       // TODO remove in next major release.
@@ -123,6 +123,31 @@ class CommonCliBase(name: LedgerName) {
           )
         )
 
+      opt[String]("tls-secrets-url")
+        .optional()
+        .text(
+          "TLS: URL of a secrets service that provides parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
+        )
+        .action((url, config) =>
+          config.withTlsConfig(c => c.copy(secretsUrl = Some(SecretsUrl.fromString(url))))
+        )
+
+      checkConfig(c =>
+        c.tlsConfig.fold(success) { tlsConfig =>
+          if (
+            tlsConfig.keyFile.isDefined
+            && tlsConfig.keyFile.get.getName.endsWith(".enc")
+            && tlsConfig.secretsUrl.isEmpty
+          ) {
+            failure(
+              "You need to provide a secrets server URL if the server's private key is an encrypted file."
+            )
+          } else {
+            success
+          }
+        }
+      )
+
       opt[String]("crt")
         .optional()
         .text(
@@ -157,10 +182,27 @@ class CommonCliBase(name: LedgerName) {
         .action((clientAuth, config) =>
           config.copy(tlsConfig =
             config.tlsConfig
-              .fold(Some(TlsConfiguration(enabled = true, None, None, None, clientAuth)))(c =>
-                Some(c.copy(clientAuth = clientAuth))
-              )
+              .fold(
+                Some(
+                  TlsConfiguration(
+                    enabled = true,
+                    keyCertChainFile = None,
+                    keyFile = None,
+                    trustCertCollectionFile = None,
+                    clientAuth = clientAuth,
+                  )
+                )
+              )(c => Some(c.copy(clientAuth = clientAuth)))
           )
+        )
+
+      opt[TlsVersion]("min-tls-version")
+        .optional()
+        .text(
+          "TLS: Indicates the minimum TLS version to enable. If specified must be either '1.2' or '1.3'."
+        )
+        .action((tlsVersion, config) =>
+          config.withTlsConfig(c => c.copy(minimumServerProtocolVersion = Some(tlsVersion)))
         )
 
       opt[Boolean]("cert-revocation-checking")
@@ -214,13 +256,14 @@ class CommonCliBase(name: LedgerName) {
         )
         .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
 
-      opt[MetricsReporter]("metrics-reporter")
+      opt[Int]("buffers-prefetching-parallelism")
         .optional()
-        .action((reporter, config) => config.copy(metricsReporter = Some(reporter)))
-
-      opt[Duration]("metrics-reporting-interval")
-        .optional()
-        .action((interval, config) => config.copy(metricsReportingInterval = interval))
+        .text(
+          s"Number of events fetched/decoded in parallel for populating the Ledger API internal buffers. Default is ${SandboxConfig.DefaultEventsProcessingParallelism}."
+        )
+        .action((eventsProcessingParallelism, config) =>
+          config.copy(eventsProcessingParallelism = eventsProcessingParallelism)
+        )
 
       opt[Int]("max-commands-in-flight")
         .optional()
@@ -228,16 +271,7 @@ class CommonCliBase(name: LedgerName) {
           config.copy(commandConfig = config.commandConfig.copy(maxCommandsInFlight = value))
         )
         .text(
-          "Maximum number of submitted commands waiting for completion for each party (only applied when using the CommandService). Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 256."
-        )
-
-      opt[Int]("max-parallel-submissions")
-        .optional()
-        .action((value, config) =>
-          config.copy(commandConfig = config.commandConfig.copy(maxParallelSubmissions = value))
-        )
-        .text(
-          "Maximum number of successfully interpreted commands waiting to be sequenced (applied only when running sandbox-classic). The threshold is shared across all parties. Overflowing it will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512."
+          s"Maximum number of submitted commands for which the CommandService is waiting to be completed in parallel, for each distinct set of parties, as specified by the `act_as` property of the command. Reaching this limit will cause new submissions to wait in the queue before being submitted. Default is ${CommandConfiguration.default.maxCommandsInFlight}."
         )
 
       opt[Int]("input-buffer-size")
@@ -246,7 +280,7 @@ class CommonCliBase(name: LedgerName) {
           config.copy(commandConfig = config.commandConfig.copy(inputBufferSize = value))
         )
         .text(
-          "The maximum number of commands waiting to be submitted for each party. Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512."
+          s"Maximum number of commands waiting to be submitted for each distinct set of parties, as specified by the `act_as` property of the command. Reaching this limit will cause the server to signal backpressure using the ``RESOURCE_EXHAUSTED`` gRPC status code. Default is ${CommandConfiguration.default.inputBufferSize}."
         )
 
       opt[Long]("max-lf-value-translation-cache-entries")
@@ -273,14 +307,12 @@ class CommonCliBase(name: LedgerName) {
 
       opt[Long]("max-ledger-time-skew")
         .optional()
-        .action((value, config) => {
-          val timeModel = config.ledgerConfig.initialConfiguration.timeModel
-            .copy(minSkew = Duration.ofSeconds(value), maxSkew = Duration.ofSeconds(value))
-          val ledgerConfig = config.ledgerConfig.initialConfiguration.copy(timeModel = timeModel)
-          config.copy(ledgerConfig = config.ledgerConfig.copy(initialConfiguration = ledgerConfig))
-        })
+        .action { (value, config) =>
+          val duration = Duration.ofSeconds(value)
+          config.copy(timeModel = config.timeModel.copy(minSkew = duration, maxSkew = duration))
+        }
         .text(
-          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${v1.TimeModel.reasonableDefault.minSkew.getSeconds}."
+          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${LedgerTimeModel.reasonableDefault.maxSkew.getSeconds}."
         )
 
       opt[Duration]("management-service-timeout")
@@ -293,21 +325,54 @@ class CommonCliBase(name: LedgerName) {
 
       // TODO append-only: cleanup
       opt[Unit]("enable-append-only-schema")
-        .hidden()
         .optional()
         .action((_, config) => config.copy(enableAppendOnlySchema = true))
         .text(
-          s"Turns on append-only schema support."
+          s"Turns on append-only schema support." +
+            " The first time this flag is enabled, the database will migrate to a new schema that allows for significantly higher ingestion performance." +
+            " This migration is irreversible, subsequent starts will have to enable this flag as well." +
+            " In the future, this flag will be removed and this application will automatically migrate to the new schema."
         )
 
       // TODO append-only: cleanup
       opt[Unit]("enable-compression")
-        .hidden()
         .optional()
         .action((_, config) => config.copy(enableCompression = true))
         .text(
-          s"By default compression is off, this switch enables it. This has only effect for append-only ingestion." // TODO append-only: fix description
+          s"Enables application-side compression of Daml-LF values stored in the database using the append-only schema." +
+            " By default, compression is disabled."
         )
+
+      opt[Duration]("max-deduplication-duration")
+        .optional()
+        .hidden()
+        .action((maxDeduplicationDuration, config) =>
+          config
+            .copy(maxDeduplicationDuration = Some(maxDeduplicationDuration))
+        )
+        .text(
+          "Maximum command deduplication duration."
+        )
+
+      opt[Unit]("use-self-service-error-codes")
+        .optional()
+        .hidden()
+        .text("Enable self-service error codes.")
+        .action((_, config) => config.copy(enableSelfServiceErrorCodes = true))
+
+      checkConfig(c => {
+        if (c.enableCompression && !c.enableAppendOnlySchema)
+          failure(
+            "Compression (`--enable-compression`) can only be used together with the append-only schema (`--enable-append-only-schema`)."
+          )
+        else success
+      })
+
+      com.daml.cliopts.Metrics.metricsReporterParse(this)(
+        (setter, config) => config.copy(metricsReporter = setter(config.metricsReporter)),
+        (setter, config) =>
+          config.copy(metricsReportingInterval = setter(config.metricsReportingInterval)),
+      )
 
       help("help").text("Print the usage text")
 

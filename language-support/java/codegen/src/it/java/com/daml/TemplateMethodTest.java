@@ -21,7 +21,8 @@ public class TemplateMethodTest {
   // at compilation time in case any of the methods are generated differently
   // or not at all
 
-  private static final Record simpleTemplateRecord = new Record(new Record.Field(new Party("Bob")));
+  private static final DamlRecord simpleTemplateRecord =
+      new DamlRecord(new DamlRecord.Field(new Party("Bob")));
 
   @Test
   void templateHasCreateMethods() {

@@ -5,9 +5,14 @@ package com.daml.ledger.validator.caching
 
 import com.daml.caching.Cache.Size
 import com.daml.caching.{Cache, Weight, WeightedCache}
-import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, iterableOf}
+import com.daml.ledger.validator.ArgumentMatchers.{
+  anyExecutionContext,
+  anyLoggingContext,
+  iterableOf,
+}
 import com.daml.ledger.validator.caching.CachingStateReaderSpec._
 import com.daml.ledger.validator.reading.StateReader
+import com.daml.logging.LoggingContext
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -21,10 +26,12 @@ class CachingStateReaderSpec
     with Inside
     with MockitoSugar
     with ArgumentMatchersSugar {
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   "read" should {
     "update cache upon read if policy allows" in {
       val mockReader = mock[TestStateReader]
-      when(mockReader.read(iterableOf(size = 1))(anyExecutionContext))
+      when(mockReader.read(iterableOf(size = 1))(anyExecutionContext, anyLoggingContext))
         .thenReturn(Future.successful(Seq(Some(TestValue.random()))))
       val (cache, instance) = newInstance(mockReader, shouldCacheOnRead = true)
 
@@ -35,7 +42,7 @@ class CachingStateReaderSpec
 
     "do not update cache upon read if policy does not allow" in {
       val mockReader = mock[TestStateReader]
-      when(mockReader.read(iterableOf(size = 1))(anyExecutionContext))
+      when(mockReader.read(iterableOf(size = 1))(anyExecutionContext, anyLoggingContext))
         .thenReturn(Future.successful(Seq(Some(TestValue.random()))))
       val (cache, instance) = newInstance(mockReader, shouldCacheOnRead = false)
 
@@ -46,7 +53,7 @@ class CachingStateReaderSpec
 
     "serve request from cache for seen key (if policy allows)" in {
       val mockReader = mock[TestStateReader]
-      when(mockReader.read(iterableOf(size = 1))(anyExecutionContext))
+      when(mockReader.read(iterableOf(size = 1))(anyExecutionContext, anyLoggingContext))
         .thenReturn(Future.successful(Seq(Some(TestValue(7)))))
       val (_, instance) = newInstance(mockReader, shouldCacheOnRead = true)
 
@@ -54,7 +61,8 @@ class CachingStateReaderSpec
         originalReadState <- instance.read(Seq(TestKey(3)))
         readAgain <- instance.read(Seq(TestKey(3)))
       } yield {
-        verify(mockReader, times(1)).read(eqTo(Seq(TestKey(3))))(anyExecutionContext)
+        verify(mockReader, times(1))
+          .read(eqTo(Seq(TestKey(3))))(anyExecutionContext, anyLoggingContext)
         readAgain shouldEqual originalReadState
       }
     }

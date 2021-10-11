@@ -54,7 +54,6 @@ dar_to_scala(
     srcs = ["//docs:quickstart-model.dar"],
     package_prefix = "com.daml.quickstart.iou.model",
     srcjar_out = "quickstart-scala-codegen.srcjar",
-    verbosity = 2,
 )
 
 da_scala_library(

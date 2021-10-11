@@ -2,7 +2,10 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RecordWildCards #-}
-module LargeAcs where
+module LargeAcs (Genesis, Genesis_MakeIouRange, Iou, NotIou) where
+
+import DA.Functor (void)
+import DA.Optional (isNone)
 
 template Genesis with
     issuer : Party
@@ -18,37 +21,72 @@ template Genesis with
           totalSteps : Int
           amountCycle : [Decimal]
           observersCycle : [[Party]]
+          whichTemplateCycle : [WhichTemplate]
         controller owner
         do
           assert (totalSteps >= 0)
-          amounts <- infCycle amountCycle
-          observerses <- infCycle observersCycle
-          makeIouRange totalSteps amounts observerses this
+          let cycles = (,,) <$> fromListEL amountCycle
+                            <*> fromListEL observersCycle
+                            <*> fromListEL whichTemplateCycle
+          assert . not $ nullEL cycles
+          makeIouRange totalSteps cycles this
 
-makeIouRange : Int -> InfCycle Decimal -> InfCycle [Party] -> Genesis -> Update ()
-makeIouRange count amountCycle observersCycle g =
-  if count <= 0 then pure () else do
-    let Genesis {..} = g
-        (amount, amounts) = popCycle amountCycle
-        (observers, observerses) = popCycle observersCycle
-    create Iou with ..
-    makeIouRange (count - 1) amounts observerses g
+makeIouRange : Int -> EphemeralList (Decimal, [Party], WhichTemplate) -> Genesis -> Update ()
+makeIouRange count amountsObserversWhichTemplates g =
+  let Genesis {..} = g
+  in takeEL count (cycleEL amountsObserversWhichTemplates)
+     `forEL_` \(amount, observers, whichTemplate) ->
+       case whichTemplate of
+         UseIou -> void $ create Iou with ..
+         UseNotIou -> void $ create NotIou with ..
 
-data InfCycle a = InfCycle { list : [a], orig : [a] }
-  deriving (Eq, Ord, Show)
+data EphemeralList a = EphemeralList { uncons : () -> Optional (a, EphemeralList a) }
 
-infCycle : CanAssert m => [a] -> m (InfCycle a)
-infCycle xs = do
-  assert $ case xs of
-      [] -> False
-      _::_ -> True
-  pure (InfCycle xs xs)
+fromListEL : [a] -> EphemeralList a
+fromListEL [] = EphemeralList $ const None
+fromListEL (x :: xs) = EphemeralList $ \_ ->
+  Some (x, fromListEL xs)
 
-popCycle : InfCycle a -> (a, InfCycle a)
-popCycle (InfCycle (x :: xs) orig) = (x, InfCycle xs orig)
-popCycle (InfCycle [] orig) =
-  let x :: xs = orig
-  in (x, InfCycle xs orig)
+-- Lazy, right-associative version of forA_
+forEL_ : Action m => EphemeralList a -> (a -> m b) -> m ()
+xs `forEL_` f = case xs.uncons () of
+  Some (hd, tl) -> do
+    f hd
+    tl `forEL_` f
+  None -> pure ()
+
+nullEL : EphemeralList a -> Bool
+nullEL xs = isNone $ xs.uncons ()
+
+takeEL : Int -> EphemeralList a -> EphemeralList a
+takeEL n _ | n <= 0 = EphemeralList $ const None
+takeEL n xs = EphemeralList $ fmap (\(hd, tl) -> (hd, takeEL (n - 1) tl)) . xs.uncons
+
+cycleEL : EphemeralList a -> EphemeralList a
+cycleEL as = as `appendEL` EphemeralList \_ ->
+  (cycleEL as).uncons ()
+
+appendEL : EphemeralList a -> EphemeralList a -> EphemeralList a
+EphemeralList l `appendEL` er = EphemeralList $ \_ ->
+  case l () of
+    Some (hd, tl) -> Some (hd, tl `appendEL` er)
+    None -> er.uncons ()
+
+fmapEL : (a -> b) -> EphemeralList a -> EphemeralList b
+fmapEL f (EphemeralList uncons) = EphemeralList $
+    fmap (\(hd, tl) -> (f hd, fmapEL f tl)) . uncons
+
+instance Semigroup (EphemeralList a) where
+  (<>) = appendEL
+
+instance Functor EphemeralList where
+  fmap = fmapEL
+
+instance Applicative EphemeralList where
+  pure a = EphemeralList $ \_ -> Some (a, EphemeralList $ \_ -> None)
+  EphemeralList unconsF <*> as = EphemeralList $ \_ -> do
+    (hdF, tlF) <- unconsF ()
+    (fmapEL hdF as `appendEL` (tlF <*> as)).uncons ()
 
 template Iou
   with
@@ -58,8 +96,36 @@ template Iou
     amount : Decimal
     observers : [Party]
   where
-    ensure amount > 0.0
-
     signatory issuer, owner
 
     observer observers
+
+template NotIou
+  with
+    issuer : Party
+    owner : Party
+    currency : Text
+    amount : Decimal
+    observers : [Party]
+  where
+    signatory issuer, owner
+
+    observer observers
+
+data WhichTemplate = UseIou | UseNotIou
+  deriving (Eq, Show)
+
+template KeyedIou
+  with
+    id: Int
+    issuer : Party
+    owner : Party
+    currency : Text
+    amount : Decimal
+    observers : [Party]
+  where
+    signatory issuer, owner
+    observer observers
+
+    key (issuer, id): (Party, Int)
+    maintainer key._1

@@ -6,17 +6,16 @@ package com.daml.platform.store
 import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.ResourceContext
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.ServerRole
-
-import scala.concurrent.duration._
 import scalaz.Tag
 
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 object IndexMetadata {
@@ -51,13 +50,14 @@ object IndexMetadata {
         connectionPoolSize = 1,
         connectionTimeout = 250.millis,
         eventsPageSize = 1000,
+        eventsProcessingParallelism = 8,
         servicesExecutionContext = executionContext,
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         enricher = None,
-        participantId = v1.ParticipantId.assertFromString(
-          "1"
-        ), // no participant id is available for the dump index meta path, also this property is not needed for the used the ReadDao
+        // No participant ID is available for the dump index meta path,
+        // and this property is not needed for the used ReadDao.
+        participantId = Ref.ParticipantId.assertFromString("1"),
       )
     else
       com.daml.platform.store.dao.JdbcLedgerDao.readOwner(

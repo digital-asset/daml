@@ -99,6 +99,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
       val testCases = Table[String, Type](
         "string to parse" -> "expected type",
         "a" -> α,
+        "$alpha$" -> TVar(n"$$alpha$$"),
         "a b" -> TApp(α, β),
         "3" -> TNat(3),
         "a 3" -> TApp(α, TNat(3)),
@@ -250,7 +251,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "'-pkgId-':Mod:v" ->
           v,
         "Mod:R {}" ->
-          ERecCon(TypeConApp(R.tycon, ImmArray.empty), ImmArray.empty),
+          ERecCon(TypeConApp(R.tycon, ImmArray.Empty), ImmArray.Empty),
         "Mod:R @Int64 @Bool {f1 = 1, f2 = False}" ->
           ERecCon(RIntBool, ImmArray(n"f1" -> e"1", n"f2" -> e"False")),
         "'-pkgId-':Mod:R @Int64 @Bool {f1 = 1, f2 = False}" ->
@@ -360,7 +361,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
     }
 
     "parses properly experiment" in {
-      parseExpr("$ ANSWER (Unit -> Int64)") shouldBe Right(
+      parseExpr("experimental ANSWER (Unit -> Int64)") shouldBe Right(
         EExperimental("ANSWER", t"Unit -> Int64")
       )
     }
@@ -468,7 +469,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
       )
       val enumDef = DDataType(
         false,
-        ImmArray.empty,
+        ImmArray.Empty,
         DataEnum(ImmArray(n"Red", n"Green", n"Blue")),
       )
 
@@ -483,6 +484,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             ),
             templates = List.empty,
             exceptions = List.empty,
+            interfaces = List.empty,
             featureFlags = FeatureFlags.default,
           )
         )
@@ -511,6 +513,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             definitions = List(DottedName.assertFromString("fact") -> valDef),
             templates = List.empty,
             exceptions = List.empty,
+            interfaces = List.empty,
             featureFlags = FeatureFlags.default,
           )
         )
@@ -589,11 +592,12 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           ),
           observers = e"Cons @Party ['Alice'] (Nil @Party)",
           key = Some(TemplateKey(t"Party", e"(Mod:Person {name} this)", e"""\ (p: Party) -> p""")),
+          implements = List.empty,
         )
 
       val recDef = DDataType(
         true,
-        ImmArray.empty,
+        ImmArray.Empty,
         DataRecord(ImmArray(n"person" -> t"Party", n"name" -> t"Text")),
       )
       val name = DottedName.assertFromString("Person")
@@ -604,6 +608,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             definitions = List(name -> recDef),
             templates = List(name -> template),
             exceptions = List.empty,
+            interfaces = List.empty,
             featureFlags = FeatureFlags.default,
           )
         )
@@ -638,12 +643,13 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           choices = Map.empty,
           observers = e"Nil @Unit",
           key = None,
+          implements = List.empty,
         )
 
       val recDef = DDataType(
         true,
-        ImmArray.empty,
-        DataRecord(ImmArray.empty),
+        ImmArray.Empty,
+        DataRecord(ImmArray.Empty),
       )
       val name = DottedName.assertFromString("R")
       parseModules(p) shouldBe Right(
@@ -653,6 +659,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             definitions = List(name -> recDef),
             templates = List(name -> template),
             exceptions = List.empty,
+            interfaces = List.empty,
             featureFlags = FeatureFlags.default,
           )
         )
@@ -677,7 +684,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
 
     val recDef = DDataType(
       true,
-      ImmArray.empty,
+      ImmArray.Empty,
       DataRecord(ImmArray(n"message" -> TText)),
     )
     val name = DottedName.assertFromString("Exception")
@@ -689,6 +696,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           definitions = List(name -> recDef),
           templates = List.empty,
           exceptions = List(name -> exception),
+          interfaces = List.empty,
           featureFlags = FeatureFlags.default,
         )
       )

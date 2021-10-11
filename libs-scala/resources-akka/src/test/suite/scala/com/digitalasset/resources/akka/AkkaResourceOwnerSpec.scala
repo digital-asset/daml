@@ -3,7 +3,9 @@
 
 package com.daml.resources.akka
 
-import akka.actor.{Actor, ActorSystem, Props}
+import java.util.concurrent.atomic.AtomicBoolean
+
+import akka.actor.{Actor, ActorSystem, Cancellable, Props}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.{Done, NotUsed}
@@ -76,6 +78,29 @@ final class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
           .single(0)
           .toMat(Sink.ignore)(Keep.right[NotUsed, Future[Done]])
           .run()(materializer)
+      }
+    }
+  }
+
+  "a function returning a Cancellable" should {
+    "convert to a ResourceOwner" in {
+      val cancellable: Cancellable = new Cancellable {
+        private val isCancelledAtomic = new AtomicBoolean
+
+        override def cancel(): Boolean =
+          isCancelledAtomic.compareAndSet(false, true)
+
+        override def isCancelled: Boolean =
+          isCancelledAtomic.get
+      }
+      val resource = Factories.forCancellable(() => cancellable).acquire()
+
+      for {
+        cancellable <- resource.asFuture
+        _ = cancellable.isCancelled should be(false)
+        _ <- resource.release()
+      } yield {
+        cancellable.isCancelled should be(true)
       }
     }
   }

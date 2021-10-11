@@ -3,6 +3,7 @@
 
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
@@ -11,7 +12,7 @@ load(
 )
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@os_info//:os_info.bzl", "is_windows")
-load("@scala_version//:index.bzl", "scala_version_suffix")
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
 
 hj_scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
@@ -27,10 +28,9 @@ hj_scalacopts = lf_scalacopts + [
         ],
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
-            "@maven//:com_lihaoyi_sourcecode",
+            "@maven//:com_github_scopt_scopt",
             "@maven//:com_typesafe_akka_akka_http",
             "@maven//:com_typesafe_akka_akka_http_core",
-            "@maven//:com_typesafe_scala_logging_scala_logging",
             "@maven//:io_spray_spray_json",
             "@maven//:org_scala_lang_modules_scala_collection_compat",
             "@maven//:org_scalaz_scalaz_core",
@@ -60,16 +60,23 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger-service/http-json-ledger-client:{}".format(edition),
             "//ledger-service/cli-opts",
             "//ledger-service/db-backend",
+            "//ledger-service/fetch-contracts",
             "//ledger-service/jwt",
             "//ledger-service/lf-value-json",
             "//ledger-service/utils",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
-            "//libs-scala/auth-utils",
+            "//ledger/ledger-resources",
+            "//ledger/metrics",
+            "//libs-scala/concurrent",
             "//libs-scala/contextualized-logging",
+            "//libs-scala/db-utils",
             "//libs-scala/doobie-slf4j",
+            "//libs-scala/logging-entries",
             "//libs-scala/ports",
+            "//libs-scala/resources",
             "//libs-scala/scala-utils",
+            "@maven//:io_dropwizard_metrics_metrics_core",
         ],
     )
     for edition in [
@@ -87,7 +94,6 @@ alias(
 json_scala_deps = [
     "@maven//:com_chuusai_shapeless",
     "@maven//:com_github_scopt_scopt",
-    "@maven//:com_lihaoyi_sourcecode",
     "@maven//:com_typesafe_akka_akka_http",
     "@maven//:com_typesafe_akka_akka_http_core",
     "@maven//:com_typesafe_akka_akka_http_spray_json",
@@ -110,6 +116,7 @@ json_deps_shared = [
     "//daml-lf/interface",
     "//daml-lf/transaction",
     "//language-support/scala/bindings-akka",
+    "//ledger/metrics",
     "//ledger-api/rs-grpc-bridge",
     "//ledger-service/db-backend",
     "//ledger-service/jwt",
@@ -117,10 +124,12 @@ json_deps_shared = [
     "//ledger-service/utils",
     "//ledger/ledger-api-auth",
     "//ledger/ledger-api-common",
+    "//libs-scala/db-utils",
     "//libs-scala/auth-utils",
     "//libs-scala/ports",
     "//libs-scala/scala-utils",
     "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:io_dropwizard_metrics_metrics_core",
 ]
 
 json_deps = {
@@ -140,7 +149,10 @@ json_deps = {
 da_scala_binary(
     name = "http-json-binary",
     main_class = "com.daml.http.Main",
-    resources = [":src/main/resources/logback.xml"],
+    resources = [
+        ":src/main/resources/application.conf",
+        ":src/main/resources/logback.xml",
+    ],
     scala_deps = json_scala_deps,
     scalacopts = hj_scalacopts,
     tags = [
@@ -154,7 +166,10 @@ da_scala_binary(
 da_scala_binary(
     name = "http-json-binary-ee",
     main_class = "com.daml.http.Main",
-    resources = [":src/main/resources/logback.xml"],
+    resources = [
+        ":src/main/resources/application.conf",
+        ":src/main/resources/logback.xml",
+    ],
     scala_deps = json_scala_deps,
     scalacopts = hj_scalacopts,
     tags = [
@@ -171,6 +186,12 @@ daml_compile(
     visibility = ["//ledger-service:__subpackages__"],
 )
 
+daml_compile(
+    name = "User",
+    srcs = ["src/it/daml/User.daml"],
+    visibility = ["//ledger-service:__subpackages__"],
+)
+
 [
     da_scala_test(
         name = "tests-{}".format(edition),
@@ -182,13 +203,15 @@ daml_compile(
         ],
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
-            "@maven//:com_lihaoyi_sourcecode",
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:io_spray_spray_json",
             "@maven//:org_scala_lang_modules_scala_collection_compat",
             "@maven//:org_scalacheck_scalacheck",
-            "@maven//:org_scalatest_scalatest",
-            "@maven//:org_scalatestplus_scalacheck_1_14",
+            "@maven//:org_scalatest_scalatest_core",
+            "@maven//:org_scalatest_scalatest_matchers_core",
+            "@maven//:org_scalatest_scalatest_shouldmatchers",
+            "@maven//:org_scalatest_scalatest_wordspec",
+            "@maven//:org_scalatestplus_scalacheck_1_15",
             "@maven//:org_scalaz_scalaz_core",
             "@maven//:org_scalaz_scalaz_scalacheck_binding",
             "@maven//:org_tpolecat_doobie_core",
@@ -207,11 +230,17 @@ daml_compile(
             "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
             "//ledger-service/db-backend",
+            "//ledger-service/fetch-contracts",
+            "//ledger/metrics",
             "//ledger-service/http-json-cli:{}".format(edition),
+            "//ledger-service/cli-opts",
             "//ledger-service/lf-value-json",
             "//ledger/ledger-api-common",
+            "//libs-scala/db-utils",
             "//libs-scala/scala-utils",
             "//libs-scala/scalatest-utils",
+            "@maven//:io_dropwizard_metrics_metrics_core",
+            "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
     for edition in [
@@ -229,20 +258,28 @@ alias(
     da_scala_library(
         name = "integration-tests-lib-{}".format(edition),
         srcs = glob(["src/itlib/scala/**/*.scala"]),
+        plugins = [silencer_plugin],
         resources = glob(["src/itlib/resources/**/*"]),
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:com_typesafe_scala_logging_scala_logging",
             "@maven//:io_spray_spray_json",
+            "@maven//:org_scala_lang_modules_scala_collection_compat",
             "@maven//:org_scalacheck_scalacheck",
             "@maven//:org_scalactic_scalactic",
-            "@maven//:org_scalatest_scalatest",
+            "@maven//:org_scalatest_scalatest_core",
+            "@maven//:org_scalatest_scalatest_freespec",
+            "@maven//:org_scalatest_scalatest_matchers_core",
+            "@maven//:org_scalatest_scalatest_shouldmatchers",
             "@maven//:org_scalaz_scalaz_core",
             "@maven//:org_tpolecat_doobie_core",
             "@maven//:org_tpolecat_doobie_hikari",
+            "@maven//:org_tpolecat_doobie_free",
             "@maven//:org_typelevel_cats_core",
             "@maven//:org_typelevel_cats_effect",
+            "@maven//:org_typelevel_cats_free",
+            "@maven//:org_typelevel_cats_kernel",
         ],
         visibility = ["//ledger-service:__subpackages__"],
         deps = [
@@ -251,24 +288,37 @@ alias(
             "//daml-lf/data",
             "//daml-lf/interface",
             "//daml-lf/transaction",
+            "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
+            "//ledger-api/testing-utils",
+            "//ledger-service/fetch-contracts",
+            "//ledger/ledger-resources",
+            "//ledger/metrics",
+            "//ledger/sandbox:sandbox-scala-tests-lib",
+            "//ledger/sandbox-common",
+            "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-testing:{}".format(edition),
+            "//ledger-service/db-backend",
             "//ledger-service/jwt",
             "//ledger-service/utils",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
-            "//ledger/test-common:dar-files-stable-lib",
+            "//ledger/test-common:dar-files-default-lib",
             "//libs-scala/contextualized-logging",
+            "//libs-scala/db-utils",
             "//libs-scala/doobie-slf4j",
             "//libs-scala/ports",
+            "//libs-scala/ports:ports-testing",
             "//libs-scala/postgresql-testing",
             "//libs-scala/resources",
             "//libs-scala/resources-grpc",
             "//runtime-components/non-repudiation",
             "//runtime-components/non-repudiation-postgresql",
             "//runtime-components/non-repudiation-testing",
+            "@maven//:io_dropwizard_metrics_metrics_core",
+            "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
     for edition in [
@@ -290,24 +340,33 @@ alias(
             "src/it/scala/**/*.scala",
             "src/it/edition/{}/**/*.scala".format(edition),
         ]),
+        args = [
+            "-l",
+            "skip_scala_2_12",
+        ] if scala_major_version == "2.12" else [],
         data = [
             ":Account.dar",
+            ":User.dar",
             "//docs:quickstart-model.dar",
             "//ledger/test-common:dar-files",
             "//ledger/test-common/test-certificates",
         ],
         plugins = [
             "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+            silencer_plugin,
         ],
         resources = glob(["src/it/resources/**/*"]),
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
-            "@maven//:com_lihaoyi_sourcecode",
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:com_typesafe_scala_logging_scala_logging",
             "@maven//:io_spray_spray_json",
             "@maven//:org_scalacheck_scalacheck",
-            "@maven//:org_scalatest_scalatest",
+            "@maven//:org_scalatest_scalatest_core",
+            "@maven//:org_scalatest_scalatest_flatspec",
+            "@maven//:org_scalatest_scalatest_freespec",
+            "@maven//:org_scalatest_scalatest_matchers_core",
+            "@maven//:org_scalatest_scalatest_shouldmatchers",
             "@maven//:org_scalaz_scalaz_core",
             "@maven//:org_tpolecat_doobie_core",
             "@maven//:org_tpolecat_doobie_free",
@@ -315,6 +374,8 @@ alias(
             "@maven//:org_typelevel_cats_core",
             "@maven//:org_typelevel_cats_effect",
             "@maven//:org_typelevel_cats_free",
+            "@maven//:org_typelevel_cats_kernel",
+            "@maven//:org_scala_lang_modules_scala_collection_compat",
         ],
         scalacopts = hj_scalacopts,
         deps = [
@@ -324,22 +385,32 @@ alias(
             "//daml-lf/data",
             "//daml-lf/interface",
             "//daml-lf/transaction",
+            "//daml-lf/transaction-test-lib",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
+            "//ledger-api/testing-utils",
             "//ledger-service/db-backend",
+            "//ledger-service/fetch-contracts",
+            "//ledger/ledger-api-auth",
+            "//ledger/ledger-resources",
+            "//ledger/metrics",
+            "//ledger/sandbox:sandbox-scala-tests-lib",
+            "//ledger/sandbox-common",
+            "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-testing:{}".format(edition),
             "//ledger-service/jwt",
             "//ledger-service/utils",
-            "//ledger/ledger-api-auth",
-            "//ledger/ledger-api-common",
-            "//libs-scala/auth-utils",
             "//libs-scala/contextualized-logging",
+            "//libs-scala/db-utils",
             "//libs-scala/ports",
             "//libs-scala/postgresql-testing",
+            "//libs-scala/resources",
             "//libs-scala/scala-utils",
             "//runtime-components/non-repudiation",
             "//runtime-components/non-repudiation-postgresql",
+            "@maven//:io_dropwizard_metrics_metrics_core",
+            "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
     for edition in [
@@ -348,9 +419,9 @@ alias(
     ]
 ]
 
-alias(
+test_suite(
     name = "integration-tests",
-    actual = "integration-tests-ce",
+    tests = ["integration-tests-ce"],
 )
 
 [
@@ -374,8 +445,13 @@ alias(
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:com_typesafe_scala_logging_scala_logging",
             "@maven//:io_spray_spray_json",
-            "@maven//:org_scalatest_scalatest",
+            "@maven//:org_scalatest_scalatest_core",
+            "@maven//:org_scalatest_scalatest_freespec",
+            "@maven//:org_scalatest_scalatest_matchers_core",
+            "@maven//:org_scalatest_scalatest_shouldmatchers",
             "@maven//:org_scalaz_scalaz_core",
+            "@maven//:org_typelevel_cats_core",
+            "@maven//:org_typelevel_cats_effect",
         ],
         scalacopts = hj_scalacopts,
         deps = [
@@ -385,24 +461,32 @@ alias(
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
             "//ledger-api/testing-utils",
+            "//ledger-service/fetch-contracts",
+            "//ledger/ledger-configuration",
+            "//libs-scala/contextualized-logging",
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-testing:{}".format(edition),
             "//ledger-service/jwt",
+            "//ledger-service/utils",
             "//ledger/caching",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
             "//ledger/ledger-resources",
+            "//ledger/metrics",
             "//ledger/participant-integration-api",
             "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-            "//ledger/participant-state",
             "//ledger/sandbox",
             "//ledger/sandbox-common",
             "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+            "//libs-scala/db-utils",
             "//libs-scala/ports",
+            "//libs-scala/ports:ports-testing",
             "//libs-scala/postgresql-testing",
             "//libs-scala/resources",
             "//libs-scala/timer-utils",
             "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+            "@maven//:io_dropwizard_metrics_metrics_core",
+            "@maven//:org_scalatest_scalatest_compatible",
         ],
     )
     for edition in [
@@ -411,9 +495,44 @@ alias(
     ]
 ]
 
-alias(
+test_suite(
     name = "failure-tests",
-    actual = "failure-tests-ce",
+    tests = ["failure-tests-ce"],
 )
 
 exports_files(["src/main/resources/logback.xml"])
+
+da_scala_benchmark_jmh(
+    name = "contractdao-bench",
+    srcs = glob(["src/bench/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_tpolecat_doobie_core",
+        "@maven//:org_tpolecat_doobie_free",
+        "@maven//:org_typelevel_cats_kernel",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_effect",
+        "@maven//:org_typelevel_cats_free",
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+    ],
+    deps = [
+        ":http-json",
+        "//daml-lf/interface",
+        "//language-support/scala/bindings",
+        "//ledger-service/db-backend",
+        "//ledger-service/fetch-contracts",
+        "//ledger-service/http-json-cli:base",
+        "//ledger-service/utils",
+        "//ledger/metrics",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/db-utils",
+        "//libs-scala/doobie-slf4j",
+        "//libs-scala/oracle-testing",
+        "//libs-scala/ports",
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)

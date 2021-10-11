@@ -5,9 +5,10 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.ComparisonFailureException
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.UpdateNormalizer.normalize
-import com.daml.ledger.participant.state.v1.{Offset, Update}
+import com.daml.ledger.participant.state.v2.Update
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -20,6 +21,7 @@ final class ReadServiceStateUpdateComparison(
     actualReadService: ReplayingReadService,
     expectedUpdateNormalizers: Iterable[UpdateNormalizer],
     actualUpdateNormalizers: Iterable[UpdateNormalizer],
+    pairwiseUpdateNormalizers: Iterable[PairwiseUpdateNormalizer],
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -49,6 +51,7 @@ final class ReadServiceStateUpdateComparison(
                 actualUpdate,
                 expectedUpdateNormalizers,
                 actualUpdateNormalizers,
+                pairwiseUpdateNormalizers,
               ),
             )
           )
@@ -76,19 +79,41 @@ object ReadServiceStateUpdateComparison {
       actualUpdate: Update,
       expectedUpdateNormalizers: Iterable[UpdateNormalizer],
       actualUpdateNormalizers: Iterable[UpdateNormalizer],
+      pairwiseUpdateNormalizers: Iterable[PairwiseUpdateNormalizer],
   ): Future[Unit] = {
-    val expectedNormalizedUpdate = normalize(expectedUpdate, expectedUpdateNormalizers)
-    val actualNormalizedUpdate = normalize(actualUpdate, actualUpdateNormalizers)
+
+    val (expectedNormalizedUpdate, actualNormalizedUpdate) = PairwiseUpdateNormalizer.normalize(
+      normalize(expectedUpdate, expectedUpdateNormalizers),
+      normalize(actualUpdate, actualUpdateNormalizers),
+      pairwiseUpdateNormalizers,
+    )
+
     if (expectedNormalizedUpdate != actualNormalizedUpdate) {
-      Future.failed(
-        new ComparisonFailureException(
-          "State update mismatch.",
-          "Expected:",
-          expectedNormalizedUpdate.toString,
-          "Actual:",
-          actualNormalizedUpdate.toString,
+      if (expectedNormalizedUpdate == expectedUpdate && actualNormalizedUpdate == actualUpdate) {
+        Future.failed(
+          new ComparisonFailureException(
+            "State update mismatch.",
+            "Expected:",
+            expectedNormalizedUpdate.toString,
+            "Actual:",
+            actualNormalizedUpdate.toString,
+          )
         )
-      )
+      } else {
+        Future.failed(
+          new ComparisonFailureException(
+            "State update mismatch.",
+            "Expected (before normalization):",
+            expectedUpdate.toString,
+            "Expected (after normalization):",
+            expectedNormalizedUpdate.toString,
+            "Actual (before normalization):",
+            actualUpdate.toString,
+            "Actual (after normalization):",
+            actualNormalizedUpdate.toString,
+          )
+        )
+      }
     } else {
       Future.unit
     }

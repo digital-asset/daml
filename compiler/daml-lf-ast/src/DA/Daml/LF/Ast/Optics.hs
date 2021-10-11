@@ -68,7 +68,7 @@ templateChoiceExpr f (TemplateChoice loc name consuming controllers observers se
   <*> f update
 
 templateExpr :: Traversal' Template Expr
-templateExpr f (Template loc tpl param precond signatories observers agreement choices key) =
+templateExpr f (Template loc tpl param precond signatories observers agreement choices key implements) =
   Template loc tpl param
   <$> f precond
   <*> f signatories
@@ -76,6 +76,15 @@ templateExpr f (Template loc tpl param precond signatories observers agreement c
   <*> f agreement
   <*> (NM.traverse . templateChoiceExpr) f choices
   <*> (traverse . templateKeyExpr) f key
+  <*> (NM.traverse . templateImplementsExpr) f implements
+
+templateImplementsExpr :: Traversal' TemplateImplements Expr
+templateImplementsExpr f (TemplateImplements iface methods) =
+  TemplateImplements iface <$> (NM.traverse . templateImplementsMethodExpr) f methods
+
+templateImplementsMethodExpr :: Traversal' TemplateImplementsMethod Expr
+templateImplementsMethodExpr f (TemplateImplementsMethod name body) =
+  TemplateImplementsMethod name <$> f body
 
 templateKeyExpr :: Traversal' TemplateKey Expr
 templateKeyExpr f (TemplateKey typ body maintainers) =
@@ -84,17 +93,19 @@ templateKeyExpr f (TemplateKey typ body maintainers) =
   <*> f maintainers
 
 moduleExpr :: Traversal' Module Expr
-moduleExpr f (Module name path flags synonyms dataTypes values templates exceptions) =
+moduleExpr f (Module name path flags synonyms dataTypes values templates exceptions interfaces) =
   Module name path flags synonyms dataTypes
   <$> (NM.traverse . _dvalBody) f values
   <*> (NM.traverse . templateExpr) f templates
   <*> pure exceptions
+  <*> pure interfaces
 
 dataConsType :: Traversal' DataCons Type
 dataConsType f = \case
   DataRecord  fs -> DataRecord  <$> (traverse . _2) f fs
   DataVariant cs -> DataVariant <$> (traverse . _2) f cs
   DataEnum cs -> pure $ DataEnum cs
+  DataInterface -> pure DataInterface
 
 builtinType :: Traversal' Type BuiltinType
 builtinType f =
@@ -122,6 +133,7 @@ instance MonoTraversable ModuleRef (Qualified a) where
     (\(pkg1, mod1) -> Qualified pkg1 mod1 x) <$> f (pkg0, mod0)
 
 instance MonoTraversable ModuleRef ChoiceName where monoTraverse _ = pure
+instance MonoTraversable ModuleRef MethodName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef ExprValName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef ExprVarName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef FieldName where monoTraverse _ = pure
@@ -171,6 +183,10 @@ instance MonoTraversable ModuleRef DefDataType
 instance MonoTraversable ModuleRef DefTypeSyn
 instance MonoTraversable ModuleRef DefException
 
+instance MonoTraversable ModuleRef InterfaceChoice
+instance MonoTraversable ModuleRef InterfaceMethod
+instance MonoTraversable ModuleRef DefInterface
+
 instance MonoTraversable ModuleRef HasNoPartyLiterals
 instance MonoTraversable ModuleRef IsTest
 instance MonoTraversable ModuleRef DefValue
@@ -181,6 +197,8 @@ instance MonoTraversable ModuleRef Bool where monoTraverse _ = pure
 instance MonoTraversable ModuleRef TemplateChoice
 instance MonoTraversable ModuleRef TemplateKey
 instance MonoTraversable ModuleRef Template
+instance MonoTraversable ModuleRef TemplateImplements
+instance MonoTraversable ModuleRef TemplateImplementsMethod
 
 instance MonoTraversable ModuleRef FeatureFlags
 instance MonoTraversable ModuleRef Module

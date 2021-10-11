@@ -9,187 +9,97 @@ import java.util.{Timer, TimerTask}
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.DbType
-import com.daml.platform.store.appendonlydao.HikariJdbcConnectionProvider._
-import com.daml.timer.RetryStrategy
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
+import javax.sql.DataSource
 
-import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.control.NonFatal
 
-private[platform] final class HikariConnection(
-    serverRole: ServerRole,
-    jdbcUrl: String,
-    minimumIdle: Int,
-    maxPoolSize: Int,
-    connectionTimeout: FiniteDuration,
-    metrics: Option[MetricRegistry],
-    connectionPoolPrefix: String,
-    maxInitialConnectRetryAttempts: Int,
-    connectionAsyncCommitMode: DbType.AsyncCommitMode,
-)(implicit loggingContext: LoggingContext)
-    extends ResourceOwner[HikariDataSource] {
+private[platform] object HikariDataSourceOwner {
 
-  private val logger = ContextualizedLogger.get(this.getClass)
-
-  override def acquire()(implicit context: ResourceContext): Resource[HikariDataSource] = {
-    val config = new HikariConfig
-    val dbType = DbType.jdbcType(jdbcUrl)
-
-    config.setJdbcUrl(jdbcUrl)
-    config.setDriverClassName(dbType.driver)
-    config.addDataSourceProperty("cachePrepStmts", "true")
-    config.addDataSourceProperty("prepStmtCacheSize", "128")
-    config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
-    config.setAutoCommit(false)
-    config.setMaximumPoolSize(maxPoolSize)
-    config.setMinimumIdle(minimumIdle)
-    config.setConnectionTimeout(connectionTimeout.toMillis)
-    config.setPoolName(s"$connectionPoolPrefix.${serverRole.threadPoolSuffix}")
-    metrics.foreach(config.setMetricRegistry)
-
-    configureAsyncCommit(config, dbType)
-
-    // Hikari dies if a database connection could not be opened almost immediately
-    // regardless of any connection timeout settings. We retry connections so that
-    // Postgres and Sandbox can be started in any order.
-    Resource(
-      RetryStrategy.constant(
-        attempts = maxInitialConnectRetryAttempts,
-        waitTime = 1.second,
-      ) { (i, _) =>
-        Future {
-          logger.info(
-            s"Attempting to connect to the database (attempt $i/$maxInitialConnectRetryAttempts)"
-          )
-          new HikariDataSource(config)
-        }
-      }
-    )(conn => Future { conn.close() })
-  }
-
-  private def configureAsyncCommit(config: HikariConfig, dbType: DbType): Unit =
-    if (dbType.supportsAsynchronousCommits) {
-      logger.info(
-        s"Creating Hikari connections with synchronous commit ${connectionAsyncCommitMode.setting}"
-      )
-      config.setConnectionInitSql(s"SET synchronous_commit=${connectionAsyncCommitMode.setting}")
-    } else if (connectionAsyncCommitMode != DbType.SynchronousCommit) {
-      logger.warn(
-        s"Asynchronous commit setting ${connectionAsyncCommitMode.setting} is not compatible with ${dbType.name} database backend"
-      )
-    }
-}
-
-private[platform] object HikariConnection {
-  private val MaxInitialConnectRetryAttempts = 600
-  private val ConnectionPoolPrefix: String = "daml.index.db.connection"
-
-  def owner(
+  def apply(
+      dataSource: DataSource,
       serverRole: ServerRole,
-      jdbcUrl: String,
       minimumIdle: Int,
       maxPoolSize: Int,
       connectionTimeout: FiniteDuration,
       metrics: Option[MetricRegistry],
-      connectionAsyncCommitMode: DbType.AsyncCommitMode,
-  )(implicit loggingContext: LoggingContext): HikariConnection =
-    new HikariConnection(
-      serverRole,
-      jdbcUrl,
-      minimumIdle,
-      maxPoolSize,
-      connectionTimeout,
-      metrics,
-      ConnectionPoolPrefix,
-      MaxInitialConnectRetryAttempts,
-      connectionAsyncCommitMode,
-    )
+      connectionPoolPrefix: String = "daml.index.db.connection",
+  ): ResourceOwner[DataSource] =
+    ResourceOwner.forCloseable { () =>
+      val config = new HikariConfig
+      config.setDataSource(dataSource)
+      config.setAutoCommit(false)
+      config.setMaximumPoolSize(maxPoolSize)
+      config.setMinimumIdle(minimumIdle)
+      config.setConnectionTimeout(connectionTimeout.toMillis)
+      config.setPoolName(s"$connectionPoolPrefix.${serverRole.threadPoolSuffix}")
+      metrics.foreach(config.setMetricRegistry)
+      new HikariDataSource(config)
+    }
 }
 
-private[platform] class HikariJdbcConnectionProvider(
-    dataSource: HikariDataSource,
-    healthPoller: Timer,
-) extends JdbcConnectionProvider {
-  private val transientFailureCount = new AtomicInteger(0)
-
-  private val checkHealth = new TimerTask {
-    override def run(): Unit = {
-      try {
-        dataSource.getConnection().close()
-        transientFailureCount.set(0)
-      } catch {
-        case _: SQLTransientConnectionException =>
-          val _ = transientFailureCount.incrementAndGet()
-      }
-    }
-  }
-
-  healthPoller.schedule(checkHealth, 0, HealthPollingSchedule.toMillis)
-
-  override def currentHealth(): HealthStatus =
-    if (transientFailureCount.get() < MaxTransientFailureCount)
-      Healthy
-    else
-      Unhealthy
-
-  override def runSQL[T](databaseMetrics: DatabaseMetrics)(block: Connection => T): T = {
-    val conn = dataSource.getConnection()
-    conn.setAutoCommit(false)
-    try {
-      val res = Timed.value(
-        databaseMetrics.queryTimer,
-        block(conn),
-      )
-      Timed.value(
-        databaseMetrics.commitTimer,
-        conn.commit(),
-      )
-      res
-    } catch {
-      case e: SQLTransientConnectionException =>
-        transientFailureCount.incrementAndGet()
-        throw e
-      case NonFatal(t) =>
-        // Log the error in the caller with access to more logging context (such as the sql statement description)
-        conn.rollback()
-        throw t
-    } finally {
-      conn.close()
-    }
-  }
-}
-
-private[platform] object HikariJdbcConnectionProvider {
+object DataSourceConnectionProvider {
   private val MaxTransientFailureCount: Int = 5
   private val HealthPollingSchedule: FiniteDuration = 1.second
 
-  def owner(
-      serverRole: ServerRole,
-      jdbcUrl: String,
-      maxConnections: Int,
-      connectionTimeout: FiniteDuration,
-      metrics: MetricRegistry,
-      connectionAsyncCommitMode: DbType.AsyncCommitMode = DbType.SynchronousCommit,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[HikariJdbcConnectionProvider] =
+  def owner(dataSource: DataSource): ResourceOwner[JdbcConnectionProvider] =
     for {
-      // these connections should never time out as we have the same number of threads as connections
-      dataSource <- HikariConnection.owner(
-        serverRole,
-        jdbcUrl,
-        maxConnections,
-        maxConnections,
-        connectionTimeout,
-        Some(metrics),
-        connectionAsyncCommitMode,
-      )
       healthPoller <- ResourceOwner.forTimer(() =>
-        new Timer(s"${classOf[HikariJdbcConnectionProvider].getName}#healthPoller")
+        new Timer("DataSourceConnectionProvider#healthPoller")
       )
-    } yield new HikariJdbcConnectionProvider(dataSource, healthPoller)
+    } yield {
+      val transientFailureCount = new AtomicInteger(0)
+
+      val checkHealth = new TimerTask {
+        override def run(): Unit = {
+          try {
+            dataSource.getConnection().close()
+            transientFailureCount.set(0)
+          } catch {
+            case _: SQLTransientConnectionException =>
+              val _ = transientFailureCount.incrementAndGet()
+          }
+        }
+      }
+
+      healthPoller.schedule(checkHealth, 0, HealthPollingSchedule.toMillis)
+
+      new JdbcConnectionProvider {
+        override def runSQL[T](databaseMetrics: DatabaseMetrics)(block: Connection => T): T = {
+          val conn = dataSource.getConnection()
+          conn.setAutoCommit(false)
+          try {
+            val res = Timed.value(
+              databaseMetrics.queryTimer,
+              block(conn),
+            )
+            Timed.value(
+              databaseMetrics.commitTimer,
+              conn.commit(),
+            )
+            res
+          } catch {
+            case e: SQLTransientConnectionException =>
+              transientFailureCount.incrementAndGet()
+              throw e
+            case NonFatal(t) =>
+              // Log the error in the caller with access to more logging context (such as the sql statement description)
+              conn.rollback()
+              throw t
+          } finally {
+            conn.close()
+          }
+        }
+
+        override def currentHealth(): HealthStatus =
+          if (transientFailureCount.get() < MaxTransientFailureCount)
+            Healthy
+          else
+            Unhealthy
+      }
+    }
 }

@@ -3,8 +3,8 @@
 
 package com.daml.http
 
-import java.nio.file.Paths
-
+import com.daml.dbutils.DBConfig.JdbcConfigDefaults
+import dbbackend.JdbcConfig
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.typesafe.scalalogging.StrictLogging
 import scopt.{Read, RenderingMode}
@@ -12,8 +12,9 @@ import scopt.{Read, RenderingMode}
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Try
 
-class OptionParser(getEnvVar: String => Option[String], supportedJdbcDriverNames: Set[String])
-    extends scopt.OptionParser[Config]("http-json-binary")
+class OptionParser(getEnvVar: String => Option[String])(implicit
+    jdbcConfigDefaults: JdbcConfigDefaults
+) extends scopt.OptionParser[Config]("http-json-binary")
     with StrictLogging {
 
   private def setJdbcConfig(
@@ -29,12 +30,7 @@ class OptionParser(getEnvVar: String => Option[String], supportedJdbcDriverNames
   }
 
   private def parseJdbcConfig(s: String): Either[String, JdbcConfig] =
-    for {
-      m <- Try(implicitly[Read[Map[String, String]]].reads(s)).toEither.left.map(_ =>
-        s"Failed to parse $s into a comma-separated key-value map"
-      )
-      conf <- JdbcConfig.create(m, supportedJdbcDriverNames)
-    } yield conf
+    Try(implicitly[Read[JdbcConfig]].reads(s)).toEither.left.map(_.getMessage)
 
   private def parseJdbcConfigEnvVar(
       envVar: String,
@@ -100,6 +96,14 @@ class OptionParser(getEnvVar: String => Option[String], supportedJdbcDriverNames
         s" Defaults to the `max-inbound-message-size` setting."
     )
 
+  opt[Long]("max-template-id-cache-entries")
+    .action((x, c) => c.copy(surrogateTpIdCacheMaxEntries = Some(x)))
+    .optional()
+    .text(
+      s"Optional max cache size in entries for storing surrogate template id mappings." +
+        s" Defaults to ${Config.Empty.surrogateTpIdCacheMaxEntries}"
+    )
+
   opt[Int]("max-inbound-message-size")
     .action((x, c) => c.copy(maxInboundMessageSize = x))
     .optional()
@@ -107,15 +111,14 @@ class OptionParser(getEnvVar: String => Option[String], supportedJdbcDriverNames
       s"Optional max inbound message size in bytes. Defaults to ${Config.Empty.maxInboundMessageSize: Int}."
     )
 
-  opt[Map[String, String]]("query-store-jdbc-config")
-    .action((x, c) => setJdbcConfig(c, JdbcConfig.createUnsafe(x, supportedJdbcDriverNames)))
-    .validate(JdbcConfig.validate(_, supportedJdbcDriverNames))
+  opt[JdbcConfig]("query-store-jdbc-config")
+    .action((x, c) => setJdbcConfig(c, x))
     .optional()
     .valueName(JdbcConfig.usage)
     .text(
       s"Optional query store JDBC configuration string." +
         " Query store is a search index, use it if you need to query large active contract sets. " +
-        JdbcConfig.help(supportedJdbcDriverNames)
+        JdbcConfig.help
     )
 
   opt[String]("query-store-jdbc-config-env")
@@ -130,13 +133,8 @@ class OptionParser(getEnvVar: String => Option[String], supportedJdbcDriverNames
         " --query-store-jdbc-config-env and --query-store-jdbc-config are mutually exclusive."
     )
 
-  opt[Map[String, String]]("static-content")
-    .action((x, c) =>
-      c.copy(staticContentConfig =
-        Some(StaticContentConfig.createUnsafe(x, supportedJdbcDriverNames))
-      )
-    )
-    .validate(StaticContentConfig.validate(_, supportedJdbcDriverNames))
+  opt[StaticContentConfig]("static-content")
+    .action((x, c) => c.copy(staticContentConfig = Some(x)))
     .optional()
     .valueName(StaticContentConfig.usage)
     .text(
@@ -151,22 +149,27 @@ class OptionParser(getEnvVar: String => Option[String], supportedJdbcDriverNames
     )
 
   opt[String]("access-token-file")
-    .text(
-      s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default"
+    .foreach(_ =>
+      logger.warn(
+        s"The '--access-token-file' command line option is deprecated and has no effect. The authorization for the retrieval of packages required to serve a request is performed with the JWT in the request itself."
+      )
     )
-    .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
+    .text(
+      s"DEPRECATED. Provide the path from which the access token will be read, required to interact with an authenticated ledger, no default"
+    )
     .optional()
 
-  opt[Map[String, String]]("websocket-config")
-    .action((x, c) =>
-      c.copy(wsConfig = Some(WebsocketConfig.createUnsafe(x, supportedJdbcDriverNames)))
-    )
-    .validate(WebsocketConfig.validate(_, supportedJdbcDriverNames))
+  opt[WebsocketConfig]("websocket-config")
+    .action((x, c) => c.copy(wsConfig = Some(x)))
     .optional()
     .valueName(WebsocketConfig.usage)
     .text(s"Optional websocket configuration string. ${WebsocketConfig.help}")
 
   cliopts.Logging.logLevelParse(this)((f, c) => c.copy(logLevel = f(c.logLevel)))
   cliopts.Logging.logEncoderParse(this)((f, c) => c.copy(logEncoder = f(c.logEncoder)))
+  cliopts.Metrics.metricsReporterParse(this)(
+    (f, c) => c.copy(metricsReporter = f(c.metricsReporter)),
+    (f, c) => c.copy(metricsReportingInterval = f(c.metricsReportingInterval)),
+  )
 
 }

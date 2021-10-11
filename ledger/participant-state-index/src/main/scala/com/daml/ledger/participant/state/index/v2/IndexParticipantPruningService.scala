@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.index.v2
 
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future
@@ -12,7 +12,8 @@ import scala.concurrent.Future
   * ParticipantPruningService.
   */
 trait IndexParticipantPruningService {
-
-  def prune(pruneUpToInclusive: Offset)(implicit loggingContext: LoggingContext): Future[Unit]
+  def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit]
 
 }

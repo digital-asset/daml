@@ -7,10 +7,11 @@ import com.daml.lf.data.{ImmArray, Numeric, Struct}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.language.{LanguageVersion, Interface}
+import com.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.daml.lf.validation.AlphaEquiv._
 import com.daml.lf.validation.Util._
 import com.daml.lf.validation.iterable.TypeIterable
+import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
 
@@ -21,8 +22,7 @@ private[validation] object Typing {
   /* Typing */
 
   private def checkUniq[A](xs: Iterator[A], mkError: A => ValidationError): Unit = {
-    (xs foldLeft Set.empty[A])((acc, x) => if (acc(x)) throw mkError(x) else acc + x)
-    ()
+    discard((xs foldLeft Set.empty[A])((acc, x) => if (acc(x)) throw mkError(x) else acc + x))
   }
 
   private def kindOfBuiltin(bType: BuiltinType): Kind = bType match {
@@ -256,7 +256,7 @@ private[validation] object Typing {
     case PCUnit => TUnit
   }
 
-  def checkModule(interface: Interface, pkgId: PackageId, mod: Module): Unit = {
+  def checkModule(interface: PackageInterface, pkgId: PackageId, mod: Module): Unit = {
     val langVersion = handleLookup(NoContext, interface.lookupPackage(pkgId)).languageVersion
     mod.definitions.foreach {
       case (dfnName, DDataType(_, params, cons)) =>
@@ -272,6 +272,8 @@ private[validation] object Typing {
             env.checkVariantType(fields)
           case DataEnum(values) =>
             env.checkEnumType(tyConName, params, values)
+          case DataInterface =>
+            env.checkInterfaceType(tyConName, params)
         }
       case (dfnName, dfn: DValue) =>
         Env(langVersion, interface, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
@@ -302,11 +304,18 @@ private[validation] object Typing {
           throw EExpectedExceptionableType(env.ctx, tyConName)
       }
     }
+    mod.interfaces.foreach { case (ifaceName, defInterface) =>
+      // uniquess of choice names is already checked on construction of the choice map.
+      val tyConName = TypeConName(pkgId, QualifiedName(mod.name, ifaceName))
+      val env = Env(langVersion, interface, ContextDefInterface(tyConName), Map.empty)
+      defInterface.virtualChoices.values.foreach(env.checkIfaceChoice(_))
+      defInterface.methods.values.foreach(env.checkIfaceMethod(_))
+    }
   }
 
   case class Env(
       languageVersion: LanguageVersion,
-      interface: Interface,
+      interface: PackageInterface,
       ctx: Context,
       tVars: Map[TypeVarName, Kind] = Map.empty,
       eVars: Map[ExprVarName, Type] = Map.empty,
@@ -367,6 +376,14 @@ private[validation] object Typing {
       checkUniq[Name](values.iterator, EDuplicateEnumCon(ctx, _))
     }
 
+    def checkInterfaceType[X](
+        tyConName: => TypeConName,
+        params: ImmArray[X],
+    ): Unit = {
+      if (params.nonEmpty) throw EIllegalHigherInterfaceType(ctx, tyConName)
+      val _ = handleLookup(ctx, interface.lookupInterface(tyConName))
+    }
+
     def checkDValue(dfn: DValue): Unit = dfn match {
       case DValue(typ, _, body, isTest) =>
         checkType(typ, KStar)
@@ -415,7 +432,16 @@ private[validation] object Typing {
       }
 
     def checkTemplate(tplName: TypeConName, template: Template): Unit = {
-      val Template(param, precond, signatories, agreementText, choices, observers, mbKey) =
+      val Template(
+        param,
+        precond,
+        signatories,
+        agreementText,
+        choices,
+        observers,
+        mbKey,
+        implementations,
+      ) =
         template
       val env = introExprVar(param, TTyCon(tplName))
       env.checkExpr(precond, TBool)
@@ -428,6 +454,64 @@ private[validation] object Typing {
         env.checkExpr(key.body, key.typ)
         checkExpr(key.maintainers, TFun(key.typ, TParties))
         ()
+      }
+      implementations.values.foreach(env.checkIfaceImplementation(tplName, _))
+    }
+
+    def checkIfaceChoice(choice: InterfaceChoice): Unit = {
+      checkType(choice.argType, KStar)
+      checkType(choice.returnType, KStar)
+    }
+
+    def checkIfaceMethod(method: InterfaceMethod): Unit = {
+      checkType(method.returnType, KStar)
+    }
+
+    def checkIfaceImplementation(tplTcon: TypeConName, impl: TemplateImplements): Unit = {
+      val DefInterfaceSignature(_, virtualChoices, _, methods) =
+        handleLookup(ctx, interface.lookupInterface(impl.interface))
+      virtualChoices.values.foreach { case InterfaceChoice(name, consuming, argType, returnType) =>
+        val tplChoice = handleLookup(ctx, interface.lookupChoice(tplTcon, name))
+        if (tplChoice.consuming != consuming)
+          throw EBadInterfaceChoiceImplConsuming(
+            ctx,
+            impl.interface,
+            tplTcon,
+            name,
+            consuming,
+            tplChoice.consuming,
+          )
+        if (!alphaEquiv(tplChoice.argBinder._2, argType))
+          throw EBadInterfaceChoiceImplArgType(
+            ctx,
+            impl.interface,
+            tplTcon,
+            name,
+            argType,
+            tplChoice.argBinder._2,
+          )
+        if (!alphaEquiv(tplChoice.returnType, returnType))
+          throw EBadInterfaceChoiceImplRetType(
+            ctx,
+            impl.interface,
+            tplTcon,
+            name,
+            returnType,
+            tplChoice.returnType,
+          )
+      }
+
+      methods.values.foreach { (method: InterfaceMethod) =>
+        if (!impl.methods.contains(method.name))
+          throw EMissingInterfaceMethod(ctx, tplTcon, impl.interface, method.name)
+      }
+      impl.methods.values.foreach { (tplMethod: TemplateImplementsMethod) =>
+        methods.get(tplMethod.name) match {
+          case None =>
+            throw EUnknownInterfaceMethod(ctx, tplTcon, impl.interface, tplMethod.name)
+          case Some(method) =>
+            checkExpr(tplMethod.value, TFun(TTyCon(tplTcon), method.returnType))
+        }
       }
     }
 
@@ -517,8 +601,7 @@ private[validation] object Typing {
           val (exprFieldNames, fieldExprs) = recordExpr.unzip
           val (typeFieldNames, fieldTypes) = recordType.unzip
           if (exprFieldNames != typeFieldNames) throw EFieldMismatch(ctx, typ, recordExpr)
-          (fieldExprs zip fieldTypes).map((checkExpr _).tupled)
-          ()
+          (fieldExprs zip fieldTypes).foreach((checkExpr _).tupled)
         case _ =>
           throw EExpectedRecordType(ctx, typ)
       }
@@ -733,6 +816,8 @@ private[validation] object Typing {
                     enumExpectedPatterns(scrutTCon, cons),
                     introPatternEnum(scrutTCon, cons),
                   )
+                case DataInterface =>
+                  (defaultExpectedPatterns, introOnlyPatternDefault(scrutType))
               }
           }
         case TUnit =>
@@ -766,7 +851,7 @@ private[validation] object Typing {
     private def typeOfLet(binding: Binding, body: Expr): Type = binding match {
       case Binding(Some(vName), typ0, expr) =>
         checkType(typ0, KStar)
-        val typ1 = checkExpr(expr, typ0)
+        val typ1 = resolveExprType(expr, typ0)
         introExprVar(vName, typ1).typeOf(body)
       case Binding(_, _, bound @ _) =>
         typeOf(body)
@@ -775,7 +860,7 @@ private[validation] object Typing {
     private def checkCons(elemType: Type, front: ImmArray[Expr], tailExpr: Expr): Unit = {
       checkType(elemType, KStar)
       if (front.isEmpty) throw EEmptyConsFront(ctx)
-      front.map(checkExpr(_, elemType))
+      front.foreach(checkExpr(_, elemType))
       checkExpr(tailExpr, TList(elemType))
       ()
     }
@@ -811,7 +896,7 @@ private[validation] object Typing {
     }
 
     private def typeOfCreate(tpl: TypeConName, arg: Expr): Type = {
-      handleLookup(ctx, interface.lookupTemplate(tpl))
+      discard(handleLookup(ctx, interface.lookupTemplate(tpl)))
       checkExpr(arg, TTyCon(tpl))
       TUpdate(TContractId(TTyCon(tpl)))
     }
@@ -828,6 +913,23 @@ private[validation] object Typing {
       TUpdate(choice.returnType)
     }
 
+    private def typeOfExerciseInterface(
+        tpl: TypeConName,
+        chName: ChoiceName,
+        cid: Expr,
+        arg: Expr,
+    ): Type = {
+      checkExpr(cid, TContractId(TTyCon(tpl)))
+      handleLookup(ctx, interface.lookupInterfaceChoice(tpl, chName)) match {
+        case Left(virtualChoice) =>
+          checkExpr(arg, virtualChoice.argType)
+          TUpdate(virtualChoice.returnType)
+        case Right(fixedChoice) =>
+          checkExpr(arg, fixedChoice.argBinder._2)
+          TUpdate(fixedChoice.returnType)
+      }
+    }
+
     private def typeOfExerciseByKey(
         tmplId: TypeConName,
         chName: ChoiceName,
@@ -841,9 +943,23 @@ private[validation] object Typing {
     }
 
     private def typeOfFetch(tpl: TypeConName, cid: Expr): Type = {
-      handleLookup(ctx, interface.lookupTemplate(tpl))
+      discard(handleLookup(ctx, interface.lookupTemplate(tpl)))
       checkExpr(cid, TContractId(TTyCon(tpl)))
       TUpdate(TTyCon(tpl))
+    }
+
+    private def typeOfFetchInterface(tpl: TypeConName, cid: Expr): Type = {
+      discard(handleLookup(ctx, interface.lookupInterface(tpl)))
+      checkExpr(cid, TContractId(TTyCon(tpl)))
+      TUpdate(TTyCon(tpl))
+    }
+
+    private def checkImplements(tpl: TypeConName, iface: TypeConName): Unit = {
+      discard(handleLookup(ctx, interface.lookupInterface(iface)))
+      val template = handleLookup(ctx, interface.lookupTemplate(tpl))
+      if (!template.implements.contains(iface))
+        throw ETemplateDoesNotImplementInterface(ctx, tpl, iface)
+      ()
     }
 
     private def checkByKey(tmplId: TypeConName, key: Expr): Unit = {
@@ -862,10 +978,14 @@ private[validation] object Typing {
         typeOfCreate(tpl, arg)
       case UpdateExercise(tpl, choice, cid, arg) =>
         typeOfExercise(tpl, choice, cid, arg)
+      case UpdateExerciseInterface(tpl, choice, cid, arg) =>
+        typeOfExerciseInterface(tpl, choice, cid, arg)
       case UpdateExerciseByKey(tpl, choice, key, arg) =>
         typeOfExerciseByKey(tpl, choice, key, arg)
       case UpdateFetch(tpl, cid) =>
         typeOfFetch(tpl, cid)
+      case UpdateFetchInterface(tpl, cid) =>
+        typeOfFetchInterface(tpl, cid)
       case UpdateGetTime =>
         TUpdate(TTimestamp)
       case UpdateEmbedExpr(typ, exp) =>
@@ -928,7 +1048,7 @@ private[validation] object Typing {
         checkExpr(name, TText)
         TScenario(TParty)
       case ScenarioEmbedExpr(typ, exp) =>
-        checkExpr(exp, TScenario(typ))
+        resolveExprType(exp, TScenario(typ))
     }
 
     // checks that typ contains neither variables, nor quantifiers, nor synonyms
@@ -949,8 +1069,7 @@ private[validation] object Typing {
     private def checkExceptionType(typ: Type): Unit = {
       typ match {
         case TTyCon(tyCon) =>
-          handleLookup(ctx, interface.lookupException(tyCon))
-          ()
+          discard(handleLookup(ctx, interface.lookupException(tyCon)))
         case _ =>
           throw EExpectedExceptionType(ctx, typ)
       }
@@ -1046,16 +1165,32 @@ private[validation] object Typing {
         checkExceptionType(typ)
         checkExpr(value, TAnyException)
         TOptional(typ)
+      case EToInterface(iface, tpl, value) =>
+        checkImplements(tpl, iface)
+        checkExpr(value, TTyCon(tpl))
+        TTyCon(iface)
+      case EFromInterface(iface, tpl, value) =>
+        checkImplements(tpl, iface)
+        checkExpr(value, TTyCon(iface))
+        TOptional(TTyCon(tpl))
+      case ECallInterface(iface, methodName, value) =>
+        val method = handleLookup(ctx, interface.lookupInterfaceMethod(iface, methodName))
+        checkExpr(value, TTyCon(iface))
+        method.returnType
       case EExperimental(_, typ) =>
         typ
     }
 
-    def checkExpr(expr: Expr, typ0: Type): Type = {
+    def resolveExprType(expr: Expr, typ0: Type): Type = {
       val exprType = typeOf(expr)
       val typ = expandTypeSynonyms(typ0)
       if (!alphaEquiv(exprType, typ))
         throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
       exprType
+    }
+
+    def checkExpr(expr: Expr, typ0: Type): Unit = {
+      discard[Type](resolveExprType(expr, typ0))
     }
   }
 

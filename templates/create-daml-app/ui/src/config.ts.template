@@ -1,28 +1,66 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-export enum DeploymentMode {
-  DEV,
-  PROD_DABL,
-  PROD_OTHER,
-}
+import { encode } from 'jwt-simple';
 
-export const deploymentMode: DeploymentMode =
-  process.env.NODE_ENV === 'development'
-  ? DeploymentMode.DEV
-  : window.location.hostname.endsWith('.projectdabl.com')
-  ? DeploymentMode.PROD_DABL
-  : DeploymentMode.PROD_OTHER;
+export type Insecure = {
+  provider: "none",
+  makeToken: (party: string) => string,
+  ledgerId: string
+};
 
-// Decide the ledger ID based on the deployment mode first,
-// then an environment variable, falling back on the sandbox ledger ID.
-export const ledgerId: string =
-  deploymentMode === DeploymentMode.PROD_DABL
-  ? window.location.hostname.split('.')[0]
-  : process.env.REACT_APP_LEDGER_ID
-  ?? '__PROJECT_NAME__-sandbox';
+export type DamlHub = {
+  provider: "daml-hub",
+  ledgerId: string
+};
+
+export type Auth0 =  {
+  provider: "auth0",
+  domain: string,
+  clientId: string
+};
+
+export type Authentication = Insecure | DamlHub | Auth0;
+
+export const authConfig: Authentication = (() => {
+  if (window.location.hostname.endsWith('.projectdabl.com')) {
+    const auth: DamlHub = {
+      provider: "daml-hub",
+      ledgerId: process.env.REACT_APP_LEDGER_ID ?? window.location.hostname.split('.')[0]
+    };
+    return auth;
+  } else if (process.env.REACT_APP_AUTH && process.env.REACT_APP_AUTH.toLowerCase() === "auth0") {
+    if (process.env.REACT_APP_AUTH0_DOMAIN && process.env.REACT_APP_AUTH0_CLIENT_ID) {
+      const auth: Auth0 = {
+        provider: "auth0",
+        domain: process.env.REACT_APP_AUTH0_DOMAIN,
+        clientId: process.env.REACT_APP_AUTH0_CLIENT_ID
+      };
+      return auth;
+    } else {
+      throw new Error("Missing env vars: AUTH0_DOMAIN & AUTH0_CLIENT_ID must be set.");
+    }
+  } else {
+    const ledgerId: string = process.env.REACT_APP_LEDGER_ID ?? "__PROJECT_NAME__-sandbox"
+    const auth: Insecure = {
+      provider: "none",
+      ledgerId: ledgerId,
+      makeToken: (party) => {
+        const payload = {
+          "https://daml.com/ledger-api": {
+            "ledgerId": ledgerId,
+            "applicationId": '__PROJECT_NAME__',
+            "actAs": [party]
+          }
+        }
+        return encode(payload, "secret", "HS256");
+      }
+    };
+    return auth;
+  }
+})();
 
 export const httpBaseUrl =
-  deploymentMode === DeploymentMode.PROD_DABL
-  ? `https://api.projectdabl.com/data/${ledgerId}/`
+  authConfig.provider === "daml-hub"
+  ? `https://api.projectdabl.com/data/${authConfig.ledgerId}/`
   : undefined;

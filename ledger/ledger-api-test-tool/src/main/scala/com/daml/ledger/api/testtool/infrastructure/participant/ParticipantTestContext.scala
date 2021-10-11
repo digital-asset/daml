@@ -4,15 +4,16 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.{Clock, Instant}
-
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.{
+  Endpoint,
   Identification,
   LedgerServices,
   PartyAllocationConfiguration,
 }
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse,
@@ -105,6 +106,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
     referenceOffset: LedgerOffset,
     services: LedgerServices,
     partyAllocation: PartyAllocationConfiguration,
+    val ledgerEndpoint: Endpoint,
+    val clientTlsConfiguration: Option[TlsConfiguration],
 )(implicit ec: ExecutionContext) {
 
   import ParticipantTestContext._
@@ -126,6 +129,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
   private[this] val nextPartyHintId: () => String = nextId("party")
   private[this] val nextCommandId: () => String = nextId("command")
   private[this] val nextSubmissionId: () => String = nextId("submission")
+  private[this] val workflowId: String = s"$applicationId-$identifierSuffix"
   val nextKeyId: () => String = nextId("key")
 
   override def toString: String = s"participant $endpointId"
@@ -174,8 +178,14 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .map(_.packageDetails)
 
   def uploadDarFile(bytes: ByteString): Future[Unit] =
+    uploadDarFile(new UploadDarFileRequest(bytes))
+
+  def uploadDarRequest(bytes: ByteString): UploadDarFileRequest =
+    new UploadDarFileRequest(bytes, nextSubmissionId())
+
+  def uploadDarFile(request: UploadDarFileRequest): Future[Unit] =
     services.packageManagement
-      .uploadDarFile(new UploadDarFileRequest(bytes))
+      .uploadDarFile(request)
       .map(_ => ())
 
   def participantId(): Future[String] =
@@ -497,18 +507,11 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def exerciseAndGetContract[T](
       party: Party,
-      exercise: Party => Primitive.Update[_],
+      exercise: Party => Primitive.Update[Any],
   ): Future[Primitive.ContractId[T]] =
     submitAndWaitForTransaction(submitAndWaitRequest(party, exercise(party).command))
       .map(extractContracts)
       .map(_.head.asInstanceOf[Primitive.ContractId[T]])
-
-  def exerciseAndGetContracts[T](
-      party: Party,
-      exercise: Party => Primitive.Update[T],
-  ): Future[Seq[Primitive.ContractId[_]]] =
-    submitAndWaitForTransaction(submitAndWaitRequest(party, exercise(party).command))
-      .map(extractContracts)
 
   def exerciseByKey[T](
       party: Party,
@@ -520,7 +523,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     submitAndWaitForTransactionTree(
       submitAndWaitRequest(
         party,
-        Command(
+        Command.of(
           Command.Command.ExerciseByKey(
             ExerciseByKeyCommand(
               Some(template.unwrap),
@@ -543,6 +546,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
           actAs = Party.unsubst(actAs),
           readAs = Party.unsubst(readAs),
           commands = commands,
+          workflowId = workflowId,
         )
       )
     )
@@ -556,6 +560,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
           commandId = nextCommandId(),
           party = party.unwrap,
           commands = commands,
+          workflowId = workflowId,
         )
       )
     )
@@ -574,6 +579,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
           actAs = Party.unsubst(actAs),
           readAs = Party.unsubst(readAs),
           commands = commands,
+          workflowId = workflowId,
         )
       )
     )
@@ -587,6 +593,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
           commandId = nextCommandId(),
           party = party.unwrap,
           commands = commands,
+          workflowId = workflowId,
         )
       )
     )
@@ -624,7 +631,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     new StreamConsumer[CompletionStreamResponse](
       services.commandCompletion.completionStream(request, _)
     ).find(_.completions.nonEmpty)
-      .map(_.fold(Seq.empty[Completion])(_.completions).toVector)
+      .map(_.completions.toVector)
 
   def firstCompletions(parties: Party*): Future[Vector[Completion]] =
     firstCompletions(completionStreamRequest()(parties: _*))
@@ -635,7 +642,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     new StreamConsumer[CompletionStreamResponse](
       services.commandCompletion.completionStream(request, _)
     ).find(_.completions.exists(p))
-      .map(_.flatMap(_.completions.find(p)))
+      .map(_.completions.find(p))
 
   def findCompletion(parties: Party*)(p: Completion => Boolean): Future[Option[Completion]] =
     findCompletion(completionStreamRequest()(parties: _*))(p)
@@ -688,21 +695,41 @@ private[testtool] final class ParticipantTestContext private[participant] (
       generation: Long,
       newTimeModel: TimeModel,
   ): Future[SetTimeModelResponse] =
-    services.configManagement.setTimeModel(
-      SetTimeModelRequest(nextSubmissionId(), Some(mrt.asProtobuf), generation, Some(newTimeModel))
-    )
+    setTimeModel(setTimeModelRequest(mrt, generation, newTimeModel))
 
-  def prune(pruneUpTo: String, attempts: Int): Future[PruneResponse] =
+  def setTimeModelRequest(
+      mrt: Instant,
+      generation: Long,
+      newTimeModel: TimeModel,
+  ): SetTimeModelRequest =
+    SetTimeModelRequest(nextSubmissionId(), Some(mrt.asProtobuf), generation, Some(newTimeModel))
+
+  def setTimeModel(
+      request: SetTimeModelRequest
+  ): Future[SetTimeModelResponse] =
+    services.configManagement.setTimeModel(request)
+
+  def prune(
+      pruneUpTo: String,
+      attempts: Int,
+      pruneAllDivulgedContracts: Boolean,
+  ): Future[PruneResponse] =
     // Distributed ledger participants need to reach global consensus prior to pruning. Hence the "eventually" here:
     eventually(
       attempts = attempts,
       runAssertion = {
-        services.participantPruning.prune(PruneRequest(pruneUpTo, nextSubmissionId()))
+        services.participantPruning.prune(
+          PruneRequest(pruneUpTo, nextSubmissionId(), pruneAllDivulgedContracts)
+        )
       },
     )
 
-  def prune(pruneUpTo: LedgerOffset, attempts: Int = 10): Future[PruneResponse] =
-    prune(pruneUpTo.getAbsolute, attempts)
+  def prune(
+      pruneUpTo: LedgerOffset,
+      attempts: Int = 10,
+      pruneAllDivulgedContracts: Boolean = false,
+  ): Future[PruneResponse] =
+    prune(pruneUpTo.getAbsolute, attempts, pruneAllDivulgedContracts)
 
   private[infrastructure] def preallocateParties(
       n: Int,

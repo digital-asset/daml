@@ -7,10 +7,13 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.{BatchSql, NamedParameter}
-import com.daml.ledger.{EventId, TransactionId}
-import com.daml.ledger.participant.state.v1.{Offset, SubmitterInfo, WorkflowId}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.OracleArrayConversions._
+import spray.json.DefaultJsonProtocol._
+import spray.json._
 
 object EventsTableOracle extends EventsTable {
 
@@ -66,7 +69,7 @@ object EventsTableOracle extends EventsTable {
       transactionId: TransactionId,
       workflowId: Option[WorkflowId],
       ledgerEffectiveTime: Instant,
-      submitterInfo: Option[SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       events: Vector[(NodeId, Node)],
       stakeholders: WitnessRelation[NodeId],
       disclosure: WitnessRelation[NodeId],
@@ -78,10 +81,11 @@ object EventsTableOracle extends EventsTable {
         "transaction_id" -> transactionId,
         "workflow_id" -> workflowId,
         "ledger_effective_time" -> ledgerEffectiveTime,
-        "command_id" -> submitterInfo.map(_.commandId),
-        "application_id" -> submitterInfo.map(_.applicationId),
-        "submitters" -> Party.Array(submitterInfo.map(_.actAs).getOrElse(List.empty): _*),
+        "command_id" -> completionInfo.map(_.commandId),
+        "application_id" -> completionInfo.map(_.applicationId),
+        "submitters" -> completionInfo.map(_.actAs).getOrElse(List.empty).toJson.compactPrint,
       )
+
     for ((nodeId, node) <- events)
       yield {
         assert(stakeholders.contains(nodeId), s"No stakeholder for $nodeId")
@@ -90,8 +94,8 @@ object EventsTableOracle extends EventsTable {
           Vector[NamedParameter](
             "event_id" -> EventId(transactionId, nodeId).toLedgerString,
             "node_index" -> nodeId.index,
-            "flat_event_witnesses" -> Party.Array(stakeholders(nodeId).toSeq: _*),
-            "tree_event_witnesses" -> Party.Array(disclosure(nodeId).toSeq: _*),
+            "flat_event_witnesses" -> stakeholders(nodeId).toJson.compactPrint,
+            "tree_event_witnesses" -> disclosure(nodeId).toJson.compactPrint,
           )
         val eventSpecificColumns =
           node match {
@@ -130,12 +134,12 @@ object EventsTableOracle extends EventsTable {
   ): Vector[NamedParameter] =
     Vector[NamedParameter](
       "contract_id" -> event.coid.coid,
-      "template_id" -> event.coinst.template,
+      "template_id" -> event.templateId,
       "create_argument" -> argument,
       "create_argument_compression" -> argumentCompression,
-      "create_signatories" -> event.signatories.toArray[String],
-      "create_observers" -> event.stakeholders.diff(event.signatories).toArray[String],
-      "create_agreement_text" -> event.coinst.agreementText,
+      "create_signatories" -> event.signatories.toJson.compactPrint,
+      "create_observers" -> event.stakeholders.diff(event.signatories).toJson.compactPrint,
+      "create_agreement_text" -> event.agreementText,
       "create_key_value" -> key,
       "create_key_value_compression" -> keyCompression,
     ) ++ emptyExerciseFields
@@ -157,17 +161,19 @@ object EventsTableOracle extends EventsTable {
       "exercise_argument_compression" -> argumentCompression,
       "exercise_result" -> result,
       "exercise_result_compression" -> resultCompression,
-      "exercise_actors" -> event.actingParties.toArray[String],
+      "exercise_actors" -> event.actingParties.toJson.compactPrint,
       "exercise_child_event_ids" -> event.children
         .map(EventId(transactionId, _).toLedgerString)
-        .toArray[String],
+        .toList
+        .toJson
+        .compactPrint,
     ) ++ emptyCreateFields
 
   private val emptyCreateFields = Vector[NamedParameter](
     "create_argument" -> Option.empty[Array[Byte]],
     "create_argument_compression" -> Option.empty[Short],
-    "create_signatories" -> Option.empty[Array[String]],
-    "create_observers" -> Option.empty[Array[String]],
+    "create_signatories" -> "[]",
+    "create_observers" -> "[]",
     "create_agreement_text" -> Option.empty[String],
     "create_key_value" -> Option.empty[Array[Byte]],
     "create_key_value_compression" -> Option.empty[Short],
@@ -180,8 +186,8 @@ object EventsTableOracle extends EventsTable {
     "exercise_argument_compression" -> Option.empty[Short],
     "exercise_result" -> Option.empty[Array[Byte]],
     "exercise_result_compression" -> Option.empty[Short],
-    "exercise_actors" -> Option.empty[Array[String]],
-    "exercise_child_event_ids" -> Option.empty[Array[String]],
+    "exercise_actors" -> "[]",
+    "exercise_child_event_ids" -> "[]",
   )
 
   private val updateArchived =
@@ -204,7 +210,7 @@ object EventsTableOracle extends EventsTable {
       transactionId = tx.transactionId,
       workflowId = tx.workflowId,
       ledgerEffectiveTime = tx.ledgerEffectiveTime,
-      submitterInfo = tx.submitterInfo,
+      completionInfo = tx.completionInfo,
       events = info.events,
       stakeholders = info.stakeholders,
       disclosure = info.disclosure,

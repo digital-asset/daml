@@ -27,6 +27,10 @@
   type: jar-lib
 - target: //daml-lf/archive:daml_lf_1.13_archive_proto_java
   type: jar-proto
+- target: //daml-lf/archive:daml_lf_1.14_archive_proto_jar
+  type: jar-lib
+- target: //daml-lf/archive:daml_lf_1.14_archive_proto_java
+  type: jar-proto
 - target: //daml-lf/archive:daml_lf_dev_archive_proto_jar
   type: jar-lib
 - target: //daml-lf/archive:daml_lf_dev_archive_proto_java
@@ -99,6 +103,8 @@
   type: jar-scala
 - target: //ledger/cli-opts:cli-opts
   type: jar-scala
+- target: //ledger/indexer-benchmark:indexer-benchmark
+  type: jar-deploy
 - target: //ledger/ledger-api-akka:ledger-api-akka
   type: jar-scala
 - target: //ledger/ledger-api-auth:ledger-api-auth
@@ -117,6 +123,20 @@
   type: jar-scala
 - target: //ledger/ledger-api-test-tool:ledger-api-test-tool
   type: jar-deploy
+- target: //ledger/ledger-api-test-tool:ledger-api-test-tool-1.14
+  type: jar-deploy
+- target: //ledger/ledger-api-test-tool:ledger-api-test-tool-1.dev
+  type: jar-deploy
+- target: //ledger/ledger-configuration:ledger-configuration
+  type: jar-scala
+- target: //ledger/ledger-configuration/protobuf:ledger_configuration_proto_jar
+  type: jar-lib
+- target: //ledger/ledger-configuration/protobuf:ledger_configuration_proto_java
+  type: jar-proto
+- target: //ledger/ledger-grpc:ledger-grpc
+  type: jar-scala
+- target: //ledger/ledger-offset:ledger-offset
+  type: jar-scala
 - target: //ledger/ledger-on-memory:ledger-on-memory
   type: jar-scala
 - target: //ledger/ledger-on-memory:ledger-on-memory-app
@@ -132,6 +152,8 @@
 - target: //ledger/participant-integration-api:ledger-api-server
   type: jar-scala
 - target: //ledger/participant-integration-api:participant-integration-api
+  type: jar-scala
+- target: //ledger/participant-integration-api:participant-integration-api-proto_scala
   type: jar-scala
 - target: //ledger/participant-state:participant-state
   type: jar-scala
@@ -149,10 +171,6 @@
   type: jar-scala
 - target: //ledger/participant-state/kvutils/tools:tools
   type: jar-scala
-- target: //ledger/participant-state/protobuf:ledger_configuration_proto_jar
-  type: jar-lib
-- target: //ledger/participant-state/protobuf:ledger_configuration_proto_java
-  type: jar-proto
 - target: //ledger/participant-state-index:participant-state-index
   type: jar-scala
 - target: //ledger/participant-state-metrics:participant-state-metrics
@@ -169,15 +187,13 @@
   type: jar-scala
 - target: //ledger/sandbox-on-x:sandbox-on-x-app
   type: jar-scala
-- target: //ledger/test-common:dar-files-1.12-lib
+- target: //ledger/test-common:dar-files-1.14-lib
   type: jar-scala
 - target: //ledger/test-common:dar-files-1.dev-lib
   type: jar-scala
-- target: //ledger/test-common:test-common-1.12
+- target: //ledger/test-common:test-common-1.14
   type: jar-scala
 - target: //ledger/test-common:test-common-1.dev
-  type: jar-scala
-- target: //ledger-service/db-backend:db-backend
   type: jar-scala
 - target: //ledger-service/lf-value-json:lf-value-json
   type: jar-scala
@@ -199,6 +215,8 @@
   type: jar-scala
 - target: //libs-scala/grpc-utils:grpc-utils
   type: jar-scala
+- target: //libs-scala/logging-entries:logging-entries
+  type: jar-scala
 - target: //libs-scala/ports:ports
   type: jar-scala
 - target: //libs-scala/resources:resources
@@ -216,4 +234,6 @@
 - target: //triggers/runner:trigger-runner-lib
   type: jar-scala
 - target: //libs-scala/nameof:nameof
+  type: jar-scala
+- target: //ledger/error:error
   type: jar-scala

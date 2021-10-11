@@ -8,6 +8,7 @@ import java.util.UUID
 
 import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -16,13 +17,8 @@ import com.daml.ledger.api.testing.utils.{
   SuiteResourceManagementAroundEach,
 }
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  SubmissionResult,
-  SubmitterInfo,
-  TimeModel,
-  TransactionMeta,
-}
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.crypto
 import com.daml.lf.data.{Ref, Time}
@@ -30,11 +26,12 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.platform.sandbox.stores.ledger.TransactionTimeModelComplianceIT._
 import com.daml.platform.sandbox.{LedgerResource, MetricsAround}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
-import org.scalatest.time.Span
-import org.scalatest.{Assertion, OptionValues}
-import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.Span
+import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.{Assertion, OptionValues}
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
 
 class TransactionTimeModelComplianceIT
@@ -72,31 +69,41 @@ class TransactionTimeModelComplianceIT
       generation: Long,
       minSkew: JDuration,
       maxSkew: JDuration,
-  ) = {
+  ): Future[Configuration] = {
     val config = Configuration(
       generation = generation,
-      timeModel = TimeModel(JDuration.ZERO, minSkew, maxSkew).get,
+      timeModel = LedgerTimeModel(JDuration.ZERO, minSkew, maxSkew).get,
       maxDeduplicationTime = JDuration.ofSeconds(10),
     )
-    ledger.publishConfiguration(
-      Time.Timestamp.assertFromInstant(recordTime.plusSeconds(3600)),
-      UUID.randomUUID().toString,
-      config,
-    )
+    ledger
+      .publishConfiguration(
+        Time.Timestamp.assertFromInstant(recordTime.plusSeconds(3600)),
+        UUID.randomUUID().toString,
+        config,
+      )
+      .map(_ => config)
   }
 
-  private[this] def publishTxAt(ledger: Ledger, ledgerTime: Instant, commandId: String) = {
+  private[this] def publishTxAt(
+      ledger: Ledger,
+      ledgerTime: Instant,
+      commandId: String,
+      submissionId: String = UUID.randomUUID().toString,
+      configuration: Configuration,
+  ) = {
     val dummyTransaction = TransactionBuilder.EmptySubmitted
 
-    val submitterInfo = SubmitterInfo(
+    val submitterInfo = state.SubmitterInfo(
       actAs = List(Ref.Party.assertFromString("submitter")),
-      applicationId = Ref.LedgerString.assertFromString("appId"),
-      commandId = Ref.LedgerString.assertFromString(commandId + UUID.randomUUID().toString),
-      deduplicateUntil = Instant.EPOCH,
+      applicationId = Ref.ApplicationId.assertFromString("appId"),
+      commandId = Ref.CommandId.assertFromString(commandId + UUID.randomUUID().toString),
+      deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(JDuration.ZERO),
+      submissionId = Ref.SubmissionId.assertFromString(submissionId),
+      ledgerConfiguration = configuration,
     )
-    val transactionMeta = TransactionMeta(
+    val transactionMeta = state.TransactionMeta(
       ledgerEffectiveTime = Time.Timestamp.assertFromInstant(ledgerTime),
-      workflowId = Some(Ref.LedgerString.assertFromString("wfid")),
+      workflowId = Some(Ref.WorkflowId.assertFromString("wfid")),
       submissionTime = Time.Timestamp.assertFromInstant(ledgerTime.plusNanos(3)),
       submissionSeed = submissionSeed,
       optUsedPackages = None,
@@ -122,7 +129,7 @@ class TransactionTimeModelComplianceIT
         .filter(_._2.completions.head.commandId == submitterInfo.commandId)
         .runWith(Sink.head)
     } yield {
-      submissionResult shouldBe SubmissionResult.Acknowledged
+      submissionResult shouldBe state.SubmissionResult.Acknowledged
       completion._2.completions.head
     }
   }
@@ -139,7 +146,12 @@ class TransactionTimeModelComplianceIT
       val ledgerTime = recordTime
 
       for {
-        r1 <- publishTxAt(ledger, ledgerTime, "lt-valid")
+        r1 <- publishTxAt(
+          ledger = ledger,
+          ledgerTime = ledgerTime,
+          commandId = "lt-valid",
+          configuration = null,
+        )
       } yield {
         expectInvalidLedgerTime(r1)
       }
@@ -148,8 +160,19 @@ class TransactionTimeModelComplianceIT
       val ledgerTime = recordTime
 
       for {
-        _ <- publishConfig(ledger, recordTime, 1, JDuration.ofSeconds(1), JDuration.ofSeconds(1))
-        r1 <- publishTxAt(ledger, ledgerTime, "lt-valid")
+        config <- publishConfig(
+          ledger,
+          recordTime,
+          1,
+          JDuration.ofSeconds(1),
+          JDuration.ofSeconds(1),
+        )
+        r1 <- publishTxAt(
+          ledger = ledger,
+          ledgerTime = ledgerTime,
+          commandId = "lt-valid",
+          configuration = config,
+        )
       } yield {
         expectValidTx(r1)
       }
@@ -160,8 +183,13 @@ class TransactionTimeModelComplianceIT
       val ledgerTime = recordTime.minus(minSkew).minusSeconds(1)
 
       for {
-        _ <- publishConfig(ledger, recordTime, 1, minSkew, maxSkew)
-        r1 <- publishTxAt(ledger, ledgerTime, "lt-low")
+        config <- publishConfig(ledger, recordTime, 1, minSkew, maxSkew)
+        r1 <- publishTxAt(
+          ledger = ledger,
+          ledgerTime = ledgerTime,
+          commandId = "lt-low",
+          configuration = config,
+        )
       } yield {
         expectInvalidLedgerTime(r1)
       }
@@ -172,8 +200,13 @@ class TransactionTimeModelComplianceIT
       val ledgerTime = recordTime.plus(maxSkew).plusSeconds(1)
 
       for {
-        _ <- publishConfig(ledger, recordTime, 1, minSkew, maxSkew)
-        r1 <- publishTxAt(ledger, ledgerTime, "lt-high")
+        config <- publishConfig(ledger, recordTime, 1, minSkew, maxSkew)
+        r1 <- publishTxAt(
+          ledger = ledger,
+          ledgerTime = ledgerTime,
+          commandId = "lt-high",
+          configuration = config,
+        )
       } yield {
         expectInvalidLedgerTime(r1)
       }
@@ -184,10 +217,20 @@ class TransactionTimeModelComplianceIT
       val ledgerTime = recordTime.plus(largeSkew)
 
       for {
-        _ <- publishConfig(ledger, recordTime, 1, largeSkew, largeSkew)
-        r1 <- publishTxAt(ledger, ledgerTime, "lt-before")
-        _ <- publishConfig(ledger, recordTime, 2, smallSkew, smallSkew)
-        r2 <- publishTxAt(ledger, ledgerTime, "lt-after")
+        config1 <- publishConfig(ledger, recordTime, 1, largeSkew, largeSkew)
+        r1 <- publishTxAt(
+          ledger = ledger,
+          ledgerTime = ledgerTime,
+          commandId = "lt-before",
+          configuration = config1,
+        )
+        config2 <- publishConfig(ledger, recordTime, 2, smallSkew, smallSkew)
+        r2 <- publishTxAt(
+          ledger = ledger,
+          ledgerTime = ledgerTime,
+          commandId = "lt-after",
+          configuration = config2,
+        )
       } yield {
         expectValidTx(r1)
         expectInvalidLedgerTime(r2)
@@ -201,7 +244,7 @@ object TransactionTimeModelComplianceIT {
 
   private val recordTime = Instant.now
 
-  private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledgerId"))
+  private val ledgerId = LedgerId("ledgerId")
   private val timeProvider = TimeProvider.Constant(recordTime)
 
   sealed abstract class BackendType

@@ -174,6 +174,7 @@ def _proto_scala_srcs(name, grpc):
         "//bazel_tools/scalapb:scalapb-configuration",
     ] + ([
         "@com_github_googleapis_googleapis//google/rpc:code_proto",
+        "@com_github_googleapis_googleapis//google/rpc:error_details_proto",
         "@com_github_googleapis_googleapis//google/rpc:status_proto",
         "@com_github_grpc_grpc//src/proto/grpc/health/v1:health_proto_descriptor",
     ] if grpc else [])

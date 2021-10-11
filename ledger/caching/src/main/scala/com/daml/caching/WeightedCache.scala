@@ -30,6 +30,7 @@ object WeightedCache {
         val builder =
           caffeine.Caffeine
             .newBuilder()
+            .softValues()
             .maximumWeight(maximumWeight)
             .weigher(Weight.weigher[Key, Value])
         CaffeineCache(builder, metrics)

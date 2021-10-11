@@ -5,9 +5,6 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1;
 
-import "com/daml/ledger/api/v1/trace_context.proto";
-
-
 option java_outer_classname = "LedgerIdentityServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
@@ -24,13 +21,7 @@ service LedgerIdentityService {
 
 }
 
-message GetLedgerIdentityRequest {
-
-  // Server side tracing will be registered as a child of the submitted context.
-  // This field is a future extension point and is currently not supported.
-  // Optional
-  TraceContext trace_context = 1000;
-}
+message GetLedgerIdentityRequest {}
 
 message GetLedgerIdentityResponse {
 

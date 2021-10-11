@@ -17,8 +17,8 @@ da_scala_library(
     ],
     deps = [
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-        "//ledger/ledger-api-common",
         "//libs-scala/ports",
+        "//libs-scala/ports:ports-testing",
         "//runtime-components/non-repudiation",
         "//runtime-components/non-repudiation-client",
         "@maven//:io_grpc_grpc_netty",

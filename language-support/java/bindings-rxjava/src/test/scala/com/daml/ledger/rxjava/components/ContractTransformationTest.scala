@@ -3,7 +3,7 @@
 
 package com.daml.ledger.rxjava.components
 
-import com.daml.ledger.javaapi.data.{Identifier, Party, Record, Text}
+import com.daml.ledger.javaapi.data.{Identifier, Party, DamlRecord, Text}
 import com.daml.ledger.rxjava.components.helpers.{
   CreatedContract,
   CreatedContractContext,
@@ -21,9 +21,9 @@ class TestContext extends CreatedContractContext {
 class ContractTransformationTest extends AnyFlatSpec with Matchers {
 
   private def createCreatedContract(identifier: Identifier, argument: String): CreatedContract = {
-    val arguments = new Record(
-      new Record.Field("argument", new Text(argument)),
-      new Record.Field("owner", new Party("party")),
+    val arguments = new DamlRecord(
+      new DamlRecord.Field("argument", new Text(argument)),
+      new DamlRecord.Field("owner", new Party("party")),
     )
     new CreatedContract(identifier, arguments, new TestContext())
   }

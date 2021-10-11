@@ -30,6 +30,10 @@ module Daml.Script
   , exerciseByKeyCmd
   , createAndExerciseCmd
   , archiveCmd
+  , internalCreateCmd
+  , internalExerciseCmd
+  , internalExerciseByKeyCmd
+  , internalCreateAndExerciseCmd
   , getTime
   , setTime
   , passTime
@@ -478,21 +482,45 @@ data LedgerValue = LedgerValue {}
 fromLedgerValue : LedgerValue -> a
 fromLedgerValue = error "foobar"
 
+-- | HIDE A version of 'createCmd' without constraints.
+--
+-- This is used for Daml ledger exports involving contracts defined in Daml-LF 1.6 or 1.7.
+internalCreateCmd : AnyTemplate -> Commands (ContractId t)
+internalCreateCmd arg = Commands $ Ap (\f -> f (Create arg identity) (pure coerceContractId))
+
+-- | HIDE A version of 'exerciseCmd' without constraints.
+--
+-- This is used for Daml ledger exports involving contracts defined in Daml-LF 1.6 or 1.7.
+internalExerciseCmd : TemplateTypeRep -> ContractId () -> AnyChoice -> Commands r
+internalExerciseCmd tplTypeRep cId arg = Commands $ Ap (\f -> f (Exercise tplTypeRep cId arg identity) (pure fromLedgerValue))
+
+-- | HIDE A version of 'exerciseByKeyCmd' without constraints.
+--
+-- This is used for Daml ledger exports involving contracts defined in Daml-LF 1.6 or 1.7.
+internalExerciseByKeyCmd : TemplateTypeRep -> AnyContractKey -> AnyChoice -> Commands r
+internalExerciseByKeyCmd tplTypeRep key arg = Commands $ Ap (\f -> f (ExerciseByKey tplTypeRep key arg identity) (pure fromLedgerValue))
+
+-- | HIDE A version of 'createAndExerciseCmd' without constraints.
+--
+-- This is used for Daml ledger exports involving contracts defined in Daml-LF 1.6 or 1.7.
+internalCreateAndExerciseCmd : AnyTemplate -> AnyChoice -> Commands r
+internalCreateAndExerciseCmd tplArg choiceArg = Commands $ Ap (\f -> f (CreateAndExercise tplArg choiceArg identity) (pure fromLedgerValue))
+
 -- | Create a contract of the given template.
 createCmd : Template t => t -> Commands (ContractId t)
-createCmd arg = Commands $ Ap (\f -> f (Create (toAnyTemplate arg) identity) (pure coerceContractId))
+createCmd arg = internalCreateCmd (toAnyTemplate arg)
 
 -- | Exercise a choice on the given contract.
 exerciseCmd : forall t c r. Choice t c r => ContractId t -> c -> Commands r
-exerciseCmd cId arg = Commands $ Ap (\f -> f (Exercise (templateTypeRep @t) (coerceContractId cId) (toAnyChoice @t arg) identity) (pure fromLedgerValue))
+exerciseCmd cId arg = internalExerciseCmd (templateTypeRep @t) (coerceContractId cId) (toAnyChoice @t arg)
 
 -- | Exercise a choice on the contract with the given key.
 exerciseByKeyCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Commands r
-exerciseByKeyCmd key arg = Commands $ Ap (\f -> f (ExerciseByKey (templateTypeRep @t) (toAnyContractKey @t key) (toAnyChoice @t arg) identity) (pure fromLedgerValue))
+exerciseByKeyCmd key arg = internalExerciseByKeyCmd (templateTypeRep @t) (toAnyContractKey @t key) (toAnyChoice @t arg)
 
--- | Create a contract and exercise a choice on it in the same transacton.
+-- | Create a contract and exercise a choice on it in the same transaction.
 createAndExerciseCmd : forall t c r. Choice t c r => t -> c -> Commands r
-createAndExerciseCmd tplArg choiceArg = Commands $ Ap (\f -> f (CreateAndExercise (toAnyTemplate tplArg) (toAnyChoice @t choiceArg) identity) (pure fromLedgerValue))
+createAndExerciseCmd tplArg choiceArg = internalCreateAndExerciseCmd (toAnyTemplate tplArg) (toAnyChoice @t choiceArg)
 
 -- | Archive the given contract.
 --

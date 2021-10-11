@@ -17,7 +17,7 @@ package trigger {
 
   sealed trait AuthConfig
   case object NoAuth extends AuthConfig
-  final case class AuthMiddleware(uri: Uri) extends AuthConfig
+  final case class AuthMiddleware(internal: Uri, external: Uri) extends AuthConfig
 
   import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
   import com.daml.ledger.api.refinements.ApiTypes.ApplicationId

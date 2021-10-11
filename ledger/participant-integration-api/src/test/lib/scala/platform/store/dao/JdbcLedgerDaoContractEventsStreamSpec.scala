@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.ImmArray
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.platform.store.appendonlydao.events.{Contract, ContractId}
@@ -152,7 +152,7 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement {
       .runWith(Sink.seq)
       .map(_.map(_._2))
 
-  private def contract(cid: ContractId, contractArgument: LfValue[ContractId]): Contract =
+  private def contract(cid: ContractId, contractArgument: LfValue): Contract =
     createNode(cid, Set.empty, Set.empty, contractArgument = contractArgument)
       .copy(agreementText = "")
       .versionedCoinst

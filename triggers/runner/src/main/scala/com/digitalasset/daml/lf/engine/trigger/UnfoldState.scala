@@ -21,7 +21,7 @@ import scala.collection.immutable.{IndexedSeq, Iterable, LinearSeq}
 /** A variant of [[scalaz.CorecursiveList]] that emits a final state
   * at the end of the list.
   */
-private[trigger] sealed abstract class UnfoldState[+T, +A] {
+private[trigger] sealed abstract class UnfoldState[T, A] {
   type S
   val init: S
   val step: S => T \/ (A, S)
@@ -62,7 +62,7 @@ private[trigger] sealed abstract class UnfoldState[+T, +A] {
 }
 
 private[trigger] object UnfoldState {
-  type Aux[S0, +T, +A] = UnfoldState[T, A] { type S = S0 }
+  type Aux[S0, T, A] = UnfoldState[T, A] { type S = S0 }
 
   def apply[S, T, A](init: S)(step: S => T \/ (A, S)): UnfoldState[T, A] = {
     type S0 = S
@@ -78,17 +78,21 @@ private[trigger] object UnfoldState {
       UnfoldState(fab.init)(fab.step andThen (_.bimap(f, (_ leftMap g))))
   }
 
-  def fromLinearSeq[A](list: LinearSeq[A]): UnfoldState[Unit, A] =
+  def fromLinearSeq[A](list: LinearSeq[A]): UnfoldState[Unit, A] = {
+    type Sr = Unit \/ (A, LinearSeq[A])
     apply(list) {
-      case hd +: tl => \/-((hd, tl))
-      case _ => -\/(())
+      case hd +: tl => \/-((hd, tl)): Sr
+      case _ => -\/(()): Sr
     }
+  }
 
-  def fromIndexedSeq[A](vector: IndexedSeq[A]): UnfoldState[Unit, A] =
+  def fromIndexedSeq[A](vector: IndexedSeq[A]): UnfoldState[Unit, A] = {
+    type Sr = Unit \/ (A, Int)
     apply(0) { n =>
-      if (vector.sizeIs > n) \/-((vector(n), n + 1))
-      else -\/(())
+      if (vector.sizeIs > n) \/-((vector(n), n + 1)): Sr
+      else -\/(()): Sr
     }
+  }
 
   implicit final class toSourceOps[T, A](private val self: SourceShape2[T, A]) {
     def elemsOut: Outlet[A] = self.out2
@@ -170,7 +174,7 @@ private[trigger] object UnfoldState {
       new FanOutShape2(split.in, as.out, bs.out)
     }
 
-  private[this] type FoldL[T, -A, +B] = (T, A) => UnfoldState[T, B]
+  private[this] type FoldL[T, -A, B] = (T, A) => UnfoldState[T, B]
 
   private[this] def statefulMapConcatFun[T, A, B](f: FoldL[T, A, B]): T \/ A => Iterable[T \/ B] = {
     var mcFun: A => Iterable[T \/ B] = null

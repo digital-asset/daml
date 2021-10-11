@@ -8,8 +8,13 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.stream.Materializer
 import com.daml.ledger.on.memory.{InMemoryLedgerStateAccess, InMemoryState, Index}
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
-import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, export}
+import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
+import com.daml.ledger.participant.state.kvutils.export.{
+  NoOpLedgerDataExporter,
+  SubmissionInfo,
+  WriteSet,
+}
+import com.daml.ledger.participant.state.kvutils.store.DamlStateValue
 import com.daml.ledger.validator.preexecution.{
   EqualityBasedPostExecutionConflictDetector,
   PreExecutingSubmissionValidator,
@@ -21,6 +26,7 @@ import com.daml.ledger.validator.preexecution.{
 }
 import com.daml.ledger.validator.{SerializingStateReader, StateKeySerializationStrategy}
 import com.daml.lf.engine.Engine
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -60,12 +66,12 @@ final class RawPreExecutingCommitStrategySupport(
     postExecutionConflictDetector = new EqualityBasedPostExecutionConflictDetector,
     postExecutionWriteSetSelector = postExecutionWriteSetSelector,
     postExecutionWriter = new RawPostExecutionWriter,
-    ledgerDataExporter = export.NoOpLedgerDataExporter,
+    ledgerDataExporter = NoOpLedgerDataExporter,
   )
 
   override def commit(
-      submissionInfo: export.SubmissionInfo
-  )(implicit materializer: Materializer): Future[export.WriteSet] = {
+      submissionInfo: SubmissionInfo
+  )(implicit materializer: Materializer, loggingContext: LoggingContext): Future[WriteSet] = {
     val access = new WriteRecordingLedgerStateAccess(ledgerStateAccess)
     currentSubmissionRecordTime.set(submissionInfo.recordTimeInstant)
     committer

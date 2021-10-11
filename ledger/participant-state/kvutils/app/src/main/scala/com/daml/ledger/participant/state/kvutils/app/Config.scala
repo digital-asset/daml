@@ -9,13 +9,20 @@ import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import com.daml.caching
-import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.participant.state.kvutils.app.Config.EngineMode
-import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.ledger.api.tls.TlsVersion.TlsVersion
+import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.VersionRange
+import com.daml.lf.data.Ref
+import com.daml.lf.language.LanguageVersion
+import com.daml.metrics.MetricsReporter
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration, MetricsReporter}
+import com.daml.platform.configuration.{
+  CommandConfiguration,
+  IndexConfiguration,
+  SubmissionConfiguration,
+}
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
@@ -27,21 +34,26 @@ final case class Config[Extra](
     ledgerId: String,
     archiveFiles: Seq[Path],
     commandConfig: CommandConfiguration,
+    submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
     maxInboundMessageSize: Int,
+    configurationLoadTimeout: Duration,
+    maxDeduplicationDuration: Option[Duration],
     eventsPageSize: Int,
+    eventsProcessingParallelism: Int,
     stateValueCache: caching.WeightedCache.Configuration,
     lfValueTranslationEventCache: caching.SizedCache.Configuration,
     lfValueTranslationContractCache: caching.SizedCache.Configuration,
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
-    engineMode: EngineMode,
+    allowedLanguageVersions: VersionRange[LanguageVersion],
     enableAppendOnlySchema: Boolean, // TODO append-only: remove after removing support for the current (mutating) schema
     enableMutableContractStateCache: Boolean,
     enableInMemoryFanOutForLedgerApi: Boolean,
     extra: Extra,
+    enableSelfServiceErrorCodes: Boolean,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
@@ -58,21 +70,26 @@ object Config {
       ledgerId = UUID.randomUUID().toString,
       archiveFiles = Vector.empty,
       commandConfig = CommandConfiguration.default,
+      submissionConfig = SubmissionConfiguration.default,
       tlsConfig = None,
       participants = Vector.empty,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
+      configurationLoadTimeout = Duration.ofSeconds(10),
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
+      eventsProcessingParallelism = IndexConfiguration.DefaultEventsProcessingParallelism,
       stateValueCache = caching.WeightedCache.Configuration.none,
       lfValueTranslationEventCache = caching.SizedCache.Configuration.none,
       lfValueTranslationContractCache = caching.SizedCache.Configuration.none,
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
-      engineMode = EngineMode.Stable,
+      allowedLanguageVersions = LanguageVersion.StableVersions,
       enableAppendOnlySchema = false,
       enableMutableContractStateCache = false,
       enableInMemoryFanOutForLedgerApi = false,
+      maxDeduplicationDuration = None,
       extra = extra,
+      enableSelfServiceErrorCodes = false,
     )
 
   def ownerWithoutExtras(name: String, args: collection.Seq[String]): ResourceOwner[Config[Unit]] =
@@ -159,6 +176,7 @@ object Config {
               "indexer-max-input-buffer-size, " +
               "indexer-input-mapping-parallelism, " +
               "indexer-ingestion-parallelism, " +
+              "indexer-batching-parallelism, " +
               "indexer-submission-batch-size, " +
               "indexer-tailing-rate-limit-per-second, " +
               "indexer-batch-within-millis, " +
@@ -168,8 +186,7 @@ object Config {
               "]"
           )
           .action((kv, config) => {
-            val participantId =
-              ParticipantId.assertFromString(kv("participant-id"))
+            val participantId = Ref.ParticipantId.assertFromString(kv("participant-id"))
             val port = Port(kv("port").toInt)
             val address = kv.get("address")
             val portFile = kv.get("port-file").map(new File(_).toPath)
@@ -299,10 +316,38 @@ object Config {
 
         opt[String]("pem")
           .optional()
-          .text("TLS: The pem file to be used as the private key.")
+          .text(
+            "TLS: The pem file to be used as the private key. Use '.enc' filename suffix if the pem file is encrypted."
+          )
           .action((path, config) =>
             config.withTlsConfig(c => c.copy(keyFile = Some(new File(path))))
           )
+
+        opt[String]("tls-secrets-url")
+          .optional()
+          .text(
+            "TLS: URL of a secrets service that provide parameters needed to decrypt the private key. Required when private key is encrypted (indicated by '.enc' filename suffix)."
+          )
+          .action((url, config) =>
+            config.withTlsConfig(c => c.copy(secretsUrl = Some(SecretsUrl.fromString(url))))
+          )
+
+        checkConfig(c =>
+          c.tlsConfig.fold(success) { tlsConfig =>
+            if (
+              tlsConfig.keyFile.isDefined
+              && tlsConfig.keyFile.get.getName.endsWith(".enc")
+              && tlsConfig.secretsUrl.isEmpty
+            ) {
+              failure(
+                "You need to provide a secrets server URL if the server's private key is an encrypted file."
+              )
+            } else {
+              success
+            }
+          }
+        )
+
         opt[String]("crt")
           .optional()
           .text(
@@ -334,22 +379,22 @@ object Config {
             config.withTlsConfig(c => c.copy(clientAuth = clientAuth))
           )
 
+        opt[TlsVersion]("min-tls-version")
+          .optional()
+          .text(
+            "TLS: Indicates the minimum TLS version to enable. If specified must be either '1.2' or '1.3'."
+          )
+          .action((tlsVersion, config) =>
+            config.withTlsConfig(c => c.copy(minimumServerProtocolVersion = Some(tlsVersion)))
+          )
+
         opt[Int]("max-commands-in-flight")
           .optional()
           .action((value, config) =>
             config.copy(commandConfig = config.commandConfig.copy(maxCommandsInFlight = value))
           )
           .text(
-            "Maximum number of submitted commands waiting for completion for each party (only applied when using the CommandService). Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 256."
-          )
-
-        opt[Int]("max-parallel-submissions")
-          .optional()
-          .action((value, config) =>
-            config.copy(commandConfig = config.commandConfig.copy(maxParallelSubmissions = value))
-          )
-          .text(
-            "Maximum number of successfully interpreted commands waiting to be sequenced (applied only when running sandbox-classic). The threshold is shared across all parties. Overflowing it will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512."
+            s"Maximum number of submitted commands for which the CommandService is waiting to be completed in parallel, for each distinct set of parties, as specified by the `act_as` property of the command. Reaching this limit will cause new submissions to wait in the queue before being submitted. Default is ${CommandConfiguration.default.maxCommandsInFlight}."
           )
 
         opt[Int]("input-buffer-size")
@@ -358,19 +403,41 @@ object Config {
             config.copy(commandConfig = config.commandConfig.copy(inputBufferSize = value))
           )
           .text(
-            "The maximum number of commands waiting to be submitted for each party. Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512."
+            s"Maximum number of commands waiting to be submitted for each distinct set of parties, as specified by the `act_as` property of the command. Reaching this limit will cause the server to signal backpressure using the ``RESOURCE_EXHAUSTED`` gRPC status code. Default is ${CommandConfiguration.default.inputBufferSize}."
           )
 
         opt[Duration]("tracker-retention-period")
           .optional()
           .action((value, config) =>
-            config.copy(commandConfig =
-              config.commandConfig
-                .copy(retentionPeriod = FiniteDuration(value.getSeconds, TimeUnit.SECONDS))
-            )
+            config.copy(commandConfig = config.commandConfig.copy(trackerRetentionPeriod = value))
           )
           .text(
-            s"How long will the command service keep an active command tracker for a given party. A longer period cuts down on the tracker instantiation cost for a party that seldom acts. A shorter period causes a quick removal of unused trackers. Default is ${CommandConfiguration.DefaultTrackerRetentionPeriod}."
+            "The duration that the command service will keep an active command tracker for a given set of parties." +
+              " A longer period cuts down on the tracker instantiation cost for a party that seldom acts." +
+              " A shorter period causes a quick removal of unused trackers." +
+              s" Default is ${CommandConfiguration.DefaultTrackerRetentionPeriod}."
+          )
+
+        opt[Unit]("disable-deduplication-unsafe")
+          .optional()
+          .hidden()
+          .action((_, config) =>
+            config
+              .copy(submissionConfig = config.submissionConfig.copy(enableDeduplication = false))
+          )
+          .text(
+            "Disable participant-side command deduplication."
+          )
+
+        opt[Duration]("max-deduplication-duration")
+          .optional()
+          .hidden()
+          .action((maxDeduplicationDuration, config) =>
+            config
+              .copy(maxDeduplicationDuration = Some(maxDeduplicationDuration))
+          )
+          .text(
+            "Maximum command deduplication duration."
           )
 
         opt[Int]("max-inbound-message-size")
@@ -387,7 +454,24 @@ object Config {
           .text(
             s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${IndexConfiguration.DefaultEventsPageSize}."
           )
+          .validate { pageSize =>
+            if (pageSize > 0) Right(())
+            else Left("events-page-size should be strictly positive")
+          }
           .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
+
+        opt[Int]("buffers-prefetching-parallelism")
+          .optional()
+          .text(
+            s"Number of events fetched/decoded in parallel for populating the Ledger API internal buffers. Default is ${IndexConfiguration.DefaultEventsProcessingParallelism}."
+          )
+          .validate { buffersPrefetchingParallelism =>
+            if (buffersPrefetchingParallelism > 0) Right(())
+            else Left("buffers-prefetching-parallelism should be strictly positive")
+          }
+          .action((eventsProcessingParallelism, config) =>
+            config.copy(eventsProcessingParallelism = eventsProcessingParallelism)
+          )
 
         opt[Long]("max-state-value-cache-size")
           .optional()
@@ -464,7 +548,7 @@ object Config {
 
         opt[Unit]("early-access")
           .optional()
-          .action((_, c) => c.copy(engineMode = EngineMode.EarlyAccess))
+          .action((_, c) => c.copy(allowedLanguageVersions = LanguageVersion.EarlyAccessVersions))
           .text(
             "Enable preview version of the next Daml-LF language. Should not be used in production."
           )
@@ -472,25 +556,74 @@ object Config {
         opt[Unit]("daml-lf-dev-mode-unsafe")
           .optional()
           .hidden()
-          .action((_, c) => c.copy(engineMode = EngineMode.Dev))
+          .action((_, c) => c.copy(allowedLanguageVersions = LanguageVersion.DevVersions))
           .text(
             "Enable the development version of the Daml-LF language. Highly unstable. Should not be used in production."
           )
 
-        // TODO append-only: remove after removing support for the current (mutating) schema
-        opt[Unit]("index-append-only-schema-unsafe")
+        opt[Unit]("daml-lf-min-version-1.14-unsafe")
           .optional()
           .hidden()
+          .action((_, c) =>
+            c.copy(allowedLanguageVersions =
+              c.allowedLanguageVersions.copy(min = LanguageVersion.v1_14)
+            )
+          )
           .text(
-            s"Use the append-only index database with parallel ingestion. Highly unstable. Should not be used in production."
+            "Set minimum LF version for unstable packages to 1.14. Should not be used in production."
+          )
+
+        // TODO append-only: remove after removing support for the current (mutating) schema
+        opt[Unit]("index-append-only-schema")
+          .optional()
+          .text(
+            "Use the append-only index database with parallel ingestion." +
+              " The first time this flag is enabled, the index database will migrate to a new schema that allows for significantly higher ingestion performance." +
+              " This migration is irreversible, subsequent starts will have to enable this flag as well." +
+              " In the future, this flag will be removed and this application will automatically migrate to the new schema."
           )
           .action((_, config) => config.copy(enableAppendOnlySchema = true))
 
-        opt[Unit]("mutable-contract-state-cache-unsafe")
+        // TODO append-only: remove after removing support for the current (mutating) schema
+        checkConfig(c => {
+          if (
+            c.enableAppendOnlySchema && c.participants.exists(
+              _.indexerConfig.databaseConnectionPoolSize != ParticipantIndexerConfig.DefaultDatabaseConnectionPoolSize
+            )
+          ) {
+            failure(
+              "The following participant setting keys are not compatible with the --index-append-only-schema flag: " +
+                "indexer-connection-pool-size."
+            )
+          } else if (
+            !c.enableAppendOnlySchema && c.participants.exists(pc =>
+              pc.indexerConfig.maxInputBufferSize != ParticipantIndexerConfig.DefaultMaxInputBufferSize ||
+                pc.indexerConfig.inputMappingParallelism != ParticipantIndexerConfig.DefaultInputMappingParallelism ||
+                pc.indexerConfig.ingestionParallelism != ParticipantIndexerConfig.DefaultIngestionParallelism ||
+                pc.indexerConfig.submissionBatchSize != ParticipantIndexerConfig.DefaultSubmissionBatchSize ||
+                pc.indexerConfig.tailingRateLimitPerSecond != ParticipantIndexerConfig.DefaultTailingRateLimitPerSecond ||
+                pc.indexerConfig.batchWithinMillis != ParticipantIndexerConfig.DefaultBatchWithinMillis
+            )
+          ) {
+            failure(
+              "The following participant setting keys can only be used together with the --index-append-only-schema flag: " +
+                "indexer-max-input-buffer-size, " +
+                "indexer-input-mapping-parallelism, " +
+                "indexer-ingestion-parallelism, " +
+                "indexer-batching-parallelism, " +
+                "indexer-submission-batch-size, " +
+                "indexer-tailing-rate-limit-per-second, " +
+                "indexer-batch-within-millis. "
+            )
+          } else
+            success
+        })
+
+        opt[Unit]("mutable-contract-state-cache")
           .optional()
           .hidden()
           .text(
-            "Experimental contract state cache for command execution. Should not be used in production."
+            "Contract state cache for command execution. Must be enabled in conjunction with index-append-only-schema."
           )
           .action((_, config) => config.copy(enableMutableContractStateCache = true))
 
@@ -498,20 +631,31 @@ object Config {
           .optional()
           .hidden()
           .text(
-            "Experimental buffer for Ledger API streaming queries. Should not be used in production."
+            "Experimental buffer for Ledger API streaming queries. Must be enabled in conjunction with index-append-only-schema and mutable-contract-state-cache. Should not be used in production."
           )
           .action((_, config) => config.copy(enableInMemoryFanOutForLedgerApi = true))
+
+        checkConfig(config =>
+          if (config.enableMutableContractStateCache && !config.enableAppendOnlySchema)
+            failure(
+              "mutable-contract-state-cache must be enabled in conjunction with index-append-only-schema."
+            )
+          else if (
+            config.enableInMemoryFanOutForLedgerApi && !(config.enableMutableContractStateCache && config.enableAppendOnlySchema)
+          )
+            failure(
+              "buffered-ledger-api-streams-unsafe must be enabled in conjunction with index-append-only-schema and mutable-contract-state-cache."
+            )
+          else success
+        )
+
+        opt[Unit]("use-self-service-error-codes")
+          .optional()
+          .hidden()
+          .text("Enable self-service error codes.")
+          .action((_, config) => config.copy(enableSelfServiceErrorCodes = true))
       }
     extraOptions(parser)
     parser
   }
-
-  sealed abstract class EngineMode extends Product with Serializable
-
-  object EngineMode {
-    final case object Stable extends EngineMode
-    final case object EarlyAccess extends EngineMode
-    final case object Dev extends EngineMode
-  }
-
 }

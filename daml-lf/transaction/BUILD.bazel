@@ -7,6 +7,7 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
+    "lf_scalacopts_stricter",
     "silencer_plugin",
 )
 
@@ -53,7 +54,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-transaction:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
@@ -61,6 +62,8 @@ da_scala_library(
         ":value_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
+        "//libs-scala/nameof",
+        "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -68,14 +71,19 @@ da_scala_library(
 da_scala_test(
     name = "transaction-test",
     size = "medium",
-    srcs = glob(["src/test/**/*.scala"]),
+    srcs = glob([
+        "src/test/**/EitherAssertions.scala",
+        "src/test/**/crypto/*.scala",
+        "src/test/**/value/*.scala",
+        "src/test/**/transaction/*.scala",
+    ]),
     plugins = [
         silencer_plugin,
     ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
         "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scalaz_scalaz_scalacheck_binding",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
@@ -89,7 +97,28 @@ da_scala_test(
         "//daml-lf/interface",
         "//daml-lf/language",
         "//daml-lf/transaction-test-lib",
-        "//libs-scala/scalatest-utils",
         "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_test(
+    name = "validation-test",
+    size = "medium",
+    srcs = glob([
+        "src/test/**/validation/*.scala",
+    ]),
+    plugins = [
+        silencer_plugin,
+    ],
+    scalacopts = lf_scalacopts,
+    versioned_scala_deps = {
+        "2.12": [
+            "@maven//:org_scalaz_scalaz_core",
+        ],
+    },
+    deps = [
+        ":transaction",
+        "//daml-lf/data",
+        "//daml-lf/language",
     ],
 )

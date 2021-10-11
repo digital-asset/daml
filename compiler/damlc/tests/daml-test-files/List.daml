@@ -1,13 +1,13 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=115:17-115:32; Use dedup
--- @INFO range=301:10-301:24; Evaluate
--- @INFO range=316:38-316:48; Use sum
--- @INFO range=317:43-317:53; Use sum
--- @INFO range=318:29-318:39; Use sum
--- @INFO range=321:3-321:23; Use head
--- @INFO range=326:29-326:36; Use head
+-- @INFO range=127:17-127:32; Use dedup
+-- @INFO range=313:10-313:24; Evaluate
+-- @INFO range=328:38-328:48; Use sum
+-- @INFO range=329:43-329:53; Use sum
+-- @INFO range=330:29-330:39; Use sum
+-- @INFO range=333:3-333:23; Use head
+-- @INFO range=338:29-338:36; Use head
 
 module List where
 
@@ -16,22 +16,25 @@ import DA.Assert
 import DA.Optional
 
 data Foo = Foo with x : Int; y : Text
-  deriving Eq
+  deriving (Eq, Show)
 
 testSort6 = scenario do
   let l = [ Foo 42 "a"
           , Foo 10 "c"
           , Foo 15 "c"
           , Foo 5 "b" ]
-  let m = sortOn (\t -> (Down t.y, Down t.x)) l
-  assert $ head m == Foo 15 "c"
-  assert $ last m == Foo 42 "a"
+  let sortFn = \t -> (Down t.y, Down t.x)
+  let m = sortOn sortFn l
+  head m === Foo 15 "c"
+  last m === Foo 42 "a"
+  Foo 15 "c" === minimumOn sortFn l
+  Foo 42 "a" === maximumOn sortFn l
 
 -- Utility called on by 'testSort4' and 'testSort5'
 check45 n m = do
-    assert $ n == [1, 1, 1, 2, 3]
+    n === [1, 1, 1, 2, 3]
     let o = map (\(_, f) -> f ()) m
-    assert $ o == ["A", "B", "C", "D", "E"]
+    o === ["A", "B", "C", "D", "E"]
 
 testSort5 = scenario do
     let l = [ (2, const "D"), (1, const "A"), (1, const "B"), (3, const "E"), (1, const "C") ]
@@ -41,45 +44,54 @@ testSort5 = scenario do
 
 testSort4 = scenario do
     let l = [ (2, const "D"), (1, const "A"), (1, const "B"), (3, const "E"), (1, const "C") ]
-    let m = sortBy (\x y -> compare (fst x) (fst y)) l
+    let cmp = \x y -> compare (fst x) (fst y)
+    let m = sortBy cmp l
     let n = map fst m
     check45 n m
+    let check = \(x, y) -> (x, y ())
+    check (minimumBy cmp l) === check (head m)
+    check (maximumBy cmp l) === check (last m)
 
 testSort3 = scenario do
     let l = [ "C", "A", "E", "D", "B" ]
     let m = sort l
-    assert $ m == ["A", "B", "C", "D", "E"]
+    m === ["A", "B", "C", "D", "E"]
 
 testSort2 = scenario do
     let l = [ 4, 5, 6, 3, 9, 2, 1, 8, 7 ]
     let m = sortBy (\x y -> compare y x) l
-    assert $ m == reverse [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    m === reverse [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    minimumBy (flip compare) l === head m
+    maximumBy (flip compare) l === last m
 
 testSort1 = scenario do
     let l = [ 4, 5, 6, 3, 9, 2, 1, 8, 7 ]
     let m = sort l
-    assert $ m == [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    m === [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 testSortEmpty = scenario do
     let l = [] : [Int]
     let m = sort l
-    assert $ m == l
+    m === l
 
 testSortIsStable = scenario do
     let l = [(1, 3), (1,2), (1,1), (1,1), (1,4)]
-    let m = sortBy (compare `on` fst) l
-    assert $ m == l
+    let cmp = (compare `on` fst)
+    let m = sortBy cmp l
+    m === l
+    minimumBy cmp l === head m
+    maximumBy cmp l === head m -- all `EQ`, returning first
        where on cmp f x y = cmp (f x) (f y)
 
 testGroupOn = scenario do
     let l = [(1, 3), (1,2), (1,1), (1,1), (1,4)]
     let m = groupOn ( (== 1) . snd ) l
-    assert $ m == [[(1, 3), (1,2)], [(1,1), (1,1)], [(1,4)]]
+    m === [[(1, 3), (1,2)], [(1,1), (1,1)], [(1,4)]]
 
 testDedup = scenario do
     let l = [4,7,2,1,3,5,7,2,4,2,3,4,7,2,4,2,3,4,4,5,7,7,2]
     let m = dedup l
-    assert $ m == [4,7,2,1,3,5]
+    m === [4,7,2,1,3,5]
 
 testUnique = scenario do
     unique [1, 3, 4] === True
@@ -88,7 +100,7 @@ testUnique = scenario do
     unique [1, 3, 1, 4] === False
 
 data Employee = Employee with employeeNo : Int; surname : Text; forename : Text
-    deriving (Eq)
+    deriving (Eq, Show)
 
 testUniqueOn = scenario do
     uniqueOn (.employeeNo) [ Employee 1 "Monday" "Jo", Employee 1 "Tuesday" "Bo" ] === False
@@ -96,8 +108,8 @@ testUniqueOn = scenario do
     uniqueOn (.employeeNo) ([] : [Employee]) === True
 
 testDedupOn = scenario do
-    assert $ dedupOn (.employeeNo) [ Employee 1 "Monday" "Jo", Employee 1 "Tuesday" "Bo" ] == [ Employee 1 "Monday" "Jo" ]
-    assert $ dedupOn (.employeeNo) [ Employee 1 "Monday" "Jo", Employee 2 "Monday" "Jo", Employee 3 "Tuesday" "Bo"  ] == [ Employee 1 "Monday" "Jo", Employee 2 "Monday" "Jo", Employee 3 "Tuesday" "Bo"  ]
+    dedupOn (.employeeNo) [ Employee 1 "Monday" "Jo", Employee 1 "Tuesday" "Bo" ] === [ Employee 1 "Monday" "Jo" ]
+    dedupOn (.employeeNo) [ Employee 1 "Monday" "Jo", Employee 2 "Monday" "Jo", Employee 3 "Tuesday" "Bo"  ] === [ Employee 1 "Monday" "Jo", Employee 2 "Monday" "Jo", Employee 3 "Tuesday" "Bo"  ]
     assert $ null $ dedupOn (.employeeNo) ([] : [Employee])
 
 testUniqueBy = scenario do
@@ -109,7 +121,7 @@ testUniqueBy = scenario do
 testDedupSort = scenario do
     let l = [4,7,2,1,3,5,7,2,4,2,3,4,7,2,4,2,3,4,4,5,7,7,2]
     let m = dedupSort l
-    assert $ m == [1,2,3,4,5,7]
+    m === [1,2,3,4,5,7]
 
 testDedupBy = scenario do
   [2, 1, 3] === dedupBy compare [2, 1, 3, 2, 1]
@@ -327,29 +339,29 @@ testNth = scenario do
 
 testElemIndex = scenario do
   let x = [5, 4, 6, 7, 9, 4]
-  assert $ elemIndex 7 x == Some 3
-  assert $ elemIndex 5 x == Some 0
-  assert $ elemIndex 4 x == Some 1
+  elemIndex 7 x === Some 3
+  elemIndex 5 x === Some 0
+  elemIndex 4 x === Some 1
   assert $ isNone $ elemIndex 10 x
 
 testFindIndex = scenario do
   let x = [5, 4, 6, 7, 9, 4]
-  assert $ findIndex (>6) x == Some 3
-  assert $ findIndex (>0) x == Some 0
-  assert $ findIndex (<5) x == Some 1
+  findIndex (>6) x === Some 3
+  findIndex (>0) x === Some 0
+  findIndex (<5) x === Some 1
   assert $ isNone $ findIndex (>10) x
 
 testSum = scenario do
-  assert $ sum [1, 2, 3] == 6
-  assert $ sum [] == 0
-  assert $ sum [] == (0.0 : Decimal)
-  assert $ sum [40.0, 2.0] == (42.0 : Decimal)
+  sum [1, 2, 3] === 6
+  sum [] === 0
+  sum [] === (0.0 : Decimal)
+  sum [40.0, 2.0] === (42.0 : Decimal)
 
 testProduct = scenario do
-  assert $ product [1, 2, 3] == 6
-  assert $ product [] == 1
-  assert $ product [] == (1.0 : Decimal)
-  assert $ product [21.0, 2.0] == (42.0 : Decimal)
+  product [1, 2, 3] === 6
+  product [] === 1
+  product [] === (1.0 : Decimal)
+  product [21.0, 2.0] === (42.0 : Decimal)
 
 testDelete = scenario do
   delete "a" ["b","a","n","a","n","a"] === ["b","n","a","n","a"]

@@ -6,9 +6,9 @@ package db.migration.translation
 
 import java.io.InputStream
 
-import com.daml.lf.archive.{Decode, Reader}
-import com.daml.lf.value.Value.{ContractId, VersionedValue}
+import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.value.{ValueCoder, ValueOuterClass}
+import com.google.protobuf.CodedInputStream
 import org.slf4j.LoggerFactory
 
 private[migration] object ValueSerializer {
@@ -45,21 +45,27 @@ private[migration] object ValueSerializer {
   }
 
   def serializeValue(
-      value: VersionedValue[ContractId],
+      value: VersionedValue,
       errorContext: => String,
   ): Array[Byte] = store.serialization.ValueSerializer.serializeValue(value, errorContext)
+
+  private[this] val PROTOBUF_RECURSION_LIMIT = 1000
+
+  def lfValueCodedInputStream(stream: InputStream) = {
+    val cos = CodedInputStream.newInstance(stream)
+    cos.setRecursionLimit(PROTOBUF_RECURSION_LIMIT)
+    cos
+  }
 
   private[this] def deserializeValueHelper(
       stream: InputStream,
       errorContext: => Option[String],
-  ): VersionedValue[ContractId] =
+  ): VersionedValue =
     handleDeprecatedValueVersions(
       ValueCoder
         .decodeVersionedValue(
           ValueCoder.CidDecoder,
-          ValueOuterClass.VersionedValue.parseFrom(
-            Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT)
-          ),
+          ValueOuterClass.VersionedValue.parseFrom(lfValueCodedInputStream(stream)),
         )
     )
       .fold(
@@ -70,13 +76,13 @@ private[migration] object ValueSerializer {
 
   def deserializeValue(
       stream: InputStream
-  ): VersionedValue[ContractId] =
+  ): VersionedValue =
     deserializeValueHelper(stream, None)
 
   def deserializeValue(
       stream: InputStream,
       errorContext: => String,
-  ): VersionedValue[ContractId] =
+  ): VersionedValue =
     deserializeValueHelper(stream, Some(errorContext))
 
 }

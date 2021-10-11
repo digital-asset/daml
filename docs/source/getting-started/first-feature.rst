@@ -204,7 +204,7 @@ You'll notice that new messages appear in the UI as soon as they are sent (due t
       :scale: 50 %
       :alt: In the create-daml-app as soon as you send the message it will appear in the "Messaging" panel
 
-.. tip:: You completed the second part of the Getting Started Guide! `Join our forum <https://discuss.daml.com>`_ and share a screenshot of your accomplishment to `get your second of 3 badges <https://discuss.daml.com/badges/126/hey-look-what-i-can-do>`_! Get the third badge by `deploying to project:DABL <https://daml.com/learn/getting-started/deploy-to-dabl/>`_
+.. tip:: You completed the second part of the Getting Started Guide! `Join our forum <https://discuss.daml.com>`_ and share a screenshot of your accomplishment to `get your second of 3 badges <https://discuss.daml.com/badges/126/hey-look-what-i-can-do>`_! Get the third badge by `deploying to Daml Hub <https://daml.com/learn/getting-started/deploy-to-dabl/>`_
 
 Next Steps
 ==========
@@ -213,4 +213,4 @@ We've gone through the process of setting up a full-stack Daml app and implement
 As the next step we encourage you to really dig into the fundamentals of Daml and understand its core concepts such as parties, signatories, observers, and controllers.
 You can do that either by :doc:`going through our docs </daml/intro/0_Intro>` or by taking an `online course <https://daml.com/learn/fundamental-concepts>`_.
 
-After you've got a good grip on these concepts learn :doc:`how to conduct end-to-end testing of your app <testing>`.
+After you've got a good grip on these concepts learn :doc:`how to conduct end-to-end testing of your app </app-dev/bindings-ts/testing>`.

@@ -3,20 +3,26 @@
 
 package com.daml.platform.sandbox.config
 
-import java.io.File
-import java.nio.file.Path
-import java.time.Duration
 import ch.qos.logback.classic.Level
 import com.daml.caching.SizedCache
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
+import com.daml.lf.data.Ref
+import com.daml.metrics.MetricsReporter
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.{CommandConfiguration, LedgerConfiguration, MetricsReporter}
+import com.daml.platform.configuration.{
+  CommandConfiguration,
+  InitialLedgerConfiguration,
+  SubmissionConfiguration,
+}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 
+import java.io.File
+import java.nio.file.Path
+import java.time.Duration
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 /** Defines the basic configuration for running sandbox
@@ -26,11 +32,15 @@ final case class SandboxConfig(
     port: Port,
     portFile: Option[Path],
     ledgerIdMode: LedgerIdMode,
-    participantId: v1.ParticipantId,
+    participantId: Ref.ParticipantId,
     damlPackages: List[File],
     timeProviderType: Option[TimeProviderType],
+    configurationLoadTimeout: Duration,
+    maxDeduplicationDuration: Option[Duration],
+    delayBeforeSubmittingLedgerConfiguration: Duration,
+    timeModel: LedgerTimeModel,
     commandConfig: CommandConfiguration,
-    ledgerConfig: LedgerConfiguration,
+    submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
     implicitPartyAllocation: Boolean,
@@ -43,8 +53,10 @@ final case class SandboxConfig(
     authService: Option[AuthService],
     seeding: Option[Seeding],
     metricsReporter: Option[MetricsReporter],
-    metricsReportingInterval: Duration,
+    metricsReportingInterval: FiniteDuration,
+    maxParallelSubmissions: Int, // only used by Sandbox Classic
     eventsPageSize: Int,
+    eventsProcessingParallelism: Int,
     lfValueTranslationEventCacheConfiguration: SizedCache.Configuration,
     lfValueTranslationContractCacheConfiguration: SizedCache.Configuration,
     profileDir: Option[Path],
@@ -54,7 +66,23 @@ final case class SandboxConfig(
     sqlStartMode: Option[PostgresStartupMode],
     enableAppendOnlySchema: Boolean,
     enableCompression: Boolean,
-)
+    enableSelfServiceErrorCodes: Boolean,
+) {
+
+  def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): SandboxConfig =
+    copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
+
+  lazy val initialLedgerConfiguration: InitialLedgerConfiguration =
+    InitialLedgerConfiguration(
+      Configuration.reasonableInitialConfiguration.copy(
+        timeModel = timeModel,
+        maxDeduplicationTime = maxDeduplicationDuration.getOrElse(
+          Configuration.reasonableInitialConfiguration.maxDeduplicationTime
+        ),
+      ),
+      delayBeforeSubmittingLedgerConfiguration,
+    )
+}
 
 object SandboxConfig {
   val DefaultPort: Port = Port(6865)
@@ -65,14 +93,15 @@ object SandboxConfig {
   val DefaultDatabaseConnectionTimeout: FiniteDuration = 250.millis
 
   val DefaultEventsPageSize: Int = 1000
+  val DefaultEventsProcessingParallelism: Int = 8
 
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
 
   val DefaultLfValueTranslationCacheConfiguration: SizedCache.Configuration =
     SizedCache.Configuration.none
 
-  val DefaultParticipantId: v1.ParticipantId =
-    v1.ParticipantId.assertFromString("sandbox-participant")
+  val DefaultParticipantId: Ref.ParticipantId =
+    Ref.ParticipantId.assertFromString("sandbox-participant")
 
   val DefaultManagementServiceTimeout: Duration = Duration.ofMinutes(2)
 
@@ -87,8 +116,12 @@ object SandboxConfig {
       participantId = DefaultParticipantId,
       damlPackages = Nil,
       timeProviderType = None,
+      configurationLoadTimeout = Duration.ofSeconds(10),
+      maxDeduplicationDuration = None,
+      delayBeforeSubmittingLedgerConfiguration = Duration.ofSeconds(1),
+      timeModel = LedgerTimeModel.reasonableDefault,
       commandConfig = CommandConfiguration.default,
-      ledgerConfig = LedgerConfiguration.defaultLocalLedger,
+      submissionConfig = SubmissionConfiguration.default,
       tlsConfig = None,
       scenario = None,
       implicitPartyAllocation = true,
@@ -101,8 +134,10 @@ object SandboxConfig {
       authService = None,
       seeding = Some(Seeding.Strong),
       metricsReporter = None,
-      metricsReportingInterval = Duration.ofSeconds(10),
+      metricsReportingInterval = 10.seconds,
+      maxParallelSubmissions = 512,
       eventsPageSize = DefaultEventsPageSize,
+      eventsProcessingParallelism = DefaultEventsProcessingParallelism,
       lfValueTranslationEventCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       lfValueTranslationContractCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       profileDir = None,
@@ -112,6 +147,7 @@ object SandboxConfig {
       sqlStartMode = Some(DefaultSqlStartupMode),
       enableAppendOnlySchema = false,
       enableCompression = false,
+      enableSelfServiceErrorCodes = false,
     )
 
   sealed abstract class EngineMode extends Product with Serializable

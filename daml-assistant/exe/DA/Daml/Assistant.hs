@@ -117,10 +117,10 @@ versionChecks Env{..} =
                 , ""
                 ]
 
-        -- DAML assistant is outdated.
+        -- Daml assistant is outdated.
         when (not isHead && not projectSdkVersionIsOld && assistantVersionIsOld) $ do
             hPutStr stderr . unlines $
-                [ "WARNING: Using an outdated version of the DAML assistant."
+                [ "WARNING: Using an outdated version of the Daml assistant."
                 , "Please upgrade to the latest stable version by running:"
                 , ""
                 , "    daml install latest"
@@ -354,7 +354,7 @@ argWhitelist = S.fromList
     , "install", "latest", "project"
     , "uninstall"
     , "studio", "never", "always", "published"
-    , "new", "skeleton", "empty-skeleton", "quickstart-java", "quickstart-scala", "copy-trigger"
+    , "new", "skeleton", "empty-skeleton", "quickstart-java", "quickstart-scala", "copy-trigger", "gsg-trigger"
     , "daml-intro-1", "daml-intro-2", "daml-intro-3", "daml-intro-4"
     , "daml-intro-5", "daml-intro-6", "daml-intro-7", "script-example"
     , "migrate"

@@ -39,8 +39,8 @@ private[inner] object RecordMethods {
         params,
         fields,
         packagePrefixes,
-        ClassName.get(classOf[javaapi.data.Record]),
-        name => CodeBlock.of("return new $T($L)", classOf[javaapi.data.Record], name),
+        ClassName.get(classOf[javaapi.data.DamlRecord]),
+        name => CodeBlock.of("return new $T($L)", classOf[javaapi.data.DamlRecord], name),
       )
       List(fromValue, toValue)
     }

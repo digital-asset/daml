@@ -6,24 +6,55 @@ package engine
 package preprocessing
 
 import java.util
-
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
-import com.daml.lf.transaction.{GenTransaction, NodeId}
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.value.Value
+import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec
-import scala.util.control.NoStackTrace
 
-private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackages) {
+/** The Command Preprocessor is responsible of the following tasks:
+  *  - normalizes value representation (e.g. resolves missing type
+  *    reference in record/variant/enumeration, infers missing labeled
+  *    record fields, orders labeled record fields, ...);
+  *  - checks value nesting does not overpass 100;
+  *  - checks a LF command/value is properly typed according the
+  *    Daml-LF package definitions;
+  *  - checks for Contract ID suffix (see [[requireV1ContractIdSuffix]]);
+  *  - translates a LF command/value into speedy command/value; and
+  *  - translates a complete transaction into a list of speedy
+  *    commands.
+  *
+  * @param compiledPackages a [[MutableCompiledPackages]] contains the
+  *   Daml-LF package definitions against the command should
+  *   resolved/typechecked. It is updated dynamically each time the
+  *   [[ResultNeedPackage]] continuation is called.
+  * @param forbidV0ContractId when `true` the preprocessor will reject
+  *   any value/command/transaction that contains V0 Contract IDs
+  *   without suffixed.
+  * @param requireV1ContractIdSuffix when `true` the preprocessor will reject
+  *   any value/command/transaction that contains V1 Contract IDs
+  *   without suffixed.
+  */
+private[engine] final class Preprocessor(
+    compiledPackages: MutableCompiledPackages,
+    forbidV0ContractId: Boolean = true,
+    requireV1ContractIdSuffix: Boolean = true,
+) {
 
   import Preprocessor._
-  val transactionPreprocessor = new TransactionPreprocessor(compiledPackages)
-  import transactionPreprocessor._
-  import commandPreprocessor._
-  import valueTranslator.unsafeTranslateValue
+
   import compiledPackages.interface
+
+  val commandPreprocessor =
+    new CommandPreprocessor(
+      interface = interface,
+      forbidV0ContractId = forbidV0ContractId,
+      requireV1ContractIdSuffix = requireV1ContractIdSuffix,
+    )
+  val transactionPreprocessor = new TransactionPreprocessor(commandPreprocessor)
 
   // This pulls all the dependencies of in `typesToProcess0` and `tyConAlreadySeen0`
   private def getDependencies(
@@ -40,7 +71,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
         tyConAlreadySeen0: Set[Ref.TypeConName],
         tmplsAlreadySeen0: Set[Ref.TypeConName],
     ): Result[(Set[Ref.TypeConName], Set[Ref.TypeConName])] = {
-      def pullPackage(pkgId: Ref.PackageId) =
+      def pullPackage(pkgId: Ref.PackageId, context: language.Reference) =
         ResultNeedPackage(
           pkgId,
           {
@@ -55,7 +86,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                 )
               } yield r
             case None =>
-              ResultError(Error(s"Couldn't find package $pkgId"))
+              ResultError(Error.Package.MissingPackage(pkgId, context))
           },
         )
 
@@ -74,6 +105,9 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                       variants.foldRight(typesToProcess0)(_._2 :: _)
                     case Ast.DataEnum(_) =>
                       typesToProcess0
+                    case Ast.DataInterface =>
+                      // TODO https://github.com/digital-asset/daml/issues/10810
+                      sys.error("Interface not supported")
                   }
                   go(
                     typesToProcess,
@@ -81,15 +115,19 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                     tyConAlreadySeen0 + tyCon,
                     tmplsAlreadySeen0,
                   )
-                case Left(LookupError.Package(pkgId)) =>
-                  pullPackage(pkgId)
+                case Left(LookupError.MissingPackage(pkgId, context)) =>
+                  pullPackage(pkgId, context)
                 case Left(e) =>
-                  ResultError(Error(e.pretty))
+                  ResultError(Error.Preprocessing.Lookup(e))
               }
             case Ast.TTyCon(_) | Ast.TNat(_) | Ast.TBuiltin(_) | Ast.TVar(_) =>
               go(typesToProcess, tmplToProcess0, tyConAlreadySeen0, tmplsAlreadySeen0)
             case Ast.TSynApp(_, _) | Ast.TForall(_, _) | Ast.TStruct(_) =>
-              ResultError(Error(s"unserializable type ${typ.pretty}"))
+              // We assume that getDependencies is always given serializable types
+              ResultError(
+                Error.Preprocessing
+                  .Internal(NameOf.qualifiedNameOfCurrentFunc, s"unserializable type ${typ.pretty}")
+              )
           }
         case Nil =>
           tmplToProcess0 match {
@@ -103,10 +141,10 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                     if (tyConAlreadySeen0(tmplId)) typs0 else Ast.TTyCon(tmplId) :: typs0
                   val typs2 = template.key.fold(typs1)(_.typ :: typs1)
                   go(typs2, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
-                case Left(LookupError.Package(pkgId)) =>
-                  pullPackage(pkgId)
+                case Left(LookupError.MissingPackage(pkgId, context)) =>
+                  pullPackage(pkgId, context)
                 case Left(error) =>
-                  ResultError(Error(error.pretty))
+                  ResultError(Error.Preprocessing.Lookup(error))
               }
             case Nil =>
               ResultDone(tyConAlreadySeen0 -> tmplsAlreadySeen0)
@@ -121,34 +159,35 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
     * Fails if the nesting is too deep or if v0 does not match the type `ty0`.
     * Assumes ty0 is a well-formed serializable typ.
     */
-  def translateValue(ty0: Ast.Type, v0: Value[Value.ContractId]): Result[SValue] =
+  def translateValue(ty0: Ast.Type, v0: Value): Result[SValue] =
     safelyRun(getDependencies(List(ty0), List.empty)) {
-      unsafeTranslateValue(ty0, v0)
-    }.map(_._1)
+      commandPreprocessor.valueTranslator.unsafeTranslateValue(ty0, v0)
+    }
 
   private[engine] def preprocessCommand(
       cmd: command.Command
-  ): Result[(speedy.Command, Set[Value.ContractId])] =
+  ): Result[speedy.Command] =
     safelyRun(getDependencies(List.empty, List(cmd.templateId))) {
-      unsafePreprocessCommand(cmd)
+      commandPreprocessor.unsafePreprocessCommand(cmd)
     }
 
   /** Translates  LF commands to a speedy commands.
     */
   def preprocessCommands(
       cmds: data.ImmArray[command.ApiCommand]
-  ): Result[(ImmArray[speedy.Command], Set[Value.ContractId])] =
+  ): Result[ImmArray[speedy.Command]] =
     safelyRun(getDependencies(List.empty, cmds.map(_.templateId).toList)) {
-      unsafePreprocessCommands(cmds)
+      commandPreprocessor.unsafePreprocessCommands(cmds)
     }
 
-  def translateTransactionRoots[Cid <: Value.ContractId](
-      tx: GenTransaction[NodeId, Cid]
-  ): Result[(ImmArray[speedy.Command], Set[Value.ContractId])] =
+  /** Translates a complete transaction. Assumes no contract ID suffixes are used */
+  def translateTransactionRoots(
+      tx: SubmittedTransaction
+  ): Result[ImmArray[speedy.Command]] =
     safelyRun(
       getDependencies(List.empty, tx.rootNodes.toList.map(_.templateId))
     ) {
-      unsafeTranslateTransactionRoots(tx)
+      transactionPreprocessor.unsafeTranslateTransactionRoots(tx)
     }
 
 }
@@ -161,27 +200,10 @@ private[preprocessing] object Preprocessor {
     a
   }
 
-  sealed abstract class PreprocessorException extends RuntimeException with NoStackTrace
-
-  // we use the following exceptions for easier error handling in translateValues
-  final case class PreprocessorError(err: Error) extends PreprocessorException
-  final case class PreprocessorMissingPackage(pkgId: Ref.PackageId) extends PreprocessorException
-
-  @throws[PreprocessorException]
-  def fail(s: String): Nothing =
-    throw PreprocessorError(ValidationError(s))
-
-  @throws[PreprocessorException]
-  def fail(e: Error): Nothing =
-    throw PreprocessorError(e)
-
-  @throws[PreprocessorException]
+  @throws[Error.Preprocessing.Error]
   def handleLookup[X](either: Either[LookupError, X]): X = either match {
     case Right(v) => v
-    case Left(LookupError.Package(pkgId)) => throw PreprocessorMissingPackage(pkgId)
-    case Left(e) =>
-      // TODO: should throw a more precise error
-      throw PreprocessorError(Error(e.pretty))
+    case Left(error) => throw Error.Preprocessing.Lookup(error)
   }
 
   @inline
@@ -193,25 +215,22 @@ private[preprocessing] object Preprocessor {
       try {
         ResultDone(unsafeRun)
       } catch {
-        case PreprocessorError(e) =>
-          ResultError(e)
-        case PreprocessorMissingPackage(_) =>
-          // One package is missing, the we pull all dependencies and restart from scratch.
+        case Error.Preprocessing.Lookup(LookupError.MissingPackage(_, _)) =>
           handleMissingPackages.flatMap(_ => start)
+        case e: Error.Preprocessing.Error =>
+          ResultError(e)
       }
 
     start
   }
 
   @inline
-  def safelyRun[X](unsafeRun: => X): Either[Error, X] =
+  def safelyRun[X](unsafeRun: => X): Either[Error.Preprocessing.Error, X] =
     try {
       Right(unsafeRun)
     } catch {
-      case PreprocessorError(e) =>
+      case e: Error.Preprocessing.Error =>
         Left(e)
-      case PreprocessorMissingPackage(pkgId) =>
-        Left((Error(s"Couldn't find package $pkgId")))
     }
 
 }

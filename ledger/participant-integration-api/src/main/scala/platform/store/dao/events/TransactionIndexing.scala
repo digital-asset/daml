@@ -5,15 +5,10 @@ package com.daml.platform.store.dao.events
 
 import java.time.Instant
 
-import com.daml.ledger.{TransactionId, WorkflowId}
-import com.daml.ledger.participant.state.v1.{
-  CommittedTransaction,
-  DivulgedContract,
-  Offset,
-  SubmitterInfo,
-}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.BlindingInfo
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.platform.store.serialization.Compression
 
 import scala.collection.compat._
@@ -31,7 +26,7 @@ object TransactionIndexing {
       translation: LfValueTranslation,
       transactionId: TransactionId,
       events: Vector[(NodeId, Node)],
-      divulgence: Iterable[DivulgedContract],
+      divulgence: Iterable[state.DivulgedContract],
   ): Serialized = {
 
     val createArguments = Vector.newBuilder[(NodeId, ContractId, Array[Byte])]
@@ -55,7 +50,7 @@ object TransactionIndexing {
       }
     }
 
-    for (DivulgedContract(contractId, contractInst) <- divulgence) {
+    for (state.DivulgedContract(contractId, contractInst) <- divulgence) {
       val serializedCreateArgument = translation.serialize(contractId, contractInst.arg)
       divulgedContracts += ((contractId, serializedCreateArgument))
     }
@@ -190,18 +185,20 @@ object TransactionIndexing {
       this
     }
 
-    private def visibility(contracts: Iterable[DivulgedContract]): WitnessRelation[ContractId] =
+    private def visibility(
+        contracts: Iterable[state.DivulgedContract]
+    ): WitnessRelation[ContractId] =
       Relation.from(
         contracts.map(c => c.contractId -> blinding.divulgence.getOrElse(c.contractId, Set.empty))
       )
 
     def build(
-        submitterInfo: Option[SubmitterInfo],
+        completionInfo: Option[state.CompletionInfo],
         workflowId: Option[WorkflowId],
         transactionId: TransactionId,
         ledgerEffectiveTime: Instant,
         offset: Offset,
-        divulgedContracts: Iterable[DivulgedContract],
+        divulgedContracts: Iterable[state.DivulgedContract],
         inactiveContracts: Set[ContractId],
     ): TransactionIndexing = {
       // Creates outside of rollback nodes.
@@ -226,7 +223,7 @@ object TransactionIndexing {
       val netVisibility = Relation.union(netTransactionVisibility, visibility(netDivulgedContracts))
       TransactionIndexing(
         transaction = TransactionInfo(
-          submitterInfo = submitterInfo,
+          completionInfo = completionInfo,
           workflowId = workflowId,
           transactionId = transactionId,
           ledgerEffectiveTime = ledgerEffectiveTime,
@@ -252,7 +249,7 @@ object TransactionIndexing {
   }
 
   final case class TransactionInfo(
-      submitterInfo: Option[SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       ledgerEffectiveTime: Instant,
@@ -269,7 +266,7 @@ object TransactionIndexing {
   final case class ContractsInfo(
       netCreates: Set[Create],
       netArchives: Set[ContractId],
-      divulgedContracts: Iterable[DivulgedContract],
+      divulgedContracts: Iterable[state.DivulgedContract],
   )
 
   final case class ContractWitnessesInfo(
@@ -326,13 +323,13 @@ object TransactionIndexing {
 
   def from(
       blindingInfo: BlindingInfo,
-      submitterInfo: Option[SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: CommittedTransaction,
-      divulgedContracts: Iterable[DivulgedContract],
+      divulgedContracts: Iterable[state.DivulgedContract],
   ): TransactionIndexing = {
     transaction
       .foldInExecutionOrder(new Builder(blindingInfo))(
@@ -344,7 +341,7 @@ object TransactionIndexing {
         rollbackEnd = (acc, _, _) => acc,
       )
       .build(
-        submitterInfo = submitterInfo,
+        completionInfo = completionInfo,
         workflowId = workflowId,
         transactionId = transactionId,
         ledgerEffectiveTime = ledgerEffectiveTime,

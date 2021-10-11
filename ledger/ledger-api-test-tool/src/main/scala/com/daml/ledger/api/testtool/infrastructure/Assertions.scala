@@ -6,10 +6,15 @@ package com.daml.ledger.api.testtool.infrastructure
 import java.util.regex.Pattern
 
 import com.daml.grpc.{GrpcException, GrpcStatus}
-import munit.{Assertions => MUnit, ComparisonFailException}
+import com.daml.timer.RetryStrategy
+import com.google.rpc.ErrorInfo
 import io.grpc.Status
+import io.grpc.protobuf.StatusProto
+import munit.{ComparisonFailException, Assertions => MUnit}
 
+import scala.annotation.tailrec
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
 
 object Assertions {
@@ -39,18 +44,44 @@ object Assertions {
     }
   }
 
-  /** Match the given exception against a status code and a regex for the expected message.
-    *      Succeeds if the exception is a GrpcException with the expected code and
-    *      the regex matches some part of the message or there is no message and the pattern is
-    *      None.
+  /** A non-regex alternative to [[assertGrpcErrorRegex]] which just does a substring check.
     */
-  def assertGrpcError(t: Throwable, expectedCode: Status.Code, optPattern: Option[Pattern]): Unit =
+  def assertGrpcError(
+      t: Throwable,
+      expectedCode: Status.Code,
+      exceptionMessageSubstring: Option[String],
+      checkDefiniteAnswerMetadata: Boolean = false,
+  ): Unit =
+    assertGrpcErrorRegex(
+      t,
+      expectedCode,
+      exceptionMessageSubstring
+        .map(msgSubstring => Pattern.compile(Pattern.quote(msgSubstring))),
+      checkDefiniteAnswerMetadata,
+    )
+
+  /** Match the given exception against a status code and a regex for the expected message.
+    * Succeeds if the exception is a GrpcException with the expected code and
+    * the regex matches some part of the message or there is no message and the pattern is
+    * None.
+    */
+  @tailrec
+  def assertGrpcErrorRegex(
+      t: Throwable,
+      expectedCode: Status.Code,
+      optPattern: Option[Pattern],
+      checkDefiniteAnswerMetadata: Boolean = false,
+  ): Unit =
     (t, optPattern) match {
-      case (GrpcException(GrpcStatus(`expectedCode`, Some(msg)), _), Some(pattern)) =>
-        if (pattern.matcher(msg).find()) {
-          ()
-        } else {
-          fail(s"Error message did not contain [$pattern], but was [$msg].")
+      case (RetryStrategy.FailedRetryException(cause), _) =>
+        assertGrpcErrorRegex(cause, expectedCode, optPattern, checkDefiniteAnswerMetadata)
+      case (
+            exception @ GrpcException(GrpcStatus(`expectedCode`, Some(message)), _),
+            Some(pattern),
+          ) =>
+        assertMatches(message, pattern)
+        if (checkDefiniteAnswerMetadata) {
+          assertDefiniteAnswer(exception)
         }
       // None both represents pattern that we do not care about as well as
       // exceptions that have no message.
@@ -61,14 +92,33 @@ object Assertions {
         fail("Exception is neither a StatusRuntimeException nor a StatusException", t)
     }
 
-  /** non-regex overload for assertGrpcError which just does a substring check.
-    */
-  def assertGrpcError(t: Throwable, expectedCode: Status.Code, pattern: String): Unit = {
-    assertGrpcError(
-      t,
-      expectedCode,
-      if (pattern.isEmpty) None else Some(Pattern.compile(Pattern.quote(pattern))),
-    )
+  private def assertMatches(message: String, pattern: Pattern): Unit =
+    if (pattern.matcher(message).find()) {
+      ()
+    } else {
+      fail(s"Error message did not contain [$pattern], but was [$message].")
+    }
+
+  private def assertDefiniteAnswer(exception: Exception): Unit = {
+    val details = StatusProto.fromThrowable(exception).getDetailsList.asScala
+    val metadata = details
+      .find(_.is(classOf[ErrorInfo]))
+      .map { any =>
+        val errorInfo = any.unpack(classOf[ErrorInfo])
+        errorInfo.getMetadataMap
+      }
+      .getOrElse {
+        fail(
+          s"The error did not contain a definite answer. Details were: ${details.mkString("[", ", ", "]")}"
+        )
+      }
+    val value = metadata.get("definite_answer")
+    if (value == null) {
+      fail(s"The error did not contain a definite answer. Metadata was: [$metadata]")
+    }
+    if (!Set("true", "false").contains(value.toLowerCase)) {
+      fail(s"The error contained an invalid definite answer: [$value]")
+    }
   }
 
   /** Allows for assertions with more information in the error messages. */

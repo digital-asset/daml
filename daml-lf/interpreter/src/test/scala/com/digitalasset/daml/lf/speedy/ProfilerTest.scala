@@ -79,7 +79,7 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
           onLedger.ptx.finish match {
             case IncompleteTransaction(_) =>
               sys.error("unexpected IncompleteTransaction")
-            case CompleteTransaction(_) =>
+            case CompleteTransaction(_, _, _) =>
               machine.profile.events.asScala.toList.map(ev => (ev.open, ev.rawLabel))
           }
         }

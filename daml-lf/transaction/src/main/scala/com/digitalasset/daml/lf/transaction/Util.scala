@@ -4,6 +4,8 @@
 package com.daml.lf
 package transaction
 
+import com.daml.nameof.NameOf
+
 object Util {
 
   import value.Value
@@ -13,9 +15,9 @@ object Util {
   // Fails if :
   // - `value0` contains GenMap and version < 1.11
   def normalizeValue(
-      value0: Value[ContractId],
+      value0: Value,
       version: TransactionVersion,
-  ): Either[String, Value[ContractId]] =
+  ): Either[String, Value] =
     try {
       Right(assertNormalizeValue(value0, version))
     } catch {
@@ -25,9 +27,9 @@ object Util {
   // unsafe version of `normalize`
   @throws[IllegalArgumentException]
   def assertNormalizeValue(
-      value0: Value[ContractId],
+      value0: Value,
       version: TransactionVersion,
-  ): Value[ContractId] = {
+  ): Value = {
 
     import Ordering.Implicits.infixOrderingOps
 
@@ -41,7 +43,7 @@ object Util {
         x
       }
 
-    def go(value: Value[ContractId]): Value[ContractId] =
+    def go(value: Value): Value =
       value match {
         case ValueEnum(tyCon, cons) =>
           ValueEnum(handleTypeInfo(tyCon), cons)
@@ -52,7 +54,7 @@ object Util {
           )
         case ValueVariant(tyCon, variant, value) =>
           ValueVariant(handleTypeInfo(tyCon), variant, go(value))
-        case _: ValueCidlessLeaf | _: ValueContractId[_] => value
+        case _: ValueCidlessLeaf | _: ValueContractId => value
         case ValueList(values) =>
           ValueList(values.map(go))
         case ValueOptional(value) =>
@@ -63,8 +65,9 @@ object Util {
           if (allowGenMap) {
             ValueGenMap(entries.map { case (k, v) => go(k) -> go(v) })
           } else {
-            throw new IllegalArgumentException(
-              s"GenMap are not allowed in transaction version $version"
+            InternalError.illegalArgumentException(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"GenMap are not allowed in transaction version $version",
             )
           }
       }
@@ -74,25 +77,25 @@ object Util {
   }
 
   def normalizeVersionedValue(
-      value: VersionedValue[ContractId]
-  ): Either[String, VersionedValue[ContractId]] =
+      value: VersionedValue
+  ): Either[String, VersionedValue] =
     normalizeValue(value.value, value.version).map(normalized => value.copy(value = normalized))
 
   def normalizeContract(
-      contract: ContractInst[VersionedValue[ContractId]]
-  ): Either[String, ContractInst[VersionedValue[ContractId]]] =
+      contract: ContractInst[VersionedValue]
+  ): Either[String, ContractInst[VersionedValue]] =
     normalizeVersionedValue(contract.arg).map(normalized => contract.copy(arg = normalized))
 
   def normalizeKey(
-      key: Node.KeyWithMaintainers[Value[ContractId]],
+      key: Node.KeyWithMaintainers[Value],
       version: TransactionVersion,
-  ): Either[String, Node.KeyWithMaintainers[Value[ContractId]]] =
+  ): Either[String, Node.KeyWithMaintainers[Value]] =
     normalizeValue(key.key, version).map(normalized => key.copy(key = normalized))
 
   def normalizeOptKey(
-      key: Option[Node.KeyWithMaintainers[Value[ContractId]]],
+      key: Option[Node.KeyWithMaintainers[Value]],
       version: TransactionVersion,
-  ): Either[String, Option[Node.KeyWithMaintainers[Value[ContractId]]]] =
+  ): Either[String, Option[Node.KeyWithMaintainers[Value]]] =
     key match {
       case Some(value) => normalizeKey(value, version).map(Some(_))
       case None => Right(None)

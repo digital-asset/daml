@@ -5,9 +5,6 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1;
 
-import "com/daml/ledger/api/v1/trace_context.proto";
-
-
 option java_outer_classname = "PackageServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
@@ -44,11 +41,6 @@ message ListPackagesRequest {
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string ledger_id = 1;
-
-  // Server side tracing will be registered as a child of the submitted context.
-  // This field is a future extension point and is currently not supported.
-  // Optional
-  TraceContext trace_context = 1000;
 }
 
 message ListPackagesResponse {
@@ -70,11 +62,6 @@ message GetPackageRequest {
   // Must be a valid PackageIdString (as described in ``value.proto``).
   // Required
   string package_id = 2;
-
-  // Server side tracing will be registered as a child of the submitted context.
-  // This field is a future extension point and is currently not supported.
-  // Optional
-  TraceContext trace_context = 1000;
 }
 
 message GetPackageResponse {
@@ -104,11 +91,6 @@ message GetPackageStatusRequest {
   // Must be a valid PackageIdString (as described in ``value.proto``).
   // Required
   string package_id = 2;
-
-  // Server side tracing will be registered as a child of the submitted context.
-  // This field is a future extension point and is currently not supported.
-  // Optional
-  TraceContext trace_context = 1000;
 }
 
 message GetPackageStatusResponse {

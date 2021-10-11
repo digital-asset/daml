@@ -56,9 +56,20 @@ A call to the command submission service will return as soon as the ledger serve
 
 The on-ledger effect of the command execution will be reported via the `transaction service <#transaction-service>`__, described below. The completion status of the command is reported via the `command completion service <#command-completion-service>`__. Your application should receive completions, correlate them with command submission, and handle errors and failed commands. Alternatively, you can use the `command service <#command-service>`__, which conveniently wraps the command submission and completion services.
 
-Commands can be labeled with two application-specific IDs, both of which are returned in completion events:
+.. _change-id:
 
-- A :ref:`commandId <com.daml.ledger.api.v1.Commands.command_id>`, returned to the submitting application only. It is generally used to implement this correlation between commands and completions. 
+Change ID
+---------
+
+Each intended ledger change is identified by its **change ID**, consisting of of the submitting parties (i.e., the union of :ref:`party <com.daml.ledger.api.v1.Commands.party>` and :ref:`act_as <com.daml.ledger.api.v1.Commands.act_as>`), :ref:`application ID <com.daml.ledger.api.v1.Commands.application_id>` and :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`.
+
+Application-specific IDs
+------------------------
+
+The following application-specific IDs, all of which are included in completion events, can be set in commands:
+
+- A :ref:`submissionId <com.daml.ledger.api.v1.Commands.submission_id>`, returned to the submitting application only. It may be used to correlate specific submissions to specific completions.
+- A :ref:`commandId <com.daml.ledger.api.v1.Commands.command_id>`, returned to the submitting application only; it can be used to correlate commands to completions.
 - A :ref:`workflowId <com.daml.ledger.api.v1.Commands.workflow_id>`, returned as part of the resulting transaction to all applications receiving it. It can be used to track workflows between parties, consisting of several transactions.
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.CommandSubmissionService>`.
@@ -68,16 +79,16 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 Command deduplication
 ---------------------
 
-The command submission service deduplicates submitted commands based on the submitting :ref:`party <com.daml.ledger.api.v1.Commands.party>` and :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`:
+The command submission service deduplicates submitted commands based on their :ref:`change ID <change-id>`:
 
-- Applications can provide a :ref:`deduplication time <com.daml.ledger.api.v1.Commands.deduplication_time>` for each command. If this parameter is not set, the default maximum deduplication time is used.
-- A command submission is considered a duplicate submission if the ledger server receives the command within the deduplication time of a previous command with the same command ID from the same submitting party.
-- Duplicate command submissions will be ignored until either the deduplication time of the original command has elapsed or the original submission was rejected (i.e. the command failed and resulted in a rejected transaction), whichever comes first.
+- Applications can provide a :ref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_duration>` for each command. If this parameter is not set, the default maximum deduplication period is used.
+- A command submission is considered a duplicate submission if the ledger API server is aware of another command within the deduplication period and with the same :ref:`change ID <change-id>`.
+- Duplicate command submissions will be ignored until either the deduplication period of the original command has passed or the original submission was rejected (i.e. the command failed and resulted in a rejected transaction), whichever comes first.
 - Command deduplication is only *guaranteed* to work if all commands are submitted to the same participant. Ledgers are free to perform additional command deduplication across participants. Consult the respective ledger's manual for more details.
 - A command submission will return:
 
-  - The result of the submission (``Empty`` or a gRPC error), if the command was submitted outside of the deduplication time of a previous command with the same command ID on the same participant.
-  - The status error ``ALREADY_EXISTS``, if the command was discarded by the ledger server because it was sent within the deduplication time of a previous command with the same command ID.
+  - The result of the submission (``Empty`` or a gRPC error), if the command was submitted outside of the deduplication period of a previous command with the same :ref:`change ID <change-id>` on the same participant.
+  - The status error ``ALREADY_EXISTS``, if the command was discarded by the ledger server because it was sent within the deduplication period of a previous command with the same :ref:`change ID <change-id>`.
 
 - If the ledger provides additional command deduplication across participants, the initial command submission might be successful, but ultimately the command can be rejected if the deduplication check fails on the ledger.
 
@@ -146,9 +157,9 @@ You can get these included in requests related to Transactions by setting the ``
 Active contracts service
 ========================
 
-Use the **active contracts service** to obtain a party-specific view of all contracts currently active on the ledger.
+Use the **active contracts service** to obtain a party-specific view of all contracts that are active on the ledger at the time of the request.
 
-The active contracts service returns the current contract set as a set of created events that would re-create the state being reported. Each created event has a ledger offset where it occurs. You can infer the ledger offset of the contract set from the ledger offset of the last event you receive.
+The active contracts service returns its response as a stream of batches of the created events that would re-create the state being reported (the size of these batches is left to the ledger implementation). As part of the last message message, the offset at which the reported active contract set was valid is included. This offset can be used to subscribe to the "flat transactions" stream to keep a consistent view of the active contract set without querying the active contract service further.
 
 This is most important at application start, if the application needs to synchronize its initial state with a known view of the ledger. Without this service, the only way to do this would be to read the Transaction Stream from the beginning of the ledger, which can be prohibitively expensive with a large ledger.
 
@@ -158,6 +169,19 @@ Verbosity
 ---------
 
 See :ref:`verbosity` above.
+
+.. note::
+
+  The RPCs exposed as part of the transaction and active contracts services make use of offsets.
+
+  An offset is an opaque string of bytes assigned by the participant to each transaction as they are received from the ledger.
+  Two offsets returned by the same participant are guaranteed to be lexicographically ordered: while interacting with a single participant, the offset of two transactions can be compared to tell which was committed earlier.
+  The state of a ledger (i.e. the set of active contracts) as exposed by the Ledger API is valid at a specific offset, which is why the last message your application receives when calling the ``ActiveContractsService`` is precisely that offset.
+  In this way, the client can keep track of the relevant state without needing to invoke the ``ActiveContractsService`` again, by starting to read transactions from the given offset.
+
+  Offsets are also useful to perform crash recovery and failover as documented more in depth in the :ref:`application architecture <dealing-with-failures>` page.
+
+  You can read more about offsets in the `protobuf documentation of the API <../app-dev/grpc/proto-docs.html#ledgeroffset>`__.
 
 .. _ledger-api-utility-services:
 
@@ -202,7 +226,7 @@ Ledger configuration service
 
 Use the **ledger configuration service** to subscribe to changes in ledger configuration.
 
-This configuration includes the maximum command deduplication time (see `Command Deduplication <#command-submission-service-deduplication>`__ for details).
+This configuration includes the maximum command deduplication period (see `Command Deduplication <#command-submission-service-deduplication>`__ for details).
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.LedgerConfigurationService>`.
 

@@ -24,23 +24,25 @@ final class PackageServiceIT extends LedgerTestSuite {
     }
   )
 
-  test("PackagesGet", "Getting package content should return a valid result", allocate(NoParties))(
-    implicit ec => { case Participants(Participant(ledger)) =>
-      for {
-        somePackageId <- ledger
-          .listPackages()
-          .map(_.headOption.getOrElse(fail("No package found")))
-        somePackage <- ledger.getPackage(somePackageId)
-      } yield {
-        assert(somePackage.hash.length > 0, s"Package $somePackageId has an empty hash.")
-        assert(
-          somePackage.hash == somePackageId,
-          s"Package $somePackageId has hash ${somePackage.hash}, expected hash to be equal to the package ID.",
-        )
-        assert(somePackage.archivePayload.size() >= 0, s"Package $somePackageId has zero size.")
-      }
+  test(
+    "PackagesGetKnown",
+    "Getting package content should return a valid result",
+    allocate(NoParties),
+  )(implicit ec => { case Participants(Participant(ledger)) =>
+    for {
+      somePackageId <- ledger
+        .listPackages()
+        .map(_.headOption.getOrElse(fail("No package found")))
+      somePackage <- ledger.getPackage(somePackageId)
+    } yield {
+      assert(somePackage.hash.length > 0, s"Package $somePackageId has an empty hash.")
+      assert(
+        somePackage.hash == somePackageId,
+        s"Package $somePackageId has hash ${somePackage.hash}, expected hash to be equal to the package ID.",
+      )
+      assert(somePackage.archivePayload.size() >= 0, s"Package $somePackageId has zero size.")
     }
-  )
+  })
 
   test(
     "PackagesGetUnknown",
@@ -52,12 +54,12 @@ final class PackageServiceIT extends LedgerTestSuite {
         .getPackage(unknownPackageId)
         .mustFail("getting the contents of an unknown package")
     } yield {
-      assertGrpcError(failure, Status.Code.NOT_FOUND, "")
+      assertGrpcError(failure, Status.Code.NOT_FOUND, None)
     }
   })
 
   test(
-    "PackagesStatus",
+    "PackagesStatusKnown",
     "Getting package status should return a valid result",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>

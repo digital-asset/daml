@@ -1,21 +1,17 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE GADTs #-}
 module IdeDebugDriver (main) where
 
 import Control.Applicative.Combinators
-import Control.Lens
 import Control.Monad
 import Data.Aeson
 import Data.Foldable
 import qualified Data.Text as T
 import qualified Data.Yaml as Yaml
-import qualified Language.Haskell.LSP.Test as LSP
-import Language.Haskell.LSP.Messages
-import Language.Haskell.LSP.Types hiding (Command)
-import Language.Haskell.LSP.Types.Capabilities
-import Language.Haskell.LSP.Types.Lens
-import qualified Language.Haskell.LSP.Types.Lens as LSP
+import qualified Language.LSP.Test as LSP
+import Language.LSP.Types hiding (Command)
+import Language.LSP.Types.Capabilities
 import Options.Applicative
 
 -- | We all love programming in YAML, don’t we? :)
@@ -74,7 +70,7 @@ main = do
     conf <- Yaml.decodeFileThrow (optConfigPath opts)
     runSession (optVerbose opts) (conf :: SessionConfig)
 
-damlLanguageId :: String
+damlLanguageId :: T.Text
 damlLanguageId = "daml"
 
 runSession :: Verbose -> SessionConfig -> IO ()
@@ -83,19 +79,16 @@ runSession (Verbose verbose) SessionConfig{..} =
     where cnf = LSP.defaultConfig { LSP.logStdErr = verbose, LSP.logMessages = verbose }
           fullCaps' = LSP.fullCaps { _window = Just $ WindowClientCapabilities $ Just True }
 
-progressStart :: LSP.Session WorkDoneProgressBeginNotification
-progressStart = do
-    NotWorkDoneProgressBegin not <- LSP.satisfy $ \case
-      NotWorkDoneProgressBegin _ -> True
-      _ -> False
-    pure not
+progressStart :: LSP.Session ProgressToken
+progressStart = LSP.satisfyMaybe $ \case
+  FromServerMess SProgress (NotificationMessage _ _ (ProgressParams token (Begin _))) -> Just token
+  _ -> Nothing
 
-progressDone :: LSP.Session WorkDoneProgressEndNotification
-progressDone = do
-    NotWorkDoneProgressEnd not <- LSP.satisfy $ \case
-      NotWorkDoneProgressEnd _ -> True
-      _ -> False
-    pure not
+progressDone :: LSP.Session ProgressToken
+progressDone = LSP.satisfyMaybe $ \case
+  FromServerMess SProgress (NotificationMessage _ _ (ProgressParams token (End _))) -> Just token
+  _ -> Nothing
+
 
 interpretCommand :: Command -> LSP.Session ()
 interpretCommand = \case
@@ -107,7 +100,7 @@ interpretCommand = \case
         start <- progressStart
         skipManyTill LSP.anyMessage $ do
             done <- progressDone
-            guard $ done ^. params . LSP.token == start ^. params . LSP.token
+            guard $ done == start
     Repeat count cmds -> replicateM_ count $ traverse_ interpretCommand cmds
     InsertLine f l t -> do
         uri <- LSP.getDocUri f

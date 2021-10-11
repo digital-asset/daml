@@ -30,11 +30,23 @@ import com.daml.lf.engine.script.ledgerinteraction.{
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{Interface, LanguageVersion}
+import com.daml.lf.language.{PackageInterface, LanguageVersion}
+import com.daml.lf.interpretation.{Error => IE}
+import com.daml.lf.speedy.SBuiltin.SBToAny
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{Compiler, Pretty, SDefinition, SError, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{
+  Compiler,
+  Pretty,
+  SDefinition,
+  SError,
+  SExpr,
+  SValue,
+  Speedy,
+  TraceLog,
+  WarningLog,
+}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.script.converter.Converter.{JavaList, unrollFree}
@@ -53,7 +65,7 @@ import spray.json._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-object LfValueCodec extends ApiCodecCompressed[ContractId](false, false)
+object LfValueCodec extends ApiCodecCompressed(false, false)
 
 case class Participant(participant: String)
 case class ApiParameters(
@@ -193,6 +205,10 @@ object Script {
 
 object Runner {
 
+  final case class InterpretationError(error: SError.SError) extends RuntimeException {
+    override def toString: String = Pretty.prettyError(error).render(80)
+  }
+
   private val compilerConfig = {
     import Compiler._
     Config(
@@ -215,7 +231,7 @@ object Runner {
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
-      sslContext = tlsConfig.client,
+      sslContext = tlsConfig.client(),
       token = params.access_token,
       maxInboundMessageSize = maxInboundMessageSize,
     )
@@ -318,8 +334,11 @@ object Runner {
   }
 }
 
-class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode: ScriptTimeMode)
-    extends StrictLogging {
+private[lf] class Runner(
+    compiledPackages: CompiledPackages,
+    script: Script.Action,
+    timeMode: ScriptTimeMode,
+) extends StrictLogging {
 
   // We overwrite the definition of fromLedgerValue with an identity function.
   // This is a type error but Speedy doesn’t care about the types and the only thing we do
@@ -333,7 +352,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
       override def getDefinition(dref: SDefinitionRef): Option[SDefinition] =
         fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
       // FIXME: avoid override of non abstract method
-      override def interface: Interface = compiledPackages.interface
+      override def interface: PackageInterface = compiledPackages.interface
       override def packageIds: collection.Set[PackageId] = compiledPackages.packageIds
       // FIXME: avoid override of non abstract method
       override def definitions: PartialFunction[SDefinitionRef, SDefinition] =
@@ -348,23 +367,26 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
   } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
 
   // Returns the machine that will be used for execution as well as a Future for the result.
-  def runWithClients(initialClients: Participants[ScriptLedgerClient])(implicit
+  def runWithClients(
+      initialClients: Participants[ScriptLedgerClient],
+      traceLog: TraceLog = Speedy.Machine.newTraceLog,
+      warningLog: WarningLog = Speedy.Machine.newWarningLog,
+  )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Speedy.Machine, Future[SValue]) = {
     val machine =
-      Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr)
+      Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, traceLog, warningLog)
 
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {
         case SResultFinalValue(v) =>
           Right(v)
         case SResultError(err) =>
-          logger.error(Pretty.prettyError(err).render(80))
-          Left(err)
+          Left(Runner.InterpretationError(err))
         case res =>
-          Left(new RuntimeException(s"Unexpected speedy result $res"))
+          Left(new IllegalStateException(s"Internal error: Unexpected speedy result $res"))
       }
 
     val env = new ScriptF.Env(
@@ -388,13 +410,19 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                   case ScriptF.Catch(act, handle) =>
                     run(SEApp(SEValue(act), Array(SEValue(SUnit)))).transformWith {
                       case Success(v) => Future.successful(SEValue(v))
-                      case Failure(SError.DamlEUnhandledException(exc)) =>
-                        machine.setExpressionToEvaluate(SEApp(SEValue(handle), Array(SEValue(exc))))
+                      case Failure(
+                            exce @ Runner.InterpretationError(
+                              SError.SErrorDamlException(IE.UnhandledException(typ, value))
+                            )
+                          ) =>
+                        machine.setExpressionToEvaluate(
+                          SEApp(SEValue(handle), Array(SBToAny(typ)(SEImportValue(typ, value))))
+                        )
                         stepToValue()
                           .fold(Future.failed, Future.successful)
                           .flatMap {
                             case SOptional(None) =>
-                              Future.failed(SError.DamlEUnhandledException(exc))
+                              Future.failed(exce)
                             case SOptional(Some(free)) => Future.successful(SEValue(free))
                             case e =>
                               Future.failed(
@@ -403,8 +431,13 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                           }
                       case Failure(e) => Future.failed(e)
                     }
-                  case ScriptF.Throw(exc) =>
-                    Future.failed(SError.DamlEUnhandledException(exc))
+                  case ScriptF.Throw(SAny(ty, value)) =>
+                    Future.failed(
+                      Runner.InterpretationError(
+                        SError
+                          .SErrorDamlException(IE.UnhandledException(ty, value.toUnnormalizedValue))
+                      )
+                    )
                   case cmd: ScriptF.Cmd =>
                     cmd.execute(env).transform {
                       case Failure(exception) =>

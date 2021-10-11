@@ -4,6 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "da_scala_test_suite",
 )
 
 da_scala_library(
@@ -19,8 +20,9 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//ledger/participant-state",
-        "@maven//:io_zipkin_brave_brave",
+        "//ledger/ledger-configuration",
+        "//ledger/ledger-offset",
+        "//libs-scala/logging-entries",
     ],
 )
 
@@ -41,6 +43,23 @@ da_scala_library(
     ],
     deps = [
         ":ledger-api-domain",
+        "//daml-lf/data",
+    ],
+)
+
+da_scala_test_suite(
+    name = "ledger-api-domain-tests",
+    size = "small",
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scala_lang_modules_scala_java8_compat",
+    ],
+    deps = [
+        ":ledger-api-domain",
+        ":ledger-api-domain-tests-lib",
         "//daml-lf/data",
     ],
 )

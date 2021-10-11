@@ -10,7 +10,6 @@ import com.daml.ledger.api.v1.event._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.{LEDGER_BEGIN, LEDGER_END}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
-import com.daml.ledger.api.v1.trace_context.TraceContext
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.value.Value.Sum.Text
@@ -34,10 +33,9 @@ object MockMessages {
 
   val commands = Commands(ledgerId, workflowId, applicationId, commandId, party, Nil)
 
-  val submitRequest = SubmitRequest(Some(commands), None)
+  val submitRequest = SubmitRequest(Some(commands))
 
-  val submitAndWaitRequest =
-    SubmitAndWaitRequest(Some(commands), Some(TraceContext(1L, 2L, 3L, Some(4L))))
+  val submitAndWaitRequest = SubmitAndWaitRequest(Some(commands))
 
   val moduleName = "moduleName"
   val transactionId = "transactionId"
@@ -80,7 +78,6 @@ object MockMessages {
         createdEvent.eventId -> TreeEvent(TreeEvent.Kind.Created(createdEvent)),
       ),
       List(exercisedEvent.eventId),
-      None,
     )
 
   val filteredTransaction = Transaction(
@@ -90,7 +87,6 @@ object MockMessages {
     Some(ledgerEffectiveTime),
     List.empty,
     offset,
-    None,
   )
 
   private val NO_OF_TRANSACTIONS = 1000

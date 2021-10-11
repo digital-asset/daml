@@ -3,8 +3,6 @@
 
 package com.daml.lf
 
-import com.daml.lf.value.Value.ContractId
-
 import scala.collection.compat._
 
 package object transaction {
@@ -26,10 +24,10 @@ package object transaction {
       Right(b.result())
     }
 
-  val SubmittedTransaction = DiscriminatedSubtype[VersionedTransaction[NodeId, ContractId]]
+  val SubmittedTransaction = DiscriminatedSubtype[VersionedTransaction]
   type SubmittedTransaction = SubmittedTransaction.T
 
-  val CommittedTransaction = DiscriminatedSubtype[VersionedTransaction[NodeId, ContractId]]
+  val CommittedTransaction = DiscriminatedSubtype[VersionedTransaction]
   type CommittedTransaction = CommittedTransaction.T
 
 }

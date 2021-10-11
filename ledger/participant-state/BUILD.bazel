@@ -9,7 +9,7 @@ load(
 
 da_scala_library(
     name = "participant-state",
-    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/v1/**/*.scala"]),
+    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
@@ -20,7 +20,7 @@ da_scala_library(
         "//visibility:public",
     ],
     exports = [
-        "//ledger/participant-state/protobuf:ledger_configuration_proto_java",
+        "//ledger/ledger-configuration/protobuf:ledger_configuration_proto_java",
     ],
     runtime_deps = [],
     deps = [
@@ -28,11 +28,18 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-configuration",
+        "//ledger/ledger-configuration/protobuf:ledger_configuration_proto_java",
+        "//ledger/ledger-grpc",
+        "//ledger/ledger-offset",
         "//ledger/metrics",
-        "//ledger/participant-state/protobuf:ledger_configuration_proto_java",
+        "//libs-scala/grpc-utils",
+        "//libs-scala/logging-entries",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -48,12 +55,19 @@ da_scala_test_suite(
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
     resources = glob(["src/test/resources/*"]),
     scala_deps = [
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     deps = [
         ":participant-state",
+        "//daml-lf/data",
         "//daml-lf/transaction",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//ledger/ledger-offset",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

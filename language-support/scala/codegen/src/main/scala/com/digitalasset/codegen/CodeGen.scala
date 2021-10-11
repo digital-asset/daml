@@ -6,7 +6,7 @@ package com.daml.codegen
 import java.io._
 
 import com.daml.codegen.types.Namespace
-import com.daml.lf.archive.{Dar, UniversalArchiveReader}
+import com.daml.lf.archive.{ArchivePayload, Dar, UniversalArchiveReader}
 import com.daml.lf.iface
 import com.daml.lf.data.Ref
 import com.daml.lf.iface.{Type => _, _}
@@ -16,7 +16,6 @@ import com.daml.codegen.exception.PackageInterfaceException
 import lf.{DefTemplateWithRecord, LFUtil, ScopedDataType}
 import com.daml.lf.data.Ref._
 import com.daml.lf.iface.reader.Errors.ErrorLoc
-import com.daml.daml_lf_dev.DamlLf
 import com.typesafe.scalalogging.Logger
 import scalaz.{Enum => _, _}
 import scalaz.std.tuple._
@@ -29,14 +28,11 @@ import scalaz.syntax.bind._
 import scalaz.syntax.traverse1._
 
 import scala.collection.compat._
-import scala.util.{Failure, Success}
 import scala.util.matching.Regex
 
 object CodeGen {
 
   private val logger: Logger = Logger(getClass)
-
-  type Payload = (PackageId, DamlLf.ArchivePayload)
 
   sealed abstract class Mode extends Serializable with Product
   case object Novel extends Mode
@@ -104,38 +100,35 @@ object CodeGen {
   private def decodeInterfaces(
       files: NonEmptyList[File]
   ): ValidationNel[String, NonEmptyList[EnvironmentInterface]] = {
-    val reader = UniversalArchiveReader()
-    val parse: File => String \/ Dar[Payload] = parseFile(reader)
-    files.traverse(f => decodeInterface(parse)(f).validationNel)
+    files.traverse(f => decodeInterface(parseFile(_))(f).validationNel)
   }
 
-  private def parseFile(reader: UniversalArchiveReader[Payload])(f: File): String \/ Dar[Payload] =
-    reader.readFile(f) match {
-      case Success(p) => \/.right(p)
-      case Failure(e) =>
+  private def parseFile(f: File): String \/ Dar[ArchivePayload] =
+    UniversalArchiveReader.readFile(f) match {
+      case Right(p) => \/.right(p)
+      case Left(e) =>
         logger.error("Scala Codegen error", e)
         \/.left(e.getLocalizedMessage)
     }
 
-  private def decodeInterface(parse: File => String \/ Dar[Payload])(
+  private def decodeInterface(parse: File => String \/ Dar[ArchivePayload])(
       file: File
   ): String \/ EnvironmentInterface =
     parse(file).flatMap(decodeInterface)
 
-  private def decodeInterface(dar: Dar[Payload]): String \/ EnvironmentInterface = {
+  private def decodeInterface(dar: Dar[ArchivePayload]): String \/ EnvironmentInterface = {
     import scalaz.syntax.traverse._
     dar.traverse(decodeInterface).map(combineInterfaces)
   }
 
-  private def decodeInterface(p: Payload): String \/ Interface =
-    \/.fromTryCatchNonFatal {
-      val packageId: PackageId = p._1
-      logger.info(s"decoding archive with Package ID: $packageId")
+  private def decodeInterface(p: ArchivePayload): String \/ Interface =
+    \/.attempt {
+      logger.info(s"decoding archive with Package ID: ${p.pkgId}")
       val (errors, out) = Interface.read(p)
-      if (!errors.empty) {
-        \/.left(formatDecodeErrors(packageId, errors))
-      } else \/.right(out)
-    }.leftMap(_.getLocalizedMessage).join
+      (if (!errors.empty) {
+         -\/(formatDecodeErrors(p.pkgId, errors))
+       } else \/-(out)): String \/ Interface
+    }(_.getLocalizedMessage).join
 
   private def formatDecodeErrors(
       packageId: PackageId,
@@ -222,10 +215,12 @@ object CodeGen {
     val treeified: Namespace[String, Option[lf.HierarchicalOutput.TemplateOrDatatype]] =
       Namespace.fromHierarchy {
         def widenDDT[R, V](iddt: Iterable[ScopedDataType.DT[R, V]]) = iddt
+        import lf.DamlDataTypeGen.DataType
+        type SrcV = DefTemplateWithRecord.FWT \/ DataType
         val ntdRights =
           (widenDDT(unassociatedRecords ++ enums) ++ splattedVariants)
-            .map(sdt => (sdt.name, \/-(sdt)))
-        val tmplLefts = templateIds.transform((_, v) => -\/(v))
+            .map(sdt => (sdt.name, \/-(sdt): SrcV))
+        val tmplLefts = templateIds.transform((_, v) => -\/(v): SrcV)
 
         (ntdRights ++ tmplLefts) map { case (ddtIdent @ Identifier(_, qualName), body) =>
           (qualName.module.segments.toList ++ qualName.name.segments.toList, (ddtIdent, body))
@@ -234,14 +229,16 @@ object CodeGen {
 
     // fold up the tree to discover the hierarchy's roots, each of which produces a file
     val (treeErrors, topFiles) = lf.HierarchicalOutput.discoverFiles(treeified, util)
-    val filePlans = topFiles.map { case (fil, trees) => \/-((None, fil, trees)) } ++ treeErrors
-      .map(-\/(_))
+    val filePlans = topFiles.map { case (fil, trees) =>
+      \/-((None, fil, trees)): FilePlan
+    } ++ treeErrors
+      .map(e => -\/(e): FilePlan)
 
     // Finally we generate the "event decoder" and "package ID source"
     val specials =
       Seq(lf.EventDecoderGen.generate(util, templateIds.keySet), lf.PackageIDsGen.generate(util))
 
-    val specialPlans = specials map { case (fp, t) => \/-((None, fp, t)) }
+    val specialPlans = specials map { case (fp, t) => \/-((None, fp, t)): FilePlan }
 
     filePlans ++ specialPlans
   }
@@ -284,6 +281,7 @@ object CodeGen {
       List[ScopedDataType[Variant[List[(Ref.Name, RT)] \/ VT]]],
       List[ScopedDataType[Enum]],
   ) = {
+    type VariantField = List[(Ref.Name, RT)] \/ VT
 
     val (records, variants, enums) = splitNTDs(definitions)
 
@@ -308,8 +306,8 @@ object CodeGen {
               .filter((_: Identifier) == syntheticRecord)
               .flatMap(_ => recordMap get key)
               .cata(
-                nr => (Set(key), (vn, -\/(nr.dataType.fields.toList))),
-                (noDeletion, (vn, \/-(vt))),
+                nr => (Set(key), (vn, -\/(nr.dataType.fields.toList): VariantField)),
+                (noDeletion, (vn, \/-(vt): VariantField)),
               )
           }
           (deleted, ScopedDataType(ident, vTypeVars, Variant(sdt)))

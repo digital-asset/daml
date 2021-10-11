@@ -9,8 +9,11 @@ import java.util
 import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SError.SErrorCrash
+import com.daml.lf.transaction.TransactionVersion
+import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.lf.value.{Value => V}
+import com.daml.scalautil.Statement.discard
+import com.daml.nameof.NameOf
 
 import scala.jdk.CollectionConverters._
 import scala.collection.compat._
@@ -23,60 +26,92 @@ import scala.util.hashing.MurmurHash3
   */
 sealed trait SValue {
 
-  import SValue._
+  import SValue.{SValue => _, _}
 
-  def toValue: V[V.ContractId] =
-    this match {
-      case SInt64(x) => V.ValueInt64(x)
-      case SNumeric(x) => V.ValueNumeric(x)
-      case SText(x) => V.ValueText(x)
-      case STimestamp(x) => V.ValueTimestamp(x)
-      case SParty(x) => V.ValueParty(x)
-      case SBool(x) => V.ValueBool(x)
-      case SUnit => V.ValueUnit
-      case SDate(x) => V.ValueDate(x)
+  /** Convert a speedy-value to a value which may not be correctly normalized.
+    * And so the resulting value should not be serialized.
+    */
+  def toUnnormalizedValue: V = {
+    toValue(
+      normalize = false
+    )
+  }
 
-      case SRecord(id, fields, svalues) =>
-        V.ValueRecord(
-          Some(id),
-          ImmArray(
-            fields.toSeq
-              .zip(svalues.asScala)
-              .map({ case (fld, sv) => (Some(fld), sv.toValue) })
-          ),
-        )
-      case SVariant(id, variant, _, sv) =>
-        V.ValueVariant(Some(id), variant, sv.toValue)
-      case SEnum(id, constructor, _) =>
-        V.ValueEnum(Some(id), constructor)
-      case SList(lst) =>
-        V.ValueList(lst.map(_.toValue))
-      case SOptional(mbV) =>
-        V.ValueOptional(mbV.map(_.toValue))
-      case SMap(true, entries) =>
-        V.ValueTextMap(SortedLookupList(entries.map {
-          case (SText(t), v) => t -> v.toValue
-          case (_, _) => throw SErrorCrash("SValue.toValue: TextMap with non text key")
-        }))
-      case SMap(false, entries) =>
-        V.ValueGenMap(entries.view.map { case (k, v) => k.toValue -> v.toValue }.to(ImmArray))
-      case SContractId(coid) =>
-        V.ValueContractId(coid)
-      case SStruct(_, _) =>
-        throw SErrorCrash("SValue.toValue: unexpected SStruct")
-      case SAny(_, _) =>
-        throw SErrorCrash("SValue.toValue: unexpected SAny")
-      case SBigNumeric(_) =>
-        throw SErrorCrash("SValue.toValue: unexpected SBigNumeric")
-      case STypeRep(_) =>
-        throw SErrorCrash("SValue.toValue: unexpected STypeRep")
-      case STNat(_) =>
-        throw SErrorCrash("SValue.toValue: unexpected STNat")
-      case _: SPAP =>
-        throw SErrorCrash("SValue.toValue: unexpected SPAP")
-      case SToken =>
-        throw SErrorCrash("SValue.toValue: unexpected SToken")
+  /** Convert a speedy-value to a value normalized according to the LF version.
+    */
+  def toNormalizedValue(version: TransactionVersion): V = {
+    import Ordering.Implicits.infixOrderingOps
+    toValue(
+      normalize = version >= TransactionVersion.minTypeErasure
+    )
+  }
+
+  private def toValue(
+      normalize: Boolean
+  ): V = {
+
+    def maybeEraseTypeInfo[X](x: X): Option[X] =
+      if (normalize) {
+        None
+      } else {
+        Some(x)
+      }
+
+    def go(v: SValue, maxNesting: Int = V.MAXIMUM_NESTING): V = {
+      if (maxNesting < 0)
+        throw SError.SErrorDamlException(interpretation.Error.ValueExceedsMaxNesting)
+      val nextMaxNesting = maxNesting - 1
+      v match {
+        case SInt64(x) => V.ValueInt64(x)
+        case SNumeric(x) => V.ValueNumeric(x)
+        case SText(x) => V.ValueText(x)
+        case STimestamp(x) => V.ValueTimestamp(x)
+        case SParty(x) => V.ValueParty(x)
+        case SBool(x) => V.ValueBool(x)
+        case SUnit => V.ValueUnit
+        case SDate(x) => V.ValueDate(x)
+
+        case SRecord(id, fields, svalues) =>
+          V.ValueRecord(
+            maybeEraseTypeInfo(id),
+            (fields.toSeq zip svalues.asScala)
+              .map { case (fld, sv) => (maybeEraseTypeInfo(fld), go(sv, nextMaxNesting)) }
+              .to(ImmArray),
+          )
+        case SVariant(id, variant, _, sv) =>
+          V.ValueVariant(maybeEraseTypeInfo(id), variant, go(sv, nextMaxNesting))
+        case SEnum(id, constructor, _) =>
+          V.ValueEnum(maybeEraseTypeInfo(id), constructor)
+        case SList(lst) =>
+          V.ValueList(lst.map(go(_, nextMaxNesting)))
+        case SOptional(mbV) =>
+          V.ValueOptional(mbV.map(go(_, nextMaxNesting)))
+        case SMap(true, entries) =>
+          V.ValueTextMap(SortedLookupList(entries.map {
+            case (SText(t), v) => t -> go(v, nextMaxNesting)
+            case (_, _) =>
+              throw SError.SErrorCrash(
+                NameOf.qualifiedNameOfCurrentFunc,
+                "SValue.toValue: TextMap with non text key",
+              )
+          }))
+        case SMap(false, entries) =>
+          V.ValueGenMap(
+            entries.view
+              .map { case (k, v) => go(k, nextMaxNesting) -> go(v, nextMaxNesting) }
+              .to(ImmArray)
+          )
+        case SContractId(coid) =>
+          V.ValueContractId(coid)
+        case _: SStruct | _: SAny | _: SBigNumeric | _: STypeRep | _: STNat | _: SPAP | SToken =>
+          throw SError.SErrorCrash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"SValue.toValue: unexpected ${getClass.getSimpleName}",
+          )
+      }
     }
+    go(this)
+  }
 
   def mapContractId(f: V.ContractId => V.ContractId): SValue =
     this match {
@@ -135,7 +170,10 @@ object SValue {
     */
   final case class SPAP(prim: Prim, actuals: util.ArrayList[SValue], arity: Int) extends SValue {
     if (actuals.size >= arity) {
-      throw SErrorCrash(s"SPAP: unexpected actuals.size >= arity")
+      throw SError.SErrorCrash(
+        NameOf.qualifiedNameOfCurrentFunc,
+        s"SPAP: unexpected actuals.size >= arity",
+      )
     }
     override def toString: String =
       s"SPAP($prim, ${actuals.asScala.mkString("[", ",", "]")}, $arity)"
@@ -178,11 +216,10 @@ object SValue {
   object SMap {
     implicit def `SMap Ordering`: Ordering[SValue] = svalue.Ordering
 
-    @throws[SErrorCrash]
+    @throws[SError.SError]
     // crashes if `k` contains type abstraction, function, Partially applied built-in or updates
     def comparable(k: SValue): Unit = {
-      `SMap Ordering`.compare(k, k)
-      ()
+      discard[Int](`SMap Ordering`.compare(k, k))
     }
 
     def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SMap = {
@@ -214,24 +251,20 @@ object SValue {
   }
 
   object SArithmeticError {
-    // The package ID should match the ID of the stable package daml-prim-DA-Exception-ArithmeticError
-    // See test compiler/damlc/tests/src/stable-packages.sh
-    val tyCon: Ref.TypeConName = Ref.Identifier.assertFromString(
-      "cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a:DA.Exception.ArithmeticError:ArithmeticError"
-    )
-    val typ: Type = TTyCon(tyCon)
-    val fields: ImmArray[Ref.Name] = ImmArray(Ref.Name.assertFromString("message"))
+    val fields: ImmArray[Ref.Name] = ImmArray(ValueArithmeticError.fieldName)
     def apply(builtinName: String, args: ImmArray[String]): SAny = {
       val array = new util.ArrayList[SValue](1)
-      array.add(
-        SText(s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")}).")
+      discard(
+        array.add(
+          SText(s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")}).")
+        )
       )
-      SAny(typ, SRecord(tyCon, fields, array))
+      SAny(ValueArithmeticError.typ, SRecord(ValueArithmeticError.tyCon, fields, array))
     }
     // Assumes excep is properly typed
     def unapply(excep: SAny): Option[SValue] =
       excep match {
-        case SAnyException(SRecord(`tyCon`, _, args)) => Some(args.get(0))
+        case SAnyException(SRecord(ValueArithmeticError.tyCon, _, args)) => Some(args.get(0))
         case _ => None
       }
   }
@@ -347,20 +380,18 @@ object SValue {
 
   private def entry(key: SValue, value: SValue) = {
     val args = new util.ArrayList[SValue](2)
-    args.add(key)
-    args.add(value)
+    discard(args.add(key))
+    discard(args.add(value))
     SStruct(entryFields, args)
   }
 
   def toList(entries: TreeMap[SValue, SValue]): SList =
     SList(
-      FrontStack(
-        entries.iterator
-          .map { case (k, v) =>
-            entry(k, v)
-          }
-          .to(ImmArray)
-      )
+      entries.view
+        .map { case (k, v) =>
+          entry(k, v)
+        }
+        .to(FrontStack)
     )
 
   private def mapArrayList(
@@ -369,7 +400,7 @@ object SValue {
   ): util.ArrayList[SValue] = {
     val bs = new util.ArrayList[SValue](as.size)
     as.forEach { a =>
-      val _ = bs.add(f(a))
+      discard(bs.add(f(a)))
     }
     bs
   }

@@ -7,29 +7,31 @@ import ch.qos.logback.classic.{Level => LogLevel}
 
 object Logging {
 
-  def reconfigure(clazz: Class[_], pathToLogbackFileInJarFile: String): Unit = {
+  def reconfigure(clazz: Class[_]): Unit = {
     // Try reconfiguring the library
     import ch.qos.logback.core.joran.spi.JoranException
     import ch.qos.logback.classic.LoggerContext
     import ch.qos.logback.classic.joran.JoranConfigurator
+    import java.io.File
+    import java.net.URL
     import org.slf4j.LoggerFactory
-    import scala.util.Using
-    Using.resource(clazz.getClassLoader.getResource(pathToLogbackFileInJarFile).openStream()) {
-      stream =>
-        try {
-          val context = LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext]
-          val configurator = new JoranConfigurator
-          configurator.setContext(context)
-          context.reset()
-          configurator.doConfigure(stream)
-        } catch {
-          case je: JoranException =>
-            // Fallback to System.err.println because the logger won't work in any way anymore.
-            System.err.println(s"reconfigured failed using url $pathToLogbackFileInJarFile: $je")
-            je.printStackTrace(System.err)
-        } finally {
-          stream.close()
-        }
+    def reloadConfig(path: URL): Unit =
+      try {
+        val context = LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext]
+        val configurator = new JoranConfigurator()
+        configurator.setContext(context)
+        context.reset()
+        configurator.doConfigure(path)
+      } catch {
+        case je: JoranException =>
+          // Fallback to System.err.println because the logger won't work in any way anymore.
+          System.err.println(
+            s"reconfigured failed using url $path: $je"
+          )
+      }
+    System.getProperty("logback.configurationFile") match {
+      case null => reloadConfig(clazz.getClassLoader.getResource("logback.xml"))
+      case path => reloadConfig(new File(path).toURI().toURL())
     }
   }
 

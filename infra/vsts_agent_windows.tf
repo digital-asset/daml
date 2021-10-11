@@ -34,6 +34,9 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
     instance_template = google_compute_instance_template.vsts-agent-windows[count.index].self_link
   }
 
+  # uncomment when we get a provider >3.55
+  #distribution_policy_target_shape = "ANY"
+
   update_policy {
     type           = "PROACTIVE"
     minimal_action = "REPLACE"
@@ -44,6 +47,8 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
     # calculated with: serial console last timestamp after boot - VM start
     # 09:54:28 - 09:45:55 = 513 seconds
     min_ready_sec = 520
+
+    instance_redistribution_type = "NONE"
   }
 }
 
@@ -79,6 +84,10 @@ $ErrorActionPreference = 'Stop'
 
 # Disable Windows Defender to speed up disk access
 Set-MpPreference -DisableRealtimeMonitoring $true
+
+# Disable Print Spooler service (security)
+Stop-Service -Name Spooler -Force
+Set-Service -Name Spooler -StartupType Disabled
 
 # Enable long paths
 Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -Type DWord -Value 1
@@ -138,7 +147,7 @@ net stop winrm
 sc.exe config winrm start=auto
 net start winrm
 
-& choco install dotnetcore-2.1-sdk --no-progress --yes 2>&1 | %%{ "$_" }
+& choco install dotnetcore-3.1-sdk --no-progress --yes 2>&1 | %%{ "$_" }
 
 echo "== Installing the VSTS agent"
 

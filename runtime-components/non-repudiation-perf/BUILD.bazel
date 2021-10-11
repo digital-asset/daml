@@ -13,7 +13,6 @@ da_scala_benchmark_jmh(
     resources = ["src/main/resources/logback.xml"],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
-        "@maven//:com_lihaoyi_sourcecode",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_tpolecat_doobie_core",
         "@maven//:org_tpolecat_doobie_free",

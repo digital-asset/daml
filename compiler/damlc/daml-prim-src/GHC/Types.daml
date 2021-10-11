@@ -21,8 +21,9 @@ module GHC.Types (
         Text, Decimal,
         Opaque,
         ifThenElse,
-        primitive, magic, external,
+        primitive, primitiveInterface, magic, external,
         DamlEnum,
+        DamlInterface,
 
 #ifdef DAML_NUMERIC
         Nat, Numeric,
@@ -148,6 +149,9 @@ external = external --deleted by the compiler
 primitive : forall (f : Symbol) b. b
 primitive = primitive -- deleted by the compiler
 
+primitiveInterface : forall (f : Symbol) b. b
+primitiveInterface = primitiveInterface -- deleted by the compiler
+
 -- | HIDE Handled actually in the guts of the compiler
 magic : forall (f : Symbol) b. b
 magic = magic -- deleted by the compiler
@@ -164,6 +168,9 @@ data Text =
 -- | HIDE Used to tag single-constructor enum types.
 class DamlEnum
 instance DamlEnum
+
+class DamlInterface
+instance DamlInterface
 
 #ifdef DAML_NUMERIC
 

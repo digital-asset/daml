@@ -4,10 +4,10 @@
 package com.daml.platform.sandbox
 
 import java.io.File
-
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsVersion}
+import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.v1.transaction_service.GetLedgerEndResponse
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
@@ -43,15 +43,15 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
       None,
     )
 
-  private def tlsEnabledConfig(protocols: Seq[String]): LedgerClientConfiguration =
+  private def tlsEnabledConfig(minimumProtocolVersion: TlsVersion): LedgerClientConfiguration =
     baseConfig.copy(sslContext =
       TlsConfiguration(
         enabled = true,
         Some(clientCertChainFilePath),
         Some(clientPrivateKeyFilePath),
         Some(trustCertCollectionFilePath),
-        protocols = protocols,
-      ).client
+        minimumServerProtocolVersion = Some(minimumProtocolVersion),
+      ).client()
     )
 
   override protected lazy val config: SandboxConfig =
@@ -62,12 +62,13 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
           Some(certChainFilePath),
           Some(privateKeyFilePath),
           Some(trustCertCollectionFilePath),
+          minimumServerProtocolVersion = None,
         )
       )
     )
 
-  private def clientF(protocol: String) =
-    LedgerClient.singleHost(serverHost, serverPort.value, tlsEnabledConfig(Seq(protocol)))
+  private def clientF(protocol: TlsVersion) =
+    LedgerClient.singleHost(serverHost, serverPort.value, tlsEnabledConfig(protocol))
 
   "A TLS-enabled server" should {
     "reject ledger queries when the client connects without tls" in {
@@ -79,14 +80,14 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
     }
 
     "serve ledger queries when the client presents a valid certificate" in {
-      def testWith(protocol: String): Future[GetLedgerEndResponse] =
+      def testWith(protocol: TlsVersion): Future[GetLedgerEndResponse] =
         withClue(s"Testing with $protocol") {
           clientF(protocol).flatMap(_.transactionClient.getLedgerEnd())
         }
 
       for {
-        _ <- testWith("TLSv1.2")
-        _ <- testWith("TLSv1.3")
+        _ <- testWith(TlsVersion.V1_1)
+        _ <- testWith(TlsVersion.V1_3)
       } yield succeed
     }
   }

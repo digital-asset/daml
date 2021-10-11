@@ -3,13 +3,16 @@
 
 package com.daml.ledger.api.testtool.tests
 
-import java.nio.file.Path
-
 import com.daml.ledger.api.testtool.infrastructure.{BenchmarkReporter, Envelope, LedgerTestSuite}
+import com.daml.ledger.api.testtool.suites.AppendOnlyCompletionDeduplicationInfoIT.{
+  CommandService,
+  CommandSubmissionService,
+}
 import com.daml.ledger.api.testtool.suites._
-import com.daml.lf.language.LanguageVersion
 import com.daml.ledger.test.TestDar
+import com.daml.lf.language.LanguageVersion
 
+import java.nio.file.Path
 import scala.collection.SortedSet
 import scala.concurrent.duration.FiniteDuration
 
@@ -27,11 +30,12 @@ object Tests {
     Vector(
       new ActiveContractsServiceIT,
       new ClosedWorldIT,
+      new CommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
       new CommandServiceIT,
       new CommandSubmissionCompletionIT,
-      new CommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
       new ConfigManagementServiceIT,
       new ContractKeysIT,
+      new DeeplyNestedValueIT,
       new DivulgenceIT,
       new HealthServiceIT,
       new IdentityIT,
@@ -41,17 +45,38 @@ object Tests {
       new PartyManagementServiceIT,
       new RaceConditionIT,
       new SemanticTests,
-      new TransactionServiceIT,
+      new TransactionServiceArgumentsIT,
+      new TransactionServiceAuthorizationIT,
+      new TransactionServiceCorrectnessIT,
+      new TransactionServiceExerciseIT,
+      new TransactionServiceOutputsIT,
+      new TransactionServiceQueryIT,
+      new TransactionServiceStakeholdersIT,
+      new TransactionServiceStreamsIT,
+      new TransactionServiceValidationIT,
+      new TransactionServiceVisibilityIT,
       new ValueLimitsIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,
     ) ++ (if (supportsExceptions) Vector(new ExceptionsIT, new ExceptionRaceConditionIT)
           else Vector.empty)
 
-  val optional: Vector[LedgerTestSuite] =
+  def optional(
+      timeoutScaleFactor: Double = Defaults.TimeoutScaleFactor,
+      ledgerClockGranularity: FiniteDuration = Defaults.LedgerClockGranularity,
+  ): Vector[LedgerTestSuite] =
     Vector(
-      new ParticipantPruningIT,
+      new AppendOnlyCompletionDeduplicationInfoIT(CommandService),
+      new AppendOnlyCompletionDeduplicationInfoIT(CommandSubmissionService),
+      new AppendOnlyKVCommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
+      new AppendOnlyCommandDeduplicationParallelIT,
+      new ContractIdIT,
+      new KVCommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
       new MultiPartySubmissionIT,
+      new ParticipantPruningIT,
+      new MonotonicRecordTimeIT,
+      new TLSOnePointThreeIT,
+      new TLSAtLeastOnePointTwoIT,
     )
 
   val retired: Vector[LedgerTestSuite] =
@@ -77,5 +102,4 @@ object Tests {
 
   private[testtool] val PerformanceTestsKeys: SortedSet[String] =
     SortedSet(Envelope.All.map(_.name): _*)
-
 }

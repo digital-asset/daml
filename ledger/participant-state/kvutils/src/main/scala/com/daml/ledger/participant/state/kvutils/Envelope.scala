@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
+import com.daml.ledger.participant.state.kvutils.store.DamlStateValue
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
 import com.google.protobuf.ByteString
 
@@ -18,13 +19,13 @@ object Envelope {
 
   sealed trait Message extends Product with Serializable
 
-  final case class SubmissionMessage(submission: Proto.DamlSubmission) extends Message
+  final case class SubmissionMessage(submission: wire.DamlSubmission) extends Message
 
   final case class LogEntryMessage(logEntry: Proto.DamlLogEntry) extends Message
 
-  final case class StateValueMessage(value: Proto.DamlStateValue) extends Message
+  final case class StateValueMessage(value: DamlStateValue) extends Message
 
-  final case class SubmissionBatchMessage(value: Proto.DamlSubmissionBatch) extends Message
+  final case class SubmissionBatchMessage(value: wire.DamlSubmissionBatch) extends Message
 
   private val DefaultCompression = true
 
@@ -47,10 +48,10 @@ object Envelope {
         .build
     )
 
-  def enclose(sub: Proto.DamlSubmission): Raw.Envelope =
+  def enclose(sub: wire.DamlSubmission): Raw.Envelope =
     enclose(sub, compression = DefaultCompression)
 
-  def enclose(sub: Proto.DamlSubmission, compression: Boolean): Raw.Envelope =
+  def enclose(sub: wire.DamlSubmission, compression: Boolean): Raw.Envelope =
     enclose(Proto.Envelope.MessageKind.SUBMISSION, sub.toByteString, compression)
 
   def enclose(logEntry: Proto.DamlLogEntry): Raw.Envelope =
@@ -59,13 +60,13 @@ object Envelope {
   def enclose(logEntry: Proto.DamlLogEntry, compression: Boolean): Raw.Envelope =
     enclose(Proto.Envelope.MessageKind.LOG_ENTRY, logEntry.toByteString, compression)
 
-  def enclose(stateValue: Proto.DamlStateValue): Raw.Envelope =
+  def enclose(stateValue: DamlStateValue): Raw.Envelope =
     enclose(stateValue, compression = DefaultCompression)
 
-  def enclose(stateValue: Proto.DamlStateValue, compression: Boolean): Raw.Envelope =
+  def enclose(stateValue: DamlStateValue, compression: Boolean): Raw.Envelope =
     enclose(Proto.Envelope.MessageKind.STATE_VALUE, stateValue.toByteString, compression)
 
-  def enclose(batch: Proto.DamlSubmissionBatch): Raw.Envelope =
+  def enclose(batch: wire.DamlSubmissionBatch): Raw.Envelope =
     enclose(Proto.Envelope.MessageKind.SUBMISSION_BATCH, batch.toByteString, compression = false)
 
   def open(envelopeBytes: Raw.Envelope): Either[String, Message] =
@@ -95,13 +96,13 @@ object Envelope {
           parseMessageSafe(() => Proto.DamlLogEntry.parseFrom(uncompressedMessage))
             .map(LogEntryMessage)
         case Proto.Envelope.MessageKind.SUBMISSION =>
-          parseMessageSafe(() => Proto.DamlSubmission.parseFrom(uncompressedMessage))
+          parseMessageSafe(() => wire.DamlSubmission.parseFrom(uncompressedMessage))
             .map(SubmissionMessage)
         case Proto.Envelope.MessageKind.STATE_VALUE =>
-          parseMessageSafe(() => Proto.DamlStateValue.parseFrom(uncompressedMessage))
+          parseMessageSafe(() => DamlStateValue.parseFrom(uncompressedMessage))
             .map(StateValueMessage)
         case Proto.Envelope.MessageKind.SUBMISSION_BATCH =>
-          parseMessageSafe(() => Proto.DamlSubmissionBatch.parseFrom(uncompressedMessage))
+          parseMessageSafe(() => wire.DamlSubmissionBatch.parseFrom(uncompressedMessage))
             .map(SubmissionBatchMessage)
         case Proto.Envelope.MessageKind.UNRECOGNIZED =>
           Left(s"Unrecognized message kind: ${envelope.getKind}")
@@ -114,25 +115,25 @@ object Envelope {
       case msg => Left(s"Expected log entry, got ${msg.getClass}")
     }
 
-  def openSubmission(envelopeBytes: Raw.Envelope): Either[String, Proto.DamlSubmission] =
+  def openSubmission(envelopeBytes: Raw.Envelope): Either[String, wire.DamlSubmission] =
     open(envelopeBytes).flatMap {
       case SubmissionMessage(entry) => Right(entry)
       case msg => Left(s"Expected submission, got ${msg.getClass}")
     }
 
-  def openSubmission(envelopeBytes: Array[Byte]): Either[String, Proto.DamlSubmission] =
+  def openSubmission(envelopeBytes: Array[Byte]): Either[String, wire.DamlSubmission] =
     open(envelopeBytes).flatMap {
       case SubmissionMessage(entry) => Right(entry)
       case msg => Left(s"Expected submission, got ${msg.getClass}")
     }
 
-  def openStateValue(envelopeBytes: Raw.Envelope): Either[String, Proto.DamlStateValue] =
+  def openStateValue(envelopeBytes: Raw.Envelope): Either[String, DamlStateValue] =
     open(envelopeBytes).flatMap {
       case StateValueMessage(entry) => Right(entry)
       case msg => Left(s"Expected state value, got ${msg.getClass}")
     }
 
-  def openStateValue(envelopeBytes: Array[Byte]): Either[String, Proto.DamlStateValue] =
+  def openStateValue(envelopeBytes: Array[Byte]): Either[String, DamlStateValue] =
     open(envelopeBytes).flatMap {
       case StateValueMessage(entry) => Right(entry)
       case msg => Left(s"Expected state value, got ${msg.getClass}")

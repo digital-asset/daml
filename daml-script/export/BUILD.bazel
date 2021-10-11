@@ -13,7 +13,6 @@ load(
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
-    "da_scala_library",
     "da_scala_test",
     "silencer_plugin",
 )
@@ -68,7 +67,10 @@ da_scala_test(
         "//ledger/test-common/test-certificates",
     ],
     scala_deps = [
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_freespec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_typelevel_paiges_core",
     ],
     visibility = ["//visibility:public"],
@@ -80,139 +82,6 @@ da_scala_test(
         "//language-support/scala/bindings",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
-)
-
-da_scala_test(
-    name = "integration-tests",
-    srcs = glob(["src/it/scala/**/*.scala"]),
-    data = [
-        "//compiler/damlc",
-        "//daml-script/daml:daml-script.dar",
-        "//ledger/test-common:dar-files",
-    ],
-    resources = glob(["src/test/resources/**/*"]),
-    scala_deps = [
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:io_spray_spray_json",
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":export",
-        "//:sdk-version-scala-lib",
-        "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
-        "//daml-lf/interpreter",
-        "//daml-lf/language",
-        "//daml-script/export/transaction-eq",
-        "//daml-script/runner:script-runner-lib",
-        "//language-support/scala/bindings",
-        "//ledger-api/rs-grpc-bridge",
-        "//ledger-api/testing-utils",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-client",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
-        "//ledger/ledger-resources",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
-        "//ledger/sandbox-common",
-        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
-        "//ledger/test-common",
-        "//libs-scala/fs-utils",
-        "//libs-scala/ports",
-        "//libs-scala/resources",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_netty_netty_handler",
-    ],
-)
-
-da_scala_binary(
-    name = "example-export-client",
-    srcs = ["src/example-export/scala/com/daml/script/export/ExampleClient.scala"],
-    main_class = "com.daml.script.export.ExampleClient",
-    scala_deps = [
-        "@maven//:com_github_scopt_scopt",
-    ],
-    deps = [
-        ":export",
-        "//daml-lf/data",
-        "//daml-script/runner:script-runner-lib",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-akka",
-        "//ledger/ledger-api-common",
-        "//libs-scala/auth-utils",
-        "//libs-scala/fs-utils",
-    ],
-)
-
-client_server_build(
-    name = "example-export",
-    outs = [
-        "example-export/Export.daml",
-        "example-export/args.json",
-        "example-export/daml.yaml",
-    ],
-    client = ":example-export-client",
-    client_files = ["//daml-script/test:script-test.dar"],
-    data = ["//daml-script/test:script-test.dar"],
-    output_env = "EXPORT_OUT",
-    server = "//ledger/sandbox:sandbox-binary",
-    server_args = [
-        "--port",
-        "0",
-    ],
-    server_files = ["//daml-script/test:script-test.dar"],
-)
-
-# Compare the generated Daml ledger export to the example export used in the
-# documentation. This functions as both a golden test on ledger exports and to
-# make sure that the documentation stays up-to-date.
-#
-# Normalizes the expected output by removing the copyright header and any
-# documentation import markers and normalizes the actual output by adding a
-# newline to the last line if missing.
-#
-# Normalizes the data-dependencies by replacing the SDK version, package-id
-# hashes with a placeholder, and Windows path separators by Unix separators.
-sh_inline_test(
-    name = "example-export-compare",
-    cmd = """\
-EXPECTED_EXPORT=$$(canonicalize_rlocation $(rootpath //docs:source/tools/export/output-root/Export.daml))
-EXPECTED_ARGS=$$(canonicalize_rlocation $(rootpath //docs:source/tools/export/output-root/args.json))
-EXPECTED_YAML=$$(canonicalize_rlocation $(rootpath //docs:source/tools/export/output-root/daml.yaml))
-ACTUAL_EXPORT=$$(canonicalize_rlocation $(rootpath :example-export/Export.daml))
-ACTUAL_ARGS=$$(canonicalize_rlocation $(rootpath :example-export/args.json))
-ACTUAL_YAML=$$(canonicalize_rlocation $(rootpath :example-export/daml.yaml))
-# Normalize the expected file by removing the copyright header and any documentation import markers.
-# Normalize the actual output by adding a newline to the last line if missing.
-$(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;/^-- EXPORT/d' $$EXPECTED_EXPORT) <($(POSIX_SED) '$$a\\' $$ACTUAL_EXPORT) || {{
-  echo "$$EXPECTED_EXPORT did not match $$ACTUAL_EXPORT"
-  exit 1
-}}
-$(POSIX_DIFF) -Naur --strip-trailing-cr $$EXPECTED_ARGS <($(POSIX_SED) '$$a\\' $$ACTUAL_ARGS) || {{
-  echo "$$EXPECTED_ARGS did not match $$ACTUAL_ARGS"
-  exit 1
-}}
-# Normalize the expected file by removing the copyright header and any documentation import markers.
-# Normalize the data-dependencies by replacing the SDK version, package-id hashes with a placeholder, and Windows path separators by Unix separators.
-$(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;s/[0-9a-f]\\{{64\\}}/HASH/;s/daml-\\(script\\|stdlib\\)-0\\.0\\.0/daml-\\1-{ghc_version}/' $$EXPECTED_YAML) <($(POSIX_SED) 's/[0-9a-f]\\{{64\\}}/HASH/;s,\\\\,/,g;$$a\\' $$ACTUAL_YAML) || {{
-  echo "$$EXPECTED_YAML did not match $$ACTUAL_YAML"
-  exit 1
-}}
-""".format(
-        ghc_version = ghc_version,
-    ),
-    data = [
-        ":example-export/Export.daml",
-        ":example-export/args.json",
-        ":example-export/daml.yaml",
-        "//docs:source/tools/export/output-root/Export.daml",
-        "//docs:source/tools/export/output-root/args.json",
-        "//docs:source/tools/export/output-root/daml.yaml",
-    ],
-    toolchains = ["@rules_sh//sh/posix:make_variables"],
 )

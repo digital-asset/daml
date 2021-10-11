@@ -43,9 +43,9 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eToTextTypeConName |
       eThrow |
       (id ^? builtinFunctions) ^^ EBuiltin |
+      experimental |
       caseOf |
       id ^^ EVar |
-      experimental |
       (`(` ~> expr <~ `)`)
 
   lazy val exprs: Parser[List[Expr]] = rep(expr0)
@@ -105,7 +105,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   private lazy val fieldInits: Parser[ImmArray[(Name, Expr)]] =
     repsep(fieldInit, `,`) ^^ ImmArray.apply
 
-  private lazy val typeArgs = rep(argTyp) ^^ (ImmArray(_))
+  private lazy val typeArgs = rep(argTyp) ^^ (_.to(ImmArray))
 
   private lazy val typeConApp = fullIdentifier ~ typeArgs ^^ { case tName ~ types =>
     TypeConApp(tName, types)
@@ -116,7 +116,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   private lazy val eNil = `nil` ~>! argTyp ^^ ENil
 
   private lazy val eCons = `cons` ~>! argTyp ~ (`[` ~> repsep(expr, `,`) <~ `]`) ~ expr0 ^^ {
-    case t ~ front ~ tail => ECons(t, ImmArray(front), tail)
+    case t ~ front ~ tail => ECons(t, front.to(ImmArray), tail)
   }
 
   private lazy val eOption = eNone | eSome
@@ -146,7 +146,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   private lazy val eVariantOrEnumCon: Parser[Expr] =
     fullIdentifier ~ (`:` ~> id) ~ rep(argTyp) ~ opt(expr0) ^^ {
       case tName ~ vName ~ argsTyp ~ Some(arg) =>
-        EVariantCon(TypeConApp(tName, ImmArray(argsTyp)), vName, arg)
+        EVariantCon(TypeConApp(tName, argsTyp.to(ImmArray)), vName, arg)
       case _ ~ _ ~ argsTyp ~ None if argsTyp.nonEmpty =>
         throw new java.lang.Error("enum type do not take type parameters")
       case tName ~ vName ~ _ ~ None =>
@@ -180,7 +180,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     }
 
   private lazy val bindings: Parser[ImmArray[Binding]] =
-    rep1sep(binding(`<-`), `;`) <~! `in` ^^ (s => ImmArray(s))
+    rep1sep(binding(`<-`), `;`) <~! `in` ^^ (_.to(ImmArray))
 
   private def binding(sep: Token): Parser[Binding] =
     id ~ (`:` ~> typ) ~ (sep ~> expr) ^^ { case vName ~ t ~ value =>
@@ -241,7 +241,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   private lazy val caseOf: Parser[Expr] =
     `case` ~>! expr ~ (`of` ~> repsep(alternative, `|`)) ^^ { case scrut ~ alts =>
-      ECase(scrut, ImmArray(alts))
+      ECase(scrut, alts.to(ImmArray))
     }
 
   private val builtinFunctions = Map(
@@ -296,7 +296,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "TEXT_TO_PARTY" -> BTextToParty,
     "TEXT_TO_INT64" -> BTextToInt64,
     "TEXT_TO_NUMERIC" -> BTextToNumeric,
-    "TEXT_POINTS_TO_CODE" -> BTextToCodePoints,
+    "TEXT_TO_CODE_POINTS" -> BTextToCodePoints,
     "ERROR" -> BError,
     "LESS_NUMERIC" -> BLessNumeric,
     "LESS_EQ_NUMERIC" -> BLessEqNumeric,
@@ -325,7 +325,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   )
 
   private lazy val experimental: Parser[Expr] =
-    `$` ~> id ~ typeParser.typ ^^ { case id ~ typ => EExperimental(id, typ) }
+    Id("experimental") ~>! id ~ typeParser.typ ^^ { case id ~ typ => EExperimental(id, typ) }
 
   /* Scenarios */
 

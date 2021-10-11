@@ -5,6 +5,7 @@ package com.daml
 
 import java.io.File
 import java.time.{Duration, Instant}
+import java.util.Arrays.asList
 import java.util.concurrent.TimeUnit
 import java.util.stream.{Collectors, StreamSupport}
 import java.util.{Optional, UUID}
@@ -17,6 +18,7 @@ import com.daml.ledger.api.v1.{ActiveContractsServiceGrpc, CommandServiceGrpc}
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data._
 import com.daml.ledger.resources.ResourceContext
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox
@@ -31,8 +33,6 @@ import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
 
-import java.util.Arrays.asList
-
 object TestUtil {
 
   def testDalf =
@@ -44,7 +44,7 @@ object TestUtil {
       testCode: Channel => Assertion
   )(implicit resourceContext: ResourceContext): Future[Assertion] = {
     val config = sandbox.DefaultConfig.copy(
-      seeding = Some(com.daml.ledger.participant.state.v1.SeedService.Seeding.Weak),
+      seeding = Some(Seeding.Weak),
       port = Port.Dynamic,
       damlPackages = List(testDalf),
       ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),

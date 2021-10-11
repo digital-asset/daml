@@ -45,7 +45,7 @@ private[platform] class DeduplicatingPackageLoader() {
           metric,
           delegate(packageId)
             .flatMap(archiveO =>
-              Future.fromTry(Try(archiveO.map(archive => Decode.decodeArchive(archive)._2)))
+              Future.fromTry(Try(archiveO.map(archive => Decode.assertDecodeArchive(archive)._2)))
             ),
         )
       future.onComplete {

@@ -9,6 +9,7 @@ import spray.json.{JsString, JsValue}
 
 import scala.concurrent.Future
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class HttpServiceWithPostgresIntTest
     extends AbstractHttpServiceIntegrationTest
     with PostgresAroundAll
@@ -18,20 +19,15 @@ class HttpServiceWithPostgresIntTest
 
   override def wsConfig: Option[WebsocketConfig] = None
 
-  // has to be lazy because jdbcConfig_ is NOT initialized yet
-  private lazy val dao = dbbackend.ContractDao(
-    jdbcDriver = jdbcConfig_.driver,
-    jdbcUrl = jdbcConfig_.url,
-    username = jdbcConfig_.user,
-    password = jdbcConfig_.password,
-  )
-
-  "query persists all active contracts" in withHttpService { (uri, encoder, _) =>
+  "query persists all active contracts" in withHttpService { (uri, encoder, _, _) =>
+    val (party, headers) = getUniquePartyAndAuthHeaders("Alice")
+    val searchDataSet = genSearchDataSet(party)
     searchExpectOk(
       searchDataSet,
       jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
       uri,
       encoder,
+      headers,
     ).flatMap { searchResult: List[domain.ActiveContract[JsValue]] =>
       discard { searchResult should have size 2 }
       discard { searchResult.map(getField("currency")) shouldBe List.fill(2)(JsString("EUR")) }
@@ -52,12 +48,11 @@ class HttpServiceWithPostgresIntTest
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def selectAllDbContracts
       : Future[List[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]] = {
-    import dao.logHandler
     import doobie.implicits._, doobie.postgres.implicits._
-    import dao.jdbcDriver._, queries.Implicits._
+    import dao.jdbcDriver.q.queries, queries.Implicits._
 
     val q =
-      sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text FROM contract"""
+      sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text FROM ${queries.contractTableName}"""
         .query[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]
 
     dao.transact(q.to[List]).unsafeToFuture()

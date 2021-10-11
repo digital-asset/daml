@@ -3,22 +3,24 @@
 
 package com.daml.ledger.client.services.commands
 
-import java.time.{Duration => JDuration}
+import java.time.Duration
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Concat, Flow, GraphDSL, Merge, Source}
 import akka.stream.{DelayOverflowStrategy, FlowShape, OverflowStrategy}
-import com.daml.ledger.api.v1.command_submission_service._
-import com.daml.ledger.api.v1.completion._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.client.services.commands.tracker.CommandTracker
+import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
+  CompletionFailure,
+  CompletionSuccess,
+}
+import com.daml.ledger.client.services.commands.tracker.{CommandTracker, TrackedCommandKey}
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable
 import scala.concurrent.Future
-import scala.concurrent.duration.{FiniteDuration, _}
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Try
 
 /** Tracks commands and emits results upon their completion or timeout.
@@ -30,34 +32,46 @@ object CommandTrackerFlow {
 
   final case class Materialized[SubmissionMat, Context](
       submissionMat: SubmissionMat,
-      trackingMat: Future[immutable.Map[String, Context]],
+      trackingMat: Future[immutable.Map[TrackedCommandKey, Context]],
   )
 
   def apply[Context, SubmissionMat](
-      commandSubmissionFlow: Flow[Ctx[(Context, String), SubmitRequest], Ctx[(Context, String), Try[
-        Empty
-      ]], SubmissionMat],
+      commandSubmissionFlow: Flow[
+        Ctx[(Context, TrackedCommandKey), CommandSubmission],
+        Ctx[(Context, TrackedCommandKey), Try[
+          Empty
+        ]],
+        SubmissionMat,
+      ],
       createCommandCompletionSource: LedgerOffset => Source[CompletionStreamElement, NotUsed],
       startingOffset: LedgerOffset,
-      maxDeduplicationTime: () => JDuration,
+      maximumCommandTimeout: Duration,
       backOffDuration: FiniteDuration = 1.second,
-  ): Flow[Ctx[Context, SubmitRequest], Ctx[Context, Completion], Materialized[
+      timeoutDetectionPeriod: FiniteDuration = 1.second,
+  ): Flow[Ctx[Context, CommandSubmission], Ctx[
+    Context,
+    Either[CompletionFailure, CompletionSuccess],
+  ], Materialized[
     SubmissionMat,
     Context,
   ]] = {
 
-    val trackerExternal = new CommandTracker[Context](maxDeduplicationTime)
+    val trackerExternal = new CommandTracker[Context](maximumCommandTimeout, timeoutDetectionPeriod)
 
     Flow.fromGraph(GraphDSL.create(commandSubmissionFlow, trackerExternal)(Materialized.apply) {
       implicit builder => (submissionFlow, tracker) =>
         import GraphDSL.Implicits._
 
-        val wrapResult = builder.add(Flow[Ctx[(Context, String), Try[Empty]]].map(Left.apply))
+        val wrapResult =
+          builder.add(Flow[Ctx[(Context, TrackedCommandKey), Try[Empty]]].map(Left.apply))
 
         val wrapCompletion = builder.add(Flow[CompletionStreamElement].map(Right.apply))
 
         val merge = builder.add(
-          Merge[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]](2, false)
+          Merge[Either[Ctx[(Context, TrackedCommandKey), Try[Empty]], CompletionStreamElement]](
+            inputPorts = 2,
+            eagerComplete = false,
+          )
         )
 
         val startAt = builder.add(Source.single(startingOffset))
@@ -74,7 +88,10 @@ object CommandTrackerFlow {
                 1,
                 { case e =>
                   logger.warn(
-                    s"Completion Stream failed with an error. Trying to recover in ${backOffDuration} ..",
+                    s"Completion Stream failed with an error. Trying to recover in $backOffDuration..."
+                  )
+                  logger.debug(
+                    s"Completion Stream failed with an error. Trying to recover in $backOffDuration...",
                     e,
                   )
                   delayedEmptySource(backOffDuration)

@@ -7,7 +7,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
 import com.daml.ledger.api.v1.ValueOuterClass;
-import com.daml.ledger.javaapi.data.Record;
+import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.codegen.ContractId;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
@@ -37,7 +37,7 @@ public class ParametrizedContractIdTest {
                                                 ValueOuterClass.Value.newBuilder()
                                                     .setContractId("SomeID"))))))
             .build();
-    Record dataRecord = Record.fromProto(protoRecord);
+    DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
     FixedContractId fromValue = FixedContractId.fromValue(dataRecord);
     FixedContractId fromConstructor =
         new FixedContractId(new ParametrizedContractId<>(new Foo.ContractId("SomeID")));

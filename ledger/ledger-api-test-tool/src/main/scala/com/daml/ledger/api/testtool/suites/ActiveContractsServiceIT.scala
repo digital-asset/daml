@@ -19,11 +19,13 @@ import com.daml.ledger.test.model.Test.{
   Dummy,
   DummyFactory,
   DummyWithParam,
+  WithObservers,
   Witnesses => TestWitnesses,
 }
 import io.grpc.Status
 import scalaz.syntax.tag._
 
+import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext
 
 class ActiveContractsServiceIT extends LedgerTestSuite {
@@ -39,7 +41,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     for {
       failure <- ledger.activeContracts(invalidRequest).mustFail("retrieving active contracts")
     } yield {
-      assertGrpcError(failure, Status.Code.NOT_FOUND, "not found. Actual Ledger ID")
+      assertGrpcError(failure, Status.Code.NOT_FOUND, Some("not found. Actual Ledger ID"))
     }
   })
 
@@ -375,6 +377,21 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
         s"Expected to receive 2 active contracts for $alice, but received ${aliceContracts.size}.",
       )
     }
+  })
+
+  test(
+    "ACSnoSignatoryObservers",
+    "The ActiveContractService should not return overlapping signatories and observers",
+    allocate(TwoParties),
+  )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
+    for {
+      _ <- ledger.create(alice, WithObservers(alice, Seq(alice, bob)))
+      contracts <- ledger.activeContracts(alice)
+      Seq(ce) = contracts
+    } yield assert(
+      ce.observers == Seq(bob),
+      s"Expected observers to only contain $bob, but received ${ce.observers}",
+    )
   })
 
   private def createDummyContracts(party: Party, ledger: ParticipantTestContext)(implicit

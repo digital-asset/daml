@@ -11,6 +11,7 @@ import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind
 import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.api.v1.value.Value.Sum
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Graphs
@@ -38,12 +39,14 @@ object TreeUtils {
   def contractsReferences(contracts: Iterable[CreatedEvent]): Set[PackageId] = {
     contracts
       .foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments)))
+      .filter(i => i.packageId.nonEmpty)
       .map(i => PackageId.assertFromString(i.packageId))
   }
 
   def treesReferences(transactions: Iterable[TransactionTree]): Set[PackageId] = {
     transactions
       .foldMap(treeRefs(_))
+      .filter(i => i.packageId.nonEmpty)
       .map(i => PackageId.assertFromString(i.packageId))
   }
 
@@ -237,16 +240,31 @@ object TreeUtils {
   object Command {
     def fromTree(tree: TransactionTree): Seq[Command] = {
       val contractKeys = mutable.HashMap.empty[ContractId, Value]
+      def addContractKey(createdEvent: CreatedEvent): Unit = {
+        createdEvent.contractKey.foreach { contractKey =>
+          contractKeys += ContractId(createdEvent.contractId) -> contractKey
+        }
+      }
+      def removeArchivedContractKey(exercisedEvent: ExercisedEvent): Unit = {
+        if (exercisedEvent.consuming) {
+          contractKeys -= ContractId(exercisedEvent.contractId)
+        }
+      }
+      def updateContractKeys(ev: Kind): Unit = {
+        traverseEventInTree(ev, tree) {
+          case (_, Kind.Empty) => ()
+          case (_, Kind.Created(createdEvent)) => addContractKey(createdEvent)
+          case (_, Kind.Exercised(exercisedEvent)) => removeArchivedContractKey(exercisedEvent)
+        }
+      }
       val rootEvents = tree.rootEventIds.map(tree.eventsById(_).kind)
       val commands = ListBuffer.empty[Command]
       rootEvents.foreach {
         case Kind.Empty =>
         case Kind.Created(createdEvent) =>
-          createdEvent.contractKey.foreach { contractKey =>
-            contractKeys += ContractId(createdEvent.contractId) -> contractKey
-          }
           commands += CreateCommand(createdEvent)
-        case Kind.Exercised(exercisedEvent) =>
+          addContractKey(createdEvent)
+        case ev @ Kind.Exercised(exercisedEvent) =>
           val optCreateAndExercise = commands.lastOption.flatMap {
             case CreateCommand(createdEvent)
                 if createdEvent.contractId == exercisedEvent.contractId =>
@@ -266,6 +284,7 @@ object TreeUtils {
                 case None => commands += ExerciseCommand(exercisedEvent)
               }
           }
+          updateContractKeys(ev)
       }
       commands.toSeq
     }
@@ -449,26 +468,59 @@ object TreeUtils {
     case Kind.Exercised(value) => valueRefs(value.getChoiceArgument.sum)
   }
 
+  /** All identifiers referenced by the given value that require a module import.
+    *
+    * Note, the package-id component of the identifier may be empty for stable packages
+    * as those are imported via daml-stdlib/daml-prim. E.g. DA.Time.Time incurred by Timestamp values.
+    */
   def valueRefs(v: Value.Sum): Set[Identifier] = v match {
     case Sum.Empty => Set()
     case Sum.Record(value) =>
-      Set(value.getRecordId).union(value.fields.foldMap(f => valueRefs(f.getValue.sum)))
-    case Sum.Variant(value) => Set(value.getVariantId).union(valueRefs(value.getValue.sum))
+      val fieldRefs = value.fields.foldMap(f => valueRefs(f.getValue.sum))
+      if (isTupleId(value.getRecordId)) {
+        fieldRefs
+      } else {
+        fieldRefs + value.getRecordId
+      }
+    case Sum.Variant(value) => valueRefs(value.getValue.sum) + value.getVariantId
     case Sum.ContractId(_) => Set()
     case Sum.List(value) => value.elements.foldMap(v => valueRefs(v.sum))
     case Sum.Int64(_) => Set()
     case Sum.Numeric(_) => Set()
     case Sum.Text(_) => Set()
-    case Sum.Timestamp(_) => Set()
+    case Sum.Timestamp(_) =>
+      Set(
+        Identifier().withModuleName("DA.Date").withEntityName("Date"),
+        Identifier().withModuleName("DA.Time").withEntityName("Time"),
+      )
     case Sum.Party(_) => Set()
     case Sum.Bool(_) => Set()
     case Sum.Unit(_) => Set()
-    case Sum.Date(_) => Set()
+    case Sum.Date(_) => Set(Identifier().withModuleName("DA.Date").withEntityName("Date"))
     case Sum.Optional(value) => value.value.foldMap(v => valueRefs(v.sum))
-    case Sum.Map(value) => value.entries.foldMap(e => valueRefs(e.getValue.sum))
+    case Sum.Map(value) =>
+      value.entries.foldMap(e => valueRefs(e.getValue.sum)) + Identifier()
+        .withModuleName("DA.TextMap")
+        .withEntityName("TextMap")
     case Sum.Enum(value) => Set(value.getEnumId)
     case Sum.GenMap(value) =>
-      value.entries.foldMap(e => valueRefs(e.getKey.sum).union(valueRefs(e.getValue.sum)))
+      value.entries.foldMap(e =>
+        valueRefs(e.getKey.sum).union(valueRefs(e.getValue.sum))
+      ) + Identifier().withModuleName("DA.Map").withEntityName("Map")
+  }
+
+  def isTupleId(id: Identifier): Boolean = {
+    val daTypesId = "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"
+    id.packageId == daTypesId && id.moduleName == "DA.Types" && id.entityName.startsWith("Tuple")
+  }
+
+  def isTupleRefId(name: Ref.Identifier): Boolean = {
+    isTupleId(
+      Identifier()
+        .withPackageId(name.packageId)
+        .withModuleName(name.qualifiedName.module.dottedName)
+        .withEntityName(name.qualifiedName.name.dottedName)
+    )
   }
 
   def valueCids(v: Value.Sum): Set[ContractId] = v match {

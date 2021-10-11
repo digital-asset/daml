@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.caching
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
+import com.daml.ledger.participant.state.kvutils.store.DamlStateKey
 
 /** Cache update policy that allows writing to-be-committed packages back to the cache and read
   * immutable values such as packages and party allocations from the ledger.

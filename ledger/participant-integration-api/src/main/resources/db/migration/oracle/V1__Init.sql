@@ -7,28 +7,16 @@
 
 -- subsequently dropped by V30__
 
--- custom array of varchar2 type used by several columns across tables
--- declaring upfront so this type is defined globally
-create type VARCHAR_ARRAY as VARRAY (32767) OF VARCHAR2(4000);
-/
-create type SMALLINT_ARRAY as VARRAY (32767) of SMALLINT;
-/
-create type BYTE_ARRAY_ARRAY as VARRAY (32767) of RAW(2000);
-/
-create type TIMESTAMP_ARRAY as VARRAY (32767) of TIMESTAMP;
-/
-create type BOOLEAN_ARRAY as VARRAY (32767) of NUMBER(1, 0);
-/
 CREATE TABLE parameters
 -- this table is meant to have a single row storing all the parameters we have
 (
     -- the generated or configured id identifying the ledger
     ledger_id                          NVARCHAR2(1000) not null,
     -- stores the head offset, meant to change with every new ledger entry
-    ledger_end                         VARCHAR2(4000)  null,
+    ledger_end                         VARCHAR2(4000),
+    external_ledger_end                NVARCHAR2(1000),
     participant_id                     NVARCHAR2(1000),
     participant_pruned_up_to_inclusive VARCHAR2(4000),
-    external_ledger_end                NVARCHAR2(1000),
     configuration                      BLOB
 );
 
@@ -93,9 +81,8 @@ CREATE TABLE packages
 -- Table for storing a log of ledger configuration changes and rejections.
 CREATE TABLE configuration_entries
 (
-    ledger_offset    VARCHAR2(4000)  not null,
-    recorded_at      timestamp       not null, -- with time zone
-
+    ledger_offset    VARCHAR2(4000)  not null primary key,
+    recorded_at      timestamp       not null,
     submission_id    NVARCHAR2(1000) not null,
     -- The type of entry, one of 'accept' or 'reject'.
     typ              NVARCHAR2(1000) not null,
@@ -129,7 +116,7 @@ CREATE TABLE party_entries
 (
     -- The ledger end at the time when the party allocation was added
     -- cannot BLOB add as primary key with oracle
-    ledger_offset    VARCHAR2(4000)  not null,
+    ledger_offset    VARCHAR2(4000)  primary key not null,
     recorded_at      timestamp       not null, --with timezone
     -- SubmissionId for the party allocation
     submission_id    NVARCHAR2(1000),
@@ -166,8 +153,8 @@ CREATE UNIQUE INDEX idx_party_entries
 
 CREATE TABLE package_entries
 (
-    ledger_offset    VARCHAR2(4000)  not null,
-    recorded_at      timestamp       not null, --with timezone
+    ledger_offset    VARCHAR2(4000)  not null primary key,
+    recorded_at      timestamp       not null,
     -- SubmissionId for package to be uploaded
     submission_id    NVARCHAR2(1000),
     -- The type of entry, one of 'accept' or 'reject'
@@ -193,15 +180,14 @@ CREATE TABLE participant_command_completions
     record_time       TIMESTAMP       not null,
 
     application_id    NVARCHAR2(1000) not null,
-    submitters        VARCHAR_ARRAY   not null,
+    submitters        CLOB NOT NULL CONSTRAINT ensure_json_submitters CHECK (submitters IS JSON),
     command_id        NVARCHAR2(1000) not null,
 
     transaction_id    NVARCHAR2(1000), -- null if the command was rejected and checkpoints
     status_code       INTEGER,         -- null for successful command and checkpoints
-    status_message    NVARCHAR2(1000)  -- null for successful command and checkpoints
+    status_message    CLOB  -- null for successful command and checkpoints
 );
 
--- TODO https://github.com/digital-asset/daml/issues/9493
 create index participant_command_completions_idx on participant_command_completions(completion_offset, application_id);
 
 ---------------------------------------------------------------------------------------------------
@@ -233,12 +219,12 @@ create table participant_events
     command_id                    VARCHAR2(1000),
     workflow_id                   VARCHAR2(1000),                                           -- null unless provided by a Ledger API call
     application_id                VARCHAR2(1000),
-    submitters                    VARCHAR_ARRAY,
+    submitters                    CLOB NOT NULL CONSTRAINT ensure_json_participant_submitters CHECK (submitters IS JSON),
 
     -- non-null iff this event is a create
     create_argument               BLOB,
-    create_signatories            VARCHAR_ARRAY,
-    create_observers              VARCHAR_ARRAY,
+    create_signatories            CLOB NOT NULL CONSTRAINT ensure_json_participant_create_signatories CHECK (create_signatories IS JSON),
+    create_observers              CLOB NOT NULL CONSTRAINT ensure_json_participant_create_observers CHECK (create_observers IS JSON),
     create_agreement_text         VARCHAR2(1000),                                           -- null if agreement text is not provided
     create_consumed_at            VARCHAR2(4000),                                           -- null if the contract created by this event is active
     create_key_value              BLOB,                                                     -- null if the contract created by this event has no key
@@ -248,11 +234,11 @@ create table participant_events
     exercise_choice               VARCHAR2(1000),
     exercise_argument             BLOB,
     exercise_result               BLOB,
-    exercise_actors               VARCHAR_ARRAY,
-    exercise_child_event_ids      VARCHAR_ARRAY,                                            -- event identifiers of consequences of this exercise
+    exercise_actors               CLOB NOT NULL CONSTRAINT ensure_json_participant_exercise_actors CHECK (exercise_actors IS JSON),
+    exercise_child_event_ids      CLOB NOT NULL CONSTRAINT ensure_json_participant_exercise_child_event_ids CHECK (exercise_child_event_ids IS JSON),                                            -- event identifiers of consequences of this exercise
 
-    flat_event_witnesses          VARCHAR_ARRAY                                   not null,
-    tree_event_witnesses          VARCHAR_ARRAY                                   not null,
+    flat_event_witnesses          CLOB NOT NULL CONSTRAINT ensure_json_participant_flat_event_witnesses CHECK (flat_event_witnesses IS JSON),
+    tree_event_witnesses          CLOB NOT NULL CONSTRAINT ensure_json_participant_tree_event_witnesses CHECK (tree_event_witnesses IS JSON),
 
     event_sequential_id           NUMBER GENERATED BY DEFAULT ON NULL AS IDENTITY not null,
     create_argument_compression   NUMBER,
@@ -280,9 +266,8 @@ create index participant_events_event_sequential_id on participant_events (event
 -- 5. we need this index to convert event_offset to event_sequential_id
 create index participant_events_event_offset on participant_events (event_offset);
 
--- TODO https://github.com/digital-asset/daml/issues/9493
--- create index participant_events_flat_event_witnesses_idx on participant_events (flat_event_witnesses);
--- create index participant_events_tree_event_witnesses_idx on participant_events (tree_event_witnesses);
+create index participant_events_flat_event_witnesses_idx on participant_events (JSON_ARRAY(flat_event_witnesses));
+create index participant_events_tree_event_witnesses_idx on participant_events (JSON_ARRAY(tree_event_witnesses));
 
 
 ---------------------------------------------------------------------------------------------------
@@ -303,7 +288,7 @@ create table participant_contracts
     create_argument              BLOB                        not null,
 
     -- the following fields are null for divulged contracts
-    create_stakeholders          VARCHAR_ARRAY,
+    create_stakeholders          CLOB NOT NULL CONSTRAINT ensure_json_create_stakeholders CHECK (create_stakeholders IS JSON),
     create_key_hash              VARCHAR2(4000),
     create_ledger_effective_time TIMESTAMP,
     create_argument_compression  SMALLINT
@@ -322,4 +307,3 @@ create table participant_contract_witnesses
     primary key (contract_id, contract_witness),
     foreign key (contract_id) references participant_contracts (contract_id)
 );
-

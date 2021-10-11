@@ -11,7 +11,7 @@ workspace(
 # NOTE(JM): Load external dependencies from deps.bzl.
 # Do not put "http_archive" and similar rules into this file. Put them into
 # deps.bzl. This allows using this repository as an external workspace.
-# (though with the caviat that that user needs to repeat the relevant bits of
+# (though with the caveat that that user needs to repeat the relevant bits of
 #  magic in this file, but at least right versions of external rules are picked).
 load("//:deps.bzl", "daml_deps")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
@@ -26,6 +26,14 @@ switched_rules_by_language(
 )
 
 rules_haskell_dependencies()
+
+load("@com_github_googleapis_googleapis//:repository_rules.bzl", "switched_rules_by_language")
+
+switched_rules_by_language(
+    name = "com_google_googleapis_imports",
+    grpc = True,
+    java = True,
+)
 
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
@@ -140,6 +148,15 @@ nixpkgs_package(
     # Remove once we upgrade to Bazel >=3.0. Until then `nix-build` output
     # confuses the JAR query in `daml-sdk-head`.
     quiet = True,
+    repositories = dev_env_nix_repos,
+)
+
+# Sysctl system dependency
+nixpkgs_package(
+    name = "sysctl_nix",
+    attribute_path = "sysctl",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 )
 

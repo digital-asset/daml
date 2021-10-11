@@ -10,36 +10,38 @@ import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.caching
-import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.auth.{AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.participant.state.kvutils.api.{
+  KeyValueParticipantStateReader,
+  KeyValueParticipantStateWriter,
+  TimedLedgerWriter,
+}
 import com.daml.ledger.participant.state.kvutils.caching._
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
-import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
+import com.daml.ledger.participant.state.v2.WritePackagesService
+import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.archive.DarReader
+import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.LanguageVersion
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver._
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.PartyConfiguration
+import com.daml.platform.configuration.{PartyConfiguration, SubmissionConfiguration}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
-import com.daml.platform.sandbox.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandboxnext.Runner._
 import com.daml.platform.services.time.TimeProviderType
@@ -52,8 +54,6 @@ import scalaz.syntax.tag._
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-import scala.util.Try
-
 /** Runs Sandbox with a KV SQL ledger backend.
   *
   * Known issues:
@@ -61,7 +61,7 @@ import scala.util.Try
   *   - does not support scenarios
   */
 class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
-  private val specifiedLedgerId: Option[v1.LedgerId] = config.ledgerIdMode match {
+  private val specifiedLedgerId: Option[LedgerId] = config.ledgerIdMode match {
     case LedgerIdMode.Static(ledgerId) =>
       Some(Ref.LedgerString.assertFromString(ledgerId.unwrap))
     case LedgerIdMode.Dynamic =>
@@ -79,6 +79,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       allowedLanguageVersions = languageVersions,
       profileDir = config.profileDir,
       stackTraceMode = config.stackTraces,
+      forbidV0ContractId = true,
     )
     new Engine(engineConfig)
   }
@@ -131,6 +132,10 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           metrics = metrics,
         )
 
+        authService = config.authService.getOrElse(AuthServiceWildcard)
+        servicesExecutionContext <- ResourceOwner.forExecutorService(() =>
+          ExecutionContext.fromExecutorService(Executors.newWorkStealingPool())
+        )
         apiServer <- ResettableResourceOwner[
           ResourceContext,
           ApiServer,
@@ -151,26 +156,33 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 ledgerId = ledgerId,
                 participantId = config.participantId,
                 metrics = metrics,
+                engine = engine,
                 jdbcUrl = ledgerJdbcUrl,
                 resetOnStartup = isReset,
-                timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
-                seedService = SeedService(config.seeding.get),
+                logEntryIdAllocator =
+                  new SeedServiceLogEntryIdAllocator(SeedService(config.seeding.get)),
                 stateValueCache = caching.WeightedCache.from(
                   caching.WeightedCache.Configuration(
                     maximumWeight = MaximumStateValueCacheSize
                   )
                 ),
-                engine = engine,
+                timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
               )
-              ledger = new KeyValueParticipantState(readerWriter, readerWriter, metrics)
-              readService = new TimedReadService(ledger, metrics)
-              writeService = new TimedWriteService(ledger, metrics)
-              healthChecks = new HealthChecks(
-                "read" -> readService,
-                "write" -> writeService,
+              readService = new TimedReadService(
+                KeyValueParticipantStateReader(readerWriter, metrics),
+                metrics,
               )
-              ledgerId <- ResourceOwner.forFuture(() =>
-                readService.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId)
+              writeService = new TimedWriteService(
+                new KeyValueParticipantStateWriter(
+                  new TimedLedgerWriter(readerWriter, metrics),
+                  metrics,
+                ) {
+                  override def isApiDeduplicationEnabled: Boolean = {
+                    // KV-only command deduplication doesn't support static time yet
+                    timeProviderType == TimeProviderType.Static
+                  }
+                },
+                metrics,
               )
               _ <-
                 if (isReset) {
@@ -182,10 +194,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     )
                     .map(_ => ())
                 }
-              servicesExecutionContext <- ResourceOwner
-                .forExecutorService(() => Executors.newWorkStealingPool())
-                .map(ExecutionContext.fromExecutorService)
-              _ <- new StandaloneIndexerServer(
+              indexer <- new StandaloneIndexerServer(
                 readService = readService,
                 config = IndexerConfig(
                   participantId = config.participantId,
@@ -197,13 +206,20 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     else IndexerStartupMode.MigrateAndStart,
                   eventsPageSize = config.eventsPageSize,
                   allowExistingSchema = true,
+                  enableAppendOnlySchema = config.enableAppendOnlySchema,
+                  enableCompression = config.enableCompression,
                 ),
                 servicesExecutionContext = servicesExecutionContext,
                 metrics = metrics,
                 lfValueTranslationCache = lfValueTranslationCache,
               )
-              authService = config.authService.getOrElse(AuthServiceWildcard)
-              promise = Promise[Unit]()
+              healthChecks = new HealthChecks(
+                "read" -> readService,
+                "write" -> writeService,
+                "indexer" -> indexer,
+              )
+              // Required to tie the loop between the API server and the reset service.
+              apiServerServicesClosed = Promise[Unit]()
               resetService = {
                 val clock = Clock.systemUTC()
                 val authorizer =
@@ -215,7 +231,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     // Otherwise we end up in deadlock, because the server won't shut down until
                     // all requests are completed.
                     reset()
-                    promise.future
+                    apiServerServicesClosed.future
                   },
                   authorizer,
                 )
@@ -229,29 +245,31 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   port = currentPort.getOrElse(config.port),
                   address = config.address,
                   jdbcUrl = indexJdbcUrl,
-                  // 16 DB connections has been shown to be sufficient for applications running on the sandbox
-                  databaseConnectionPoolSize = 16,
+                  databaseConnectionPoolSize = config.databaseConnectionPoolSize,
                   databaseConnectionTimeout = config.databaseConnectionTimeout,
                   tlsConfig = config.tlsConfig,
                   maxInboundMessageSize = config.maxInboundMessageSize,
+                  initialLedgerConfiguration = Some(config.initialLedgerConfiguration),
+                  configurationLoadTimeout = config.configurationLoadTimeout,
                   eventsPageSize = config.eventsPageSize,
                   portFile = config.portFile,
+                  // TODO append-only: augment the following defaults for enabling the features for sandbox next
                   seeding = config.seeding.get,
                   managementServiceTimeout = config.managementServiceTimeout,
-                  // TODO append-only: augment the following defaults for enabling the features for sandbox next
-                  enableAppendOnlySchema = false,
+                  enableAppendOnlySchema = config.enableAppendOnlySchema,
                   maxContractStateCacheSize = 0L,
                   maxContractKeyStateCacheSize = 0L,
                   enableMutableContractStateCache = false,
                   maxTransactionsInMemoryFanOutBufferSize = 0L,
                   enableInMemoryFanOutForLedgerApi = false,
+                  enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
                 ),
                 engine = engine,
                 commandConfig = config.commandConfig,
                 partyConfig = PartyConfiguration.default.copy(
                   implicitPartyAllocation = config.implicitPartyAllocation
                 ),
-                ledgerConfig = config.ledgerConfig,
+                submissionConfig = SubmissionConfiguration.default,
                 optWriteService = Some(writeService),
                 authService = authService,
                 healthChecks = healthChecks,
@@ -262,7 +280,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 servicesExecutionContext = servicesExecutionContext,
                 lfValueTranslationCache = lfValueTranslationCache,
               )
-              _ = promise.completeWith(apiServer.servicesClosed())
+              _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())
             } yield {
               Banner.show(Console.out)
               logger.withoutContext.info(
@@ -296,13 +314,9 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       executionContext: ExecutionContext
   ): Future[Unit] = DefaultTelemetry.runFutureInSpan(SpanName.RunnerUploadDar, SpanKind.Internal) {
     implicit telemetryContext =>
-      val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
+      val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
       for {
-        dar <- Future(
-          DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
-            .readArchiveFromFile(from)
-            .get
-        )
+        dar <- Future.fromTry(DarParser.readArchiveFromFile(from).toTry)
         _ <- to.uploadPackages(submissionId, dar.all, None).toScala
       } yield ()
   }

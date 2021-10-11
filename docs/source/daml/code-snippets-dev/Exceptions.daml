@@ -16,7 +16,7 @@ template Error
 exception MyException
   with
     field1 : Int
-    field2 : String
+    field2 : Text
   where
     message "MyException(" <> show field1 <> ", " <> show field2 <> ")"
 -- END_EXCEPTION
@@ -42,7 +42,7 @@ template Test with
            (ArithmeticError _) ->
              create Error with
                p = p
-               msg = "MyException"
+               msg = "ArithmeticError"
 -- END_TRY
 
 template T

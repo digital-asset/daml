@@ -7,13 +7,14 @@ import java.time.Duration
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v1.{Configuration, LedgerId, Offset, TimeModel}
 import com.daml.ledger.api.health.ReportsHealth
+import com.daml.ledger.configuration.{Configuration, LedgerId, LedgerTimeModel}
+import com.daml.ledger.offset.Offset
 
 /** Defines how a participant's state is read from the ledger.
   *
   * For a detailed description of the required semantics of state updates see
-  * [[com.daml.ledger.participant.state.v1.ReadService]].
+  * [[com.daml.ledger.participant.state.v2.ReadService]].
   * For a detailed description of the requirements on how offsets should be generated see
   * [[com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReader]].
   */
@@ -45,7 +46,7 @@ object LedgerReader {
     */
   val DefaultConfiguration: Configuration = Configuration(
     generation = 0,
-    timeModel = TimeModel.reasonableDefault,
+    timeModel = LedgerTimeModel.reasonableDefault,
     maxDeduplicationTime = Duration.ofDays(1),
   )
 }

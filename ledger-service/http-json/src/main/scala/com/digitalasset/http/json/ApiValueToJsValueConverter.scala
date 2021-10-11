@@ -19,9 +19,8 @@ class ApiValueToJsValueConverter(apiToLf: ApiValueToLfValueConverter.ApiValueToL
       .map(LfValueCodec.apiValueToJsValue)
       .leftMap(x => JsonError(x.shows))
 
-  def apiRecordToJsObject(a: lav1.value.Record): JsonError \/ JsObject = {
+  def apiRecordToJsObject[O >: JsObject](a: lav1.value.Record): JsonError \/ O =
     a.fields.toList.traverse(convertField).map(fs => JsObject(fs.toMap))
-  }
 
   private def convertField(field: lav1.value.RecordField): JsonError \/ (String, JsValue) =
     field.value match {

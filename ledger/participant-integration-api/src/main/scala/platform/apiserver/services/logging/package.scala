@@ -3,88 +3,97 @@
 
 package com.daml.platform.apiserver.services
 
-import java.time.Instant
-
 import com.daml.ledger.api.domain.{
-  ApplicationId,
-  CommandId,
   Commands,
   EventId,
+  LedgerId,
   LedgerOffset,
+  TransactionFilter,
   TransactionId,
-  WorkflowId,
 }
-import com.daml.ledger.api.v1.transaction_filter.Filters
-import net.logstash.logback.argument.StructuredArguments
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.logging._
+import com.daml.logging.entries.ToLoggingKey._
+import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingValue}
 import scalaz.syntax.tag.ToTagOps
 
 package object logging {
 
-  private[services] def parties(parties: Iterable[String]): (String, String) =
-    "parties" -> StructuredArguments.toString(parties.toArray)
-  private[services] def party(party: String): (String, String) =
-    "parties" -> StructuredArguments.toString(Array(party))
-  private[services] def actAs(parties: Iterable[String]): (String, String) =
-    "actAs" -> StructuredArguments.toString(parties.toArray)
-  private[services] def readAs(parties: Iterable[String]): (String, String) =
-    "readAs" -> StructuredArguments.toString(parties.toArray)
-  private[services] def startExclusive(o: LedgerOffset): (String, String) =
-    "startExclusive" -> offsetValue(o)
-  private[services] def endInclusive(o: Option[LedgerOffset]): (String, String) =
-    "endInclusive" -> nullableOffsetValue(o)
-  private[services] def offset(o: Option[LedgerOffset]): (String, String) =
-    "offset" -> nullableOffsetValue(o)
-  private[this] def nullableOffsetValue(o: Option[LedgerOffset]): String =
-    o.fold("")(offsetValue)
-  private[this] def offsetValue(o: LedgerOffset): String =
-    o match {
-      case LedgerOffset.Absolute(absolute) => absolute
-      case LedgerOffset.LedgerBegin => "%begin%"
-      case LedgerOffset.LedgerEnd => "%end%"
-    }
-  private[services] def applicationId(id: ApplicationId): (String, String) =
-    "applicationId" -> id.unwrap
-  private[services] def commandId(id: String): (String, String) =
+  private[services] def parties(partyNames: Iterable[Party]): LoggingEntry =
+    "parties" -> partyNames
+
+  private[services] def partyStrings(partyNames: Iterable[String]): LoggingEntry =
+    parties(partyNames.asInstanceOf[Iterable[Party]])
+
+  private[services] def party(partyName: Party): LoggingEntry =
+    "parties" -> Seq(partyName)
+
+  private[services] def partyString(partyName: String): LoggingEntry =
+    party(partyName.asInstanceOf[Party])
+
+  private[services] def actAs(partyNames: Iterable[Party]): LoggingEntry =
+    "actAs" -> partyNames
+
+  private[services] def actAsStrings(partyNames: Iterable[String]): LoggingEntry =
+    actAs(partyNames.asInstanceOf[Iterable[Party]])
+
+  private[services] def readAs(partyNames: Iterable[Party]): LoggingEntry =
+    "readAs" -> partyNames
+
+  private[services] def readAsStrings(partyNames: Iterable[String]): LoggingEntry =
+    readAs(partyNames.asInstanceOf[Iterable[Party]])
+
+  private[services] def startExclusive(offset: LedgerOffset): LoggingEntry =
+    "startExclusive" -> offset
+
+  private[services] def endInclusive(offset: Option[LedgerOffset]): LoggingEntry =
+    "endInclusive" -> offset
+
+  private[services] def offset(offset: Option[LedgerOffset]): LoggingEntry =
+    "offset" -> offset
+
+  private[services] def offset(offset: String): LoggingEntry =
+    "offset" -> offset
+
+  private[services] def ledgerId(id: LedgerId): LoggingEntry =
+    "ledgerId" -> id.unwrap
+
+  private[services] def commandId(id: String): LoggingEntry =
     "commandId" -> id
-  private[services] def commandId(id: CommandId): (String, String) =
-    "commandId" -> id.unwrap
-  private[services] def deduplicateUntil(t: Instant): (String, String) =
-    "deduplicateUntil" -> t.toString
-  private[services] def eventId(id: EventId): (String, String) =
+
+  private[services] def eventId(id: EventId): LoggingEntry =
     "eventId" -> id.unwrap
-  private[services] def filters(filtersByParty: Map[String, Filters]): Map[String, String] =
-    filtersByParty.iterator.flatMap { case (party, filters) =>
-      Iterator
-        .continually(s"party-$party")
-        .zip(
-          filters.inclusive.fold(Iterator.single("all-templates"))(
-            _.templateIds.iterator.map(_.toString)
-          )
-        )
-    }.toMap
-  private[services] def submissionId(id: String): (String, String) =
-    "submissionId" -> id
-  private[services] def submittedAt(t: Instant): (String, String) =
-    "submittedAt" -> t.toString
-  private[services] def transactionId(id: String): (String, String) =
-    "transactionId" -> id
-  private[services] def transactionId(id: TransactionId): (String, String) =
-    "transactionId" -> id.unwrap
-  private[services] def workflowId(id: String): (String, String) =
-    "workflowId" -> id
-  private[services] def workflowId(id: WorkflowId): (String, String) =
-    "workflowId" -> id.unwrap
-  private[services] def commands(cmds: Commands): Map[String, String] = {
-    val context =
-      Map(
-        commandId(cmds.commandId),
-        deduplicateUntil(cmds.deduplicateUntil),
-        applicationId(cmds.applicationId),
-        submittedAt(cmds.submittedAt),
-        actAs(cmds.actAs),
-        readAs(cmds.readAs),
+
+  private[services] def filters(
+      filters: TransactionFilter
+  ): LoggingEntry =
+    "filters" -> LoggingValue.Nested(
+      LoggingEntries.fromMap(
+        filters.filtersByParty.view.map { case (party, partyFilters) =>
+          party.toLoggingKey -> (partyFilters.inclusive match {
+            case None => LoggingValue.from("all-templates")
+            case Some(inclusiveFilters) => LoggingValue.from(inclusiveFilters.templateIds)
+          })
+        }.toMap
       )
-    cmds.workflowId.fold(context)(context + workflowId(_))
-  }
+    )
+
+  private[services] def submissionId(id: String): LoggingEntry =
+    "submissionId" -> id
+
+  private[services] def transactionId(id: String): LoggingEntry =
+    "transactionId" -> id
+
+  private[services] def transactionId(id: TransactionId): LoggingEntry =
+    "transactionId" -> id.unwrap
+
+  private[services] def workflowId(id: String): LoggingEntry =
+    "workflowId" -> id
+
+  private[services] def commands(cmds: Commands): LoggingEntry =
+    "commands" -> cmds
+
+  private[services] def verbose(v: Boolean): LoggingEntry =
+    "verbose" -> v
 
 }

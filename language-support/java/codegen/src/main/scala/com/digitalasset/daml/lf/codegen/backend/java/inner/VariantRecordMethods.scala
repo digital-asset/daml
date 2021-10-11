@@ -31,7 +31,7 @@ private[inner] object VariantRecordMethods extends StrictLogging {
             "return new $T($S, new $T($L))",
             classOf[javaapi.data.Variant],
             constructorName,
-            classOf[javaapi.data.Record],
+            classOf[javaapi.data.DamlRecord],
             name,
           ),
       )

@@ -3,19 +3,20 @@
 
 package com.daml.lf.data
 
-import FrontStack.{FQ, FQCons, FQEmpty, FQPrepend}
 import ScalazEqual.{orderBy, toIterableForScalazInstances}
-
 import scalaz.syntax.applicative._
 import scalaz.syntax.traverse._
 import scalaz.{Applicative, Order, Traverse}
 
 import scala.annotation.tailrec
+import scala.util.hashing.MurmurHash3
 
 /** A stack which allows to cons, prepend, and pop in constant time, and generate an ImmArray in linear time.
   * Very useful when needing to traverse stuff in topological order or similar situations.
   */
-final class FrontStack[+A] private (fq: FQ[A], val length: Int) {
+final class FrontStack[+A] private (fq: FrontStack.FQ[A], val length: Int) {
+
+  import FrontStack._
 
   /** O(n) */
   @throws[IndexOutOfBoundsException]
@@ -84,9 +85,7 @@ final class FrontStack[+A] private (fq: FQ[A], val length: Int) {
   }
 
   /** O(n) */
-  def map[B](f: A => B): FrontStack[B] = {
-    this.toImmArray.map(f) ++: FrontStack.empty
-  }
+  def map[B](f: A => B): FrontStack[B] = from(toImmArray.map(f))
 
   /** O(1) */
   def isEmpty: Boolean = length == 0
@@ -135,36 +134,20 @@ final class FrontStack[+A] private (fq: FQ[A], val length: Int) {
     case _ => false
   }
 
-  override def hashCode(): Int = toImmArray.hashCode()
+  override def hashCode(): Int =
+    MurmurHash3.orderedHash(toIterableForScalazInstances(iterator))
 
   /** O(n) */
   override def toString: String = "FrontStack(" + iterator.map(_.toString).mkString(",") + ")"
 }
 
 object FrontStack extends FrontStackInstances {
-  private[this] val emptySingleton: FrontStack[Nothing] = new FrontStack(FQEmpty, 0)
+  val Empty: FrontStack[Nothing] = new FrontStack(FQEmpty, 0)
 
-  def empty[A]: FrontStack[A] = emptySingleton
+  def empty[A]: FrontStack[A] = FrontStack.Empty
 
-  def apply[A](xs: ImmArray[A]): FrontStack[A] =
-    if (xs.length > 0) {
-      new FrontStack(FQPrepend(xs, FQEmpty), length = xs.length)
-    } else {
-      empty
-    }
-
-  def apply[T](element: T): FrontStack[T] =
-    new FrontStack(FQCons(element, FQEmpty), length = 1)
-
-  def apply[T](a: T, b: T): FrontStack[T] =
-    new FrontStack(FQCons(a, FQCons(b, FQEmpty)), length = 2)
-
-  // Slow; only use this in tests.
-  def apply[T](a: T, b: T, c: T, elements: T*): FrontStack[T] =
-    a +: b +: c +: apply(ImmArray(elements))
-
-  def apply[T](elements: Seq[T]): FrontStack[T] =
-    apply(ImmArray(elements))
+  def from[A](xs: ImmArray[A]): FrontStack[A] =
+    if (xs.isEmpty) Empty else new FrontStack(FQPrepend(xs, FQEmpty), length = xs.length)
 
   def unapply[T](xs: FrontStack[T]): Boolean = xs.isEmpty
 

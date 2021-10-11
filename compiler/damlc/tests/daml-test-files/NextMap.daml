@@ -4,7 +4,7 @@
 -- @ERROR could not parse "not-an-int" as 'Int'
 -- @ERROR could not parse "not-a-decimal" as 'Decimal'
 -- @SINCE-LF 1.3
--- @UNTIL-LF 1.8
+-- @UNTIL-LF-FEATURE DAML_GENMAP
 
 module NextMap where
 

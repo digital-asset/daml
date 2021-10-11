@@ -12,7 +12,6 @@ import com.daml.ledger.api.v1.command_completion_service.{
   CompletionStreamRequest => GrpcCompletionStreamRequest,
 }
 import com.daml.platform.server.api.validation.FieldValidations
-import com.daml.platform.server.util.context.TraceContextConversions.toBrave
 import io.grpc.StatusRuntimeException
 import com.daml.platform.server.api.validation.ErrorFactories._
 
@@ -24,7 +23,6 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
   def validateCompletionStreamRequest(
       request: GrpcCompletionStreamRequest,
       ledgerEnd: LedgerOffset.Absolute,
-      offsetOrdering: Ordering[LedgerOffset.Absolute],
   ): Either[StatusRuntimeException, CompletionStreamRequest] =
     for {
       _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
@@ -32,7 +30,7 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
       appId <- Ref.LedgerString
         .fromString(nonEmptyAppId)
         .left
-        .map(invalidField("application_id", _))
+        .map(invalidField("application_id", _, None))
       nonEmptyParties <- requireNonEmpty(request.parties, "parties")
       knownParties <- partyValidator.requireKnownParties(nonEmptyParties)
       convertedOffset <- LedgerOffsetValidator.validateOptional(request.offset, "offset")
@@ -40,7 +38,6 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
         "Begin",
         convertedOffset,
         ledgerEnd,
-        offsetOrdering,
       )
     } yield CompletionStreamRequest(
       ledgerId,
@@ -54,6 +51,6 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
   ): Either[StatusRuntimeException, completion.CompletionEndRequest] =
     for {
       ledgerId <- matchLedgerId(ledgerId)(LedgerId(req.ledgerId))
-    } yield completion.CompletionEndRequest(ledgerId, req.traceContext.map(toBrave))
+    } yield completion.CompletionEndRequest(ledgerId)
 
 }

@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.v1
 
 import com.daml.lf.crypto
 import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.transaction.NodeId
 
 /** Meta-data of a transaction visible to all parties that can see a part of
   * the transaction.
@@ -34,7 +35,7 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
   */
 final case class TransactionMeta(
     ledgerEffectiveTime: Time.Timestamp,
-    workflowId: Option[WorkflowId],
+    workflowId: Option[Ref.WorkflowId],
     submissionTime: Time.Timestamp,
     submissionSeed: crypto.Hash,
     optUsedPackages: Option[Set[Ref.PackageId]],

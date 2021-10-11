@@ -12,7 +12,6 @@ import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsRespons
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.trace_context.TraceContext
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.client.services.acs.ActiveContractSetClient
@@ -30,7 +29,6 @@ trait TestHelper {
 
   val ledgerId: String = "ledger-server"
   val applicationId: String = "app1"
-  val traceContext = Some(TraceContext(1L, 2L, 3L, Some(4L)))
 
   val party = "party"
   val rangeOfIntsTemplateId =
@@ -71,7 +69,7 @@ trait TestHelper {
       party = party,
       commands = Seq(Command(command)),
     )
-    SubmitAndWaitRequest(Some(commands), traceContext = traceContext)
+    SubmitAndWaitRequest(Some(commands))
   }
 
   def rangeOfIntsCreateCommand(

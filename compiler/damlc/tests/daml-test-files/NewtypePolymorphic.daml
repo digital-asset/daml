@@ -4,6 +4,8 @@
 
 module NewtypePolymorphic where
 
+import DA.Assert
+
 newtype T a = T a
 
 mkT : a -> T a
@@ -13,4 +15,4 @@ unT : T a -> a
 unT (T x) = x
 
 main = scenario do
-  assert (unT (mkT 1) == 1)
+  unT (mkT 1) === 1

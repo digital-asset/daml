@@ -1,9 +1,11 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=9:22-9:39; Use catOptionals
+-- @INFO range=11:22-11:39; Use catOptionals
 
 module ActionFail where
+
+import DA.Assert
 
 catOptionalsComp : [Optional a] -> [a]
 catOptionalsComp l = [x | Some x <- l]
@@ -14,7 +16,5 @@ catOptionalsMonad l = do
   return x
 
 main = scenario do
-  alice <- getParty "alice"
-  submit alice do
-    assert $ catOptionalsComp [None,Some 1,Some 2] == [1,2]
-    assert $ catOptionalsMonad [None,Some 1,Some 2] == [1,2]
+  catOptionalsComp [None,Some 1,Some 2] === [1,2]
+  catOptionalsMonad [None,Some 1,Some 2] === [1,2]

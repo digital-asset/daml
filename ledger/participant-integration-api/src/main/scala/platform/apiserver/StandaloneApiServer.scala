@@ -14,16 +14,18 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId, SeedService, WriteService}
+import com.daml.ledger.configuration.LedgerId
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.{
   CommandConfiguration,
-  LedgerConfiguration,
   PartyConfiguration,
   ServerRole,
+  SubmissionConfiguration,
 }
 import com.daml.platform.index.JdbcIndex
 import com.daml.platform.packages.InMemoryPackageStore
@@ -34,18 +36,16 @@ import io.grpc.{BindableService, ServerInterceptor}
 import scalaz.{-\/, \/-}
 
 import scala.collection.immutable
-import scala.concurrent.{ExecutionContextExecutor}
+import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
 
-// Main entry point to start an index server that also hosts the ledger API.
-// See v2.ReferenceServer on how it is used.
 final class StandaloneApiServer(
     ledgerId: LedgerId,
     config: ApiServerConfig,
     commandConfig: CommandConfiguration,
     partyConfig: PartyConfiguration,
-    ledgerConfig: LedgerConfiguration,
-    optWriteService: Option[WriteService],
+    submissionConfig: SubmissionConfiguration,
+    optWriteService: Option[state.WriteService],
     authService: AuthService,
     healthChecks: HealthChecks,
     metrics: Metrics,
@@ -61,7 +61,7 @@ final class StandaloneApiServer(
   private val logger = ContextualizedLogger.get(this.getClass)
 
   // Name of this participant,
-  val participantId: ParticipantId = config.participantId
+  val participantId: Ref.ParticipantId = config.participantId
 
   override def acquire()(implicit context: ResourceContext): Resource[ApiServer] = {
     val packageStore = loadDamlPackages()
@@ -79,6 +79,7 @@ final class StandaloneApiServer(
           databaseConnectionPoolSize = config.databaseConnectionPoolSize,
           databaseConnectionTimeout = config.databaseConnectionTimeout,
           eventsPageSize = config.eventsPageSize,
+          eventsProcessingParallelism = config.eventsProcessingParallelism,
           servicesExecutionContext = servicesExecutionContext,
           metrics = metrics,
           lfValueTranslationCache = lfValueTranslationCache,
@@ -105,15 +106,18 @@ final class StandaloneApiServer(
           timeServiceBackend.fold[TimeProviderType](TimeProviderType.WallClock)(_ =>
             TimeProviderType.Static
           ),
-        ledgerConfiguration = ledgerConfig,
+        configurationLoadTimeout = config.configurationLoadTimeout,
+        initialLedgerConfiguration = config.initialLedgerConfiguration,
         commandConfig = commandConfig,
         partyConfig = partyConfig,
+        submissionConfig = submissionConfig,
         optTimeServiceBackend = timeServiceBackend,
         servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
         healthChecks = healthChecksWithIndexService,
         seedService = SeedService(config.seeding),
         managementServiceTimeout = config.managementServiceTimeout,
+        enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(
@@ -151,9 +155,6 @@ final class StandaloneApiServer(
           packageContainer.getLfPackageSync,
           { _ =>
             sys.error("Unexpected request of contract key")
-          },
-          { _ =>
-            sys.error("Unexpected request of local contract key visibility")
           },
         )
       ()

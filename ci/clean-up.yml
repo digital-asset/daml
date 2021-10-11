@@ -10,11 +10,48 @@ steps:
     exec 1> >(while IFS= read -r line; do echo "$(date -uIs) [out]: $line"; done)
     exec 2> >(while IFS= read -r line; do echo "$(date -uIs) [err]: $line"; done >&2)
 
+    ## START temp debug
+    UNAME=$(uname)
+
+    case "$UNAME" in
+    Darwin)
+      MPS="/var/tmp/_bazel_vsts /Users/vsts/.bazel-cache"
+      CMD="hdiutil info"
+      ;;
+    Linux)
+      MPS="/home/vsts/.cache/bazel /home/vsts/.bazel-cache"
+      CMD="mount"
+      ;;
+    *)
+      echo "Unexpected uname: $UNAME"
+      MPS=
+      ;;
+    esac
+
+    for path in $MPS; do
+      if ! ($CMD | grep -F "$path"); then
+        echo "$path is not a mount point, forcing cache reset"
+        $HOME/reset_caches.sh
+        echo "Done."
+      fi
+    done
+    ## END temp debug
+
     df -h .
-    if [ $(df -m . | sed 1d | awk '{print $4}') -lt 50000 ]; then
+    if [ $(df -m . | sed 1d | awk '{print $4}') -lt 80000 ]; then
         echo "Disk full, cleaning up..."
         $HOME/reset_caches.sh
         echo "Done."
         df -h .
     fi
+
+    ## More temp debugging
+    for path in $MPS; do
+      if ! ($CMD | grep -F "$path"); then
+        echo "$path is not a mount point, forcing cache reset"
+        $HOME/reset_caches.sh
+        echo "Done."
+      fi
+    done
+    ## End more debugging
   displayName: clean-up disk cache

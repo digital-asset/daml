@@ -11,7 +11,7 @@ public abstract class Value {
   public static Value fromProto(ValueOuterClass.Value value) {
     switch (value.getSumCase()) {
       case RECORD:
-        return Record.fromProto(value.getRecord());
+        return DamlRecord.fromProto(value.getRecord());
       case VARIANT:
         return Variant.fromProto(value.getVariant());
       case ENUM:
@@ -53,8 +53,8 @@ public abstract class Value {
     return (this instanceof Bool) ? Optional.of((Bool) this) : Optional.empty();
   }
 
-  public final Optional<Record> asRecord() {
-    return (this instanceof Record) ? Optional.of((Record) this) : Optional.empty();
+  public final Optional<DamlRecord> asRecord() {
+    return (this instanceof DamlRecord) ? Optional.of((DamlRecord) this) : Optional.empty();
   }
 
   public final Optional<Variant> asVariant() {
@@ -114,7 +114,8 @@ public abstract class Value {
     return (this instanceof DamlTextMap) ? Optional.of((DamlTextMap) this) : Optional.empty();
   }
 
-  @Deprecated // Use Value::asTextMap
+  /** Use {@link Value#asTextMap()} */
+  @Deprecated
   public final Optional<DamlTextMap> asMap() {
     return asTextMap();
   }

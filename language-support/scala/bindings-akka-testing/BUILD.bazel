@@ -15,7 +15,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
     ],
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_slf4j",
@@ -30,5 +30,6 @@ da_scala_library(
     deps = [
         "//ledger-api/rs-grpc-bridge",
         "@maven//:com_typesafe_config",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

@@ -126,7 +126,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
     val t_int64List = TApp(TBuiltin(BTList), t_int64)
     val list = ECons(
       t_int64List,
-      ImmArray((1 to 100000).map(i => EPrimLit(PLInt64(i.toLong)))),
+      (1 to 100000).map(i => EPrimLit(PLInt64(i.toLong))).to(ImmArray),
       ENil(t_int64List),
     )
     var machine: Speedy.Machine = null
@@ -198,6 +198,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
                   ),
                   templates = Map.empty,
                   exceptions = Map.empty,
+                  interfaces = List.empty,
                   featureFlags = FeatureFlags.default,
                 )
               ),
@@ -217,6 +218,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
                 definitions = Map.empty,
                 templates = Map.empty,
                 exceptions = Map.empty,
+                interfaces = List.empty,
                 featureFlags = FeatureFlags.default,
               )
             ),
@@ -231,7 +233,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
       val machine = Speedy.Machine.fromPureExpr(pkgs1, EVal(ref))
       val result = machine.run()
       result match {
-        case SResultNeedPackage(pkgId, cb) =>
+        case SResultNeedPackage(pkgId, _, cb) =>
           ref.packageId shouldBe pkgId
           cb(pkgs2)
           val result = machine.run()
@@ -246,7 +248,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
       val machine = Speedy.Machine.fromPureExpr(pkgs1, EVal(ref))
       val result = machine.run()
       result match {
-        case SResultNeedPackage(pkgId, cb) =>
+        case SResultNeedPackage(pkgId, _, cb) =>
           ref.packageId shouldBe pkgId
           try {
             cb(pkgs3)

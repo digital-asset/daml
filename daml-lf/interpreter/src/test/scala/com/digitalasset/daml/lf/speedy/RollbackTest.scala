@@ -8,7 +8,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.language.Ast.{Package, Expr, PrimLit, PLParty, EPrimLit, EApp}
-import com.daml.lf.language.{LanguageVersion, Interface}
+import com.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.PartialTransaction.{CompleteTransaction, IncompleteTransaction, LeafNode}
 import com.daml.lf.speedy.SResult.SResultFinalValue
@@ -30,7 +30,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
   implicit val defaultParserParameters: ParserParameters[this.type] = {
     ParserParameters(
-      defaultPackageId = Ref.PackageId.assertFromString("-pkgId-"),
+      defaultPackageId = Ref.PackageId.assertFromString("pkgId"),
       languageVersion = LanguageVersion.v1_dev,
     )
   }
@@ -38,7 +38,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
   private def typeAndCompile(pkg: Package): PureCompiledPackages = {
     import defaultParserParameters.defaultPackageId
     val rawPkgs = Map(defaultPackageId -> pkg)
-    Validation.checkPackage(Interface(rawPkgs), defaultPackageId, pkg)
+    Validation.checkPackage(PackageInterface(rawPkgs), defaultPackageId, pkg)
     val compilerConfig = Compiler.Config.Dev.copy(stacktracing = FullStackTrace)
     PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
   }
@@ -55,7 +55,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
           onLedger.ptx.finish match {
             case IncompleteTransaction(_) =>
               sys.error("unexpected IncompleteTransaction")
-            case CompleteTransaction(tx) =>
+            case CompleteTransaction(tx, _, _) =>
               tx
           }
         }
@@ -262,18 +262,18 @@ object ExceptionTest {
   private def shapeOfTransaction(tx: SubmittedTransaction): List[Tree] = {
     def trees(nid: NodeId): List[Tree] = {
       tx.nodes(nid) match {
-        case create: NodeCreate[_] =>
+        case create: NodeCreate =>
           create.arg match {
-            case ValueRecord(_, ImmArray(_, (Some("info"), ValueInt64(n)))) =>
+            case ValueRecord(_, ImmArray(_, (None, ValueInt64(n)))) =>
               List(C(n))
             case _ =>
               sys.error(s"unexpected create.arg: ${create.arg}")
           }
         case _: LeafNode =>
           Nil
-        case node: NodeExercises[_, _] =>
+        case node: NodeExercises =>
           List(X(node.children.toList.flatMap(nid => trees(nid))))
-        case node: NodeRollback[_] =>
+        case node: NodeRollback =>
           List(R(node.children.toList.flatMap(nid => trees(nid))))
       }
     }

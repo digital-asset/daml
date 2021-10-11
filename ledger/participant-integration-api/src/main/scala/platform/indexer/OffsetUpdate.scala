@@ -3,29 +3,29 @@
 
 package com.daml.platform.indexer
 
-import com.daml.ledger.participant.state.v1.Update.TransactionAccepted
-import com.daml.ledger.participant.state.v1.{Offset, Update}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 
 sealed trait OffsetUpdate extends Product with Serializable {
   def offsetStep: OffsetStep
-  def update: Update
+  def update: state.Update
 }
 
 object OffsetUpdate {
-  def unapply(offsetUpdate: OffsetUpdate): Some[(OffsetStep, Update)] =
+  def unapply(offsetUpdate: OffsetUpdate): Some[(OffsetStep, state.Update)] =
     Some((offsetUpdate.offsetStep, offsetUpdate.update))
 
-  def apply(offsetStep: OffsetStep, update: Update): OffsetUpdate =
+  def apply(offsetStep: OffsetStep, update: state.Update): OffsetUpdate =
     OffsetUpdateImpl(offsetStep, update)
 
   final case class PreparedTransactionInsert(
       offsetStep: OffsetStep,
-      update: TransactionAccepted,
+      update: state.Update.TransactionAccepted,
       preparedInsert: PreparedInsert,
   ) extends OffsetUpdate
 
-  private final case class OffsetUpdateImpl(offsetStep: OffsetStep, update: Update)
+  private final case class OffsetUpdateImpl(offsetStep: OffsetStep, update: state.Update)
       extends OffsetUpdate
 }
 

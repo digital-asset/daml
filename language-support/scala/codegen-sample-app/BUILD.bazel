@@ -39,7 +39,6 @@ dar_to_scala(
     ],
     package_prefix = "com.daml.sample",
     srcjar_out = "MyMain.srcjar",
-    verbosity = 2,
 )
 
 da_scala_library(
@@ -111,7 +110,7 @@ da_scala_test(
     ),
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
@@ -153,10 +152,10 @@ da_scala_test(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
-        "//ledger/participant-state",
         "//ledger/sandbox-classic",
         "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
         "//ledger/sandbox-common",

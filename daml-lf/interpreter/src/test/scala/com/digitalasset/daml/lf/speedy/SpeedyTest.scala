@@ -25,6 +25,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
 
   import SpeedyTest._
   import defaultParserParameters.{defaultPackageId => pkgId}
+
   def qualify(name: String) = Identifier(pkgId, QualifiedName.assertFromString(name))
 
   val pkgs = typeAndCompile(p"")
@@ -517,7 +518,7 @@ object SpeedyTest {
   private def typeAndCompile(pkg: Package): PureCompiledPackages = {
     import defaultParserParameters.defaultPackageId
     val rawPkgs = Map(defaultPackageId -> pkg)
-    Validation.checkPackage(language.Interface(rawPkgs), defaultPackageId, pkg)
+    Validation.checkPackage(language.PackageInterface(rawPkgs), defaultPackageId, pkg)
     val compilerConfig = Compiler.Config.Default.copy(stacktracing = FullStackTrace)
     PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
   }

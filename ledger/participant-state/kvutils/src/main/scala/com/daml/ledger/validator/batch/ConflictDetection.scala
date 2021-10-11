@@ -3,15 +3,14 @@
 
 package com.daml.ledger.validator.batch
 
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry.PayloadCase._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntry,
-  DamlStateKey,
-  DamlStateValue,
-}
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.lf.value.ValueCoder
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+
+import scala.annotation.nowarn
 
 class ConflictDetection(val damlMetrics: Metrics) {
   private val logger = ContextualizedLogger.get(getClass)
@@ -123,6 +122,7 @@ class ConflictDetection(val damlMetrics: Metrics) {
       }
       .getOrElse("Unspecified conflict")
 
+  @nowarn("msg=deprecated")
   private def transactionRejectionEntryFrom(
       logEntry: DamlLogEntry,
       reason: String,

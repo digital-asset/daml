@@ -3,28 +3,50 @@
 
 package com.daml.platform.store
 
-import java.sql.{Connection, JDBCType, PreparedStatement, Timestamp, Types}
+import java.io.BufferedReader
+import java.sql.{PreparedStatement, Timestamp, Types}
 import java.time.Instant
 import java.util.Date
+import java.util.concurrent.TimeUnit
+import java.util.stream.Collectors
 
 import anorm.Column.nonNull
 import anorm._
-import com.daml.ledger.EventId
 import com.daml.ledger.api.domain
-import com.daml.ledger.participant.state.v1.RejectionReasonV0._
-import com.daml.ledger.participant.state.v1.{Offset, RejectionReasonV0}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.Update.CommandRejected
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
-import com.zaxxer.hikari.pool.HikariProxyConnection
-import io.grpc.Status.Code
+import spray.json.DefaultJsonProtocol._
+import com.google.rpc.status.{Status => RpcStatus}
+import io.grpc.Status
+import spray.json._
 
-import scala.language.implicitConversions
+// TODO append-only: split this file on cleanup, and move anorm/db conversion related stuff to the right place
 
 private[platform] object OracleArrayConversions {
-  import oracle.jdbc.OracleConnection
+  implicit object PartyJsonFormat extends RootJsonFormat[Ref.Party] {
+    def write(c: Ref.Party) =
+      JsString(c)
 
+    def read(value: JsValue) = value match {
+      case JsString(s) => s.asInstanceOf[Ref.Party]
+      case _ => deserializationError("Party expected")
+    }
+  }
+
+  implicit object LedgerStringJsonFormat extends RootJsonFormat[Ref.LedgerString] {
+    def write(c: Ref.LedgerString) =
+      JsString(c)
+
+    def read(value: JsValue) = value match {
+      case JsString(s) => s.asInstanceOf[Ref.LedgerString]
+      case _ => deserializationError("Ledger string expected")
+    }
+  }
   implicit object StringArrayParameterMetadata extends ParameterMetaData[Array[String]] {
     override def sqlType: String = "ARRAY"
     override def jdbcType: Int = java.sql.Types.ARRAY
@@ -37,90 +59,6 @@ private[platform] object OracleArrayConversions {
     val jdbcType = Types.INTEGER
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  abstract sealed class ArrayToStatement[T](oracleTypeName: String)
-      extends ToStatement[Array[T]]
-      with NotNullGuard {
-    override def set(s: PreparedStatement, index: Int, v: Array[T]): Unit = {
-      if (v == (null: AnyRef)) {
-        s.setNull(index, JDBCType.ARRAY.getVendorTypeNumber, oracleTypeName)
-      } else {
-        s.setObject(
-          index,
-          unwrapConnection(s).createARRAY(oracleTypeName, v.asInstanceOf[Array[AnyRef]]),
-          JDBCType.ARRAY.getVendorTypeNumber,
-        )
-      }
-    }
-  }
-
-  implicit object ByteArrayArrayToStatement
-      extends ArrayToStatement[Array[Byte]]("BYTE_ARRAY_ARRAY")
-
-  implicit object TimestampArrayToStatement extends ArrayToStatement[Timestamp]("TIMESTAMP_ARRAY")
-
-  implicit object RefPartyArrayToStatement extends ArrayToStatement[Ref.Party]("VARCHAR_ARRAY")
-
-  implicit object CharArrayToStatement extends ArrayToStatement[String]("VARCHAR_ARRAY")
-
-  implicit object IntegerArrayToStatement extends ArrayToStatement[Integer]("SMALLINT_ARRAY")
-
-  implicit object BooleanArrayToStatement
-      extends ArrayToStatement[java.lang.Boolean]("BOOLEAN_ARRAY")
-
-  implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {
-      s.setObject(
-        index,
-        unwrapConnection(s).createARRAY("TIMESTAMP_ARRAY", v.map(java.sql.Timestamp.from)),
-        JDBCType.ARRAY.getVendorTypeNumber,
-      )
-    }
-  }
-
-  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  implicit object StringOptionArrayArrayToStatement extends ToStatement[Option[Array[String]]] {
-    override def set(s: PreparedStatement, index: Int, stringOpts: Option[Array[String]]): Unit = {
-      stringOpts match {
-        case None => s.setNull(index, JDBCType.ARRAY.getVendorTypeNumber, "VARCHAR_ARRAY")
-        case Some(arr) =>
-          s.setObject(
-            index,
-            unwrapConnection(s)
-              .createARRAY("VARCHAR_ARRAY", arr.asInstanceOf[Array[AnyRef]]),
-            JDBCType.ARRAY.getVendorTypeNumber,
-          )
-      }
-    }
-  }
-
-  object IntToSmallIntConversions {
-
-    implicit object IntOptionArrayArrayToStatement extends ToStatement[Array[Option[Int]]] {
-      override def set(s: PreparedStatement, index: Int, intOpts: Array[Option[Int]]): Unit = {
-        val intOrNullsArray = intOpts.map(_.map(new Integer(_)).orNull)
-        s.setObject(
-          index,
-          unwrapConnection(s)
-            .createARRAY("SMALLINT_ARRAY", intOrNullsArray.asInstanceOf[Array[AnyRef]]),
-          JDBCType.ARRAY.getVendorTypeNumber,
-        )
-      }
-    }
-  }
-
-  private def unwrapConnection[T](s: PreparedStatement): OracleConnection = {
-    s.getConnection match {
-      case hikari: HikariProxyConnection =>
-        hikari.unwrap(classOf[OracleConnection])
-      case oracle: OracleConnection =>
-        oracle
-      case c: Connection =>
-        sys.error(
-          s"Unsupported connection type for creating Oracle integer array: ${c.getClass.getSimpleName}"
-        )
-    }
-  }
 }
 
 private[platform] object JdbcArrayConversions {
@@ -216,6 +154,49 @@ private[platform] object Conversions {
     }
   }
 
+  object DefaultImplicitArrayColumn {
+    val default = Column.of[Array[String]]
+  }
+
+  object ArrayColumnToStringArray {
+    // This is used to allow us to convert oracle CLOB fields storing JSON text into Array[String].
+    // We first summon the default Anorm column for an Array[String], and run that - this preserves
+    // the behavior PostgreSQL is expecting. If that fails, we then try our Oracle specific deserialization
+    // strategies
+
+    implicit val arrayColumnToStringArray: Column[Array[String]] = nonNull { (value, meta) =>
+      DefaultImplicitArrayColumn.default(value, meta) match {
+        case Right(value) => Right(value)
+        case Left(_) =>
+          val MetaDataItem(qualified, _, _) = meta
+          value match {
+            case jsonArrayString: String =>
+              Right(jsonArrayString.parseJson.convertTo[Array[String]])
+            case clob: java.sql.Clob =>
+              try {
+                val reader = clob.getCharacterStream
+                val br = new BufferedReader(reader)
+                val jsonArrayString = br.lines.collect(Collectors.joining)
+                reader.close
+                Right(jsonArrayString.parseJson.convertTo[Array[String]])
+              } catch {
+                case e: Throwable =>
+                  Left(
+                    TypeDoesNotMatch(
+                      s"Cannot convert $value: received CLOB but failed to deserialize to " +
+                        s"string array for column $qualified. Error message: ${e.getMessage}"
+                    )
+                  )
+              }
+            case _ =>
+              Left(
+                TypeDoesNotMatch(s"Cannot convert $value: to string array for column $qualified")
+              )
+          }
+      }
+    }
+  }
+
   // PackageId
 
   implicit val columnToPackageId: Column[Ref.PackageId] =
@@ -283,10 +264,10 @@ private[platform] object Conversions {
   def contractId(columnName: String): RowParser[Value.ContractId] =
     SqlParser.get[Value.ContractId](columnName)(columnToContractId)
 
-  def flatEventWitnessesColumn(columnName: String): RowParser[Set[Party]] =
+  def flatEventWitnessesColumn(columnName: String): RowParser[Set[Ref.Party]] =
     SqlParser
-      .get[Array[String]](columnName)(Column.columnToArray)
-      .map(_.iterator.map(Party.assertFromString).toSet)
+      .get[Array[String]](columnName)(ArrayColumnToStringArray.arrayColumnToStringArray)
+      .map(_.iterator.map(Ref.Party.assertFromString).toSet)
 
   // ContractIdString
 
@@ -339,8 +320,18 @@ private[platform] object Conversions {
 
   // Instant
 
-  def instant(name: String): RowParser[Instant] =
+  // TODO append-only: Delete after removing the mutating schema. The append-only schema only uses BIGINT for timestamps.
+  def instantFromTimestamp(name: String): RowParser[Instant] =
     SqlParser.get[Date](name).map(_.toInstant)
+
+  def instantFromMicros(name: String): RowParser[Instant] =
+    SqlParser.get[Long](name).map(instantFromMicros)
+
+  def instantFromMicros(micros: Long): Instant = {
+    val seconds = TimeUnit.MICROSECONDS.toSeconds(micros)
+    val microsOfSecond = micros - TimeUnit.SECONDS.toMicros(seconds)
+    Instant.ofEpochSecond(seconds, TimeUnit.MICROSECONDS.toNanos(microsOfSecond))
+  }
 
   // Hash
 
@@ -359,22 +350,35 @@ private[platform] object Conversions {
     override val jdbcType: Int = ParameterMetaData.StringParameterMetaData.jdbcType
   }
 
-  // RejectionReason
-  implicit def domainRejectionReasonToErrorCode(reason: domain.RejectionReason): Code =
-    domainRejectionReasonToParticipantRejectionReason(
-      reason
-    ).code
+  implicit class RejectionReasonOps(rejectionReason: domain.RejectionReason) {
 
-  implicit def domainRejectionReasonToParticipantRejectionReason(
-      reason: domain.RejectionReason
-  ): RejectionReasonV0 =
-    reason match {
-      case r: domain.RejectionReason.Inconsistent => Inconsistent(r.description)
-      case r: domain.RejectionReason.Disputed => Disputed(r.description)
-      case r: domain.RejectionReason.OutOfQuota => ResourcesExhausted(r.description)
-      case r: domain.RejectionReason.PartyNotKnownOnLedger => PartyNotKnownOnLedger(r.description)
-      case r: domain.RejectionReason.SubmitterCannotActViaParticipant =>
-        SubmitterCannotActViaParticipant(r.description)
-      case r: domain.RejectionReason.InvalidLedgerTime => InvalidLedgerTime(r.description)
-    }
+    import RejectionReasonOps._
+
+    def toParticipantStateRejectionReason: state.Update.CommandRejected.RejectionReasonTemplate =
+      rejectionReason match {
+        case domain.RejectionReason.Inconsistent(reason) =>
+          newRejectionReason(Status.Code.ABORTED, s"Inconsistent: $reason")
+        case domain.RejectionReason.Disputed(reason) =>
+          newRejectionReason(Status.Code.INVALID_ARGUMENT, s"Disputed: $reason")
+        case domain.RejectionReason.OutOfQuota(reason) =>
+          newRejectionReason(Status.Code.ABORTED, s"Resources exhausted: $reason")
+        case domain.RejectionReason.PartyNotKnownOnLedger(reason) =>
+          newRejectionReason(Status.Code.INVALID_ARGUMENT, s"Party not known on ledger: $reason")
+        case domain.RejectionReason.SubmitterCannotActViaParticipant(reason) =>
+          newRejectionReason(
+            Status.Code.PERMISSION_DENIED,
+            s"Submitted cannot act via participant: $reason",
+          )
+        case domain.RejectionReason.InvalidLedgerTime(reason) =>
+          newRejectionReason(Status.Code.ABORTED, s"Invalid ledger time: $reason")
+      }
+  }
+
+  object RejectionReasonOps {
+    private def newRejectionReason(
+        code: Status.Code,
+        message: String,
+    ): state.Update.CommandRejected.RejectionReasonTemplate =
+      new CommandRejected.FinalReason(RpcStatus.of(code.value(), message, Seq.empty))
+  }
 }

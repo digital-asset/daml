@@ -55,6 +55,7 @@ import qualified Data.Text.Extended as T
 import qualified Data.Text.Lazy as TL
 import Data.Tuple.Extra
 import Data.Typeable (Typeable())
+import qualified Data.Vector as V
 import Development.IDE.Core.Compile
 import Development.IDE.Core.OfInterest
 import Development.IDE.GHC.Error
@@ -69,6 +70,7 @@ import Safe
 import System.Directory.Extra as Dir
 import System.Environment
 import System.FilePath
+import qualified System.FilePath.Posix as FPP
 import System.IO
 import System.IO.Error
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as HughesPJPretty
@@ -82,8 +84,7 @@ import qualified Development.IDE.Core.Rules as IDE
 import Development.IDE.Core.Service.Daml
 import Development.IDE.Core.Shake
 import Development.IDE.Types.Diagnostics
-import qualified Language.Haskell.LSP.Messages as LSP
-import qualified Language.Haskell.LSP.Types as LSP
+import qualified Language.LSP.Types as LSP
 
 import Development.IDE.Core.RuleTypes.Daml
 
@@ -164,15 +165,13 @@ sendFileDiagnostics :: [FileDiagnostic] -> Action ()
 sendFileDiagnostics diags =
     mapM_ (uncurry sendDiagnostics) (groupSort $ map (\(file, _showDiag, diag) -> (file, diag)) diags)
 
--- TODO: Move this to ghcide, perhaps.
 sendDiagnostics :: NormalizedFilePath -> [Diagnostic] -> Action ()
 sendDiagnostics fp diags = do
+    ShakeExtras {lspEnv} <- getShakeExtras
     let uri = fromNormalizedUri (filePathToUri' fp)
-        event = LSP.NotPublishDiagnostics $
-            LSP.NotificationMessage "2.0" LSP.TextDocumentPublishDiagnostics $
-            LSP.PublishDiagnosticsParams uri (List diags)
-            -- This is just 'publishDiagnosticsNotification' from ghcide.
-    sendEvent event
+    liftIO $
+        sendNotification lspEnv LSP.STextDocumentPublishDiagnostics $
+        LSP.PublishDiagnosticsParams uri Nothing (List diags)
 
 -- | Get an unvalidated DALF package.
 -- This must only be used for debugging/testing.
@@ -193,6 +192,9 @@ data DalfDependency = DalfDependency
 
 getDlintIdeas :: NormalizedFilePath -> Action (Maybe ())
 getDlintIdeas f = runMaybeT $ fst <$> useE GetDlintDiagnostics f
+
+modInfoDepOrphanModules :: HomeModInfo -> [Module]
+modInfoDepOrphanModules = dep_orphs . mi_deps . hm_iface
 
 ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
 ideErrorPretty fp = ideErrorText fp . T.pack . HughesPJPretty.prettyShow
@@ -261,8 +263,9 @@ generateRawDalfRule =
                     PackageMap pkgMap <- use_ GeneratePackageMap file
                     stablePkgs <- useNoFile_ GenerateStablePackages
                     DamlEnv{envIsGenerated} <- getDamlServiceEnv
+                    depOrphanModules <- modInfoDepOrphanModules . tmrModInfo <$> use_ TypeCheck file
                     -- GHC Core to Daml-LF
-                    case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core details of
+                    case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core depOrphanModules details of
                         Left e -> return ([e], Nothing)
                         Right v -> do
                             WhnfPackage pkg <- use_ GeneratePackageDeps file
@@ -410,8 +413,10 @@ generateSerializedDalfRule options =
                             PackageMap pkgMap <- use_ GeneratePackageMap file
                             stablePkgs <- useNoFile_ GenerateStablePackages
                             DamlEnv{envIsGenerated} <- getDamlServiceEnv
-                            let details = hm_details (tmrModInfo tm)
-                            case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core details of
+                            let modInfo = tmrModInfo tm
+                                details = hm_details modInfo
+                                depOrphanModules = modInfoDepOrphanModules modInfo
+                            case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core depOrphanModules details of
                                 Left e -> pure ([e], Nothing)
                                 Right rawDalf -> do
                                     -- LF postprocessing
@@ -823,9 +828,9 @@ runScenariosRule =
               let scenarioName = LF.qualObject scenario
               let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
               let range = maybe noRange sourceLocToRange mbLoc
-              pure (toDiagnostic file world range res , (vr, res))
+              pure (toDiagnostics world file range res, (vr, res))
       let (diags, results) = unzip scenarioResults
-      pure (catMaybes diags, Just results)
+      pure (concat diags, Just results)
 
 runScriptsRule :: Options -> Rules ()
 runScriptsRule opts =
@@ -842,9 +847,9 @@ runScriptsRule opts =
               let scenarioName = LF.qualObject scenario
               let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
               let range = maybe noRange sourceLocToRange mbLoc
-              pure (toDiagnostic file world range res, (vr, res))
+              pure (toDiagnostics world file range res, (vr, res))
       let (diags, results) = unzip scenarioResults
-      pure (catMaybes diags, Just results)
+      pure (concat diags, Just results)
 
 runScenariosScriptsPkg ::
        NormalizedFilePath
@@ -874,11 +879,11 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
                       ctxId
                       script
           pure $
-              [ (toDiagnostic pkgName' world noRange res, (vr, res))
+              [ (toDiagnostics world pkgName' noRange res, (vr, res))
               | (vr, res) <- scenarioResults ++ scriptResults
               ]
     let (diags, results) = unzip rs
-    pure (catMaybes diags, Just results)
+    pure (concat diags, Just results)
   where
     pkg = LF.extPackagePkg extPkg
     pkgId = LF.extPackageId extPkg
@@ -901,25 +906,51 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
             , LF.moduleName mod /= LF.ModuleName ["Daml", "Script"]
             ]
 
-toDiagnostic ::
-       NormalizedFilePath
-    -> LF.World
+toDiagnostics ::
+       LF.World
+    -> NormalizedFilePath
     -> Range
     -> Either SS.Error SS.ScenarioResult
-    -> Maybe FileDiagnostic
-toDiagnostic file world range (Left err) =
-    Just $
-    (file, ShowDiag, ) $
-    Diagnostic
+    -> [FileDiagnostic]
+toDiagnostics world scenarioFile scenarioRange = \case
+    Left err -> pure $ mkDiagnostic DsError (scenarioFile, scenarioRange) $
+        formatScenarioError world err
+    Right SS.ScenarioResult{..} ->
+        [ mkDiagnostic DsWarning fileRange (LF.prettyWarningMessage warning)
+        | warning <- V.toList scenarioResultWarnings
+        , let fileRange = fileRangeFromMaybeLocation $
+                SS.warningMessageCommitLocation warning
+        ]
+  where
+    mkDiagnostic severity (file, range) pretty = (file, ShowDiag, ) $ Diagnostic
         { _range = range
-        , _severity = Just DsError
+        , _severity = Just severity
         , _source = Just "Script"
-        , _message = Pretty.renderPlain $ formatScenarioError world err
+        , _message = Pretty.renderPlain pretty
         , _code = Nothing
         , _tags = Nothing
         , _relatedInformation = Nothing
         }
-toDiagnostic _file _world _range (Right _) = Nothing
+
+    fileRangeFromMaybeLocation :: Maybe SS.Location -> (NormalizedFilePath, Range)
+    fileRangeFromMaybeLocation mbLocation =
+        fromMaybe (scenarioFile, scenarioRange) $ do
+            location <- mbLocation
+            lfModule <- LF.lookupLocationModule world location
+            filePath <- LF.moduleSource lfModule
+            Just (toNormalizedFilePath' filePath, rangeFromLocation location)
+
+    rangeFromLocation :: SS.Location -> LSP.Range
+    rangeFromLocation SS.Location{..} = Range
+        { _start = LSP.Position
+            { _line = fromIntegral locationStartLine
+            , _character = fromIntegral locationStartCol
+            }
+        , _end = LSP.Position
+            { _line = fromIntegral locationEndLine
+            , _character = fromIntegral locationEndCol
+            }
+        }
 
 encodeModule :: LF.Version -> LF.Module -> Action (SS.Hash, BS.ByteString)
 encodeModule lfVersion m =
@@ -973,11 +1004,12 @@ instance FromJSON VirtualResourceChangedParams where
     parseJSON = withObject "VirtualResourceChangedParams" $ \o ->
         VirtualResourceChangedParams <$> o .: "uri" <*> o .: "contents"
 
-vrChangedNotification :: VirtualResource -> T.Text -> LSP.FromServerMessage
-vrChangedNotification vr doc =
-    LSP.NotCustomServer $
-    LSP.NotificationMessage "2.0" (LSP.CustomServerMethod virtualResourceChangedNotification) $
-    toJSON $ VirtualResourceChangedParams (virtualResourceToUri vr) doc
+vrChangedNotification :: VirtualResource -> T.Text -> Action ()
+vrChangedNotification vr doc = do
+    ShakeExtras { lspEnv } <- getShakeExtras
+    liftIO $
+        sendNotification lspEnv (LSP.SCustomMethod virtualResourceChangedNotification) $
+        toJSON $ VirtualResourceChangedParams (virtualResourceToUri vr) doc
 
 -- | Virtual resource note set notification
 -- This notification is sent by the server to the client when
@@ -1001,11 +1033,12 @@ instance FromJSON VirtualResourceNoteSetParams where
     parseJSON = withObject "VirtualResourceNoteSetParams" $ \o ->
         VirtualResourceNoteSetParams <$> o .: "uri" <*> o .: "note"
 
-vrNoteSetNotification :: VirtualResource -> T.Text -> LSP.FromServerMessage
-vrNoteSetNotification vr note =
-    LSP.NotCustomServer $
-    LSP.NotificationMessage "2.0" (LSP.CustomServerMethod virtualResourceNoteSetNotification) $
-    toJSON $ VirtualResourceNoteSetParams (virtualResourceToUri vr) note
+vrNoteSetNotification :: VirtualResource -> T.Text -> Action ()
+vrNoteSetNotification vr note = do
+    ShakeExtras { lspEnv } <- getShakeExtras
+    liftIO $
+        sendNotification lspEnv (LSP.SCustomMethod virtualResourceNoteSetNotification) $
+        toJSON $ VirtualResourceNoteSetParams (virtualResourceToUri vr) note
 
 -- A rule that builds the files-of-interest and notifies via the
 -- callback of any errors. NOTE: results may contain errors for any
@@ -1040,11 +1073,11 @@ ofInterestRule opts = do
                 forM_ vrs $ \(vr, res) -> do
                     let doc = formatScenarioResult world res
                     when (vr `HashSet.member` openVRs) $
-                        sendEvent $ vrChangedNotification vr doc
+                        vrChangedNotification vr doc
                 let vrScenarioNames = Set.fromList $ fmap (vrScenarioName . fst) vrs
                 forM_ (HashMap.lookupDefault [] file openVRsByFile) $ \ovr -> do
                     when (not $ vrScenarioName ovr `Set.member` vrScenarioNames) $
-                        sendEvent $ vrNoteSetNotification ovr $ LF.scenarioNotInFileNote $
+                        vrNoteSetNotification ovr $ LF.scenarioNotInFileNote $
                         T.pack $ fromNormalizedFilePath file
 
         -- We don’t always have a scenario service (e.g., damlc compile)
@@ -1055,7 +1088,7 @@ ofInterestRule opts = do
             mbDalf <- getDalf file
             when (isNothing mbDalf) $ do
                 forM_ (HashMap.lookupDefault [] file openVRsByFile) $ \ovr ->
-                    sendEvent $ vrNoteSetNotification ovr $ LF.fileWScenarioNoLongerCompilesNote $ T.pack $
+                    vrNoteSetNotification ovr $ LF.fileWScenarioNoLongerCompilesNote $ T.pack $
                         fromNormalizedFilePath file
 
         let dlintEnabled = case optDlintUsage opts of
@@ -1287,7 +1320,7 @@ discardInternalModules mbPackageName files = do
                           mbPackageName == Just unitId &&
                           moduleNameFile modName `isSuffixOf` fromNormalizedFilePath f)
                      $ Map.keys stablePackages)
-        moduleNameFile (LF.ModuleName segments) = joinPath (map T.unpack segments) <.> "daml"
+        moduleNameFile (LF.ModuleName segments) = FPP.joinPath (map T.unpack segments) <.> "daml"
 
 usesE' ::
        ( Eq k
@@ -1307,7 +1340,7 @@ usesE' k = fmap (map fst) . usesE k
 
 
 internalModules :: [FilePath]
-internalModules = map normalise
+internalModules = map FPP.normalise
   [ "Data/String.daml"
   , "GHC/CString.daml"
   , "GHC/Integer/Type.daml"
@@ -1315,13 +1348,6 @@ internalModules = map normalise
   , "GHC/Real.daml"
   , "GHC/Types.daml"
   ]
-
--- | Checks if a given module is internal, i.e. gets removed in the Core->LF
--- translation. TODO where should this live?
-modIsInternal :: Module -> Bool
-modIsInternal m = moduleNameString (moduleName m) `elem` internalModules
-  -- TODO should we consider DA.Internal.* internal? Difference to GHC.*
-  -- modules is that these do not disappear in the LF conversion.
 
 
 damlRule :: Options -> Rules ()

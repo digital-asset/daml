@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.api
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, Raw}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 

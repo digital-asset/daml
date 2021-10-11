@@ -4,7 +4,6 @@
 package com.daml.platform.store.appendonlydao
 
 import akka.stream.scaladsl.Source
-import anorm.{BatchSql, NamedParameter}
 import com.daml.lf.transaction.Node.KeyWithMaintainers
 
 // TODO append-only: revisit visibility, and necessity during cleanup
@@ -12,22 +11,20 @@ import com.daml.lf.transaction.Node.KeyWithMaintainers
   */
 package object events {
 
-  type SqlSequence[A] = SqlSequence.T[A]
-
   import com.daml.lf.value.{Value => lfval}
   type ContractId = lfval.ContractId
   val ContractId = com.daml.lf.value.Value.ContractId
-  type Value = lfval.VersionedValue[ContractId]
+  type Value = lfval.VersionedValue
   type Contract = lfval.ContractInst[Value]
   val Contract = lfval.ContractInst
 
   import com.daml.lf.{transaction => lftx}
   type NodeId = lftx.NodeId
-  type Node = lftx.Node.GenNode[NodeId, ContractId]
-  type Create = lftx.Node.NodeCreate[ContractId]
-  type Exercise = lftx.Node.NodeExercises[NodeId, ContractId]
-  type Fetch = lftx.Node.NodeFetch[ContractId]
-  type LookupByKey = lftx.Node.NodeLookupByKey[ContractId]
+  type Node = lftx.Node.GenNode
+  type Create = lftx.Node.NodeCreate
+  type Exercise = lftx.Node.NodeExercises
+  type Fetch = lftx.Node.NodeFetch
+  type LookupByKey = lftx.Node.NodeLookupByKey
   type Key = lftx.GlobalKey
   val Key = lftx.GlobalKey
 
@@ -87,30 +84,13 @@ package object events {
       .fold(Vector.empty[A])(_ :+ _)
       .concatSubstreams
 
-  // Dispatches the call to either function based on the cardinality of the input
-  // This is mostly designed to route requests to queries specialized for single/multi-party subs
-  // Callers should ensure that the set is not empty, which in the usage this
-  // is designed for should be provided by the Ledger API validation layer
-  def route[A, B](
-      set: Set[A]
-  )(single: A => B, multi: Set[A] => B): B = {
-    assume(set.nonEmpty, "Empty set, unable to dispatch to single/multi implementation")
-    set.size match {
-      case 1 => single(set.iterator.next())
-      case n if n > 1 => multi(set)
-    }
-  }
-
   def convert(template: Identifier, key: lftx.Node.KeyWithMaintainers[Value]): Key =
     Key.assertBuild(template, key.key.value)
 
   def convertLfValueKey(
       template: Identifier,
-      key: KeyWithMaintainers[lfval[ContractId]],
+      key: KeyWithMaintainers[lfval],
   ) =
     Key.assertBuild(template, key.key)
-
-  def batch(query: String, parameters: Seq[Seq[NamedParameter]]): Option[BatchSql] =
-    if (parameters.isEmpty) None else Some(BatchSql(query, parameters.head, parameters.tail: _*))
 
 }

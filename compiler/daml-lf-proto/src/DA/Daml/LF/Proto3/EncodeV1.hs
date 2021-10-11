@@ -203,6 +203,10 @@ encodePackageRef = fmap (Just . P.PackageRef . Just) . \case
             then P.PackageRefSumPackageIdInternedStr <$> allocString pkgId
             else pure $ P.PackageRefSumPackageIdStr $ encodeString pkgId
 
+-- | Interface method names are always interned, since interfaces were
+-- introduced after name interning.
+encodeMethodName :: MethodName -> Encode Int32
+encodeMethodName = encodeNameId unMethodName
 
 ------------------------------------------------------------------------
 -- Simple encodings
@@ -488,7 +492,7 @@ encodeBuiltinExpr = \case
     BETextToInt64 -> builtin P.BuiltinFunctionTEXT_TO_INT64
     BETextToDecimal-> builtin P.BuiltinFunctionTEXT_TO_DECIMAL
     BETextToNumeric-> builtin P.BuiltinFunctionTEXT_TO_NUMERIC
-    BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_POINTS_TO_CODE
+    BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_TO_CODE_POINTS
     BEPartyToQuotedText -> builtin P.BuiltinFunctionPARTY_TO_QUOTED_TEXT
 
     BEAddDecimal -> builtin P.BuiltinFunctionADD_DECIMAL
@@ -699,6 +703,21 @@ encodeExpr' = \case
         expr_ThrowExceptionType <- encodeType ty2
         expr_ThrowExceptionExpr <- encodeExpr val
         pureExpr $ P.ExprSumThrow P.Expr_Throw{..}
+    EToInterface ty1 ty2 val -> do
+        expr_ToInterfaceInterfaceType <- encodeQualTypeConName ty1
+        expr_ToInterfaceTemplateType <- encodeQualTypeConName ty2
+        expr_ToInterfaceTemplateExpr <- encodeExpr val
+        pureExpr $ P.ExprSumToInterface P.Expr_ToInterface{..}
+    EFromInterface ty1 ty2 val -> do
+        expr_FromInterfaceInterfaceType <- encodeQualTypeConName ty1
+        expr_FromInterfaceTemplateType <- encodeQualTypeConName ty2
+        expr_FromInterfaceInterfaceExpr <- encodeExpr val
+        pureExpr $ P.ExprSumFromInterface P.Expr_FromInterface{..}
+    ECallInterface ty mth val -> do
+        expr_CallInterfaceInterfaceType <- encodeQualTypeConName ty
+        expr_CallInterfaceMethodInternedName <- encodeMethodName mth
+        expr_CallInterfaceInterfaceExpr <- encodeExpr val
+        pureExpr $ P.ExprSumCallInterface P.Expr_CallInterface{..}
     EExperimental name ty -> do
         let expr_ExperimentalName = encodeString name
         expr_ExperimentalType <- encodeType ty
@@ -729,6 +748,12 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_ExerciseCid <- encodeExpr exeContractId
         update_ExerciseArg <- encodeExpr exeArg
         pure $ P.UpdateSumExercise P.Update_Exercise{..}
+    UExerciseInterface{..} -> do
+        update_ExerciseInterfaceInterface <- encodeQualTypeConName exeInterface
+        update_ExerciseInterfaceChoiceInternedStr <- encodeNameId unChoiceName exeChoice
+        update_ExerciseInterfaceCid <- encodeExpr exeContractId
+        update_ExerciseInterfaceArg <- encodeExpr exeArg
+        pure $ P.UpdateSumExerciseInterface P.Update_ExerciseInterface{..}
     UExerciseByKey{..} -> do
         update_ExerciseByKeyTemplate <- encodeQualTypeConName exeTemplate
         update_ExerciseByKeyChoiceInternedStr <-
@@ -741,6 +766,10 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_FetchTemplate <- encodeQualTypeConName fetTemplate
         update_FetchCid <- encodeExpr fetContractId
         pure $ P.UpdateSumFetch P.Update_Fetch{..}
+    UFetchInterface{..} -> do
+        update_FetchInterfaceInterface <- encodeQualTypeConName fetInterface
+        update_FetchInterfaceCid <- encodeExpr fetContractId
+        pure $ P.UpdateSumFetchInterface P.Update_FetchInterface{..}
     UGetTime -> pure $ P.UpdateSumGetTime P.Unit
     UEmbedExpr typ e -> do
         update_EmbedExprType <- encodeType typ
@@ -858,6 +887,7 @@ encodeDefDataType DefDataType{..} = do
                     Left mangled -> (V.fromList mangled, V.empty)
                     Right mangledIds -> (V.empty, V.fromList mangledIds)
             pure $ P.DefDataTypeDataConsEnum P.DefDataType_EnumConstructors{..}
+        DataInterface -> pure $ P.DefDataTypeDataConsInterface P.Unit
     let defDataTypeSerializable = getIsSerializable dataSerializable
     defDataTypeLocation <- traverse encodeSourceLoc dataLocation
     pure P.DefDataType{..}
@@ -880,6 +910,7 @@ encodeDefException DefException{..} = do
     defExceptionMessage <- encodeExpr exnMessage
     pure P.DefException{..}
 
+
 encodeTemplate :: Template -> Encode P.DefTemplate
 encodeTemplate Template{..} = do
     defTemplateTycon <- encodeDottedName unTypeConName tplTypeCon
@@ -891,7 +922,20 @@ encodeTemplate Template{..} = do
     defTemplateChoices <- encodeNameMap encodeTemplateChoice tplChoices
     defTemplateLocation <- traverse encodeSourceLoc tplLocation
     defTemplateKey <- traverse encodeTemplateKey tplKey
+    defTemplateImplements <- encodeNameMap encodeTemplateImplements tplImplements
     pure P.DefTemplate{..}
+
+encodeTemplateImplements :: TemplateImplements -> Encode P.DefTemplate_Implements
+encodeTemplateImplements TemplateImplements{..} = do
+    defTemplate_ImplementsInterface <- encodeQualTypeConName tpiInterface
+    defTemplate_ImplementsMethods <- encodeNameMap encodeTemplateImplementsMethod tpiMethods
+    pure P.DefTemplate_Implements {..}
+
+encodeTemplateImplementsMethod :: TemplateImplementsMethod -> Encode P.DefTemplate_ImplementsMethod
+encodeTemplateImplementsMethod TemplateImplementsMethod{..} = do
+    defTemplate_ImplementsMethodMethodInternedName <- encodeMethodName tpiMethodName
+    defTemplate_ImplementsMethodValue <- encodeExpr tpiMethodExpr
+    pure P.DefTemplate_ImplementsMethod {..}
 
 encodeTemplateKey :: TemplateKey -> Encode P.DefTemplate_DefKey
 encodeTemplateKey TemplateKey{..} = do
@@ -947,7 +991,34 @@ encodeModule Module{..} = do
     moduleValues <- encodeNameMap encodeDefValue moduleValues
     moduleTemplates <- encodeNameMap encodeTemplate moduleTemplates
     moduleExceptions <- encodeNameMap encodeDefException moduleExceptions
+    moduleInterfaces <- encodeNameMap encodeDefInterface moduleInterfaces
     pure P.Module{..}
+
+encodeDefInterface :: DefInterface -> Encode P.DefInterface
+encodeDefInterface DefInterface{..} = do
+    defInterfaceLocation <- traverse encodeSourceLoc intLocation
+    defInterfaceTyconInternedDname <- encodeDottedNameId unTypeConName intName
+    defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
+    defInterfaceChoices <- encodeNameMap encodeInterfaceChoice intVirtualChoices
+    defInterfaceFixedChoices <- encodeNameMap encodeTemplateChoice intFixedChoices
+    defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
+    pure $ P.DefInterface{..}
+
+encodeInterfaceChoice :: InterfaceChoice -> Encode P.InterfaceChoice
+encodeInterfaceChoice InterfaceChoice {..} = do
+    interfaceChoiceLocation <- traverse encodeSourceLoc ifcLocation
+    interfaceChoiceNameInternedString <- encodeNameId unChoiceName ifcName
+    let interfaceChoiceConsuming = ifcConsuming
+    interfaceChoiceArgType <- encodeType ifcArgType
+    interfaceChoiceRetType <- encodeType ifcRetType
+    pure $ P.InterfaceChoice{..}
+
+encodeInterfaceMethod :: InterfaceMethod -> Encode P.InterfaceMethod
+encodeInterfaceMethod InterfaceMethod {..} = do
+    interfaceMethodLocation <- traverse encodeSourceLoc ifmLocation
+    interfaceMethodMethodInternedName <- encodeMethodName ifmName
+    interfaceMethodType <- encodeType ifmType
+    pure $ P.InterfaceMethod{..}
 
 encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata
 encodePackageMetadata PackageMetadata{..} = do

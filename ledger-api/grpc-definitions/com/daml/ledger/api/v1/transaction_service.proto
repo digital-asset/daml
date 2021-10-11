@@ -8,8 +8,6 @@ package com.daml.ledger.api.v1;
 import "com/daml/ledger/api/v1/ledger_offset.proto";
 import "com/daml/ledger/api/v1/transaction_filter.proto";
 import "com/daml/ledger/api/v1/transaction.proto";
-import "com/daml/ledger/api/v1/trace_context.proto";
-
 
 option java_outer_classname = "TransactionServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
@@ -110,11 +108,6 @@ message GetTransactionsRequest {
   // Optional
   bool verbose = 5;
 
-  // Server side tracing will be registered as a child of the submitted context.
-  // This field is a future extension point and is currently not supported.
-  // Optional
-  TraceContext trace_context = 1000;
-
 }
 
 message GetTransactionsResponse {
@@ -143,11 +136,6 @@ message GetTransactionByEventIdRequest {
   // Each element must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   repeated string requesting_parties = 3;
-
-  // Server side tracing will be registered as a child of the submitted context.
-  // This field is a future extension point and is currently not supported.
-  // Optional
-  TraceContext trace_context = 1000;
 }
 
 message GetTransactionByIdRequest {
@@ -166,11 +154,6 @@ message GetTransactionByIdRequest {
   // Each element be a valid PartyIdString (as describe in ``value.proto``).
   // Required
   repeated string requesting_parties = 3;
-
-  // Server side tracing will be registered as a child of the submitted context.
-  // This field is a future extension point and is currently not supported.
-  // Optional
-  TraceContext trace_context = 1000;
 }
 
 message GetTransactionResponse {
@@ -186,11 +169,6 @@ message GetLedgerEndRequest {
   // Must be a valid LedgerString (as describe in ``value.proto``).
   // Required
   string ledger_id = 1;
-
-  // Server side tracing will be registered as a child of the submitted context.
-  // This field is a future extension point and is currently not supported.
-  // Optional
-  TraceContext trace_context = 1000;
 }
 
 message GetLedgerEndResponse {

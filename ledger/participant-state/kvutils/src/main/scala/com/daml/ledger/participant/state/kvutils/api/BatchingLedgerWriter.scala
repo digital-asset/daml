@@ -7,11 +7,12 @@ import java.io.Closeable
 import java.util.UUID
 
 import akka.stream.Materializer
-import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
+import com.daml.ledger.api.health.{HealthStatus, Unhealthy}
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
-import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
-import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.ledger.participant.state.v2.SubmissionResult
+import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 
@@ -54,13 +55,13 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
         .build
     )
 
-  override def participantId: ParticipantId = writer.participantId
+  override def participantId: Ref.ParticipantId = writer.participantId
 
   override def currentHealth(): HealthStatus =
     if (queueHandle.isAlive)
       writer.currentHealth()
     else
-      HealthStatus.unhealthy
+      Unhealthy
 
   private def commitBatch(
       submissions: Seq[DamlSubmissionBatch.CorrelatedSubmission]
@@ -70,7 +71,7 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
     // Pick a correlation id for the batch.
     val correlationId = UUID.randomUUID().toString
 
-    newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
+    newLoggingContextWith("correlationId" -> correlationId) { implicit loggingContext =>
       // Log the correlation ids of the submissions so we can correlate the batch to the submissions.
       val childCorrelationIds = submissions.map(_.getCorrelationId).mkString(", ")
       logger.trace(s"Committing batch $correlationId with submissions: $childCorrelationIds")

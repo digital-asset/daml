@@ -3,14 +3,11 @@
 
 package com.daml.ledger.validator
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntry,
-  DamlLogEntryId,
-  DamlStateKey,
-  DamlStateValue,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, DamlLogEntryId}
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
+import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future
 
@@ -22,12 +19,12 @@ import scala.concurrent.Future
   */
 trait CommitStrategy[Result] {
   def commit(
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       correlationId: String,
       entryId: DamlLogEntryId,
       entry: DamlLogEntry,
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
       outputState: Map[DamlStateKey, DamlStateValue],
       exporterWriteSet: Option[SubmissionAggregator.WriteSetBuilder] = None,
-  ): Future[Result]
+  )(implicit loggingContext: LoggingContext): Future[Result]
 }

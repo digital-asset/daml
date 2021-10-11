@@ -105,15 +105,20 @@ let shared = rec {
   # and we don’t want to rebuild that unnecessarily.
   sphinx183 = pkgs.python3Packages.sphinx.overridePythonAttrs (attrs: rec {
     version = "1.8.3";
-    src = attrs.src.override {
-      inherit version;
-      sha256 = "c4cb17ba44acffae3d3209646b6baec1e215cad3065e852c68cc569d4df1b9f8";
+    doCheck = false;
+    src = pkgs.fetchFromGitHub {
+      owner = "sphinx-doc";
+      repo = "sphinx";
+      rev = "v${version}";
+      sha256 = "1hkqi5kzs85idv1w85qdl1bb2fwh7ccmgp6m860kzpkrl55149y8";
     };
   });
 
   sphinx183-exts = sphinx183.overridePythonAttrs (attrs: rec {
     propagatedBuildInputs = attrs.propagatedBuildInputs ++ [sphinx-copybutton];
   });
+
+  sysctl = pkgs.unixtools.sysctl;
 
   # Custom combination of latex packages for our latex needs
   texlive = pkgs.texlive.combine {

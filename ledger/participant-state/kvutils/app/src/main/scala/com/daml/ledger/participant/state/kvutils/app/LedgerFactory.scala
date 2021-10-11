@@ -3,23 +3,26 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
+import java.time.Duration
+import java.util.concurrent.TimeUnit
+
 import akka.stream.Materializer
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.api.{KeyValueLedger, KeyValueParticipantState}
-import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
+import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
-import com.daml.platform.configuration.{LedgerConfiguration, PartyConfiguration}
+import com.daml.platform.configuration.{InitialLedgerConfiguration, PartyConfiguration}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
-import java.util.concurrent.TimeUnit
-import scala.annotation.nowarn
+import scala.annotation.{nowarn, unused}
 import scala.concurrent.duration.FiniteDuration
 
 @nowarn("msg=parameter value config .* is never used") // possibly used in overrides
@@ -41,6 +44,7 @@ trait ConfigProvider[ExtraConfig] {
       databaseConnectionPoolSize = participantConfig.indexerConfig.databaseConnectionPoolSize,
       startupMode = IndexerStartupMode.MigrateAndStart,
       eventsPageSize = config.eventsPageSize,
+      eventsProcessingParallelism = config.eventsProcessingParallelism,
       allowExistingSchema = participantConfig.indexerConfig.allowExistingSchema,
       enableAppendOnlySchema = config.enableAppendOnlySchema,
       maxInputBufferSize = participantConfig.indexerConfig.maxInputBufferSize,
@@ -69,7 +73,10 @@ trait ConfigProvider[ExtraConfig] {
       ),
       tlsConfig = config.tlsConfig,
       maxInboundMessageSize = config.maxInboundMessageSize,
+      initialLedgerConfiguration = Some(initialLedgerConfig(config)),
+      configurationLoadTimeout = config.configurationLoadTimeout,
       eventsPageSize = config.eventsPageSize,
+      eventsProcessingParallelism = config.eventsProcessingParallelism,
       portFile = participantConfig.portFile,
       seeding = config.seeding,
       managementServiceTimeout = participantConfig.managementServiceTimeout,
@@ -80,25 +87,38 @@ trait ConfigProvider[ExtraConfig] {
       maxTransactionsInMemoryFanOutBufferSize =
         participantConfig.maxTransactionsInMemoryFanOutBufferSize,
       enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
+      enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
     )
 
-  def partyConfig(config: Config[ExtraConfig]): PartyConfiguration =
+  def partyConfig(@unused config: Config[ExtraConfig]): PartyConfiguration =
     PartyConfiguration.default
 
-  def ledgerConfig(config: Config[ExtraConfig]): LedgerConfiguration =
-    LedgerConfiguration.defaultRemote
+  def initialLedgerConfig(config: Config[ExtraConfig]): InitialLedgerConfiguration = {
+    InitialLedgerConfiguration(
+      configuration = Configuration.reasonableInitialConfiguration.copy(maxDeduplicationTime =
+        config.maxDeduplicationDuration.getOrElse(
+          Configuration.reasonableInitialConfiguration.maxDeduplicationTime
+        )
+      ),
+      // If a new index database is added to an already existing ledger,
+      // a zero delay will likely produce a "configuration rejected" ledger entry,
+      // because at startup the indexer hasn't ingested any configuration change yet.
+      // Override this setting for distributed ledgers where you want to avoid these superfluous entries.
+      delayBeforeSubmitting = Duration.ZERO,
+    )
+  }
 
-  def timeServiceBackend(config: Config[ExtraConfig]): Option[TimeServiceBackend] = None
+  def timeServiceBackend(@unused config: Config[ExtraConfig]): Option[TimeServiceBackend] = None
 
-  def authService(config: Config[ExtraConfig]): AuthService =
+  def authService(@unused config: Config[ExtraConfig]): AuthService =
     AuthServiceWildcard
 
-  def interceptors(config: Config[ExtraConfig]): List[ServerInterceptor] =
+  def interceptors(@unused config: Config[ExtraConfig]): List[ServerInterceptor] =
     List.empty
 
   def createMetrics(
       participantConfig: ParticipantConfig,
-      config: Config[ExtraConfig],
+      @unused config: Config[ExtraConfig],
   ): Metrics = {
     val registryName = participantConfig.participantId + participantConfig.shardName
       .map("-" + _)
@@ -149,7 +169,6 @@ trait LedgerFactory[+RWS <: ReadWriteService, ExtraConfig]
 }
 
 object LedgerFactory {
-
   abstract class KeyValueLedgerFactory[KVL <: KeyValueLedger]
       extends LedgerFactory[KeyValueParticipantState, Unit] {
     override final val defaultExtraConfig: Unit = ()

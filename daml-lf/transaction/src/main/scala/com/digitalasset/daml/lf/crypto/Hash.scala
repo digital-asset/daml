@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.daml.lf.data.{Bytes, ImmArray, Ref, Time, Utf8}
 import com.daml.lf.value.Value
+import com.daml.scalautil.Statement.discard
 import scalaz.Order
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -133,16 +134,16 @@ object Hash {
     private val intBuffer = ByteBuffer.allocate(java.lang.Integer.BYTES)
 
     final def add(a: Int): this.type = {
-      intBuffer.rewind()
-      intBuffer.putInt(a).position(0)
+      discard(intBuffer.rewind())
+      discard(intBuffer.putInt(a).position(0))
       add(intBuffer)
     }
 
     private val longBuffer = ByteBuffer.allocate(java.lang.Long.BYTES)
 
     final def add(a: Long): this.type = {
-      longBuffer.rewind()
-      longBuffer.putLong(a).position(0)
+      discard(longBuffer.rewind())
+      discard(longBuffer.putLong(a).position(0))
       add(longBuffer)
     }
 
@@ -172,15 +173,14 @@ object Hash {
     @throws[HashingError]
     final def addCid(cid: Value.ContractId): this.type = {
       val bytes = cid2Bytes(cid)
-      add(bytes.length)
-      add(bytes)
+      add(bytes.length).add(bytes)
     }
 
     // In order to avoid hash collision, this should be used together
     // with another data representing uniquely the type of `value`.
     // See for instance hash : Node.GlobalKey => SHA256Hash
     @throws[HashingError]
-    final def addTypedValue(value: Value[Value.ContractId]): this.type =
+    final def addTypedValue(value: Value): this.type =
       value match {
         case Value.ValueUnit =>
           add(0.toByte)
@@ -223,7 +223,7 @@ object Hash {
   }
 
   // The purpose of a hash serves to avoid hash collisions due to equal encodings for different objects.
-  // Each purpose should be used at most one.
+  // Each purpose should be used at most once.
   private[crypto] case class Purpose(id: Byte)
 
   private[crypto] object Purpose {
@@ -232,6 +232,7 @@ object Hash {
     val MaintainerContractKeyUUID = Purpose(4)
     val PrivateKey = Purpose(3)
     val ContractInstance = Purpose(5)
+    val ChangeId = Purpose(6)
   }
 
   // package private for testing purpose.
@@ -301,18 +302,18 @@ object Hash {
   // 1 - `templateId` is the identifier for a template with a key of type τ
   // 2 - `key` is a value of type τ
   @throws[HashingError]
-  def assertHashContractKey(templateId: Ref.Identifier, key: Value[Value.ContractId]): Hash =
+  def assertHashContractKey(templateId: Ref.Identifier, key: Value): Hash =
     builder(Purpose.ContractKey, noCid2String)
       .addIdentifier(templateId)
       .addTypedValue(key)
       .build
 
-  def safeHashContractKey(templateId: Ref.Identifier, key: Value[Nothing]): Hash =
+  def safeHashContractKey(templateId: Ref.Identifier, key: Value): Hash =
     assertHashContractKey(templateId, key)
 
   def hashContractKey(
       templateId: Ref.Identifier,
-      key: Value[Value.ContractId],
+      key: Value,
   ): Either[String, Hash] =
     handleError(assertHashContractKey(templateId, key))
 
@@ -321,7 +322,7 @@ object Hash {
   // 2 - `arg` is a value of type τ
   // The hash is not stable under suffixing of contract IDs
   @throws[HashingError]
-  def assertHashContractInstance(templateId: Ref.Identifier, arg: Value[Value.ContractId]): Hash =
+  def assertHashContractInstance(templateId: Ref.Identifier, arg: Value): Hash =
     builder(Purpose.ContractInstance, aCid2Bytes)
       .addIdentifier(templateId)
       .addTypedValue(arg)
@@ -329,9 +330,20 @@ object Hash {
 
   def hashContractInstnce(
       templateId: Ref.Identifier,
-      arg: Value[Value.ContractId],
+      arg: Value,
   ): Either[String, Hash] =
     handleError(assertHashContractInstance(templateId, arg))
+
+  def hashChangeId(
+      applicationId: Ref.ApplicationId,
+      commandId: Ref.CommandId,
+      actAs: Set[Ref.Party],
+  ): Hash =
+    builder(Purpose.ChangeId, noCid2String)
+      .add(applicationId)
+      .add(commandId)
+      .addStringSet(actAs)
+      .build
 
   def deriveSubmissionSeed(
       nonce: Hash,

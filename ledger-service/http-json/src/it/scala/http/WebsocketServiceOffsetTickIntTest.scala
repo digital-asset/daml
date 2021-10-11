@@ -3,12 +3,14 @@
 
 package com.daml.http
 
-import com.daml.http.HttpServiceTestFixture.UseTls
+import com.daml.http.HttpServiceTestFixture.{UseTls, jwtForParties}
+import com.daml.http.dbbackend.JdbcConfig
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.\/-
+import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 
@@ -33,7 +35,7 @@ class WebsocketServiceOffsetTickIntTest
 
   import WebsocketTestFixture._
 
-  "Given empty ACS, JSON API should emit only offset ticks" in withHttpService { (uri, _, _) =>
+  "Given empty ACS, JSON API should emit only offset ticks" in withHttpService { (uri, _, _, _) =>
     for {
       msgs <- singleClientQueryStream(jwt, uri, """{"templateIds": ["Iou:Iou"]}""")
         .take(10)
@@ -47,10 +49,11 @@ class WebsocketServiceOffsetTickIntTest
   }
 
   "Given non-empty ACS, JSON API should emit ACS block and after it only absolute offset ticks" in withHttpService {
-    (uri, _, _) =>
+    (uri, _, _, _) =>
+      val (party, headers) = getUniquePartyAndAuthHeaders("Alice")
       for {
-        _ <- initialIouCreate(uri)
-
+        _ <- initialIouCreate(uri, party, headers)
+        jwt = jwtForParties(List(party.unwrap), List(), testId)
         msgs <- singleClientQueryStream(jwt, uri, """{"templateIds": ["Iou:Iou"]}""")
           .take(10)
           .runWith(collectResultsAsTextMessage)
@@ -64,9 +67,11 @@ class WebsocketServiceOffsetTickIntTest
       }
   }
   "Given an offset to resume at, we should immediately start emitting ticks" in withHttpServiceAndClient {
-    (uri, _, _, client) =>
+    (uri, _, _, client, ledgerId) =>
       for {
-        ledgerOffset <- client.transactionClient.getLedgerEnd().map(domain.Offset.fromLedgerApi(_))
+        ledgerOffset <- client.transactionClient
+          .getLedgerEnd(ledgerId)
+          .map(domain.Offset.fromLedgerApi(_))
         _ = println(ledgerOffset)
         msgs <- singleClientQueryStream(
           jwt,

@@ -8,12 +8,11 @@ import java.io.{BufferedWriter, File, FileWriter}
 import akka.http.scaladsl.model.HttpResponse
 import akka.stream.Materializer
 import akka.util.ByteString
-import com.daml.lf.data.TryOps.Bracket.bracket
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success, Try, Using}
 
 object TestUtil extends LazyLogging {
 
@@ -25,11 +24,9 @@ object TestUtil extends LazyLogging {
   }
 
   def writeToFile(file: File, text: String): Try[File] =
-    bracket(Try(new BufferedWriter(new FileWriter(file))))(x => Try(x.close())).flatMap { bw =>
-      Try {
-        bw.write(text)
-        file
-      }
+    Using(new BufferedWriter(new FileWriter(file))) { bw =>
+      bw.write(text)
+      file
     }
 
   def readFile(resourcePath: String): String =

@@ -7,22 +7,19 @@ import java.nio.file.{Files, Path, StandardOpenOption}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
 
-import com.daml.lf.archive.DarManifestReader
-import com.daml.lf.archive.DarReader
+import com.daml.lf.archive.DarParser
 import com.daml.lf.codegen.backend.Backend
 import com.daml.lf.codegen.backend.java.JavaBackend
-import com.daml.lf.codegen.conf.Conf
+import com.daml.lf.codegen.conf.{Conf, PackageReference}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface.reader.{Errors, InterfaceReader}
 import com.daml.lf.iface.{Type => _, _}
-import com.daml.daml_lf_dev.DamlLf
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.Try
 
 object CodeGenRunner extends StrictLogging {
 
@@ -68,7 +65,7 @@ object CodeGenRunner extends StrictLogging {
     val interfacesAndPrefixes = conf.darFiles.toList.flatMap { case (path, pkgPrefix) =>
       val file = path.toFile
       // Explicitly calling `get` to bubble up any exception when reading the dar
-      val dar = ArchiveReader.readArchiveFromFile(file).get
+      val dar = DarParser.assertReadArchiveFromFile(file)
       dar.all.map { archive =>
         val (errors, interface) = InterfaceReader.readInterface(archive)
         if (!errors.equals(Errors.zeroErrors)) {
@@ -109,6 +106,74 @@ object CodeGenRunner extends StrictLogging {
     logger.warn(s"Finish writing file '$outputFile'")
   }
 
+  /** Given the package prefixes specified per DAR and the module-prefixes specified in
+    * daml.yaml, produce the combined prefixes per package id.
+    */
+  private[codegen] def resolvePackagePrefixes(
+      pkgPrefixes: Map[PackageId, String],
+      modulePrefixes: Map[PackageReference, String],
+      interfaces: Seq[Interface],
+  ): Map[PackageId, String] = {
+    val metadata: Map[PackageReference.NameVersion, PackageId] = interfaces.view
+      .flatMap(iface =>
+        iface.metadata.iterator.map(metadata =>
+          PackageReference.NameVersion(metadata.name, metadata.version) -> iface.packageId
+        )
+      )
+      .toMap
+    def resolveRef(ref: PackageReference): PackageId = ref match {
+      case nameVersion: PackageReference.NameVersion =>
+        metadata.getOrElse(
+          nameVersion,
+          throw new IllegalArgumentException(
+            s"""No package $nameVersion found, available packages: ${metadata.keys.mkString(
+              ", "
+            )}"""
+          ),
+        )
+    }
+    val resolvedModulePrefixes: Map[PackageId, String] = modulePrefixes.map { case (k, v) =>
+      resolveRef(k) -> v.toLowerCase
+    }
+    (pkgPrefixes.keySet union resolvedModulePrefixes.keySet).view.map { k =>
+      val prefix = (pkgPrefixes.get(k), resolvedModulePrefixes.get(k)) match {
+        case (None, None) =>
+          throw new RuntimeException(
+            "Internal error: key in pkgPrefixes and resolvedModulePrefixes could not be found in either of them"
+          )
+        case (Some(a), None) => a.stripSuffix(".")
+        case (None, Some(b)) => b.stripSuffix(".")
+        case (Some(a), Some(b)) => s"""${a.stripSuffix(".")}.${b.stripSuffix(".")}"""
+      }
+      k -> prefix
+    }.toMap
+  }
+
+  /** Verify that no two module names collide when the given
+    * prefixes are applied.
+    */
+  private[codegen] def detectModuleCollisions(
+      pkgPrefixes: Map[PackageId, String],
+      interfaces: Seq[Interface],
+  ): Unit = {
+    val allModules: Seq[(String, PackageId)] =
+      for {
+        interface <- interfaces
+        modules = interface.typeDecls.keySet.map(_.module)
+        module <- modules
+        maybePrefix = pkgPrefixes.get(interface.packageId)
+        prefixedName = maybePrefix.fold(module.toString)(prefix => s"$prefix.$module")
+      } yield prefixedName -> interface.packageId
+    allModules.groupBy(_._1).foreach { case (m, grouped) =>
+      if (grouped.length > 1) {
+        val pkgIds = grouped.view.map(_._2).mkString(", ")
+        throw new IllegalArgumentException(
+          s"""Duplicate module $m found in multiple packages $pkgIds. To resolve the conflict rename the modules in one of the packages via `module-prefixes`."""
+        )
+      }
+    }
+  }
+
   private[CodeGenRunner] def generateCode(
       interfaces: Seq[Interface],
       conf: Conf,
@@ -118,15 +183,18 @@ object CodeGenRunner extends StrictLogging {
       s"Start processing packageIds '${interfaces.map(_.packageId).mkString(", ")}' in directory '${conf.outputDirectory}'"
     )
 
+    val prefixes = resolvePackagePrefixes(pkgPrefixes, conf.modulePrefixes, interfaces)
+    detectModuleCollisions(prefixes, interfaces)
+
     // TODO (mp): pre-processing and escaping
     val preprocessingFuture: Future[InterfaceTrees] =
-      backend.preprocess(interfaces, conf, pkgPrefixes)
+      backend.preprocess(interfaces, conf, prefixes)
 
     val future: Future[Unit] = {
       for {
         preprocessedInterfaceTrees <- preprocessingFuture
         _ <- Future.traverse(preprocessedInterfaceTrees.interfaceTrees)(
-          processInterfaceTree(_, conf, pkgPrefixes)
+          processInterfaceTree(_, conf, prefixes)
         )
       } yield ()
     }
@@ -177,10 +245,4 @@ object CodeGenRunner extends StrictLogging {
       )
     }
   }
-
-  object ArchiveReader
-      extends DarReader[DamlLf.Archive](
-        DarManifestReader.dalfNames,
-        { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) },
-      )
 }

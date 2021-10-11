@@ -20,7 +20,10 @@ data Error
   | DuplicateValue ExprValName
   | EDuplicateTemplate TypeConName
   | DuplicateChoice ChoiceName
+  | DuplicateMethod MethodName
   | DuplicateException TypeConName
+  | DuplicateInterface TypeConName
+  | DuplicateImplements (Qualified TypeConName)
   | UnsupportedMinorVersion T.Text
   | BadStringId Int32
   | BadDottedNameId Int32

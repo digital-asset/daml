@@ -8,6 +8,7 @@ import scalaz.Equal
 import scala.collection.compat.immutable.ArraySeq
 import scala.collection.generic.CanBuildFrom
 import scala.collection.mutable
+import scala.language.implicitConversions
 
 private[data] abstract class ImmArrayInstances {
   implicit def `ImmArray canBuildFrom`[A]: CanBuildFrom[ImmArray[_], A, ImmArray[A]] =
@@ -22,7 +23,7 @@ private[data] abstract class ImmArrayInstances {
       .asInstanceOf[mutable.Builder[A, ArraySeq[A]]]
       .mapResult(ImmArray.fromArraySeq(_))
 
-  import scala.language.implicitConversions
+  def apply[A](xs: A*): ImmArray[A] = xs.to(ImmArray)
 
   /** Enables 2.13-style `to` calls. */
   implicit def `IS companion to CBF`[A](

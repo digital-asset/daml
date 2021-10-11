@@ -5,8 +5,10 @@ package com.daml.http
 
 import akka.http.scaladsl.model.Uri
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.dbutils
+import dbbackend.{DbStartupMode, JdbcConfig}
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
-import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
+import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.ports.LockedFreePort
 import com.daml.testing.postgresql.PostgresAroundAll
 import java.net.InetAddress
@@ -31,14 +33,16 @@ trait HttpFailureTestFixture extends ToxicSandboxFixture with PostgresAroundAll 
   }
 
   // has to be lazy because postgresFixture is NOT initialized yet
-  private lazy val jdbcConfig_ =
+  protected lazy val jdbcConfig_ =
     JdbcConfig(
-      driver = "org.postgresql.Driver",
-      url =
-        s"jdbc:postgresql://${postgresDatabase.hostName}:$dbProxyPort/${postgresDatabase.databaseName}?user=${postgresDatabase.userName}&password=${postgresDatabase.password}",
-      user = "test",
-      password = "",
-      createSchema = true,
+      dbutils.JdbcConfig(
+        driver = "org.postgresql.Driver",
+        url =
+          s"jdbc:postgresql://${postgresDatabase.hostName}:$dbProxyPort/${postgresDatabase.databaseName}?user=${postgresDatabase.userName}&password=${postgresDatabase.password}",
+        user = "test",
+        password = "",
+      ),
+      dbStartupMode = DbStartupMode.CreateOnly,
     )
 
   override def packageFiles =
@@ -62,6 +66,7 @@ trait HttpFailureTestFixture extends ToxicSandboxFixture with PostgresAroundAll 
       Some(jdbcConfig_),
       None,
       wsConfig = Some(Config.DefaultWsConfig),
+      ledgerIdOverwrite = Some(ledgerId(None)),
     )
   }
 }

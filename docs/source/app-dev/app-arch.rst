@@ -83,7 +83,7 @@ libraries with TypeScript typings from the data types declared in the deployed D
 
   daml codegen js .daml/dist/<your-project-name.dar> -o ui/daml.js
 
-This command will generate a JavaScript library for each DALF in you DAR, containing metadata about
+This command will generate a JavaScript library for each DALF in your DAR, containing metadata about
 types and templates in the DALF and TypeScript typings them. In ``create-daml-app``, ``ui/package.json`` refers to these
 libraries via the ``"create-daml-app": "file:../daml.js/create-daml-app-0.1.0"`` entry in the
 ``dependencies`` field.
@@ -99,7 +99,7 @@ When you deploy your application to a production ledger, you need to authenticat
 your users.
 
 Daml ledgers support a unified interface for authorization of commands. Some Daml ledgers, like for
-example https://projectdabl.com, offer integrated authentication and authorization, but you can also
+example https://hub.daml.com, offer integrated authentication and authorization, but you can also
 use an external service provider like https://auth0.com. The Daml react libraries support interfacing
 with a Daml ledger that validates authorization of incoming requests. Simply initialize your
 ``DamlLedger`` object with the token obtained by the respective token issuer. How authorization works and the
@@ -138,23 +138,41 @@ There are several things that can fail during this time window: the application 
 If you want to make sure that a command is not executed twice, your application needs to robustly handle all the various failure scenarios.
 Daml ledgers provide a mechanism for :ref:`command deduplication <command-submission-service-deduplication>` to help deal with this problem.
 
-For each command application provide a command ID and an optional parameter that specifies the deduplication time. If the latter parameter is not specified in the command submission itself, the ledger will fall back to using the configured maximum deduplication time.
-The ledger will then guarantee that commands for the same submitting party and command ID will be ignored within the deduplication time window.
+For each command the application provides a command ID and an optional parameter that specifies the deduplication period. If the latter parameter is not specified in the command submission itself, the ledger will fall back to using the configured maximum deduplication period.
+The ledger will then guarantee that commands with the same :ref:`change ID <change-id>` will be ignored within the deduplication period.
 
 To use command deduplication, you should:
 
-- Use generous values for the deduplication time. It should be large enough such that you can assume the command was permanently lost if the deduplication time has passed and you still don’t observe any effect of the command on the ledger (i.e. you don't see a transaction with the command ID via the :ref:`transaction service <transaction-service>`).
+- Use generous values for the deduplication duration. It should be large enough such that you can assume the command was permanently lost if the deduplication period has passed and you still don’t observe any effect of the command on the ledger (i.e. you don't see a transaction with the command ID via the :ref:`transaction service <transaction-service>`).
 - Make sure you set command IDs deterministically, that is to say: the "same" command must use the same command ID. This is useful for the recovery procedure after an application crash/restart, in which the application inspects the state of the ledger (e.g. via the :ref:`Active contracts service <active-contract-service>`) and sends commands to the ledger. When using deterministic command IDs, any commands that had been sent before the application restart will be discarded by the ledger to avoid duplicate submissions.
-- If you are not sure whether a command was submitted successfully, just resubmit it. If the new command was submitted within the deduplication time window, the duplicate submission will safely be ignored. If the deduplication time window has passed, you can assume the command was lost or rejected and a new submission is justified.
+- If you are not sure whether a command was submitted successfully, just resubmit it with the same deduplication duration. If the new command was submitted within the deduplication period, the duplicate submission will safely be ignored. If the deduplication period has passed, you can assume the command was lost or rejected and a new submission is justified.
 
 
 For more details on command deduplication, see the :ref:`Ledger API Services <command-submission-service-deduplication>` documentation.
 
 
+.. _dealing-with-failures:
+
+Dealing with failures
+*********************
+
+.. _crash-recovery:
+
+Crash recovery
+==============
+
+In order to restart your application from a previously known ledger state,
+your application must keep track of the last ledger offset received
+from the :ref:`transaction service <transaction-service>` or the
+:ref:`command completion service <command-completion-service>`.
+
+By persisting this offset alongside the relevant state as part of a single,
+atomic operation, your application can resume from where it left off.
+
 .. _failing-over-between-ledger-api-endpoints:
 
 Failing over between Ledger API endpoints
-*****************************************
+=========================================
 
 Some Daml Ledgers support exposing multiple eventually consistent Ledger API
 endpoints where command deduplication works across these Ledger API endpoints.
@@ -166,9 +184,8 @@ Below we describe how you can build your application such that it can switch
 between such eventually consistent Ledger API endpoints to tolerate server
 failures. You can do this using the following two steps.
 
-First, your application must keep track of the last ledger offset received
-from the :ref:`transaction service <transaction-service>` or the
-:ref:`command completion service <command-completion-service>`.  When switching to a new
+First, your application must keep track of the ledger offset as described in the
+:ref:`paragraph about crash recovery <crash-recovery>`. When switching to a new
 Ledger API endpoint, it must resume consumption of the transaction (tree)
 and/or the command completion streams starting from this last received
 offset.

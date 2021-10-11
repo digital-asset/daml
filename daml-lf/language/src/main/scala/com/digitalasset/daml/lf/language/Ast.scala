@@ -12,7 +12,7 @@ object Ast {
   //
 
   /** Fully applied type constructor. */
-  case class TypeConApp(tycon: TypeConName, args: ImmArray[Type]) {
+  final case class TypeConApp(tycon: TypeConName, args: ImmArray[Type]) {
     def pretty: String =
       args.foldLeft(TTyCon(tycon): Type) { case (arg, acc) => TApp(acc, arg) }.pretty
   }
@@ -33,7 +33,7 @@ object Ast {
   type EnumConName = Name
 
   /* Binding in a let/update/scenario block. */
-  case class Binding(binder: Option[ExprVarName], typ: Type, bound: Expr)
+  final case class Binding(binder: Option[ExprVarName], typ: Type, bound: Expr)
 
   //
   // Expressions
@@ -155,6 +155,15 @@ object Ast {
   /** Extract the payload from an AnyException if it matches the given exception type */
   final case class EFromAnyException(typ: Type, value: Expr) extends Expr
 
+  /** Convert template payload to interface it implements */
+  final case class EToInterface(iface: TypeConName, tpl: TypeConName, value: Expr) extends Expr
+
+  /** Convert interface back to template payload if possible */
+  final case class EFromInterface(iface: TypeConName, tpl: TypeConName, value: Expr) extends Expr
+
+  /** Invoke an interface method */
+  final case class ECallInterface(iface: TypeConName, method: MethodName, value: Expr) extends Expr
+
   //
   // Kinds
   //
@@ -214,9 +223,7 @@ object Ast {
             prec > precTApp,
             syn.qualifiedName.name.toString + " " +
               args
-                .map { t =>
-                  prettyType(t, precTApp + 1)
-                }
+                .map(t => prettyType(t, precTApp + 1))
                 .toSeq
                 .mkString(" "),
           )
@@ -473,7 +480,7 @@ object Ast {
   // Update expressions
   //
 
-  case class RetrieveByKey(templateId: TypeConName, key: Expr)
+  final case class RetrieveByKey(templateId: TypeConName, key: Expr)
 
   sealed abstract class Update extends Product with Serializable
 
@@ -481,8 +488,15 @@ object Ast {
   final case class UpdateBlock(bindings: ImmArray[Binding], body: Expr) extends Update
   final case class UpdateCreate(templateId: TypeConName, arg: Expr) extends Update
   final case class UpdateFetch(templateId: TypeConName, contractId: Expr) extends Update
+  final case class UpdateFetchInterface(interface: TypeConName, contractId: Expr) extends Update
   final case class UpdateExercise(
       templateId: TypeConName,
+      choice: ChoiceName,
+      cidE: Expr,
+      argE: Expr,
+  ) extends Update
+  final case class UpdateExerciseInterface(
+      interface: TypeConName,
       choice: ChoiceName,
       cidE: Expr,
       argE: Expr,
@@ -544,7 +558,7 @@ object Ast {
   final case class CPSome(body: ExprVarName) extends CasePat
 
   // Case alternative
-  case class CaseAlt(pattern: CasePat, expr: Expr)
+  final case class CaseAlt(pattern: CasePat, expr: Expr)
 
   //
   // Definitions
@@ -559,6 +573,10 @@ object Ast {
       params: ImmArray[(TypeVarName, Kind)],
       cons: DataCons,
   ) extends GenDefinition[Nothing]
+  object DDataType {
+    val Interface = DDataType(true, ImmArray.empty, DataInterface)
+  }
+
   final case class GenDValue[E](
       typ: Type,
       noPartyLiterals: Boolean,
@@ -566,18 +584,18 @@ object Ast {
       isTest: Boolean,
   ) extends GenDefinition[E]
 
-  class GenDValueCompanion[E] {
+  final class GenDValueCompanion[E] private[Ast] {
     def apply(typ: Type, noPartyLiterals: Boolean, body: E, isTest: Boolean): GenDValue[E] =
-      new GenDValue(typ, noPartyLiterals, body, isTest)
+      GenDValue(typ, noPartyLiterals, body, isTest)
 
     def unapply(arg: GenDValue[E]): Some[(Type, Boolean, E, Boolean)] =
       Some((arg.typ, arg.noPartyLiterals, arg.body, arg.isTest))
   }
 
   type DValue = GenDValue[Expr]
-  object DValue extends GenDValueCompanion[Expr]
+  val DValue = new GenDValueCompanion[Expr]
   type DValueSignature = GenDValue[Unit]
-  object DValueSignature extends GenDValueCompanion[Unit]
+  val DValueSignature = new GenDValueCompanion[Unit]
 
   type Definition = GenDefinition[Expr]
   type DefinitionSignature = GenDefinition[Unit]
@@ -592,34 +610,97 @@ object Ast {
   final case class DataVariant(variants: ImmArray[(VariantConName, Type)]) extends DataCons {
     lazy val constructorInfo: Map[VariantConName, (Type, Int)] =
       variants.iterator.zipWithIndex.map { case ((cons, typ), rank) => (cons, (typ, rank)) }.toMap
-    variants.iterator.zipWithIndex.map { case ((cons, typ), rank) => (cons, (typ, rank)) }.toMap
   }
   final case class DataEnum(constructors: ImmArray[EnumConName]) extends DataCons {
     lazy val constructorRank: Map[EnumConName, Int] = constructors.iterator.zipWithIndex.toMap
   }
+  case object DataInterface extends DataCons
 
-  case class GenTemplateKey[E](
+  final case class GenTemplateKey[E](
       typ: Type,
       body: E,
       // function from key type to [Party]
       maintainers: E,
   )
 
-  sealed class GenTemplateKeyCompanion[E] {
+  final class GenTemplateKeyCompanion[E] private[Ast] {
     def apply(typ: Type, body: E, maintainers: E): GenTemplateKey[E] =
-      new GenTemplateKey(typ, body, maintainers)
+      GenTemplateKey(typ, body, maintainers)
 
     def unapply(arg: GenTemplateKey[E]): Some[(Type, E, E)] =
       Some((arg.typ, arg.body, arg.maintainers))
   }
 
   type TemplateKey = GenTemplateKey[Expr]
-  object TemplateKey extends GenTemplateKeyCompanion[Expr]
+  val TemplateKey = new GenTemplateKeyCompanion[Expr]
 
   type TemplateKeySignature = GenTemplateKey[Unit]
-  object TemplateKeySignature extends GenTemplateKeyCompanion[Unit]
+  val TemplateKeySignature = new GenTemplateKeyCompanion[Unit]
 
-  case class GenTemplate[E] private[Ast] (
+  final case class GenDefInterface[E](
+      param: ExprVarName, // Binder for template argument.
+      virtualChoices: Map[ChoiceName, InterfaceChoice],
+      fixedChoices: Map[ChoiceName, GenTemplateChoice[E]],
+      methods: Map[MethodName, InterfaceMethod],
+  ) {
+    virtualChoices.keys.foreach(name =>
+      if (fixedChoices.isDefinedAt(name))
+        throw PackageError(s"collision on interface choice name $name")
+    )
+  }
+
+  final class GenDefInterfaceCompanion[E] {
+    def apply(
+        param: ExprVarName, // Binder for template argument.
+        virtualChoices: Iterable[(ChoiceName, InterfaceChoice)],
+        fixedChoices: Iterable[(ChoiceName, GenTemplateChoice[E])],
+        methods: Iterable[(MethodName, InterfaceMethod)],
+    ): GenDefInterface[E] = {
+      val virtualChoiceMap = toMapWithoutDuplicate(
+        virtualChoices,
+        (name: ChoiceName) => throw PackageError(s"collision on interface choice name $name"),
+      )
+      val fixedChoiceMap = toMapWithoutDuplicate(
+        fixedChoices,
+        (name: ChoiceName) => throw PackageError(s"collision on interface choice name $name"),
+      )
+      val methodMap = toMapWithoutDuplicate(
+        methods,
+        (name: MethodName) => throw PackageError(s"collision on interface method name $name"),
+      )
+      GenDefInterface(param, virtualChoiceMap, fixedChoiceMap, methodMap)
+    }
+    def unapply(arg: GenDefInterface[E]): Some[
+      (
+          ExprVarName,
+          Map[ChoiceName, InterfaceChoice],
+          Map[ChoiceName, GenTemplateChoice[E]],
+          Map[MethodName, InterfaceMethod],
+      )
+    ] =
+      Some((arg.param, arg.virtualChoices, arg.fixedChoices, arg.methods))
+  }
+
+  type DefInterface = GenDefInterface[Expr]
+  val DefInterface = new GenDefInterfaceCompanion[Expr]
+
+  type DefInterfaceSignature = GenDefInterface[Unit]
+  val DefInterfaceSignature = new GenDefInterfaceCompanion[Unit]
+
+  final case class InterfaceChoice(
+      name: ChoiceName,
+      consuming: Boolean,
+      argType: Type,
+      returnType: Type,
+      // TODO interfaces Should observers or controllers be part of the interface?
+  )
+
+  final case class InterfaceMethod(
+      name: MethodName,
+      returnType: Type,
+  )
+
+  final case class GenTemplate[E](
       param: ExprVarName, // Binder for template argument.
       precond: E, // Template creation precondition.
       signatories: E, // Parties agreeing to the contract.
@@ -627,9 +708,10 @@ object Ast {
       choices: Map[ChoiceName, GenTemplateChoice[E]], // Choices available in the template.
       observers: E, // Observers of the contract.
       key: Option[GenTemplateKey[E]],
-  ) extends NoCopy
+      implements: Map[TypeConName, GenTemplateImplements[E]],
+  )
 
-  sealed class GenTemplateCompanion[E] {
+  final class GenTemplateCompanion[E] private[Ast] {
 
     def apply(
         param: ExprVarName,
@@ -639,15 +721,21 @@ object Ast {
         choices: Iterable[(ChoiceName, GenTemplateChoice[E])],
         observers: E,
         key: Option[GenTemplateKey[E]],
+        implements: Iterable[(TypeConName, GenTemplateImplements[E])],
     ): GenTemplate[E] = {
 
       val choiceMap = toMapWithoutDuplicate(
         choices,
-        (choiceName: ChoiceName) =>
-          throw PackageError(s"collision on choice name ${choiceName.toString}"),
+        (choiceName: ChoiceName) => throw PackageError(s"collision on choice name $choiceName"),
       )
 
-      new GenTemplate[E](
+      val implementsMap = toMapWithoutDuplicate(
+        implements,
+        (ifaceName: TypeConName) =>
+          throw PackageError(s"repeated interface implementation ${ifaceName.toString}"),
+      )
+
+      GenTemplate[E](
         param,
         precond,
         signatories,
@@ -655,6 +743,7 @@ object Ast {
         choiceMap,
         observers,
         key,
+        implementsMap,
       )
     }
 
@@ -667,6 +756,7 @@ object Ast {
           Map[ChoiceName, GenTemplateChoice[E]],
           E,
           Option[GenTemplateKey[E]],
+          Map[TypeConName, GenTemplateImplements[E]],
       )
     ] = GenTemplate.unapply(arg)
 
@@ -679,6 +769,7 @@ object Ast {
           Map[ChoiceName, GenTemplateChoice[E]],
           E,
           Option[GenTemplateKey[E]],
+          Map[TypeConName, GenTemplateImplements[E]],
       )
     ] = Some(
       (
@@ -689,17 +780,18 @@ object Ast {
         arg.choices,
         arg.observers,
         arg.key,
+        arg.implements,
       )
     )
   }
 
   type Template = GenTemplate[Expr]
-  object Template extends GenTemplateCompanion[Expr]
+  val Template = new GenTemplateCompanion[Expr]
 
   type TemplateSignature = GenTemplate[Unit]
-  object TemplateSignature extends GenTemplateCompanion[Unit]
+  val TemplateSignature = new GenTemplateCompanion[Unit]
 
-  case class GenTemplateChoice[E](
+  final case class GenTemplateChoice[E](
       name: ChoiceName, // Name of the choice.
       consuming: Boolean, // Flag indicating whether exercising the choice consumes the contract.
       controllers: E, // Parties that can exercise the choice.
@@ -710,7 +802,7 @@ object Ast {
       update: E, // The choice follow-up.
   )
 
-  sealed class GenTemplateChoiceCompanion[E] {
+  final class GenTemplateChoiceCompanion[E] private[Ast] {
     def apply(
         name: ChoiceName,
         consuming: Boolean,
@@ -750,14 +842,74 @@ object Ast {
   }
 
   type TemplateChoice = GenTemplateChoice[Expr]
-  object TemplateChoice extends GenTemplateChoiceCompanion[Expr]
+  val TemplateChoice = new GenTemplateChoiceCompanion[Expr]
 
   type TemplateChoiceSignature = GenTemplateChoice[Unit]
-  object TemplateChoiceSignature extends GenTemplateChoiceCompanion[Unit]
+  val TemplateChoiceSignature = new GenTemplateChoiceCompanion[Unit]
+
+  final case class GenTemplateImplements[E](
+      interface: TypeConName,
+      methods: Map[MethodName, GenTemplateImplementsMethod[E]],
+  )
+
+  final class GenTemplateImplementsCompanion[E] private[Ast] {
+    def apply(
+        interface: TypeConName,
+        methods: Iterable[(MethodName, GenTemplateImplementsMethod[E])],
+    ): GenTemplateImplements[E] = {
+      val methodMap = toMapWithoutDuplicate(
+        methods,
+        (methodName: MethodName) =>
+          throw PackageError(s"repeated method implementation $methodName"),
+      )
+      new GenTemplateImplements[E](interface, methodMap)
+    }
+
+    def apply(
+        interface: TypeConName,
+        methods: Map[MethodName, GenTemplateImplementsMethod[E]],
+    ): GenTemplateImplements[E] =
+      GenTemplateImplements[E](interface, methods)
+
+    def unapply(
+        arg: GenTemplateImplements[E]
+    ): Some[(TypeConName, Map[MethodName, GenTemplateImplementsMethod[E]])] =
+      Some((arg.interface, arg.methods))
+  }
+
+  type TemplateImplements = GenTemplateImplements[Expr]
+  val TemplateImplements = new GenTemplateImplementsCompanion[Expr]
+
+  type TemplateImplementsSignature = GenTemplateImplements[Unit]
+  val TemplateImplementsSignature = new GenTemplateImplementsCompanion[Unit]
+
+  final case class GenTemplateImplementsMethod[E](
+      name: MethodName,
+      value: E,
+  )
+
+  final class GenTemplateImplementsMethodCompanion[E] {
+    def apply(
+        name: MethodName,
+        value: E,
+    ): GenTemplateImplementsMethod[E] =
+      GenTemplateImplementsMethod[E](name, value)
+
+    def unapply(
+        arg: GenTemplateImplementsMethod[E]
+    ): Some[(MethodName, E)] =
+      Some((arg.name, arg.value))
+  }
+
+  type TemplateImplementsMethod = GenTemplateImplementsMethod[Expr]
+  val TemplateImplementsMethod = new GenTemplateImplementsMethodCompanion[Expr]
+
+  type TemplateImplementsMethodSignature = GenTemplateImplementsMethod[Unit]
+  val TemplateImplementsMethodSignature = new GenTemplateImplementsMethodCompanion[Unit]
 
   final case class GenDefException[E](message: E)
 
-  sealed class GenDefExceptionCompanion[E] {
+  final class GenDefExceptionCompanion[E] private[Ast] {
     def apply(message: E): GenDefException[E] =
       GenDefException(message)
 
@@ -766,12 +918,12 @@ object Ast {
   }
 
   type DefException = GenDefException[Expr]
-  object DefException extends GenDefExceptionCompanion[Expr]
+  val DefException = new GenDefExceptionCompanion[Expr]
 
   type DefExceptionSignature = GenDefException[Unit]
   val DefExceptionSignature = GenDefException(())
 
-  case class FeatureFlags(
+  final case class FeatureFlags(
       forbidPartyLiterals: Boolean // If set to true, party literals are not allowed to appear in daml-lf packages.
       /*
       These flags are present in Daml-LF, but our ecosystem does not support them anymore:
@@ -796,13 +948,19 @@ object Ast {
   // Modules and packages
   //
 
-  case class GenModule[E] private[Ast] (
+  final case class GenModule[E](
       name: ModuleName,
       definitions: Map[DottedName, GenDefinition[E]],
       templates: Map[DottedName, GenTemplate[E]],
       exceptions: Map[DottedName, GenDefException[E]],
+      interfaces: Map[DottedName, GenDefInterface[E]],
       featureFlags: FeatureFlags,
-  ) extends NoCopy
+  ) {
+    templates.keysIterator.foreach(name =>
+      if (exceptions.keySet.contains(name))
+        throw PackageError(s"Collision between exception and template name ${name.toString}")
+    )
+  }
 
   private[this] def toMapWithoutDuplicate[Key, Value](
       xs: Iterable[(Key, Value)],
@@ -816,13 +974,14 @@ object Ast {
       }
     }
 
-  sealed class GenModuleCompanion[E] {
+  final class GenModuleCompanion[E] private[Ast] {
 
     def apply(
         name: ModuleName,
         definitions: Iterable[(DottedName, GenDefinition[E])],
         templates: Iterable[(DottedName, GenTemplate[E])],
         exceptions: Iterable[(DottedName, GenDefException[E])],
+        interfaces: Iterable[(DottedName, GenDefInterface[E])],
         featureFlags: FeatureFlags,
     ): GenModule[E] = {
 
@@ -844,11 +1003,13 @@ object Ast {
           (name: DottedName) => throw PackageError(s"Collision on exception name ${name.toString}"),
         )
 
-      templateMap.keysIterator.find(exceptionMap.keySet.contains).foreach { name =>
-        throw PackageError(s"Collision between exception and template name ${name.toString}")
-      }
+      val interfaceMap =
+        toMapWithoutDuplicate(
+          interfaces,
+          (name: DottedName) => throw PackageError(s"Collision on interface name ${name.toString}"),
+        )
 
-      GenModule(name, definitionMap, templateMap, exceptionMap, featureFlags)
+      GenModule(name, definitionMap, templateMap, exceptionMap, interfaceMap, featureFlags)
     }
 
     def unapply(arg: GenModule[E]): Some[
@@ -857,27 +1018,30 @@ object Ast {
           Map[DottedName, GenDefinition[E]],
           Map[DottedName, GenTemplate[E]],
           Map[DottedName, GenDefException[E]],
+          Map[DottedName, GenDefInterface[E]],
           FeatureFlags,
       )
-    ] = Some((arg.name, arg.definitions, arg.templates, arg.exceptions, arg.featureFlags))
+    ] = Some(
+      (arg.name, arg.definitions, arg.templates, arg.exceptions, arg.interfaces, arg.featureFlags)
+    )
   }
 
   type Module = GenModule[Expr]
-  object Module extends GenModuleCompanion[Expr]
+  val Module = new GenModuleCompanion[Expr]
 
   type ModuleSignature = GenModule[Unit]
-  object ModuleSignature extends GenModuleCompanion[Unit]
+  val ModuleSignature = new GenModuleCompanion[Unit]
 
-  case class PackageMetadata(name: PackageName, version: PackageVersion)
+  final case class PackageMetadata(name: PackageName, version: PackageVersion)
 
-  case class GenPackage[E](
+  final case class GenPackage[E](
       modules: Map[ModuleName, GenModule[E]],
       directDeps: Set[PackageId],
       languageVersion: LanguageVersion,
       metadata: Option[PackageMetadata],
   )
 
-  sealed class GenPackageCompanion[E] {
+  final class GenPackageCompanion[E] private[Ast] {
 
     def apply(
         modules: Iterable[GenModule[E]],
@@ -919,7 +1083,7 @@ object Ast {
   }
 
   type Package = GenPackage[Expr]
-  object Package extends GenPackageCompanion[Expr]
+  val Package = new GenPackageCompanion[Expr]
 
   // [PackageSignature] is a version of the AST that does not contain
   // LF expression. This should save memory in the [CompiledPackages]
@@ -932,7 +1096,7 @@ object Ast {
   // types of the serializable data of a package. See for instance
   // [InterfaceReader]
   type PackageSignature = GenPackage[Unit]
-  object PackageSignature extends GenPackageCompanion[Unit]
+  val PackageSignature = new GenPackageCompanion[Unit]
 
   val keyFieldName = Name.assertFromString("key")
   val valueFieldName = Name.assertFromString("value")

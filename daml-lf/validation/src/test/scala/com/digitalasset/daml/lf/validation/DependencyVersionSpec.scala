@@ -32,8 +32,8 @@ class DependencyVersionSpec extends AnyWordSpec with TableDrivenPropertyChecks w
       val (pkgId, modName) = ref
 
       val mod = Module(
-        modName,
-        (u -> DValue(TUnit, true, EUnit, false)) +:
+        name = modName,
+        definitions = (u -> DValue(TUnit, true, EUnit, false)) +:
           depRefs.map { case (depPkgId, depModName) =>
             depModName -> DValue(
               TUnit,
@@ -42,9 +42,10 @@ class DependencyVersionSpec extends AnyWordSpec with TableDrivenPropertyChecks w
               false,
             )
           },
-        Map.empty,
-        Map.empty,
-        FeatureFlags.default,
+        templates = List.empty,
+        exceptions = List.empty,
+        interfaces = List.empty,
+        featureFlags = FeatureFlags.default,
       )
 
       pkgId -> Package(
@@ -70,13 +71,13 @@ class DependencyVersionSpec extends AnyWordSpec with TableDrivenPropertyChecks w
 
     forEvery(negativeTestCases) { pkgs =>
       pkgs.foreach { case (pkgId, pkg) =>
-        DependencyVersion.checkPackage(language.Interface(pkgs), pkgId, pkg)
+        DependencyVersion.checkPackage(language.PackageInterface(pkgs), pkgId, pkg)
       }
     }
 
     forEvery(postiveTestCase) { case ((pkgdId, _), pkgs) =>
       an[EModuleVersionDependencies] should be thrownBy
-        DependencyVersion.checkPackage(language.Interface(pkgs), pkgdId, pkgs(pkgdId))
+        DependencyVersion.checkPackage(language.PackageInterface(pkgs), pkgdId, pkgs(pkgdId))
     }
 
   }

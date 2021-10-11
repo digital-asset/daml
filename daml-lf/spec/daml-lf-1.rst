@@ -238,9 +238,6 @@ Version: 1.12
 Version: 1.13
 .............
 
-.. TODO: https://github.com/digital-asset/daml/issues/8020
-     add explanations about Arithmetic Error
-
 * Introduction date:
 
      2021-04-06
@@ -249,16 +246,16 @@ Version: 1.13
 
   + **Add** Add BigNumeric support (arbitrary precision decimals).
     - add `BigNumeric` primitive type
-    - add `RoundingMode` primitive type
+    - add `RoundingMode` primitive type and literals
     - add `BigNumeric` builtins
 
 
-Version: 1.14 (preview)
-.......................
+Version: 1.14
+.............
 
 * Introduction date:
 
-     2021-06-03
+     2021-06-22
 
 * Description:
 
@@ -378,17 +375,10 @@ instances when we want to avoid empty identifiers, escaping problems,
 and other similar pitfalls. ::
 
   PackageId strings
-   PackageIdString ::= ' PackageIdChars '             -- PackageIdString
-
-  Sequences of PackageId character
-    PackageIdChars ::= PackageIdChar                  -- PackageIdChars
-                    |  PackageIdChars PackageIdChar
-
-  PackageId character
-     PackageIdChar  ∈  [a-zA-Z0-9\-_ ]               -- PackageIdChar
+   PackageIdString ::= [a-zA-Z0-9\-_ ]{1,64}        -- PackageIdString
 
   PartyId strings
-     PartyIdString  ∈  [a-zA-Z0-9:\-_ ]{1,255}       -- PartyIdChar
+     PartyIdString  ∈  [a-zA-Z0-9:\-_ ]{1,255}      -- PartyIdString
 
   PackageName strings
    PackageNameString ∈ [a-zA-Z0-9:\-_]+             -- PackageNameString
@@ -400,16 +390,17 @@ and other similar pitfalls. ::
 We can now define a generic notion of *identifier* and *name*::
 
   identifiers:
-          Ident  ∈  [a-zA-Z_\$][a-zA-Z0-9_\$]       -- Ident
+          Ident  ∈  [a-zA-Z_\$][a-zA-Z0-9_\$]{0,999}  -- Ident
 
   names:
-         Name   ::= Identifier                      -- Name
-                 |  Name \. Identifier
+         Name   ::= Ident                           -- Name
+                 |  Name \. Ident
 
 Identifiers are standard `java identifiers
 <https://docs.oracle.com/javase/specs/jls/se8/html/jls-3.html#jls-3.8>`_
-restricted to US-ASCII while names are sequences of identifiers
-intercalated with dots.
+restricted to US-ASCII with a length of at most 1000 characters.
+Names are sequences of identifiers intercalated with dots with a total
+length of at most 1000 characters.
 
 The character ``%`` is reserved for external languages built on
 Daml-LF as a "not an Ident" notation, so should not be considered for
@@ -479,11 +470,11 @@ V0 contract identifiers, a Daml-LF compliant engine must refuse to
 load any Daml-LF >= 1.11 archives.  On the contrary, when configured
 to produce V1 contract IDs, a Daml-LF compliant engine must accept to
 load any non-deprecated Daml-LF version. V1 Contract IDs allocation
-scheme is described in the `V1 Contract ID allocation
-scheme specification <./contract-id.rst>`_.
-
-Also note that package identifiers are typically `cryptographic hash
-<Package hash_>`_ of the content of the package itself.
+scheme is described in the `V1 Contract ID allocation scheme
+specification <./contract-id.rst>`_. In the following we will say that
+a V1 contract identifier is *non-suffixed* if it is built from exactly
+66 charters. Otherwise (meaning it has between 68 and 254 charters) we
+will say it is *suffixed*.
 
 Literals
 ~~~~~~~~
@@ -538,6 +529,7 @@ The literals represent actual Daml-LF values:
   the number of digits of its unscaled value (ignoring possible
   leading zeros). By convention the scale and the precision of zero
   are 0.  Daml-LF distinguishes two kinds of decimal numbers:
+
   + A ``LitNumeric`` represents those decimal numbers that have a
     precision of at most 38 and a scale between ``0`` and ``37``
     (bounds inclusive).
@@ -545,6 +537,7 @@ The literals represent actual Daml-LF values:
     most 2¹⁵ significant digits at the right and the left of the
     decimal point. Equivalently those are decimal numbers that respect
     `scale ≤ 2¹⁵` and `precision - scale < 2¹⁵`.
+
 * A ``LitDate`` represents the number of day since
   ``1970-01-01`` with allowed range from ``0001-01-01`` to
   ``9999-12-31`` and using a year-month-day format.
@@ -1892,12 +1885,12 @@ need to be evaluated further. ::
      ⊢ᵥ  〚e₁ ↦ e₁'; … ; eₙ ↦ eₙ'〛
 
      0 ≤ k < m
-     𝕋(F) = ∀ (α₁: ⋆) … (αₘ: ⋆). σ₁ → … → σₙ → σ
+     𝕋(F) = ∀ (α₁: k₁) … ∀ (αₘ: kₘ). σ₁ → … → σₙ → σ
    ——————————————————————————————————————————————————— ValExpBuiltin₁
      ⊢ᵥ  F @τ₁ … @τₖ
 
      0 ≤ k < n
-     𝕋(F) = ∀ (α₁: ⋆) … (αₘ: ⋆). σ₁ → … → σₙ → σ
+     𝕋(F) = ∀ (α₁: k₁) … ∀ (αₘ: kₘ). σ₁ → … → σₙ → σ
      ⊢ᵥ  e₁      …      ⊢ᵥ  eₖ
    ——————————————————————————————————————————————————— ValExpBuiltin₂
      ⊢ᵥ  F @τ₁ … @τₘ e₁ … eₖ
@@ -2044,6 +2037,38 @@ values. This is captured in the rules ``ValExpTyAbsNat`` and
 Note that the fields of struct values are always ordered lexicographically
 by field name, unlike the fields of struct expressions. The field order is
 normalized during evaluation.
+
+Value nesting
+~~~~~~~~~~~~~
+
+  A value is serializable if it lives inside serializable type and its
+  nesting is lower or equal to 100. Formally, the nesting of a
+  serializable value ``v`` is noted ``|v|`` and is defined recursively
+  on ``v`` as follows (we omit values that do not have serialized type)::
+
+     | LitInt64 | = 0
+     | LitNumeric | = 0
+     | LitBigNumeric | = 0
+     | t | = 0
+     | LitDate | = 0
+     | LitTimestamp | = 0
+     | cid | = 0
+     | () | = 0
+     | 'True' | = 0
+     | 'False' | = 0
+     | 'Nil' @τ | = 0
+     | 'Cons' @τ eₕ eₜ | = max₂ (|eₕ| + 1) |eₜ|
+     | 'None' @τ | = 0
+     | 'Some' @τ e | = |e| + 1
+     | [t₁ ↦ e₁; … ; tₙ ↦ eₙ] | = (maxₙ |e₁| … |eₙ|) + 1
+     | 〚e₁ ↦ e₁'; … ; eₙ ↦ eₙ'〛 | = (max₂ₙ |e₁| |e₁'| … |eₙ| |eₙ'|) + 1
+     | Mod:T @τ₁ … @τₙ { f₁ = e₁, …, fₙ = eₙ } | = (maxₙ |e₁| … |eₙ|) + 1
+     | Mod:T:V @τ₁ … @τₙ e | = |e| + 1
+     | Mod:T:E | = 0
+     | LitRoundingMode | = 0
+
+  where ``maxₙ`` is the ``n``-ary function that returns the maximum of its arguments.
+
 
 Pattern matching
 ~~~~~~~~~~~~~~~~
@@ -2375,7 +2400,7 @@ exact output.
     —————————————————————————————————————————————————————————————————————— EvExpSome
       'Some' @τ e  ⇓  Ok ('Some' @τ v)
 
-      𝕋(F) = ∀ (α₁: ⋆). … ∀ (αₘ: ⋆). σ₁ → … → σₙ → σ
+      𝕋(F) = ∀ (α₁: k₁) … ∀ (αₘ: kₘ). σ₁ → … → σₙ → σ
       e₁  ⇓  Ok v₁
         ⋮
       eᵢ₋₁  ⇓  Ok vᵢ₋₁
@@ -2383,7 +2408,7 @@ exact output.
     —————————————————————————————————————————————————————————————————————— EvExpBuiltinErr
       F @τ₁ … @τₘ e₁ … eₙ  ⇓  Err E
 
-      𝕋(F) = ∀ (α₁: ⋆). … ∀ (αₘ: ⋆). σ₁ → … → σₙ → σ
+      𝕋(F) = ∀ (α₁: k₁) … ∀ (αₘ: kₘ). σ₁ → … → σₙ → σ
       e₁  ⇓  Ok v₁
         ⋮
       eₙ  ⇓  Ok vₙ
@@ -2526,18 +2551,6 @@ exact output.
       eₘ v  ⇓  Ok vₘ
     —————————————————————————————————————————————————————————————————————— EvExpAnyExceptionMessageRecord
       'ANY_EXCEPTION_MESSAGE' e  ⇓  Ok vₘ
-
-      e  ⇓  Ok ('to_any_exception' @'GeneralError' ('MAKE_GENERAL_ERROR' v))
-    —————————————————————————————————————————————————————————————————————— EvExpAnyExceptionMessageGeneral
-      'ANY_EXCEPTION_MESSAGE' e  ⇓  Ok v
-
-      e  ⇓  Ok ('to_any_exception' @'ArithmeticError' ('MAKE_ARITHMETIC_ERROR' v))
-    —————————————————————————————————————————————————————————————————————— EvExpAnyExceptionMessageArithmetic
-      'ANY_EXCEPTION_MESSAGE' e  ⇓  Ok v
-
-      e  ⇓  Ok ('to_any_exception' @'ContractError' ('MAKE_CONTRACT_ERROR' v))
-    —————————————————————————————————————————————————————————————————————— EvExpAnyExceptionMessageContract
-      'ANY_EXCEPTION_MESSAGE' e  ⇓  Ok v
 
       e  ⇓  Err E
     —————————————————————————————————————————————————————————————————————— EvExpUpPureErr
@@ -2887,6 +2900,17 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdCreateErr4
      'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
 
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
+        'signatories' eₛ, 'observers' eₒ, … }  ∈  〚Ξ〛Mod
+     eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     eₐ[x ↦ vₜ]  ⇓  Ok vₐ
+     eₛ[x ↦ vₜ]  ⇓  Ok vₛ
+     eₒ[x ↦ vₜ]  ⇓  Ok vₒ
+     |vₜ| > 100
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateNestingArgErr
+     'create' @Mod:T vₜ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
         'signatories' eₛ, 'observers' eₒ, …, 'no_key' }  ∈  〚Ξ〛Mod
@@ -2894,6 +2918,7 @@ as described by the ledger model::
      eₐ[x ↦ vₜ]  ⇓  Ok vₐ
      eₛ[x ↦ vₜ]  ⇓  Ok vₛ
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
+     |vₜ| ≤ 100
      cid ∉ dom(st₀)
      tr = 'create' (cid, Mod:T, vₜ, 'no_key')
      st₁ = st₀[cid ↦ (Mod:T, vₜ, 'active')]
@@ -2931,6 +2956,36 @@ as described by the ledger model::
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
      eₖ[x ↦ vₜ]  ⇓  Ok vₖ
      eₘ vₖ  ⇓  Ok vₘ
+     |vₜ| > 100
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateWithKeyNestingArgErr
+     'create' @Mod:T vₜ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+     eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     eₐ[x ↦ vₜ]  ⇓  Ok vₐ
+     eₛ[x ↦ vₜ]  ⇓  Ok vₛ
+     eₒ[x ↦ vₜ]  ⇓  Ok vₒ
+     eₖ[x ↦ vₜ]  ⇓  Ok vₖ
+     eₘ vₖ  ⇓  Ok vₘ
+     |vₜ| ≤ 100
+     |vₖ| > 100
+   —————————————————————————————————————————————————————————————————————— EvUpdCreateWithKeyNestingKeyErr
+     'create' @Mod:T vₜ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+     'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ,
+        'signatories' eₛ, 'observers' eₒ, …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+     eₚ[x ↦ vₜ]  ⇓  Ok 'True'
+     eₐ[x ↦ vₜ]  ⇓  Ok vₐ
+     eₛ[x ↦ vₜ]  ⇓  Ok vₛ
+     eₒ[x ↦ vₜ]  ⇓  Ok vₒ
+     eₖ[x ↦ vₜ]  ⇓  Ok vₖ
+     eₘ vₖ  ⇓  Ok vₘ
+     |vₜ| ≤ 100    |vₖ| ≤ 100
      (Mod:T, vₖ) ∈ dom(keys₀)
    —————————————————————————————————————————————————————————————————————— EvUpdCreateWithKeyFail
      'create' @Mod:T vₜ ‖ (st₀, keys₀)
@@ -2945,6 +3000,7 @@ as described by the ledger model::
      eₒ[x ↦ vₜ]  ⇓  Ok vₒ
      eₖ[x ↦ vₜ]  ⇓  Ok vₖ
      eₘ vₖ  ⇓  Ok vₘ
+     |vₜ| ≤ 100    |vₖ| ≤ 100
      (Mod:T, vₖ) ∉ dom(keys₀)
      cid ∉ dom(st₀)
      tr = 'create' (cid, Mod:T, vₜ)
@@ -3008,6 +3064,20 @@ as described by the ledger model::
      eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
      v₁ =ₛ vₚ
      eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
+     |v₂| > 100
+   —————————————————————————————————————————————————————————————————————— EvUpdExercNestingArgErr
+     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+     'tpl' (x : T)
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod:T, vₜ, 'active')
+     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
+     v₁ =ₛ vₚ
+     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
+     |v₂| ≤ 100
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdExercBodyEvalErr
      'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
@@ -3037,10 +3107,30 @@ as described by the ledger model::
      eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
      v₁ =ₛ vₚ
      eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
+     |v₂| ≤ 100
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
      keys₁ = keys₀ - keys₀⁻¹(cid)
      st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
      uₐ ‖ (st₁, keys₁)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₂, keys₂)
+     |vₐ| > 100
+   —————————————————————————————————————————————————————————————————————— EvUpdExercConsumNestingOutErr
+     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+     'tpl' (x : T)
+         ↦ { 'choices' { …, 'choice' 'consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod:T, vₜ, 'active')
+     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
+     v₁ =ₛ vₚ
+     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
+     |v₂| ≤ 100
+     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
+     keys₁ = keys₀ - keys₀⁻¹(cid)
+     st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
+     uₐ ‖ (st₁, keys₁)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₂, keys₂)
+     |vₐ| ≤ 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercConsum
      'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
@@ -3053,6 +3143,7 @@ as described by the ledger model::
      eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
      v₁ =ₛ vₚ
      eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
+     |v₂| ≤ 100
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
      uₐ ‖ (st₀; keys₀)  ⇓ᵤ  (Err E, tr)
    —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsumErr
@@ -3067,8 +3158,26 @@ as described by the ledger model::
      eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
      v₁ =ₛ vₚ
      eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
+     |v₂| ≤ 100
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
      uₐ ‖ (st₀; keys₀)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₁, keys₁)
+     |vₐ| > 100
+   —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsumNestingOutErr
+     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+    'tpl' (x : T)
+         ↦ { 'choices' { …, 'choice' 'non-consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod:T, vₜ, 'active')
+     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
+     v₁ =ₛ vₚ
+     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
+     |v₂| ≤ 100
+     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
+     uₐ ‖ (st₀; keys₀)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₁, keys₁)
+     |vₐ| ≤ 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsum
      'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
@@ -3126,6 +3235,15 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      (eₘ vₖ)  ⇓  Ok  vₘ
+     |vₖ| > 100
+    —————————————————————————————————————————————————————————————————————— EvUpdFetchByKeyNestingErr
+     'fetch_by_key' @Mod:T vₖ ‖ (st; keys)
+        ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+     'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+     (eₘ vₖ)  ⇓  Ok  vₘ
+     |vₖ| ≤ 100
      (Mod:T, vₖ) ∉ dom(keys₀)
     —————————————————————————————————————————————————————————————————————— EvUpdFetchByKeyNotFound
      'fetch_by_key' @Mod:T vₖ ‖ (st; keys)
@@ -3134,6 +3252,7 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      (eₘ vₖ)  ⇓  Ok  vₘ
+     |vₖ| ≤ 100
      (Mod:T, vₖ) ∈ dom(keys)
      cid = keys((Mod:T, v))
      st(cid) = (Mod:T, vₜ, 'inactive')
@@ -3144,6 +3263,7 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      (eₘ vₖ)  ⇓  Ok  vₘ
+     |vₖ| ≤ 100
      (Mod:T, vₖ) ∈ dom(keys)
      cid = keys((Mod:T, v))
      st(cid) = (Mod:T, vₜ, 'active')
@@ -3159,6 +3279,15 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      (eₘ vₖ)  ⇓  vₘ
+     |vₖ| ≤ 100
+   —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyNestingErr
+     'lookup_by_key' @Mod:T vₖ ‖ (st; keys)
+       ⇓ᵤ
+     (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+     'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
+     (eₘ vₖ)  ⇓  vₘ
+     |vₖ| ≤ 100
      (Mod:T, vₖ) ∉ dom(keys)
    —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyNotFound
      'lookup_by_key' @Mod:T vₖ ‖ (st; keys)
@@ -3167,6 +3296,7 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      (eₘ vₖ)  ⇓  vₘ
+     |vₖ| ≤ 100
      (Mod:T, vₖ) ∈ dom(keys)
      cid = keys((Mod:T, v))
    —————————————————————————————————————————————————————————————————————— EvUpdLookupByKeyFound
@@ -3364,6 +3494,58 @@ This section lists the built-in functions supported by Daml-LF 1.
 The functions come with their types and a description of their
 behavior.
 
+About Exceptions
+~~~~~~~~~~~~~~~~
+
+Some builtin functions can throw non-fatal exceptions, i.e. exceptions
+catchable by the ``TryCatch`` update expression. Those exceptions are
+not built in the language but are standard exceptions defined in user
+land. The builtin functions from an engine compliant with the current
+specification should be able to produce and handle (notably the
+``ANY_EXCEPTION_MESSAGE`` builtin function) such exceptions even if
+the package they are defined in has not been loaded.  Any other usage
+on the exception payload, like construction, projection, update or
+conversion from/back `'AnyException'`, requires the definition
+packages to be loaded.
+
+As of LF 1.14 the only non-fatal exceptions that a builtin function
+can throw is the ``ArithmeticError`` record defined in the module
+``DA.Exception.ArithmeticError`` of the package
+``'cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a'``
+whose content is as follow::
+
+   package cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a
+   daml-lf 1.14
+   metadata daml-prim-DA-Exception-ArithmeticError-1.0.0
+
+   module DA.Exception.ArithmeticError {
+      record @serializable ArithmeticError = { message : Text } ;
+      val $WArithmeticError :Text -> DA.Exception.ArithmeticError:ArithmeticError =
+         λ message : Text .
+            DA.Exception.ArithmeticError:ArithmeticError { message = message };
+      exception ArithmeticError = {
+         'message' λ x : DA.Exception.ArithmeticError:ArithmeticError.
+            DA.Exception.ArithmeticError:ArithmeticError { message } x
+      } ;
+   }
+
+.. The package can be produced in a stable way by Daml SDK 1.14 or
+   latter with the command
+   ``bazel build //compiler/damlc/stable-packages:stable-packages``
+
+In the following, we will say that the call of a built-in function
+``F : ∀ (α₁ … αₘ : nat) . τ₁ → … → τ₂ → τ`` "throws an
+``ArithmeticError`` exception" to mean its evaluation is equivalent to
+the evaluation of::
+
+  Throw cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a:DA.Exception.ArithmeticError:ArithmeticError {
+     message = "ArithmeticError while evaluating (F @n₁ … @nₘ v₁ … vₙ)."
+  }
+
+
+where ``n₁ … nₘ v₁ … vₙ`` are the string representations of the
+arguments passed to the function.
+
 Generic comparison functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -3372,6 +3554,15 @@ The following builtin functions defines an order on the so-called
 abstractions, functions, partially applied builtin functions, and
 updates.
 
+Note that as described in the `V1 Contract ID allocation scheme
+specification <./contract-id.rst>`_ the comparison of two V1 contract
+identifiers may fail at run time. For the purpose of this
+specification, we will say that two contract identifiers are *not
+comparable* if (i) both of them are V1 contract identifiers, (ii) one
+of them is ``non-suffixed``, and (iii) is a strict prefixed of the
+other one.
+
+ 
 * ``LESS_EQ : ∀ (α:*). α → α → 'Bool'``
 
   The builtin function ``LESS_EQ`` returns ``'True'`` if the first
@@ -3420,7 +3611,12 @@ updates.
       𝕆('LESS_EQ' @σ LitRoundingMode₁ LitRoundingMode₂) =
           Ok (LitRoundingMode₁ ≤ₗ LitRoundingMode₂)
 
-    —————————————————————————————————————————————————————————————————————— EvLessEqContractId
+       cid₁ and cid₂ are not comparable
+    —————————————————————————————————————————————————————————————————————— EvLessEqNonComparableContractId
+      𝕆('LESS_EQ' @σ cid₁ cid₂) = Err 'ContractIdComparability'
+
+       cid₁ and cid₂ are comparable
+    —————————————————————————————————————————————————————————————————————— EvLessEqComparableContractId
       𝕆('LESS_EQ' @σ cid₁ cid₂) = Ok (cid₁ ≤ₗ cid₂)
 
     —————————————————————————————————————————————————————————————————————— EvLessEqStructEmpty
@@ -3550,8 +3746,8 @@ updates.
 
     —————————————————————————————————————————————————————————————————————— EvLessEqScenario
       𝕆('LESS_EQ' @('Scenario' σ) v v' = Err 'Try to compare functions'
-..
-  FIXME: https://github.com/digital-asset/daml/issues/2256
+
+.. FIXME: https://github.com/digital-asset/daml/issues/2256
     Handle contract IDs
 
 
@@ -3637,34 +3833,37 @@ Int64 functions
 
 * ``ADD_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
-  Adds the two integers. In case of an overflow, throws an exception
-  ``'MAKE_ARITHMETIC_ERROR' t``, where ``t = "Overflow: ADD_INT64 {m} {n}"``
-  for ``m`` and ``n`` the actual values of the operands.
+  Adds the two integers. Throws an ``ArithmeticError`` exception in
+  case of overflow.
 
 * ``SUB_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
-  Subtracts the second integer from the first one. Throws an error in
-  case of overflow.
+  Subtracts the second integer from the first one. Throws an
+  ``ArithmeticError`` exception in case of overflow.
 
 * ``MUL_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
-  Multiplies the two integers. Throws an error in case of overflow.
+  Multiplies the two integers. Throws an ``ArithmeticError`` exception
+  in case of overflow.
 
 * ``DIV_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
   Returns the quotient of division of the first integer by the second
-  one. Throws an error if the first integer is ``−2⁶³`` and the second
-  one is ``-1``.
+  one.  Rounds toward 0 if the real quotient is not an integer.
+  Throws an ``ArithmeticError`` exception
+  - if the second argument is ``0``, or
+  - if the first argument is ``−2⁶³`` and the second  one is ``-1``.
 
 * ``MOD_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
   Returns the remainder of the division of the first integer by the
-  second one.
+  second one.  Throws an ``ArithmeticError`` exception if the second
+  argument is ``0``.
 
 * ``EXP_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
-  Returns the exponentiation of the first integer by the second
-  one. Throws an error in case of overflow.
+  Returns the exponentiation of the first integer by the second one.
+  Throws an ``ArithmeticError`` exception in case of overflow.
 
 * ``LESS_EQ_INT64 : 'Int64' → 'Int64' → 'Bool'``
 
@@ -3673,8 +3872,8 @@ Int64 functions
 
 * ``GREATER_EQ_INT64 : 'Int64' → 'Int64' → 'Bool'``
 
-  Returns ``'True'`` if the first integer is greater or equal than
-  the second, ``'False'`` otherwise.
+  Returns ``'True'`` if the first integer is greater or equal than the
+  second, ``'False'`` otherwise.
 
 * ``LESS_INT64 : 'Int64' → 'Int64' → 'Bool'``
 
@@ -3700,7 +3899,7 @@ Int64 functions
 * ``TEXT_TO_INT64 : 'Text' → 'Optional' 'Int64'``
 
   Given a string representation of an integer returns the integer wrapped
-  in ``Some``. If the input does not match the regexp ``[+-]?\d+`` or
+  in ``Some``.  If the input does not match the regexp ``[+-]?\d+`` or
   if the result of the conversion overflows, returns ``None``.
 
 Numeric functions
@@ -3709,23 +3908,24 @@ Numeric functions
 * ``ADD_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α  → 'Numeric' α``
 
   Adds the two decimals.  The scale of the inputs and the output is
-  given by the type parameter `α`.  Throws an error in case of
-  overflow.
+  given by the type parameter `α`.  Throws an ``ArithmeticError``
+  exception in case of overflow.
 
 * ``SUB_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Numeric' α``
 
-  Subtracts the second decimal from the first one.  The
-  scale of the inputs and the output is given by the type parameter
-  `α`.  Throws an error if overflow.
+  Subtracts the second decimal from the first one.  The scale of the
+  inputs and the output is given by the type parameter `α`.  Throws an
+  ``ArithmeticError`` exception in case of overflow.
 
 * ``MUL_NUMERIC : ∀ (α₁ α₂ α : nat) . 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
 
   Multiplies the two numerics and rounds the result to the closest
   multiple of ``10⁻ᵅ`` using `banker's rounding convention
-  <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.
-  The type parameters `α₁`, `α₂`, `α` define the scale of the first
-  input, the second input, and the output, respectively. Throws an
-  error in case of overflow.
+  <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.  The
+  type parameters `α₁`, `α₂`, `α` define the scale of the first input,
+  the second input, and the output, respectively.  Throws an
+  ``ArithmeticError`` exception in case of overflow.
+
 
 * ``DIV_NUMERIC : ∀ (α₁ α₂ α : nat) . 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
 
@@ -3734,18 +3934,19 @@ Numeric functions
   <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_ (where
   `n` is given as the type parameter).  The type parameters `α₁`,
   `α₂`, `α` define the scale of the first input, the second input, and
-  the output, respectively. Throws an error in case of overflow.
+  the output, respectively.  Throws an ``ArithmeticError`` exception
+  if the second argument is ``0.0`` or if the computation overflow.
 
 * ``CAST_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``
 
   Converts a decimal of scale `α₁` to a decimal scale `α₂` while
-  keeping the value the same. Throws an exception in case of
-  overflow or precision loss.
+  keeping the value the same. Throws an ``ArithmeticError`` exception
+  in case of overflow or precision loss.
 
 * ``SHIFT_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``
 
   Converts a decimal of scale `α₁` to a decimal scale `α₂` to another
-  by shifting the decimal point. Thus the ouput will be equal to the input
+  by shifting the decimal point. Thus the output will be equal to the input
   multiplied by `1E(α₁-α₂)`.
 
 * ``LESS_EQ_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
@@ -3828,11 +4029,11 @@ BigNumeric functions
 
   - ``'ROUNDING_UP'`` : Round away from zero
 
-  - ``'ROUNDING_DOWN'`` : Rounds towards zero
+  - ``'ROUNDING_DOWN'`` : Round towards zero
 
-  - ``'ROUNDING_CEILING'`` : Rounds towards positive infinity.
+  - ``'ROUNDING_CEILING'`` : Round towards positive infinity.
 
-  - ``'ROUNDING_FLOOR'`` : Rounds towards negative infinity
+  - ``'ROUNDING_FLOOR'`` : Round towards negative infinity
 
   - ``'ROUNDING_HALF_UP'`` : Round towards the nearest neighbor unless
     both neighbors are equidistant, in which case round away from
@@ -3842,14 +4043,14 @@ BigNumeric functions
     unless both neighbors are equidistant, in which case round towards
     zero.
 
-  - ``'ROUNDING_HALF_EVEN'`` : Rounds towards the nearest neighbor
+  - ``'ROUNDING_HALF_EVEN'`` : Round towards the nearest neighbor
     unless both neighbors are equidistant, in which case round towards
     the even neighbor.
 
-  - ``'ROUNDING_UNNECESSARY'`` : Throw `ArithmeticError` if the exact result cannot be
-    represented.
+  - ``'ROUNDING_UNNECESSARY'`` : Throw an ``ArithmeticError``
+    exception if the exact result cannot be represented.
 
-  Throws an ``ArithmeticError`` if the output is not a valid
+  Throws an ``ArithmeticError``` if the output is not a valid
   BigNumeric.
 
   [*Available in version ≥ 1.13*]
@@ -3868,9 +4069,9 @@ BigNumeric functions
 
 * ``SHIFT_RIGHT_BIGNUMERIC : 'Int64' → 'BigNumeric' → 'BigNumeric'``
 
-  Multiply the second argument by 10 to the negative power of the first
-  argument. Throws an ``ArithmeticError`` in case the result cannot be
-  represented without loss of precision.
+  Multiply the second argument by 10 to the negative power of the
+  first argument. Throws an ``ArithmeticError`` in case the result
+  cannot be represented without loss of precision.
 
   [*Available in version ≥ 1.13*]
 
@@ -3950,7 +4151,7 @@ String functions
 
   Returns string such as.
 
-* ``TEXT_POINTS_TO_CODE``: 'Text' → 'List' 'Int64'
+* ``TEXT_TO_CODE_POINTS``: 'Text' → 'List' 'Int64'
 
   Returns the list of the Unicode `codepoints
   <https://en.wikipedia.org/wiki/Code_point>`_ of the input
@@ -4376,14 +4577,15 @@ Conversions functions
 * ``INT64_TO_NUMERIC : ∀ (α : nat) . 'Int64' → 'Numeric' α``
 
   Returns a numeric representation of the integer.  The scale of the
-  output and the output is given by the type parameter `α`. Throws an
-  error in case of overflow.
+  output and the output is given by the type parameter `α`.  Throws an
+  ``ArithmeticError`` exception in case of overflow.
 
 * ``NUMERIC_TO_INT64 : ∀ (α : nat) . 'Numeric' α → 'Int64'``
 
   Returns the integral part of the given numeric -- in other words,
   rounds towards 0. The scale of the input and the output is given by
-  the type parameter `α`.  Throws an error in case of overflow.
+  the type parameter `α`.  Throws an ``ArithmeticError`` exception in
+  case of overflow.
 
 * ``TIMESTAMP_TO_UNIX_MICROSECONDS : 'Timestamp' → 'Int64'``
 
@@ -4391,8 +4593,8 @@ Conversions functions
 
 * ``UNIX_MICROSECONDS_TO_TIMESTAMP : 'Int64' → 'Date'``
 
-  Converts the integer in a timestamp. Throws an error in case of
-  overflow.
+  Converts the integer in a timestamp.  Throws an ``ArithmeticError``
+  exception in case of overflow.
 
 * ``DATE_TO_UNIX_DAYS : 'Date' → 'Int64'``
 
@@ -4400,7 +4602,8 @@ Conversions functions
 
 * ``UNIX_DAYS_TO_DATE : 'Int64' → 'Date'``
 
-  Converts the integer in date. Throws an error in case of overflow.
+  Converts the integer in date.  Throws an ``ArithmeticError``
+  exception in case of overflow.
 
 Error functions
 ~~~~~~~~~~~~~~~
@@ -4811,32 +5014,41 @@ program using the field ``observers`` in the ``TemplateChoice``
 message. The missing ``observers`` field is interpreted as an
 empty list of observers.
 
-Exception
-.........
-
-[*Available in versions >= 1.1dev*]
-
-The deserialization process will reject any Daml-LF 1.11 (or earlier)
-program exception using
-- the field ``throw``, ``to_any_exception``, or ``from_any_exception``
-  in the ``Expr`` message,
-- the field ``try`` in the ``Update message,
-- any of the builtin functions ``MAKE_GENERAL_ERROR``,
-  ``MAKE_ARITHMETIC_ERROR``, ``MAKE_CONTRACT_ERROR``,
-  ``ANY_EXCEPTION_MESSAGE``, ``GENERAL_ERROR_MESSAGE``, or
-  ``ARITHMETIC_ERROR_MESSAGE`.
-
 BigNumeric
 ..........
+
+[*Available in versions >= 1.13*]
+
+The deserialization process will reject any Daml-LF 1.12 (or earlier)
+program using:
+
+- ``BigNumeric`` primitive type,
+- ``RoundingMode`` primitive type,
+- any of the literals ``ROUNDING_UP``, ``ROUNDING_DOWN``,
+  ``ROUNDING_CEILING``, ``ROUNDING_FLOOR``, ``ROUNDING_HALF_UP``,
+  ``ROUNDING_HALF_DOWN``, ``ROUNDING_HALF_EVEN``,
+  ``ROUNDING_UNNECESSARY``,
+- any of the builtins ``SCALE_BIGNUMERIC``, ``PRECISION_BIGNUMERIC``,
+  ``ADD_BIGNUMERIC``, ``SUB_BIGNUMERIC``, ``MUL_BIGNUMERIC``,
+  ``DIV_BIGNUMERIC``, ``SHIFT_RIGHT_BIGNUMERIC``,
+  ``BIGNUMERIC_TO_NUMERIC``, ``NUMERIC_TO_BIGNUMERIC``,
+  ``BIGNUMERIC_TO_TEXT``.
+
+Exception
+..........
+
+[*Available in versions >= 1.14*]
 
 Daml-LF 1.14 is the first version that supports Exceptions.
 
 The deserialization process will reject any Daml-LF 1.13 (or earlier)
 program exception using:
-- `AnyException` primitive type,
-- `ToAnyException`, `FromAnyException`, and `Throw` expressions,
-- `TryCatch` update,
-- `ANY_EXCEPTION_MESSAGE` builtin functions.
+
+- ``AnyException`` primitive type,
+- ``ToAnyException``, ``FromAnyException``, and ``Throw`` expressions,
+- ``TryCatch`` update,
+- ``ANY_EXCEPTION_MESSAGE`` builtin functions.
+
 
 
 .. Local Variables:

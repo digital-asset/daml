@@ -8,7 +8,6 @@ import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, Par
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
-import com.daml.platform.configuration.LedgerConfiguration
 import scopt.OptionParser
 
 case class BridgeConfig(maxDedupSeconds: Int, submissionBufferSize: Int)
@@ -30,9 +29,6 @@ object BridgeLedgerFactory extends LedgerFactory[ReadWriteServiceBridge, BridgeC
         submissionBufferSize = config.extra.submissionBufferSize,
       )
     )
-
-  override def ledgerConfig(config: Config[BridgeConfig]): LedgerConfiguration =
-    LedgerConfiguration.defaultLocalLedger
 
   override def extraConfigParser(parser: OptionParser[Config[BridgeConfig]]): Unit = {
     parser

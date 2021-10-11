@@ -5,8 +5,8 @@ package com.daml.lf
 package speedy
 
 import java.util
-
 import com.daml.lf.data._
+import com.daml.lf.language.Ast._
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -44,12 +44,29 @@ class CompilerTest extends AnyWordSpec with Matchers {
         .fill(10 * 1000)(
           Command.Create(
             recordCon,
-            SValue.SRecord(recordCon, ImmArray.empty, new util.ArrayList()),
+            SValue.SRecord(recordCon, ImmArray.Empty, new util.ArrayList()),
           )
         )
         .toImmArray
 
       compiledPackages.compiler.unsafeCompile(cmds) shouldBe a[SExpr]
+    }
+
+    "compile deeply nested lets" in {
+      val expr = List
+        .range[Long](1, 3000)
+        .foldRight[Expr](EPrimLit(PLInt64(5000)))((i, acc) =>
+          ELet(
+            Binding(
+              Some(Ref.Name.assertFromString(s"v$i")),
+              TBuiltin(BTInt64),
+              EPrimLit(PLInt64(i)),
+            ),
+            acc,
+          )
+        )
+
+      compiledPackages.compiler.unsafeCompile(expr)
     }
   }
 

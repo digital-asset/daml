@@ -3,13 +3,14 @@
 
 package com.daml.ledger.service
 
-import com.daml.lf.archive.Reader
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.lf.archive
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.iface.{DefDataType, Interface}
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.v1.package_service.GetPackageResponse
 import com.daml.ledger.client.services.pkg.PackageClient
+import com.daml.ledger.client.services.pkg.withoutledgerid.{PackageClient => LoosePackageClient}
 import scalaz.Scalaz._
 import scalaz._
 
@@ -31,24 +32,36 @@ object LedgerReader {
 
   /** @return [[UpToDate]] if packages did not change
     */
-  def loadPackageStoreUpdates(client: PackageClient, token: Option[String])(
+  def loadPackageStoreUpdates(
+      client: LoosePackageClient,
+      token: Option[String],
+      ledgerId: LedgerId,
+  )(
       loadedPackageIds: Set[String]
   ): Future[Error \/ Option[PackageStore]] =
     for {
-      newPackageIds <- client.listPackages(token).map(_.packageIds.toList)
+      newPackageIds <- client.listPackages(ledgerId, token).map(_.packageIds.toList)
       diffIds = newPackageIds.filterNot(loadedPackageIds): List[String] // keeping the order
       result <-
         if (diffIds.isEmpty) UpToDate
-        else load(client, diffIds, token)
+        else load[Option[PackageStore]](client, diffIds, ledgerId, token)
     } yield result
 
-  private def load(
-      client: PackageClient,
+  /** @return [[UpToDate]] if packages did not change
+    */
+  def loadPackageStoreUpdates(client: PackageClient, token: Option[String])(
+      loadedPackageIds: Set[String]
+  ): Future[Error \/ Option[PackageStore]] =
+    loadPackageStoreUpdates(client.it, token, client.ledgerId)(loadedPackageIds)
+
+  private def load[PS >: Some[PackageStore]](
+      client: LoosePackageClient,
       packageIds: List[String],
+      ledgerId: LedgerId,
       token: Option[String],
-  ): Future[Error \/ Some[PackageStore]] =
+  ): Future[Error \/ PS] =
     packageIds
-      .traverse(client.getPackage(_, token))
+      .traverse(client.getPackage(_, ledgerId, token))
       .map(createPackageStoreFromArchives)
       .map(_.map(Some(_)))
 
@@ -68,14 +81,13 @@ object LedgerReader {
       packageResponse: GetPackageResponse
   ): Error \/ Interface = {
     import packageResponse._
-    \/.fromTryCatchNonFatal {
-      val cos = Reader.damlLfCodedInputStream(archivePayload.newInput)
-      val payload = DamlLf.ArchivePayload.parseFrom(cos)
+    \/.attempt {
+      val payload = archive.ArchivePayloadParser.assertFromByteString(archivePayload)
       val (errors, out) =
-        InterfaceReader.readInterface(PackageId.assertFromString(hash) -> payload)
-      if (!errors.empty) \/.left("Errors reading LF archive:\n" + errors.toString)
-      else \/.right(out)
-    }.leftMap(_.getLocalizedMessage).join
+        InterfaceReader.readInterface(PackageId.assertFromString(hash), payload)
+      (if (!errors.empty) -\/("Errors reading LF archive:\n" + errors.toString)
+       else \/-(out)): Error \/ Interface
+    }(_.getLocalizedMessage).join
   }
 
   def damlLfTypeLookup(packageStore: () => PackageStore)(id: Identifier): Option[DefDataType.FWT] =

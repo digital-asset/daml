@@ -1,0 +1,36 @@
+-- @ERROR range=23:1-23:32; no contract with that key was found
+-- @ERROR range=33:1-33:29; consumed in same transaction
+module ConsumedContractKey where
+
+template Foo
+  with
+    signer: Party
+  where
+    signatory signer
+    key signer : Party
+    maintainer key
+    controller signer can
+      FetchKey : Foo
+        do
+          snd <$> fetchByKey @Foo signer
+      LookupKey : ()
+        do
+          None <- lookupByKey @Foo signer
+          pure ()
+      Fetch : Foo
+        do fetch self
+
+testFetchKeyFromConsumingChoice = do
+  alice <- getParty "Alice"
+  fooId <- alice `submit` create Foo with signer = alice
+  alice `submit` exercise fooId FetchKey
+
+testLookupKeyFromConsumingChoice = do
+  alice <- getParty "Alice"
+  fooId <- alice `submit` create Foo with signer = alice
+  alice `submit` exercise fooId LookupKey
+
+testFetchFromConsumingChoice = do
+  alice <- getParty "Alice"
+  fooId <- alice `submit` create Foo with signer = alice
+  alice `submit` exercise fooId Fetch

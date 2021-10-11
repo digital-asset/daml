@@ -3,103 +3,154 @@
 
 package com.daml.platform.store
 
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.FlywayMigrations._
-import com.daml.platform.store.dao.HikariConnection
-import com.zaxxer.hikari.HikariDataSource
+import com.daml.platform.store.backend.VerifiedDataSource
+import com.daml.timer.RetryStrategy
+import javax.sql.DataSource
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.flywaydb.core.api.configuration.FluentConfiguration
 
-import scala.concurrent.Future
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future}
 
-private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContext: LoggingContext) {
+private[platform] class FlywayMigrations(
+    jdbcUrl: String,
+    enableAppendOnlySchema: Boolean =
+      false, // TODO append-only: remove after removing support for the current (mutating) schema
+    additionalMigrationPaths: Seq[String] = Seq.empty,
+)(implicit resourceContext: ResourceContext, loggingContext: LoggingContext) {
   private val logger = ContextualizedLogger.get(this.getClass)
-
   private val dbType = DbType.jdbcType(jdbcUrl)
+  implicit private val ec: ExecutionContext = resourceContext.executionContext
 
-  def validate(
-      // TODO append-only: remove after removing support for the current (mutating) schema
-      enableAppendOnlySchema: Boolean = false
-  )(implicit resourceContext: ResourceContext): Future[Unit] =
-    dataSource.use { ds =>
-      Future.successful {
-        val flyway = configurationBase(dbType, enableAppendOnlySchema)
-          .dataSource(ds)
-          .ignoreFutureMigrations(false)
-          .load()
-        logger.info("Running Flyway validation...")
-        flyway.validate()
-        logger.info("Flyway schema validation finished successfully.")
+  private def runF[T](t: FluentConfiguration => Future[T]): Future[T] =
+    VerifiedDataSource(jdbcUrl).flatMap(dataSource => t(configurationBase(dataSource)))
+
+  private def run[T](t: FluentConfiguration => T): Future[T] =
+    runF(fc => Future(t(fc)))
+
+  private def configurationBase(dataSource: DataSource): FluentConfiguration =
+    Flyway
+      .configure()
+      .locations((locations(enableAppendOnlySchema, dbType) ++ additionalMigrationPaths): _*)
+      .dataSource(dataSource)
+
+  def validate(): Future[Unit] = run { configBase =>
+    val flyway = configBase
+      .ignoreFutureMigrations(false)
+      .load()
+    logger.info("Running Flyway validation...")
+    flyway.validate()
+    logger.info("Flyway schema validation finished successfully.")
+  }
+
+  def migrate(allowExistingSchema: Boolean = false): Future[Unit] = run { configBase =>
+    val flyway = configBase
+      .baselineOnMigrate(allowExistingSchema)
+      .baselineVersion(MigrationVersion.fromVersion("0"))
+      .ignoreFutureMigrations(false)
+      .load()
+    logger.info("Running Flyway migration...")
+    val stepsTaken = flyway.migrate()
+    logger.info(s"Flyway schema migration finished successfully, applying $stepsTaken steps.")
+  }
+
+  def reset(): Future[Unit] = run { configBase =>
+    val flyway = configBase
+      .load()
+    logger.info("Running Flyway clean...")
+    flyway.clean()
+    logger.info("Flyway schema clean finished successfully.")
+  }
+
+  def validateAndWaitOnly(retries: Int, retryBackoff: FiniteDuration): Future[Unit] = runF {
+    configBase =>
+      val flyway = configBase
+        .ignoreFutureMigrations(false)
+        .load()
+
+      logger.info("Running Flyway validation...")
+
+      RetryStrategy.constant(retries, retryBackoff) { (attempt, _) =>
+        val pendingMigrations = flyway.info().pending().length
+        if (pendingMigrations == 0) {
+          Future.unit
+        } else {
+          logger.debug(
+            s"Pending migrations ${pendingMigrations} on attempt ${attempt} of ${retries} attempts"
+          )
+          Future.failed(MigrationIncomplete(pendingMigrations))
+        }
       }
-    }
+  }
 
-  def migrate(
-      allowExistingSchema: Boolean = false,
-      // TODO append-only: remove after removing support for the current (mutating) schema
-      enableAppendOnlySchema: Boolean = false,
-  )(implicit resourceContext: ResourceContext): Future[Unit] =
-    dataSource.use { ds =>
-      Future.successful {
-        val flyway = configurationBase(dbType, enableAppendOnlySchema)
-          .dataSource(ds)
-          .baselineOnMigrate(allowExistingSchema)
-          .baselineVersion(MigrationVersion.fromVersion("0"))
-          .ignoreFutureMigrations(false)
-          .load()
-        logger.info("Running Flyway migration...")
-        val stepsTaken = flyway.migrate()
-        logger.info(s"Flyway schema migration finished successfully, applying $stepsTaken steps.")
-      }
-    }
-
-  def reset(
-      enableAppendOnlySchema: Boolean
-  )(implicit resourceContext: ResourceContext): Future[Unit] =
-    dataSource.use { ds =>
-      Future.successful {
-        val flyway = configurationBase(dbType, enableAppendOnlySchema).dataSource(ds).load()
-        logger.info("Running Flyway clean...")
-        flyway.clean()
-        logger.info("Flyway schema clean finished successfully.")
-      }
-    }
-
-  private def dataSource: ResourceOwner[HikariDataSource] =
-    HikariConnection.owner(
-      serverRole = ServerRole.IndexMigrations,
-      jdbcUrl = jdbcUrl,
-      minimumIdle = 2,
-      maxPoolSize = 2,
-      connectionTimeout = 5.seconds,
-      metrics = None,
-      connectionAsyncCommitMode = DbType.SynchronousCommit,
+  def migrateOnEmptySchema(): Future[Unit] = run { configBase =>
+    val flyway = configBase
+      .ignoreFutureMigrations(false)
+      .load()
+    logger.info(
+      "Ensuring Flyway migration has either not started or there are no pending migrations..."
     )
+    val flywayInfo = flyway.info()
+
+    (flywayInfo.pending().length, flywayInfo.applied().length) match {
+      case (0, appliedMigrations) =>
+        logger.info(s"No pending migrations with ${appliedMigrations} migrations applied.")
+
+      case (pendingMigrations, 0) =>
+        logger.info(
+          s"Running Flyway migration on empty database with $pendingMigrations migrations pending..."
+        )
+        val stepsTaken = flyway.migrate()
+        logger.info(
+          s"Flyway schema migration finished successfully, applying $stepsTaken steps on empty database."
+        )
+
+      case (pendingMigrations, appliedMigrations) =>
+        val ex = MigrateOnEmptySchema(appliedMigrations, pendingMigrations)
+        logger.warn(ex.getMessage)
+        throw ex
+    }
+  }
 }
 
+// TODO append-only: move all migrations from the '-appendonly' folder to the main folder, and remove the enableAppendOnlySchema parameter here
 private[platform] object FlywayMigrations {
-  def configurationBase(
-      dbType: DbType,
-      enableAppendOnlySchema: Boolean = false,
-  ): FluentConfiguration =
-    // TODO append-only: move all migrations from the '-appendonly' folder to the main folder, and remove the enableAppendOnlySchema parameter here
-    if (enableAppendOnlySchema) {
-      Flyway
-        .configure()
-        .locations(
-          "classpath:com/daml/platform/db/migration/" + dbType.name,
-          "classpath:db/migration/" + dbType.name,
-          "classpath:db/migration/" + dbType.name + "-appendonly",
-        )
-    } else {
-      Flyway
-        .configure()
-        .locations(
-          "classpath:com/daml/platform/db/migration/" + dbType.name,
-          "classpath:db/migration/" + dbType.name,
-        )
+  private val appendOnlyFromScratch = Map(
+    DbType.Postgres -> false,
+    DbType.H2Database -> true,
+    DbType.Oracle -> true,
+  )
+
+  private val sqlMigrationClasspathBase = "classpath:db/migration/"
+  private val javaMigrationClasspathBase = "classpath:com/daml/platform/db/migration/"
+
+  private[platform] def locations(enableAppendOnlySchema: Boolean, dbType: DbType) = {
+    def mutableClassPath =
+      List(
+        sqlMigrationClasspathBase,
+        javaMigrationClasspathBase,
+      ).map(_ + dbType.name)
+
+    def appendOnlyClassPath =
+      List(sqlMigrationClasspathBase)
+        .map(_ + dbType.name + "-appendonly")
+
+    (enableAppendOnlySchema, appendOnlyFromScratch(dbType)) match {
+      case (true, true) => appendOnlyClassPath
+      case (true, false) => mutableClassPath ++ appendOnlyClassPath
+      case (false, _) => mutableClassPath
     }
+  }
+
+  case class MigrationIncomplete(pendingMigrations: Int)
+      extends RuntimeException(s"Migration incomplete with $pendingMigrations migrations remaining")
+  case class MigrateOnEmptySchema(appliedMigrations: Int, pendingMigrations: Int)
+      extends RuntimeException(
+        s"Asked to migrate-on-empty-schema, but encountered neither an empty database with $appliedMigrations " +
+          s"migrations already applied nor a fully-migrated databases with $pendingMigrations migrations pending."
+      )
 }

@@ -11,13 +11,13 @@ import akka.actor.ActorSystem
 import akka.stream.scaladsl.Source
 import akka.stream.{Materializer, QueueOfferResult}
 import ch.qos.logback.classic.Level
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueText, VersionedValue}
 import com.daml.logging.LoggingContext
 import com.daml.platform.index.BuffersUpdaterSpec.{contractStateEventMock, transactionLogUpdateMock}
-import com.daml.platform.store.appendonlydao.EventSequentialId
+import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.appendonlydao.events.{Contract, Key, Party}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.dao.events.ContractStateEvent
@@ -67,20 +67,21 @@ final class BuffersUpdaterSpec
       val contractStateMock = scala.collection.mutable.ArrayBuffer.empty[ContractStateEvent]
 
       val buffersUpdater = BuffersUpdater(
-        subscribeToTransactionLogUpdates = { (_, _) => source },
+        subscribeToTransactionLogUpdates = { _ => source },
         updateTransactionsBuffer = updateTransactionsBufferMock,
         toContractStateEvents = Map(updateMock -> contractStateEventMocks.iterator),
         updateMutableCache = contractStateMock += _,
+        executionContext = scala.concurrent.ExecutionContext.global,
         minBackoffStreamRestart = 10.millis,
         sysExitWithCode = _ => fail("should not be triggered"),
-      )(materializer, loggingContext, scala.concurrent.ExecutionContext.global)
+      )(materializer, loggingContext)
 
       queue.offer((someOffset, someEventSeqId) -> updateMock) shouldBe QueueOfferResult.Enqueued
 
       eventually {
         transactionsBufferMock should contain theSameElementsAs Seq(someOffset -> updateMock)
         contractStateMock should contain theSameElementsInOrderAs contractStateEventMocks
-        buffersUpdater.updaterIndex.get shouldBe (someOffset -> someEventSeqId)
+        buffersUpdater.updaterIndex.get shouldBe Some((someOffset -> someEventSeqId))
       }
     }
   }
@@ -91,11 +92,13 @@ final class BuffersUpdaterSpec
       val Seq(offset1, offset2, offset3) =
         (1L to 3L).map(idx => Offset.fromByteArray(BigInt(1337L + idx).toByteArray) -> idx)
 
-      val sourceSubscriptionFixture: (
-          Offset,
-          EventSequentialId,
-      ) => Source[((Offset, Long), TransactionLogUpdate), NotUsed] = {
-        case (Offset.beforeBegin, EventSequentialId.beforeBegin) =>
+      val sourceSubscriptionFixture: Option[
+        (
+            Offset,
+            EventSequentialId,
+        )
+      ] => Source[((Offset, Long), TransactionLogUpdate), NotUsed] = {
+        case None =>
           Source(
             immutable.Iterable(
               offset1 -> update1,
@@ -109,7 +112,7 @@ final class BuffersUpdaterSpec
                 throw new RuntimeException("some transient failure")
               } else x
             )
-        case (_, 2L) =>
+        case Some((_, 2L)) =>
           Source
             .single(offset3 -> update3)
             // Keep alive so we don't trigger unwanted restarts (for the purpose of this test)
@@ -129,9 +132,10 @@ final class BuffersUpdaterSpec
         updateTransactionsBuffer = updateTransactionsBufferMock,
         toContractStateEvents = Map.empty.withDefaultValue(Iterator.empty),
         updateMutableCache = _ => (),
+        executionContext = scala.concurrent.ExecutionContext.global,
         minBackoffStreamRestart = 1.millis,
         sysExitWithCode = _ => fail("should not be triggered"),
-      )(materializer, loggingContext, scala.concurrent.ExecutionContext.global)
+      )(materializer, loggingContext)
 
       eventually {
         transactionsBufferMock should contain theSameElementsAs Seq(
@@ -140,7 +144,7 @@ final class BuffersUpdaterSpec
           offset3._1 -> update3,
         )
 
-        buffersUpdater.updaterIndex.get shouldBe offset3
+        buffersUpdater.updaterIndex.get shouldBe Some(offset3)
       }
     }
 
@@ -149,8 +153,6 @@ final class BuffersUpdaterSpec
       val Seq(offset1, offset2) =
         (1L to 2L).map(idx => Offset.fromByteArray(BigInt(1337L + idx).toByteArray) -> idx)
 
-      val sourceSubscriptionFixture = (_: Offset, _: EventSequentialId) =>
-        Source(immutable.Iterable(offset1 -> update1, offset2 -> update2))
       val updateTransactionsBufferMock = (offset: Offset, _: TransactionLogUpdate) =>
         if (offset == offset2._1) throw new RuntimeException("Unrecoverable exception")
         else ()
@@ -158,13 +160,15 @@ final class BuffersUpdaterSpec
       val shutdownCodeCapture = new AtomicInteger(Integer.MIN_VALUE)
 
       BuffersUpdater(
-        subscribeToTransactionLogUpdates = sourceSubscriptionFixture,
+        subscribeToTransactionLogUpdates =
+          _ => Source(scala.collection.immutable.Seq(offset1 -> update1, offset2 -> update2)),
         updateTransactionsBuffer = updateTransactionsBufferMock,
         toContractStateEvents = Map.empty,
         updateMutableCache = _ => (),
+        executionContext = scala.concurrent.ExecutionContext.global,
         minBackoffStreamRestart = 1.millis,
         sysExitWithCode = shutdownCodeCapture.set,
-      )(materializer, loggingContext, scala.concurrent.ExecutionContext.global)
+      )(materializer, loggingContext)
 
       eventually {
         shutdownCodeCapture.get() shouldBe 1
@@ -201,13 +205,13 @@ final class BuffersUpdaterSpec
       val createdLedgerEffectiveTime = Instant.ofEpochMilli(987654321L)
       val createdTemplateId = Ref.Identifier.assertFromString("create:template:id")
       val createdContractKey =
-        VersionedValue[ContractId](TransactionVersion.VDev, ValueInt64(1337L))
+        VersionedValue(TransactionVersion.VDev, ValueInt64(1337L))
       val createdFlatEventWitnesses = Set("alice", "charlie")
       val createArgument = VersionedValue(TransactionVersion.VDev, ValueText("arg"))
       val createAgreement = "agreement"
 
       val exercisedCid = ContractId.assertFromString("#exercisedCid")
-      val exercisedKey = VersionedValue[ContractId](TransactionVersion.VDev, ValueInt64(8974L))
+      val exercisedKey = VersionedValue(TransactionVersion.VDev, ValueInt64(8974L))
       val exercisedTemplateId = Ref.Identifier.assertFromString("exercised:template:id")
       val exercisedFlatEventWitnesses = Set("bob", "dan")
       val exercisedOffset = Offset.fromByteArray(BigInt(1337L).toByteArray)
@@ -228,6 +232,7 @@ final class BuffersUpdaterSpec
         commandId = null,
         workflowId = null,
         treeEventWitnesses = null,
+        submitters = null,
         choice = null,
         actingParties = null,
         children = null,
@@ -248,6 +253,7 @@ final class BuffersUpdaterSpec
         contractKey = Some(createdContractKey),
         treeEventWitnesses = Set("bob"), // Unused in ContractStateEvent
         flatEventWitnesses = createdFlatEventWitnesses,
+        submitters = null,
         createArgument = createArgument,
         createSignatories = null,
         createObservers = null,
@@ -255,7 +261,6 @@ final class BuffersUpdaterSpec
       )
       val transaction = TransactionLogUpdate.Transaction(
         transactionId = "some-tx-id",
-        commandId = "some-cmd-id",
         workflowId = "some-workflow-id",
         effectiveAt = Instant.EPOCH,
         offset = Offset.beforeBegin,
@@ -303,7 +308,7 @@ final class BuffersUpdaterSpec
 }
 
 private object BuffersUpdaterSpec {
-  val mockSeed = new AtomicLong(0L)
+  val mockSeed = new AtomicLong(EventSequentialId.beforeBegin)
   /* We use the simplest embodiments of the interfaces as mocks and pick the eventSequentialId as discriminator */
   private def transactionLogUpdateMock() =
     TransactionLogUpdate.LedgerEndMarker(Offset.beforeBegin, mockSeed.getAndIncrement())

@@ -9,6 +9,7 @@ load(
     "silencer_plugin",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
+load("@oracle//:index.bzl", "oracle_testing")
 
 supported_databases = [
     {
@@ -21,27 +22,6 @@ supported_databases = [
         ],
         "conformance_test_server_args": [
             "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
-        ],
-        "conformance_test_tool_args": [
-            "--concurrent-test-runs=2",
-            "--timeout-scale-factor=4",
-        ],
-    },
-    {
-        "name": "h2-file",
-        "runtime_deps": [
-            "@maven//:com_h2database_h2",
-        ],
-        "conformance_test_tags": [
-            "manual",
-        ],
-        "conformance_test_server_main": "com.daml.ledger.on.sql.MainWithEphemeralDirectory",
-        "conformance_test_server_args": [
-            "--jdbc-url=jdbc:h2:%DIR/test",
-        ],
-        "conformance_test_tool_args": [
-            "--concurrent-test-runs=2",
-            "--timeout-scale-factor=4",
         ],
     },
     {
@@ -58,16 +38,6 @@ supported_databases = [
         ],
         "conformance_test_server_args": [
             "--jdbc-url=jdbc:sqlite:file:daml-on-sql-conformance-test?mode=memory&cache=shared",
-        ],
-    },
-    {
-        "name": "sqlite-file",
-        "runtime_deps": [
-            "@maven//:org_xerial_sqlite_jdbc",
-        ],
-        "conformance_test_server_main": "com.daml.ledger.on.sql.MainWithEphemeralDirectory",
-        "conformance_test_server_args": [
-            "--jdbc-url=jdbc:sqlite:%DIR/test.sqlite",
         ],
     },
 ]
@@ -96,12 +66,13 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/engine",
-        "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-configuration",
+        "//ledger/ledger-offset",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-state",
@@ -136,6 +107,7 @@ da_scala_library(
         "//ledger/caching",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
@@ -169,7 +141,12 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     visibility = [
         "//visibility:public",
@@ -183,8 +160,8 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/caching",
-        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
@@ -192,10 +169,15 @@ da_scala_library(
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
         "//ledger/participant-state/kvutils/app",
+        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -203,7 +185,7 @@ da_scala_test_suite(
     name = "ledger-on-sql-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
-        "//ledger/test-common:model-tests-stable.dar",
+        "//ledger/test-common:model-tests-default.dar",
     ],
     resources = glob(["src/test/resources/*"]),
     scala_deps = [
@@ -211,7 +193,12 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scala_lang_modules_scala_java8_compat",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -226,6 +213,7 @@ da_scala_test_suite(
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/metrics",
@@ -233,39 +221,17 @@ da_scala_test_suite(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
+        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/flyway-testing",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_flywaydb_flyway_core",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
-
-[
-    # TODO https://github.com/digital-asset/daml/issues/8020
-    # Consider if we want to keep dev once exceptions are out of 1.dev
-    conformance_test(
-        name = "conformance-test-{}".format(db["name"]),
-        lf_versions = [
-            "stable",
-            "latest",
-            "preview",
-            "dev",
-        ],
-        ports = [6865],
-        server = ":conformance-test-{}-bin".format(db["name"]),
-        server_args = [
-            "--contract-id-seeding=testing-weak",
-            "--participant participant-id=conformance-test,port=6865",
-        ] + db.get("conformance_test_server_args", []),
-        tags = db.get("conformance_test_tags", []),
-        test_tool_args = db.get("conformance_test_tool_args", []) + [
-            "--verbose",
-        ],
-    )
-    for db in supported_databases
-]
 
 [
     (
@@ -280,31 +246,28 @@ da_scala_test_suite(
             ],
         ),
         conformance_test(
-            name = "conformance-test-participant-pruning-{}".format(db["name"]),
-            ports = [6865],
-            server = ":conformance-test-{}-bin".format(db["name"]),
-            server_args = [
-                "--contract-id-seeding=testing-weak",
-                "--participant participant-id=conformance-test,port=6865",
-            ] + db.get("conformance_test_server_args", []),
-            tags = db.get("conformance_test_tags", []),
-            test_tool_args = db.get("conformance_test_tool_args", []) + [
-                "--verbose",
-                "--include=ParticipantPruningIT",
+            name = "conformance-test-{}".format(db["name"]),
+            lf_versions = [
+                "default",
+                "latest",
+                "preview",
             ],
-        ),
-        conformance_test(
-            name = "conformance-test-multi-party-submission-{}".format(db["name"]),
             ports = [6865],
             server = ":conformance-test-{}-bin".format(db["name"]),
             server_args = [
                 "--contract-id-seeding=testing-weak",
                 "--participant participant-id=conformance-test,port=6865",
+                "--max-deduplication-duration=PT5S",
             ] + db.get("conformance_test_server_args", []),
             tags = db.get("conformance_test_tags", []),
             test_tool_args = db.get("conformance_test_tool_args", []) + [
                 "--verbose",
-                "--include=MultiPartySubmissionIT",
+                "--additional=ParticipantPruningIT",
+                "--additional=MultiPartySubmissionIT",
+                "--additional=KVCommandDeduplicationIT",
+                "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+                # Disable tests targeting only append-only schema functionality
+                "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
             ],
         ),
         conformance_test(
@@ -327,70 +290,184 @@ da_scala_test_suite(
     for db in supported_databases
 ]
 
+da_scala_binary(
+    name = "conformance-test-oracle-bin",
+    main_class = "com.daml.ledger.on.sql.MainWithEphemeralOracleUser",
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
+    ],
+    deps = [
+        ":ledger-on-sql",
+        ":ledger-on-sql-test-lib",
+    ],
+)
+
 conformance_test(
-    name = "conformance-test-append-only",
+    name = "conformance-test-append-only-postgres",
     ports = [6865],
     server = ":conformance-test-postgresql-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema-unsafe",
-        "--mutable-contract-state-cache-unsafe",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
+        "--max-deduplication-duration=PT5S",
     ],
     tags = [],
     test_tool_args = [
         "--verbose",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=ParticipantPruningIT",
+        "--additional=MultiPartySubmissionIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
 conformance_test(
-    name = "conformance-test-append-only-in-memory-fan-out",
+    name = "conformance-test-append-only-h2",
+    ports = [6865],
+    server = ":conformance-test-h2-memory-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
+        "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
+        "--max-deduplication-duration=PT5S",
+    ],
+    tags = [],
+    test_tool_args = [
+        "--verbose",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=ParticipantPruningIT",
+        "--additional=MultiPartySubmissionIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-append-only-oracle",
+    ports = [6865],
+    server = ":conformance-test-oracle-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
+        "--max-deduplication-duration=PT5S",
+    ],
+    tags = [] if oracle_testing else ["manual"],
+    test_tool_args = [
+        "--verbose",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=ParticipantPruningIT",
+        "--additional=MultiPartySubmissionIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-oracle",
+    ports = [6865],
+    server = ":conformance-test-oracle-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--max-deduplication-duration=PT5S",
+    ],
+    tags = [] if oracle_testing else ["manual"],
+    test_tool_args = [
+        "--verbose",
+        "--additional=ParticipantPruningIT",
+        "--additional=MultiPartySubmissionIT",
+        "--additional=KVCommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        # Disable tests targeting only append-only schema functionality
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-append-only-in-memory-fan-out-postgres",
     ports = [6865],
     server = ":conformance-test-postgresql-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=1",
-        "--index-append-only-schema-unsafe",
-        "--mutable-contract-state-cache-unsafe",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
         "--buffered-ledger-api-streams-unsafe",
+        "--max-deduplication-duration=PT5S",
     ],
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--include=ContractKeysIT,DivulgenceIT,TransactionServiceIT,RaceConditionIT",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=ParticipantPruningIT",
+        "--additional=MultiPartySubmissionIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
 conformance_test(
-    name = "conformance-test-append-only-pruning",
+    name = "conformance-test-append-only-in-memory-fan-out-oracle",
     ports = [6865],
-    server = ":conformance-test-postgresql-bin",
+    server = ":conformance-test-oracle-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema-unsafe",
-        "--mutable-contract-state-cache-unsafe",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
+        "--buffered-ledger-api-streams-unsafe",
+        "--max-deduplication-duration=PT5S",
     ],
-    tags = [],
+    tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
-        "--include=ParticipantPruningIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=ParticipantPruningIT",
+        "--additional=MultiPartySubmissionIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
 conformance_test(
-    name = "conformance-test-append-only-multi-party-submission",
+    name = "conformance-test-contract-ids",
     ports = [6865],
-    server = ":conformance-test-postgresql-bin",
+    server = ":conformance-test-h2-memory-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema-unsafe",
-        "--mutable-contract-state-cache-unsafe",
+        "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
     ],
-    tags = [],
     test_tool_args = [
         "--verbose",
-        "--include=MultiPartySubmissionIT",
+        "--include=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
     ],
 )

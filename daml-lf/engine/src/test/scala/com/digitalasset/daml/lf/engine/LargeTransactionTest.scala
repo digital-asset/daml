@@ -7,16 +7,16 @@ package engine
 import java.io.File
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.Transaction.Transaction
-import com.daml.lf.transaction.{Node => N, NodeId, Transaction => Tx}
+import com.daml.lf.transaction.{Node => N, Transaction => Tx}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{NodeId => _, _}
+import com.daml.lf.value.Value._
 import com.daml.lf.command._
 import org.scalameter
 import org.scalameter.Quantity
@@ -49,6 +49,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
           effectiveAt = effectiveAt,
           optLocation = None,
           tx = tx,
+          locationInfo = Map.empty,
           l = ledger,
         )
         .fold(
@@ -61,7 +62,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
 
     def get(submitter: Party, effectiveAt: Time.Timestamp)(
         id: ContractId
-    ): Option[ContractInst[VersionedValue[ContractId]]] = {
+    ): Option[ContractInst[VersionedValue]] = {
       ledger.lookupGlobalContract(
         ParticipantView(Set(submitter), Set.empty),
         effectiveAt,
@@ -83,14 +84,9 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   private def loadPackage(
       resource: String
   ): (PackageId, Ast.Package, Map[PackageId, Ast.Package]) = {
-    val packages =
-      UniversalArchiveReader().readFile(new File(rlocation(resource))).get
-    val packagesMap = Map(packages.all.map { case (pkgId, pkgArchive) =>
-      Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
-    }: _*)
-    val (mainPkgId, mainPkgArchive) = packages.main
-    val mainPkg = Decode.readArchivePayloadAndVersion(mainPkgId, mainPkgArchive)._1._2
-    (mainPkgId, mainPkg, packagesMap)
+    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    val (mainPkgId, mainPkg) = packages.main
+    (mainPkgId, mainPkg, packages.all.toMap)
   }
 
   private[this] val (largeTxId, largeTxPkg, allPackages) = loadPackage(
@@ -105,7 +101,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   private def report(name: String, quantity: Quantity[Double]): Unit =
     println(s"$name: $quantity")
 
-  private val engine: Engine = Engine.DevEngine()
+  private val engine = Engine.DevEngine()
 
   List(5000, 50000, 500000)
     .foreach { txSize =>
@@ -151,7 +147,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         seed = hash("testLargeTransactionOneContract:create", txSize),
       )
     val contractId = firstRootNode(createCmdTx) match {
-      case create: N.NodeCreate[ContractId] => create.coid
+      case create: N.NodeCreate => create.coid
       case n => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = toListContainerExerciseCmd(rangeOfIntsTemplateId, contractId)
@@ -182,7 +178,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         seed = hash("testLargeTransactionManySmallContracts:create", num),
       )
     val contractId = firstRootNode(createCmdTx) match {
-      case create: N.NodeCreate[ContractId] => create.coid
+      case create: N.NodeCreate => create.coid
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = toListOfIntContainers(rangeOfIntsTemplateId, contractId)
@@ -213,7 +209,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         seed = hash("testLargeChoiceArgument:create", size),
       )
     val contractId = firstRootNode(createCmdTx) match {
-      case create: N.NodeCreate[ContractId] => create.coid
+      case create: N.NodeCreate => create.coid
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = sizeExerciseCmd(listUtilTemplateId, contractId)(size)
@@ -239,7 +235,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
 
     val listValue = extractResultFieldFromExerciseTransaction(exerciseCmdTx, "list")
 
-    val list: FrontStack[Value[Value.ContractId]] = listValue match {
+    val list: FrontStack[Value] = listValue match {
       case ValueList(x) => x
       case f @ _ => fail(s"Unexpected match: $f")
     }
@@ -253,14 +249,14 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       expectedNumberOfContracts: Int,
   ): Assertion = {
 
-    val newContracts: List[N.GenNode[NodeId, Value.ContractId]] =
+    val newContracts: List[N.GenNode] =
       firstRootNode(exerciseCmdTx) match {
-        case ne: N.NodeExercises[_, _] => ne.children.toList.map(nid => exerciseCmdTx.nodes(nid))
+        case ne: N.NodeExercises => ne.children.toList.map(nid => exerciseCmdTx.nodes(nid))
         case n @ _ => fail(s"Unexpected match: $n")
       }
 
     newContracts.count {
-      case _: N.NodeCreate[ContractId] => true
+      case _: N.NodeCreate => true
       case n @ _ => fail(s"Unexpected match: $n")
     } shouldBe expectedNumberOfContracts
   }
@@ -272,9 +268,19 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       seed: crypto.Hash,
   ): Transaction = {
     val effectiveAt = Time.Timestamp.now()
+    def enrich(tx: SubmittedTransaction): SubmittedTransaction = {
+      val enricher = new ValueEnricher(engine)
+      def consume[V](res: Result[V]): V =
+        res match {
+          case ResultDone(x) => x
+          case x => fail(s"unexpected Result when enriching value: $x")
+        }
+      SubmittedTransaction(consume(enricher.enrichTransaction(tx)))
+    }
     engine
       .submit(
         submitters = Set(submitter),
+        readAs = Set.empty,
         Commands(ImmArray(cmd), effectiveAt, cmdReference),
         participant,
         seed,
@@ -285,14 +291,11 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         { _ =>
           sys.error("TODO keys for LargeTransactionTest")
         },
-        { _ =>
-          sys.error("TODO keys for LargeTransactionTest")
-        },
       ) match {
       case Left(err) =>
         fail(s"Unexpected error: $err")
       case Right((tx, _)) =>
-        ledger.commit(submitter, effectiveAt, tx)
+        ledger.commit(submitter, effectiveAt, enrich(tx))
     }
   }
 
@@ -316,7 +319,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       contractId: ContractId,
   ): ExerciseCommand = {
     val choice = "ToListContainer"
-    val emptyArgs = ValueRecord(None, ImmArray.empty)
+    val emptyArgs = ValueRecord(None, ImmArray.Empty)
     ExerciseCommand(templateId, contractId, choice, (emptyArgs))
   }
 
@@ -325,7 +328,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       contractId: ContractId,
   ): ExerciseCommand = {
     val choice = "ToListOfIntContainers"
-    val emptyArgs = ValueRecord(None, ImmArray.empty)
+    val emptyArgs = ValueRecord(None, ImmArray.Empty)
     ExerciseCommand(templateId, contractId, choice, (emptyArgs))
   }
 
@@ -339,7 +342,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   ): ExerciseCommand = {
     val choice = "Size"
     val choiceDefRef = Identifier(templateId.packageId, qn(s"LargeTransaction:$choice"))
-    val damlList = ValueList(FrontStack(elements = List.range(0L, size.toLong).map(ValueInt64)))
+    val damlList = ValueList(List.range(0L, size.toLong).map(ValueInt64).to(FrontStack))
     val choiceArgs = ValueRecord(Some(choiceDefRef), ImmArray((None, damlList)))
     ExerciseCommand(templateId, contractId, choice, choiceArgs)
   }
@@ -349,7 +352,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       expected: Long,
   ): Assertion = {
 
-    val value: Value[ContractId] =
+    val value: Value =
       extractResultFieldFromExerciseTransaction(exerciseCmdTx, "value")
 
     val actual: Long = value match {
@@ -363,18 +366,18 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   private def extractResultFieldFromExerciseTransaction(
       exerciseCmdTx: Transaction,
       fieldName: String,
-  ): Value[ContractId] = {
+  ): Value = {
 
-    val arg: Value[ContractId] =
+    val arg: Value =
       extractResultFromExerciseTransaction(exerciseCmdTx)
 
-    val fields: ImmArray[(Option[String], Value[ContractId])] =
+    val fields: ImmArray[(Option[String], Value)] =
       arg match {
         case ValueRecord(_, x: ImmArray[_]) => x
         case v @ _ => fail(s"Unexpected match: $v")
       }
 
-    val valueField: Option[(Option[String], Value[ContractId])] = fields.find { case (n, _) =>
+    val valueField: Option[(Option[String], Value)] = fields.find { case (n, _) =>
       n.contains(fieldName)
     }
 
@@ -386,18 +389,18 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
 
   private def extractResultFromExerciseTransaction(
       exerciseCmdTx: Transaction
-  ): Value[ContractId] = {
+  ): Value = {
 
     exerciseCmdTx.roots.length shouldBe 1
     exerciseCmdTx.nodes.size shouldBe 2
 
-    val createNode: N.GenNode[NodeId, ContractId] = firstRootNode(exerciseCmdTx) match {
-      case ne: N.NodeExercises[_, _] => exerciseCmdTx.nodes(ne.children.head)
+    val createNode: N.GenNode = firstRootNode(exerciseCmdTx) match {
+      case ne: N.NodeExercises => exerciseCmdTx.nodes(ne.children.head)
       case n @ _ => fail(s"Unexpected match: $n")
     }
 
     createNode match {
-      case create: N.NodeCreate[ContractId] => create.arg
+      case create: N.NodeCreate => create.arg
       case n @ _ => fail(s"Unexpected match: $n")
     }
   }

@@ -20,9 +20,10 @@ import scala.concurrent.duration.DurationInt
 private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
-  override protected def daoOwner(eventsPageSize: Int)(implicit
+  override protected def daoOwner(eventsPageSize: Int, eventsProcessingParallelism: Int)(implicit
       loggingContext: LoggingContext
-  ): ResourceOwner[LedgerDao] =
+  ): ResourceOwner[LedgerDao] = {
+    val _ = eventsProcessingParallelism // Silence unused param warning
     JdbcLedgerDao
       .validatingWriteOwner(
         serverRole = ServerRole.Testing(getClass),
@@ -35,6 +36,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         enricher = None,
       )
+  }
 
   private val ok = io.grpc.Status.Code.OK.value()
   private val aborted = io.grpc.Status.Code.ABORTED.value()

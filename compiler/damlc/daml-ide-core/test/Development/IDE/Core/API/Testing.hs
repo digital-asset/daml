@@ -1,9 +1,11 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
@@ -47,6 +49,7 @@ module Development.IDE.Core.API.Testing
 -- * internal dependencies
 import qualified Development.IDE.Core.API         as API
 import Development.IDE.Core.Debouncer
+import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..))
 import qualified Development.IDE.Core.Rules.Daml  as API
 import qualified Development.IDE.Types.Diagnostics as D
 import qualified Development.IDE.Types.Location as D
@@ -55,19 +58,16 @@ import DA.Daml.LF.ScenarioServiceClient as SS
 import Development.IDE.Core.API.Testing.Visualize
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Logger
-import Development.IDE.Types.Options (IdeReportProgress(..))
 import DA.Daml.Options
 import DA.Daml.Options.Types
 import Development.IDE.Core.Service.Daml(VirtualResource(..), mkDamlEnv)
 import DA.Test.Util (standardizeQuotes)
-import Language.Haskell.LSP.Messages (FromServerMessage(..))
-import Language.Haskell.LSP.Types
+import Language.LSP.Types
 
 -- * external dependencies
 import Control.Concurrent.STM
 import Control.Exception.Extra
 import qualified Control.Monad.Reader   as Reader
-import Data.Default
 import Data.Either.Combinators
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -79,6 +79,7 @@ import qualified Data.Text.IO           as T.IO
 import qualified Data.HashSet as HashSet
 import Network.URI
 import qualified System.FilePath        as FilePath
+import qualified System.FilePath.Posix  as FPP
 import qualified System.Directory       as Directory
 import qualified Data.Time.Clock        as Clock
 import           System.FilePath        ((</>))
@@ -131,21 +132,15 @@ newtype ShakeTest t = ShakeTest (ExceptT ShakeTestError (ReaderT ShakeTestEnv IO
 instance MonadFail ShakeTest where
     fail =  throwError . PatternMatchFailure
 
-pattern EventVirtualResourceChanged :: VirtualResource -> T.Text -> FromServerMessage
+pattern EventVirtualResourceChanged :: VirtualResource -> T.Text -> Aeson.Value
 pattern EventVirtualResourceChanged vr doc <-
-    NotCustomServer
-        (NotificationMessage _
-             (CustomServerMethod ((== virtualResourceChangedNotification) -> True))
              (Aeson.parseMaybe Aeson.parseJSON ->
-              Just (VirtualResourceChangedParams (parseURI . T.unpack >=> uriToVirtualResource -> Just vr) doc)))
+              Just (VirtualResourceChangedParams (parseURI . T.unpack >=> uriToVirtualResource -> Just vr) doc))
 
-pattern EventVirtualResourceNoteSet :: VirtualResource -> T.Text -> FromServerMessage
+pattern EventVirtualResourceNoteSet :: VirtualResource -> T.Text -> Aeson.Value
 pattern EventVirtualResourceNoteSet vr note <-
-    NotCustomServer
-        (NotificationMessage _
-             (CustomServerMethod ((== virtualResourceNoteSetNotification) -> True))
              (Aeson.parseMaybe Aeson.parseJSON ->
-              Just (VirtualResourceNoteSetParams (parseURI . T.unpack >=> uriToVirtualResource -> Just vr) note)))
+              Just (VirtualResourceNoteSetParams (parseURI . T.unpack >=> uriToVirtualResource -> Just vr) note))
 
 
 -- | Run shake test on freshly initialised shake service.
@@ -155,14 +150,16 @@ runShakeTest mbScenarioService (ShakeTest m) = do
     let options = (defaultOptions Nothing) { optDlintUsage = DlintEnabled dlintDataDir False }
     virtualResources <- newTVarIO Map.empty
     virtualResourcesNotes <- newTVarIO Map.empty
-    let eventLogger (EventVirtualResourceChanged vr doc) = do
+    let eventLogger :: forall (m :: Method 'FromServer 'Notification). SMethod m -> MessageParams m -> IO ()
+        eventLogger (SCustomMethod ((==virtualResourceChangedNotification) -> True)) (EventVirtualResourceChanged vr doc) = atomically $ do
             modifyTVar' virtualResources (Map.insert vr doc)
             modifyTVar' virtualResourcesNotes (Map.delete vr)
-        eventLogger (EventVirtualResourceNoteSet vr note) = modifyTVar' virtualResourcesNotes (Map.insert vr note)
-        eventLogger _ = pure ()
+        eventLogger (SCustomMethod ((==virtualResourceNoteSetNotification) -> True)) (EventVirtualResourceNoteSet vr note) =
+            atomically $ modifyTVar' virtualResourcesNotes (Map.insert vr note)
+        eventLogger _ _ = pure ()
     vfs <- API.makeVFSHandle
     damlEnv <- mkDamlEnv options mbScenarioService
-    service <- API.initialise def (mainRule options) (pure $ IdInt 0) (atomically . eventLogger) noLogging noopDebouncer damlEnv (toCompileOpts options (IdeReportProgress False)) vfs
+    service <- API.initialise (mainRule options) (DummyLspEnv $ NotificationHandler eventLogger) noLogging noopDebouncer damlEnv (toCompileOpts options) vfs
     result <- withSystemTempDirectory "shake-api-test" $ \testDirPath -> do
         let ste = ShakeTestEnv
                 { steService = service
@@ -294,8 +291,9 @@ parseShakeProfileJSON testDir json =
     , Aeson.Array entry <- V.toList entries
      -- Number == 0, built in the last run
     , Aeson.String name : _ : Aeson.Number 0 : _ <- [V.toList entry]
-    , Just res <- [stripInfix "; " $ replace (FilePath.addTrailingPathSeparator testDir) "" $ T.unpack name]
+    , Just res <- [stripInfix "; " $ replace (FPP.addTrailingPathSeparator testDir') "" $ T.unpack name]
     ]
+  where testDir' = D.fromNormalizedFilePath $ D.toNormalizedFilePath' testDir
 
 
 getVirtualResources :: ShakeTest (Map VirtualResource T.Text)
@@ -469,7 +467,7 @@ matchGoToDefinitionPattern = \case
         l' <- l
         let uri = D._uri l'
         fp <- D.uriToFilePath' uri
-        pure $ isSuffixOf (D.fromNormalizedFilePath $ moduleNameToFilePath m) (FilePath.normalise fp)
+        pure $ isSuffixOf (D.fromNormalizedFilePath $ moduleNameToFilePath m) (D.fromNormalizedFilePath $ D.toNormalizedFilePath' fp)
 
 -- | Expect "go to definition" to point us at a certain location or to fail.
 expectGoToDefinition :: CursorRange -> GoToDefinitionPattern -> ShakeTest ()

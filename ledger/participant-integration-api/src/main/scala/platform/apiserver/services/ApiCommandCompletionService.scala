@@ -16,9 +16,11 @@ import com.daml.ledger.api.v1.command_completion_service._
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.entries.{LoggingEntries, LoggingValue}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.apiserver.services.ApiCommandCompletionService._
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandCompletionService
 import io.grpc.ServerServiceDefinition
@@ -34,6 +36,8 @@ private[apiserver] final class ApiCommandCompletionService private (
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
 ) extends CommandCompletionService {
+
+  import Logging._
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -51,30 +55,18 @@ private[apiserver] final class ApiCommandCompletionService private (
 
         completionsService
           .getCompletions(offset, request.applicationId, request.parties)
-          .via(logger.debugStream(completionsLoggable))
+          .via(
+            logger.enrichedDebugStream(
+              "Responding with completions.",
+              response => LoggingEntries("response" -> responseToLoggingValue(response)),
+            )
+          )
           .via(logger.logErrorsOnStream)
           .via(StreamMetrics.countElements(metrics.daml.lapi.streams.completions))
     }
 
-  private def completionsLoggable(response: CompletionStreamResponse): String =
-    s"Responding with completions: ${response.completions.toList
-      .map(c => singleCompletionLoggable(c.commandId, c.status.map(_.code)))}"
-
-  private def singleCompletionLoggable(
-      commandId: String,
-      statusCode: Option[Int],
-  ): Map[String, String] =
-    Map(
-      logging.commandId(commandId),
-      "statusCode" -> statusCode.map(_.toString).getOrElse(""),
-    )
-
   override def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute] =
     completionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
-
-  override lazy val offsetOrdering: Ordering[LedgerOffset.Absolute] =
-    Ordering.by[LedgerOffset.Absolute, String](_.value)
-
 }
 
 private[apiserver] object ApiCommandCompletionService {
@@ -94,5 +86,17 @@ private[apiserver] object ApiCommandCompletionService {
       override def bindService(): ServerServiceDefinition =
         CommandCompletionServiceGrpc.bindService(this, executionContext)
     }
+  }
+
+  private object Logging {
+    def responseToLoggingValue(response: CompletionStreamResponse): LoggingValue =
+      LoggingValue.OfIterable(
+        response.completions.view.map(completion =>
+          LoggingValue.Nested.fromEntries(
+            "commandId" -> completion.commandId,
+            "statusCode" -> completion.status.map(_.code),
+          )
+        )
+      )
   }
 }

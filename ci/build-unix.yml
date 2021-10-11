@@ -32,11 +32,22 @@ steps:
     displayName: 'Platform-agnostic lints and checks'
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
-  - bash: ./build.sh "_$(uname)"
+  - bash: ./build.sh "_${{parameters.name}}"
     displayName: 'Build'
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
       DAML_SCALA_VERSION: ${{parameters.scala_version}}
+
+  - template: publish-platform-independence-dar.yml
+    parameters:
+      platform: '${{parameters.name}}'
+
+  - task: PublishBuildArtifacts@1
+    condition: succeededOrFailed()
+    continueOnError: true
+    inputs:
+      pathtoPublish: '$(Build.StagingDirectory)/logs'
+      artifactName: 'Bazel Logs'
 
   - task: PublishBuildArtifacts@1
     condition: failed()

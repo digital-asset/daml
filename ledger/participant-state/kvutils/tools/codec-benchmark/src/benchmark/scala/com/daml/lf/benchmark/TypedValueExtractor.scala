@@ -8,11 +8,12 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
 import com.daml.lf.transaction.{TransactionCoder, TransactionVersion}
 import com.daml.lf.value.ValueOuterClass
+import com.google.protobuf.ByteString
 
 import scala.jdk.CollectionConverters._
 import scala.Ordering.Implicits._
 
-final class TypedValueExtractor(interface: language.Interface) {
+final class TypedValueExtractor(interface: language.PackageInterface) {
 
   private[this] def handleLookup[X](lookup: => Either[language.LookupError, X]) =
     lookup match {
@@ -23,12 +24,16 @@ final class TypedValueExtractor(interface: language.Interface) {
   private[this] def getValue(
       version: TransactionVersion,
       versioned: => ValueOuterClass.VersionedValue,
-      unversioned: => ValueOuterClass.Value,
+      unversioned: => ByteString,
   ) = {
     if (version < TransactionVersion.minNoVersionValue) {
-      Versioned(version, versioned.getValue)
+      versioned
     } else {
-      Versioned(version, unversioned)
+      ValueOuterClass.VersionedValue
+        .newBuilder()
+        .setVersion(version.protoValue)
+        .setValue(unversioned)
+        .build()
     }
   }
 
@@ -80,7 +85,7 @@ final class TypedValueExtractor(interface: language.Interface) {
               template.choices(choice).argBinder._2,
             )
           val result =
-            if (exercise.hasResultVersioned || exercise.hasResultUnversioned)
+            if (exercise.hasResultVersioned || !exercise.getResultUnversioned.isEmpty)
               List(
                 TypedValue(
                   getValue(version, exercise.getResultVersioned, exercise.getResultUnversioned),

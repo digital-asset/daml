@@ -3,8 +3,9 @@
 
 package com.daml.lf.data
 
-import ScalazEqual.{equalBy, orderBy, toIterableForScalazInstances}
+import com.daml.scalautil.Statement.discard
 
+import ScalazEqual.{equalBy, orderBy, toIterableForScalazInstances}
 import scalaz.syntax.applicative._
 import scalaz.{Applicative, Equal, Foldable, Order, Traverse}
 
@@ -144,7 +145,7 @@ final class ImmArray[+A] private (
 
     val newLen = until - from
     if (newLen <= 0) {
-      ImmArray.empty[A]
+      ImmArray.Empty
     } else {
       new ImmArray(start + from, newLen, array)
     }
@@ -266,7 +267,7 @@ final class ImmArray[+A] private (
     var i = 0
     while (i < length) {
       val a = uncheckedGet(i)
-      if (f.isDefinedAt(a)) builder += f(a)
+      if (f.isDefinedAt(a)) discard(builder += f(a))
       i += 1
     }
     builder.result()
@@ -355,26 +356,16 @@ final class ImmArray[+A] private (
     collect { case x if f(x) => x }
 
   override def hashCode(): Int = toSeq.hashCode()
+
+  def toFrontStack: FrontStack[A] = FrontStack.from(this)
+
 }
 
 object ImmArray extends ImmArrayInstances {
-  def empty[T]: ImmArray[T] =
-    ImmArray.fromArraySeq(ArraySeq.empty[AnyRef].asInstanceOf[ArraySeq[T]])
 
-  def apply[T](element0: T, elements: T*): ImmArray[T] = {
-    val builder = ImmArray.newBuilder[T]
-    builder += element0
-    builder ++= elements
-    builder.result()
-  }
+  val Empty: ImmArray[Nothing] = ImmArray.fromArraySeq(ArraySeq.empty)
 
-  def apply[T](elements: Iterable[T]): ImmArray[T] = elements match {
-    case ias: ArraySeq[T] => fromArraySeq(ias)
-    case _ =>
-      val builder = ImmArray.newBuilder[T]
-      builder ++= elements
-      builder.result()
-  }
+  def empty[T]: ImmArray[Nothing] = Empty
 
   def unapplySeq[T](arr: ImmArray[T]): Option[IndexedSeq[T]] = Some(arr.toIndexedSeq)
 
@@ -436,6 +427,7 @@ object ImmArray extends ImmArrayInstances {
   }
 
   object ImmArraySeq extends ImmArraySeqCompanion {
+    val Empty: ImmArraySeq[Nothing] = ImmArray.Empty.toSeq
     implicit val `immArraySeq Traverse instance`: Traverse[ImmArraySeq] = new Traverse[ImmArraySeq]
       with Foldable.FromFoldr[ImmArraySeq] {
       override def map[A, B](fa: ImmArraySeq[A])(f: A => B) = fa.toImmArray.map(f).toSeq

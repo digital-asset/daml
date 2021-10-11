@@ -7,7 +7,7 @@ package object nonempty {
 
   /** A non-empty `A`.  Implicitly converts to `A` in relevant contexts.
     *
-    * Why use this instead of [[scalaz.OneAnd]?
+    * Why use this instead of [[scalaz.OneAnd]]?
     *
     * `OneAnd` is ''constructively'' non-empty; there is no way to "cheat".
     * However, its focus on functorial use cases means that it is well-suited

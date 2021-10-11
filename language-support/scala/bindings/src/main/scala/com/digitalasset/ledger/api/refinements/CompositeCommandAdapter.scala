@@ -4,7 +4,6 @@
 package com.daml.ledger.api.refinements
 
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, LedgerId}
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands
 import scalaz.syntax.tag._
 
@@ -12,20 +11,15 @@ class CompositeCommandAdapter(
     ledgerId: LedgerId,
     applicationId: ApplicationId,
 ) {
-  def transform(c: CompositeCommand): SubmitRequest = {
-
-    val commands = Commands(
-      ledgerId.unwrap,
-      c.workflowId.unwrap,
-      applicationId.unwrap,
-      c.commandId.unwrap,
-      c.party.unwrap,
-      c.commands,
+  def transform(c: CompositeCommand): Commands =
+    Commands(
+      ledgerId = ledgerId.unwrap,
+      workflowId = c.workflowId.unwrap,
+      applicationId = applicationId.unwrap,
+      commandId = c.commandId.unwrap,
+      party = c.party.unwrap,
+      commands = c.commands,
     )
-
-    SubmitRequest(Some(commands), c.traceContext)
-  }
-
 }
 
 object CompositeCommandAdapter {

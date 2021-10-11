@@ -22,10 +22,10 @@ public class OptionalTest {
 
   @Test
   void constructRecordWithOptionalFields() {
-    Record record =
-        new Record(
-            new Record.Field("intOpt", DamlOptional.of(new Int64(42))),
-            new Record.Field("unitOpt", DamlOptional.of(Unit.getInstance())));
+    DamlRecord record =
+        new DamlRecord(
+            new DamlRecord.Field("intOpt", DamlOptional.of(new Int64(42))),
+            new DamlRecord.Field("unitOpt", DamlOptional.of(Unit.getInstance())));
     MyOptionalRecord fromValue = MyOptionalRecord.fromValue(record);
 
     MyOptionalRecord fromUnboxed =
@@ -36,10 +36,10 @@ public class OptionalTest {
 
   @Test
   void optionalFieldRoundTrip() {
-    Record record =
-        new Record(
-            new Record.Field("intOpt", DamlOptional.of(new Int64(42))),
-            new Record.Field("unitOpt", DamlOptional.of(Unit.getInstance())));
+    DamlRecord record =
+        new DamlRecord(
+            new DamlRecord.Field("intOpt", DamlOptional.of(new Int64(42))),
+            new DamlRecord.Field("unitOpt", DamlOptional.of(Unit.getInstance())));
 
     MyOptionalRecord fromValue = MyOptionalRecord.fromValue(record);
 
@@ -70,14 +70,15 @@ public class OptionalTest {
                                             .setUnit(Empty.getDefaultInstance())))))
             .build();
 
-    Record dataRecord = Record.fromProto(protoRecord);
+    DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
 
     assertEquals(dataRecord.toProtoRecord(), protoRecord);
   }
 
   @Test
   void constructNestedOptional() {
-    Record record = new Record(new Record.Field(DamlOptional.of(DamlOptional.of(new Int64(42L)))));
+    DamlRecord record =
+        new DamlRecord(new DamlRecord.Field(DamlOptional.of(DamlOptional.of(new Int64(42L)))));
     NestedOptionalRecord fromValue = NestedOptionalRecord.fromValue(record);
 
     NestedOptionalRecord fromConstructor = new NestedOptionalRecord(Optional.of(Optional.of(42L)));
@@ -107,7 +108,7 @@ public class OptionalTest {
                                                                 .build())))))))
             .build();
 
-    Record dataRecord = Record.fromProto(protoRecord);
+    DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
     MyOptionalListRecord fromCodegen = new MyOptionalListRecord(Optional.of(Arrays.asList(42L)));
 
     assertEquals(protoRecord, fromCodegen.toValue().toProtoRecord());
@@ -136,7 +137,7 @@ public class OptionalTest {
                                                 .build())))))
             .build();
 
-    Record dataRecord = Record.fromProto(protoRecord);
+    DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
     MyListOfOptionalsRecord fromCodegen =
         new MyListOfOptionalsRecord(Arrays.asList(Optional.of(42L)));
 

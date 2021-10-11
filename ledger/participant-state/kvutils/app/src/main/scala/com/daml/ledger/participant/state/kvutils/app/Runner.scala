@@ -10,15 +10,13 @@ import java.util.concurrent.{Executors, TimeUnit}
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
-import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.participant.state.kvutils.app.Config.EngineMode
-import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
-import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
+import com.daml.ledger.participant.state.v2.WritePackagesService
+import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.archive.DarReader
-import com.daml.lf.engine._
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.archive.DarParser
+import com.daml.lf.data.Ref
+import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.JvmMetricSet
@@ -29,7 +27,7 @@ import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 final class Runner[T <: ReadWriteService, Extra](
     name: String,
@@ -83,13 +81,12 @@ final class Runner[T <: ReadWriteService, Extra](
     )
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    val allowedLanguageVersions =
-      config.engineMode match {
-        case EngineMode.Stable => LanguageVersion.StableVersions
-        case EngineMode.EarlyAccess => LanguageVersion.EarlyAccessVersions
-        case EngineMode.Dev => LanguageVersion.DevVersions
-      }
-    val sharedEngine = new Engine(EngineConfig(allowedLanguageVersions))
+    val sharedEngine = new Engine(
+      EngineConfig(
+        config.allowedLanguageVersions,
+        forbidV0ContractId = true,
+      )
+    )
 
     newLoggingContext { implicit loggingContext =>
       for {
@@ -139,7 +136,7 @@ final class Runner[T <: ReadWriteService, Extra](
               )
               .map(ExecutionContext.fromExecutorService)
               .acquire()
-            _ <- participantConfig.mode match {
+            healthChecksWithIndexer <- participantConfig.mode match {
               case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
                 new StandaloneIndexerServer(
                   readService = readService,
@@ -147,9 +144,9 @@ final class Runner[T <: ReadWriteService, Extra](
                   servicesExecutionContext = servicesExecutionContext,
                   metrics = metrics,
                   lfValueTranslationCache = lfValueTranslationCache,
-                ).acquire()
+                ).acquire().map(indexerHealth => healthChecks + ("indexer" -> indexerHealth))
               case ParticipantRunMode.LedgerApiServer =>
-                Resource.unit
+                Resource.successful(healthChecks)
             }
             _ <- participantConfig.mode match {
               case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
@@ -157,11 +154,11 @@ final class Runner[T <: ReadWriteService, Extra](
                   ledgerId = config.ledgerId,
                   config = factory.apiServerConfig(participantConfig, config),
                   commandConfig = config.commandConfig,
+                  submissionConfig = config.submissionConfig,
                   partyConfig = factory.partyConfig(config),
-                  ledgerConfig = factory.ledgerConfig(config),
                   optWriteService = Some(writeService),
                   authService = factory.authService(config),
-                  healthChecks = healthChecks,
+                  healthChecks = healthChecksWithIndexer,
                   metrics = metrics,
                   timeServiceBackend = factory.timeServiceBackend(config),
                   otherInterceptors = factory.interceptors(config),
@@ -182,13 +179,9 @@ final class Runner[T <: ReadWriteService, Extra](
       executionContext: ExecutionContext
   ): Future[Unit] = DefaultTelemetry.runFutureInSpan(SpanName.RunnerUploadDar, SpanKind.Internal) {
     implicit telemetryContext =>
-      val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
+      val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
       for {
-        dar <- Future(
-          DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
-            .readArchiveFromFile(from.toFile)
-            .get
-        )
+        dar <- Future.fromTry(DarParser.readArchiveFromFile(from.toFile).toTry)
         _ <- to.uploadPackages(submissionId, dar.all, None).toScala
       } yield ()
   }

@@ -5,10 +5,16 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import java.io.{PrintStream, PrintWriter, StringWriter}
 
+import com.daml.buildinfo.BuildInfo
+
 import scala.util.Try
 
 trait Reporter[A] {
-  def report(results: Vector[LedgerTestSummary], identifierSuffix: String): A
+  def report(
+      results: Vector[LedgerTestSummary],
+      skippedTests: Vector[LedgerTestSummary],
+      runInfo: Seq[(String, String)],
+  ): A
 }
 
 object Reporter {
@@ -67,6 +73,8 @@ object Reporter {
               s.println(green(s"Success (${duration.toMillis} ms)"))
             case Right(Result.Retired) =>
               s.println(yellow(s"Skipped (retired test)"))
+            case Right(Result.Excluded) =>
+              s.println(yellow(s"Skipped (excluded test)"))
             case Left(Result.TimedOut) => s.println(red(s"Timeout"))
             case Left(Result.Failed(cause)) =>
               val message =
@@ -101,18 +109,22 @@ object Reporter {
         }
       }
 
-    override def report(results: Vector[LedgerTestSummary], identifierSuffix: String): Unit = {
+    override def report(
+        results: Vector[LedgerTestSummary],
+        excludedTests: Vector[LedgerTestSummary],
+        runInfo: Seq[(String, String)],
+    ): Unit = {
       s.println()
       s.println(blue("#" * 80))
       s.println(blue("#"))
-      s.println(blue("# TEST REPORT"))
+      s.println(blue(s"# TEST REPORT, version: ${BuildInfo.Version}"))
       s.println(blue("#"))
       s.println(blue("#" * 80))
 
       s.println()
       s.println(yellow("### RUN INFORMATION"))
       s.println()
-      s.println(cyan(s"identifierSuffix = $identifierSuffix"))
+      runInfo.foreach { case (label, value) => s.println(cyan(s"$label = $value")) }
 
       val (successes, failures) = results.partition(_.result.isRight)
 
@@ -120,6 +132,12 @@ object Reporter {
         s.println()
         s.println(green("### SUCCESSES"))
         printReport(successes)
+      }
+
+      if (excludedTests.nonEmpty) {
+        s.println()
+        s.println(yellow("### EXCLUDED TESTS"))
+        printReport(excludedTests)
       }
 
       if (failures.nonEmpty) {

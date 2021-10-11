@@ -11,6 +11,7 @@ load(
     "scala_test",
     "scala_test_suite",
 )
+load("@io_bazel_rules_scala//scala/private:common.bzl", "sanitize_string_for_usage")
 load(
     "@io_bazel_rules_scala//jmh:jmh.bzl",
     "scala_benchmark_jmh",
@@ -29,8 +30,14 @@ load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_s
 # Use the macros `da_scala_*` defined in this file, instead of the stock rules
 # `scala_*` from `rules_scala` in order for these default flags to take effect.
 
-def resolve_scala_deps(deps, scala_deps = [], versioned_scala_deps = {}):
-    return deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
+def resolve_scala_deps(deps, scala_deps = [], versioned_deps = {}, versioned_scala_deps = {}):
+    return deps + \
+           versioned_deps.get(scala_major_version, []) + \
+           [
+               "{}_{}".format(d, scala_major_version_suffix)
+               for d in scala_deps +
+                        versioned_scala_deps.get(scala_major_version, [])
+           ]
 
 def extra_scalacopts(scala_deps, plugins):
     return (["-P:silencer:lineContentFilters=import scala.collection.compat._"] if (scala_major_version != "2.12" and
@@ -161,6 +168,10 @@ plugin_scalacopts = [
 lf_scalacopts = [
 ]
 
+lf_scalacopts_stricter = lf_scalacopts + [
+    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
+]
+
 default_compile_arguments = {
     "unused_dependency_checker_mode": "error",
 }
@@ -209,13 +220,14 @@ def _wrap_rule(
         generated_srcs = [],  # hiding from the underlying rule
         deps = [],
         scala_deps = [],
+        versioned_deps = {},
         versioned_scala_deps = {},
         runtime_deps = [],
         scala_runtime_deps = [],
         exports = [],
         scala_exports = [],
         **kwargs):
-    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    deps = resolve_scala_deps(deps, scala_deps, versioned_deps, versioned_scala_deps)
     runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
     exports = resolve_scala_deps(exports, scala_exports)
     if (len(exports) > 0):
@@ -234,12 +246,13 @@ def _wrap_rule_no_plugins(
         rule,
         deps = [],
         scala_deps = [],
+        versioned_deps = {},
         versioned_scala_deps = {},
         runtime_deps = [],
         scala_runtime_deps = [],
         scalacopts = [],
         **kwargs):
-    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    deps = resolve_scala_deps(deps, scala_deps, versioned_deps, versioned_scala_deps)
     runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
     rule(
         scalacopts = common_scalacopts + scalacopts,
@@ -514,10 +527,20 @@ Arguments:
   doctitle: title for Scalaadoc's index.html. Typically the name of the library
 """
 
-def _create_scaladoc_jar(name, srcs, plugins = [], deps = [], scala_deps = [], versioned_scala_deps = {}, scalacopts = [], generated_srcs = [], **kwargs):
+def _create_scaladoc_jar(
+        name,
+        srcs,
+        plugins = [],
+        deps = [],
+        scala_deps = [],
+        versioned_deps = {},
+        versioned_scala_deps = {},
+        scalacopts = [],
+        generated_srcs = [],
+        **kwargs):
     # Limit execution to Linux and MacOS
     if is_windows == False:
-        deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+        deps = resolve_scala_deps(deps, scala_deps, versioned_deps, versioned_scala_deps)
         compat_scalacopts = extra_scalacopts(scala_deps = scala_deps, plugins = plugins)
         scaladoc_jar(
             name = name + "_scaladoc",
@@ -533,6 +556,7 @@ def _create_scala_repl(
         name,
         deps = [],
         scala_deps = [],
+        versioned_deps = {},
         versioned_scala_deps = {},
         runtime_deps = [],
         scala_runtime_deps = [],
@@ -545,7 +569,7 @@ def _create_scala_repl(
         generated_srcs = None,
         **kwargs):
     name = name + "_repl"
-    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    deps = resolve_scala_deps(deps, scala_deps, versioned_deps, versioned_scala_deps)
     runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
     tags = tags + ["manual"]
     scala_repl(name = name, deps = deps, runtime_deps = runtime_deps, tags = tags, **kwargs)
@@ -703,10 +727,61 @@ def da_scala_test_suite(initial_heap_size = default_initial_heap_size, max_heap_
 def da_scala_benchmark_jmh(
         deps = [],
         scala_deps = [],
+        versioned_deps = {},
         versioned_scala_deps = {},
         runtime_deps = [],
         scala_runtime_deps = [],
         **kwargs):
-    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    deps = resolve_scala_deps(deps, scala_deps, versioned_deps, versioned_scala_deps)
     runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
     _wrap_rule_no_plugins(scala_benchmark_jmh, deps, runtime_deps, **kwargs)
+
+def _da_scala_test_short_name_aspect_impl(target, ctx):
+    is_scala_test = ctx.rule.kind == "scala_test"
+
+    srcs = getattr(ctx.rule.attr, "srcs", [])
+    has_single_src = type(srcs) == "list" and len(srcs) == 1
+
+    split = target.label.name.rsplit("_", 1)
+    is_numbered = len(split) == 2 and split[1].isdigit()
+    if is_numbered:
+        [name, number] = split
+
+    is_relevant = is_scala_test and has_single_src and is_numbered
+    if not is_relevant:
+        return []
+
+    src_name = srcs[0].label.name
+    long_name = "%s_test_suite_%s" % (name, sanitize_string_for_usage(src_name))
+    long_label = target.label.relative(long_name)
+    info_json = json.encode(struct(
+        short_label = str(target.label),
+        long_label = str(long_label),
+    ))
+
+    # Aspect generated providers are not available to Starlark cquery output,
+    # so we write the information to a file from where it can be collected in a
+    # separate step.
+    # See https://github.com/bazelbuild/bazel/issues/13866
+    info_out = ctx.actions.declare_file("{}_scala_test_info.json".format(target.label.name))
+    ctx.actions.write(info_out, content = info_json, is_executable = False)
+    return [OutputGroupInfo(scala_test_info = depset([info_out]))]
+
+da_scala_test_short_name_aspect = aspect(
+    implementation = _da_scala_test_short_name_aspect_impl,
+    doc = """\
+Maps shortened test names in da_scala_test_suite test-cases to long names.
+
+Test cases in da_scala_test_suite have shortened Bazel labels on Windows to
+avoid exceeding the MAX_PATH length limit on Windows. For the purposes of CI
+monitoring this makes it difficult to determine how a particular test case
+behaves across different platforms, since the name is different on Windows than
+on Linux and MacOS.
+
+This aspect generates a JSON file in the scala_test_info output group that
+describes a mapping from the shortened name to the regular long name.
+
+Such an output will be generated for any scala_test target that has a single
+source file and who's name follows the pattern `<name>_<number>`.
+""",
+)

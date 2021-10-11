@@ -1,7 +1,7 @@
 cabal-version: 2.4
 name: da-hs-base
 build-type: Simple
-version: 0.1.13.0
+version: 0.1.15.0
 synopsis: Kitchen sink package for common functionality shared between packages
 license: Apache-2.0
 author: Digital Asset
@@ -65,6 +65,7 @@ library
       DA.Service.Logger.Impl.Pure
       DA.Signals
       Data.Conduit.Tar.Extra
+      Data.List.Extended
       Data.NameMap
       Data.Semigroup.FixedPoint
       Data.Text.Extended

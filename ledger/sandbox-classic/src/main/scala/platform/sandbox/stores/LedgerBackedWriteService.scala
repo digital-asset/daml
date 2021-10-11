@@ -6,21 +6,13 @@ package com.daml.platform.sandbox.stores
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import com.daml.api.util.TimeProvider
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  Offset,
-  PruningResult,
-  SubmissionId,
-  SubmissionResult,
-  SubmittedTransaction,
-  SubmitterInfo,
-  TransactionMeta,
-  WriteService,
-}
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.Time
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.platform.sandbox.stores.ledger.{Ledger, PartyIdGenerator}
@@ -29,26 +21,30 @@ import io.grpc.Status
 
 import scala.compat.java8.FutureConverters
 
-private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider)(
-    implicit loggingContext: LoggingContext
-) extends WriteService {
+private[stores] final class LedgerBackedWriteService(
+    ledger: Ledger,
+    timeProvider: TimeProvider,
+    enablePruning: Boolean,
+)(implicit
+    loggingContext: LoggingContext
+) extends state.WriteService {
 
   override def currentHealth(): HealthStatus = ledger.currentHealth()
 
   override def submitTransaction(
-      submitterInfo: SubmitterInfo,
-      transactionMeta: TransactionMeta,
+      submitterInfo: state.SubmitterInfo,
+      transactionMeta: state.TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] =
     withEnrichedLoggingContext(
-      "actAs" -> submitterInfo.actAs.mkString(","),
+      "actAs" -> submitterInfo.actAs,
       "applicationId" -> submitterInfo.applicationId,
       "commandId" -> submitterInfo.commandId,
-      "deduplicateUntil" -> submitterInfo.deduplicateUntil.toString,
-      "submissionTime" -> transactionMeta.submissionTime.toInstant.toString,
-      "workflowId" -> transactionMeta.workflowId.getOrElse(""),
-      "ledgerTime" -> transactionMeta.ledgerEffectiveTime.toInstant.toString,
+      "deduplicationPeriod" -> submitterInfo.deduplicationPeriod,
+      "submissionTime" -> transactionMeta.submissionTime.toInstant,
+      "workflowId" -> transactionMeta.workflowId,
+      "ledgerTime" -> transactionMeta.ledgerEffectiveTime.toInstant,
     ) { implicit loggingContext =>
       FutureConverters.toJava(
         ledger.publishTransaction(submitterInfo, transactionMeta, transaction)
@@ -56,10 +52,10 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
     }
 
   override def allocateParty(
-      hint: Option[Party],
+      hint: Option[Ref.Party],
       displayName: Option[String],
-      submissionId: SubmissionId,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
+      submissionId: Ref.SubmissionId,
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] = {
     val party = hint.getOrElse(PartyIdGenerator.generateRandomId())
     withEnrichedLoggingContext(
       "party" -> party,
@@ -71,40 +67,51 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
 
   // WritePackagesService
   override def uploadPackages(
-      submissionId: SubmissionId,
-      payload: List[Archive],
+      submissionId: Ref.SubmissionId,
+      payload: List[DamlLf.Archive],
       sourceDescription: Option[String],
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] =
     withEnrichedLoggingContext(
       "submissionId" -> submissionId,
-      "description" -> sourceDescription.getOrElse(""),
-      "packageHashes" -> payload.iterator.map(_.getHash).mkString(","),
+      "description" -> sourceDescription,
+      "packageHashes" -> payload.view.map(_.getHash),
     ) { implicit loggingContext =>
       FutureConverters.toJava(
-        ledger
-          .uploadPackages(submissionId, timeProvider.getCurrentTime, sourceDescription, payload)
+        ledger.uploadPackages(submissionId, timeProvider.getCurrentTime, sourceDescription, payload)
       )
     }
 
   // WriteConfigService
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       config: Configuration,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] =
     withEnrichedLoggingContext(
-      "maxRecordTime" -> maxRecordTime.toInstant.toString,
+      "maxRecordTime" -> maxRecordTime.toInstant,
       "submissionId" -> submissionId,
-      "configGeneration" -> config.generation.toString,
-      "configMaxDeduplicationTime" -> config.maxDeduplicationTime.toString,
+      "configGeneration" -> config.generation,
+      "configMaxDeduplicationTime" -> config.maxDeduplicationTime,
     ) { implicit loggingContext =>
       FutureConverters.toJava(ledger.publishConfiguration(maxRecordTime, submissionId, config))
     }
 
-  // WriteParticipantPruningService - not supported by sandbox-classic
+  /** Pruning of all divulged contracts is not supported on sandbox-classic. */
   override def prune(
       pruneUpToInclusive: Offset,
-      submissionId: SubmissionId,
-  ): CompletionStage[PruningResult] =
-    CompletableFuture.completedFuture(PruningResult.NotPruned(Status.UNIMPLEMENTED))
+      submissionId: Ref.SubmissionId,
+      pruneAllDivulgedContracts: Boolean,
+  ): CompletionStage[state.PruningResult] =
+    CompletableFuture.completedFuture {
+      // The API pruning service performs pruning in two steps:
+      // 1. pruning the ledger using a write service
+      // 2. pruning the index db
+      // For the sandbox-classic the ledger and the index db are the same thing, so returning
+      // `state.PruningResult.ParticipantPruned` results in proceeding to the step 2. effectively pruning the db,
+      // while returning `state.PruningResult.NotPruned(Status.UNIMPLEMENTED)` prevents pruning at all.
+      if (enablePruning && !pruneAllDivulgedContracts) state.PruningResult.ParticipantPruned
+      else state.PruningResult.NotPruned(Status.UNIMPLEMENTED)
+    }
+
+  override def isApiDeduplicationEnabled: Boolean = true
 }

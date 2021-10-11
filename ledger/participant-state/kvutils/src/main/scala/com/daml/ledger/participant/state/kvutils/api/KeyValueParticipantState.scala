@@ -9,15 +9,26 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.v1._
-import com.daml.lf.data.Time
+import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.{
+  PruningResult,
+  ReadService,
+  SubmissionResult,
+  SubmitterInfo,
+  TransactionMeta,
+  Update,
+  WriteService,
+}
+import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext
 
 /** Implements read and write operations required for running a participant server.
   *
-  * Adapts [[LedgerReader]] and [[LedgerWriter]] interfaces to [[com.daml.ledger.participant.state.v1.ReadService]] and
-  * [[com.daml.ledger.participant.state.v1.WriteService]], respectively.
+  * Adapts [[LedgerReader]] and [[LedgerWriter]] interfaces to [[com.daml.ledger.participant.state.v2.ReadService]] and
+  * [[com.daml.ledger.participant.state.v2.WriteService]], respectively.
   * Will report [[com.daml.ledger.api.health.Healthy]] as health status only if both
   * `reader` and `writer` are healthy.
   *
@@ -34,10 +45,15 @@ class KeyValueParticipantState(
   private val readerAdapter =
     KeyValueParticipantStateReader(reader, metrics)
   private val writerAdapter =
-    new KeyValueParticipantStateWriter(new TimedLedgerWriter(writer, metrics), metrics)
+    new KeyValueParticipantStateWriter(
+      new TimedLedgerWriter(writer, metrics),
+      metrics,
+    )
 
-  override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
-    readerAdapter.getLedgerInitialConditions()
+  override def isApiDeduplicationEnabled: Boolean = writerAdapter.isApiDeduplicationEnabled
+
+  override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
+    readerAdapter.ledgerInitialConditions()
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
     readerAdapter.stateUpdates(beginAfter)
@@ -57,30 +73,31 @@ class KeyValueParticipantState(
 
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       config: Configuration,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     writerAdapter.submitConfiguration(maxRecordTime, submissionId, config)
 
   override def uploadPackages(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     writerAdapter.uploadPackages(submissionId, archives, sourceDescription)
 
   override def allocateParty(
-      hint: Option[Party],
+      hint: Option[Ref.Party],
       displayName: Option[String],
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     writerAdapter.allocateParty(hint, displayName, submissionId)
 
   override def prune(
       pruneUpToInclusive: Offset,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
+      pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[PruningResult] =
-    writerAdapter.prune(pruneUpToInclusive, submissionId)
+    writerAdapter.prune(pruneUpToInclusive, submissionId, pruneAllDivulgedContracts)
 
   override def currentHealth(): HealthStatus =
     reader.currentHealth() and writer.currentHealth()

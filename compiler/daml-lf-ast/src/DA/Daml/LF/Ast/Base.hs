@@ -80,6 +80,13 @@ newtype ChoiceName = ChoiceName{unChoiceName :: T.Text}
     deriving stock (Eq, Data, Generic, Ord, Show)
     deriving newtype (Hashable, NFData)
 
+-- | Name for an interface method.  Must match the regex
+--
+-- > [a-z_][a-zA-Z0-9_]*
+newtype MethodName = MethodName{unMethodName :: T.Text}
+    deriving stock (Eq, Data, Generic, Ord, Show)
+    deriving newtype (Hashable, NFData)
+
 -- | Name for a type variable. Must match the regex
 --
 -- > [a-z_][a-zA-Z0-9_]*
@@ -546,6 +553,24 @@ data Expr
     , throwExceptionType :: !Type
     , throwExceptionValue :: !Expr
     }
+  -- | Convert template payload to interface type.
+  | EToInterface
+    { toInterfaceInterface :: !(Qualified TypeConName)
+    , toInterfaceTemplate :: !(Qualified TypeConName)
+    , toInterfaceExpr :: !Expr
+    }
+  -- | Convert interface type to template payload when possible.
+  | EFromInterface
+    { fromInterfaceInterface :: !(Qualified TypeConName)
+    , fromInterfaceTemplate :: !(Qualified TypeConName)
+    , fromInterfaceExpr :: !Expr
+    }
+  -- | Invoke an interface method
+  | ECallInterface
+    { callInterfaceType :: !(Qualified TypeConName)
+    , callInterfaceMethod :: !MethodName
+    , callInterfaceExpr :: !Expr
+    }
   -- | Update expression.
   | EUpdate !Update
   -- | Scenario expression.
@@ -639,6 +664,17 @@ data Update
     , exeArg        :: !Expr
       -- ^ Argument for the choice.
     }
+  -- | Exercise choice on a contract of an interface given a contract ID.
+  | UExerciseInterface
+    { exeInterface   :: !(Qualified TypeConName)
+      -- ^ Qualified type constructor corresponding to the interface.
+    , exeChoice     :: !ChoiceName
+      -- ^ Choice to exercise.
+    , exeContractId :: !Expr
+      -- ^ Contract id of the contract template instance to exercise choice on.
+    , exeArg        :: !Expr
+      -- ^ Argument for the choice.
+    }
   -- | Exercise a choice on a contract by key.
   | UExerciseByKey
     { exeTemplate   :: !(Qualified TypeConName)
@@ -654,6 +690,14 @@ data Update
   | UFetch
     { fetTemplate   :: !(Qualified TypeConName)
       -- ^ Qualified type constructor corresponding to the contract template.
+    , fetContractId :: !Expr
+      -- ^ Contract id of the contract template instance whose argument shall be
+      -- retrieved.
+    }
+  -- | Retrieve the argument of an existing contract interface instance.
+  | UFetchInterface
+    { fetInterface   :: !(Qualified TypeConName)
+      -- ^ Qualified type constructor corresponding to the interface.
     , fetContractId :: !Expr
       -- ^ Contract id of the contract template instance whose argument shall be
       -- retrieved.
@@ -785,6 +829,8 @@ data DataCons
   | DataVariant ![(VariantConName, Type)]
   -- | An enum type given by the name of its constructors.
   | DataEnum ![VariantConName]
+  -- | An interface type, with accompanying interface definition in this module.
+  | DataInterface
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 newtype HasNoPartyLiterals = HasNoPartyLiterals{getHasNoPartyLiterals :: Bool}
@@ -846,6 +892,26 @@ data Template = Template
     -- ^ Choices of the template.
   , tplKey             :: !(Maybe TemplateKey)
     -- ^ Template key definition, if any.
+  , tplImplements      :: !(NM.NameMap TemplateImplements)
+    -- ^ The interfaces that this template implements.
+  }
+  deriving (Eq, Data, Generic, NFData, Show)
+
+-- | Template implementation of an interface.
+data TemplateImplements = TemplateImplements
+  { tpiInterface :: !(Qualified TypeConName)
+    -- ^ Interface name for implementation.
+  , tpiMethods :: !(NM.NameMap TemplateImplementsMethod)
+  }
+  deriving (Eq, Data, Generic, NFData, Show)
+
+-- | Template implementation of an interface's method.
+data TemplateImplementsMethod = TemplateImplementsMethod
+  { tpiMethodName :: !MethodName
+    -- ^ Name of method.
+  , tpiMethodExpr :: !Expr
+    -- ^ Method expression, has type @tpl -> mty@ where @tpl@ is the template type,
+    -- and @mty@ is the method's type as defined in the interface.
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -854,6 +920,32 @@ data DefException = DefException
   { exnLocation :: !(Maybe SourceLoc)
   , exnName :: !TypeConName
   , exnMessage :: !Expr
+  }
+  deriving (Eq, Data, Generic, NFData, Show)
+
+data DefInterface = DefInterface
+  { intLocation :: !(Maybe SourceLoc)
+  , intName :: !TypeConName
+  , intParam :: !ExprVarName
+  , intVirtualChoices :: !(NM.NameMap InterfaceChoice)
+  , intFixedChoices :: !(NM.NameMap TemplateChoice)
+  , intMethods :: !(NM.NameMap InterfaceMethod)
+  }
+  deriving (Eq, Data, Generic, NFData, Show)
+
+data InterfaceChoice = InterfaceChoice
+  { ifcLocation :: !(Maybe SourceLoc)
+  , ifcName :: !ChoiceName
+  , ifcConsuming :: !Bool
+  , ifcArgType :: !Type
+  , ifcRetType :: !Type
+  }
+  deriving (Eq, Data, Generic, NFData, Show)
+
+data InterfaceMethod = InterfaceMethod
+  { ifmLocation :: !(Maybe SourceLoc)
+  , ifmName :: !MethodName
+  , ifmType :: !Type
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -929,6 +1021,7 @@ data Module = Module
   , moduleTemplates :: !(NM.NameMap Template)
     -- ^ Template definitions.
   , moduleExceptions :: !(NM.NameMap DefException)
+  , moduleInterfaces :: !(NM.NameMap DefInterface)
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -961,6 +1054,14 @@ instance NM.Named TemplateChoice where
   type Name TemplateChoice = ChoiceName
   name = chcName
 
+instance NM.Named InterfaceChoice where
+  type Name InterfaceChoice = ChoiceName
+  name = ifcName
+
+instance NM.Named InterfaceMethod where
+  type Name InterfaceMethod = MethodName
+  name = ifmName
+
 instance NM.Named DefTypeSyn where
   type Name DefTypeSyn = TypeSynName
   name = synName
@@ -977,13 +1078,26 @@ instance NM.Named DefException where
   type Name DefException = TypeConName
   name = exnName
 
+instance NM.Named DefInterface where
+  type Name DefInterface = TypeConName
+  name = intName
+
 instance NM.Named Template where
   type Name Template = TypeConName
   name = tplTypeCon
 
+instance NM.Named TemplateImplements where
+  type Name TemplateImplements = Qualified TypeConName
+  name = tpiInterface
+
+instance NM.Named TemplateImplementsMethod where
+  type Name TemplateImplementsMethod = MethodName
+  name = tpiMethodName
+
 instance NM.Named Module where
   type Name Module = ModuleName
   name = moduleName
+
 
 fmap concat $ sequenceA $
   let

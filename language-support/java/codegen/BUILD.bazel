@@ -12,6 +12,7 @@ load(
 )
 load(
     "//rules_daml:daml.bzl",
+    "daml_build_test",
     "daml_compile",
 )
 load(
@@ -82,11 +83,14 @@ da_scala_test(
     resources = glob(["src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_scala_logging_scala_logging",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     versioned_scala_deps = {
         "2.12": [
-            "@maven//:org_scalaz_scalaz_core",
             "@maven//:org_scala_lang_modules_scala_collection_compat",
         ],
     },
@@ -94,14 +98,13 @@ da_scala_test(
         ":lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/interface",
         "//language-support/codegen-common",
         "//language-support/java/bindings:bindings-java",
         "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_squareup_javapoet",
+        "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -163,10 +166,9 @@ scala_source_jar(
             ],
         ),
     ]
-    # TODO https://github.com/digital-asset/daml/issues/8020
-    #     update test for LF 1.14
     for target in COMPILER_LF_VERSIONS
-    if target != "1.14"
+    # we skip 1.13 and 1.14 as their serializable types are the same as 1.12
+    if target != "1.13" and target != "1.14"
 ]
 
 ########################################################
@@ -260,6 +262,87 @@ daml_compile(
     target = "1.dev",
 )
 
+daml_compile(
+    name = "pkg1",
+    srcs = glob(
+        [
+            "src/it/daml/Pkg1.0/*.daml",
+        ],
+    ),
+    project_name = "pkg",
+    version = "1.0.0",
+)
+
+daml_compile(
+    name = "pkg2",
+    srcs = glob(
+        [
+            "src/it/daml/Pkg2.0/*.daml",
+        ],
+    ),
+    project_name = "pkg",
+    version = "2.0.0",
+)
+
+daml_build_test(
+    name = "pkg-root",
+    dar_dict = {
+        ":pkg1.dar": "pkg1.dar",
+        ":pkg2.dar": "pkg2.dar",
+    },
+    project_dir = "src/it/daml/pkg-root",
+)
+
+# This sidesteps dar_to_java so it can read the config from daml.yaml
+# which is currently the only way to specify module-prefixes.
+genrule(
+    name = "pkg-root-srcjar",
+    srcs = [
+        "src/it/daml/pkg-root/daml.yaml",
+        ":pkg-root.dar",
+    ],
+    outs = ["pkg-root.srcjar"],
+    cmd = """
+      set -eou pipefail
+      work_dir=$$(mktemp -d)
+      trap "rm -rf $$work_dir" EXIT
+      export DAML_PROJECT=$$work_dir
+      cp $(location :src/it/daml/pkg-root/daml.yaml) $$work_dir/daml.yaml
+      mkdir -p $$work_dir/.daml/dist
+      cp $(location :pkg-root.dar) $$work_dir/.daml/dist/root-1.0.0.dar
+      PREV=$$PWD
+      cd $$work_dir
+      $$PREV/$(execpath //language-support/codegen-main:codegen-main) java
+      cd $$PREV
+      $(JAVABASE)/bin/jar -cf $@ -C $$work_dir/out .
+    """,
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    tools = ["//language-support/codegen-main"],
+)
+
+java_library(
+    name = "pkg-root.jar",
+    srcs = [":pkg-root.srcjar"],
+    deps = [
+        "//language-support/java/bindings:bindings-java",
+    ],
+)
+
+module_prefix_test = "src/it/java/com/daml/ModulePrefixes.java"
+
+java_test(
+    name = "integration-tests-module-prefixes",
+    srcs = [module_prefix_test],
+    test_class = "com.daml.ModulePrefixes",
+    deps = [
+        ":pkg-root.jar",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_engine",
+        "@maven//:org_junit_platform_junit_platform_commons",
+        "@maven//:org_junit_platform_junit_platform_runner",
+    ],
+)
+
 [
     [
         #
@@ -276,10 +359,13 @@ daml_compile(
         ),
         java_test(
             name = "integration-tests-%s" % target,
-            srcs = glob([
-                "src/it/java-%s/**/*.java" % target,
-                "src/it/java/**/*.java",
-            ]),
+            srcs = glob(
+                [
+                    "src/it/java-%s/**/*.java" % target,
+                    "src/it/java/**/*.java",
+                ],
+                exclude = [module_prefix_test],
+            ),
             test_class = "com.daml.AllTests",
             deps = [
                 ":integration-tests-model-%s.jar" % target,
@@ -293,10 +379,9 @@ daml_compile(
             ],
         ),
     ]
-    # TODO https://github.com/digital-asset/daml/issues/8020
-    #     update test for LF 1.14
     for target in COMPILER_LF_VERSIONS
-    if target != "1.14"
+    # we skip 1.13 and 1.14 as their serializable types are the same as 1.12
+    if target != "1.13" and target != "1.14"
 ]
 
 ########################################################
@@ -306,7 +391,7 @@ daml_compile(
 daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
-    target = lf_version_configuration.get("stable"),
+    target = lf_version_configuration.get("default"),
 )
 
 dar_to_java(
@@ -323,7 +408,10 @@ da_scala_test(
     resource_strip_prefix = "language-support/java/codegen/src/ledger-tests/resources/",
     resources = ["src/ledger-tests/resources/logback-test.xml"],
     scala_deps = [
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalaz_scalaz_core",
     ],
     tags = ["exclusive"],
@@ -338,11 +426,11 @@ da_scala_test(
         "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/participant-state",
         "//ledger/sandbox-classic",
         "//ledger/sandbox-common",
         "//libs-scala/ports",
@@ -352,6 +440,7 @@ da_scala_test(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 

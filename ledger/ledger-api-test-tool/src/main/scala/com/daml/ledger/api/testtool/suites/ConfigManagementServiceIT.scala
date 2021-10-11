@@ -7,9 +7,18 @@ import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
+import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.v1.admin.config_management_service.{
+  SetTimeModelRequest,
+  SetTimeModelResponse,
+  TimeModel,
+}
 import com.google.protobuf.duration.Duration
 import io.grpc.Status
+
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 final class ConfigManagementServiceIT extends LedgerTestSuite {
   test(
@@ -62,6 +71,10 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
           newTimeModel = oldTimeModel,
         )
         .mustFail("setting a time model with an expired MRT")
+
+      // Above operation finished on a timeout, but may still succeed asynchronously.
+      // Stabilize the ledger state before leaving the test case.
+      _ <- stabilize(ledger)
     } yield {
       assert(
         response1.configurationGeneration < response2.configurationGeneration,
@@ -77,7 +90,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         "Restoring the original time model failed",
       )
 
-      assertGrpcError(expiredMRTFailure, Status.Code.ABORTED, "")
+      assertGrpcError(expiredMRTFailure, Status.Code.ABORTED, exceptionMessageSubstring = None)
     }
   })
 
@@ -117,7 +130,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         )
         .mustFail("setting Time Model with an outdated generation")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "")
+      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, exceptionMessageSubstring = None)
     }
   })
 
@@ -177,4 +190,65 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
     }
   })
 
+  test(
+    "CMDuplicateSubmissionId",
+    "Duplicate submission ids are accepted when config changed twice",
+    allocate(NoParties, NoParties),
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(alpha), Participant(beta)) =>
+    // Multiple config changes should never cause duplicates. Participant adds extra entropy to the
+    // submission id to ensure client does not inadvertently cause problems by poor selection
+    // of submission ids.
+    for {
+      (req1, req2) <- generateRequest(alpha).map(r =>
+        r -> r
+          .update(_.configurationGeneration := r.configurationGeneration + 1)
+      )
+      _ <- ignoreNotAuthorized(alpha.setTimeModel(req1))
+      _ <- synchronize(alpha, beta)
+      _ <- ignoreNotAuthorized(beta.setTimeModel(req2))
+    } yield ()
+
+  })
+
+  def generateRequest(
+      participant: ParticipantTestContext
+  )(implicit ec: ExecutionContext): Future[SetTimeModelRequest] =
+    for {
+      response <- participant.getTimeModel()
+      oldTimeModel = response.timeModel.getOrElse(
+        throw new AssertionError("Expected time model to be defined")
+      )
+      t1 <- participant.time()
+      req = participant.setTimeModelRequest(
+        mrt = t1.plusSeconds(30),
+        generation = response.configurationGeneration,
+        newTimeModel = oldTimeModel,
+      )
+    } yield req
+
+  private val notAuthorizedPattern = "not authorized".r.pattern
+
+  // On some ledger implementations only one participant is allowed to modify config, others will
+  // fail with an authorization failure.
+  def ignoreNotAuthorized(
+      call: Future[SetTimeModelResponse]
+  )(implicit executionContext: ExecutionContext): Future[Option[SetTimeModelResponse]] =
+    call.transform {
+      case Success(value: SetTimeModelResponse) =>
+        Success(Some(value))
+      case Failure(GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _))
+          if notAuthorizedPattern.matcher(msg).find() =>
+        Success(None)
+      case Failure(failure) =>
+        Failure(failure)
+
+    }
+
+  // Stabilize the ledger by writing a new element and observing it in the indexDb.
+  // The allocateParty method fits the bill.
+  private def stabilize(ledger: ParticipantTestContext)(implicit
+      executionContext: ExecutionContext
+  ): Future[Unit] =
+    ledger.allocateParty().map(_ => ())
 }

@@ -9,6 +9,7 @@ import io.grpc.ManagedChannel;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyChannelBuilder;
 import io.netty.handler.ssl.SslContext;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -44,6 +45,7 @@ public final class DamlLedgerClient implements LedgerClient {
     private final NettyChannelBuilder builder;
     private Optional<String> expectedLedgerId = Optional.empty();
     private Optional<String> accessToken = Optional.empty();
+    private Optional<Duration> timeout = Optional.empty();
 
     private Builder(@NonNull NettyChannelBuilder channelBuilder) {
       this.builder = channelBuilder;
@@ -66,8 +68,14 @@ public final class DamlLedgerClient implements LedgerClient {
       return this;
     }
 
+    public Builder withTimeout(@NonNull Duration timeout) {
+      this.timeout = Optional.of(timeout);
+      return this;
+    }
+
     public DamlLedgerClient build() {
-      return new DamlLedgerClient(this.builder, this.expectedLedgerId, this.accessToken);
+      return new DamlLedgerClient(
+          this.builder, this.expectedLedgerId, this.accessToken, this.timeout);
     }
   }
 
@@ -107,8 +115,8 @@ public final class DamlLedgerClient implements LedgerClient {
    *     unsecured plaintext connection will be used. Must be an SslContext created for client
    *     applications via {@link GrpcSslContexts#forClient()}.
    * @deprecated since 0.13.38, please use {@link
-   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional)} or even better
-   *     either {@link DamlLedgerClient#newBuilder}
+   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional, Optional)} or
+   *     even better either {@link DamlLedgerClient#newBuilder}
    */
   @Deprecated
   public static DamlLedgerClient forLedgerIdAndHost(
@@ -126,8 +134,8 @@ public final class DamlLedgerClient implements LedgerClient {
    * ledger-id automatically discovered instead of provided.
    *
    * @deprecated since 0.13.38, please use {@link
-   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional)} or even better
-   *     either {@link DamlLedgerClient#newBuilder}
+   *     DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional, Optional)} or
+   *     even better either {@link DamlLedgerClient#newBuilder}
    */
   @Deprecated
   public static DamlLedgerClient forHostWithLedgerIdDiscovery(
@@ -148,15 +156,18 @@ public final class DamlLedgerClient implements LedgerClient {
   private TimeClient timeClient;
   private String expectedLedgerId;
   private Optional<String> accessToken;
+  private final Optional<Duration> timeout;
   private final ManagedChannel channel;
 
   private DamlLedgerClient(
       @NonNull NettyChannelBuilder channelBuilder,
       @NonNull Optional<String> expectedLedgerId,
-      @NonNull Optional<String> accessToken) {
+      @NonNull Optional<String> accessToken,
+      @NonNull Optional<Duration> timeout) {
     this.channel = channelBuilder.build();
     this.expectedLedgerId = expectedLedgerId.orElse(null);
     this.accessToken = accessToken;
+    this.timeout = timeout;
   }
 
   /**
@@ -170,10 +181,14 @@ public final class DamlLedgerClient implements LedgerClient {
    * @deprecated since 0.13.38, please use {@link DamlLedgerClient#newBuilder}
    */
   @Deprecated
-  public DamlLedgerClient(Optional<String> expectedLedgerId, @NonNull ManagedChannel channel) {
+  public DamlLedgerClient(
+      Optional<String> expectedLedgerId,
+      @NonNull ManagedChannel channel,
+      Optional<Duration> timeout) {
     this.channel = channel;
     this.expectedLedgerId = expectedLedgerId.orElse(null);
     this.accessToken = Optional.empty();
+    this.timeout = timeout;
   }
 
   /** Connects this instance of the {@link DamlLedgerClient} to the Ledger. */
@@ -198,7 +213,7 @@ public final class DamlLedgerClient implements LedgerClient {
     commandCompletionClient =
         new CommandCompletionClientImpl(reportedLedgerId, channel, pool, this.accessToken);
     commandSubmissionClient =
-        new CommandSubmissionClientImpl(reportedLedgerId, channel, this.accessToken);
+        new CommandSubmissionClientImpl(reportedLedgerId, channel, this.accessToken, this.timeout);
     commandClient = new CommandClientImpl(reportedLedgerId, channel, this.accessToken);
     packageClient = new PackageClientImpl(reportedLedgerId, channel, this.accessToken);
     ledgerConfigurationClient =

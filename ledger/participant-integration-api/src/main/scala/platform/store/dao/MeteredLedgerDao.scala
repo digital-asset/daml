@@ -10,12 +10,12 @@ import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain.{CommandId, LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.{TransactionId, WorkflowId}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.transaction.BlindingInfo
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.indexer.OffsetStep
@@ -64,7 +64,7 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
 
   override def contractsReader: LedgerDaoContractsReader = ledgerDao.contractsReader
 
-  override def getParties(parties: Seq[Party])(implicit
+  override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[List[PartyDetails]] =
     Timed.future(metrics.daml.index.db.getParties, ledgerDao.getParties(parties))
@@ -82,10 +82,10 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
-  ): Future[Map[PackageId, PackageDetails]] =
+  ): Future[Map[Ref.PackageId, PackageDetails]] =
     Timed.future(metrics.daml.index.db.listLfPackages, ledgerDao.listLfPackages())
 
-  override def getLfArchive(packageId: PackageId)(implicit
+  override def getLfArchive(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Archive]] =
     Timed.future(metrics.daml.index.db.getLfArchive, ledgerDao.getLfArchive(packageId))
@@ -133,7 +133,7 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       ledgerDao.removeExpiredDeduplicationData(currentTime),
     )
 
-  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Party])(implicit
+  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
     Timed.future(
@@ -141,10 +141,13 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       ledgerDao.stopDeduplicatingCommand(commandId, submitters),
     )
 
-  override def prune(pruneUpToInclusive: Offset)(implicit
+  override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
-    Timed.future(metrics.daml.index.db.prune, ledgerDao.prune(pruneUpToInclusive))
+    Timed.future(
+      metrics.daml.index.db.prune,
+      ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts),
+    )
 }
 
 private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
@@ -155,19 +158,19 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
 
   override def storeTransaction(
       preparedInsert: PreparedInsert,
-      submitterInfo: Option[SubmitterInfo],
-      transactionId: TransactionId,
+      completionInfo: Option[state.CompletionInfo],
+      transactionId: Ref.TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
       offsetStep: OffsetStep,
       transaction: CommittedTransaction,
-      divulged: Iterable[DivulgedContract],
+      divulged: Iterable[state.DivulgedContract],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     Timed.future(
       metrics.daml.index.db.storeTransaction,
       ledgerDao.storeTransaction(
         preparedInsert,
-        submitterInfo,
+        completionInfo,
         transactionId,
         recordTime,
         ledgerEffectiveTime,
@@ -178,17 +181,17 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     )
 
   def prepareTransactionInsert(
-      submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
+      completionInfo: Option[state.CompletionInfo],
+      workflowId: Option[Ref.WorkflowId],
+      transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: CommittedTransaction,
-      divulgedContracts: Iterable[DivulgedContract],
+      divulgedContracts: Iterable[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
   ): TransactionsWriter.PreparedInsert =
     ledgerDao.prepareTransactionInsert(
-      submitterInfo,
+      completionInfo,
       workflowId,
       transactionId,
       ledgerEffectiveTime,
@@ -199,14 +202,14 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     )
 
   override def storeRejection(
-      submitterInfo: Option[SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       recordTime: Instant,
       offsetStep: OffsetStep,
-      reason: RejectionReason,
+      reason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     Timed.future(
       metrics.daml.index.db.storeRejection,
-      ledgerDao.storeRejection(submitterInfo, recordTime, offsetStep, reason),
+      ledgerDao.storeRejection(completionInfo, recordTime, offsetStep, reason),
     )
 
   override def storeInitialState(
@@ -218,15 +221,11 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       ledgerDao.storeInitialState(ledgerEntries, newLedgerEnd),
     )
 
-  override def initializeLedger(ledgerId: LedgerId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] =
-    ledgerDao.initializeLedger(ledgerId)
-
-  override def initializeParticipantId(participantId: ParticipantId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] =
-    ledgerDao.initializeParticipantId(participantId)
+  override def initialize(
+      ledgerId: LedgerId,
+      participantId: ParticipantId,
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
+    ledgerDao.initialize(ledgerId, participantId)
 
   override def reset()(implicit loggingContext: LoggingContext): Future[Unit] =
     ledgerDao.reset()
@@ -279,31 +278,31 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     ledgerDao.storeTransactionEvents(preparedInsert)
 
   override def completeTransaction(
-      submitterInfo: Option[SubmitterInfo],
-      transactionId: TransactionId,
+      completionInfo: Option[state.CompletionInfo],
+      transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    ledgerDao.completeTransaction(submitterInfo, transactionId, recordTime, offsetStep)
+    ledgerDao.completeTransaction(completionInfo, transactionId, recordTime, offsetStep)
 
   /** This is a combined store transaction method to support sandbox-classic and tests
     * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
     */
   override def storeTransaction(
-      submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
+      completionInfo: Option[state.CompletionInfo],
+      workflowId: Option[Ref.WorkflowId],
+      transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offset: OffsetStep,
       transaction: CommittedTransaction,
-      divulgedContracts: Iterable[DivulgedContract],
+      divulgedContracts: Iterable[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
       recordTime: Instant,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     Timed.future(
       metrics.daml.index.db.storeTransactionCombined,
       ledgerDao.storeTransaction(
-        submitterInfo,
+        completionInfo,
         workflowId,
         transactionId,
         ledgerEffectiveTime,

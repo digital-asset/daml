@@ -49,7 +49,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       case _ ~ modTag ~ modName ~ _ ~ defs =>
         val (definitions, templates, exceptions) = split(defs)
         val flags = FeatureFlags(forbidPartyLiterals = modTag(noPartyLitsTag))
-        Module(modName, definitions, templates, exceptions, flags)
+        Module(modName, definitions, templates, exceptions, List.empty, flags)
     }
 
   private lazy val definition: Parser[Def] =
@@ -75,7 +75,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   private lazy val synDefinition: Parser[DataDef] =
     Id("synonym") ~>! dottedName ~ rep(typeBinder) ~
       (`=` ~> typ) ^^ { case id ~ params ~ typ =>
-        DataDef(id, DTypeSyn(ImmArray(params), typ))
+        DataDef(id, DTypeSyn(params.to(ImmArray), typ))
       }
 
   private lazy val recDefinition: Parser[DataDef] =
@@ -83,7 +83,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       (`=` ~ `{` ~> repsep(binder, `,`) <~ `}`) ^^ { case defTags ~ id ~ params ~ fields =>
         DataDef(
           id,
-          DDataType(defTags(serializableTag), ImmArray(params), DataRecord(ImmArray(fields))),
+          DDataType(defTags(serializableTag), params.to(ImmArray), DataRecord(fields.to(ImmArray))),
         )
       }
 
@@ -92,7 +92,11 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       (`=` ~> repsep(binder, `|`)) ^^ { case defTags ~ id ~ params ~ variants =>
         DataDef(
           id,
-          DDataType(defTags(serializableTag), ImmArray(params), DataVariant(ImmArray(variants))),
+          DDataType(
+            defTags(serializableTag),
+            params.to(ImmArray),
+            DataVariant(variants.to(ImmArray)),
+          ),
         )
       }
 
@@ -101,7 +105,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       case defTags ~ id ~ constructors =>
         DataDef(
           id,
-          DDataType(defTags(serializableTag), ImmArray.empty, DataEnum(ImmArray(constructors))),
+          DDataType(defTags(serializableTag), ImmArray.Empty, DataEnum(constructors.to(ImmArray))),
         )
     }
 
@@ -132,7 +136,10 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
           agreement ~
           choices ~
           key =>
-        TemplDef(tycon, Template(x, precon, signatories, agreement, choices, observers, key))
+        TemplDef(
+          tycon,
+          Template(x, precon, signatories, agreement, choices, observers, key, List.empty),
+        )
     }
 
   private lazy val exceptionDefinition: Parser[ExcepDef] =

@@ -192,6 +192,12 @@ applySubstInExpr subst@Subst{..} = \case
         (applySubstInType subst t1)
         (applySubstInType subst t2)
         (applySubstInExpr subst e)
+    EToInterface t1 t2 e -> EToInterface t1 t2
+        (applySubstInExpr subst e)
+    EFromInterface t1 t2 e -> EFromInterface t1 t2
+        (applySubstInExpr subst e)
+    ECallInterface t m e -> ECallInterface t m
+        (applySubstInExpr subst e)
     EUpdate u -> EUpdate
         (applySubstInUpdate subst u)
     EScenario s -> EScenario
@@ -243,6 +249,11 @@ applySubstInUpdate subst = \case
         choiceName
         (applySubstInExpr subst e1)
         (applySubstInExpr subst e2)
+    UExerciseInterface interface choiceName e1 e2 -> UExerciseInterface
+        interface
+        choiceName
+        (applySubstInExpr subst e1)
+        (applySubstInExpr subst e2)
     UExerciseByKey templateName choiceName e1 e2 -> UExerciseByKey
         templateName
         choiceName
@@ -250,6 +261,9 @@ applySubstInUpdate subst = \case
         (applySubstInExpr subst e2)
     UFetch templateName e -> UFetch
         templateName
+        (applySubstInExpr subst e)
+    UFetchInterface interface e -> UFetchInterface
+        interface
         (applySubstInExpr subst e)
     e@UGetTime -> e
     UEmbedExpr t e -> UEmbedExpr

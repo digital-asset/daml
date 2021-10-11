@@ -15,6 +15,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_github_scopt_scopt",
     ],
     tags = ["maven_coordinates=com.daml:metrics:__VERSION__"],
     versioned_scala_deps = {
@@ -25,11 +26,22 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = [
+        "//ledger/ledger-resources",
         "//libs-scala/concurrent",
+        "//libs-scala/resources",
+        "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_dropwizard_metrics_metrics_graphite",
+        "@maven//:io_dropwizard_metrics_metrics_jmx",
         "@maven//:io_dropwizard_metrics_metrics_jvm",
+        "@maven//:io_netty_netty_transport",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:io_prometheus_simpleclient",
+        "@maven//:io_prometheus_simpleclient_dropwizard",
+        "@maven//:io_prometheus_simpleclient_httpserver",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -38,7 +50,7 @@ da_scala_library(
     srcs = glob(["src/test/lib/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
     ],
     tags = ["maven_coordinates=com.daml:metrics-test-lib:__VERSION__"],
     versioned_scala_deps = {
@@ -54,6 +66,7 @@ da_scala_library(
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
         "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -65,7 +78,10 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
     ],
     versioned_scala_deps = {
         "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
@@ -83,5 +99,6 @@ da_scala_test_suite(
         "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
         "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
         "@maven//:io_opentelemetry_opentelemetry_semconv",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

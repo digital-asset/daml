@@ -7,6 +7,7 @@ import akka.http.javadsl.model.ws.PeerClosedConnectionException
 import akka.http.scaladsl.model.{StatusCodes, Uri}
 import akka.stream.{KillSwitches, UniqueKillSwitch}
 import akka.stream.scaladsl.{Keep, Sink}
+import com.codahale.metrics.MetricRegistry
 
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
@@ -14,6 +15,7 @@ import com.daml.http.domain.Offset
 import com.daml.http.json.{JsonError, SprayJson}
 import com.daml.http.util.FutureUtil
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.metrics.Metrics
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy.model.ToxicDirection
 import org.scalatest._
@@ -63,7 +65,7 @@ final class FailureTests
         (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
         _ = status shouldBe StatusCodes.ServiceUnavailable
         _ = out shouldBe
-          """[-] ledger failed
+          """[-] ledger failed (io.grpc.StatusRuntimeException: UNAVAILABLE: io exception)
             |[+] database ok
             |readyz check failed
             |""".stripMargin.replace("\r\n", "\n")
@@ -263,7 +265,7 @@ final class FailureTests
       (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
       _ = status shouldBe StatusCodes.ServiceUnavailable
       _ = out shouldBe
-        """[+] ledger ok
+        """[+] ledger ok (SERVING)
           |[-] database failed
           |readyz check failed
           |""".stripMargin.replace("\r\n", "\n")
@@ -368,6 +370,36 @@ final class FailureTests
       _ <- source via parseResp runWith respAfter(offset, cid, stop)
     } yield succeed
 
+  }
+
+  "fromStartupMode should not succeed for any input when the connection to the db is broken" in {
+    import cats.effect.IO
+    import DbStartupOps._, com.daml.http.dbbackend.DbStartupMode._,
+    com.daml.http.dbbackend.JdbcConfig, com.daml.dbutils
+    val bc = jdbcConfig_.baseConfig
+    implicit val metrics: Metrics = new Metrics(new MetricRegistry())
+    val dao = dbbackend.ContractDao(
+      JdbcConfig(
+        // discarding other settings
+        dbutils.JdbcConfig(driver = bc.driver, url = bc.url, user = bc.user, password = bc.password)
+      )
+    )
+    util.Logging
+      .instanceUUIDLogCtx[IO[Assertion]](implicit lc =>
+        for {
+          _ <- IO(dbProxy.disable())
+          res1 <- fromStartupMode(dao, CreateOnly)
+          res2 <- fromStartupMode(dao, CreateAndStart)
+          res3 <- fromStartupMode(dao, StartOnly)
+          res4 <- fromStartupMode(dao, CreateIfNeededAndStart)
+        } yield {
+          res1 shouldBe false
+          res2 shouldBe false
+          res3 shouldBe false
+          res4 shouldBe false
+        }
+      )
+      .unsafeToFuture()
   }
 
   protected def jsObject(s: String): JsObject = {

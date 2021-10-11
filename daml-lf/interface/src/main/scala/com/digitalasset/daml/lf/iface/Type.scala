@@ -160,8 +160,6 @@ object PrimType {
   final val Unit = PrimTypeUnit
   final val Optional = PrimTypeOptional
   final val TextMap = PrimTypeTextMap
-  @deprecated("Use TextMap", since = "0.13.38")
-  final val Map = TextMap
   final val GenMap = PrimTypeGenMap
 }
 

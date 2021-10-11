@@ -55,11 +55,16 @@ object Application {
 
   object TransactionResult {
     def fromTransaction(transaction: Transaction): TransactionResult =
-      TransactionResult(transaction.transactionId, transaction.events.map(toEventResult))
+      TransactionResult(
+        transaction.transactionId,
+        transaction.events.map(toEventResult),
+        transaction.effectiveAt.map(t => t.seconds * 1000000L + t.nanos.toLong / 1000L).get,
+      )
   }
   final case class TransactionResult(
       transactionId: String,
       events: Seq[EventResult],
+      letMicros: Long,
   )
 
   sealed abstract class EventResult

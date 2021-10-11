@@ -16,6 +16,7 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.PackageServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 
@@ -27,7 +28,7 @@ private[apiserver] final class ApiPackageService private (
     extends PackageService
     with GrpcApiService {
 
-  private val logger = ContextualizedLogger.get(this.getClass)
+  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override def bindService(): ServerServiceDefinition =
     PackageServiceGrpc.bindService(this, executionContext)
@@ -45,7 +46,7 @@ private[apiserver] final class ApiPackageService private (
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
     withEnrichedLoggingContext("packageId" -> request.packageId) { implicit loggingContext =>
       logger.info(s"Received request for a package: $request")
-      withValidatedPackageId(request.packageId) { packageId =>
+      withValidatedPackageId(request.packageId, request) { packageId =>
         backend
           .getLfArchive(packageId)
           .flatMap(
@@ -62,7 +63,7 @@ private[apiserver] final class ApiPackageService private (
   ): Future[GetPackageStatusResponse] =
     withEnrichedLoggingContext("packageId" -> request.packageId) { implicit loggingContext =>
       logger.info(s"Received request for a package status: $request")
-      withValidatedPackageId(request.packageId) { packageId =>
+      withValidatedPackageId(request.packageId, request) { packageId =>
         backend
           .listLfPackages()
           .map { packages =>
@@ -77,15 +78,20 @@ private[apiserver] final class ApiPackageService private (
       }
     }
 
-  private def withValidatedPackageId[T](packageId: String)(block: Ref.PackageId => Future[T]) =
+  private def withValidatedPackageId[T, R](packageId: String, request: R)(
+      block: Ref.PackageId => Future[T]
+  ) =
     Ref.PackageId
       .fromString(packageId)
       .fold(
         error =>
           Future.failed[T](
-            Status.INVALID_ARGUMENT
-              .withDescription(error)
-              .asRuntimeException()
+            ValidationLogger.logFailureWithContext(
+              request,
+              Status.INVALID_ARGUMENT
+                .withDescription(error)
+                .asRuntimeException(),
+            )
           ),
         pId => block(pId),
       )

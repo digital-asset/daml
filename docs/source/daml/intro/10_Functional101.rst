@@ -226,7 +226,7 @@ Until Chapter 7 the only real kind of control flow introduced has been ``case``,
 If..Else
 ~~~~~~~~
 
-Chapter 5 also showed a seemingly self-explanatory ``if..else`` statement, but didn't explain it further. And they are actually the same thing. Let's implement the function ``boolToInt : Bool -> Int`` which in tyipcal fashion maps ``True`` to ``1`` and ``False`` to ``0``. Here is an implementation using ``case``:
+Chapter 5 also showed a seemingly self-explanatory ``if..else`` statement, but didn't explain it further. And they are actually the same thing. Let's implement the function ``boolToInt : Bool -> Int`` which in typical fashion maps ``True`` to ``1`` and ``False`` to ``0``. Here is an implementation using ``case``:
 
 .. literalinclude:: daml/daml-intro-10/daml/Main.daml
   :language: daml

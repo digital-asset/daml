@@ -104,6 +104,6 @@ shouldGenerate input expected = withTempDir $ \tmpDir -> do
     let tmpFile = tmpDir </> "Test.daml"
     T.writeFileUtf8 tmpFile $ T.unlines $ testModuleHeader <> input
     let opts = (defaultOptions Nothing) {optHaddock=Haddock True, optScenarioService = EnableScenarioService False}
-    withDamlIdeState opts Logger.makeNopHandle (const $ pure ()) $ \ideState -> do
+    withDamlIdeState opts Logger.makeNopHandle (NotificationHandler $ \_ _ -> pure ()) $ \ideState -> do
         Just pm <- runActionSync ideState $ use GetParsedModule $ toNormalizedFilePath' tmpFile
         genModuleContent (getDocTestModule pm) @?= T.unlines (doctestHeader <> expected)

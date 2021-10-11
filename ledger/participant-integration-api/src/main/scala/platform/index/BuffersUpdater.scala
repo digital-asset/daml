@@ -8,10 +8,9 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.stream._
 import akka.{Done, NotUsed}
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.index.BuffersUpdater._
-import com.daml.platform.store.appendonlydao.EventSequentialId
 import com.daml.platform.store.appendonlydao.events.{Contract, Key, Party}
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -47,9 +46,8 @@ private[index] class BuffersUpdater(
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  private[index] val updaterIndex = new AtomicReference(
-    Offset.beforeBegin -> EventSequentialId.beforeBegin
-  )
+  private[index] val updaterIndex: AtomicReference[Option[(Offset, Long)]] =
+    new AtomicReference(None)
 
   private val (transactionLogUpdatesKillSwitch, transactionLogUpdatesDone) =
     RestartSource
@@ -59,10 +57,10 @@ private[index] class BuffersUpdater(
           maxBackoff = 10.seconds,
           randomFactor = 0.0,
         )
-      )(() => subscribeToTransactionLogUpdates.tupled(updaterIndex.get))
+      )(() => subscribeToTransactionLogUpdates(updaterIndex.get))
       .map { case ((offset, eventSequentialId), update) =>
         updateCaches(offset, update)
-        updaterIndex.set(offset -> eventSequentialId)
+        updaterIndex.set(Some(offset -> eventSequentialId))
       }
       .mapError { case NonFatal(e) =>
         logger.error("Error encountered when updating caches", e)
@@ -93,7 +91,7 @@ private[index] class BuffersUpdater(
 
 private[index] object BuffersUpdater {
   type SubscribeToTransactionLogUpdates =
-    (Offset, Long) => Source[((Offset, Long), TransactionLogUpdate), NotUsed]
+    Option[(Offset, Long)] => Source[((Offset, Long), TransactionLogUpdate), NotUsed]
 
   /** [[BuffersUpdater]] convenience builder.
     *
@@ -115,12 +113,12 @@ private[index] object BuffersUpdater {
       updateMutableCache: ContractStateEvent => Unit,
       toContractStateEvents: TransactionLogUpdate => Iterator[ContractStateEvent] =
         convertToContractStateEvents,
+      executionContext: ExecutionContext,
       minBackoffStreamRestart: FiniteDuration = 100.millis,
       sysExitWithCode: Int => Unit = sys.exit(_),
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
-      executionContext: ExecutionContext,
   ): BuffersUpdater = new BuffersUpdater(
     subscribeToTransactionLogUpdates = subscribeToTransactionLogUpdates,
     updateCaches = (offset, transactionLogUpdate) => {
@@ -129,7 +127,7 @@ private[index] object BuffersUpdater {
     },
     minBackoffStreamRestart = minBackoffStreamRestart,
     sysExitWithCode = sysExitWithCode,
-  )
+  )(mat, loggingContext, executionContext)
 
   private[index] def convertToContractStateEvents(
       tx: TransactionLogUpdate

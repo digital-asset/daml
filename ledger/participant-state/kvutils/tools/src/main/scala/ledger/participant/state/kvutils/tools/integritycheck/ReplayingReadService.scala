@@ -4,8 +4,8 @@
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.kvutils.`export`.WriteSet
-import com.daml.ledger.participant.state.v1.ReadService
+import com.daml.ledger.participant.state.kvutils.export.{SubmissionInfo, WriteSet}
+import com.daml.ledger.participant.state.v2.ReadService
 
 /** A ReadService that streams back previously recorded state updates */
 trait ReplayingReadService extends ReadService {
@@ -14,7 +14,7 @@ trait ReplayingReadService extends ReadService {
 
 /** Records state updates and creates corresponding ReplayingReadService instances */
 trait ReplayingReadServiceFactory {
-  def appendBlock(writeSet: WriteSet): Unit
+  def appendBlock(submissionInfo: SubmissionInfo, writeSet: WriteSet): Unit
 
   def createReadService(implicit materializer: Materializer): ReplayingReadService
 }

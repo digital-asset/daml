@@ -14,6 +14,8 @@ import com.daml.platform.server.api.validation.ErrorFactories.{
 import com.daml.platform.server.api.validation.FieldValidations.requireLedgerString
 import io.grpc.StatusRuntimeException
 
+import scala.math.Ordered._
+
 object LedgerOffsetValidator {
 
   private val boundary = "boundary"
@@ -38,7 +40,7 @@ object LedgerOffsetValidator {
       case LedgerOffset.Value.Boundary(value) =>
         convertLedgerBoundary(fieldName, value)
       case LedgerOffset.Value.Empty =>
-        Left(missingField(fieldName + ".(" + boundary + "|value)"))
+        Left(missingField(fieldName + ".(" + boundary + "|value)", None))
     }
   }
 
@@ -46,10 +48,9 @@ object LedgerOffsetValidator {
       offsetType: String,
       ledgerOffset: domain.LedgerOffset,
       ledgerEnd: domain.LedgerOffset.Absolute,
-      offsetOrdering: Ordering[domain.LedgerOffset.Absolute],
   ): Either[StatusRuntimeException, Unit] =
     ledgerOffset match {
-      case abs: domain.LedgerOffset.Absolute if offsetOrdering.gt(abs, ledgerEnd) =>
+      case abs: domain.LedgerOffset.Absolute if abs > ledgerEnd =>
         Left(outOfRange(s"$offsetType offset ${abs.value} is after ledger end ${ledgerEnd.value}"))
       case _ => Right(())
     }
@@ -59,10 +60,9 @@ object LedgerOffsetValidator {
       offsetType: String,
       ledgerOffset: Option[domain.LedgerOffset],
       ledgerEnd: domain.LedgerOffset.Absolute,
-      offsetOrdering: Ordering[domain.LedgerOffset.Absolute],
   ): Either[StatusRuntimeException, Unit] =
     ledgerOffset.fold[Either[StatusRuntimeException, Unit]](Right(()))(
-      offsetIsBeforeEndIfAbsolute(offsetType, _, ledgerEnd, offsetOrdering)
+      offsetIsBeforeEndIfAbsolute(offsetType, _, ledgerEnd)
     )
 
   private def convertLedgerBoundary(
@@ -72,7 +72,7 @@ object LedgerOffsetValidator {
     value match {
       case LedgerBoundary.Unrecognized(invalid) =>
         Left(
-          invalidArgument(
+          invalidArgument(None)(
             s"Unknown ledger $boundary value '$invalid' in field $fieldName.$boundary"
           )
         )

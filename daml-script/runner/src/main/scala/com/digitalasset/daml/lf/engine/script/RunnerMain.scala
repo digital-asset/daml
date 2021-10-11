@@ -14,15 +14,12 @@ import scala.io.Source
 import scalaz.\/-
 import scalaz.syntax.traverse._
 import spray.json._
-
-import com.daml.lf.archive.{Dar, DarReader}
-import com.daml.lf.archive.Decode
+import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.auth.TokenHolder
 
@@ -36,11 +33,7 @@ object RunnerMain {
   }
 
   def main(config: RunnerConfig): Unit = {
-    val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
-      DarReader().readArchiveFromFile(config.darPath).get
-    val dar: Dar[(PackageId, Package)] = encodedDar.map { case (pkgId, pkgArchive) =>
-      Decode.readArchivePayload(pkgId, pkgArchive)
-    }
+    val dar: Dar[(PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(config.darPath)
     val scriptId: Identifier =
       Identifier(dar.main._1, QualifiedName.assertFromString(config.scriptIdentifier))
 
@@ -115,7 +108,7 @@ object RunnerMain {
       result <- Runner.run(dar, scriptId, inputValue, clients, timeMode)
       _ <- Future {
         config.outputFile.foreach { outputFile =>
-          val jsVal = LfValueCodec.apiValueToJsValue(result.toValue)
+          val jsVal = LfValueCodec.apiValueToJsValue(result.toUnnormalizedValue)
           val outDir = outputFile.getParentFile()
           if (outDir != null) {
             val _ = Files.createDirectories(outDir.toPath())

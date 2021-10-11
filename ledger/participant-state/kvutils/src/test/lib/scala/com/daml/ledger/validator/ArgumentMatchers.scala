@@ -3,6 +3,7 @@
 
 package com.daml.ledger.validator
 
+import com.daml.logging.LoggingContext
 import org.mockito.{ArgumentMatcher, ArgumentMatchersSugar}
 
 import scala.concurrent.ExecutionContext
@@ -12,6 +13,7 @@ trait ArgumentMatchers {
   import ArgumentMatchersSugar._
 
   def anyExecutionContext: ExecutionContext = any[ExecutionContext]
+  def anyLoggingContext: LoggingContext = any[LoggingContext]
 
   def iterableOf[T](size: Int): Iterable[T] =
     argThat[Iterable[T]](new ArgumentMatcher[Iterable[T]] {

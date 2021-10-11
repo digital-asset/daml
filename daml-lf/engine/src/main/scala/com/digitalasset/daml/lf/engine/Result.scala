@@ -1,12 +1,12 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine
+package com.daml.lf
+package engine
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{BackStack, ImmArray, ImmArrayCons}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SResult.SVisibleByKey
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value._
 import scalaz.Monad
@@ -27,8 +27,6 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).map(f))
     case ResultNeedKey(gk, resume) =>
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).map(f))
-    case ResultNeedLocalKeyVisible(stakeholders, resume) =>
-      ResultNeedLocalKeyVisible(stakeholders, visible => resume(visible).map(f))
   }
 
   def flatMap[B](f: A => Result[B]): Result[B] = this match {
@@ -40,15 +38,12 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).flatMap(f))
     case ResultNeedKey(gk, resume) =>
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).flatMap(f))
-    case ResultNeedLocalKeyVisible(stakeholders, resume) =>
-      ResultNeedLocalKeyVisible(stakeholders, visible => resume(visible).flatMap(f))
   }
 
   def consume(
-      pcs: ContractId => Option[ContractInst[VersionedValue[ContractId]]],
+      pcs: ContractId => Option[ContractInst[VersionedValue]],
       packages: PackageId => Option[Package],
       keys: GlobalKeyWithMaintainers => Option[ContractId],
-      localKeyVisible: Set[Party] => VisibleByKey,
   ): Either[Error, A] = {
     @tailrec
     def go(res: Result[A]): Either[Error, A] =
@@ -58,8 +53,6 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultNeedContract(acoid, resume) => go(resume(pcs(acoid)))
         case ResultNeedPackage(pkgId, resume) => go(resume(packages(pkgId)))
         case ResultNeedKey(key, resume) => go(resume(keys(key)))
-        case ResultNeedLocalKeyVisible(stakeholders, resume) =>
-          go(resume(localKeyVisible(stakeholders)))
       }
     go(this)
   }
@@ -70,6 +63,19 @@ object ResultDone {
   val Unit: ResultDone[Unit] = new ResultDone(())
 }
 final case class ResultError(err: Error) extends Result[Nothing]
+object ResultError {
+  def apply(packageError: Error.Package.Error): ResultError =
+    ResultError(Error.Package(packageError))
+  def apply(preprocessingError: Error.Preprocessing.Error): ResultError =
+    ResultError(Error.Preprocessing(preprocessingError))
+  def apply(
+      interpretationError: Error.Interpretation.Error,
+      details: Option[String] = None,
+  ): ResultError =
+    ResultError(Error.Interpretation(interpretationError, details))
+  def apply(validationError: Error.Validation.Error): ResultError =
+    ResultError(Error.Validation(validationError))
+}
 
 /** Intermediate result indicating that a [[ContractInst]] is required to complete the computation.
   * To resume the computation, the caller must invoke `resume` with the following argument:
@@ -80,7 +86,7 @@ final case class ResultError(err: Error) extends Result[Nothing]
   */
 final case class ResultNeedContract[A](
     acoid: ContractId,
-    resume: Option[ContractInst[VersionedValue[ContractId]]] => Result[A],
+    resume: Option[ContractInst[VersionedValue]] => Result[A],
 ) extends Result[A]
 
 /** Intermediate result indicating that a [[Package]] is required to complete the computation.
@@ -98,64 +104,32 @@ final case class ResultNeedKey[A](
     resume: Option[ContractId] => Result[A],
 ) extends Result[A]
 
-/** Whether a given contract can be fetched by key, i.e., actAs union readAs
-  *    contains at least one stakeholder.
-  */
-sealed trait VisibleByKey {
-  private[engine] def toSVisibleByKey: SVisibleByKey
-}
-object VisibleByKey {
-
-  /** Contract is not visible, includes actAs and readAs for error reporting
-    */
-  final case class NotVisible(actAs: Set[Party], readAs: Set[Party]) extends VisibleByKey {
-    override def toSVisibleByKey = SVisibleByKey.NotVisible(actAs, readAs)
-  }
-  final case object Visible extends VisibleByKey {
-    override val toSVisibleByKey = SVisibleByKey.Visible
-  }
-
-  def fromSubmitters(
-      actAs: Set[Party],
-      readAs: Set[Party] = Set.empty,
-  ): Set[Party] => VisibleByKey = {
-    val readers = actAs union readAs
-    stakeholders =>
-      if (readers.intersect(stakeholders).nonEmpty) {
-        VisibleByKey.Visible
-      } else {
-        VisibleByKey.NotVisible(actAs, readAs)
-      }
-  }
-}
-
-/** Check that a local contract with the given stakeholders
-  *    can be fetched by key.
-  */
-final case class ResultNeedLocalKeyVisible[A](
-    stakeholders: Set[Party],
-    resume: VisibleByKey => Result[A],
-) extends Result[A]
-
 object Result {
   // fails with ResultError if the package is not found
-  private[lf] def needPackage[A](packageId: PackageId, resume: Package => Result[A]) =
+  private[lf] def needPackage[A](
+      packageId: PackageId,
+      context: language.Reference,
+      resume: Package => Result[A],
+  ) =
     ResultNeedPackage(
       packageId,
       {
-        case None => ResultError(Error(s"Couldn't find package $packageId"))
         case Some(pkg) => resume(pkg)
+        case None => ResultError(Error.Package.MissingPackage(packageId, context))
       },
     )
 
   private[lf] def needContract[A](
       acoid: ContractId,
-      resume: ContractInst[VersionedValue[ContractId]] => Result[A],
+      resume: ContractInst[VersionedValue] => Result[A],
   ) =
     ResultNeedContract(
       acoid,
       {
-        case None => ResultError(ContractNotFound(acoid))
+        case None =>
+          ResultError(
+            Error.Interpretation.DamlException(interpretation.Error.ContractNotFound(acoid))
+          )
         case Some(contract) => resume(contract)
       },
     )
@@ -199,22 +173,9 @@ object Result {
                       .map(otherResults => (okResults :+ x) :++ otherResults)
                   ),
               )
-            case ResultNeedLocalKeyVisible(stakeholders, resume) =>
-              ResultNeedLocalKeyVisible(
-                stakeholders,
-                visible =>
-                  resume(visible).flatMap(x =>
-                    Result.sequence(results_).map(otherResults => (okResults :+ x) :++ otherResults)
-                  ),
-              )
           }
       }
     go(BackStack.empty, results0).map(_.toImmArray)
-  }
-
-  def fromEither[A](err: Either[Error, A]): Result[A] = err match {
-    case Left(e) => ResultError(e)
-    case Right(x) => ResultDone(x)
   }
 
   def assert(assertion: Boolean)(err: Error): Result[Unit] =

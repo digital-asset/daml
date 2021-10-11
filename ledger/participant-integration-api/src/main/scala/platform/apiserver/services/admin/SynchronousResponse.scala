@@ -9,7 +9,8 @@ import java.util.concurrent.TimeUnit
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.domain.LedgerOffset
-import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult}
+import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.services.admin.SynchronousResponse.{Accepted, Rejected}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.TelemetryContext
@@ -28,11 +29,12 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
     timeToLive: Duration,
 ) {
 
-  def submitAndWait(submissionId: SubmissionId, input: Input)(implicit
+  def submitAndWait(submissionId: Ref.SubmissionId, input: Input)(implicit
       telemetryContext: TelemetryContext,
       executionContext: ExecutionContext,
       materializer: Materializer,
   ): Future[AcceptedEntry] = {
+    import state.SubmissionResult
     for {
       ledgerEndBeforeRequest <- strategy.currentLedgerEnd()
       submissionResult <- strategy.submit(submissionId, input)
@@ -49,17 +51,13 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
             .completionTimeout(FiniteDuration(timeToLive.toMillis, TimeUnit.MILLISECONDS))
             .runWith(Sink.head)
             .recoverWith { case _: TimeoutException =>
-              Future.failed(ErrorFactories.aborted("Request timed out"))
+              Future.failed(
+                ErrorFactories.aborted("Request timed out", definiteAnswer = Some(false))
+              )
             }
             .flatten
-        case r @ SubmissionResult.SynchronousReject(_) =>
-          Future.failed(r.failure)
-        case r @ SubmissionResult.Overloaded =>
-          Future.failed(ErrorFactories.resourceExhausted(r.description))
-        case r @ SubmissionResult.InternalError(_) =>
-          Future.failed(ErrorFactories.internal(r.reason))
-        case r @ SubmissionResult.NotSupported =>
-          Future.failed(ErrorFactories.unimplemented(r.description))
+        case r: SubmissionResult.SynchronousError =>
+          Future.failed(r.exception)
       }
     } yield entry
   }
@@ -74,20 +72,20 @@ object SynchronousResponse {
     def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]]
 
     /** Submits a request to the ledger. */
-    def submit(submissionId: SubmissionId, input: Input)(implicit
+    def submit(submissionId: Ref.SubmissionId, input: Input)(implicit
         telemetryContext: TelemetryContext
-    ): Future[SubmissionResult]
+    ): Future[state.SubmissionResult]
 
     /** Opens a stream of entries from before the submission. */
     def entries(offset: Option[LedgerOffset.Absolute]): Source[Entry, _]
 
     /** Filters the entry stream for accepted submissions. */
-    def accept(submissionId: SubmissionId): PartialFunction[Entry, AcceptedEntry]
+    def accept(submissionId: Ref.SubmissionId): PartialFunction[Entry, AcceptedEntry]
 
     /** Filters the entry stream for rejected submissions, and transforms them into appropriate
       * exceptions.
       */
-    def reject(submissionId: SubmissionId): PartialFunction[Entry, StatusRuntimeException]
+    def reject(submissionId: Ref.SubmissionId): PartialFunction[Entry, StatusRuntimeException]
 
   }
 

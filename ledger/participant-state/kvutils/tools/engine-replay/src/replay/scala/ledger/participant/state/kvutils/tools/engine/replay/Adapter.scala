@@ -8,7 +8,6 @@ import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
 import com.daml.lf.transaction.{GlobalKey, Node, NodeId, SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
 
 import scala.collection.mutable
 
@@ -17,7 +16,7 @@ private[replay] final class Adapter(
     pkgLangVersion: Ref.PackageId => LanguageVersion,
 ) {
 
-  private val interface = com.daml.lf.language.Interface(packages)
+  private val interface = com.daml.lf.language.PackageInterface(packages)
 
   def adapt(tx: Tx.Transaction): SubmittedTransaction =
     tx.foldWithPathState(TxBuilder(pkgLangVersion), Option.empty[NodeId])(
@@ -26,48 +25,44 @@ private[replay] final class Adapter(
     ).buildSubmitted()
 
   // drop value version and children
-  private[this] def adapt(node: Tx.Node): Node.GenNode[NodeId, ContractId] =
+  private[this] def adapt(node: Tx.Node): Node.GenNode =
     node match {
-      case rollback: Node.NodeRollback[_] =>
-        rollback.copy(children = ImmArray.empty)
-      case create: Node.NodeCreate[ContractId] =>
+      case rollback: Node.NodeRollback =>
+        rollback.copy(children = ImmArray.Empty)
+      case create: Node.NodeCreate =>
         create.copy(
           templateId = adapt(create.templateId),
           arg = adapt(create.arg),
-          optLocation = None,
           key = create.key.map(adapt),
         )
-      case exe: Node.NodeExercises[NodeId, ContractId] =>
+      case exe: Node.NodeExercises =>
         exe.copy(
           templateId = adapt(exe.templateId),
-          optLocation = None,
           chosenValue = adapt(exe.chosenValue),
-          children = ImmArray.empty,
+          children = ImmArray.Empty,
           exerciseResult = exe.exerciseResult.map(adapt),
           key = exe.key.map(adapt),
         )
-      case fetch: Node.NodeFetch[ContractId] =>
+      case fetch: Node.NodeFetch =>
         fetch.copy(
           templateId = adapt(fetch.templateId),
-          optLocation = None,
           key = fetch.key.map(adapt),
         )
-      case lookup: Node.NodeLookupByKey[ContractId] =>
+      case lookup: Node.NodeLookupByKey =>
         lookup
           .copy(
             templateId = adapt(lookup.templateId),
-            optLocation = None,
             key = adapt(lookup.key),
           )
     }
 
   // drop value version
   private[this] def adapt(
-      k: Node.KeyWithMaintainers[Value[ContractId]]
-  ): Node.KeyWithMaintainers[Value[ContractId]] =
+      k: Node.KeyWithMaintainers[Value]
+  ): Node.KeyWithMaintainers[Value] =
     k.copy(adapt(k.key))
 
-  def adapt(coinst: Tx.ContractInst[ContractId]): Tx.ContractInst[ContractId] =
+  def adapt(coinst: Tx.ContractInst): Tx.ContractInst =
     coinst.copy(
       template = adapt(coinst.template),
       arg = coinst.arg.copy(value = adapt(coinst.arg.value)),
@@ -76,7 +71,7 @@ private[replay] final class Adapter(
   def adapt(gkey: GlobalKey): GlobalKey =
     GlobalKey.assertBuild(adapt(gkey.templateId), adapt(gkey.key))
 
-  private[this] def adapt(value: Value[ContractId]): Value[ContractId] =
+  private[this] def adapt(value: Value): Value =
     value match {
       case Value.ValueEnum(tycon, value) =>
         Value.ValueEnum(tycon.map(adapt), value)
@@ -92,7 +87,7 @@ private[replay] final class Adapter(
         Value.ValueTextMap(value.mapValue(adapt))
       case Value.ValueGenMap(entries) =>
         Value.ValueGenMap(entries.map { case (k, v) => adapt(k) -> adapt(v) })
-      case _: Value.ValueCidlessLeaf | _: Value.ValueContractId[ContractId] =>
+      case _: Value.ValueCidlessLeaf | _: Value.ValueContractId =>
         value
     }
 

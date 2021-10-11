@@ -6,9 +6,7 @@ syntax = "proto3";
 package com.daml.ledger.api.v1;
 
 import "com/daml/ledger/api/v1/commands.proto";
-import "com/daml/ledger/api/v1/trace_context.proto";
 import "com/daml/ledger/api/v1/transaction.proto";
-
 import "google/protobuf/empty.proto";
 
 option java_outer_classname = "CommandServiceOuterClass";
@@ -17,8 +15,10 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // Command Service is able to correlate submitted commands with completion data, identify timeouts, and return contextual
 // information with each tracking result. This supports the implementation of stateless clients.
+//
+// Note that submitted commands generally produce completion events as well, even in case a command gets rejected.
+// For example, the participant MAY choose to produce a completion event for a rejection of a duplicate command.
 service CommandService {
-
   // Submits a single composite command and waits for its result.
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.
   // Errors:
@@ -70,16 +70,9 @@ service CommandService {
 
 // These commands are atomic, and will become transactions.
 message SubmitAndWaitRequest {
-
   // The commands to be submitted.
   // Required
   Commands commands = 1;
-
-  // Server side tracing will be registered as a child of the submitted context.
-  // This field is a future extension point and is currently not supported.
-  // Optional
-  TraceContext trace_context = 1000;
-
 }
 
 message SubmitAndWaitForTransactionIdResponse {
@@ -90,13 +83,13 @@ message SubmitAndWaitForTransactionIdResponse {
 }
 
 message SubmitAndWaitForTransactionResponse {
-    // The flat transaction that resulted from the submitted command.
-    // Required
-    Transaction transaction = 1;
+  // The flat transaction that resulted from the submitted command.
+  // Required
+  Transaction transaction = 1;
 }
 
 message SubmitAndWaitForTransactionTreeResponse {
-    // The transaction tree that resulted from the submitted command.
-    // Required
-    TransactionTree transaction = 1;
+  // The transaction tree that resulted from the submitted command.
+  // Required
+  TransactionTree transaction = 1;
 }

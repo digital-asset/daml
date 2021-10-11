@@ -3,23 +3,22 @@
 
 package com.daml.ledger.validator
 
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.codahale.metrics.Timer
-import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.wire._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Envelope, KeyValueCommitting, Raw}
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
-import com.google.protobuf.ByteString
 
 import scala.annotation.{nowarn, tailrec}
 import scala.concurrent.{ExecutionContext, Future}
@@ -30,16 +29,16 @@ import scala.util.{Failure, Success, Try}
   *
   * @param ledgerStateAccess     defines how the validator retrieves/writes back state to the ledger
   * @param processSubmission     defines how a log entry and state updates are generated
-  * @param allocateLogEntryId    defines how new log entry IDs are being generated
+  * @param logEntryIdAllocator   defines how new log entry IDs are being generated
   * @param checkForMissingInputs whether all inputs declared as the required inputs in the
   *                              submission must be available in order to pass validation
-  * @param stateValueCache        a cache for deserializing state values from bytes
-  * @param metrics                defines the metric names
+  * @param stateValueCache       a cache for deserializing state values from bytes
+  * @param metrics               defines the metric names
   */
 class SubmissionValidator[LogResult] private[validator] (
     ledgerStateAccess: LedgerStateAccess[LogResult],
     processSubmission: SubmissionValidator.ProcessSubmission,
-    allocateLogEntryId: () => DamlLogEntryId,
+    logEntryIdAllocator: LogEntryIdAllocator,
     checkForMissingInputs: Boolean,
     stateValueCache: StateValueCache,
     metrics: Metrics,
@@ -53,7 +52,7 @@ class SubmissionValidator[LogResult] private[validator] (
       envelope: Raw.Envelope,
       correlationId: String,
       recordTime: Timestamp,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
   )(implicit executionContext: ExecutionContext): Future[Either[ValidationFailed, Unit]] =
     newLoggingContext { implicit loggingContext =>
       runValidation(
@@ -70,7 +69,7 @@ class SubmissionValidator[LogResult] private[validator] (
       envelope: Raw.Envelope,
       correlationId: String,
       recordTime: Timestamp,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
   )(implicit executionContext: ExecutionContext): Future[Either[ValidationFailed, LogResult]] =
     newLoggingContext { implicit loggingContext =>
       validateAndCommitWithContext(envelope, correlationId, recordTime, participantId)
@@ -80,7 +79,7 @@ class SubmissionValidator[LogResult] private[validator] (
       envelope: Raw.Envelope,
       correlationId: String,
       recordTime: Timestamp,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -98,7 +97,7 @@ class SubmissionValidator[LogResult] private[validator] (
       envelope: Raw.Envelope,
       correlationId: String,
       recordTime: Timestamp,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       transform: (
           DamlLogEntryId,
           StateMap,
@@ -123,7 +122,10 @@ class SubmissionValidator[LogResult] private[validator] (
       ignored: Any,
       logEntryAndState: LogEntryAndState,
       stateOperations: LedgerStateOperations[LogResult],
-  )(implicit executionContext: ExecutionContext): Future[LogResult] = {
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[LogResult] = {
     val (rawLogEntry, rawStateUpdates) = serializeProcessedSubmission(logEntryAndState)
     val eventualLogResult = stateOperations.appendToLog(Raw.LogEntryId(logEntryId), rawLogEntry)
     val eventualStateResult =
@@ -142,7 +144,7 @@ class SubmissionValidator[LogResult] private[validator] (
       envelope: Raw.Envelope,
       correlationId: String,
       recordTime: Timestamp,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       postProcessResult: (
           DamlLogEntryId,
           StateMap,
@@ -181,7 +183,7 @@ class SubmissionValidator[LogResult] private[validator] (
         }
 
       case Right(Envelope.SubmissionMessage(submission)) =>
-        val damlLogEntryId = allocateLogEntryId()
+        val damlLogEntryId = logEntryIdAllocator.allocate()
         val declaredInputs = submission.getInputDamlStateList.asScala
         val inputKeysAsBytes = declaredInputs.map(rawKey)
         timedLedgerStateAccess
@@ -268,7 +270,7 @@ class SubmissionValidator[LogResult] private[validator] (
       extends LedgerStateAccess[LogResult] {
     override def inTransaction[T](
         body: LedgerStateOperations[LogResult] => Future[T]
-    )(implicit executionContext: ExecutionContext): Future[T] = {
+    )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[T] = {
       // This is necessary to ensure we capture successful and failed acquisitions separately.
       // These need to be measured separately as they may have very different characteristics.
       val acquisitionWasRecorded = new AtomicBoolean(false)
@@ -314,35 +316,16 @@ object SubmissionValidator {
       DamlLogEntryId,
       RecordTime,
       DamlSubmission,
-      ParticipantId,
+      Ref.ParticipantId,
       InputState,
   ) => LoggingContext => LogEntryAndState
-
-  def create[LogResult](
-      ledgerStateAccess: LedgerStateAccess[LogResult],
-      allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
-      checkForMissingInputs: Boolean = false,
-      stateValueCache: StateValueCache = Cache.none,
-      engine: Engine,
-      metrics: Metrics,
-  ): SubmissionValidator[LogResult] = {
-    createForTimeMode(
-      ledgerStateAccess,
-      allocateNextLogEntryId,
-      checkForMissingInputs,
-      stateValueCache,
-      engine,
-      metrics,
-      inStaticTimeMode = false,
-    )
-  }
 
   // Internal method to enable proper command dedup in sandbox with static time mode
   private[daml] def createForTimeMode[LogResult](
       ledgerStateAccess: LedgerStateAccess[LogResult],
-      allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
-      checkForMissingInputs: Boolean = false,
-      stateValueCache: StateValueCache = Cache.none,
+      logEntryIdAllocator: LogEntryIdAllocator,
+      checkForMissingInputs: Boolean,
+      stateValueCache: StateValueCache,
       engine: Engine,
       metrics: Metrics,
       inStaticTimeMode: Boolean,
@@ -350,22 +333,18 @@ object SubmissionValidator {
     new SubmissionValidator(
       ledgerStateAccess,
       processSubmission(new KeyValueCommitting(engine, metrics, inStaticTimeMode)),
-      allocateNextLogEntryId,
+      logEntryIdAllocator,
       checkForMissingInputs,
       stateValueCache,
       metrics,
     )
 
-  private[validator] def allocateRandomLogEntryId(): DamlLogEntryId =
-    DamlLogEntryId.newBuilder
-      .setEntryId(ByteString.copyFromUtf8(UUID.randomUUID().toString))
-      .build()
-
+  // Visible for testing.
   private[validator] def processSubmission(keyValueCommitting: KeyValueCommitting)(
       damlLogEntryId: DamlLogEntryId,
       recordTime: Timestamp,
       damlSubmission: DamlSubmission,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       inputState: DamlStateMap,
   )(loggingContext: LoggingContext): LogEntryAndState =
     keyValueCommitting.processSubmission(

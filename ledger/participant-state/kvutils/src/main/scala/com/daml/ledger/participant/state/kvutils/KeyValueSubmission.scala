@@ -4,10 +4,15 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.kvutils.store.DamlStateKey
+import com.daml.ledger.participant.state.kvutils.wire.{DamlConfigurationSubmission, DamlSubmission}
+import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
@@ -40,7 +45,7 @@ class KeyValueSubmission(metrics: Metrics) {
   private def submissionParties(
       submitterInfo: SubmitterInfo,
       tx: SubmittedTransaction,
-  ): Set[Party] =
+  ): Set[Ref.Party] =
     tx.informees ++ submitterInfo.actAs
 
   /** Prepare a transaction submission. */
@@ -84,7 +89,7 @@ class KeyValueSubmission(metrics: Metrics) {
       submissionId: String,
       archives: List[Archive],
       sourceDescription: String,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
   ): DamlSubmission =
     metrics.daml.kvutils.submission.conversion.archivesToSubmission.time { () =>
       val archivesDamlState =
@@ -109,10 +114,10 @@ class KeyValueSubmission(metrics: Metrics) {
 
   /** Prepare a party allocation submission. */
   def partyToSubmission(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       hint: Option[String],
       displayName: Option[String],
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
   ): DamlSubmission =
     metrics.daml.kvutils.submission.conversion.partyToSubmission.time { () =>
       val party = hint.getOrElse("")
@@ -132,8 +137,8 @@ class KeyValueSubmission(metrics: Metrics) {
   /** Prepare a ledger configuration change submission. */
   def configurationToSubmission(
       maxRecordTime: Timestamp,
-      submissionId: SubmissionId,
-      participantId: ParticipantId,
+      submissionId: Ref.SubmissionId,
+      participantId: Ref.ParticipantId,
       config: Configuration,
   ): DamlSubmission =
     metrics.daml.kvutils.submission.conversion.configurationToSubmission.time { () =>

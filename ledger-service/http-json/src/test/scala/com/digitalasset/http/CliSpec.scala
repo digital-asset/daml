@@ -5,6 +5,8 @@ package com.daml.http
 
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+import com.daml.dbutils
+import com.daml.http.dbbackend.{JdbcConfig, DbStartupMode}
 
 final class CliSpec extends AnyFreeSpec with Matchers {
 
@@ -15,11 +17,13 @@ final class CliSpec extends AnyFreeSpec with Matchers {
     Cli.parseConfig(parameters, Set("org.postgresql.Driver"), getEnvVar)
 
   val jdbcConfig = JdbcConfig(
-    "org.postgresql.Driver",
-    "jdbc:postgresql://localhost:5432/test?&ssl=true",
-    "postgres",
-    "password",
-    false,
+    dbutils.JdbcConfig(
+      "org.postgresql.Driver",
+      "jdbc:postgresql://localhost:5432/test?&ssl=true",
+      "postgres",
+      "password",
+    ),
+    dbStartupMode = DbStartupMode.StartOnly,
   )
   val jdbcConfigString =
     "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
@@ -88,6 +92,108 @@ final class CliSpec extends AnyFreeSpec with Matchers {
     "should get None when neither CLI nor env variable are provided" in {
       val config = configParser(sharedOptions).getOrElse(fail())
       config.jdbcConfig shouldBe None
+    }
+
+    "should get the table prefix if specified" in {
+      val prefix = "some_fancy_prefix_"
+      val config = configParser(
+        Seq("--query-store-jdbc-config", s"$jdbcConfigString,tablePrefix=$prefix") ++ sharedOptions
+      ).getOrElse(fail())
+      config.jdbcConfig shouldBe Some(
+        jdbcConfig.copy(baseConfig = jdbcConfig.baseConfig.copy(tablePrefix = prefix))
+      )
+    }
+
+    "DbStartupMode" - {
+      val jdbcConfigShared =
+        "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password"
+
+      "should get the CreateOnly startup mode from the string" in {
+        val jdbcConfigString = s"$jdbcConfigShared,start-mode=create-only"
+        val config =
+          configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
+            .getOrElse(fail())
+        config.jdbcConfig shouldBe Some(jdbcConfig.copy(dbStartupMode = DbStartupMode.CreateOnly))
+      }
+
+      "should get the StartOnly startup mode from the string" in {
+        val jdbcConfigString = s"$jdbcConfigShared,start-mode=start-only"
+        val config =
+          configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
+            .getOrElse(fail())
+        config.jdbcConfig shouldBe Some(jdbcConfig.copy(dbStartupMode = DbStartupMode.StartOnly))
+      }
+
+      "should get the CreateIfNeededAndStart startup mode from the string" in {
+        val jdbcConfigString = s"$jdbcConfigShared,start-mode=create-if-needed-and-start"
+        val config =
+          configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
+            .getOrElse(fail())
+        config.jdbcConfig shouldBe Some(
+          jdbcConfig.copy(dbStartupMode = DbStartupMode.CreateIfNeededAndStart)
+        )
+      }
+
+      "should get the CreateAndStart startup mode from the string" in {
+        val jdbcConfigString = s"$jdbcConfigShared,start-mode=create-and-start"
+        val config =
+          configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
+            .getOrElse(fail())
+        config.jdbcConfig shouldBe Some(
+          jdbcConfig.copy(dbStartupMode = DbStartupMode.CreateAndStart)
+        )
+      }
+
+      "createSchema=false is converted to StartOnly" in {
+        val jdbcConfigString = s"$jdbcConfigShared,createSchema=false"
+        val config =
+          configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
+            .getOrElse(fail())
+        config.jdbcConfig shouldBe Some(
+          jdbcConfig.copy(dbStartupMode = DbStartupMode.StartOnly)
+        )
+      }
+
+      "createSchema=true is converted to CreateOnly" in {
+        val jdbcConfigString = s"$jdbcConfigShared,createSchema=true"
+        val config =
+          configParser(Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions)
+            .getOrElse(fail())
+        config.jdbcConfig shouldBe Some(
+          jdbcConfig.copy(dbStartupMode = DbStartupMode.CreateOnly)
+        )
+      }
+    }
+
+    "DisableContractPayloadIndexing" - {
+      import dbbackend.Queries.Oracle
+      import dbbackend.OracleQueries.DisableContractPayloadIndexing
+      // we can always use postgres here; but if we integrate driver init with cmdline parse
+      // we'll have to restrict this test block to EE-only
+      val jdbcConfigShared =
+        "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password"
+      val expectedExtraConf = Map(DisableContractPayloadIndexing -> "true")
+
+      "parses from command-line string" in {
+        val jdbcConfigString = s"$jdbcConfigShared,$DisableContractPayloadIndexing=true"
+        val config = configParser(
+          Seq("--query-store-jdbc-config", jdbcConfigString) ++ sharedOptions
+        ).getOrElse(fail())
+        import org.scalatest.OptionValues._
+        config.jdbcConfig.value.backendSpecificConf should ===(expectedExtraConf)
+      }
+
+      "then parses through backend" in {
+        Oracle.parseConf(expectedExtraConf) should ===(Right(true: DisableContractPayloadIndexing))
+      }
+
+      "or defaults to false" in {
+        Oracle.parseConf(Map.empty) should ===(Right(false: DisableContractPayloadIndexing))
+      }
+
+      "but fails on bad input" in {
+        Oracle.parseConf(Map(DisableContractPayloadIndexing -> "haha")).isLeft should ===(true)
+      }
     }
   }
 

@@ -104,6 +104,9 @@ freeVarsStep = \case
     EToAnyExceptionF t e -> freeVarsInType t <> e
     EFromAnyExceptionF t e -> freeVarsInType t <> e
     EThrowF t1 t2 e -> freeVarsInType t1 <> freeVarsInType t2 <> e
+    EToInterfaceF _ _ e -> e
+    EFromInterfaceF _ _ e -> e
+    ECallInterfaceF _ _ e -> e
     EExperimentalF _ t -> freeVarsInType t
 
   where
@@ -133,8 +136,10 @@ freeVarsStep = \case
         UBindF b e -> goBinding b e
         UCreateF _ e -> e
         UExerciseF _ _ e1 e2 -> e1 <> e2
+        UExerciseInterfaceF _ _ e1 e2 -> e1 <> e2
         UExerciseByKeyF _ _ e1 e2 -> e1 <> e2
         UFetchF _ e -> e
+        UFetchInterfaceF _ e -> e
         UGetTimeF -> mempty
         UEmbedExprF t e -> freeVarsInType t <> e
         UFetchByKeyF r -> retrieveByKeyFKey r

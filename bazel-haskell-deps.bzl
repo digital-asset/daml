@@ -17,16 +17,17 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "c8818a7d7abf66a4a7302b360857e3a790ab1be4"
-GHCIDE_SHA256 = "999cd7677b0e6747b6ab7a1e503afc23380cd0c12d9781b09f9a905b8f49cca7"
-GHCIDE_VERSION = "0.1.0"
+GHCIDE_REV = "e28a78b9a450fa7970320e78175b8dd382ce0fbd"
+GHCIDE_SHA256 = "b038f995c5b71d07b3f0fc973aa0970780bb9ad0365c6552a75ec5264fd3f8a6"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
 SHAKE_VERSION = "0.18.5"
-ZIP_VERSION = "1.5.0"
+ZIP_VERSION = "1.7.1"
 GRPC_HASKELL_REV = "641f0bab046f2f03e5350a7c5f2044af1e19a5b1"
 GRPC_HASKELL_SHA256 = "d850d804d7af779bb8717ebe4ea2ac74903a30adeb5262477a2e7a1536f4ca81"
+XML_CONDUIT_VERSION = "1.9.1.1"
+LSP_TYPES_VERSION = "1.2.0.0"
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
@@ -36,39 +37,29 @@ def daml_haskell_deps():
     use_integer_simple = not is_windows
 
     #
-    # Executables
+    # Vendored Packages
     #
 
     http_archive(
-        name = "proto3_suite",
+        name = "lsp-types",
         build_file_content = """
-# XXX: haskell_cabal_binary inexplicably fails with
-#   realgcc.exe: error: CreateProcess: No such file or directory
-# So we use haskell_binary instead.
-load("@rules_haskell//haskell:defs.bzl", "haskell_binary")
-haskell_binary(
-    name = "compile-proto-file",
-    srcs = ["tools/compile-proto-file/Main.hs"],
-    compiler_flags = ["-w", "-optF=-w"],
-    deps = [
-        "@stackage//:base",
-        "@stackage//:optparse-applicative",
-        "@stackage//:proto3-suite",
-        "@stackage//:system-filepath",
-        "@stackage//:text",
-        "@stackage//:turtle",
-    ],
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "lsp-types",
+    version = packages["lsp-types"].version,
+    srcs = glob(["**"]),
+    deps = packages["lsp-types"].deps,
     visibility = ["//visibility:public"],
-)
-""",
-        sha256 = "b294ff0fe24c6c256dc8eca1d44c2a9a928b9a1bc70ddce6a1d059499edea119",
-        strip_prefix = "proto3-suite-0af901f9ef3b9719e08eae4fab8fd700d6c8047a",
-        urls = ["https://github.com/awakesecurity/proto3-suite/archive/0af901f9ef3b9719e08eae4fab8fd700d6c8047a.tar.gz"],
+)""",
+        patch_args = ["-p1"],
+        patches = [
+            "@com_github_digital_asset_daml//bazel_tools:lsp-types-normalisation.patch",
+        ],
+        sha256 = "637a85878d7b8c895311eb6878f19c43038ef93db1e4de4820b04fa7bc30b4ab",
+        strip_prefix = "lsp-types-{}".format(LSP_TYPES_VERSION),
+        urls = ["http://hackage.haskell.org/package/lsp-types-{version}/lsp-types-{version}.tar.gz".format(version = LSP_TYPES_VERSION)],
     )
-
-    #
-    # Vendored Libraries
-    #
 
     # ghc-lib based ghcide - injected into `@stackage` and used for DAML IDE.
     http_archive(
@@ -79,7 +70,7 @@ load("@rules_haskell//haskell:defs.bzl", "haskell_library")
 load("@stackage//:packages.bzl", "packages")
 haskell_cabal_library(
     name = "ghcide",
-    version = "{version}",
+    version = packages["ghcide"].version,
     srcs = glob(["**"]),
     haddock = False,
     flags = packages["ghcide"].flags,
@@ -91,10 +82,11 @@ haskell_library(
     srcs = glob(["test/src/**/*.hs"]),
     src_strip_prefix = "test/src",
     deps = [
+        "@stackage//:aeson",
         "@stackage//:base",
         "@stackage//:extra",
         "@stackage//:containers",
-        "@stackage//:haskell-lsp-types",
+        "@stackage//:lsp-types",
         "@stackage//:lens",
         "@stackage//:lsp-test",
         "@stackage//:parser-combinators",
@@ -118,11 +110,10 @@ haskell_library(
     ],
     visibility = ["//visibility:public"],
 )
-""".format(version = GHCIDE_VERSION),
+""",
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-binary-q.patch",
-            "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-expose-compat.patch",
         ],
         sha256 = GHCIDE_SHA256,
         strip_prefix = "daml-ghcide-%s" % GHCIDE_REV,
@@ -207,11 +198,22 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
 haskell_cabal_library(
     name = "proto3-suite",
-    version = "0.4.2.0",
+    version = packages["proto3-suite"].version,
     srcs = glob(["src/**", "test-files/*.bin", "tests/*", "proto3-suite.cabal"]),
     haddock = False,
     deps = packages["proto3-suite"].deps,
     verbose = False,
+    visibility = ["//visibility:public"],
+)
+# XXX: haskell_cabal_binary inexplicably fails with
+#   realgcc.exe: error: CreateProcess: No such file or directory
+# So we use haskell_binary instead.
+load("@rules_haskell//haskell:defs.bzl", "haskell_binary")
+haskell_binary(
+    name = "compile-proto-file",
+    srcs = ["tools/compile-proto-file/Main.hs"],
+    compiler_flags = ["-w", "-optF=-w"],
+    deps = [":proto3-suite"] + packages["proto3-suite"].deps,
     visibility = ["//visibility:public"],
 )
 """,
@@ -236,14 +238,14 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
 haskell_cabal_library(
     name = "js-jquery",
-    version = "{version}",
+    version = packages["js-jquery"].version,
     srcs = glob(["**"]),
     haddock = False,
     deps = packages["js-jquery"].deps,
     verbose = False,
     visibility = ["//visibility:public"],
 )
-""".format(version = JS_JQUERY_VERSION),
+""",
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-js-jquery.patch",
@@ -260,14 +262,14 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
 haskell_cabal_library(
     name = "js-dgtable",
-    version = "{version}",
+    version = packages["js-dgtable"].version,
     srcs = glob(["**"]),
     haddock = False,
     deps = packages["js-dgtable"].deps,
     verbose = False,
     visibility = ["//visibility:public"],
 )
-""".format(version = JS_DGTABLE_VERSION),
+""",
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-js-dgtable.patch",
@@ -284,14 +286,14 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
 haskell_cabal_library(
     name = "js-flot",
-    version = "{version}",
+    version = packages["js-flot"].version,
     srcs = glob(["**"]),
     haddock = False,
     deps = packages["js-flot"].deps,
     verbose = False,
     visibility = ["//visibility:public"],
 )
-""".format(version = JS_FLOT_VERSION),
+""",
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-js-flot.patch",
@@ -302,21 +304,43 @@ haskell_cabal_library(
     )
 
     http_archive(
+        name = "xml-conduit",
+        build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "xml-conduit",
+    version = packages["xml-conduit"].version,
+    srcs = glob(["**"]),
+    haddock = False,
+    deps = packages["xml-conduit"].deps,
+    # For some reason we need to manually add the setup dep here.
+    setup_deps = ["@stackage//:cabal-doctest"],
+    verbose = False,
+    visibility = ["//visibility:public"],
+)
+""",
+        sha256 = "bdb117606c0b56ca735564465b14b50f77f84c9e52e31d966ac8d4556d3ff0ff",
+        strip_prefix = "xml-conduit-{}".format(XML_CONDUIT_VERSION),
+        urls = ["http://hackage.haskell.org/package/xml-conduit-{version}/xml-conduit-{version}.tar.gz".format(version = XML_CONDUIT_VERSION)],
+    )
+
+    http_archive(
         name = "shake",
         build_file_content = """
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
 haskell_cabal_library(
     name = "shake",
-    version = "{version}",
+    version = packages["shake"].version,
     srcs = glob(["**"]),
     haddock = False,
     deps = packages["shake"].deps,
     verbose = False,
     visibility = ["//visibility:public"],
-    flags = ["embed-files"],
+    flags = packages["shake"].flags,
 )
-""".format(version = SHAKE_VERSION),
+""",
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-shake.patch",
@@ -333,31 +357,20 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
 haskell_cabal_library(
     name = "zip",
-    version = "{version}",
+    version = packages["zip"].version,
     srcs = glob(["**"]),
     haddock = False,
-    deps = [
-        "@stackage//:case-insensitive",
-        "@stackage//:cereal",
-        "@stackage//:conduit",
-        "@stackage//:conduit-extra",
-        "@stackage//:digest",
-        "@stackage//:dlist",
-        "@stackage//:exceptions",
-        "@stackage//:monad-control",
-        "@stackage//:resourcet",
-        "@stackage//:transformers-base",
-    ],
+    deps = packages["zip"].deps,
     verbose = False,
     visibility = ["//visibility:public"],
-    flags = ["disable-bzip2"],
+    flags = packages["zip"].flags,
 )
-""".format(version = ZIP_VERSION),
+""",
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-zip.patch",
         ],
-        sha256 = "051e891d6a13774f1d06b0251e9a0bf92f05175da8189d936c7d29c317709802",
+        sha256 = "0d7f02bbdf6c49e9a33d2eca4b3d7644216a213590866dafdd2b47ddd38eb746",
         strip_prefix = "zip-{}".format(ZIP_VERSION),
         urls = ["http://hackage.haskell.org/package/zip-{version}/zip-{version}.tar.gz".format(version = ZIP_VERSION)],
     )
@@ -389,17 +402,18 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         flags = dicts.add(
             {
                 "ghcide": ["ghc-lib"],
-                "hlint": ["ghc-lib"],
                 "ghc-lib-parser-ex": ["ghc-lib"],
-                "zip": ["disable-bzip2"],
+                "hlint": ["ghc-lib"],
+                "shake": ["embed-files"],
+                "zip": ["disable-bzip2", "disable-zstd"],
             },
             {
                 "blaze-textual": ["integer-simple"],
                 "cryptonite": ["-integer-gmp"],
                 "hashable": ["-integer-gmp"],
                 "integer-logarithms": ["-integer-gmp"],
-                "text": ["integer-simple"],
                 "scientific": ["integer-simple"],
+                "text": ["integer-simple"],
             } if use_integer_simple else {},
         ),
         haddock = False,
@@ -410,12 +424,9 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "aeson",
             "aeson-extra",
             "aeson-pretty",
-            "alex",
             "ansi-terminal",
             "ansi-wl-pprint",
-            "array",
             "async",
-            "attoparsec",
             "base",
             "base16-bytestring",
             "base64",
@@ -424,22 +435,18 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "blaze-html",
             "bytestring",
             "c2hs",
-            "Cabal",
             "case-insensitive",
-            "cereal",
             "clock",
             "cmark-gfm",
             "conduit",
             "conduit-extra",
             "connection",
             "containers",
-            "contravariant",
             "cryptohash",
             "cryptonite",
             "data-default",
             "Decimal",
             "deepseq",
-            "digest",
             "directory",
             "dlist",
             "either",
@@ -450,75 +457,48 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "filelock",
             "filepath",
             "filepattern",
-            "foldl",
-            "fuzzy",
-            "ghc",
-            "ghc-boot",
-            "ghc-boot-th",
             "ghc-lib",
             "ghc-lib-parser",
             "ghc-lib-parser-ex",
-            "ghc-paths",
-            "ghc-prim",
             "gitrev",
-            "haddock-library",
-            "happy",
             "hashable",
             "haskeline",
-            "haskell-lsp",
-            "haskell-lsp-types",
-            "haskell-src",
             "haskell-src-exts",
-            "heaps",
-            "hie-bios",
             "hlint",
-            "hpc",
             "hpp",
-            "hslogger",
             "hspec",
             "http-client",
             "http-client-tls",
             "http-conduit",
             "http-types",
-            "insert-ordered-containers",
             "jwt",
             "lens",
             "lens-aeson",
             "lifted-async",
             "lifted-base",
+            "lsp",
             "lsp-test",
             "main-tester",
-            "managed",
             "megaparsec",
             "memory",
             "monad-control",
             "monad-logger",
             "monad-loops",
             "mtl",
-            "neat-interpolation",
             "network",
             "network-uri",
             "nsis",
             "open-browser",
             "optparse-applicative",
-            "optparse-generic",
-            "parsec",
             "parser-combinators",
-            "parsers",
             "path",
             "path-io",
-            "pipes",
             "pretty",
             "prettyprinter",
-            "prettyprinter-ansi-terminal",
             "pretty-show",
-            "primitive",
             "process",
             "proto3-wire",
-            "QuickCheck",
-            "quickcheck-instances",
             "random",
-            "range-set-list",
             "recursion-schemes",
             "regex-tdfa",
             "repline",
@@ -529,7 +509,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "safe-exceptions",
             "scientific",
             "semigroupoids",
-            "semigroups",
             "semver",
             "silently",
             "simple-smt",
@@ -537,9 +516,8 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "split",
             "stache",
             "stm",
-            "stm-conduit",
             "stm-chans",
-            "swagger2",
+            "stm-conduit",
             "syb",
             "system-filepath",
             "tagged",
@@ -559,7 +537,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "tls",
             "transformers",
             "transformers-base",
-            "turtle",
             "typed-process",
             "uniplate",
             "unix-compat",
@@ -571,11 +548,8 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "uuid",
             "vector",
             "xml",
-            "xml-conduit",
             "yaml",
             "zip-archive",
-            "zlib",
-            "zlib-bindings",
         ] + (["unix"] if not is_windows else ["Win32"]),
         components = {
             "hpp": ["lib", "exe"],
@@ -585,11 +559,13 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "ghcide": "@ghcide_ghc_lib//:ghcide",
             "grpc-haskell-core": "@grpc_haskell_core//:grpc-haskell-core",
             "grpc-haskell": "@grpc_haskell//:grpc-haskell",
-            "js-jquery": "@js_jquery//:js-jquery",
             "js-dgtable": "@js_dgtable//:js-dgtable",
             "js-flot": "@js_flot//:js-flot",
+            "js-jquery": "@js_jquery//:js-jquery",
+            "lsp-types": "@lsp-types//:lsp-types",
             "proto3-suite": "@proto3-suite//:proto3-suite",
             "shake": "@shake//:shake",
+            "xml-conduit": "@xml-conduit//:xml-conduit",
             "zip": "@zip//:zip",
         },
     )
@@ -602,8 +578,8 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         flags = {
             "hashable": ["-integer-gmp"],
             "integer-logarithms": ["-integer-gmp"],
-            "text": ["integer-simple"],
             "scientific": ["integer-simple"],
+            "text": ["integer-simple"],
         } if use_integer_simple else {},
         haddock = False,
         local_snapshot = "//:ghcide-snapshot.yaml",

@@ -5,11 +5,10 @@ package com.daml.platform.db.migration.translation
 
 import java.io.InputStream
 
-import com.daml.lf.archive.{Decode, Reader}
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.transaction.{CommittedTransaction, TransactionCoder, TransactionOuterClass}
-import com.daml.lf.value.ValueCoder
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
+import com.daml.lf.value.ValueCoder
 
 private[migration] trait TransactionSerializer {
 
@@ -50,7 +49,7 @@ private[migration] object TransactionSerializer extends TransactionSerializer {
             TransactionCoder.EventIdDecoder(trId),
             ValueCoder.CidDecoder,
             TransactionOuterClass.Transaction
-              .parseFrom(Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT)),
+              .parseFrom(ValueSerializer.lfValueCodedInputStream(stream)),
           )
       )
       .map(CommittedTransaction(_))

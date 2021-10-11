@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
+package com.daml.lf
+package engine.script
 
 import java.time.Clock
 
@@ -14,9 +15,8 @@ import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SError.DamlEUserError
 import com.daml.lf.speedy.SExpr.{SEApp, SEValue}
-import com.daml.lf.speedy.{SExpr, SValue}
+import com.daml.lf.speedy.{SError, SExpr, SValue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.value.Value
@@ -64,15 +64,12 @@ object ScriptF {
   ) {
     def clients = _clients
     def compiledPackages = machine.compiledPackages
-    val valueTranslator = new ValueTranslator(compiledPackages.interface)
+    val valueTranslator = new ValueTranslator(
+      interface = compiledPackages.interface,
+      forbidV0ContractId = false,
+      requireV1ContractIdSuffix = false,
+    )
     val utcClock = Clock.systemUTC()
-    // Copy the tracelog from the client to the off-ledger machine.
-    def copyTracelog(client: ScriptLedgerClient) = {
-      for ((msg, optLoc) <- client.tracelogIterator) {
-        machine.traceLog.add(msg, optLoc)
-      }
-      client.clearTracelog
-    }
     def addPartyParticipantMapping(party: Party, participant: Participant) = {
       _clients =
         _clients.copy(party_participants = _clients.party_participants + (party -> participant))
@@ -86,7 +83,7 @@ object ScriptF {
         case Left(err) => Left(err.pretty)
       }
 
-    def translateValue(ty: Ast.Type, value: Value[ContractId]): Either[String, SValue] =
+    def translateValue(ty: Ast.Type, value: Value): Either[String, SValue] =
       valueTranslator.translateValue(ty, value).left.map(_.toString)
 
   }
@@ -109,7 +106,6 @@ object ScriptF {
           data.cmds,
           data.stackTrace.topFrame,
         )
-        _ = env.copyTracelog(client)
         v <- submitRes match {
           case Right(results) =>
             Converter.toFuture(
@@ -164,13 +160,14 @@ object ScriptF {
           data.cmds,
           data.stackTrace.topFrame,
         )
-        _ = env.copyTracelog(client)
         v <- submitRes match {
           case Right(()) =>
             Future.successful(SEApp(SEValue(data.continue), Array(SEValue(SUnit))))
           case Left(()) =>
             Future.failed(
-              new DamlEUserError("Expected submit to fail but it succeeded")
+              SError.SErrorDamlException(
+                interpretation.Error.UserError("Expected submit to fail but it succeeded")
+              )
             )
         }
       } yield v
@@ -201,7 +198,6 @@ object ScriptF {
             submitRes,
           )
         )
-        _ = env.copyTracelog(client)
       } yield SEApp(SEValue(data.continue), Array(SEValue(res)))
   }
   final case class Query(
@@ -223,7 +219,8 @@ object ScriptF {
         )
         acs <- client.query(parties, tplId)
         res <- Converter.toFuture(
-          FrontStack(acs)
+          acs
+            .to(FrontStack)
             .traverse(
               Converter
                 .fromCreated(env.valueTranslator, _)
@@ -265,10 +262,10 @@ object ScriptF {
 
     private def translateKey(
         env: Env
-    )(id: Identifier, v: Value[ContractId]): Either[String, SValue] =
+    )(id: Identifier, v: Value): Either[String, SValue] =
       for {
         keyTy <- env.lookupKeyTy(id)
-        translated <- env.valueTranslator.translateValue(keyTy, v).left.map(_.msg)
+        translated <- env.valueTranslator.translateValue(keyTy, v).left.map(_.message)
       } yield translated
 
     override def execute(env: Env)(implicit
@@ -333,7 +330,7 @@ object ScriptF {
           partyDetails
             .traverse(details => Converter.fromPartyDetails(env.scriptIds, details))
         )
-      } yield SEApp(SEValue(continue), Array(SEValue(SList(FrontStack(partyDetails_)))))
+      } yield SEApp(SEValue(continue), Array(SEValue(SList(partyDetails_.to(FrontStack)))))
 
   }
   final case class GetTime(stackTrace: StackTrace, continue: SValue) extends Cmd {

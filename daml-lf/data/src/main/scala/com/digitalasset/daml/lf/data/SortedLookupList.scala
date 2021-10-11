@@ -79,7 +79,7 @@ object SortedLookupList extends SortedLookupListInstances {
     new SortedLookupList[X](entries.to(ImmArray.ImmArraySeq).sorted(EntryOrdering).toImmArray)
   }
 
-  def Empty: SortedLookupList[Nothing] = new SortedLookupList(ImmArray.empty)
+  def Empty: SortedLookupList[Nothing] = new SortedLookupList(ImmArray.Empty)
 
   implicit def `SLL Order instance`[X: Order]: Order[SortedLookupList[X]] =
     orderBy(_.toImmArray, true)

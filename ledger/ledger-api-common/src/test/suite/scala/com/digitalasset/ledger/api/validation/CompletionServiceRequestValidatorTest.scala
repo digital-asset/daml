@@ -10,13 +10,10 @@ import com.daml.ledger.api.v1.command_completion_service.{
 }
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
-import com.daml.ledger.api.v1.trace_context.TraceContext
 import io.grpc.Status.Code._
 import org.scalatest.wordspec.AnyWordSpec
 
 class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTestUtils {
-
-  private val traceContext = TraceContext(traceIdHigh, traceId, spanId, parentSpanId, sampled)
 
   private val completionReq = CompletionStreamRequest(
     expectedLedgerId,
@@ -25,7 +22,7 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
     Some(LedgerOffset(LedgerOffset.Value.Absolute(absoluteOffset))),
   )
 
-  private val endReq = CompletionEndRequest(expectedLedgerId, Some(traceContext))
+  private val endReq = CompletionEndRequest(expectedLedgerId)
 
   val validator = new CompletionServiceRequestValidator(
     domain.LedgerId(expectedLedgerId),
@@ -41,7 +38,6 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           validator.validateCompletionStreamRequest(
             completionReq.withLedgerId(""),
             ledgerEnd,
-            offsetOrdering,
           ),
           NOT_FOUND,
           "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
@@ -53,7 +49,6 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           validator.validateCompletionStreamRequest(
             completionReq.withApplicationId(""),
             ledgerEnd,
-            offsetOrdering,
           ),
           INVALID_ARGUMENT,
           "Missing field: application_id",
@@ -65,7 +60,6 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           validator.validateCompletionStreamRequest(
             completionReq.withParties(Seq()),
             ledgerEnd,
-            offsetOrdering,
           ),
           INVALID_ARGUMENT,
           "Missing field: parties",
@@ -79,7 +73,6 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
               LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.Unrecognized(7)))
             ),
             ledgerEnd,
-            offsetOrdering,
           ),
           INVALID_ARGUMENT,
           "Invalid argument: Unknown ledger boundary value '7' in field offset.boundary",
@@ -93,7 +86,6 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
               LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))
             ),
             ledgerEnd,
-            offsetOrdering,
           ),
           OUT_OF_RANGE,
           "Begin offset 1001 is after ledger end 1000",
@@ -105,7 +97,6 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           validator.validateCompletionStreamRequest(
             completionReq.update(_.optionalOffset := None),
             ledgerEnd,
-            offsetOrdering,
           )
         ) { case Right(req) =>
           req.ledgerId shouldEqual expectedLedgerId
@@ -117,7 +108,7 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
 
       "tolerate all fields filled out" in {
         inside(
-          validator.validateCompletionStreamRequest(completionReq, ledgerEnd, offsetOrdering)
+          validator.validateCompletionStreamRequest(completionReq, ledgerEnd)
         ) { case Right(req) =>
           req.ledgerId shouldEqual expectedLedgerId
           req.applicationId shouldEqual expectedApplicationId
@@ -137,19 +128,11 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
         )
       }
 
-      "work with missing traceContext" in {
+      "return passed ledger ID" in {
         inside(
-          validator.validateCompletionEndRequest(endReq.update(_.optionalTraceContext := None))
+          validator.validateCompletionEndRequest(endReq)
         ) { case Right(out) =>
           out should have(Symbol("ledgerId")(expectedLedgerId))
-          out.traceContext shouldBe empty
-        }
-      }
-
-      "work with present traceContext" in {
-        inside(validator.validateCompletionEndRequest(endReq)) { case Right(out) =>
-          out should have(Symbol("ledgerId")(expectedLedgerId))
-          isExpectedTraceContext(out.traceContext.value)
         }
       }
     }
@@ -170,7 +153,6 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           knowsPartyOnly.validateCompletionStreamRequest(
             completionReq.withParties(unknownParties),
             ledgerEnd,
-            offsetOrdering,
           ),
           INVALID_ARGUMENT,
           "Invalid argument: Unknown parties: [Alice, Bob]",
@@ -181,7 +163,6 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
         knowsPartyOnly.validateCompletionStreamRequest(
           completionReq.withParties(knownParties),
           ledgerEnd,
-          offsetOrdering,
         ) shouldBe a[Right[_, _]]
       }
     }

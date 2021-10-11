@@ -8,10 +8,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import * as cp from 'child_process';
-import * as tmp from 'tmp';
-import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, TextDocumentIdentifier, TextDocument, ExecuteCommandRequest } from 'vscode-languageclient';
-import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode';
+import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, ExecuteCommandRequest } from 'vscode-languageclient';
+import { Uri, ViewColumn, window, QuickPickOptions, ExtensionContext, WorkspaceConfiguration } from 'vscode';
 import * as which from 'which';
 import * as util from 'util';
 import fetch from 'node-fetch';
@@ -48,7 +46,7 @@ export async function activate(context: vscode.ExtensionContext) {
         src: vscode.Uri.file(path.join(context.extensionPath, 'src', 'webview.js')),
         css: vscode.Uri.file(path.join(context.extensionPath, 'src', 'webview.css')),
     };
-    let virtualResourceManager = new VirtualResourceManager(damlLanguageClient, webviewFiles);
+    let virtualResourceManager = new VirtualResourceManager(damlLanguageClient, webviewFiles, context);
     context.subscriptions.push(virtualResourceManager);
 
     let _unused = damlLanguageClient.onReady().then(() => {
@@ -349,7 +347,11 @@ namespace DamlVirtualResourceNoteNotification {
 
 type UriString = string;
 type ScenarioResult = string;
-type SelectedView = string;
+type View = {
+    selected : string;
+    showArchived : boolean;
+    showDetailedDisclosure : boolean;
+  };
 
 class VirtualResourceManager {
     // Note (MK): While it is tempting to switch to Map<Uri, …> for these types
@@ -359,14 +361,16 @@ class VirtualResourceManager {
     // Mapping from URIs to the HTML content of the webview
     private _panelContents: Map<UriString, ScenarioResult> = new Map<UriString, ScenarioResult>();
     // Mapping from URIs to selected view
-    private _panelStates: Map<UriString, SelectedView> = new Map<UriString, SelectedView>();
+    private _panelViews: Map<UriString, View> = new Map<UriString, View>();
     private _client: LanguageClient;
     private _disposables: vscode.Disposable[] = [];
     private _webviewFiles : WebviewFiles;
+    private _context : ExtensionContext;
 
-    constructor(client: LanguageClient, webviewFiles: WebviewFiles) {
+    constructor(client: LanguageClient, webviewFiles: WebviewFiles, context: ExtensionContext) {
         this._client = client;
         this._webviewFiles = webviewFiles;
+        this._context = context;
     }
 
     private open(uri: UriString) {
@@ -391,7 +395,7 @@ class VirtualResourceManager {
     }
 
     public createOrShow(title: string, uri: UriString) {
-		const column = getViewColumnForShowResource();
+        const column = getViewColumnForShowResource();
 
         let panel = this._panels.get(uri);
         if (panel) {
@@ -410,12 +414,25 @@ class VirtualResourceManager {
             null,
             this._disposables
         );
+        let defaultView : View = this._context.workspaceState.get(uri) || {selected: 'table', showArchived: false, showDetailedDisclosure: false};
+        let updateView = (v: View, key: string, value: Object) => {
+              let updatedView = {...v, [key]: value};
+              this._panelViews.set(uri, updatedView);
+              this._context.workspaceState.update(uri, updatedView);
+        };
         panel.webview.onDidReceiveMessage(
             message => {
+                const v = this._panelViews.get(uri) || defaultView;
                 switch (message.command) {
-                    case 'selected_view':
-                        this._panelStates.set(uri, message.value);
+                    case 'set_selected_view':
+                        updateView(v, 'selected', message.value);
                         break;
+                    case 'set_show_archived':
+                        updateView(v, 'showArchived', message.value);
+                        break;
+                    case 'set_show_detailed_disclosure':
+                        updateView(v, 'showDetailedDisclosure', message.value);
+                        break
                 }
             }
         );
@@ -424,6 +441,7 @@ class VirtualResourceManager {
     }
 
     public setContent(uri: UriString, contents: ScenarioResult) {
+        let defaultView : View = this._context.workspaceState.get(uri) || {selected: 'table', showArchived: false, showDetailedDisclosure: false};
         const panel = this._panels.get(uri);
         if (panel) {
             contents = contents.replace('$webviewSrc', panel.webview.asWebviewUri(this._webviewFiles.src).toString());
@@ -431,10 +449,8 @@ class VirtualResourceManager {
             this._panelContents.set(uri, contents);
             // append timestamp to force page reload (prevent using cache) as otherwise notes are not getting cleared
             panel.webview.html = contents + "<!-- " + new Date() + " -->";
-            const panelState = this._panelStates.get(uri);
-            if (panelState) {
-                panel.webview.postMessage({command: 'select_view', value: panelState});
-            };
+            const panelView = this._panelViews.get(uri);
+            panel.webview.postMessage({command: 'set_view', value: panelView || defaultView});
         }
     }
 

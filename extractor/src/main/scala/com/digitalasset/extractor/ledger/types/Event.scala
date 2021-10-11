@@ -18,7 +18,7 @@ final case class CreatedEvent(
     eventId: String,
     contractId: String,
     templateId: Identifier,
-    createArguments: OfCid[V.ValueRecord],
+    createArguments: V.ValueRecord,
     stakeholders: Set[String],
 ) extends Event
 
@@ -48,7 +48,7 @@ object Event {
     def convert: String \/ Event = apiEvent match {
       case api.event.Event.Event.Archived(event) =>
         s"Unexpected `Archived` event: $event. Only `Created` events are expected.".left
-      case api.event.Event.Event.Created(event) => event.convert
+      case api.event.Event.Event.Created(event) => event.convert.widen
       case api.event.Event.Event.Empty => "Unexpected `Empty` event.".left
     }
   }

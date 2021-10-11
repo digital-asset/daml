@@ -6,7 +6,6 @@ package engine
 
 import java.nio.file.Path
 
-import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.ContractKeyUniquenessMode
 
 /** The Engine configurations describes the versions of language and
@@ -23,6 +22,10 @@ import com.daml.lf.transaction.ContractKeyUniquenessMode
   * @param profileDir The optional specifies the directory where to
   *     save the output of the Daml scenario profiler. The profiler is
   *     disabled if the option is empty.
+  * @param requireSuffixedGlobalCids Since August 2018 we expect new
+  *     ledgers to suffix CIDs before committing a transaction.
+  *     This option should be disable for backward compatibility in ledger
+  *     that do not (i.e. Sandboxes, KV, Corda).
   */
 final case class EngineConfig(
     allowedLanguageVersions: VersionRange[language.LanguageVersion],
@@ -30,6 +33,8 @@ final case class EngineConfig(
     stackTraceMode: Boolean = false,
     profileDir: Option[Path] = None,
     contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
+    forbidV0ContractId: Boolean = false,
+    requireSuffixedGlobalContractId: Boolean = false,
 ) {
 
   private[lf] def getCompilerConfig: speedy.Compiler.Config =
@@ -51,32 +56,5 @@ final case class EngineConfig(
         else
           speedy.Compiler.NoProfile,
     )
-
-}
-
-object EngineConfig {
-
-  /** Recommended production configuration.
-    * Allows the all stable versions of language.
-    */
-  @deprecated("use LanguageVersion.StableVersions directly", since = "1.9.0")
-  def Stable: EngineConfig = new EngineConfig(
-    allowedLanguageVersions = LanguageVersion.StableVersions
-  )
-
-  /** Only allows language versions compatible with the legacy contract ID scheme.
-    */
-  @deprecated("use LanguageVersion.LegacyVersions directly", since = "1.9.0")
-  def Legacy: EngineConfig = new EngineConfig(
-    allowedLanguageVersions = LanguageVersion.LegacyVersions
-  )
-
-  /** Development configuration, should not be used in PROD.
-    * Allows all language versions
-    */
-  @deprecated("use LanguageVersion.DevVersions directly", since = "1.9.0")
-  def Dev: EngineConfig = new EngineConfig(
-    allowedLanguageVersions = LanguageVersion.DevVersions
-  )
 
 }

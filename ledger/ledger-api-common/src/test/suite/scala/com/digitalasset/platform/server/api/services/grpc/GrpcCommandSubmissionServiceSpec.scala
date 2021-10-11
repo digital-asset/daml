@@ -8,17 +8,10 @@ import java.time.{Duration, Instant}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
-import com.daml.ledger.api.testing.utils.MockMessages.{
-  applicationId,
-  commandId,
-  commands,
-  ledgerId,
-  party,
-  submitRequest,
-  workflowId,
-}
+import com.daml.ledger.api.testing.utils.MockMessages._
 import com.daml.ledger.api.v1.commands.{Command, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.telemetry.{SpanAttribute, TelemetryContext, TelemetrySpecBase}
@@ -48,6 +41,7 @@ class GrpcCommandSubmissionServiceSpec
         currentLedgerTime = () => Instant.EPOCH,
         currentUtcTime = () => Instant.EPOCH,
         maxDeduplicationTime = () => Some(Duration.ZERO),
+        submissionIdGenerator = () => Ref.SubmissionId.assertFromString("submissionId"),
         metrics = new Metrics(new MetricRegistry),
       )
 
@@ -72,21 +66,19 @@ class GrpcCommandSubmissionServiceSpec
 }
 
 object GrpcCommandSubmissionServiceSpec {
-  private val aCommand = {
-    Command(
-      Command.Command.Create(
-        CreateCommand(
-          Some(Identifier("package", moduleName = "module", entityName = "entity")),
-          Some(
-            Record(
-              Some(Identifier("package", moduleName = "module", entityName = "entity")),
-              Seq(RecordField("something", Some(Value(Value.Sum.Bool(true))))),
-            )
-          ),
-        )
+  private val aCommand = Command.of(
+    Command.Command.Create(
+      CreateCommand(
+        Some(Identifier("package", moduleName = "module", entityName = "entity")),
+        Some(
+          Record(
+            Some(Identifier("package", moduleName = "module", entityName = "entity")),
+            Seq(RecordField("something", Some(Value(Value.Sum.Bool(true))))),
+          )
+        ),
       )
     )
-  }
+  )
 
   private val aSubmitRequest = submitRequest.copy(
     commands = Some(commands.copy(commands = Seq(aCommand)))

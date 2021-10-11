@@ -5,6 +5,8 @@
 
 module IntBoundsDynamic where
 
+import DA.Assert
+
 maxInt : Int
 maxInt = 9223372036854775807
 
@@ -13,6 +15,6 @@ minInt = -9223372036854775808
 
 test = scenario do
     p <- getParty "p"
-    assert $ negate maxInt - 1 == minInt
+    negate maxInt - 1 === minInt
     submitMustFail p $ pure $ maxInt+1
     submitMustFail p $ pure $ minInt-1

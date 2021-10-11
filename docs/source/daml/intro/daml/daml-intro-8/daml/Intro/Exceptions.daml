@@ -82,9 +82,12 @@ template Shop
       with
         shopper : Party
       controller shopper
-      do try do
+      do cid <- create Order
+           with
+             shopOwner = owner
+             shopper = shopper
+         try do
            exerciseByKey @Account (bank, shopper) (Transfer owner price)
-           pure ()
          catch
            PreconditionFailed _ -> do
              create Iou with
@@ -92,10 +95,7 @@ template Shop
                owner = owner
                amount = price
              pure ()
-         create Order
-           with
-             shopOwner = owner
-             shopper = shopper
+         pure cid
 -- ORDER_TRUSTED_END
 
 -- ORDER_TRUSTED_LIMITED_BEGIN

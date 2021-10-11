@@ -46,10 +46,9 @@ resource "google_storage_bucket_iam_member" "data_read" {
 }
 
 // allow read access for appr team, as requested by Moritz
-variable "appr" {
-  description = "Application Runtime team members"
-
-  default = [
+locals {
+  appr_team = [
+    "user:akshay.shirahatti@digitalasset.com",
     "user:andreas.herrmann@digitalasset.com",
     "user:gary.verhaegen@digitalasset.com",
     "user:moritz.kiefer@digitalasset.com",
@@ -60,8 +59,8 @@ variable "appr" {
 }
 
 resource "google_storage_bucket_iam_member" "appr" {
-  count  = length(var.appr)
-  bucket = google_storage_bucket.data.name
-  role   = "roles/storage.objectViewer"
-  member = var.appr[count.index]
+  for_each = toset(local.appr_team)
+  bucket   = google_storage_bucket.data.name
+  role     = "roles/storage.objectViewer"
+  member   = each.key
 }

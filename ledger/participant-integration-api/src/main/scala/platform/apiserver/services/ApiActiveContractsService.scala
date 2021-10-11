@@ -16,6 +16,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.ActiveContractsServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
 
@@ -32,20 +33,23 @@ private[apiserver] final class ApiActiveContractsService private (
 ) extends ActiveContractsServiceAkkaGrpc
     with GrpcApiService {
 
-  private val logger = ContextualizedLogger.get(this.getClass)
+  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override protected def getActiveContractsSource(
       request: GetActiveContractsRequest
   ): Source[GetActiveContractsResponse, NotUsed] =
-    withEnrichedLoggingContext(logging.filters(request.getFilter.filtersByParty)) {
-      implicit loggingContext: LoggingContext =>
-        logger.info(s"Received request for active contracts: $request")
-        TransactionFilterValidator
-          .validate(request.getFilter)
-          .fold(Source.failed, backend.getActiveContracts(_, request.verbose))
-          .via(logger.logErrorsOnStream)
-          .via(StreamMetrics.countElements(metrics.daml.lapi.streams.acs))
-    }
+    TransactionFilterValidator
+      .validate(request.getFilter)
+      .fold(
+        t => Source.failed(ValidationLogger.logFailureWithContext(request, t)),
+        filters =>
+          withEnrichedLoggingContext(logging.filters(filters)) { implicit loggingContext =>
+            logger.info(s"Received request for active contracts: $request")
+            backend.getActiveContracts(filters, request.verbose)
+          },
+      )
+      .via(logger.logErrorsOnStream)
+      .via(StreamMetrics.countElements(metrics.daml.lapi.streams.acs))
 
   override def bindService(): ServerServiceDefinition =
     ActiveContractsServiceGrpc.bindService(this, executionContext)

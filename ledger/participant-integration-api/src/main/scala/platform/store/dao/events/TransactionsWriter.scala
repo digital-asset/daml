@@ -7,15 +7,10 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.{Row, SimpleSql}
-import com.daml.ledger.participant.state.v1.{
-  CommittedTransaction,
-  DivulgedContract,
-  Offset,
-  SubmitterInfo,
-}
-import com.daml.ledger.{TransactionId, WorkflowId}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.engine.Blinding
-import com.daml.lf.transaction.BlindingInfo
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.DbType
 
@@ -49,6 +44,10 @@ private[platform] object TransactionsWriter {
         Timed.value(deleteContractsBatch, deleteContracts.execute())
       }
 
+      for (nullifyPastKeys <- contractsTableExecutables.nullifyPastKeys) {
+        Timed.value(nullifyPastKeysBatch, nullifyPastKeys.execute())
+      }
+
       Timed.value(insertContractsBatch, contractsTableExecutables.insertContracts.execute())
 
       // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
@@ -77,13 +76,13 @@ private[platform] final class TransactionsWriter(
   private val contractWitnessesTable = ContractWitnessesTable(dbType)
 
   def prepare(
-      submitterInfo: Option[SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: CommittedTransaction,
-      divulgedContracts: Iterable[DivulgedContract],
+      divulgedContracts: Iterable[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
   ): TransactionsWriter.PreparedInsert = {
 
@@ -95,7 +94,7 @@ private[platform] final class TransactionsWriter(
     val indexing =
       TransactionIndexing.from(
         blinding,
-        submitterInfo,
+        completionInfo,
         workflowId,
         transactionId,
         ledgerEffectiveTime,

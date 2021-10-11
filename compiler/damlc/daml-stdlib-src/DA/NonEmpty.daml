@@ -13,12 +13,15 @@
 -- ```
 module DA.NonEmpty
   ( NonEmpty(..)
+  , cons
   , append
   , map
   , nonEmpty
   , singleton
   , toList
   , reverse
+  , find
+  , delete
   , foldl1
   , foldr1
   , foldr
@@ -29,7 +32,7 @@ module DA.NonEmpty
   , foldl1A
   ) where
 
-import Prelude hiding (reverse, foldr, foldl, one, map)
+import Prelude hiding (cons, reverse, find, foldr, foldl, one, map)
 import Prelude qualified as P
 import DA.Foldable qualified as F
 import DA.NonEmpty.Types
@@ -39,6 +42,7 @@ import DA.Action qualified as M
 
 deriving instance Eq a => Eq (NonEmpty a)
 deriving instance Show a => Show (NonEmpty a)
+deriving instance Ord a => Ord (NonEmpty a)
 
 -- NonEmpty is defined in a stable LF package so we need to handwrite the HasField instances here.
 
@@ -72,6 +76,10 @@ instance F.Foldable NonEmpty where
 instance T.Traversable NonEmpty where
   mapA f l = liftA2 NonEmpty (f l.hd) (T.mapA f l.tl)
 
+-- | Prepend an element to a non-empty list.
+cons : a -> NonEmpty a -> NonEmpty a
+cons a ne = NonEmpty a (ne.hd :: ne.tl)
+
 -- | Append or concatenate two non-empty lists.
 append : NonEmpty a -> NonEmpty a -> NonEmpty a
 append l r =  NonEmpty l.hd (l.tl ++ toList r)
@@ -97,6 +105,28 @@ toList (NonEmpty head tail) = head :: tail
 -- | Reverse a non-empty list.
 reverse : NonEmpty a -> NonEmpty  a
 reverse l = let hd::tl = L.reverse $ toList l in NonEmpty with hd; tl
+
+-- | Find an element in a non-empty list.
+find : (a -> Bool) -> NonEmpty a -> Optional a
+find p (NonEmpty head tail)
+  | p head = Some head
+  | otherwise = L.find p tail
+
+-- | The 'deleteBy' function behaves like 'delete', but takes a
+-- user-supplied equality predicate.
+deleteBy : (a -> a -> Bool) -> a -> NonEmpty a -> [a]
+deleteBy eq a n@(NonEmpty head [])
+  | head `eq` a = []
+  | otherwise   = [head]
+deleteBy eq a (NonEmpty head (t::ts))
+  | head `eq` a = t::ts
+  | t `eq` a    = head::ts
+  | otherwise   = head :: t :: L.deleteBy eq a ts
+
+-- | Remove the first occurence of x from the non-empty list, potentially
+-- removing all elements.
+delete : Eq a => a -> NonEmpty a -> [a]
+delete = deleteBy (==)
 
 -- | Apply a function repeatedly to pairs of elements from a non-empty list,
 -- from the left. For example, `foldl1 (+) (NonEmpty 1 [2,3,4]) = ((1 + 2) + 3) + 4`.

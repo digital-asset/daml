@@ -5,6 +5,12 @@ package com.daml.ledger.validator.batch
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlContractKey,
+  DamlPartyAllocation,
+  DamlStateKey,
+  DamlStateValue,
+}
 import com.daml.lf.value.ValueOuterClass
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -14,6 +20,9 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.annotation.nowarn
+
+@nowarn("msg=deprecated")
 class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with MockitoSugar {
   "detectConflictsAndRecover" should {
     "return output keys as invalidated and unchanged input in case of no conflicts" in {

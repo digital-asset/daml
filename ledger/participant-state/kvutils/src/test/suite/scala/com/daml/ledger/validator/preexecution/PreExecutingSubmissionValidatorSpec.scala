@@ -6,9 +6,16 @@ package com.daml.ledger.validator.preexecution
 import java.time.Instant
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch.CorrelatedSubmission
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmissionBatch.CorrelatedSubmission
+import com.daml.ledger.participant.state.kvutils.wire.{
+  DamlConfigurationSubmission,
+  DamlSubmission,
+  DamlSubmissionBatch,
+}
 import com.daml.ledger.participant.state.kvutils.{
   DamlStateMap,
   Envelope,
@@ -16,11 +23,15 @@ import com.daml.ledger.participant.state.kvutils.{
   Raw,
   TestHelpers,
 }
-import com.daml.ledger.participant.state.v1.Configuration
-import com.daml.ledger.validator.HasDamlStateValue
 import com.daml.ledger.validator.TestHelper._
 import com.daml.ledger.validator.ValidationFailed.ValidationError
 import com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidatorSpec._
+import com.daml.ledger.validator.preexecution.PreExecutionTestHelper.{
+  TestReadSet,
+  TestValue,
+  TestWriteSet,
+  createLedgerStateReader,
+}
 import com.daml.ledger.validator.reading.StateReader
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.Time.Timestamp
@@ -31,7 +42,6 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 
@@ -143,18 +153,6 @@ object PreExecutingSubmissionValidatorSpec {
 
   private val metrics = new Metrics(new MetricRegistry)
 
-  private final case class TestValue(value: Option[DamlStateValue])
-
-  private object TestValue {
-    implicit object `TestValue has DamlStateValue` extends HasDamlStateValue[TestValue] {
-      override def damlStateValue(value: TestValue): Option[DamlStateValue] = value.value
-    }
-  }
-
-  private final case class TestReadSet(keys: Set[DamlStateKey])
-
-  private final case class TestWriteSet(value: String)
-
   private def anEnvelope(expectedReadSet: Set[DamlStateKey] = Set.empty): Raw.Envelope = {
     val submission = DamlSubmission
       .newBuilder()
@@ -226,18 +224,6 @@ object PreExecutingSubmissionValidatorSpec {
       mockCommitStrategy,
       metrics = metrics,
     )
-  }
-
-  private def createLedgerStateReader(
-      inputState: Map[DamlStateKey, Option[DamlStateValue]]
-  ): StateReader[DamlStateKey, TestValue] = {
-    val wrappedInputState = inputState.view.mapValues(TestValue(_)).toMap
-    new StateReader[DamlStateKey, TestValue] {
-      override def read(
-          keys: Iterable[DamlStateKey]
-      )(implicit executionContext: ExecutionContext): Future[Seq[TestValue]] =
-        Future.successful(keys.view.map(wrappedInputState).toVector)
-    }
   }
 
   private def verifyReadSet(

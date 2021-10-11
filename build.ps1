@@ -14,7 +14,11 @@ if (!(Test-Path .\.bazelrc.local)) {
 
 $ARTIFACT_DIRS = if ("$env:BUILD_ARTIFACTSTAGINGDIRECTORY") { $env:BUILD_ARTIFACTSTAGINGDIRECTORY } else { Get-Location }
 
-mkdir -p ${ARTIFACT_DIRS}/logs
+if (!(Test-Path ${ARTIFACT_DIRS}/logs)) {
+    mkdir -p ${ARTIFACT_DIRS}/logs
+} elseif (Test-Path ${ARTIFACT_DIRS}/logs -PathType Leaf) {
+    throw ("Cannot create directory '${ARTIFACT_DIRS}/logs'. Conflicting file.")
+}
 
 # If a previous build was forcefully terminated, then stack's lock file might
 # not have been cleaned up properly leading to errors of the form
@@ -55,10 +59,24 @@ bazel shutdown
 # It isn’t clear where exactly those errors are coming from.
 bazel fetch @nodejs_dev_env//...
 
-bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/logs/build_execution_windows.log //...
+bazel build //... `
+  `-`-profile build-profile.json `
+  `-`-experimental_profile_include_target_label `
+  `-`-build_event_json_file build-events.json `
+  `-`-build_event_publish_all_actions `
+  `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/logs/build_execution_windows.log
 
 bazel shutdown
 
 if ($env:SKIP_TESTS -ceq "False") {
-    bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/logs/test_execution_windows.log //...
+    # Generate mapping from shortened scala-test names on Windows to long names on Linux and MacOS.
+    ./ci/remap-scala-test-short-names.ps1 `
+      | Out-File -Encoding UTF8 -NoNewline scala-test-suite-name-map.json
+
+    bazel test //... `
+      `-`-profile test-profile.json `
+      `-`-experimental_profile_include_target_label `
+      `-`-build_event_json_file test-events.json `
+      `-`-build_event_publish_all_actions `
+      `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/logs/test_execution_windows.log
 }

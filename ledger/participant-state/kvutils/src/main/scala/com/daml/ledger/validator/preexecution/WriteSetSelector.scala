@@ -3,9 +3,12 @@
 
 package com.daml.ledger.validator.preexecution
 
-/** Selects a write set from a [[PreExecutionOutput]]. */
+import com.daml.logging.LoggingContext
+
 trait WriteSetSelector[ReadSet, WriteSet] {
 
-  def selectWriteSet(preExecutionOutput: PreExecutionOutput[ReadSet, WriteSet]): WriteSet
+  def selectWriteSet(
+      preExecutionOutput: PreExecutionOutput[ReadSet, WriteSet]
+  )(implicit loggingContext: LoggingContext): WriteSet
 
 }

@@ -3,7 +3,8 @@
 
 package com.daml.platform.store.dao
 
-import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.platform.indexer.OffsetStep
 import com.daml.platform.store.entries.LedgerEntry
@@ -14,16 +15,16 @@ import scala.concurrent.Future
 trait JdbcAppendOnlyTransactionInsertion {
   self: JdbcLedgerDaoSuite with AsyncTestSuite =>
 
-  private[dao] def store(
-      submitterInfo: Option[SubmitterInfo],
+  private[dao] override def store(
+      completionInfo: Option[state.CompletionInfo],
       tx: LedgerEntry.Transaction,
       offsetStep: OffsetStep,
-      divulgedContracts: List[DivulgedContract],
+      divulgedContracts: List[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
   ): Future[(Offset, LedgerEntry.Transaction)] = {
     for {
       _ <- ledgerDao.storeTransaction(
-        submitterInfo = submitterInfo,
+        completionInfo = completionInfo,
         workflowId = tx.workflowId,
         transactionId = tx.transactionId,
         ledgerEffectiveTime = tx.ledgerEffectiveTime,

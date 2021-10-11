@@ -9,7 +9,7 @@ import java.nio.file.Paths
 import com.daml.lf.archive.{Dar, DarWriter}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.{Ast, Interface, LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.language.{Ast, PackageInterface, LanguageVersion}
 import com.daml.lf.testing.parser.{ParserParameters, parseModules}
 import com.daml.lf.validation.Validation
 import com.daml.SdkVersion
@@ -69,8 +69,9 @@ private[daml] object DamlLfEncoder extends App {
         )
       } else None
 
-    val pkg = Ast.Package(modules, Set.empty[PackageId], parserParameters.languageVersion, metadata)
-    val pkgs = Interface(Map(pkgId -> pkg))
+    val pkg =
+      Ast.Package(modules, Set.empty[PackageId], parserParameters.languageVersion, metadata)
+    val pkgs = PackageInterface(Map(pkgId -> pkg))
 
     Validation.checkPackage(pkgs, pkgId, pkg).left.foreach(e => error(e.pretty))
 
@@ -112,7 +113,7 @@ private[daml] object DamlLfEncoder extends App {
       } else
         args(i) match {
           case "--target" if i + 1 < nAgrs =>
-            go(appArgs.copy(languageVersion = parseVersion(args(i + 1))), i + 2)
+            go(appArgs.copy(languageVersion = LanguageVersion.assertFromString(args(i + 1))), i + 2)
           case "--output" if i + 1 < nAgrs =>
             go(appArgs.copy(outputFile = args(i + 1)), i + 2)
           case _ if i + 1 >= nAgrs =>
@@ -125,15 +126,6 @@ private[daml] object DamlLfEncoder extends App {
 
     go()
   }
-
-  private def parseVersion(version: String) =
-    version.split("""\.""").toSeq match {
-      case Seq("1", minor)
-          if LanguageMajorVersion.V1.supportsMinorVersion(minor) || minor == "dev" =>
-        LanguageVersion(LanguageMajorVersion.V1, LanguageVersion.Minor(minor))
-      case _ =>
-        error(s"version '$version' not supported")
-    }
 
   main()
 

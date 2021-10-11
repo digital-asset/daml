@@ -86,9 +86,9 @@ object PartiesService {
       ps: OneAnd[Set, domain.Party]
   ): InvalidUserInput \/ OneAnd[Set, Ref.Party] = {
     import scalaz.std.list._
-    val nel: OneAnd[List, domain.Party] = ps.copy(tail = ps.tail.toList)
+    val nel: OneAnd[List, domain.Party] = OneAnd(ps.head, ps.tail.toList)
     val enel: InvalidUserInput \/ OneAnd[List, Ref.Party] = nel.traverse(toLedgerApi)
-    enel.map(xs => xs.copy(tail = xs.tail.toSet))
+    enel.map(xs => OneAnd(xs.head, xs.tail.toSet))
   }
 
   def toLedgerApi(p: domain.Party): InvalidUserInput \/ Ref.Party =

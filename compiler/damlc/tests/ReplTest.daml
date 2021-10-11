@@ -34,3 +34,18 @@ data NameCollision = NameCollision
   with
     field : Text
   deriving Show
+
+template MessageSize
+  with
+    p : Party
+  where
+    signatory p
+    choice CreateN : ()
+      with
+        n : Int
+      controller p
+      do
+        res <- forA [1..n] (\_ -> do
+              create this
+          )
+        return()

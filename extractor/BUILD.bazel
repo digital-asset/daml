@@ -16,6 +16,10 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "lf_version_configuration",
 )
+load(
+    ":extractor.bzl",
+    "extractor_test",
+)
 
 TEST_DARS = [
     "RecordsAndVariants",
@@ -27,7 +31,7 @@ TEST_DARS = [
     daml_compile(
         name = darmod,
         srcs = ["src/test/resources/damls/%s.daml" % darmod],
-        target = lf_version_configuration.get("stable"),
+        target = lf_version_configuration.get("default"),
     )
     for darmod in TEST_DARS
 ]
@@ -84,7 +88,6 @@ da_scala_library(
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_lihaoyi_fansi",
         "@maven//:com_lihaoyi_pprint",
-        "@maven//:com_lihaoyi_sourcecode",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_scala_logging_scala_logging",
@@ -152,7 +155,6 @@ da_scala_library(
     ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
-        "@maven//:com_lihaoyi_sourcecode",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:com_typesafe_scala_logging_scala_logging",
@@ -160,10 +162,13 @@ da_scala_library(
         "@maven//:io_circe_circe_parser",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_tpolecat_doobie_core",
         "@maven//:org_tpolecat_doobie_free",
+        "@maven//:org_tpolecat_typename",
         "@maven//:org_typelevel_cats_core",
         "@maven//:org_typelevel_cats_effect",
         "@maven//:org_typelevel_cats_free",
@@ -199,89 +204,21 @@ da_scala_library(
         "//libs-scala/postgresql-testing",
         "@maven//:io_netty_netty_handler",
         "@maven//:org_postgresql_postgresql",
+        "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
-da_scala_test_suite(
+extractor_test(
     name = "extractor-scala-tests",
-    size = "medium",
     srcs = glob(["src/test/suite/**/*.scala"]),
-    data = [
-        "//daml-lf/encoder:testing-dar-latest",
-        "//extractor:PrimitiveTypes.dar",
-        "//extractor:RecordsAndVariants.dar",
-        "//extractor:TransactionExample.dar",
-        "//extractor:VeryLargeArchive.dar",
-        "//ledger/test-common:dar-files",
-        "//ledger/test-common/test-certificates",
-    ],
-    plugins = [
-        silencer_plugin,
-    ],
-    resources = glob(["src/test/resources/**/*"]),
-    scala_deps = [
-        "@maven//:com_chuusai_shapeless",
-        "@maven//:com_github_scopt_scopt",
-        "@maven//:com_lihaoyi_sourcecode",
-        "@maven//:com_typesafe_akka_akka_actor",
-        "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:com_typesafe_scala_logging_scala_logging",
-        "@maven//:io_circe_circe_core",
-        "@maven//:io_circe_circe_parser",
-        "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
-        "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding",
-        "@maven//:org_tpolecat_doobie_core",
-        "@maven//:org_tpolecat_doobie_free",
-        "@maven//:org_typelevel_cats_core",
-        "@maven//:org_typelevel_cats_effect",
-        "@maven//:org_typelevel_cats_free",
-        "@maven//:org_typelevel_cats_kernel",
-    ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import (services.)?Types._",
-    ],
-    deps = [
-        ":extractor",
-        ":extractor-scala-tests-lib",
-        "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/data",
-        "//daml-lf/encoder:testing-dar-lookup-lib-latest",
-        "//daml-lf/interface",
-        "//daml-lf/transaction",
-        "//daml-lf/transaction-test-lib",
-        "//language-support/scala/bindings",
-        "//ledger-api/rs-grpc-bridge",
-        "//ledger-api/testing-utils",
-        "//ledger-service/utils",
-        "//ledger/caching",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-client",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
-        "//ledger/ledger-resources",
-        "//ledger/participant-integration-api",
-        "//ledger/participant-state",
-        "//ledger/sandbox-classic",
-        "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
-        "//ledger/sandbox-common",
-        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
-        "//ledger/test-common",
-        "//libs-scala/auth-utils",
-        "//libs-scala/grpc-utils",
-        "//libs-scala/ports",
-        "//libs-scala/postgresql-testing",
-        "//libs-scala/resources",
-        "//libs-scala/scalatest-utils",
-        "//libs-scala/timer-utils",
-        "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:io_netty_netty_handler",
-        "@maven//:org_slf4j_slf4j_api",
-    ],
+    flaky = False,
+)
+
+extractor_test(
+    name = "extractor-scala-tests-flaky",
+    srcs = glob(["src/test/suite-flaky/**/*.scala"]),
+    flaky = True,
 )
 
 exports_files(["src/main/resources/logback.xml"])

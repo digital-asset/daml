@@ -23,14 +23,13 @@ template Divulger
     sig : Party
   where
     signatory divulgee
+    observer sig
 
-    controller sig can
-      nonconsuming DivulgeKeyed
-        : Keyed
-        with
-          keyedCid : ContractId Keyed
-        do
-          fetch keyedCid
+    nonconsuming choice DivulgeKeyed : Keyed
+      with
+        keyedCid : ContractId Keyed
+      controller sig
+      do fetch keyedCid
 
 template Delegation
   with

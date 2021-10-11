@@ -5,7 +5,6 @@ package com.daml.platform.store.dao.events
 
 import java.io.InputStream
 
-import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.value.{
   Identifier => ApiIdentifier,
@@ -13,8 +12,9 @@ import com.daml.ledger.api.v1.value.{
   Value => ApiValue,
 }
 import com.daml.lf.engine.ValueEnricher
-import com.daml.lf.{engine => LfEngine}
+import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value.VersionedValue
+import com.daml.lf.{engine => LfEngine}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.packages.DeduplicatingPackageLoader
@@ -50,7 +50,7 @@ final class LfValueTranslation(
 
   private def serializeCreateArgOrThrow(
       contractId: ContractId,
-      arg: VersionedValue[ContractId],
+      arg: VersionedValue,
   ): Array[Byte] =
     ValueSerializer.serializeValue(
       value = arg,
@@ -58,7 +58,7 @@ final class LfValueTranslation(
     )
 
   private def serializeCreateArgOrThrow(c: Create): Array[Byte] =
-    serializeCreateArgOrThrow(c.coid, c.versionedCoinst.arg)
+    serializeCreateArgOrThrow(c.coid, c.versionedArg)
 
   private def serializeNullableKeyOrThrow(c: Create): Option[Array[Byte]] =
     c.versionedKey.map(k =>
@@ -84,7 +84,7 @@ final class LfValueTranslation(
 
   def serialize(
       contractId: ContractId,
-      contractArgument: VersionedValue[ContractId],
+      contractArgument: VersionedValue,
   ): Array[Byte] = {
     cache.contracts.put(
       key = LfValueTranslationCache.ContractCache.Key(contractId),
@@ -97,11 +97,11 @@ final class LfValueTranslation(
     cache.events.put(
       key = LfValueTranslationCache.EventCache.Key(eventId),
       value = LfValueTranslationCache.EventCache.Value
-        .Create(create.versionedCoinst.arg, create.versionedKey.map(_.key)),
+        .Create(create.versionedArg, create.versionedKey.map(_.key)),
     )
     cache.contracts.put(
       key = LfValueTranslationCache.ContractCache.Key(create.coid),
-      value = LfValueTranslationCache.ContractCache.Value(create.versionedCoinst.arg),
+      value = LfValueTranslationCache.ContractCache.Value(create.versionedArg),
     )
     (serializeCreateArgOrThrow(create), serializeNullableKeyOrThrow(create))
   }
@@ -129,7 +129,7 @@ final class LfValueTranslation(
   ): Future[V] = {
     result match {
       case LfEngine.ResultDone(r) => Future.successful(r)
-      case LfEngine.ResultError(e) => Future.failed(new RuntimeException(e.msg))
+      case LfEngine.ResultError(e) => Future.failed(new RuntimeException(e.message))
       case LfEngine.ResultNeedPackage(packageId, resume) =>
         packageLoader
           .loadPackage(
@@ -147,7 +147,7 @@ final class LfValueTranslation(
       value: LfValue,
       verbose: Boolean,
       attribute: => String,
-      enrich: LfValue => LfEngine.Result[com.daml.lf.value.Value[ContractId]],
+      enrich: LfValue => LfEngine.Result[com.daml.lf.value.Value],
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
@@ -172,7 +172,7 @@ final class LfValueTranslation(
       value: LfValue,
       verbose: Boolean,
       attribute: => String,
-      enrich: LfValue => LfEngine.Result[com.daml.lf.value.Value[ContractId]],
+      enrich: LfValue => LfEngine.Result[com.daml.lf.value.Value],
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,

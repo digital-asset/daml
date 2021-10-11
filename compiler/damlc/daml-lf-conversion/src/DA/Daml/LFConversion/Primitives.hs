@@ -316,11 +316,24 @@ convertPrim _ "UFetch" (TContractId (TCon template) :-> TUpdate (TCon template')
     ETmLam (mkVar "this", TContractId (TCon template)) $
     EUpdate $ UFetch template (EVar (mkVar "this"))
 
+convertPrim _ "UFetchInterface" (TContractId (TCon iface) :-> TUpdate (TCon iface'))
+    | iface == iface' =
+    ETmLam (mkVar "this", TContractId (TCon iface)) $
+    EUpdate $ UFetchInterface iface (EVar (mkVar "this"))
+
 convertPrim _ "UExercise"
     (TContractId (TCon template) :-> TCon choice :-> TUpdate _returnTy) =
     ETmLam (mkVar "this", TContractId (TCon template)) $
     ETmLam (mkVar "arg", TCon choice) $
     EUpdate $ UExercise template choiceName (EVar (mkVar "this")) (EVar (mkVar "arg"))
+  where
+    choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
+
+convertPrim _ "UExerciseInterface"
+    (TContractId (TCon iface) :-> TCon choice :-> TUpdate _returnTy) =
+    ETmLam (mkVar "this", TContractId (TCon iface)) $
+    ETmLam (mkVar "arg", TCon choice) $
+    EUpdate $ UExerciseInterface iface choiceName (EVar (mkVar "this")) (EVar (mkVar "arg"))
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
@@ -422,6 +435,33 @@ convertPrim _ "UTryCatch" ((TUnit :-> TUpdate t1) :-> (TBuiltin BTAnyException :
             (EVar (mkVar "t") `ETmApp` EUnit)
             (mkVar "x")
             (EVar (mkVar "c") `ETmApp` EVar (mkVar "x"))
+
+convertPrim _ "UFromInterfaceContractId" (TContractId (TCon iface) :-> TUpdate (TOptional (TContractId (TCon tpid)))) =
+  ETmLam (mkVar "cid", TContractId (TCon iface)) $
+    if iface == tpid
+      then EUpdate $ UPure (TOptional (TContractId (TCon iface))) (ESome (TContractId (TCon iface)) $ EVar $ mkVar "cid")
+      else EUpdate $
+           UBind
+             (Binding (mkVar "iface", TCon iface) (EUpdate $ UFetchInterface iface (EVar $ mkVar "cid"))) $
+             EUpdate $ UPure (TOptional (TContractId (TCon tpid))) $ ECase (EFromInterface iface tpid (EVar $ mkVar "iface"))
+               [ CaseAlternative CPNone (ENone (TContractId (TCon tpid)))
+               , CaseAlternative (CPSome $ mkVar "_") (ESome (TContractId (TCon tpid)) (EBuiltin BECoerceContractId `ETyApp` TCon iface `ETyApp` TCon tpid `ETmApp` (EVar $ mkVar "cid")))
+               ]
+
+convertPrim _ "EToInterfaceContractId" (TContractId tpid :-> TContractId iface) =
+    EBuiltin BECoerceContractId `ETyApp` tpid `ETyApp` iface
+
+convertPrim _ "EToInterface" (TCon tpid :-> TCon iface) =
+    ETmLam (mkVar "t", TCon tpid) $
+    if tpid == iface
+      then EVar (mkVar "t")
+      else EToInterface iface tpid (EVar $ mkVar "t")
+
+convertPrim _ "EFromInterface" (TCon iface :-> TOptional (TCon tpid)) =
+    ETmLam (mkVar "i", TCon iface) $
+    if tpid == iface
+      then ESome (TCon tpid) (EVar $ mkVar "i")
+      else EFromInterface iface tpid (EVar $ mkVar "i")
 
 convertPrim (V1 PointDev) (L.stripPrefix "$" -> Just builtin) typ =
     EExperimental (T.pack builtin) typ

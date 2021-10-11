@@ -5,7 +5,7 @@ package com.daml.platform.store.dao.events
 
 import java.time.Instant
 
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 
 sealed trait ContractStateEvent extends Product with Serializable {
   def eventOffset: Offset

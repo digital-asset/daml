@@ -17,6 +17,7 @@ private[daml] object TryOps {
       b <- tb
     } yield f(a, b)
 
+  @deprecated("use scala.util.Using", since = "1.16.0")
   object Bracket {
 
     /** The following description borrowed from https://hackage.haskell.org/package/exceptions-0.10.1/docs/Control-Monad-Catch.html#v:bracket

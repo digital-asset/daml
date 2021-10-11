@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=54:27-54:43; Use uncurry
+-- @INFO range=54:19-54:35; Use uncurry
 -- @INFO range=68:9-68:19; Redundant identity
 -- @INFO range=69:13-69:27; Redundant identity
 -- @INFO range=70:23-70:61; Redundant identity
@@ -17,8 +17,8 @@
 -- @INFO range=120:13-120:38; Use &&
 -- @INFO range=122:13-122:37; Use &&
 -- @INFO range=123:12-123:28; Use &&
--- @INFO range=159:12-159:36; Use isNone
--- @INFO range=159:21-159:35; Use $>
+
+-- @INFO range=159:13-159:27; Use $>
 -- @INFO range=165:10-165:56; Evaluate
 -- @INFO range=166:10-166:59; Evaluate
 -- @INFO range=179:17-179:36; Use ++
@@ -48,17 +48,17 @@ import DA.Date
 
 testDollar = scenario do
     let x1 = (+) 3 $ (*) 2 10
-    assert $ 23 == 23
+    23 === 23
 
 testCurry = scenario do
-    assert $ 23 == curry (\(x, y) -> x + y) 20 3
+    23 === curry (\(x, y) -> x + y) 20 3
 
 testUncurry = scenario do
-    assert $ 23 == uncurry (+) (20, 3)
+    23 === uncurry (+) (20, 3)
 
 testPow = scenario do
-    assert $ 256 == 2^8
-    assert $ 2^2^2^2 == 65536
+    256 === 2^8
+    2^2^2^2 === 65536
 
 testRemainder = scenario do
   1 === 6 % 5
@@ -156,7 +156,7 @@ testOptional = scenario do
 
   None === fmap (+1) (fail "")
   None === do None; pure 1
-  assert $ None == (None *> pure 1)
+  None === (None *> pure 1)
 
   5 === optional 5 T.length None
   5 === optional 5 T.length (Some "12345")
@@ -326,27 +326,27 @@ testFixedpoint = scenario do
   89 === fixedpoint (\f x -> if x < 2 then 1 else f (x-1) + f (x-2)) 10
 
 testIntToDecimal = scenario do
-    assert $ intToDecimal 1 == 1.0
-    assert $ intToDecimal (-7) == (-7.0)
-    assert $ intToDecimal 0 == 0.0
+    intToDecimal 1 === 1.0
+    intToDecimal (-7) === (-7.0)
+    intToDecimal 0 === 0.0
 
 testTruncate = scenario do
-    assert $ truncate (14.9 : Decimal) == 14
-    assert $ truncate (15.0 : Decimal) == 15
-    assert $ truncate ((-9.3) : Decimal) == (-9)
-    assert $ truncate (0.0 : Decimal) == 0
+    truncate (14.9 : Decimal) === 14
+    truncate (15.0 : Decimal) === 15
+    truncate ((-9.3) : Decimal) === (-9)
+    truncate (0.0 : Decimal) === 0
 
 testCeiling = scenario do
-    assert $ ceiling (14.9 : Decimal) == 15
-    assert $ ceiling (15.0 : Decimal) == 15
-    assert $ ceiling ((-9.3) : Decimal) == (-9)
-    assert $ ceiling (0.0 : Decimal) == 0
+    ceiling (14.9 : Decimal) === 15
+    ceiling (15.0 : Decimal) === 15
+    ceiling ((-9.3) : Decimal) === (-9)
+    ceiling (0.0 : Decimal) === 0
 
 testFloor = scenario do
-    assert $ floor (14.9 : Decimal) == 14
-    assert $ floor (15.0 : Decimal) == 15
-    assert $ floor ((-9.3) : Decimal) == (-10)
-    assert $ floor (0.0 : Decimal) == 0
+    floor (14.9 : Decimal) === 14
+    floor (15.0 : Decimal) === 15
+    floor ((-9.3) : Decimal) === (-10)
+    floor (0.0 : Decimal) === 0
 
 testRound = scenario do
     roundCommercial 0 10.5 === (11.0 : Decimal)
@@ -361,13 +361,13 @@ testRound = scenario do
 testNth = scenario do
     let l = [1, 5, 10]
     let v = l !! 1
-    assert $ v == 5
+    v === 5
 
 testDiv = scenario do
-    assert $ 10.0 / 2.0 == (5.0 : Decimal)
-    assert $ 13.2 / 5.0 == (2.64 : Decimal)
+    10.0 / 2.0 === (5.0 : Decimal)
+    13.2 / 5.0 === (2.64 : Decimal)
 
-    assert $ 0.5 == recip (2.0 : Decimal)
+    0.5 === recip (2.0 : Decimal)
     1.0 / 3.0 === (0.3333333333 : Decimal)
     1.0 / 3.0 * 3.0 === (0.9999999999 : Decimal)
 
@@ -379,9 +379,9 @@ testDiv = scenario do
     5 / (-3) === -1
 
 testDayOfWeek = scenario do
-    assert $ dayOfWeek (date 1900 Jan 01) == Monday
-    assert $ dayOfWeek (date 2018 Jan 17) == Wednesday
-    assert $ dayOfWeek (date 2020 Feb 29) == Saturday
+    dayOfWeek (date 1900 Jan 01) === Monday
+    dayOfWeek (date 2018 Jan 17) === Wednesday
+    dayOfWeek (date 2020 Feb 29) === Saturday
 
 testDateOverflow = scenario do
     pure $ date 2100 Feb 29

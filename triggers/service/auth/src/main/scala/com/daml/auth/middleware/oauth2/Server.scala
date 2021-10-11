@@ -37,6 +37,7 @@ import scala.util.{Failure, Success, Try}
 class Server(config: Config) extends StrictLogging {
   import com.daml.auth.middleware.api.JsonProtocol._
   import com.daml.auth.oauth2.api.JsonProtocol._
+
   implicit private val unmarshal: Unmarshaller[String, Uri] = Unmarshaller.strict(Uri(_))
 
   private def toRedirectUri(uri: Uri) =
@@ -66,8 +67,11 @@ class Server(config: Config) extends StrictLogging {
       tokenPayload <- AuthServiceJWTCodec.readFromString(decodedJwt.payload).toOption
     } yield {
       (tokenPayload.admin || !claims.admin) &&
-      tokenPayload.actAs.toSet.subsetOf(claims.actAs.map(_.toString).toSet) &&
-      tokenPayload.readAs.toSet.subsetOf(claims.readAs.map(_.toString).toSet) &&
+      claims.actAs.map(_.toString).toSet.subsetOf(tokenPayload.actAs.toSet) &&
+      claims.readAs
+        .map(_.toString)
+        .toSet
+        .subsetOf(tokenPayload.readAs.toSet ++ tokenPayload.actAs.toSet) &&
       ((claims.applicationId, tokenPayload.applicationId) match {
         // No requirement on app id
         case (None, _) => true

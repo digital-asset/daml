@@ -39,8 +39,9 @@ with a running ledger, e.g. with a running ``daml start``.
 
 The ``--party`` flags define which contracts will be included in the export. In
 the above example only contracts visible to the parties Alice and Bob will be
-included in the export. Lack of visibility of certain events may cause
-references to :ref:`unknown contract ids <export-unknown-cids>`.
+included in the export. Alternatively, you can set ``--all-parties`` to export
+contracts seen by all known parties. Lack of visibility of certain events may
+cause references to :ref:`unknown contract ids <export-unknown-cids>`.
 
 The ``--output`` flag defines the directory prefix under which to generate the
 Daml project that contains the Daml script that represents the ledger export.

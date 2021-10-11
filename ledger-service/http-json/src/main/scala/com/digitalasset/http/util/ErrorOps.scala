@@ -3,9 +3,9 @@
 
 package com.daml.http.util
 
-import com.daml.util.ExceptionOps
+import com.daml.scalautil.ExceptionOps
 import scalaz.syntax.show._
-import scalaz.{Show, \/}
+import scalaz.{EitherT, Functor, Show, \/}
 
 object ErrorOps {
 
@@ -20,6 +20,15 @@ object ErrorOps {
       self leftMap (e => f(e.shows))
 
     def liftErrS[M](msg: String)(f: String => M)(implicit L: Show[L]): M \/ R =
+      liftErr(x => f(msg + " " + x))
+  }
+
+  implicit final class `EitherT WSS extras`[F[_]: Functor, L, R](private val self: EitherT[F, L, R])
+      extends AnyRef {
+    def liftErr[M](f: String => M)(implicit L: Show[L]): EitherT[F, M, R] =
+      self leftMap (e => f(e.shows))
+
+    def liftErrS[M](msg: String)(f: String => M)(implicit L: Show[L]): EitherT[F, M, R] =
       liftErr(x => f(msg + " " + x))
   }
 }

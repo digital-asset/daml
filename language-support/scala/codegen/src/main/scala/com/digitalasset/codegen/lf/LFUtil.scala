@@ -10,7 +10,7 @@ import parent.dependencygraph.DependencyGraph
 import parent.exception.UnsupportedDamlTypeException
 import com.daml.lf.iface
 import iface.{PrimType => PT, Type => IType, _}
-import com.daml.lf.iface.reader.InterfaceType
+import com.daml.lf.iface.InterfaceType
 import java.io.File
 
 import scalaz._

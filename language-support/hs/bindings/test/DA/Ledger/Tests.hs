@@ -530,7 +530,7 @@ bucket = VRecord $ Record Nothing
         [ VVariant $ Variant Nothing (ConstructorId "B") (VBool True)
         , VVariant $ Variant Nothing (ConstructorId "I") (VInt 99)
         ]
-    , RecordField "contract"$ VContract (ContractId "#xxxxx")
+    , RecordField "contract"$ VContract (ContractId "00010203040506070809101112131415161718192021212121212121212121303132")
     , RecordField "list"    $ VList []
     , RecordField "int"     $ VInt 42
     , RecordField "decimal" $ VDecimal 123.456
@@ -656,7 +656,7 @@ makeCommands :: LedgerId -> Party -> Command -> IO (CommandId,Commands)
 makeCommands lid party com = do
     cid <- liftIO randomCid
     let wid = Nothing
-    return $ (cid,) $ Commands {lid,wid,aid=myAid,cid,actAs=[party],readAs=[],dedupTime=Nothing,coms=[com],minLeTimeAbs=Nothing,minLeTimeRel=Nothing}
+    return $ (cid,) $ Commands {lid,wid,aid=myAid,cid,actAs=[party],readAs=[],dedupPeriod=Nothing,coms=[com],minLeTimeAbs=Nothing,minLeTimeRel=Nothing,sid=Nothing}
 
 
 myAid :: ApplicationId

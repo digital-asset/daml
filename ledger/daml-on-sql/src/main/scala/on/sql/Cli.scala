@@ -3,7 +3,7 @@
 
 package com.daml.on.sql
 
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.cli.{CommonCli, SandboxCli}
 import com.daml.platform.sandbox.config.{PostgresStartupMode, SandboxConfig}
@@ -61,6 +61,14 @@ private[sql] final class Cli(
           s"Defaults to ${DefaultConfig.sqlStartMode.get} if not specified"
       )
       .action((mode, config) => config.copy(sqlStartMode = PostgresStartupMode.fromString(mode)))
+
+    parser
+      .opt[Int]("max-parallel-submissions")
+      .optional()
+      .action((value, config) => config.copy(maxParallelSubmissions = value))
+      .text(
+        s"Maximum number of successfully interpreted commands waiting to be sequenced. The threshold is shared across all parties. Overflowing it will cause back-pressure, signaled by a `RESOURCE_EXHAUSTED` error code. Default is ${defaultConfig.maxParallelSubmissions}."
+      )
 
     // Ideally we would set the relevant options to `required()`, but it doesn't seem to work.
     // Even when the value is provided, it still reports that it's missing. Instead, we check the

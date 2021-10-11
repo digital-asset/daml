@@ -3,25 +3,27 @@
 
 package com.daml.platform.indexer
 
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.lf.data.Ref
 import com.daml.platform.configuration.IndexConfiguration
 import com.daml.platform.indexer.IndexerConfig._
+import com.daml.platform.indexer.ha.HaConfig
 import com.daml.platform.store.DbType
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 case class IndexerConfig(
-    participantId: ParticipantId,
+    participantId: Ref.ParticipantId,
     jdbcUrl: String,
     startupMode: IndexerStartupMode,
     databaseConnectionPoolSize: Int = DefaultDatabaseConnectionPoolSize,
     databaseConnectionTimeout: FiniteDuration = DefaultDatabaseConnectionTimeout,
     restartDelay: FiniteDuration = DefaultRestartDelay,
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
+    eventsProcessingParallelism: Int = IndexConfiguration.DefaultEventsProcessingParallelism,
     updatePreparationParallelism: Int = DefaultUpdatePreparationParallelism,
     allowExistingSchema: Boolean = false,
     // TODO append-only: remove after removing support for the current (mutating) schema
-    enableAppendOnlySchema: Boolean = false,
+    enableAppendOnlySchema: Boolean,
     asyncCommitMode: DbType.AsyncCommitMode = DefaultAsyncCommitMode,
     maxInputBufferSize: Int = DefaultMaxInputBufferSize,
     inputMappingParallelism: Int = DefaultInputMappingParallelism,
@@ -31,6 +33,9 @@ case class IndexerConfig(
     tailingRateLimitPerSecond: Int = DefaultTailingRateLimitPerSecond,
     batchWithinMillis: Long = DefaultBatchWithinMillis,
     enableCompression: Boolean = DefaultEnableCompression,
+    schemaMigrationAttempts: Int = DefaultSchemaMigrationAttempts,
+    schemaMigrationAttemptBackoff: FiniteDuration = DefaultSchemaMigrationAttemptBackoff,
+    haConfig: HaConfig = HaConfig(),
 )
 
 object IndexerConfig {
@@ -50,4 +55,7 @@ object IndexerConfig {
   val DefaultTailingRateLimitPerSecond: Int = 20
   val DefaultBatchWithinMillis: Long = 50L
   val DefaultEnableCompression: Boolean = false
+
+  val DefaultSchemaMigrationAttempts: Int = 30
+  val DefaultSchemaMigrationAttemptBackoff: FiniteDuration = 1.second
 }

@@ -4,8 +4,8 @@ package com.daml.platform.store.dao.events
 
 import anorm.SqlParser.get
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation}
-import com.daml.ledger.participant.state.v1.Offset
-import com.daml.platform.store.DbType
+import com.daml.ledger.offset.Offset
+import com.daml.platform.store.{DbType, EventSequentialId}
 
 // (startExclusive, endInclusive]
 private[events] final case class EventsRange[A](startExclusive: A, endInclusive: A) {
@@ -15,10 +15,9 @@ private[events] final case class EventsRange[A](startExclusive: A, endInclusive:
 
 private[events] object EventsRange {
 
-  private val EmptyLedgerEventSeqId = 0L
-
   // (0, 0] -- non-existent range
-  private val EmptyEventSeqIdRange = EventsRange(EmptyLedgerEventSeqId, EmptyLedgerEventSeqId)
+  private val EmptyEventSeqIdRange =
+    EventsRange(EventSequentialId.beforeBegin, EventSequentialId.beforeBegin)
 
   def isEmpty[A: Ordering](range: EventsRange[A]): Boolean = {
     val A = implicitly[Ordering[A]]
@@ -66,7 +65,7 @@ private[events] object EventsRange {
     SQL"select max(event_sequential_id) from participant_events where event_offset <= ${offset} group by event_offset order by event_offset desc #${SqlFunctions(dbType)
       .limitClause(1)}"
       .as(get[Long](1).singleOpt)(connection)
-      .getOrElse(EmptyLedgerEventSeqId)
+      .getOrElse(EventSequentialId.beforeBegin)
   }
 
   private[events] def readPage[A](

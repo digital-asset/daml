@@ -29,9 +29,9 @@ import akka.util.{ByteString, Timeout}
 import scala.concurrent.duration._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.dbutils.JdbcConfig
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
-import com.daml.lf.archive.Reader.ParseError
-import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.archive.{Dar, DarReader, Decode, Reader}
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine._
 import com.daml.lf.engine.trigger.Request.StartParams
@@ -45,9 +45,10 @@ import com.daml.auth.middleware.api.{
   Response => AuthResponse,
 }
 import com.daml.scalautil.Statement.discard
-import com.daml.util.ExceptionOps._
+import com.daml.scalautil.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Tag
+import scalaz.syntax.traverse._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
@@ -56,7 +57,7 @@ import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 class Server(
-    authClient: Option[AuthClient],
+    authRoutes: Option[Directive1[AuthClient.Routes]],
     triggerDao: RunningTriggerDao,
     val logTriggerStatus: (UUID, String) => Unit,
 )(implicit ctx: ActorContext[Server.Message])
@@ -70,7 +71,9 @@ class Server(
 
   private def addPackagesInMemory(pkgs: List[(PackageId, DamlLf.ArchivePayload)]): Unit = {
     // We store decoded packages in memory
-    val pkgMap = pkgs.map((Decode.readArchivePayload _).tupled).toMap
+    val pkgMap = pkgs.map { case (pkgId, payload) =>
+      Decode.assertDecodeArchivePayload(Reader.readArchivePayload(pkgId, payload).toTry.get)
+    }.toMap
 
     // `addPackage` returns a ResultNeedPackage if a dependency is not yet uploaded.
     // So we need to use the entire `darMap` to complete each call to `addPackage`.
@@ -227,9 +230,9 @@ class Server(
   // This directive requires authorization for the given claims via the auth middleware, if configured.
   // If no auth middleware is configured, then the request will proceed without attempting authorization.
   private def authorize(claims: AuthRequest.Claims): Directive1[Option[AuthResponse.Authorize]] =
-    authClient match {
+    authRoutes match {
       case None => provide(None)
-      case Some(client) =>
+      case Some(extractRoutes) =>
         handleExceptions(ExceptionHandler { case ex: AuthClient.ClientException =>
           logger.error(ex.getLocalizedMessage)
           complete(
@@ -239,19 +242,21 @@ class Server(
             )
           )
         }).tflatMap { _ =>
-          client.authorize(claims).flatMap {
-            case AuthClient.Authorized(authorization) => provide(Some(authorization))
-            case AuthClient.Unauthorized =>
-              // Authorization failed after login - respond with 401
-              // TODO[AH] Add WWW-Authenticate header
-              complete(errorResponse(StatusCodes.Unauthorized))
-            case AuthClient.LoginFailed(AuthResponse.LoginError(error, errorDescription)) =>
-              complete(
-                errorResponse(
-                  StatusCodes.Forbidden,
-                  s"Failed to authenticate: $error${errorDescription.fold("")(": " + _)}",
+          extractRoutes.flatMap { routes =>
+            routes.authorize(claims).flatMap {
+              case AuthClient.Authorized(authorization) => provide(Some(authorization))
+              case AuthClient.Unauthorized =>
+                // Authorization failed after login - respond with 401
+                // TODO[AH] Add WWW-Authenticate header
+                complete(errorResponse(StatusCodes.Unauthorized))
+              case AuthClient.LoginFailed(AuthResponse.LoginError(error, errorDescription)) =>
+                complete(
+                  errorResponse(
+                    StatusCodes.Forbidden,
+                    s"Failed to authenticate: $error${errorDescription.fold("")(": " + _)}",
+                  )
                 )
-              )
+            }
           }
         }
     }
@@ -263,7 +268,7 @@ class Server(
       uuid: UUID,
       readOnly: Boolean = false,
   ): Directive1[Option[AuthResponse.Authorize]] =
-    authClient match {
+    authRoutes match {
       case None => provide(None)
       case Some(_) =>
         extractExecutionContext.flatMap { implicit ec =>
@@ -390,14 +395,14 @@ class Server(
               val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
               onSuccess(byteStringF) { byteString =>
                 val inputStream = new ByteArrayInputStream(byteString.toArray)
-                DarReader()
+                DarReader
                   .readArchive("package-upload", new ZipInputStream(inputStream)) match {
-                  case Failure(err) =>
+                  case Left(err) =>
                     complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
-                  case Success(dar) =>
+                  case Right(dar) =>
                     extractExecutionContext { implicit ec =>
-                      onComplete(addDar(dar)) {
-                        case Failure(err: ParseError) =>
+                      onComplete(addDar(dar.map(p => p.pkgId -> p.proto))) {
+                        case Failure(err: archive.Error) =>
                           complete(errorResponse(StatusCodes.UnprocessableEntity, err.description))
                         case Failure(exception) =>
                           complete(
@@ -405,7 +410,7 @@ class Server(
                           )
                         case Success(()) =>
                           val mainPackageId =
-                            JsObject(("mainPackageId", dar.main._1.name.toJson))
+                            JsObject(("mainPackageId", dar.main.pkgId.name.toJson))
                           complete(successResponse(mainPackageId))
                       }
                     }
@@ -420,7 +425,9 @@ class Server(
       complete((StatusCodes.OK, JsObject(("status", "pass".toJson))))
     },
     // Authorization callback endpoint
-    authClient.fold(reject: Route)(client => path("cb") { get { client.callbackHandler } }),
+    authRoutes.fold(reject: Route) { case extractRoutes =>
+      path("cb") { get { extractRoutes { _.callbackHandler } } }
+    },
   )
 }
 
@@ -496,6 +503,7 @@ object Server {
       restartConfig: TriggerRestartConfig,
       initialDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
+      allowExistingSchema: Boolean,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
   ): Behavior[Message] = Behaviors.setup { implicit ctx =>
     // Implicit boilerplate.
@@ -508,36 +516,37 @@ object Server {
     implicit val esf: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
 
-    val authClient = authConfig match {
+    val authClientRoutes = authConfig match {
       case NoAuth => None
-      case AuthMiddleware(uri) =>
-        Some(
+      case AuthMiddleware(int, ext) =>
+        val client =
           AuthClient(
             AuthClient.Config(
-              authMiddlewareUri = uri,
+              authMiddlewareInternalUri = int,
+              authMiddlewareExternalUri = ext,
               redirectToLogin = authRedirectToLogin,
-              callbackUri = authCallback.getOrElse {
-                Uri().withScheme("http").withAuthority(host, port).withPath(Path./("cb"))
-              },
               maxAuthCallbacks = maxAuthCallbacks,
               authCallbackTimeout = authCallbackTimeout,
               maxHttpEntityUploadSize = maxHttpEntityUploadSize,
               httpEntityUploadTimeout = httpEntityUploadTimeout,
             )
           )
-        )
+        val routes = client.routesAuto(authCallback.getOrElse(Uri().withPath(Path./("cb"))))
+        Some((client, routes))
     }
+    val authClient = authClientRoutes.map(_._1)
+    val authRoutes = authClientRoutes.map(_._2)
 
     val (dao, server, initializeF): (RunningTriggerDao, Server, Future[Unit]) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
-        val server = new Server(authClient, dao, logTriggerStatus)
+        val server = new Server(authRoutes, dao, logTriggerStatus)
         (dao, server, Future.successful(()))
       case Some(c) =>
         val dao = DbTriggerDao(c)
-        val server = new Server(authClient, dao, logTriggerStatus)
+        val server = new Server(authRoutes, dao, logTriggerStatus)
         val initialize = for {
-          _ <- dao.initialize
+          _ <- dao.initialize(allowExistingSchema)
           packages <- dao.readPackages
           _ = server.addPackagesInMemory(packages)
           triggers <- dao.readRunningTriggers

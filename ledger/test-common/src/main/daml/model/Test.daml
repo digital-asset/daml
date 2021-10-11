@@ -18,41 +18,38 @@ template Dummy
 
     agreement (show operator <> " operates a dummy.")
 
-    controller operator can
-      DummyChoice1 : ()
-        do return ()
+    choice DummyChoice1 : ()
+      controller operator
+      do return ()
 
-    controller operator can
-      FailingChoice : ()
-        do assert False
-
-
-    controller operator can
-      nonconsuming Clone: ContractId Dummy
-        do create Dummy with operator
-
-    controller operator can
-      nonconsuming FailingClone : ()
-        do
-          clone <- exercise self Clone
-          exercise self FailingChoice
+    choice FailingChoice : ()
+      controller operator
+      do assert False
 
 
-    controller operator can
-      ConsumeIfTimeIsBetween : ()
-        with
-          begin : Time
-          end : Time
-        do
-          currentTime <- getTime
-          assert (begin <= currentTime)
-          assert (currentTime <= end)
+    nonconsuming choice Clone: ContractId Dummy
+      controller operator
+      do create Dummy with operator
 
-    controller operator can
-      WrapWithAddress : ContractId AddressWrapper
-        with address : Address
-        do
-          create AddressWrapper with operator; address
+    nonconsuming choice FailingClone : ()
+      controller operator
+      do clone <- exercise self Clone
+         exercise self FailingChoice
+
+
+    choice ConsumeIfTimeIsBetween : ()
+      with
+        begin : Time
+        end : Time
+      controller operator
+      do currentTime <- getTime
+         assert (begin <= currentTime)
+         assert (currentTime <= end)
+
+    choice WrapWithAddress : ContractId AddressWrapper
+      with address : Address
+      controller operator
+      do create AddressWrapper with operator; address
 
 data Address = Address
   { street: Text
@@ -75,10 +72,10 @@ template DummyWithParam
   where
     signatory operator
 
-    controller operator can
-      DummyChoice2 : ()
-        with paramString: Text
-        do return ()
+    choice DummyChoice2 : ()
+      with paramString: Text
+      controller operator
+      do return ()
 
 template DummyWithAnnotation
   with
@@ -93,12 +90,11 @@ template DummyFactory
   where
     signatory operator
 
-    controller operator can
-      DummyFactoryCall : ()
-        do
-          split <- create Dummy with operator
-          rest <- create DummyWithParam with operator
-          return ()
+    choice DummyFactoryCall : ()
+      controller operator
+      do split <- create Dummy with operator
+         rest <- create DummyWithParam with operator
+         return ()
 
 
 data OptionalInteger = SomeInteger Int | NoInteger
@@ -125,38 +121,35 @@ template ParameterShowcase
     maintainer key._1
 
     -- multiple argument choice
-    controller operator can
-      Choice1 : ContractId ParameterShowcase
-        with
-          newInteger: Int
-          newDecimal: Decimal
-          newText: Text
-          newBool: Bool
-          newTime: Time
-          newNestedOptionalInteger: NestedOptionalInteger
-          newIntegerList: [Int]
-          newOptionalText: Optional Text
-        do
-          let new = this with
-                { integer = newInteger
-                , decimal = newDecimal
-                , text = newText
-                , bool = newBool
-                , time = newTime
-                , nestedOptionalInteger = newNestedOptionalInteger
-                , integerList = newIntegerList
-                , optionalText = newOptionalText
-                }
-          create new
+    choice Choice1 : ContractId ParameterShowcase
+      with
+        newInteger: Int
+        newDecimal: Decimal
+        newText: Text
+        newBool: Bool
+        newTime: Time
+        newNestedOptionalInteger: NestedOptionalInteger
+        newIntegerList: [Int]
+        newOptionalText: Optional Text
+      controller operator
+      do let new = this with
+               { integer = newInteger
+               , decimal = newDecimal
+               , text = newText
+               , bool = newBool
+               , time = newTime
+               , nestedOptionalInteger = newNestedOptionalInteger
+               , integerList = newIntegerList
+               , optionalText = newOptionalText
+               }
+         create new
 
     -- single argument choice
-    controller operator can
-      Choice2 : ContractId ParameterShowcase
-        with
-          newInteger: Int
-        do
-          let new = this with integer = newInteger
-          create new
+    choice Choice2 : ContractId ParameterShowcase
+      with newInteger: Int
+      controller operator
+      do let new = this with integer = newInteger
+         create new
 
 template Agreement
   with
@@ -169,17 +162,17 @@ template Agreement
       show giver <> " promise to pay the " <>
       show receiver <> " on demand the sum of five pounds.")
 
-    controller giver can
-      AcceptTriProposal : ContractId TriAgreement
-        with cid : ContractId TriProposal
-        do
-          prop <- fetch cid
-          assert (prop.receiver == receiver && prop.giver == giver)
-          exercise cid TriProposalAccept
+    choice AcceptTriProposal : ContractId TriAgreement
+      with cid : ContractId TriProposal
+      controller giver
+      do prop <- fetch cid
+         assert (prop.receiver == receiver && prop.giver == giver)
+         exercise cid TriProposalAccept
 
-      UnrestrictedAcceptTriProposal : ContractId TriAgreement
-        with cid: ContractId TriProposal
-        do exercise cid TriProposalAccept
+    choice UnrestrictedAcceptTriProposal : ContractId TriAgreement
+      with cid: ContractId TriProposal
+      controller giver
+      do exercise cid TriProposalAccept
 
 template DummyContractFactory
  with
@@ -187,12 +180,11 @@ template DummyContractFactory
   where
     signatory operator
 
-    controller operator can
-      DummyContractFactoryCall : ContractId Dummy
-        do
-          split <- create Dummy with operator
-          rest <- create DummyWithParam with operator
-          pure split
+    choice DummyContractFactoryCall : ContractId Dummy
+      controller operator
+      do split <- create Dummy with operator
+         rest <- create DummyWithParam with operator
+         pure split
 
 template AgreementFactory
   with
@@ -200,13 +192,15 @@ template AgreementFactory
     giver: Party
   where
     signatory giver
+    observer receiver
 
-    controller receiver can
-      nonconsuming CreateAgreement : ContractId Agreement
-        do create Agreement with receiver, giver
+    nonconsuming choice CreateAgreement : ContractId Agreement
+      controller receiver
+      do create Agreement with receiver, giver
 
-      AgreementFactoryAccept : ContractId Agreement
-        do create Agreement with receiver, giver
+    nonconsuming choice AgreementFactoryAccept : ContractId Agreement
+      controller receiver
+      do create Agreement with receiver, giver
 
 template TriAgreement
   with
@@ -223,10 +217,11 @@ template TriProposal
     giver: Party
   where
     signatory operator
+    observer receiver, giver
 
-    controller [receiver, giver] can
-      TriProposalAccept : ContractId TriAgreement
-        do create TriAgreement with operator, receiver, giver
+    choice TriProposalAccept : ContractId TriAgreement
+      controller [receiver, giver]
+      do create TriAgreement with operator, receiver, giver
 
 template TextContainer
   with
@@ -235,9 +230,9 @@ template TextContainer
   where
     signatory operator
 
-    controller operator can
-      Consume : ()
-        do return ()
+    choice Consume : ()
+      controller operator
+      do return ()
 
 template NothingArgument
   with
@@ -246,9 +241,9 @@ template NothingArgument
   where
     signatory operator
 
-    controller operator can
-      Choose : ()
-        do return ()
+    choice Choose : ()
+      controller operator
+      do return ()
 
 template WithObservers
   with
@@ -258,9 +253,9 @@ template WithObservers
   signatory giver
   observer observers
 
-  controller giver can
-    Ping : ()
-      do return ()
+  choice Ping : ()
+    controller giver
+    do return ()
 
 template BranchingSignatories
   with
@@ -278,9 +273,12 @@ template BranchingControllers
     ctrlFalse : Party
   where
   signatory giver
-  controller (if whichCtrl then ctrlTrue else ctrlFalse) can
-    Delete : ()
-      do return ()
+  let ctrl = if whichCtrl then ctrlTrue else ctrlFalse
+  observer ctrl
+
+  choice Delete : ()
+    controller ctrl
+    do return ()
 
 
 template PayOut
@@ -301,12 +299,14 @@ template CallablePayout
     receiver: Party
   where
     signatory giver
-    controller receiver can
-      Call : ContractId PayOut
-        do create PayOut with receiver, giver
-      Transfer : ContractId CallablePayout
-        with newReceiver: Party
-          do create this with receiver = newReceiver
+    observer receiver
+    choice Call : ContractId PayOut
+      controller receiver
+      do create PayOut with receiver, giver
+    choice Transfer : ContractId CallablePayout
+      with newReceiver: Party
+      controller receiver
+      do create this with receiver = newReceiver
 
 template TextKey
   with
@@ -320,10 +320,9 @@ template TextKey
     key (tkParty, tkKey) : (Party, Text)
     maintainer key._1
 
-    controller tkParty can
-      TextKeyChoice : ()
-        do
-          return ()
+    choice TextKeyChoice : ()
+      controller tkParty
+      do return ()
 
 template TextKeyOperations
   with
@@ -332,46 +331,41 @@ template TextKeyOperations
   where
     signatory tkoParty
 
-    controller tkoParty can
-      nonconsuming TKOLookup: ()
-        with
-          keyToLookup: (Party, Text)
-          expected: Optional (ContractId TextKey)
-        do
-          actual <- lookupByKey @TextKey keyToLookup
-          assertMsg ("lookup matches (" <> show expected <> ", " <> show actual <> ")") (expected == actual)
+    nonconsuming choice TKOLookup: ()
+      with
+        keyToLookup: (Party, Text)
+        expected: Optional (ContractId TextKey)
+      controller tkoParty
+      do actual <- lookupByKey @TextKey keyToLookup
+         assertMsg ("lookup matches (" <> show expected <> ", " <> show actual <> ")") (expected == actual)
 
-    controller tkoParty can
-      nonconsuming TKOFetch: ()
-        with
-          keyToFetch: (Party, Text)
-          expectedCid: ContractId TextKey
-        do
-          (actualCid, actualContract) <- fetchByKey @TextKey keyToFetch
-          assertMsg "fetch contract id matches" (expectedCid == actualCid)
-          assertMsg "fetch contract matches" (keyToFetch == key actualContract)
+    nonconsuming choice TKOFetch: ()
+      with
+        keyToFetch: (Party, Text)
+        expectedCid: ContractId TextKey
+      controller tkoParty
+      do (actualCid, actualContract) <- fetchByKey @TextKey keyToFetch
+         assertMsg "fetch contract id matches" (expectedCid == actualCid)
+         assertMsg "fetch contract matches" (keyToFetch == key actualContract)
 
-    controller tkoParty can
-      nonconsuming TKOConsumeAndLookup: ()
-        with
-          cidToConsume: ContractId TextKey
-          keyToLookup: (Party, Text)
-        do
-          mbCid1 <- lookupByKey @TextKey keyToLookup
-          assertMsg "gets contract the first time" (mbCid1 == Some cidToConsume)
-          exercise cidToConsume TextKeyChoice
-          mbCid2 <- lookupByKey @TextKey keyToLookup
-          assertMsg "does not get contract after exercise" (mbCid2 == None)
+    nonconsuming choice TKOConsumeAndLookup: ()
+      with
+        cidToConsume: ContractId TextKey
+        keyToLookup: (Party, Text)
+      controller tkoParty
+      do mbCid1 <- lookupByKey @TextKey keyToLookup
+         assertMsg "gets contract the first time" (mbCid1 == Some cidToConsume)
+         exercise cidToConsume TextKeyChoice
+         mbCid2 <- lookupByKey @TextKey keyToLookup
+         assertMsg "does not get contract after exercise" (mbCid2 == None)
 
-    controller tkoParty can
-      nonconsuming TKOFetchAndRecreate : ()
-        with
-          keyToFetch: (Party, Text)
-        do
-          (cid, contract) <- fetchByKey @TextKey keyToFetch
-          exercise cid TextKeyChoice
-          cid2 <- create TextKey with tkParty = contract.tkParty, tkKey = contract.tkKey, tkDisclosedTo = contract.tkDisclosedTo
-          return ()
+    nonconsuming choice TKOFetchAndRecreate : ()
+      with keyToFetch: (Party, Text)
+      controller tkoParty
+      do (cid, contract) <- fetchByKey @TextKey keyToFetch
+         exercise cid TextKeyChoice
+         cid2 <- create TextKey with tkParty = contract.tkParty, tkKey = contract.tkKey, tkDisclosedTo = contract.tkDisclosedTo
+         return ()
 
 template LocalKeyVisibilityOperations
   with
@@ -409,21 +403,20 @@ template Divulgence2
     div2Fetcher: Party
   where
     signatory div2Signatory
+    observer div2Fetcher
 
-    controller div2Fetcher can
-      nonconsuming Divulgence2Fetch: ()
-        with
-          div1ToFetch: ContractId Divulgence1
-        do
-          _ <- fetch div1ToFetch
-          return ()
+    nonconsuming choice Divulgence2Fetch: ()
+      with
+        div1ToFetch: ContractId Divulgence1
+      controller div2Fetcher
+      do _ <- fetch div1ToFetch
+         return ()
 
-    controller div2Fetcher can
-      nonconsuming Divulgence2Archive: ()
-        with
-          div1ToArchive: ContractId Divulgence1
-        do
-          archive div1ToArchive
+    nonconsuming choice Divulgence2Archive: ()
+      with
+        div1ToArchive: ContractId Divulgence1
+      controller div2Fetcher
+      do archive div1ToArchive
 
 template DecimalRounding
   with
@@ -466,20 +459,19 @@ template Delegated
     key (owner, k) : (Party, Text)
     maintainer key._1
 
-    controller owner can
-      Recreate: () do
-        create this
-        return ()
+    choice Recreate: ()
+      controller owner
+      do create this
+         return ()
 
       -- Non-consuming choice to test that contract keys created and archived
       -- by transient contracts are properly handled.
-    controller owner can
-      nonconsuming CreateAnotherAndArchive: ()
-        with
-          k2: Text
-        do
-          cid <- create Delegated with owner = owner, k = k2
-          exercise cid Archive
+    nonconsuming choice CreateAnotherAndArchive: ()
+      with
+        k2: Text
+      controller owner
+      do cid <- create Delegated with owner = owner, k = k2
+         exercise cid Archive
 
 template Delegation
   with
@@ -489,28 +481,26 @@ template Delegation
     signatory owner
     observer delegate
 
-    controller delegate can
-      nonconsuming FetchDelegated: Delegated
-        with delegated: ContractId Delegated
-        do fetch delegated
+    nonconsuming choice FetchDelegated: Delegated
+      with delegated: ContractId Delegated
+      controller delegate
+      do fetch delegated
 
-    controller delegate can
-      nonconsuming FetchByKeyDelegated: ()
-        with
-          p: Party
-          k: Text
-        do
-          _ <- fetchByKey @Delegated (p, k)
-          pure ()
+    nonconsuming choice FetchByKeyDelegated: ()
+      with
+        p: Party
+        k: Text
+      controller delegate
+      do _ <- fetchByKey @Delegated (p, k)
+         pure ()
 
-    controller delegate can
-      nonconsuming LookupByKeyDelegated: ()
-        with
-          p: Party
-          k: Text
-        do
-          _ <- lookupByKey @Delegated (p, k)
-          pure ()
+    nonconsuming choice LookupByKeyDelegated: ()
+      with
+        p: Party
+        k: Text
+      controller delegate
+      do _ <- lookupByKey @Delegated (p, k)
+         pure ()
 
 
 template ShowDelegated
@@ -520,12 +510,11 @@ template ShowDelegated
   where
     signatory owner
     observer delegate
-    controller owner can
-      ShowIt : ()
-        with delegatedId: ContractId Delegated
-        do
-          fetch delegatedId
-          return ()
+    choice ShowIt : ()
+      with delegatedId: ContractId Delegated
+      controller owner
+      do fetch delegatedId
+         return ()
 
 testDivulgenceVisibility = scenario do
   owner <- getParty "owner"
@@ -579,14 +568,13 @@ template DivulgeWitnesses
     p_actor: Party
   where
     signatory p_actor
+    observer p_signatory
 
-    controller p_signatory can
-      Divulge: ()
-        with
-          toFetch: ContractId Witnesses
-        do
-          _ <- fetch toFetch
-          return ()
+    choice Divulge: ()
+      with toFetch: ContractId Witnesses
+      controller p_signatory
+      do _ <- fetch toFetch
+         return ()
 
 template MaintainerNotSignatory
   with
@@ -604,12 +592,11 @@ template CreateAndFetch
   where
     signatory p
 
-    controller p can
-      CreateAndFetch_Run: ()
-        do
-            cid <- create CreateAndFetch with p
-            _ <- fetch cid
-            return ()
+    choice CreateAndFetch_Run: ()
+      controller p
+      do cid <- create CreateAndFetch with p
+         _ <- fetch cid
+         return ()
 
 template Proposal
   with
@@ -617,12 +604,12 @@ template Proposal
     to: Party
   where
     signatory from
-    controller to can
-      ProposalAccept: ContractId Asset
-        with asset: ContractId Asset
-        do
-          fetch asset
-          exercise asset AssetTransfer with newOwner = from
+    observer to
+    choice ProposalAccept: ContractId Asset
+      with asset: ContractId Asset
+      controller to
+      do fetch asset
+         exercise asset AssetTransfer with newOwner = from
 
 template Asset
   with
@@ -630,12 +617,13 @@ template Asset
     owner: Party
   where
     signatory issuer
+    observer owner
     key issuer: Party
     maintainer key
-    controller owner can
-      AssetTransfer: ContractId Asset
-        with newOwner: Party
-        do create this with owner = newOwner
+    choice AssetTransfer: ContractId Asset
+      with newOwner: Party
+      controller owner
+      do create this with owner = newOwner
 
 template MultiPartyContract
   with
@@ -682,3 +670,64 @@ template MultiPartyContract
       do
         actualCid <- lookupByKey @MultiPartyContract keyToFetch
         assertMsg "LookupOtherByKey value matches" (expectedCid == actualCid)
+
+template WithKey
+  with
+    p : Party
+  where
+    signatory p
+    key p : Party
+    maintainer key
+
+template WithKeyCreator
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    choice WithKeyCreator_DiscloseCreate : ContractId WithKey
+      with
+        p : Party
+      controller p
+      do create (WithKey p1)
+
+template WithKeyCreatorAlternative
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    nonconsuming choice WithKeyCreatorAlternative_DiscloseCreate : ContractId WithKey
+      controller p2
+      do create (WithKey p1)
+
+template WithKeyFetcher
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    choice WithKeyFetcher_Fetch : WithKey
+      with
+        contractId : ContractId WithKey
+      controller p2
+      do fetch contractId
+
+
+template WithKeyDivulgenceHelper
+  with
+    divulgedTo : Party
+    withKeyOwner : Party
+  where
+    signatory divulgedTo
+    observer withKeyOwner
+
+    nonconsuming choice WithKeyDivulgenceHelper_Fetch: ()
+      with
+        withKeyToFetch: ContractId WithKey
+      controller withKeyOwner
+      do _ <- fetch withKeyToFetch
+         return ()

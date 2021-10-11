@@ -8,7 +8,7 @@ import akka.http.scaladsl.model._
 import akka.stream.scaladsl.{Concat, Source, _}
 import akka.stream.{FanOutShape2, SourceShape, UniformFanInShape}
 import akka.util.ByteString
-import com.daml.http.ContractsFetch
+import com.daml.fetchcontracts.util.AkkaStreamsDoobie
 import scalaz.syntax.show._
 import scalaz.{Show, \/}
 import spray.json.DefaultJsonProtocol._
@@ -36,7 +36,7 @@ private[http] object ResponseFormats {
     val graph = GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
 
-      val partition: FanOutShape2[E \/ JsValue, E, JsValue] = b add ContractsFetch.partition
+      val partition: FanOutShape2[E \/ JsValue, E, JsValue] = b add AkkaStreamsDoobie.partition
       val concat: UniformFanInShape[ByteString, ByteString] = b add Concat(3)
 
       // first produce optional warnings and result element

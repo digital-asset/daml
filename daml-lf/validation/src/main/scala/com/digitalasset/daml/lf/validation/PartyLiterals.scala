@@ -5,7 +5,7 @@ package com.daml.lf.validation
 
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.Interface
+import com.daml.lf.language.PackageInterface
 import com.daml.lf.validation.iterable.ExprIterable
 
 private[validation] object PartyLiterals {
@@ -13,7 +13,7 @@ private[validation] object PartyLiterals {
   import Util.handleLookup
 
   @throws[EForbiddenPartyLiterals]
-  def checkModule(interface: Interface, pkgId: PackageId, module: Module): Unit = {
+  def checkModule(interface: PackageInterface, pkgId: PackageId, module: Module): Unit = {
     module.definitions.foreach {
       case (defName, DValue(typ @ _, noPartyLiterals, body, isTest @ _)) =>
         def context = ContextDefValue(pkgId, module.name, defName)
@@ -29,7 +29,7 @@ private[validation] object PartyLiterals {
     }
   }
 
-  private def checkExpr(interface: Interface, context: => Context, expr: Expr): Unit =
+  private def checkExpr(interface: PackageInterface, context: => Context, expr: Expr): Unit =
     expr match {
       case EPrimLit(party: PLParty) =>
         throw EForbiddenPartyLiterals(context, PartyLiteral(party.value))

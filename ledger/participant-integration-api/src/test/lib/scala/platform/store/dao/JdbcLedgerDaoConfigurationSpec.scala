@@ -3,17 +3,14 @@
 
 package com.daml.platform.store.dao
 
-import java.time.Instant
-
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.{Configuration, Offset}
-import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep}
 import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
 import com.daml.platform.store.entries.ConfigurationEntry
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
+trait JdbcLedgerDaoConfigurationSpec {
+  this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
   behavior of "JdbcLedgerDao (configuration)"
 
@@ -67,64 +64,6 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
     }
   }
 
-  it should "refuse to persist invalid configuration entry" in {
-    val startExclusive = nextOffset()
-    val offset0 = nextOffset()
-    val offsetString0 = offset0.toLong
-    for {
-      config <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).getOrElse(defaultConfig))
-
-      // Store a new configuration with a known submission id
-      submissionId = s"refuse-config-$offsetString0"
-      resp0 <- storeConfigurationEntry(
-        offset0,
-        submissionId,
-        config.copy(generation = config.generation + 1),
-      )
-      newConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).get)
-
-      resp1 <- storeConfigurationEntry(
-        nextOffset(),
-        submissionId,
-        newConfig.copy(generation = config.generation + 1),
-      )
-
-      // Submission with mismatching generation is rejected
-      offset2 = nextOffset()
-      offsetString2 = offset2.toLong
-      resp2 <- storeConfigurationEntry(
-        offset2,
-        s"refuse-config-$offsetString2",
-        config,
-      )
-
-      // Submission with unique submissionId and correct generation is accepted.
-      offset3 = nextOffset()
-      offsetString3 = offset3.toLong
-      lastConfig = newConfig.copy(generation = newConfig.generation + 1)
-      resp3 <- storeConfigurationEntry(offset3, s"refuse-config-$offsetString3", lastConfig)
-      lastConfigActual <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).get)
-
-      entries <- ledgerDao.getConfigurationEntries(startExclusive, offset3).runWith(Sink.seq)
-    } yield {
-      resp0 shouldEqual PersistenceResponse.Ok
-      resp1 shouldEqual PersistenceResponse.Duplicate
-      resp2 shouldEqual PersistenceResponse.Ok
-      resp3 shouldEqual PersistenceResponse.Ok
-      lastConfig shouldEqual lastConfigActual
-      entries.toList shouldEqual List(
-        offset0 -> ConfigurationEntry.Accepted(s"refuse-config-$offsetString0", newConfig),
-        /* offset1 is duplicate */
-        offset2 -> ConfigurationEntry.Rejected(
-          s"refuse-config-${offset2.toLong}",
-          "Generation mismatch: expected=2, actual=0",
-          config,
-        ),
-        offset3 -> ConfigurationEntry.Accepted(s"refuse-config-$offsetString3", lastConfig),
-      )
-    }
-  }
-
   it should "fail trying to store configuration with non-incremental offsets" in {
     recoverToSucceededIf[LedgerEndUpdateError](
       storeConfigurationEntry(
@@ -135,27 +74,4 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
       )
     )
   }
-
-  private def storeConfigurationEntry(
-      offset: Offset,
-      submissionId: String,
-      lastConfig: Configuration,
-      rejectionReason: Option[String] = None,
-      maybePreviousOffset: Option[Offset] = Option.empty,
-  ) =
-    ledgerDao
-      .storeConfigurationEntry(
-        offsetStep = maybePreviousOffset
-          .orElse(previousOffset.get())
-          .map(IncrementalOffsetStep(_, offset))
-          .getOrElse(CurrentOffset(offset)),
-        Instant.EPOCH,
-        submissionId,
-        lastConfig,
-        rejectionReason,
-      )
-      .map { r =>
-        previousOffset.set(Some(offset))
-        r
-      }
 }

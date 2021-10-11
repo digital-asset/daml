@@ -17,7 +17,6 @@ import DA.Daml.Project.Types
 import DA.Pretty
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
-import Data.Default (def)
 import qualified Data.HashSet as HashSet
 import Data.List
 import qualified Data.Text as T
@@ -28,11 +27,9 @@ import Development.IDE.Core.OfInterest (setFilesOfInterest)
 import Development.IDE.Core.RuleTypes.Daml (RunScripts (..), VirtualResource (..))
 import Development.IDE.Core.Rules.Daml (worldForFile)
 import Development.IDE.Core.Service (getDiagnostics, runActionSync, shutdown)
-import Development.IDE.Core.Shake (use)
+import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..), use)
 import Development.IDE.Types.Diagnostics (showDiagnostics)
 import Development.IDE.Types.Location (toNormalizedFilePath')
-import Development.IDE.Types.Options (IdeReportProgress (..))
-import qualified Language.Haskell.LSP.Types as LSP
 import SdkVersion
 import System.Directory.Extra
 import System.Environment.Blank
@@ -367,7 +364,7 @@ main =
                         "  pure ()"
                       ]
                   expectScriptSuccess rs (vr "testAssertFail") $ \r ->
-                    matchRegex r "Active contracts:  #0:0, #1:0\n\nReturn value: {}\n\n$"
+                    matchRegex r "Active contracts:  #0:0, #2:0\n\nReturn value: {}\n\n$"
                   pure (),
               testCase "contract keys" $ do
                 rs <-
@@ -499,6 +496,16 @@ main =
                       "  alice <- allocateParty \"alice\"",
                       "  _ <- submit alice $ createAndExerciseCmd (T alice alice) (InventObserver \"bob\")",
                       "  _ <- allocatePartyWithHint \"bob\" (PartyIdHint \"bob\")",
+                      "  pure ()",
+                      "partyWithEmptyDisplayName = do",
+                      "  p1 <- allocateParty \"\"",
+                      "  p2 <- allocatePartyWithHint \"\" (PartyIdHint \"hint\")",
+                      "  details <- listKnownParties",
+                      "  let [p1Details, p2Details] = details",
+                      "  assertEq p1Details.displayName (Some \"\")",
+                      "  assertEq p2Details.displayName (Some \"\")",
+                      "  assertEq p2Details.party (fromSome $ partyFromText \"hint\")",
+                      "  t1 <- submit p1 $ createCmd T { owner = p1, observer = p2 }",
                       "  pure ()"
                     ]
                 expectScriptSuccess rs (vr "partyManagement") $ \r ->
@@ -507,6 +514,8 @@ main =
                   matchRegex r "Tried to allocate a party that already exists:  alice"
                 expectScriptFailure rs (vr "duplicatePartyFromText") $ \r ->
                   matchRegex r "Tried to allocate a party that already exists:  bob"
+                expectScriptSuccess rs (vr "partyWithEmptyDisplayName") $ \r ->
+                  matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n\n$"
             , testCase "queryContractId/Key" $ do
                 rs <-
                   runScripts
@@ -599,6 +608,107 @@ main =
                     , "  \"logClient2\"\n"
                     , "  \"please don't die\""
                     ],
+              testCase "divulgence warning" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import Daml.Script"
+                    , "template T"
+                    , "  with"
+                    , "    p1 : Party"
+                    , "    p2 : Party"
+                    , "  where"
+                    , "    signatory p1"
+                    , "    choice C : ()"
+                    , "      controller p2"
+                    , "      do pure ()"
+                    , "template Delegate"
+                    , "  with"
+                    , "    p1 : Party"
+                    , "    p2 : Party"
+                    , "    cid : ContractId T"
+                    , "  where"
+                    , "    signatory p1"
+                    , "    observer p2"
+                    , "    nonconsuming choice Fetch : T"
+                    , "      controller p2"
+                    , "      do fetch cid"
+                    , "    choice Exercise : ()"
+                    , "      controller p2"
+                    , "      do exercise cid C"
+                    , "template Divulge"
+                    , "  with"
+                    , "    p1 : Party"
+                    , "    p2 : Party"
+                    , "    cid : ContractId T"
+                    , "  where"
+                    , "    signatory p2"
+                    , "    observer p1"
+                    , "    choice Accept : T"
+                    , "      controller p1"
+                    , "      do fetch cid"
+                    , ""
+                    , "template CreateAndDelegate"
+                    , "  with"
+                    , "    p1 : Party" -- p1 is creator of template T
+                    , "    p2 : Party" -- p2 is target for delegation
+                    , "    p3 : Party" -- p3 is pulling the strings
+                    , "  where"
+                    , "    signatory p1"
+                    , "    observer p3"
+                    , "    choice AcceptCAD : ContractId Delegate"
+                    , "      controller p3"
+                    , "      do cid <- create (T p1 p2)"
+                    , "         create (Delegate p1 p2 cid)"
+                    , "template UseDelegate"
+                    , "  with"
+                    , "    p2 : Party"
+                    , "    p3 : Party"
+                    , "  where"
+                    , "    signatory p2"
+                    , "    observer p3"
+                    , "    choice GoUseDelegate : ()"
+                    , "      with delegateCid : ContractId Delegate"
+                    , "      controller p3"
+                    , "      do exercise delegateCid Fetch"
+                    , "         exercise delegateCid Exercise"
+                    , "template PullTheStrings"
+                    , "  with"
+                    , "    p3 : Party"
+                    , "    cadCid : ContractId CreateAndDelegate"
+                    , "    useDelegateCid : ContractId UseDelegate"
+                    , "  where"
+                    , "    signatory p3"
+                    , "    choice GoPullTheStrings : ()"
+                    , "      controller p3"
+                    , "      do delegateCid <- exercise cadCid AcceptCAD"
+                    , "         exercise useDelegateCid (GoUseDelegate delegateCid)"
+                    , ""
+                    , "testDivulge = do"
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  p2 <- allocateParty \"p2\""
+                    , "  p3 <- allocateParty \"p3\""
+                    , "  cid <- submit p1 (createCmd (T p1 p2))"
+                    , "  divulgeCid <- submit p2 (createCmd (Divulge p1 p2 cid))"
+                    , "  submit p1 (exerciseCmd divulgeCid Accept)"
+                    , "  delegateCid <- submit p1 (createCmd (Delegate p1 p2 cid))"
+                    -- fetch divulged contract generates warning:
+                    , "  submit p2 (exerciseCmd delegateCid Fetch)"
+                    -- exercise divulged contract generates warning:
+                    , "  submit p2 (exerciseCmd delegateCid Exercise)"
+                    -- create, fetch, exercise in same transaction, so no warning expected:
+                    , "  cadCid <- submit p1 (createCmd (CreateAndDelegate p1 p2 p3))"
+                    , "  useDelegateCid <- submit p2 (createCmd (UseDelegate p2 p3))"
+                    , "  submit p3 (createAndExerciseCmd (PullTheStrings p3 cadCid useDelegateCid) GoPullTheStrings)"
+                    , "  pure ()"
+                    ]
+                expectScriptSuccess rs (vr "testDivulge") $ \r ->
+                  matchRegex r $ T.concat
+                    [ "Warnings: \n"
+                    , "  Tried to fetch or exercise -homePackageId-:Test:T on contract [0-9a-f]* but none of the reading parties \\[p2\\] are contract stakeholders \\[p1\\]. Use of divulged contracts is deprecated and incompatible with pruning. To remedy, add one of the readers \\[p2\\] as an observer to the contract.\n"
+                    , "  Tried to fetch or exercise -homePackageId-:Test:T on contract [0-9a-f]* but none of the reading parties \\[p2\\] are contract stakeholders \\[p1\\]. Use of divulged contracts is deprecated and incompatible with pruning. To remedy, add one of the readers \\[p2\\] as an observer to the contract."
+                    ],
               testCase "multi-party query" $ do
                 rs <-
                   runScripts
@@ -667,7 +777,7 @@ main =
                     , "  submitMulti [p0] [p1] (createCmd (T p0 p1))"
                     ]
                 expectScriptSuccess rs (vr "testSucceed") $ \r ->
-                  matchRegex r "Active contracts:  #0:0, #1:0"
+                  matchRegex r "Active contracts:  #2:0, #3:0"
                 expectScriptFailure rs (vr "testFail") $ \r ->
                   matchRegex r "missing authorization from 'p1'",
               testCase "submitTree" $ do
@@ -798,6 +908,9 @@ main =
                     , "           error \"\""
                     , "         catch"
                     , "           (GeneralError _) -> pure ()"
+                    , "    choice Fail : ()"
+                    , "      controller p"
+                    , "      do assert False"
                     , "test = do"
                     , "  p <- allocateParty \"p\""
                     , "  cid <- submit p $ createCmd (T p)"
@@ -805,9 +918,15 @@ main =
                     , "  r <- query @T p"
                     , "  r === [(cid, T p)]"
                     , "  pure ()"
+                    , "unhandledOffLedger = script $ assert False"
+                    , "unhandledOnLedger = script $ do"
+                    , "  p <- allocateParty \"p\""
+                    , "  submit p $ createAndExerciseCmd (Helper p) Fail"
                     ]
                 expectScriptSuccess rs (vr "test") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n"
+                expectScriptFailure rs (vr "unhandledOffLedger") $ \r -> matchRegex r "Unhandled exception"
+                expectScriptFailure rs (vr "unhandledOnLedger") $ \r -> matchRegex r "Unhandled exception"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
@@ -816,7 +935,7 @@ main =
 matchRegex :: T.Text -> T.Text -> Bool
 matchRegex s regex = matchTest (makeRegex regex :: Regex) s
 
-expectScriptSuccess ::
+expectScriptSuccess :: HasCallStack =>
   -- | The list of script results.
   [(VirtualResource, Either T.Text T.Text)] ->
   -- | VR of the script
@@ -892,8 +1011,5 @@ runScripts service fileContent = bracket getIdeState shutdown $ \ideState -> do
         (Just service)
         logger
         noopDebouncer
-        def
-        (pure $ LSP.IdInt 0)
-        (const $ pure ())
+        (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ())
         vfs
-        (IdeReportProgress False)

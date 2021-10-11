@@ -48,7 +48,7 @@ class ClientUtil(
       commands = Seq(Command(cmd)),
     )
 
-    commandClient.submitSingleCommand(SubmitRequest(Some(commands), None))
+    commandClient.submitSingleCommand(SubmitRequest(Some(commands)))
   }
 
   def nextTransaction(party: String, offset: LedgerOffset)(implicit

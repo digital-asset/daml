@@ -135,7 +135,7 @@ object Converter {
   private def fromAnyTemplate(
       translator: preprocessing.ValueTranslator,
       templateId: Identifier,
-      argument: Value[ContractId],
+      argument: Value,
   ): Either[String, SValue] = {
     val anyTemplateTy = daInternalAny("AnyTemplate")
     for {
@@ -166,7 +166,7 @@ object Converter {
       translator: preprocessing.ValueTranslator,
       templateId: Identifier,
       choiceName: ChoiceName,
-      argument: Value[ContractId],
+      argument: Value,
   ): Either[String, SValue] = {
     val contractIdTy = daInternalAny("AnyChoice")
     for {
@@ -224,7 +224,7 @@ object Converter {
           anyTemplate <- toAnyTemplate(vals.get(0))
         } yield command.CreateCommand(
           templateId = anyTemplate.ty,
-          argument = anyTemplate.arg.toValue,
+          argument = anyTemplate.arg.toUnnormalizedValue,
         )
       }
       case _ => Left(s"Expected Create but got $v")
@@ -242,7 +242,7 @@ object Converter {
           templateId = tplId,
           contractId = cid,
           choiceId = anyChoice.name,
-          argument = anyChoice.arg.toValue,
+          argument = anyChoice.arg.toUnnormalizedValue,
         )
       }
       case _ => Left(s"Expected Exercise but got $v")
@@ -258,9 +258,9 @@ object Converter {
           anyChoice <- toAnyChoice(vals.get(2))
         } yield command.ExerciseByKeyCommand(
           templateId = tplId,
-          contractKey = anyKey.key.toValue,
+          contractKey = anyKey.key.toUnnormalizedValue,
           choiceId = anyChoice.name,
-          argument = anyChoice.arg.toValue,
+          argument = anyChoice.arg.toUnnormalizedValue,
         )
       }
       case _ => Left(s"Expected ExerciseByKey but got $v")
@@ -274,9 +274,9 @@ object Converter {
           anyChoice <- toAnyChoice(vals.get(1))
         } yield command.CreateAndExerciseCommand(
           templateId = anyTemplate.ty,
-          createArgument = anyTemplate.arg.toValue,
+          createArgument = anyTemplate.arg.toUnnormalizedValue,
           choiceId = anyChoice.name,
-          choiceArgument = anyChoice.arg.toValue,
+          choiceArgument = anyChoice.arg.toUnnormalizedValue,
         )
       }
       case _ => Left(s"Expected CreateAndExercise but got $v")
@@ -408,7 +408,7 @@ object Converter {
             ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId.coid)),
             ("choice", SText(choiceName)),
             ("argument", anyChoice),
-            ("childEvents", SList(FrontStack(evs))),
+            ("childEvents", SList(evs.to(FrontStack))),
           ),
         )
     }
@@ -416,7 +416,7 @@ object Converter {
       events <- tree.rootEvents.traverse(translateTreeEvent(_)): Either[String, List[SValue]]
     } yield record(
       scriptIds.damlScript("SubmitFailure"),
-      ("rootEvents", SList(FrontStack(events))),
+      ("rootEvents", SList(events.to(FrontStack))),
     )
   }
 
@@ -668,18 +668,23 @@ object Converter {
       lfValue <-
         try {
           Right(
-            jsValue.convertTo[Value[ContractId]](
+            jsValue.convertTo[Value](
               LfValueCodec.apiValueJsonReader(paramIface, damlLfTypeLookup(_))
             )
           )
         } catch {
           case e: Exception => Left(s"LF conversion failed: ${e.toString}")
         }
-      valueTranslator = new preprocessing.ValueTranslator(compiledPackages.interface)
+      valueTranslator =
+        new preprocessing.ValueTranslator(
+          compiledPackages.interface,
+          forbidV0ContractId = false,
+          requireV1ContractIdSuffix = false,
+        )
       sValue <- valueTranslator
         .translateValue(ty, lfValue)
         .left
-        .map(_.msg)
+        .map(_.message)
     } yield sValue
   }
 

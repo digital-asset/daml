@@ -9,7 +9,6 @@ import java.security.MessageDigest
 import com.daml.lf.data.{Numeric, Utf8}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
 
 /** @deprecated in favor of [[GlobalKey.hash]]
   */
@@ -49,7 +48,7 @@ object KeyHasher extends KeyHasher {
     * @param op operation to append a hash token
     * @return the final hash value
     */
-  def foldLeft[T](value: Value[ContractId], z: T, op: (T, HashToken) => T): T = {
+  def foldLeft[T](value: Value, z: T, op: (T, HashToken) => T): T = {
     import com.daml.lf.value.Value._
 
     value match {
@@ -128,7 +127,7 @@ object KeyHasher extends KeyHasher {
   // Do not use directly. It is package visible for testing purpose.
   private[serialization] def putValue(
       digest: MessageDigest,
-      value: Value[ContractId],
+      value: Value,
   ): MessageDigest = {
     // Then, write the value
     foldLeft[MessageDigest](

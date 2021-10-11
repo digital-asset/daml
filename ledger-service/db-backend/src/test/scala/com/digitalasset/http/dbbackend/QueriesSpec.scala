@@ -3,33 +3,73 @@
 
 package com.daml.http.dbbackend
 
+import doobie.implicits._
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scala.collection.immutable.Seq
+import scalaz.\/
 
-class QueriesSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
-  "uniqueSets" should {
-    import Queries.uniqueSets
-    "return only a map if given and non-empty" in forAll { (m: Map[Int, Int], c: (Int, Int)) =>
-      val nem = m + c
-      uniqueSets(nem) should ===(Seq(nem))
+class QueriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+  import QueriesSpec._
+
+  "projectedIndex" should {
+    import Queries.{projectedIndex, SurrogateTpId}
+
+    val cases = Table(
+      ("map", "projection"),
+      (
+        Seq((SurrogateTpId(55L), fr"foo") -> 0),
+        sql"CASE WHEN (tpid = ${55L}) THEN ${0}||''  ELSE NULL END ",
+      ),
+      (
+        Seq((SurrogateTpId(55L), fr"foo") -> 0, (SurrogateTpId(66L), fr"foo") -> 1),
+        sql"CASE WHEN (tpid = ${55L}) THEN ${0}||''  WHEN (tpid = ${66L}) THEN ${1}||''  ELSE NULL END ",
+      ),
+      (
+        Seq(
+          (SurrogateTpId(55L), fr"foo") -> 0,
+          (SurrogateTpId(55L), fr"bar") -> 1,
+          (SurrogateTpId(66L), fr"baz") -> 2,
+        ),
+        sql"CASE WHEN (tpid = ${55L}) THEN " ++
+          sql"(CASE WHEN (foo ) THEN ${0}||',' ELSE '' END) || (CASE WHEN (bar ) THEN ${1}||',' ELSE '' END) " ++
+          sql" WHEN (tpid = ${66L}) THEN ${2}||''  ELSE NULL END ",
+      ),
+    )
+
+    "yield expected expressions for sample inputs" in forEvery(cases) { (map, projection) =>
+      val frag = projectedIndex(map, sql"tpid")
+      frag.toString should ===(projection.toString)
+      fragmentElems(frag) should ===(fragmentElems(projection))
+    }
+  }
+
+  "groupUnsyncedOffsets" should {
+    import Queries.groupUnsyncedOffsets
+    "not drop duplicate template IDs" in {
+      groupUnsyncedOffsets(Set.empty, Vector((0, (1, 2)), (0, (3, 4)))) should ===(
+        Map(0 -> Map(1 -> 2, 3 -> 4))
+      )
     }
 
-    "return empty for empty" in {
-      uniqueSets(Seq.empty[(Int, Int)]) should ===(Seq.empty)
+    "add empty maps for template IDs missing from the input" in {
+      groupUnsyncedOffsets(Set(0, 1, 2), Vector((0, (1, 2)), (0, (3, 4)))) should ===(
+        Map(0 -> Map(1 -> 2, 3 -> 4), 1 -> Map.empty, 2 -> Map.empty)
+      )
     }
+  }
+}
 
-    "return n elements in order if all given the same key" in forAll { xs: Seq[Int] =>
-      uniqueSets(xs map ((42, _))) should ===(xs map (x => Map(42 -> x)))
-    }
+object QueriesSpec {
+  // XXX dedup with ValuePredicateTest
+  import cats.data.Chain, doobie.util.fragment.{Elem, Fragment}
 
-    "always return all elements, albeit in different order" in forAll { xs: Seq[(Byte, Int)] =>
-      uniqueSets(xs).flatten should contain theSameElementsAs xs
-    }
-
-    "never produce an empty map" in forAll { xs: Seq[(Int, Int)] =>
-      uniqueSets(xs) shouldNot contain(Map.empty)
+  private def fragmentElems(frag: Fragment): Chain[Any \/ Option[Any]] = {
+    import language.reflectiveCalls, Elem.{Arg, Opt}
+    frag.asInstanceOf[{ def elems: Chain[Elem] }].elems.map {
+      case Arg(a, _) => \/.left(a)
+      case Opt(o, _) => \/.right(o)
     }
   }
 }

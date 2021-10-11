@@ -424,7 +424,7 @@ which is a prerequisite for contract formation in contract law. The
 contract `c` is effectively an offer by its signatories who act as
 offerers. The exercise is an acceptance of the offer by the actors who
 are the offerees. The consequences of the exercise can be interpreted
-as the contract body so the authorization rules of DA
+as the contract body so the authorization rules of Daml
 ledgers closely model the rules for contract formation in contract
 law.
 
@@ -550,7 +550,7 @@ another person's obligations. For example, `A`'s right to accept the
 accepts.
 In Daml ledgers, a party's rights according to a contract model are the exercise actions the party can perform according to the authorization and conformance rules.
 
-Finally, validity conditions ensure three important properties of the DA
+Finally, validity conditions ensure three important properties of the Daml
 ledger model, that mimic the contract law.
 
 #. **Obligations need consent**.

@@ -14,23 +14,26 @@
   "devDependencies": {
     "@bazel/hide-bazel-files": "1.7.0",
     "@bazel/typescript": "^3.4.2",
-    "@types/jest": "^26.0.20",
+    "@types/jest": "^26.0.23",
     "@types/lodash": "4.14.161",
     "@types/react": "^16.9.20",
     "@types/ws": "^7.2.1",
     "@typescript-eslint/eslint-plugin": "^2.16.0",
     "@typescript-eslint/parser": "^2.16.0",
     "eslint": "^6.8.0",
-    "jest": "^26.6.3",
-    "jest-cli": "^26.6.3",
+    "jest": "^27.0.5",
+    "jest-cli": "^27.0.5",
     "jest-mock-console": "^1.0.0",
-    "ts-jest": "^24.3.0",
+    "ts-jest": "^27.0.3",
     "typedoc": "^0.19.2"
   },
   "resolutions": {
     "marked": "^2.0.0",
     "**/y18n": "^4.0.1",
     "**/@types/react-test-renderer": "^16.9.3",
-    "**/hosted-git-info": "^4.0.2"
+    "**/hosted-git-info": "^4.0.2",
+    "**/string-width": "^4.2.3",
+    "**/strip-ansi": "^6.0.1",
+    "**/ansi-regex": "^5.0.1"
   }
 }

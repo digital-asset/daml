@@ -10,9 +10,9 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v1.{ParticipantId, WriteService}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.LoggingContext
@@ -36,7 +36,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[sandbox] trait IndexAndWriteService {
   def indexService: IndexService
 
-  def writeService: WriteService
+  def writeService: state.WriteService
 }
 
 private[sandbox] object SandboxIndexAndWriteService {
@@ -46,7 +46,7 @@ private[sandbox] object SandboxIndexAndWriteService {
   def postgres(
       name: LedgerName,
       providedLedgerId: LedgerIdMode,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       jdbcUrl: String,
       databaseConnectionPoolSize: Int,
       databaseConnectionTimeout: FiniteDuration,
@@ -57,6 +57,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       transactionCommitter: TransactionCommitter,
       templateStore: InMemoryPackageStore,
       eventsPageSize: Int,
+      eventsProcessingParallelism: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
@@ -83,6 +84,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       transactionCommitter = transactionCommitter,
       startMode = startMode,
       eventsPageSize = eventsPageSize,
+      eventsProcessingParallelism = eventsProcessingParallelism,
       servicesExecutionContext = servicesExecutionContext,
       metrics = metrics,
       lfValueTranslationCache = lfValueTranslationCache,
@@ -90,18 +92,26 @@ private[sandbox] object SandboxIndexAndWriteService {
       validatePartyAllocation = validatePartyAllocation,
       enableAppendOnlySchema = enableAppendOnlySchema,
       enableCompression = enableCompression,
-    ).flatMap(ledger => owner(MeteredLedger(ledger, metrics), participantId, timeProvider))
+    ).flatMap(ledger =>
+      owner(
+        ledger = MeteredLedger(ledger, metrics),
+        participantId = participantId,
+        timeProvider = timeProvider,
+        enablePruning = enableAppendOnlySchema,
+      )
+    )
 
   def inMemory(
       name: LedgerName,
       providedLedgerId: LedgerIdMode,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       transactionCommitter: TransactionCommitter,
       templateStore: InMemoryPackageStore,
       metrics: Metrics,
+      engine: Engine,
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
@@ -114,20 +124,27 @@ private[sandbox] object SandboxIndexAndWriteService {
         transactionCommitter,
         templateStore,
         ledgerEntries,
+        engine,
       )
-    owner(MeteredLedger(ledger, metrics), participantId, timeProvider)
+    owner(
+      ledger = MeteredLedger(ledger, metrics),
+      participantId = participantId,
+      timeProvider = timeProvider,
+      enablePruning = false,
+    )
   }
 
   private def owner(
       ledger: Ledger,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       timeProvider: TimeProvider,
+      enablePruning: Boolean,
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
   ): ResourceOwner[IndexAndWriteService] = {
     val indexSvc = new LedgerBackedIndexService(ledger, participantId)
-    val writeSvc = new LedgerBackedWriteService(ledger, timeProvider)
+    val writeSvc = new LedgerBackedWriteService(ledger, timeProvider, enablePruning)
 
     for {
       _ <- new HeartbeatScheduler(
@@ -139,7 +156,7 @@ private[sandbox] object SandboxIndexAndWriteService {
     } yield new IndexAndWriteService {
       override val indexService: IndexService = indexSvc
 
-      override val writeService: WriteService = writeSvc
+      override val writeService: state.WriteService = writeSvc
     }
   }
 

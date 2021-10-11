@@ -1,0 +1,30 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+module InterfaceErrors where
+
+interface MyInterface where
+    choice MyVirtualChoice : ()
+
+template MyTemplate
+    with
+        p : Party
+    where
+        signatory p
+
+-- @ERROR range=17:1-17:17; Attempt to fetch or exercise a wrongly typed contract.
+fetchBadContract = scenario do
+    p <- getParty "Alice"
+    p `submit` do
+        cid <- create (MyTemplate p)
+        let cid' : ContractId MyInterface = coerceContractId cid
+        fetch cid'
+
+-- @ERROR range=25:1-25:20; Attempt to fetch or exercise a wrongly typed contract
+exerciseBadContract = scenario do
+    p <- getParty "Alice"
+    p `submit` do
+        cid <- create (MyTemplate p)
+        let cid' : ContractId MyInterface = coerceContractId cid
+        exercise cid' MyVirtualChoice

@@ -32,10 +32,14 @@ case class Config(
     oauthRefreshTemplate: Option[Path],
     // OAuth2 client properties
     clientId: String,
-    clientSecret: String,
+    clientSecret: SecretString,
     // Token verification
     tokenVerifier: JwtVerifierBase,
 )
+
+case class SecretString(value: String) {
+  override def toString: String = "###"
+}
 
 object Config {
   val DefaultHttpPort: Int = 3000
@@ -134,7 +138,7 @@ object Config {
 
       opt[String]("secret")
         .hidden()
-        .action((x, c) => c.copy(clientSecret = x))
+        .action((x, c) => c.copy(clientSecret = SecretString(x)))
         .withFallback(() => sys.env.getOrElse("DAML_CLIENT_SECRET", ""))
         .validate(x =>
           if (x.isEmpty) failure("Environment variable DAML_CLIENT_SECRET must not be empty")

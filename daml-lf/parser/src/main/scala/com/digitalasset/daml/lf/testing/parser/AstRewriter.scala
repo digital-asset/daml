@@ -26,6 +26,7 @@ private[daml] class AstRewriter(
       definitions = module.definitions.transform((_, x) => apply(x)),
       templates = module.templates.transform((_, x) => apply(x)),
       exceptions = module.exceptions.transform((_, x) => apply(x)),
+      interfaces = module.interfaces.transform((_, x) => apply(x)),
       featureFlags = module.featureFlags,
     )
 
@@ -124,6 +125,12 @@ private[daml] class AstRewriter(
           EFromAnyException(apply(ty), apply(body))
         case EToAnyException(typ, body) =>
           EToAnyException(apply(typ), apply(body))
+        case EToInterface(iface, tpl, value) =>
+          EToInterface(apply(iface), apply(tpl), apply(value))
+        case EFromInterface(iface, tpl, value) =>
+          EFromInterface(apply(iface), apply(tpl), apply(value))
+        case ECallInterface(iface, method, value) =>
+          ECallInterface(apply(iface), method, apply(value))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {
@@ -153,8 +160,12 @@ private[daml] class AstRewriter(
         UpdateCreate(apply(templateId), apply(arg))
       case UpdateFetch(templateId, contractId) =>
         UpdateFetch(apply(templateId), apply(contractId))
+      case UpdateFetchInterface(interface, contractId) =>
+        UpdateFetchInterface(apply(interface), apply(contractId))
       case UpdateExercise(templateId, choice, cid, arg) =>
         UpdateExercise(apply(templateId), choice, cid, apply(arg))
+      case UpdateExerciseInterface(interface, choice, cid, arg) =>
+        UpdateExerciseInterface(apply(interface), choice, cid, apply(arg))
       case UpdateExerciseByKey(templateId, choice, key, arg) =>
         UpdateExerciseByKey(apply(templateId), choice, apply(key), apply(arg))
       case UpdateGetTime => x
@@ -205,6 +216,8 @@ private[daml] class AstRewriter(
         DDataType(serializable, params, DataVariant(variants.map(apply)))
       case DDataType(serializable @ _, params @ _, DataEnum(values @ _)) =>
         x
+      case DDataType(serializable @ _, params @ _, DataInterface) =>
+        x
       case DValue(typ, noPartyLiterals, body, isTest) =>
         DValue(apply(typ), noPartyLiterals, apply(body), isTest)
 
@@ -214,7 +227,16 @@ private[daml] class AstRewriter(
 
   def apply(x: Template): Template =
     x match {
-      case Template(param, precond, signatories, agreementText, choices, observers, key) =>
+      case Template(
+            param,
+            precond,
+            signatories,
+            agreementText,
+            choices,
+            observers,
+            key,
+            implements,
+          ) =>
         Template(
           param,
           apply(precond),
@@ -225,6 +247,7 @@ private[daml] class AstRewriter(
           },
           apply(observers),
           key.map(apply),
+          implements.transform((_, x) => apply(x)),
         )
     }
 
@@ -252,6 +275,29 @@ private[daml] class AstRewriter(
         )
     }
 
+  def apply(x: TemplateImplements): TemplateImplements =
+    x match {
+      case TemplateImplements(
+            interface,
+            methods,
+          ) =>
+        TemplateImplements(
+          interface,
+          methods.transform((_, x) => apply(x)),
+        )
+    }
+  def apply(x: TemplateImplementsMethod): TemplateImplementsMethod =
+    x match {
+      case TemplateImplementsMethod(
+            name,
+            value,
+          ) =>
+        TemplateImplementsMethod(
+          name,
+          apply(value),
+        )
+    }
+
   def apply(x: TemplateKey): TemplateKey =
     x match {
       case TemplateKey(typ, body, maintainers) =>
@@ -261,6 +307,29 @@ private[daml] class AstRewriter(
   def apply(x: DefException): DefException =
     x match {
       case DefException(message) => DefException(apply(message))
+    }
+
+  def apply(x: InterfaceChoice): InterfaceChoice =
+    x match {
+      case InterfaceChoice(name, consuming, argType, returnType) =>
+        InterfaceChoice(name, consuming, apply(argType), returnType = apply(returnType))
+    }
+
+  def apply(x: InterfaceMethod): InterfaceMethod =
+    x match {
+      case InterfaceMethod(name, returnType) =>
+        InterfaceMethod(name, apply(returnType))
+    }
+
+  def apply(x: DefInterface): DefInterface =
+    x match {
+      case DefInterface(param, virtualChoices, fixedChoices, methods) =>
+        DefInterface(
+          param,
+          virtualChoices.transform((_, v) => apply(v)),
+          fixedChoices.transform((_, v) => apply(v)),
+          methods.transform((_, v) => apply(v)),
+        )
     }
 }
 

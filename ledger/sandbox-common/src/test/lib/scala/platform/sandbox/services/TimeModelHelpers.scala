@@ -10,7 +10,7 @@ import com.daml.ledger.api.v1.admin.config_management_service.{
   SetTimeModelRequest,
   TimeModel => ProtobufTimeModel,
 }
-import com.daml.ledger.participant.state.v1.TimeModel
+import com.daml.ledger.configuration.LedgerTimeModel
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.Channel
 
@@ -22,7 +22,7 @@ object TimeModelHelpers {
     for {
       current <- configService.getTimeModel(GetTimeModelRequest())
       generation = current.configurationGeneration
-      timeModel = TimeModel.reasonableDefault
+      timeModel = LedgerTimeModel.reasonableDefault
       _ <- configService.setTimeModel(
         SetTimeModelRequest(
           "config-submission",

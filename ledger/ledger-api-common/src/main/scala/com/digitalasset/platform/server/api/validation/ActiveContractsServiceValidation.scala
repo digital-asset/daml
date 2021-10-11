@@ -11,7 +11,7 @@ import com.daml.ledger.api.v1.active_contracts_service.{
   GetActiveContractsResponse,
 }
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.ProxyCloseable
+import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 import org.slf4j.{Logger, LoggerFactory}
@@ -27,14 +27,17 @@ class ActiveContractsServiceValidation(
     with GrpcApiService
     with FieldValidations {
 
-  protected val logger: Logger = LoggerFactory.getLogger(ActiveContractsService.getClass)
+  protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
 
   override def getActiveContracts(
       request: GetActiveContractsRequest,
       responseObserver: StreamObserver[GetActiveContractsResponse],
   ): Unit = {
     matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
-      .fold(responseObserver.onError, _ => service.getActiveContracts(request, responseObserver))
+      .fold(
+        t => responseObserver.onError(ValidationLogger.logFailure(request, t)),
+        _ => service.getActiveContracts(request, responseObserver),
+      )
   }
   override def bindService(): ServerServiceDefinition =
     ActiveContractsServiceGrpc.bindService(this, executionContext)

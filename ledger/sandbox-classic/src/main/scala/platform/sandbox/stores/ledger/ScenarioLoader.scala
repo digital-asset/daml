@@ -11,8 +11,7 @@ import com.daml.lf.data.Ref.DefinitionRef
 import com.daml.lf.data.{Relation => _, _}
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
-import com.daml.lf.scenario.ScenarioLedger
-import com.daml.lf.speedy.ScenarioRunner
+import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.store.entries.LedgerEntry
@@ -79,7 +78,7 @@ private[sandbox] object ScenarioLoader {
 
       def bumps(entryTxId: ScenarioLedger.TransactionId, nextTxId: ScenarioLedger.TransactionId) =
         if ((nextTxId.index - entryTxId.index) == 1)
-          ImmArray.empty
+          ImmArray.Empty
         else
           ImmArray(LedgerEntryOrBump.Bump((nextTxId.index - entryTxId.index - 1)))
 
@@ -106,7 +105,7 @@ private[sandbox] object ScenarioLoader {
           decorateWithIncrement(newProcessed, entries)
       }
     }
-    (acs, decorateWithIncrement(BackStack.empty, ImmArray(ledgerEntries)), time.toInstant)
+    (acs, decorateWithIncrement(BackStack.empty, ledgerEntries.to(ImmArray)), time.toInstant)
   }
 
   private[this] def buildScenarioLedger(
@@ -122,7 +121,7 @@ private[sandbox] object ScenarioLoader {
     (scenarioLedger, scenarioRef)
   }
 
-  @nowarn("cat=deprecation&origin=com\\.daml\\.lf\\.speedy\\.ScenarioRunner\\.getScenarioLedger")
+  @nowarn("cat=deprecation&origin=com\\.daml\\.lf\\.scenario\\.ScenarioRunner\\.getScenarioLedger")
   private def getScenarioLedger(
       engine: Engine,
       transactionSeed: Hash,
@@ -182,7 +181,8 @@ private[sandbox] object ScenarioLoader {
     }
   }
 
-  private val workflowIdPrefix = Ref.LedgerString.assertFromString(s"scenario-workflow-")
+  private val submissionIdPrefix = Ref.LedgerString.assertFromString("scenario-submission-")
+  private val workflowIdPrefix = Ref.LedgerString.assertFromString("scenario-workflow-")
   private val scenarioLoader = Ref.LedgerString.assertFromString("scenario-loader")
 
   private def executeScenarioStep(
@@ -210,8 +210,9 @@ private[sandbox] object ScenarioLoader {
         }
 
         val transactionId = txId.id
-        val workflowId =
-          Some(Ref.LedgerString.assertConcat(workflowIdPrefix, Ref.LedgerString.fromInt(stepId)))
+        val stepIdString = Ref.LedgerString.fromInt(stepId)
+        val submissionId = Some(Ref.SubmissionId.assertConcat(submissionIdPrefix, stepIdString))
+        val workflowId = Some(Ref.WorkflowId.assertConcat(workflowIdPrefix, stepIdString))
         val tx = richTransaction.transaction
         // copies non-absolute-able node IDs, but IDs that don't match
         // get intersected away later
@@ -234,6 +235,7 @@ private[sandbox] object ScenarioLoader {
                     Some(transactionId),
                     transactionId,
                     Some(scenarioLoader),
+                    submissionId,
                     richTransaction.actAs.toList,
                     workflowId,
                     time.toInstant,

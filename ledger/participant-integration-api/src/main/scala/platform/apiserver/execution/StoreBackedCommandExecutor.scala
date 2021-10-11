@@ -7,8 +7,9 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 import com.daml.ledger.api.domain.{Commands => ApiCommands}
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
-import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.crypto
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.{
@@ -18,10 +19,8 @@ import com.daml.lf.engine.{
   ResultError,
   ResultNeedContract,
   ResultNeedKey,
-  ResultNeedLocalKeyVisible,
   ResultNeedPackage,
   Error => DamlLfError,
-  VisibleByKey,
 }
 import com.daml.lf.transaction.Node
 import com.daml.logging.LoggingContext
@@ -45,6 +44,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
   override def execute(
       commands: ApiCommands,
       submissionSeed: crypto.Hash,
+      ledgerConfiguration: Configuration,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
@@ -59,7 +59,13 @@ private[apiserver] final class StoreBackedCommandExecutor(
     val commitAuthorizers = commands.actAs
     val submissionResult = Timed.trackedValue(
       metrics.daml.execution.engineRunning,
-      engine.submit(commitAuthorizers, commands.commands, participant, submissionSeed),
+      engine.submit(
+        commitAuthorizers,
+        commands.readAs,
+        commands.commands,
+        participant,
+        submissionSeed,
+      ),
     )
     consume(commands.actAs, commands.readAs, submissionResult)
       .map { submission =>
@@ -69,13 +75,15 @@ private[apiserver] final class StoreBackedCommandExecutor(
         } yield {
           val interpretationTimeNanos = System.nanoTime() - start
           CommandExecutionResult(
-            submitterInfo = SubmitterInfo(
+            submitterInfo = state.SubmitterInfo(
               commands.actAs.toList,
               commands.applicationId.unwrap,
               commands.commandId.unwrap,
-              commands.deduplicateUntil,
+              commands.deduplicationPeriod,
+              commands.submissionId.unwrap,
+              ledgerConfiguration,
             ),
-            transactionMeta = TransactionMeta(
+            transactionMeta = state.TransactionMeta(
               commands.commands.ledgerEffectiveTime,
               commands.workflowId.map(_.unwrap),
               meta.submissionTime,
@@ -84,7 +92,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               Some(meta.nodeSeeds),
               Some(
                 updateTx.nodes
-                  .collect { case (nodeId, node: Node.GenActionNode[_, _]) if node.byKey => nodeId }
+                  .collect { case (nodeId, node: Node.GenActionNode) if node.byKey => nodeId }
                   .to(ImmArray)
               ),
             ),
@@ -101,7 +109,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
       loggingContext: LoggingContext,
   ): Future[Either[DamlLfError, A]] = {
     val readers = actAs ++ readAs
-    val isVisible = VisibleByKey.fromSubmitters(actAs, readAs)
 
     val lookupActiveContractTime = new AtomicLong(0L)
     val lookupActiveContractCount = new AtomicLong(0L)
@@ -144,10 +151,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
                 Timed.trackedValue(metrics.daml.execution.engineRunning, resume(contractId))
               )
             }
-
-        case ResultNeedLocalKeyVisible(stakeholders, resume) =>
-          val visible = isVisible(stakeholders)
-          resolveStep(Timed.trackedValue(metrics.daml.execution.engineRunning, resume(visible)))
 
         case ResultNeedPackage(packageId, resume) =>
           packageLoader

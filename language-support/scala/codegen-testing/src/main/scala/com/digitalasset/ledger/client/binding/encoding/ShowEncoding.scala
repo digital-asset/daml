@@ -8,7 +8,6 @@ import java.time.format.DateTimeFormatter
 
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.client.binding.{Primitive => P}
-import scalaz.Cord.stringToCord
 import scalaz.Scalaz._
 import scalaz.Show.{show, showFromToString}
 import scalaz._

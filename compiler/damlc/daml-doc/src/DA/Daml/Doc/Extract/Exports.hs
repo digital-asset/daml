@@ -118,8 +118,11 @@ exportsField (ExportOnly xs) ty field =
     Set.member (ExportedTypeAll ty) xs
     || Set.member (ExportedFunction field) xs
 
-filterTypeByExports :: ExportSet -> ADTDoc -> Maybe ADTDoc
-filterTypeByExports exports ad = do
+filterTypeByExports :: Modulename -> ExportSet -> ADTDoc -> Maybe ADTDoc
+filterTypeByExports (Modulename "GHC.Types") _ ad@ADTDoc{ad_name = Typename "[]"} = Just ad
+    -- GHC.Types.[] cannot be exported explicitly,
+    -- so we skip the export filtering for this type.
+filterTypeByExports _ exports ad = do
     guard (exportsType exports (ad_name ad))
     case ad of
         TypeSynDoc{} -> Just ad

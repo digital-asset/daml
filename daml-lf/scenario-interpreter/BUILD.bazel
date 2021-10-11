@@ -8,17 +8,22 @@ load(
     "da_scala_test",
     "da_scala_test_suite",
     "lf_scalacopts",
+    "lf_scalacopts_stricter",
 )
 load(
     "//rules_daml:daml.bzl",
     "daml_compile",
 )
+load("@scala_version//:index.bzl", "scala_major_version")
 
 da_scala_library(
     name = "scenario-interpreter",
     srcs = glob(["src/main/**/*.scala"]),
     main_class = "com.daml.lf.speedy.Main",
+    scala_deps = ["@maven//:org_typelevel_paiges_core"],
+    scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-scenario-interpreter:__VERSION__"],
+    versioned_scala_deps = {"2.12": ["@maven//:org_scalaz_scalaz_core"]},
     visibility = [
         "//visibility:public",
     ],
@@ -28,6 +33,8 @@ da_scala_library(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
+        "//libs-scala/nameof",
+        "//libs-scala/scala-utils",
     ],
 )
 
@@ -42,6 +49,7 @@ da_scala_test_suite(
     deps = [
         ":scenario-interpreter",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
@@ -53,6 +61,8 @@ daml_compile(
     srcs = ["src/perf/resources/damls/CollectAuthority.daml"],
     visibility = ["//visibility:public"],
 )
+
+# TODO (MK) Figure out what to do about the benchmark.
 
 da_scala_benchmark_jmh(
     name = "scenario-perf",
@@ -70,8 +80,10 @@ da_scala_benchmark_jmh(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
+        "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
     ],

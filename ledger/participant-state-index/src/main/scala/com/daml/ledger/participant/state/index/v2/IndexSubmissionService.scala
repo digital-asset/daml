@@ -5,8 +5,8 @@ package com.daml.ledger.participant.state.index.v2
 
 import java.time.Instant
 
-import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain.CommandId
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future

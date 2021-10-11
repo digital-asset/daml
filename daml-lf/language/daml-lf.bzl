@@ -4,7 +4,7 @@
 # The following dictionary alias LF versions to keywords:
 # - "legacy" is the keyword for last LF version that supports legacy
 #    contract ID scheme,
-# - "stable" is the keyword for the default compiler output,
+# - "default" is the keyword for the default compiler output,
 # - "latest" is the keyword for the latest stable LF version,
 # - "preview" is the keyword fort he next LF version, *not stable*,
 #    usable for beta testing,
@@ -18,9 +18,8 @@
 
 lf_version_configuration = {
     "legacy": "1.8",
-    "stable": "1.12",
-    "latest": "1.13",
-    "preview": "1.14",
+    "default": "1.14",
+    "latest": "1.14",
     "dev": "1.dev",
 }
 
@@ -86,8 +85,8 @@ def mangle_for_java(name):
     return name.replace(".", "_")
 
 def _to_major_minor(v):
-    (majorStr, minorStr) = v.partition(".")
-    (int(majorStr), int(minorStr))
+    (majorStr, _, minorStr) = v.partition(".")
+    return (int(majorStr), int(minorStr))
 
 def _cmp(a, b):
     if a == b:

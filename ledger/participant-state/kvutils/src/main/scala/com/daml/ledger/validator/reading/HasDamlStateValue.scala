@@ -3,7 +3,7 @@
 
 package com.daml.ledger.validator
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
+import com.daml.ledger.participant.state.kvutils.store.DamlStateValue
 
 /** This typeclass signifies that implementor contains an optional Daml state value.
   *

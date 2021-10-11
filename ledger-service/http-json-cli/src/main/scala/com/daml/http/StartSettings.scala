@@ -11,6 +11,7 @@ import scala.concurrent.duration.FiniteDuration
 
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
+import com.daml.metrics.MetricsReporter
 
 // defined separately from Config so
 //  1. it is absolutely lexically apparent what `import startSettings._` means
@@ -23,7 +24,6 @@ trait StartSettings {
   val portFile: Option[Path]
   val tlsConfig: TlsConfiguration
   val wsConfig: Option[WebsocketConfig]
-  val accessTokenFile: Option[Path]
   val allowNonHttps: Boolean
   val staticContentConfig: Option[StaticContentConfig]
   val packageReloadInterval: FiniteDuration
@@ -33,6 +33,8 @@ trait StartSettings {
   val nonRepudiation: nonrepudiation.Configuration.Cli
   val logLevel: Option[LogLevel]
   val logEncoder: LogEncoder
+  val metricsReporter: Option[MetricsReporter]
+  val metricsReportingInterval: FiniteDuration
 }
 
 object StartSettings {

@@ -3,49 +3,44 @@
 
 package com.daml.platform.indexer.parallel
 
-import java.sql.Connection
-import java.util.concurrent.TimeUnit
+import java.util.Timer
+import java.util.concurrent.Executors
 
-import akka.NotUsed
-import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.{KillSwitch, KillSwitches, Materializer, UniqueKillSwitch}
-import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, ReadService, Update}
+import akka.stream.{KillSwitch, Materializer}
+import com.daml.ledger.participant.state.v2.ReadService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{InstrumentedSource, Metrics}
+import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.indexer.ha.{HaConfig, HaCoordinator, Handle, NoopHaCoordinator}
 import com.daml.platform.indexer.parallel.AsyncSupport._
-import com.daml.platform.indexer.{IndexFeedHandle, Indexer}
-import com.daml.platform.store.{DbType, backend}
+import com.daml.platform.indexer.Indexer
 import com.daml.platform.store.appendonlydao.DbDispatcher
-import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
-import com.daml.platform.store.backend.{DbDto, StorageBackend}
-import com.daml.resources
+import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
+import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend}
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 
-import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 object ParallelIndexerFactory {
 
-  private val logger = ContextualizedLogger.get(this.getClass)
-
-  def apply[DB_BATCH](
+  def apply(
       jdbcUrl: String,
-      storageBackend: StorageBackend[DB_BATCH],
-      participantId: ParticipantId,
-      translation: LfValueTranslation,
-      compressionStrategy: CompressionStrategy,
-      mat: Materializer,
-      maxInputBufferSize: Int,
       inputMappingParallelism: Int,
       batchingParallelism: Int,
       ingestionParallelism: Int,
-      submissionBatchSize: Long,
-      tailingRateLimitPerSecond: Int,
-      batchWithinMillis: Long,
+      dataSourceConfig: DataSourceConfig,
+      haConfig: HaConfig,
       metrics: Metrics,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
+      storageBackend: DBLockStorageBackend with DataSourceStorageBackend,
+      initializeParallelIngestion: InitializeParallelIngestion,
+      parallelIndexerSubscription: ParallelIndexerSubscription[_],
+      mat: Materializer,
+      readService: ReadService,
+  )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] =
     for {
       inputMapperExecutor <- asyncPool(
         inputMappingParallelism,
@@ -57,257 +52,119 @@ object ParallelIndexerFactory {
         "batching-pool",
         Some(metrics.daml.parallelIndexer.batching.executor -> metrics.registry),
       )
-      dbDispatcher <- DbDispatcher
-        .owner(
-          serverRole = ServerRole.Indexer,
-          jdbcUrl = jdbcUrl,
-          connectionPoolSize = ingestionParallelism + 1, // + 1 for the tailing ledger_end updates
-          connectionTimeout = FiniteDuration(
-            250,
-            "millis",
-          ), // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
-          metrics = metrics,
-          connectionAsyncCommitMode = DbType.AsynchronousCommit,
-        )
-      toDbDto = backend.UpdateToDbDto(
-        participantId = participantId,
-        translation = translation,
-        compressionStrategy = compressionStrategy,
-      )
-    } yield {
-      val ingest: Long => Source[(Offset, Update), NotUsed] => Source[Unit, NotUsed] =
-        initialSeqId =>
-          source =>
-            BatchingParallelIngestionPipe(
-              submissionBatchSize = submissionBatchSize,
-              batchWithinMillis = batchWithinMillis,
-              inputMappingParallelism = inputMappingParallelism,
-              inputMapper = inputMapperExecutor.execute(inputMapper(metrics, toDbDto)),
-              seqMapperZero = seqMapperZero(initialSeqId),
-              seqMapper = seqMapper(metrics),
-              batchingParallelism = batchingParallelism,
-              batcher = batcherExecutor.execute(batcher(storageBackend.batch, metrics)),
-              ingestingParallelism = ingestionParallelism,
-              ingester = ingester(storageBackend.insertBatch, dbDispatcher, metrics),
-              tailer = tailer(storageBackend.batch(Vector.empty)),
-              tailingRateLimitPerSecond = tailingRateLimitPerSecond,
-              ingestTail = ingestTail[DB_BATCH](storageBackend.updateParams, dbDispatcher, metrics),
-            )(
-              InstrumentedSource
-                .bufferedSource(
-                  original = source,
-                  counter = metrics.daml.parallelIndexer.inputBufferLength,
-                  size = maxInputBufferSize,
+      haCoordinator <-
+        if (storageBackend.dbLockSupported) {
+          for {
+            executionContext <- ResourceOwner
+              .forExecutorService(() =>
+                ExecutionContext.fromExecutorService(
+                  Executors.newFixedThreadPool(
+                    1,
+                    new ThreadFactoryBuilder().setNameFormat(s"ha-coordinator-%d").build,
+                  )
                 )
-                .map(_ -> System.nanoTime())
-            ).map(_ => ())
-
-      def subscribe(readService: ReadService): Future[Source[Unit, NotUsed]] =
-        dbDispatcher
-          .executeSql(metrics.daml.parallelIndexer.initialization)(storageBackend.initialize)
-          .map(initialized =>
-            ingest(initialized.lastEventSeqId.getOrElse(0L))(
-              readService.stateUpdates(beginAfter = initialized.lastOffset)
+              )
+            timer <- ResourceOwner.forTimer(() => new Timer)
+            // this DataSource will be used to spawn the main connection where we keep the Indexer Main Lock
+            // The life-cycle of such connections matches the life-cycle of a protectedExecution
+            dataSource = storageBackend.createDataSource(jdbcUrl)
+          } yield HaCoordinator.databaseLockBasedHaCoordinator(
+            connectionFactory = () => dataSource.getConnection,
+            storageBackend = storageBackend,
+            executionContext = executionContext,
+            timer = timer,
+            haConfig = haConfig,
+          )
+        } else
+          ResourceOwner.successful(NoopHaCoordinator)
+    } yield toIndexer { implicit resourceContext =>
+      implicit val ec: ExecutionContext = resourceContext.executionContext
+      haCoordinator.protectedExecution(connectionInitializer =>
+        initializeHandle(
+          DbDispatcher
+            .owner(
+              // this is the DataSource which will be wrapped by HikariCP, and which will drive the ingestion
+              // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
+              dataSource = storageBackend.createDataSource(
+                jdbcUrl = jdbcUrl,
+                dataSourceConfig = dataSourceConfig,
+                connectionInitHook = Some(connectionInitializer.initialize),
+              ),
+              serverRole = ServerRole.Indexer,
+              connectionPoolSize =
+                ingestionParallelism + 1, // + 1 for the tailing ledger_end updates
+              connectionTimeout = FiniteDuration(
+                250,
+                "millis",
+              ), // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
+              metrics = metrics,
             )
-          )(scala.concurrent.ExecutionContext.global)
-
-      toIndexer(subscribe)(mat)
-    }
-  }
-
-  /** Batch wraps around a T-typed batch, enriching it with processing relevant information.
-    *
-    * @param lastOffset The latest offset available in the batch. Needed for tail ingestion.
-    * @param lastSeqEventId The latest sequential-event-id in the batch, or if none present there, then the latest from before. Needed for tail ingestion.
-    * @param lastRecordTime The latest record time in the batch, in milliseconds since Epoch. Needed for metrics population.
-    * @param batch The batch of variable type.
-    * @param batchSize Size of the batch measured in number of updates. Needed for metrics population.
-    * @param averageStartTime The nanosecond timestamp of the start of the previous processing stage. Needed for metrics population: how much time is spend by a particular update in a certain stage.
-    */
-  case class Batch[+T](
-      lastOffset: Offset,
-      lastSeqEventId: Long,
-      lastRecordTime: Long,
-      batch: T,
-      batchSize: Int,
-      averageStartTime: Long,
-      offsets: Vector[Offset],
-  )
-
-  def inputMapper(
-      metrics: Metrics,
-      toDbDto: Offset => Update => Iterator[DbDto],
-  )(implicit
-      loggingContext: LoggingContext
-  ): Iterable[((Offset, Update), Long)] => Batch[Vector[DbDto]] = { input =>
-    metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)
-    input.foreach { case ((offset, update), _) =>
-      LoggingContext.withEnrichedLoggingContext(
-        IndexerLoggingContext.loggingContextFor(offset, update)
-      ) { implicit loggingContext =>
-        logger.info("Storing transaction")
-      }
-    }
-    val batch = input.iterator.flatMap { case ((offset, update), _) =>
-      toDbDto(offset)(update)
-    }.toVector
-    Batch(
-      lastOffset = input.last._1._1,
-      lastSeqEventId = 0, // will be filled later in the sequential step
-      lastRecordTime = input.last._1._2.recordTime.toInstant.toEpochMilli,
-      batch = batch,
-      batchSize = input.size,
-      averageStartTime = input.view.map(_._2 / input.size).sum,
-      offsets = input.view.map(_._1._1).toVector,
-    )
-  }
-
-  def seqMapperZero(initialSeqId: Long): Batch[Vector[DbDto]] =
-    Batch(
-      lastOffset = null,
-      lastSeqEventId = initialSeqId, // this is the only property of interest in the zero element
-      lastRecordTime = 0,
-      batch = Vector.empty,
-      batchSize = 0,
-      averageStartTime = 0,
-      offsets = Vector.empty,
-    )
-
-  def seqMapper(metrics: Metrics)(
-      previous: Batch[Vector[DbDto]],
-      current: Batch[Vector[DbDto]],
-  ): Batch[Vector[DbDto]] = {
-    var eventSeqId = previous.lastSeqEventId
-    val batchWithSeqIds = current.batch.map {
-      case dbDto: DbDto.EventCreate =>
-        eventSeqId += 1
-        dbDto.copy(event_sequential_id = eventSeqId)
-
-      case dbDto: DbDto.EventExercise =>
-        eventSeqId += 1
-        dbDto.copy(event_sequential_id = eventSeqId)
-
-      case dbDto: DbDto.EventDivulgence =>
-        eventSeqId += 1
-        dbDto.copy(event_sequential_id = eventSeqId)
-
-      case notEvent => notEvent
-    }
-    val nowNanos = System.nanoTime()
-    metrics.daml.parallelIndexer.inputMapping.duration.update(
-      (nowNanos - current.averageStartTime) / current.batchSize,
-      TimeUnit.NANOSECONDS,
-    )
-    current.copy(
-      lastSeqEventId = eventSeqId,
-      batch = batchWithSeqIds,
-      averageStartTime = nowNanos, // setting start time to the start of the next stage
-    )
-  }
-
-  def batcher[DB_BATCH](
-      batchF: Vector[DbDto] => DB_BATCH,
-      metrics: Metrics,
-  ): Batch[Vector[DbDto]] => Batch[DB_BATCH] = { inBatch =>
-    val dbBatch = batchF(inBatch.batch)
-    val nowNanos = System.nanoTime()
-    metrics.daml.parallelIndexer.batching.duration.update(
-      (nowNanos - inBatch.averageStartTime) / inBatch.batchSize,
-      TimeUnit.NANOSECONDS,
-    )
-    inBatch.copy(
-      batch = dbBatch,
-      averageStartTime = nowNanos,
-    )
-  }
-
-  def ingester[DB_BATCH](
-      ingestFunction: (Connection, DB_BATCH) => Unit,
-      dbDispatcher: DbDispatcher,
-      metrics: Metrics,
-  )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
-    batch =>
-      LoggingContext.withEnrichedLoggingContext(
-        "updateOffsets" -> batch.offsets.view.map(_.toHexString).mkString("[", ", ", "]")
-      ) { implicit loggingContext =>
-        dbDispatcher.executeSql(metrics.daml.parallelIndexer.ingestion) { connection =>
-          metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)
-          ingestFunction(connection, batch.batch)
-          val nowNanos = System.nanoTime()
-          metrics.daml.parallelIndexer.ingestion.duration.update(
-            (nowNanos - batch.averageStartTime) / batch.batchSize,
-            TimeUnit.NANOSECONDS,
+        ) { dbDispatcher =>
+          initializeParallelIngestion(
+            dbDispatcher = dbDispatcher,
+            readService = readService,
+            ec = ec,
+            mat = mat,
+          ).map(
+            parallelIndexerSubscription(
+              inputMapperExecutor = inputMapperExecutor,
+              batcherExecutor = batcherExecutor,
+              dbDispatcher = dbDispatcher,
+              materializer = mat,
+            )
           )
-          batch
         }
-      }
-
-  def tailer[DB_BATCH](
-      zeroDbBatch: DB_BATCH
-  ): (Batch[DB_BATCH], Batch[DB_BATCH]) => Batch[DB_BATCH] =
-    (_, curr) =>
-      Batch[DB_BATCH](
-        lastOffset = curr.lastOffset,
-        lastSeqEventId = curr.lastSeqEventId,
-        lastRecordTime = curr.lastRecordTime,
-        batch = zeroDbBatch, // not used anymore
-        batchSize = 0, // not used anymore
-        averageStartTime = 0, // not used anymore
-        offsets = Vector.empty, // not used anymore
       )
+    }
 
-  def ingestTail[DB_BATCH](
-      ingestTailFunction: (Connection, StorageBackend.Params) => Unit,
-      dbDispatcher: DbDispatcher,
-      metrics: Metrics,
-  )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
-    batch =>
-      LoggingContext.withEnrichedLoggingContext(
-        "updateOffset" -> batch.lastOffset.toHexString
-      ) { implicit loggingContext =>
-        dbDispatcher.executeSql(metrics.daml.parallelIndexer.tailIngestion) { connection =>
-          ingestTailFunction(
-            connection,
-            StorageBackend.Params(
-              ledgerEnd = batch.lastOffset,
-              eventSeqId = batch.lastSeqEventId,
-            ),
-          )
-          metrics.daml.indexer.ledgerEndSequentialId.updateValue(batch.lastSeqEventId)
-          metrics.daml.indexer.lastReceivedRecordTime.updateValue(batch.lastRecordTime)
-          metrics.daml.indexer.lastReceivedOffset.updateValue(batch.lastOffset.toHexString)
-          logger.info("Ledger end updated")
-          batch
-        }
-      }
-
-  def toIndexer(
-      ingestionPipeOn: ReadService => Future[Source[Unit, NotUsed]]
-  )(implicit mat: Materializer): Indexer =
-    readService =>
-      new ResourceOwner[IndexFeedHandle] {
-        override def acquire()(implicit
-            context: ResourceContext
-        ): resources.Resource[ResourceContext, IndexFeedHandle] = {
-          Resource {
-            ingestionPipeOn(readService).map { pipe =>
-              val (killSwitch, completionFuture) = pipe
-                .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-                .toMat(Sink.ignore)(Keep.both)
-                .run()
-              new SubscriptionIndexFeedHandle(killSwitch, completionFuture.map(_ => ()))
-            }
-          } { handle =>
-            handle.killSwitch.shutdown()
-            handle.completed.recover { case NonFatal(_) =>
-              ()
-            }
+  /** Helper function to combine a ResourceOwner and an initialization function to initialize a Handle.
+    *
+    * @param owner A ResourceOwner which needs to be used to spawn a resource needed by initHandle
+    * @param initHandle Asynchronous initialization function to create a Handle
+    * @return A Future of a Handle where Future encapsulates initialization (as completed initialization completed)
+    */
+  def initializeHandle[T](
+      owner: ResourceOwner[T]
+  )(initHandle: T => Future[Handle])(implicit rc: ResourceContext): Future[Handle] = {
+    implicit val ec: ExecutionContext = rc.executionContext
+    val killSwitchPromise = Promise[KillSwitch]()
+    val completed = owner
+      .use(resource =>
+        initHandle(resource)
+          .andThen {
+            // the tricky bit:
+            // the future in the completion handler will be this one
+            // but the future for signaling completion of initialization (the Future of the result), needs to complete precisely here
+            case Success(handle) => killSwitchPromise.success(handle.killSwitch)
           }
-        }
+          .flatMap(_.completed)
+      )
+      .andThen {
+        // if error happens:
+        //   - at Resource initialization (inside ResourceOwner.acquire()): result should complete with a Failure
+        //   - at initHandle: result should complete with a Failure
+        //   - at the execution spawned by initHandle (represented by the result Handle's complete): result should be with a success
+        // In the last case it is already finished the promise with a success, and this tryFailure will not succeed (returning false).
+        // In the other two cases the promise was not completed, and we complete here successfully with a failure.
+        case Failure(ex) => killSwitchPromise.tryFailure(ex)
       }
+    killSwitchPromise.future
+      .map(Handle(completed, _))
+  }
 
-  class SubscriptionIndexFeedHandle(
-      val killSwitch: KillSwitch,
-      override val completed: Future[Unit],
-  ) extends IndexFeedHandle
+  def toIndexer(subscription: ResourceContext => Handle): Indexer =
+    new Indexer {
+      override def acquire()(implicit context: ResourceContext): Resource[Future[Unit]] = {
+        Resource {
+          Future {
+            subscription(context)
+          }
+        } { handle =>
+          handle.killSwitch.shutdown()
+          handle.completed.recover { case NonFatal(_) =>
+            ()
+          }
+        }.map(_.completed)
+      }
+    }
 }

@@ -15,8 +15,8 @@ template DvpNotification
   where
     ensure isValidDvp c
     signatory c.seller
+    observer c.buyer
 
-    controller c.buyer can
-      Accept : ()
-        do
-          return ()
+    choice Accept : ()
+      controller c.buyer
+      do return ()

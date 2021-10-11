@@ -5,13 +5,14 @@ package com.daml.ledger.api
 
 import java.time.Instant
 
-import brave.propagation.TraceContext
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
-import com.daml.ledger.participant.state.v1.Configuration
+import com.daml.ledger.configuration.Configuration
 import com.daml.lf.command.{Commands => LfCommands}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString.ordering
+import com.daml.lf.data.logging._
 import com.daml.lf.value.{Value => Lf}
+import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import scalaz.syntax.tag._
 import scalaz.{@@, Tag}
 
@@ -27,7 +28,7 @@ object domain {
   object TransactionFilter {
 
     /** These parties subscribe for all templates */
-    def allForParties(parties: Set[Ref.Party]) =
+    def allForParties(parties: Set[Ref.Party]): TransactionFilter =
       TransactionFilter(parties.view.map(_ -> Filters.noFilter).toMap)
   }
 
@@ -37,7 +38,7 @@ object domain {
   }
 
   object Filters {
-    val noFilter = Filters(None)
+    val noFilter: Filters = Filters(None)
 
     def apply(inclusive: InclusiveFilters) = new Filters(Some(inclusive))
   }
@@ -54,6 +55,15 @@ object domain {
 
     case object LedgerEnd extends LedgerOffset
 
+    implicit val `Absolute Ordering`: Ordering[LedgerOffset.Absolute] =
+      Ordering.by[LedgerOffset.Absolute, String](_.value)
+
+    implicit val `LedgerOffset to LoggingValue`: ToLoggingValue[LedgerOffset] = value =>
+      LoggingValue.OfString(value match {
+        case LedgerOffset.Absolute(absolute) => absolute
+        case LedgerOffset.LedgerBegin => "%begin%"
+        case LedgerOffset.LedgerEnd => "%end%"
+      })
   }
 
   sealed trait Event extends Product with Serializable {
@@ -79,7 +89,7 @@ object domain {
         eventId: EventId,
         contractId: ContractId,
         templateId: Ref.Identifier,
-        createArguments: Lf.ValueRecord[ContractId],
+        createArguments: Lf.ValueRecord,
         witnessParties: immutable.Set[Ref.Party],
         signatories: immutable.Set[Ref.Party],
         observers: immutable.Set[Ref.Party],
@@ -124,8 +134,6 @@ object domain {
     def effectiveAt: Instant
 
     def offset: LedgerOffset.Absolute
-
-    def traceContext: Option[TraceContext]
   }
 
   final case class TransactionTree(
@@ -136,7 +144,6 @@ object domain {
       offset: LedgerOffset.Absolute,
       eventsById: immutable.Map[EventId, CreateOrExerciseEvent],
       rootEventIds: immutable.Seq[EventId],
-      traceContext: Option[TraceContext],
   ) extends TransactionBase
 
   final case class Transaction(
@@ -146,7 +153,6 @@ object domain {
       effectiveAt: Instant,
       events: immutable.Seq[CreateOrArchiveEvent],
       offset: LedgerOffset.Absolute,
-      traceContext: Option[TraceContext],
   ) extends TransactionBase
 
   sealed trait CompletionEvent extends Product with Serializable {
@@ -194,7 +200,7 @@ object domain {
       *
       * This means that the underlying ledger and its validation logic
       * considered the transaction potentially invalid. This can be due to a bug
-      * in the submission or validiation logic, or due to malicious behaviour.
+      * in the submission or validation logic, or due to malicious behaviour.
       */
     final case class Disputed(description: String) extends RejectionReason
 
@@ -207,7 +213,7 @@ object domain {
     final case class InvalidLedgerTime(description: String) extends RejectionReason
   }
 
-  type Value = Lf[Lf.ContractId]
+  type Value = Lf
 
   final case class RecordField(label: Option[Label], value: Value)
 
@@ -223,17 +229,17 @@ object domain {
 
   sealed trait WorkflowIdTag
 
-  type WorkflowId = Ref.LedgerString @@ WorkflowIdTag
+  type WorkflowId = Ref.WorkflowId @@ WorkflowIdTag
   val WorkflowId: Tag.TagOf[WorkflowIdTag] = Tag.of[WorkflowIdTag]
 
   sealed trait CommandIdTag
 
-  type CommandId = Ref.LedgerString @@ CommandIdTag
+  type CommandId = Ref.CommandId @@ CommandIdTag
   val CommandId: Tag.TagOf[CommandIdTag] = Tag.of[CommandIdTag]
 
   sealed trait TransactionIdTag
 
-  type TransactionId = Ref.LedgerString @@ TransactionIdTag
+  type TransactionId = Ref.TransactionId @@ TransactionIdTag
   val TransactionId: Tag.TagOf[TransactionIdTag] = Tag.of[TransactionIdTag]
 
   sealed trait ContractIdTag
@@ -245,7 +251,8 @@ object domain {
 
   type EventId = Ref.LedgerString @@ EventIdTag
   val EventId: Tag.TagOf[EventIdTag] = Tag.of[EventIdTag]
-  implicit val eventIdOrdering = scala.math.Ordering.by[EventId, Ref.LedgerString](_.unwrap)
+  implicit val eventIdOrdering: Ordering[EventId] =
+    Ordering.by[EventId, Ref.LedgerString](_.unwrap)
 
   sealed trait LedgerIdTag
 
@@ -259,24 +266,49 @@ object domain {
 
   sealed trait ApplicationIdTag
 
-  type ApplicationId = Ref.LedgerString @@ ApplicationIdTag
+  type ApplicationId = Ref.ApplicationId @@ ApplicationIdTag
   val ApplicationId: Tag.TagOf[ApplicationIdTag] = Tag.of[ApplicationIdTag]
+
+  sealed trait SubmissionIdTag
+
+  type SubmissionId = Ref.SubmissionId @@ SubmissionIdTag
+  val SubmissionId: Tag.TagOf[SubmissionIdTag] = Tag.of[SubmissionIdTag]
 
   case class Commands(
       ledgerId: LedgerId,
       workflowId: Option[WorkflowId],
       applicationId: ApplicationId,
       commandId: CommandId,
+      submissionId: SubmissionId,
       actAs: Set[Ref.Party],
       readAs: Set[Ref.Party],
       submittedAt: Instant,
-      deduplicateUntil: Instant,
+      deduplicationPeriod: DeduplicationPeriod,
       commands: LfCommands,
   )
 
-  /** @param party The stable unique identifier of a Daml party.
+  object Commands {
+
+    import Logging._
+
+    implicit val `Commands to LoggingValue`: ToLoggingValue[Commands] = commands =>
+      LoggingValue.Nested.fromEntries(
+        "ledgerId" -> commands.ledgerId,
+        "workflowId" -> commands.workflowId,
+        "applicationId" -> commands.applicationId,
+        "commandId" -> commands.commandId,
+        "actAs" -> commands.actAs,
+        "readAs" -> commands.readAs,
+        "submittedAt" -> commands.submittedAt,
+        "deduplicationPeriod" -> commands.deduplicationPeriod,
+      )
+  }
+
+  /** Represents a party with additional known information.
+    *
+    * @param party       The stable unique identifier of a Daml party.
     * @param displayName Human readable name associated with the party. Might not be unique.
-    * @param isLocal True if party is hosted by the backing participant.
+    * @param isLocal     True if party is hosted by the backing participant.
     */
   case class PartyDetails(party: Ref.Party, displayName: Option[String], isLocal: Boolean)
 
@@ -296,8 +328,8 @@ object domain {
 
   /** Configuration entry describes a change to the current configuration. */
   sealed abstract class ConfigurationEntry extends Product with Serializable
-  object ConfigurationEntry {
 
+  object ConfigurationEntry {
     final case class Accepted(
         submissionId: String,
         configuration: Configuration,
@@ -313,7 +345,6 @@ object domain {
   sealed abstract class PackageEntry() extends Product with Serializable
 
   object PackageEntry {
-
     final case class PackageUploadAccepted(
         submissionId: String,
         recordTime: Instant,
@@ -326,4 +357,8 @@ object domain {
     ) extends PackageEntry
   }
 
+  object Logging {
+    implicit def `tagged value to LoggingValue`[T: ToLoggingValue, Tag]: ToLoggingValue[T @@ Tag] =
+      value => value.unwrap
+  }
 }

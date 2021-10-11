@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
-import akka.actor.typed.{ActorRef, ActorSystem}
 import com.daml.ledger.api.benchtool.util.ObserverWithResult
 import org.slf4j.Logger
 
@@ -12,25 +11,17 @@ import scala.concurrent.Future
 class MeteredStreamObserver[T](
     val streamName: String,
     logger: Logger,
-    metricsManager: ActorRef[MetricsManager.Message],
-)(implicit system: ActorSystem[_])
-    extends ObserverWithResult[T, MetricsManager.Message.MetricsResult](logger) {
-  import MetricsManager.Message._
+    manager: MetricsManager[T],
+) extends ObserverWithResult[T, MetricsCollector.Message.MetricsResult](logger) {
 
   override def onNext(value: T): Unit = {
-    metricsManager ! NewValue(value)
+    manager.sendNewValue(value)
     super.onNext(value)
   }
 
-  override def completeWith(): Future[MetricsResult] = {
-    // TODO: abstract over the ask pattern (possibly a container with the actor and a method for asking)
-    import akka.actor.typed.scaladsl.AskPattern._
-    import akka.util.Timeout
-
-    import scala.concurrent.duration._
-    logger.debug(withStreamName(s"Sending $StreamCompleted notification."))
-    implicit val timeout: Timeout = 3.seconds
-    metricsManager.ask(StreamCompleted(_))
+  override def completeWith(): Future[MetricsCollector.Message.MetricsResult] = {
+    logger.debug(withStreamName(s"Asking for stream result..."))
+    manager.result()
   }
 
 }

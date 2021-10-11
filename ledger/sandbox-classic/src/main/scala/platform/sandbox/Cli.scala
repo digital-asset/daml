@@ -3,7 +3,7 @@
 
 package com.daml.platform.sandbox
 
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.sandbox.cli.{CommonCli, SandboxCli}
 import com.daml.platform.sandbox.config.SandboxConfig
 import scopt.OptionParser
@@ -39,6 +39,13 @@ private[sandbox] object Cli extends SandboxCli {
         s"Deprecated: Use the Daml Driver for PostgreSQL if you need persistence.\nThe JDBC connection URL to a Postgres database containing the username and password as well. If present, $Name will use the database to persist its data."
       )
       .action((url, config) => config.copy(jdbcUrl = Some(url)))
+    parser
+      .opt[Int]("max-parallel-submissions")
+      .optional()
+      .action((value, config) => config.copy(maxParallelSubmissions = value))
+      .text(
+        s"Maximum number of successfully interpreted commands waiting to be sequenced. The threshold is shared across all parties. Overflowing it will cause back-pressure, signaled by a `RESOURCE_EXHAUSTED` error code. Default is ${defaultConfig.maxParallelSubmissions}."
+      )
     parser
   }
 

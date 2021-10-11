@@ -10,7 +10,7 @@ This chapter is all about testing and debugging the Daml contracts you've built 
 - The ``trace`` and ``debug`` functions
 - Contention
 
-Note that this section only covers testing your Daml contracts. For more holistic application testing, please refer to :doc:`/getting-started/testing`.
+Note that this section only covers testing your Daml contracts. For more holistic application testing, please refer to :doc:`/app-dev/bindings-ts/testing`.
 
 If you no longer have your projects set up, please follow the setup instructions in :doc:`9_Dependencies` to get hold of the code for this chapter. There is no code specific to this chapter.
 

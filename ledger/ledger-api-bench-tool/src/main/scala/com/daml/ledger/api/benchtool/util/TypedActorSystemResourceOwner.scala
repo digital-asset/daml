@@ -3,8 +3,9 @@
 
 package com.daml.ledger.api.benchtool.util
 
-import akka.actor.typed.ActorSystem
-import com.daml.ledger.resources.ResourceContext
+import akka.actor.typed.{ActorSystem, Behavior, SpawnProtocol}
+import akka.actor.typed.scaladsl.Behaviors
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.resources.{AbstractResourceOwner, ReleasableResource, Resource}
 
 import scala.concurrent.Future
@@ -16,4 +17,19 @@ class TypedActorSystemResourceOwner[BehaviorType](
       context: ResourceContext
   ): Resource[ResourceContext, ActorSystem[BehaviorType]] =
     ReleasableResource(Future(acquireActorSystem()))(system => Future(system.terminate()))
+}
+
+object TypedActorSystemResourceOwner {
+  def owner(): ResourceOwner[ActorSystem[SpawnProtocol.Command]] =
+    new TypedActorSystemResourceOwner[SpawnProtocol.Command](() =>
+      ActorSystem(Creator(), "Creator")
+    )
+
+  object Creator {
+    def apply(): Behavior[SpawnProtocol.Command] =
+      Behaviors.setup { context =>
+        context.log.debug(s"Starting Creator actor")
+        SpawnProtocol()
+      }
+  }
 }

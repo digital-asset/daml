@@ -5,8 +5,10 @@
 
 module AliasNonLocal where
 
+import DA.Assert
+
 data Coin = BTC | Other Text
-  deriving (Eq)
+  deriving (Eq, Show)
 
 btc = BTC
 
@@ -17,5 +19,5 @@ main = scenario do
   let btc2 = BTC
   let other1 = other
   let other2 = Other
-  assert (btc1 == btc2)
-  assert (other1 "ETH" == other2 "ETH")
+  btc1 === btc2
+  other1 "ETH" === other2 "ETH"

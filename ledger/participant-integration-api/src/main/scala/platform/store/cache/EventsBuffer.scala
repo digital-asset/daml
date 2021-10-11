@@ -10,6 +10,7 @@ import com.daml.platform.store.cache.EventsBuffer.{
   SearchableByVector,
   UnorderedException,
 }
+import com.daml.platform.store.cache.BufferSlice.{Inclusive, Prefix, BufferSlice, Empty}
 
 import scala.annotation.tailrec
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
@@ -86,26 +87,28 @@ private[platform] final class EventsBuffer[O: Ordering, E](
     * @param endInclusive The end inclusive bound of the requested range.
     * @return The series of events as an ordered vector satisfying the input bounds.
     */
-  def slice(startExclusive: O, endInclusive: O): Vector[(O, E)] =
+  def slice(startExclusive: O, endInclusive: O): BufferSlice[(O, E)] =
     Timed.value(
       sliceTimer, {
         val bufferSnapshot = _bufferStateRef
         if (bufferSnapshot.rangeEnd.exists(_ < endInclusive)) {
           throw RequestOffBufferBounds(bufferSnapshot.vector.last._1, endInclusive)
-        } else if (bufferSnapshot.vector.isEmpty) {
-          Vector.empty
-        } else {
-          val bufferEndExclusiveIdx = bufferSnapshot.vector.searchBy(endInclusive, _._1) match {
-            case Found(foundIndex) => foundIndex + 1
-            case InsertionPoint(insertionPoint) => insertionPoint
-          }
+        } else if (bufferSnapshot.vector.isEmpty)
+          Empty
+        else {
+          val Seq(bufferStartInclusiveIdx, bufferEndExclusiveIdx) =
+            Seq(startExclusive, endInclusive)
+              .map(bufferSnapshot.vector.searchBy(_, _._1))
+              .map {
+                case InsertionPoint(insertionPoint) => insertionPoint
+                case Found(foundIndex) => foundIndex + 1
+              }
 
-          val bufferStartInclusiveIdx = bufferSnapshot.vector.searchBy(startExclusive, _._1) match {
-            case InsertionPoint(insertionPoint) => insertionPoint
-            case Found(foundIndex) => foundIndex + 1
-          }
+          val vectorSlice =
+            bufferSnapshot.vector.slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx)
 
-          bufferSnapshot.vector.slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx)
+          if (bufferStartInclusiveIdx == 0) Prefix(vectorSlice)
+          else Inclusive(vectorSlice)
         }
       },
     )
@@ -130,7 +133,26 @@ private[platform] final class EventsBuffer[O: Ordering, E](
     )
 }
 
-private[cache] object EventsBuffer {
+private[platform] object BufferSlice {
+
+  /** Specialized slice representation of a Vector */
+  private[platform] sealed trait BufferSlice[+ELEM] extends Product with Serializable {
+    def slice: Vector[ELEM]
+  }
+
+  /** The source was empty */
+  private[platform] final case object Empty extends BufferSlice[Nothing] {
+    override val slice: Vector[Nothing] = Vector.empty
+  }
+
+  /** A slice of a vector that is inclusive (start index of the slice in the source vector is gteq to 1) */
+  private[platform] final case class Inclusive[ELEM](slice: Vector[ELEM]) extends BufferSlice[ELEM]
+
+  /** A slice of a vector that is also the vector's prefix (i.e. start index of the slice in the source vector is 0) */
+  private[platform] final case class Prefix[ELEM](slice: Vector[ELEM]) extends BufferSlice[ELEM]
+}
+
+private[platform] object EventsBuffer {
   private final case class BufferStateRef[O, E](
       vector: Vector[(O, E)] = Vector.empty,
       rangeEnd: Option[O] = Option.empty,

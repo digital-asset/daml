@@ -36,20 +36,16 @@ da_scala_binary(
         ":JsonParser.dar.pp",
     ],
     main_class = "com.daml.lf.speedy.explore.ExploreDar",
-    scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
-    ],
+    versioned_scala_deps = {"2.13": ["@maven//:org_scalaz_scalaz_core"]},
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 
@@ -64,20 +60,16 @@ da_scala_binary(
         ":Examples.dar.pp",
     ],
     main_class = "com.daml.lf.speedy.explore.SpeedTestNfib",
-    scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
-    ],
+    versioned_scala_deps = {"2.13": ["@maven//:org_scalaz_scalaz_core"]},
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 
@@ -97,19 +89,15 @@ da_scala_binary(
         ":JsonParser.dar.pp",
     ],
     main_class = "com.daml.lf.speedy.explore.SpeedTestJsonParser",
-    scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
-    ],
+    versioned_scala_deps = {"2.13": ["@maven//:org_scalaz_scalaz_core"]},
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

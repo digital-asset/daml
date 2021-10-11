@@ -6,6 +6,7 @@ package com.daml.logging
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.daml.grpc.GrpcException
+import com.daml.logging.entries.LoggingEntries
 import io.grpc.Status
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -80,6 +81,17 @@ final class ContextualizedLogger private (val withoutContext: Logger) {
     Flow[Out].map { item =>
       debug(toLoggable(item))
       item
+    }
+
+  def enrichedDebugStream[Out](
+      msg: String,
+      withContext: Out => LoggingEntries,
+  )(implicit loggingContext: LoggingContext): Flow[Out, Out, NotUsed] =
+    Flow[Out].map { item =>
+      LoggingContext.withEnrichedLoggingContextFrom(withContext(item)) { implicit loggingContext =>
+        debug(msg)
+        item
+      }
     }
 
 }

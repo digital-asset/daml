@@ -6,14 +6,15 @@ package speedy
 package perf
 
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.lf.archive.{Decode, UniversalArchiveReader}
-import com.daml.lf.data.Ref.{Identifier, Party, QualifiedName}
+import com.daml.lf.archive.UniversalArchiveDecoder
+import com.daml.lf.data.Ref.{Identifier, Location, Party, QualifiedName}
 import com.daml.lf.data.Time
 import com.daml.lf.language.Ast.EVal
 import com.daml.lf.speedy.SResult._
+import com.daml.lf.transaction.{NodeId, GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
-import com.daml.lf.scenario.ScenarioLedger
+import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.Machine
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -41,24 +42,18 @@ class CollectAuthorityState {
   @Setup(Level.Trial)
   def init(): Unit = {
     val darFile = new File(if (dar.startsWith("//")) rlocation(dar.substring(2)) else dar)
-    val packages = UniversalArchiveReader().readFile(darFile).get
-    val packagesMap = packages.all.map { case (pkgId, pkgArchive) =>
-      Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
-    }.toMap
+    val packages = UniversalArchiveDecoder.assertReadFile(darFile)
 
     val compilerConfig =
       Compiler.Config.Default.copy(
         stacktracing = Compiler.NoStackTrace
       )
 
-    // NOTE(MH): We use a static seed to get reproducible runs.
-    val seeding = crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("scenario-perf"))
-    val compiledPackages = PureCompiledPackages.assertBuild(packagesMap, compilerConfig)
+    val compiledPackages = PureCompiledPackages.assertBuild(packages.all.toMap, compilerConfig)
     val expr = EVal(Identifier(packages.main._1, QualifiedName.assertFromString(scenario)))
 
     machine = Machine.fromScenarioExpr(
       compiledPackages,
-      seeding(),
       expr,
     )
     the_sexpr = machine.ctrl
@@ -71,7 +66,7 @@ class CollectAuthorityState {
   // The maps are indexed by step number.
   private var cachedParty: Map[Int, Party] = Map()
   private var cachedCommit: Map[Int, SValue] = Map()
-  private var cachedContract: Map[Int, ContractInst[Value.VersionedValue[ContractId]]] = Map()
+  private var cachedContract: Map[Int, ContractInst[Value.VersionedValue]] = Map()
 
   // This is function that we benchmark
   def run(): Unit = {
@@ -82,8 +77,25 @@ class CollectAuthorityState {
       step += 1
       machine.run() match {
         case SResultScenarioGetParty(_, callback) => callback(cachedParty(step))
-        case SResultScenarioCommit(_, _, _, callback) => callback(cachedCommit(step))
-        case SResultNeedContract(_, _, _, _, callback) => callback(cachedContract(step))
+        case SResultScenarioSubmit(committers, commands, location, mustFail, callback) =>
+          assert(!mustFail)
+          val api = new CannedLedgerApi(step, cachedContract)
+          ScenarioRunner.submit(
+            machine.compiledPackages,
+            api,
+            committers,
+            Set.empty,
+            SExpr.SEValue(commands),
+            location,
+            crypto.Hash.hashPrivateKey(step.toString),
+            doEnrichment = false,
+          ) match {
+            case ScenarioRunner.Commit(_, value, _) =>
+              callback(value)
+            case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
+          }
+        case SResultNeedContract(_, _, _, _) =>
+          crash("Off-ledger need contract callback")
         case SResultFinalValue(v) => finalValue = v
         case r => crash(s"bench run: unexpected result from speedy: ${r}")
       }
@@ -93,7 +105,7 @@ class CollectAuthorityState {
   // This is the initial setup run (not benchmarked), where we cache the results of
   // interacting with the ledger, so they can be reused during the benchmark runs.
 
-  def setup(): Unit = machine.withOnLedger("CollectAuthority") { onLedger =>
+  def setup(): Unit = {
     var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
     var step = 0
     var finalValue: SValue = null
@@ -108,33 +120,25 @@ class CollectAuthorityState {
             case Left(msg) =>
               crash(s"Party.fromString failed: $msg")
           }
-        case SResultScenarioCommit(value, tx, committers, callback) =>
-          ScenarioLedger.commitTransaction(
+        case SResultScenarioSubmit(committers, commands, location, mustFail, callback) =>
+          assert(!mustFail)
+          val api = new CachedLedgerApi(step, ledger)
+          ScenarioRunner.submit(
+            machine.compiledPackages,
+            api,
             committers,
-            Set(),
-            ledger.currentTime,
-            onLedger.commitLocation,
-            tx,
-            ledger,
+            Set.empty,
+            SExpr.SEValue(commands),
+            location,
+            crypto.Hash.hashPrivateKey(step.toString),
           ) match {
-            case Left(fas) => crash(s"commitTransaction failed: $fas")
-            case Right(result) =>
+            case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
+            case ScenarioRunner.Commit(result, value, _) =>
               ledger = result.newLedger
               cachedCommit = cachedCommit + (step -> value)
               callback(value)
-          }
-        case SResultNeedContract(acoid, _, committers, _, callback) =>
-          val effectiveAt = ledger.currentTime
-          ledger.lookupGlobalContract(
-            ScenarioLedger.ParticipantView(committers, Set()),
-            effectiveAt,
-            acoid,
-          ) match {
-            case ScenarioLedger.LookupOk(_, result, _) =>
-              cachedContract = cachedContract + (step -> result)
-              callback(result)
-            case x =>
-              crash(s"lookupGlobalContract failed: $x")
+              cachedContract ++= api.cachedContract
+              step = api.step
           }
         case SResultFinalValue(v) =>
           finalValue = v
@@ -149,4 +153,58 @@ class CollectAuthorityState {
     System.exit(1)
   }
 
+}
+
+class CachedLedgerApi(initStep: Int, ledger: ScenarioLedger)
+    extends ScenarioRunner.ScenarioLedgerApi(ledger) {
+  var step = initStep
+  var cachedContract: Map[Int, ContractInst[Value.VersionedValue]] = Map()
+  override def lookupContract(
+      coid: ContractId,
+      actAs: Set[Party],
+      readAs: Set[Party],
+      callback: ContractInst[Value.VersionedValue] => Unit,
+  ): Either[scenario.Error, Unit] = {
+    step += 1
+    super.lookupContract(
+      coid,
+      actAs,
+      readAs,
+      { coinst => cachedContract += step -> coinst; callback(coinst) },
+    )
+  }
+}
+
+class CannedLedgerApi(
+    initStep: Int,
+    cachedContract: Map[Int, ContractInst[Value.VersionedValue]],
+) extends ScenarioRunner.LedgerApi[Unit] {
+  var step = initStep
+  override def lookupContract(
+      coid: ContractId,
+      actAs: Set[Party],
+      readAs: Set[Party],
+      callback: ContractInst[Value.VersionedValue] => Unit,
+  ): Either[scenario.Error, Unit] = {
+    step += 1
+    val coinst = cachedContract(step)
+    Right(callback(coinst))
+  }
+  override def lookupKey(
+      machine: Machine,
+      gk: GlobalKey,
+      actAs: Set[Party],
+      readAs: Set[Party],
+      callback: Option[ContractId] => Boolean,
+  ) =
+    throw new RuntimeException("Keys are not supported in the benchmark")
+  override def currentTime = throw new RuntimeException("getTime is not supported in the benchmark")
+
+  override def commit(
+      committers: Set[Party],
+      readAs: Set[Party],
+      location: Option[Location],
+      tx: SubmittedTransaction,
+      locationInfo: Map[NodeId, Location],
+  ) = Right(())
 }

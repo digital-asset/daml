@@ -7,13 +7,15 @@ import java.nio.file.{Files, Path}
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import com.daml.dbutils
 import com.daml.gatling.stats.{SimulationLog, SimulationLogSyntax}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.HttpServiceTestFixture.{withLedger, withHttpService}
 import com.daml.http.domain.{JwtPayload, LedgerId}
 import com.daml.http.perf.scenario.SimulationConfig
 import com.daml.http.util.FutureUtil._
-import com.daml.http.{EndpointsCompanion, HttpService, JdbcConfig}
+import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
+import com.daml.http.{EndpointsCompanion, HttpService}
 import com.daml.jwt.domain.Jwt
 import com.daml.scalautil.Statement.discard
 import com.daml.testing.postgresql.PostgresDatabase
@@ -139,9 +141,14 @@ object Main extends StrictLogging {
       ec: ExecutionContext,
       elg: EventLoopGroup,
   ): Future[ExitCode] =
-    withLedger(config.dars, ledgerId.unwrap) { (ledgerPort, _) =>
+    withLedger(config.dars, ledgerId.unwrap) { (ledgerPort, _, _) =>
       withJsonApiJdbcConfig(config.queryStoreIndex) { jsonApiJdbcConfig =>
-        withHttpService(ledgerId.unwrap, ledgerPort, jsonApiJdbcConfig, None) { (uri, _, _, _) =>
+        withHttpService(
+          ledgerId.unwrap,
+          ledgerPort,
+          jsonApiJdbcConfig,
+          None,
+        ) { (uri, _, _, _) =>
           runGatlingScenario(config, uri.authority.host.address, uri.authority.port)
             .flatMap { case (exitCode, dir) =>
               toFuture(generateReport(dir))
@@ -198,17 +205,29 @@ object Main extends StrictLogging {
     )
 
     private[this] final class OracleRunner extends OracleAround {
+
+      private val defaultUser = "ORACLE_USER"
+      private val retainData = sys.env.get("RETAIN_DATA").exists(_ equalsIgnoreCase "true")
+      private val useDefaultUser = sys.env.get("USE_DEFAULT_USER").exists(_ equalsIgnoreCase "true")
       type St = oracle.User
 
       def start() = Try {
         connectToOracle()
-        createNewRandomUser(): St
+        if (useDefaultUser) createNewUser(defaultUser) else createNewRandomUser(): St
       }
 
-      def jdbcConfig(user: St) =
-        JdbcConfig("oracle.jdbc.OracleDriver", oracleJdbcUrl, user.name, user.pwd)
+      def jdbcConfig(user: St) = {
+        import DbStartupMode._
+        val startupMode: DbStartupMode = if (retainData) CreateIfNeededAndStart else CreateAndStart
+        JdbcConfig(
+          dbutils.JdbcConfig("oracle.jdbc.OracleDriver", oracleJdbcUrl, user.name, user.pwd),
+          dbStartupMode = startupMode,
+        )
+      }
 
-      def stop(user: St) = Try(dropUser(user.name))
+      def stop(user: St) = {
+        if (retainData) Success((): Unit) else Try(dropUser(user.name))
+      }
     }
 
     def lookup(q: QueryStoreIndex): Option[T] = q match {
@@ -220,11 +239,9 @@ object Main extends StrictLogging {
 
   private def jsonApiJdbcConfig(c: PostgresDatabase): JdbcConfig =
     JdbcConfig(
-      driver = "org.postgresql.Driver",
-      url = c.url,
-      user = "test",
-      password = "",
-      createSchema = true,
+      dbutils
+        .JdbcConfig(driver = "org.postgresql.Driver", url = c.url, user = "test", password = ""),
+      dbStartupMode = DbStartupMode.CreateOnly,
     )
 
   private def resolveSimulationClass(str: String): Throwable \/ Class[_ <: Simulation] = {
@@ -278,7 +295,7 @@ object Main extends StrictLogging {
   private def generateReport(dir: Path): String \/ Unit = {
     import SimulationLogSyntax._
 
-    require(Files.isDirectory(dir))
+    require(Files.isDirectory(dir), s"input path $dir should be a directory")
 
     val jsDir = dir.resolve("js")
     val statsPath = jsDir.resolve("stats.json")

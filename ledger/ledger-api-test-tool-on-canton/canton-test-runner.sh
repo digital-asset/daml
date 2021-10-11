@@ -17,7 +17,6 @@ CANTON_COMMAND=(
 )
 
 PARTICIPANT_1_HOST=localhost
-PARTICIPANT_1_LEDGER_API_PORT=5011
 PARTICIPANT_1_MONITORING_PORT=7000
 
 TIMEOUT=60
@@ -40,25 +39,7 @@ function wait_until() {
   done
 }
 
-command=("${CANTON_COMMAND[@]}")
-port_file=''
-while (($#)); do
-  # Extract the port file.
-  if [[ "$1" == '--port-file' ]]; then
-    port_file="$2"
-    shift
-    shift
-  else
-    command+=("$1")
-    shift
-  fi
-done
-
-if [[ -z "$port_file" ]]; then
-  # shellcheck disable=SC2016
-  echo >&2 'You must specify a port file with the `--port-file` switch.'
-  exit 2
-fi
+command=("${CANTON_COMMAND[@]}" "$@")
 
 export UNIQUE_CONTRACT_KEYS="$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/unique-contract-keys.conf)"
 if [[ -f ${UNIQUE_CONTRACT_KEYS} ]]; then
@@ -75,7 +56,7 @@ fi
 HOME="$(mktemp -d)"
 export HOME
 # ammonite calls `System.getProperty('user.home')` which does not read $HOME.
-JVM_FLAGS=(-Duser.home=$HOME -Dlogback.configurationFile=$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/logback-debug.xml))
+JVM_FLAGS=(-Duser.home="$HOME" -Dlogback.configurationFile="$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/logback-debug.xml)")
 
 echo >&2 'Starting Canton...'
 $JAVA "${JVM_FLAGS[@]}" -jar "${command[@]}" &
@@ -91,7 +72,6 @@ function stop() {
   local status
   status=$?
   kill -INT "$pid" || :
-  rm -f "$port_file" || :
   rm -rf "$HOME" || :
   exit "$status"
 }
@@ -99,9 +79,6 @@ function stop() {
 trap stop EXIT INT TERM
 
 wait_until curl -fsS "http://${PARTICIPANT_1_HOST}:${PARTICIPANT_1_MONITORING_PORT}/health"
-
-# This should write two ports, but the runner doesn't support that.
-echo "$PARTICIPANT_1_LEDGER_API_PORT" >"$port_file"
 
 echo >&2 'Canton is up and running.'
 

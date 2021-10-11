@@ -4,17 +4,23 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import java.time.{Duration, Instant}
+import java.util.concurrent.atomic.AtomicBoolean
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.configuration.protobuf.LedgerConfiguration
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, configurationStateKey}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.Err
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, theDefaultConfig}
 import com.daml.ledger.participant.state.kvutils.committer.CommitterSpec._
-import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Err}
-import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
-import com.daml.ledger.participant.state.v1.{Configuration, TimeModel}
+import com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationEntry
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
+import com.daml.logging.entries.LoggingEntries
 import com.daml.metrics.Metrics
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
@@ -133,6 +139,28 @@ class CommitterSpec
         assertThrows[IllegalArgumentException](instance.preExecute(aDamlSubmission, mockContext))
       }
     }
+
+    "run init" in {
+      val initialized = new AtomicBoolean(false)
+      val mockContext = mock[CommitContext]
+      when(mockContext.outOfTimeBoundsLogEntry).thenReturn(None)
+      when(mockContext.getOutputs).thenReturn(Iterable.empty)
+      when(mockContext.getAccessedInputKeys).thenReturn(Set.empty[DamlStateKey])
+      when(mockContext.minimumRecordTime).thenReturn(None)
+      when(mockContext.maximumRecordTime).thenReturn(None)
+      val committer = new TestCommitter {
+        override protected def init(ctx: CommitContext, submission: DamlSubmission)(implicit
+            loggingContext: LoggingContext
+        ): Int = {
+          initialized.set(true)
+          super.init(ctx, submission)
+        }
+      }
+
+      committer.preExecute(aDamlSubmission, mockContext)
+
+      initialized.get() shouldBe true
+    }
   }
 
   "buildLogEntryWithOptionalRecordTime" should {
@@ -152,50 +180,46 @@ class CommitterSpec
     }
   }
 
+  "run" should {
+    "run init" in {
+      val initialized = new AtomicBoolean(false)
+      val committer = new TestCommitter {
+        override protected def init(ctx: CommitContext, submission: DamlSubmission)(implicit
+            loggingContext: LoggingContext
+        ): Int = {
+          initialized.set(true)
+          super.init(ctx, submission)
+        }
+      }
+
+      committer.run(None, aDamlSubmission, Ref.ParticipantId.assertFromString("test"), Map.empty)
+
+      initialized.get() shouldBe true
+    }
+  }
+
   "runSteps" should {
     "stop at first StepStop" in {
       val expectedLogEntry = aLogEntry
-      val instance = new Committer[Int] {
-        override protected val committerName: String = "test"
-
-        override protected def extraLoggingContext(result: Int): Map[String, String] = Map.empty
-
-        override protected def init(
-            ctx: CommitContext,
-            submission: DamlSubmission,
-        )(implicit loggingContext: LoggingContext): Int = 0
-
+      val instance = new TestCommitter {
         override protected def steps: Iterable[(StepInfo, Step)] =
           Iterable(
             "first" -> stepReturning(StepContinue(1)),
             "second" -> stepReturning(StepStop(expectedLogEntry)),
             "third" -> stepReturning(StepStop(DamlLogEntry.getDefaultInstance)),
           )
-
-        override protected val metrics: Metrics = newMetrics()
       }
 
       instance.runSteps(mock[CommitContext], aDamlSubmission) shouldBe expectedLogEntry
     }
 
     "throw in case there was no StepStop yielded" in {
-      val instance = new Committer[Int] {
-        override protected val committerName: String = "test"
-
-        override protected def extraLoggingContext(result: Int): Map[String, String] = Map.empty
-
-        override protected def init(
-            ctx: CommitContext,
-            submission: DamlSubmission,
-        )(implicit loggingContext: LoggingContext): Int = 0
-
+      val instance = new TestCommitter {
         override protected def steps: Iterable[(StepInfo, Step)] =
           Iterable(
             "first" -> stepReturning(StepContinue(1)),
             "second" -> stepReturning(StepContinue(2)),
           )
-
-        override protected val metrics: Metrics = newMetrics()
       }
 
       assertThrows[RuntimeException](instance.runSteps(mock[CommitContext], aDamlSubmission))
@@ -274,20 +298,23 @@ object CommitterSpec {
     .build
   private val aConfig: Configuration = Configuration(
     generation = 1,
-    timeModel = TimeModel.reasonableDefault,
+    timeModel = LedgerTimeModel.reasonableDefault,
     maxDeduplicationTime = Duration.ofMinutes(1),
   )
 
   private def newMetrics() = new Metrics(new MetricRegistry)
 
-  private def createCommitter(): Committer[Int] = new Committer[Int] {
+  private def createCommitter(): Committer[Int] = new TestCommitter
+
+  class TestCommitter extends Committer[Int] {
     override protected val committerName: String = "test"
 
-    override protected def extraLoggingContext(result: Int): Map[String, String] = Map.empty
+    override protected def extraLoggingContext(result: Int): LoggingEntries =
+      LoggingEntries.empty
 
     override protected def init(
         ctx: CommitContext,
-        submission: DamlKvutils.DamlSubmission,
+        submission: DamlSubmission,
     )(implicit loggingContext: LoggingContext): Int = 0
 
     override protected def steps: Iterable[(StepInfo, Step)] =

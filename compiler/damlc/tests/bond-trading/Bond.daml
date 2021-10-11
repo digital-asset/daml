@@ -16,26 +16,25 @@ template Bond
     ensure amount > 0.0
     signatory issuer, owner
 
-    controller owner can
-      Transfer : BondTransferRequestId
-        with newOwner : Party
-        do
-          create BondTransferRequest with newOwner, ..
+    choice Transfer : BondTransferRequestId
+      with newOwner : Party
+      controller owner
+      do create BondTransferRequest with newOwner, ..
 
-      Split : (BondId, BondId)
-        with splitAmount : Decimal
-        do
-          f <- create this with amount = splitAmount
-          s <- create this with amount = amount - splitAmount
-          return (f, s)
+    choice Split : (BondId, BondId)
+      with splitAmount : Decimal
+      controller owner
+      do f <- create this with amount = splitAmount
+         s <- create this with amount = amount - splitAmount
+         return (f, s)
 
-      Merge : BondId
-        with otherCid : BondId
-        do
-          otherBond <- fetch otherCid
-          assert $ this == otherBond with amount
-          archive otherCid
-          create this with amount = amount + otherBond.amount
+    choice Merge : BondId
+      with otherCid : BondId
+      controller owner
+      do otherBond <- fetch otherCid
+         assert $ this == otherBond with amount
+         archive otherCid
+         create this with amount = amount + otherBond.amount
 
 type BondTransferRequestId = ContractId BondTransferRequest
 
@@ -48,22 +47,21 @@ template BondTransferRequest
     amount : Decimal
   where
     signatory issuer, owner
+    observer newOwner
 
     ensure amount > 0.0
 
-    controller newOwner can
-      Accept : BondId
-        do
-          create Bond with owner = newOwner, ..
+    choice Accept : BondId
+      controller newOwner
+      do create Bond with owner = newOwner, ..
 
-      Reject : BondId
-        do
-          create Bond with ..
+    choice Reject : BondId
+      controller newOwner
+      do create Bond with ..
 
-    controller owner can
-      Withdraw : BondId
-        do
-          create Bond with ..
+    choice Withdraw : BondId
+      controller owner
+      do create Bond with ..
 
 bondSplitMay : Party -> BondId -> Decimal -> Update (BondId, Optional BondId)
 bondSplitMay owner bondCid splitAmount = do

@@ -25,7 +25,6 @@ trait DataLayerHelpers {
       "",
       "workflowId",
       Seq[CreatedEvent](),
-      None,
     )
   }
 

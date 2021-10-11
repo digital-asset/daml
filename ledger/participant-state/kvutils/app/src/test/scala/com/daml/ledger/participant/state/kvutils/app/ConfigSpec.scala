@@ -3,9 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.util.concurrent.TimeUnit
-
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
+import com.daml.lf.data.Ref
 import io.netty.handler.ssl.ClientAuth
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -13,7 +12,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scopt.OptionParser
 
-import scala.concurrent.duration.FiniteDuration
+import java.io.File
+import java.time.Duration
 
 final class ConfigSpec
     extends AnyFlatSpec
@@ -23,7 +23,8 @@ final class ConfigSpec
 
   private val dumpIndexMetadataCommand = "dump-index-metadata"
   private val participantOption = "--participant"
-  private val participantId: ParticipantId = ParticipantId.assertFromString("dummy-participant")
+  private val participantId: Ref.ParticipantId =
+    Ref.ParticipantId.assertFromString("dummy-participant")
   private val fixedParticipantSubOptions = s"participant-id=$participantId,port=123"
 
   private val jdbcUrlSubOption = "server-jdbc-url"
@@ -48,9 +49,125 @@ final class ConfigSpec
       parameters: Seq[String],
       getEnvVar: String => Option[String] = (_ => None),
   ): Option[Config[Unit]] =
-    Config.parse("Test", (_: OptionParser[Config[Unit]]) => (), (), parameters, getEnvVar)
+    Config.parse(
+      name = "Test",
+      extraOptions = (_: OptionParser[Config[Unit]]) => (),
+      defaultExtra = (),
+      args = parameters,
+      getEnvVar = getEnvVar,
+    )
 
   behavior of "Runner"
+
+  it should "parse error codes v2 flag" in {
+    val actual = configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--use-self-service-error-codes",
+      )
+    )
+
+    actual.value.enableSelfServiceErrorCodes shouldBe true
+  }
+
+  it should "disable error codes v2 flag by default" in {
+    val actual = configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+      )
+    )
+
+    actual.value.enableSelfServiceErrorCodes shouldBe false
+  }
+
+  it should "succeed when server's private key is encrypted and secret-url is provided" in {
+    val actual = configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--pem",
+        "key.enc",
+        "--tls-secrets-url",
+        "http://aaa",
+      )
+    )
+
+    actual should not be None
+    actual.get.tlsConfig shouldBe Some(
+      TlsConfiguration(
+        enabled = true,
+        secretsUrl = Some(SecretsUrl.fromString("http://aaa")),
+        keyFile = Some(new File("key.enc")),
+        keyCertChainFile = None,
+        trustCertCollectionFile = None,
+      )
+    )
+  }
+
+  it should "fail when server's private key is encrypted but secret-url is not provided" in {
+    configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--pem",
+        "key.enc",
+      )
+    ) shouldBe None
+  }
+
+  it should "fail parsing a bogus TLS version" in {
+    configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--min-tls-version",
+        "111",
+      )
+    ) shouldBe None
+  }
+
+  it should "succeed parsing a supported TLS version" in {
+    val actual = configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--min-tls-version",
+        "1.3",
+      )
+    )
+
+    actual should not be None
+    actual.get.tlsConfig shouldBe Some(
+      TlsConfiguration(
+        enabled = true,
+        minimumServerProtocolVersion = Some(TlsVersion.V1_3),
+      )
+    )
+  }
+
+  it should "succeed when server's private key is in plaintext and secret-url is not provided" in {
+    val actual = configParser(
+      Seq(
+        dumpIndexMetadataCommand,
+        "some-jdbc-url",
+        "--pem",
+        "key.txt",
+      )
+    )
+
+    actual should not be None
+    actual.get.tlsConfig shouldBe Some(
+      TlsConfiguration(
+        enabled = true,
+        secretsUrl = None,
+        keyFile = Some(new File("key.txt")),
+        keyCertChainFile = None,
+        trustCertCollectionFile = None,
+      )
+    )
+  }
 
   it should "fail if a participant is not provided in run mode" in {
     configParser(Seq.empty) shouldEqual None
@@ -58,14 +175,16 @@ final class ConfigSpec
 
   it should "fail if a participant is not provided when dumping the index metadata" in {
     configParser(Seq(dumpIndexMetadataCommand)) shouldEqual None
-  }
 
+  }
   it should "succeed if a participant is provided when dumping the index metadata" in {
-    configParser(Seq(dumpIndexMetadataCommand, "some-jdbc-url"))
+    configParser(Seq(dumpIndexMetadataCommand, "some-jdbc-url")) should not be empty
   }
 
   it should "succeed if more than one participant is provided when dumping the index metadata" in {
-    configParser(Seq(dumpIndexMetadataCommand, "some-jdbc-url", "some-other-jdbc-url"))
+    configParser(
+      Seq(dumpIndexMetadataCommand, "some-jdbc-url", "some-other-jdbc-url")
+    ) should not be empty
   }
 
   it should "get the jdbc string from the command line argument when provided" in {
@@ -107,17 +226,14 @@ final class ConfigSpec
 
   it should "get the tracker retention period when provided" in {
     val periodStringRepresentation = "P0DT1H2M3S"
-    val expectedPeriod =
-      FiniteDuration(1, TimeUnit.HOURS) +
-        FiniteDuration(2, TimeUnit.MINUTES) +
-        FiniteDuration(3, TimeUnit.SECONDS)
+    val expectedPeriod = Duration.ofHours(1).plusMinutes(2).plusSeconds(3)
     val config =
       configParser(parameters =
         minimalValidOptions ++ List(trackerRetentionPeriod, periodStringRepresentation)
       )
         .getOrElse(parsingFailure())
 
-    config.commandConfig.retentionPeriod should be(expectedPeriod)
+    config.commandConfig.trackerRetentionPeriod should be(expectedPeriod)
   }
 
   it should "set the client-auth parameter when provided" in {

@@ -5,30 +5,30 @@ package com.daml.lf.engine.trigger
 
 import java.io.File
 import java.net.InetAddress
-import java.time.{Clock, Duration => JDuration, Instant, LocalDateTime, ZoneId}
-import java.util.{Date, UUID}
+import java.time.{Clock, Instant, LocalDateTime, ZoneId, Duration => JDuration}
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
+import java.util.{Date, UUID}
 
-import io.grpc.Channel
-import com.daml.auth.middleware.api.{Client => AuthClient}
-import com.daml.ledger.api.testing.utils.OwnedResource
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.platform.apiserver.services.GrpcClientResource
-import com.daml.platform.configuration.LedgerConfiguration
-import com.daml.resources.FutureResourceOwner
-import com.daml.scalautil.Statement.discard
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri, headers}
 import akka.http.scaladsl.model.Uri.Path
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri, headers}
 import com.auth0.jwt.JWT
 import com.auth0.jwt.JWTVerifier.BaseVerification
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.interfaces.{Clock => Auth0Clock}
+import com.daml.auth.middleware.api.{Client => AuthClient}
+import com.daml.auth.middleware.oauth2.{
+  Config => MiddlewareConfig,
+  Server => MiddlewareServer,
+  SecretString,
+}
+import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthServer}
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.clock.AdjustableClock
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.dbutils.{ConnectionPool, JdbcConfig}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{JwtSigner, JwtVerifier, JwtVerifierBase}
 import com.daml.ledger.api.auth
@@ -36,30 +36,33 @@ import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
-import com.daml.auth.middleware.oauth2.{Config => MiddlewareConfig, Server => MiddlewareServer}
-import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthServer}
+import com.daml.lf.engine.trigger.dao.DbTriggerDao
+import com.daml.platform.apiserver.SeedService.Seeding
+import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, Port}
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
-import com.daml.lf.engine.trigger.dao.DbTriggerDao
+import com.daml.resources.FutureResourceOwner
+import com.daml.scalautil.Statement.discard
 import com.daml.testing.oracle.OracleAroundAll
 import com.daml.testing.postgresql.PostgresAroundAll
 import com.daml.timer.RetryStrategy
 import com.typesafe.scalalogging.StrictLogging
 import eu.rekawek.toxiproxy._
+import io.grpc.Channel
 import org.scalactic.source
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Suite, SuiteMixin}
 
@@ -160,7 +163,7 @@ trait AuthMiddlewareFixture
       .get
     jwt.value
   }
-  protected def authConfig: AuthConfig = AuthMiddleware(authMiddlewareUri)
+  protected def authConfig: AuthConfig = AuthMiddleware(authMiddlewareUri, authMiddlewareUri)
   protected def authClock: AdjustableClock = resource.value._1
   protected def authServer: OAuthServer = resource.value._2
 
@@ -180,7 +183,7 @@ trait AuthMiddlewareFixture
 
   private val authSecret: String = "secret"
   private var resource
-      : OwnedResource[ResourceContext, (AdjustableClock, OAuthServer, ServerBinding)] = null
+      : OwnedResource[ResourceContext, (AdjustableClock, OAuthServer, ServerBinding)] = _
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -226,7 +229,7 @@ trait AuthMiddlewareFixture
             oauthTokenTemplate = None,
             oauthRefreshTemplate = None,
             clientId = "oauth-middleware-id",
-            clientSecret = "oauth-middleware-secret",
+            clientSecret = SecretString("oauth-middleware-secret"),
             tokenVerifier = authVerifier,
           )
           middleware <- Resource(MiddlewareServer.start(middlewareConfig))(closeServerBinding)
@@ -258,11 +261,11 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
     LedgerIdMode.Static(LedgerId(this.getClass.getSimpleName))
   private def sandboxConfig: SandboxConfig = sandbox.DefaultConfig.copy(
     port = Port.Dynamic,
-    damlPackages = damlPackages,
     ledgerIdMode = ledgerIdMode,
+    damlPackages = damlPackages,
     timeProviderType = Some(TimeProviderType.Static),
+    delayBeforeSubmittingLedgerConfiguration = JDuration.ZERO,
     authService = authService,
-    ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
     seeding = Some(Seeding.Weak),
   )
 
@@ -295,7 +298,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
       ),
     )
 
-  private var resource: OwnedResource[ResourceContext, (SandboxServer, Channel)] = null
+  private var resource: OwnedResource[ResourceContext, (SandboxServer, Channel)] = _
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -323,9 +326,9 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
 trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
   self: Suite =>
 
-  protected def toxiproxyClient = resource._1
+  protected def toxiproxyClient: ToxiproxyClient = resource._1
 
-  private var resource: (ToxiproxyClient, Process) = null
+  private var resource: (ToxiproxyClient, Process) = _
   private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
 
   override protected def beforeAll(): Unit = {
@@ -359,10 +362,11 @@ trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
 trait ToxiSandboxFixture extends BeforeAndAfterAll with ToxiproxyFixture with SandboxFixture {
   self: Suite =>
 
-  protected def toxiSandboxPort = resource._1
-  protected def toxiSandboxProxy = resource._2
+  protected def toxiSandboxPort: Port = resource._1
 
-  private var resource: (Port, Proxy) = null
+  protected def toxiSandboxProxy: Proxy = resource._2
+
+  private var resource: (Port, Proxy) = _
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -372,8 +376,8 @@ trait ToxiSandboxFixture extends BeforeAndAfterAll with ToxiproxyFixture with Sa
     val port = lock.port
     val proxy = toxiproxyClient.createProxy(
       "sandbox",
-      s"${host.getHostName}:${port}",
-      s"${host.getHostName}:${sandboxPort}",
+      s"${host.getHostName}:$port",
+      s"${host.getHostName}:$sandboxPort",
     )
     lock.unlock()
     resource = (port, proxy)
@@ -411,12 +415,12 @@ trait TriggerDaoPostgresFixture
   private lazy val jdbcConfig_ =
     JdbcConfig("org.postgresql.Driver", postgresDatabase.url, "operator", "password")
   private lazy val triggerDao =
-    DbTriggerDao(jdbcConfig_, poolSize = dao.Connection.PoolSize.IntegrationTest)
+    DbTriggerDao(jdbcConfig_, poolSize = ConnectionPool.PoolSize.Integration)
   private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-    Await.result(triggerDao.initialize, Duration(30, SECONDS))
+    Await.result(triggerDao.initialize(false), Duration(30, SECONDS))
   }
 
   override protected def afterEach(): Unit = {
@@ -439,18 +443,18 @@ trait TriggerDaoOracleFixture
 
   override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
 
-  // Lazy because the postgresDatabase is only available once the tests start
+  // Lazy because the oracleDatabase is only available once the tests start
   private lazy val jdbcConfig_ =
     JdbcConfig("oracle.jdbc.OracleDriver", oracleJdbcUrl, oracleUser, oraclePwd)
   // TODO For whatever reason we need a larger pool here, otherwise
   // the connection deadlocks. I have no idea why :(
   private lazy val triggerDao =
-    DbTriggerDao(jdbcConfig_, poolSize = dao.Connection.PoolSize.Production)
+    DbTriggerDao(jdbcConfig_, poolSize = ConnectionPool.PoolSize.Production)
   private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-    Await.result(triggerDao.initialize, Duration(31, SECONDS))
+    Await.result(triggerDao.initialize(false), Duration(31, SECONDS))
   }
 
   override protected def afterEach(): Unit = {
@@ -504,11 +508,10 @@ trait TriggerServiceFixture
               minRestartInterval,
               ServiceConfig.DefaultMaxRestartInterval,
             )
-            val lock = LockedFreePort.find()
             for {
               r <- ServiceMain.startServer(
                 host.getHostName,
-                lock.port.value,
+                Port.Dynamic.value,
                 ServiceConfig.DefaultMaxAuthCallbacks,
                 ServiceConfig.DefaultAuthCallbackTimeout,
                 ServiceConfig.DefaultMaxHttpEntityUploadSize,
@@ -520,15 +523,13 @@ trait TriggerServiceFixture
                 restartConfig,
                 encodedDars,
                 jdbcConfig,
+                false,
                 logTriggerStatus,
               )
-              _ = lock.unlock()
             } yield r
-          } {
-            case (_, system) => {
-              system ! Server.Stop
-              system.whenTerminated.map(_ => ())
-            }
+          } { case (_, system) =>
+            system ! Server.Stop
+            system.whenTerminated.map(_ => ())
           }
         } yield binding
     }

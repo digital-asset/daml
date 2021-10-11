@@ -3,6 +3,8 @@
 
 package com.daml.logging
 
+import com.daml.logging.entries.{LoggingEntries, LoggingEntry}
+
 import scala.annotation.nowarn
 import scala.language.implicitConversions
 
@@ -37,23 +39,26 @@ object LoggingContextOf {
   final class label[P] private[LoggingContextOf] (private val ignored: Unit) extends AnyVal
 
   @nowarn("msg=parameter value label .* is never used") // Proxy only
-  def newLoggingContext[P, Z](label: label[P], kvs: Map[String, String])(
+  def newLoggingContext[P, Z](label: label[P], entries: LoggingEntry*)(
       f: LoggingContextOf[P] => Z
   ): Z =
-    LoggingContext.newLoggingContext(kvs)(lc => f((lc: LoggingContextOf[Any]).extend[P]))
+    LoggingContext.newLoggingContext(LoggingEntries(entries: _*))(lc =>
+      f((lc: LoggingContextOf[Any]).extend[P])
+    )
 
   @nowarn("msg=parameter value label .* is never used") // Proxy only
-  def withEnrichedLoggingContext[P, A](label: label[P], kvs: Map[String, String])(implicit
-      loggingContext: LoggingContextOf[A]
-  ): withEnrichedLoggingContext[P, A] =
-    new withEnrichedLoggingContext(kvs, loggingContext.extend[P])
+  def withEnrichedLoggingContext[P, A](
+      label: label[P],
+      kvs: LoggingEntry*
+  )(implicit loggingContext: LoggingContextOf[A]): withEnrichedLoggingContext[P, A] =
+    new withEnrichedLoggingContext(LoggingEntries(kvs: _*), loggingContext.extend[P])
 
   final class withEnrichedLoggingContext[P, A] private[LoggingContextOf] (
-      kvs: Map[String, String],
+      entries: LoggingEntries,
       loggingContext: LoggingContextOf[P with A],
   ) {
     def run[Z](f: LoggingContextOf[P with A] => Z): Z =
-      LoggingContext.withEnrichedLoggingContext(kvs)(lc =>
+      LoggingContext.withEnrichedLoggingContextFrom(entries)(lc =>
         f((lc: LoggingContextOf[Any]).extend[P with A])
       )(loggingContext)
   }

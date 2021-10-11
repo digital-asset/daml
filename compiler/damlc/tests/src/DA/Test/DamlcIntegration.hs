@@ -30,13 +30,12 @@ import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
 import Development.IDE.Core.Compile
 import Development.IDE.Core.Debouncer
+import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..))
 import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Location
-import Development.IDE.Types.Options(IdeReportProgress(..))
 import qualified Data.Aeson.Encode.Pretty as A
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import           Data.Char
-import Data.Default
 import qualified Data.DList as DList
 import Data.Foldable
 import           Data.List.Extra
@@ -45,7 +44,6 @@ import Data.Proxy
 import           Development.IDE.Types.Diagnostics
 import           Data.Maybe
 import           Development.Shake hiding (cmd, withResource)
-import qualified Language.Haskell.LSP.Types as LSP
 import           System.Directory.Extra
 import           System.Environment.Blank (setEnv)
 import           System.FilePath
@@ -72,6 +70,7 @@ import qualified Test.Tasty.HUnit as HUnit
 import Test.Tasty.HUnit ((@?=))
 import Test.Tasty.Options
 import Test.Tasty.Providers
+import Test.Tasty.Providers.ConsoleFormat (noResultDetails)
 import Test.Tasty.Runners (Outcome(..), Result(..))
 
 -- Newtype to avoid mixing up the loging function and the one for registering TODOs.
@@ -188,10 +187,10 @@ getIntegrationTests registerTODO scenarioService = do
           in
           withResource (mkDamlEnv opts (Just scenarioService)) (\_damlEnv -> pure ()) $ \getDamlEnv ->
           withResource
-          (getDamlEnv >>= \damlEnv -> initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
+          (getDamlEnv >>= \damlEnv -> initialise (mainRule opts) (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts) vfs)
           shutdown $ \service ->
           withResource
-          (getDamlEnv >>= \damlEnv -> initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts { optIsGenerated = True } (IdeReportProgress False)) vfs)
+          (getDamlEnv >>= \damlEnv -> initialise (mainRule opts) (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts { optIsGenerated = True }) vfs)
           shutdown $ \serviceGenerated ->
           testGroup ("Tests for DAML-LF " ++ renderPretty version) $
             map (testCase version service outdir registerTODO) nongeneratedFiles <>
@@ -225,6 +224,7 @@ testCase version getService outdir registerTODO (name, file) = singleTest name .
       , resultDescription = ""
       , resultShortDescription = "IGNORE"
       , resultTime = 0
+      , resultDetailsPrinter = noResultDetails
       }
     else do
       -- FIXME: Use of unsafeClearDiagnostics is only because we don't naturally lose them when we change setFilesOfInterest
@@ -243,7 +243,7 @@ testCase version getService outdir registerTODO (name, file) = singleTest name .
     ignoreVersion version = \case
       Ignore -> True
       SinceLF minVersion -> version < minVersion
-      UntilLF maxVersion -> version > maxVersion
+      UntilLF maxVersion -> version >= maxVersion
       _ -> False
 
 runJqQuery :: (String -> IO ()) -> LF.Version -> FilePath -> FilePath -> [String] -> IO [Maybe String]
@@ -318,10 +318,10 @@ checkDiagnostics log expected got
 -- functionality
 data Ann
     = Ignore                             -- Don't run this test at all
-    | SinceLF LF.Version                 -- Only run this test since the given DAML-LF version
-    | UntilLF LF.Version                 -- Only run this test until the given DAML-LF version
+    | SinceLF LF.Version                 -- Only run this test since the given DAML-LF version (inclusive)
+    | UntilLF LF.Version                 -- Only run this test until the given DAML-LF version (exclusive)
     | DiagnosticFields [DiagnosticField] -- I expect a diagnostic that has the given fields
-    | QueryLF String                       -- The jq query against the produced DAML-LF returns "true"
+    | QueryLF String                     -- The jq query against the produced DAML-LF returns "true"
     | Todo String                        -- Just a note that is printed out
 
 
@@ -334,8 +334,9 @@ readFileAnns file = do
         f (stripPrefix "-- @" . trim -> Just x) = case word1 $ trim x of
             ("IGNORE",_) -> Just Ignore
             ("SINCE-LF", x) -> Just $ SinceLF $ fromJust $ LF.parseVersion $ trim x
-            ("SINCE-LF-FEATURE", x) -> Just $ SinceLF $ LF.versionForFeaturePartial $ T.pack $ trim x
             ("UNTIL-LF", x) -> Just $ UntilLF $ fromJust $ LF.parseVersion $ trim x
+            ("SINCE-LF-FEATURE", x) -> Just $ SinceLF $ LF.versionForFeaturePartial $ T.pack $ trim x
+            ("UNTIL-LF-FEATURE", x) -> Just $ UntilLF $ LF.versionForFeaturePartial $ T.pack $ trim x
             ("ERROR",x) -> Just (DiagnosticFields (DSeverity DsError : parseFields x))
             ("WARN",x) -> Just (DiagnosticFields (DSeverity DsWarning : parseFields x))
             ("INFO",x) -> Just (DiagnosticFields (DSeverity DsInfo : parseFields x))

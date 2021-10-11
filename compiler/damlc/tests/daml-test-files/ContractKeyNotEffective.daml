@@ -1,0 +1,18 @@
+-- @ERROR range=14:1-14:19; contract 0055b33c9fd9928bdf0c2c611194865917b9aaf8b4b94a44abc25ddfea6d866cd1 not effective, but we found its key!
+module ContractKeyNotEffective where
+
+import DA.Time
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+    key p : Party
+    maintainer key
+
+fetchByKeyMustFail = scenario do
+  p <- getParty "alice"
+  submit p $ create (T p)
+  pass (- seconds 1)
+  submit p $ fetchByKey @T p

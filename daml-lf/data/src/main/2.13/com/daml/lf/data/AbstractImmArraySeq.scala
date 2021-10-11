@@ -25,7 +25,9 @@ abstract class ImmArraySeqCompanion extends StrictOptimizedSeqFactory[ImmArraySe
   this: ImmArraySeq.type =>
   protected type Factory[A] = Unit
   protected def canBuildFrom[A]: Factory[A] = ()
-  final def empty[A] = ImmArray.empty.toSeq
-  final def from[E](it: IterableOnce[E]) = (ImmArray.newBuilder ++= it).result().toSeq
+  def Empty: ImmArraySeq[Nothing]
+  final def empty[A]: ImmArraySeq[Nothing] = Empty
+  final def from[E](it: IterableOnce[E]): ImmArraySeq[E] =
+    ImmArray.newBuilder.addAll(it).result().toSeq
   final def newBuilder[A] = ImmArray.newBuilder.mapResult(_.toSeq)
 }

@@ -4,8 +4,9 @@
 
 module NonEmpty where
 
-import DA.NonEmpty
+import Prelude hiding (cons, find)
 import DA.Assert
+import DA.NonEmpty
 
 testApplicative = scenario do
   let l = NonEmpty 1 [2, 3, 4]
@@ -13,3 +14,35 @@ testApplicative = scenario do
   (fs <*> l) === NonEmpty 2 [4, 6, 8, 3, 6, 9, 12]
   hd l === 1
   tl l === [2, 3, 4]
+
+testOrd = scenario do
+  compare (NonEmpty 1 []) (NonEmpty 1 []) === EQ
+  compare (NonEmpty 2 []) (NonEmpty 1 []) === GT
+  compare (NonEmpty 1 []) (NonEmpty 2 []) === LT
+  compare (NonEmpty 1 [0]) (NonEmpty 1 []) === GT
+  compare (NonEmpty 1 []) (NonEmpty 1 [0]) === LT
+  compare (NonEmpty 1 [0]) (NonEmpty 1 [0]) === EQ
+  compare (NonEmpty 1 [0]) (NonEmpty 1 [1]) === LT
+
+testCons = scenario do
+  cons "a" (NonEmpty "b" []) === NonEmpty "a" ["b"]
+
+testFind = scenario do
+  find (== 1) (NonEmpty 0 []) === None
+  find (== 1) (NonEmpty 1 []) === Some 1
+  find (== 1) (NonEmpty 0 [1]) === Some 1
+  find (== 1) (NonEmpty 0 [0]) === None
+  find (== 1) (NonEmpty 0 [1, 2]) === Some 1
+  find (== 1) (NonEmpty 0 [2, 1]) === Some 1
+  find (== 1) (NonEmpty 0 [1, 2, 1]) === Some 1
+
+testDelete = scenario do
+  delete 1 (NonEmpty 0 []) === [0]
+  delete 1 (NonEmpty 1 []) === []
+  delete 1 (NonEmpty 0 [1]) === [0]
+  delete 1 (NonEmpty 0 [0]) === [0, 0]
+  delete 1 (NonEmpty 1 [0]) === [0]
+  delete 1 (NonEmpty 0 [1, 2]) === [0, 2]
+  delete 1 (NonEmpty 0 [2, 1]) === [0, 2]
+  delete 1 (NonEmpty 0 [1, 2, 1]) === [0, 2, 1]
+

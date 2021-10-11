@@ -8,10 +8,6 @@ load(
     "da_scala_test",
     "silencer_plugin",
 )
-load(
-    "//bazel_tools/client_server:client_server_test.bzl",
-    "client_server_test",
-)
 load("@build_environment//:configuration.bzl", "sdk_version")
 
 DAML_LF_VERSIONS = [
@@ -26,7 +22,8 @@ DAML_LF_VERSIONS = [
             glob(["**/*.daml"]) + [
                 "//triggers/daml:daml-trigger%s.dar" % suffix,
                 "//daml-script/daml:daml-script%s.dar" % suffix,
-                "//docs:source/triggers/template-root/src/CopyTrigger.daml",
+            ] + [
+                "//templates:copy-trigger/src/CopyTrigger.daml",
             ],
         outs = ["acs%s.dar" % suffix],
         cmd = """
@@ -44,7 +41,7 @@ DAML_LF_VERSIONS = [
       cp -L $(location :daml/TemplateIdFilter.daml) $$TMP_DIR/daml
       cp -L $(location :daml/Time.daml) $$TMP_DIR/daml
       cp -L $(location :daml/Heartbeat.daml) $$TMP_DIR/daml
-      cp -L $(location //docs:source/triggers/template-root/src/CopyTrigger.daml) $$TMP_DIR/daml
+      cp -L $(location //templates:copy-trigger/src/CopyTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger{suffix}.dar) $$TMP_DIR/daml-trigger.dar
       cp -L $(location //daml-script/daml:daml-script{suffix}.dar) $$TMP_DIR/daml-script.dar
       cat << EOF > $$TMP_DIR/daml.yaml
@@ -86,13 +83,15 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
@@ -114,6 +113,7 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//triggers/runner:trigger-runner-lib",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -141,7 +141,7 @@ da_scala_library(
         scala_deps = [
             "@maven//:com_typesafe_akka_akka_stream",
             "@maven//:org_scalacheck_scalacheck",
-            "@maven//:org_scalatestplus_scalacheck_1_14",
+            "@maven//:org_scalatestplus_scalacheck_1_15",
             "@maven//:org_scalaz_scalaz_core",
         ],
         deps = [
@@ -159,9 +159,9 @@ da_scala_library(
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
             "//ledger/ledger-api-domain",
+            "//ledger/ledger-configuration",
             "//ledger/ledger-resources",
             "//ledger/participant-integration-api",
-            "//ledger/participant-state",
             "//ledger/sandbox-classic",
             "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
             "//ledger/sandbox-common",

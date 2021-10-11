@@ -18,17 +18,16 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.{ApplicationId, WorkflowId}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.transaction.BlindingInfo
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.OffsetStep
-import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
-import com.daml.platform.store.dao.events.{FilterRelation, TransactionsWriter}
+import com.daml.platform.store.dao.events.{ContractStateEvent, FilterRelation, TransactionsWriter}
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -48,14 +47,14 @@ private[platform] trait LedgerDaoTransactionsReader {
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed]
 
   def lookupFlatTransactionById(
-      transactionId: TransactionId,
-      requestingParties: Set[Party],
+      transactionId: Ref.TransactionId,
+      requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]]
 
   def getTransactionTrees(
       startExclusive: Offset,
       endInclusive: Offset,
-      requestingParties: Set[Party],
+      requestingParties: Set[Ref.Party],
       verbose: Boolean,
   )(implicit
       loggingContext: LoggingContext
@@ -78,8 +77,8 @@ private[platform] trait LedgerDaoTransactionsReader {
   ): Source[((Offset, Long), TransactionLogUpdate), NotUsed]
 
   def lookupTransactionTreeById(
-      transactionId: TransactionId,
-      requestingParties: Set[Party],
+      transactionId: Ref.TransactionId,
+      requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]]
 
   def getActiveContracts(
@@ -92,8 +91,6 @@ private[platform] trait LedgerDaoTransactionsReader {
     *
     * @param startExclusive Start (exclusive) of the stream in the form of (offset, event_sequential_id)
     * @param endInclusive End (inclusive) of the event stream in the form of (offset, event_sequential_id)
-    * @param loggingContext
-    * @return
     */
   def getContractStateEvents(
       startExclusive: (Offset, Long),
@@ -107,7 +104,7 @@ private[platform] trait LedgerDaoCommandCompletionsReader {
   def getCommandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,
-      applicationId: ApplicationId,
+      applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
   )(implicit
       loggingContext: LoggingContext
@@ -150,7 +147,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   def completions: LedgerDaoCommandCompletionsReader
 
   /** Returns a list of party details for the parties specified. */
-  def getParties(parties: Seq[Party])(implicit
+  def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[List[PartyDetails]]
 
@@ -165,10 +162,10 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   /** Returns a list of all known Daml-LF packages */
   def listLfPackages()(implicit
       loggingContext: LoggingContext
-  ): Future[Map[PackageId, PackageDetails]]
+  ): Future[Map[Ref.PackageId, PackageDetails]]
 
   /** Returns the given Daml-LF archive */
-  def getLfArchive(packageId: PackageId)(implicit
+  def getLfArchive(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Archive]]
 
@@ -230,43 +227,53 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     * @param pruneUpToInclusive offset up to which to prune archived history inclusively
     * @return
     */
-  def prune(pruneUpToInclusive: Offset)(implicit loggingContext: LoggingContext): Future[Unit]
+  def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit]
 }
 
 private[platform] trait LedgerWriteDao extends ReportsHealth {
 
-  /** Initializes the ledger. Must be called only once.
+  /** Initializes the database with the given ledger identity.
+    * If the database was already intialized, instead compares the given identity parameters
+    * to the existing ones, and returns a Future failed with [[com.daml.platform.common.MismatchException]]
+    * if they don't match.
+    *
+    * This method is idempotent.
+    * This method is NOT safe to call concurrently.
+    *
+    * This method must succeed at least once before other LedgerWriteDao methods may be used.
     *
     * @param ledgerId the ledger id to be stored
+    * @param participantId the participant id to be stored
     */
-  def initializeLedger(ledgerId: LedgerId)(implicit loggingContext: LoggingContext): Future[Unit]
-
-  def initializeParticipantId(participantId: ParticipantId)(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit]
+  def initialize(
+      ledgerId: LedgerId,
+      participantId: ParticipantId,
+  )(implicit loggingContext: LoggingContext): Future[Unit]
 
   // TODO append-only: cleanup
   def prepareTransactionInsert(
-      submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
+      completionInfo: Option[state.CompletionInfo],
+      workflowId: Option[Ref.WorkflowId],
+      transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: CommittedTransaction,
-      divulgedContracts: Iterable[DivulgedContract],
+      divulgedContracts: Iterable[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
   ): TransactionsWriter.PreparedInsert
 
   // TODO append-only: cleanup
   def storeTransaction(
       preparedInsert: PreparedInsert,
-      submitterInfo: Option[SubmitterInfo],
-      transactionId: TransactionId,
+      completionInfo: Option[state.CompletionInfo],
+      transactionId: Ref.TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
       offsetStep: OffsetStep,
       transaction: CommittedTransaction,
-      divulged: Iterable[DivulgedContract],
+      divulged: Iterable[state.DivulgedContract],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
   // TODO append-only: cleanup
@@ -281,17 +288,17 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
 
   // TODO append-only: cleanup
   def completeTransaction(
-      submitterInfo: Option[SubmitterInfo],
-      transactionId: TransactionId,
+      completionInfo: Option[state.CompletionInfo],
+      transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
   def storeRejection(
-      submitterInfo: Option[SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       recordTime: Instant,
       offsetStep: OffsetStep,
-      reason: RejectionReason,
+      reason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
   /** !!! Please kindly not use this.
@@ -342,13 +349,13 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
     * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
     */
   def storeTransaction(
-      submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
+      completionInfo: Option[state.CompletionInfo],
+      workflowId: Option[Ref.WorkflowId],
+      transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offset: OffsetStep,
       transaction: CommittedTransaction,
-      divulgedContracts: Iterable[DivulgedContract],
+      divulgedContracts: Iterable[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
       recordTime: Instant,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]

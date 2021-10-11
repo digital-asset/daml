@@ -12,13 +12,6 @@ load(
     "da_scala_test_suite",
 )
 
-tsvc_main_scalacopts = [
-    "-P:wartremover:traverser:org.wartremover.warts.%s" % wart
-    for wart in [
-        "NonUnitStatements",
-    ]
-]
-
 triggerMain = "src/main/scala/com/digitalasset/daml/lf/engine/trigger/ServiceMain.scala"
 
 da_scala_library(
@@ -31,7 +24,6 @@ da_scala_library(
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
         "@maven//:com_github_scopt_scopt",
-        "@maven//:com_lihaoyi_sourcecode",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_actor_typed",
         "@maven//:com_typesafe_akka_akka_http",
@@ -54,7 +46,6 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_slf4j",
         "@maven//:org_tpolecat_doobie_postgres",
     ],
-    scalacopts = tsvc_main_scalacopts,
     # Uncomment this if/when the target is published to maven.
     # tags = ["maven_coordinates=com.daml:trigger-service:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -74,16 +65,16 @@ da_scala_library(
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/cli-opts",
-        "//ledger-service/utils",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/db-utils",
         "//libs-scala/doobie-slf4j",
+        "//libs-scala/logging-entries",
         "//libs-scala/scala-utils",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
         "@maven//:com_typesafe_config",
-        "@maven//:com_zaxxer_HikariCP",
         "@maven//:org_flywaydb_flyway_core",
         "@maven//:org_slf4j_slf4j_api",
     ],
@@ -107,6 +98,7 @@ binary_deps = [
     "//language-support/scala/bindings",
     "//ledger/ledger-api-common",
     "//libs-scala/contextualized-logging",
+    "//libs-scala/db-utils",
     "//libs-scala/scala-utils",
     "//triggers/service/auth:middleware-api",
     "@maven//:org_slf4j_slf4j_api",
@@ -153,7 +145,10 @@ da_scala_library(
     scala_deps = [
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_typesafe_akka_akka_actor_typed",
         "@maven//:com_typesafe_akka_akka_http_core",
@@ -173,15 +168,17 @@ da_scala_library(
         "//ledger/caching",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/participant-state",
         "//ledger/sandbox-classic",
         "//ledger/sandbox-common",
         "//libs-scala/adjustable-clock",
+        "//libs-scala/db-utils",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
+        "//libs-scala/ports:ports-testing",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/scala-utils",
@@ -192,6 +189,7 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_auth0_java_jwt",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -204,7 +202,10 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:io_spray_spray_json",
         "@maven//:com_typesafe_akka_akka_http_core",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_github_scopt_scopt",
     ],
@@ -225,6 +226,7 @@ da_scala_test_suite(
         "//ledger/sandbox-classic",
         "//ledger/sandbox-common",
         "//libs-scala/adjustable-clock",
+        "//libs-scala/db-utils",
         "//libs-scala/flyway-testing",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
@@ -232,6 +234,7 @@ da_scala_test_suite(
         "//triggers/service/auth:oauth2-test-server",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
         "@maven//:org_flywaydb_flyway_core",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -241,7 +244,10 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:io_spray_spray_json",
         "@maven//:com_typesafe_akka_akka_http_core",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     tags = [] if oracle_testing else ["manual"],
@@ -264,11 +270,13 @@ da_scala_test_suite(
         "//ledger/sandbox-classic",
         "//ledger/sandbox-common",
         "//libs-scala/adjustable-clock",
+        "//libs-scala/db-utils",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//triggers/service/auth:oauth2-test-server",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 

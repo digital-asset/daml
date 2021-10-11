@@ -33,6 +33,8 @@ da_scala_library(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-configuration",
+        "//ledger/ledger-offset",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
@@ -61,7 +63,10 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_mockito_mockito_scala",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
     ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -89,6 +94,7 @@ da_scala_test_suite(
         "//libs-scala/resources-grpc",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -102,7 +108,6 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox-on-x",
-        "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/ledger-resources",
         "//ledger/participant-state",
@@ -134,42 +139,25 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
+        "--max-deduplication-duration=PT5S",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
     ],
     test_tool_args = [
         "--verbose",
-        "--exclude=ClosedWorldIT",
+        "--additional=ParticipantPruningIT",
+        "--additional=MultiPartySubmissionIT",
         "--exclude=CommandDeduplicationIT",
+        "--exclude=ClosedWorldIT",
         "--exclude=ContractKeysIT",
         "--exclude=SemanticTests",
         "--exclude=RaceConditionIT",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-participant-pruning",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=ParticipantPruningIT",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-multi-party-submission",
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=MultiPartySubmissionIT",
+        "--exclude=ExceptionRaceConditionIT",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
+        "--exclude=ConfigManagementServiceIT:CMConcurrentSetConflicting",
+        # Disable tests targeting only append-only schema functionality
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -180,6 +168,8 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
     ],
     test_tool_args = [
         "--verbose",

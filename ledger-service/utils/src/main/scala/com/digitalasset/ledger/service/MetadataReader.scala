@@ -5,12 +5,11 @@ package com.daml.ledger.service
 
 import java.io.File
 
-import com.daml.lf.archive.{Dar, DarReader}
+import com.daml.lf.archive.{ArchivePayload, Dar, DarReader}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface
-import com.daml.daml_lf_dev.DamlLf
-import com.daml.util.ExceptionOps._
+import com.daml.scalautil.ExceptionOps._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 import scalaz.{Show, \/}
@@ -30,35 +29,36 @@ object MetadataReader {
   def readFromDar(darFile: File): Error \/ LfMetadata =
     for {
       dar <- \/.fromEither(
-        DarReader().readArchiveFromFile(darFile).toEither
-      ).leftMap(e => Error(Symbol("readFromDar"), e.description))
+        DarReader.readArchiveFromFile(darFile)
+      ).leftMap(e => Error(Symbol("readFromDar"), e.msg))
 
       packageStore <- decodePackageStoreFromDar(dar)
 
     } yield packageStore
 
   private def decodePackageStoreFromDar(
-      dar: Dar[(Ref.PackageId, DamlLf.ArchivePayload)]
+      dar: Dar[ArchivePayload]
   ): Error \/ LfMetadata = {
 
     dar.all
       .traverse { a =>
-        decodeInterfaceFromArchive(a).map(x => a._1 -> x): Error \/ (Ref.PackageId, iface.Interface)
+        decodeInterfaceFromArchive(a)
+          .map(x => a.pkgId -> x): Error \/ (Ref.PackageId, iface.Interface)
       }
       .map(_.toMap)
   }
 
   private def decodeInterfaceFromArchive(
-      a: (Ref.PackageId, DamlLf.ArchivePayload)
+      a: ArchivePayload
   ): Error \/ iface.Interface =
-    \/.fromTryCatchNonFatal {
+    \/.attempt {
       iface.reader.InterfaceReader.readInterface(a)
-    }.leftMap(e => Error(Symbol("decodeInterfaceFromArchive"), e.description))
+    }(e => Error(Symbol("decodeInterfaceFromArchive"), e.description))
       .flatMap { case (errors, out) =>
         if (errors.empty) {
           \/.right(out)
         } else {
-          val errorMsg = s"Errors reading LF archive ${a._1: Ref.PackageId}:\n${errors.toString}"
+          val errorMsg = s"Errors reading LF archive ${a.pkgId: Ref.PackageId}:\n${errors.toString}"
           \/.left(Error(Symbol("decodeInterfaceFromArchive"), errorMsg))
         }
       }

@@ -12,7 +12,6 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "ENCODER_LF_VERSIONS",
     "lf_version_configuration",
-    "lf_version_configuration_versions",
     "mangle_for_java",
 )
 
@@ -42,7 +41,10 @@ da_scala_test_suite(
     srcs = glob(["src/test/scala/**/*.scala"]),
     data = [":testing-dar-%s" % target for target in ENCODER_LF_VERSIONS],
     scala_deps = [
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
@@ -60,7 +62,9 @@ da_scala_test_suite(
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/validation",
+        "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -128,8 +132,8 @@ da_scala_binary(
 [
     [
         genrule(
-            name = "testing-dar-lookup-scala-%s" % lf_version,
-            outs = ["TestDars-%s.scala" % mangle_for_java(lf_version)],
+            name = "testing-dar-lookup-scala-%s" % keyword,
+            outs = ["TestDars-%s.scala" % mangle_for_java(keyword)],
             cmd = """
 cat > $@ <<EOF
 package com.daml.lf.archive.testing
@@ -137,29 +141,26 @@ object TestDar {
     val fileName = \"daml-lf/encoder/test-%s.dar\"
 }
 EOF
-""" % lf_version,
+""" % version,
         ),
         da_scala_library(
-            name = "testing-dar-lookup-lib-%s" % lf_version,
-            srcs = ["testing-dar-lookup-scala-%s" % lf_version],
+            name = "testing-dar-lookup-lib-%s" % keyword,
+            srcs = ["testing-dar-lookup-scala-%s" % keyword],
             # generated_srcs is required for scaladocF
-            generated_srcs = ["testing-dar-lookup-scala-%s" % lf_version],
+            generated_srcs = ["testing-dar-lookup-scala-%s" % keyword],
             visibility = ["//visibility:public"],
         ),
     ]
-    for lf_version in lf_version_configuration_versions
+    for (keyword, version) in lf_version_configuration.items()
+    if keyword in ["latest"]
 ]
 
 [
     alias(
-        name = "testing-dar%s-%s" % (name, keyword),
-        actual = ":testing-dar%s-%s" % (name, version),
+        name = "testing-dar-%s" % keyword,
+        actual = ":testing-dar-%s" % version,
         visibility = ["//visibility:public"],
     )
-    for name in [
-        "",
-        "-lookup-lib",
-    ]
     for (keyword, version) in lf_version_configuration.items()
 ]
 

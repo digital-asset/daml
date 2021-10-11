@@ -384,10 +384,8 @@ object SBuiltinBigNumericTest {
 
   private def evalSExpr(e: SExpr, onLedger: Boolean): Either[SError, SValue] = {
     val machine = if (onLedger) {
-      val seed = crypto.Hash.hashPrivateKey("SBuiltinTest")
       Speedy.Machine.fromScenarioSExpr(
         compiledPackages,
-        transactionSeed = seed,
         scenario = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(e)),
       )
     } else {

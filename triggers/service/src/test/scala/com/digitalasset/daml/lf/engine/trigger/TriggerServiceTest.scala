@@ -22,6 +22,7 @@ import org.scalatest.concurrent.Eventually
 import scala.concurrent.Future
 import scalaz.Tag
 import scalaz.syntax.tag._
+import scalaz.syntax.traverse._
 import spray.json._
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.ledger.api.refinements.ApiTypes
@@ -58,7 +59,7 @@ trait AbstractTriggerServiceTest
   protected val darPath = requiredResource("triggers/service/test-model.dar")
 
   // Encoded dar used in service initialization
-  protected val dar = DarReader().readArchiveFromFile(darPath).get
+  protected val dar = DarReader.assertReadArchiveFromFile(darPath).map(p => p.pkgId -> p.proto)
   protected val testPkgId = dar.main._1
   override protected val damlPackages: List[File] = List(darPath)
 

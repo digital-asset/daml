@@ -4,6 +4,7 @@
 package com.daml.platform.apiserver.execution
 
 import com.daml.ledger.api.domain.{Commands => ApiCommands}
+import com.daml.ledger.configuration.Configuration
 import com.daml.lf.crypto
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.ErrorCause
@@ -14,6 +15,7 @@ private[apiserver] trait CommandExecutor {
   def execute(
       commands: ApiCommands,
       submissionSeed: crypto.Hash,
+      ledgerConfiguration: Configuration,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,

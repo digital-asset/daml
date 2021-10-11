@@ -26,9 +26,9 @@ da_scala_library(
         "//ledger-service/cli-opts",
         "//ledger/caching",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
-        "//ledger/participant-state",
         "//ledger/sandbox-classic",
         "//ledger/sandbox-common:sandbox-common-ce",
         "//libs-scala/ports",
@@ -51,8 +51,8 @@ da_scala_library(
         "//daml-lf/data",
         "//ledger/caching",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-configuration",
         "//ledger/participant-integration-api",
-        "//ledger/participant-state",
         "//ledger/sandbox-common",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
@@ -62,7 +62,7 @@ da_scala_library(
 da_scala_binary(
     name = "daml-on-sql-binary",
     main_class = "com.daml.on.sql.Main",
-    resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
+    resources = ["src/main/resources/logback.xml"],
     deps = [
         ":daml-on-sql",
     ],
@@ -71,7 +71,7 @@ da_scala_binary(
 da_scala_binary(
     name = "daml-on-sql-ephemeral-postgresql",
     main_class = "com.daml.on.sql.MainWithEphemeralPostgresql",
-    resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
+    resources = ["src/main/resources/logback.xml"],
     deps = [
         ":daml-on-sql",
         ":daml-on-sql-test-lib",
@@ -93,8 +93,8 @@ da_scala_test(
         "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-configuration",
         "//ledger/participant-integration-api",
-        "//ledger/participant-state",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//libs-scala/ports",
@@ -109,6 +109,11 @@ conformance_test(
         "--port=6865",
         "--eager-package-loading",
     ],
+    test_tool_args = [
+        "--verbose",
+        "--additional=MultiPartySubmissionIT",
+        "--additional=ContractIdIT:Accept",
+    ],
 )
 
 # TODO append-only: cleanup
@@ -121,35 +126,12 @@ conformance_test(
         "--eager-package-loading",
         "--enable-append-only-schema",
     ],
-)
-
-conformance_test(
-    name = "conformance-test-multi-party-submissions",
-    server = ":daml-on-sql-ephemeral-postgresql",
-    server_args = [
-        "--ledgerid=conformance-test",
-        "--port=6865",
-        "--eager-package-loading",
-    ],
     test_tool_args = [
         "--verbose",
-        "--include=MultiPartySubmissionIT",
-    ],
-)
-
-# TODO append-only: cleanup
-conformance_test(
-    name = "conformance-test-multi-party-submissions-append-only",
-    server = ":daml-on-sql-ephemeral-postgresql",
-    server_args = [
-        "--ledgerid=conformance-test",
-        "--port=6865",
-        "--eager-package-loading",
-        "--enable-append-only-schema",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--include=MultiPartySubmissionIT",
+        "--additional=MultiPartySubmissionIT",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
     ],
 )
 

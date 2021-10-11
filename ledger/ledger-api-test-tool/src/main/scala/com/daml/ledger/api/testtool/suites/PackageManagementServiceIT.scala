@@ -30,7 +30,7 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
   }
 
   test(
-    "PackageManagementEmptyUpload",
+    "PMEmptyUpload",
     "An attempt at uploading an empty payload should fail",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
@@ -40,13 +40,29 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.INVALID_ARGUMENT,
-        "Invalid argument: Invalid DAR: package-upload",
+        Some("Invalid argument: Invalid DAR: package-upload"),
       )
     }
   })
 
   test(
-    "PackageManagementLoad",
+    "PMDuplicateSubmissionId",
+    "Duplicate submission ids are accepted when package uploaded twice",
+    allocate(NoParties, NoParties),
+  )(implicit ec => { case Participants(Participant(alpha), Participant(beta)) =>
+    // Multiple package updates should always succeed. Participant adds extra entropy to the
+    // submission id to ensure client does not inadvertently cause problems by poor selection
+    // of submission ids.
+    for {
+      testPackage <- loadTestPackage()
+      request = alpha.uploadDarRequest(testPackage)
+      _ <- alpha.uploadDarFile(request)
+      _ <- beta.uploadDarFile(request)
+    } yield ()
+  })
+
+  test(
+    "PMLoad",
     "Concurrent uploads of the same package should be idempotent and result in the package being available for use",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>

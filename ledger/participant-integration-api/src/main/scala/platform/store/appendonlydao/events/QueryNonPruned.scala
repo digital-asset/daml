@@ -5,12 +5,17 @@ package com.daml.platform.store.appendonlydao.events
 
 import java.sql.Connection
 
-import anorm.SQL
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.Conversions.offset
+import com.daml.platform.store.backend.ParameterStorageBackend
 
-object QueryNonPruned {
+trait QueryNonPruned {
+  def executeSql[T](query: => T, minOffsetExclusive: Offset, error: Offset => String)(implicit
+      conn: Connection
+  ): T
+}
+
+case class QueryNonPrunedImpl(storageBackend: ParameterStorageBackend) extends QueryNonPruned {
 
   /** Runs a query and throws an error if the query accesses pruned offsets.
     *
@@ -29,27 +34,18 @@ object QueryNonPruned {
     */
   def executeSql[T](query: => T, minOffsetExclusive: Offset, error: Offset => String)(implicit
       conn: Connection
-  ): Either[Throwable, T] = {
+  ): T = {
     val result = query
 
-    SQL_SELECT_MOST_RECENT_PRUNING
-      .as(offset("participant_pruned_up_to_inclusive").?.single)
-      .fold(Right(result): Either[Throwable, T])(pruningOffsetUpToInclusive =>
-        Either.cond(
-          minOffsetExclusive >= pruningOffsetUpToInclusive,
-          result,
-          ErrorFactories.participantPrunedDataAccessed(error(pruningOffsetUpToInclusive)),
-        )
-      )
+    storageBackend.prunedUpToInclusive(conn) match {
+      case None =>
+        result
+
+      case Some(pruningOffsetUpToInclusive) if minOffsetExclusive >= pruningOffsetUpToInclusive =>
+        result
+
+      case Some(pruningOffsetUpToInclusive) =>
+        throw ErrorFactories.participantPrunedDataAccessed(error(pruningOffsetUpToInclusive))
+    }
   }
-
-  def executeSqlOrThrow[T](query: => T, minOffsetExclusive: Offset, error: Offset => String)(
-      implicit conn: Connection
-  ): T =
-    executeSql(query, minOffsetExclusive, error).fold(throw _, identity)
-
-  private val SQL_SELECT_MOST_RECENT_PRUNING = SQL(
-    "select participant_pruned_up_to_inclusive from parameters"
-  )
-
 }

@@ -13,6 +13,6 @@ template PackageManagementTestTemplate
   where
     signatory owner
 
-    controller owner can
-      TestChoice: ()
-        do return ()
+    choice TestChoice: ()
+      controller owner
+      do return ()

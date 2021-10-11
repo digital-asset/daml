@@ -33,12 +33,12 @@ for production use today.
    * - `Sextant for Daml <https://blockchaintp.com/sextant/daml/>`__
      - `Amazon QLDB <https://aws.amazon.com/qldb/>`__
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__
-   * - `Daml Hub <https://hub.daml.com/>`__
-     - `Managed cloud enviroment <https://projectdabl.com/>`__
-     - `Digital Asset <https://digitalasset.com/>`__
-   * - `Hyperledger Besu <https://besu.hyperledger.org/>`__
+   * - `Sextant for Daml <https://blockchaintp.com/sextant/daml/>`__
+     - `Hyperledger Besu <https://besu.hyperledger.org/>`__
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__
-     - `Press release, March 2020 <https://hub.digitalasset.com/press-release/ethereum-compatible-hyperledger-besu-now-has-enterprise-grade-daml-smart-contracts>`__
+   * - `Daml Hub <https://hub.daml.com/>`__
+     - `Managed cloud enviroment <https://hub.daml.com/>`__
+     - `Digital Asset <https://digitalasset.com/>`__
 
 .. _deploy-ref_open_source:
 

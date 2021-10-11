@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.index.v2
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.domain.{LedgerOffset, PartyDetails, PartyEntry}
-import com.daml.ledger.participant.state.v1.{ParticipantId, Party}
+import com.daml.lf.data.Ref.{ParticipantId, Party}
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future

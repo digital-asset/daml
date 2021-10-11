@@ -7,32 +7,29 @@ package com.daml.platform.db.migration.postgres
 
 import java.io.InputStream
 import java.sql.Connection
-import java.util.Date
+import java.util.{Date, UUID}
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
-import com.daml.ledger.participant.state.v1.{ContractInst, TransactionId}
-import com.daml.lf.data.Ref.Party
+import com.daml.ledger.api.domain.RejectionReason
+import com.daml.ledger.api.domain.RejectionReason._
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.ledger.api.domain.RejectionReason
-import com.daml.ledger.api.domain.RejectionReason._
-import com.daml.ledger.{ApplicationId, CommandId, WorkflowId}
-import com.daml.platform.store.Contract.ActiveContract
-import com.daml.platform.store.Conversions._
-import com.daml.platform.store.entries.LedgerEntry
-import com.daml.platform.store.serialization.KeyHasher
-import com.daml.platform.store.{ActiveLedgerState, ActiveLedgerStateManager, Let, LetLookup}
 import com.daml.platform.db.migration.translation.{
   ContractSerializer,
   TransactionSerializer,
   ValueSerializer,
 }
+import com.daml.platform.store.Contract.ActiveContract
+import com.daml.platform.store.Conversions._
+import com.daml.platform.store.entries.LedgerEntry
+import com.daml.platform.store.serialization.KeyHasher
+import com.daml.platform.store.{ActiveLedgerState, ActiveLedgerStateManager, Let, LetLookup}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 import org.slf4j.LoggerFactory
 
@@ -282,12 +279,13 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
   private def updateActiveContractSet(
       offset: Long,
       tx: LedgerEntry.Transaction,
-      divulgence: Relation[ContractId, Party],
+      divulgence: Relation[ContractId, Ref.Party],
   )(implicit connection: Connection): Unit =
     tx match {
       case LedgerEntry.Transaction(
             _,
             transactionId,
+            _,
             _,
             _,
             workflowId,
@@ -297,7 +295,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
             explicitDisclosure,
           ) =>
         val mappedDisclosure = explicitDisclosure.view
-          .mapValues(parties => parties.map(Party.assertFromString))
+          .mapValues(parties => parties.map(Ref.Party.assertFromString))
           .toMap
 
         final class AcsStoreAcc extends ActiveLedgerState[AcsStoreAcc] {
@@ -320,15 +318,15 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
             this
           }
 
-          override def addParties(parties: Set[Party]): AcsStoreAcc = {
+          override def addParties(parties: Set[Ref.Party]): AcsStoreAcc = {
             // Implemented in a future migration
             this
           }
 
           override def divulgeAlreadyCommittedContracts(
-              transactionId: TransactionId,
-              global: Relation[ContractId, Party],
-              referencedContracts: List[(Value.ContractId, ContractInst)],
+              transactionId: Ref.TransactionId,
+              global: Relation[ContractId, Ref.Party],
+              referencedContracts: ActiveLedgerState.ReferencedContracts,
           ) = {
             val divulgenceParams = global
               .flatMap { case (cid, parties) =>
@@ -403,11 +401,11 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
   case class ParsedEntry(
       typ: String,
-      transactionId: Option[TransactionId],
-      commandId: Option[CommandId],
-      applicationId: Option[ApplicationId],
-      submitter: Option[Party],
-      workflowId: Option[WorkflowId],
+      transactionId: Option[Ref.TransactionId],
+      commandId: Option[Ref.CommandId],
+      applicationId: Option[Ref.ApplicationId],
+      submitter: Option[Ref.Party],
+      workflowId: Option[Ref.WorkflowId],
       effectiveAt: Option[Date],
       recordedAt: Option[Date],
       transaction: Option[InputStream],
@@ -432,7 +430,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
       "ledger_offset",
     )
 
-  private val DisclosureParser = (eventId("event_id") ~ party("party") map (flatten))
+  private val DisclosureParser = eventId("event_id") ~ party("party") map flatten
 
   private def toLedgerEntry(
       parsedEntry: ParsedEntry
@@ -458,17 +456,18 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
         .transform((_, v) => v.map(_._2).toSet)
 
       offset -> LedgerEntry.Transaction(
-        Some(commandId),
-        transactionId,
-        Some(applicationId),
-        List(submitter),
-        workflowId,
-        effectiveAt.toInstant,
-        recordedAt.toInstant,
-        transactionSerializer
+        commandId = Some(commandId),
+        transactionId = transactionId,
+        applicationId = Some(applicationId),
+        submissionId = None,
+        actAs = List(submitter),
+        workflowId = workflowId,
+        ledgerEffectiveTime = effectiveAt.toInstant,
+        recordedAt = recordedAt.toInstant,
+        transaction = transactionSerializer
           .deserializeTransaction(transactionId, transactionStream)
           .getOrElse(sys.error(s"failed to deserialize transaction! trId: $transactionId")),
-        Relation.mapKeys(disclosure)(_.nodeId),
+        explicitDisclosure = Relation.mapKeys(disclosure)(_.nodeId),
       )
     case ParsedEntry(
           "rejection",
@@ -484,9 +483,17 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
           Some(rejectionDescription),
           offset,
         ) =>
+      // We don't have a submission ID, so we need to generate one.
+      val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
       val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
-      offset -> LedgerEntry
-        .Rejection(recordedAt.toInstant, commandId, applicationId, List(submitter), rejectionReason)
+      offset -> LedgerEntry.Rejection(
+        recordTime = recordedAt.toInstant,
+        commandId = commandId,
+        applicationId = applicationId,
+        submissionId = submissionId,
+        actAs = List(submitter),
+        rejectionReason = rejectionReason,
+      )
     case invalidRow =>
       sys.error(s"invalid ledger entry for offset: ${invalidRow.offset}. database row: $invalidRow")
   }
@@ -504,7 +511,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
     ~ date("recorded_at")
     ~ binaryStream("contract")
     ~ binaryStream("key").?
-    ~ binaryStream("transaction") map (flatten))
+    ~ binaryStream("transaction") map flatten)
 
   private val SQL_SELECT_CONTRACT_LET =
     SQL(
@@ -547,7 +554,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(implicit
       con: Connection
   ) = {
-    require(params.size > 0, "batch sql statement must have at least one set of name parameters")
+    require(params.nonEmpty, "batch sql statement must have at least one set of name parameters")
     BatchSql(query, params.head, params.drop(1).toSeq: _*).execute()
   }
 

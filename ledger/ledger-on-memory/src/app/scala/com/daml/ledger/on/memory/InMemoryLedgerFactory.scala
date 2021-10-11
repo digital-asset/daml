@@ -13,7 +13,6 @@ import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.platform.configuration.LedgerConfiguration
 import scopt.OptionParser
 
 private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state: InMemoryState)
@@ -49,9 +48,6 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
       createMetrics(participantConfig, config),
     )
   }
-
-  override def ledgerConfig(config: Config[Unit]): LedgerConfiguration =
-    LedgerConfiguration.defaultLocalLedger
 
   override def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit = ()
 

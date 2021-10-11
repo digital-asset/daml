@@ -4,7 +4,6 @@
 package com.daml.platform.store.dao.events
 
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
-import com.daml.ledger.TransactionId
 import com.daml.platform.store.Conversions.ledgerStringToStatement
 
 import scala.collection.compat.immutable.ArraySeq
@@ -124,8 +123,8 @@ private[events] object EventsTableTreeEvents {
     )} then command_id else '' end as command_id
           from participant_events
           join parameters on
-            (participant_pruned_up_to_inclusive is null OR
-            event_offset > participant_pruned_up_to_inclusive) and event_offset <= ledger_end
+            (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
+            and event_offset <= ledger_end
           where transaction_id = $transactionId and #$witnessesWhereClause
           order by node_index asc"""
   }

@@ -7,12 +7,17 @@ module DA.Daml.LF.PrettyScenario
   ( prettyScenarioResult
   , prettyScenarioError
   , prettyBriefScenarioError
+  , prettyWarningMessage
   , renderScenarioResult
   , renderScenarioError
   , lookupDefLocation
+  , lookupLocationModule
   , scenarioNotInFileNote
   , fileWScenarioNoLongerCompilesNote
   , ModuleRef
+  -- Exposed for testing
+  , ptxExerciseContext
+  , ExerciseContext(..)
   ) where
 
 import           Control.Monad.Extra
@@ -113,6 +118,11 @@ lookupModule world mbPkgId modName = do
        _ -> LF.PRSelf
   eitherToMaybe (LF.lookupModule (LF.Qualified pkgRef modName ()) world)
 
+lookupLocationModule :: LF.World -> Location -> Maybe LF.Module
+lookupLocationModule world Location{..} =
+    lookupModule world locationPackage $
+        unmangleModuleName (TL.toStrict locationModule)
+
 parseNodeId :: NodeId -> [Integer]
 parseNodeId =
     fmap (fromMaybe 0 . readMaybe . dropHash . TL.unpack)
@@ -123,7 +133,7 @@ parseNodeId =
 
 prettyScenarioResult
   :: LF.World -> ScenarioResult -> Doc SyntaxClass
-prettyScenarioResult world (ScenarioResult steps nodes retValue _finaltime traceLog) =
+prettyScenarioResult world (ScenarioResult steps nodes retValue _finaltime traceLog warnings) =
   let ppSteps = runM nodes world (vsep <$> mapM prettyScenarioStep (V.toList steps))
       sortNodeIds = sortOn parseNodeId
       ppActive =
@@ -132,7 +142,8 @@ prettyScenarioResult world (ScenarioResult steps nodes retValue _finaltime trace
         $ sortNodeIds $ mapMaybe nodeNodeId
         $ filter isActive (V.toList nodes)
 
-      ppTrace = vcat $ map (prettyTraceMessage world) (V.toList traceLog)
+      ppTrace = vcat $ map prettyTraceMessage (V.toList traceLog)
+      ppWarnings = vcat $ map prettyWarningMessage (V.toList warnings)
   in vsep
     [ label_ "Transactions: " ppSteps
     , label_ "Active contracts: " ppActive
@@ -140,6 +151,9 @@ prettyScenarioResult world (ScenarioResult steps nodes retValue _finaltime trace
     , if V.null traceLog
       then text ""
       else text "Trace: " $$ nest 2 ppTrace
+    , if V.null warnings
+      then text ""
+      else text "Warnings: " $$ nest 2 ppWarnings
     ]
 
 prettyBriefScenarioError
@@ -164,11 +178,9 @@ prettyScenarioError world ScenarioError{..} = runM scenarioErrorNodes world $ do
   ppPtx <- forM scenarioErrorPartialTransaction $ \ptx -> do
       p <- prettyPartialTransaction ptx
       pure $ text "Partial transaction:" $$ nest 2 p
-  let ppTrace =
-        vcat
-          (map (prettyTraceMessage world)
-               (V.toList scenarioErrorTraceLog))
-  let ppStackTraceEntry loc =
+  let ppTrace = vcat $ map prettyTraceMessage (V.toList scenarioErrorTraceLog)
+      ppWarnings = vcat $ map prettyWarningMessage (V.toList scenarioErrorWarnings)
+      ppStackTraceEntry loc =
          "-" <-> ltext (locationDefinition loc) <-> parens (prettyLocation world loc)
   pure $
     vsep $ catMaybes
@@ -194,15 +206,56 @@ prettyScenarioError world ScenarioError{..} = runM scenarioErrorNodes world $ do
     , if V.null scenarioErrorTraceLog
       then Nothing
       else Just $ text "Trace: " $$ nest 2 ppTrace
+
+    , if V.null scenarioErrorWarnings
+      then Nothing
+      else Just $ text "Warnings: " $$ nest 2 ppWarnings
     ]
 
-prettyTraceMessage
-  :: LF.World -> TraceMessage -> Doc SyntaxClass
-prettyTraceMessage _world msg =
-  -- TODO(JM): Locations are still missing in DAML 1.2, and
-  -- that's the only place where we get traces.
-  --  prettyMayLocation world (traceMessageLocation msg)
+prettyTraceMessage :: TraceMessage -> Doc SyntaxClass
+prettyTraceMessage msg =
   ltext (traceMessageMessage msg)
+
+prettyWarningMessage :: WarningMessage -> Doc SyntaxClass
+prettyWarningMessage msg =
+  ltext (warningMessageMessage msg)
+
+data ExerciseContext = ExerciseContext
+  { targetId :: Maybe ContractRef
+  , choiceId :: TL.Text
+  , exerciseLocation :: Maybe Location
+  , chosenValue :: Maybe Value
+  } deriving (Eq, Show)
+
+ptxExerciseContext :: PartialTransaction -> Maybe ExerciseContext
+ptxExerciseContext PartialTransaction{..} = go Nothing partialTransactionRoots
+  where go :: Maybe ExerciseContext -> V.Vector NodeId -> Maybe ExerciseContext
+        go acc children
+            | V.null children = acc
+            | otherwise = do
+                  n <- nodeNode =<< MS.lookup (V.last children) nodeMap
+                  case n of
+                    NodeNodeCreate _ -> acc
+                    NodeNodeFetch _ -> acc
+                    NodeNodeLookupByKey _ -> acc
+                    NodeNodeExercise Node_Exercise{..}
+                      | Nothing <- node_ExerciseExerciseResult ->
+                        let ctx = ExerciseContext
+                              { targetId = Just ContractRef
+                                  { contractRefContractId = node_ExerciseTargetContractId
+                                  , contractRefTemplateId = node_ExerciseTemplateId
+                                  }
+                              , choiceId = node_ExerciseChoiceId
+                              , exerciseLocation = Nothing
+                              , chosenValue = node_ExerciseChosenValue
+                              }
+                        in go (Just ctx) node_ExerciseChildren
+                      | otherwise -> acc
+                    NodeNodeRollback _ ->
+                        -- do not decend in rollback. If we aborted within a try, this will not produce
+                        -- a rollback node.
+                        acc
+        nodeMap = MS.fromList [ (nodeId, node) | node <- V.toList partialTransactionNodes, Just nodeId <- [nodeNodeId node] ]
 
 prettyScenarioErrorError :: Maybe ScenarioErrorError -> M (Doc SyntaxClass)
 prettyScenarioErrorError Nothing = pure $ text "<missing error details>"
@@ -328,6 +381,38 @@ prettyScenarioErrorError (Just err) =  do
         , label_ "Stakeholders:"
             $ prettyParties scenarioError_ContractKeyNotVisibleStakeholders
         ]
+    ScenarioErrorErrorScenarioContractKeyNotFound ScenarioError_ContractKeyNotFound{..} ->
+      pure $ vcat
+        [ "Attempt to fetch or exercise by key but no contract with that key was found."
+        , label_ "Template:"
+            $ prettyMay "<missing template id>"
+                (prettyDefName world)
+                scenarioError_ContractKeyNotFoundTemplateId
+        , label_ "Key: "
+          $ prettyMay "<missing key>"
+              (prettyValue' False 0 world)
+              scenarioError_ContractKeyNotFoundKey
+        ]
+    ScenarioErrorErrorWronglyTypedContract ScenarioError_WronglyTypedContract{..} ->
+      pure $ vcat
+        [ "Attempt to fetch or exercise a wrongly typed contract."
+        , label_ "Contract: "
+            $ prettyMay "<missing contract>"
+                (prettyContractRef world)
+                scenarioError_WronglyTypedContractContractRef
+        , label_ "Expected type: "
+            $ prettyMay "<missing template id>" (prettyDefName world) scenarioError_WronglyTypedContractExpected
+        ]
+    ScenarioErrorErrorContractIdInContractKey ScenarioError_ContractIdInContractKey{..} ->
+      pure $ "Contract IDs are not supported in contract key: " <->
+        prettyMay "<missing contract key>"
+          (prettyValue' False 0 world)
+          scenarioError_ContractIdInContractKeyKey
+    ScenarioErrorErrorComparableValueError _ ->
+      pure "Attend to compare incomparable values"
+    ScenarioErrorErrorValueExceedsMaxNesting _ ->
+          pure "Value exceeds maximum nesting value of 100"
+
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
@@ -660,7 +745,7 @@ prettyNode Node{..}
     archivedSC = annotateSC PredicateSC -- Magenta
 
 prettyPartialTransaction :: PartialTransaction -> M (Doc SyntaxClass)
-prettyPartialTransaction PartialTransaction{..} = do
+prettyPartialTransaction ptx@PartialTransaction{..} = do
   world <- askWorld
   let ppNodes =
            runM partialTransactionNodes world
@@ -668,26 +753,26 @@ prettyPartialTransaction PartialTransaction{..} = do
          $ mapM (lookupNode >=> prettyNode)
                 (V.toList partialTransactionRoots)
   pure $ vcat
-    [ case partialTransactionExerciseContext of
+    [ case ptxExerciseContext ptx of
         Nothing -> mempty
         Just ExerciseContext{..} ->
           text "Failed exercise"
-            <-> parens (prettyMayLocation world exerciseContextExerciseLocation) <> ":"
+            <-> parens (prettyMayLocation world exerciseLocation) <> ":"
             $$ nest 2 (
                 keyword_ "exercises"
             <-> prettyMay "<missing template id>"
                   (\tid ->
-                      prettyChoiceId world tid exerciseContextChoiceId)
-                  (contractRefTemplateId <$> exerciseContextTargetId)
+                      prettyChoiceId world tid choiceId)
+                  (contractRefTemplateId <$> targetId)
             <-> keyword_ "on"
             <-> prettyMay "<missing>"
                   (prettyContractRef world)
-                  exerciseContextTargetId
+                  targetId
              $$ keyword_ "with"
              $$ ( nest 2
                 $ prettyMay "<missing>"
                     (prettyValue' False 0 world)
-                    exerciseContextChosenValue)
+                    chosenValue)
             )
 
    , if V.null partialTransactionRoots
@@ -797,7 +882,7 @@ revealLocationUri fp sline eline =
     encodeURI = Network.URI.Encode.encodeText
 
 prettyContractRef :: LF.World -> ContractRef -> Doc SyntaxClass
-prettyContractRef world (ContractRef _relative coid tid) =
+prettyContractRef world (ContractRef coid tid) =
   hsep
   [ prettyContractId coid
   , parens (prettyMay "<missing template id>" (prettyDefName world) tid)

@@ -48,11 +48,12 @@ class UnfoldStateSpec
       var escape = (0, 0)
       Source(run)
         .via(flatMapConcat(escape) { (sums, ns) =>
+          type Sr = (Int, Int) \/ (Int, ((Int, Int), List[Int]))
           UnfoldState((sums, ns)) {
-            case ((sum, ct), hd +: tl) => \/-((hd, ((sum + hd, ct), tl)))
+            case ((sum, ct), hd +: tl) => \/-((hd, ((sum + hd, ct), tl))): Sr
             case ((sum, ct), _) =>
               escape = (sum, ct + 1)
-              -\/(escape)
+              -\/(escape): Sr
           }
         })
         .runWith(Sink.seq)

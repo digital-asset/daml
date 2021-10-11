@@ -6,15 +6,13 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
     "lf_scalacopts",
+    "lf_scalacopts_stricter",
 )
 
 da_scala_library(
     name = "kv-transaction-support",
     srcs = glob(["src/main/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    scalacopts = lf_scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-kv-transaction-support:__VERSION__"],
     visibility = ["//ledger/participant-state/kvutils:__subpackages__"],
     deps = [
@@ -29,8 +27,11 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
     ],
     scalacopts = lf_scalacopts,
     deps = [
@@ -38,5 +39,6 @@ da_scala_test_suite(
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

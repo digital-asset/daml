@@ -24,7 +24,10 @@ Ledger API
      - 
    * - `Dev Versions of Proto definitions distributed via GitHub Releases <protobufs_>`_
      - Alpha
-     - 
+     -
+   * - Use of divulged contracts in later transactions
+     - Stable, Deprecated
+     - 2021-06-16
 
 Integration Components
 ----------------------
@@ -249,7 +252,7 @@ Developer Tools
      - Stable, Deprecated
      - 2020-04-09
    * - Daml Profiler ``daml sandbox --profile-dir``
-     - Alpha
+     - Stable
      -
    * - **Daml Compiler**
      -

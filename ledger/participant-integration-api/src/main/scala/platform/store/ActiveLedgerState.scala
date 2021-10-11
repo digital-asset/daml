@@ -5,13 +5,12 @@ package com.daml.platform.store
 
 import java.time.Instant
 
-import com.daml.ledger.participant.state.v1.ContractInst
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.ledger.TransactionId
+import com.daml.platform.store.ActiveLedgerState._
 import com.daml.platform.store.Contract.ActiveContract
 
 private[platform] sealed abstract class LetLookup
@@ -58,7 +57,7 @@ private[platform] trait ActiveLedgerState[ALS <: ActiveLedgerState[ALS]] {
     * As the sandbox has an open world of parties, any party name mentioned in a transaction
     * will implicitly add that name to the list of known parties.
     */
-  def addParties(parties: Set[Party]): ALS
+  def addParties(parties: Set[Ref.Party]): ALS
 
   /** Note that this method is about divulging contracts _that have already been
     * committed_. Implementors of [[ActiveLedgerState]] must take care to also store
@@ -66,14 +65,21 @@ private[platform] trait ActiveLedgerState[ALS <: ActiveLedgerState[ALS]] {
     * method.
     */
   def divulgeAlreadyCommittedContracts(
-      transactionId: TransactionId,
-      global: Relation[ContractId, Party],
-      referencedContracts: List[(Value.ContractId, ContractInst)],
+      transactionId: Ref.TransactionId,
+      global: Relation[ContractId, Ref.Party],
+      referencedContracts: ReferencedContracts,
   ): ALS
 
   /** Clone the current active ledger state. The new state starts out
     * being identical to the old one but writes to the cloned
-    *  state will not affect the original state and the other way around.
+    * state will not affect the original state and the other way around.
     */
   def cloneState(): ALS
+}
+
+object ActiveLedgerState {
+
+  type ReferencedContracts =
+    List[(Value.ContractId, Value.ContractInst[Value.VersionedValue])]
+
 }

@@ -60,8 +60,8 @@ class CommandCompletionClientImplTest
 
   it should "return a stream with all the completions" in {
     val applicationId = "applicationId"
-    val completion1 = Completion("cid1", Option(new Status(0)), "1", None)
-    val completion2 = Completion("cid2", Option(new Status(1)), traceContext = None)
+    val completion1 = Completion("cid1", Option(new Status(0)), "1")
+    val completion2 = Completion("cid2", Option(new Status(1)))
     val completionResponse = CompletionStreamResponse(None, List(completion1, completion2))
     ledgerServices.withCommandCompletionClient(
       List(completionResponse),
@@ -90,7 +90,7 @@ class CommandCompletionClientImplTest
 
   it should "send the request with the correct ledgerId" in {
     val applicationId = "applicationId"
-    val completion1 = Completion("cid1", Option(new Status(0)), traceContext = None)
+    val completion1 = Completion("cid1", Option(new Status(0)))
     val completionResponse = CompletionStreamResponse(None, List(completion1))
     val parties = Set("Alice")
     ledgerServices.withCommandCompletionClient(
@@ -113,7 +113,7 @@ class CommandCompletionClientImplTest
   behavior of "Authorization"
 
   def toAuthenticatedServer(fn: CommandCompletionClient => Any): Any = {
-    val completion1 = Completion("cid1", Option(new Status(0)), traceContext = None)
+    val completion1 = Completion("cid1", Option(new Status(0)))
     val completionResponse = CompletionStreamResponse(None, List(completion1))
     ledgerServices.withCommandCompletionClient(
       List(completionResponse),

@@ -21,7 +21,7 @@ load("//ledger/test-common:test-common.bzl", "da_scala_dar_resources_library")
 
 alias(
     name = "dar-files",
-    actual = "dar-files-stable",
+    actual = "dar-files-default",
     visibility = ["//visibility:public"],
 )
 
@@ -29,7 +29,7 @@ alias(
     [
         # alias model-tests-KEYWORD.dar, dar-files-KEYWORD, and dar-files-KEYWORD-lib
         # to model-tests-TAG.dar, dar-files-TAG, dar-files-TAG-lib, and test-common-TAG
-        # where : KEYWORD is a keyword like stable, latest, or dev
+        # where : KEYWORD is a keyword like default, latest, or dev
         #         TAG is a (java friendly) version TAG like 1_8
         #         The mapping KEYWORD -> TAG is defined by test_common_configurations
         alias(
@@ -49,7 +49,7 @@ alias(
 
 alias(
     name = "test-common",
-    actual = "test-common-stable",
+    actual = "test-common-default",
     visibility = ["//visibility:public"],
 )
 
@@ -71,6 +71,7 @@ alias(
                 "@maven//:ch_qos_logback_logback_classic",
                 "@maven//:ch_qos_logback_logback_core",
                 "@maven//:io_grpc_grpc_context",
+                "@maven//:org_slf4j_slf4j_api",
             ],
         ),
     ]
@@ -102,7 +103,6 @@ da_scala_dar_resources_library(
                 srcs = [":%s-tests-%s.dar" % (test_name, target)],
                 package_prefix = "com.daml.ledger.test.%s" % test_name,
                 srcjar_out = "%s-%s.scala.srcjar" % (test_name, target),
-                verbosity = 2,
                 visibility = ["//visibility:public"],
             ),
             da_scala_library(

@@ -19,32 +19,8 @@ pr: none
 jobs:
 - template: ci/build.yml
 
-- job: check_perf_test
-  pool:
-    name: ubuntu_20_04
-    demands: assignment -equals default
-  steps:
-  - bash: |
-      TEST_SHA=$(cat ci/cron/perf/test_sha)
-      LAST_CHANGES=$(git log -n1 --format=%H daml-lf/scenario-interpreter/src/perf)
-      CURRENT_SHA=$(git rev-parse HEAD)
-      if [ "$TEST_SHA" != "$LAST_CHANGES" ]; then
-          if [ "$LAST_CHANGES" = "$CURRENT_SHA" ]; then
-              curl -XPOST \
-                   -i \
-                   -H 'Content-Type: application/json' \
-                   --data "{\"text\":\"<!here> Perf tests seem to have changed. Please manually check:\n\`\`\`\ngit diff $TEST_SHA $LAST_CHANGES -- daml-lf/scenario-interpreter/src/perf\n\`\`\`\nand update accordingly. If the change is benign, update \`ci/cron/perf/test_sha\` to \`$LAST_CHANGES\`. With no intervention, you will no longer get performance reports.\"}" \
-                   $(Slack.ci-failures-daml)
-          else
-              echo "Changes detected, but not from this commit."
-          fi
-      else
-          echo "No change detected."
-      fi
-    displayName: check perf changes
-
 - job: release
-  dependsOn: [ "check_for_release", "Linux", "Linux_scala_2_12", "macOS", "Windows" ]
+  dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
   condition: and(succeeded(),
                  eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                  eq(variables['Build.SourceBranchName'], 'main'))
@@ -155,10 +131,11 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        source $(bash-lib)
         msg=$(git log -n1 --format=%b HEAD | head -1)
         # Keep this line in sync with RELEASE_PR_NOTIF in ci/cron/wednesday.yml
         if [ "$msg" = "This PR has been created by a script, which is not very smart" ]; then
-            pr_handler="<@$(head -1 release/rotation | awk '{print $1}')>"
+            pr_handler="<@$(next_in_rotation_slack)>"
         else
             pr_handler=""
         fi

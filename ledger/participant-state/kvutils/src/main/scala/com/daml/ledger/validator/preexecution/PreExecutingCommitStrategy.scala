@@ -5,14 +5,14 @@ package com.daml.ledger.validator.preexecution
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.lf.data.Ref
 
 import scala.concurrent.{ExecutionContext, Future}
 
 sealed case class PreExecutionCommitResult[WriteSet](
     successWriteSet: WriteSet,
     outOfTimeBoundsWriteSet: WriteSet,
-    involvedParticipants: Set[ParticipantId],
+    involvedParticipants: Set[Ref.ParticipantId],
 )
 
 trait PreExecutingCommitStrategy[StateKey, StateValue, ReadSet, WriteSet] {
@@ -22,7 +22,7 @@ trait PreExecutingCommitStrategy[StateKey, StateValue, ReadSet, WriteSet] {
   ): ReadSet
 
   def generateWriteSets(
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       logEntryId: DamlLogEntryId,
       inputState: Map[StateKey, StateValue],
       preExecutionResult: PreExecutionResult,

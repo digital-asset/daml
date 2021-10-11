@@ -6,8 +6,9 @@ package com.daml.platform.db.migration.postgres.v29_fix_participant_events
 import java.time.Instant
 
 import anorm.{BatchSql, NamedParameter}
-import com.daml.ledger.participant.state.v1.Offset
-import com.daml.ledger._
+import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Ref
+import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.serialization.ValueSerializer.{serializeValue => serialize}
 
@@ -20,7 +21,7 @@ private[v29_fix_participant_events] object V29EventsTableInsert {
 
   private def serializeCreateArgOrThrow(node: Create): Array[Byte] =
     serialize(
-      value = node.versionedCoinst.arg,
+      value = node.versionedArg,
       errorContext = cantSerialize(attribute = "create argument", forContract = node.coid),
     )
 
@@ -73,10 +74,10 @@ private[v29_fix_participant_events] object V29EventsTableInsert {
     )
 
   private def create(
-      applicationId: Option[ApplicationId],
-      workflowId: Option[WorkflowId],
-      commandId: Option[CommandId],
-      transactionId: TransactionId,
+      applicationId: Option[Ref.ApplicationId],
+      workflowId: Option[Ref.WorkflowId],
+      commandId: Option[Ref.CommandId],
+      transactionId: Ref.TransactionId,
       nodeId: NodeId,
       submitter: Option[Party],
       ledgerEffectiveTime: Instant,
@@ -90,7 +91,7 @@ private[v29_fix_participant_events] object V29EventsTableInsert {
       "transaction_id" -> transactionId,
       "workflow_id" -> workflowId,
       "ledger_effective_time" -> ledgerEffectiveTime,
-      "template_id" -> create.coinst.template,
+      "template_id" -> create.templateId,
       "node_index" -> nodeId.index,
       "command_id" -> commandId,
       "application_id" -> applicationId,
@@ -98,7 +99,7 @@ private[v29_fix_participant_events] object V29EventsTableInsert {
       "create_argument" -> serializeCreateArgOrThrow(create),
       "create_signatories" -> create.signatories.toArray[String],
       "create_observers" -> create.stakeholders.diff(create.signatories).toArray[String],
-      "create_agreement_text" -> Some(create.coinst.agreementText).filter(_.nonEmpty),
+      "create_agreement_text" -> Some(create.agreementText).filter(_.nonEmpty),
       "create_key_value" -> serializeNullableKeyOrThrow(create),
     )
 
@@ -124,10 +125,10 @@ private[v29_fix_participant_events] object V29EventsTableInsert {
     )
 
   private def exercise(
-      applicationId: Option[ApplicationId],
-      workflowId: Option[WorkflowId],
-      commandId: Option[CommandId],
-      transactionId: TransactionId,
+      applicationId: Option[Ref.ApplicationId],
+      workflowId: Option[Ref.WorkflowId],
+      commandId: Option[Ref.CommandId],
+      transactionId: Ref.TransactionId,
       nodeId: NodeId,
       submitter: Option[Party],
       ledgerEffectiveTime: Instant,
@@ -223,10 +224,10 @@ private[v29_fix_participant_events] object V29EventsTableInsert {
     */
   @throws[RuntimeException]
   def prepareBatchInsert(
-      applicationId: Option[ApplicationId],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
-      commandId: Option[CommandId],
+      applicationId: Option[Ref.ApplicationId],
+      workflowId: Option[Ref.WorkflowId],
+      transactionId: Ref.TransactionId,
+      commandId: Option[Ref.CommandId],
       submitter: Option[Party],
       ledgerEffectiveTime: Instant,
       offset: Offset,

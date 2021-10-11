@@ -33,10 +33,27 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 rules_scala_version = "67a7ac178a73d1d5ff4c2b0663a8eda6dfcbbc56"
 rules_scala_sha256 = "95054009fd938ac7ef53a20619f94a5408d8ae74eb5b318cd150a3ecb1a6086f"
 
-rules_haskell_version = "60ed30aab00e9ffa2e2fe19e59f7de885f029556"
-rules_haskell_sha256 = "a9c94b1fb61e1e341b7544305e9b0a359594779f797fddfcfcd447709c7c9820"
-rules_nixpkgs_version = "0dd4c8a085b108592b0193ad1e237e2e07f715ac"
-rules_nixpkgs_sha256 = "f2073135db911ee94b70da1e2288dd2445976a1b20a1edfe67773b29751f50a9"
+rules_haskell_version = "673e74aea244a6a9ee1eccec719677c80348aebf"
+rules_haskell_sha256 = "73a06dc6e0d928ceeab64e2cd3159f863eb2e263ecc64d79e3952c770cd1ee51"
+rules_haskell_patches = [
+    # This is a daml specific patch and not upstreamable.
+    "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
+    # This should be made configurable in rules_haskell.
+    # Remove this patch once that's available.
+    "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
+]
+rules_nixpkgs_version = "c40b35f73e5ab1c0096d95abf63027a3b8054061"
+rules_nixpkgs_sha256 = "47fffc870a25d82deedb887c32481a43a12f56b51e5002773046f81fbe3ea9df"
+rules_nixpkgs_patches = [
+    # On CI and locally we observe occasional segmantation faults
+    # of nix. A known issue since Nix 2.2.2 is that HTTP2 support
+    # can cause such segmentation faults. Since Nix 2.3.2 it is
+    # possible to disable HTTP2 via a command-line flag, which
+    # reportedly solves the issue. See
+    # https://github.com/NixOS/nix/issues/2733#issuecomment-518324335
+    "@com_github_digital_asset_daml//bazel_tools:nixpkgs-disable-http2.patch",
+]
+
 buildifier_version = "4.0.0"
 buildifier_sha256 = "0d3ca4ed434958dda241fb129f77bd5ef0ce246250feed2d5a5470c6f29a77fa"
 zlib_version = "1.2.11"
@@ -59,8 +76,8 @@ davl_v3_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
 davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
 
 # daml cheat sheet
-daml_cheat_sheet_version = "5ae141096d7fc0031392206e80f71f7dc3b23e1c"  # 2021-03-11
-daml_cheat_sheet_sha256 = "e51651b34bc67704c8f6995207982f9e87758460246c2132dd8fe524277f612b"
+daml_cheat_sheet_version = "2710b8df28d97253b5487a68feb2d1452d29fc54"  # 2021-09-17
+daml_cheat_sheet_sha256 = "eb022565a929a69d869f0ab0497f02d1a3eacb4dafdafa076a82ecbe7c401315"
 
 platforms_version = "0.0.3"
 platforms_sha256 = "15b66b5219c03f9e8db34c1ac89c458bb94bfe055186e5505d5c6f09cb38307f"
@@ -79,21 +96,7 @@ def daml_deps():
             name = "rules_haskell",
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
-            patches = [
-                # Update and remove this patch once this is upstreamed.
-                # See https://github.com/tweag/rules_haskell/pull/1281
-                "@com_github_digital_asset_daml//bazel_tools:haskell-strict-source-names.patch",
-                # The fake libs issue should be fixed in upstream rules_haskell
-                # or GHC. Remove this patch once that's available.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
-                # This is a daml specific patch and not upstreamable.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
-                # This should be made configurable in rules_haskell.
-                # Remove this patch once that's available.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
-                # Can be removed once https://github.com/tweag/rules_haskell/pull/1464 is merged.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-cc-wrapper-windows.patch",
-            ],
+            patches = rules_haskell_patches,
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
         )
@@ -104,17 +107,7 @@ def daml_deps():
             strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version,
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
-            patches = [
-                # On CI and locally we observe occasional segmantation faults
-                # of nix. A known issue since Nix 2.2.2 is that HTTP2 support
-                # can cause such segmentation faults. Since Nix 2.3.2 it is
-                # possible to disable HTTP2 via a command-line flag, which
-                # reportedly solves the issue. See
-                # https://github.com/NixOS/nix/issues/2733#issuecomment-518324335
-                "@com_github_digital_asset_daml//bazel_tools:nixpkgs-disable-http2.patch",
-                # Already upstreamed to rules-nixpkgs. Remove on next upgrade.
-                "@com_github_digital_asset_daml//bazel_tools:rules-nixpkgs-llvm-cov.patch",
-            ],
+            patches = rules_nixpkgs_patches,
             patch_args = ["-p1"],
         )
 
@@ -166,7 +159,7 @@ def daml_deps():
             sha256 = "bf0e5070b4b99240183b29df78155eee335885e53a8af8683964579c214ad301",
             # changing this version needs to be in sync with protobuf-java and grpc dependencies in bazel-java-bdeps.bzl
             strip_prefix = "protobuf-3.14.0",
-            urls = ["https://github.com/google/protobuf/archive/v3.14.0.zip"],
+            urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.14.0.zip"],
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:protobuf-win32.patch",
             ],
@@ -269,9 +262,9 @@ def daml_deps():
     if "com_github_googleapis_googleapis" not in native.existing_rules():
         http_archive(
             name = "com_github_googleapis_googleapis",
-            strip_prefix = "googleapis-6c48ab5aef47dc14e02e2dc718d232a28067129d",
-            urls = ["https://github.com/googleapis/googleapis/archive/6c48ab5aef47dc14e02e2dc718d232a28067129d.tar.gz"],
-            sha256 = "70d7be6ad49b4424313aad118c8622aab1c5fdd5a529d4215d3884ff89264a71",
+            strip_prefix = "googleapis-a9d8182ce540d418af825e3b21558e8413f29e66",
+            urls = ["https://github.com/googleapis/googleapis/archive/a9d8182ce540d418af825e3b21558e8413f29e66.tar.gz"],
+            sha256 = "75fcdf65a2423ca81d8f76e039e57b432378c10aa11f2fae41ec39d9d777d2f2",
         )
 
     if "com_github_bazelbuild_remote_apis" not in native.existing_rules():
@@ -398,7 +391,7 @@ java_import(
     jars = glob(["lib/**/*.jar"]),
 )
         """,
-            sha256 = "e97468ddb6b4bd03b05c714fecbf8a2127ba697001a7980a31dd781e7fffa53f",
-            strip_prefix = "canton-community-0.25.0-SNAPSHOT",
-            urls = ["https://www.canton.io/releases/canton-community-20210606.tar.gz"],
+            sha256 = "24a7f8ef120878dba9d89d27563618bef104cf79c2278edf1401e5f28e4e24f4",
+            strip_prefix = "canton-community-0.28.0-SNAPSHOT",
+            urls = ["https://www.canton.io/releases/canton-community-20210919.tar.gz"],
         )

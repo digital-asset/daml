@@ -10,17 +10,34 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.v1._
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.data.Time
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
+import com.daml.ledger.configuration.{
+  Configuration,
+  LedgerId,
+  LedgerInitialConditions,
+  LedgerTimeModel,
+}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.{
+  PruningResult,
+  ReadService,
+  SubmissionResult,
+  SubmitterInfo,
+  TransactionMeta,
+  Update,
+  WriteService,
+}
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.transaction.{CommittedTransaction, SubmittedTransaction}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.telemetry.TelemetryContext
 import com.google.common.primitives.Longs
+import com.google.rpc.code.Code
+import com.google.rpc.status.Status
 
 case class ReadWriteServiceBridge(
-    participantId: ParticipantId,
+    participantId: Ref.ParticipantId,
     ledgerId: LedgerId,
     maxDedupSeconds: Int,
     submissionBufferSize: Int,
@@ -31,6 +48,8 @@ case class ReadWriteServiceBridge(
   import ReadWriteServiceBridge._
 
   private[this] val logger = ContextualizedLogger.get(getClass)
+
+  override def isApiDeduplicationEnabled: Boolean = true
 
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -49,7 +68,7 @@ case class ReadWriteServiceBridge(
 
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       config: Configuration,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     submit(
@@ -60,12 +79,12 @@ case class ReadWriteServiceBridge(
       )
     )
 
-  override def currentHealth(): HealthStatus = HealthStatus.healthy
+  override def currentHealth(): HealthStatus = Healthy
 
   override def allocateParty(
-      hint: Option[Party],
+      hint: Option[Ref.Party],
       displayName: Option[String],
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     submit(
       Submission.AllocateParty(
@@ -76,7 +95,7 @@ case class ReadWriteServiceBridge(
     )
 
   override def uploadPackages(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       archives: List[Archive],
       sourceDescription: Option[String],
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
@@ -90,19 +109,20 @@ case class ReadWriteServiceBridge(
 
   override def prune(
       pruneUpToInclusive: Offset,
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
+      pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[PruningResult] =
     CompletableFuture.completedFuture(
       PruningResult.ParticipantPruned
     )
 
-  override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
+  override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Source.single(
       LedgerInitialConditions(
         ledgerId = ledgerId,
         config = Configuration(
           generation = 1L,
-          timeModel = TimeModel.reasonableDefault,
+          timeModel = LedgerTimeModel.reasonableDefault,
           maxDeduplicationTime = java.time.Duration.ofSeconds(maxDedupSeconds.toLong),
         ),
         initialRecordTime = Timestamp.now(),
@@ -162,16 +182,17 @@ object ReadWriteServiceBridge {
     ) extends Submission
     case class Config(
         maxRecordTime: Time.Timestamp,
-        submissionId: SubmissionId,
+        submissionId: Ref.SubmissionId,
         config: Configuration,
     ) extends Submission
     case class AllocateParty(
-        hint: Option[Party],
+        hint: Option[Ref.Party],
         displayName: Option[String],
-        submissionId: SubmissionId,
+        submissionId: Ref.SubmissionId,
     ) extends Submission
+
     case class UploadPackages(
-        submissionId: SubmissionId,
+        submissionId: Ref.SubmissionId,
         archives: List[Archive],
         sourceDescription: Option[String],
     ) extends Submission
@@ -179,44 +200,45 @@ object ReadWriteServiceBridge {
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
-  def successMapper(s: Submission, index: Long, participantId: ParticipantId): Update = s match {
-    case s: Submission.AllocateParty =>
-      val party = s.hint.getOrElse(UUID.randomUUID().toString)
-      Update.PartyAddedToParticipant(
-        party = Party.assertFromString(party),
-        displayName = s.displayName.getOrElse(party),
-        participantId = participantId,
-        recordTime = Time.Timestamp.now(),
-        submissionId = Some(s.submissionId),
-      )
+  def successMapper(submission: Submission, index: Long, participantId: Ref.ParticipantId): Update =
+    submission match {
+      case s: Submission.AllocateParty =>
+        val party = s.hint.getOrElse(UUID.randomUUID().toString)
+        Update.PartyAddedToParticipant(
+          party = Ref.Party.assertFromString(party),
+          displayName = s.displayName.getOrElse(party),
+          participantId = participantId,
+          recordTime = Time.Timestamp.now(),
+          submissionId = Some(s.submissionId),
+        )
 
-    case s: Submission.Config =>
-      Update.ConfigurationChanged(
-        recordTime = Time.Timestamp.now(),
-        submissionId = s.submissionId,
-        participantId = participantId,
-        newConfiguration = s.config,
-      )
+      case s: Submission.Config =>
+        Update.ConfigurationChanged(
+          recordTime = Time.Timestamp.now(),
+          submissionId = s.submissionId,
+          participantId = participantId,
+          newConfiguration = s.config,
+        )
 
-    case s: Submission.UploadPackages =>
-      Update.PublicPackageUpload(
-        archives = s.archives,
-        sourceDescription = s.sourceDescription,
-        recordTime = Time.Timestamp.now(),
-        submissionId = Some(s.submissionId),
-      )
+      case s: Submission.UploadPackages =>
+        Update.PublicPackageUpload(
+          archives = s.archives,
+          sourceDescription = s.sourceDescription,
+          recordTime = Time.Timestamp.now(),
+          submissionId = Some(s.submissionId),
+        )
 
-    case s: Submission.Transaction =>
-      Update.TransactionAccepted(
-        optSubmitterInfo = Some(s.submitterInfo),
-        transactionMeta = s.transactionMeta,
-        transaction = s.transaction.asInstanceOf[CommittedTransaction],
-        transactionId = TransactionId.assertFromString(index.toString),
-        recordTime = Time.Timestamp.now(),
-        divulgedContracts = Nil,
-        blindingInfo = None,
-      )
-  }
+      case s: Submission.Transaction =>
+        Update.TransactionAccepted(
+          optCompletionInfo = Some(s.submitterInfo.toCompletionInfo),
+          transactionMeta = s.transactionMeta,
+          transaction = s.transaction.asInstanceOf[CommittedTransaction],
+          transactionId = Ref.TransactionId.assertFromString(index.toString),
+          recordTime = Time.Timestamp.now(),
+          divulgedContracts = Nil,
+          blindingInfo = None,
+        )
+    }
 
   def toOffset(index: Long): Offset = Offset.fromByteArray(Longs.toByteArray(index))
 
@@ -225,22 +247,32 @@ object ReadWriteServiceBridge {
   )(implicit loggingContext: LoggingContext): CompletableFuture[SubmissionResult] =
     CompletableFuture.completedFuture(
       queueOfferResult match {
-        case QueueOfferResult.Enqueued =>
-          SubmissionResult.Acknowledged
-
+        case QueueOfferResult.Enqueued => SubmissionResult.Acknowledged
         case QueueOfferResult.Dropped =>
           logger.warn(
             "Buffer overflow: new submission is not added, signalized `Overloaded` for caller."
           )
-          SubmissionResult.Overloaded
-
+          SubmissionResult.SynchronousError(
+            Status(
+              Code.RESOURCE_EXHAUSTED.value
+            )
+          )
         case QueueOfferResult.Failure(throwable) =>
           logger.error("Error enqueueing new submission.", throwable)
-          SubmissionResult.InternalError(throwable.getMessage)
-
+          SubmissionResult.SynchronousError(
+            Status(
+              Code.INTERNAL.value,
+              throwable.getMessage,
+            )
+          )
         case QueueOfferResult.QueueClosed =>
           logger.error("Error enqueueing new submission: queue is closed.")
-          SubmissionResult.InternalError("Service is shutting down.")
+          SubmissionResult.SynchronousError(
+            Status(
+              Code.INTERNAL.value,
+              "Queue is closed",
+            )
+          )
       }
     )
 }

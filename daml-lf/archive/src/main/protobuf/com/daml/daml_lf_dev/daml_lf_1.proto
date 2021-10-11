@@ -29,7 +29,7 @@
 //         2019-05-23: Add BuiltinFunction.COERCE_CONTRACT_ID
 //         2019-05-24: Make actors in exercise optional
 // * 6 --  2019-05-27: Add enum type.
-//         2019-06-04: Add BuiltinFunction.{CODE_POINTS_TO_TEXT, TEXT_POINTS_TO_CODE}
+//         2019-06-04: Add BuiltinFunction.{CODE_POINTS_TO_TEXT, TEXT_TO_CODE_POINTS}
 //         2019-06-12: Add Package.interned_package_ids and PackageRef.interned_id
 // * 7 --  2019-07-29: Add nat kind and Nat types, Numeric types and Numeric builtins
 //         2019-09-17: Add Any type and, `to_any` and `from_any` builtins
@@ -284,15 +284,12 @@ enum PrimType {
   CONTRACT_ID = 13;
 
   // Builtin type 'Optional'
-  // *Available in versions >= 1.1*
   OPTIONAL = 14;
 
   // Builtin type `TArrow`
-  // *Available in versions >= 1.1*
   ARROW = 15;
 
   // Builtin type 'TTextMap`
-  // *Available in versions >= 1.3*
   TEXTMAP = 16;
 
   // Builtin type 'Numeric'
@@ -373,16 +370,6 @@ message Type {
 
     // Types to which the builtin type is applied.
     repeated Type args = 2;
-  }
-
-  // n-ary function type
-  // *Available in versions < 1.2*
-  message Fun {
-    // type of the arguments
-    // *Must be non-empty*
-    repeated Type params = 1;
-    // type of the result
-    Type result = 2;
   }
 
   // Universal quantification 'TyForAll'
@@ -523,13 +510,13 @@ enum BuiltinFunction {
   TIMESTAMP_TO_TEXT = 61;
   DATE_TO_TEXT = 71;
   PARTY_TO_QUOTED_TEXT = 63; // *Available in versions <= 1.dev*
-  PARTY_TO_TEXT = 94; // *Available in versions >= 1.2*
-  TEXT_TO_PARTY = 95; // *Available in versions >= 1.2*, was named TEXT_TO_PARTY in 1.2, 1.3 and 1.4
-  TEXT_TO_INT64 = 103; // *Available in versions >= 1.5*
-  TEXT_TO_DECIMAL = 104; // *Available in versions 1.5 and 1.6
+  PARTY_TO_TEXT = 94;
+  TEXT_TO_PARTY = 95;
+  TEXT_TO_INT64 = 103;
+  TEXT_TO_DECIMAL = 104;
   TEXT_TO_NUMERIC = 117;  // *Available in versions >= 1.7*
   CONTRACT_ID_TO_TEXT = 136; // *Available in versions >= 1.11*
-  SHA256_TEXT = 93; // *Available in versions >= 1.2*
+  SHA256_TEXT = 93;
 
   DATE_TO_UNIX_DAYS = 72; // Date -> Int64
   UNIX_DAYS_TO_DATE = 73; // Int64 -> Date
@@ -567,8 +554,8 @@ enum BuiltinFunction {
 
   COERCE_CONTRACT_ID = 102;
 
-  CODE_POINTS_TO_TEXT = 105;  // *Available in versions >= 1.6*
-  TEXT_POINTS_TO_CODE = 106; // *Available in versions >= 1.6*
+  CODE_POINTS_TO_TEXT = 105;
+  TEXT_TO_CODE_POINTS = 106;
 
   SCALE_BIGNUMERIC = 137; // *Available in versions >= 1.13*
   PRECISION_BIGNUMERIC = 138; // *Available in versions >= 1.13*
@@ -737,7 +724,6 @@ message Expr {
   }
 
   // Enum construction ('ExpEnumCon')
-  // *Available in versions >= 1.6*
   message EnumCon {
 
     // Name of the type constructor name
@@ -925,6 +911,30 @@ message Expr {
     Expr exception_expr = 3;
   }
 
+  // Convert a template payload to an interface.
+  // *Available in versions >= 1.dev*
+  message ToInterface {
+    TypeConName interface_type = 1;
+    TypeConName template_type = 2;
+    Expr template_expr = 3;
+  }
+
+  // Convert an interface back to a template payload if possible.
+  // *Available in versions >= 1.dev*
+  message FromInterface {
+    TypeConName interface_type = 1;
+    TypeConName template_type = 2;
+    Expr interface_expr = 3;
+  }
+
+  // Invoke an interface method.
+  // *Available in versions >= 1.dev*
+  message CallInterface {
+    TypeConName interface_type = 1;
+    int32 method_interned_name = 2;
+    Expr interface_expr = 3;
+  }
+
   message Experimental {
     string name = 1;
     Type type = 2 ;
@@ -967,7 +977,7 @@ message Expr {
     VariantCon variant_con = 8;
 
     // Enum construction ('ExpEnumCon')
-    EnumCon enum_con = 28; // *Available in versions >= 1.6*
+    EnumCon enum_con = 28;
 
     // Struct construction ('ExpStructCon')
     StructCon struct_con = 9;
@@ -1009,11 +1019,9 @@ message Expr {
     Scenario scenario = 21;
 
     // empty optional value ('ExpNone')
-    // *Available in versions >= 1.1*
     OptionalNone optional_none = 26;
 
     // non empty optional value ('ExpSome')
-    // *Available in versions >= 1.1*
     OptionalSome optional_some = 27;
 
     // Wrap an arbitrary value in Any ('ExpToAny')
@@ -1039,6 +1047,15 @@ message Expr {
     // Throw an exception ('ExpThrow').
     // *Available in versions >= 1.14*
     Throw throw = 35;
+
+    // Convert to/from interface payloads.
+    // *Available in versions >= 1.dev*
+    ToInterface to_interface = 36;
+    FromInterface from_interface = 37;
+
+    // Invoke an interface method.
+    // *Available in versions >= 1.dev*
+    CallInterface call_interface = 38;
 
     Experimental experimental = 9999; // *Available only in 1.dev*
   }
@@ -1076,7 +1093,6 @@ message CaseAlt {
   }
 
   // Enum pattern
-  // *Available in versions >= 1.6*
   message Enum {
 
     // name of the type constructor
@@ -1116,7 +1132,6 @@ message CaseAlt {
   }
 
   // Non empty option patterm
-  // *Available in versions >= 1.1*
   message OptionalSome {
 
     oneof var_body {
@@ -1134,9 +1149,9 @@ message CaseAlt {
     PrimCon prim_con = 3;
     Unit nil = 4;
     Cons cons = 5;
-    Unit optional_none = 7; // *Available in versions >= 1.1*
-    OptionalSome optional_some = 8; // *Available in versions >= 1.1*
-    Enum enum = 9; // *Available in versions >= 1.6*
+    Unit optional_none = 7;
+    OptionalSome optional_some = 8;
+    Enum enum = 9;
   }
 
   Expr body = 6;
@@ -1194,6 +1209,21 @@ message Update {
     Expr arg = 5;
   }
 
+  // Interface Exercise Update
+  message ExerciseInterface {
+    // Interface type
+    TypeConName interface = 1;
+
+    // name of the exercised template choice
+    // *Must be a valid interned identifier*
+    int32 choice_interned_str = 2;
+
+    // contract id
+    Expr cid = 3;
+    // argument
+    Expr arg = 4;
+  }
+
  // ExerciseByKey Update
   message ExerciseByKey {
     // Template type
@@ -1215,6 +1245,14 @@ message Update {
     reserved 3; // was actor, we thought we'd need this, but we don't
   }
 
+  // Interface Fetch Update
+  message FetchInterface {
+    // Interface type
+    TypeConName interface = 1;
+    // contract id
+    Expr cid = 2;
+  }
+
   // Embedded Expression Update
   message EmbedExpr {
     // Expression type
@@ -1224,7 +1262,6 @@ message Update {
   }
 
   // Retrieve by key Update
-  // *Available in versions >= 1.2*
   message RetrieveByKey {
     TypeConName template = 1;
     Expr key = 2;
@@ -1249,11 +1286,13 @@ message Update {
     ExerciseByKey exercise_by_key = 10; // *Available in versions >= 1.11*
     Fetch fetch = 5;
     Unit get_time = 6;
-    RetrieveByKey lookup_by_key = 8; // *Available in versions >= 1.2*
-    RetrieveByKey fetch_by_key = 9; // *Available in versions >= 1.2*
+    RetrieveByKey lookup_by_key = 8;
+    RetrieveByKey fetch_by_key = 9;
     // see similar constructor in `Scenario` on why this is useful.
     EmbedExpr embed_expr = 7;
     TryCatch try_catch = 11; // *Available in versions >= 1.14*
+    ExerciseInterface exercise_interface = 12; // *Available in versions >= 1.dev*
+    FetchInterface fetch_interface = 13; // *Available in versions >= 1.dev*
   }
 }
 
@@ -1341,6 +1380,15 @@ message TemplateChoice {
   Location location = 8;
 }
 
+message InterfaceChoice {
+  Location location = 1;
+  int32 name_interned_string = 2;
+  bool consuming = 3;
+  Type arg_type = 4;
+  Type ret_type = 5;
+}
+
+
 // we restrict key expressions to records of projections, much like SQL
 message KeyExpr {
   message Projection {
@@ -1397,6 +1445,20 @@ message DefTemplate {
     Expr maintainers = 3; // a function from the key type to [Party]
   }
 
+  // Implementation of an interface method.
+  // *Available in versions >= 1.dev*
+  message ImplementsMethod {
+    int32 method_interned_name = 1;
+    Expr value = 2;
+  }
+
+  // Implementation of an interface.
+  // *Available in versions >= 1.dev*
+  message Implements {
+    TypeConName interface = 1;
+    repeated ImplementsMethod methods = 2;
+  }
+
   // The type constructor for the template, acting as both
   // the name of the template and the type of the template argument.
   oneof tycon {
@@ -1445,7 +1507,31 @@ message DefTemplate {
   Location location = 9;
 
   // They key definition for the template, if present
-  DefKey key = 10; // optional // *Available in versions >= 1.3*
+  DefKey key = 10; // optional
+
+  // Interfaces that this template implements.
+  repeated Implements implements = 13; // *Available in versions >= 1.dev*
+}
+
+// Interface method definition.
+// *Available in versions >= 1.dev*
+message InterfaceMethod {
+  Location location = 1;
+  int32 method_interned_name = 2;
+  Type type = 3;
+}
+
+// Interface definition.
+// *Available in versions >= 1.dev*
+message DefInterface {
+  Location location = 1;
+  int32 tycon_interned_dname = 2;
+  repeated InterfaceChoice choices = 3;
+  repeated InterfaceMethod methods = 4;
+
+  // Binder for interface value ("this") in fixed choices.
+  int32 param_interned_str = 5;
+  repeated TemplateChoice fixed_choices = 6;
 }
 
 // Exception definition
@@ -1463,7 +1549,6 @@ message DefDataType {
     repeated FieldWithType fields = 1;
   }
 
-  // *Available in versions >= 1.6*
   message EnumConstructors {
 
     // *Must be a list of valid identifiers*
@@ -1488,7 +1573,8 @@ message DefDataType {
   oneof DataCons {
     Fields record = 3; // Records without fields are explicitly allowed.
     Fields variant = 4; // Variants without constructors are explicitly allowed.
-    EnumConstructors enum = 7; // *Available in versions >= 1.6*
+    EnumConstructors enum = 7;
+    Unit interface = 9; // Interfaces are special, they can't be represented as records or variants.
   }
 
   // If true, this data type preserves serializability in the sense that when
@@ -1579,6 +1665,7 @@ message Module {
   repeated DefValue values = 6;
   repeated DefTemplate templates = 7;
   repeated DefException exceptions = 10; // *Available in versions >= 1.14*
+  repeated DefInterface interfaces = 11; // *Available in versions >= 1.dev*
 }
 
 message InternedDottedName {

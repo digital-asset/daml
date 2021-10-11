@@ -5,7 +5,8 @@ package com.daml.lf
 package speedy
 package svalue
 
-import com.daml.lf.speedy.SError.SErrorCrash
+import com.daml.lf.value.Value.ContractId
+import com.daml.nameof.NameOf
 
 import scala.jdk.CollectionConverters._
 
@@ -13,7 +14,7 @@ private[lf] object Equality {
 
   // Equality between two SValues of same type.
   // This follows the equality defined in the daml-lf spec.
-  @throws[SErrorCrash]
+  @throws[SError.SError]
   def areEqual(x: SValue, y: SValue): Boolean = {
     import SValue._
 
@@ -38,7 +39,28 @@ private[lf] object Equality {
     def step(tuple: (SValue, SValue)) =
       tuple match {
         case (x: SPrimLit, y: SPrimLit) =>
-          success = x == y
+          success =
+            if (x == y)
+              true
+            else
+              tuple match {
+                case (
+                      SContractId(cid1 @ ContractId.V1(discriminator1, suffix1)),
+                      SContractId(cid2 @ ContractId.V1(discriminator2, suffix2)),
+                    ) if discriminator1 == discriminator2 =>
+                  if (suffix1.isEmpty)
+                    throw SError.SErrorDamlException(
+                      interpretation.Error.ContractIdComparability(cid2)
+                    )
+                  else if (suffix2.isEmpty)
+                    throw SError.SErrorDamlException(
+                      interpretation.Error.ContractIdComparability(cid1)
+                    )
+                  else
+                    false
+                case _ =>
+                  false
+              }
         case (SEnum(_, _, xRank), SEnum(_, _, yRank)) =>
           success = xRank == yRank
         case (SRecord(_, _, xs), SRecord(_, _, ys)) =>
@@ -62,8 +84,13 @@ private[lf] object Equality {
           success = xType == yType
         case (STypeRep(xType), STypeRep(yType)) =>
           success = xType == yType
+        case (_: SPAP, _: SPAP) =>
+          throw SError.SErrorDamlException(interpretation.Error.NonComparableValues)
         case (x, y) =>
-          throw SErrorCrash(s"trying to compare incomparable types:\n- $x\n- $y")
+          throw SError.SErrorCrash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"trying to compare value of different type:\n- $x\n- $y",
+          )
       }
 
     while (success && stackX.nonEmpty) {

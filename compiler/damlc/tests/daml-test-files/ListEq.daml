@@ -4,9 +4,9 @@
 
 module ListEq where
 
+import DA.Assert
+
 main = scenario do
-  alice <- getParty "alice"
-  submit alice do
-    assert $ [1] == [1]
-    assert $ [1.0] /= ([2.0] : [Decimal])
-    assert $ [""] /= []
+  [1] === [1]
+  [1.0] =/= ([2.0] : [Decimal])
+  [""] =/= []

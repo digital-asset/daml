@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 load("@os_info//:os_info.bzl", "is_windows")
 
-exports_files(glob(["create-daml-app-test-resources/*"]))
+exports_files(glob(["create-daml-app-test-resources/*"]) + ["copy-trigger/src/CopyTrigger.daml"])
 
 # Split out into a separate rule so we can cheaply include this in the
 # live-preview.
@@ -43,45 +43,53 @@ genrule(
         [
             "default-gitattributes",
             "default-gitignore",
-            "default-dlint-yaml",
+            "default-dlint.yaml",
             "skeleton/**",
             "empty-skeleton/**",
             "create-daml-app/**",
             "quickstart-java/**",
             "quickstart-scala/**",
+            "copy-trigger/**",
+            "gsg-trigger.patch",
         ],
         exclude = ["**/NO_AUTO_COPYRIGHT"],
     ) + [
         "//docs:quickstart-java.tar.gz",
         "//docs:daml-intro-templates",
         "//docs:daml-patterns",
-        "//docs:copy-trigger-template",
         "//docs:script-example-template",
         "//language-support/scala/examples:quickstart-scala.tar",
     ],
     outs = ["templates-tarball.tar.gz"],
     cmd = """
-        SRC=templates
-        OUT=templates-tarball
+        SRC=$$(mktemp -d)
+        OUT=$$(mktemp -d)/templates-tarball
+        trap "rm -rf $$SRC $$OUT" EXIT
+        mkdir -p $$OUT
+
+        cp -rL templates/* $$SRC/
+
+        PATCH_TOOL=$$PWD/$(location @patch_dev_env//:patch)
+        cp -rL $$SRC/create-daml-app $$SRC/gsg-trigger
+        "$$PATCH_TOOL" -d $$SRC/gsg-trigger -p1 < $$SRC/gsg-trigger.patch
 
         # templates in templates dir
-        for d in skeleton empty-skeleton create-daml-app quickstart-scala quickstart-java; do
+        for d in skeleton \
+                 empty-skeleton \
+                 create-daml-app \
+                 quickstart-scala \
+                 quickstart-java \
+                 copy-trigger \
+                 gsg-trigger; do
             mkdir -p $$OUT/$$d
             cp -rL $$SRC/$$d/* $$OUT/$$d/
-            # use default .gitignore and .dlint.yaml if they don't exist in the template
-            cp -n $$SRC/default-gitattributes $$OUT/$$d/.gitattributes
-            cp -n $$SRC/default-gitignore $$OUT/$$d/.gitignore
-            cp -n $$SRC/default-dlint-yaml $$OUT/$$d/.dlint.yaml
-            # We avoid introducing infix syntax in the GSG so we disable
-            # the lint there.
-            if [ "$$d" = "create-daml-app" ]; then
-              cat >> $$OUT/$$d/.dlint.yaml <<EOF
-
-# This rule is enabled by default but we avoid
-# infix syntax here to keep things simple.
-- ignore: {name: Use infix }
-EOF
-            fi
+            for f in gitattributes gitignore dlint.yaml; do
+                if [ -f "$$SRC/$$d/.$$f" ]; then
+                    cp "$$SRC/$$d/.$$f" "$$OUT/$$d/.$$f"
+                else
+                    cp "$$SRC/default-$$f" "$$OUT/$$d/.$$f"
+                fi
+            done
         done
 
         ## special cases we should work to remove
@@ -95,17 +103,19 @@ EOF
         # daml intro templates
         tar xf $(location //docs:daml-intro-templates) -C $$OUT
 
-        mkdir -p $$OUT/copy-trigger
-        tar xf $(location //docs:copy-trigger-template) -C $$OUT/copy-trigger
-
         mkdir -p $$OUT/script-example
         tar xf $(location //docs:script-example-template) -C $$OUT/script-example
 
         mkdir -p $$OUT/daml-patterns
         tar xf $(location //docs:daml-patterns) --strip-components=1 -C $$OUT/daml-patterns
 
-        $(execpath //bazel_tools/sh:mktgz) $@ templates-tarball
+        DIR=$$(pwd)
+        cd $$OUT/..
+        $$DIR/$(execpath //bazel_tools/sh:mktgz) $$DIR/$@ templates-tarball
     """,
-    tools = ["//bazel_tools/sh:mktgz"],
+    tools = [
+        "//bazel_tools/sh:mktgz",
+        "@patch_dev_env//:patch",
+    ],
     visibility = ["//visibility:public"],
 )

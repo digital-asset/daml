@@ -7,7 +7,7 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.{BatchSql, NamedParameter, Row, SimpleSql}
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.JdbcArrayConversions._
@@ -53,9 +53,9 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
     val templateIds = Array.ofDim[String](batchSize)
     val nodeIndexes = Array.ofDim[java.lang.Integer](batchSize)
     val commandIds =
-      Array.fill(batchSize)(tx.submitterInfo.map(_.commandId.asInstanceOf[String]).orNull)
+      Array.fill(batchSize)(tx.completionInfo.map(_.commandId.asInstanceOf[String]).orNull)
     val applicationIds =
-      Array.fill(batchSize)(tx.submitterInfo.map(_.applicationId.asInstanceOf[String]).orNull)
+      Array.fill(batchSize)(tx.completionInfo.map(_.applicationId.asInstanceOf[String]).orNull)
     val submitters = Array.ofDim[String](batchSize)
     val flatEventWitnesses = Array.ofDim[String](batchSize)
     val treeEventWitnesses = Array.ofDim[String](batchSize)
@@ -72,14 +72,14 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
     val exerciseActors = Array.ofDim[String](batchSize)
     val exerciseChildEventIds = Array.ofDim[String](batchSize)
 
-    val submittersValue = tx.submitterInfo.map(_.actAs.mkString("|")).orNull
+    val submittersValue = tx.completionInfo.map(_.actAs.mkString("|")).orNull
 
     for (((nodeId, node), i) <- info.events.zipWithIndex) {
       node match {
         case create: Create =>
           submitters(i) = submittersValue
           contractIds(i) = create.coid.coid
-          templateIds(i) = create.coinst.template.toString
+          templateIds(i) = create.templateId.toString
           eventIds(i) = EventId(tx.transactionId, nodeId).toLedgerString
           nodeIndexes(i) = nodeId.index
           flatEventWitnesses(i) = info.stakeholders.getOrElse(nodeId, Set.empty).mkString("|")
@@ -87,8 +87,8 @@ case class EventsTablePostgresql(idempotentEventInsertions: Boolean) extends Eve
           createArguments(i) = compressed.createArguments(nodeId)
           createSignatories(i) = create.signatories.mkString("|")
           createObservers(i) = create.stakeholders.diff(create.signatories).mkString("|")
-          if (create.coinst.agreementText.nonEmpty) {
-            createAgreementTexts(i) = create.coinst.agreementText
+          if (create.agreementText.nonEmpty) {
+            createAgreementTexts(i) = create.agreementText
           }
           createKeyValues(i) = compressed.createKeyValues.get(nodeId).orNull
         case exercise: Exercise =>

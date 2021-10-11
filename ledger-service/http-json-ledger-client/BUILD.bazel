@@ -11,7 +11,6 @@ da_scala_library(
     srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:com_typesafe_scala_logging_scala_logging",
     ],
     deps = [
         "//daml-lf/data",
@@ -19,7 +18,8 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/http-json-cli:base",
         "//ledger-service/utils",
-        "//ledger/ledger-api-common",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
     ],
 )
@@ -37,18 +37,17 @@ deps = {
         srcs = glob(["{}/src/main/scala/**/*.scala".format(edition)]),
         scala_deps = [
             "@maven//:org_scalaz_scalaz_core",
-            "@maven//:com_typesafe_scala_logging_scala_logging",
         ],
         visibility = ["//visibility:public"],
         exports = [":base"],
         deps = deps.get(edition) + [
             ":base",
             "//ledger/ledger-api-client",
-            "//ledger/ledger-api-common",
             "//ledger-api/rs-grpc-bridge",
             "//ledger-service/http-json-cli:{}".format(edition),
             "@maven//:io_grpc_grpc_api",
             "@maven//:io_grpc_grpc_core",
+            "//libs-scala/contextualized-logging",
             "@maven//:io_grpc_grpc_netty",
         ],
     )

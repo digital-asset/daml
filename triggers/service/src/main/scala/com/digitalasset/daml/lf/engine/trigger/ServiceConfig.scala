@@ -10,7 +10,7 @@ import akka.http.scaladsl.model.Uri
 import com.daml.cliopts
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.auth.middleware.api.{Client => AuthClient}
-import scalaz.Show
+import com.daml.dbutils.{DBConfig, JdbcConfig}
 
 import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
@@ -23,7 +23,9 @@ private[trigger] final case class ServiceConfig(
     httpPort: Int,
     ledgerHost: String,
     ledgerPort: Int,
-    authUri: Option[Uri],
+    authInternalUri: Option[Uri],
+    authExternalUri: Option[Uri],
+    authBothUri: Option[Uri],
     authRedirectToLogin: AuthClient.RedirectToLogin,
     authCallbackUri: Option[Uri],
     maxInboundMessageSize: Int,
@@ -38,67 +40,8 @@ private[trigger] final case class ServiceConfig(
     init: Boolean,
     jdbcConfig: Option[JdbcConfig],
     portFile: Option[Path],
+    allowExistingSchema: Boolean,
 )
-
-final case class JdbcConfig(
-    driver: String,
-    url: String,
-    user: String,
-    password: String,
-)
-
-object JdbcConfig {
-  implicit val showInstance: Show[JdbcConfig] =
-    Show.shows(a => s"JdbcConfig(url=${a.url}, user=${a.user})")
-
-  def create(
-      x: Map[String, String],
-      supportedJdbcDriverNames: Set[String],
-  ): Either[String, JdbcConfig] =
-    for {
-      url <- requiredField(x)("url")
-      user <- requiredField(x)("user")
-      password <- requiredField(x)("password")
-      driver = x.get("driver").getOrElse(defaultDriver)
-      _ <- Either.cond(
-        supportedJdbcDriverNames(driver),
-        (),
-        s"$driver unsupported. Supported drivers: ${supportedJdbcDriverNames.mkString(", ")}",
-      )
-    } yield JdbcConfig(
-      driver = driver,
-      url = url,
-      user = user,
-      password = password,
-    )
-
-  private val defaultDriver: String = "org.postgresql.Driver"
-
-  private def requiredField(m: Map[String, String])(k: String): Either[String, String] =
-    m.get(k).filter(_.nonEmpty).toRight(s"Invalid JDBC config, must contain '$k' field")
-
-  lazy val usage: String =
-    helpString("<JDBC driver class name>", "<JDBC connection url>", "<user>", "<password>")
-
-  def help(supportedJdbcDriverNames: Set[String]): String =
-    "Contains comma-separated key-value pairs. Where:\n" +
-      s"${indent}url -- JDBC connection URL, beginning with jdbc:postgresql,\n" +
-      s"${indent}user -- user name for database user with permissions to create tables,\n" +
-      s"${indent}password -- password of database user,\n" +
-      s"${indent}driver -- JDBC driver class name, supported drivers: ${supportedJdbcDriverNames
-        .mkString(", ")}, defaults to org.postgresql.Driver\n" +
-      s"${indent}Example: " + helpString(
-        "org.postgresql.Driver",
-        "jdbc:postgresql://localhost:5432/triggers",
-        "operator",
-        "password",
-      )
-
-  private def helpString(driver: String, url: String, user: String, password: String): String =
-    s"""\"driver=$driver,url=$url,user=$user,password=$password\""""
-
-  private val indent: String = List.fill(8)(" ").mkString
-}
 
 private[trigger] object ServiceConfig {
   private val DefaultHttpPort: Int = 8088
@@ -150,8 +93,24 @@ private[trigger] object ServiceConfig {
 
     opt[String]("auth")
       .optional()
-      .action((t, c) => c.copy(authUri = Some(Uri(t))))
-      .text("Auth middleware URI.")
+      .action((t, c) => c.copy(authBothUri = Some(Uri(t))))
+      .text(
+        "Sets both the internal and external auth URIs. Incompatible with --auth-internal and --auth-external."
+      )
+
+    opt[String]("auth-internal")
+      .optional()
+      .action((t, c) => c.copy(authInternalUri = Some(Uri(t))))
+      .text(
+        "Sets the internal auth URIs (used by the trigger service to connect directly to the middleware). Incompatible with --auth."
+      )
+
+    opt[String]("auth-external")
+      .optional()
+      .action((t, c) => c.copy(authExternalUri = Some(Uri(t))))
+      .text(
+        "Sets the external auth URI (the one returned to the browser). Incompatible with --auth."
+      )
 
     opt[AuthClient.RedirectToLogin]("auth-redirect")
       .optional()
@@ -214,11 +173,16 @@ private[trigger] object ServiceConfig {
         s"Optional HTTP entity upload timeout. Defaults to ${DefaultHttpEntityUploadTimeout.toSeconds} seconds."
       )
 
+    opt[Unit]('s', "static-time")
+      .optional()
+      .action((_, c) => c.copy(timeProviderType = TimeProviderType.Static))
+      .text("Use static time. When not specified, wall-clock time is used.")
+
     opt[Unit]('w', "wall-clock-time")
-      .action { (_, c) =>
-        c.copy(timeProviderType = TimeProviderType.WallClock)
-      }
-      .text("Use wall clock time (UTC). When not provided, static time is used.")
+      .optional()
+      .text(
+        "[DEPRECATED] Wall-clock time is the default. This flag has no effect. Use `-s` to enable static time."
+      )
 
     opt[Long]("ttl")
       .action { (t, c) =>
@@ -226,18 +190,43 @@ private[trigger] object ServiceConfig {
       }
       .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
 
+    implicit val jcd: DBConfig.JdbcConfigDefaults = DBConfig.JdbcConfigDefaults(
+      supportedJdbcDrivers = supportedJdbcDriverNames,
+      defaultDriver = Some("org.postgresql.Driver"),
+    )
+
     opt[Map[String, String]]("jdbc")
-      .action((x, c) =>
+      .action { (x, c) =>
         c.copy(jdbcConfig =
-          Some(JdbcConfig.create(x, supportedJdbcDriverNames).fold(e => sys.error(e), identity))
+          Some(
+            JdbcConfig
+              .create(x)
+              .fold(e => throw new IllegalArgumentException(e), identity)
+          )
         )
-      )
+      }
       .optional()
-      .text(JdbcConfig.help(supportedJdbcDriverNames))
+      .text(JdbcConfig.help())
       .text(
-        "JDBC configuration parameters. If omitted the service runs without a database. " + JdbcConfig
-          .help(supportedJdbcDriverNames)
+        "JDBC configuration parameters. If omitted the service runs without a database. "
+          + JdbcConfig.help()
       )
+
+    opt[Boolean]("allow-existing-schema")
+      .action((x, c) => c.copy(allowExistingSchema = x))
+      .text(
+        "Do not abort if there are existing tables in the database schema. EXPERT ONLY. Defaults to false."
+      )
+
+    checkConfig { cfg =>
+      if (
+        (cfg.authBothUri.nonEmpty && (cfg.authInternalUri.nonEmpty || cfg.authExternalUri.nonEmpty))
+        || (cfg.authInternalUri.nonEmpty != cfg.authExternalUri.nonEmpty)
+      )
+        failure("You must specify either just --auth or both --auth-internal and --auth-external.")
+      else
+        success
+    }
 
     cmd("init-db")
       .action((_, c) => c.copy(init = true))
@@ -256,7 +245,9 @@ private[trigger] object ServiceConfig {
         httpPort = DefaultHttpPort,
         ledgerHost = null,
         ledgerPort = 0,
-        authUri = None,
+        authInternalUri = None,
+        authExternalUri = None,
+        authBothUri = None,
         authRedirectToLogin = AuthClient.RedirectToLogin.No,
         authCallbackUri = None,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
@@ -266,11 +257,12 @@ private[trigger] object ServiceConfig {
         authCallbackTimeout = DefaultAuthCallbackTimeout,
         maxHttpEntityUploadSize = DefaultMaxHttpEntityUploadSize,
         httpEntityUploadTimeout = DefaultHttpEntityUploadTimeout,
-        timeProviderType = TimeProviderType.Static,
+        timeProviderType = TimeProviderType.WallClock,
         commandTtl = Duration.ofSeconds(30L),
         init = false,
         jdbcConfig = None,
         portFile = None,
+        allowExistingSchema = false,
       ),
     )
 }

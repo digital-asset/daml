@@ -9,8 +9,10 @@
 
 module SugarUnit where
 
+import DA.Assert
+
 data Foo a = Foo a
-    deriving (Eq)
+    deriving (Eq, Show)
 
 joinFoo ffx =
     -- The desugaring of this nested pattern produces a `GHC.Tuple.Unit`.
@@ -18,4 +20,4 @@ joinFoo ffx =
     in Foo x
 
 test = scenario do
-    assert $ joinFoo (Foo (Foo 1)) == Foo 1
+    joinFoo (Foo (Foo 1)) === Foo 1

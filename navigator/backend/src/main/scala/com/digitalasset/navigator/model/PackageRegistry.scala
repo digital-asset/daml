@@ -40,13 +40,13 @@ case class PackageRegistry(
       .filterNot(p => packages.contains(p.packageId))
       .map { p =>
         val typeDefs = p.typeDecls.collect {
-          case (qname, DamlLfIface.reader.InterfaceType.Normal(t)) =>
+          case (qname, DamlLfIface.InterfaceType.Normal(t)) =>
             DamlLfIdentifier(p.packageId, qname) -> t
-          case (qname, DamlLfIface.reader.InterfaceType.Template(r, _)) =>
+          case (qname, DamlLfIface.InterfaceType.Template(r, _)) =>
             DamlLfIdentifier(p.packageId, qname) -> DamlLfDefDataType(DamlLfImmArraySeq.empty, r)
         }
         val templates = p.typeDecls.collect {
-          case (qname, DamlLfIface.reader.InterfaceType.Template(r @ _, t)) =>
+          case (qname, DamlLfIface.InterfaceType.Template(r @ _, t)) =>
             DamlLfIdentifier(p.packageId, qname) -> template(p.packageId, qname, t)
         }
         p.packageId -> DamlLfPackage(p.packageId, typeDefs, templates)

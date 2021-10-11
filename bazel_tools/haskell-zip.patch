@@ -12,7 +12,7 @@ It doesn’t really make sense to upstream this. The code in the
 zip library is correct, it’s `openBinaryTempFile` that is broken.
 
 diff --git a/Codec/Archive/Zip/Internal.hs b/Codec/Archive/Zip/Internal.hs
-index 674a4a3..6f68cdd 100644
+index b3fa27f..31e34b0 100644
 --- a/Codec/Archive/Zip/Internal.hs
 +++ b/Codec/Archive/Zip/Internal.hs
 @@ -27,7 +27,6 @@ import Codec.Archive.Zip.CP437 (decodeCP437)
@@ -23,7 +23,7 @@ index 674a4a3..6f68cdd 100644
  import Control.Monad
  import Control.Monad.Catch (MonadThrow (..))
  import Control.Monad.Trans.Maybe
-@@ -50,10 +49,7 @@ import Data.Version
+@@ -60,10 +59,7 @@ import Data.Version
  import Data.Void
  import Data.Word (Word16, Word32)
  import Numeric.Natural (Natural)
@@ -31,12 +31,12 @@ index 674a4a3..6f68cdd 100644
 -import System.FilePath
  import System.IO
 -import System.IO.Error (isDoesNotExistError)
- import qualified Data.ByteString     as B
- import qualified Data.Conduit        as C
- #ifdef ENABLE_BZIP2
-@@ -278,18 +274,7 @@ withNewFile
-   -> (Handle -> IO ()) -- ^ Action that writes to given 'Handle'
-   -> IO ()
+ 
+ #ifndef mingw32_HOST_OS
+ import qualified Codec.Archive.Zip.Unix as Unix
+@@ -302,19 +298,7 @@ withNewFile ::
+   (Handle -> IO ()) ->
+   IO ()
  withNewFile fpath action =
 -  bracketOnError allocate release $ \(path, h) -> do
 -    action h
@@ -46,11 +46,12 @@ index 674a4a3..6f68cdd 100644
 -    allocate = openBinaryTempFile (takeDirectory fpath) ".zip"
 -    release (path, h) = do
 -      hClose h
--      -- Despite using `bracketOnError` the file is not guaranteed to exist here
--      -- since we could be interrupted with an async exception after the file has
--      -- been renamed. Therefore, we silentely ignore `DoesNotExistError`.
+-      -- Despite using `bracketOnError` the file is not guaranteed to exist
+-      -- here since we could be interrupted with an async exception after
+-      -- the file has been renamed. Therefore, we silentely ignore
+-      -- `DoesNotExistError`.
 -      catchJust (guard . isDoesNotExistError) (removeFile path) (const $ pure ())
-+    withBinaryFile fpath ReadWriteMode action
++  withBinaryFile fpath ReadWriteMode action
  
  -- | Determine what comment in new archive will look like given its original
  -- value and a collection of pending actions.

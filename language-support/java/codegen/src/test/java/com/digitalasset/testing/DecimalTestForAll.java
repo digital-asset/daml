@@ -5,9 +5,9 @@ package com.daml.testing;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Numeric;
 import com.daml.ledger.javaapi.data.Party;
-import com.daml.ledger.javaapi.data.Record;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
@@ -37,9 +37,10 @@ public class DecimalTestForAll {
 
   @Test
   void value2Decimal2value() {
-    Record.Field partyField = new Record.Field("party", new Party("alice"));
+    DamlRecord.Field partyField = new DamlRecord.Field("party", new Party("alice"));
     for (String s : goodValues) {
-      Record record = new Record(new Record.Field("x", new Numeric(new BigDecimal(s))), partyField);
+      DamlRecord record =
+          new DamlRecord(new DamlRecord.Field("x", new Numeric(new BigDecimal(s))), partyField);
       assertEquals(Box.fromValue(record).toValue(), record);
     }
   }

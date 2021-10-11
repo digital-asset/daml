@@ -5,25 +5,23 @@ package com.daml.platform.store.dao
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_service.GetTransactionsResponse
 import com.daml.ledger.api.{v1 => lav1}
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref.{Identifier, Party}
+import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
-import com.daml.lf.transaction.NodeId
-import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalacheck.Gen
-import org.scalatest.{Inside, LoneElement, OptionValues}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{Inside, LoneElement, OptionValues}
 
 import scala.concurrent.Future
 
@@ -68,11 +66,11 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         transaction.transactionId shouldBe tx.transactionId
         transaction.workflowId shouldBe tx.workflowId.getOrElse("")
         inside(transaction.events.loneElement.event.created) { case Some(created) =>
-          val (nodeId, createNode: NodeCreate[ContractId]) =
+          val (nodeId, createNode: NodeCreate) =
             tx.transaction.nodes.head
           created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
           created.witnessParties should contain only (tx.actAs: _*)
-          created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
+          created.agreementText.getOrElse("") shouldBe createNode.agreementText
           created.contractKey shouldBe None
           created.createArguments shouldNot be(None)
           created.signatories should contain theSameElementsAs createNode.signatories
@@ -100,7 +98,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         transaction.effectiveAt.value.nanos shouldBe exercise.ledgerEffectiveTime.getNano
         transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
         inside(transaction.events.loneElement.event.archived) { case Some(archived) =>
-          val (nodeId, exerciseNode: NodeExercises[NodeId, ContractId]) =
+          val (nodeId, exerciseNode: NodeExercises) =
             exercise.transaction.nodes.head
           archived.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
           archived.witnessParties should contain only (exercise.actAs: _*)
@@ -495,7 +493,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
       // `pageSize = 2` and the offset gaps in the `commandWithOffsetGaps` above are to make sure
       // that streaming works with event pages separated by offsets that don't have events in the store
-      ledgerDao <- createLedgerDao(pageSize = 2)
+      ledgerDao <- createLedgerDao(pageSize = 2, eventsProcessingParallelism = 8)
 
       response <- ledgerDao.transactionsReader
         .getFlatTransactions(
@@ -514,6 +512,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
+  //TODO need to find out why this is so slow to execute on Oracle
   it should "fall back to limit-based query with consistent results" in {
     val txSeqLength = 1000
     txSeqTrial(
@@ -624,9 +623,12 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   ): Vector[Transaction] =
     responses.foldLeft(Vector.empty[Transaction])((b, a) => b ++ a._2.transactions.toVector)
 
-  private def createLedgerDao(pageSize: Int) =
+  private def createLedgerDao(pageSize: Int, eventsProcessingParallelism: Int) =
     LoggingContext.newLoggingContext { implicit loggingContext =>
-      daoOwner(eventsPageSize = pageSize).acquire()(ResourceContext(executionContext))
+      daoOwner(
+        eventsPageSize = pageSize,
+        eventsProcessingParallelism = eventsProcessingParallelism,
+      ).acquire()(ResourceContext(executionContext))
     }.asFuture
 
   // XXX SC much of this is repeated because we're more concerned here

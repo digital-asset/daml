@@ -11,21 +11,16 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Snapshot}
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  LedgerInitialConditions,
-  Offset,
-  ReadService,
-  TimeModel,
-  Update,
-}
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
+import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.{ReadService, Update}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.indexer.JdbcIndexer
+import com.daml.platform.indexer.{JdbcIndexer, StandaloneIndexerServer}
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.testing.postgresql.PostgresResource
 
@@ -92,14 +87,22 @@ class IndexerBenchmark() {
 
         _ = println("Setting up the index database...")
         indexer <- Await
-          .result(indexerFactory.migrateSchema(false), Duration(5, "minute"))
+          .result(
+            StandaloneIndexerServer
+              .migrateOnly(
+                jdbcUrl = config.indexerConfig.jdbcUrl,
+                enableAppendOnlySchema = config.indexerConfig.enableAppendOnlySchema,
+              )
+              .map(_ => indexerFactory.initialized())(indexerEC),
+            Duration(5, "minute"),
+          )
           .acquire()
 
         _ = println("Starting the indexing...")
         startTime = System.nanoTime()
-        handle <- indexer.subscription(readService).acquire()
+        handle <- indexer.acquire()
 
-        _ <- Resource.fromFuture(handle.completed())
+        _ <- Resource.fromFuture(handle)
         stopTime = System.nanoTime()
         _ = println("Indexing done.")
 
@@ -108,6 +111,16 @@ class IndexerBenchmark() {
       } yield {
         val duration: Double = (stopTime - startTime).toDouble / 1000000000.0
         val updates: Long = metrics.daml.parallelIndexer.updates.getCount
+        val updateRate: Double = updates / duration
+        val (failure, minimumUpdateRateFailureInfo): (Boolean, String) =
+          config.minUpdateRate match {
+            case Some(requiredMinUpdateRate) if requiredMinUpdateRate > updateRate =>
+              (
+                true,
+                s"[failure][UpdateRate] Minimum number of updates per second: required: $requiredMinUpdateRate, metered: $updateRate",
+              )
+            case _ => (false, "")
+          }
         println(
           s"""
              |--------------------------------------------------------------------------------
@@ -117,6 +130,7 @@ class IndexerBenchmark() {
              |Input:
              |  source:   ${config.updateSource}
              |  count:    ${config.updateCount}
+             |  required updates/sec: ${config.minUpdateRate.getOrElse("-")}
              |  jdbcUrl:  ${config.indexerConfig.jdbcUrl}
              |
              |Indexer parameters:
@@ -132,7 +146,8 @@ class IndexerBenchmark() {
              |Result:
              |  duration:    $duration
              |  updates:     $updates
-             |  updates/sec: ${updates / duration}
+             |  updates/sec: $updateRate
+             |  $minimumUpdateRateFailureInfo
              |
              |Other metrics:
              |  inputMapping.batchSize:     ${histogramToString(
@@ -161,6 +176,8 @@ class IndexerBenchmark() {
           println(s"Index database is still running at ${config.indexerConfig.jdbcUrl}.")
           StdIn.readLine("Press <enter> to terminate this process.")
         }
+
+        if (failure) throw new RuntimeException("Indexer Benchmark failure.")
         ()
       }
       resource.asFuture
@@ -174,21 +191,23 @@ class IndexerBenchmark() {
       IndexerBenchmark.LedgerId,
       Configuration(
         generation = 0,
-        timeModel = TimeModel.reasonableDefault,
+        timeModel = LedgerTimeModel.reasonableDefault,
         maxDeduplicationTime = java.time.Duration.ofDays(1),
       ),
       Time.Timestamp.Epoch,
     )
 
     new ReadService {
-      override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] = {
+
+      override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] = {
         Source.single(initialConditions)
       }
+
       override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
         assert(beginAfter.isEmpty, s"beginAfter is $beginAfter")
         Source.fromIterator(() => updates)
       }
-      override def currentHealth(): HealthStatus = HealthStatus.healthy
+      override def currentHealth(): HealthStatus = Healthy
     }
   }
 
@@ -203,25 +222,29 @@ object IndexerBenchmark {
   def runAndExit(
       args: Array[String],
       updates: Config => Future[Iterator[(Offset, Update)]],
-  ): Unit = {
-    val config: Config = Config.parse(args).getOrElse {
-      sys.exit(1)
+  ): Unit =
+    Config.parse(args) match {
+      case Some(config) => IndexerBenchmark.runAndExit(config, updates)
+      case None => sys.exit(1)
     }
-    IndexerBenchmark.runAndExit(config, updates)
-  }
 
   def runAndExit(
       config: Config,
       updates: Config => Future[Iterator[(Offset, Update)]],
   ): Unit = {
-    val result = if (config.indexerConfig.jdbcUrl.isEmpty) {
-      new IndexerBenchmark().runWithEphemeralPostgres(updates, config)
-    } else {
-      new IndexerBenchmark().run(updates, config)
-    }
+    val result: Future[Unit] =
+      (if (config.indexerConfig.jdbcUrl.isEmpty) {
+         new IndexerBenchmark().runWithEphemeralPostgres(updates, config)
+       } else {
+         new IndexerBenchmark().run(updates, config)
+       }).recover { case ex =>
+        println(s"Error: ${ex.getMessage}")
+        sys.exit(1)
+      }(scala.concurrent.ExecutionContext.Implicits.global)
+
     Await.result(result, Duration(100, "hour"))
     println("Done.")
     // TODO: some actor system or thread pool is still running, preventing a shutdown
-    System.exit(0)
+    sys.exit(0)
   }
 }

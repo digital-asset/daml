@@ -14,81 +14,89 @@ and the UI, Daml applications often need to automate certain
 interactions with the ledger. This is commonly done in the form of a
 ledger client that listens to the transaction stream of the ledger and
 when certain conditions are met, e.g., when a template of a given type
-has been created, the client sends commands to the ledger, e.g., it
-creates a template of another type.
+has been created, the client sends commands to the ledger to
+create a template of another type.
 
 It is possible to write these clients in a language of your choice,
-e.g., JavaScript, using the HTTP JSON API. However, that introduces an
-additional layer of friction: You now need to translate between the
+such as JavaScript, using the HTTP JSON API. However, that introduces an
+additional layer of friction: you now need to translate between the
 template and choice types in Daml and a representation of those Daml
 types in the language you are using for your client. Daml triggers
 address this problem by allowing you to write certain kinds of
-automation directly in Daml reusing all the Daml types and logic that
-you have already defined. Note that while the logic for Daml triggers
-is written in Daml, they act like any other ledger client: They are
+automation directly in Daml, reusing all the Daml types and logic that
+you have already defined. Note that, while the logic for Daml triggers
+is written in Daml, they act like any other ledger client: they are
 executed separately from the ledger, they do not need to be uploaded
 to the ledger and they do not allow you to do anything that any other
 ledger client could not do.
 
-Usage
-=====
 
-Our example for this tutorial consists of 3 templates.
+If you don't want to follow along, but still want to get the final code
+for this section to play with, you can get it by running::
 
-First, we have a template called ``Original``:
+      daml new --template-name=gsg-trigger create-daml-app
 
-.. literalinclude:: ./template-root/src/CopyTrigger.daml
-   :language: daml
-   :start-after: -- ORIGINAL_TEMPLATE_BEGIN
-   :end-before: -- ORIGINAL_TEMPLATE_END
+How To Think About Triggers
+===========================
 
-This template has an ``owner``, a ``name`` that identifies it and some
-``textdata`` that we just represent as ``Text`` to keep things simple.  We
-have also added a contract key to ensure that each owner can only have
-one ``Original`` with a given ``name``.
+It is tempting to think of Daml Triggers as snippets of code that "react to
+ledger events". However, this is not the best way to think about them; while it
+will work in some cases, in many corner cases that line of thought will lead to
+subtle errors.
 
-Second, we have a template called ``Subscriber``:
+Instead, you should think of, and write, your triggers from the perspective of
+"correcting the current ACS" to match some predefined expectations. Trigger
+rules should be a combination of checking those expectations on the current ACS
+and applyin corrective actions to bring back the ACS in line with its expected
+state.
 
-.. literalinclude:: ./template-root/src/CopyTrigger.daml
-   :language: daml
-   :start-after: -- SUBSCRIBER_TEMPLATE_BEGIN
-   :end-before: -- SUBSCRIBER_TEMPLATE_END
+The "trigger" part is best thought of as an optimization: rather than check the
+ACS constantly, we only apply our rules when something happens that we believe
+_may_ lead to the state of the ledger diverging from our expectations.
 
-This template allows the ``subscriber`` to subscribe to ``Original`` s where ``subscribedTo`` is the ``owner``.
-For each of these ``Original`` s, our Daml trigger should then automatically create an instance of
-third template called ``Copy``:
+Sample Trigger
+==============
 
-.. literalinclude:: ./template-root/src/CopyTrigger.daml
-   :language: daml
-   :start-after: -- COPY_TEMPLATE_BEGIN
-   :end-before: -- COPY_TEMPLATE_END
+Our example for this tutorial builds upon the Getting Started Guide,
+specifically picking up right after the :doc:`/getting-started/first-feature`
+section.
 
-Our trigger should also ensure that the ``Copy`` contracts stay in sync with changes on the ledger. That means
-that we need to archive ``Copy`` contracts if there is more than one for the same ``Original``, we need to archive
-``Copy`` contracts if the corresponding ``Original`` has been archived and we need to archive
-all ``Copy`` s for a given subscriber if the corresponding ``Subscriber`` contract has been archived.
+We assume that our requirements are to build a chatbot that reponds to every
+message with:
 
-Implementing a Daml Trigger
----------------------------
+  "Please, tell me more about that."
 
-Having defined what our Daml trigger is supposed to do, we can now
-move on to its implementation. A Daml trigger is a regular Daml
-project that you can build using ``daml build``. To get access to the
-API used to build a trigger, you need to add the ``daml-triggers``
-library to the ``dependencies`` field in ``daml.yaml``.
+That should fool anyone and pass the Turing test, easily.
 
-.. literalinclude:: ./template-root/daml.yaml.template
-   :start-after: # trigger-dependencies-begin
-   :end-before: # trigger-dependencies-end
+As explained above, while the layman description may be "responds to every
+message", our technical description is better phrased as "ensure that, at all
+times, the last message we can see has been sent by us; if that is not the
+case, the corrective action is to send a response to the last message we can
+see".
+
+Daml Trigger Basics
+===================
+
+A Daml trigger is a regular Daml project that you can build using ``daml
+build``. To get access to the API used to build a trigger, you need to add the
+``daml-trigger`` library to the ``dependencies`` field in ``daml.yaml``:
+
+.. literalinclude:: /_templates/gsg-trigger/daml.yaml.template
+  :language: yaml
+  :start-after: # trigger-dependencies-begin
+  :end-before: # trigger-dependencies-end
+
+**Note**: In the specific case of the Getting Started Guide, this is already
+included as part of the ``create-daml-app`` template.
 
 In addition to that you also need to import the ``Daml.Trigger``
-module.
+module in your own code.
 
 Daml triggers automatically track the active contract set (ACS), i.e., the set of contracts
 that have been created and have not been archived, and the
 commands in flight for you. In addition to that, they allow you to
 have user-defined state that is updated based on new transactions and
-command completions. For our copy trigger, the ACS is sufficient, so
+command completions. For our chatbot trigger, the ACS is sufficient, so
 we will simply use ``()`` as the type of the user defined state.
 
 To create a trigger you need to define a value of type ``Trigger s`` where ``s`` is the type of your user-defined state:
@@ -102,6 +110,10 @@ To create a trigger you need to define a value of type ``Trigger s`` where ``s``
       , registeredTemplates : RegisteredTemplates
       , heartbeat : Optional RelTime
       }
+
+To clarify, this is the definition in the ``Daml.Trigger`` library, reproduced
+here for illustration purposes. This is not something you need to add to your
+own code.
 
 The ``initialize`` function is called on startup and allows you to
 initialize your user-defined state based on querying the active contract
@@ -125,148 +137,266 @@ Like ``Scenario`` or ``Update``, you can use ``do`` notation and
 We can specify the templates that our trigger will operate
 on. In our case, we will simply specify ``AllInDar`` which means that
 the trigger will receive events for all template types defined in the
-DAR. It is also possible to specify an explicit list of templates,
-e.g., ``RegisteredTemplates [registeredTemplate @Original, registeredTemplate @Subscriber, registeredTemplate @Copy]``.
+DAR. It is also possible to specify an explicit list of templates. For example,
+to specify just the ``Message`` template, one would write:
+
+.. code-block:: daml
+
+   ...
+   registeredTemplates = RegisteredTemplates [registeredTemplate @Message],
+   ...
+
 This is mainly useful for performance reasons if your DAR contains many templates that are not relevant for your trigger.
+Note that providing an explicit list of templates also filters the result of querying the ACS using the Trigger API:
+contracts of the excluded templates cannot be queried.
 
 Finally, you can specify an optional heartbeat interval at which the trigger
 will be sent a ``MHeartbeat`` message. This is useful if you want to ensure
-that the trigger is executed at a certain rate to issue timed commands.
+that the trigger is executed at a certain rate to issue timed commands. We will
+not be using heartbeats in this example.
 
-For our Daml trigger, the definition looks as follows:
+.. _running-a-no-op-trigger:
 
-.. literalinclude:: ./template-root/src/CopyTrigger.daml
-   :language: daml
-   :start-after: -- TRIGGER_BEGIN
-   :end-before: -- TRIGGER_END
+Running a No-Op Trigger
+=======================
 
-Now we can move on to the most complex part of our Daml trigger, the implementation of ``copyRule``.
-First let’s take a look at the signature:
+To implement a no-op trigger, one could write the following in a separate
+``daml/ChatBot.daml`` file:
 
-.. literalinclude:: ./template-root/src/CopyTrigger.daml
-   :language: daml
-   :start-after: -- RULE_SIGNATURE_BEGIN
-   :end-before: -- RULE_SIGNATURE_END
+.. literalinclude:: /_templates/gsg-trigger/daml/NoOp.daml
+  :language: daml
 
-We will need the party and the ACS to get the ``Original`` contracts
-where we are the owner, the ``Subscriber`` contracts where we are in
-the ``subscribedTo`` field and the ``Copy`` contracts where we are the
-``owner`` of the corresponding ``Original``.
+In the context of the Getting Started app, if you write the above file, then
+run ``daml start`` and ``npm start`` as usual, and then set up the trigger
+with:
 
-The commands in flight, retrievable with ``getCommandsInFlight``, will
-be useful to avoid sending the same command multiple times if
-``copyRule`` is run multiple times before we get the corresponding
-transaction. Note that Daml triggers are expected to be designed such
-that they can cope with this, e.g., after a restart or a crash where the
-commands in flight do not contain commands in flight from before the
-restart, so this is an optimization rather than something required for
-them to function correctly.
+.. code-block:: bash
 
-First, we get all ``Subscriber``, ``Original`` and ``Copy`` contracts
-from the ACS. For that, the Daml trigger API provides a ``query``
-function that will return a list of all contracts of a given template.
+    daml trigger --dar .daml/dist/create-daml-app-0.1.0.dar \
+                 --trigger-name NoOp:noOp \
+                 --ledger-host localhost \
+                 --ledger-port 6865 \
+                 --ledger-party "bob"
 
-.. literalinclude:: ./template-root/src/CopyTrigger.daml
-   :language: daml
-   :start-after: -- ACS_QUERY_BEGIN
-   :end-before: -- ACS_QUERY_END
+and then play with the app as ``alice`` and ``bob`` just like you did for
+:doc:`/getting-started/first-feature`, you should see the trigger command
+printing a line for each interaction, containing the message ``triggered`` as
+well as other debug information.
 
-Now, we can filter those contracts to the ones where we are the
-``owner`` as described before.
+Diversion: Updating ``Message``
+===============================
 
-.. literalinclude:: ./template-root/src/CopyTrigger.daml
-   :language: daml
-   :start-after: -- ACS_FILTER_BEGIN
-   :end-before: -- ACS_FILTER_END
+Before we can make our Trigger more useful, we need to think a bit more about
+what it is supposed to do. For example, we don't want to respond to ``bob``'s
+own messages. We also do not want to send messages when we have not received
+any.
 
-We also need a list of all parties that have subscribed to us.
+In order to start with something reasonably simple, we're going to set the rule as
 
-.. literalinclude:: ./template-root/src/CopyTrigger.daml
-   :language: daml
-   :start-after: -- SUBSCRIBING_PARTIES_BEGIN
-   :end-before: -- SUBSCRIBING_PARTIES_END
+  *if* the last message we can see was *not* sent by ``bob``, *then* we'll send
+  ``"Please, tell me more about that."`` to whoever sent the last message we
+  can see.
 
-As we have mentioned before, we only want to keep one ``Copy`` per
-``Original`` and ``Subscriber`` and archive all others. Therefore, we
-group identical ``Copy`` contracts and keep the first of each group
-while archiving the others.
+This raises the question of how we can determine which message is the last one,
+given the current structure of a message. In order to solve that, we need to
+add a ``Time`` field to ``Message``, which can be done by editing the
+``Message`` template in ``daml/User.daml`` to look like:
 
-.. literalinclude:: ./template-root/src/CopyTrigger.daml
-   :language: daml
-   :start-after: -- GROUP_COPIES_BEGIN
-   :end-before: -- GROUP_COPIES_END
+.. literalinclude:: /_templates/gsg-trigger/daml/User.daml
+  :language: daml
+  :start-after: -- MESSAGE_BEGIN
+  :end-before: -- MESSAGE_END
 
-In addition to duplicate copies, we also need to archive copies where
-the corresponding ``Original`` or ``Subscriber`` no longer exists.
+This should result in Daml Studio reporting an error in the ``SendMessage``
+choice, as it now needs to set the ``receivedAt`` field. Here is the updated
+code for ``SendMessage``:
 
-.. literalinclude:: ./template-root/src/CopyTrigger.daml
-   :language: daml
-   :start-after: -- ARCHIVE_COPIES_BEGIN
-   :end-before: -- ARCHIVE_COPIES_END
+.. literalinclude:: /_templates/gsg-trigger/daml/User.daml
+  :language: daml
+  :start-after: -- SEND_BEGIN
+  :end-before: -- SEND_END
 
-To send the corresponding archive commands to the ledger, we iterate
-over ``archiveCopies`` using ``forA`` and call the ``emitCommands``
-function. Each call to ``emitCommands`` takes a list of commands which
-will be submitted as a single transaction. The actual commands can be
-created using ``exerciseCmd`` and ``createCmd``. In addition to that,
-we also pass in a list of contract ids. Those contracts will be marked
-pending and not be included in the result of ``query`` until
-the commands have either been committed to the ledger or the command
-submission failed.
+The ``getTime`` action (`doc </daml/stdlib/Prelude.html#function-da-internal-lf-gettime-99334>`__)
+returns the time at which the command was received by the sandbox. In more
+sensitive applications, this may not be sufficiently reliable, as transactions
+may be processed in parallel (so "received at" timestamp order may not match
+actual transaction order), and in distributed cases dishonest participants may
+fudge this value. It's good enough for this example, though.
 
-.. literalinclude:: ./template-root/src/CopyTrigger.daml
-   :language: daml
-   :start-after: -- ARCHIVE_COMMAND_BEGIN
-   :end-before: -- ARCHIVE_COMMAND_END
+Now that we have a field to sort on, and thus a way to identify the *latest*
+message, we can turn our attention back to our trigger code.
 
-Finally, we also need to create copies that do not already exists. We
-want to avoid creating copies for which there is already a command in
-flight. The Daml Trigger API provides a ``dedupCreate`` helper for this
-which only sends the commands if it is not already in flight.
+AutoReply
+=========
 
-.. literalinclude:: ./template-root/src/CopyTrigger.daml
-   :language: daml
-   :start-after: -- CREATE_COPIES_BEGIN
-   :end-before: -- CREATE_COPIES_END
+Open up the trigger code again (``daml/ChatBot.daml``), and change it to:
 
-Running a Daml Trigger
-----------------------
+.. literalinclude:: /_templates/gsg-trigger/daml/ChatBot.daml
+  :language: daml
 
-To try this example out, you can replicate it using
-``daml new copy-trigger --template copy-trigger``. You first have to build the trigger like
-you would build a regular Daml project using ``daml build``.
-Then start the sandbox and navigator using ``daml start``.
+Refresh ``daml start`` by pressing ``r`` (followed by ``Enter`` on Windows) in
+its terminal, then start the trigger with:
 
-Now we are ready to run the trigger using ``daml trigger``:
+.. code-block:: bash
 
-.. code-block:: sh
+    daml trigger --dar .daml/dist/create-daml-app-0.1.0.dar \
+                 --trigger-name ChatBot:autoReply \
+                 --ledger-host localhost \
+                 --ledger-port 6865 \
+                 --ledger-party "bob"
 
-    daml trigger --dar .daml/dist/copy-trigger-0.0.1.dar --trigger-name CopyTrigger:copyTrigger --ledger-host localhost --ledger-port 6865 --ledger-party Alice
+Play a bit with ``alice`` and ``bob`` in your browser, to get a feel for how
+the trigger works. Watch both the messages in-browser and the debug statements
+printed by the trigger runner.
 
-The first argument specifies the ``.dar`` file that we have just
-built. The second argument specifies the identifier of the trigger
-using the syntax ``ModuleName:identifier``. Finally, we need to
-specify the ledger host, port, the party that our trigger is executed
-as, and the time mode of the ledger which is the sandbox default, i.e,
-static time.
+Let's walk through the ``rule`` code line-by-line:
 
-Now open Navigator at http://localhost:7500/.
+- We use the ``query`` function to get all of the ``Message`` templates visible
+  to the current party (``p``; in our case this will be ``bob``). Per the
+  `documentation </triggers/api/Daml-Trigger.html#function-daml-trigger-query-2759>`_,
+  this returns a list of tuples (contract id, payload), which we store as
+  ``message_contracts``.
+- We then `map </daml/stdlib/Prelude.html#function-ghc-base-map-40302>`_ the
+  `snd </daml/stdlib/Prelude.html#function-da-internal-prelude-snd-86578>`_
+  function on the result to get only the payloads, i.e. the actual data of the
+  messages we can see.
+- We print, as a ``debug`` message, the number of messages we can see.
+- On the next line, get the message with the highest ``receivedAt`` field
+  (`maximumOn </daml/stdlib/DA-List-Total.html#function-da-list-total-maximumon-67732>`_).
+- We then print another debug message, this time printing the message our code
+  has identified as "the last message visible to the current party". If you run
+  this, you'll see that ``lastMessage`` is actually a ``Optional Message``. This
+  is because the `maximumOn </daml/stdlib/DA-List-Total.html#function-da-list-total-maximumon-67732>`_
+  function will return the element from a list for which the given functions
+  produces the highest value *if* the list has at least one element, but it
+  needs to still do something sensible if the list is empty; in this case, it
+  would return ``None``.
+- When ``lastMessage`` is ``Some m``
+  (`whenSome </daml/stdlib/DA-Optional.html#function-da-optional-whensome-23804>`_),
+  we execute the given function.  Otherwise, ``lastMessage`` is ``None`` and we
+  implicitly do nothing.
+- Next, we need to check whether the message has been sent *to* or *by* the
+  party running the trigger (with the current Daml model, it has to be one or
+  the other, as messages are only visible to the sender and receiver).
+  `when </daml/stdlib/DA-Action.html#function-da-action-when-53144>`_ the
+  expression ``m.receiver == p`` is ``True``, we then our expectations of the
+  ledger state are wrong and we need to correct it. Otherwise, the state
+  matches our rule and we don't need to do anything.
+- At this point we know the state is "wrong", per our expectations, and start
+  engaging in correcting actions. For this trigger, this means sendinga message
+  to the sender of the last message. In order to do that, we need to find the
+  ``User`` contract for the sender. We start by getting the list of all
+  ``User`` contracts we know about, which will be all users who
+  follow the party running the trigger (and that party's own ``User``
+  contract). As for ``Message`` contracts earlier, the result of ``query
+  @User`` is going to be a list of tuples with (contract id, payload). The big
+  difference is that this time we actually want to keep the contract ids, as
+  that is what we'll use to send a message back.
+- We print the list of users we just fetched, as a debug message.
+- We create a function to identify the user we are looking for.
+- We get the user contract by applying our ``isSender`` function as a
+  `filter </daml/stdlib/Prelude.html#function-da-internal-prelude-filter-27394>`_
+  on the list of users, and then taking the
+  `head <daml/stdlib/DA-List-Total.html#function-da-list-total-head-74336>`_
+  of that list, i.e. its first element.
+- Just like  ``maximumOn``, ``head`` will return an ``Optional a``, so the next
+  step is to check whether we have actually found the relevant ``User``
+  contract. In most cases we should find it, but remember that users can send
+  us a message if *we* follow *them*, whereas we can only answer if *they*
+  follow *us*.
+- If we did find some ``User`` contract to reply to, we extract the
+  corresponding contract id (first element of the tuple, ``sender``) and
+  discard the payload (second element, ``_``), and we
+  `exercise <triggers/api/Daml-Trigger.html#function-daml-trigger-dedupexercise-37617>`_
+  the ``SendMessage`` choice, passing in the current party ``p`` as the sender.
+  See below for additional information on what that ``dedup`` in the name of the
+  command means.
 
-First, login as ``Alice`` and create an ``Original`` contract with
-``party`` set to ``Alice``.  Now, logout and login as ``Bob`` and
-create a ``Subscriber`` contract with ``subscriber`` set to ``Bob``
-and ``subscribedTo`` set to ``Alice``. After a short delay you should
-now see a ``Copy`` contract corresponding to the ``Original`` that you
-have created as ``Alice``. Once you archive the ``Subscriber``
-contract, you can see that the ``Copy`` contract will also be
-archived.
+Command Deduplication
+=====================
+
+Daml Triggers react to many things, and it's usually important to make sure
+that the same command is not sent mutiple times.
+
+For example, in our ``autoReply`` chatbot above, the rule will be triggered not
+only when we receive a message, but also when we send one, as well as when we
+follow a user or get followed by a user, and when we stop following a user or a
+user stops following us.
+
+It's easy to imagine a sequence of events that would make a naive trigger
+implementation send too many messages. For example:
+
+- ``alice`` sends ``"hi"``, so the trigger runs and sends an ``exercise`` command.
+- _Before_ the ``exercise`` command is fully processed, ``carol`` follows
+  ``bob``, which triggers the rule again. The state of all the ``Message``
+  contracts ``bob`` can see has not changed, so the rule might send the
+  response to ``alice`` again.
+
+We obviously don't want that to happen, as it would likely prevent us from
+passing that Turing test we were after.
+
+Triggers offer a few features to help users manage that. Possibly the simplest
+one is the ``dedup*`` family of ledger operations. When using those, the
+trigger runner will keep track of the commands currently sent and prevent
+sending the exact same command again. In the above example, the trigger would
+see that, when ``carol`` follows ``bob`` and the rule runs ``dedupExercise``,
+there is already an Exercise command in flight with the exact same value, in
+this case same message, same sender and same receiver.
+
+Note that, if instead the in-between event is ``alice`` following ``carol``,
+this simple deduplication mechanism might not work as expected: because the
+``User`` contract ID for ``alice`` would have changed, the new command is not
+the same as the in-flight one and thus a second ``SendMessage`` exercise would
+be sent to the ledger.
+
+Similarly, if ``alice`` sends a second message quickly after the first one,
+this deduplication would prevent it, because the "response" does not have any
+reference to which message it's responding to. This may or may not be what we
+want.
+
+If this simple deduplication is not suited to your use-case, you have two other
+tools at your disposal. The first one is the second argument to the
+``emitCommands`` action
+(`doc <https://docs.daml.com/triggers/api/Daml-Trigger.html#function-daml-trigger-emitcommands-10563>`__),
+which is a list of contract IDs. These IDs will be filtered out of any ACS
+``query`` made by this trigger until the commands submitted as part of the same
+``emitCommands`` call have completed. If your trigger is based on seeing
+certain contracts, this can be a simple, effective way to prevent triggering it
+multiple times.
+
+The last tool you have at your disposal is the ``getCommandsInflight`` action
+(`doc <https://docs.daml.com/triggers/api/Daml-Trigger.html#function-daml-trigger-getcommandsinflight-32524>`__),
+which returns all of the commands this instance of the trigger runner has sent
+and that have not yet been resolved (i.e. either committed or failed). You can
+then build your own logic based on this list, the ACS, and possibly your own
+trigger state.
+
+Finally, do keep in mind that all of these mechanisms rely on internal state
+from the trigger runner, which keeps track of which commands it has sent and
+for which it's not seen a completion. They will all fail to deduplicate if that
+internal state is lost, e.g. if the trigger runner is shut down and a new one
+is started. As such, these deduplication mechanisms should be seen as an
+optimization rather than a requirement for correctness. The Daml model should
+be designed such that duplicated commands are either rejected (e.g. using keys
+or relying on changing contract IDs) or benign.
+
+Authentication
+==============
 
 When using Daml triggers against a Ledger with authentication, you can
 pass ``--access-token-file token.jwt`` to ``daml trigger`` which will
 read the token from the file ``token.jwt``.
 
+If you plan to run more than one trigger at a time, or trigers for more than
+one party at a time, you may be interested in the
+:doc:`/tools/trigger-service/index`.
+
 When not to use Daml triggers
 =============================
+
+Daml triggers deliberately only allow you to express automation that
+listens for ledger events and reacts to them by sending commands to
+the ledger.
 
 Daml Triggers are not suited for automation that needs to interact
 with services or data outside of the ledger. For those cases, you can
@@ -275,7 +405,3 @@ write a ledger client using the
 running against the HTTP JSON API or the
 :doc:`Java bindings</app-dev/bindings-java/index>` running against the
 gRPC Ledger API.
-
-Daml triggers deliberately only allow you to express automation that
-listens for ledger events and reacts to them by sending commands to
-the ledger.

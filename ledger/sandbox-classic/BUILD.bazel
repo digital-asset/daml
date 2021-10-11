@@ -11,11 +11,6 @@ load(
 load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "mvn_version")
-load(
-    "//daml-lf/language:daml-lf.bzl",
-    "lf_version_configuration",
-    "lf_version_configuration_versions",
-)
 
 alias(
     name = "sandbox-classic",
@@ -71,6 +66,8 @@ alias(
             "//ledger/ledger-api-common",
             "//ledger/ledger-api-domain",
             "//ledger/ledger-api-health",
+            "//ledger/ledger-configuration",
+            "//ledger/ledger-offset",
             "//ledger/ledger-resources",
             "//ledger/metrics",
             "//ledger/participant-integration-api",
@@ -82,6 +79,7 @@ alias(
             "//libs-scala/build-info",
             "//libs-scala/concurrent",
             "//libs-scala/contextualized-logging",
+            "//libs-scala/logging-entries",
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/resources-akka",
@@ -128,7 +126,11 @@ da_scala_library(
         "@maven//:org_playframework_anorm_anorm",
         "@maven//:org_playframework_anorm_anorm_tokenizer",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scala_runtime_deps = [
@@ -154,6 +156,7 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/metrics",
@@ -173,6 +176,8 @@ da_scala_library(
         "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_netty_netty_handler",
+        "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -204,6 +209,8 @@ test_deps = [
     "//ledger/ledger-api-client",
     "//ledger/ledger-api-domain",
     "//ledger/ledger-api-health",
+    "//ledger/ledger-configuration",
+    "//ledger/ledger-offset",
     "//ledger/ledger-resources",
     "//ledger/ledger-resources:ledger-resources-test-lib",
     "//ledger/metrics",
@@ -213,13 +220,15 @@ test_deps = [
     "//ledger/sandbox-common",
     "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
     "//ledger/test-common",
-    "//ledger/test-common:dar-files-stable-lib",
+    "//ledger/test-common:dar-files-default-lib",
     "//libs-scala/contextualized-logging",
     "//libs-scala/concurrent",
     "//libs-scala/grpc-utils",
+    "//libs-scala/logging-entries",
     "//libs-scala/ports",
     "//libs-scala/postgresql-testing",
     "//libs-scala/resources",
+    "//libs-scala/timer-utils",
     "@maven//:ch_qos_logback_logback_classic",
     "@maven//:ch_qos_logback_logback_core",
     "@maven//:com_typesafe_config",
@@ -231,6 +240,7 @@ test_deps = [
     "@maven//:org_flywaydb_flyway_core",
     "@maven//:org_mockito_mockito_core",
     "@maven//:org_reactivestreams_reactive_streams",
+    "@maven//:org_scalatest_scalatest_compatible",
     "@maven//:org_slf4j_slf4j_api",
 ]
 
@@ -242,7 +252,10 @@ scala_test_deps = [
     "@maven//:org_mockito_mockito_scala",
     "@maven//:org_scalacheck_scalacheck",
     "@maven//:org_scalactic_scalactic",
-    "@maven//:org_scalatest_scalatest",
+    "@maven//:org_scalatest_scalatest_core",
+    "@maven//:org_scalatest_scalatest_matchers_core",
+    "@maven//:org_scalatest_scalatest_shouldmatchers",
+    "@maven//:org_scalatest_scalatest_wordspec",
     "@maven//:org_scalaz_scalaz_core",
 ]
 
@@ -258,7 +271,7 @@ reset_service_pattern = "src/test/suite/**/*ResetService*.scala"
         ),
         data = [
             "//daml-lf/encoder:testing-dars",
-            "//ledger/test-common:model-tests-stable.dar",
+            "//ledger/test-common:model-tests-default.dar",
             "//ledger/test-common/test-certificates",
         ],
         flaky = flaky,
@@ -323,7 +336,7 @@ ONLY_POSTGRES_SERVER = {
 server_conformance_test(
     name = "conformance-test-static-time",
     lf_versions = [
-        "stable",
+        "default",
         "preview",
     ],
     server_args = [
@@ -341,7 +354,7 @@ server_conformance_test(
 server_conformance_test(
     name = "conformance-test-static-time-append-only",
     lf_versions = [
-        "stable",
+        "default",
     ],
     server_args = [
         "--static-time",
@@ -351,6 +364,9 @@ server_conformance_test(
     servers = ONLY_POSTGRES_SERVER,
     test_tool_args = [
         "--open-world",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
     ],
 )
@@ -379,7 +395,13 @@ server_conformance_test(
     servers = ONLY_POSTGRES_SERVER,
     test_tool_args = [
         "--open-world",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=ParticipantPruningIT",
         "--exclude=ClosedWorldIT",
+        # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -397,36 +419,12 @@ server_conformance_test(
     ],
 )
 
-# TODO https://github.com/digital-asset/daml/issues/8020
-# Drop/modify once exceptions are out of 1.dev
 server_conformance_test(
-    name = "conformance-test-exceptions",
-    lf_versions = ["dev"],
-    server_args = [
-        "--wall-clock-time",
-        "--contract-id-seeding=testing-weak",
-    ],
-    servers = SERVERS,
+    name = "conformance-test-contract-ids",
+    server_args = ["--contract-id-seeding=testing-weak"],
+    servers = {"memory": SERVERS["memory"]},
     test_tool_args = [
-        "--open-world",
-        "--exclude=ClosedWorldIT",
-    ],
-)
-
-# TODO https://github.com/digital-asset/daml/issues/8020
-# TODO append-only: only for temporary testing
-# Drop/modify once exceptions are out of 1.dev
-server_conformance_test(
-    name = "conformance-test-exceptions-append-only",
-    lf_versions = ["dev"],
-    server_args = [
-        "--wall-clock-time",
-        "--contract-id-seeding=testing-weak",
-        "--enable-append-only-schema",
-    ],
-    servers = ONLY_POSTGRES_SERVER,
-    test_tool_args = [
-        "--open-world",
-        "--exclude=ClosedWorldIT",
+        "--verbose",
+        "--include=ContractIdIT:Accept",
     ],
 )

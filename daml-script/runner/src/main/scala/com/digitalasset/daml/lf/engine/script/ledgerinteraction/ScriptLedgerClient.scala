@@ -33,13 +33,13 @@ object ScriptLedgerClient {
   final case class ExerciseResult(
       templateId: Identifier,
       choice: ChoiceName,
-      result: Value[ContractId],
+      result: Value,
   ) extends CommandResult
 
   final case class ActiveContract(
       templateId: Identifier,
       contractId: ContractId,
-      argument: Value[ContractId],
+      argument: Value,
   )
 
   final case class TransactionTree(rootEvents: List[TreeEvent])
@@ -48,13 +48,13 @@ object ScriptLedgerClient {
       templateId: Identifier,
       contractId: ContractId,
       choice: ChoiceName,
-      argument: Value[ContractId],
+      argument: Value,
       childEvents: List[TreeEvent],
   ) extends TreeEvent
   final case class Created(
       templateId: Identifier,
       contractId: ContractId,
-      argument: Value[ContractId],
+      argument: Value,
   ) extends TreeEvent
 }
 
@@ -77,7 +77,7 @@ trait ScriptLedgerClient {
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       key: SValue,
-      translateKey: (Identifier, Value[ContractId]) => Either[String, SValue],
+      translateKey: (Identifier, Value) => Either[String, SValue],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -126,8 +126,4 @@ trait ScriptLedgerClient {
   def setStaticTime(
       time: Time.Timestamp
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory, mat: Materializer): Future[Unit]
-
-  def tracelogIterator: Iterator[(String, Option[Location])]
-
-  def clearTracelog: Unit
 }

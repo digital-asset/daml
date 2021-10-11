@@ -32,18 +32,18 @@ public class NumericTest {
 
   @Test
   void deserializableFromRecord() {
-    ArrayList<Record.Field> fieldsList_ = new ArrayList<>(10);
-    fieldsList_.add(new Record.Field("decimal", new Numeric(decimalValue().negate())));
-    fieldsList_.add(new Record.Field("numeric0", new Numeric(numeric0Value().negate())));
-    fieldsList_.add(new Record.Field("numeric37", new Numeric(numeric37Value().negate())));
-    fieldsList_.add(new Record.Field("nested", new Variant("NoMore", Unit.getInstance())));
-    Record nestedRecord = new Record(fieldsList_);
-    ArrayList<Record.Field> fieldsList = new ArrayList<>(10);
-    fieldsList.add(new Record.Field("decimal", new Numeric(decimalValue())));
-    fieldsList.add(new Record.Field("numeric0", new Numeric(numeric0Value())));
-    fieldsList.add(new Record.Field("numeric37", new Numeric(numeric37Value())));
-    fieldsList.add(new Record.Field("nestedBox", new Variant("Nested", nestedRecord)));
-    Value value = new Record(fieldsList);
+    ArrayList<DamlRecord.Field> fieldsList_ = new ArrayList<>(10);
+    fieldsList_.add(new DamlRecord.Field("decimal", new Numeric(decimalValue().negate())));
+    fieldsList_.add(new DamlRecord.Field("numeric0", new Numeric(numeric0Value().negate())));
+    fieldsList_.add(new DamlRecord.Field("numeric37", new Numeric(numeric37Value().negate())));
+    fieldsList_.add(new DamlRecord.Field("nested", new Variant("NoMore", Unit.getInstance())));
+    DamlRecord nestedRecord = new DamlRecord(fieldsList_);
+    ArrayList<DamlRecord.Field> fieldsList = new ArrayList<>(10);
+    fieldsList.add(new DamlRecord.Field("decimal", new Numeric(decimalValue())));
+    fieldsList.add(new DamlRecord.Field("numeric0", new Numeric(numeric0Value())));
+    fieldsList.add(new DamlRecord.Field("numeric37", new Numeric(numeric37Value())));
+    fieldsList.add(new DamlRecord.Field("nestedBox", new Variant("Nested", nestedRecord)));
+    Value value = new DamlRecord(fieldsList);
     NumericBox record = NumericBox.fromValue(value);
     checkRecord(record);
     assertTrue(

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.lf.data
 
+import com.daml.scalautil.Statement.discard
+
 import java.io.{StringReader, StringWriter}
 
 import com.google.common.io.{BaseEncoding, ByteStreams}
@@ -162,7 +164,7 @@ private object HexStringModuleImpl extends StringModuleImpl with HexStringModule
   override def encode(a: Bytes): T = {
     val writer = new StringWriter()
     val os = baseEncode.encodingStream(writer)
-    ByteStreams.copy(a.toInputStream, os)
+    discard[Long](ByteStreams.copy(a.toInputStream, os))
     writer.toString
   }
 
@@ -230,7 +232,7 @@ private final class ConcatenableMatchingStringModule(
 
   override def concat(s: T, ss: T*): Either[String, T] = {
     val b = new StringBuilder
-    b ++= s
+    discard(b ++= s)
     ss.foreach(b ++= _)
     if (b.length <= maxLength) Right(b.result()) else Left(s"id ${b.result()} too Long")
   }
@@ -254,6 +256,8 @@ private[data] final class IdStringImpl extends IdString {
   override type Name = String
   override val Name: StringModule[Name] = new StringModuleImpl {
 
+    val maxLength = 1000
+
     private[this] val disallowedFirstChar =
       IdString.asciiCharsToRejectionArray(IdString.letters ++ "$_")
     private[this] val disallowedOtherChar =
@@ -261,8 +265,10 @@ private[data] final class IdStringImpl extends IdString {
 
     @throws[IllegalArgumentException]
     override def assertFromString(s: String) = {
-      if (s.length == 0)
+      if (s.isEmpty)
         throw new IllegalArgumentException("Daml-LF Name is empty")
+      if (s.length > maxLength)
+        throw new IllegalArgumentException(s"""Name is too long (max: $maxLength)""")
       val c = s(0).toInt
       if (c > 0x7f || disallowedFirstChar(c))
         throw new IllegalArgumentException(
@@ -307,7 +313,7 @@ private[data] final class IdStringImpl extends IdString {
     */
   override type PackageId = String
   override val PackageId: ConcatenableStringModule[PackageId, HexString] =
-    new ConcatenableMatchingStringModule("Daml-LF Package ID", "-_ ")
+    new ConcatenableMatchingStringModule("Daml-LF Package ID", "-_ ", 64)
 
   /** Used to reference to leger objects like contractIds, ledgerIds,
     * transactionId, ... We use the same type for those ids, because we

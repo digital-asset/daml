@@ -3,7 +3,7 @@
 
 package com.daml.resources.akka
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, Cancellable}
 import akka.stream.Materializer
 import com.daml.resources.{AbstractResourceOwner, HasExecutionContext}
 
@@ -24,4 +24,6 @@ trait AkkaResourceOwnerFactories[Context] {
       materializer <- forMaterializer(() => Materializer(actorSystem))
     } yield materializer
 
+  def forCancellable[C <: Cancellable](acquire: () => C): AbstractResourceOwner[Context, C] =
+    new CancellableResourceOwner(acquire)
 }

@@ -9,9 +9,10 @@ import java.util.concurrent.ConcurrentHashMap
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
 import com.daml.lf.language.Ast.{Package, PackageSignature}
-import com.daml.lf.language.{Interface, Util => AstUtil}
+import com.daml.lf.language.{PackageInterface, Util => AstUtil}
 import com.daml.lf.speedy.Compiler
-import com.daml.lf.speedy.Compiler.CompilationError
+import com.daml.nameof.NameOf
+import com.daml.scalautil.Statement.discard
 
 import scala.jdk.CollectionConverters._
 import scala.collection.concurrent.{Map => ConcurrentMap}
@@ -23,16 +24,16 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
     extends MutableCompiledPackages(compilerConfig) {
   private[this] val signatures: ConcurrentMap[PackageId, PackageSignature] =
     new ConcurrentHashMap().asScala
-  private[this] val definitions
+  private[this] val definitionsByReference
       : ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.SDefinition] =
     new ConcurrentHashMap()
   private[this] val packageDeps: ConcurrentHashMap[PackageId, Set[PackageId]] =
     new ConcurrentHashMap()
 
   override def packageIds: scala.collection.Set[PackageId] = signatures.keySet
-  override def interface: Interface = new Interface(signatures)
+  override def interface: PackageInterface = new PackageInterface(signatures)
   override def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SDefinition] =
-    Option(definitions.get(dref))
+    Option(definitionsByReference.get(dref))
 
   /** Might ask for a package if the package you're trying to add references it.
     *
@@ -61,7 +62,13 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
         if (!signatures.contains(pkgId)) {
 
           val pkg = state.packages.get(pkgId) match {
-            case None => return ResultError(Error(s"Could not find package $pkgId"))
+            case None =>
+              return ResultError(
+                Error.Package.Internal(
+                  NameOf.qualifiedNameOfCurrentFunc,
+                  s"broken invariant: Could not find package $pkgId",
+                )
+              )
             case Some(pkg_) => pkg_
           }
 
@@ -71,7 +78,8 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
               return ResultNeedPackage(
                 dependency,
                 {
-                  case None => ResultError(Error(s"Could not find package $dependency"))
+                  case None =>
+                    ResultError(Error.Package.MissingPackage(dependency))
                   case Some(dependencyPkg) =>
                     addPackageInternal(
                       AddPackageState(
@@ -92,7 +100,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
           if (!signatures.contains(pkgId)) {
             val pkgSignature = AstUtil.toSignature(pkg)
             val extendedSignatures =
-              new language.Interface(Map(pkgId -> pkgSignature) orElse signatures)
+              new language.PackageInterface(Map(pkgId -> pkgSignature) orElse signatures)
 
             // Compile the speedy definitions for this package.
             val defns =
@@ -100,13 +108,29 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
                 new speedy.Compiler(extendedSignatures, compilerConfig)
                   .unsafeCompilePackage(pkgId, pkg)
               } catch {
-                case CompilationError(msg) =>
-                  return ResultError(Error(s"Compilation Error: $msg"))
                 case e: validation.ValidationError =>
-                  return ResultError(Error(s"Validation Error: ${e.pretty}"))
+                  return ResultError(Error.Package.Validation(e))
+                case Compiler.LanguageVersionError(
+                      packageId,
+                      languageVersion,
+                      allowedLanguageVersions,
+                    ) =>
+                  return ResultError(
+                    Error.Package
+                      .AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions)
+                  )
+                case Compiler.CompilationError(msg) =>
+                  return ResultError(
+                    // compilation errors are internal since typechecking should
+                    // catch any errors arising during compilation
+                    Error.Package.Internal(
+                      NameOf.qualifiedNameOfCurrentFunc,
+                      s"Compilation Error: $msg",
+                    )
+                  )
               }
             defns.foreach { case (defnId, defn) =>
-              definitions.put(defnId, defn)
+              definitionsByReference.put(defnId, defn)
             }
             // Compute the transitive dependencies of the new package. Since we are adding
             // packages in dependency order we can just union the dependencies of the
@@ -114,7 +138,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
             val deps = pkg.directDeps.foldLeft(pkg.directDeps) { case (deps, dependency) =>
               deps union packageDeps.get(dependency)
             }
-            packageDeps.put(pkgId, deps)
+            discard(packageDeps.put(pkgId, deps))
             signatures.put(pkgId, pkgSignature)
           }
         }
@@ -126,7 +150,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
   def clear(): Unit = this.synchronized[Unit] {
     signatures.clear()
     packageDeps.clear()
-    definitions.clear()
+    definitionsByReference.clear()
   }
 
   def getPackageDependencies(pkgId: PackageId): Option[Set[PackageId]] =
@@ -141,5 +165,8 @@ object ConcurrentCompiledPackages {
       packages: Map[PackageId, Package], // the packages we're currently compiling
       seenDependencies: Set[PackageId], // the dependencies we've found so far
       toCompile: List[PackageId],
-  )
+  ) {
+    // Invariant
+    // assert(toCompile.forall(packages.contains))
+  }
 }

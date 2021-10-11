@@ -6,8 +6,8 @@ package com.daml.ledger.participant.state.kvutils
 import java.time.Duration
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics

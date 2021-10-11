@@ -23,7 +23,6 @@ da_scala_library(
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//external:io_bazel_rules_scala/dependency/jmh/jmh_core",
         "//language-support/scala/bindings",
@@ -34,15 +33,15 @@ da_scala_library(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/participant-state",
         "//ledger/sandbox-classic",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
-        "//ledger/test-common:dar-files-stable-lib",
+        "//ledger/test-common:dar-files-default-lib",
         "//libs-scala/concurrent",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
@@ -50,7 +49,6 @@ da_scala_library(
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
         "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 
@@ -65,7 +63,7 @@ da_scala_benchmark_jmh(
     srcs = glob(["src/perf/benches/**/*.scala"]),
     data = [
         "//ledger/sandbox-perf:LargeTransaction.dar",
-        "//ledger/test-common:model-tests-stable.dar",
+        "//ledger/test-common:model-tests-default.dar",
         "@postgresql_dev_env//:all",
     ],
     scala_deps = [
@@ -98,7 +96,7 @@ da_scala_benchmark_jmh(
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
-        "//ledger/test-common:dar-files-stable-lib",
+        "//ledger/test-common:dar-files-default-lib",
         "//libs-scala/concurrent",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_google_protobuf_protobuf_java",

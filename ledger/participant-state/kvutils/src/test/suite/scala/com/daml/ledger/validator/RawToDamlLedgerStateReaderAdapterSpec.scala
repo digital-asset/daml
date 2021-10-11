@@ -3,16 +3,17 @@
 
 package com.daml.ledger.validator
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+import com.daml.ledger.participant.state.kvutils.store.{
   DamlPartyAllocation,
   DamlStateKey,
   DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
-import com.daml.ledger.validator.ArgumentMatchers.anyExecutionContext
+import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, anyLoggingContext}
 import com.daml.ledger.validator.RawToDamlLedgerStateReaderAdapterSpec._
 import com.daml.ledger.validator.TestHelper.{anInvalidEnvelope, makePartySubmission}
 import com.daml.ledger.validator.reading.LedgerStateReader
+import com.daml.logging.LoggingContext
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -24,6 +25,8 @@ class RawToDamlLedgerStateReaderAdapterSpec
     with Matchers
     with MockitoSugar
     with ArgumentMatchersSugar {
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   "readState" should {
     "read the right key and deserialize it" in {
       val expectedKey = DefaultStateKeySerializationStrategy.serializeStateKey(aDamlStateKey())
@@ -31,7 +34,7 @@ class RawToDamlLedgerStateReaderAdapterSpec
         .setParty(DamlPartyAllocation.newBuilder.setDisplayName("aParty"))
         .build
       val mockReader = mock[LedgerStateReader]
-      when(mockReader.read(any[Seq[Raw.StateKey]])(anyExecutionContext))
+      when(mockReader.read(any[Seq[Raw.StateKey]])(anyExecutionContext, anyLoggingContext))
         .thenReturn(Future.successful(Seq(Some(Envelope.enclose(expectedValue)))))
       val instance =
         new RawToDamlLedgerStateReaderAdapter(mockReader, DefaultStateKeySerializationStrategy)
@@ -44,7 +47,7 @@ class RawToDamlLedgerStateReaderAdapterSpec
 
     "throw in case of an invalid envelope returned from underlying reader" in {
       val mockReader = mock[LedgerStateReader]
-      when(mockReader.read(any[Seq[Raw.StateKey]])(anyExecutionContext))
+      when(mockReader.read(any[Seq[Raw.StateKey]])(anyExecutionContext, anyLoggingContext))
         .thenReturn(Future.successful(Seq(Some(anInvalidEnvelope))))
       val instance =
         new RawToDamlLedgerStateReaderAdapter(mockReader, DefaultStateKeySerializationStrategy)
@@ -58,7 +61,7 @@ class RawToDamlLedgerStateReaderAdapterSpec
     "throw in case an enveloped value other than a DamlStateValue is returned from underlying reader" in {
       val notADamlStateValue = makePartySubmission("aParty")
       val mockReader = mock[LedgerStateReader]
-      when(mockReader.read(any[Seq[Raw.StateKey]])(anyExecutionContext))
+      when(mockReader.read(any[Seq[Raw.StateKey]])(anyExecutionContext, anyLoggingContext))
         .thenReturn(Future.successful(Seq(Some(Envelope.enclose(notADamlStateValue)))))
       val instance =
         new RawToDamlLedgerStateReaderAdapter(mockReader, DefaultStateKeySerializationStrategy)

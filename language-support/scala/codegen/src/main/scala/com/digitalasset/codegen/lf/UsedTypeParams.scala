@@ -13,7 +13,7 @@ import scalaz.std.map._
 import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.syntax.bifoldable._
-import scalaz.syntax.traverse._
+import scalaz.syntax.foldable._
 import scalaz.syntax.monoid._
 
 import scala.annotation.tailrec
@@ -44,6 +44,7 @@ object UsedTypeParams {
 
   import VarianceConstraint.BaseResolution
   import Variance._
+
   private[this] type TVar = Ref.Name
 
   final class ResolvedVariance private (private val prior: Map[Identifier, ImmArraySeq[Variance]]) {
@@ -92,7 +93,7 @@ object UsedTypeParams {
               )
 
             case TypePrim(pt, typArgs) =>
-              import PrimType.{Map => _, _}
+              import PrimType._
               pt match {
                 case GenMap =>
                   val Seq(kt, vt) = typArgs

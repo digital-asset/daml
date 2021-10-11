@@ -85,7 +85,7 @@ sh_test(
         "$(location //language-support/ts/daml-types:npm_package)",
         "$(location //language-support/ts/daml-ledger:npm_package)",
         sdk_version,
-        "$(location //ledger/test-common:model-tests-stable.dar)",
+        "$(location //ledger/test-common:model-tests-default.dar)",
     ],
     data = [
         "//:java",
@@ -94,7 +94,7 @@ sh_test(
         "//ledger/sandbox-classic:sandbox-classic-binary_deploy.jar",
         "//ledger-service/http-json:http-json-binary_deploy.jar",
         ":build-and-lint.dar",
-        "//ledger/test-common:model-tests-stable.dar",
+        "//ledger/test-common:model-tests-default.dar",
         "//language-support/ts/daml-types:npm_package",
         "//language-support/ts/daml-ledger:npm_package",
     ] + glob(
@@ -105,10 +105,9 @@ sh_test(
         ],
     ),
     # Spinning up jest, Sandbox and the JSON API is expensive.
-    # The expensive stuff should be Sandbox and the JSON API so we
-    # go for 2 CPUs. Feel free to change this to something more adequate
-    # if needed.
-    tags = ["cpu:2"],
+    # We get some timeouts during startup with 2 cpus so we set it to 4 to reduce
+    # system load.
+    tags = ["cpu:4"],
     deps = [
         "@bazel_tools//tools/bash/runfiles",
     ],

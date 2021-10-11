@@ -3,15 +3,12 @@
 
 package com.daml.ledger.validator
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntry,
-  DamlLogEntryId,
-  DamlStateKey,
-  DamlStateValue,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, DamlLogEntryId}
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -23,14 +20,14 @@ class LogAppendingCommitStrategy[Index](
   private val stateSerializationStrategy = new StateSerializationStrategy(keySerializationStrategy)
 
   override def commit(
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       correlationId: String,
       entryId: DamlLogEntryId,
       entry: DamlLogEntry,
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
       outputState: Map[DamlStateKey, DamlStateValue],
       writeSetBuilder: Option[SubmissionAggregator.WriteSetBuilder] = None,
-  ): Future[Index] = {
+  )(implicit loggingContext: LoggingContext): Future[Index] = {
     val rawLogEntryId = Raw.LogEntryId(entryId)
     for {
       (serializedKeyValuePairs, envelopedLogEntry) <- inParallel(

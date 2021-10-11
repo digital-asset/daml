@@ -7,19 +7,18 @@ import java.time.{Duration, Instant, ZoneOffset, ZonedDateTime}
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlConfigurationSubmission,
   DamlLogEntry,
   DamlPartyAllocationEntry,
-  DamlStateKey,
-  DamlSubmission,
-  DamlSubmissionDedupKey,
 }
-import com.daml.ledger.participant.state.kvutils.`export`.WriteSet
-import com.daml.ledger.participant.state.kvutils.export.SubmissionInfo
+import com.daml.ledger.participant.state.kvutils.export.{SubmissionInfo, WriteSet}
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlSubmissionDedupKey}
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.RawPreExecutingCommitStrategySupportSpec._
+import com.daml.ledger.participant.state.kvutils.wire.{DamlConfigurationSubmission, DamlSubmission}
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
-import com.daml.ledger.participant.state.v1
+import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Empty, Timestamp}
 import org.scalatest.matchers.should.Matchers
@@ -29,13 +28,15 @@ class RawPreExecutingCommitStrategySupportSpec
     extends AsyncWordSpec
     with Matchers
     with AkkaBeforeAndAfterAll {
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   "support" should {
     "commit, and provide the write set" in {
       val metrics = new Metrics(new MetricRegistry)
       val baseTime = ZonedDateTime.of(2021, 1, 1, 12, 0, 0, 0, ZoneOffset.UTC).toInstant
       val support = new RawPreExecutingCommitStrategySupport(metrics)
 
-      val participantId = v1.ParticipantId.assertFromString("participant")
+      val participantId = Ref.ParticipantId.assertFromString("participant")
       val allocateAlice = newPartySubmission(
         recordTime = baseTime.plusSeconds(1),
         participantId = participantId,
@@ -77,16 +78,16 @@ class RawPreExecutingCommitStrategySupportSpec
       val baseTime = ZonedDateTime.of(2021, 2, 1, 12, 0, 0, 0, ZoneOffset.UTC).toInstant
       val support = new RawPreExecutingCommitStrategySupport(metrics)
 
-      val participantId = v1.ParticipantId.assertFromString("participant")
+      val participantId = Ref.ParticipantId.assertFromString("participant")
       val updateConfiguration = newConfigurationSubmission(
         recordTime = baseTime,
         participantId = participantId,
         submissionId = "update-1",
         correlationId = "update-1",
         maximumRecordTime = baseTime.plusSeconds(60),
-        configuration = v1.Configuration(
+        configuration = Configuration(
           generation = 1,
-          timeModel = v1.TimeModel.reasonableDefault,
+          timeModel = LedgerTimeModel.reasonableDefault,
           maxDeduplicationTime = Duration.ofMinutes(1),
         ),
       )
@@ -96,9 +97,9 @@ class RawPreExecutingCommitStrategySupportSpec
         submissionId = "update-2",
         correlationId = "update-2",
         maximumRecordTime = baseTime.minusSeconds(60),
-        configuration = v1.Configuration(
+        configuration = Configuration(
           generation = 2,
-          timeModel = v1.TimeModel.reasonableDefault,
+          timeModel = LedgerTimeModel.reasonableDefault,
           maxDeduplicationTime = Duration.ofMinutes(1),
         ),
       )
@@ -139,7 +140,7 @@ object RawPreExecutingCommitStrategySupportSpec {
 
   private def newPartySubmission(
       recordTime: Instant,
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
       submissionId: String,
       correlationId: String,
       partyId: String,
@@ -174,11 +175,11 @@ object RawPreExecutingCommitStrategySupportSpec {
 
   private def newConfigurationSubmission(
       recordTime: Instant,
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
       submissionId: String,
       correlationId: String,
       maximumRecordTime: Instant,
-      configuration: v1.Configuration,
+      configuration: Configuration,
   ): SubmissionInfo = {
     val submissionInfo = SubmissionInfo(
       participantId = participantId,
@@ -199,7 +200,7 @@ object RawPreExecutingCommitStrategySupportSpec {
               .setSubmissionId(submissionId)
               .setParticipantId(participantId)
               .setMaximumRecordTime(toTimestamp(maximumRecordTime))
-              .setConfiguration(v1.Configuration.encode(configuration))
+              .setConfiguration(Configuration.encode(configuration))
           )
           .build()
       ),

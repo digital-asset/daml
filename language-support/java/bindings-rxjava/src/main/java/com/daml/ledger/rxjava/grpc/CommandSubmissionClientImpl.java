@@ -4,6 +4,7 @@
 package com.daml.ledger.rxjava.grpc;
 
 import static java.util.Arrays.asList;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.daml.ledger.api.v1.CommandSubmissionServiceGrpc;
 import com.daml.ledger.api.v1.CommandSubmissionServiceOuterClass;
@@ -24,10 +25,15 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
 
   private final String ledgerId;
   private final CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub serviceStub;
+  private final Optional<Duration> timeout;
 
   public CommandSubmissionClientImpl(
-      @NonNull String ledgerId, @NonNull Channel channel, Optional<String> accessToken) {
+      @NonNull String ledgerId,
+      @NonNull Channel channel,
+      Optional<String> accessToken,
+      Optional<Duration> timeout) {
     this.ledgerId = ledgerId;
+    this.timeout = timeout;
     this.serviceStub =
         StubHelper.authenticating(CommandSubmissionServiceGrpc.newFutureStub(channel), accessToken);
   }
@@ -55,8 +61,12 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
             minLedgerTimeRel,
             deduplicationTime,
             commands);
+    CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub stubWithTimeout =
+        this.timeout
+            .map(t -> this.serviceStub.withDeadlineAfter(t.toMillis(), MILLISECONDS))
+            .orElse(this.serviceStub);
     return Single.fromFuture(
-        StubHelper.authenticating(this.serviceStub, accessToken).submit(request));
+        StubHelper.authenticating(stubWithTimeout, accessToken).submit(request));
   }
 
   public Single<com.google.protobuf.Empty> submit(

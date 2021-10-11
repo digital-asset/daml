@@ -3,12 +3,9 @@
 
 package com.daml.ledger.api.validation
 
-import java.time.{Duration, Instant}
-
 import com.daml.api.util.{DurationConversion, TimestampConversion}
-import com.daml.lf.command._
-import com.daml.lf.data._
 import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.commands.Command.Command.{
   Create => ProtoCreate,
   CreateAndExercise => ProtoCreateAndExercise,
@@ -17,15 +14,17 @@ import com.daml.ledger.api.v1.commands.Command.Command.{
   ExerciseByKey => ProtoExerciseByKey,
 }
 import com.daml.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
+import com.daml.lf.command._
+import com.daml.lf.data._
 import com.daml.lf.value.{Value => Lf}
-import com.daml.ledger.api.domain.LedgerId
 import com.daml.platform.server.api.validation.ErrorFactories._
 import com.daml.platform.server.api.validation.FieldValidations.{requirePresence, _}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._
 
-import scala.collection.immutable
+import java.time.{Duration, Instant}
 import scala.Ordering.Implicits.infixOrderingOps
+import scala.collection.immutable
 
 final class CommandsValidator(ledgerId: LedgerId) {
 
@@ -46,6 +45,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
       appId <- requireLedgerString(commands.applicationId, "application_id")
         .map(domain.ApplicationId(_))
       commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
+      submissionId <- requireSubmissionId(commands.submissionId)
       submitters <- CommandsValidator.validateSubmitters(commands)
       commandz <- requireNonEmpty(commands.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz)
@@ -54,26 +54,27 @@ final class CommandsValidator(ledgerId: LedgerId) {
         .fromInstant(ledgerEffectiveTime)
         .left
         .map(_ =>
-          invalidArgument(
+          invalidArgument(definiteAnswer = Some(false))(
             s"Can not represent command ledger time $ledgerEffectiveTime as a Daml timestamp"
           )
         )
-      deduplicationTime <- validateDeduplicationTime(
-        commands.deduplicationTime,
+      deduplicationPeriod <- validateDeduplicationPeriod(
+        commands.deduplicationPeriod,
         maxDeduplicationTime,
-        "deduplication_time",
+        "deduplication_period",
       )
     } yield domain.Commands(
       ledgerId = ledgerId,
       workflowId = workflowId,
       applicationId = appId,
       commandId = commandId,
+      submissionId = submissionId,
       actAs = submitters.actAs,
       readAs = submitters.readAs,
       submittedAt = currentUtcTime,
-      deduplicateUntil = currentUtcTime.plus(deduplicationTime),
+      deduplicationPeriod = deduplicationPeriod,
       commands = Commands(
-        commands = ImmArray(validatedCommands),
+        commands = validatedCommands.to(ImmArray),
         ledgerEffectiveTime = ledgerEffectiveTimestamp,
         commandsReference = workflowId.fold("")(_.unwrap),
       ),
@@ -93,7 +94,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
       case (None, Some(minRel)) => Right(currentTime.plus(DurationConversion.fromProto(minRel)))
       case (Some(_), Some(_)) =>
         Left(
-          invalidArgument(
+          invalidArgument(definiteAnswer = Some(false))(
             "min_ledger_time_abs cannot be specified at the same time as min_ledger_time_rel"
           )
         )
@@ -176,8 +177,9 @@ final class CommandsValidator(ledgerId: LedgerId) {
           choiceArgument = validatedChoiceArgument,
         )
       case ProtoEmpty =>
-        Left(missingField("command"))
+        Left(missingField("command", definiteAnswer = Some(false)))
     }
+
 }
 
 object CommandsValidator {
@@ -193,14 +195,16 @@ object CommandsValidator {
   }
 
   def effectiveSubmitters(commands: ProtoCommands): Submitters[String] = {
-    val effectiveActAs =
-      if (commands.party.isEmpty)
-        commands.actAs.toSet
-      else
-        commands.actAs.toSet + commands.party
-    val effectiveReadAs = commands.readAs.toSet -- effectiveActAs
-    Submitters(effectiveActAs, effectiveReadAs)
+    val actAs = effectiveActAs(commands)
+    val readAs = commands.readAs.toSet -- actAs
+    Submitters(actAs, readAs)
   }
+
+  def effectiveActAs(commands: ProtoCommands): Set[String] =
+    if (commands.party.isEmpty)
+      commands.actAs.toSet
+    else
+      commands.actAs.toSet + commands.party
 
   val noSubmitters: Submitters[String] = Submitters(Set.empty, Set.empty)
 
@@ -208,7 +212,11 @@ object CommandsValidator {
       commands: ProtoCommands
   ): Either[StatusRuntimeException, Submitters[Ref.Party]] = {
     def actAsMustNotBeEmpty(effectiveActAs: Set[Ref.Party]) =
-      Either.cond(effectiveActAs.nonEmpty, (), missingField("party or act_as"))
+      Either.cond(
+        effectiveActAs.nonEmpty,
+        (),
+        missingField("party or act_as", definiteAnswer = Some(false)),
+      )
 
     val submitters = effectiveSubmitters(commands)
     for {

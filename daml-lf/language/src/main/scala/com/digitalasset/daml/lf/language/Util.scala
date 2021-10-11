@@ -1,10 +1,12 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.language
+package com.daml.lf
+package language
 
 import com.daml.lf.data.{Decimal, ImmArray, Ref}
 import com.daml.lf.language.Ast._
+import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
@@ -19,7 +21,22 @@ object Util {
       def go(typ: Type, targs: List[Type]): Option[(Ref.TypeConName, ImmArray[Type])] =
         typ match {
           case TApp(tfun, targ) => go(tfun, targ :: targs)
-          case TTyCon(con) => Some((con, ImmArray(targs)))
+          case TTyCon(con) => Some((con, targs.to(ImmArray)))
+          case _ => None
+        }
+      go(typ, Nil)
+    }
+  }
+
+  object TTVarApp {
+    def apply(name: Ast.TypeVarName, args: ImmArray[Type]): Type =
+      args.foldLeft[Type](TVar(name))((typ, arg) => TApp(typ, arg))
+    def unapply(typ: Type): Option[(Ast.TypeVarName, ImmArray[Type])] = {
+      @tailrec
+      def go(typ: Type, targs: List[Type]): Option[(Ast.TypeVarName, ImmArray[Type])] =
+        typ match {
+          case TApp(tfun, targ) => go(tfun, targ :: targs)
+          case TVar(name) => Some((name, targs.to(ImmArray)))
           case _ => None
         }
       go(typ, Nil)
@@ -119,6 +136,7 @@ object Util {
 
   // Returns the `pkgIds` and all its dependencies in topological order.
   // A package undefined w.r.t. the function `packages` is treated as a sink.
+  @throws[IllegalArgumentException]
   def dependenciesInTopologicalOrder(
       pkgIds: List[Ref.PackageId],
       packages: PartialFunction[Ref.PackageId, Package],
@@ -142,15 +160,15 @@ object Util {
         case Nil => graph0
       }
 
-    Graphs
-      .topoSort(buildGraph(pkgIds, pkgIds.toSet, HashMap.empty))
-      .fold(
-        // If we get a cycle in package dependencies, there is something very wrong
-        // (i.e. we find a collision in SHA256), so we crash.
-        cycle =>
-          throw new Error(s"cycle in package definitions ${cycle.vertices.mkString(" -> ")}"),
-        identity,
-      )
+    Graphs.topoSort(buildGraph(pkgIds, pkgIds.toSet, HashMap.empty)) match {
+      case Right(value) =>
+        value
+      case Left(cycle) =>
+        InternalError.illegalArgumentException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"cycle in package definitions ${cycle.vertices.mkString(" -> ")}",
+        )
+    }
   }
 
   private[this] def toSignature(choice: TemplateChoice): TemplateChoiceSignature =
@@ -183,9 +201,23 @@ object Util {
         TemplateKeySignature(typ, (), ())
     }
 
+  private[this] def toSignature(
+      implementsMethod: TemplateImplementsMethod
+  ): TemplateImplementsMethodSignature =
+    implementsMethod match {
+      case TemplateImplementsMethod(name, _) =>
+        TemplateImplementsMethodSignature(name, ())
+    }
+
+  private[this] def toSignature(implements: TemplateImplements): TemplateImplementsSignature =
+    implements match {
+      case TemplateImplements(name, methods) =>
+        TemplateImplementsSignature(name, methods.transform((_, v) => toSignature(v)))
+    }
+
   private[this] def toSignature(template: Template): TemplateSignature =
     template match {
-      case Template(param, _, _, _, choices, _, key) =>
+      case Template(param, _, _, _, choices, _, key, implements) =>
         TemplateSignature(
           param,
           (),
@@ -194,12 +226,24 @@ object Util {
           choices.transform((_, v) => toSignature(v)),
           (),
           key.map(toSignature),
+          implements.transform((_, v) => toSignature(v)),
+        )
+    }
+
+  private def toSignature(interface: DefInterface): DefInterfaceSignature =
+    interface match {
+      case DefInterface(param, virtualChoices, fixedChoices, methods) =>
+        DefInterfaceSignature(
+          param,
+          virtualChoices,
+          fixedChoices.transform((_, choice) => toSignature(choice)),
+          methods,
         )
     }
 
   private[this] def toSignature(module: Module): ModuleSignature =
     module match {
-      case Module(name, definitions, templates, exceptions, featureFlags) =>
+      case Module(name, definitions, templates, exceptions, interfaces, featureFlags) =>
         ModuleSignature(
           name = name,
           definitions = definitions.transform {
@@ -209,6 +253,7 @@ object Util {
           },
           templates = templates.transform((_, template) => toSignature(template)),
           exceptions = exceptions.transform((_, _) => DefExceptionSignature),
+          interfaces = interfaces.transform((_, iface) => toSignature(iface)),
           featureFlags = featureFlags,
         )
     }

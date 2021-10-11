@@ -6,15 +6,17 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
+import com.daml.ledger.configuration.{LedgerId, LedgerInitialConditions}
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.api.{
   KeyValueParticipantStateReader,
   LedgerReader,
   LedgerRecord,
 }
-import com.daml.ledger.participant.state.kvutils.export.WriteSet
+import com.daml.ledger.participant.state.kvutils.export.{SubmissionInfo, WriteSet}
 import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
-import com.daml.ledger.participant.state.v1.{LedgerId, LedgerInitialConditions, Offset, Update}
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.metrics.Metrics
 
 import scala.collection.immutable
@@ -25,7 +27,7 @@ final class LogAppendingReadServiceFactory(
 ) extends ReplayingReadServiceFactory {
   private val recordedBlocks = ListBuffer.empty[LedgerRecord]
 
-  override def appendBlock(writeSet: WriteSet): Unit =
+  override def appendBlock(submissionInfo: SubmissionInfo, writeSet: WriteSet): Unit =
     this.synchronized {
       writeSet.foreach { case (key, value) =>
         val offset = OffsetBuilder.fromLong(recordedBlocks.length.toLong)
@@ -51,7 +53,7 @@ final class LogAppendingReadServiceFactory(
             Source.fromIterator(() => recordedBlocksSnapshot.iterator)
           }
 
-        override def currentHealth(): HealthStatus = HealthStatus.healthy
+        override def currentHealth(): HealthStatus = Healthy
 
         override def ledgerId(): LedgerId = "FakeParticipantStateReaderLedgerId"
       }
@@ -66,8 +68,8 @@ final class LogAppendingReadServiceFactory(
         new ReplayingReadService {
           override def updateCount(): Long = recordedBlocksSnapshot.length.toLong
 
-          override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
-            implementation.getLedgerInitialConditions()
+          override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
+            implementation.ledgerInitialConditions()
 
           override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
             implementation.stateUpdates(beginAfter)

@@ -7,13 +7,15 @@ package speedy
 import java.util
 
 import com.daml.lf.data._
+import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SError.{DamlEUnhandledException, SError, SErrorCrash}
+import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue, SResultNeedPackage}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ValueArithmeticError
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
@@ -80,6 +82,13 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     }
 
     "DIV_INT64" - {
+      "is symmetric, i.e. rounds towards 0" in {
+        eval(e"DIV_INT64 10 3") shouldBe Right(SInt64(3))
+        eval(e"DIV_INT64 10 -3") shouldBe Right(SInt64(-3))
+        eval(e"DIV_INT64 -10 3") shouldBe Right(SInt64(-3))
+        eval(e"DIV_INT64 -10 -3") shouldBe Right(SInt64(3))
+      }
+
       "throws an exception if it overflows" in {
         eval(e"DIV_INT64 $MaxInt64 -1") shouldBe Right(SInt64(-MaxInt64))
         eval(e"DIV_INT64 $MinInt64 -1") shouldBe a[Left[_, _]]
@@ -89,6 +98,15 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         eval(e"DIV_INT64 1 $MaxInt64") shouldBe Right(SInt64(0))
         eval(e"DIV_INT64 1 0") shouldBe a[Left[_, _]]
         eval(e"DIV_INT64 $aBigOddInt64 0") shouldBe a[Left[_, _]]
+      }
+    }
+
+    "MOD_INT64" - {
+      "is remainder with respect to DIV_INT64, i.e. b*(a/b) + (a%b) == a" in {
+        eval(e"MOD_INT64 10 3") shouldBe Right(SInt64(1))
+        eval(e"MOD_INT64 10 -3") shouldBe Right(SInt64(1))
+        eval(e"MOD_INT64 -10 3") shouldBe Right(SInt64(-1))
+        eval(e"MOD_INT64 -10 -3") shouldBe Right(SInt64(-1))
       }
     }
 
@@ -934,8 +952,12 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       "crash when comparing non comparable keys" in {
         val expr1 = e"""$builtin @($eitherT) @Int64 ($leftV) 0 ($emptyMapV)"""
         val expr2 = e"""$builtin @($eitherT) @Int64 ($leftV) 1 ($nonEmptyMapV)"""
-        eval(expr1) shouldBe Left(SErrorCrash("functions are not comparable"))
-        eval(expr2) shouldBe Left(SErrorCrash("functions are not comparable"))
+        eval(expr1) shouldBe Left(
+          SError.SErrorDamlException(interpretation.Error.NonComparableValues)
+        )
+        eval(expr2) shouldBe Left(
+          SError.SErrorDamlException(interpretation.Error.NonComparableValues)
+        )
       }
     }
 
@@ -956,8 +978,12 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       "crash when comparing non comparable keys" in {
         val expr1 = e"""$builtin @($eitherT) @Int64 ($leftV) ($emptyMapV)"""
         val expr2 = e"""$builtin @($eitherT) @Int64 ($leftV) ($nonEmptyMapV)"""
-        eval(expr1) shouldBe Left(SErrorCrash("functions are not comparable"))
-        eval(expr2) shouldBe Left(SErrorCrash("functions are not comparable"))
+        eval(expr1) shouldBe Left(
+          SError.SErrorDamlException(interpretation.Error.NonComparableValues)
+        )
+        eval(expr2) shouldBe Left(
+          SError.SErrorDamlException(interpretation.Error.NonComparableValues)
+        )
       }
     }
 
@@ -990,8 +1016,12 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       "crash when comparing non comparable keys" in {
         val expr1 = e"""$builtin @($eitherT) @Int64 ($leftV) ($emptyMapV)"""
         val expr2 = e"""$builtin @($eitherT) @Int64 ($leftV) ($nonEmptyMapV)"""
-        eval(expr1) shouldBe Left(SErrorCrash("functions are not comparable"))
-        eval(expr2) shouldBe Left(SErrorCrash("functions are not comparable"))
+        eval(expr1) shouldBe Left(
+          SError.SErrorDamlException(interpretation.Error.NonComparableValues)
+        )
+        eval(expr2) shouldBe Left(
+          SError.SErrorDamlException(interpretation.Error.NonComparableValues)
+        )
       }
     }
 
@@ -1015,7 +1045,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       "returns the keys in order" in {
 
         eval(e"GENMAP_KEYS @Text @Int64 ${buildMap("Int64", words: _*)}") shouldBe
-          Right(SList(FrontStack(sortedWords.map { case (k, _) => SText(k) })))
+          Right(SList(sortedWords.map { case (k, _) => SText(k) }.to(FrontStack)))
       }
     }
 
@@ -1023,7 +1053,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
       "returns the values in order" in {
         eval(e"GENMAP_VALUES @Text @Int64 ${buildMap("Int64", words: _*)}") shouldBe
-          Right(SList(FrontStack(sortedWords.map { case (_, v) => SInt64(v.toLong) })))
+          Right(SList(sortedWords.map { case (_, v) => SInt64(v.toLong) }.to(FrontStack)))
       }
     }
 
@@ -1469,7 +1499,11 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         inside(
           evalSExpr(SEAppAtomicSaturatedBuiltin(builtin, args.map(SEValue(_)).toArray), false)
         ) {
-          case Left(DamlEUnhandledException(SArithmeticError(SText(msg))))
+          case Left(
+                SError.SErrorDamlException(
+                  IE.UnhandledException(ValueArithmeticError.typ, ValueArithmeticError(msg))
+                )
+              )
               if msg == s"ArithmeticError while evaluating ($name ${args.iterator.map(lit2string).mkString(" ")})." =>
         }
       }
@@ -1493,9 +1527,12 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       eval(
         e"""ANY_EXCEPTION_MESSAGE (to_any_exception @Mod:ExceptionAppend (Mod:ExceptionAppend { front = "Hello", back = "world"}))"""
       ) shouldBe Right(SText("Helloworld"))
-      eval(
-        e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception ('-unknown-package-':Mod:Exception {}))"""
-      ) shouldBe Left(SErrorCrash(s"need package '-unknown-package-'"))
+      inside(
+        eval(
+          e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception ('-unknown-package-':Mod:Exception {}))"""
+        )
+      ) { case Left(SErrorCrash(_, "need package '-unknown-package-'")) =>
+      }
     }
 
     s"should not request package for ArithmeticError" in {
@@ -1585,10 +1622,11 @@ object SBuiltinTest {
   private def evalSExpr(e: SExpr, onLedger: Boolean): Either[SError, SValue] = {
     val machine = if (onLedger) {
       val seed = crypto.Hash.hashPrivateKey("SBuiltinTest")
-      Speedy.Machine.fromScenarioSExpr(
+      Speedy.Machine.fromUpdateSExpr(
         compiledPackages,
         transactionSeed = seed,
-        scenario = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(e)),
+        updateSE = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(e)),
+        committer = Ref.Party.assertFromString("Alice"),
       )
     } else {
       Speedy.Machine.fromPureSExpr(compiledPackages, e)
@@ -1598,7 +1636,8 @@ object SBuiltinTest {
       val value = machine.run() match {
         case SResultFinalValue(v) => v
         case SResultError(err) => throw Goodbye(err)
-        case SResultNeedPackage(pkgId, _) => throw Goodbye(SErrorCrash(s"need package '$pkgId'"))
+        case SResultNeedPackage(pkgId, _, _) =>
+          throw Goodbye(SErrorCrash("", s"need package '$pkgId'"))
         case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
       }
 

@@ -13,6 +13,7 @@ import akka.util.Timeout
 import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.dec.DirectExecutionContext
+import com.daml.dbutils.JdbcConfig
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
@@ -49,6 +50,7 @@ object ServiceMain {
       restartConfig: TriggerRestartConfig,
       encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
+      allowExistingSchema: Boolean,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
   ): Future[(ServerBinding, ActorSystem[Server.Message])] = {
 
@@ -68,6 +70,7 @@ object ServiceMain {
           restartConfig,
           encodedDars,
           jdbcConfig,
+          allowExistingSchema,
           logTriggerStatus,
         ),
         "TriggerService",
@@ -90,14 +93,23 @@ object ServiceMain {
       case Some(config) =>
         val logger = ContextualizedLogger.get(this.getClass)
         val encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]] =
-          config.darPaths.traverse(p => DarReader().readArchiveFromFile(p.toFile).toEither) match {
+          config.darPaths.traverse(p => DarReader.readArchiveFromFile(p.toFile)) match {
             case Left(err) => sys.error(s"Failed to read archive: $err")
-            case Right(dar) => dar
+            case Right(dars) => dars.map(_.map(p => p.pkgId -> p.proto))
           }
-        val authConfig: AuthConfig = config.authUri match {
-          case None => NoAuth
-          case Some(uri) => AuthMiddleware(uri)
-        }
+        val authConfig: AuthConfig =
+          (config.authInternalUri, config.authExternalUri, config.authBothUri) match {
+            case (None, None, None) => NoAuth
+            case (None, None, Some(both)) => AuthMiddleware(both, both)
+            case (Some(int), Some(ext), None) => AuthMiddleware(int, ext)
+            case (int, ext, both) =>
+              // Note that this should never happen, as it should be caucht by
+              // the checkConfig part of our scopt configuration
+              logger.withoutContext.error(
+                s"Must specify either both --auth-internal and --auth-external or just --auth. Got: auth-internal: $int, auth-external: $ext, auth: $both."
+              )
+              sys.exit(1)
+          }
         val ledgerConfig =
           LedgerConfig(
             config.ledgerHost,
@@ -120,7 +132,8 @@ object ServiceMain {
             case Some(c) =>
               Try(
                 Await.result(
-                  DbTriggerDao(c)(DirectExecutionContext).initialize(DirectExecutionContext),
+                  DbTriggerDao(c)(DirectExecutionContext)
+                    .initialize(config.allowExistingSchema)(DirectExecutionContext),
                   Duration(30, SECONDS),
                 )
               ) match {
@@ -150,6 +163,7 @@ object ServiceMain {
               restartConfig,
               encodedDars,
               config.jdbcConfig,
+              config.allowExistingSchema,
             ),
             "TriggerService",
           )

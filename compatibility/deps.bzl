@@ -34,10 +34,12 @@ load(
     "buildifier_version",
     "rules_bazel_common_sha256",
     "rules_bazel_common_version",
+    "rules_haskell_patches",
     "rules_haskell_sha256",
     "rules_haskell_version",
     "rules_jvm_external_sha256",
     "rules_jvm_external_version",
+    "rules_nixpkgs_patches",
     "rules_nixpkgs_sha256",
     "rules_nixpkgs_version",
     "rules_nodejs_sha256",
@@ -57,10 +59,8 @@ def daml_deps():
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             patches = [
-                "@daml//bazel_tools:haskell-strict-source-names.patch",
-                "@daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
-                "@daml//bazel_tools:haskell-windows-extra-libraries.patch",
-                "@daml//bazel_tools:haskell-cc-wrapper-windows.patch",
+                p.replace("@com_github_digital_asset_daml", "@daml")
+                for p in rules_haskell_patches
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -73,14 +73,8 @@ def daml_deps():
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
             patches = [
-                # On CI and locally we observe occasional segmantation faults
-                # of nix. A known issue since Nix 2.2.2 is that HTTP2 support
-                # can cause such segmentation faults. Since Nix 2.3.2 it is
-                # possible to disable HTTP2 via a command-line flag, which
-                # reportedly solves the issue. See
-                # https://github.com/NixOS/nix/issues/2733#issuecomment-518324335
-                "@daml//bazel_tools:nixpkgs-disable-http2.patch",
-                "@daml//bazel_tools:rules-nixpkgs-llvm-cov.patch",
+                p.replace("@com_github_digital_asset_daml", "@daml")
+                for p in rules_nixpkgs_patches
             ],
             patch_args = ["-p1"],
         )

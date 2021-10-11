@@ -50,12 +50,12 @@ class ValueCoderSpec
           whenever(Numeric.fromBigDecimal(s, d).isRight) {
             val Right(dec) = Numeric.fromBigDecimal(s, d)
             val value = ValueNumeric(dec)
-            val recoveredDecimal = ValueCoder.decodeValue[ContractId](
+            val recoveredDecimal = ValueCoder.decodeValue(
               ValueCoder.CidDecoder,
               TransactionVersion.minVersion,
               assertRight(
                 ValueCoder
-                  .encodeValue[ContractId](
+                  .encodeValue(
                     ValueCoder.CidEncoder,
                     TransactionVersion.minVersion,
                     value,
@@ -143,15 +143,48 @@ class ValueCoderSpec
     "do versioned value with supported override version" in forAll(versionedValueGen) {
       case VersionedValue(version, value) => testRoundTrip(value, version)
     }
+
   }
 
-  def testRoundTrip(value0: Value[ContractId], version: TransactionVersion): Assertion = {
+  "decode" should {
+    "do deep record" in {
+      def toNat(
+          i: Int,
+          acc: ValueRecord = ValueRecord(None, ImmArray.Empty),
+      ): ValueRecord =
+        if (i <= 0) acc
+        else toNat(i - 1, ValueRecord(None, ImmArray(None -> acc)))
+
+      val n = toNat(100)
+
+      // We double check that 100 is the maximum
+      ValueCoder
+        .encodeValue(
+          ValueCoder.CidEncoder,
+          TransactionVersion.minTypeErasure,
+          toNat(1, n), // 101
+        ) shouldBe a[Left[_, _]]
+
+      val encoded = assertRight(
+        ValueCoder
+          .encodeValue(ValueCoder.CidEncoder, TransactionVersion.minTypeErasure, n)
+      )
+
+      ValueCoder.decodeValue(
+        ValueCoder.CidDecoder,
+        TransactionVersion.minTypeErasure,
+        encoded,
+      ) shouldBe Right(n)
+    }
+  }
+
+  def testRoundTrip(value0: Value, version: TransactionVersion): Assertion = {
     val normalizedValue = transaction.Util.assertNormalizeValue(value0, version)
     val encoded: proto.VersionedValue = assertRight(
       ValueCoder
         .encodeVersionedValue(ValueCoder.CidEncoder, VersionedValue(version, value0))
     )
-    val decoded: VersionedValue[ContractId] = assertRight(
+    val decoded: VersionedValue = assertRight(
       ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, encoded)
     )
 
@@ -162,7 +195,7 @@ class ValueCoderSpec
 
     val encodedSentOverWire: proto.VersionedValue =
       proto.VersionedValue.parseFrom(encoded.toByteArray)
-    val decodedSentOverWire: VersionedValue[ContractId] = assertRight(
+    val decodedSentOverWire: VersionedValue = assertRight(
       ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, encodedSentOverWire)
     )
 

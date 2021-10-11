@@ -10,12 +10,19 @@ import com.daml.ledger.participant.state.kvutils.Conversions.packageUploadDedupK
 import com.daml.ledger.participant.state.kvutils.DamlKvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer.buildLogEntryWithOptionalRecordTime
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlStateKey,
+  DamlStateValue,
+  DamlSubmissionDedupValue,
+}
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.{Engine, VisibleByKey}
+import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
+import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
@@ -45,9 +52,10 @@ final private[kvutils] class PackageCommitter(
 
   override protected val committerName: String = "package_upload"
 
-  override protected def extraLoggingContext(result: Result): Map[String, String] = Map(
-    "packages" -> result.uploadEntry.getArchivesList.asScala.map(_.getHash).mkString("[", ", ", "]")
-  )
+  override protected def extraLoggingContext(result: Result): LoggingEntries =
+    LoggingEntries(
+      "packages" -> result.uploadEntry.getArchivesList.asScala.view.map(_.getHash)
+    )
 
   /** The initial internal state passed to first step. */
   override protected def init(
@@ -188,18 +196,10 @@ final private[kvutils] class PackageCommitter(
   ): Either[String, Map[Ref.PackageId, Ast.Package]] =
     metrics.daml.kvutils.committer.packageUpload.decodeTimer.time { () =>
       type Result = Either[List[String], Map[Ref.PackageId, Ast.Package]]
-      val knownPackages = engine.compiledPackages().packageIds.toSet[String]
-
       archives
         .foldLeft[Result](Right(Map.empty)) { (acc, arch) =>
           try {
-            if (knownPackages(arch.getHash)) {
-              // If the package is already known by the engine, we don't decode it but still verify its hash.
-              lf.archive.Reader.HashChecker.decodeArchive(arch)
-              acc
-            } else {
-              acc.map(_ + lf.archive.Decode.decodeArchive(arch))
-            }
+            acc.map(_ + lf.archive.Decode.assertDecodeArchive(arch))
           } catch {
             case NonFatal(e) =>
               Left(
@@ -222,16 +222,10 @@ final private[kvutils] class PackageCommitter(
       Right(pkgsCache)
 
   private def validatePackages(
-      uploadEntry: DamlPackageUploadEntry.Builder,
-      pkgs: Map[Ref.PackageId, Ast.Package],
+      pkgs: Map[Ref.PackageId, Ast.Package]
   ): Either[String, Unit] =
     metrics.daml.kvutils.committer.packageUpload.validateTimer.time { () =>
-      val allPkgIds = uploadEntry.getArchivesList
-        .iterator()
-        .asScala
-        .map(pkg => Ref.PackageId.assertFromString(pkg.getHash))
-        .toSet
-      engine.validatePackages(allPkgIds, pkgs).left.map(_.detailMsg)
+      engine.validatePackages(pkgs).left.map(_.message)
     }
 
   // Strict validation
@@ -243,7 +237,7 @@ final private[kvutils] class PackageCommitter(
       val Result(uploadEntry, packagesCache) = partialResult
       val result = for {
         packages <- decodePackagesIfNeeded(packagesCache, uploadEntry.getArchivesList.asScala)
-        _ <- validatePackages(uploadEntry, packages)
+        _ <- validatePackages(packages)
       } yield StepContinue(Result(uploadEntry, packages))
 
       result match {
@@ -299,8 +293,8 @@ final private[kvutils] class PackageCommitter(
       val errors = packages.flatMap { case (pkgId, pkg) =>
         engine
           .preloadPackage(pkgId, pkg)
-          .consume(_ => None, packages.get, _ => None, _ => VisibleByKey.Visible)
-          .fold(err => List(err.detailMsg), _ => List.empty)
+          .consume(_ => None, packages.get, _ => None)
+          .fold(err => List(err.message), _ => List.empty)
       }.toList
       metrics.daml.kvutils.committer.packageUpload.loadedPackages(() =>
         engine.compiledPackages().packageIds.size

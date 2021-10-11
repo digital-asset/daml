@@ -12,8 +12,8 @@ import qualified DA.Daml.LF.Ast.Optics as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
-import Language.Haskell.LSP.Types
-import Language.Haskell.LSP.Types.Lens
+import Language.LSP.Types
+import Language.LSP.Types.Lens
 
 import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
 import DA.Daml.LF.Ast.World (initWorldSelf)

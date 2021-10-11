@@ -7,6 +7,7 @@ module DA.Daml.Doc.Tests(mkTestTree)
   where
 
 import DA.Bazel.Runfiles
+import DA.Daml.Compiler.Output (diagnosticsLogger)
 import DA.Daml.Options.Types
 
 import DA.Daml.Doc.Extract
@@ -15,16 +16,13 @@ import DA.Daml.Doc.Types
 import DA.Daml.Doc.Transform
 import DA.Daml.Doc.Anchor
 
-import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
-import Development.IDE.LSP.Protocol
 
 import Control.Monad
 import           Control.Monad.Trans.Maybe
 import qualified Data.Aeson.Encode.Pretty as AP
 import           Data.List.Extra
 import qualified Data.Text          as T
-import qualified Data.Text.IO as T
 import qualified Data.Text.Extended as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
@@ -144,10 +142,10 @@ unitTests =
            , "    field1 : Party"
            , "  where"
            , "    signatory field1"
-           , "    controller field1 can"
-           , "      DoSomething : ()"
-           , "        with field: () -- ^ field"
-           , "        do pure ()"
+           , "    choice DoSomething : ()"
+           , "      with field: () -- ^ field"
+           , "      controller field1"
+           , "      do pure ()"
            ]
            (\md -> assertBool
                    ("Expected a choice with field in doc, got " <> show md)
@@ -167,13 +165,14 @@ unitTests =
            , "    field1 : Party"
            , "  where"
            , "    signatory field1"
-           , "    controller field1 can"
-           , "      DoSomething : ()"
-           , "        with field: ()"
-           , "        do pure ()"
-           , "      DoMore : ()"
-           , "        with field: ()"
-           , "        do pure ()"
+           , "    choice DoSomething : ()"
+           , "      with field: ()"
+           , "      controller field1"
+           , "      do pure ()"
+           , "    choice DoMore : ()"
+           , "      with field: ()"
+           , "      controller field1"
+           , "      do pure ()"
            ]
            (\md -> assertBool
                    ("Expected two choices in doc, got " <> show md)
@@ -256,14 +255,10 @@ runDamldoc testfile importPathM = do
           , optImportPath = maybeToList importPathM
           }
 
-    let diagLogger = \case
-            EventFileDiagnostics fp diags -> T.hPutStrLn stderr $ showDiagnostics $ map (toNormalizedFilePath' fp,ShowDiag,) diags
-            _ -> pure ()
-
     -- run the doc generator on that file
     mbResult <- runMaybeT $ extractDocs
         defaultExtractOptions
-        diagLogger
+        diagnosticsLogger
         opts
         [toNormalizedFilePath' testfile]
 

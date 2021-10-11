@@ -14,13 +14,13 @@ object ApiValueToLfValueConverter {
 
   object Error {
     implicit val ErrorShow: Show[Error] = Show shows { e =>
-      import com.daml.util.ExceptionOps._
+      import com.daml.scalautil.ExceptionOps._
       s"ApiValueToLfValueConverter.Error: ${e.cause.description}"
     }
   }
 
   type ApiValueToLfValue =
-    lav1.value.Value => Error \/ lf.value.Value[lf.value.Value.ContractId]
+    lav1.value.Value => Error \/ lf.value.Value
 
   def apiValueToLfValue: ApiValueToLfValue = { a: lav1.value.Value =>
     \/.fromEither(ValueValidator.validateValue(a)).leftMap(e => Error(e))

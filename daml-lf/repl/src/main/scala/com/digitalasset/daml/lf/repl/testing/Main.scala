@@ -8,16 +8,15 @@ package testing
 import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
-import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.Pretty._
-import com.daml.lf.speedy.SError._
+import com.daml.lf.scenario.{ScenarioRunner, Pretty => PrettyScenario}
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
-import com.daml.lf.language.{Interface, LanguageVersion => LV}
+import com.daml.lf.language.{PackageInterface, LanguageVersion => LV}
 import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
@@ -157,7 +156,7 @@ object Repl {
 
   def cmdValidate(state: State): (Boolean, State) = {
     val (validationResults, validationTime) = time(state.packages.map { case (pkgId, pkg) =>
-      Validation.checkPackage(Interface(state.packages), pkgId, pkg)
+      Validation.checkPackage(PackageInterface(state.packages), pkgId, pkg)
     })
     System.err.println(s"${state.packages.size} package(s) validated in $validationTime ms.")
     validationResults collectFirst { case Left(e) =>
@@ -201,14 +200,13 @@ object Repl {
 
     def run(
         expr: Expr
-    ): (Speedy.Machine, Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)]) = {
+    ): (Speedy.Machine, ScenarioRunner.ScenarioResult) = {
       val machine =
         Speedy.Machine.fromScenarioExpr(
           compiledPackages,
-          seed,
           expr,
         )
-      (machine, ScenarioRunner(machine).run())
+      (machine, ScenarioRunner(machine, seed).run())
     }
   }
 
@@ -402,13 +400,8 @@ object Repl {
   ): (Boolean, State) = {
     val state = initialState(compilerConfig)
     try {
-      val (packagesMap, loadingTime) = time {
-        val packages =
-          UniversalArchiveReader().readFile(new File(darFile)).get
-        Map(packages.all.map { case (pkgId, pkgArchive) =>
-          Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
-        }: _*)
-      }
+      val (packagesMap, loadingTime) =
+        time(UniversalArchiveDecoder.assertReadFile(new File(darFile)).all.toMap)
 
       val npkgs = packagesMap.size
       val ndefs =
@@ -435,7 +428,7 @@ object Repl {
   def speedyCompile(state: State, args: Seq[String]): Unit = {
     val defs = assertRight(
       Compiler.compilePackages(
-        Interface(state.packages),
+        PackageInterface(state.packages),
         state.packages,
         state.scenarioRunner.compilerConfig,
       )
@@ -493,7 +486,7 @@ object Repl {
             valueOpt match {
               case None => ()
               case Some(value) =>
-                val result = prettyValue(true)(value.toValue).render(128)
+                val result = prettyValue(true)(value.toUnnormalizedValue).render(128)
                 println("result:")
                 println(result)
             }
@@ -525,19 +518,17 @@ object Repl {
   def invokeTest(state: State, idAndArgs: Seq[String]): (Boolean, State) = {
     buildExprFromTest(state, idAndArgs)
       .map { expr =>
-        val (machine, errOrLedger) =
+        val (_, errOrLedger) =
           state.scenarioRunner.run(expr)
-        machine.withOnLedger("invokeTest") { onLedger =>
-          errOrLedger match {
-            case Left((err, ledger @ _)) =>
-              println(prettyError(err, onLedger.ptx).render(128))
-              (false, state)
-            case Right((diff @ _, steps @ _, ledger, value @ _)) =>
-              // NOTE(JM): cannot print this, output used in tests.
-              //println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
-              println(prettyLedger(ledger).render(128))
-              (true, state)
-          }
+        errOrLedger match {
+          case error: ScenarioRunner.ScenarioError =>
+            println(PrettyScenario.prettyError(error.error).render(128))
+            (false, state)
+          case success: ScenarioRunner.ScenarioSuccess =>
+            // NOTE(JM): cannot print this, output used in tests.
+            //println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
+            println(prettyLedger(success.ledger).render(128))
+            (true, state)
         }
       }
       .getOrElse((false, state))
@@ -561,21 +552,19 @@ object Repl {
     allTests.foreach { case (name, body) =>
       print(name + ": ")
       val (machine, errOrLedger) = state.scenarioRunner.run(body)
-      machine.withOnLedger("cmdTestAll") { onLedger =>
-        errOrLedger match {
-          case Left((err, ledger @ _)) =>
-            println(
-              "failed at " +
-                prettyLoc(machine.lastLocation).render(128) +
-                ": " + prettyError(err, onLedger.ptx).render(128)
-            )
-            failures += 1
-          case Right((diff, steps, ledger @ _, value @ _)) =>
-            successes += 1
-            totalTime += diff
-            totalSteps += steps
-            println(s"ok in ${diff.formatted("%.2f")}ms, $steps steps")
-        }
+      errOrLedger match {
+        case error: ScenarioRunner.ScenarioError =>
+          println(
+            "failed at " +
+              prettyLoc(machine.lastLocation).render(128) +
+              ": " + PrettyScenario.prettyError(error.error).render(128)
+          )
+          failures += 1
+        case success: ScenarioRunner.ScenarioSuccess =>
+          successes += 1
+          totalTime += success.duration
+          totalSteps += success.steps
+          println(s"ok in ${success.duration.formatted("%.2f")}ms, ${success.steps} steps")
       }
     }
     println(
@@ -595,17 +584,15 @@ object Repl {
         println("Collecting profile...")
         val (machine, errOrLedger) =
           state.scenarioRunner.run(expr)
-        machine.withOnLedger("cmdProfile") { onLedger =>
-          errOrLedger match {
-            case Left((err, ledger @ _)) =>
-              println(prettyError(err, onLedger.ptx).render(128))
-              (false, state)
-            case Right((diff @ _, steps @ _, ledger @ _, value @ _)) =>
-              println("Writing profile...")
-              machine.profile.name = testId
-              machine.profile.writeSpeedscopeJson(outputFile)
-              (true, state)
-          }
+        errOrLedger match {
+          case error: ScenarioRunner.ScenarioError =>
+            println(PrettyScenario.prettyError(error.error).render(128))
+            (false, state)
+          case _: ScenarioRunner.ScenarioSuccess =>
+            println("Writing profile...")
+            machine.profile.name = testId
+            machine.profile.writeSpeedscopeJson(outputFile)
+            (true, state)
         }
       }
       .getOrElse((false, state))

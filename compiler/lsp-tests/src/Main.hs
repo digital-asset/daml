@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeOperators #-}
 module Main (main) where
 
 import Control.Applicative.Combinators
@@ -15,10 +16,10 @@ import Data.Either
 import Data.Foldable (toList)
 import Data.List.Extra
 import qualified Data.Text as T
-import qualified Language.Haskell.LSP.Test as LspTest
-import Language.Haskell.LSP.Types
-import Language.Haskell.LSP.Types.Capabilities
-import Language.Haskell.LSP.Types.Lens
+import qualified Language.LSP.Test as LspTest
+import Language.LSP.Types
+import Language.LSP.Types.Capabilities
+import Language.LSP.Types.Lens hiding (id)
 import Network.URI
 import SdkVersion
 import System.Directory
@@ -31,7 +32,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import qualified Data.Aeson as Aeson
 import DA.Daml.Lsp.Test.Util
-import qualified Language.Haskell.LSP.Test as LSP
+import qualified Language.LSP.Test as LSP
 
 fullCaps' :: ClientCapabilities
 fullCaps' = fullCaps { _window = Just $ WindowClientCapabilities $ Just True }
@@ -112,8 +113,8 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
               in filePathToUri (joinDrive (map toLower drive ) suffix)
           let itemA = TextDocumentItem uriA "daml" 0 aContent
           let a = TextDocumentIdentifier uriA
-          sendNotification TextDocumentDidOpen (DidOpenTextDocumentParams itemA)
-          diagsNot <- skipManyTill anyMessage LspTest.message :: Session PublishDiagnosticsNotification
+          sendNotification STextDocumentDidOpen (DidOpenTextDocumentParams itemA)
+          diagsNot <- skipManyTill anyMessage LspTest.publishDiagnosticsNotification
           let fileUri = diagsNot ^. params . uri
           -- Check that if we put a lower-case drive in for A.A
           -- the diagnostics for A.B will also be lower-case.
@@ -140,7 +141,7 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
                   [ "module Test where"
                   , "f = ()"
                   ]
-          sendNotification TextDocumentDidOpen (DidOpenTextDocumentParams item)
+          sendNotification STextDocumentDidOpen (DidOpenTextDocumentParams item)
           let test = TextDocumentIdentifier weirdUri
           replaceDoc test $ T.unlines
               [ "module Test where"
@@ -264,6 +265,7 @@ requestTests run _runScenarios = testGroup "requests"
     [ testCase "code-lenses" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "module Main where"
+              , "single : Scenario ()"
               , "single = scenario do"
               , "  assert (True == True)"
               ]
@@ -271,7 +273,7 @@ requestTests run _runScenarios = testGroup "requests"
           Just escapedFp <- pure $ escapeURIString isUnescapedInURIComponent <$> uriToFilePath (main' ^. uri)
           liftIO $ lenses @?=
               [ CodeLens
-                    { _range = Range (Position 1 0) (Position 1 6)
+                    { _range = Range (Position 2 0) (Position 2 6)
                     , _command = Just $ Command
                           { _title = "Scenario results"
                           , _command = "daml.showResource"
@@ -288,6 +290,7 @@ requestTests run _runScenarios = testGroup "requests"
     , testCase "stale code-lenses" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "module Main where"
+              , "single : Scenario ()"
               , "single = scenario do"
               , "  assert True"
               ]
@@ -306,15 +309,15 @@ requestTests run _runScenarios = testGroup "requests"
                           }
                     , _xdata = Nothing
                     }
-          liftIO $ lenses @?= [codeLens (Range (Position 1 0) (Position 1 6))]
-          changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 2 23) (Position 2 23))) Nothing "+"]
-          expectDiagnostics [("Main.daml", [(DsError, (3, 0), "Parse error")])]
+          liftIO $ lenses @?= [codeLens (Range (Position 2 0) (Position 2 6))]
+          changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 3 23) (Position 3 23))) Nothing "+"]
+          expectDiagnostics [("Main.daml", [(DsError, (4, 0), "Parse error")])]
           lenses <- getCodeLenses main'
-          liftIO $ lenses @?= [codeLens (Range (Position 1 0) (Position 1 6))]
+          liftIO $ lenses @?= [codeLens (Range (Position 2 0) (Position 2 6))]
           -- Shift code lenses down
           changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 0 0) (Position 0 0))) Nothing "\n\n"]
           lenses <- getCodeLenses main'
-          liftIO $ lenses @?= [codeLens (Range (Position 3 0) (Position 3 6))]
+          liftIO $ lenses @?= [codeLens (Range (Position 4 0) (Position 4 6))]
           closeDoc main'
     , testCase "type on hover: name" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
@@ -323,13 +326,13 @@ requestTests run _runScenarios = testGroup "requests"
               , "add a b = a + b"
               , "template DoStuff with party : Party where"
               , "  signatory party"
-              , "  controller party can"
-              , "    ChooseNumber : Int"
-              , "      with number : Int"
-              , "        do pure (add 5 number)"
+              , "  choice ChooseNumber : Int"
+              , "    with number : Int"
+              , "    controller party"
+              , "    do pure (add 5 number)"
               ]
           Just fp <- pure $ uriToFilePath (main' ^. uri)
-          r <- getHover main' (Position 8 19)
+          r <- getHover main' (Position 8 14)
           liftIO $ r @?= Just Hover
               { _contents = HoverContents $ MarkupContent MkMarkdown $ T.unlines
                     [ "```daml"
@@ -339,7 +342,7 @@ requestTests run _runScenarios = testGroup "requests"
                     , "* * *"
                     , "*Defined at " <> T.pack fp <> ":3:1*"
                     ]
-              , _range = Just $ Range (Position 8 17) (Position 8 20)
+              , _range = Just $ Range (Position 8 13) (Position 8 16)
               }
           closeDoc main'
 
@@ -353,8 +356,8 @@ requestTests run _runScenarios = testGroup "requests"
               { _contents = HoverContents $ MarkupContent MkMarkdown $ T.unlines
                     [ "```daml"
                     , "1.0"
-                    , ": NumericScale n"
-                    , "=> Numeric n"
+                    , ": (Additive a, IsNumeric a)"
+                    , "=> a"
                     , "```"
                     , "* * *"
                     ]
@@ -378,26 +381,26 @@ requestTests run _runScenarios = testGroup "requests"
               , "    c : Party"
               , "  where"
               , "    signatory p"
-              , "    controller c can"
-              , "      SomeChoice : ()"
-              , "        do let b = bar"
-              , "           pure ()"
+              , "    choice SomeChoice : ()"
+              , "      controller p"
+              , "      do let b = bar"
+              , "         pure ()"
               ]
           -- thisIsAParam
           locs <- getDefinitions main' (Position 3 24)
-          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 3 4) (Position 3 16))]
+          liftIO $ collapseLocations locs @?= [Location (main' ^. uri) (Range (Position 3 4) (Position 3 16))]
           -- letParam
           locs <- getDefinitions main' (Position 4 37)
-          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 4 16) (Position 4 24))]
+          liftIO $ collapseLocations locs @?= [Location (main' ^. uri) (Range (Position 4 16) (Position 4 24))]
           -- import Test
           locs <- getDefinitions main' (Position 1 10)
-          liftIO $ locs @?= [Location (test ^. uri) (Range (Position 0 0) (Position 0 0))]
+          liftIO $ collapseLocations locs @?= [Location (test ^. uri) (Range (Position 0 0) (Position 0 0))]
           -- use of `bar` in template
-          locs <- getDefinitions main' (Position 13 20)
-          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 2 0) (Position 2 3))]
+          locs <- getDefinitions main' (Position 13 18)
+          liftIO $ collapseLocations locs @?= [Location (main' ^. uri) (Range (Position 2 0) (Position 2 3))]
           -- answerFromTest
           locs <- getDefinitions main' (Position 2 8)
-          liftIO $ locs @?= [Location (test ^. uri) (Range (Position 1 0) (Position 1 14))]
+          liftIO $ collapseLocations locs @?= [Location (test ^. uri) (Range (Position 1 0) (Position 1 14))]
 
           -- introduce syntax error
           changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 6 6) (Position 6 6))) Nothing "+\n"]
@@ -406,19 +409,19 @@ requestTests run _runScenarios = testGroup "requests"
           -- everything should still work because we use stale information.
           -- thisIsAParam
           locs <- getDefinitions main' (Position 3 24)
-          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 3 4) (Position 3 16))]
+          liftIO $ collapseLocations locs @?= [Location (main' ^. uri) (Range (Position 3 4) (Position 3 16))]
           -- letParam
           locs <- getDefinitions main' (Position 4 37)
-          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 4 16) (Position 4 24))]
+          liftIO $ collapseLocations locs @?= [Location (main' ^. uri) (Range (Position 4 16) (Position 4 24))]
           -- import Test
           locs <- getDefinitions main' (Position 1 10)
-          liftIO $ locs @?= [Location (test ^. uri) (Range (Position 0 0) (Position 0 0))]
+          liftIO $ collapseLocations locs @?= [Location (test ^. uri) (Range (Position 0 0) (Position 0 0))]
           -- use of `bar` in template
-          locs <- getDefinitions main' (Position 14 20)
-          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 2 0) (Position 2 3))]
+          locs <- getDefinitions main' (Position 14 18)
+          liftIO $ collapseLocations locs @?= [Location (main' ^. uri) (Range (Position 2 0) (Position 2 3))]
           -- answerFromTest
           locs <- getDefinitions main' (Position 2 8)
-          liftIO $ locs @?= [Location (test ^. uri) (Range (Position 1 0) (Position 1 14))]
+          liftIO $ collapseLocations locs @?= [Location (test ^. uri) (Range (Position 1 0) (Position 1 14))]
 
           closeDoc main'
           closeDoc test
@@ -429,13 +432,14 @@ scenarioTests run = testGroup "scenarios"
     [ testCase "opening codelens produces a notification" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "module Main where"
+              , "main : Scenario ()"
               , "main = scenario $ assert (True == True)"
               ]
           lenses <- getCodeLenses main'
           uri <- scenarioUri "Main.daml" "main"
           liftIO $ lenses @?=
               [ CodeLens
-                    { _range = Range (Position 1 0) (Position 1 4)
+                    { _range = Range (Position 2 0) (Position 2 4)
                     , _command = Just $ Command
                           { _title = "Scenario results"
                           , _command = "daml.showResource"
@@ -582,13 +586,13 @@ executeCommandTests run _ = testGroup "execute command"
             , "    owner : Party"
             , "  where"
             , "    signatory owner"
-            , "    controller owner can"
-            , "      Delete : ()"
-            , "        do return ()"
+            , "    choice Delete : ()"
+            , "      controller owner"
+            , "      do return ()"
             ]
         Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
-        actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
-           "daml/damlVisualize"  (Just (List [Aeson.String $ T.pack escapedFp])) Nothing
+        actualDotString <- LSP.request SWorkspaceExecuteCommand $ ExecuteCommandParams
+           Nothing "daml/damlVisualize" (Just (List [Aeson.String $ T.pack escapedFp]))
         let expectedDotString = "digraph G {\ncompound=true;\nrankdir=LR;\nsubgraph cluster_Coin{\nn0[label=Create][color=green]; \nn1[label=Archive][color=red]; \nn2[label=Delete][color=red]; \nlabel=<<table align = \"left\" border=\"0\" cellborder=\"0\" cellspacing=\"1\">\n<tr><td align=\"center\"><b>Coin</b></td></tr><tr><td align=\"left\">owner</td></tr> \n</table>>;color=blue\n}\n}\n"
         liftIO $ assertEqual "Visulization command" (Right expectedDotString) (_result actualDotString)
         closeDoc main'
@@ -597,13 +601,13 @@ executeCommandTests run _ = testGroup "execute command"
             [ "module Empty where"
             ]
         Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
-        actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
-           "daml/NoCommand"  (Just (List [Aeson.String $ T.pack escapedFp])) Nothing
+        actualDotString <- LSP.request SWorkspaceExecuteCommand $ ExecuteCommandParams
+           Nothing "daml/NoCommand"  (Just (List [Aeson.String $ T.pack escapedFp]))
         liftIO $ assertBool "Expected response error but got success" (isLeft $ _result actualDotString)
         closeDoc main'
     , testCase "Visualization command with no arguments" $ run $ do
-        actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
-           "daml/damlVisualize"  Nothing Nothing
+        actualDotString <- LSP.request SWorkspaceExecuteCommand $ ExecuteCommandParams
+           Nothing "daml/damlVisualize"  Nothing
         liftIO $ assertBool "Expected response error but got Nothing" (isLeft $ _result actualDotString)
     ]
 
@@ -619,7 +623,7 @@ stressTests run _runScenarios = testGroup "Stress tests"
             -- Even values should produce empty diagnostics
             -- while odd values will produce a type error.
             fooValue i = T.pack (show (i `div` 2))
-                      <> if even i then "" else ".5"
+                      <> if even i then "" else ".5: Decimal"
             fooContent i = T.unlines
                 [ "module Foo where"
                 , "foo : Int"
@@ -636,7 +640,7 @@ stressTests run _runScenarios = testGroup "Stress tests"
                 -- if debouncing supresses the empty set of diagnostics.
                 diags <-
                     skipManyTill anyMessage $ do
-                        m <- LSP.message :: Session PublishDiagnosticsNotification;
+                        m <- LSP.publishDiagnosticsNotification
                         let diags = toList $ m ^. params . diagnostics
                         guard (notNull diags)
                         pure diags
@@ -644,7 +648,7 @@ stressTests run _runScenarios = testGroup "Stress tests"
                     assertFailure $ "Incorrect number of diagnostics, expected 1 but got " <> show diags
                 let msg = head diags ^. message
                 liftIO $ assertBool ("Expected type error but got " <> T.unpack msg) $
-                    "Couldn't match expected type" `T.isInfixOf` msg
+                    "Couldn't match type" `T.isInfixOf` msg
 
         foo <- openDoc' "Foo.daml" damlId $ fooContent 0
         forM_ [1 .. 2000] $ \i -> do
@@ -748,9 +752,9 @@ symbolsTests run =
                       , "template T with p1 : Party where"
                       , "  signatory p1"
                       , "  choice A : ()"
-                      , "      with p : Party"
+                      , "    with p : Party"
                       , "    controller p"
-                      , "      do return ()"
+                      , "    do return ()"
                       ]
               syms <- getDocumentSymbols foo
               liftIO $
@@ -801,7 +805,7 @@ completionTests run _runScenarios = testGroup "completion"
                 [ "module Foo where" ]
             completions <- getCompletions foo (Position 0 0)
             -- We just want to verify that this no longer results in a
-            -- crash (before haskell-lsp 0.21 it did crash).
+            -- crash (before lsp 0.21 it did crash).
             liftIO $ assertBool "Expected completions to be non-empty"
                 (not $ null completions)
     ]
@@ -818,6 +822,7 @@ defaultCompletion label = CompletionItem
           , _filterText = Nothing
           , _insertText = Nothing
           , _insertTextFormat = Nothing
+          , _insertTextMode = Nothing
           , _textEdit = Nothing
           , _additionalTextEdits = Nothing
           , _commitCharacters = Nothing
@@ -1012,3 +1017,9 @@ multiPackageTests damlc
                         }
                   ]
     ]
+
+linkToLocation :: [LocationLink] -> [Location]
+linkToLocation = map (\LocationLink{_targetUri,_targetRange} -> Location _targetUri _targetRange)
+
+collapseLocations :: [Location] |? [LocationLink] -> [Location]
+collapseLocations = either id linkToLocation . toEither

@@ -7,17 +7,18 @@ import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
 import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.ContractStore
-import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
+import com.daml.platform.PruneBuffersNoOp
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.cache.TranslationCacheBackedContractStore
 import com.daml.platform.store.dao.LedgerReadDao
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 private[index] object ReadOnlySqlLedgerWithTranslationCache {
 
@@ -71,7 +72,9 @@ private final class ReadOnlySqlLedgerWithTranslationCache(
     extends ReadOnlySqlLedger(
       ledgerId,
       ledgerDao,
+      ledgerDao.transactionsReader,
       contractStore,
+      PruneBuffersNoOp,
       dispatcher,
     ) {
 

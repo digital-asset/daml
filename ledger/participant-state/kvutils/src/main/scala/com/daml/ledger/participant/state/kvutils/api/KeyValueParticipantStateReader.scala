@@ -6,9 +6,11 @@ package com.daml.ledger.participant.state.kvutils.api
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.configuration.LedgerInitialConditions
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, DamlLogEntryId}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueConsumption, OffsetBuilder}
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v2._
 import com.daml.ledger.validator.preexecution.TimeUpdatesProvider
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
@@ -33,7 +35,7 @@ class KeyValueParticipantStateReader private[api] (
 ) extends ReadService {
   import KeyValueParticipantStateReader._
 
-  override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
+  override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Source.single(createLedgerInitialConditions())
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {

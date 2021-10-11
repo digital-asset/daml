@@ -22,14 +22,11 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.daml.lf.archive.{DarReader, Decode}
+import com.daml.lf.archive.DarDecoder
 import com.daml.lf.data.Ref._
-import com.daml.lf.engine.trigger.{Runner, RunnerConfig, Trigger}
-import com.daml.logging.LoggingContextOf.{label, newLoggingContext}
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import org.scalatest._
 import scalaz.syntax.tag._
-import scalaz.syntax.traverse._
 
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
@@ -65,16 +62,14 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
     Try(BazelRunfiles.requiredResource("triggers/tests/acs.dar"))
       .getOrElse(BazelRunfiles.requiredResource("triggers/tests/acs-1.dev.dar"))
 
-  protected val dar = DarReader().readArchiveFromFile(darFile).get.map { case (pkgId, archive) =>
-    Decode.readArchivePayload(pkgId, archive)
-  }
+  protected val dar = DarDecoder.assertReadArchiveFromFile(darFile)
   protected val compiledPackages =
     PureCompiledPackages.assertBuild(dar.all.toMap, speedy.Compiler.Config.Dev)
 
   protected def getRunner(client: LedgerClient, name: QualifiedName, party: String): Runner = {
     val triggerId = Identifier(packageId, name)
     val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
-    newLoggingContext(label[Trigger], trigger.loggingExtension) { implicit lc =>
+    trigger.withLoggingContext { implicit lc =>
       new Runner(
         compiledPackages,
         trigger,

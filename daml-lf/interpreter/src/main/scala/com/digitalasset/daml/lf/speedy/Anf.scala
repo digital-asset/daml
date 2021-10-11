@@ -317,19 +317,6 @@ private[lf] object Anf {
       case SELet1General(rhs, body) =>
         Bounce(() => transformLet1(depth, env, rhs, body, k, transform))
 
-      case SECatchSubmitMustFail(body0) =>
-        Bounce(() =>
-          flattenExp(depth, env, body0) { body =>
-            Bounce(() =>
-              transform(
-                depth,
-                SECatchSubmitMustFail(body.wrapped),
-                k,
-              )
-            )
-          }
-        )
-
       case SELocation(loc, body) => {
         Bounce(() =>
           transformExp(depth, env, body, k) { (depth, body, txK) =>
@@ -356,9 +343,9 @@ private[lf] object Anf {
           ).bounce
         Bounce(() => transform(depth, SETryCatch(body, handler), k))
 
-      case SEScopeExercise(body0) =>
+      case SEScopeExercise(templateId, body0) =>
         val body: SExpr = flattenExp(depth, env, body0)(anf => Land(anf.wrapped)).bounce
-        Bounce(() => transform(depth, SEScopeExercise(body), k))
+        Bounce(() => transform(depth, SEScopeExercise(templateId, body), k))
 
       case _: SEAbs | _: SEDamlException | _: SEAppAtomicFun | _: SEAppAtomicGeneral |
           _: SEAppAtomicSaturatedBuiltin | _: SELet1Builtin | _: SELet1BuiltinArithmetic |

@@ -5,9 +5,8 @@ package com.daml.lf
 package engine
 
 import com.daml.lf.data._
-import com.daml.lf.language.Ast.{TNat, TTyCon}
+import com.daml.lf.language.Ast.{TNat, TTyCon, Type}
 import com.daml.lf.language.Util._
-import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
@@ -16,13 +15,13 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.language.implicitConversions
-
 class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
-  import defaultParserParameters.{defaultPackageId => pkgId}
+  import TransactionBuilder.Implicits.{defaultPackageId => _, _}
+  import com.daml.lf.testing.parser.Implicits._
 
-  private implicit def toName(s: String): Ref.Name = Ref.Name.assertFromString(s)
+  private[this] implicit val defaultPackageId: Ref.PackageId =
+    defaultParserParameters.defaultPackageId
 
   val pkg =
     p"""
@@ -57,10 +56,10 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
              agreement "Agreement",
              choices {
                choice @nonConsuming Noop (self) (r: Mod:Record) : Mod:Record,
-                 controllers 
+                 controllers
                    Mod:contractParties this
                  to
-                   upure @Mod:Record r 
+                   upure @Mod:Record r
              },
              key @Mod:Key (Mod:Contract {key} this) Mod:keyParties
           };
@@ -68,52 +67,33 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
 
     """
 
-  val recordCon = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Mod:Record"))
-  val variantCon = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Mod:Variant"))
-  val enumCon = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Mod:Enum"))
-
-  val contractCon = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Mod:Contract"))
-  val keyCon = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Mod:Key"))
-
   private[this] val engine = Engine.DevEngine()
   engine
-    .preloadPackage(pkgId, pkg)
-    .consume(_ => None, _ => None, _ => None, _ => VisibleByKey.Visible)
+    .preloadPackage(defaultPackageId, pkg)
+    .consume(_ => None, _ => None, _ => None)
 
   private[this] val enricher = new ValueEnricher(engine)
 
   "enrichValue" should {
 
-    val testCases = Table(
+    val testCases = Table[Type, Value, Value](
       ("type", "input", "expected output"),
       (TUnit, ValueUnit, ValueUnit),
       (TBool, ValueTrue, ValueTrue),
       (TInt64, ValueInt64(42), ValueInt64(42)),
-      (
-        TTimestamp,
-        ValueTimestamp(Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")),
-        ValueTimestamp(Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")),
-      ),
-      (
-        TDate,
-        ValueDate(Time.Date.assertFromString("1879-03-14")),
-        ValueDate(Time.Date.assertFromString("1879-03-14")),
-      ),
+      (TTimestamp, ValueTimestamp("1969-07-20T20:17:00Z"), ValueTimestamp("1969-07-20T20:17:00Z")),
+      (TDate, ValueDate("1879-03-14"), ValueDate("1879-03-14")),
       (TText, ValueText("daml"), ValueText("daml")),
       (
         TNumeric(TNat(Decimal.scale)),
-        ValueNumeric(Numeric.assertFromString("10.")),
-        ValueNumeric(Numeric.assertFromString("10.0000000000")),
+        ValueNumeric("10."),
+        ValueNumeric("10.0000000000"),
       ),
+      (TParty, ValueParty("Alice"), ValueParty("Alice")),
       (
-        TParty,
-        ValueParty(Ref.Party.assertFromString("Alice")),
-        ValueParty(Ref.Party.assertFromString("Alice")),
-      ),
-      (
-        TContractId(TTyCon(recordCon)),
-        ValueContractId(ContractId.assertFromString("#contractId")),
-        ValueContractId(ContractId.assertFromString("#contractId")),
+        TContractId(TTyCon("Mod:Record")),
+        ValueContractId("#contractId"),
+        ValueContractId("#contractId"),
       ),
       (
         TList(TText),
@@ -131,16 +111,16 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
         ValueOptional(Some(ValueText("text"))),
       ),
       (
-        TTyCon(recordCon),
+        TTyCon("Mod:Record"),
         ValueRecord(None, ImmArray(None -> ValueInt64(33))),
-        ValueRecord(Some(recordCon), ImmArray(Some[Ref.Name]("field") -> ValueInt64(33))),
+        ValueRecord(Some("Mod:Record"), ImmArray(Some[Ref.Name]("field") -> ValueInt64(33))),
       ),
       (
-        TTyCon(variantCon),
+        TTyCon("Mod:Variant"),
         ValueVariant(None, "variant1", ValueText("some test")),
-        ValueVariant(Some(variantCon), "variant1", ValueText("some test")),
+        ValueVariant(Some("Mod:Variant"), "variant1", ValueText("some test")),
       ),
-      (TTyCon(enumCon), ValueEnum(None, "value1"), ValueEnum(Some(enumCon), "value1")),
+      (TTyCon("Mod:Enum"), ValueEnum(None, "value1"), ValueEnum(Some("Mod:Enum"), "value1")),
     )
 
     "enrich values as expected" in {
@@ -152,21 +132,19 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
 
   "enrichTransaction" should {
 
-    val alice = Ref.Party.assertFromString("Alice")
-
     def buildTransaction(
-        contract: Value[ContractId],
-        key: Value[ContractId],
-        record: Value[ContractId],
+        contract: Value,
+        key: Value,
+        record: Value,
     ) = {
-      val builder = TransactionBuilder(TransactionVersion.minTypeErasure)
+      val builder = new TransactionBuilder(_ => TransactionVersion.minTypeErasure)
       val create =
         builder.create(
           id = "#01",
-          template = s"$pkgId:Mod:Contract",
+          templateId = "Mod:Contract",
           argument = contract,
-          signatories = Seq(alice),
-          observers = Seq(alice),
+          signatories = Set("Alice"),
+          observers = Set("Alice"),
           key = Some(key),
         )
       builder.add(create)
@@ -176,7 +154,7 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
         create,
         "Noop",
         false,
-        Set(alice),
+        Set("Alice"),
         record,
         Some(record),
       )
@@ -186,19 +164,19 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
     "enrich transaction as expected" in {
 
       val inputKey = ValueRecord(
-        None,
+        "",
         ImmArray(
-          None -> ValueParty(alice),
-          None -> Value.ValueInt64(0),
+          "" -> ValueParty("Alice"),
+          "" -> Value.ValueInt64(0),
         ),
       )
 
       val inputContract =
         ValueRecord(
-          None,
+          "",
           ImmArray(
-            None -> inputKey,
-            None -> Value.ValueNil,
+            "" -> inputKey,
+            "" -> Value.ValueNil,
           ),
         )
 
@@ -212,24 +190,24 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
       )
 
       val outputKey = ValueRecord(
-        Some(keyCon),
+        "Mod:Key",
         ImmArray(
-          Some[Ref.Name]("party") -> ValueParty(alice),
-          Some[Ref.Name]("idx") -> Value.ValueInt64(0),
+          "party" -> ValueParty("Alice"),
+          "idx" -> Value.ValueInt64(0),
         ),
       )
 
       val outputContract =
         ValueRecord(
-          Some(contractCon),
+          "Mod:Contract",
           ImmArray(
-            Some[Ref.Name]("key") -> outputKey,
-            Some[Ref.Name]("cids") -> Value.ValueNil,
+            "key" -> outputKey,
+            "cids" -> Value.ValueNil,
           ),
         )
 
       val outputRecord =
-        ValueRecord(Some(recordCon), ImmArray(Some[Ref.Name]("field") -> ValueInt64(33)))
+        ValueRecord("Mod:Record", ImmArray("field" -> ValueInt64(33)))
 
       val outputTransaction = buildTransaction(
         outputContract,

@@ -7,7 +7,7 @@ import java.time.{Duration, Instant}
 import java.util.{Optional, UUID}
 import java.util.concurrent.TimeUnit
 
-import com.daml.ledger.javaapi.data.{Command, CreateCommand, Identifier, Record}
+import com.daml.ledger.javaapi.data.{Command, CreateCommand, DamlRecord, Identifier}
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
@@ -75,7 +75,7 @@ class CommandClientImplTest
   it should "send the given command with the correct parameters" in {
     withCommandClient() { (client, service) =>
       val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
-      val record = new Record(recordId, List.empty[Record.Field].asJava)
+      val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
       val commands = genCommands(List(command))
       client
@@ -123,7 +123,7 @@ class CommandClientImplTest
 
   private val dummyCommands = {
     val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
-    val record = new Record(recordId, List.empty[Record.Field].asJava)
+    val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
     val command: Command = new CreateCommand(new Identifier("a", "a", "b"), record)
     List(command).asJava
   }

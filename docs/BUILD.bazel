@@ -24,7 +24,6 @@ nodejs_binary(
     name = "grunt",
     data = [
         "@npm//grunt-cli",
-        "@npm//matchdep",
     ],
     entry_point = "@npm//:node_modules/grunt-cli/bin/grunt",
 )
@@ -241,6 +240,11 @@ genrule(
         mkdir $$CODE_DIR/testing
         cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$CODE_DIR/testing
 
+        # Templates
+        TEMPLATES_DIR=$$PWD/build/docs/source/_templates
+        mkdir -p $$TEMPLATES_DIR
+        tar -zxf $(location //templates:templates-tarball) -C $$TEMPLATES_DIR --strip-components=1
+
         if ! docs/scripts/check-closing-quotes.sh . docs/scripts/check-closing-quotes.sh.allow; then
             exit 1
         fi
@@ -270,7 +274,7 @@ genrule(
         fi
 
         # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary. Note flag to overwrite
-        unzip -o ../$(locations //language-support/java:javadoc) -d html/app-dev/bindings-java/javadocs
+        unzip -q -o ../$(locations //language-support/java:javadoc) -d html/app-dev/bindings-java/javadocs
         # Remove JAR metadata
         rm -r html/app-dev/bindings-java/javadocs/META-INF
 
@@ -631,16 +635,6 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "copy-trigger-template",
-    srcs = glob(
-        ["source/triggers/template-root/**"],
-        exclude = ["**/*~"],
-    ),
-    strip_prefix = "source/triggers/template-root",
-    visibility = ["//visibility:public"],
-)
-
-pkg_tar(
     name = "script-example-template",
     srcs = glob(
         ["source/daml-script/template-root/**"],
@@ -651,6 +645,5 @@ pkg_tar(
 )
 
 exports_files([
-    "source/triggers/template-root/src/CopyTrigger.daml",
     "source/daml-script/template-root/src/ScriptExample.daml",
 ])

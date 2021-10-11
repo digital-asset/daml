@@ -4,7 +4,6 @@
 package com.daml.codegen.dependencygraph
 
 import com.daml.lf.iface._
-import com.daml.lf.iface.reader.InterfaceType
 import com.daml.lf.data.Ref.Identifier
 import com.daml.codegen.{Util, lf}
 import com.daml.lf.data.ImmArray.ImmArraySeq

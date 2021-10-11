@@ -13,16 +13,15 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.DbType
 import com.google.common.util.concurrent.ThreadFactoryBuilder
+import javax.sql.DataSource
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NonFatal
 
 private[platform] final class DbDispatcher private (
-    val maxConnections: Int,
-    connectionProvider: HikariJdbcConnectionProvider,
+    connectionProvider: JdbcConnectionProvider,
     executor: Executor,
     overallWaitTimer: Timer,
     overallExecutionTimer: Timer,
@@ -83,22 +82,22 @@ private[platform] object DbDispatcher {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def owner(
+      dataSource: DataSource,
       serverRole: ServerRole,
-      jdbcUrl: String,
       connectionPoolSize: Int,
       connectionTimeout: FiniteDuration,
       metrics: Metrics,
-      connectionAsyncCommitMode: DbType.AsyncCommitMode,
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbDispatcher] =
     for {
-      connectionProvider <- HikariJdbcConnectionProvider.owner(
+      hikariDataSource <- HikariDataSourceOwner(
+        dataSource,
         serverRole,
-        jdbcUrl,
+        connectionPoolSize,
         connectionPoolSize,
         connectionTimeout,
-        metrics.registry,
-        connectionAsyncCommitMode,
+        Some(metrics.registry),
       )
+      connectionProvider <- DataSourceConnectionProvider.owner(hikariDataSource)
       threadPoolName = s"daml.index.db.threadpool.connection.${serverRole.threadPoolSuffix}"
       executor <- ResourceOwner.forExecutorService(() =>
         new InstrumentedExecutorService(
@@ -116,7 +115,6 @@ private[platform] object DbDispatcher {
         )
       )
     } yield new DbDispatcher(
-      maxConnections = connectionPoolSize,
       connectionProvider = connectionProvider,
       executor = executor,
       overallWaitTimer = metrics.daml.index.db.waitAll,

@@ -42,7 +42,6 @@ da_scala_library(
         "@maven//:com_github_pureconfig_pureconfig_core",
         "@maven//:com_github_pureconfig_pureconfig_generic",
         "@maven//:com_github_scopt_scopt",
-        "@maven//:com_lihaoyi_sourcecode",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_http",
         "@maven//:com_typesafe_akka_akka_http_core",
@@ -123,7 +122,6 @@ da_scala_library(
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger-service/lf-value-json",
-        "//ledger/ledger-api-common",
     ],
 )
 
@@ -170,8 +168,11 @@ da_scala_test_suite(
         "@maven//:org_sangria_graphql_sangria",
         "@maven//:org_sangria_graphql_sangria_marshalling_api",
         "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = navigator_scalacopts,
@@ -196,10 +197,12 @@ da_scala_test_suite(
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//libs-scala/build-info",
+        "//libs-scala/logging-entries",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/timer-utils",
         "@maven//:com_typesafe_config",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 

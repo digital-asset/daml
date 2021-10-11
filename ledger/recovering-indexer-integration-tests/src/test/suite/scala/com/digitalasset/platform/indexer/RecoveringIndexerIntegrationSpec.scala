@@ -13,21 +13,22 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.configuration.LedgerId
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.on.memory
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
-import com.daml.platform.store.{DbType, LfValueTranslationCache}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
+import com.daml.platform.store.{DbType, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.timer.RetryStrategy
@@ -193,8 +194,8 @@ class RecoveringIndexerIntegrationSpec
       newParticipantState: ParticipantStateFactory,
       restartDelay: FiniteDuration = 100.millis,
   )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState] = {
-    val ledgerId = LedgerString.assertFromString(s"ledger-$testId")
-    val participantId = ParticipantId.assertFromString(s"participant-$testId")
+    val ledgerId = Ref.LedgerString.assertFromString(s"ledger-$testId")
+    val participantId = Ref.ParticipantId.assertFromString(s"participant-$testId")
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}-$testId;db_close_delay=-1;db_close_on_exit=false"
     for {
@@ -211,6 +212,7 @@ class RecoveringIndexerIntegrationSpec
           jdbcUrl = jdbcUrl,
           startupMode = IndexerStartupMode.MigrateAndStart,
           restartDelay = restartDelay,
+          enableAppendOnlySchema = false,
         ),
         servicesExecutionContext = servicesExecutionContext,
         metrics = new Metrics(new MetricRegistry),
@@ -243,18 +245,18 @@ object RecoveringIndexerIntegrationSpec {
 
   private val eventually = RetryStrategy.exponentialBackoff(10, 10.millis)
 
-  private def randomSubmissionId(): SubmissionId =
-    SubmissionId.assertFromString(UUID.randomUUID().toString)
+  private def randomSubmissionId() =
+    Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
 
   private trait ParticipantStateFactory {
-    def apply(ledgerId: LedgerId, participantId: ParticipantId)(implicit
+    def apply(ledgerId: LedgerId, participantId: Ref.ParticipantId)(implicit
         materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState]
   }
 
   private object SimpleParticipantState extends ParticipantStateFactory {
-    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(implicit
+    override def apply(ledgerId: LedgerId, participantId: Ref.ParticipantId)(implicit
         materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] = {
@@ -279,7 +281,7 @@ object RecoveringIndexerIntegrationSpec {
   }
 
   private object ParticipantStateThatFailsOften extends ParticipantStateFactory {
-    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(implicit
+    override def apply(ledgerId: LedgerId, participantId: Ref.ParticipantId)(implicit
         materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] =

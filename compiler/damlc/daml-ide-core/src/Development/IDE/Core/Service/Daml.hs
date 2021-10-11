@@ -35,9 +35,6 @@ import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Shake
 import Development.IDE.Types.Location
 import Development.IDE.Types.Options
-import qualified Language.Haskell.LSP.Types.Capabilities as LSP
-import qualified Language.Haskell.LSP.Messages as LSP
-import qualified Language.Haskell.LSP.Types as LSP
 
 import DA.Daml.Options.Types
 import qualified DA.Daml.LF.Ast as LF
@@ -93,23 +90,19 @@ modifyOpenVirtualResources state f = do
     void $ shakeRun state []
 
 initialise
-    :: LSP.ClientCapabilities
-    -> Rules ()
-    -> IO LSP.LspId
-    -> (LSP.FromServerMessage -> IO ())
+    :: Rules ()
+    -> ShakeLspEnv
     -> Logger
     -> Debouncer NormalizedUri
     -> DamlEnv
     -> IdeOptions
     -> VFSHandle
     -> IO IdeState
-initialise caps mainRule getLspId toDiags logger debouncer damlEnv options vfs =
+initialise mainRule lspEnv logger debouncer damlEnv options vfs =
     IDE.initialise
-        caps
         (do addIdeGlobal damlEnv
             mainRule)
-        getLspId
-        toDiags
+        lspEnv
         logger
         debouncer
         options

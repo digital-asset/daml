@@ -3,7 +3,7 @@
 
 package com.daml.on.sql
 
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.testing.postgresql.PostgresAround
 

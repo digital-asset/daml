@@ -27,7 +27,7 @@ trait TestCommands {
 
   protected def darFile: File
 
-  protected def packageId: PackageId = DarReader().readArchiveFromFile(darFile).get.main._1
+  protected def packageId: PackageId = DarReader.assertReadArchiveFromFile(darFile).main.pkgId
 
   protected def templateIds = new TestTemplateIdentifiers(packageId)
 

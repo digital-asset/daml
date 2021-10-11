@@ -536,6 +536,7 @@ typeOfCase scrut alts = do
                 DataEnum cons ->  (,,) (length cons) (\k -> CPEnum scrutTCon (cons !! k))
                     <$> typeOfAltsEnum scrutTCon cons alts
                 DataRecord{} -> (,,) 1 (const CPDefault) <$> typeOfAltsOnlyDefault scrutType alts
+                DataInterface -> (,,) 1 (const CPDefault) <$> typeOfAltsOnlyDefault scrutType alts
         TUnit -> (,,) 1 (const CPUnit) <$> typeOfAltsUnit alts
         TBool -> (,,) 2 (CPBool . toEnum) <$> typeOfAltsBool alts
         TList elemType -> (,,) 2 ([CPNil, CPCons wildcard wildcard] !!) <$> typeOfAltsList elemType alts
@@ -590,6 +591,14 @@ typeOfExercise tpl chName cid arg = do
   checkExpr arg (chcArgType choice)
   pure (TUpdate (chcReturnType choice))
 
+typeOfExerciseInterface :: MonadGamma m =>
+  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
+typeOfExerciseInterface tpl chName cid arg = do
+  choice <- inWorld (lookupInterfaceChoice (tpl, chName))
+  checkExpr cid (TContractId (TCon tpl))
+  checkExpr arg (either ifcArgType chcArgType choice)
+  pure (TUpdate (either ifcRetType chcReturnType choice))
+
 typeOfExerciseByKey :: MonadGamma m =>
   Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
 typeOfExerciseByKey tplId chName key arg = do
@@ -607,6 +616,19 @@ checkFetch tpl cid = do
   _ :: Template <- inWorld (lookupTemplate tpl)
   checkExpr cid (TContractId (TCon tpl))
 
+checkFetchInterface :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
+checkFetchInterface tpl cid = do
+  void $ inWorld (lookupInterface tpl)
+  checkExpr cid (TContractId (TCon tpl))
+
+-- | Check that a template implements a given interface.
+checkImplements :: MonadGamma m => Qualified TypeConName -> Qualified TypeConName -> m ()
+checkImplements tpl iface = do
+  void $ inWorld (lookupInterface iface)
+  Template {tplImplements} <- inWorld (lookupTemplate tpl)
+  unless (NM.member iface tplImplements) $ do
+    throwWithContext (ETemplateDoesNotImplementInterface tpl iface)
+
 -- returns the contract id and contract type
 checkRetrieveByKey :: MonadGamma m => RetrieveByKey -> m (Type, Type)
 checkRetrieveByKey RetrieveByKey{..} = do
@@ -623,8 +645,10 @@ typeOfUpdate = \case
   UBind binding body -> typeOfBind binding body
   UCreate tpl arg -> checkCreate tpl arg $> TUpdate (TContractId (TCon tpl))
   UExercise tpl choice cid arg -> typeOfExercise tpl choice cid arg
+  UExerciseInterface tpl choice cid arg -> typeOfExerciseInterface tpl choice cid arg
   UExerciseByKey tpl choice key arg -> typeOfExerciseByKey tpl choice key arg
   UFetch tpl cid -> checkFetch tpl cid $> TUpdate (TCon tpl)
+  UFetchInterface tpl cid -> checkFetchInterface tpl cid $> TUpdate (TCon tpl)
   UGetTime -> pure (TUpdate TTimestamp)
   UEmbedExpr typ e -> do
     checkExpr e (TUpdate typ)
@@ -716,6 +740,18 @@ typeOf' = \case
     checkExceptionType ty2
     checkExpr val ty2
     pure ty1
+  EToInterface iface tpl val -> do
+    checkImplements tpl iface
+    checkExpr val (TCon tpl)
+    pure (TCon iface)
+  EFromInterface iface tpl val -> do
+    checkImplements tpl iface
+    checkExpr val (TCon iface)
+    pure (TOptional (TCon tpl))
+  ECallInterface iface method val -> do
+    method <- inWorld (lookupInterfaceMethod (iface, method))
+    checkExpr val (TCon iface)
+    pure (ifmType method)
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
@@ -771,9 +807,30 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
   where
     base = checkType synType KStar
 
+-- | Check that an interface definition is well defined.
+checkIface :: MonadGamma m => Module -> DefInterface -> m ()
+checkIface m DefInterface{intName, intParam, intVirtualChoices, intFixedChoices, intMethods} = do
+  checkUnique (EDuplicateInterfaceChoiceName intName) $ NM.names intVirtualChoices `union` NM.names intFixedChoices
+  checkUnique (EDuplicateInterfaceMethodName intName) $ NM.names intMethods
+  forM_ intVirtualChoices checkIfaceChoice
+  forM_ intMethods checkIfaceMethod
+
+  let tcon = Qualified PRSelf (moduleName m) intName
+  introExprVar intParam (TCon tcon) $ do
+    forM_ intFixedChoices (checkTemplateChoice tcon)
+
+checkIfaceChoice :: MonadGamma m => InterfaceChoice -> m ()
+checkIfaceChoice InterfaceChoice{ifcArgType,ifcRetType} = do
+  checkType ifcArgType KStar
+  checkType ifcRetType KStar
+
+checkIfaceMethod :: MonadGamma m => InterfaceMethod -> m ()
+checkIfaceMethod InterfaceMethod{ifmType} = do
+  checkType ifmType KStar
+
 -- | Check that a type constructor definition is well-formed.
-checkDefDataType :: MonadGamma m => DefDataType -> m ()
-checkDefDataType (DefDataType _loc _name _serializable params dataCons) = do
+checkDefDataType :: MonadGamma m => Module -> DefDataType -> m ()
+checkDefDataType m (DefDataType _loc name _serializable params dataCons) = do
   checkUnique EDuplicateTypeParam $ map fst params
   mapM_ (checkKind . snd) params
   foldr (uncurry introTypeVar) base params
@@ -786,6 +843,9 @@ checkDefDataType (DefDataType _loc _name _serializable params dataCons) = do
       DataEnum names -> do
         unless (null params) $ throwWithContext EEnumTypeWithParams
         checkUnique EDuplicateConstructor names
+      DataInterface -> do
+        unless (null params) $ throwWithContext EInterfaceTypeWithParams
+        void $ inWorld $ lookupInterface (Qualified PRSelf (moduleName m) name)
 
 checkDefValue :: MonadGamma m => DefValue -> m ()
 checkDefValue (DefValue _loc (_, typ) _noParties (IsTest isTest) expr) = do
@@ -809,7 +869,7 @@ checkTemplateChoice tpl (TemplateChoice _loc _ _ controllers mbObservers selfBin
     checkExpr upd (TUpdate retType)
 
 checkTemplate :: MonadGamma m => Module -> Template -> m ()
-checkTemplate m t@(Template _loc tpl param precond signatories observers text choices mbKey) = do
+checkTemplate m t@(Template _loc tpl param precond signatories observers text choices mbKey implements) = do
   let tcon = Qualified PRSelf (moduleName m) tpl
   DefDataType _loc _naem _serializable tparams dataCons <- inWorld (lookupDataType tcon)
   unless (null tparams) $ throwWithContext (EExpectedTemplatableType tpl)
@@ -821,8 +881,36 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     withPart TPAgreement $ checkExpr text TText
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
   whenJust mbKey $ checkTemplateKey param tcon
+  forM_ implements $ checkIfaceImplementation tcon
   where
     withPart p = withContext (ContextTemplate m t p)
+
+checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> TemplateImplements -> m ()
+checkIfaceImplementation tplTcon TemplateImplements{..} = do
+  let tplName = qualObject tplTcon
+  DefInterface {intVirtualChoices, intMethods} <- inWorld $ lookupInterface tpiInterface
+
+  -- check virtual choices
+  forM_ intVirtualChoices $ \InterfaceChoice {ifcName, ifcConsuming, ifcArgType, ifcRetType} -> do
+    TemplateChoice {chcConsuming, chcArgBinder, chcReturnType} <-
+      inWorld $ lookupChoice (tplTcon, ifcName)
+    unless (chcConsuming == ifcConsuming) $
+      throwWithContext $ EBadInterfaceChoiceImplConsuming ifcName ifcConsuming chcConsuming
+    unless (alphaType (snd chcArgBinder) ifcArgType) $
+      throwWithContext $ EBadInterfaceChoiceImplArgType ifcName ifcArgType (snd chcArgBinder)
+    unless (alphaType chcReturnType ifcRetType) $
+      throwWithContext $ EBadInterfaceChoiceImplRetType ifcName ifcRetType chcReturnType
+
+  -- check methods
+  let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet tpiMethods)
+  case HS.toList missingMethods of
+    [] -> pure ()
+    (methodName:_) -> throwWithContext (EMissingInterfaceMethod tplName tpiInterface methodName)
+  forM_ tpiMethods $ \TemplateImplementsMethod{tpiMethodName, tpiMethodExpr} -> do
+    case NM.lookup tpiMethodName intMethods of
+      Nothing -> throwWithContext (EUnknownInterfaceMethod tplName tpiInterface tpiMethodName)
+      Just InterfaceMethod{ifmType} ->
+        checkExpr tpiMethodExpr (TCon tplTcon :-> ifmType)
 
 _checkFeature :: MonadGamma m => Feature -> m ()
 _checkFeature feature = do
@@ -853,10 +941,13 @@ checkDefException m DefException{..} = do
 -- The type checker for expressions relies on the fact that data type
 -- definitions do _not_ contain free variables.
 checkModule :: MonadGamma m => Module -> m ()
-checkModule m@(Module _modName _path _flags synonyms dataTypes values templates exceptions) = do
+checkModule m@(Module _modName _path _flags synonyms dataTypes values templates exceptions interfaces) = do
   let with ctx f x = withContext (ctx x) (f x)
   traverse_ (with (ContextDefTypeSyn m) checkDefTypeSyn) synonyms
-  traverse_ (with (ContextDefDataType m) checkDefDataType) dataTypes
+  traverse_ (with (ContextDefDataType m) $ checkDefDataType m) dataTypes
+  -- NOTE(SF): Interfaces should be checked before templates, because the typechecking
+  -- for templates relies on well-typed interface definitions.
+  traverse_ (with (ContextDefInterface m) (checkIface m)) interfaces
   traverse_ (with (\t -> ContextTemplate m t TPWhole) $ checkTemplate m) templates
   traverse_ (with (ContextDefException m) (checkDefException m)) exceptions
   traverse_ (with (ContextDefValue m) checkDefValue) values

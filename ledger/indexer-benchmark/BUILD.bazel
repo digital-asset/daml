@@ -15,7 +15,7 @@ load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@scala_version//:index.bzl", "scala_major_version_suffix")
 
 da_scala_library(
-    name = "indexer-benchmark",
+    name = "indexer-benchmark-lib",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
@@ -23,15 +23,15 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
     ],
-    tags = ["maven_coordinates=com.daml:ledger-indexer-benchmark:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
         "//daml-lf/data",
         "//language-support/scala/bindings",
-        "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-configuration",
+        "//ledger/ledger-offset",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
@@ -56,11 +56,12 @@ da_scala_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        ":indexer-benchmark",
+        ":indexer-benchmark-lib",
         "//daml-lf/data",
         "//language-support/scala/bindings",
-        "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-configuration",
+        "//ledger/ledger-offset",
         "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
@@ -70,8 +71,13 @@ da_scala_library(
 )
 
 da_scala_binary(
-    name = "app",
+    name = "indexer-benchmark",
     main_class = "com.daml.ledger.indexerbenchmark.Main",
+    tags = [
+        "fat_jar",
+        "maven_coordinates=com.daml:ledger-indexer-benchmark:__VERSION__",
+        "no_scala_version_suffix",
+    ],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",

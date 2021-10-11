@@ -8,7 +8,6 @@ import akka.actor.ActorSystem
 import akka.stream._
 import com.daml.auth.TokenHolder
 import com.daml.lf.PureCompiledPackages
-import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
 import com.daml.lf.language.Ast._
@@ -35,6 +34,10 @@ import scala.concurrent.{Await, ExecutionContext}
 import scala.util.{Failure, Success}
 
 object ReplServiceMain extends App {
+  final class NonSerializableValue extends RuntimeException {
+    override def toString = "Cannot convert non-serializable value to JSON"
+  }
+
   case class Config(
       portFile: Path,
       ledgerHost: Option[String],
@@ -221,10 +224,10 @@ class ReplService(
       req: LoadPackageRequest,
       respObs: StreamObserver[LoadPackageResponse],
   ): Unit = {
-    val (pkgId, pkg) = Decode.decodeArchiveFromInputStream(req.getPackage.newInput)
+    val (pkgId, pkg) = archive.ArchiveDecoder.assertFromByteString(req.getPackage)
     val newSignatures = signatures.updated(pkgId, AstUtil.toSignature(pkg))
     val newCompiledDefinitions = compiledDefinitions ++
-      new Compiler(new language.Interface(newSignatures), compilerConfig)
+      new Compiler(new language.PackageInterface(newSignatures), compilerConfig)
         .unsafeCompilePackage(pkgId, pkg)
     signatures = newSignatures
     compiledDefinitions = newCompiledDefinitions
@@ -237,13 +240,7 @@ class ReplService(
       respObs: StreamObserver[RunScriptResponse],
   ): Unit = {
     val lfVer = LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor(req.getMinor))
-    val dop: Decode.OfPackage[_] = Decode.decoders
-      .lift(lfVer)
-      .getOrElse(throw new RuntimeException(s"No decode support for LF ${lfVer.pretty}"))
-      .decoder
-    val lfScenarioModule =
-      dop.protoScenarioModule(Decode.damlLfCodedInputStream(req.getDamlLf1.newInput))
-    val mod: Ast.Module = dop.decodeScenarioModule(homePackageId, lfScenarioModule)
+    val mod = archive.moduleDecoder(lfVer, homePackageId).assertFromByteString(req.getDamlLf1)
     val pkg = Package((mainModules + (mod.name -> mod)).values, Seq(), lfVer, None)
     // TODO[AH] Provide daml-script package id from REPL client.
     val Some(scriptPackageId) = this.signatures.collectFirst {
@@ -260,7 +257,7 @@ class ReplService(
     }
 
     val signatures = this.signatures.updated(homePackageId, AstUtil.toSignature(pkg))
-    val interface = new language.Interface(signatures)
+    val interface = new language.PackageInterface(signatures)
     val defs =
       new Compiler(interface, compilerConfig).unsafeCompilePackage(homePackageId, pkg)
     val compiledPackages =
@@ -281,12 +278,10 @@ class ReplService(
               }
             case RunScriptRequest.Format.JSON =>
               try {
-                LfValueCodec.apiValueToJsValue(v.toValue).compactPrint
+                LfValueCodec.apiValueToJsValue(v.toUnnormalizedValue).compactPrint
               } catch {
-                case e @ SError.SErrorCrash(_) => {
-                  logger.error(s"Cannot convert non-serializable value to JSON")
-                  throw e
-                }
+                case SError.SErrorCrash(_, _) => throw new ReplServiceMain.NonSerializableValue()
+
               }
             case RunScriptRequest.Format.UNRECOGNIZED =>
               throw new RuntimeException("Unrecognized response format")
@@ -294,10 +289,6 @@ class ReplService(
         )
       }
       .onComplete {
-        case Failure(e: SError.SError) =>
-          // The error here is already printed by the logger in stepToValue.
-          // No need to print anything here.
-          respObs.onError(e)
         case Failure(originalE) =>
           val e = originalE match {
             // For now, don’t show stack traces in Daml Repl. They look fairly confusing
@@ -305,8 +296,12 @@ class ReplService(
             case e: ScriptF.FailedCmd => e.cause
             case _ => originalE
           }
-          println(s"$e")
-          respObs.onError(e)
+          respObs.onNext(
+            RunScriptResponse.newBuilder
+              .setError(ScriptError.newBuilder.setError(e.toString).build)
+              .build
+          )
+          respObs.onCompleted
         case Success((v, result)) =>
           results = results :+ v
           if (moduleRefs(v).contains(mod.name)) {
@@ -314,7 +309,11 @@ class ReplService(
             // current module, we have to keep that module around.
             mainModules += mod.name -> mod
           }
-          respObs.onNext(RunScriptResponse.newBuilder.setResult(result).build)
+          respObs.onNext(
+            RunScriptResponse.newBuilder
+              .setSuccess(ScriptSuccess.newBuilder.setResult(result).build)
+              .build
+          )
           respObs.onCompleted
       }
   }

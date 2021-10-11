@@ -16,7 +16,7 @@ import qualified Com.Daml.Ledger.Api.V1.LedgerConfigurationService as LL
 getLedgerConfiguration :: LedgerId -> LedgerService (Stream LedgerConfiguration)
 getLedgerConfiguration lid =
     makeLedgerService $ \timeout config mdm -> do
-    let request = LL.GetLedgerConfigurationRequest (unLedgerId lid) noTrace
+    let request = LL.GetLedgerConfigurationRequest (unLedgerId lid)
     asyncStreamGen $ \stream ->
         withGRPCClient config $ \client -> do
             service <- LL.ledgerConfigurationServiceClient client

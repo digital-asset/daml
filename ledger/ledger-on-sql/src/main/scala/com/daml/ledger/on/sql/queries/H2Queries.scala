@@ -7,10 +7,10 @@ import java.sql.Connection
 
 import anorm.SqlParser._
 import anorm._
+import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.v1.LedgerId
 
 import scala.util.Try
 

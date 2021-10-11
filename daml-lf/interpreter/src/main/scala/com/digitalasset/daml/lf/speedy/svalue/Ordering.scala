@@ -5,6 +5,7 @@ package com.daml.lf
 package speedy
 package svalue
 
+import com.daml.nameof.NameOf
 import data.{Bytes, Utf8}
 import language.TypeOrdering
 import value.Value.ContractId
@@ -13,7 +14,7 @@ import scala.jdk.CollectionConverters._
 
 object Ordering extends scala.math.Ordering[SValue] {
 
-  @throws[SError.SErrorCrash]
+  @throws[SError.SError]
   // Ordering between two SValues of same type.
   // This follows the equality defined in the daml-lf spec.
   def compare(x: SValue, y: SValue): Int = {
@@ -84,10 +85,13 @@ object Ordering extends scala.math.Ordering[SValue] {
         case (STypeRep(xType), STypeRep(yType)) =>
           diff = TypeOrdering.compare(xType, yType)
         case (_: SPAP, _: SPAP) =>
-          throw SError.SErrorCrash("functions are not comparable")
+          throw SError.SErrorDamlException(interpretation.Error.NonComparableValues)
         // We should never hit this case at runtime.
         case _ =>
-          throw SError.SErrorCrash("BUG: comparison of incomparable values")
+          throw SError.SErrorCrash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"trying to compare value of different type:\n- $x\n- $y",
+          )
       }
 
     while (diff == 0 && stackX.nonEmpty) {
@@ -102,24 +106,39 @@ object Ordering extends scala.math.Ordering[SValue] {
     diff
   }
   @inline
-  private[this] def compareCid(cid1: ContractId, cid2: ContractId): Int =
+  private[this] def compareCid(cid1: ContractId, cid2: ContractId): Int = {
+    // Note that the engine never produce V0 contract IDs directly
+    // (V0 contract ID scheme can only be "emulated" at commit using
+    // `com.daml.lf.transaction.LegacyTransactionCommitter`).
+    // So we can assume here that all V0 Contract IDs are global.
     (cid1, cid2) match {
       case (ContractId.V0(s1), ContractId.V0(s2)) =>
         s1 compareTo s2
-      case (ContractId.V0(_), ContractId.V1(_, _)) =>
+      case (_: ContractId.V0, _: ContractId.V1) =>
         -1
-      case (ContractId.V1(_, _), ContractId.V0(_)) =>
+      case (_: ContractId.V1, _: ContractId.V0) =>
         +1
-      case (ContractId.V1(hash1, suffix1), ContractId.V1(hash2, suffix2)) =>
-        val c1 = crypto.Hash.ordering.compare(hash1, hash2)
-        if (c1 != 0)
+      case (
+            cid1 @ ContractId.V1(discriminator1, suffix1),
+            cid2 @ ContractId.V1(discriminator2, suffix2),
+          ) =>
+        val c1 = crypto.Hash.ordering.compare(discriminator1, discriminator2)
+        if (c1 != 0) {
           c1
-        else if (suffix1.isEmpty == suffix2.isEmpty)
-          Bytes.ordering.compare(suffix1, suffix2)
-        else
-          throw SError.SErrorCrash(
-            "Conflicting discriminators between a local and global contract id"
-          )
+        } else if (suffix1.isEmpty) {
+          if (suffix2.isEmpty) {
+            0
+          } else {
+            throw SError.SErrorDamlException(interpretation.Error.ContractIdComparability(cid2))
+          }
+        } else {
+          if (suffix2.isEmpty) {
+            throw SError.SErrorDamlException(interpretation.Error.ContractIdComparability(cid1))
+          } else {
+            Bytes.ordering.compare(suffix1, suffix2)
+          }
+        }
     }
+  }
 
 }

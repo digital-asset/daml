@@ -155,8 +155,8 @@ da_haskell_library(
         "ghc-lib",
         "ghc-lib-parser",
         "gitrev",
-        "haskell-lsp",
-        "haskell-lsp-types",
+        "lsp",
+        "lsp-types",
         "lens",
         "lens-aeson",
         "memory",
@@ -320,7 +320,7 @@ daml_doc_test(
     flags = ["--no-dflags-check"],
     ignored_srcs = [
         "LibraryModules.daml",
-        "DA/Experimental/Example.daml",
+        "DA/Experimental/*.daml",
         "DA/Time/Types.daml",
     ],
 )

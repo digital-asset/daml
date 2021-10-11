@@ -5,14 +5,12 @@
 {-# LANGUAGE GADTs #-}
 
 module DA.Ledger.GrpcWrapUtils (
-    noTrace,
     unwrap, unwrapWithNotFound, unwrapWithInvalidArgument,
     sendToStream,
     ) where
 
 import Prelude hiding (fail)
 
-import Com.Daml.Ledger.Api.V1.TraceContext (TraceContext)
 import Control.Exception (throwIO)
 import Control.Monad.Fail (fail)
 import Control.Monad.Fix (fix)
@@ -20,9 +18,6 @@ import DA.Ledger.Stream
 import DA.Ledger.Convert (Perhaps,runRaise)
 import Network.GRPC.HighLevel (clientCallCancel)
 import Network.GRPC.HighLevel.Generated
-
-noTrace :: Maybe TraceContext
-noTrace = Nothing
 
 unwrap :: ClientResult 'Normal a -> IO a
 unwrap = \case

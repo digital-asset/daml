@@ -50,6 +50,8 @@ alias(
             "//ledger/ledger-api-common",
             "//ledger/ledger-api-domain",
             "//ledger/ledger-api-health",
+            "//ledger/ledger-configuration",
+            "//ledger/ledger-offset",
             "//ledger/ledger-on-sql",
             "//ledger/ledger-resources",
             "//ledger/metrics",
@@ -104,7 +106,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scala_runtime_deps = [
@@ -125,10 +127,10 @@ da_scala_library(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-configuration",
         "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
-        "//ledger/participant-state",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//libs-scala/ports",
@@ -136,6 +138,7 @@ da_scala_library(
         "//libs-scala/resources",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:io_netty_netty_handler",
+        "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -170,7 +173,10 @@ reset_service_pattern = "src/test/suite/**/*ResetService*.scala"
             "@maven//:org_mockito_mockito_scala",
             "@maven//:org_scalacheck_scalacheck",
             "@maven//:org_scalactic_scalactic",
-            "@maven//:org_scalatest_scalatest",
+            "@maven//:org_scalatest_scalatest_core",
+            "@maven//:org_scalatest_scalatest_matchers_core",
+            "@maven//:org_scalatest_scalatest_shouldmatchers",
+            "@maven//:org_scalatest_scalatest_wordspec",
             "@maven//:org_scalaz_scalaz_core",
         ],
         deps = [
@@ -198,6 +204,8 @@ reset_service_pattern = "src/test/suite/**/*ResetService*.scala"
             "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",
             "//ledger/ledger-api-domain",
             "//ledger/ledger-api-health",
+            "//ledger/ledger-configuration",
+            "//ledger/ledger-offset",
             "//ledger/ledger-resources",
             "//ledger/ledger-resources:ledger-resources-test-lib",
             "//ledger/metrics",
@@ -226,6 +234,7 @@ reset_service_pattern = "src/test/suite/**/*ResetService*.scala"
             "@maven//:org_flywaydb_flyway_core",
             "@maven//:org_mockito_mockito_core",
             "@maven//:org_reactivestreams_reactive_streams",
+            "@maven//:org_scalatest_scalatest_compatible",
             "@maven//:org_slf4j_slf4j_api",
         ],
     )
@@ -267,7 +276,7 @@ NEXT_SERVERS = {
 server_conformance_test(
     name = "next-conformance-test-static-time",
     lf_versions = [
-        "stable",
+        "default",
         "latest",
         "preview",
     ],
@@ -277,6 +286,7 @@ server_conformance_test(
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ClosedWorldIT",
     ],
 )
@@ -285,10 +295,13 @@ server_conformance_test(
     name = "next-conformance-test-wall-clock",
     server_args = [
         "--wall-clock-time",
+        "--max-deduplication-duration=PT5S",
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
+        "--additional=KVCommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ClosedWorldIT",
     ],
 )
@@ -303,5 +316,33 @@ server_conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ClosedWorldIT",
+    ],
+)
+
+server_conformance_test(
+    name = "next-conformance-test-contract-ids",
+    servers = {"memory": NEXT_SERVERS["memory"]},
+    test_tool_args = [
+        "--verbose",
+        "--include=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
+    ],
+)
+
+# TODO append-only: cleanup
+server_conformance_test(
+    name = "next-conformance-test-append-only",
+    server_args = [
+        "--enable-append-only-schema",
+        "--max-deduplication-duration=PT5S",
+    ],
+    servers = {"postgresql": NEXT_SERVERS["postgresql"]},
+    test_tool_args = [
+        "--open-world",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        "--exclude=ClosedWorldIT",
     ],
 )

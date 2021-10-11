@@ -9,21 +9,22 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.wire._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataExporter,
   SubmissionAggregator,
   SubmissionInfo,
 }
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{CorrelationId, Envelope, KeyValueCommitting, Raw}
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator
 import com.daml.ledger.validator.SubmissionValidator.LogEntryAndState
 import com.daml.ledger.validator._
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
-import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
-import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.lf.data.{Ref, Time}
+import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 
@@ -63,7 +64,7 @@ object BatchedSubmissionValidator {
   private def withCorrelationIdLogged[T](
       correlationId: CorrelationId
   )(f: LoggingContext => T): T = {
-    newLoggingContext("correlationId" -> correlationId) { loggingContext =>
+    newLoggingContextWith("correlationId" -> correlationId) { loggingContext =>
       f(loggingContext)
     }
   }
@@ -99,7 +100,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       submissionEnvelope: Raw.Envelope,
       correlationId: CorrelationId,
       recordTimeInstant: Instant,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       ledgerStateReader: DamlLedgerStateReader,
       commitStrategy: CommitStrategy[CommitResult],
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] =
@@ -239,7 +240,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
     * processing pipeline.
     */
   private def processBatch(
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       recordTime: Timestamp,
       indexedSubmissions: Source[Inputs, NotUsed],
       damlLedgerStateReader: DamlLedgerStateReader,
@@ -319,7 +320,10 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
   private def fetchSubmissionInputs(
       correlatedSubmission: CorrelatedSubmission,
       ledgerStateReader: DamlLedgerStateReader,
-  )(implicit executionContext: ExecutionContext): Future[FetchedInput] = {
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[FetchedInput] = {
     val inputKeys = correlatedSubmission.submission.getInputDamlStateList.asScala
     withSubmissionLoggingContext(correlatedSubmission) { _ =>
       Timed.timedAndTrackedFuture(
@@ -335,7 +339,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
   }
 
   private def validateSubmission(
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       recordTime: Timestamp,
       correlatedSubmission: CorrelatedSubmission,
       inputState: DamlInputState,
@@ -401,29 +405,28 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
   }
 
   private def commitResult(
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       correlatedSubmission: CorrelatedSubmission,
       inputState: DamlInputState,
       logEntryAndState: LogEntryAndState,
       commitStrategy: CommitStrategy[CommitResult],
       exporterWriteSet: SubmissionAggregator.WriteSetBuilder,
-  )(implicit executionContext: ExecutionContext): Future[Unit] = {
+  )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext): Future[Unit] = {
     val (logEntry, outputState) = logEntryAndState
     withSubmissionLoggingContext(correlatedSubmission) { _ =>
       Timed
         .timedAndTrackedFuture(
           metrics.commit,
           metrics.commitRunning,
-          commitStrategy
-            .commit(
-              participantId,
-              correlatedSubmission.correlationId,
-              correlatedSubmission.logEntryId,
-              logEntry,
-              inputState,
-              outputState,
-              Some(exporterWriteSet),
-            ),
+          commitStrategy.commit(
+            participantId,
+            correlatedSubmission.correlationId,
+            correlatedSubmission.logEntryId,
+            logEntry,
+            inputState,
+            outputState,
+            Some(exporterWriteSet),
+          ),
         )
         .map(_ => ())
     }

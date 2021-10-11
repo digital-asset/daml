@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.ledger
+package com.daml.lf
+package ledger
 
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
@@ -9,11 +10,9 @@ import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.{NodeId, Transaction => Tx}
 import com.daml.lf.value.Value.ContractId
+import com.daml.nameof.NameOf
 
 object BlindingTransaction {
-
-  def crash(reason: String) =
-    throw new IllegalArgumentException(reason)
 
   private object BlindState {
     val Empty =
@@ -31,7 +30,10 @@ object BlindingTransaction {
         nid: NodeId,
     ): BlindState = {
       if (disclosures.contains(nid))
-        crash(s"discloseNode: nodeId already processed '$nid'.")
+        InternalError.illegalArgumentException(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"discloseNode: nodeId already processed '$nid'.",
+        )
       // Each node should be visible to someone
       copy(
         disclosures = disclosures.updated(nid, witnesses)
@@ -64,7 +66,7 @@ object BlindingTransaction {
         nodeId: NodeId,
     ): BlindState =
       tx.nodes.get(nodeId) match {
-        case Some(action: Node.GenActionNode[NodeId, ContractId]) =>
+        case Some(action: Node.GenActionNode) =>
           val witnesses = parentExerciseWitnesses union action.informeesOfNode
 
           // actions of every type are disclosed to their witnesses
@@ -72,16 +74,16 @@ object BlindingTransaction {
 
           action match {
 
-            case _: Node.NodeCreate[ContractId] => state
-            case _: Node.NodeLookupByKey[ContractId] => state
+            case _: Node.NodeCreate => state
+            case _: Node.NodeLookupByKey => state
 
             // fetch & exercise nodes cause divulgence
 
-            case fetch: Node.NodeFetch[ContractId] =>
+            case fetch: Node.NodeFetch =>
               state
                 .divulgeCoidTo(parentExerciseWitnesses -- fetch.stakeholders, fetch.coid)
 
-            case ex: Node.NodeExercises[NodeId, ContractId] =>
+            case ex: Node.NodeExercises =>
               val state1 =
                 state.divulgeCoidTo(
                   (parentExerciseWitnesses union ex.choiceObservers) -- ex.stakeholders,
@@ -96,7 +98,7 @@ object BlindingTransaction {
                 )
               }
           }
-        case Some(rollback: Node.NodeRollback[NodeId]) =>
+        case Some(rollback: Node.NodeRollback) =>
           // Rollback nodes are disclosed to the witnesses of the parent exercise.
           val state = state0.discloseNode(parentExerciseWitnesses, nodeId)
           rollback.children.foldLeft(state) { (s, childNodeId) =>
@@ -107,8 +109,9 @@ object BlindingTransaction {
             )
           }
         case None =>
-          throw new IllegalArgumentException(
-            s"processNode - precondition violated: node $nodeId not present"
+          InternalError.illegalArgumentException(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"processNode - precondition violated: node $nodeId not present",
           )
       }
 

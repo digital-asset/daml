@@ -3,10 +3,11 @@
 
 package com.daml.http
 
+import com.daml.dbutils.DBConfig.JdbcConfigDefaults
+
 object Cli extends CliBase {
-  override protected def configParser(
-      getEnvVar: String => Option[String],
-      supportedJdbcDriverNames: Set[String],
+  override protected def configParser(getEnvVar: String => Option[String])(implicit
+      jcd: JdbcConfigDefaults
   ): OptionParser =
-    new OptionParser(getEnvVar, supportedJdbcDriverNames)
+    new OptionParser(getEnvVar)
 }

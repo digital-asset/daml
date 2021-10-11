@@ -3,8 +3,6 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import java.io.InputStream
-
 import com.daml.ledger.api.v1.event.{
   ArchivedEvent => PbArchivedEvent,
   CreatedEvent => PbCreatedEvent,
@@ -24,7 +22,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * wrap events from the database while delaying deserialization
   * so that it doesn't happen on the database thread pool.
   */
-private[events] sealed trait Raw[+E] {
+sealed trait Raw[+E] {
 
   /** Fill the blanks left in the raw event by running
     * the deserialization on contained values.
@@ -42,17 +40,18 @@ private[events] sealed trait Raw[+E] {
 
 }
 
-private[events] object Raw {
+// TODO append-only: FIXME move
+object Raw {
 
   /** Since created events can be both a flat event or a tree event
     * we share common code between the two variants here. What's left
     * out is wrapping the result in the proper envelope.
     */
-  private[events] sealed abstract class Created[E](
+  sealed abstract class Created[E](
       val partial: PbCreatedEvent,
-      val createArgument: InputStream,
+      val createArgument: Array[Byte],
       val createArgumentCompression: Compression.Algorithm,
-      val createKeyValue: Option[InputStream],
+      val createKeyValue: Option[Array[Byte]],
       val createKeyValueCompression: Compression.Algorithm,
   ) extends Raw[E] {
     protected def wrapInEvent(event: PbCreatedEvent): E
@@ -67,7 +66,7 @@ private[events] object Raw {
       lfValueTranslation.deserialize(this, verbose).map(wrapInEvent)
   }
 
-  private object Created {
+  object Created {
     def apply(
         eventId: String,
         contractId: String,
@@ -96,9 +95,9 @@ private[events] object Raw {
 
     final class Created private[Raw] (
         raw: PbCreatedEvent,
-        createArgument: InputStream,
+        createArgument: Array[Byte],
         createArgumentCompression: Compression.Algorithm,
-        createKeyValue: Option[InputStream],
+        createKeyValue: Option[Array[Byte]],
         createKeyValueCompression: Compression.Algorithm,
     ) extends Raw.Created[PbFlatEvent](
           raw,
@@ -117,12 +116,12 @@ private[events] object Raw {
           eventId: String,
           contractId: String,
           templateId: Identifier,
-          createArgument: InputStream,
+          createArgument: Array[Byte],
           createArgumentCompression: Option[Int],
           createSignatories: ArraySeq[String],
           createObservers: ArraySeq[String],
           createAgreementText: Option[String],
-          createKeyValue: Option[InputStream],
+          createKeyValue: Option[Array[Byte]],
           createKeyValueCompression: Option[Int],
           eventWitnesses: ArraySeq[String],
       ): Raw.FlatEvent.Created =
@@ -184,9 +183,9 @@ private[events] object Raw {
 
     final class Created(
         raw: PbCreatedEvent,
-        createArgument: InputStream,
+        createArgument: Array[Byte],
         createArgumentCompression: Compression.Algorithm,
-        createKeyValue: Option[InputStream],
+        createKeyValue: Option[Array[Byte]],
         createKeyValueCompression: Compression.Algorithm,
     ) extends Raw.Created[PbTreeEvent](
           raw,
@@ -205,12 +204,12 @@ private[events] object Raw {
           eventId: String,
           contractId: String,
           templateId: Identifier,
-          createArgument: InputStream,
+          createArgument: Array[Byte],
           createArgumentCompression: Option[Int],
           createSignatories: ArraySeq[String],
           createObservers: ArraySeq[String],
           createAgreementText: Option[String],
-          createKeyValue: Option[InputStream],
+          createKeyValue: Option[Array[Byte]],
           createKeyValueCompression: Option[Int],
           eventWitnesses: ArraySeq[String],
       ): Raw.TreeEvent.Created =
@@ -233,9 +232,9 @@ private[events] object Raw {
 
     final class Exercised(
         val partial: PbExercisedEvent,
-        val exerciseArgument: InputStream,
+        val exerciseArgument: Array[Byte],
         val exerciseArgumentCompression: Compression.Algorithm,
-        val exerciseResult: Option[InputStream],
+        val exerciseResult: Option[Array[Byte]],
         val exerciseResultCompression: Compression.Algorithm,
     ) extends TreeEvent {
       override def applyDeserialization(
@@ -258,9 +257,9 @@ private[events] object Raw {
           templateId: Identifier,
           exerciseConsuming: Boolean,
           exerciseChoice: String,
-          exerciseArgument: InputStream,
+          exerciseArgument: Array[Byte],
           exerciseArgumentCompression: Option[Int],
-          exerciseResult: Option[InputStream],
+          exerciseResult: Option[Array[Byte]],
           exerciseResultCompression: Option[Int],
           exerciseActors: ArraySeq[String],
           exerciseChildEventIds: ArraySeq[String],

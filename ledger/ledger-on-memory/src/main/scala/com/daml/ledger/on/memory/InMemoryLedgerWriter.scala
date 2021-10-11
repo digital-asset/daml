@@ -9,11 +9,11 @@ import com.daml.api.util.TimeProvider
 import com.daml.caching.Cache
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.on.memory.InMemoryLedgerWriter._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.api.{CommitMetadata, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, Raw}
-import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
+import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator.caching.{CachingStateReader, ImmutablesOnlyCacheUpdatePolicy}
 import com.daml.ledger.validator.preexecution.{
@@ -27,16 +27,17 @@ import com.daml.ledger.validator.preexecution.{
 }
 import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
 import com.daml.ledger.validator.{SerializingStateReader, StateKeySerializationStrategy}
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
-import com.daml.telemetry.TelemetryContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
+import com.daml.telemetry.TelemetryContext
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
 final class InMemoryLedgerWriter private[memory] (
-    override val participantId: ParticipantId,
+    override val participantId: Ref.ParticipantId,
     dispatcher: Dispatcher[Index],
     now: () => Instant,
     state: InMemoryState,
@@ -44,6 +45,7 @@ final class InMemoryLedgerWriter private[memory] (
     committerExecutionContext: ExecutionContext,
     metrics: Metrics,
 ) extends LedgerWriter {
+
   override def commit(
       correlationId: String,
       envelope: Raw.Envelope,
@@ -77,7 +79,7 @@ object InMemoryLedgerWriter {
   ]
 
   final class Owner(
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       keySerializationStrategy: StateKeySerializationStrategy,
       metrics: Metrics,
       timeProvider: TimeProvider = DefaultTimeProvider,

@@ -6,14 +6,12 @@ package com.daml.platform.sandbox.cli
 import java.io.File
 import java.net.InetSocketAddress
 import java.nio.file.{Files, Paths}
-import java.time.Duration
-
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.participant.state.v1
+import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration, TlsVersion}
 import com.daml.ledger.test.ModelTestDar
-import com.daml.platform.configuration.MetricsReporter
-import com.daml.platform.configuration.MetricsReporter.{Graphite, Prometheus}
+import com.daml.lf.data.Ref
+import com.daml.metrics.MetricsReporter
+import com.daml.metrics.MetricsReporter.{Graphite, Prometheus}
 import com.daml.platform.sandbox.cli.CommonCliSpecBase._
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
@@ -22,6 +20,7 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters._
 
 abstract class CommonCliSpecBase(
@@ -71,7 +70,7 @@ abstract class CommonCliSpecBase(
       val participantId = "myParticipant"
       checkOption(
         Array("--participant-id", participantId),
-        _.copy(participantId = v1.ParticipantId.assertFromString("myParticipant")),
+        _.copy(participantId = Ref.ParticipantId.assertFromString("myParticipant")),
       )
     }
 
@@ -116,6 +115,84 @@ abstract class CommonCliSpecBase(
       checkOption(
         Array("--pem", pem),
         _.copy(tlsConfig = Some(TlsConfiguration(enabled = true, None, Some(new File(pem)), None))),
+      )
+    }
+
+    "succeed when server's private key is encrypted and secret-url is provided" in {
+      checkOption(
+        Array(
+          "--pem",
+          "key.enc",
+          "--tls-secrets-url",
+          "http://aaa",
+        ),
+        _.copy(tlsConfig =
+          Some(
+            TlsConfiguration(
+              enabled = true,
+              secretsUrl = Some(SecretsUrl.fromString("http://aaa")),
+              keyFile = Some(new File("key.enc")),
+              keyCertChainFile = None,
+              trustCertCollectionFile = None,
+            )
+          )
+        ),
+      )
+    }
+
+    "fail parsing a bogus TLS version" in {
+      checkOptionFail(
+        Array(
+          "--min-tls-version",
+          "111",
+        )
+      )
+    }
+
+    "succeed parsing a supported TLS version" in {
+      checkOption(
+        Array(
+          "--min-tls-version",
+          "1.3",
+        ),
+        _.copy(tlsConfig =
+          Some(
+            TlsConfiguration(
+              enabled = true,
+              minimumServerProtocolVersion = Some(TlsVersion.V1_3),
+            )
+          )
+        ),
+      )
+
+    }
+
+    "fail when server's private key is encrypted but secret-url is not provided" in {
+      checkOptionFail(
+        Array(
+          "--pem",
+          "key.enc",
+        )
+      )
+    }
+
+    "succeed when server's private key is in plaintext and secret-url is not provided" in {
+      checkOption(
+        Array(
+          "--pem",
+          "key.txt",
+        ),
+        _.copy(tlsConfig =
+          Some(
+            TlsConfiguration(
+              enabled = true,
+              secretsUrl = None,
+              keyFile = Some(new File("key.txt")),
+              keyCertChainFile = None,
+              trustCertCollectionFile = None,
+            )
+          )
+        ),
       )
     }
 
@@ -266,12 +343,31 @@ abstract class CommonCliSpecBase(
       config shouldEqual None
     }
 
-    "parse the metrics reporting interval when given" in {
+    "parse the metrics reporting interval (java duration format) when given" in {
       checkOption(
         Array("--metrics-reporting-interval", "PT1M30S"),
-        _.copy(metricsReportingInterval = Duration.ofSeconds(90)),
+        _.copy(metricsReportingInterval = 90.seconds),
       )
     }
+
+    "parse the metrics reporting interval (scala duration format) when given" in {
+      checkOption(
+        Array("--metrics-reporting-interval", "1.5min"),
+        _.copy(metricsReportingInterval = 90.seconds),
+      )
+    }
+
+    "parse error codes v2 flag" in {
+      checkOption(
+        Array("--use-self-service-error-codes"),
+        _.copy(enableSelfServiceErrorCodes = true),
+      )
+      checkOption(
+        Array(),
+        _.copy(enableSelfServiceErrorCodes = false),
+      )
+    }
+
   }
 
   protected def checkOption(
@@ -281,6 +377,11 @@ abstract class CommonCliSpecBase(
     val expectedConfig = expectedChange(defaultConfig.copy(damlPackages = List(new File(archive))))
     val config = cli.parse(requiredArgs ++ args ++ Array(archive))
     config shouldEqual Some(expectedConfig)
+  }
+
+  protected def checkOptionFail(args: Array[String]): Assertion = {
+    val config = cli.parse(requiredArgs ++ args ++ Array(archive))
+    config shouldEqual None
   }
 }
 

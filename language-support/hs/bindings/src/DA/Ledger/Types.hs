@@ -52,10 +52,10 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     TemplateId(..),
     TransactionId(..),
     WorkflowId(..),
-
+    SubmissionId(..),
     LL.Duration(..),
     LL.Status(..),
-
+    DeduplicationPeriod(..)
     ) where
 
 import qualified Data.Aeson as A
@@ -77,10 +77,11 @@ data Commands = Commands
     , cid          :: CommandId
     , actAs        :: [Party]
     , readAs       :: [Party]
-    , dedupTime    :: Maybe LL.Duration
+    , dedupPeriod  :: Maybe DeduplicationPeriod
     , coms         :: [Command]
     , minLeTimeAbs :: Maybe Timestamp
     , minLeTimeRel :: Maybe LL.Duration
+    , sid          :: Maybe SubmissionId
     }
 
 data Command
@@ -101,6 +102,10 @@ data Command
       , choiceArg  :: Value
       }
     deriving (Eq,Ord,Show)
+
+data DeduplicationPeriod
+    = DeduplicationDuration LL.Duration
+  deriving (Eq, Ord, Show)
 
 -- ledger_offset.proto
 
@@ -274,6 +279,7 @@ newtype LedgerId = LedgerId { unLedgerId :: Text } deriving (Eq,Ord,Show)
 newtype PackageId = PackageId { unPackageId :: Text } deriving (Eq,Ord,Show)
 newtype TransactionId = TransactionId { unTransactionId :: Text } deriving (Eq,Ord,Show)
 newtype WorkflowId = WorkflowId { unWorkflowId :: Text } deriving (Eq,Ord,Show)
+newtype SubmissionId = SubmissionId { unSubmissionId :: Text } deriving (Eq,Ord,Show)
 
 newtype ModuleName = ModuleName { unModuleName :: Text } deriving (Eq,Ord,Show)
 newtype EntityName = EntityName { unEntityName :: Text } deriving (Eq,Ord,Show)

@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.v1
 import java.util.concurrent.CompletionStage
 
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.lf.data.Ref
 import com.daml.telemetry.TelemetryContext
 
 /** An interface for uploading packages via a participant. */
@@ -39,7 +40,7 @@ trait WritePackagesService {
     * @return an async result of a [[SubmissionResult]]
     */
   def uploadPackages(
-      submissionId: SubmissionId,
+      submissionId: Ref.SubmissionId,
       archives: List[Archive],
       sourceDescription: Option[String],
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]

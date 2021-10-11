@@ -7,8 +7,9 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.{BatchSql, NamedParameter}
-import com.daml.ledger.{EventId, TransactionId}
-import com.daml.ledger.participant.state.v1.{Offset, SubmitterInfo, WorkflowId}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.JdbcArrayConversions.StringArrayParameterMetadata
 
@@ -62,7 +63,7 @@ object EventsTableH2Database extends EventsTable {
       transactionId: TransactionId,
       workflowId: Option[WorkflowId],
       ledgerEffectiveTime: Instant,
-      submitterInfo: Option[SubmitterInfo],
+      completionInfo: Option[state.CompletionInfo],
       events: Vector[(NodeId, Node)],
       stakeholders: WitnessRelation[NodeId],
       disclosure: WitnessRelation[NodeId],
@@ -74,9 +75,9 @@ object EventsTableH2Database extends EventsTable {
         "transaction_id" -> transactionId,
         "workflow_id" -> workflowId,
         "ledger_effective_time" -> ledgerEffectiveTime,
-        "command_id" -> submitterInfo.map(_.commandId),
-        "application_id" -> submitterInfo.map(_.applicationId),
-        "submitters" -> Party.Array(submitterInfo.map(_.actAs).getOrElse(List.empty): _*),
+        "command_id" -> completionInfo.map(_.commandId),
+        "application_id" -> completionInfo.map(_.applicationId),
+        "submitters" -> Party.Array(completionInfo.map(_.actAs).getOrElse(List.empty): _*),
       )
     for ((nodeId, node) <- events)
       yield {
@@ -126,12 +127,12 @@ object EventsTableH2Database extends EventsTable {
   ): Vector[NamedParameter] =
     Vector[NamedParameter](
       "contract_id" -> event.coid.coid,
-      "template_id" -> event.coinst.template,
+      "template_id" -> event.templateId,
       "create_argument" -> argument,
       "create_argument_compression" -> argumentCompression,
       "create_signatories" -> event.signatories.toArray[String],
       "create_observers" -> event.stakeholders.diff(event.signatories).toArray[String],
-      "create_agreement_text" -> event.coinst.agreementText,
+      "create_agreement_text" -> event.agreementText,
       "create_key_value" -> key,
       "create_key_value_compression" -> keyCompression,
     ) ++ emptyExerciseFields
@@ -200,7 +201,7 @@ object EventsTableH2Database extends EventsTable {
       transactionId = tx.transactionId,
       workflowId = tx.workflowId,
       ledgerEffectiveTime = tx.ledgerEffectiveTime,
-      submitterInfo = tx.submitterInfo,
+      completionInfo = tx.completionInfo,
       events = info.events,
       stakeholders = info.stakeholders,
       disclosure = info.disclosure,

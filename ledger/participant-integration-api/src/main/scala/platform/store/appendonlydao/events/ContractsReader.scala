@@ -3,33 +3,25 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import java.io.InputStream
+import java.io.ByteArrayInputStream
 import java.time.Instant
 
-import anorm.SqlParser._
-import anorm.{RowParser, SqlParser, SqlStringInterpolation, _}
 import com.codahale.metrics.Timer
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.Conversions._
-import com.daml.platform.store.DbType
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
 import com.daml.platform.store.appendonlydao.events.ContractsReader._
-import com.daml.platform.store.appendonlydao.events.SqlFunctions.{
-  H2SqlFunctions,
-  PostgresSqlFunctions,
-}
 import com.daml.platform.store.appendonlydao.DbDispatcher
+import com.daml.platform.store.backend.ContractStorageBackend
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 private[appendonlydao] sealed class ContractsReader(
-    val committedContracts: PostCommitValidationData,
+    storageBackend: ContractStorageBackend,
     dispatcher: DbDispatcher,
     metrics: Metrics,
-    sqlFunctions: SqlFunctions,
 )(implicit ec: ExecutionContext)
     extends LedgerDaoContractsReader {
 
@@ -39,9 +31,9 @@ private[appendonlydao] sealed class ContractsReader(
     Timed.future(
       metrics.daml.index.db.lookupMaximumLedgerTime,
       dispatcher
-        .executeSql(metrics.daml.index.db.lookupMaximumLedgerTimeDbMetrics) { implicit connection =>
-          committedContracts.lookupMaximumLedgerTime(ids)
-        }
+        .executeSql(metrics.daml.index.db.lookupMaximumLedgerTimeDbMetrics)(
+          storageBackend.maximumLedgerTime(ids)
+        )
         .map(_.get),
     )
 
@@ -56,35 +48,9 @@ private[appendonlydao] sealed class ContractsReader(
   ): Future[KeyState] =
     Timed.future(
       metrics.daml.index.db.lookupKey,
-      dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics) {
-        implicit connection =>
-          SQL"""
-          WITH last_contract_key_create AS (
-                 SELECT contract_id, flat_event_witnesses
-                   FROM participant_events
-                  WHERE event_kind = 10 -- create
-                    AND create_key_hash = ${key.hash}
-                    AND event_sequential_id <= $validAt
-                  ORDER BY event_sequential_id DESC
-                  LIMIT 1
-               )
-          SELECT contract_id, flat_event_witnesses
-            FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
-          WHERE NOT EXISTS       -- check no archival visible
-                 (SELECT 1
-                    FROM participant_events
-                   WHERE event_kind = 20 -- consuming exercise
-                     AND event_sequential_id <= $validAt
-                     AND contract_id = last_contract_key_create.contract_id
-         );
-         """
-            .as(
-              (contractId("contract_id") ~ flatEventWitnessesColumn("flat_event_witnesses")).map {
-                case cId ~ stakeholders => KeyAssigned(cId, stakeholders)
-              }.singleOpt
-            )
-            .getOrElse(KeyUnassigned)
-      },
+      dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics)(
+        storageBackend.keyState(key, validAt)
+      ),
     )
 
   override def lookupContractState(contractId: ContractId, before: Long)(implicit
@@ -93,42 +59,20 @@ private[appendonlydao] sealed class ContractsReader(
     Timed.future(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
-        .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
-          SQL"""
-           SELECT
-             template_id,
-             flat_event_witnesses,
-             create_argument,
-             create_argument_compression,
-             event_kind,
-             ledger_effective_time
-           FROM participant_events
-           WHERE
-             contract_id = $contractId
-             AND event_sequential_id <= $before
-             AND (event_kind = 10 OR event_kind = 20)
-           ORDER BY event_sequential_id DESC
-           LIMIT 1;
-           """
-            .as(fullDetailsContractRowParser.singleOpt)
-        }
+        .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(
+          storageBackend.contractState(contractId, before)
+        )
         .map(_.map {
-          case (
-                templateId,
-                stakeholders,
-                createArgument,
-                createArgumentCompression,
-                10,
-                maybeCreateLedgerEffectiveTime,
-              ) =>
+          case raw if raw.eventKind == 10 =>
             val contract = toContract(
               contractId = contractId,
               templateId =
-                assertPresent(templateId)("template_id must be present for a create event"),
-              createArgument =
-                assertPresent(createArgument)("create_argument must be present for a create event"),
+                assertPresent(raw.templateId)("template_id must be present for a create event"),
+              createArgument = assertPresent(raw.createArgument)(
+                "create_argument must be present for a create event"
+              ),
               createArgumentCompression =
-                Compression.Algorithm.assertLookup(createArgumentCompression),
+                Compression.Algorithm.assertLookup(raw.createArgumentCompression),
               decompressionTimer =
                 metrics.daml.index.db.lookupActiveContractDbMetrics.compressionTimer,
               deserializationTimer =
@@ -136,13 +80,13 @@ private[appendonlydao] sealed class ContractsReader(
             )
             ActiveContract(
               contract,
-              stakeholders,
-              assertPresent(maybeCreateLedgerEffectiveTime)(
+              raw.flatEventWitnesses,
+              assertPresent(raw.ledgerEffectiveTime)(
                 "ledger_effective_time must be present for a create event"
               ),
             )
-          case (_, stakeholders, _, _, 20, _) => ArchivedContract(stakeholders)
-          case (_, _, _, _, kind, _) => throw ContractsReaderError(s"Unexpected event kind $kind")
+          case raw if raw.eventKind == 20 => ArchivedContract(raw.flatEventWitnesses)
+          case raw => throw ContractsReaderError(s"Unexpected event kind ${raw.eventKind}")
         }),
     )
 
@@ -155,17 +99,16 @@ private[appendonlydao] sealed class ContractsReader(
     Timed.future(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
-        .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
-          lookupActiveContractAndLoadArgumentQuery(contractId, readers)
-            .as(contractRowParser.singleOpt)
-        }
-        .map(_.map { case (templateId, createArgument, createArgumentCompression) =>
+        .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(
+          storageBackend.activeContractWithArgument(readers, contractId)
+        )
+        .map(_.map { raw =>
           toContract(
             contractId = contractId,
-            templateId = templateId,
-            createArgument = createArgument,
+            templateId = raw.templateId,
+            createArgument = raw.createArgument,
             createArgumentCompression =
-              Compression.Algorithm.assertLookup(createArgumentCompression),
+              Compression.Algorithm.assertLookup(raw.createArgumentCompression),
             decompressionTimer =
               metrics.daml.index.db.lookupActiveContractDbMetrics.compressionTimer,
             deserializationTimer =
@@ -185,10 +128,9 @@ private[appendonlydao] sealed class ContractsReader(
     Timed.future(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
-        .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
-          lookupActiveContractWithCachedArgumentQuery(contractId, readers)
-            .as(contractWithoutValueRowParser.singleOpt)
-        }
+        .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(
+          storageBackend.activeContractWithoutArgument(readers, contractId)
+        )
         .map(
           _.map(templateId =>
             toContract(
@@ -206,208 +148,23 @@ private[appendonlydao] sealed class ContractsReader(
   )(implicit loggingContext: LoggingContext): Future[Option[ContractId]] =
     Timed.future(
       metrics.daml.index.db.lookupKey,
-      dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics) {
-        implicit connection =>
-          lookupContractKeyQuery(readers, key).as(contractId("contract_id").singleOpt)
-      },
+      dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics)(
+        storageBackend.contractKey(readers, key)
+      ),
     )
-
-  private def lookupActiveContractAndLoadArgumentQuery(
-      contractId: ContractId,
-      readers: Set[Party],
-  ) = {
-    val tree_event_witnessesWhere =
-      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", readers)
-    SQL"""
-  WITH archival_event AS (
-         SELECT participant_events.*
-           FROM participant_events, parameters
-          WHERE contract_id = $contractId
-            AND event_kind = 20  -- consuming exercise
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-            AND #$tree_event_witnessesWhere  -- only use visible archivals
-          LIMIT 1
-       ),
-       create_event AS (
-         SELECT contract_id, template_id, create_argument, create_argument_compression
-           FROM participant_events, parameters
-          WHERE contract_id = $contractId
-            AND event_kind = 10  -- create
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-            AND #$tree_event_witnessesWhere
-          LIMIT 1 -- limit here to guide planner wrt expected number of results
-       ),
-       -- no visibility check, as it is used to backfill missing template_id and create_arguments for divulged contracts
-       create_event_unrestricted AS (
-         SELECT contract_id, template_id, create_argument, create_argument_compression
-           FROM participant_events, parameters
-          WHERE contract_id = $contractId
-            AND event_kind = 10  -- create
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          LIMIT 1 -- limit here to guide planner wrt expected number of results
-       ),
-       divulged_contract AS (
-         SELECT divulgence_events.contract_id,
-                -- Note: the divulgance_event.template_id and .create_argument can be NULL
-                -- for certain integrations. For example, the KV integration exploits that
-                -- every participant node knows about all create events. The integration
-                -- therefore only communicates the change in visibility to the IndexDB, but
-                -- does not include a full divulgence event.
-                COALESCE(divulgence_events.template_id, create_event_unrestricted.template_id),
-                COALESCE(divulgence_events.create_argument, create_event_unrestricted.create_argument),
-                COALESCE(divulgence_events.create_argument_compression, create_event_unrestricted.create_argument_compression)
-           FROM participant_events AS divulgence_events LEFT OUTER JOIN create_event_unrestricted USING (contract_id),
-                parameters
-          WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
-            AND divulgence_events.event_kind = 0 -- divulgence
-            AND divulgence_events.event_sequential_id <= parameters.ledger_end_sequential_id
-            AND #$tree_event_witnessesWhere
-          ORDER BY divulgence_events.event_sequential_id
-            -- prudent engineering: make results more stable by preferring earlier divulgence events
-            -- Results might still change due to pruning.
-          LIMIT 1
-       ),
-       create_and_divulged_contracts AS (
-         (SELECT * FROM create_event)   -- prefer create over divulgance events
-         UNION ALL
-         (SELECT * FROM divulged_contract)
-       )
-  SELECT contract_id, template_id, create_argument, create_argument_compression
-    FROM create_and_divulged_contracts
-   WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   LIMIT 1;"""
-  }
-
-  private def lookupActiveContractWithCachedArgumentQuery(
-      contractId: ContractId,
-      readers: Set[Party],
-  ) = {
-    val tree_event_witnessesWhere =
-      sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", readers)
-
-    SQL"""
-  WITH archival_event AS (
-         SELECT participant_events.*
-           FROM participant_events, parameters
-          WHERE contract_id = $contractId
-            AND event_kind = 20  -- consuming exercise
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-            AND #$tree_event_witnessesWhere  -- only use visible archivals
-          LIMIT 1
-       ),
-       create_event AS (
-         SELECT contract_id, template_id
-           FROM participant_events, parameters
-          WHERE contract_id = $contractId
-            AND event_kind = 10  -- create
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-            AND #$tree_event_witnessesWhere
-          LIMIT 1 -- limit here to guide planner wrt expected number of results
-       ),
-       -- no visibility check, as it is used to backfill missing template_id and create_arguments for divulged contracts
-       create_event_unrestricted AS (
-         SELECT contract_id, template_id
-           FROM participant_events, parameters
-          WHERE contract_id = $contractId
-            AND event_kind = 10  -- create
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-          LIMIT 1 -- limit here to guide planner wrt expected number of results
-       ),
-       divulged_contract AS (
-         SELECT divulgence_events.contract_id,
-                -- Note: the divulgance_event.template_id can be NULL
-                -- for certain integrations. For example, the KV integration exploits that
-                -- every participant node knows about all create events. The integration
-                -- therefore only communicates the change in visibility to the IndexDB, but
-                -- does not include a full divulgence event.
-                COALESCE(divulgence_events.template_id, create_event_unrestricted.template_id)
-           FROM participant_events AS divulgence_events LEFT OUTER JOIN create_event_unrestricted USING (contract_id),
-                parameters
-          WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
-            AND divulgence_events.event_kind = 0 -- divulgence
-            AND divulgence_events.event_sequential_id <= parameters.ledger_end_sequential_id
-            AND #$tree_event_witnessesWhere
-          ORDER BY divulgence_events.event_sequential_id
-            -- prudent engineering: make results more stable by preferring earlier divulgence events
-            -- Results might still change due to pruning.
-          LIMIT 1
-       ),
-       create_and_divulged_contracts AS (
-         (SELECT * FROM create_event)   -- prefer create over divulgence events
-         UNION ALL
-         (SELECT * FROM divulged_contract)
-       )
-  SELECT contract_id, template_id
-    FROM create_and_divulged_contracts
-   WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   LIMIT 1;
-           """
-  }
-
-  private def lookupContractKeyQuery(readers: Set[Party], key: Key): SimpleSql[Row] = {
-    def flat_event_witnessesWhere(columnPrefix: String) =
-      sqlFunctions.arrayIntersectionWhereClause(s"$columnPrefix.flat_event_witnesses", readers)
-    SQL"""
-  WITH last_contract_key_create AS (
-         SELECT participant_events.*
-           FROM participant_events, parameters
-          WHERE event_kind = 10 -- create
-            AND create_key_hash = ${key.hash}
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
-                -- do NOT check visibility here, as otherwise we do not abort the scan early
-          ORDER BY event_sequential_id DESC
-          LIMIT 1
-       )
-  SELECT contract_id
-    FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
-  WHERE #${flat_event_witnessesWhere("last_contract_key_create")} -- check visibility only here
-    AND NOT EXISTS       -- check no archival visible
-         (SELECT 1
-            FROM participant_events, parameters
-           WHERE event_kind = 20 -- consuming exercise
-             AND event_sequential_id <= parameters.ledger_end_sequential_id
-             AND #${flat_event_witnessesWhere("participant_events")}
-             AND contract_id = last_contract_key_create.contract_id
-         );
-       """
-  }
 }
 
 private[appendonlydao] object ContractsReader {
-  private val contractWithoutValueRowParser: RowParser[String] =
-    str("template_id")
-
-  private val fullDetailsContractRowParser: RowParser[
-    (Option[String], Set[Party], Option[InputStream], Option[Int], Int, Option[Instant])
-  ] =
-    str("template_id").? ~ flatEventWitnessesColumn("flat_event_witnesses") ~ binaryStream(
-      "create_argument"
-    ).? ~ int(
-      "create_argument_compression"
-    ).? ~ int("event_kind") ~ get[Instant](
-      "ledger_effective_time"
-    )(anorm.Column.columnToInstant).? map SqlParser.flatten
-
-  private val contractRowParser: RowParser[(String, InputStream, Option[Int])] =
-    str("template_id") ~ binaryStream("create_argument") ~ int(
-      "create_argument_compression"
-    ).? map SqlParser.flatten
 
   private[appendonlydao] def apply(
       dispatcher: DbDispatcher,
-      dbType: DbType,
       metrics: Metrics,
+      storageBackend: ContractStorageBackend,
   )(implicit ec: ExecutionContext): ContractsReader = {
-    def sqlFunctions = dbType match {
-      case DbType.Postgres => PostgresSqlFunctions
-      case DbType.H2Database => H2SqlFunctions
-      case DbType.Oracle => throw new NotImplementedError("not yet supported")
-    }
     new ContractsReader(
-      committedContracts = ContractsTable,
+      storageBackend = storageBackend,
       dispatcher = dispatcher,
       metrics = metrics,
-      sqlFunctions = sqlFunctions,
     )
   }
 
@@ -417,7 +174,7 @@ private[appendonlydao] object ContractsReader {
   private def toContract(
       contractId: ContractId,
       templateId: String,
-      createArgument: InputStream,
+      createArgument: Array[Byte],
       createArgumentCompression: Compression.Algorithm,
       decompressionTimer: Timer,
       deserializationTimer: Timer,
@@ -425,7 +182,7 @@ private[appendonlydao] object ContractsReader {
     val decompressed =
       Timed.value(
         timer = decompressionTimer,
-        value = createArgumentCompression.decompress(createArgument),
+        value = createArgumentCompression.decompress(new ByteArrayInputStream(createArgument)),
       )
     val deserialized =
       Timed.value(

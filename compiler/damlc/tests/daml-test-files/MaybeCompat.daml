@@ -1,18 +1,19 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @WARN range=14:12-14:17; Maybe
--- @WARN range=17:12-17:17; maybe
--- @WARN range=17:29-17:36; Nothing
--- @WARN range=18:12-18:20; fromSome
--- @WARN range=18:22-18:26; Just
+-- @WARN range=15:12-15:17; Maybe
+-- @WARN range=18:3-18:8; maybe
+-- @WARN range=18:20-18:27; Nothing
+-- @WARN range=19:3-19:11; fromSome
+-- @WARN range=19:13-19:17; Just
 
 module MaybeCompat where
+import DA.Assert
 import DA.Maybe
 import DA.Maybe.Total ()  -- we want to make sure there are not warnings in this module
 
 type Foo = Maybe Int
 
 main = scenario do
-  assert $ maybe 0 identity Nothing == 0
-  assert $ fromJust (Just 1) == 1
+  maybe 0 identity Nothing === 0
+  fromJust (Just 1) === 1

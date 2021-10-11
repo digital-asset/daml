@@ -8,6 +8,8 @@
 
 module NewtypeHigherKinded where
 
+import DA.Assert
+
 newtype App f a = App (f a)
 
 newtype Wrap a = Wrap a
@@ -19,4 +21,4 @@ unwrap : Functor f => App f (Wrap a) -> f a
 unwrap (App xs) = fmap (\(Wrap x) -> x) xs
 
 main = scenario do
-  assert (unwrap (wrap [1]) == [1])
+  unwrap (wrap [1]) === [1]

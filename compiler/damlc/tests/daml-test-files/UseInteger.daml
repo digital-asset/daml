@@ -1,7 +1,5 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
-
--- @INFO Use negate
 -- @INFO Use negate
 
 -- Test that foo does not overflow
@@ -12,11 +10,11 @@
 
 module UseInteger where
 
+import DA.Assert
+
 foo = 1
 bar = 9223372036854775807 -- maxBound :: Int64 (*)
 
 main = scenario do
-  alice <- getParty "alice"
-  submit alice do
-      assertMsg "Was not one" (foo == 1)
-      assert $ 0 - foo - bar == 0 - 2^62 - 2^62 -- minBound :: Int64
+  foo === 1
+  0 - foo - bar === 0 - 2^62 - 2^62 -- minBound :: Int64

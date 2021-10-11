@@ -6,8 +6,8 @@ package com.daml;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.daml.ledger.api.v1.ValueOuterClass;
+import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Int64;
-import com.daml.ledger.javaapi.data.Record;
 import com.daml.ledger.javaapi.data.Text;
 import com.daml.ledger.javaapi.data.Variant;
 import java.util.Collections;
@@ -45,7 +45,7 @@ public class GenMapTest {
     javaMap.put(Optional.of(1L), "Some(1)");
     javaMap.put(Optional.of(42L), "Some(42)");
 
-    Record dataRecord = Record.fromProto(protoRecord);
+    DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
     MapRecord fromValue = MapRecord.fromValue(dataRecord);
     MapRecord fromConstructor = new MapRecord(javaMap);
     MapRecord fromRoundTrip = MapRecord.fromValue(fromConstructor.toValue());
@@ -94,7 +94,7 @@ public class GenMapTest {
     javaMap.put(inner2Map, reverseMap(inner2Map));
     javaMap.put(inner3Map, reverseMap(inner3Map));
 
-    Record dataRecord = Record.fromProto(protoRecord);
+    DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
     MapMapRecord fromValue = MapMapRecord.fromValue(dataRecord);
     MapMapRecord fromConstructor = new MapMapRecord(javaMap);
     MapMapRecord fromRoundTrip = MapMapRecord.fromValue(fromConstructor.toValue());
@@ -171,7 +171,7 @@ public class GenMapTest {
                     "valueMap", buildMap(buildEntryMap(buildInt(42), buildText("42")))))
             .getRecord();
 
-    Record dataRecord = Record.fromProto(protoRecord);
+    DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
     TemplateWithMap fromValue = TemplateWithMap.fromValue(dataRecord);
     TemplateWithMap fromConstructor =
         new TemplateWithMap("party1", Collections.singletonMap(42L, "42"));

@@ -9,13 +9,13 @@ import java.time.Clock
 
 import akka.http.scaladsl.model.Uri
 import com.daml.doobie.logging.Slf4jLogHandler
-import com.daml.http.AbstractHttpServiceIntegrationTestFuns.{dar1, dar2}
+import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{RecordField, Value, Variant}
-import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
+import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.nonrepudiation.NonRepudiationProxy
 import com.daml.nonrepudiation.postgresql.{Tables, createTransactor}
 import com.daml.nonrepudiation.testing.generateKeyAndCertificate
@@ -84,22 +84,22 @@ abstract class AbstractNonRepudiationTest
     }
 
   private def withParticipant[A] =
-    HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId, None, useTls) _
+    usingLedger[A](testId) _
 
   private def withJsonApi[A](participantPort: Port) =
     HttpServiceTestFixture.withHttpService[A](
-      testId,
-      participantPort,
-      jdbcConfig,
-      staticContentConfig,
-      LeakPasswords.No,
-      useTls,
-      wsConfig,
-      nonRepudiation,
+      testName = testId,
+      ledgerPort = participantPort,
+      jdbcConfig = jdbcConfig,
+      staticContentConfig = staticContentConfig,
+      leakPasswords = LeakPasswords.No,
+      useTls = useTls,
+      wsConfig = wsConfig,
+      nonRepudiation = nonRepudiation,
     ) _
 
   protected def withSetup[A](test: (Tables, Uri, DomainJsonEncoder) => Future[Assertion]) =
-    withParticipant { case (participantPort, _: DamlLedgerClient) =>
+    withParticipant { case (participantPort, _: DamlLedgerClient, _) =>
       val participantChannelBuilder =
         NettyChannelBuilder
           .forAddress("localhost", participantPort.value)

@@ -3,8 +3,8 @@
 
 package com.daml.ledger.rxjava.components.helpers;
 
+import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Identifier;
-import com.daml.ledger.javaapi.data.Record;
 import com.daml.ledger.javaapi.data.Template;
 import com.daml.ledger.javaapi.data.Value;
 import java.lang.reflect.InvocationTargetException;
@@ -40,7 +40,7 @@ public class TemplateUtils {
         throw new IllegalStateException(
             "Unknown contract of type " + createdContract.getTemplateId());
       } else {
-        Record args = createdContract.getCreateArguments();
+        DamlRecord args = createdContract.getCreateArguments();
         Method method = factories.get(createdContract.getTemplateId());
         try {
           return (Template) method.invoke(null, args);

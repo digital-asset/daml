@@ -6,12 +6,9 @@ package com.daml.lf.archive
 import java.io.{ByteArrayInputStream, InputStream}
 import java.nio.charset.Charset
 
-import com.daml.lf.archive.DarManifestReader.DarManifestReaderException
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-
-import scala.util.{Failure, Success}
 
 class DarManifestReaderTest extends AnyWordSpec with Matchers with Inside {
 
@@ -29,7 +26,7 @@ class DarManifestReaderTest extends AnyWordSpec with Matchers with Inside {
     val inputStream: InputStream = new ByteArrayInputStream(manifest.getBytes(unicode))
     val actual = DarManifestReader.dalfNames(inputStream)
 
-    actual shouldBe Success(
+    actual shouldBe Right(
       Dar("com.daml.lf.archive:DarReaderTest:0.1.dalf", List("daml-prim.dalf"))
     )
 
@@ -45,7 +42,7 @@ class DarManifestReaderTest extends AnyWordSpec with Matchers with Inside {
     val inputStream: InputStream = new ByteArrayInputStream(manifest.getBytes(unicode))
     val actual = DarManifestReader.dalfNames(inputStream)
 
-    actual shouldBe Success(Dar("A.dalf", List("B.dalf", "C.dalf", "E.dalf")))
+    actual shouldBe Right(Dar("A.dalf", List("B.dalf", "C.dalf", "E.dalf")))
 
     inputStream.close()
   }
@@ -59,7 +56,7 @@ class DarManifestReaderTest extends AnyWordSpec with Matchers with Inside {
     val inputStream: InputStream = new ByteArrayInputStream(manifest.getBytes(unicode))
     val actual = DarManifestReader.dalfNames(inputStream)
 
-    actual shouldBe Success(Dar("A.dalf", List.empty))
+    actual shouldBe Right(Dar("A.dalf", List.empty))
 
     inputStream.close()
   }
@@ -73,7 +70,7 @@ class DarManifestReaderTest extends AnyWordSpec with Matchers with Inside {
     val inputStream: InputStream = new ByteArrayInputStream(manifest.getBytes(unicode))
     val actual = DarManifestReader.dalfNames(inputStream)
 
-    inside(actual) { case Failure(DarManifestReaderException(msg)) =>
+    inside(actual) { case Left(Error.DarManifestReaderException(msg)) =>
       msg shouldBe "Unsupported format: anything-different-from-daml-lf"
     }
 

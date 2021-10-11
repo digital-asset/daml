@@ -8,12 +8,14 @@ import java.security.cert.X509Certificate
 import java.util.UUID
 
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod.DeduplicationTime
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.google.protobuf.duration.Duration
 import sun.security.tools.keytool.CertAndKeyGen
 import sun.security.x509.X500Name
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.DurationInt
 
 package object testing {
@@ -34,6 +36,7 @@ package object testing {
   private val ApplicationId = UUID.randomUUID.toString
   private val Party = UUID.randomUUID.toString
 
+  @nowarn("msg=deprecated")
   def generateCommand(
       payload: String = "hello, world",
       commandId: String = UUID.randomUUID.toString,
@@ -66,11 +69,10 @@ package object testing {
               )
             )
           ),
-          deduplicationTime = Some(Duration(seconds = 1.day.toSeconds)),
+          deduplicationPeriod = DeduplicationTime(Duration(seconds = 1.day.toSeconds)),
           minLedgerTimeRel = Some(Duration(seconds = 1.minute.toSeconds)),
         )
-      ),
-      traceContext = None,
+      )
     )
 
 }

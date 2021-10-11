@@ -12,23 +12,17 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
 import com.daml.ledger.api.v1.admin.config_management_service._
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  SubmissionId,
-  SubmissionResult,
-  WriteConfigService,
-}
-import com.daml.lf.data.Time
+import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.lf.data.{Ref, Time}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiConfigManagementService._
 import com.daml.platform.apiserver.services.logging
-import com.daml.platform.configuration.LedgerConfiguration
-import com.daml.platform.server.api.validation
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.server.api.{ValidationLogger, validation}
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
@@ -39,21 +33,16 @@ import scala.util.{Failure, Success}
 
 private[apiserver] final class ApiConfigManagementService private (
     index: IndexConfigManagementService,
-    writeService: WriteConfigService,
+    writeService: state.WriteConfigService,
     timeProvider: TimeProvider,
-    ledgerConfiguration: LedgerConfiguration,
+    submissionIdGenerator: String => Ref.SubmissionId,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
 ) extends ConfigManagementService
     with GrpcApiService {
-
-  private val logger = ContextualizedLogger.get(this.getClass)
-
-  private val defaultConfigResponse = configToResponse(
-    ledgerConfiguration.initialConfiguration.copy(generation = LedgerConfiguration.NoGeneration)
-  )
+  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override def close(): Unit = ()
 
@@ -64,19 +53,27 @@ private[apiserver] final class ApiConfigManagementService private (
     logger.info("Getting time model")
     index
       .lookupConfiguration()
-      .map(_.fold(defaultConfigResponse) { case (_, conf) => configToResponse(conf) })
+      .flatMap {
+        case Some((_, configuration)) =>
+          Future.successful(configurationToResponse(configuration))
+        case None =>
+          logger.warn(
+            "Could not get the current time model. The index does not yet have any ledger configuration."
+          )
+          Future.failed(ErrorFactories.missingLedgerConfigUponRequest())
+      }
       .andThen(logger.logErrorsOnCall[GetTimeModelResponse])
   }
 
-  private def configToResponse(config: Configuration): GetTimeModelResponse = {
-    val tm = config.timeModel
+  private def configurationToResponse(configuration: Configuration): GetTimeModelResponse = {
+    val timeModel = configuration.timeModel
     GetTimeModelResponse(
-      configurationGeneration = config.generation,
+      configurationGeneration = configuration.generation,
       timeModel = Some(
         TimeModel(
-          avgTransactionLatency = Some(DurationConversion.toProto(tm.avgTransactionLatency)),
-          minSkew = Some(DurationConversion.toProto(tm.minSkew)),
-          maxSkew = Some(DurationConversion.toProto(tm.maxSkew)),
+          avgTransactionLatency = Some(DurationConversion.toProto(timeModel.avgTransactionLatency)),
+          minSkew = Some(DurationConversion.toProto(timeModel.minSkew)),
+          maxSkew = Some(DurationConversion.toProto(timeModel.maxSkew)),
         )
       ),
     )
@@ -92,22 +89,35 @@ private[apiserver] final class ApiConfigManagementService private (
 
         val response = for {
           // Validate and convert the request parameters
-          params <- validateParameters(request).fold(Future.failed(_), Future.successful)
+          params <- validateParameters(request).fold(
+            t => Future.failed(ValidationLogger.logFailureWithContext(request, t)),
+            Future.successful,
+          )
 
           // Lookup latest configuration to check generation and to extend it with the new time model.
-          optConfigAndOffset <- index.lookupConfiguration()
-          ledgerEndBeforeRequest = optConfigAndOffset.map(_._1)
-          currentConfig = optConfigAndOffset.map(_._2)
+          configuration <- index
+            .lookupConfiguration()
+            .flatMap {
+              case Some(result) =>
+                Future.successful(result)
+              case None =>
+                logger.warn(
+                  "Could not get the current time model. The index does not yet have any ledger configuration."
+                )
+                Future.failed(ErrorFactories.missingLedgerConfig(None))
+            }
+          (ledgerEndBeforeRequest, currentConfig) = configuration
 
           // Verify that we're modifying the current configuration.
-          expectedGeneration = currentConfig
-            .map(_.generation)
-            .getOrElse(LedgerConfiguration.NoGeneration)
+          expectedGeneration = currentConfig.generation
           _ <-
             if (request.configurationGeneration != expectedGeneration) {
               Future.failed(
-                ErrorFactories.invalidArgument(
-                  s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
+                ValidationLogger.logFailureWithContext(
+                  request,
+                  ErrorFactories.invalidArgument(None)(
+                    s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
+                  ),
                 )
               )
             } else {
@@ -115,13 +125,13 @@ private[apiserver] final class ApiConfigManagementService private (
             }
 
           // Create the new extended configuration.
-          newConfig = currentConfig
-            .map(config => config.copy(generation = config.generation + 1))
-            .getOrElse(ledgerConfiguration.initialConfiguration)
-            .copy(timeModel = params.newTimeModel)
+          newConfig = currentConfig.copy(
+            generation = currentConfig.generation + 1,
+            timeModel = params.newTimeModel,
+          )
 
           // Submit configuration to the ledger, and start polling for the result.
-          submissionId = SubmissionId.assertFromString(request.submissionId)
+          augmentedSubmissionId = submissionIdGenerator(request.submissionId)
           synchronousResponse = new SynchronousResponse(
             new SynchronousResponseStrategy(
               writeService,
@@ -131,7 +141,7 @@ private[apiserver] final class ApiConfigManagementService private (
             timeToLive = JDuration.ofMillis(params.timeToLive.toMillis),
           )
           entry <- synchronousResponse.submitAndWait(
-            submissionId,
+            augmentedSubmissionId,
             (params.maximumRecordTime, newConfig),
           )
         } yield SetTimeModelResponse(entry.configuration.generation)
@@ -140,7 +150,7 @@ private[apiserver] final class ApiConfigManagementService private (
     }
 
   private case class SetTimeModelParameters(
-      newTimeModel: v1.TimeModel,
+      newTimeModel: LedgerTimeModel,
       maximumRecordTime: Time.Timestamp,
       timeToLive: FiniteDuration,
   )
@@ -157,12 +167,12 @@ private[apiserver] final class ApiConfigManagementService private (
       )
       pMinSkew <- requirePresence(pTimeModel.minSkew, "min_skew")
       pMaxSkew <- requirePresence(pTimeModel.maxSkew, "max_skew")
-      newTimeModel <- v1.TimeModel(
+      newTimeModel <- LedgerTimeModel(
         avgTransactionLatency = DurationConversion.fromProto(pAvgTransactionLatency),
         minSkew = DurationConversion.fromProto(pMinSkew),
         maxSkew = DurationConversion.fromProto(pMaxSkew),
       ) match {
-        case Failure(err) => Left(ErrorFactories.invalidArgument(err.toString))
+        case Failure(err) => Left(ErrorFactories.invalidArgument(None)(err.toString))
         case Success(ok) => Right(ok)
       }
       // TODO(JM): The maximum record time should be constrained, probably by the current active time model?
@@ -175,7 +185,7 @@ private[apiserver] final class ApiConfigManagementService private (
       }
       maximumRecordTime <- Time.Timestamp
         .fromInstant(mrtInstant)
-        .fold(err => Left(ErrorFactories.invalidArgument(err)), Right(_))
+        .fold(err => Left(ErrorFactories.invalidArgument(None)(err)), Right(_))
     } yield SetTimeModelParameters(newTimeModel, maximumRecordTime, timeToLive)
   }
 
@@ -185,9 +195,9 @@ private[apiserver] object ApiConfigManagementService {
 
   def createApiService(
       readBackend: IndexConfigManagementService,
-      writeBackend: WriteConfigService,
+      writeBackend: state.WriteConfigService,
       timeProvider: TimeProvider,
-      ledgerConfiguration: LedgerConfiguration,
+      submissionIdGenerator: String => Ref.SubmissionId = augmentSubmissionId,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -197,13 +207,13 @@ private[apiserver] object ApiConfigManagementService {
       readBackend,
       writeBackend,
       timeProvider,
-      ledgerConfiguration,
+      submissionIdGenerator,
     )
 
   private final class SynchronousResponseStrategy(
-      writeConfigService: WriteConfigService,
+      writeConfigService: state.WriteConfigService,
       configManagementService: IndexConfigManagementService,
-      ledgerEnd: Option[LedgerOffset.Absolute],
+      ledgerEnd: LedgerOffset.Absolute,
   )(implicit loggingContext: LoggingContext)
       extends SynchronousResponse.Strategy[
         (Time.Timestamp, Configuration),
@@ -212,12 +222,12 @@ private[apiserver] object ApiConfigManagementService {
       ] {
 
     override def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]] =
-      Future.successful(ledgerEnd)
+      Future.successful(Some(ledgerEnd))
 
     override def submit(
-        submissionId: SubmissionId,
+        submissionId: Ref.SubmissionId,
         input: (Time.Timestamp, Configuration),
-    )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] = {
+    )(implicit telemetryContext: TelemetryContext): Future[state.SubmissionResult] = {
       val (maximumRecordTime, newConfiguration) = input
       writeConfigService
         .submitConfiguration(maximumRecordTime, submissionId, newConfiguration)
@@ -228,17 +238,17 @@ private[apiserver] object ApiConfigManagementService {
       configManagementService.configurationEntries(offset).map(_._2)
 
     override def accept(
-        submissionId: SubmissionId
+        submissionId: Ref.SubmissionId
     ): PartialFunction[ConfigurationEntry, ConfigurationEntry.Accepted] = {
       case entry @ domain.ConfigurationEntry.Accepted(`submissionId`, _) =>
         entry
     }
 
     override def reject(
-        submissionId: SubmissionId
+        submissionId: Ref.SubmissionId
     ): PartialFunction[ConfigurationEntry, StatusRuntimeException] = {
       case domain.ConfigurationEntry.Rejected(`submissionId`, reason, _) =>
-        ErrorFactories.aborted(reason)
+        ErrorFactories.aborted(reason, None)
     }
   }
 

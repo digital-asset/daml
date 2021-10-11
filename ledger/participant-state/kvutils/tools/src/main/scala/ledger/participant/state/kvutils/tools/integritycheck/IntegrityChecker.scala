@@ -15,13 +15,20 @@ import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataImporter,
   ProtobufBasedLedgerDataImporter,
 }
-import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
+import com.daml.ledger.participant.state.v2.ReadService
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.indexer.{Indexer, IndexerConfig, IndexerStartupMode, JdbcIndexer}
+import com.daml.platform.indexer.{
+  Indexer,
+  IndexerConfig,
+  IndexerStartupMode,
+  JdbcIndexer,
+  StandaloneIndexerServer,
+}
 import com.daml.platform.store.LfValueTranslationCache
 
 import scala.concurrent.duration.Duration
@@ -41,7 +48,11 @@ class IntegrityChecker[LogResult](
   def run(
       importer: LedgerDataImporter,
       config: Config,
-  )(implicit executionContext: ExecutionContext, materializer: Materializer): Future[Unit] = {
+  )(implicit
+      executionContext: ExecutionContext,
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ): Future[Unit] = {
 
     if (config.indexOnly)
       println("Running indexing only".white)
@@ -60,6 +71,7 @@ class IntegrityChecker[LogResult](
       actualReadServiceFactory.createReadService,
       config.expectedUpdateNormalizers,
       config.actualUpdateNormalizers,
+      config.pairwiseUpdateNormalizers,
     )
 
     checkIntegrity(
@@ -85,6 +97,7 @@ class IntegrityChecker[LogResult](
   )(implicit
       executionContext: ExecutionContext,
       materializer: Materializer,
+      loggingContext: LoggingContext,
   ): Future[Unit] =
     for {
       _ <- processSubmissions(
@@ -103,7 +116,7 @@ class IntegrityChecker[LogResult](
       _ <- indexStateUpdates(
         config = config,
         metrics = metrics,
-        readService =
+        replayingReadService =
           if (config.indexOnly)
             expectedReadServiceFactory.createReadService
           else
@@ -123,21 +136,21 @@ class IntegrityChecker[LogResult](
   private def indexStateUpdates(
       config: Config,
       metrics: Metrics,
-      readService: ReplayingReadService,
+      replayingReadService: ReplayingReadService,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
     implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
 
     // Start the indexer consuming the recorded state updates
-    println(s"Starting to index ${readService.updateCount()} updates.".white)
+    println(s"Starting to index ${replayingReadService.updateCount()} updates.".white)
     newLoggingContext { implicit loggingContext =>
       val feedHandleResourceOwner = for {
         indexer <- migrateAndStartIndexer(
           createIndexerConfig(config),
-          readService,
+          replayingReadService,
           metrics,
           LfValueTranslationCache.Cache.none,
         )
-        feedHandle <- indexer.subscription(readService)
+        feedHandle <- indexer
       } yield (feedHandle, System.nanoTime())
 
       // Wait for the indexer to finish consuming the state updates.
@@ -147,7 +160,7 @@ class IntegrityChecker[LogResult](
       // Any failure (e.g., during the decoding of the recorded state updates, or
       // during the indexing of a state update) will result in a failed Future.
       feedHandleResourceOwner.use { case (feedHandle, startTime) =>
-        Future.successful(startTime).zip(feedHandle.completed())
+        Future.successful(startTime).zip(feedHandle)
       }
     }.transform {
       case Success((startTime, _)) =>
@@ -157,7 +170,7 @@ class IntegrityChecker[LogResult](
             .fromNanos(System.nanoTime() - startTime)
             .toMillis
             .toDouble / 1000.0
-          val updatesPerSecond = readService.updateCount() / durationSeconds
+          val updatesPerSecond = replayingReadService.updateCount() / durationSeconds
           println()
           println(s"Indexing duration: $durationSeconds seconds ($updatesPerSecond updates/second)")
         }
@@ -178,7 +191,11 @@ class IntegrityChecker[LogResult](
       expectedReadServiceFactory: ReplayingReadServiceFactory,
       actualReadServiceFactory: ReplayingReadServiceFactory,
       config: Config,
-  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
+  )(implicit
+      materializer: Materializer,
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[Unit] = {
     println("Processing the ledger export.".white)
 
     Source(importer.read())
@@ -195,7 +212,7 @@ class IntegrityChecker[LogResult](
             throw new UnreadableWriteSetException(message)
           }
         }
-        expectedReadServiceFactory.appendBlock(expectedWriteSet)
+        expectedReadServiceFactory.appendBlock(submissionInfo, expectedWriteSet)
         if (!config.indexOnly) {
           commitStrategySupport.commit(submissionInfo) map { actualWriteSet =>
             val orderedActualWriteSet =
@@ -203,7 +220,7 @@ class IntegrityChecker[LogResult](
                 actualWriteSet.sortBy(_._1)
               else
                 actualWriteSet
-            actualReadServiceFactory.appendBlock(orderedActualWriteSet)
+            actualReadServiceFactory.appendBlock(submissionInfo, orderedActualWriteSet)
 
             if (config.performByteComparison)
               writeSetComparison.compareWriteSets(expectedWriteSet, orderedActualWriteSet) match {
@@ -256,7 +273,12 @@ class IntegrityChecker[LogResult](
         lfValueTranslationCache,
       )
       migrating <- ResourceOwner.forFuture(() =>
-        indexerFactory.migrateSchema(allowExistingSchema = false)
+        StandaloneIndexerServer
+          .migrateOnly(
+            jdbcUrl = config.jdbcUrl,
+            enableAppendOnlySchema = config.enableAppendOnlySchema,
+          )
+          .map(_ => indexerFactory.initialized())(materializer.executionContext)
       )
       migrated <- migrating
     } yield migrated
@@ -296,26 +318,29 @@ object IntegrityChecker {
       ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    val importer = ProtobufBasedLedgerDataImporter(config.exportFilePath)
-    new IntegrityChecker(commitStrategySupportFactory(_, executionContext))
-      .run(importer, config)
-      .onComplete {
-        case Success(_) =>
-          sys.exit(0)
-        case Failure(exception: CheckFailedException) =>
-          println(exception.getMessage.red)
-          sys.exit(1)
-        case Failure(exception) =>
-          exception.printStackTrace()
-          sys.exit(1)
-      }(DirectExecutionContext)
+    newLoggingContext { implicit loggingContext =>
+      val importer = ProtobufBasedLedgerDataImporter(config.exportFilePath)
+      new IntegrityChecker(commitStrategySupportFactory(_, executionContext))
+        .run(importer, config)
+        .onComplete {
+          case Success(_) =>
+            sys.exit(0)
+          case Failure(exception: CheckFailedException) =>
+            println(exception.getMessage.red)
+            sys.exit(1)
+          case Failure(exception) =>
+            exception.printStackTrace()
+            sys.exit(1)
+        }(DirectExecutionContext)
+    }
   }
 
   private[integritycheck] def createIndexerConfig(config: Config): IndexerConfig =
     IndexerConfig(
-      participantId = ParticipantId.assertFromString("IntegrityCheckerParticipant"),
+      participantId = Ref.ParticipantId.assertFromString("IntegrityCheckerParticipant"),
       jdbcUrl = jdbcUrl(config),
       startupMode = IndexerStartupMode.MigrateAndStart,
+      enableAppendOnlySchema = false,
     )
 
   private[integritycheck] def jdbcUrl(config: Config): String =

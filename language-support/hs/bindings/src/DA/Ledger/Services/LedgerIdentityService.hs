@@ -12,7 +12,7 @@ import Network.GRPC.HighLevel.Generated
 getLedgerIdentity :: LedgerService LedgerId
 getLedgerIdentity =
     makeLedgerService $ \timeout config mdm -> do
-    let request = GetLedgerIdentityRequest noTrace
+    let request = GetLedgerIdentityRequest
     withGRPCClient config $ \client -> do
         service <- ledgerIdentityServiceClient client
         let LedgerIdentityService{ledgerIdentityServiceGetLedgerIdentity=rpc} = service

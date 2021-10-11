@@ -4,21 +4,21 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import com.codahale.metrics.Timer
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlConfigurationEntry,
   DamlLogEntry,
   DamlOutOfTimeBoundsEntry,
-  DamlStateKey,
-  DamlStateValue,
-  DamlSubmission,
 }
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils._
-import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
-import com.daml.lf.data.Time
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationEntry
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.data.Time.Timestamp
-import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.lf.data.{Ref, Time}
+import com.daml.logging.LoggingContext.withEnrichedLoggingContextFrom
+import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 
@@ -66,7 +66,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
   protected val committerName: String
 
   /** Extra logging context, extracted from the state at each step. */
-  protected def extraLoggingContext(result: PartialResult): Map[String, String]
+  protected def extraLoggingContext(result: PartialResult): LoggingEntries
 
   /** The initial internal state passed to first step. */
   protected def init(
@@ -82,7 +82,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
   def run(
       recordTime: Option[Time.Timestamp],
       submission: DamlSubmission,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       inputState: DamlStateMap,
   )(implicit loggingContext: LoggingContext): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runTimer.time { () =>
@@ -93,7 +93,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
 
   def runWithPreExecution(
       submission: DamlSubmission,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       inputState: DamlStateMap,
   )(implicit loggingContext: LoggingContext): PreExecutionResult =
     preExecutionRunTimer.time { () =>
@@ -157,7 +157,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       case (state, (info, step)) =>
         state match {
           case StepContinue(state) =>
-            withEnrichedLoggingContext(extraLoggingContext(state)) { implicit loggingContext =>
+            withEnrichedLoggingContextFrom(extraLoggingContext(state)) { implicit loggingContext =>
               stepTimers(info).time(() => step(commitContext, state))
             }
           case result @ StepStop(_) => result

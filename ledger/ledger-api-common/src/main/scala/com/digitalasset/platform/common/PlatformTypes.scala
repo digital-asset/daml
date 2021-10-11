@@ -9,29 +9,29 @@ import com.daml.lf.data.Ref
 
 object PlatformTypes {
 
-  type GenNode[Nid, Cid] = N.GenNode[Nid, Cid]
+  type GenNode = N.GenNode
 
-  type NodeCreate[Cid] = N.NodeCreate[Cid]
+  type NodeCreate = N.NodeCreate
   val NodeCreate: N.NodeCreate.type = N.NodeCreate
 
-  type NodeLookupByKey[Cid] = N.NodeLookupByKey[Cid]
+  type NodeLookupByKey = N.NodeLookupByKey
   val NodeLookupByKey: N.NodeLookupByKey.type = N.NodeLookupByKey
 
-  type NodeFetch[Cid] = N.NodeFetch[Cid]
+  type NodeFetch = N.NodeFetch
   val NodeFetch: N.NodeFetch.type = N.NodeFetch
 
-  type NodeExercises[Nid, Cid] = N.NodeExercises[Nid, Cid]
+  type NodeExercises = N.NodeExercises
   val NodeExercises: N.NodeExercises.type = N.NodeExercises
 
-  type Event[Nid, Cid] = E.Event[Nid, Cid]
+  type Event = E.Event
 
-  type Events[Nid, Cid] = E.Event.Events[Nid, Cid]
+  type Events = E.Event.Events
   val Events: E.Event.Events.type = E.Event.Events
 
-  type CreateEvent[Cid] = E.CreateEvent[Cid]
+  type CreateEvent = E.CreateEvent
   val CreateEvent: E.CreateEvent.type = E.CreateEvent
 
-  type ExerciseEvent[Nid, Cid] = E.ExerciseEvent[Nid, Cid]
+  type ExerciseEvent = E.ExerciseEvent
   val ExerciseEvent: E.ExerciseEvent.type = E.ExerciseEvent
 
   def packageId(str: String): Ref.PackageId = Ref.PackageId.assertFromString(str)

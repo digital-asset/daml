@@ -3,10 +3,12 @@
 
 package com.daml.ledger.api.benchtool
 
+import com.daml.ledger.api.benchtool.Config.StreamConfig
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.value.Identifier
-import scopt.{OptionParser, Read}
+import com.daml.metrics.MetricsReporter
+import scopt.{OptionDef, OptionParser, Read}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
@@ -35,7 +37,7 @@ object Cli {
         s"Stream configuration."
       )
       .valueName(
-        "stream-type=<transactions|transaction-trees>,name=<streamName>,party=<party>[,begin-offset=<offset>][,end-offset=<offset>][,template-ids=<id1>|<id2>][,max-delay=<seconds>]"
+        "<param1>=<value1>,<param2>=<value2>,..."
       )
       .action { case (streamConfig, config) =>
         config.copy(streams = config.streams :+ streamConfig)
@@ -60,12 +62,45 @@ object Cli {
         config.copy(concurrency = config.concurrency.copy(maxPoolSize = size))
       }
 
+    opt[MetricsReporter]("metrics-reporter")
+      .optional()
+      .text(s"Start a metrics reporter. ${MetricsReporter.cliHint}")
+      .action((reporter, config) => config.copy(metricsReporter = reporter))
+
     TlsConfigurationCli.parse(parser = this, colSpacer = "        ")((f, c) =>
       c.copy(tls = f(c.tls))
     )
 
     help("help").text("Prints this information")
 
+    private def note(level: Int, param: String, desc: String = ""): OptionDef[Unit, Config] = {
+      val paddedParam = s"${" " * level * 2}$param"
+      val internalPadding = math.max(1, 40 - paddedParam.length)
+      note(s"$paddedParam${" " * internalPadding}$desc")
+    }
+
+    note(0, "")
+    note(0, "Stream configuration parameters:")
+    note(1, "Transactions/transaction trees:")
+    note(2, "stream-type=<transactions|transaction-trees>", "(required)")
+    note(2, "name=<stream-name>", "Stream name used to identify results (required)")
+    note(2, "party=<party>", "(required)")
+    note(2, "begin-offset=<offset>")
+    note(2, "end-offset=<offset>")
+    note(2, "template-ids=<id1>|<id2>")
+    note(2, "max-delay=<seconds>", "Max record time delay objective")
+    note(2, "min-consumption-speed=<speed>", "Min consumption speed objective")
+    note(1, "Active contract sets:")
+    note(2, "stream-type=active-contracts", "(required)")
+    note(2, "name=<stream-name>", "Stream name used to identify results (required)")
+    note(2, "party=<party>", "(required)")
+    note(2, "template-ids=<id1>|<id2>")
+    note(1, "Command completions:")
+    note(2, "stream-type=completions", "(required)")
+    note(2, "name=<stream-name>", "Stream name used to identify results (required)")
+    note(2, "party=<party>", "(required)")
+    note(2, "begin-offset=<offset>")
+    note(2, "template-ids=<id1>|<id2>")
   }
 
   def config(args: Array[String]): Option[Config] =
@@ -99,14 +134,9 @@ object Cli {
         def offset(stringValue: String): LedgerOffset =
           LedgerOffset.defaultInstance.withAbsolute(stringValue)
 
-        val config = for {
+        def transactionsConfig: Either[String, StreamConfig.TransactionsStreamConfig] = for {
           name <- stringField("name")
           party <- stringField("party")
-          streamType <- stringField("stream-type").flatMap[String, Config.StreamConfig.StreamType] {
-            case "transactions" => Right(Config.StreamConfig.StreamType.Transactions)
-            case "transaction-trees" => Right(Config.StreamConfig.StreamType.TransactionTrees)
-            case invalid => Left(s"Invalid stream type: $invalid")
-          }
           templateIds <- optionalStringField("template-ids").flatMap {
             case Some(ids) => listOfTemplateIds(ids).map(Some(_))
             case None => Right(None)
@@ -115,9 +145,8 @@ object Cli {
           endOffset <- optionalStringField("end-offset").map(_.map(offset))
           maxDelaySeconds <- optionalLongField("max-delay")
           minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
-        } yield Config.StreamConfig(
+        } yield Config.StreamConfig.TransactionsStreamConfig(
           name = name,
-          streamType = streamType,
           party = party,
           templateIds = templateIds,
           beginOffset = beginOffset,
@@ -127,6 +156,63 @@ object Cli {
             minConsumptionSpeed = minConsumptionSpeed,
           ),
         )
+
+        def transactionTreesConfig: Either[String, StreamConfig.TransactionTreesStreamConfig] =
+          for {
+            name <- stringField("name")
+            party <- stringField("party")
+            templateIds <- optionalStringField("template-ids").flatMap {
+              case Some(ids) => listOfTemplateIds(ids).map(Some(_))
+              case None => Right(None)
+            }
+            beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
+            endOffset <- optionalStringField("end-offset").map(_.map(offset))
+            maxDelaySeconds <- optionalLongField("max-delay")
+            minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
+          } yield Config.StreamConfig.TransactionTreesStreamConfig(
+            name = name,
+            party = party,
+            templateIds = templateIds,
+            beginOffset = beginOffset,
+            endOffset = endOffset,
+            objectives = Config.StreamConfig.Objectives(
+              maxDelaySeconds = maxDelaySeconds,
+              minConsumptionSpeed = minConsumptionSpeed,
+            ),
+          )
+
+        def activeContractsConfig: Either[String, StreamConfig.ActiveContractsStreamConfig] = for {
+          name <- stringField("name")
+          party <- stringField("party")
+          templateIds <- optionalStringField("template-ids").flatMap {
+            case Some(ids) => listOfTemplateIds(ids).map(Some(_))
+            case None => Right(None)
+          }
+        } yield Config.StreamConfig.ActiveContractsStreamConfig(
+          name = name,
+          party = party,
+          templateIds = templateIds,
+        )
+
+        def completionsConfig: Either[String, StreamConfig.CompletionsStreamConfig] = for {
+          name <- stringField("name")
+          party <- stringField("party")
+          applicationId <- stringField("application-id")
+          beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
+        } yield Config.StreamConfig.CompletionsStreamConfig(
+          name = name,
+          party = party,
+          applicationId = applicationId,
+          beginOffset = beginOffset,
+        )
+
+        val config = stringField("stream-type").flatMap[String, Config.StreamConfig] {
+          case "transactions" => transactionsConfig
+          case "transaction-trees" => transactionTreesConfig
+          case "active-contracts" => activeContractsConfig
+          case "completions" => completionsConfig
+          case invalid => Left(s"Invalid stream type: $invalid")
+        }
 
         config.fold(error => throw new IllegalArgumentException(error), identity)
       }

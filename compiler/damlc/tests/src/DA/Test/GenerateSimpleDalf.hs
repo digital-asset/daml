@@ -105,6 +105,7 @@ main = do
             , tplAgreement = mkEmptyText
             , tplChoices = NM.fromList ([chc,chc2] <> [arc | withArchiveChoice])
             , tplKey = Nothing
+            , tplImplements = NM.empty
             }
     let mod = Module
             { moduleName = ModuleName ["Module"]
@@ -115,6 +116,7 @@ main = do
             , moduleValues = NM.empty
             , moduleTemplates = NM.fromList [tpl]
             , moduleExceptions = NM.empty
+            , moduleInterfaces = NM.empty
             }
     case checkModule (initWorld [] version) version mod of
         [] -> pure ()

@@ -1,7 +1,6 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-
 module DA.Daml.Doc.Driver
     ( DamldocOptions(..)
     , InputFormat(..)
@@ -19,8 +18,8 @@ import DA.Daml.Doc.Transform
 
 import DA.Daml.Options.Types
 
+import Development.IDE.Core.Shake (NotificationHandler)
 import Development.IDE.Types.Location
-import qualified Language.Haskell.LSP.Messages as LSP
 
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
@@ -45,7 +44,7 @@ import qualified Data.Text.Encoding as T
 data DamldocOptions = DamldocOptions
     { do_inputFormat :: InputFormat
     , do_compileOptions :: Options
-    , do_diagsLogger :: LSP.FromServerMessage -> IO ()
+    , do_diagsLogger ::  NotificationHandler
     , do_outputPath :: FilePath
     , do_outputFormat :: OutputFormat
     , do_docTemplate :: Maybe FilePath

@@ -27,6 +27,9 @@ final case class ContextTemplate(tycon: TypeConName) extends Context {
 final case class ContextDefException(tycon: TypeConName) extends Context {
   def pretty: String = s"exception definition ${tycon.qualifiedName}"
 }
+final case class ContextDefInterface(tycon: TypeConName) extends Context {
+  def pretty: String = s"interface definition ${tycon.qualifiedName}"
+}
 final case class ContextDefValue(ref: ValueRef) extends Context {
   def pretty: String = s"value definition ${ref.qualifiedName}"
 }
@@ -151,7 +154,6 @@ case object URBigNumeric extends UnserializabilityReason {
 
 abstract class ValidationError extends java.lang.RuntimeException with Product with Serializable {
   def context: Context
-  override def toString: String = productPrefix + productIterator.mkString("(", ", ", ")")
   def pretty: String = s"validation error in ${context.pretty}: $prettyInternal"
   override def getMessage: String = pretty
   protected def prettyInternal: String
@@ -367,6 +369,10 @@ final case class EIllegalHigherEnumType(context: Context, defn: TypeConName)
     extends ValidationError {
   protected def prettyInternal: String = s"illegal higher order enum type"
 }
+final case class EIllegalHigherInterfaceType(context: Context, defn: TypeConName)
+    extends ValidationError {
+  protected def prettyInternal: String = s"illegal higher interface type"
+}
 final case class EIllegalEnumArgument(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String = s"illegal non Unit enum argument"
 }
@@ -409,4 +415,74 @@ final case class EModuleVersionDependencies(
     s"package $pkgId using version $pkgLangVersion depends on package $depPkgId using newer version $dependencyLangVersion"
 
   override def context: Context = NoContext
+}
+
+final case class EBadInterfaceChoiceImplConsuming(
+    context: Context,
+    iface: TypeConName,
+    template: TypeConName,
+    choice: ChoiceName,
+    ifaceConsuming: Boolean,
+    tplConsuming: Boolean,
+) extends ValidationError {
+
+  def prettyConsuming(consuming: Boolean): String = if (consuming) "consuming" else "non-consuming"
+
+  override protected def prettyInternal: String =
+    s"The implementation of the choice $choice of interface $iface in template $template differs from the interface definition in the consuming/non-consuming behaviour.\nExpected: ${prettyConsuming(ifaceConsuming)}\n But got: ${prettyConsuming(tplConsuming)}"
+}
+
+final case class EBadInterfaceChoiceImplArgType(
+    context: Context,
+    iface: TypeConName,
+    template: TypeConName,
+    choice: ChoiceName,
+    ifaceArgType: Type,
+    tplArgType: Type,
+) extends ValidationError {
+
+  override protected def prettyInternal: String =
+    s"The implementation of the choice $choice of interface $iface in template $template differs from the interface definition in the argument type.\nExpected: $ifaceArgType\n But got: $tplArgType"
+}
+
+final case class EBadInterfaceChoiceImplRetType(
+    context: Context,
+    iface: TypeConName,
+    template: TypeConName,
+    choice: ChoiceName,
+    ifaceRetType: Type,
+    tplRetType: Type,
+) extends ValidationError {
+
+  override protected def prettyInternal: String =
+    s"The implementation of the choice $choice of interface $iface in template $template differs from the interface definition in the return type.\nExpected: $ifaceRetType\n But got: $tplRetType"
+}
+
+final case class EMissingInterfaceMethod(
+    context: Context,
+    template: TypeConName,
+    iface: TypeConName,
+    method: MethodName,
+) extends ValidationError {
+  override protected def prettyInternal: String =
+    s"Template $template is missing method '$method' in its implementation of interface $iface."
+}
+
+final case class EUnknownInterfaceMethod(
+    context: Context,
+    template: TypeConName,
+    iface: TypeConName,
+    method: MethodName,
+) extends ValidationError {
+  override protected def prettyInternal: String =
+    s"Template $template implements method '$method' in its implementation of interface $iface, but this method is not part of the interface."
+}
+
+final case class ETemplateDoesNotImplementInterface(
+    context: Context,
+    template: TypeConName,
+    iface: TypeConName,
+) extends ValidationError {
+  override protected def prettyInternal: String =
+    s"Template $template does not implement interface $iface"
 }

@@ -7,7 +7,7 @@ import java.io.{BufferedOutputStream, Closeable, OutputStream}
 import java.nio.file.{Files, Path}
 
 import com.daml.ledger.participant.state.kvutils.Conversions
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.LedgerExportEntry
+import com.daml.ledger.participant.state.kvutils.export.LedgerExport.LedgerExportEntry
 
 import scala.jdk.CollectionConverters._
 

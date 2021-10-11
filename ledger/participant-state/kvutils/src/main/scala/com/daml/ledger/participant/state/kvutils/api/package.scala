@@ -6,7 +6,10 @@ package com.daml.ledger.participant.state.kvutils
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
+import com.daml.ledger.configuration.LedgerId
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.SubmissionResult
+import com.daml.lf.data.Ref
 import com.daml.telemetry.TelemetryContext
 
 import scala.concurrent.Future
@@ -16,7 +19,7 @@ import scala.concurrent.Future
   * =Interfaces=
   * The main interfaces that you need to implement to be able to run a participant server are as follows:
   *   - [[com.daml.ledger.participant.state.kvutils.api.LedgerWriter]]: Defines how you submit requests to the ledger
-  * as opaque bytes.
+  *     as opaque bytes.
   *   - [[com.daml.ledger.participant.state.kvutils.api.LedgerReader]]: Defines how you read committed key-value pairs
   * from the ledger as opaque bytes.
   *
@@ -55,6 +58,7 @@ package object api {
 
   def createKeyValueLedger(reader: LedgerReader, writer: LedgerWriter): KeyValueLedger =
     new LedgerReader with LedgerWriter {
+
       override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
         reader.events(startExclusive)
 
@@ -63,7 +67,7 @@ package object api {
       override def currentHealth(): HealthStatus =
         reader.currentHealth().and(writer.currentHealth())
 
-      override def participantId: ParticipantId = writer.participantId
+      override def participantId: Ref.ParticipantId = writer.participantId
 
       override def commit(
           correlationId: String,

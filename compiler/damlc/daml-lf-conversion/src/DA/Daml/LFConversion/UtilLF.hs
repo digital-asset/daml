@@ -17,7 +17,7 @@ import Data.Maybe
 import qualified Data.NameMap               as NM
 import qualified Data.Text                  as T
 import           GHC.Stack                  (HasCallStack)
-import Language.Haskell.LSP.Types
+import Language.LSP.Types
 import           Outputable (Outputable(..), text)
 
 mkVar :: T.Text -> ExprVarName

@@ -3,36 +3,33 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import java.time.Duration
+
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.{
-  SubmitterInfo,
-  ApplicationId,
-  CommandId,
-  TransactionMeta,
-}
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlStateKey,
-  DamlSubmission,
-  DamlCommandDedupKey,
-}
+import com.daml.ledger.api.{DeduplicationPeriod => ApiDeduplicationPeriod}
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
+import com.daml.ledger.participant.state.kvutils.store.{DamlCommandDedupKey, DamlStateKey}
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
+import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.daml.lf.crypto
-import com.daml.lf.data.Time
-import com.daml.lf.data.Ref.{Party, Identifier}
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.metrics.Metrics
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import java.time.Instant
 
 class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
+
+  import TransactionBuilder.Implicits._
+
   private val metrics: Metrics = new Metrics(new MetricRegistry)
   private val keyValueSubmission = new KeyValueSubmission(metrics)
 
-  private val alice = Party.assertFromString("Alice")
-  private val commandId = CommandId.assertFromString("cmdid")
+  private val alice = Ref.Party.assertFromString("Alice")
+  private val commandId = Ref.CommandId.assertFromString("cmdid")
+  private val applicationId = Ref.ApplicationId.assertFromString("appid")
 
   private def toSubmission(tx: SubmittedTransaction): DamlSubmission = {
     val timestamp = Time.Timestamp.Epoch
@@ -47,9 +44,12 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
     )
     val submitterInfo = SubmitterInfo(
       actAs = List(alice),
-      applicationId = ApplicationId.assertFromString("appid"),
+      applicationId = applicationId,
       commandId = commandId,
-      deduplicateUntil = Instant.EPOCH,
+      deduplicationPeriod = ApiDeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
+      submissionId = Ref.LedgerString.assertFromString("submission"),
+      ledgerConfiguration =
+        Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(1)),
     )
     keyValueSubmission.transactionToSubmission(
       submitterInfo = submitterInfo,
@@ -58,47 +58,51 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
     )
   }
 
-  def toSubmission(builder: TransactionBuilder): DamlSubmission =
+  private def toSubmission(builder: TransactionBuilder): DamlSubmission =
     this.toSubmission(builder.buildSubmitted())
 
-  val dedupKey = DamlStateKey.newBuilder
+  private val dedupKey = DamlStateKey.newBuilder
     .setCommandDedup(
-      DamlCommandDedupKey.newBuilder.addSubmitters(alice).setCommandId(commandId).build
+      DamlCommandDedupKey.newBuilder
+        .addSubmitters(alice)
+        .setApplicationId(applicationId)
+        .setCommandId(commandId)
+        .build
     )
     .build
 
   private val keyValue = Value.ValueUnit
-  private val templateId = Identifier.assertFromString("pkg:M:T")
+  private val templateId = Ref.Identifier.assertFromString("pkg:M:T")
 
-  private def create(builder: TransactionBuilder, id: String, hasKey: Boolean = false) =
+  private def create(builder: TransactionBuilder, id: Value.ContractId, hasKey: Boolean = false) =
     builder.create(
       id = id,
-      template = templateId.toString,
-      argument = Value.ValueRecord(None, ImmArray.empty),
-      signatories = Seq(),
-      observers = Seq(),
+      templateId = templateId,
+      argument = Value.ValueRecord(None, ImmArray.Empty),
+      signatories = Set.empty,
+      observers = Set.empty,
       key = if (hasKey) Some(keyValue) else None,
     )
 
   private def exercise(
       builder: TransactionBuilder,
-      id: String,
+      id: Value.ContractId,
       hasKey: Boolean = false,
       consuming: Boolean = true,
   ) =
     builder.exercise(
       contract = create(builder, id, hasKey),
       choice = "Choice",
-      argument = Value.ValueRecord(None, ImmArray.empty),
-      actingParties = Set(),
+      argument = Value.ValueRecord(None, ImmArray.Empty),
+      actingParties = Set.empty,
       consuming = consuming,
       result = Some(Value.ValueUnit),
     )
 
-  private def fetch(builder: TransactionBuilder, id: String, byKey: Boolean) =
+  private def fetch(builder: TransactionBuilder, id: Value.ContractId, byKey: Boolean) =
     builder.fetch(contract = create(builder, id, hasKey = true), byKey = byKey)
 
-  private def lookup(builder: TransactionBuilder, id: String, found: Boolean) =
+  private def lookup(builder: TransactionBuilder, id: Value.ContractId, found: Boolean) =
     builder.lookupByKey(contract = create(builder, id, hasKey = true), found = found)
 
   import Conversions.{contractIdToStateKey, contractKeyToStateKey}

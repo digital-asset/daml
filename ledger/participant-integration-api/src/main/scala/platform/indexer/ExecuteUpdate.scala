@@ -3,31 +3,17 @@
 
 package com.daml.platform.indexer
 
-import java.time.{Duration, Instant}
-
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.codahale.metrics.Timer
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.Update._
-import com.daml.ledger.participant.state.v1.{
-  ApplicationId,
-  CommandId,
-  Offset,
-  ParticipantId,
-  Party,
-  SubmissionId,
-  TransactionId,
-  Update,
-  WorkflowId,
-}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.lf.data.Time.Timestamp
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.indexer.ExecuteUpdate.ExecuteUpdateFlow
 import com.daml.platform.indexer.OffsetUpdate.PreparedTransactionInsert
@@ -45,7 +31,7 @@ object ExecuteUpdate {
         DbType,
         LedgerWriteDao,
         Metrics,
-        v1.ParticipantId,
+        Ref.ParticipantId,
         Int,
         ExecutionContext,
         LoggingContext,
@@ -55,7 +41,7 @@ object ExecuteUpdate {
       dbType: DbType,
       ledgerDao: LedgerWriteDao,
       metrics: Metrics,
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
       updatePreparationParallelism: Int,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -83,12 +69,14 @@ object ExecuteUpdate {
 }
 
 trait ExecuteUpdate {
+  import state.Update._
+
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private[indexer] implicit val loggingContext: LoggingContext
   private[indexer] implicit val executionContext: ExecutionContext
 
-  private[indexer] def participantId: v1.ParticipantId
+  private[indexer] def participantId: Ref.ParticipantId
 
   private[indexer] def ledgerDao: LedgerWriteDao
 
@@ -107,7 +95,7 @@ trait ExecuteUpdate {
           metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
           Future {
             val preparedInsert = ledgerDao.prepareTransactionInsert(
-              submitterInfo = tx.optSubmitterInfo,
+              completionInfo = tx.optCompletionInfo,
               workflowId = tx.transactionMeta.workflowId,
               transactionId = tx.transactionId,
               ledgerEffectiveTime = tx.transactionMeta.ledgerEffectiveTime.toInstant,
@@ -200,8 +188,13 @@ trait ExecuteUpdate {
           Some(configRejection.rejectionReason),
         )
 
-      case CommandRejected(recordTime, submitterInfo, reason) =>
-        ledgerDao.storeRejection(Some(submitterInfo), recordTime.toInstant, offsetStep, reason)
+      case CommandRejected(recordTime, completionInfo, reason) =>
+        ledgerDao.storeRejection(
+          Some(completionInfo),
+          recordTime.toInstant,
+          offsetStep,
+          reason,
+        )
       case update: TransactionAccepted =>
         import update._
         logger.warn(
@@ -210,7 +203,7 @@ trait ExecuteUpdate {
         )
         ledgerDao.storeTransaction(
           preparedInsert = ledgerDao.prepareTransactionInsert(
-            submitterInfo = optSubmitterInfo,
+            completionInfo = optCompletionInfo,
             workflowId = transactionMeta.workflowId,
             transactionId = transactionId,
             ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
@@ -219,7 +212,7 @@ trait ExecuteUpdate {
             divulgedContracts = divulgedContracts,
             blindingInfo = blindingInfo,
           ),
-          submitterInfo = optSubmitterInfo,
+          completionInfo = optCompletionInfo,
           transactionId = transactionId,
           recordTime = recordTime.toInstant,
           ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
@@ -229,134 +222,15 @@ trait ExecuteUpdate {
         )
     }
   }
-
-  private[indexer] def loggingContextFor(
-      offset: Offset,
-      update: Update,
-  ): Map[String, String] =
-    loggingContextFor(update)
-      .updated("updateRecordTime", update.recordTime.toInstant.toString)
-      .updated("updateOffset", offset.toHexString)
-
-  private def loggingContextFor(update: Update): Map[String, String] =
-    update match {
-      case ConfigurationChanged(_, submissionId, participantId, newConfiguration) =>
-        Map(
-          Logging.submissionId(submissionId),
-          Logging.participantId(participantId),
-          Logging.configGeneration(newConfiguration.generation),
-          Logging.maxDeduplicationTime(newConfiguration.maxDeduplicationTime),
-        )
-      case ConfigurationChangeRejected(
-            _,
-            submissionId,
-            participantId,
-            proposedConfiguration,
-            rejectionReason,
-          ) =>
-        Map(
-          Logging.submissionId(submissionId),
-          Logging.participantId(participantId),
-          Logging.configGeneration(proposedConfiguration.generation),
-          Logging.maxDeduplicationTime(proposedConfiguration.maxDeduplicationTime),
-          Logging.rejectionReason(rejectionReason),
-        )
-      case PartyAddedToParticipant(party, displayName, participantId, _, submissionId) =>
-        Map(
-          Logging.submissionIdOpt(submissionId),
-          Logging.participantId(participantId),
-          Logging.party(party),
-          Logging.displayName(displayName),
-        )
-      case PartyAllocationRejected(submissionId, participantId, _, rejectionReason) =>
-        Map(
-          Logging.submissionId(submissionId),
-          Logging.participantId(participantId),
-          Logging.rejectionReason(rejectionReason),
-        )
-      case PublicPackageUpload(_, sourceDescription, _, submissionId) =>
-        Map(
-          Logging.submissionIdOpt(submissionId),
-          Logging.sourceDescriptionOpt(sourceDescription),
-        )
-      case PublicPackageUploadRejected(submissionId, _, rejectionReason) =>
-        Map(
-          Logging.submissionId(submissionId),
-          Logging.rejectionReason(rejectionReason),
-        )
-      case TransactionAccepted(optSubmitterInfo, transactionMeta, _, transactionId, _, _, _) =>
-        Map(
-          Logging.transactionId(transactionId),
-          Logging.ledgerTime(transactionMeta.ledgerEffectiveTime),
-          Logging.workflowIdOpt(transactionMeta.workflowId),
-          Logging.submissionTime(transactionMeta.submissionTime),
-        ) ++ optSubmitterInfo
-          .map(info =>
-            Map(
-              Logging.submitter(info.actAs),
-              Logging.applicationId(info.applicationId),
-              Logging.commandId(info.commandId),
-              Logging.deduplicateUntil(info.deduplicateUntil),
-            )
-          )
-          .getOrElse(Map.empty)
-      case CommandRejected(_, submitterInfo, reason) =>
-        Map(
-          Logging.submitter(submitterInfo.actAs),
-          Logging.applicationId(submitterInfo.applicationId),
-          Logging.commandId(submitterInfo.commandId),
-          Logging.deduplicateUntil(submitterInfo.deduplicateUntil),
-          Logging.rejectionReason(reason.description),
-        )
-    }
-
-  private object Logging {
-    def submissionId(id: SubmissionId): (String, String) =
-      "submissionId" -> id
-    def submissionIdOpt(id: Option[SubmissionId]): (String, String) =
-      "submissionId" -> id.getOrElse("")
-    def participantId(id: ParticipantId): (String, String) =
-      "participantId" -> id
-    def commandId(id: CommandId): (String, String) =
-      "commandId" -> id
-    def party(party: Party): (String, String) =
-      "party" -> party
-    def transactionId(id: TransactionId): (String, String) =
-      "transactionId" -> id
-    def applicationId(id: ApplicationId): (String, String) =
-      "applicationId" -> id
-    def workflowIdOpt(id: Option[WorkflowId]): (String, String) =
-      "workflowId" -> id.getOrElse("")
-    def ledgerTime(time: Timestamp): (String, String) =
-      "ledgerTime" -> time.toInstant.toString
-    def submissionTime(time: Timestamp): (String, String) =
-      "submissionTime" -> time.toInstant.toString
-    def configGeneration(generation: Long): (String, String) =
-      "configGeneration" -> generation.toString
-    def maxDeduplicationTime(time: Duration): (String, String) =
-      "maxDeduplicationTime" -> time.toString
-    def deduplicateUntil(time: Instant): (String, String) =
-      "deduplicateUntil" -> time.toString
-    def rejectionReason(reason: String): (String, String) =
-      "rejectionReason" -> reason
-    def displayName(name: String): (String, String) =
-      "displayName" -> name
-    def sourceDescriptionOpt(description: Option[String]): (String, String) =
-      "sourceDescription" -> description.getOrElse("")
-    def submitter(parties: List[Party]): (String, String) =
-      "submitter" -> parties.mkString("[", ", ", "]")
-
-  }
 }
 
 class PipelinedExecuteUpdate(
     private[indexer] val ledgerDao: LedgerWriteDao,
     private[indexer] val metrics: Metrics,
-    private[indexer] val participantId: v1.ParticipantId,
+    private[indexer] val participantId: Ref.ParticipantId,
     private[indexer] val updatePreparationParallelism: Int,
 )(implicit val executionContext: ExecutionContext, val loggingContext: LoggingContext)
     extends ExecuteUpdate {
-
   private def insertTransactionState(
       timedPipelinedUpdate: PipelinedUpdateWithTimer
   ): Future[PipelinedUpdateWithTimer] = timedPipelinedUpdate.preparedUpdate match {
@@ -386,7 +260,8 @@ class PipelinedExecuteUpdate(
   ): Future[PersistenceResponse] = {
     val pipelinedUpdate = timedPipelinedUpdate.preparedUpdate
     withEnrichedLoggingContext(
-      loggingContextFor(pipelinedUpdate.offsetStep.offset, pipelinedUpdate.update)
+      "offset" -> pipelinedUpdate.offsetStep.offset,
+      "update" -> pipelinedUpdate.update,
     ) { implicit loggingContext =>
       Timed.future(
         metrics.daml.indexer.stateUpdateProcessing, {
@@ -407,14 +282,14 @@ class PipelinedExecuteUpdate(
 
   private def completeTransactionInsertion(
       offsetStep: OffsetStep,
-      tx: TransactionAccepted,
+      tx: state.Update.TransactionAccepted,
       pipelinedInsertTimer: Timer.Context,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     Timed
       .future(
         metrics.daml.index.db.storeTransactionCompletion,
         ledgerDao.completeTransaction(
-          submitterInfo = tx.optSubmitterInfo,
+          completionInfo = tx.optCompletionInfo,
           transactionId = tx.transactionId,
           recordTime = tx.recordTime.toInstant,
           offsetStep = offsetStep,
@@ -443,7 +318,7 @@ object PipelinedExecuteUpdate {
   def owner(
       ledgerDao: LedgerWriteDao,
       metrics: Metrics,
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
       updatePreparationParallelism: Int,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -465,18 +340,17 @@ object PipelinedExecuteUpdate {
 class AtomicExecuteUpdate(
     private[indexer] val ledgerDao: LedgerWriteDao,
     private[indexer] val metrics: Metrics,
-    private[indexer] val participantId: v1.ParticipantId,
+    private[indexer] val participantId: Ref.ParticipantId,
     private[indexer] val updatePreparationParallelism: Int,
 )(
     private[indexer] implicit val loggingContext: LoggingContext,
     private[indexer] val executionContext: ExecutionContext,
 ) extends ExecuteUpdate {
-
   private[indexer] val flow: ExecuteUpdateFlow =
     Flow[OffsetUpdate]
       .mapAsync(updatePreparationParallelism)(prepareUpdate)
       .mapAsync(1) { case offsetUpdate @ OffsetUpdate(offsetStep, update) =>
-        withEnrichedLoggingContext(loggingContextFor(offsetStep.offset, update)) {
+        withEnrichedLoggingContext("offset" -> offsetStep.offset, "update" -> update) {
           implicit loggingContext =>
             Timed.future(
               metrics.daml.indexer.stateUpdateProcessing,
@@ -492,8 +366,8 @@ class AtomicExecuteUpdate(
     preparedUpdate match {
       case PreparedTransactionInsert(
             offsetStep,
-            TransactionAccepted(
-              optSubmitterInfo,
+            state.Update.TransactionAccepted(
+              optCompletionInfo,
               transactionMeta,
               transaction,
               transactionId,
@@ -507,7 +381,7 @@ class AtomicExecuteUpdate(
           metrics.daml.index.db.storeTransaction,
           ledgerDao.storeTransaction(
             preparedInsert,
-            submitterInfo = optSubmitterInfo,
+            completionInfo = optCompletionInfo,
             transactionId = transactionId,
             recordTime = recordTime.toInstant,
             ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
@@ -525,7 +399,7 @@ object AtomicExecuteUpdate {
   def owner(
       ledgerDao: LedgerWriteDao,
       metrics: Metrics,
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
       updatePreparationParallelism: Int,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,

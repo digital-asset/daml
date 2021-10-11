@@ -7,7 +7,7 @@ import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.javaapi.data.LedgerOffset.Absolute
-import com.daml.ledger.javaapi.data.{Command, CreateCommand, Identifier, Record}
+import com.daml.ledger.javaapi.data.{Command, CreateCommand, DamlRecord, Identifier}
 import com.daml.ledger.rxjava.grpc.helpers.{CommandServiceImpl, _}
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -145,7 +145,7 @@ class DamlLedgerClientTest
   ): Assertion = {
     withClue(clueFor("CommandClient")) {
       val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
-      val record = new Record(recordId, List.empty[Record.Field].asJava)
+      val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
       val commands = genCommands(List(command), Option(someParty))
       commandClient
@@ -190,7 +190,7 @@ class DamlLedgerClientTest
   ): Assertion = {
     withClue("CommandSubmissionClient") {
       val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
-      val record = new Record(recordId, List.empty[Record.Field].asJava)
+      val record = new DamlRecord(recordId, List.empty[DamlRecord.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
       val commands = genCommands(List[Command](command), Option(someParty))
       commandSubmissionClient

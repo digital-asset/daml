@@ -13,8 +13,10 @@ final case class SizeMetric[T](
 
   override type V = Value
 
-  override def onNext(value: T): SizeMetric[T] =
-    this.copy(currentSizeBytesBucket = currentSizeBytesBucket + sizingBytesFunction(value))
+  override def onNext(value: T): SizeMetric[T] = {
+    val addedBytesSize = sizingBytesFunction(value)
+    this.copy(currentSizeBytesBucket = currentSizeBytesBucket + addedBytesSize)
+  }
 
   override def periodicValue(periodDuration: Duration): (Metric[T], Value) = {
     val sizeRate = periodicSizeRate(periodDuration)

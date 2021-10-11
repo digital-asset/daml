@@ -14,19 +14,24 @@ import com.daml.lf.value.Value._
 
 import scala.annotation.tailrec
 
-private[engine] final class ValueTranslator(interface: language.Interface) {
+private[lf] final class ValueTranslator(
+    interface: language.PackageInterface,
+    // See Preprocessor scala doc for more details about the following flags.
+    forbidV0ContractId: Boolean,
+    requireV1ContractIdSuffix: Boolean,
+) {
 
   import Preprocessor._
 
-  @throws[PreprocessorException]
+  @throws[Error.Preprocessing.Error]
   private def labeledRecordToMap(
-      fields: ImmArray[(Option[String], Value[ContractId])]
-  ): Option[Map[String, Value[ContractId]]] = {
+      fields: ImmArray[(Option[String], Value)]
+  ): Option[Map[String, Value]] = {
     @tailrec
     def go(
-        fields: ImmArray[(Option[String], Value[ContractId])],
-        map: Map[String, Value[ContractId]],
-    ): Option[Map[String, Value[ContractId]]] = {
+        fields: ImmArray[(Option[String], Value)],
+        map: Map[String, Value],
+    ): Option[Map[String, Value]] = {
       fields match {
         case ImmArray() => Some(map)
         case ImmArrayCons((None, _), _) => None
@@ -38,28 +43,50 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
     go(fields, Map.empty)
   }
 
+  private[this] val unsafeTranslateV1Cid: ContractId.V1 => SValue.SContractId =
+    if (requireV1ContractIdSuffix)
+      cid =>
+        if (cid.suffix.isEmpty)
+          throw Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(cid)
+        else
+          SValue.SContractId(cid)
+    else
+      SValue.SContractId(_)
+
+  private[this] val unsafeTranslateV0Cid: ContractId.V0 => SValue.SContractId =
+    if (forbidV0ContractId)
+      cid => throw Error.Preprocessing.IllegalContractId.V0ContractId(cid)
+    else
+      SValue.SContractId(_)
+
+  @throws[Error.Preprocessing.Error]
+  private[preprocessing] def unsafeTranslateCid(cid: ContractId): SValue.SContractId =
+    cid match {
+      case cid1: ContractId.V1 => unsafeTranslateV1Cid(cid1)
+      case cid0: ContractId.V0 => unsafeTranslateV0Cid(cid0)
+    }
+
   // For efficient reason we do not produce here the monad Result[SValue] but rather throw
   // exception in case of error or package missing.
-  @throws[PreprocessorException]
+  @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafeTranslateValue(
       ty: Type,
-      value: Value[ContractId],
-  ): (SValue, Set[Value.ContractId]) = {
+      value: Value,
+  ): SValue = {
 
-    val cids = Set.newBuilder[Value.ContractId]
-
-    def go(ty0: Type, value: Value[ContractId], nesting: Int = 0): SValue =
+    def go(ty0: Type, value0: Value, nesting: Int = 0): SValue =
       if (nesting > Value.MAXIMUM_NESTING) {
-        fail(s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}")
+        throw Error.Preprocessing.ValueNesting(value)
       } else {
         val newNesting = nesting + 1
-        def typeMismatch = fail(s"mismatching type: $ty and value: $value")
+        def typeError(msg: String = s"mismatching type: ${ty0.pretty} and value: $value0") =
+          throw Error.Preprocessing.TypeMismatch(ty0, value0, msg)
         val (ty1, tyArgs) = AstUtil.destructApp(ty0)
         ty1 match {
           case TBuiltin(bt) =>
             tyArgs match {
               case Nil =>
-                (bt, value) match {
+                (bt, value0) match {
                   case (BTUnit, ValueUnit) =>
                     SValue.SUnit
                   case (BTBool, ValueBool(b)) =>
@@ -75,20 +102,22 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
                   case (BTParty, ValueParty(p)) =>
                     SValue.SParty(p)
                   case _ =>
-                    typeMismatch
+                    typeError()
                 }
               case typeArg0 :: Nil =>
-                (bt, value) match {
+                (bt, value0) match {
                   case (BTNumeric, ValueNumeric(d)) =>
                     typeArg0 match {
                       case TNat(s) =>
-                        Numeric.fromBigDecimal(s, d).fold(fail, SValue.SNumeric(_))
+                        Numeric.fromBigDecimal(s, d) match {
+                          case Right(value) => SValue.SNumeric(value)
+                          case Left(message) => typeError(message)
+                        }
                       case _ =>
-                        typeMismatch
+                        typeError()
                     }
                   case (BTContractId, ValueContractId(c)) =>
-                    cids += c
-                    SValue.SContractId(c)
+                    unsafeTranslateCid(c)
                   case (BTOptional, ValueOptional(mbValue)) =>
                     mbValue match {
                       case Some(v) =>
@@ -115,10 +144,10 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
                       )
                     }
                   case _ =>
-                    typeMismatch
+                    typeError()
                 }
               case typeArg0 :: typeArg1 :: Nil =>
-                (bt, value) match {
+                (bt, value0) match {
                   case (BTGenMap, ValueGenMap(entries)) =>
                     if (entries.isEmpty) {
                       SValue.SValue.EmptyGenMap
@@ -131,18 +160,18 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
                       )
                     }
                   case _ =>
-                    typeMismatch
+                    typeError()
                 }
               case _ =>
-                typeMismatch
+                typeError()
             }
           case TTyCon(tyCon) =>
-            value match {
+            value0 match {
               // variant
               case ValueVariant(mbId, constructorName, val0) =>
                 mbId.foreach(id =>
                   if (id != tyCon)
-                    fail(
+                    typeError(
                       s"Mismatching variant id, the type tells us $tyCon, but the value tells us $id"
                     )
                 )
@@ -158,7 +187,7 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
               case ValueRecord(mbId, flds) =>
                 mbId.foreach(id =>
                   if (id != tyCon)
-                    fail(
+                    typeError(
                       s"Mismatching record id, the type tells us $tyCon, but the value tells us $id"
                     )
                 )
@@ -170,7 +199,7 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
                 // since in JavaScript / Scala / most languages (but _not_ JSON, interestingly)
                 // it's ok to do `{"a": 1, "a": 2}`, where the second occurrence would just win.
                 if (recordFlds.length != flds.length) {
-                  fail(
+                  typeError(
                     s"Expecting ${recordFlds.length} field for record $tyCon, but got ${flds.length}"
                   )
                 }
@@ -180,7 +209,9 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
                     (recordFlds zip flds).map { case ((lbl, typ), (mbLbl, v)) =>
                       mbLbl.foreach(lbl_ =>
                         if (lbl_ != lbl)
-                          fail(s"Mismatching record label $lbl_ (expecting $lbl) for record $tyCon")
+                          typeError(
+                            s"Mismatching record field label '$lbl_' (expecting '$lbl') for record $tyCon"
+                          )
                       )
                       val replacedTyp = AstUtil.substitute(typ, subst)
                       lbl -> go(replacedTyp, v, newNesting)
@@ -189,7 +220,7 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
                     recordFlds.map { case (lbl, typ) =>
                       labeledRecords
                         .get(lbl)
-                        .fold(fail(s"Missing record label $lbl for record $tyCon")) { v =>
+                        .fold(typeError(s"Missing record field '$lbl' for record $tyCon")) { v =>
                           val replacedTyp = AstUtil.substitute(typ, subst)
                           lbl -> go(replacedTyp, v, newNesting)
                         }
@@ -204,25 +235,28 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
               case ValueEnum(mbId, constructor) if tyArgs.isEmpty =>
                 mbId.foreach(id =>
                   if (id != tyCon)
-                    fail(
+                    typeError(
                       s"Mismatching enum id, the type tells us $tyCon, but the value tells us $id"
                     )
                 )
                 val rank = handleLookup(interface.lookupEnumConstructor(tyCon, constructor))
                 SValue.SEnum(tyCon, constructor, rank)
               case _ =>
-                typeMismatch
+                typeError()
             }
           case _ =>
-            typeMismatch
+            typeError()
         }
       }
 
-    go(ty, value) -> cids.result()
+    go(ty, value)
   }
 
   // This does not try to pull missing packages, return an error instead.
-  def translateValue(ty: Type, value: Value[ContractId]): Either[Error, SValue] =
-    safelyRun(unsafeTranslateValue(ty, value)._1)
+  def translateValue(
+      ty: Type,
+      value: Value,
+  ): Either[Error.Preprocessing.Error, SValue] =
+    safelyRun(unsafeTranslateValue(ty, value))
 
 }

@@ -10,25 +10,20 @@ import akka.stream.scaladsl.{Flow, Source}
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  LedgerInitialConditions,
-  Offset,
-  ReadService,
-  TimeModel,
-  Update,
-}
+import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, LedgerTimeModel}
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.ReadService
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
-import com.daml.lf.data.Bytes
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{Bytes, Ref}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer
-import com.daml.platform.store.{DbType, FlywayMigrations, IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.store.dao.LedgerDao
+import com.daml.platform.store.{DbType, IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -50,16 +45,18 @@ final class JdbcIndexerSpec
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  private def mockedReadService(updates: Seq[(Offset, Update)] = Seq.empty): ReadService = {
-    val readService = mock[ReadService]
-    when(readService.getLedgerInitialConditions())
+  private def mockedReadService(
+      updates: Seq[(Offset, state.Update)] = Seq.empty
+  ): state.ReadService = {
+    val readService = mock[state.ReadService]
+    when(readService.ledgerInitialConditions())
       .thenAnswer(
         Source.single(
           LedgerInitialConditions(
             ledgerId = "ledger-id",
             config = Configuration(
               generation = 0,
-              timeModel = TimeModel.reasonableDefault,
+              timeModel = LedgerTimeModel.reasonableDefault,
               maxDeduplicationTime = Duration.ofDays(1),
             ),
             initialRecordTime = Timestamp.Epoch,
@@ -131,7 +128,7 @@ final class JdbcIndexerSpec
         .map(_ => ())
 
     val mockedUpdates @ Seq(update1, update2, update3) =
-      (1 to 3).map(_ => mock[Update])
+      (1 to 3).map(_ => mock[state.Update])
 
     val offsets @ Seq(offset1, offset2, offset3) =
       (1 to 3).map(idx => Offset(Bytes.fromByteArray(Array(idx.toByte))))
@@ -142,11 +139,10 @@ final class JdbcIndexerSpec
       OffsetUpdate(OffsetStep(Some(offset2), offset3), update3),
     )
 
-    initializeIndexer(participantId, flow)
+    initializeIndexer(participantId, mockedReadService(offsets zip mockedUpdates), flow)
       .flatMap {
         _.use {
-          _.subscription(mockedReadService(offsets zip mockedUpdates))
-            .use(_.completed())
+          _.use(identity)
         }
       }
       .map(_ => captureBuffer should contain theSameElementsInOrderAs expected)
@@ -155,7 +151,7 @@ final class JdbcIndexerSpec
   private def asyncCommitTest(mode: DbType.AsyncCommitMode): Future[Assertion] = {
     val participantId = "the-participant"
     for {
-      indexer <- initializeIndexer(participantId, jdbcAsyncCommitMode = mode)
+      indexer <- initializeIndexer(participantId, mockedReadService(), jdbcAsyncCommitMode = mode)
       _ = LogCollector.clear[this.type]
       _ <- runAndShutdown(indexer)
     } yield {
@@ -171,36 +167,45 @@ final class JdbcIndexerSpec
     owner.use(_ => Future.unit)
 
   private def runAndShutdownIndexer(participantId: String): Future[Unit] =
-    initializeIndexer(participantId).flatMap(runAndShutdown)
+    initializeIndexer(participantId, mockedReadService()).flatMap(runAndShutdown)
 
   private def initializeIndexer(
       participantId: String,
+      readService: ReadService,
       mockFlow: Flow[OffsetUpdate, Unit, NotUsed] = noOpFlow,
       jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.AsynchronousCommit,
   ): Future[ResourceOwner[Indexer]] = {
     val config = IndexerConfig(
-      participantId = v1.ParticipantId.assertFromString(participantId),
+      participantId = Ref.ParticipantId.assertFromString(participantId),
       jdbcUrl = postgresDatabase.url,
       startupMode = IndexerStartupMode.MigrateAndStart,
       asyncCommitMode = jdbcAsyncCommitMode,
+      enableAppendOnlySchema = false,
     )
     val metrics = new Metrics(new MetricRegistry)
-    new indexer.JdbcIndexer.Factory(
-      config = config,
-      readService = mockedReadService(),
-      servicesExecutionContext = materializer.executionContext,
-      metrics = metrics,
-      updateFlowOwnerBuilder =
-        mockedUpdateFlowOwnerBuilder(metrics, config.participantId, mockFlow),
-      serverRole = ServerRole.Indexer,
-      flywayMigrations = new FlywayMigrations(config.jdbcUrl),
-      LfValueTranslationCache.Cache.none,
-    ).migrateSchema(allowExistingSchema = true)
+    StandaloneIndexerServer
+      .migrateOnly(
+        jdbcUrl = config.jdbcUrl,
+        enableAppendOnlySchema = config.enableAppendOnlySchema,
+        allowExistingSchema = true,
+      )
+      .map(_ =>
+        new indexer.JdbcIndexer.Factory(
+          config = config,
+          readService = readService,
+          servicesExecutionContext = materializer.executionContext,
+          metrics = metrics,
+          updateFlowOwnerBuilder =
+            mockedUpdateFlowOwnerBuilder(metrics, config.participantId, mockFlow),
+          serverRole = ServerRole.Indexer,
+          LfValueTranslationCache.Cache.none,
+        ).initialized()
+      )
   }
 
   private def mockedUpdateFlowOwnerBuilder(
       metrics: Metrics,
-      participantId: v1.ParticipantId,
+      participantId: Ref.ParticipantId,
       mockFlow: Flow[OffsetUpdate, Unit, NotUsed],
   ): ExecuteUpdate.FlowOwnerBuilder = {
     val mocked = mock[ExecuteUpdate.FlowOwnerBuilder]

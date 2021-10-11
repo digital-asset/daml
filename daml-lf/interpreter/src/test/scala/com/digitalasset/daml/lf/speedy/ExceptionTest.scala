@@ -4,19 +4,19 @@
 package com.daml.lf
 package speedy
 
-import java.util
-
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
+import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion, Interface}
+import com.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
-import com.daml.lf.speedy.SError.DamlEUnhandledException
+import com.daml.lf.speedy.SError.SErrorDamlException
 import com.daml.lf.speedy.SValue.SUnit
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.Validation
+import com.daml.lf.value.Value.{ValueRecord, ValueText}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -53,39 +53,34 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
        }
       """)
 
-    val List(e1, e2) =
+    val List((t1, e1), (t2, e2)) =
       List("M:E1", "M:E2")
         .map(id =>
           data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:$id")
         )
-        .map(tyCon =>
-          SValue.SAny(
-            TTyCon(tyCon),
-            SValue.SRecord(tyCon, data.ImmArray.empty, new util.ArrayList()),
-          )
-        )
+        .map(tyCon => TTyCon(tyCon) -> ValueRecord(Some(tyCon), data.ImmArray.Empty))
     val arithmeticCon = data.Ref.Identifier.assertFromString(
       "cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a:DA.Exception.ArithmeticError:ArithmeticError"
     )
-    val fields = new util.ArrayList[SValue]()
-    fields.add(SValue.SText("ArithmeticError while evaluating (DIV_INT64 1 0)."))
     val divZeroE =
-      SValue.SAny(
-        TTyCon(arithmeticCon),
-        SValue.SRecord(
-          arithmeticCon,
-          data.ImmArray(data.Ref.Name.assertFromString("message")),
-          fields,
+      ValueRecord(
+        Some(arithmeticCon),
+        data.ImmArray(
+          Some(data.Ref.Name.assertFromString("message")) ->
+            ValueText("ArithmeticError while evaluating (DIV_INT64 1 0).")
         ),
       )
 
     val testCases = Table[String, SResult](
       ("expression", "expected"),
-      ("M:unhandled1", SResultError(DamlEUnhandledException(e1))),
-      ("M:unhandled2", SResultError(DamlEUnhandledException(e1))),
-      ("M:unhandled3", SResultError(DamlEUnhandledException(e1))),
-      ("M:unhandled4", SResultError(DamlEUnhandledException(e2))),
-      ("M:divZero", SResultError(DamlEUnhandledException(divZeroE))),
+      ("M:unhandled1", SResultError(SErrorDamlException(IE.UnhandledException(t1, e1)))),
+      ("M:unhandled2", SResultError(SErrorDamlException(IE.UnhandledException(t1, e1)))),
+      ("M:unhandled3", SResultError(SErrorDamlException(IE.UnhandledException(t1, e1)))),
+      ("M:unhandled4", SResultError(SErrorDamlException(IE.UnhandledException(t2, e2)))),
+      (
+        "M:divZero",
+        SResultError(SErrorDamlException(IE.UnhandledException(TTyCon(arithmeticCon), divZeroE))),
+      ),
     )
 
     forEvery(testCases) { (exp: String, expected: SResult) =>
@@ -471,16 +466,6 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     val example: Expr = EApp(e"M:causeRollback", EPrimLit(PLParty(party)))
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
-    val anException = {
-      val id = "M:AnException"
-      val tyCon =
-        data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:$id")
-      SValue.SAny(
-        TTyCon(tyCon),
-        SValue.SRecord(tyCon, data.ImmArray.empty, new util.ArrayList()),
-      )
-    }
-
     "works as expected for a contract version POST-dating exceptions" in {
       val pkgs = mkPackagesAtVersion(LanguageVersion.v1_dev)
       val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, example, party).run()
@@ -488,9 +473,16 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     }
 
     "causes an uncatchable exception to be thrown for a contract version PRE-dating exceptions" in {
+
+      val id = "M:AnException"
+      val tyCon =
+        data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:$id")
+      val anException =
+        IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
+
       val pkgs = mkPackagesAtVersion(LanguageVersion.v1_11)
       val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, example, party).run()
-      res shouldBe SResultError(DamlEUnhandledException(anException))
+      res shouldBe SResultError(SErrorDamlException(anException))
     }
 
     def mkPackagesAtVersion(languageVersion: LanguageVersion): PureCompiledPackages = {
@@ -547,19 +539,19 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
   private def typeAndCompile(pkg: Package): PureCompiledPackages = {
     import defaultParserParameters.defaultPackageId
     val rawPkgs = Map(defaultPackageId -> pkg)
-    Validation.checkPackage(Interface(rawPkgs), defaultPackageId, pkg)
+    Validation.checkPackage(PackageInterface(rawPkgs), defaultPackageId, pkg)
     val compilerConfig = Compiler.Config.Dev.copy(stacktracing = FullStackTrace)
     PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
   }
 
+  private val party = Party.assertFromString("Alice")
+
   private def runUpdateExpr(pkgs1: PureCompiledPackages)(e: Expr): SResult = {
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("ExceptionTest.scala")
-    Speedy.Machine.fromScenarioExpr(pkgs1, transactionSeed, e).run()
+    Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, party).run()
   }
 
   "rollback of creates (mixed versions)" should {
-
-    val party = Party.assertFromString("Alice")
 
     val oldPid: PackageId = Ref.PackageId.assertFromString("OldPackage")
     val newPid: PackageId = Ref.PackageId.assertFromString("Newpackage")
@@ -692,12 +684,8 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
     val anException = {
       val id = "NewM:AnException"
-      val tyCon =
-        data.Ref.Identifier.assertFromString(s"$newPid:$id")
-      SValue.SAny(
-        TTyCon(tyCon),
-        SValue.SRecord(tyCon, data.ImmArray.empty, new util.ArrayList()),
-      )
+      val tyCon = data.Ref.Identifier.assertFromString(s"$newPid:$id")
+      IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.Empty))
     }
 
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
@@ -713,12 +701,12 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
     "causes uncatchable exception when an old contract is within a new-exercise within a try-catch" in {
       val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, causeUncatchable, party).run()
-      res shouldBe SResultError(DamlEUnhandledException(anException))
+      res shouldBe SResultError(SErrorDamlException(anException))
     }
 
     "causes uncatchable exception when an old contract is within a new-exercise which aborts" in {
       val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, causeUncatchable2, party).run()
-      res shouldBe SResultError(DamlEUnhandledException(anException))
+      res shouldBe SResultError(SErrorDamlException(anException))
     }
 
   }

@@ -3,8 +3,12 @@
 
 package com.daml.platform.apiserver.execution
 
+import java.time.{Duration, Instant}
+
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.api.domain.Commands
+import com.daml.ledger.api.DeduplicationPeriod
+import com.daml.ledger.api.domain.{ApplicationId, CommandId, Commands, LedgerId, SubmissionId}
+import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.ParticipantId
@@ -17,6 +21,7 @@ import com.daml.metrics.Metrics
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+import com.daml.lf.command.{Commands => LfCommands}
 
 class StoreBackedCommandExecutorSpec
     extends AsyncWordSpec
@@ -29,7 +34,7 @@ class StoreBackedCommandExecutorSpec
     submissionTime = Time.Timestamp.now(),
     usedPackages = Set.empty,
     dependsOnTime = false,
-    nodeSeeds = ImmArray.empty,
+    nodeSeeds = ImmArray.Empty,
   )
 
   "execute" should {
@@ -37,6 +42,7 @@ class StoreBackedCommandExecutorSpec
       val mockEngine = mock[Engine]
       when(
         mockEngine.submit(
+          any[Set[Ref.Party]],
           any[Set[Ref.Party]],
           any[com.daml.lf.command.Commands],
           any[ParticipantId],
@@ -48,6 +54,34 @@ class StoreBackedCommandExecutorSpec
             (TransactionBuilder.EmptySubmitted, emptyTransactionMetadata)
           )
         )
+
+      val commands = Commands(
+        ledgerId = LedgerId("ledgerId"),
+        workflowId = None,
+        applicationId = ApplicationId(Ref.ApplicationId.assertFromString("applicationId")),
+        commandId = CommandId(Ref.CommandId.assertFromString("commandId")),
+        submissionId = SubmissionId(Ref.SubmissionId.assertFromString("submissionId")),
+        actAs = Set.empty,
+        readAs = Set.empty,
+        submittedAt = Instant.EPOCH,
+        deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
+        commands = LfCommands(
+          commands = ImmArray.Empty,
+          ledgerEffectiveTime = Time.Timestamp.Epoch,
+          commandsReference = "",
+        ),
+      )
+      val submissionSeed = Hash.hashPrivateKey("a key")
+      val configuration = Configuration(
+        generation = 1,
+        timeModel = LedgerTimeModel(
+          avgTransactionLatency = Duration.ZERO,
+          minSkew = Duration.ZERO,
+          maxSkew = Duration.ZERO,
+        ).get,
+        maxDeduplicationTime = Duration.ZERO,
+      )
+
       val instance = new StoreBackedCommandExecutor(
         mockEngine,
         Ref.ParticipantId.assertFromString("anId"),
@@ -55,16 +89,9 @@ class StoreBackedCommandExecutorSpec
         mock[ContractStore],
         new Metrics(new MetricRegistry),
       )
-      val mockDomainCommands = mock[Commands]
-      val mockLfCommands = mock[com.daml.lf.command.Commands]
-      when(mockLfCommands.ledgerEffectiveTime).thenReturn(Time.Timestamp.now())
-      when(mockDomainCommands.workflowId).thenReturn(None)
-      when(mockDomainCommands.commands).thenReturn(mockLfCommands)
-      when(mockDomainCommands.actAs).thenReturn(Set.empty[Ref.Party])
-      when(mockDomainCommands.readAs).thenReturn(Set.empty[Ref.Party])
 
       LoggingContext.newLoggingContext { implicit context =>
-        instance.execute(mockDomainCommands, Hash.hashPrivateKey("a key")).map { actual =>
+        instance.execute(commands, submissionSeed, configuration).map { actual =>
           actual.foreach { actualResult =>
             actualResult.interpretationTimeNanos should be > 0L
           }

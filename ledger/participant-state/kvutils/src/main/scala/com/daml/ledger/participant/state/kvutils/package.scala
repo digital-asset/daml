@@ -3,12 +3,12 @@
 
 package com.daml.ledger.participant.state
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.metrics.MetricName
 
 /** The participant-state key-value utilities provide methods to succinctly implement
-  * [[com.daml.ledger.participant.state.v1.ReadService]] and
-  * [[com.daml.ledger.participant.state.v1.WriteService]] on top of ledger's that provide a key-value state storage.
+  * [[com.daml.ledger.participant.state.v2.ReadService]] and
+  * [[com.daml.ledger.participant.state.v2.WriteService]] on top of ledger's that provide a key-value state storage.
   *
   * The key-value utilities are based around the concept of modelling the ledger around
   * an abstract state that can be described as the tuple `(logEntryIds, logEntryMap, kvState)`,

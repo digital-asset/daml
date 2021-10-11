@@ -7,17 +7,12 @@ import java.time.Instant
 
 import akka.stream.scaladsl.{Flow, Source}
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.WorkflowId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.participant.state.v1.Update.{
-  PublicPackageUploadRejected,
-  TransactionAccepted,
-}
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.TestResourceContext
-import com.daml.lf.data.{Bytes, ImmArray, Time}
-import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionVersion, VersionedTransaction}
-import com.daml.lf.value.Value.ContractId
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
+import com.daml.lf.transaction.{TransactionVersion, VersionedTransaction}
 import com.daml.lf.{crypto, transaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -48,36 +43,44 @@ final class ExecuteUpdateSpec
 
   private val mockedPreparedInsert = mock[TransactionsWriter.PreparedInsert]
   private val offset = Offset(Bytes.assertFromString("01"))
-  private val txId = TransactionId.fromInt(1)
+  private val txId = Ref.TransactionId.fromInt(1)
   private val txMock = transaction.CommittedTransaction(
-    VersionedTransaction[NodeId, ContractId](TransactionVersion.VDev, Map.empty, ImmArray.empty)
+    VersionedTransaction(TransactionVersion.VDev, Map.empty, ImmArray.Empty)
   )
   private val someMetrics = new Metrics(new MetricRegistry)
-  private val someParticipantId = ParticipantId.assertFromString("some-participant")
+  private val someParticipantId = Ref.ParticipantId.assertFromString("some-participant")
   private val prepareUpdateParallelism = 2
   private val ledgerEffectiveTime = Instant.EPOCH
 
   private val packageUploadRejectionReason = "some rejection reason"
-  private val submissionId = SubmissionId.assertFromString("s1")
+  private val submissionId = Ref.SubmissionId.assertFromString("s1")
   private val packageUploadRejectedEntry = PackageLedgerEntry.PackageUploadRejected(
     submissionId,
     ledgerEffectiveTime,
     packageUploadRejectionReason,
   )
 
-  private val txAccepted = transactionAccepted(
-    submitterInfo = None,
-    workflowId = None,
-    transactionId = txId,
-    ledgerEffectiveTime = Instant.EPOCH,
+  private val txAccepted = state.Update.TransactionAccepted(
+    optCompletionInfo = None,
+    transactionMeta = state.TransactionMeta(
+      ledgerEffectiveTime = Time.Timestamp.Epoch,
+      workflowId = None,
+      submissionTime = Time.Timestamp.Epoch,
+      submissionSeed = crypto.Hash.hashPrivateKey("dummy"),
+      optUsedPackages = None,
+      optNodeSeeds = None,
+      optByKeyNodes = None,
+    ),
     transaction = txMock,
+    transactionId = txId,
+    recordTime = Time.Timestamp.Epoch,
     divulgedContracts = List.empty,
     blindingInfo = None,
   )
 
   private val currentOffset = CurrentOffset(offset = offset)
   private val transactionAcceptedOffsetPair = OffsetUpdate(currentOffset, txAccepted)
-  private val packageUploadRejected = PublicPackageUploadRejected(
+  private val packageUploadRejected = state.Update.PublicPackageUploadRejected(
     submissionId = submissionId,
     recordTime = Time.Timestamp(ledgerEffectiveTime.toEpochMilli),
     rejectionReason = packageUploadRejectionReason,
@@ -89,13 +92,13 @@ final class ExecuteUpdateSpec
 
     when(
       dao.prepareTransactionInsert(
-        submitterInfo = None,
+        completionInfo = None,
         workflowId = None,
         transactionId = txId,
         ledgerEffectiveTime = ledgerEffectiveTime,
         offset = offset,
         transaction = txMock,
-        divulgedContracts = List.empty[DivulgedContract],
+        divulgedContracts = List.empty[state.DivulgedContract],
         blindingInfo = None,
       )
     ).thenReturn(mockedPreparedInsert)
@@ -106,7 +109,7 @@ final class ExecuteUpdateSpec
       .thenReturn(Future.successful(PersistenceResponse.Ok))
     when(
       dao.completeTransaction(
-        eqTo(Option.empty[SubmitterInfo]),
+        eqTo(None),
         eqTo(txId),
         eqTo(ledgerEffectiveTime),
         eqTo(CurrentOffset(offset)),
@@ -123,13 +126,13 @@ final class ExecuteUpdateSpec
     when(
       dao.storeTransaction(
         preparedInsert = eqTo(mockedPreparedInsert),
-        submitterInfo = eqTo(Option.empty[SubmitterInfo]),
+        completionInfo = eqTo(None),
         transactionId = eqTo(txId),
         recordTime = eqTo(ledgerEffectiveTime),
         ledgerEffectiveTime = eqTo(ledgerEffectiveTime),
         offsetStep = eqTo(CurrentOffset(offset)),
         transaction = eqTo(txMock),
-        divulged = eqTo(List.empty[DivulgedContract]),
+        divulged = eqTo(List.empty[state.DivulgedContract]),
       )(any[LoggingContext])
     ).thenReturn(Future.successful(PersistenceResponse.Ok))
     dao
@@ -137,7 +140,7 @@ final class ExecuteUpdateSpec
 
   private class ExecuteUpdateMock(
       val ledgerDao: LedgerDao,
-      val participantId: ParticipantId,
+      val participantId: Ref.ParticipantId,
       val metrics: Metrics,
       val loggingContext: LoggingContext,
       val executionContext: ExecutionContext,
@@ -212,7 +215,7 @@ final class ExecuteUpdateSpec
 
     "receives a MetadataUpdate" should {
       "return a MetadataUpdateStep" in {
-        val someMetadataUpdate = mock[Update]
+        val someMetadataUpdate = mock[state.Update]
         val offsetStepUpdatePair = OffsetUpdate(currentOffset, someMetadataUpdate)
         executeUpdate
           .prepareUpdate(offsetStepUpdatePair)
@@ -244,13 +247,13 @@ final class ExecuteUpdateSpec
                 orderedEvents
                   .verify(ledgerDaoMock)
                   .prepareTransactionInsert(
-                    submitterInfo = None,
+                    completionInfo = None,
                     workflowId = None,
                     transactionId = txId,
                     ledgerEffectiveTime = ledgerEffectiveTime,
                     offset = offset,
                     transaction = txMock,
-                    divulgedContracts = List.empty[DivulgedContract],
+                    divulgedContracts = List.empty[state.DivulgedContract],
                     blindingInfo = None,
                   )
                 orderedEvents
@@ -262,7 +265,7 @@ final class ExecuteUpdateSpec
                 orderedEvents
                   .verify(ledgerDaoMock)
                   .completeTransaction(
-                    eqTo(Option.empty[SubmitterInfo]),
+                    eqTo(None),
                     eqTo(txId),
                     eqTo(ledgerEffectiveTime),
                     eqTo(CurrentOffset(offset)),
@@ -307,26 +310,26 @@ final class ExecuteUpdateSpec
                 orderedEvents
                   .verify(ledgerDaoMock)
                   .prepareTransactionInsert(
-                    submitterInfo = None,
+                    completionInfo = None,
                     workflowId = None,
                     transactionId = txId,
                     ledgerEffectiveTime = ledgerEffectiveTime,
                     offset = offset,
                     transaction = txMock,
-                    divulgedContracts = List.empty[DivulgedContract],
+                    divulgedContracts = List.empty[state.DivulgedContract],
                     blindingInfo = None,
                   )
                 orderedEvents
                   .verify(ledgerDaoMock)
                   .storeTransaction(
                     preparedInsert = eqTo(mockedPreparedInsert),
-                    submitterInfo = eqTo(Option.empty[SubmitterInfo]),
+                    completionInfo = eqTo(None),
                     transactionId = eqTo(txId),
                     recordTime = eqTo(ledgerEffectiveTime),
                     ledgerEffectiveTime = eqTo(ledgerEffectiveTime),
                     offsetStep = eqTo(CurrentOffset(offset)),
                     transaction = eqTo(txMock),
-                    divulged = eqTo(List.empty[DivulgedContract]),
+                    divulged = eqTo(List.empty[state.DivulgedContract]),
                   )(any[LoggingContext])
                 orderedEvents
                   .verify(ledgerDaoMock)
@@ -343,34 +346,5 @@ final class ExecuteUpdateSpec
           }
       }
     }
-  }
-
-  private def transactionAccepted(
-      submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
-      ledgerEffectiveTime: Instant,
-      transaction: CommittedTransaction,
-      divulgedContracts: List[DivulgedContract],
-      blindingInfo: Option[BlindingInfo],
-  ): TransactionAccepted = {
-    val ledgerTimestamp = Time.Timestamp(ledgerEffectiveTime.toEpochMilli)
-    TransactionAccepted(
-      optSubmitterInfo = submitterInfo,
-      transactionMeta = TransactionMeta(
-        ledgerEffectiveTime = ledgerTimestamp,
-        workflowId = workflowId,
-        submissionTime = ledgerTimestamp,
-        submissionSeed = crypto.Hash.hashPrivateKey("dummy"),
-        optUsedPackages = None,
-        optNodeSeeds = None,
-        optByKeyNodes = None,
-      ),
-      transaction = transaction,
-      transactionId = transactionId,
-      recordTime = ledgerTimestamp,
-      divulgedContracts = divulgedContracts,
-      blindingInfo = blindingInfo,
-    )
   }
 }

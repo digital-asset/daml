@@ -34,23 +34,41 @@ trait OracleAround {
     createNewUser(u.toUpperCase)
   }
 
-  protected def createNewUser(name: String): User = {
-    val pwd = "hunter2"
+  protected def checkUserExists(con: Connection, name: String): Boolean = {
+    Using(con.createStatement()) { stmt =>
+      val res = stmt.executeQuery(
+        s"""SELECT count(*) AS user_count FROM all_users WHERE username='${name.toUpperCase}'"""
+      )
+      val count = if (res.next()) {
+        res.getInt("user_count")
+      } else 0
+      count > 0
+    }.get
+  }
+
+  protected def createNewUser(name: String, pwd: String = "hunter2"): User = {
     Using.Manager { use =>
       val con = use(
         DriverManager.getConnection(
           s"jdbc:oracle:thin:@localhost:$port/ORCLPDB1",
-          systemUser,
+          "sys as sysdba", // TODO this is needed for being able to grant the execute access for the sys.dbms_lock below. Consider making this configurable
           systemPwd,
         )
       )
-      val stmt = con.createStatement()
-      stmt.execute(s"""create user $name identified by $pwd""")
-      stmt.execute(s"""grant connect, resource to $name""")
-      stmt.execute(
-        s"""grant create table, create view, create procedure, create sequence, create type to $name"""
-      )
-      stmt.execute(s"""alter user $name quota unlimited on users""")
+      if (!checkUserExists(con, name)) {
+        val stmt = con.createStatement()
+        stmt.execute(s"""create user $name identified by $pwd""")
+        stmt.execute(s"""grant connect, resource to $name""")
+        stmt.execute(
+          s"""grant create table, create materialized view, create view, create procedure, create sequence, create type to $name"""
+        )
+        stmt.execute(s"""alter user $name quota unlimited on users""")
+
+        // for DBMS_LOCK access
+        stmt.execute(s"""GRANT EXECUTE ON SYS.DBMS_LOCK TO $name""")
+        stmt.execute(s"""GRANT SELECT ON V_$$MYSTAT TO $name""")
+        stmt.execute(s"""GRANT SELECT ON V_$$LOCK TO $name""")
+      } else false
     }.get
     User(name, pwd)
   }

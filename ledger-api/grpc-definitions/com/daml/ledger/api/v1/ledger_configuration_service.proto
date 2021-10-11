@@ -5,9 +5,7 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1;
 
-import "com/daml/ledger/api/v1/trace_context.proto";
 import "google/protobuf/duration.proto";
-
 
 option java_outer_classname = "LedgerConfigurationServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
@@ -31,11 +29,6 @@ message GetLedgerConfigurationRequest {
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string ledger_id = 1;
-
-  // Server side tracing will be registered as a child of the submitted context.
-  // This field is a future extension point and is currently not supported.
-  // Optional
-  TraceContext trace_context = 1000;
 }
 
 message GetLedgerConfigurationResponse {
@@ -50,8 +43,10 @@ message LedgerConfiguration {
   reserved 1; // was min_ttl
   reserved 2; // was max_ttl
 
-  // The maximum value for the ``deduplication_time`` parameter of command submissions
-  // (as described in ``commands.proto``). This defines the maximum time window during which
-  // commands can be deduplicated.
+  // If a command submission specifies a deduplication period of length up to ``max_deduplication_time``,
+  // the submission SHOULD not be rejected with ``NOT_FOUND`` because the deduplication period start is too early.
+  // The deduplication period is measured on a local clock of the participant or Daml ledger,
+  // and therefore subject to clock skews and clock drifts.
+  // Command submissions with longer periods MAY get accepted though.
   google.protobuf.Duration max_deduplication_time = 3;
 }

@@ -18,7 +18,7 @@ da_haskell_library(
         "directory",
         "extra",
         "filepath",
-        "haskell-lsp-types",
+        "lsp-types",
         "ghc-lib-parser",
         "ghc-lib",
         "ghcide",
@@ -47,6 +47,7 @@ da_haskell_test(
     srcs = glob(["test/**/*.hs"]),
     hackage_deps = [
         "base",
+        "containers",
         "either",
         "ghc-lib-parser",
         "ghc-lib",

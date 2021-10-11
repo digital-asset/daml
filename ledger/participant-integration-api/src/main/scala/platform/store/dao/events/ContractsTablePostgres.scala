@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import java.sql.{Connection, Timestamp}
 
 import anorm.{Row, SimpleSql, SqlQuery}
-import com.daml.ledger.participant.state.v1.DivulgedContract
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.platform.store.dao.events.ContractsTable.Executable
 
 object ContractsTablePostgres extends ContractsTable {
@@ -42,6 +42,7 @@ object ContractsTablePostgres extends ContractsTable {
     ContractsTable.Executables(
       deleteContracts = buildDeletes(info),
       insertContracts = buildInserts(tx, info, serialized),
+      nullifyPastKeys = buildNullifyPastKeys(info),
     )
   }
 
@@ -50,8 +51,8 @@ object ContractsTablePostgres extends ContractsTable {
       contractsInfo: TransactionIndexing.ContractsInfo,
       serialized: TransactionIndexing.Compressed.Contracts,
   ): Executable = {
-    import com.daml.platform.store.JdbcArrayConversions._
     import com.daml.platform.store.JdbcArrayConversions.IntToSmallIntConversions._
+    import com.daml.platform.store.JdbcArrayConversions._
 
     val netCreatesSize = contractsInfo.netCreates.size
     val divulgedSize = contractsInfo.divulgedContracts.size
@@ -77,7 +78,7 @@ object ContractsTablePostgres extends ContractsTable {
     }
 
     contractsInfo.divulgedContracts.iterator.zipWithIndex.foreach {
-      case (DivulgedContract(contractId, contractInst), idx) =>
+      case (state.DivulgedContract(contractId, contractInst), idx) =>
         contractIds(idx + netCreatesSize) = contractId.coid
         templateIds(idx + netCreatesSize) = contractInst.template.toString
         stakeholders(idx + netCreatesSize) = ""

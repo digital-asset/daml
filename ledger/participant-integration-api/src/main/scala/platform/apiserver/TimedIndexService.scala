@@ -26,9 +26,10 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v1.{Configuration, Offset, PackageId, ParticipantId, Party}
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
@@ -43,15 +44,15 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
-  ): Future[Map[PackageId, v2.PackageDetails]] =
+  ): Future[Map[Ref.PackageId, v2.PackageDetails]] =
     Timed.future(metrics.daml.services.index.listLfPackages, delegate.listLfPackages())
 
-  override def getLfArchive(packageId: PackageId)(implicit
+  override def getLfArchive(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[DamlLf.Archive]] =
     Timed.future(metrics.daml.services.index.getLfArchive, delegate.getLfArchive(packageId))
 
-  override def getLfPackage(packageId: PackageId)(implicit
+  override def getLfPackage(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Ast.Package]] =
     Timed.future(metrics.daml.services.index.getLfPackage, delegate.getLfPackage(packageId))
@@ -80,7 +81,7 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
   override def getCompletions(
       begin: domain.LedgerOffset,
       applicationId: ApplicationId,
-      parties: Set[Party],
+      parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
     Timed.source(
       metrics.daml.services.index.getCompletions,
@@ -111,7 +112,7 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
 
   override def getTransactionById(
       transactionId: TransactionId,
-      requestingParties: Set[Party],
+      requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
     Timed.future(
       metrics.daml.services.index.getTransactionById,
@@ -120,7 +121,7 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
 
   override def getTransactionTreeById(
       transactionId: TransactionId,
-      requestingParties: Set[Party],
+      requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     Timed.future(
       metrics.daml.services.index.getTransactionTreeById,
@@ -137,18 +138,18 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
     )
 
   override def lookupActiveContract(
-      readers: Set[Party],
+      readers: Set[Ref.Party],
       contractId: Value.ContractId,
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]]] =
+  ): Future[Option[Value.ContractInst[Value.VersionedValue]]] =
     Timed.future(
       metrics.daml.services.index.lookupActiveContract,
       delegate.lookupActiveContract(readers, contractId),
     )
 
   override def lookupContractKey(
-      readers: Set[Party],
+      readers: Set[Ref.Party],
       key: GlobalKey,
   )(implicit loggingContext: LoggingContext): Future[Option[Value.ContractId]] =
     Timed.future(
@@ -167,10 +168,12 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
   override def getLedgerId()(implicit loggingContext: LoggingContext): Future[LedgerId] =
     Timed.future(metrics.daml.services.index.getLedgerId, delegate.getLedgerId())
 
-  override def getParticipantId()(implicit loggingContext: LoggingContext): Future[ParticipantId] =
+  override def getParticipantId()(implicit
+      loggingContext: LoggingContext
+  ): Future[Ref.ParticipantId] =
     Timed.future(metrics.daml.services.index.getParticipantId, delegate.getParticipantId())
 
-  override def getParties(parties: Seq[Party])(implicit
+  override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[List[domain.PartyDetails]] =
     Timed.future(metrics.daml.services.index.getParties, delegate.getParties(parties))
@@ -221,11 +224,12 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
     )
 
   override def prune(
-      pruneUpToInclusive: Offset
+      pruneUpToInclusive: Offset,
+      pruneAllDivulgedContracts: Boolean,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     Timed.future(
       metrics.daml.services.index.prune,
-      delegate.prune(pruneUpToInclusive),
+      delegate.prune(pruneUpToInclusive, pruneAllDivulgedContracts),
     )
 
   override def currentHealth(): HealthStatus =

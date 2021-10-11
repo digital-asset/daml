@@ -11,7 +11,7 @@ import com.daml.ledger.api.v1.ledger_configuration_service.{
   LedgerConfigurationServiceGrpc,
 }
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.ProxyCloseable
+import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 import org.slf4j.{Logger, LoggerFactory}
@@ -27,14 +27,14 @@ class LedgerConfigurationServiceValidation(
     with GrpcApiService
     with FieldValidations {
 
-  protected val logger: Logger = LoggerFactory.getLogger(LedgerConfigurationService.getClass)
+  protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
 
   override def getLedgerConfiguration(
       request: GetLedgerConfigurationRequest,
       responseObserver: StreamObserver[GetLedgerConfigurationResponse],
   ): Unit =
     matchLedgerId(ledgerId)(LedgerId(request.ledgerId)).fold(
-      t => responseObserver.onError(t),
+      t => responseObserver.onError(ValidationLogger.logFailure(request, t)),
       _ => service.getLedgerConfiguration(request, responseObserver),
     )
 

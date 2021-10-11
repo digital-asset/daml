@@ -3,20 +3,20 @@
 
 package com.daml.ledger.rxjava.components.helpers;
 
+import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Identifier;
-import com.daml.ledger.javaapi.data.Record;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 public class CreatedContract {
 
   private final Identifier templateId;
-  private final Record createArguments;
+  private final DamlRecord createArguments;
   private final CreatedContractContext context;
 
   public CreatedContract(
       @NonNull Identifier templateId,
-      @NonNull Record createArguments,
+      @NonNull DamlRecord createArguments,
       @NonNull CreatedContractContext context) {
     this.templateId = templateId;
     this.createArguments = createArguments;
@@ -29,7 +29,7 @@ public class CreatedContract {
   }
 
   @NonNull
-  public Record getCreateArguments() {
+  public DamlRecord getCreateArguments() {
     return createArguments;
   }
 

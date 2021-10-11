@@ -1,63 +1,63 @@
 transactions:
-TX #0 1970-01-01T00:00:00Z [Test:48] version: 12
-#0:0 version: 12
+TX #0 1970-01-01T00:00:00Z [Test:48] version: 14
+#0:0 version: 14
 │   archived by #1:0
 │   referenced by #1:0
 │   known to (since): Alice (#0), Bob (#0)
 └─> create Test:KeyOps@XXXXXXXX
     with: { signatories = DA.Next.Set:Set@XXXXXXXX{ textMap = TextMap(Alice -> <unit>) }, counterParty = 'Bob' }
 
-TX #1 1970-01-01T00:00:00Z [Test:49] version: 12
-#1:0 version: 12
+TX #1 1970-01-01T00:00:00Z [Test:49] version: 14
+#1:0 version: 14
 │   known to (since): Alice (#1), Bob (#1)
 └─> Bob exercises Accept:Test:KeyOps@XXXXXXXX on 0066d7eab72b04d1ab3c24f2f3cb2a2d9266c2c2dc769c8b4699b6db3a4f56ec46
     with {  }
     children:
-    #1:1 version: 12
+    #1:1 version: 14
     │   referenced by #2:0, #3:0, #5:0
     │   known to (since): Alice (#1), Bob (#1)
     └─> create Test:KeyOps@XXXXXXXX
         with: { signatories = DA.Next.Set:Set@XXXXXXXX{ textMap = TextMap(Alice -> <unit>, Bob -> <unit>) }, counterParty = 'Bob' }
 
-TX #2 1970-01-01T00:00:00Z [Test:51] version: 12
-#2:0 version: 12
+TX #2 1970-01-01T00:00:00Z [Test:51] version: 14
+#2:0 version: 14
 │   known to (since): Alice (#2), Bob (#2)
 └─> Alice exercises LookupGivenKey:Test:KeyOps@XXXXXXXX on 00541236708d6615d0586a50793ccd77d0bc2b7c51025df96ce743c2469c8d3c95
     with { actor = 'Alice', keyMaintainers = DA.Next.Set:Set@XXXXXXXX{ textMap = TextMap(Alice -> <unit>) } }
     children:
-    #2:1 version: 12
+    #2:1 version: 14
     │   known to (since): Alice (#2), Bob (#2)
     └─> lookup by key Test:BasicKey@XXXXXXXX
     key { textMap = TextMap(Alice -> <unit>) }
     not found
 
-TX #3 1970-01-01T00:00:00Z [Test:54] version: 12
-#3:0 version: 12
+TX #3 1970-01-01T00:00:00Z [Test:54] version: 14
+#3:0 version: 14
 │   known to (since): Alice (#3), Bob (#3)
 └─> Bob exercises LookupGivenKey:Test:KeyOps@XXXXXXXX on 00541236708d6615d0586a50793ccd77d0bc2b7c51025df96ce743c2469c8d3c95
     with { actor = 'Bob', keyMaintainers = DA.Next.Set:Set@XXXXXXXX{ textMap = TextMap(Alice -> <unit>) } }
     children:
-    #3:1 version: 12
+    #3:1 version: 14
     │   known to (since): Alice (#3), Bob (#3)
     └─> lookup by key Test:BasicKey@XXXXXXXX
     key { textMap = TextMap(Alice -> <unit>) }
     not found
 
-TX #4 1970-01-01T00:00:00Z [Test:57] version: 12
-#4:0 version: 12
+TX #4 1970-01-01T00:00:00Z [Test:57] version: 14
+#4:0 version: 14
 │   referenced by #5:1
 │   known to (since): Alice (#4)
 └─> create Test:BasicKey@XXXXXXXX
     with: { owners = DA.Next.Set:Set@XXXXXXXX{ textMap = TextMap(Alice -> <unit>) } }
 key { textMap = TextMap(Alice -> <unit>) }
 
-TX #5 1970-01-01T00:00:00Z [Test:59] version: 12
-#5:0 version: 12
+TX #5 1970-01-01T00:00:00Z [Test:59] version: 14
+#5:0 version: 14
 │   known to (since): Alice (#5), Bob (#5)
 └─> Alice exercises LookupGivenKey:Test:KeyOps@XXXXXXXX on 00541236708d6615d0586a50793ccd77d0bc2b7c51025df96ce743c2469c8d3c95
     with { actor = 'Alice', keyMaintainers = DA.Next.Set:Set@XXXXXXXX{ textMap = TextMap(Alice -> <unit>) } }
     children:
-    #5:1 version: 12
+    #5:1 version: 14
     │   known to (since): Alice (#5), Bob (#5)
     └─> lookup by key Test:BasicKey@XXXXXXXX
     key { textMap = TextMap(Alice -> <unit>) }

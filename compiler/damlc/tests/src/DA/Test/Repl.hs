@@ -32,7 +32,7 @@ testLedgerId = "replledger"
 main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
-    limitJvmMemory defaultJvmMemoryLimits
+    limitJvmMemory defaultJvmMemoryLimits { maxHeapSize = "1g" }
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
     testDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-test.dar")
@@ -68,6 +68,11 @@ main = do
               importTests damlc scriptDar testDar getSandboxPort
             , multiPackageTests damlc scriptDar multiTestDar
             , noLedgerTests damlc scriptDar
+            , withSandbox defaultSandboxConf
+                  { dars = [testDar]
+                  , mbLedgerId = Just testLedgerId
+                  } $ \getSandboxPort ->
+              inboundMessageSizeTests damlc scriptDar testDar getSandboxPort
             ]
 
 withTokenFile :: (IO FilePath -> TestTree) -> TestTree
@@ -125,7 +130,7 @@ testConnection damlc scriptDar testDar ledgerPort mbTokenFile mbCaCrt = do
         [ "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"Alice\")"
         , "debug =<< query @T alice"
         ]
-    let regexString = "^daml> daml>.*: \\[\\]\ndaml> Goodbye.\n$" :: String
+    let regexString = "^(Client TLS.*\\.\n)?daml> daml>.*: \\[\\]\ndaml> Goodbye.\n$" :: String
     let regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
     unless (matchTest regex out) $
         assertFailure (show out <> " did not match " <> show regexString <> ".")
@@ -306,3 +311,32 @@ multiPackageTests damlc scriptDar multiTestDar = testGroup "multi-package"
                      ]
                    , [ "--import=" <> pkg | pkg <- imports ]
                    ]
+
+inboundMessageSizeTests :: FilePath -> FilePath -> FilePath -> IO Int -> TestTree
+inboundMessageSizeTests damlc scriptDar testDar getSandboxPort = testGroup "max-inbound-message-size"
+    [ testCase "large transaction succeeds" $ do
+          port <- getSandboxPort
+          out <- readCreateProcess (cp port) $ unlines
+              [ "import DA.Text"
+              , "alice <- allocateParty \"Alice\""
+              , "_ <- submit alice $ createAndExerciseCmd (MessageSize alice) (CreateN 5000)"
+              , "1 + 1"
+              ]
+          let regexString = "gRPC message exceeds maximum size 1000" :: String
+          let regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
+          unless (matchTest regex out) $
+              assertFailure (show out <> " did not match " <> show regexString <> ".")
+    ]
+  where
+    cp port = proc damlc
+        [ "repl"
+        , "--ledger-host=localhost"
+        , "--ledger-port"
+        , show port
+        , "--script-lib"
+        , scriptDar
+        , testDar
+        , "--import=repl-test"
+        -- Limit size to make it fail and assert on expected error
+        , "--max-inbound-message-size=1000"
+        ]

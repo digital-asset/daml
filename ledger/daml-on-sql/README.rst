@@ -135,7 +135,7 @@ or orchestration system taking care of evaluating its health of the core
 components and ensuring its availability. The Ledger API exposes the standard
 gRPC health checkpoint that can be used to evaluate the health status of the
 Ledger API component. More information on the endpoint can be found at the
-`documentation for gRPC <https://github.com/grpc/grpc/blob/1.29.0/doc/health-checking.md>`__.
+`documentation for gRPC <https://github.com/grpc/grpc/blob/v1.35.0/doc/health-checking.md>`__.
 
 When overloaded, the ledger will attempt to refuse additional requests, instead
 responding with a ``RESOURCE_EXHAUSTED`` error. This error represents
@@ -160,11 +160,20 @@ tune for availability and performance.
   defaulting to a size of 1000. Increasing the page size can increase
   performance on servers with enough available memory.
 
+- ``--input-buffer-size``.
+  Upon submission, commands are placed in a queue. This parameter governs the
+  size of the queue *per distinct set of parties*, as specified in the
+  ``act_as`` property of the command. A larger queue will allow for more burst
+  traffic, but will use more memory. The default queue size is 512, after which,
+  the server will signal backpressure with the ``RESOURCE_EXHAUSTED`` gRPC
+  status code.
+
 - ``--max-commands-in-flight``.
   Increasing the maximum number of commands in flight will allow the API server
-  to support more concurrent synchronous writes *per party*, at the expense of
-  greater CPU and memory usage. The default maximum is 256, after which clients
-  will receive a ``RESOURCE_EXHAUSTED`` error.
+  to support more concurrent synchronous writes *per distinct set of parties*,
+  as specified in the ``act_as`` property of the command. This will be at the
+  expense of greater CPU and memory usage. The default maximum is 256, after
+  which new submissions will be queued.
 
   Clients can also increase the number of concurrent requests by using the
   asynchronous endpoints for command submission and completion.
@@ -210,6 +219,24 @@ and responses are sent.
 
 To enable TLS, you need to specify the private key for your server and the
 certificate chain via ``java -jar daml-on-sql-<version>.jar --pem server.pem --crt server.crt``.
+You can also supply private key as an encrypted (using a symmetric AES like algorithm)
+file with an ``.enc`` suffix.
+While doing so you also need to specify secrets server via ``--tls-secrets-url`` flag
+which should serve decryption details as a JSON document like so:
+
+.. code-block:: json
+
+    {
+      "algorithm": "AES/CBC/PKCS5Padding",
+      "key": "0034567890abcdef1234567890abcdef",
+      "iv": "1134567890abcdef1234567890abcdef",
+      "key_length" : 128
+    }
+
+Sample command to start a server with private key encrypted: ``java -jar daml-on-sql-<version>.jar --pem server.pem.enc --crt server.crt --tls-secrets-url http://localhost:8080``.
+
+To specify minimum TLS version for the server, add ``--min-tls-version <version>`` to the server invocation.
+
 By default, the Ledger API requires client authentication as well. You can set a
 custom root CA certificate used to validate client certificates via ``--cacrt ca.crt``.
 You can change the client authentication mode via ``--client-auth none`` which
@@ -382,6 +409,11 @@ command-line interface options:
     value ``2003`` will be used. A ``metric_prefix`` can be specified, causing
     all metrics to be reported with the specified prefix.
 
+  - ``prometheus://<server_host>[:<server_port>]``: renders captured metrics
+    on an HTTP endpoint in accordance with the prometheus protocol. If the port
+    is omitted, the default value ``55001`` will be used. The metrics will be
+    available under the address ``http://<server_host>:<server_port>/metrics``.
+
 - ``--metrics-reporting-interval``: metrics are pre-aggregated within the *Daml
   for PostgreSQL* server and sent to the reporter, this option allows the user
   to set the interval. The formats accepted are based on the ISO-8601 duration
@@ -506,8 +538,8 @@ A meter. Number of deduplicated commands.
 A meter. Number of delayed submissions (submission who have been evaluated to
 transaction with a ledger time farther in the future than the expected latency).
 
-``daml.commands.failed_command_interpretation``
------------------------------------------------
+``daml.commands.failed_command_interpretations``
+------------------------------------------------
 
 A meter. Number of commands that have been deemed unacceptable by the
 interpreter and thus rejected (e.g. double spends)
@@ -538,31 +570,31 @@ deduplication and interpretation.
 A timer. Time to validate submitted commands before they are fed to the Daml
 interpreter.
 
-``daml.commands.<party_name>.input_buffer_capacity``
+``daml.commands.input_buffer_capacity``
 -----------------------------------------------------
 
 A counter. The capacity of the queue accepting submissions on
-the CommandService for a given party.
+the CommandService.
 
-``daml.commands.<party_name>.input_buffer_length``
+``daml.commands.input_buffer_length``
 ------------------------------------------------------
 
 A counter. The number of currently pending submissions on
-the CommandService for a given party.
+the CommandService.
 
-``daml.commands.<party_name>.input_buffer_delay``
+``daml.commands.input_buffer_delay``
 -------------------------------------------------
 
 A timer. Measures the queuing delay for pending submissions
 on the CommandService.
 
-``daml.commands.<party_name>.max_in_flight_capacity``
+``daml.commands.max_in_flight_capacity``
 -----------------------------------------------------
 
 A counter. The capacity of the queue tracking completions on
 the CommandService for a given party.
 
-``daml.commands.<party_name>.max_in_flight_length``
+``daml.commands.max_in_flight_length``
 -------------------------------------------------------
 
 A counter. The number of currently pending completions on

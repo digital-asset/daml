@@ -3,12 +3,12 @@
 
 package com.daml.ledger.on.sql
 
+import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
-import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId, SeedService}
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -21,18 +21,17 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
 
   override protected final def participantStateFactory(
       ledgerId: LedgerId,
-      participantId: ParticipantId,
+      participantId: Ref.ParticipantId,
       testId: String,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState] =
     new SqlLedgerReaderWriter.Owner(
-      ledgerId,
-      participantId,
-      metrics,
+      ledgerId = ledgerId,
+      participantId = participantId,
+      metrics = metrics,
       engine = Engine.DevEngine(),
-      jdbcUrl(testId),
+      jdbcUrl = jdbcUrl(testId),
       resetOnStartup = false,
-      // Using a weak random source to avoid slowdown during tests.
-      seedService = SeedService(Seeding.Weak),
+      logEntryIdAllocator = RandomLogEntryIdAllocator,
     ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
 }

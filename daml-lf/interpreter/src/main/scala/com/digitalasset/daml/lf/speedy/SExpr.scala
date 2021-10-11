@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 /** The simplified AST for the speedy interpreter.
   *
@@ -18,6 +19,8 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SBuiltin._
+import com.daml.nameof.NameOf
+import com.daml.scalautil.Statement.discard
 
 /** The speedy expression:
   * - de Bruijn indexed.
@@ -50,7 +53,10 @@ object SExpr {
     */
   final case class SEVar(index: Int) extends SExprAtomic {
     def lookupValue(machine: Machine): SValue = {
-      crash("unexpected SEVar, expected SELoc(S/A/F)")
+      throw SErrorCrash(
+        NameOf.qualifiedNameOfCurrentFunc,
+        "unexpected SEVar, expected SELoc(S/A/F)",
+      )
     }
   }
 
@@ -155,7 +161,7 @@ object SExpr {
       while (i < arity) {
         val arg = args(i)
         val v = arg.lookupValue(machine)
-        actuals.add(v)
+        discard(actuals.add(v))
         i += 1
       }
       builtin.execute(actuals, machine)
@@ -180,7 +186,7 @@ object SExpr {
     */
   final case class SEAbs(arity: Int, body: SExpr) extends SExpr {
     def execute(machine: Machine): Unit =
-      crash("unexpected SEAbs, expected SEMakeClo")
+      throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "unexpected SEAbs, expected SEMakeClo")
   }
 
   object SEAbs {
@@ -290,7 +296,7 @@ object SExpr {
       while (i < arity) {
         val arg = args(i)
         val v = arg.lookupValue(machine)
-        actuals.add(v)
+        discard(actuals.add(v))
         i += 1
       }
       val v = builtin.executePure(actuals)
@@ -313,7 +319,7 @@ object SExpr {
       while (i < arity) {
         val arg = args(i)
         val v = arg.lookupValue(machine)
-        actuals.add(v)
+        discard(actuals.add(v))
         i += 1
       }
       builtin.compute(actuals) match {
@@ -345,7 +351,7 @@ object SExpr {
     */
   final case class SELet(bounds: List[SExpr], body: SExpr) extends SExpr {
     def execute(machine: Machine): Unit =
-      crash("not implemented")
+      throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "not implemented")
   }
 
   /** Location annotation. When encountered the location is stored in the 'lastLocation'
@@ -355,19 +361,6 @@ object SExpr {
     def execute(machine: Machine): Unit = {
       machine.pushLocation(loc)
       machine.ctrl = expr
-    }
-  }
-
-  /** catch-submit-must-fail. This is used internally solely for the purpose of implementing
-    * mustFailAt. If the evaluation of 'body' causes an exception of type 'DamlException'
-    * (see SError), then 'True' is returned. If the evaluation is successful, then 'False'
-    * is returned.  This is on purpose very limited, with no mechanism to inspect the
-    * exception, nor a way to access the value returned from 'body'.
-    */
-  final case class SECatchSubmitMustFail(body: SExpr) extends SExpr {
-    def execute(machine: Machine): Unit = {
-      machine.pushKont(KCatchSubmitMustFail(machine))
-      machine.ctrl = body
     }
   }
 
@@ -390,13 +383,13 @@ object SExpr {
   /** We cannot crash in the engine call back.
     * Rather, we set the control to this expression and then crash when executing.
     */
-  final case class SEDamlException(error: SErrorDamlException) extends SExpr {
+  final case class SEDamlException(error: interpretation.Error) extends SExpr {
     def execute(machine: Machine): Unit = {
-      throw error
+      throw SErrorDamlException(error)
     }
   }
 
-  final case class SEImportValue(typ: Ast.Type, value: V[V.ContractId]) extends SExpr {
+  final case class SEImportValue(typ: Ast.Type, value: V) extends SExpr {
     def execute(machine: Machine): Unit = {
       machine.importValue(typ, value)
     }
@@ -414,9 +407,9 @@ object SExpr {
   }
 
   /** Exercise scope (begin..end) */
-  final case class SEScopeExercise(body: SExpr) extends SExpr {
+  final case class SEScopeExercise(templateId: TypeConName, body: SExpr) extends SExpr {
     def execute(machine: Machine): Unit = {
-      machine.pushKont(KCloseExercise(machine))
+      machine.pushKont(KCloseExercise(templateId, machine))
       machine.ctrl = body
     }
   }
@@ -473,6 +466,21 @@ object SExpr {
   final case class KeyDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class SignatoriesDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class ObserversDefRef(ref: DefinitionRef) extends SDefinitionRef
+
+  /** ImplementsDefRef(ref=templateId, ifaceId) points to a function that converts a
+    * template value to an interface value. (This is currently an identity function.)
+    * The existence of this definition signals that the template implements the interface.
+    */
+  final case class ImplementsDefRef(ref: DefinitionRef, ifaceId: TypeConName) extends SDefinitionRef
+
+  /** ImplementsMethodDefRef(ref=templateId, ifaceId, method) invokes the template's
+    * implementation of an interface method.
+    */
+  final case class ImplementsMethodDefRef(
+      ref: DefinitionRef,
+      ifaceId: TypeConName,
+      methodName: MethodName,
+  ) extends SDefinitionRef
 
   //
   // List builtins (equalList) are implemented as recursive

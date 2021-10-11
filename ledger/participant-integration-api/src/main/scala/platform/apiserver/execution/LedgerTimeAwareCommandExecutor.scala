@@ -4,6 +4,7 @@
 package com.daml.platform.apiserver.execution
 
 import com.daml.ledger.api.domain.Commands
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.lf.crypto
 import com.daml.lf.data.Time
@@ -31,22 +32,24 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
   override def execute(
       commands: Commands,
       submissionSeed: crypto.Hash,
+      ledgerConfiguration: Configuration,
   )(implicit
-      ec: ExecutionContext,
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] =
-    loop(commands, submissionSeed, maxRetries)
+    loop(commands, submissionSeed, ledgerConfiguration, maxRetries)
 
   private[this] def loop(
       commands: Commands,
       submissionSeed: crypto.Hash,
+      ledgerConfiguration: Configuration,
       retriesLeft: Int,
   )(implicit
-      ec: ExecutionContext,
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-  ): Future[Either[ErrorCause, CommandExecutionResult]] = {
+  ): Future[Either[ErrorCause, CommandExecutionResult]] =
     delegate
-      .execute(commands, submissionSeed)
+      .execute(commands, submissionSeed, ledgerConfiguration)
       .flatMap {
         case e @ Left(_) =>
           // Permanently failed
@@ -57,15 +60,13 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
           // and advance output time or re-execute the command if necessary.
           val usedContractIds: Set[ContractId] = cer.transaction
             .inputContracts[ContractId]
-            .collect { case id: ContractId =>
-              id
-            }
+            .collect { case id: ContractId => id }
           if (usedContractIds.isEmpty)
             Future.successful(Right(cer))
           else
             contractStore
               .lookupMaximumLedgerTime(usedContractIds)
-              .flatMap(maxUsedInstant => {
+              .flatMap { maxUsedInstant =>
                 val maxUsedTime = maxUsedInstant.map(Time.Timestamp.assertFromInstant)
                 if (maxUsedTime.forall(_ <= commands.commands.ledgerEffectiveTime)) {
                   Future.successful(Right(cer))
@@ -79,11 +80,12 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
                   logger.debug(
                     s"Restarting the computation with new ledger effective time $maxUsedTime"
                   )
-                  loop(advanceInputTime(commands, maxUsedTime), submissionSeed, retriesLeft - 1)
+                  val advancedCommands = advanceInputTime(commands, maxUsedTime)
+                  loop(advancedCommands, submissionSeed, ledgerConfiguration, retriesLeft - 1)
                 } else {
                   Future.successful(Left(ErrorCause.LedgerTime(maxRetries)))
                 }
-              })
+              }
               .recover {
                 // An error while looking up the maximum ledger time for the used contracts
                 // most likely means that one of the contracts is already not active anymore,
@@ -98,7 +100,6 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
                   Left(ErrorCause.LedgerTime(maxRetries - retriesLeft))
               }
       }
-  }
 
   // Does nothing if `newTime` is empty. This happens if the transaction only regarded divulged contracts.
   private[this] def advanceOutputTime(

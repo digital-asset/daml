@@ -6,7 +6,7 @@ package validation
 
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.Interface
+import com.daml.lf.language.PackageInterface
 
 object Validation {
 
@@ -19,19 +19,19 @@ object Validation {
 
   def checkPackages(pkgs: Map[PackageId, Package]): Either[ValidationError, Unit] =
     runSafely {
-      val interface = Interface(pkgs)
+      val interface = PackageInterface(pkgs)
       pkgs.foreach { case (pkgId, pkg) => unsafeCheckPackage(interface, pkgId, pkg) }
     }
 
   def checkPackage(
-      interface: Interface,
+      interface: PackageInterface,
       pkgId: PackageId,
       pkg: Package,
   ): Either[ValidationError, Unit] =
     runSafely(unsafeCheckPackage(interface, pkgId, pkg))
 
   private def unsafeCheckPackage(
-      interface: Interface,
+      interface: PackageInterface,
       pkgId: PackageId,
       pkg: Package,
   ): Unit = {
@@ -42,14 +42,14 @@ object Validation {
   }
 
   private[lf] def checkModule(
-      interface: Interface,
+      interface: PackageInterface,
       pkgId: PackageId,
       module: Module,
   ): Either[ValidationError, Unit] =
     runSafely(unsafeCheckModule(interface, pkgId, module))
 
   private def unsafeCheckModule(
-      interface: Interface,
+      interface: PackageInterface,
       pkgId: PackageId,
       mod: Module,
   ): Unit = {

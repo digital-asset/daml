@@ -410,13 +410,9 @@
     - warn: {lhs: flip traverse_, rhs: for_}
     - warn: {lhs: flip for_, rhs: traverse_}
     - warn: {lhs: foldr (*>) (pure ()), rhs: sequenceA_}
-    - warn: {lhs: foldr (<|>) empty, rhs: asum}
     - warn: {lhs: liftA2 (flip ($)), rhs: (<**>)}
-    - warn: {lhs: Some <$> a <|> pure None, rhs: optional a}
     - hint: {lhs: m >>= pure . f, rhs: f <$> m}
     - hint: {lhs: pure . f =<< m, rhs: f <$> m}
-    - warn: {lhs: empty <|> x, rhs: x, name: "Alternative law, left identity"}
-    - warn: {lhs: x <|> empty, rhs: x, name: "Alternative law, right identity"}
 
 
     # LIST COMP
@@ -454,7 +450,6 @@
     - warn: {lhs: None /= x , rhs:  DA.Optional.isSome x}
     - warn: {lhs: concatMap (optionalToList . f), rhs: DA.Optional.mapOptional f}
     - warn: {lhs: concatMap optionalToList, rhs: catOptionals}
-    - warn: {lhs: optional n Some x, rhs: x DA.Functor.<|> n}
     - warn: {lhs: if isNone x then y else fromSome x, rhs: fromOptional y x}
     - warn: {lhs: if isSome x then fromSome x else y, rhs: fromOptional y x}
     - warn: {lhs: isSome x && (fromSome x == y), rhs: x == Some y}
@@ -611,6 +606,11 @@
 
     - warn: {lhs: null x  , rhs: "False", side: isTuple x, name: Using null on tuple}
     - warn: {lhs: length x, rhs: "1"    , side: isTuple x, name: Using length on tuple}
+
+    # ASSERTIONS
+
+    - warn: {lhs: "assert (x == y)", rhs: "x === y", name: Use === for better error messages}
+    - warn: {lhs: "assert (x /= y)", rhs: "x =/= y", name: Use === for better error messages}
 
 - group:
     name: generalise

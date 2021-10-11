@@ -3,79 +3,116 @@
 
 package com.daml.lf.language
 
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 
-sealed abstract class LookupError extends Product with Serializable {
-  def pretty: String
+final case class LookupError(notFound: Reference, context: Reference) {
+  val pretty: String = "unknown " + notFound.pretty + (
+    if (context == notFound) "" else LookupError.contextDetails(context)
+  )
 }
 
 object LookupError {
 
-  final case class Package(packageId: PackageId) extends LookupError {
-    def pretty: String = s"unknown package $packageId."
+  def contextDetails(context: Reference): String =
+    context match {
+      case Reference.Package(_) => ""
+      case otherwise => " while looking for " + otherwise.pretty
+    }
+
+  object MissingPackage {
+    def unapply(err: LookupError): Option[(PackageId, Reference)] =
+      err.notFound match {
+        case Reference.Package(packageId) => Some(packageId -> err.context)
+        case _ => None
+      }
+
+    def pretty(pkgId: PackageId, context: Reference): String =
+      s"Couldn't find package $pkgId" + contextDetails(context)
   }
 
-  final case class Module(packageId: PackageId, moduleRef: ModuleName) extends LookupError {
-    def pretty: String = s"unknown module $packageId:$moduleRef"
+}
+
+sealed abstract class Reference extends Product with Serializable {
+  def pretty: String
+}
+
+object Reference {
+
+  final case class Package(packageId: PackageId) extends Reference {
+    override def pretty: String = s"package $packageId."
   }
 
-  final case class Definition(conName: TypeConName) extends LookupError {
-    def pretty: String = s"unknown definition $conName"
+  final case class Module(packageId: PackageId, moduleName: ModuleName) extends Reference {
+    override def pretty: String = s"module $packageId:$moduleName"
   }
 
-  final case class TypeSyn(syn: TypeSynName) extends LookupError {
-    def pretty: String = s"unknown type synonym $syn"
+  final case class Definition(identifier: Ref.Identifier) extends Reference {
+    override def pretty: String = s"definition $identifier"
   }
 
-  final case class DataType(conName: TypeConName) extends LookupError {
-    def pretty: String = s"unknown data type $conName"
+  final case class TypeSyn(tyCon: TypeConName) extends Reference {
+    override def pretty: String = s"type synonym $tyCon"
   }
 
-  final case class DataRecord(tyCon: TypeConName) extends LookupError {
-    def pretty: String = s"unknown record $tyCon"
+  final case class DataType(tyCon: TypeConName) extends Reference {
+    override def pretty: String = s"data type $tyCon"
   }
 
-  final case class DataRecordField(tyCon: TypeConName, conName: Ast.VariantConName)
-      extends LookupError {
-    def pretty: String = s"unknown record field $conName in record $tyCon"
+  final case class DataRecord(tyCon: TypeConName) extends Reference {
+    override def pretty: String = s"record $tyCon"
   }
 
-  final case class DataVariant(tyCon: TypeConName) extends LookupError {
-    def pretty: String = s"unknown variant $tyCon"
+  final case class DataRecordField(tyCon: TypeConName, fieldName: Ast.FieldName) extends Reference {
+    override def pretty: String = s"record field $fieldName in record $tyCon"
   }
 
-  final case class DataVariantConstructor(tyCon: TypeConName, conName: Ast.VariantConName)
-      extends LookupError {
-    def pretty: String = s"unknown constructor $conName in variant $tyCon"
+  final case class DataVariant(tyCon: TypeConName) extends Reference {
+    override def pretty: String = s"variant $tyCon"
   }
 
-  final case class DataEnum(tyCon: TypeConName) extends LookupError {
-    def pretty: String = s"unknown enumeration $tyCon"
+  final case class DataVariantConstructor(
+      tyCon: TypeConName,
+      constructorName: Ast.VariantConName,
+  ) extends Reference {
+    override def pretty: String = s"constructor $constructorName in variant $tyCon"
   }
 
-  final case class DataEnumConstructor(tyCon: TypeConName, conName: Ast.EnumConName)
-      extends LookupError {
-    def pretty: String = s"unknown constructor $conName in enumeration $tyCon"
+  final case class DataEnum(tyCon: TypeConName) extends Reference {
+    override def pretty: String = s"enumeration $tyCon"
   }
 
-  final case class Value(valName: ValueRef) extends LookupError {
-    def pretty: String = s"unknown value $valName"
+  final case class DataEnumConstructor(tyCon: TypeConName, constructorName: Ast.EnumConName)
+      extends Reference {
+    override def pretty: String = s"constructor $constructorName in enumeration $tyCon"
   }
 
-  final case class Template(conName: TypeConName) extends LookupError {
-    def pretty: String = s"unknown template $conName"
+  final case class Value(identifier: Ref.Identifier) extends Reference {
+    override def pretty: String = s"value $identifier"
   }
 
-  final case class TemplateKey(conName: TypeConName) extends LookupError {
-    def pretty: String = s"template without contract key $conName."
+  final case class Template(tyCon: TypeConName) extends Reference {
+    override def pretty: String = s"template $tyCon"
   }
 
-  final case class Choice(conName: TypeConName, choiceName: ChoiceName) extends LookupError {
-    def pretty: String = s"unknown choice $choiceName in template $conName"
+  final case class Interface(tyCon: TypeConName) extends Reference {
+    override def pretty: String = s"interface $tyCon"
   }
 
-  final case class Exception(conName: TypeConName) extends LookupError {
-    def pretty: String = s"unknown exception: ${conName.qualifiedName}"
+  final case class TemplateKey(tyCon: TypeConName) extends Reference {
+    override def pretty: String = s"template without contract key $tyCon."
+  }
+
+  final case class Choice(tyCon: TypeConName, choiceName: ChoiceName) extends Reference {
+    override def pretty: String = s"choice $choiceName in template $tyCon"
+  }
+
+  final case class Method(tyCon: TypeConName, methodName: MethodName) extends Reference {
+    override def pretty: String = s"method $methodName in interface $tyCon"
+  }
+
+  final case class Exception(tyCon: TypeConName) extends Reference {
+    override def pretty: String = s"exception $tyCon"
   }
 
 }

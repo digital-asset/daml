@@ -57,11 +57,11 @@ message CreatedEvent {
   // Required
   Record create_arguments = 4;
 
-  // The parties that are notified of this event. When a `CreatedEvent`
+  // The parties that are notified of this event. When a ``CreatedEvent``
   // is returned as part of a transaction tree, this will include all
-  // the parties specified in the `TransactionFilter` that are informees
+  // the parties specified in the ``TransactionFilter`` that are informees
   // of the event. If served as part of a flat transaction those will
-  // be limited to all parties specified in the `TransactionFilter` that
+  // be limited to all parties specified in the ``TransactionFilter`` that
   // are stakeholders of the contract (i.e. either signatories or observers).
   // Required
   repeated string witness_parties = 5;
@@ -71,6 +71,7 @@ message CreatedEvent {
   repeated string signatories = 8;
 
   // The observers for this contract as specified explicitly by the template or implicitly as choice controllers.
+  // This field never contains parties that are signatories.
   // Required
   repeated string observers = 9;
 
@@ -100,12 +101,12 @@ message ArchivedEvent {
   // Required
   Identifier template_id = 3;
 
-  // The parties that are notified of this event. For `ArchivedEvent`s,
+  // The parties that are notified of this event. For ``ArchivedEvent``s,
   // these are the intersection of the stakeholders of the contract in
-  // question and the parties specified in the `TransactionFilter`. The
+  // question and the parties specified in the ``TransactionFilter``. The
   // stakeholders are the union of the signatories and the observers of
   // the contract.
-  // Each one of its elements must be a valid PartyIdString (as descibed
+  // Each one of its elements must be a valid PartyIdString (as described
   // in ``value.proto``).
   // Required
   repeated string witness_parties = 4;
@@ -158,7 +159,7 @@ message ExercisedEvent {
   // the actors. Note that the actors might not necessarily be observers
   // and thus signatories. This is the case when the controllers of a
   // choice are specified using "flexible controllers", using the
-  // `choice ... controller` syntax, and said controllers are not
+  // ``choice ... controller`` syntax, and said controllers are not
   // explicitly marked as observers.
   // Each element must be a valid PartyIdString (as described in ``value.proto``).
   // Required

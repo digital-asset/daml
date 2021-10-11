@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver.services.admin
 
 import java.time.Duration
-import java.util.UUID
 import java.util.zip.ZipInputStream
 
 import akka.stream.Materializer
@@ -18,18 +17,23 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexTransactionsService,
   LedgerEndService,
 }
-import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
-import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.lf.archive.{Dar, DarParser, Decode, GenDarReader}
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPackageManagementService._
 import com.daml.platform.apiserver.services.logging
+import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
+import scalaz.std.either._
+import scalaz.std.list._
+import scalaz.syntax.traverse._
 
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -38,10 +42,11 @@ import scala.util.Try
 private[apiserver] final class ApiPackageManagementService private (
     packagesIndex: IndexPackagesService,
     transactionsService: IndexTransactionsService,
-    packagesWrite: WritePackagesService,
+    packagesWrite: state.WritePackagesService,
     managementServiceTimeout: Duration,
     engine: Engine,
-    darReader: DarReader[Archive],
+    darReader: GenDarReader[Archive],
+    submissionIdGenerator: String => Ref.SubmissionId,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -49,7 +54,7 @@ private[apiserver] final class ApiPackageManagementService private (
 ) extends PackageManagementService
     with GrpcApiService {
 
-  private val logger = ContextualizedLogger.get(this.getClass)
+  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(
@@ -86,12 +91,12 @@ private[apiserver] final class ApiPackageManagementService private (
 
   private def decodeAndValidate(stream: ZipInputStream): Try[Dar[Archive]] =
     for {
-      dar <- darReader.readArchive("package-upload", stream)
-      packages <- Try(dar.all.iterator.map(Decode.decodeArchive).toMap)
+      dar <- darReader.readArchive("package-upload", stream).toTry
+      packages <- dar.all.traverse(Decode.decodeArchive(_)).toTry
       _ <- engine
-        .validatePackages(packages.keySet, packages)
+        .validatePackages(packages.toMap)
         .left
-        .map(e => new IllegalArgumentException(e.msg))
+        .map(e => new IllegalArgumentException(e.message))
         .toTry
     } yield dar
 
@@ -103,17 +108,19 @@ private[apiserver] final class ApiPackageManagementService private (
         implicit val telemetryContext: TelemetryContext =
           DefaultTelemetry.contextFromGrpcThreadLocalContext()
 
-        val submissionId =
-          if (request.submissionId.isEmpty)
-            SubmissionId.assertFromString(UUID.randomUUID().toString)
-          else
-            SubmissionId.assertFromString(request.submissionId)
-
+        val submissionId = submissionIdGenerator(request.submissionId)
         val darInputStream = new ZipInputStream(request.darFile.newInput())
 
         val response = for {
           dar <- decodeAndValidate(darInputStream).fold(
-            err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
+            err =>
+              Future.failed(
+                ValidationLogger
+                  .logFailureWithContext(
+                    request,
+                    ErrorFactories.invalidArgument(None)(err.getMessage),
+                  )
+              ),
             Future.successful,
           )
           _ <- synchronousResponse.submitAndWait(submissionId, dar)
@@ -131,17 +138,14 @@ private[apiserver] final class ApiPackageManagementService private (
 
 private[apiserver] object ApiPackageManagementService {
 
-  private lazy val DefaultDarReader = DarReader[Archive] { case (_, inputStream) =>
-    Try(Archive.parseFrom(inputStream))
-  }
-
   def createApiService(
       readBackend: IndexPackagesService,
       transactionsService: IndexTransactionsService,
-      writeBackend: WritePackagesService,
+      writeBackend: state.WritePackagesService,
       managementServiceTimeout: Duration,
       engine: Engine,
-      darReader: DarReader[Archive] = DefaultDarReader,
+      darReader: GenDarReader[Archive] = DarParser,
+      submissionIdGenerator: String => Ref.SubmissionId = augmentSubmissionId,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -154,12 +158,13 @@ private[apiserver] object ApiPackageManagementService {
       managementServiceTimeout,
       engine,
       darReader,
+      submissionIdGenerator,
     )
 
   private final class SynchronousResponseStrategy(
       ledgerEndService: LedgerEndService,
       packagesIndex: IndexPackagesService,
-      packagesWrite: WritePackagesService,
+      packagesWrite: state.WritePackagesService,
   )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
       extends SynchronousResponse.Strategy[
         Dar[Archive],
@@ -170,25 +175,25 @@ private[apiserver] object ApiPackageManagementService {
     override def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]] =
       ledgerEndService.currentLedgerEnd().map(Some(_))
 
-    override def submit(submissionId: SubmissionId, dar: Dar[Archive])(implicit
+    override def submit(submissionId: Ref.SubmissionId, dar: Dar[Archive])(implicit
         telemetryContext: TelemetryContext
-    ): Future[SubmissionResult] =
+    ): Future[state.SubmissionResult] =
       packagesWrite.uploadPackages(submissionId, dar.all, None).toScala
 
     override def entries(offset: Option[LedgerOffset.Absolute]): Source[PackageEntry, _] =
       packagesIndex.packageEntries(offset)
 
     override def accept(
-        submissionId: SubmissionId
+        submissionId: Ref.SubmissionId
     ): PartialFunction[PackageEntry, PackageEntry.PackageUploadAccepted] = {
       case entry @ PackageEntry.PackageUploadAccepted(`submissionId`, _) => entry
     }
 
     override def reject(
-        submissionId: SubmissionId
+        submissionId: Ref.SubmissionId
     ): PartialFunction[PackageEntry, StatusRuntimeException] = {
       case PackageEntry.PackageUploadRejected(`submissionId`, _, reason) =>
-        ErrorFactories.invalidArgument(reason)
+        ErrorFactories.invalidArgument(None)(reason)
     }
   }
 

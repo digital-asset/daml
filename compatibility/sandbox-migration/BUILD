@@ -57,9 +57,7 @@ da_scala_binary(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
-        "@maven//:com_daml_daml_lf_dev_archive_java_proto",
         "@maven//:com_daml_rs_grpc_bridge",
-        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
     ],
 )

@@ -7,11 +7,13 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.{BatchSql, NamedParameter}
-import com.daml.ledger.participant.state.v1.DivulgedContract
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.dao.events.ContractsTable.Executable
 import com.daml.platform.store.serialization.Compression
 import com.daml.platform.store.OracleArrayConversions._
+import spray.json._
+import spray.json.DefaultJsonProtocol._
 
 object ContractsTableOracle extends ContractsTable {
 
@@ -27,6 +29,7 @@ object ContractsTableOracle extends ContractsTable {
   ): ContractsTable.Executables = ContractsTable.Executables(
     deleteContracts = buildDeletes(info),
     insertContracts = buildInserts(tx, info, serialized),
+    nullifyPastKeys = buildNullifyPastKeys(info),
   )
 
   private def insertContract(
@@ -43,7 +46,7 @@ object ContractsTableOracle extends ContractsTable {
       "template_id" -> templateId,
       "create_argument" -> createArgument,
       "create_ledger_effective_time" -> ledgerEffectiveTime,
-      "create_stakeholders" -> stakeholders.toArray[String],
+      "create_stakeholders" -> stakeholders.toJson.compactPrint,
       "create_key_hash" -> key.map(_.hash),
       "create_argument_compression" -> createArgumentCompression.id,
     )
@@ -67,7 +70,7 @@ object ContractsTableOracle extends ContractsTable {
       )
     val divulgedInserts =
       for {
-        DivulgedContract(contractId, contractInst) <- info.divulgedContracts.iterator
+        state.DivulgedContract(contractId, contractInst) <- info.divulgedContracts.iterator
       } yield {
         insertContract(
           contractId = contractId,

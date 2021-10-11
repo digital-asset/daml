@@ -46,7 +46,6 @@ da_scala_binary(
     deps = [
         ":ledger-api-auth",
         "//ledger-service/jwt",
-        "//ledger/ledger-api-common",
     ],
 )
 
@@ -56,11 +55,15 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
     ],
     deps = [
         ":ledger-api-auth",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 

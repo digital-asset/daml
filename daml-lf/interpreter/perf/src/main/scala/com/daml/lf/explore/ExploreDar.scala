@@ -6,7 +6,7 @@ package speedy
 package explore
 
 import com.daml.bazeltools.BazelRunfiles.{rlocation}
-import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.data.Ref.{DefinitionRef, Identifier, QualifiedName}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
@@ -71,16 +71,12 @@ object PlaySpeedy {
     val darFile = new File(rlocation(dar))
 
     println("Loading dar...")
-    val packages = UniversalArchiveReader().readFile(darFile).get
-    val packagesMap =
-      packages.all.map { case (pkgId, pkgArchive) =>
-        Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
-      }.toMap
+    val packages = UniversalArchiveDecoder.assertReadFile(darFile)
 
     println(s"Compiling packages... ${config.stacktracing}")
     val compilerConfig = Compiler.Config.Default.copy(stacktracing = config.stacktracing)
     val compiledPackages =
-      PureCompiledPackages.build(packagesMap, compilerConfig) match {
+      PureCompiledPackages.build(packages.all.toMap, compilerConfig) match {
         case Right(x) => x
         case Left(x) =>
           throw new MachineProblem(s"Unexpecteded result when compiling $x")

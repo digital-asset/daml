@@ -38,6 +38,7 @@ da_scala_library(
     ],
     scalacopts = common_scalacopts,
     tags = ["maven_coordinates=com.daml:codegen-scala:__VERSION__"],
+    versioned_deps = {"2.13": ["@maven//:com_google_protobuf_protobuf_java"]},
     visibility = [
         "//visibility:public",
     ],
@@ -50,7 +51,6 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/interface",
-        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -88,8 +88,11 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = common_scalacopts,
@@ -99,5 +102,7 @@ da_scala_test_suite(
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/transaction-test-lib",
+        "//libs-scala/logging-entries",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

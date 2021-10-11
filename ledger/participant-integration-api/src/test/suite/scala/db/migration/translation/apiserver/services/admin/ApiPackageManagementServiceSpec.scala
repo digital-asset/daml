@@ -18,9 +18,9 @@ import com.daml.ledger.api.v1.admin.package_management_service.{
   UploadDarFileRequest,
 }
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
-import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.archive.testing.Encode
-import com.daml.lf.archive.{Dar, DarReader}
+import com.daml.lf.archive.{Dar, GenDarReader}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.Engine
@@ -28,6 +28,7 @@ import com.daml.lf.language.Ast.Expr
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.parser.Implicits.defaultParserParameters
 import com.daml.logging.LoggingContext
+import com.daml.telemetry.TelemetrySpecBase._
 import com.daml.telemetry.{TelemetryContext, TelemetrySpecBase}
 import com.google.protobuf.ByteString
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -35,7 +36,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
-import scala.util.Success
 
 class ApiPackageManagementServiceSpec
     extends AsyncWordSpec
@@ -68,13 +68,13 @@ class ApiPackageManagementServiceSpec
   }
 
   private def createApiService(): PackageManagementServiceGrpc.PackageManagementService = {
-    val mockDarReader = mock[DarReader[Archive]]
+    val mockDarReader = mock[GenDarReader[Archive]]
     when(mockDarReader.readArchive(any[String], any[ZipInputStream], any[Int]))
-      .thenReturn(Success(new Dar[Archive](anArchive, List.empty)))
+      .thenReturn(Right(new Dar[Archive](anArchive, List.empty)))
 
     val mockEngine = mock[Engine]
     when(
-      mockEngine.validatePackages(any[Set[PackageId]], any[Map[PackageId, Ast.Package]])
+      mockEngine.validatePackages(any[Map[PackageId, Ast.Package]])
     ).thenReturn(Right(()))
 
     val mockIndexTransactionsService = mock[IndexTransactionsService]
@@ -96,21 +96,8 @@ class ApiPackageManagementServiceSpec
       Duration.ZERO,
       mockEngine,
       mockDarReader,
+      _ => Ref.SubmissionId.assertFromString("aSubmission"),
     )
-  }
-
-  private object TestWritePackagesService extends WritePackagesService {
-    override def uploadPackages(
-        submissionId: SubmissionId,
-        archives: List[DamlLf.Archive],
-        sourceDescription: Option[String],
-    )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
-      telemetryContext.setAttribute(
-        anApplicationIdSpanAttribute._1,
-        anApplicationIdSpanAttribute._2,
-      )
-      CompletableFuture.completedFuture(SubmissionResult.Acknowledged)
-    }
   }
 }
 
@@ -133,5 +120,19 @@ object ApiPackageManagementServiceSpec {
       defaultParserParameters.defaultPackageId -> pkg,
       defaultParserParameters.languageVersion,
     )
+  }
+
+  private object TestWritePackagesService extends state.WritePackagesService {
+    override def uploadPackages(
+        submissionId: Ref.SubmissionId,
+        archives: List[DamlLf.Archive],
+        sourceDescription: Option[String],
+    )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] = {
+      telemetryContext.setAttribute(
+        anApplicationIdSpanAttribute._1,
+        anApplicationIdSpanAttribute._2,
+      )
+      CompletableFuture.completedFuture(state.SubmissionResult.Acknowledged)
+    }
   }
 }

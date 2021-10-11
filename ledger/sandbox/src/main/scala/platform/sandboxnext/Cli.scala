@@ -3,7 +3,7 @@
 
 package com.daml.platform.sandboxnext
 
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.sandbox.cli.{CommonCli, SandboxCli}
 import com.daml.platform.sandbox.config.SandboxConfig
 import scopt.OptionParser
@@ -36,6 +36,15 @@ private[sandboxnext] object Cli extends SandboxCli {
         s"Deprecated: Use the Daml Driver for PostgreSQL if you need persistence.\nThe JDBC connection URL to a Postgres database containing the username and password as well. If present, $Name will use the database to persist its data."
       )
       .action((url, config) => config.copy(jdbcUrl = Some(url)))
+
+    parser
+      .opt[Int]("database-connection-pool-size")
+      .optional()
+      .text(
+        s"The number of connections in the database connection pool used for serving ledger API requests."
+      )
+      .action((poolSize, config) => config.copy(databaseConnectionPoolSize = poolSize))
+
     parser
   }
 

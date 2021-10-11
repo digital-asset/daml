@@ -8,7 +8,7 @@ import java.nio.file.Path
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.UpdateNormalizer.normalize
-import com.daml.ledger.participant.state.v1.ReadService
+import com.daml.ledger.participant.state.v2.ReadService
 
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -11,9 +11,9 @@ public class CreateCommand extends Command {
 
   private final Identifier templateId;
 
-  private final Record createArguments;
+  private final DamlRecord createArguments;
 
-  public CreateCommand(@NonNull Identifier templateId, @NonNull Record createArguments) {
+  public CreateCommand(@NonNull Identifier templateId, @NonNull DamlRecord createArguments) {
     this.templateId = templateId;
     this.createArguments = createArguments;
   }
@@ -50,12 +50,12 @@ public class CreateCommand extends Command {
   }
 
   @NonNull
-  public Record getCreateArguments() {
+  public DamlRecord getCreateArguments() {
     return createArguments;
   }
 
   public static CreateCommand fromProto(CommandsOuterClass.CreateCommand create) {
-    Record createArgument = Record.fromProto(create.getCreateArguments());
+    DamlRecord createArgument = DamlRecord.fromProto(create.getCreateArguments());
     Identifier templateId = Identifier.fromProto(create.getTemplateId());
     return new CreateCommand(templateId, createArgument);
   }

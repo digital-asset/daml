@@ -3,11 +3,8 @@
 
 package com.daml.ledger.api.testtool
 
-import java.io.File
-import java.nio.file.{Files, Paths, StandardCopyOption}
-import java.util.concurrent.Executors
-
 import com.daml.ledger.api.testtool.infrastructure.Reporter.ColorizedPrintStreamReporter
+import com.daml.ledger.api.testtool.infrastructure.Result.Excluded
 import com.daml.ledger.api.testtool.infrastructure._
 import com.daml.ledger.api.testtool.tests.Tests
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -16,6 +13,9 @@ import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.LoggerFactory
 
 import scala.collection.compat._
+import java.io.File
+import java.nio.file.{Files, Paths, StandardCopyOption}
+import java.util.concurrent.Executors
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -56,6 +56,7 @@ object LedgerApiTestTool {
     println()
     Tests.PerformanceTestsKeys.foreach(println(_))
   }
+
   private def printAvailableTestSuites(testSuites: Vector[LedgerTestSuite]): Unit = {
     println("Listing test suites. Run with --list-all to see individual tests.")
     printListOfTests(testSuites)(_.name)
@@ -92,7 +93,11 @@ object LedgerApiTestTool {
       timeoutScaleFactor = config.timeoutScaleFactor,
       ledgerClockGranularity = config.ledgerClockGranularity,
     )
-    val visibleTests: Vector[LedgerTestSuite] = defaultTests ++ Tests.optional
+    val optionalTests: Vector[LedgerTestSuite] = Tests.optional(
+      timeoutScaleFactor = config.timeoutScaleFactor,
+      ledgerClockGranularity = config.ledgerClockGranularity,
+    )
+    val visibleTests: Vector[LedgerTestSuite] = defaultTests ++ optionalTests
     val allTests: Vector[LedgerTestSuite] = visibleTests ++ Tests.retired
     val allTestCaseNames: Set[String] = allTests.flatMap(_.tests).map(_.name).toSet
     val missingTests = (config.included ++ config.excluded).filterNot(prefix =>
@@ -121,7 +126,7 @@ object LedgerApiTestTool {
       sys.exit(0)
     }
 
-    if (config.participants.isEmpty) {
+    if (config.participantsEndpoints.isEmpty) {
       println("No participant to test, exiting.")
       sys.exit(0)
     }
@@ -146,14 +151,16 @@ object LedgerApiTestTool {
       })
 
     val defaultCases = defaultTests.flatMap(_.tests)
-    val allCases = defaultCases ++ Tests.optional.flatMap(_.tests) ++ Tests.retired.flatMap(_.tests)
+    val allCases = defaultCases ++ optionalTests.flatMap(_.tests) ++ Tests.retired.flatMap(_.tests)
 
     val includedTests =
       if (config.included.isEmpty) defaultCases
       else allCases.filter(matches(config.included))
 
-    val testsToRun: Vector[LedgerTestCase] =
-      includedTests.filterNot(matches(config.excluded))
+    val addedTests = allCases.filter(matches(config.additional))
+
+    val (excludedTests, testsToRun) =
+      (includedTests ++ addedTests).partition(matches(config.excluded))
 
     implicit val resourceManagementExecutionContext: ExecutionContext =
       ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
@@ -172,10 +179,27 @@ object LedgerApiTestTool {
 
     runner.flatMap(_.runTests).onComplete {
       case Success(summaries) =>
+        val excludedTestSummaries =
+          excludedTests.map { ledgerTestCase =>
+            LedgerTestSummary(
+              suite = ledgerTestCase.suite.name,
+              name = ledgerTestCase.name,
+              description = ledgerTestCase.description,
+              result = Right(Excluded),
+            )
+          }
         new ColorizedPrintStreamReporter(
           System.out,
           config.verbose,
-        ).report(summaries, identifierSuffix)
+        ).report(
+          summaries,
+          excludedTestSummaries,
+          Seq(
+            "identifierSuffix" -> identifierSuffix,
+            "concurrentTestRuns" -> config.concurrentTestRuns.toString,
+            "timeoutScaleFactor" -> config.timeoutScaleFactor.toString,
+          ),
+        )
         sys.exit(exitCode(summaries, config.mustFail))
       case Failure(exception: Errors.FrameworkException) =>
         logger.error(exception.getMessage)
@@ -204,19 +228,24 @@ object LedgerApiTestTool {
       cases: Vector[LedgerTestCase],
       concurrentTestRuns: Int,
   )(implicit executionContext: ExecutionContext): Future[LedgerTestCasesRunner] = {
-    initializeParticipantChannels(config.participants, config.tlsConfig).asFuture.map(
-      participants =>
+    initializeParticipantChannels(
+      config.participantsEndpoints,
+      config.tlsConfig,
+    ).asFuture
+      .map((participants: Vector[ChannelEndpoint]) =>
         new LedgerTestCasesRunner(
           testCases = cases,
           participants = participants,
+          maxConnectionAttempts = config.maxConnectionAttempts,
           partyAllocation = config.partyAllocation,
           shuffleParticipants = config.shuffleParticipants,
           timeoutScaleFactor = config.timeoutScaleFactor,
           concurrentTestRuns = concurrentTestRuns,
           uploadDars = config.uploadDars,
           identifierSuffix = identifierSuffix,
+          clientTlsConfiguration = config.tlsConfig,
         )
-    )
+      )
   }
 
   private def initializeParticipantChannel(
@@ -226,7 +255,7 @@ object LedgerApiTestTool {
   ): ResourceOwner[Channel] = {
     logger.info(s"Setting up managed channel to participant at $host:$port...")
     val channelBuilder = NettyChannelBuilder.forAddress(host, port).usePlaintext()
-    for (ssl <- tlsConfig; sslContext <- ssl.client) {
+    for (ssl <- tlsConfig; sslContext <- ssl.client()) {
       logger.info("Setting up managed channel with transport security.")
       channelBuilder
         .useTransportSecurity()
@@ -240,12 +269,18 @@ object LedgerApiTestTool {
   private def initializeParticipantChannels(
       participants: Vector[(String, Int)],
       tlsConfig: Option[TlsConfiguration],
-  )(implicit executionContext: ExecutionContext): Resource[Vector[Channel]] = {
-    val participantChannelOwners =
+  )(implicit executionContext: ExecutionContext): Resource[Vector[ChannelEndpoint]] = {
+    val channelResources: Seq[Resource[ChannelEndpoint]] =
       for ((host, port) <- participants) yield {
-        initializeParticipantChannel(host, port, tlsConfig)
+        val channelOwner: ResourceOwner[Channel] =
+          initializeParticipantChannel(host, port, tlsConfig)
+        channelOwner
+          .acquire()
+          .map(channel =>
+            ChannelEndpoint.forRemote(channel = channel, hostname = host, port = port)
+          )
       }
-    Resource.sequence(participantChannelOwners.map(_.acquire()))
+    Resource.sequence(channelResources)
   }
 
 }

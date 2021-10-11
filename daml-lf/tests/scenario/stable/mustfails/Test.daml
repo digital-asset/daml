@@ -24,32 +24,34 @@ template TwoParties
     signatory p
     signatory p2
 
-    controller p can
-      Hello: Text
-        do pure "hello"
+    choice Hello: Text
+      controller p
+      do pure "hello"
 
-    controller p2 can
-      World: Text
-        do pure "world"
+    choice World: Text
+      controller p2
+      do pure "world"
 
 template ToTwoParties
   with p: Party
        p2: Party
   where
     signatory p
+    observer p2
 
-    controller p2 can
-      Convert: ContractId TwoParties
-        do create TwoParties with p; p2
+    choice Convert: ContractId TwoParties
+      controller p2
+      do create TwoParties with p; p2
 
 template NoCtrls
   with p: Party
        xs: List Party
   where
     signatory p
-    controller xs can
-      NoController: ()
-        do pure ()
+    observer xs
+    choice NoController: ()
+      controller xs
+      do pure ()
 
 template NoSignatory
   with
@@ -62,24 +64,25 @@ template X
        p2: Party
   where
     signatory p
-    controller p2 can
-      Swap: ContractId X
-        do create X with p = p2; p2 = p
+    observer p2
+    choice Swap: ContractId X
+      controller p2
+      do create X with p = p2; p2 = p
 
 template Recursive
   with p: Party
   where
     signatory p
 
-    controller p can
-      Recursive_Archive: ()
-        do pure ()
+    choice Recursive_Archive: ()
+      controller p
+      do pure ()
 
-      ArchiveAndRecreate: ContractId Recursive
-        with selfCid: ContractId Recursive
-        do
-          exercise selfCid Recursive_Archive
-          create Recursive with p
+    choice ArchiveAndRecreate: ContractId Recursive
+      with selfCid: ContractId Recursive
+      controller p
+      do exercise selfCid Recursive_Archive
+         create Recursive with p
 
 -- 1. Exceptions
 
@@ -323,7 +326,9 @@ template NestingLimitCreate
   where
     signatory p
 
-    controller p can NestingLimitCreate_Choose : () do pure ()
+    choice NestingLimitCreate_Choose : ()
+      controller p
+      do pure ()
 
 template NestingLimitExercise
   with
@@ -331,9 +336,10 @@ template NestingLimitExercise
   where
     signatory p
 
-    controller p can
-      NestingLimitExercise_Choose: () with x: Nesting0
-        do pure ()
+    choice NestingLimitExercise_Choose: ()
+      with x: Nesting0
+      controller p
+      do pure ()
 
 nestingLimitCreate = scenario do
   alice <- getParty "Alice"

@@ -11,25 +11,32 @@ from an error and continue the transaction instead of aborting it.
 
 One option for doing that is to represent errors explicitly via
 ``Either`` or ``Option`` as shown in :doc:`3_Data`. This approach has
-the advantage that it is very explicit about which operations can fail
-and which cannot. However, it also has some downsides. First, it can
-be invasive for operations where aborting the transacton is often the
+the advantage that it is very explicit about which operations are
+allowed to fail without aborting the entire transaction. However, it
+also has two major downsides. First, it can
+be invasive for operations where aborting the transaction is often the
 desired behavior, e.g., changing division to return ``Either`` or an
 ``Option`` to handle division by zero would be a very invasive change
 and many callsites might not want to handle the error case explicitly.
 Second, and more importantly, this approach does not allow rolling
-back ledger actions that have happened up to this point: If a contract
-got created before we hit the error, there is no way to undo this.
+back ledger actions that have happened before the point where failure is
+detected; if a contract
+got created before we hit the error, there is no way to undo that
+except for aborting the entire transaction (which is what we were
+trying to avoid in the first place).
 
-Exceptions provide a way to handle certain types of errors in a
-non-invasive way and to roll back parts of the transaction that
-lead up to this error. All of that still happens within the same
+By contrast, exceptions provide a way to handle certain types of
+errors in such a way that, on the one hand, most of the code that is
+allowed to fail can be written just like normal code, and, on the
+other hand, the programmer can clearly delimit which part of the
+current transaction should be rolled back on failure.
+All of that still happens within the same
 transaction and is thereby atomic contrary to handling the error
 outside of Daml.
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``8_Exceptions`` by running ``daml new 8Exceptions --template daml-intro-8``
+  Remember that you can load all the code for this section into a folder called ``8_Exceptions`` by running ``daml new 8_Exceptions --template daml-intro-8``
 
 Our example for the use of exceptions will be a simple shop
 template. Users can order items by calling a choice and transfer money
@@ -77,7 +84,7 @@ two in sync can be challenging.
 
 Exceptions allow us to handle this differently. Rather than
 replicating the checks in ``Transfer``, we can instead catch the
-exception thrown on failure. To do so we need to use a try-cach
+exception thrown on failure. To do so we need to use a try-catch
 block. The ``try`` block defines the scope within which we want to
 catch exceptions while the ``catch`` clauses define which exceptions
 we want to catch and how we want to handle them. In this case, we want
@@ -91,7 +98,28 @@ trusted users looks as follows:
   :start-after: -- ORDER_TRUSTED_BEGIN
   :end-before: -- ORDER_TRUSTED_END
 
-In addition to catching builtin exceptions like
+Let's walk through this code. First, as mentioned, the shop owner is
+the trusting kind, so he wants to start by creating the ``Order``
+matter what. Next, we try to charge the customer for the order. We
+could, at this point, check their balance against the cost of the
+order, but that would amount to duplicating the logic already present
+in ``Account``. This logic is pretty simple in this case, but
+duplicating invariants is a bad habit to get into. So, instead, we
+just *try* to charge the account. If that succeeds, we just merrily
+ignore the entire ``catch`` clause; if that fails, however, we do not
+want to destroy the Order contract we had already created. Instead, we
+want to *catch* the error thrown by the ``ensure`` clause of
+``Account`` (in this case, it is of type ``PreconditionFailed``) and
+try something else: create an ``Iou``  contract to register the debt
+and move on.
+
+Note that if the ``Iou`` creation still failed (unlikely with our
+definition of ``Iou`` here, but could happen in more complex
+scenarios), because that one is not wrapped in a ``try`` block, we
+would revert to the default Daml behaviour and the ``Order`` creation
+*would* be rolled back.
+
+In addition to catching built-in exceptions like
 ``PreconditionFailed``, you can also define your own exception types
 which can be caught and thrown. As an example, let’s consider a
 variant of the ``Transfer`` choice that only allows for transfers up
@@ -130,8 +158,8 @@ Next up
 -------
 
 We have now seen how to develop safe models and how we can handle
-errors in those modules in a robust and simple way.  But the journey
+errors in those models in a robust and simple way. But the journey
 doesn't stop there. In :doc:`9_Dependencies` you will learn how to
 extend an already running application to enhance it with new
 features. In that context you'll learn a bit more about the
-architecture of Daml, about dependencies, and identifiers.
+architecture of Daml, about dependencies, and about identifiers.

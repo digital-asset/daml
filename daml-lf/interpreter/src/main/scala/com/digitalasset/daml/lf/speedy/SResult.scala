@@ -1,13 +1,13 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
-import com.daml.lf.CompiledPackages
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, SubmittedTransaction}
+import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.speedy.SError._
 import com.daml.lf.value.Value
 
@@ -33,10 +33,10 @@ object SResult {
       contractId: ContractId,
       templateId: TypeConName,
       committers: Set[Party],
-      // Callback to signal that the contract was not present
-      // or visible. Returns true if this was recoverable.
-      cbMissing: Unit => Boolean,
-      cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
+      // Callback
+      // returns the next expression to evaluate.
+      // In case of failure the call back does not throw but returns a SErrorDamlException
+      callback: ContractInst[Value.VersionedValue] => Unit,
   ) extends SResult
 
   /** Machine needs a definition that was not present when the machine was
@@ -45,33 +45,16 @@ object SResult {
     */
   final case class SResultNeedPackage(
       pkg: PackageId,
+      context: language.Reference,
       callback: CompiledPackages => Unit,
   ) extends SResult
 
-  /** Commit the partial transaction to the (scenario) ledger.
-    * Machine expects the value back with the contract ids rewritten
-    * to be absolute.
-    */
-  final case class SResultScenarioCommit(
-      value: SValue,
-      tx: SubmittedTransaction,
+  final case class SResultScenarioSubmit(
       committers: Set[Party],
+      commands: SValue,
+      location: Option[Location],
+      mustFail: Boolean,
       callback: SValue => Unit,
-  ) extends SResult
-
-  final case class SResultScenarioInsertMustFail(
-      committers: Set[Party],
-      optLocation: Option[Location],
-  ) extends SResult
-
-  /** A "must fail" update resulted in a partial transaction, try and
-    * commit this transaction with the expectation that it fails.
-    * The callback signals success and clears the partial transaction.
-    */
-  final case class SResultScenarioMustFail(
-      ptx: SubmittedTransaction,
-      committers: Set[Party],
-      callback: Unit => Unit,
   ) extends SResult
 
   /** Pass the ledger time and return back the new ledger time. */
@@ -90,47 +73,30 @@ object SResult {
       key: GlobalKeyWithMaintainers,
       committers: Set[Party],
       // Callback.
-      // returns true if machine can continue with the given result.
-      cb: SKeyLookupResult => Boolean,
+      // In case of failure, the callback sets machine.ctrl to an SErrorDamlException and return false
+      callback: Option[ContractId] => Boolean,
   ) extends SResult
 
-  final case class SResultNeedLocalKeyVisible(
-      stakeholders: Set[Party],
-      committers: Set[Party],
-      cb: SVisibleByKey => Unit,
-  ) extends SResult
-
-  sealed abstract class SVisibleByKey
-  object SVisibleByKey {
+  sealed abstract class SVisibleToStakeholders
+  object SVisibleToStakeholders {
     // actAs and readAs are only included for better error messages.
     final case class NotVisible(
         actAs: Set[Party],
         readAs: Set[Party],
-    ) extends SVisibleByKey
-    final case object Visible extends SVisibleByKey
+    ) extends SVisibleToStakeholders
+    final case object Visible extends SVisibleToStakeholders
 
     def fromSubmitters(
         actAs: Set[Party],
         readAs: Set[Party] = Set.empty,
-    ): Set[Party] => SVisibleByKey = {
+    ): Set[Party] => SVisibleToStakeholders = {
       val readers = actAs union readAs
       stakeholders =>
         if (readers.intersect(stakeholders).nonEmpty) {
-          SVisibleByKey.Visible
+          SVisibleToStakeholders.Visible
         } else {
-          SVisibleByKey.NotVisible(actAs, readAs)
+          SVisibleToStakeholders.NotVisible(actAs, readAs)
         }
     }
   }
-
-  sealed abstract class SKeyLookupResult
-  object SKeyLookupResult {
-    final case class Found(coid: ContractId) extends SKeyLookupResult
-    final case object NotFound extends SKeyLookupResult
-    final case object NotVisible extends SKeyLookupResult
-
-    def apply(coid: Option[ContractId]): SKeyLookupResult =
-      coid.fold[SKeyLookupResult](NotFound)(Found)
-  }
-
 }

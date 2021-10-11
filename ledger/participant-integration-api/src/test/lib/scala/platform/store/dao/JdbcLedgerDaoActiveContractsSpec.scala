@@ -268,5 +268,4 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       source: Source[GetActiveContractsResponse, NotUsed]
   ): Future[Seq[CreatedEvent]] =
     source.runWith(Sink.seq).map(_.flatMap(_.activeContracts))
-
 }

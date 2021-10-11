@@ -5,16 +5,53 @@ load(
     "@daml//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
 )
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("//bazel_tools:versions.bzl", "version_to_name", "versions")
 load("//:versions.bzl", "latest_stable_version")
 
-# Range of test-tool versions version and then a nested list of ranges
-# of platform versions and their corresponding exclusions.
-# Note that before 1.3 the granularity for disabling tests
+# Each exclusion in the list below is defined in terms of:
+#
+# - A range of ledger API test tool versions described by `start` and `end` (both inclusive).
+# - A list of platform (ledger) ranges, each described by `start` and `end` (both inclusive),
+#   as well as the actual list of `--exclude` flags to be passed to the ledger API test tool.
+#
+# The "0.0.0" special version corresponds the current HEAD and is considered greater than
+# all other versions. Also, HEAD corresponds to different commits in different CI runs:
+#
+# - In a PR, HEAD is the result of merging the latest PR commit with the tip of `main`
+#   at the time the build starts.
+# - In a nightly run, HEAD is the tip of `main` at the time the build starts.
+#
+# Either or both `start` and `end` can be omitted and, if present, are always inclusive.
+# An interval extreme can be excluded by setting it to a non-existing version that is
+# guaranteed to be between two existing ones, according to version ordering. This is
+# especially useful to denote the upcoming (yet unknown) release; for example, if the
+# current release is `1.17.0-snapshot.20210811.7565.0.f1a55aa4`, then
+# `1.17.0-snapshot.20210811.7565.1` will be greater than the current release but
+# smaller than HEAD and the upcoming release.
+#
+# Here are some change types that require adding exclusions:
+#
+# 1. A platform feature is added and new tests for it are provided that make the new
+#    ledger API test tool incompatible with previous platforms, hence, the new tests
+#    should be excluded for ledger API test tool versions greater than the current
+#    release but less than HEAD and the upcoming release (i.e., start = last release
+#    excluded) on all platforms up to and including the last release (i.e., end = last
+#    release included).
+# 2. An implementation-specific behavior is changed in a not backwards compatible
+#    way, together with its accompanying implementation-specific API-level tests,
+#    hence, the new ledger API test tool is incompatible with all released platforms
+#    and the new platform is incompatible with all released ledger API tests.
+#    This case requires, for the changed tests, both the exclusion above and its
+#    dual (i.e., excluding such tests on ledger API test tool versions up to and
+#    including the latest release, against platform versions greater than the
+#    current release but less than HEAD and the next release).
+#
+# Finally, note that before 1.3 the granularity for disabling tests
 # was sadly quite coarse. See
 # https://discuss.daml.com/t/can-i-disable-individual-tests-in-the-ledger-api-test-tool/226
 # for details.
+#
 # PRs that resulted in exclusions:
 # - ContractKeysIT:
 #   - https://github.com/digital-asset/daml/pull/5608
@@ -24,6 +61,12 @@ load("//:versions.bzl", "latest_stable_version")
 #   - https://github.com/digital-asset/daml/pull/5611
 # - SemanticTests:
 #   - https://github.com/digital-asset/daml/pull/9218
+# - DeeplyNestedValueIT
+#   - https://github.com/digital-asset/daml/pull/10393
+# - KVCommandDeduplicationIT (only some test cases):
+#   - https://github.com/digital-asset/daml/pull/11095
+# - CommandDeduplicationIT:CDDeduplicateSubmitterBasic (fixed in https://github.com/digital-asset/daml/pull/11095):
+#   - https://github.com/digital-asset/daml/pull/11141
 
 last_nongranular_test_tool = "1.3.0-snapshot.20200617.4484.0.7e0a6848"
 first_granular_test_tool = "1.3.0-snapshot.20200623.4546.0.4f68cfc4"
@@ -281,6 +324,213 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "start": "1.16.0-snapshot.20210713.7343.1.1f35db17",
+        "end": "1.17.0-snapshot.20210907.7759.0.35a853fd",
+        "platform_ranges": [
+            {
+                "end": "1.16.0-snapshot.20210713.7343.0.1f35db17",
+                "exclusions": [
+                    "ConfigManagementServiceIT:DuplicateSubmissionId",
+                    "PackageManagementServiceIT:DuplicateSubmissionId",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.17.0-snapshot.20210907.7759.1.35a853fd",
+        "platform_ranges": [
+            {
+                "end": "1.16.0-snapshot.20210713.7343.0.1f35db17",
+                "exclusions": [
+                    "ConfigManagementServiceIT:CMDuplicateSubmissionId",
+                    "PackageManagementServiceIT:PMDuplicateSubmissionId",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.16.0-snapshot.20210727.7476.1",
+        "platform_ranges": [
+            {
+                "end": "1.16.0-snapshot.20210727.7476.0.b5e9d861",
+                "exclusions": [
+                    "DeeplyNestedValueIT",
+                ],
+            },
+        ],
+    },
+    {
+        # Tests got renamed in
+        # https://github.com/digital-asset/daml/commit/f2707cc54f5b7da339bc565bc322be1e57db5edb
+        "end": last_nongranular_test_tool,
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
+                "exclusions": [
+                    "CommandDeduplicationIT",
+                ],
+            },
+        ],
+    },
+    {
+        # Tests got renamed in
+        # https://github.com/digital-asset/daml/commit/f2707cc54f5b7da339bc565bc322be1e57db5edb
+        "start": first_granular_test_tool,
+        "end": "1.5.0-snapshot.20200907.5151.0.eb68e680",
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
+                "exclusions": [
+                    "CommandDeduplicationIT:CDSimpleDeduplication",
+                    "CommandDeduplicationIT:CDSimpleDeduplicationCommandClient",
+                ],
+            },
+        ],
+    },
+    {
+        # Tests got renamed in
+        # https://github.com/digital-asset/daml/commit/f2707cc54f5b7da339bc565bc322be1e57db5edb
+        "start": "1.5.0-snapshot.20200907.5151.0.eb68e680",
+        "end": "1.17.0-snapshot.20210831.7702.0.f058c2f1",
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
+                "exclusions": [
+                    "CommandDeduplicationIT:CDSimpleDeduplicationBasic",
+                    "CommandDeduplicationIT:CDSimpleDeduplicationCommandClient",
+                ],
+            },
+        ],
+    },
+    {
+        "end": last_nongranular_test_tool,
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
+                "exclusions": [
+                    "CommandServiceIT",
+                ],
+            },
+        ],
+    },
+    {
+        "start": first_granular_test_tool,
+        "end": "1.17.0-snapshot.20210831.7702.0.f058c2f1",
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210831.7702.1.f058c2f1",
+                "exclusions": [
+                    "CommandServiceIT:CSRefuseBadParameter",
+                ],
+            },
+        ],
+    },
+    {
+        # gRPC errors from transaction-related services have been enriched with definite answer details
+        # and a new assertion has been added.
+        # See: https://github.com/digital-asset/daml/pull/10832/files#diff-e0fa328a58650c48e8770804e35a1464c81cc80a51547860a01e9197a8fb9c71R49
+        "start": "1.17.0-snapshot.20210910.7786.1",
+        "platform_ranges": [
+            {
+                "end": "1.17.0-snapshot.20210910.7786.0.976ca400",
+                "exclusions": [
+                    "WronglyTypedContractIdIT:WTExerciseFails",
+                    "WronglyTypedContractIdIT:WTFetchFails",
+                    "WronglyTypedContractIdIT:WTMultipleExerciseFails",
+                    "TransactionServiceExerciseIT:TXRejectOnFailingAssertion",
+                    "ContractKeysIT:CKTransients",
+                    "ContractKeysIT:CKExerciseByKey",
+                    "ContractKeysIT:CKLocalKeyVisibility",
+                    "ClosedWorldIT:ClosedWorldObserver",
+                    "TransactionServiceAuthorizationIT:TXRejectMultiActorMissingAuth",
+                    "TransactionServiceAuthorizationIT:TXRejectMultiActorExcessiveAuth",
+                    "CommandServiceIT",
+                    "ExceptionsIT",
+                    "CommandSubmissionCompletionIT:CSCRefuseBadChoice",
+                    "CommandSubmissionCompletionIT:CSCSubmitWithInvalidLedgerId",
+                    "CommandSubmissionCompletionIT:CSCDisallowEmptyTransactionsSubmission",
+                    "SemanticTests:SemanticDoubleSpendSameTx",
+                    "SemanticTests:SemanticPartialSignatories",
+                    "SemanticTests:SemanticAcceptOnBehalf",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.17.0-snapshot.20210910.7786.1",
+        "platform_ranges": [
+            {
+                "start": "1.17.0-snapshot.20210811.7565.0.f1a55aa4",
+                "end": "1.17.0-snapshot.20210910.7786.0.976ca400 ",
+                "exclusions": [
+                    "CommandDeduplicationIT",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.18.0-snapshot.20210928.7948.1",
+        "platform_ranges": [
+            {
+                "end": "1.18.0-snapshot.20210928.7948.0.b4d00317",
+                "exclusions": [
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationDeduplicateSubmitterBasic",
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationBasic",
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationCommitterDeduplication",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.17.0-snapshot.20210910.7786.0.976ca400",  # The first version these tests appeared
+        "end": "1.18.0-snapshot.20210928.7948.0.b4d00317",
+        "platform_ranges": [
+            {
+                "start": "1.18.0-snapshot.20210928.7948.1",
+                "exclusions": [
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationDeduplicateSubmitterBasic",
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationBasic",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.17.0-snapshot.20210915.7841.0.b4328b3d",  # The first version this test appeared
+        "end": "1.18.0-snapshot.20210928.7948.0.b4d00317",
+        "platform_ranges": [
+            {
+                "start": "1.18.0-snapshot.20210928.7948.1",
+                "exclusions": [
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationCommitterDeduplication",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.3.0",
+        "end": "1.4.0",
+        "platform_ranges": [
+            {
+                "start": "1.18.0-snapshot.20210928.7948.1",
+                "exclusions": [
+                    "CommandDeduplicationIT:CDDeduplicateSubmitter",  # Fixed in later ledger API test tools
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.5.0",
+        "end": "1.16.0",
+        "platform_ranges": [
+            {
+                "start": "1.18.0-snapshot.20210928.7948.1",
+                "exclusions": [
+                    "CommandDeduplicationIT:CDDeduplicateSubmitterBasic",  # Fixed in later ledger API test tools
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
@@ -503,8 +753,14 @@ def daml_lf_compatible(sdk_version, platform_version):
         # any post 1.10.0 platform supports any pre 1.12 SDK
         in_range(platform_version, {"start": "1.10.0-snapshot"}) and not in_range(sdk_version, {"start": "1.12.0-snapshot"})
     ) or (
-        # any post 1.11.0 platform supports any SDK
-        in_range(platform_version, {"start": "1.11.0-snapshot"})
+        # any post 1.10.0 platform supports any pre 1.14 SDK
+        in_range(platform_version, {"start": "1.11.0-snapshot"}) and not in_range(sdk_version, {"start": "1.14.0-snapshot"})
+    ) or (
+        # any post 1.14.0 platform supports any pre 1.16 SDK
+        in_range(platform_version, {"start": "1.14.0-snapshot"}) and not in_range(sdk_version, {"start": "1.16.0-snapshot"})
+    ) or (
+        # any post 1.15.0 platform supports any SDK
+        in_range(platform_version, {"start": "1.15.0-snapshot"})
     )
 
 def sdk_platform_test(sdk_version, platform_version):
@@ -539,6 +795,15 @@ def sdk_platform_test(sdk_version, platform_version):
     # --implicit-party-allocation=false only exists in SDK >= 1.2.0 so
     # for older versions we still have to disable ClosedWorldIT
     (extra_sandbox_next_args, extra_sandbox_next_exclusions) = (["--implicit-party-allocation=false"], []) if versions.is_at_least("1.2.0", platform_version) else ([], ["--exclude=ClosedWorldIT"])
+
+    if versions.is_at_least("1.17.0", platform_version):
+        extra_sandbox_next_args += ["--max-deduplication-duration=PT5S"]
+
+    # https://github.com/digital-asset/daml/commit/60ffb79fb16b507d4143cfc991da342efea504a7
+    # introduced a KV specific dedup test and we need to disable the non-kv test in return.
+    kv_dedup_version = "1.17.0-snapshot.20210910.7786.0.976ca400"
+    if versions.is_at_least(kv_dedup_version, sdk_version) and versions.is_at_least(kv_dedup_version, platform_version):
+        extra_sandbox_next_exclusions += ["--exclude=CommandDeduplicationIT", "--additional=KVCommandDeduplicationIT"]
 
     # ledger-api-test-tool test-cases
     name = "ledger-api-test-tool-{sdk_version}-platform-{platform_version}".format(
@@ -596,7 +861,7 @@ def sdk_platform_test(sdk_version, platform_version):
             dar_files = dar_files,
         )],
         tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
-    ) if not is_windows else None
+    ) if is_linux else None
 
     client_server_test(
         name = name + "-classic-postgresql",
@@ -615,7 +880,7 @@ def sdk_platform_test(sdk_version, platform_version):
             dar_files = dar_files,
         )],
         tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
-    ) if not is_windows else None
+    ) if is_linux else None
 
     # daml-ledger test-cases
     name = "daml-ledger-{sdk_version}-platform-{platform_version}".format(
@@ -634,7 +899,7 @@ def sdk_platform_test(sdk_version, platform_version):
         tags = ["cpu:2"] + extra_tags(sdk_version, platform_version),
     )
 
-    # For now, we only cover the DABL usecase where
+    # For now, we only cover the Daml Hub usecase where
     # sandbox and the JSON API come from the same SDK.
     # However, the test setup is flexible enough, that we
     # can control them individually.

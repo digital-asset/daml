@@ -7,7 +7,7 @@ description:         Haskell bindings for a DAML Ledger
 license:             Apache-2.0
 author:              The DAML Authors
 maintainer:          nick.chapman@digitalasset.com
-github:              https://github.com/digital-asset/daml
+github:              digital-asset/daml
 
 dependencies:
 - async

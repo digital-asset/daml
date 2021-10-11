@@ -9,13 +9,14 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.api.CommitMetadata
-import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
+import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.validator.LedgerStateAccess
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.google.protobuf.ByteString
+import com.google.rpc.status.Status
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -35,9 +36,10 @@ class InMemoryLedgerWriterSpec
     "not signal new head in case of failure" in {
       val mockDispatcher = mock[Dispatcher[Index]]
       val mockCommitter = mock[InMemoryLedgerWriter.Committer]
+      val error = SubmissionResult.SynchronousError(Status())
       when(
         mockCommitter.commit(
-          any[ParticipantId],
+          any[Ref.ParticipantId],
           any[String],
           any[Raw.Envelope],
           any[Instant],
@@ -45,7 +47,7 @@ class InMemoryLedgerWriterSpec
         )(any[ExecutionContext])
       )
         .thenReturn(
-          Future.successful(SubmissionResult.InternalError("Validation failed with an exception"))
+          Future.successful(error)
         )
       val instance = new InMemoryLedgerWriter(
         participantId = Ref.ParticipantId.assertFromString("participant ID"),
@@ -65,7 +67,7 @@ class InMemoryLedgerWriterSpec
         )
         .map { actual =>
           verify(mockDispatcher, times(0)).signalNewHead(any[Int])
-          actual should be(a[SubmissionResult.InternalError])
+          actual should be(error)
         }
     }
   }

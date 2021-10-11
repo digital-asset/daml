@@ -51,7 +51,10 @@ object Bytes {
     new Bytes(value)
 
   def fromByteArray(a: Array[Byte]): Bytes =
-    new Bytes(ByteString.copyFrom(a))
+    fromByteArray(a, 0, a.length)
+
+  def fromByteArray(a: Array[Byte], offset: Int, size: Int) =
+    new Bytes(ByteString.copyFrom(a, offset, size))
 
   def fromByteBuffer(a: ByteBuffer): Bytes =
     new Bytes(ByteString.copyFrom(a))

@@ -11,7 +11,7 @@
 // * 13 -- no change w.r.t. 12
 // * 14 -- add rollback nodes
 //         add byKey flag to fetch and exercise node
-// * dev (special staging area for the next version to be released)
+// * dev -- special staging area for the next version to be released
 syntax = "proto3";
 
 package com.daml.lf.transaction;
@@ -57,7 +57,7 @@ message Node {
 message KeyWithMaintainers {
     oneof key {
         com.daml.lf.value.VersionedValue key_versioned = 1; // *until version 11*
-        com.daml.lf.value.Value key_unversioned = 3; // *defined in version >= 1.11*
+        bytes key_unversioned = 3; // *defined in version >= 1.11*
     }
     repeated string maintainers = 2; // the maintainers induced by the key
 }
@@ -66,7 +66,7 @@ message NodeCreate {
     reserved 1; // was contract_id
     ContractInstance contract_instance = 2;  // *until version 11*
     com.daml.lf.value.Identifier template_id = 7; // *since version 12*
-    com.daml.lf.value.Value arg_unversioned = 8; // *since version 12*
+    bytes arg_unversioned = 8; // *since version 12*
     string agreement = 9; // *since version 12*
     repeated string stakeholders = 3;
     repeated string signatories = 4;
@@ -83,9 +83,7 @@ message NodeFetch {
     reserved 5; // was value_version
     com.daml.lf.value.ContractId contract_id_struct = 6;
     KeyWithMaintainers key_with_maintainers = 8;
-    // TODO https://github.com/digital-asset/daml/issues/7622
-    // Switch to a stable version
-    bool byKey = 9; // *since version 1.dev*
+    bool byKey = 9; // *since version 1.14*
 }
 
 message NodeExercise {
@@ -95,7 +93,7 @@ message NodeExercise {
     string choice = 4;
     oneof arg {
         com.daml.lf.value.VersionedValue arg_versioned = 5; // *until version 11*
-        com.daml.lf.value.Value arg_unversioned = 16; // *since version 12*
+        bytes arg_unversioned = 16; // *since version 12*
     }
     bool consuming = 6;
     repeated string children = 7; // node ids
@@ -105,13 +103,11 @@ message NodeExercise {
     com.daml.lf.value.ContractId contract_id_struct = 11;
     oneof result {
         com.daml.lf.value.VersionedValue result_versioned = 12; // *until version 11*
-        com.daml.lf.value.Value result_unversioned = 17; // *since version 12*
+        bytes result_unversioned = 17; // *since version 12*
     }
     reserved 13; // was contract_key
     KeyWithMaintainers key_with_maintainers = 14; // optional
     repeated string observers = 15;  // *since version 11*
-    // TODO https://github.com/digital-asset/daml/issues/7622
-    // Switch to a stable version
     bool byKey = 18; // *since version 14*
 }
 

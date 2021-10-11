@@ -71,10 +71,11 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         )
         .mustFail("submitting a contract with a missing authorizers")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         None,
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -118,10 +119,11 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         )
         .mustFail("exercising a choice with a missing authorizers")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         None,
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -169,10 +171,11 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         )
         .mustFail("exercising a choice without authorization to fetch another contract")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(Pattern.compile("of the fetched contract to be an authorizer, but authorizers were")),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -199,10 +202,11 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         )
         .mustFail("exercising a choice without authorization to fetch another contract")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.ABORTED,
         Some(Pattern.compile("Contract could not be found")),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -250,10 +254,11 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         )
         .mustFail("exercising a choice without authorization to fetch another contract by key")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(Pattern.compile("of the fetched contract to be an authorizer, but authorizers were")),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -280,10 +285,11 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         )
         .mustFail("exercising a choice without authorization to fetch another contract by key")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(Pattern.compile("dependency error: couldn't find key")),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -333,10 +339,11 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         )
         .mustFail("exercising a choice without authorization to look up another contract by key")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
         Some(Pattern.compile("requires authorizers (.*) for lookup by key, but it only has")),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })
@@ -364,10 +371,15 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         )
         .mustFail("exercising a choice without authorization to look up another contract by key")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         failure,
         Status.Code.INVALID_ARGUMENT,
-        Some(Pattern.compile("User abort: LookupOtherByKey value matches")),
+        Some(
+          Pattern.compile(
+            "Interpretation error: Error: (User abort: Assertion failed.|Unhandled exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"LookupOtherByKey value matches\" \\}\\.) [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node"
+          )
+        ),
+        checkDefiniteAnswerMetadata = true,
       )
     }
   })

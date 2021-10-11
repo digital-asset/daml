@@ -5,9 +5,8 @@ package com.daml.timer
 
 import com.daml.timer.RetryStrategy._
 
-import scala.concurrent.duration.{Duration, DurationInt}
+import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration, SECONDS}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.control.NonFatal
 
 object RetryStrategy {
 
@@ -34,8 +33,40 @@ object RetryStrategy {
   ): RetryStrategy =
     new RetryStrategy(attempts, waitTime, waitTime, identity, predicate)
 
-  final class ZeroAttemptsException
-      extends RuntimeException("Cannot retry an operation with zero or negative attempts.")
+  sealed abstract class RetryStrategyException(message: String, cause: Throwable)
+      extends RuntimeException(message, cause) {
+    def this(message: String) = this(message, null)
+  }
+
+  final case object ZeroAttemptsException
+      extends RetryStrategyException("Cannot retry an operation with zero or negative attempts.")
+
+  sealed abstract class FailedRetryException(message: String, cause: Throwable)
+      extends RetryStrategyException(message, cause)
+
+  object FailedRetryException {
+    def unapply(exception: Throwable): Option[Throwable] = exception match {
+      case exception: FailedRetryException => Some(exception.getCause)
+      case _ => None
+    }
+  }
+
+  final case class TooManyAttemptsException(
+      attempts: Int,
+      duration: FiniteDuration,
+      cause: Throwable,
+  ) extends FailedRetryException(
+        s"Gave up trying after $attempts attempts and ${duration.toUnit(SECONDS)} seconds.",
+        cause,
+      )
+
+  final case class UnhandledFailureException(
+      duration: FiniteDuration,
+      cause: Throwable,
+  ) extends FailedRetryException(
+        s"Gave up trying due to an unhandled failure after ${duration.toUnit(SECONDS)} seconds.",
+        cause,
+      )
 
 }
 
@@ -49,23 +80,27 @@ final class RetryStrategy private (
 
   private def clip(t: Duration): Duration = t.min(waitTimeCap).max(0.millis)
 
-  def apply[A](run: (Int, Duration) => Future[A])(implicit ec: ExecutionContext): Future[A] =
+  def apply[A](run: (Int, Duration) => Future[A])(implicit ec: ExecutionContext): Future[A] = {
+    val startTime = System.nanoTime()
     if (attempts.exists(_ <= 0)) {
-      Future.failed(new ZeroAttemptsException)
+      Future.failed(ZeroAttemptsException)
     } else {
       def go(attempt: Int, wait: Duration): Future[A] = {
-        run(attempt, wait)
-          .recoverWith {
-            case NonFatal(throwable) if attempts.exists(attempt >= _) =>
-              Future.failed(throwable)
-            case NonFatal(throwable) if predicate.lift(throwable).getOrElse(false) =>
-              Delayed.Future.by(wait)(go(attempt + 1, clip(progression(wait))))
-            case NonFatal(throwable) =>
-              Future.failed(throwable)
+        run(attempt, wait).recoverWith { case throwable =>
+          if (attempts.exists(attempt >= _)) {
+            val timeTaken = Duration.fromNanos(System.nanoTime() - startTime)
+            Future.failed(TooManyAttemptsException(attempt, timeTaken, throwable))
+          } else if (predicate.lift(throwable).getOrElse(false)) {
+            Delayed.Future.by(wait)(go(attempt + 1, clip(progression(wait))))
+          } else {
+            val timeTaken = Duration.fromNanos(System.nanoTime() - startTime)
+            Future.failed(UnhandledFailureException(timeTaken, throwable))
           }
+        }
       }
 
       go(1, clip(firstWaitTime))
     }
+  }
 
 }

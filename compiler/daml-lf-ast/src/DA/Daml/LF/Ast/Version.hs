@@ -50,7 +50,7 @@ version1_14 = V1 $ PointStable 14
 
 -- | The DAML-LF version used by default.
 versionDefault :: Version
-versionDefault = version1_12
+versionDefault = version1_14
 
 -- | The DAML-LF development version.
 versionDev :: Version
@@ -171,6 +171,13 @@ featureExceptions = Feature
     , featureCppFlag = Just "DAML_EXCEPTIONS"
     }
 
+featureInterfaces :: Feature
+featureInterfaces = Feature
+    { featureName = "Daml Interfaces"
+    , featureMinVersion = versionDev
+    , featureCppFlag = Just "DAML_INTERFACE"
+    }
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "DAML Experimental"
@@ -195,6 +202,7 @@ allFeatures =
     , featureBigNumeric
     , featureExceptions
     , featureExperimental
+    , featureInterfaces
     ]
 
 featureVersionMap :: MS.Map T.Text Version

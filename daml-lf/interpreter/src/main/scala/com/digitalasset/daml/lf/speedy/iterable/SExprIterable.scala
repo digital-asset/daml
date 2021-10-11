@@ -25,12 +25,11 @@ private[speedy] object SExprIterable {
     case SExpr.SELet1BuiltinArithmetic(_, args, body) => args.iterator ++ Iterator(body)
     case SExpr.SELet(bounds, body) => bounds.iterator ++ Iterator(body)
     case SExpr.SELocation(_, expr) => Iterator(expr)
-    case SExpr.SECatchSubmitMustFail(body) => Iterator(body)
     case SExpr.SELabelClosure(_, expr) => Iterator(expr)
     case SExpr.SEDamlException(_) => Iterator.empty
     case SExpr.SEImportValue(_, _) => Iterator.empty
     case SExpr.SETryCatch(body, handler) => Iterator(body, handler)
-    case SExpr.SEScopeExercise(body) => Iterator(body)
+    case SExpr.SEScopeExercise(_, body) => Iterator(body)
     case SExpr.SEBuiltin(_) => Iterator.empty
     case SExpr.SEBuiltinRecursiveDefinition(_) => Iterator.empty
     case SExpr.SELocA(_) => Iterator.empty

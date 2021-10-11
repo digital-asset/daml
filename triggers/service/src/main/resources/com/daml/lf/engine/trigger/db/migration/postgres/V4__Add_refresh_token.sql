@@ -2,4 +2,4 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Add refresh token to running trigger table
-alter table running_triggers add column refresh_token text;
+alter table ${table.prefix}running_triggers add column refresh_token text;

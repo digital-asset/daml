@@ -17,7 +17,9 @@ import com.daml.lf.transaction.{
   Transaction => Tx,
 }
 import com.daml.lf.value.Value
-import Value.{NodeId => _, _}
+import Value._
+
+import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
 import scala.collection.compat._
@@ -49,7 +51,7 @@ object ScenarioLedger {
     * transaction node in the node identifier, where here the identifier
     * is an eventId.
     */
-  type Node = GenNode[NodeId, ContractId]
+  type Node = GenNode
 
   /** A transaction as it is committed to the ledger.
     *
@@ -170,6 +172,7 @@ object ScenarioLedger {
     */
   final case class LedgerNodeInfo(
       node: Node,
+      optLocation: Option[Location],
       transaction: TransactionId,
       effectiveAt: Time.Timestamp,
       disclosures: Map[Party, Disclosure],
@@ -201,7 +204,7 @@ object ScenarioLedger {
 
   final case class LookupOk(
       coid: ContractId,
-      coinst: ContractInst[Value.VersionedValue[ContractId]],
+      coinst: ContractInst[Value.VersionedValue],
       stakeholders: Set[Party],
   ) extends LookupResult
   final case class LookupContractNotFound(coid: ContractId) extends LookupResult
@@ -240,13 +243,14 @@ object ScenarioLedger {
       effectiveAt: Time.Timestamp,
       optLocation: Option[Location],
       tx: SubmittedTransaction,
+      locationInfo: Map[NodeId, Location],
       l: ScenarioLedger,
   ): Either[CommitError, CommitResult] = {
     // transactionId is small enough (< 20 chars), so we do no exceed the 255
     // chars limit when concatenate in EventId#toLedgerString method.
     val transactionId = l.scenarioStepId.id
     val richTr = RichTransaction(actAs, readAs, effectiveAt, transactionId, tx)
-    processTransaction(l.scenarioStepId, richTr, l.ledgerData) match {
+    processTransaction(l.scenarioStepId, richTr, locationInfo, l.ledgerData) match {
       case Left(err) => Left(CommitError.UniqueKeyViolation(err))
       case Right(updatedCache) =>
         Right(
@@ -304,15 +308,15 @@ object ScenarioLedger {
   // Enriching transactions with disclosure information
   //----------------------------------------------------------------------------
 
-  def collectCoids(value: VersionedValue[ContractId]): Set[ContractId] =
+  def collectCoids(value: VersionedValue): Set[ContractId] =
     collectCoids(value.value)
 
   /** Collect all contract ids appearing in a value
     */
-  def collectCoids(value: Value[ContractId]): Set[ContractId] = {
+  def collectCoids(value: Value): Set[ContractId] = {
     val coids =
       implicitly[Factory[ContractId, Set[ContractId]]].newBuilder
-    def collect(v: Value[ContractId]): Unit =
+    def collect(v: Value): Unit =
       v match {
         case ValueRecord(tycon @ _, fs) =>
           fs.foreach { case (_, v) =>
@@ -323,7 +327,7 @@ object ScenarioLedger {
         case ValueList(vs) =>
           vs.foreach(collect)
         case ValueContractId(coid) =>
-          coids += coid
+          discard(coids += coid)
         case _: ValueCidlessLeaf => ()
         case ValueOptional(mbV) => mbV.foreach(collect)
         case ValueTextMap(map) => map.values.foreach(collect)
@@ -396,6 +400,7 @@ object ScenarioLedger {
   private def processTransaction(
       trId: TransactionId,
       richTr: RichTransaction,
+      locationInfo: Map[NodeId, Location],
       ledgerData: LedgerData,
   ): Either[UniqueKeyViolation, LedgerData] = {
 
@@ -444,6 +449,7 @@ object ScenarioLedger {
                 case Some(node) =>
                   val newLedgerNodeInfo = LedgerNodeInfo(
                     node = node,
+                    optLocation = locationInfo.get(nodeId),
                     transaction = trId,
                     effectiveAt = richTr.effectiveAt,
                     disclosures = Map.empty,
@@ -457,7 +463,7 @@ object ScenarioLedger {
                   val idsToProcess = processingNode.copy(children = restOfNodeIds) :: restENPs
 
                   node match {
-                    case rollback: NodeRollback[NodeId] =>
+                    case rollback: NodeRollback =>
                       val rollbackState =
                         RollbackBeginState(eventId, newCache.activeContracts, newCache.activeKeys)
                       processNodes(
@@ -469,7 +475,7 @@ object ScenarioLedger {
                         ) :: idsToProcess,
                       )
 
-                    case nc: NodeCreate[ContractId] =>
+                    case nc: NodeCreate =>
                       val newCache1 =
                         newCache
                           .markAsActive(nc.coid)
@@ -477,7 +483,7 @@ object ScenarioLedger {
                       val mbNewCache2 = nc.key match {
                         case None => Right(newCache1)
                         case Some(keyWithMaintainers) =>
-                          val gk = GlobalKey.assertBuild(nc.coinst.template, keyWithMaintainers.key)
+                          val gk = GlobalKey.assertBuild(nc.templateId, keyWithMaintainers.key)
                           newCache1.activeKeys.get(gk) match {
                             case None => Right(newCache1.addKey(gk, nc.coid))
                             case Some(_) => Left(UniqueKeyViolation(gk))
@@ -485,7 +491,7 @@ object ScenarioLedger {
                       }
                       processNodes(mbNewCache2, idsToProcess)
 
-                    case NodeFetch(referencedCoid, templateId @ _, optLoc @ _, _, _, _, _, _, _) =>
+                    case NodeFetch(referencedCoid, templateId @ _, _, _, _, _, _, _) =>
                       val newCacheP =
                         newCache.updateLedgerNodeInfo(referencedCoid)(info =>
                           info.copy(referencedBy = info.referencedBy + eventId)
@@ -493,7 +499,7 @@ object ScenarioLedger {
 
                       processNodes(Right(newCacheP), idsToProcess)
 
-                    case ex: NodeExercises[NodeId, ContractId] =>
+                    case ex: NodeExercises =>
                       val newCache0 =
                         newCache.updateLedgerNodeInfo(ex.targetCoid)(info =>
                           info.copy(
@@ -511,7 +517,7 @@ object ScenarioLedger {
                           val nc = newCache0_1
                             .nodeInfoByCoid(ex.targetCoid)
                             .node
-                            .asInstanceOf[NodeCreate[ContractId]]
+                            .asInstanceOf[NodeCreate]
                           nc.key match {
                             case None => newCache0_1
                             case Some(keyWithMaintainers) =>
@@ -526,7 +532,7 @@ object ScenarioLedger {
                         ProcessingNode(Some(nodeId), ex.children.toList, None) :: idsToProcess,
                       )
 
-                    case nlkup: NodeLookupByKey[ContractId] =>
+                    case nlkup: NodeLookupByKey =>
                       nlkup.result match {
                         case None =>
                           processNodes(Right(newCache), idsToProcess)
@@ -648,27 +654,26 @@ case class ScenarioLedger(
       case None => LookupContractNotFound(coid)
       case Some(info) =>
         info.node match {
-          case create: NodeCreate[ContractId] =>
+          case create: NodeCreate =>
             if (info.effectiveAt.compareTo(effectiveAt) > 0)
-              LookupContractNotEffective(coid, create.coinst.template, info.effectiveAt)
+              LookupContractNotEffective(coid, create.templateId, info.effectiveAt)
             else if (info.consumedBy.nonEmpty)
               LookupContractNotActive(
                 coid,
-                create.coinst.template,
+                create.templateId,
                 info.consumedBy.getOrElse(crash("IMPOSSIBLE")),
               )
             else if (!info.visibleIn(view))
               LookupContractNotVisible(
                 coid,
-                create.coinst.template,
+                create.templateId,
                 info.disclosures.keys.toSet,
                 create.stakeholders,
               )
             else
               LookupOk(coid, create.versionedCoinst, create.stakeholders)
 
-          case _: NodeExercises[_, _] | _: NodeFetch[_] | _: NodeLookupByKey[_] |
-              _: NodeRollback[_] =>
+          case _: NodeExercises | _: NodeFetch | _: NodeLookupByKey | _: NodeRollback =>
             LookupContractNotFound(coid)
         }
     }

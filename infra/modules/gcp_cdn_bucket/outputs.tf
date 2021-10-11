@@ -3,10 +3,10 @@
 
 output external_ip {
   description = "The external IP assigned to the global fowarding rule."
-  value       = "${google_compute_global_address.default.address}"
+  value       = google_compute_global_address.default.address
 }
 
 output bucket_name {
   description = "Name of the GCS bucket that will receive the objects."
-  value       = "${google_storage_bucket.default.name}"
+  value       = google_storage_bucket.default.name
 }

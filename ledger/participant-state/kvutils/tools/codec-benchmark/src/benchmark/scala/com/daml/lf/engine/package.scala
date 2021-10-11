@@ -7,13 +7,14 @@ import com.daml.lf.benchmark.TypedValue
 import com.daml.lf.engine.preprocessing.ValueTranslator
 import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
 
 package object engine {
 
   private[engine] def assertTranslate(translator: ValueTranslator)(
-      value: TypedValue[Value[ContractId]]
+      value: TypedValue[Value]
   ): SValue =
-    translator.translateValue(value.valueType, value.value).fold(e => sys.error(e.msg), identity)
+    translator
+      .translateValue(value.valueType, value.value)
+      .fold(e => sys.error(e.message), identity)
 
 }

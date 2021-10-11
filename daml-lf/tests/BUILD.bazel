@@ -3,7 +3,12 @@
 
 load(
     "//rules_daml:daml.bzl",
+    "daml_build_test",
     "daml_compile",
+)
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_version_configuration",
 )
 
 TEST_FILES = \
@@ -34,18 +39,39 @@ daml_compile(
 daml_compile(
     name = "Exceptions",
     srcs = ["Exceptions.daml"],
-    # TODO https://github.com/digital-asset/daml/issues/8020
-    # Switch to a stable LF version.
-    target = "1.dev",
+    visibility = ["//daml-lf:__subpackages__"],
+)
+
+daml_build_test(
+    name = "ReinterpretTests",
+    dar_dict = {
+        "//daml-lf/tests:AtVersion13.dar": "at-version-13.dar",
+        "//daml-lf/tests:AtVersion14.dar": "at-version-14.dar",
+    },
+    project_dir = "reinterpret",
+    visibility = ["//daml-lf:__subpackages__"],
+)
+
+daml_compile(
+    name = "AtVersion13",
+    srcs = ["reinterpret/AtVersion13.daml"],
+    target = "1.13",
+    visibility = ["//daml-lf:__subpackages__"],
+)
+
+daml_compile(
+    name = "AtVersion14",
+    srcs = ["reinterpret/AtVersion14.daml"],
+    target = "1.14",
     visibility = ["//daml-lf:__subpackages__"],
 )
 
 daml_compile(
     name = "MultiKeys",
     srcs = ["MultiKeys.daml"],
-    # TODO https://github.com/digital-asset/daml/issues/8020
-    # Switch to a stable LF version.
-    target = "1.dev",
+    # TODO https://github.com/digital-asset/daml/issues/9914
+    # Drop line once LF 1.14 is the default compiler output.
+    target = lf_version_configuration.get("latest"),
     visibility = ["//daml-lf:__subpackages__"],
 )
 

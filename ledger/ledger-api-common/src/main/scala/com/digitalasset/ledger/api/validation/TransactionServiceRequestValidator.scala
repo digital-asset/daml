@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.validation
 
-import brave.propagation.TraceContext
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, LedgerOffset}
@@ -18,7 +17,6 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.platform.server.api.validation.ErrorFactories._
 import com.daml.platform.server.api.validation.FieldValidations._
-import com.daml.platform.server.util.context.TraceContextConversions._
 import io.grpc.StatusRuntimeException
 
 object TransactionServiceRequestValidator {
@@ -42,7 +40,6 @@ class TransactionServiceRequestValidator(
       begin: domain.LedgerOffset,
       end: Option[domain.LedgerOffset],
       knownParties: Set[Ref.Party],
-      traceContext: Option[TraceContext],
   )
 
   private def commonValidations(req: GetTransactionsRequest): Result[PartialValidation] = {
@@ -59,7 +56,6 @@ class TransactionServiceRequestValidator(
       convertedBegin,
       convertedEnd,
       knownParties,
-      req.traceContext.map(toBrave),
     )
 
   }
@@ -67,7 +63,6 @@ class TransactionServiceRequestValidator(
   def validate(
       req: GetTransactionsRequest,
       ledgerEnd: LedgerOffset.Absolute,
-      offsetOrdering: Ordering[LedgerOffset.Absolute],
   ): Result[transaction.GetTransactionsRequest] = {
 
     for {
@@ -76,13 +71,11 @@ class TransactionServiceRequestValidator(
         "Begin",
         partial.begin,
         ledgerEnd,
-        offsetOrdering,
       )
       _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "End",
         partial.end,
         ledgerEnd,
-        offsetOrdering,
       )
       convertedFilter <- TransactionFilterValidator.validate(partial.transactionFilter)
     } yield {
@@ -92,7 +85,6 @@ class TransactionServiceRequestValidator(
         partial.end,
         convertedFilter,
         req.verbose,
-        req.traceContext.map(toBrave),
       )
     }
   }
@@ -100,7 +92,6 @@ class TransactionServiceRequestValidator(
   def validateTree(
       req: GetTransactionsRequest,
       ledgerEnd: LedgerOffset.Absolute,
-      offsetOrdering: Ordering[LedgerOffset.Absolute],
   ): Result[GetTransactionTreesRequest] = {
 
     for {
@@ -109,13 +100,11 @@ class TransactionServiceRequestValidator(
         "Begin",
         partial.begin,
         ledgerEnd,
-        offsetOrdering,
       )
       _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "End",
         partial.end,
         ledgerEnd,
-        offsetOrdering,
       )
       convertedFilter <- transactionFilterToPartySet(partial.transactionFilter)
     } yield {
@@ -125,7 +114,6 @@ class TransactionServiceRequestValidator(
         partial.end,
         convertedFilter,
         req.verbose,
-        req.traceContext.map(toBrave),
       )
     }
   }
@@ -134,7 +122,7 @@ class TransactionServiceRequestValidator(
     for {
       ledgerId <- matchId(LedgerId(req.ledgerId))
     } yield {
-      transaction.GetLedgerEndRequest(ledgerId, req.traceContext.map(toBrave))
+      transaction.GetLedgerEndRequest(ledgerId)
     }
   }
 
@@ -152,7 +140,6 @@ class TransactionServiceRequestValidator(
         ledgerId,
         domain.TransactionId(trId),
         parties,
-        req.traceContext.map(toBrave),
       )
     }
   }
@@ -170,7 +157,6 @@ class TransactionServiceRequestValidator(
         ledgerId,
         domain.EventId(eventId),
         parties,
-        req.traceContext.map(toBrave),
       )
     }
   }
@@ -180,7 +166,7 @@ class TransactionServiceRequestValidator(
   ) =
     transactionFilter.filtersByParty
       .collectFirst { case (party, Filters(Some(inclusive))) =>
-        invalidArgument(
+        invalidArgument(None)(
           s"$party attempted subscription for templates ${inclusive.templateIds.mkString("[", ", ", "]")}. Template filtration is not supported on GetTransactionTrees RPC. To get filtered data, use the GetTransactions RPC."
         )
       }

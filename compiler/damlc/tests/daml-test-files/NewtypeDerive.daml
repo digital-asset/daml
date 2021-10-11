@@ -4,10 +4,12 @@
 
 module NewtypeDerive where
 
+import DA.Assert
+
 newtype New a = New a deriving (Eq, Ord, Show, Functor)
 
 main = scenario do
-  assert $ New "x" == New "x"
+  New "x" === New "x"
   assert $ New 1 < New 2
-  assert $ show (New 1) == "New 1"
-  assert $ fmap (+1) (New 1) == New 2
+  show (New 1) === "New 1"
+  fmap (+1) (New 1) === New 2

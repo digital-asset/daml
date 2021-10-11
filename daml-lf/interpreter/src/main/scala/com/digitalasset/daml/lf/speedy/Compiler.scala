@@ -5,17 +5,18 @@ package com.daml.lf
 package speedy
 
 import java.util
-
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
+import com.daml.lf.data.{ImmArray, Numeric, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion, LookupError, Interface}
+import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackages}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.validation.{EUnknownDefinition, Validation, ValidationError}
+import com.daml.scalautil.Statement.discard
+import com.daml.nameof.NameOf
 import org.slf4j.LoggerFactory
 
 import scala.annotation.{nowarn, tailrec}
@@ -34,8 +35,18 @@ import scala.reflect.ClassTag
 private[lf] object Compiler {
 
   case class CompilationError(error: String) extends RuntimeException(error, null, true, false)
-  case class PackageNotFound(pkgId: PackageId)
-      extends RuntimeException(s"Package not found $pkgId", null, true, false)
+  case class LanguageVersionError(
+      packageId: Ref.PackageId,
+      languageVersion: language.LanguageVersion,
+      allowedLanguageVersions: VersionRange[language.LanguageVersion],
+  ) extends RuntimeException(s"Disallowed language version $languageVersion", null, true, false)
+  case class PackageNotFound(pkgId: PackageId, context: language.Reference)
+      extends RuntimeException(
+        language.LookupError.MissingPackage.pretty(pkgId, context),
+        null,
+        true,
+        false,
+      )
 
   // NOTE(MH): We make this an enum type to avoid boolean blindness. In fact,
   // other profiling modes like "only trace the ledger interactions" might also
@@ -95,7 +106,7 @@ private[lf] object Compiler {
     * they transitively reference are in the [[packages]] in the compiler.
     */
   def compilePackages(
-      interface: Interface,
+      interface: PackageInterface,
       packages: Map[PackageId, Package],
       compilerConfig: Compiler.Config,
   ): Either[String, Map[SDefinitionRef, SDefinition]] = {
@@ -106,7 +117,8 @@ private[lf] object Compiler {
       })
     } catch {
       case CompilationError(msg) => Left(s"Compilation Error: $msg")
-      case PackageNotFound(pkgId) => Left(s"Package not found $pkgId")
+      case PackageNotFound(pkgId, context) =>
+        Left(LookupError.MissingPackage.pretty(pkgId, context))
       case e: ValidationError => Left(e.pretty)
     }
   }
@@ -125,18 +137,16 @@ private[lf] object Compiler {
 }
 
 private[lf] final class Compiler(
-    interface: Interface,
+    interface: PackageInterface,
     config: Compiler.Config,
 ) {
 
   import Compiler._
 
-  private[this] def handleLookup[X](x: Either[LookupError, X]) =
+  private[this] def handleLookup[X](location: String, x: Either[LookupError, X]) =
     x match {
       case Right(value) => value
-      case Left(err) =>
-        // TODO: should throw a more precise error
-        SError.crash(err.pretty)
+      case Left(err) => throw SError.SErrorCrash(location, err.pretty)
     }
 
   // Stack-trace support is disabled by avoiding the construction of SELocation nodes.
@@ -262,6 +272,11 @@ private[lf] final class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
+  def unsafeCompileForReinterpretation(cmd: Command): SExpr =
+    validate(compilationPipeline(compileCommandForReinterpretation(cmd)))
+
+  @throws[PackageNotFound]
+  @throws[CompilationError]
   def unsafeCompile(expr: Expr): SExpr =
     validate(compilationPipeline(compile(expr)))
 
@@ -283,6 +298,7 @@ private[lf] final class Compiler(
       module: Module,
   ): Iterable[(SDefinitionRef, SDefinition)] = {
     val builder = Iterable.newBuilder[(SDefinitionRef, SDefinition)]
+    def addDef(binding: (SDefinitionRef, SDefinition)) = discard(builder += binding)
 
     module.exceptions.foreach { case (defName, GenDefException(message)) =>
       val ref = ExceptionMessageDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
@@ -298,22 +314,33 @@ private[lf] final class Compiler(
 
     module.templates.foreach { case (tmplName, tmpl) =>
       val identifier = Identifier(pkgId, QualifiedName(module.name, tmplName))
-      builder += compileCreate(identifier, tmpl)
-      builder += compileFetch(identifier, tmpl)
-      builder += compileKey(identifier, tmpl)
-      builder += compileSignatories(identifier, tmpl)
-      builder += compileObservers(identifier, tmpl)
-
-      tmpl.choices.values.foreach(builder += compileChoice(identifier, tmpl, _))
-
-      tmpl.key.foreach { tmplKey =>
-        builder += compileFetchByKey(identifier, tmpl, tmplKey)
-        builder += compileLookupByKey(identifier, tmplKey)
-        tmpl.choices.values.foreach(
-          builder +=
-            compileChoiceByKey(identifier, tmpl, tmplKey, _)
+      addDef(compileCreate(identifier, tmpl))
+      addDef(compileFetch(identifier, tmpl))
+      addDef(compileKey(identifier, tmpl))
+      addDef(compileSignatories(identifier, tmpl))
+      addDef(compileObservers(identifier, tmpl))
+      tmpl.implements.values.foreach { impl =>
+        addDef(compileImplements(identifier, impl.interface))
+        impl.methods.values.foreach(method =>
+          addDef(compileImplementsMethod(identifier, impl.interface, method))
         )
       }
+
+      tmpl.choices.values.foreach(x => addDef(compileChoice(identifier, tmpl, x)))
+
+      tmpl.key.foreach { tmplKey =>
+        addDef(compileFetchByKey(identifier, tmpl, tmplKey))
+        addDef(compileLookupByKey(identifier, tmplKey))
+        tmpl.choices.values.foreach(x => addDef(compileChoiceByKey(identifier, tmpl, tmplKey, x)))
+      }
+    }
+
+    module.interfaces.foreach { case (ifaceName, iface) =>
+      val identifier = Identifier(pkgId, QualifiedName(module.name, ifaceName))
+      addDef(compileFetchInterface(identifier))
+      iface.virtualChoices.values.foreach(
+        builder += compileChoiceInterface(identifier, _)
+      )
     }
 
     builder.result()
@@ -338,11 +365,10 @@ private[lf] final class Compiler(
     val t0 = Time.Timestamp.now()
 
     interface.lookupPackage(pkgId) match {
-      case Right(pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
-        throw CompilationError(
-          s"Disallowed language version in package $pkgId: " +
-            s"Expected version between ${config.allowedLanguageVersions.min.pretty} and ${config.allowedLanguageVersions.max.pretty} but got ${pkg.languageVersion.pretty}"
-        )
+      case Right(pkg)
+          if !StablePackages.Ids.contains(pkgId) && !config.allowedLanguageVersions
+            .contains(pkg.languageVersion) =>
+        throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
       case _ =>
     }
 
@@ -350,9 +376,9 @@ private[lf] final class Compiler(
       case Compiler.NoPackageValidation =>
       case Compiler.FullPackageValidation =>
         Validation.checkPackage(interface, pkgId, pkg).left.foreach {
-          case EUnknownDefinition(_, LookupError.Package(pkgId_)) =>
+          case EUnknownDefinition(_, LookupError.MissingPackage(pkgId_, context)) =>
             logger.trace(s"compilePackage: Missing $pkgId_, requesting it...")
-            throw PackageNotFound(pkgId_)
+            throw PackageNotFound(pkgId_, context)
           case e =>
             throw e
         }
@@ -399,7 +425,10 @@ private[lf] final class Compiler(
       case ERecProj(tapp, field, record) =>
         SBRecProj(
           tapp.tycon,
-          handleLookup(interface.lookupRecordFieldInfo(tapp.tycon, field)).index,
+          handleLookup(
+            NameOf.qualifiedNameOfCurrentFunc,
+            interface.lookupRecordFieldInfo(tapp.tycon, field),
+          ).index,
         )(
           compile(record)
         )
@@ -442,13 +471,19 @@ private[lf] final class Compiler(
       case ESome(_, body) =>
         SBSome(compile(body))
       case EEnumCon(tyCon, consName) =>
-        val rank = handleLookup(interface.lookupEnumConstructor(tyCon, consName))
+        val rank = handleLookup(
+          NameOf.qualifiedNameOfCurrentFunc,
+          interface.lookupEnumConstructor(tyCon, consName),
+        )
         SEValue(SEnum(tyCon, consName, rank))
       case EVariantCon(tapp, variant, arg) =>
-        val rank = handleLookup(interface.lookupVariantConstructor(tapp.tycon, variant)).rank
+        val rank = handleLookup(
+          NameOf.qualifiedNameOfCurrentFunc,
+          interface.lookupVariantConstructor(tapp.tycon, variant),
+        ).rank
         SBVariantCon(tapp.tycon, variant, rank)(compile(arg))
       case let: ELet =>
-        compileELet(let)
+        withEnv(_ => compileELet(let))
       case EUpdate(upd) =>
         compileEUpdate(upd)
       case ELocation(loc, EScenario(scen)) =>
@@ -469,6 +504,12 @@ private[lf] final class Compiler(
         SBFromAny(ty)(compile(e))
       case EThrow(_, ty, e) =>
         SBThrow(SBToAny(ty)(compile(e)))
+      case EToInterface(iface @ _, tpl @ _, e) =>
+        compile(e) // interfaces have the same representation as underlying template
+      case EFromInterface(iface @ _, tpl, e) =>
+        SBFromInterface(tpl)(compile(e))
+      case ECallInterface(iface, methodName, e) =>
+        SBCallInterface(iface, methodName)(compile(e))
       case EExperimental(name, _) =>
         SBExperimental(name)
 
@@ -642,7 +683,7 @@ private[lf] final class Compiler(
   @inline
   private[this] def compileERecCon(tApp: TypeConApp, fields: ImmArray[(FieldName, Expr)]): SExpr =
     if (fields.isEmpty)
-      SEValue(SRecord(tApp.tycon, ImmArray.empty, noArgs))
+      SEValue(SRecord(tApp.tycon, ImmArray.Empty, noArgs))
     else {
       SEApp(
         SEBuiltin(SBRecCon(tApp.tycon, fields.map(_._1))),
@@ -655,11 +696,19 @@ private[lf] final class Compiler(
     val tapp = erecupd.tycon
     val (record, fields, updates) = collectRecUpds(erecupd)
     if (fields.length == 1) {
-      val index = handleLookup(interface.lookupRecordFieldInfo(tapp.tycon, fields.head)).index
+      val index = handleLookup(
+        NameOf.qualifiedNameOfCurrentFunc,
+        interface.lookupRecordFieldInfo(tapp.tycon, fields.head),
+      ).index
       SBRecUpd(tapp.tycon, index)(compile(record), compile(updates.head))
     } else {
       val indices =
-        fields.map(name => handleLookup(interface.lookupRecordFieldInfo(tapp.tycon, name)).index)
+        fields.map(name =>
+          handleLookup(
+            NameOf.qualifiedNameOfCurrentFunc,
+            interface.lookupRecordFieldInfo(tapp.tycon, name),
+          ).index
+        )
       SBRecUpdMulti(tapp.tycon, indices.to(ImmArray))((record :: updates).map(compile): _*)
     }
   }
@@ -671,13 +720,19 @@ private[lf] final class Compiler(
       mapToArray(alts) { case CaseAlt(pat, expr) =>
         pat match {
           case CPVariant(tycon, variant, binder) =>
-            val rank = handleLookup(interface.lookupVariantConstructor(tycon, variant)).rank
+            val rank = handleLookup(
+              NameOf.qualifiedNameOfCurrentFunc,
+              interface.lookupVariantConstructor(tycon, variant),
+            ).rank
             withBinders(binder) { _ =>
               SCaseAlt(SCPVariant(tycon, variant, rank), compile(expr))
             }
 
           case CPEnum(tycon, constructor) =>
-            val rank = handleLookup(interface.lookupEnumConstructor(tycon, constructor))
+            val rank = handleLookup(
+              NameOf.qualifiedNameOfCurrentFunc,
+              interface.lookupEnumConstructor(tycon, constructor),
+            )
             SCaseAlt(SCPEnum(tycon, constructor, rank), compile(expr))
 
           case CPNil =>
@@ -705,17 +760,28 @@ private[lf] final class Compiler(
       },
     )
 
-  @inline
-  private[this] def compileELet(elet: ELet) =
-    withEnv { _ =>
-      elet match {
-        case ELet(Binding(optBinder, _, bound), body) =>
-          let(withOptLabel(optBinder, compile(bound))) { boundPos =>
-            optBinder.foreach(addExprVar(_, boundPos))
-            compile(body)
-          }
-      }
+  // Compile nested lets using constant stack.
+  @tailrec
+  private[this] def compileELet(
+      eLet0: ELet,
+      bounds0: List[SExpr] = List.empty,
+  ): SELet = {
+    val binding = eLet0.binding
+    val bounds = withOptLabel(binding.binder, compile(binding.bound)) :: bounds0
+    val boundPos = nextPosition()
+    binding.binder.foreach(addExprVar(_, boundPos))
+    eLet0.body match {
+      case eLet1: ELet =>
+        compileELet(eLet1, bounds)
+      case body0 =>
+        compile(body0) match {
+          case SELet(bounds1, body1) =>
+            SELet(bounds.foldLeft(bounds1)((acc, b) => b :: acc), body1)
+          case otherwise =>
+            SELet(bounds.reverse, otherwise)
+        }
     }
+  }
 
   @inline
   private[this] def compileEUpdate(update: Update): SExpr =
@@ -726,19 +792,18 @@ private[lf] final class Compiler(
         compileBlock(bindings, body)
       case UpdateFetch(tmplId, coidE) =>
         FetchDefRef(tmplId)(compile(coidE))
+      case UpdateFetchInterface(ifaceId, coidE) =>
+        FetchDefRef(ifaceId)(compile(coidE))
       case UpdateEmbedExpr(_, e) =>
         compileEmbedExpr(e)
       case UpdateCreate(tmplId, arg) =>
         CreateDefRef(tmplId)(compile(arg))
       case UpdateExercise(tmplId, chId, cidE, argE) =>
-        compileExercise(
-          tmplId = tmplId,
-          contractId = compile(cidE),
-          choiceId = chId,
-          argument = compile(argE),
-        )
+        ChoiceDefRef(tmplId, chId)(compile(cidE), compile(argE))
+      case UpdateExerciseInterface(ifaceId, chId, cidE, argE) =>
+        ChoiceDefRef(ifaceId, chId)(compile(cidE), compile(argE))
       case UpdateExerciseByKey(tmplId, chId, keyE, argE) =>
-        compileExerciseByKey(tmplId, compile(keyE), chId, compile(argE))
+        ChoiceByKeyDefRef(tmplId, chId)(compile(keyE), compile(argE))
       case UpdateGetTime =>
         SEGetTime
       case UpdateLookupByKey(RetrieveByKey(templateId, key)) =>
@@ -804,9 +869,9 @@ private[lf] final class Compiler(
       case ScenarioBlock(bindings, body) =>
         compileBlock(bindings, body)
       case ScenarioCommit(partyE, updateE, _retType @ _) =>
-        compileCommit(partyE, updateE, optLoc)
+        compileCommit(partyE, updateE, optLoc, mustFail = false)
       case ScenarioMustFailAt(partyE, updateE, _retType @ _) =>
-        compileMustFail(partyE, updateE, optLoc)
+        compileCommit(partyE, updateE, optLoc, mustFail = true)
       case ScenarioGetTime =>
         SEGetTime
       case ScenarioGetParty(e) =>
@@ -818,41 +883,19 @@ private[lf] final class Compiler(
     }
 
   @inline
-  private[this] def compileCommit(partyE: Expr, updateE: Expr, optLoc: Option[Location]): SExpr =
+  private[this] def compileCommit(
+      partyE: Expr,
+      updateE: Expr,
+      optLoc: Option[Location],
+      mustFail: Boolean,
+  ): SExpr =
     // let party = <partyE>
     //     update = <updateE>
-    // in \token ->
-    //   let _ = $beginCommit party token
-    //       r = update token
-    //   in $endCommit(mustFail = false) r token
+    // in $submit(mustFail)(party, update)
     withEnv { _ =>
-      let(compile(partyE)) { partyPos =>
-        let(compile(updateE)) { updatePos =>
-          labeledUnaryFunction(Profile.SubmitLabel) { tokenPos =>
-            let(SBSBeginCommit(optLoc)(svar(partyPos), svar(tokenPos))) { _ =>
-              let(app(svar(updatePos), svar(tokenPos))) { resultPos =>
-                SBSEndCommit(mustFail = false)(svar(resultPos), svar(tokenPos))
-              }
-            }
-          }
-        }
-      }
-    }
-
-  @inline
-  private[this] def compileMustFail(party: Expr, update: Expr, optLoc: Option[Location]): SExpr =
-    // \token ->
-    //   let _ = $beginCommit [party] <token>
-    //       <r> = $catch ([update] <token>) true false
-    //   in $endCommit(mustFail = true) <r> <token>
-    withEnv { _ =>
-      labeledUnaryFunction(Profile.SubmitMustFailLabel) { tokenPos =>
-        let(SBSBeginCommit(optLoc)(compile(party), svar(tokenPos))) { _ =>
-          let(
-            SECatchSubmitMustFail(app(compile(update), svar(tokenPos)))
-          ) { resultPos =>
-            SBSEndCommit(mustFail = true)(svar(resultPos), svar(tokenPos))
-          }
+      let(compile(partyE)) { partyLoc =>
+        let(compile(updateE)) { updateLoc =>
+          SBSSubmit(optLoc, mustFail)(svar(partyLoc), svar(updateLoc))
         }
       }
     }
@@ -970,10 +1013,28 @@ private[lf] final class Compiler(
         )
       ) { _ =>
         addExprVar(choice.selfBinder, cidPos)
-        SEScopeExercise(app(compile(choice.update), svar(tokenPos)))
+        SEScopeExercise(tmplId, app(compile(choice.update), svar(tokenPos)))
       }
     }
   }
+
+  private[this] def compileChoiceInterface(
+      ifaceId: TypeConName,
+      choice: InterfaceChoice,
+  ): (SDefinitionRef, SDefinition) =
+    topLevelFunction(ChoiceDefRef(ifaceId, choice.name), 3) { case List(cidPos, choiceArgPos, _) =>
+      withEnv { _ =>
+        let(
+          SBUPreFetchInterface(ifaceId)(svar(cidPos))
+        ) { tmplArgPos =>
+          SBUChoiceInterface(ifaceId, choice.name)(
+            svar(cidPos),
+            svar(choiceArgPos),
+            svar(tmplArgPos),
+          )
+        }
+      }
+    }
 
   private[this] def compileChoice(
       tmplId: TypeConName,
@@ -1132,19 +1193,14 @@ private[lf] final class Compiler(
           closureConvert(shift(remaps, bounds.length), body),
         )
 
-      case SECatchSubmitMustFail(body) =>
-        SECatchSubmitMustFail(
-          closureConvert(remaps, body)
-        )
-
       case SETryCatch(body, handler) =>
         SETryCatch(
           closureConvert(remaps, body),
           closureConvert(shift(remaps, 1), handler),
         )
 
-      case SEScopeExercise(body) =>
-        SEScopeExercise(closureConvert(remaps, body))
+      case SEScopeExercise(templateId, body) =>
+        SEScopeExercise(templateId, closureConvert(remaps, body))
 
       case SELabelClosure(label, expr) =>
         SELabelClosure(label, closureConvert(remaps, expr))
@@ -1211,13 +1267,11 @@ private[lf] final class Compiler(
           bounds.zipWithIndex.foldLeft(go(body, bound + bounds.length, free)) {
             case (acc, (expr, idx)) => go(expr, bound + idx, acc)
           }
-        case SECatchSubmitMustFail(body) =>
-          go(body, bound, free)
         case SELabelClosure(_, expr) =>
           go(expr, bound, free)
         case SETryCatch(body, handler) =>
           go(body, bound, go(handler, 1 + bound, free))
-        case SEScopeExercise(body) =>
+        case SEScopeExercise(_, body) =>
           go(body, bound, free)
 
         case _: SELoc | _: SEMakeClo | _: SEDamlException | _: SEImportValue |
@@ -1301,8 +1355,6 @@ private[lf] final class Compiler(
         case _: SELet1General => goLets(maxS)(expr)
         case _: SELet1Builtin => goLets(maxS)(expr)
         case _: SELet1BuiltinArithmetic => goLets(maxS)(expr)
-        case SECatchSubmitMustFail(body) =>
-          go(body)
         case SELocation(_, body) =>
           go(body)
         case SELabelClosure(_, expr) =>
@@ -1310,7 +1362,7 @@ private[lf] final class Compiler(
         case SETryCatch(body, handler) =>
           go(body)
           goBody(maxS + 1, maxA, maxF)(handler)
-        case SEScopeExercise(body) =>
+        case SEScopeExercise(_, body) =>
           go(body)
 
         case _: SEVar | _: SEAbs | _: SEDamlException | _: SEImportValue =>
@@ -1375,6 +1427,22 @@ private[lf] final class Compiler(
       compileFetchBody(tmplId, tmpl)(cidPos, None, tokenPos)
     }
 
+  private[this] def compileFetchInterface(
+      ifaceId: Identifier
+  ): (SDefinitionRef, SDefinition) =
+    topLevelFunction(FetchDefRef(ifaceId), 2) { case List(cidPos, _) =>
+      withEnv { _ =>
+        let(
+          SBUPreFetchInterface(ifaceId)(svar(cidPos))
+        ) { tmplArgPos =>
+          SBUFetchInterface(ifaceId)(
+            svar(cidPos),
+            svar(tmplArgPos),
+          )
+        }
+      }
+    }
+
   private[this] def compileKey(
       tmplId: Identifier,
       tmpl: Template,
@@ -1402,6 +1470,28 @@ private[lf] final class Compiler(
       compile(tmpl.observers)
     }
 
+  // Turn a template value into an interface value. Since interfaces have a
+  // toll-free representation (for now), this is just the identity function.
+  // But the existence of ImplementsDefRef implies that the template implements
+  // the interface, which is useful in itself.
+  private[this] def compileImplements(
+      tmplId: Identifier,
+      ifaceId: Identifier,
+  ): (SDefinitionRef, SDefinition) =
+    topLevelFunction(ImplementsDefRef(tmplId, ifaceId), 1) { case List(tmplPos) =>
+      svar(tmplPos)
+    }
+
+  // Compile the implementation of an interface method.
+  private[this] def compileImplementsMethod(
+      tmplId: Identifier,
+      ifaceId: Identifier,
+      method: TemplateImplementsMethod,
+  ): (SDefinitionRef, SDefinition) = {
+    val ref = ImplementsMethodDefRef(tmplId, ifaceId, method.name)
+    ref -> SDefinition(withLabel(ref, unsafeCompile(method.value)))
+  }
+
   private[this] def compileCreate(
       tmplId: Identifier,
       tmpl: Template,
@@ -1426,34 +1516,6 @@ private[lf] final class Compiler(
       }
     }
 
-  private[this] def compileExercise(
-      tmplId: Identifier,
-      contractId: SExpr,
-      choiceId: ChoiceName,
-      // actors are only present when compiling old LF update expressions;
-      // they are computed from the controllers in newer versions
-      argument: SExpr,
-  ): SExpr =
-    // Translates 'A does exercise by key  Choice with <params>'
-    // into:
-    // SomeTemplate$SomeChoice <actorsE> <cidE> <argE>
-    withEnv { _ =>
-      ChoiceDefRef(tmplId, choiceId)(contractId, argument)
-    }
-
-  private[this] def compileExerciseByKey(
-      tmplId: Identifier,
-      key: SExpr,
-      choiceId: ChoiceName,
-      argument: SExpr,
-  ): SExpr =
-    // Translates 'A does exerciseByKey <key> <Choice> <with> <params>'
-    // into:
-    // ChoiceByKeyDefRef(tmplId, choiceId) <actors> <key> <arg>
-    withEnv { _ =>
-      ChoiceByKeyDefRef(tmplId, choiceId)(key, argument)
-    }
-
   private[this] def compileCreateAndExercise(
       tmplId: Identifier,
       createArg: SValue,
@@ -1462,15 +1524,7 @@ private[lf] final class Compiler(
   ): SExpr =
     labeledUnaryFunction(Profile.CreateAndExerciseLabel(tmplId, choiceId)) { tokenPos =>
       let(CreateDefRef(tmplId)(SEValue(createArg), svar(tokenPos))) { cidPos =>
-        app(
-          compileExercise(
-            tmplId = tmplId,
-            contractId = svar(cidPos),
-            choiceId = choiceId,
-            argument = SEValue(choiceArg),
-          ),
-          svar(tokenPos),
-        )
+        ChoiceDefRef(tmplId, choiceId)(svar(cidPos), SEValue(choiceArg), svar(tokenPos))
       }
     }
 
@@ -1524,14 +1578,9 @@ private[lf] final class Compiler(
     case Command.Create(templateId, argument) =>
       CreateDefRef(templateId)(SEValue(argument))
     case Command.Exercise(templateId, contractId, choiceId, argument) =>
-      compileExercise(
-        tmplId = templateId,
-        contractId = SEValue(contractId),
-        choiceId = choiceId,
-        argument = SEValue(argument),
-      )
+      ChoiceDefRef(templateId, choiceId)(SEValue(contractId), SEValue(argument))
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
-      compileExerciseByKey(templateId, SEValue(contractKey), choiceId, SEValue(argument))
+      ChoiceByKeyDefRef(templateId, choiceId)(SEValue(contractKey), SEValue(argument))
     case Command.Fetch(templateId, coid) =>
       FetchDefRef(templateId)(SEValue(coid))
     case Command.FetchByKey(templateId, key) =>
@@ -1549,6 +1598,24 @@ private[lf] final class Compiler(
 
   private val SEUpdatePureUnit = unaryFunction(_ => SEValue.Unit)
 
+  private[this] val handleEverything: SExpr = SBSome(SEUpdatePureUnit)
+
+  private[this] def catchEverything(e: SExpr): SExpr = {
+    unaryFunction { tokenPos =>
+      SETryCatch(
+        app(e, svar(tokenPos)),
+        withEnv { _ =>
+          val binderPos = nextPosition()
+          SBTryHandler(handleEverything, svar(binderPos), svar(tokenPos))
+        },
+      )
+    }
+  }
+
+  private[this] def compileCommandForReinterpretation(cmd: Command): SExpr = {
+    catchEverything(compileCommand(cmd))
+  }
+
   private[this] def compileCommands(bindings: ImmArray[Command]): SExpr =
     // commands are compile similarly as update block
     // see compileBlock
@@ -1562,7 +1629,7 @@ private[lf] final class Compiler(
               // we cannot process `rest` recursively without exposing ourselves to stack overflow.
               val exprs = rest.iterator.map { cmd =>
                 val expr = app(compileCommand(cmd), svar(tokenPos))
-                nextPosition()
+                discard(nextPosition())
                 expr
               }.toList
               SELet(exprs, SEValue.Unit)

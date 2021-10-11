@@ -9,6 +9,7 @@
 
 module NumericLit where
 
+import DA.Assert
 import DA.Numeric (pi)
 
 pi0 : Numeric 0
@@ -27,8 +28,8 @@ pi37 : Numeric 37
 pi37 = 3.14159_26535_89793_23846_26433_83279_50288_41
 
 piTest = scenario $ do
-    assert $ pi == pi0
-    assert $ pi == pi5
-    assert $ pi == pi10
-    assert $ pi == pi15
-    assert $ pi == pi37
+    pi === pi0
+    pi === pi5
+    pi === pi10
+    pi === pi15
+    pi === pi37

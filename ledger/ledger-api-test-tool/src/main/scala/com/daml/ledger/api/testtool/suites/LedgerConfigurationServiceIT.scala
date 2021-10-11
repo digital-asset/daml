@@ -31,7 +31,11 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
           .configuration(overrideLedgerId = Some(invalidLedgerId))
           .mustFail("retrieving ledger configuration with an invalid ledger ID")
       } yield {
-        assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
+        assertGrpcError(
+          failure,
+          Status.Code.NOT_FOUND,
+          Some(s"Ledger ID '$invalidLedgerId' not found."),
+        )
       }
     }
   )
@@ -71,7 +75,7 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
         )
         .mustFail("submitting a command with a deduplication time that is too big")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "")
+      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, exceptionMessageSubstring = None)
     }
   })
 }

@@ -29,7 +29,7 @@ damlc=$(rlocation "$TEST_WORKSPACE/$1")
 protoc=$(rlocation "$TEST_WORKSPACE/$2")
 diff="$3"
 
-# Check that DAML compilation is deterministic.
+# Check that Daml compilation is deterministic.
 TMP_SRC1=$(mktemp -d)
 TMP_SRC2=$(mktemp -d)
 TMP_OUT=$(mktemp -d)

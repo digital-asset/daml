@@ -6,8 +6,16 @@ package com.daml.ledger.participant.state.kvutils.committer
 import com.daml.ledger.participant.state.kvutils.Conversions.partyAllocationDedupKey
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer.buildLogEntryWithOptionalRecordTime
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlPartyAllocation,
+  DamlStateKey,
+  DamlStateValue,
+  DamlSubmissionDedupValue,
+}
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 
@@ -27,9 +35,8 @@ private[kvutils] class PartyAllocationCommitter(
 
   override protected val committerName = "party_allocation"
 
-  override protected def extraLoggingContext(result: Result): Map[String, String] = Map(
-    "party" -> result.getParty
-  )
+  override protected def extraLoggingContext(result: Result): LoggingEntries =
+    LoggingEntries("party" -> result.getParty)
 
   override protected def init(
       ctx: CommitContext,

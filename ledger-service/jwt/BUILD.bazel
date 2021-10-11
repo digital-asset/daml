@@ -19,12 +19,16 @@ da_scala_library(
     ],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:jwt:__VERSION__"],
+    versioned_scala_deps = {
+        "2.12": [
+            "@maven//:org_scala_lang_modules_scala_collection_compat",
+        ],
+    },
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
-        "//daml-lf/data",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_auth0_jwks_rsa",
         "@maven//:com_google_guava_guava",
@@ -34,24 +38,13 @@ da_scala_library(
 
 da_scala_binary(
     name = "jwt-bin",
-    srcs = glob(["src/main/scala/**/*.scala"]),
     main_class = "com.daml.jwt.Main",
-    scala_deps = [
-        "@maven//:com_github_scopt_scopt",
-        "@maven//:com_typesafe_scala_logging_scala_logging",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
     scalacopts = lf_scalacopts,
     runtime_deps = [
-        ":jwt",
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
-        "//daml-lf/data",
-        "@maven//:com_auth0_java_jwt",
-        "@maven//:com_auth0_jwks_rsa",
-        "@maven//:com_google_guava_guava",
-        "@maven//:org_slf4j_slf4j_api",
+        ":jwt",
     ],
 )
 
@@ -62,12 +55,17 @@ da_scala_test(
     resources = glob(["src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_scala_logging_scala_logging",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
     deps = [
         ":jwt",
+        "//ledger/test-common",
         "@maven//:com_auth0_java_jwt",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

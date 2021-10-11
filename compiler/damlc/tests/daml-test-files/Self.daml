@@ -4,15 +4,17 @@
 
 module Self where
 
+import DA.Assert
+
 template Self with
     p: Party
   where
   signatory p
 
-  controller p can
-    Same : ()
-      with other: ContractId Self
-      do assert (self == other)
+  choice Same : ()
+    with other: ContractId Self
+    controller p
+    do self === other
 
 main = scenario do
   alice <- getParty "Alice"

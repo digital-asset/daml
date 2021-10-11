@@ -1,121 +1,113 @@
-[![Daml logo](https://daml.com/static/images/logo.png)](https://www.daml.com)
-
-[![Download](https://img.shields.io/github/release/digital-asset/daml.svg?label=Download)](https://docs.daml.com/getting-started/installation.html)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/digital-asset/daml/blob/main/LICENSE)
 
-# Welcome to _Create Daml App_
+# __PROJECT_NAME__
 
-This repository contains a template to get started with developing full-stack
-[Daml](https://daml.com/) applications. The demo application covers the following aspects:
+See [documentation] for details.
 
-1. A [Daml](https://docs.daml.com/index.html) model of a simple social network
-2. A UI written in [TypeScript](https://www.typescriptlang.org/) and [React](https://reactjs.org/)
+[documentation]: https://docs.daml.com/getting-started/installation.html
 
-The UI is developed using [React](https://reactjs.org/),
-[Semantic UI](https://react.semantic-ui.com/) and its
-official [React integration](https://react.semantic-ui.com/).
-The whole project was bootstrapped with
-[Create React App](https://github.com/facebook/create-react-app).
-Regardless of these choices, all Daml specific aspects of the UI client are
-written in plain TypeScript and the UI framework should hence be easily
-replaceable.
+Please ask for help on [the Daml forum] if you encounter any issue!
 
+[the Daml forum]: https://discuss.daml.com
 
-## Getting started
+## Development Quick Start
 
-Before you can run the application, you need to install the
-[Node](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) package manager for JavaScript.
+You need to have [Node.js] and [Daml] installed.
 
-There are two steps to build the project.
-First, we need to generate TypeScript code bindings for the compiled Daml model.
-At the root of the repository, run
+[Node.js]: https://nodejs.dev
+[Daml]: https://docs.daml.com
+
+First, start the Daml components:
+
+```bash
+daml start
 ```
+
+This will:
+
+- Build you Daml code once.
+- Generate JavaScript code (and TypeScript definitions) for your Daml types.
+- Start a Daml sandbox gRPC server (on 6865).
+- Start a Daml HTTP JSON API server (on 7575).
+- Watch for the `r` key press (`r` + Enter on Windows); when pressed, rebuild
+  all of the Daml code, push the new DAR to the ledger, and rerun the JS/TS
+  code generation.
+
+Next, start the JS dev server:
+
+```bash
+cd ui
+npm install
+npm start
+```
+
+This starts a server on `http://localhost:3000` which:
+
+- Builds all of your TypeScript (or JavaScript) code (including type
+  definitions from the codegen).
+- Serves the result on :3000, redirecting `/v1` to the JSON API server (on
+  `localhost:7575`) so API calls are on the same origin as far as your browser
+  is concerned.
+- Watch for changes in TS/JS code (including codegen), and immediately rebuild.
+
+## Deploying to Daml Hub
+
+To build everything from scratch:
+
+```bash
 daml build
 daml codegen js .daml/dist/__PROJECT_NAME__-0.1.0.dar -o ui/daml.js
-```
-The latter command generates TypeScript packages in the `daml.js` directory.
-
-Next, navigate to the `ui` directory and install the dependencies and build the app by running
-```
 cd ui
 npm install
 npm run-script build
+zip -r ../__PROJECT_NAME__-ui.zip build
 ```
-The last step is not absolutely necessary but useful to check that the app compiles.
 
-To start the application, there are again two steps.
-In one terminal in the root directory, start a Daml ledger using
-```
-daml start
-```
-This must continue running to serve ledger requests.
+Next you need to create a ledger on [Daml Hub], upload the files
+`.daml/dist/__PROJECT_NAME__-0.1.0.dar` (created by the `daml build` command)
+and `__PROJECT_NAME__-ui.zip` (created by the `zip` command based on the result
+of `npm run-script build`).
 
-Then in a second terminal window in the `ui` directory, start the UI server via
-```
+[Daml Hub]: https://hub.daml.com
+
+Once both files are uploaded, you need to tell Daml Hub to deploy them. A few
+seconds later, your website should be up and running.
+
+## Auth0 Authentication
+
+This template comes with out-of-the-box support for Auth0 authentication. You
+can still test your app locally with no authentication, using the default
+configuration. You can run just the UI server locally, against a deployed,
+authenticated JSON API server running on a remote host, by starting the
+development server with:
+
+```bash
+REACT_APP_AUTH=auth0 \
+REACT_APP_AUTH0_DOMAIN=$YOUR_AUTH0_DOMAIN \
+REACT_APP_AUTH0_CLIENT_ID=$YOUR_AUTH0_CLIENT_ID \
+REACT_APP_HTTP_JSON=$JSON_API_ADDRESS \
 npm start
 ```
-This should open a browser window with a login screen.
-If it doesn't, you can manually point your browser to http://localhost:3000.
 
+where:
 
-## A quick tour
+- `REACT_APP_AUTH` explicitly activates the Auth0 login screen.
+- `REACT_APP_AUTH0_DOMAIN` is the domain corresponding to your Auth0 tenant.
+  You can find it as the `Domain` field on the Settings tab of your Auth0
+  application.
+- `REACT_APP_AUTH0_CLIENT_ID` is the Client ID of your Auth0 "single page
+  applications" application.
+- `REACT_APP_HTTP_JSON` is the base URL of the JSON API, including scheme
+  (always) and port (if different from default: 80 for http and 443 for https).
 
-You can log into the app by providing a user name, say `Alice`. For simplicity
-of this app, there is no password or sign-up required. You will be greeted by
-a screen indicating that you're not following anyone and that you don't have
-any followers yet. You can change this by following someone in the upper box,
-say `Bob`. After that, let's log out in the top right corner and log in as `Bob`.
+For this setup to work, you need a properly setup Auth0 tenant where
+`localhost:3000` is listed as a valid callback URL in the application settings.
 
-As `Bob`, we can see that we are not following anyone and that `Alice` is follwing
-us. We can follow `Alice` by clicking the plus symbol to the right of here name.
+To build your application with Auth0 enabled, run:
 
-
-## Deploying to DABL
-
-Deploying `__PROJECT_NAME__` to the hosted Daml platform
-[project:DABL](https://projectdabl.com/) is quite simple. Log into your DABL
-account, create a new ledger and upload your Daml models and your UI.
-
-To upload the Daml models, compile them into a DAR by executing
+```bash
+REACT_APP_AUTH=auth0 \
+REACT_APP_AUTH0_DOMAIN=$YOUR_AUTH0_DOMAIN \
+REACT_APP_AUTH0_CLIENT_ID=$YOUR_AUTH0_CLIENT_ID \
+npm start
 ```
-daml build -o __PROJECT_NAME__.dar
-```
-at the root of your repository. Afterwards, open to the DABL website, select
-the ledger you want to deploy to, go to the "Daml" selection and upload the
-DAR `__PROJECT_NAME__.dar` you have just created.
-
-To upload the UI, create a ZIP file containing all your UI assets by executing
-```
-daml build
-daml codegen js .daml/dist/__PROJECT_NAME__-0.1.0.dar -o ui/daml.js
-(cd ui && npm install && npm run-script build && zip -r ../__PROJECT_NAME__-ui.zip build)
-```
-at the root of the repository. Afterwards, select the "UI Assets" tab of your
-chosen ledger on the DABL website, upload the ZIP file
-(`__PROJECT_NAME__-ui.zip`) you have just created and publish it.
-
-To see your deployed instance of `__PROJECT_NAME__` in action, follow the
-"Visit site" link at the top right corner of your "UI Assets" page.
-
-
-## Next steps
-
-There are many directions in which this application can be extended.
-Regardless of which direction you pick, the following files will be the most
-interesting ones to familiarize yourself with:
-
-- [`daml/User.daml`](daml/User.daml): the Daml model of the social network
-- `daml.js/__PROJECT_NAME__-0.1.0/src/User.ts` (once you've generated it):
-  a reflection of the types contained in the Daml model in TypeScript
-- [`ui/src/components/MainView.tsx`](ui/src/components/MainView.tsx):
-  a React component using the HTTP Ledger API and rendering the main features
-
-
-## Useful resources
-
-TBD
-
-
-## How to get help
-
-TBD

@@ -31,11 +31,6 @@ import com.daml.ledger.api.v1.command_completion_service.{
 import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.ledger_configuration_service.{
-  GetLedgerConfigurationRequest,
-  GetLedgerConfigurationResponse,
-  LedgerConfigurationServiceGrpc,
-}
 import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   LedgerIdentityServiceGrpc,
@@ -61,8 +56,8 @@ import com.daml.timer.RetryStrategy
 import com.google.protobuf.empty.Empty
 import io.grpc.Status
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
-import org.scalatest.time.Span
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.Span
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
@@ -84,33 +79,17 @@ abstract class ResetServiceITBase
   override protected def config: SandboxConfig =
     super.config.copy(ledgerIdMode = LedgerIdMode.Dynamic)
 
-  protected val eventually: RetryStrategy = RetryStrategy.constant(50, 100.milliseconds)
-
   protected implicit val ec: ExecutionContext = ExecutionContext.global
 
   override protected def darFile: File = new File(rlocation(ModelTestDar.path))
 
-  protected def timeIsStatic: Boolean =
-    config.timeProviderType.getOrElse(
-      SandboxConfig.DefaultTimeProviderType
-    ) == TimeProviderType.Static
+  // Must try for at least (5 seconds * scale factor), as that's what the tests require.
+  private val eventually: RetryStrategy = RetryStrategy.constant(50, scaled(100.milliseconds))
 
-  protected def waitForLedgerToStart(): Future[LedgerId] =
-    for {
-      ledgerId <- eventually { (_, _) =>
-        fetchLedgerId()
-      }
-      // Completions won't work until a ledger configuration is in place, so we wait for one.
-      configurations <- new StreamConsumer[GetLedgerConfigurationResponse](responseObserver =>
-        LedgerConfigurationServiceGrpc
-          .stub(channel)
-          .getLedgerConfiguration(GetLedgerConfigurationRequest(ledgerId.unwrap), responseObserver)
-      )
-        .firstWithin(Span.convertSpanToDuration(scaled(1.second)))
-    } yield {
-      configurations should have size 1
-      ledgerId
-    }
+  private val timeIsStatic: Boolean = {
+    val timeProviderType = config.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType)
+    timeProviderType == TimeProviderType.Static
+  }
 
   protected def fetchLedgerId(): Future[LedgerId] =
     LedgerIdentityServiceGrpc
@@ -118,12 +97,17 @@ abstract class ResetServiceITBase
       .getLedgerIdentity(GetLedgerIdentityRequest())
       .map(response => LedgerId(response.ledgerId))
 
+  protected def waitForLedgerToRestart(oldLedgerId: LedgerId): Future[LedgerId] =
+    eventually { (_, _) =>
+      fetchLedgerId().filter(_ != oldLedgerId)
+    }
+
   // Resets and waits for a new ledger identity to be available
   protected def reset(ledgerId: LedgerId): Future[LedgerId] =
     ResetServiceGrpc
       .stub(channel)
       .reset(ResetRequest(ledgerId.unwrap))
-      .flatMap(_ => waitForLedgerToStart())
+      .flatMap(_ => waitForLedgerToRestart(ledgerId))
 
   protected def timedReset(ledgerId: LedgerId): Future[(LedgerId, FiniteDuration)] = {
     val start = System.nanoTime()
@@ -229,14 +213,14 @@ abstract class ResetServiceITBase
       //
       // The 10 seconds timeout built into the context's ledger reset will be hit if something goes
       // horribly wrong, causing an exception to report "waitForNewLedger: out of retries".
-      val expectedResetCompletionTime = Span.convertSpanToDuration(scaled(5.seconds))
+      val expectedResetCompletionTime: FiniteDuration = scaled(5.seconds)
       s"consistently complete within $expectedResetCompletionTime" in {
         val numberOfCommands = 5
         val numberOfAttempts = 4
         Future
           .sequence(
             Iterator
-              .iterate(waitForLedgerToStart()) { ledgerIdF =>
+              .iterate(fetchLedgerId()) { ledgerIdF =>
                 for {
                   ledgerId <- ledgerIdF
                   party <- allocateParty(M.party)
@@ -252,7 +236,7 @@ abstract class ResetServiceITBase
 
       "remove contracts from ACS after reset" in {
         for {
-          ledgerId <- waitForLedgerToStart()
+          ledgerId <- fetchLedgerId()
           party <- allocateParty(M.party)
           request = dummyCommands(ledgerId, "commandId1", party)
           _ <- submitAndWait(SubmitAndWaitRequest(commands = request.commands))

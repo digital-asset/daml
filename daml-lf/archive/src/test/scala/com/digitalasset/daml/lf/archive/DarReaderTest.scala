@@ -32,13 +32,13 @@ class DarReaderTest
 
   s"should read dar file: $darFile, main archive: DarReaderTest returned first" in {
 
-    val dar = DarReaderWithVersion.readArchiveFromFile(darFile).success.value
-    val ((_, mainArchive), _) = dar.main
+    val Right(dar) = DarReader.readArchiveFromFile(darFile)
+    val mainArchive = dar.main.proto
 
-    forAll(dar.all) { case ((packageId, archive), ver) =>
+    forAll(dar.all) { case ArchivePayload(packageId, archive, ver) =>
       packageId shouldNot be(Symbol("empty"))
       archive.getDamlLf1.getModulesCount should be > 0
-      ver should be(LanguageMajorVersion.V1)
+      ver.major should be(LanguageMajorVersion.V1)
     }
 
     val mainArchiveModules = mainArchive.getDamlLf1.getModulesList.asScala
@@ -65,7 +65,7 @@ class DarReaderTest
       actualTypes should contain.allOf("Transfer", "Call2", "CallablePayout", "PayOut")
     }
 
-    forExactly(1, dar.dependencies) { case ((_, archive), _) =>
+    forExactly(1, dar.dependencies) { case ArchivePayload(_, archive, _) =>
       val archiveModules = archive.getDamlLf1.getModulesList.asScala
       val archiveInternedDotted = archive.getDamlLf1.getInternedDottedNamesList.asScala
       val archiveInternedStrings = archive.getDamlLf1.getInternedStringsList.asScala

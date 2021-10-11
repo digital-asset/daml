@@ -4,18 +4,18 @@
 package com.daml.platform.store.interfaces
 
 import java.time.Instant
-import com.daml.lf.value.{Value => LfValue}
 
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
+import com.daml.lf.value.{Value => LfValue}
 import com.daml.lf.data.Ref.IdString
 import com.daml.lf.ledger.EventId
-import com.daml.platform.store.appendonlydao.events
 import com.daml.platform.store.appendonlydao.events.{ContractId, Identifier}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 
 /** Generic ledger update event.
   *
   * Used as data source template for in-memory fan-out buffers for Ledger API streams serving.
+  *
   * @see [[com.daml.platform.store.dao.LedgerDaoTransactionsReader.getTransactionLogUpdates()]]
   */
 sealed trait TransactionLogUpdate extends Product with Serializable
@@ -33,7 +33,6 @@ object TransactionLogUpdate {
     */
   final case class Transaction(
       transactionId: String,
-      commandId: String,
       workflowId: String,
       effectiveAt: Instant,
       offset: Offset,
@@ -61,7 +60,9 @@ object TransactionLogUpdate {
     def commandId: String
     def workflowId: String
     def ledgerEffectiveTime: Instant
+    def treeEventWitnesses: Set[String]
     def flatEventWitnesses: Set[String]
+    def submitters: Set[String]
     def templateId: Identifier
     def contractId: ContractId
   }
@@ -77,10 +78,11 @@ object TransactionLogUpdate {
       templateId: Identifier,
       commandId: String,
       workflowId: String,
-      contractKey: Option[LfValue.VersionedValue[events.ContractId]],
+      contractKey: Option[LfValue.VersionedValue],
       treeEventWitnesses: Set[String],
       flatEventWitnesses: Set[String],
-      createArgument: LfValue.VersionedValue[events.ContractId],
+      submitters: Set[String],
+      createArgument: LfValue.VersionedValue,
       createSignatories: Set[String],
       createObservers: Set[String],
       createAgreementText: Option[String],
@@ -97,14 +99,15 @@ object TransactionLogUpdate {
       templateId: Identifier,
       commandId: String,
       workflowId: String,
-      contractKey: Option[LfValue.VersionedValue[events.ContractId]],
+      contractKey: Option[LfValue.VersionedValue],
       treeEventWitnesses: Set[String],
       flatEventWitnesses: Set[String],
+      submitters: Set[String],
       choice: String,
       actingParties: Set[IdString.Party],
       children: Seq[String],
-      exerciseArgument: LfValue.VersionedValue[ContractId],
-      exerciseResult: Option[LfValue.VersionedValue[ContractId]],
+      exerciseArgument: LfValue.VersionedValue,
+      exerciseResult: Option[LfValue.VersionedValue],
       consuming: Boolean,
   ) extends Event
 }

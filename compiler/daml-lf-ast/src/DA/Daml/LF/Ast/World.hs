@@ -18,8 +18,11 @@ module DA.Daml.LF.Ast.World(
     lookupTypeSyn,
     lookupDataType,
     lookupChoice,
+    lookupInterfaceChoice,
+    lookupInterfaceMethod,
     lookupValue,
-    lookupModule
+    lookupModule,
+    lookupInterface,
     ) where
 
 import DA.Pretty
@@ -31,6 +34,8 @@ import qualified Data.HashMap.Strict as HMS
 import Data.List
 import qualified Data.NameMap as NM
 import GHC.Generics
+import Data.Either.Extra (maybeToEither)
+import Control.Applicative
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Pretty ()
@@ -97,6 +102,8 @@ data LookupError
   | LETemplate !(Qualified TypeConName)
   | LEException !(Qualified TypeConName)
   | LEChoice !(Qualified TypeConName) !ChoiceName
+  | LEInterface !(Qualified TypeConName)
+  | LEInterfaceMethod !(Qualified TypeConName) !MethodName
   deriving (Eq, Ord, Show)
 
 lookupModule :: Qualified a -> World -> Either LookupError Module
@@ -136,6 +143,9 @@ lookupValue = lookupDefinition moduleValues LEValue
 lookupTemplate :: Qualified TypeConName -> World -> Either LookupError Template
 lookupTemplate = lookupDefinition moduleTemplates LETemplate
 
+lookupInterface :: Qualified TypeConName -> World -> Either LookupError DefInterface
+lookupInterface = lookupDefinition moduleInterfaces LEInterface
+
 lookupException :: Qualified TypeConName -> World -> Either LookupError DefException
 lookupException = lookupDefinition moduleExceptions LEException
 
@@ -145,6 +155,20 @@ lookupChoice (tplRef, chName) world = do
   case NM.lookup chName (tplChoices tpl) of
     Nothing -> Left (LEChoice tplRef chName)
     Just choice -> Right choice
+
+lookupInterfaceChoice :: (Qualified TypeConName, ChoiceName) -> World ->
+  Either LookupError (Either InterfaceChoice TemplateChoice)
+lookupInterfaceChoice (ifaceRef, chName) world = do
+  DefInterface{..} <- lookupInterface ifaceRef world
+  maybeToEither (LEChoice ifaceRef chName) $
+        Left  <$> NM.lookup chName intVirtualChoices
+    <|> Right <$> NM.lookup chName intFixedChoices
+
+lookupInterfaceMethod :: (Qualified TypeConName, MethodName) -> World -> Either LookupError InterfaceMethod
+lookupInterfaceMethod (ifaceRef, methodName) world = do
+  iface <- lookupInterface ifaceRef world
+  maybeToEither (LEInterfaceMethod ifaceRef methodName) $
+      NM.lookup methodName (intMethods iface)
 
 instance Pretty LookupError where
   pPrint = \case
@@ -157,3 +181,5 @@ instance Pretty LookupError where
     LETemplate tplRef -> "unknown template:" <-> pretty tplRef
     LEException exnRef -> "unknown exception:" <-> pretty exnRef
     LEChoice tplRef chName -> "unknown choice:" <-> pretty tplRef <> ":" <> pretty chName
+    LEInterface ifaceRef -> "unknown interface:" <-> pretty ifaceRef
+    LEInterfaceMethod ifaceRef methodName -> "unknown interface method:" <-> pretty ifaceRef <> "." <> pretty methodName

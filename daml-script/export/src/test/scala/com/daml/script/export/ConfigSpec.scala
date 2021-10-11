@@ -63,22 +63,41 @@ class ConfigSpec extends AnyFreeSpec with Matchers with OptionValues {
         optConfig.value.end shouldBe LedgerOffset().withAbsolute("00100")
       }
     }
-    "--party" - {
+    "--party or --all-parties" - {
       val defaultRequiredArgs = outputTypeArgs ++ outputArgs ++ sdkVersionArgs ++ ledgerArgs
       "--party Alice" in {
         val args = defaultRequiredArgs ++ Array("--party", "Alice")
         val optConfig = Config.parse(args)
-        optConfig.value.parties should contain only ("Alice")
+        optConfig.value.partyConfig.parties should contain only ("Alice")
+        optConfig.value.partyConfig.allParties shouldBe false
       }
       "--party Alice --party Bob" in {
         val args = defaultRequiredArgs ++ Array("--party", "Alice", "--party", "Bob")
         val optConfig = Config.parse(args)
-        optConfig.value.parties should contain only ("Alice", "Bob")
+        optConfig.value.partyConfig.parties should contain only ("Alice", "Bob")
+        optConfig.value.partyConfig.allParties shouldBe false
       }
       "--party Alice,Bob" in {
         val args = defaultRequiredArgs ++ Array("--party", "Alice,Bob")
         val optConfig = Config.parse(args)
-        optConfig.value.parties should contain only ("Alice", "Bob")
+        optConfig.value.partyConfig.parties should contain only ("Alice", "Bob")
+        optConfig.value.partyConfig.allParties shouldBe false
+      }
+      "--all-parties" in {
+        val args = defaultRequiredArgs ++ Array("--all-parties")
+        val optConfig = Config.parse(args)
+        optConfig.value.partyConfig.parties shouldBe empty
+        optConfig.value.partyConfig.allParties shouldBe true
+      }
+      "missing" in {
+        val args = defaultRequiredArgs
+        val optConfig = Config.parse(args)
+        optConfig shouldBe empty
+      }
+      "--party and --all-parties" in {
+        val args = defaultRequiredArgs ++ Array("--party", "Alice", "--all-parties")
+        val optConfig = Config.parse(args)
+        optConfig shouldBe empty
       }
     }
     "TLS" - {
@@ -116,6 +135,30 @@ class ConfigSpec extends AnyFreeSpec with Matchers with OptionValues {
         val args = defaultRequiredArgs ++ Array("--access-token-file", tokenFile.toString)
         val optConfig = Config.parse(args)
         optConfig.value.accessToken.value.token.value shouldBe token
+      }
+    }
+    "--max-inbound-message-size" - {
+      "unset" in {
+        val args = defaultRequiredArgs
+        val optConfig = Config.parse(args)
+        optConfig.value.maxInboundMessageSize shouldBe Config.DefaultMaxInboundMessageSize
+      }
+      "--max-inbound-message-size 9388608" in {
+        val args = defaultRequiredArgs ++ Array("--max-inbound-message-size", "9388608")
+        val optConfig = Config.parse(args)
+        optConfig.value.maxInboundMessageSize shouldBe 9388608
+      }
+    }
+    "Output type" - {
+      "missing" in {
+        val args = ledgerArgs ++ partyArgs
+        val optConfig = Config.parse(args)
+        optConfig shouldBe empty
+      }
+      "script" in {
+        val args = outputTypeArgs ++ outputArgs ++ sdkVersionArgs ++ ledgerArgs ++ partyArgs
+        val optConfig = Config.parse(args)
+        optConfig.value.exportType.value shouldBe an[ExportScript]
       }
     }
   }

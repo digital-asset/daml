@@ -6,10 +6,13 @@ package com.daml.ledger.validator
 import java.time.Instant
 
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
+import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.logging.LoggingContext.newLoggingContextWith
+import com.google.rpc.code.Code
+import com.google.rpc.status.Status
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
@@ -47,9 +50,9 @@ class ValidatingCommitter[LogResult](
   def commit(
       correlationId: String,
       envelope: Raw.Envelope,
-      submittingParticipantId: ParticipantId,
+      submittingParticipantId: Ref.ParticipantId,
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
-    newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
+    newLoggingContextWith("correlationId" -> correlationId) { implicit loggingContext =>
       validator
         .validateAndCommitWithContext(
           envelope,
@@ -62,11 +65,19 @@ class ValidatingCommitter[LogResult](
             postCommit(value)
             SubmissionResult.Acknowledged
           case Left(MissingInputState(keys)) =>
-            SubmissionResult.InternalError(
-              s"Missing input state: ${keys.map(_.bytes.asScala.map("%02x".format(_)).mkString).mkString(", ")}"
+            SubmissionResult.SynchronousError(
+              Status(
+                Code.INTERNAL.value,
+                s"Missing input state: ${keys.map(_.bytes.asScala.map("%02x".format(_)).mkString).mkString(", ")}",
+              )
             )
           case Left(ValidationError(reason)) =>
-            SubmissionResult.InternalError(reason)
+            SubmissionResult.SynchronousError(
+              Status(
+                Code.INTERNAL.value,
+                reason,
+              )
+            )
         }
     }
 }

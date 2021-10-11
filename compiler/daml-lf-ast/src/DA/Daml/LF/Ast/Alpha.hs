@@ -67,6 +67,10 @@ alphaExprVar AlphaEnv{..} x1 x2 =
 alphaTypeCon :: Qualified TypeConName -> Qualified TypeConName -> Bool
 alphaTypeCon = (==)
 
+-- | Strongly typed version of (==) for method names.
+alphaMethod :: MethodName -> MethodName -> Bool
+alphaMethod = (==)
+
 alphaType' :: AlphaEnv -> Type -> Type -> Bool
 alphaType' env = \case
     TVar x1 -> \case
@@ -212,6 +216,24 @@ alphaExpr' env = \case
             && alphaType' env t1b t2b
             && alphaExpr' env e1 e2
         _ -> False
+    EToInterface t1a t1b e1 -> \case
+        EToInterface t2a t2b e2
+            -> alphaTypeCon t1a t2a
+            && alphaTypeCon t1b t2b
+            && alphaExpr' env e1 e2
+        _ -> False
+    EFromInterface t1a t1b e1 -> \case
+        EFromInterface t2a t2b e2
+            -> alphaTypeCon t1a t2a
+            && alphaTypeCon t1b t2b
+            && alphaExpr' env e1 e2
+        _ -> False
+    ECallInterface t1 m1 e1 -> \case
+        ECallInterface t2 m2 e2
+            -> alphaTypeCon t1 t2
+            && alphaMethod m1 m2
+            && alphaExpr' env e1 e2
+        _ -> False
     EUpdate u1 -> \case
         EUpdate u2 -> alphaUpdate env u1 u2
         _ -> False
@@ -283,6 +305,12 @@ alphaUpdate env = \case
             && alphaExpr' env e1a e2a
             && alphaExpr' env e1b e2b
         _ -> False
+    UExerciseInterface i1 c1 e1a e1b -> \case
+        UExerciseInterface i2 c2 e2a e2b -> alphaTypeCon i1 i2
+            && c1 == c2
+            && alphaExpr' env e1a e2a
+            && alphaExpr' env e1b e2b
+        _ -> False
     UExerciseByKey t1 c1 e1a e1b -> \case
         UExerciseByKey t2 c2 e2a e2b -> alphaTypeCon t1 t2
             && c1 == c2
@@ -291,6 +319,10 @@ alphaUpdate env = \case
         _ -> False
     UFetch t1 e1 -> \case
         UFetch t2 e2 -> alphaTypeCon t1 t2
+            && alphaExpr' env e1 e2
+        _ -> False
+    UFetchInterface i1 e1 -> \case
+        UFetchInterface i2 e2 -> alphaTypeCon i1 i2
             && alphaExpr' env e1 e2
         _ -> False
     UGetTime -> \case

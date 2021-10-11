@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.export.WriteSet
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.WriteSetComparison._
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, Raw}
 import com.daml.ledger.validator.StateKeySerializationStrategy
@@ -129,7 +130,7 @@ final class RawWriteSetComparison(stateKeySerializationStrategy: StateKeySeriali
       rawEnvelope: Raw.Envelope,
   ): Either[String, Either[
     (DamlKvutils.DamlLogEntryId, DamlKvutils.DamlLogEntry),
-    (DamlKvutils.DamlStateKey, DamlKvutils.DamlStateValue),
+    (DamlStateKey, DamlStateValue),
   ]] =
     Envelope.open(rawEnvelope) match {
       case Left(errorMessage) =>
@@ -142,9 +143,9 @@ final class RawWriteSetComparison(stateKeySerializationStrategy: StateKeySeriali
           Right(Left(logEntryId -> logEntry))
       case Right(Envelope.StateValueMessage(value)) =>
         val key = stateKeySerializationStrategy.deserializeStateKey(Raw.StateKey(rawKey.bytes))
-        if (key.getKeyCase == DamlKvutils.DamlStateKey.KeyCase.KEY_NOT_SET)
+        if (key.getKeyCase == DamlStateKey.KeyCase.KEY_NOT_SET)
           Left("State key not set.")
-        else if (value.getValueCase == DamlKvutils.DamlStateValue.ValueCase.VALUE_NOT_SET)
+        else if (value.getValueCase == DamlStateValue.ValueCase.VALUE_NOT_SET)
           Left("State value not set.")
         else
           Right(Right(key -> value))

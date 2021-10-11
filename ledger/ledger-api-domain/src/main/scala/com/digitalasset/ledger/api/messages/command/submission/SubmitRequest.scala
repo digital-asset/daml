@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.messages.command.submission
 
-import brave.propagation.TraceContext
 import com.daml.ledger.api.domain
 
-case class SubmitRequest(commands: domain.Commands, traceContext: Option[TraceContext])
+case class SubmitRequest(commands: domain.Commands)

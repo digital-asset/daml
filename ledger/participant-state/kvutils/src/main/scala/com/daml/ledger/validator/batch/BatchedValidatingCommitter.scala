@@ -7,12 +7,15 @@ import java.time.Instant
 
 import akka.stream.Materializer
 import com.daml.caching.Cache
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.validator._
 import com.daml.ledger.validator.caching.{CacheUpdatePolicy, ImmutablesOnlyCacheUpdatePolicy}
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
+import com.daml.lf.data.Ref
+import com.google.rpc.code.Code
+import com.google.rpc.status.Status
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -58,7 +61,7 @@ class BatchedValidatingCommitter[LogResult](
   def commit(
       correlationId: String,
       submissionEnvelope: Raw.Envelope,
-      submittingParticipantId: ParticipantId,
+      submittingParticipantId: Ref.ParticipantId,
       ledgerStateOperations: LedgerStateOperations[LogResult],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] = {
     val (ledgerStateReader, commitStrategy) = readerAndCommitStrategyFrom(ledgerStateOperations)
@@ -75,7 +78,10 @@ class BatchedValidatingCommitter[LogResult](
         case Success(_) =>
           Future.successful(SubmissionResult.Acknowledged)
         case Failure(exception) =>
-          Future.successful(SubmissionResult.InternalError(exception.getLocalizedMessage))
+          Future.successful(
+            SubmissionResult
+              .SynchronousError(Status(Code.INTERNAL.value, exception.getLocalizedMessage))
+          )
       }
   }
 

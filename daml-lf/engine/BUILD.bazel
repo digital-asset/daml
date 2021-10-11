@@ -7,6 +7,7 @@ load(
     "da_scala_test",
     "da_scala_test_suite",
     "lf_scalacopts",
+    "lf_scalacopts_stricter",
 )
 
 da_scala_library(
@@ -16,7 +17,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_paiges_core",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-engine:__VERSION__"],
     versioned_scala_deps = {
         "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
@@ -28,6 +29,9 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/validation",
+        "//libs-scala/nameof",
+        "//libs-scala/scala-utils",
+        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 
@@ -47,10 +51,14 @@ da_scala_test_suite(
         "//daml-lf/tests:Exceptions.dar",
         "//daml-lf/tests:MultiKeys.dar",
         "//daml-lf/tests:Optional.dar",
+        "//daml-lf/tests:ReinterpretTests.dar",
     ],
     scala_deps = [
         "@maven//:com_storm_enroute_scalameter_core",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
@@ -65,7 +73,9 @@ da_scala_test_suite(
         "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
+        "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -84,7 +94,10 @@ da_scala_test(
     max_heap_size = "2g",
     scala_deps = [
         "@maven//:com_storm_enroute_scalameter_core",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
@@ -92,11 +105,10 @@ da_scala_test(
         ":engine",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

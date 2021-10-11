@@ -3,8 +3,10 @@
 
 module Phantom where
 
+import DA.Assert
+
 data Phantom a = Phantom {}
-    deriving Eq
+    deriving (Eq, Show)
 phantom : Phantom (Party -> Party)
 phantom = Phantom {}
 
@@ -12,7 +14,5 @@ showOptional : (a -> Text) -> Optional a -> Text
 showOptional f x = optional "None" f x
 
 main = scenario do
-    alice <- getParty "alice"
-    submit alice do
-        assert $ phantom == Phantom {}
-        assert $ showOptional show (None : Optional Int) == "None"
+  phantom === Phantom {}
+  showOptional show (None : Optional Int) === "None"

@@ -3,9 +3,8 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import java.io.InputStream
+import java.io.ByteArrayInputStream
 
-import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.daml.ledger.api.v1.value.{
   Identifier => ApiIdentifier,
@@ -13,8 +12,9 @@ import com.daml.ledger.api.v1.value.{
   Value => ApiValue,
 }
 import com.daml.lf.engine.ValueEnricher
-import com.daml.lf.{engine => LfEngine}
+import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value.VersionedValue
+import com.daml.lf.{engine => LfEngine}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.packages.DeduplicatingPackageLoader
@@ -33,6 +33,46 @@ import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
 import scala.concurrent.{ExecutionContext, Future}
 
+/** Serializes and deserializes Daml-Lf values and events.
+  *
+  *  Deserializing values in verbose mode involves loading packages in order to fill in missing type information.
+  *  That's why these methods return Futures, while the serialization methods are synchronous.
+  */
+trait LfValueSerialization {
+  def serialize(
+      contractId: ContractId,
+      contractArgument: VersionedValue,
+  ): Array[Byte]
+
+  /** Returns (contract argument, contract key) */
+  def serialize(
+      eventId: EventId,
+      create: Create,
+  ): (Array[Byte], Option[Array[Byte]])
+
+  /** Returns (choice argument, exercise result, contract key) */
+  def serialize(
+      eventId: EventId,
+      exercise: Exercise,
+  ): (Array[Byte], Option[Array[Byte]], Option[Array[Byte]])
+
+  def deserialize[E](
+      raw: Raw.Created[E],
+      verbose: Boolean,
+  )(implicit
+      ec: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[CreatedEvent]
+
+  def deserialize(
+      raw: Raw.TreeEvent.Exercised,
+      verbose: Boolean,
+  )(implicit
+      ec: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[ExercisedEvent]
+}
+
 final class LfValueTranslation(
     val cache: LfValueTranslationCache.Cache,
     metrics: Metrics,
@@ -41,7 +81,7 @@ final class LfValueTranslation(
         LfPackageId,
         LoggingContext,
     ) => Future[Option[com.daml.daml_lf_dev.DamlLf.Archive]],
-) {
+) extends LfValueSerialization {
 
   private[this] val packageLoader = new DeduplicatingPackageLoader()
 
@@ -50,7 +90,7 @@ final class LfValueTranslation(
 
   private def serializeCreateArgOrThrow(
       contractId: ContractId,
-      arg: VersionedValue[ContractId],
+      arg: VersionedValue,
   ): Array[Byte] =
     ValueSerializer.serializeValue(
       value = arg,
@@ -58,7 +98,7 @@ final class LfValueTranslation(
     )
 
   private def serializeCreateArgOrThrow(c: Create): Array[Byte] =
-    serializeCreateArgOrThrow(c.coid, c.versionedCoinst.arg)
+    serializeCreateArgOrThrow(c.coid, c.versionedArg)
 
   private def serializeNullableKeyOrThrow(c: Create): Option[Array[Byte]] =
     c.versionedKey.map(k =>
@@ -91,9 +131,9 @@ final class LfValueTranslation(
       )
     )
 
-  def serialize(
+  override def serialize(
       contractId: ContractId,
-      contractArgument: VersionedValue[ContractId],
+      contractArgument: VersionedValue,
   ): Array[Byte] = {
     cache.contracts.put(
       key = LfValueTranslationCache.ContractCache.Key(contractId),
@@ -102,20 +142,20 @@ final class LfValueTranslation(
     serializeCreateArgOrThrow(contractId, contractArgument)
   }
 
-  def serialize(eventId: EventId, create: Create): (Array[Byte], Option[Array[Byte]]) = {
+  override def serialize(eventId: EventId, create: Create): (Array[Byte], Option[Array[Byte]]) = {
     cache.events.put(
       key = LfValueTranslationCache.EventCache.Key(eventId),
       value = LfValueTranslationCache.EventCache.Value
-        .Create(create.versionedCoinst.arg, create.versionedKey.map(_.key)),
+        .Create(create.versionedArg, create.versionedKey.map(_.key)),
     )
     cache.contracts.put(
       key = LfValueTranslationCache.ContractCache.Key(create.coid),
-      value = LfValueTranslationCache.ContractCache.Value(create.versionedCoinst.arg),
+      value = LfValueTranslationCache.ContractCache.Value(create.versionedArg),
     )
     (serializeCreateArgOrThrow(create), serializeNullableKeyOrThrow(create))
   }
 
-  def serialize(
+  override def serialize(
       eventId: EventId,
       exercise: Exercise,
   ): (Array[Byte], Option[Array[Byte]], Option[Array[Byte]]) = {
@@ -139,7 +179,7 @@ final class LfValueTranslation(
   ): Future[V] = {
     result match {
       case LfEngine.ResultDone(r) => Future.successful(r)
-      case LfEngine.ResultError(e) => Future.failed(new RuntimeException(e.msg))
+      case LfEngine.ResultError(e) => Future.failed(new RuntimeException(e.message))
       case LfEngine.ResultNeedPackage(packageId, resume) =>
         packageLoader
           .loadPackage(
@@ -153,11 +193,11 @@ final class LfValueTranslation(
     }
   }
 
-  private[this] def toApiValue(
+  def toApiValue(
       value: LfValue,
       verbose: Boolean,
       attribute: => String,
-      enrich: LfValue => LfEngine.Result[com.daml.lf.value.Value[ContractId]],
+      enrich: LfValue => LfEngine.Result[com.daml.lf.value.Value],
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
@@ -178,11 +218,11 @@ final class LfValueTranslation(
     )
   }
 
-  private[this] def toApiRecord(
+  def toApiRecord(
       value: LfValue,
       verbose: Boolean,
       attribute: => String,
-      enrich: LfValue => LfEngine.Result[com.daml.lf.value.Value[ContractId]],
+      enrich: LfValue => LfEngine.Result[com.daml.lf.value.Value],
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContext,
@@ -215,10 +255,10 @@ final class LfValueTranslation(
   private def eventKey(s: String) =
     LfValueTranslationCache.EventCache.Key(EventId.assertFromString(s))
 
-  private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: InputStream) =
-    ValueSerializer.deserializeValue(algorithm.decompress(value))
+  private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: Array[Byte]) =
+    ValueSerializer.deserializeValue(algorithm.decompress(new ByteArrayInputStream(value)))
 
-  private[this] def enricher: ValueEnricher = {
+  def enricher: ValueEnricher = {
     // Note: LfValueTranslation is used by JdbcLedgerDao for both serialization and deserialization.
     // Sometimes the JdbcLedgerDao is used in a way that it never needs to deserialize data in verbose mode
     // (e.g., the indexer, or some tests). In this case, the enricher is not required.
@@ -229,7 +269,7 @@ final class LfValueTranslation(
     )
   }
 
-  def deserialize[E](
+  override def deserialize[E](
       raw: Raw.Created[E],
       verbose: Boolean,
   )(implicit
@@ -278,7 +318,7 @@ final class LfValueTranslation(
     }
   }
 
-  def deserialize(
+  override def deserialize(
       raw: Raw.TreeEvent.Exercised,
       verbose: Boolean,
   )(implicit

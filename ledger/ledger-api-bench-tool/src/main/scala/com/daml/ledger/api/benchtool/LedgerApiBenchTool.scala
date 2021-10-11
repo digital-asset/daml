@@ -3,24 +3,24 @@
 
 package com.daml.ledger.api.benchtool
 
-import akka.actor.typed.{ActorSystem, SpawnProtocol}
 import com.daml.ledger.api.benchtool.metrics.{
-  Creator,
-  MeteredStreamObserver,
-  MetricsManager,
-  TransactionMetrics,
+  MetricRegistryOwner,
+  MetricsCollector,
+  MetricsSet,
+  StreamMetrics,
 }
-import com.daml.ledger.api.benchtool.services.{LedgerIdentityService, TransactionService}
+import com.daml.ledger.api.benchtool.services.{
+  ActiveContractsService,
+  CommandCompletionService,
+  LedgerIdentityService,
+  TransactionService,
+}
 import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.api.v1.transaction_service.{
-  GetTransactionTreesResponse,
-  GetTransactionsResponse,
-}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
-import org.slf4j.LoggerFactory
+import org.slf4j.{Logger, LoggerFactory}
 
 import java.util.concurrent.{
   ArrayBlockingQueue,
@@ -58,53 +58,92 @@ object LedgerApiBenchTool {
     val resources = for {
       executorService <- threadPoolExecutorOwner(config.concurrency)
       channel <- channelOwner(config.ledger, config.tls, executorService)
-      system <- actorSystemResourceOwner()
-    } yield (channel, system)
+      system <- TypedActorSystemResourceOwner.owner()
+      registry <- new MetricRegistryOwner(
+        reporter = config.metricsReporter,
+        reportingInterval = config.reportingPeriod,
+        logger = logger,
+      )
+    } yield (channel, system, registry)
 
-    resources.use { case (channel, system) =>
+    resources.use { case (channel, system, registry) =>
       val ledgerIdentityService: LedgerIdentityService = new LedgerIdentityService(channel)
       val ledgerId: String = ledgerIdentityService.fetchLedgerId()
       val transactionService = new TransactionService(channel, ledgerId)
+      val activeContractsService = new ActiveContractsService(channel, ledgerId)
+      val commandCompletionService = new CommandCompletionService(channel, ledgerId)
       Future
-        .traverse(config.streams) { streamConfig =>
-          streamConfig.streamType match {
-            case Config.StreamConfig.StreamType.Transactions =>
-              TransactionMetrics
-                .transactionsMetricsManager(
-                  streamConfig.name,
-                  config.reportingPeriod,
-                  streamConfig.objectives,
-                )(system)
-                .flatMap { manager =>
-                  val observer: MeteredStreamObserver[GetTransactionsResponse] =
-                    new MeteredStreamObserver[GetTransactionsResponse](
-                      streamConfig.name,
-                      logger,
-                      manager,
-                    )(system)
-                  transactionService.transactions(streamConfig, observer)
-                }
-            case Config.StreamConfig.StreamType.TransactionTrees =>
-              TransactionMetrics
-                .transactionTreesMetricsManager(
-                  streamConfig.name,
-                  config.reportingPeriod,
-                  streamConfig.objectives,
-                )(system)
-                .flatMap { manager =>
-                  val observer =
-                    new MeteredStreamObserver[GetTransactionTreesResponse](
-                      streamConfig.name,
-                      logger,
-                      manager,
-                    )(system)
-                  transactionService.transactionTrees(streamConfig, observer)
-                }
-          }
+        .traverse(config.streams) {
+          case streamConfig: Config.StreamConfig.TransactionsStreamConfig =>
+            StreamMetrics
+              .observer(
+                streamName = streamConfig.name,
+                logInterval = config.reportingPeriod,
+                metrics = MetricsSet.transactionMetrics(streamConfig.objectives),
+                logger = logger,
+                exposedMetrics = Some(
+                  MetricsSet
+                    .transactionExposedMetrics(streamConfig.name, registry, config.reportingPeriod)
+                ),
+              )(system, ec)
+              .flatMap { observer =>
+                transactionService.transactions(streamConfig, observer)
+              }
+          case streamConfig: Config.StreamConfig.TransactionTreesStreamConfig =>
+            StreamMetrics
+              .observer(
+                streamName = streamConfig.name,
+                logInterval = config.reportingPeriod,
+                metrics = MetricsSet.transactionTreesMetrics(streamConfig.objectives),
+                logger = logger,
+                exposedMetrics = Some(
+                  MetricsSet.transactionTreesExposedMetrics(
+                    streamConfig.name,
+                    registry,
+                    config.reportingPeriod,
+                  )
+                ),
+              )(system, ec)
+              .flatMap { observer =>
+                transactionService.transactionTrees(streamConfig, observer)
+              }
+          case streamConfig: Config.StreamConfig.ActiveContractsStreamConfig =>
+            StreamMetrics
+              .observer(
+                streamName = streamConfig.name,
+                logInterval = config.reportingPeriod,
+                metrics = MetricsSet.activeContractsMetrics,
+                logger = logger,
+                exposedMetrics = Some(
+                  MetricsSet.activeContractsExposedMetrics(
+                    streamConfig.name,
+                    registry,
+                    config.reportingPeriod,
+                  )
+                ),
+              )(system, ec)
+              .flatMap { observer =>
+                activeContractsService.getActiveContracts(streamConfig, observer)
+              }
+          case streamConfig: Config.StreamConfig.CompletionsStreamConfig =>
+            StreamMetrics
+              .observer(
+                streamName = streamConfig.name,
+                logInterval = config.reportingPeriod,
+                metrics = MetricsSet.completionsMetrics,
+                logger = logger,
+                exposedMetrics = Some(
+                  MetricsSet
+                    .completionsExposedMetrics(streamConfig.name, registry, config.reportingPeriod)
+                ),
+              )(system, ec)
+              .flatMap { observer =>
+                commandCompletionService.completions(streamConfig, observer)
+              }
         }
         .transform {
           case Success(results) =>
-            if (results.contains(MetricsManager.Message.MetricsResult.ObjectivesViolated))
+            if (results.contains(MetricsCollector.Message.MetricsResult.ObjectivesViolated))
               Failure(new RuntimeException("Metrics objectives not met."))
             else Success(())
           case Failure(ex) =>
@@ -131,7 +170,7 @@ object LedgerApiBenchTool {
       .usePlaintext()
 
     if (tls.enabled) {
-      tls.client.map { sslContext =>
+      tls.client().map { sslContext =>
         logger.info(s"Setting up a managed channel with transport security...")
         channelBuilder
           .useTransportSecurity()
@@ -142,11 +181,6 @@ object LedgerApiBenchTool {
 
     ResourceOwner.forChannel(channelBuilder, ShutdownTimeout)
   }
-
-  private def actorSystemResourceOwner(): ResourceOwner[ActorSystem[SpawnProtocol.Command]] =
-    new TypedActorSystemResourceOwner[SpawnProtocol.Command](() =>
-      ActorSystem(Creator(), "Creator")
-    )
 
   private def threadPoolExecutorOwner(
       config: Config.Concurrency
@@ -162,5 +196,5 @@ object LedgerApiBenchTool {
       )
     )
 
-  private val logger = LoggerFactory.getLogger(getClass)
+  private val logger: Logger = LoggerFactory.getLogger(getClass)
 }

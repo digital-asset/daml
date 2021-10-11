@@ -56,7 +56,6 @@ da_scala_library(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
-        "//libs-scala/scala-utils",
     ],
 )
 
@@ -76,7 +75,6 @@ da_scala_library(
         deps = [
             ":script-runner-lib",
             "//daml-lf/archive:daml_lf_archive_reader",
-            "//daml-lf/archive:daml_lf_dev_archive_proto_java",
             "//daml-lf/data",
             "//daml-lf/interpreter",
             "//daml-lf/language",
@@ -88,9 +86,9 @@ da_scala_library(
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-client",
             "//ledger/ledger-api-common",
+            "//ledger/ledger-configuration",
             "//ledger/ledger-resources",
             "//ledger/participant-integration-api",
-            "//ledger/participant-state",
             "//ledger/sandbox-classic:sandbox-classic-{}".format(edition),
             "//ledger/sandbox-common",
             "//libs-scala/ports",

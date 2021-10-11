@@ -1,0 +1,74 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+
+-- TODO https://github.com/digital-asset/daml/issues/10810
+-- DROP when we have more meaningful test for create, signatories, observers
+module InterfaceExperimental where
+
+import DA.Assert ((===))
+import DA.Experimental.Interface
+import GHC.Types (primitive)
+
+interface Token where
+  getAmount : Int
+
+  choice Split : (ContractId Token, ContractId Token)
+    with
+      splitAmount : Int
+
+  choice Transfer : ContractId Token
+    with
+      newOwner : Party
+
+  nonconsuming choice Noop : ()
+    with
+      nothing : ()
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory issuer
+    observer issuer, owner
+    implements Token where
+      let getAmount = amount
+
+      choice Split : (ContractId Token, ContractId Token)
+        with
+          splitAmount : Int
+        controller owner
+        do
+          assert (splitAmount < amount)
+          cid1 <- create this with amount = splitAmount
+          cid2 <- create this with amount = amount - splitAmount
+          pure (toTokenContractId cid1, toTokenContractId cid2)
+
+      choice Transfer : ContractId Token
+        with
+          newOwner : Party
+        controller owner, newOwner
+        do
+          cid <- create this with owner = newOwner
+          pure (toTokenContractId cid)
+
+      nonconsuming choice Noop : ()
+        with
+          nothing : ()
+        controller owner
+        do
+          pure ()
+
+main = scenario do
+    alice <- getParty "Alice"
+    bob <- getParty "Bob"
+    let asset = Asset alice bob 15
+    let token = toToken asset
+    submit alice do
+      interfaceCreate token
+      interfaceSignatory token === [alice]
+      interfaceObserver token === [bob, alice]
+      pure ()

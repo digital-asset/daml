@@ -19,6 +19,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//daml-assistant/scala-daml-project-config",
+        "//daml-lf/data",
         "//libs-scala/build-info",
         "@maven//:ch_qos_logback_logback_classic",
     ],

@@ -4,7 +4,6 @@
 package com.daml.lf.engine.script.test
 
 import java.io.File
-import java.nio.file.Files
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -29,7 +28,7 @@ import com.daml.ledger.api.testing.utils.{
 }
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.archive.{Dar, DarDecoder}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
 import com.daml.lf.engine.script.ledgerinteraction.{
@@ -58,9 +57,10 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
 import spray.json._
 
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
-import scala.util.control.NonFatal
+import com.daml.metrics.{Metrics, MetricsReporter}
+import com.codahale.metrics.MetricRegistry
 
 trait JsonApiFixture
     extends AbstractSandboxFixture
@@ -96,17 +96,10 @@ trait JsonApiFixture
   private val jsonApiMaterializer: Materializer = Materializer(system)
   private val jsonApiExecutionSequencerFactory: ExecutionSequencerFactory =
     new AkkaExecutionSequencerPool(poolName = "json-api", actorCount = 1)
-  private val jsonAccessTokenFile = Files.createTempFile("http-jsn", "auth")
-
   override protected def afterAll(): Unit = {
     jsonApiExecutionSequencerFactory.close()
     materializer.shutdown()
     Await.result(jsonApiActorSystem.terminate(), 30.seconds)
-    try {
-      Files.delete(jsonAccessTokenFile)
-    } catch {
-      case NonFatal(_) =>
-    }
     super.afterAll()
   }
 
@@ -145,7 +138,6 @@ trait JsonApiFixture
               identity(_)
             )
             Resource[ServerBinding] {
-              Files.write(jsonAccessTokenFile, getToken(List(), List(), false).getBytes())
               val config = new StartSettings.Default {
                 override val ledgerHost = "localhost"
                 override val ledgerPort = server.port.value
@@ -154,11 +146,12 @@ trait JsonApiFixture
                 override val portFile = None
                 override val tlsConfig = TlsConfiguration(enabled = false, None, None, None)
                 override val wsConfig = None
-                override val accessTokenFile = Some(jsonAccessTokenFile)
                 override val allowNonHttps = true
                 override val nonRepudiation = nonrepudiation.Configuration.Cli.Empty
                 override val logLevel = None
                 override val logEncoder = LogEncoder.Plain
+                override val metricsReporter: Option[MetricsReporter] = None
+                override val metricsReportingInterval: FiniteDuration = 10.seconds
               }
               HttpService
                 .start(config)(
@@ -167,10 +160,11 @@ trait JsonApiFixture
                   jsonApiExecutionSequencerFactory,
                   jsonApiActorSystem.dispatcher,
                   lc,
+                  metrics = new Metrics(new MetricRegistry()),
                 )
                 .flatMap({
                   case -\/(e) => Future.failed(new IllegalStateException(e.toString))
-                  case \/-(a) => Future.successful(a)
+                  case \/-(a) => Future.successful(a._1)
                 })
             }((binding: ServerBinding) => binding.unbind().map(_ => ()))
           }
@@ -189,9 +183,7 @@ final class JsonApiIt
     with TryValues {
 
   private def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentInterface) = {
-    val dar = DarReader().readArchiveFromFile(file).get.map { case (pkgId, archive) =>
-      Decode.readArchivePayload(pkgId, archive)
-    }
+    val dar = DarDecoder.assertReadArchiveFromFile(file)
     val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
     val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
     (dar, envIface)
@@ -369,10 +361,12 @@ final class JsonApiIt
           run(clients, QualifiedName.assertFromString("ScriptTest:jsonFailingCreateAndExercise"))
         )
       } yield {
-        exception.cause.getMessage should include("Error: User abort: Assertion failed.")
+        exception.cause.getMessage should include(
+          "Interpretation error: Error: Unhandled exception: DA.Exception.AssertionFailed:AssertionFailed@3f4deaf1{ message = \"Assertion failed\" }."
+        )
       }
     }
-    "submitMustFail succeeds on assertion falure" in {
+    "submitMustFail succeeds on assertion failure" in {
       for {
         clients <- getClients()
         result <- run(
@@ -463,7 +457,7 @@ final class JsonApiIt
           inputValue = Some(
             JsArray(
               JsArray(JsString(party0), JsString(party1)),
-              ApiCodecCompressed.apiValueToJsValue(cids.toValue.mapContractId(_.coid)),
+              ApiCodecCompressed.apiValueToJsValue(cids.toUnnormalizedValue),
             )
           ),
         )
@@ -481,14 +475,14 @@ final class JsonApiIt
           QualifiedName.assertFromString("ScriptTest:jsonMultiPartySubmissionCreateSingle"),
           inputValue = Some(JsString(party1)),
         )
-          .map(v => ApiCodecCompressed.apiValueToJsValue(v.toValue.mapContractId(_.coid)))
+          .map(v => ApiCodecCompressed.apiValueToJsValue(v.toUnnormalizedValue))
         clientsBoth <- getMultiPartyClients(List(party1, party2))
         cidBoth <- run(
           clientsBoth,
           QualifiedName.assertFromString("ScriptTest:jsonMultiPartySubmissionCreate"),
           inputValue = Some(JsArray(JsString(party1), JsString(party2))),
         )
-          .map(v => ApiCodecCompressed.apiValueToJsValue(v.toValue.mapContractId(_.coid)))
+          .map(v => ApiCodecCompressed.apiValueToJsValue(v.toUnnormalizedValue))
         clients2 <- getMultiPartyClients(List(party2), List(party1))
         r <- run(
           clients2,

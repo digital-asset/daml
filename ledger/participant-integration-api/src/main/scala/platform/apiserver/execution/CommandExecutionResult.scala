@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.execution
 
-import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
+import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.transaction.SubmittedTransaction
 
 /** The result of command execution.
@@ -15,13 +15,13 @@ import com.daml.lf.transaction.SubmittedTransaction
   *                                 on the ledger time, as specified through
   *                                 [[com.daml.lf.command.Commands.ledgerEffectiveTime]].
   *                                 If this value is false, then the ledger time of the resulting
-  *                                 transaction ([[TransactionMeta.ledgerEffectiveTime]]) can safely be
-  *                                 changed after command interpretation.
+  *                                 transaction ([[state.TransactionMeta.ledgerEffectiveTime]])
+  *                                 can safely be changed after command interpretation.
   * @param interpretationTimeNanos  Wall-clock time that interpretation took for the engine.
   */
 private[apiserver] final case class CommandExecutionResult(
-    submitterInfo: SubmitterInfo,
-    transactionMeta: TransactionMeta,
+    submitterInfo: state.SubmitterInfo,
+    transactionMeta: state.TransactionMeta,
     transaction: SubmittedTransaction,
     dependsOnLedgerTime: Boolean,
     interpretationTimeNanos: Long,

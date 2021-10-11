@@ -1,37 +1,8 @@
-diff --git a/haskell/assets/ghc_8_10_3_win_base.patch b/haskell/assets/ghc_8_10_3_win_base.patch
-new file mode 100644
-index 00000000..b205f35c
---- /dev/null
-+++ b/haskell/assets/ghc_8_10_3_win_base.patch
-@@ -0,0 +1,11 @@
-+--- lib/package.conf.d/base-4.14.1.0.conf	2021-01-06 14:35:47.854943211 +0100
-++++ lib/package.conf.d/base-4.14.1.0.conf	2021-01-06 14:34:52.090263590 +0100
-+@@ -86,7 +86,7 @@
-+ dynamic-library-dirs: $topdir\base-4.14.1.0
-+ data-dir:             $topdir\x86_64-windows-ghc-8.10.3\base-4.14.1.0
-+ hs-libraries:         HSbase-4.14.1.0
-+-extra-libraries:      wsock32 user32 shell32 msvcrt mingw32 mingwex shlwapi
-++extra-libraries:      wsock32 ws2_32 user32 shell32 msvcrt mingw32 mingwex shlwapi stdc++
-+ include-dirs:         $topdir\base-4.14.1.0\include
-+ includes:             HsBase.h
-+ depends:              ghc-prim-0.6.1 integer-gmp-1.0.3.0 rts
-diff --git a/haskell/ghc_bindist.bzl b/haskell/ghc_bindist.bzl
-index bd32204e..7f47b1e7 100644
---- a/haskell/ghc_bindist.bzl
-+++ b/haskell/ghc_bindist.bzl
-@@ -511,6 +511,7 @@ def ghc_bindist(
-         "8.8.2": ["@rules_haskell//haskell:assets/ghc_8_8_2_win_base.patch"],
-         "8.8.3": ["@rules_haskell//haskell:assets/ghc_8_8_3_win_base.patch"],
-         "8.8.4": ["@rules_haskell//haskell:assets/ghc_8_8_4_win_base.patch"],
-+        "8.10.3": ["@rules_haskell//haskell:assets/ghc_8_10_3_win_base.patch"],
-     }.get(version) if target == "windows_amd64" else None
- 
-     extra_attrs = {"patches": patches, "patch_args": ["-p0"]} if patches else {}
 diff --git a/haskell/private/actions/package.bzl b/haskell/private/actions/package.bzl
-index a122332c..bc6d3d11 100644
+index f46f56bc..bfcc9500 100644
 --- a/haskell/private/actions/package.bzl
 +++ b/haskell/private/actions/package.bzl
-@@ -98,8 +98,13 @@ def package(
+@@ -107,7 +107,12 @@ def package(
          "library-dirs": ["${pkgroot}"] + extra_lib_dirs,
          "dynamic-library-dirs": ["${pkgroot}"] + extra_dynamic_lib_dirs,
          "hs-libraries": [pkg_id.library_name(hs, my_pkg_id)] if has_hs_library else [],
@@ -43,6 +14,5 @@ index a122332c..bc6d3d11 100644
 +            "ws2_32",
 +        ] if hs.toolchain.is_windows else []),
          "depends": hs.package_ids,
-         "exposed-modules": exposed_modules,
      })
  

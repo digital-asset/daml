@@ -5,14 +5,13 @@ package com.daml.platform.store.dao
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.participant.state.v1.Offset
-import com.daml.lf.data.Ref.Party
-import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
-import com.daml.lf.transaction.NodeId
-import com.daml.lf.value.Value.ContractId
-import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.api.v1.transaction_service.GetTransactionTreesResponse
+import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Ref
+import com.daml.lf.ledger.EventId
+import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
+import com.daml.lf.transaction.NodeId
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
 import com.daml.platform.store.entries.LedgerEntry
@@ -58,7 +57,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         .lookupTransactionTreeById(tx.transactionId, tx.actAs.toSet)
     } yield {
       inside(result.value.transaction) { case Some(transaction) =>
-        val (nodeId, createNode: NodeCreate[ContractId]) =
+        val (nodeId, createNode: NodeCreate) =
           tx.transaction.nodes.head
         transaction.commandId shouldBe tx.commandId.get
         transaction.offset shouldBe ApiOffset.toApiString(offset)
@@ -70,7 +69,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         transaction.rootEventIds.loneElement shouldEqual created.eventId
         created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
         created.witnessParties should contain only (tx.actAs: _*)
-        created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
+        created.agreementText.getOrElse("") shouldBe createNode.agreementText
         created.contractKey shouldBe None
         created.createArguments shouldNot be(None)
         created.signatories should contain theSameElementsAs createNode.signatories
@@ -90,7 +89,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         .lookupTransactionTreeById(exercise.transactionId, exercise.actAs.toSet)
     } yield {
       inside(result.value.transaction) { case Some(transaction) =>
-        val (nodeId, exerciseNode: NodeExercises[NodeId, ContractId]) =
+        val (nodeId, exerciseNode: NodeExercises) =
           exercise.transaction.nodes.head
         transaction.commandId shouldBe exercise.commandId.get
         transaction.offset shouldBe ApiOffset.toApiString(offset)
@@ -122,13 +121,12 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     } yield {
       inside(result.value.transaction) { case Some(transaction) =>
         val (createNodeId, createNode) =
-          tx.transaction.nodes.collectFirst { case (nodeId, node: NodeCreate[ContractId]) =>
+          tx.transaction.nodes.collectFirst { case (nodeId, node: NodeCreate) =>
             nodeId -> node
           }.get
         val (exerciseNodeId, exerciseNode) =
-          tx.transaction.nodes.collectFirst {
-            case (nodeId, node: NodeExercises[NodeId, ContractId]) =>
-              nodeId -> node
+          tx.transaction.nodes.collectFirst { case (nodeId, node: NodeExercises) =>
+            nodeId -> node
           }.get
 
         transaction.commandId shouldBe tx.commandId.get
@@ -157,7 +155,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
 
         created.eventId shouldBe EventId(transaction.transactionId, createNodeId).toLedgerString
         created.witnessParties should contain only (tx.actAs: _*)
-        created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
+        created.agreementText.getOrElse("") shouldBe createNode.agreementText
         created.contractKey shouldBe None
         created.createArguments shouldNot be(None)
         created.signatories should contain theSameElementsAs createNode.signatories
@@ -287,7 +285,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
 
   private def lookupIndividually(
       transactions: Seq[LedgerEntry.Transaction],
-      as: Set[Party],
+      as: Set[Ref.Party],
   ): Future[Seq[TransactionTree]] =
     Future
       .sequence(

@@ -291,6 +291,12 @@ patches we backport to the 1.0 release branch).
 
     1. Close all files.
 
+    > Note: when running `daml studio --replace=always`, you force the
+    > installation of the VSCode extension bundled with the Daml SDK, and
+    > _disable the autoupgrade mechanism in VSCode_. To instruct VSCode to go
+    > back to the published version of the extension, including auto-upgrades,
+    > you can run `daml studio --replace=published`.
+
 1. On your PR, add the comment:
 
    > Manual tests passed on [Linux/macOS].
@@ -299,6 +305,9 @@ patches we backport to the 1.0 release branch).
 
 1. If the release is bad, delete the release from the [releases page]. Mention
    why it is bad as a comment on your PR, and **stop the process here**.
+
+   Note that **the Standard-Change label must remain on the PR**, even if the
+   release has failed.
 
 1. Announce the release on the relevant internal Slack channels (`#product-daml`,
    `#team-daml`). For a stable release, direct people to the release blog post;

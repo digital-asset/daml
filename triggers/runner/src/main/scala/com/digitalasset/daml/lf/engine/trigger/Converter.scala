@@ -7,7 +7,7 @@ package trigger
 
 import scalaz.std.either._
 import scalaz.syntax.traverse._
-import com.daml.lf.data.FrontStack
+import com.daml.lf.data.{FrontStack, ImmArray}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SValue
@@ -15,10 +15,10 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.v1.commands.{
   Command,
+  CreateAndExerciseCommand,
   CreateCommand,
   ExerciseByKeyCommand,
   ExerciseCommand,
-  CreateAndExerciseCommand,
 }
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
@@ -78,10 +78,10 @@ object Converter {
   private case class AnyContractKey(key: SValue)
 
   private def toLedgerRecord(v: SValue): Either[String, value.Record] =
-    lfValueToApiRecord(true, v.toValue)
+    lfValueToApiRecord(true, v.toUnnormalizedValue)
 
   private def toLedgerValue(v: SValue): Either[String, value.Value] =
-    lfValueToApiValue(true, v.toValue)
+    lfValueToApiValue(true, v.toUnnormalizedValue)
 
   private def fromIdentifier(id: value.Identifier): SValue = {
     STypeRep(
@@ -244,7 +244,10 @@ object Converter {
     val messageTy = triggerIds.damlTriggerLowLevel("Message")
     val transactionTy = triggerIds.damlTriggerLowLevel("Transaction")
     for {
-      events <- FrontStack(t.events).traverse(fromEvent(valueTranslator, triggerIds, _)).map(SList)
+      events <- t.events
+        .to(ImmArray)
+        .traverse(fromEvent(valueTranslator, triggerIds, _))
+        .map(xs => SList(FrontStack.from(xs)))
       transactionId = fromTransactionId(triggerIds, t.transactionId)
       commandId = fromOptionalCommandId(triggerIds, t.commandId)
     } yield SVariant(
@@ -491,14 +494,19 @@ object Converter {
   ): Either[String, SValue] = {
     val activeContractsTy = triggerIds.damlTriggerLowLevel("ActiveContracts")
     for {
-      events <- FrontStack(createdEvents)
+      events <- createdEvents
+        .to(ImmArray)
         .traverse(fromCreatedEvent(valueTranslator, triggerIds, _))
-        .map(SList)
+        .map(xs => SList(FrontStack.from(xs)))
     } yield record(activeContractsTy, ("activeContracts", events))
   }
 
   def apply(compiledPackages: CompiledPackages, triggerIds: TriggerIds): Converter = {
-    val valueTranslator = new preprocessing.ValueTranslator(compiledPackages.interface)
+    val valueTranslator = new preprocessing.ValueTranslator(
+      compiledPackages.interface,
+      forbidV0ContractId = false,
+      requireV1ContractIdSuffix = false,
+    )
     Converter(
       fromTransaction(valueTranslator, triggerIds, _),
       fromCompletion(triggerIds, _),

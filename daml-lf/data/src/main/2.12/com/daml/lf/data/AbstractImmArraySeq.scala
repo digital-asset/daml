@@ -3,6 +3,8 @@
 
 package com.daml.lf.data
 
+import com.daml.scalautil.Statement.discard
+
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.generic.{
   CanBuildFrom,
@@ -23,8 +25,7 @@ abstract class AbstractImmArraySeq[+A](array: ImmArray[A])
   override final def companion: GenericCompanion[ImmArraySeq] = ImmArraySeq
 
   override final def copyToArray[B >: A](xs: Array[B], dstStart: Int, dstLen: Int): Unit = {
-    array.copyToArray(xs, dstStart, dstLen)
-    ()
+    discard(array.copyToArray(xs, dstStart, dstLen))
   }
 
   override final def map[B, That](
@@ -41,7 +42,7 @@ abstract class AbstractImmArraySeq[+A](array: ImmArray[A])
     bf match {
       case _: IASCanBuildFrom[A] => this
       case _: ImmArrayInstances.IACanBuildFrom[A] => toImmArray
-      case _: FrontStackInstances.FSCanBuildFrom[A] => FrontStack(toImmArray)
+      case _: FrontStackInstances.FSCanBuildFrom[A] => FrontStack.from(toImmArray)
       case _ => super.to(bf)
     }
 }

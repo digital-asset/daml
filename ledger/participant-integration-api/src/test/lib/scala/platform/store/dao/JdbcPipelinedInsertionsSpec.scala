@@ -3,10 +3,9 @@
 
 package com.daml.platform.store.dao
 
-import com.daml.ledger.EventId
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.offset.Offset
+import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node.NodeCreate
-import com.daml.lf.value.Value.ContractId
 import com.daml.platform.ApiOffset
 import com.daml.platform.indexer.CurrentOffset
 import com.daml.platform.store.entries.LedgerEntry
@@ -24,8 +23,8 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
   it should "allow idempotent transaction insertions" in {
     val key = "some-key"
     val create @ (offset, tx) = txCreateContractWithKey(alice, key, Some("1337"))
-    val maybeSubmitterInfo = submitterInfo(tx)
-    val preparedInsert = prepareInsert(maybeSubmitterInfo, tx, CurrentOffset(offset))
+    val info = completionInfoFrom(tx)
+    val preparedInsert = prepareInsert(info, tx, CurrentOffset(offset))
     for {
       _ <- ledgerDao.storeTransactionEvents(preparedInsert)
       // Assume the indexer restarts after events insertion
@@ -44,11 +43,11 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
         transaction.transactionId shouldBe tx.transactionId
         transaction.workflowId shouldBe tx.workflowId.getOrElse("")
         inside(transaction.events.loneElement.event.created) { case Some(created) =>
-          val (nodeId, createNode: NodeCreate[ContractId]) =
+          val (nodeId, createNode: NodeCreate) =
             tx.transaction.nodes.head
           created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
           created.witnessParties should contain only (tx.actAs: _*)
-          created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
+          created.agreementText.getOrElse("") shouldBe createNode.agreementText
           created.contractKey shouldNot be(None)
           created.createArguments shouldNot be(None)
           created.signatories should contain theSameElementsAs createNode.signatories
@@ -73,7 +72,7 @@ trait JdbcPipelinedInsertionsSpec extends Inside with OptionValues with Matchers
       offsetTx: (Offset, LedgerEntry.Transaction)
   ): Future[Assertion] = {
     val (offset, tx) = offsetTx
-    val maybeSubmitterInfo = submitterInfo(tx)
+    val maybeSubmitterInfo = completionInfoFrom(tx)
     val preparedInsert = prepareInsert(maybeSubmitterInfo, tx, CurrentOffset(offset))
     for {
       _ <- ledgerDao.storeTransactionEvents(preparedInsert)

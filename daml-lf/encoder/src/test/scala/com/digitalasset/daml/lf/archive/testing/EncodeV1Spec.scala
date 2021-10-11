@@ -160,10 +160,11 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
       """
 
       validate(pkgId, pkg)
-      val archive = Encode.encodeArchive(pkgId -> pkg, defaultParserParameters.languageVersion)
-      val ((hashCode @ _, decodedPackage: Package), _) = Decode.readArchiveAndVersion(archive)
+      val archive =
+        Encode.encodeArchive(pkgId -> pkg, defaultParserParameters.languageVersion)
+      val (hash, decodedPackage) = Decode.assertDecodeArchive(archive)
 
-      val pkg1 = normalize(decodedPackage, hashCode, pkgId)
+      val pkg1 = normalize(decodedPackage, hash, pkgId)
       pkg shouldBe pkg1
     }
   }
@@ -191,7 +192,7 @@ object EncodeV1Spec {
 
   private def validate(pkgId: PackageId, pkg: Package): Unit =
     Validation
-      .checkPackage(language.Interface(Map(pkgId -> pkg)), pkgId, pkg)
+      .checkPackage(language.PackageInterface(Map(pkgId -> pkg)), pkgId, pkg)
       .left
       .foreach(e => sys.error(e.toString))
 

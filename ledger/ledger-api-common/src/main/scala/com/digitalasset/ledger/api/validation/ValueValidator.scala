@@ -34,7 +34,7 @@ object ValueValidator {
       })
       .map(_.toImmArray)
 
-  def validateRecord(rec: api.Record): Either[StatusRuntimeException, Lf.ValueRecord[ContractId]] =
+  def validateRecord(rec: api.Record): Either[StatusRuntimeException, Lf.ValueRecord] =
     for {
       recId <- validateOptionalIdentifier(rec.recordId)
       fields <- validateRecordFields(rec.fields)
@@ -47,9 +47,10 @@ object ValueValidator {
     case Sum.ContractId(cId) =>
       ContractId
         .fromString(cId)
-        .bimap(invalidArgument, Lf.ValueContractId(_))
+        .bimap(invalidArgument(definiteAnswer = Some(false)), Lf.ValueContractId(_))
     case Sum.Numeric(value) =>
-      def err = invalidArgument(s"""Could not read Numeric string "$value"""")
+      def err =
+        invalidArgument(definiteAnswer = Some(false))(s"""Could not read Numeric string "$value"""")
       if (validNumericString.matcher(value).matches())
         Numeric
           .fromUnscaledBigDecimal(new java.math.BigDecimal(value))
@@ -58,12 +59,24 @@ object ValueValidator {
         Left(err)
 
     case Sum.Party(party) =>
-      Ref.Party.fromString(party).left.map(invalidArgument).map(Lf.ValueParty)
+      Ref.Party
+        .fromString(party)
+        .left
+        .map(invalidArgument(definiteAnswer = Some(false)))
+        .map(Lf.ValueParty)
     case Sum.Bool(b) => Right(Lf.ValueBool(b))
     case Sum.Timestamp(micros) =>
-      Time.Timestamp.fromLong(micros).left.map(invalidArgument).map(Lf.ValueTimestamp)
+      Time.Timestamp
+        .fromLong(micros)
+        .left
+        .map(invalidArgument(definiteAnswer = Some(false)))
+        .map(Lf.ValueTimestamp)
     case Sum.Date(days) =>
-      Time.Date.fromDaysSinceEpoch(days).left.map(invalidArgument).map(Lf.ValueDate)
+      Time.Date
+        .fromDaysSinceEpoch(days)
+        .left
+        .map(invalidArgument(definiteAnswer = Some(false)))
+        .map(Lf.ValueDate)
     case Sum.Text(text) => Right(Lf.ValueText(text))
     case Sum.Int64(value) => Right(Lf.ValueInt64(value))
     case Sum.Record(rec) =>
@@ -89,7 +102,7 @@ object ValueValidator {
               validatedValue <- validateValue(v)
             } yield values :+ validatedValue
         )
-        .map(elements => Lf.ValueList(FrontStack(elements.toImmArray)))
+        .map(elements => Lf.ValueList(elements.toFrontStack))
     case _: Sum.Unit => Right(ValueUnit)
     case Sum.Optional(o) =>
       o.value.fold[Either[StatusRuntimeException, domain.Value]](Right(Lf.ValueNone))(
@@ -108,7 +121,10 @@ object ValueValidator {
         }
       for {
         entries <- map
-        map <- SortedLookupList.fromImmArray(entries.toImmArray).left.map(invalidArgument)
+        map <- SortedLookupList
+          .fromImmArray(entries.toImmArray)
+          .left
+          .map(invalidArgument(definiteAnswer = Some(false)))
       } yield Lf.ValueTextMap(map)
 
     case Sum.GenMap(genMap0) =>
@@ -126,7 +142,7 @@ object ValueValidator {
         }
       genMap.map(entries => Lf.ValueGenMap(entries.toImmArray))
 
-    case Sum.Empty => Left(missingField("value"))
+    case Sum.Empty => Left(missingField("value", definiteAnswer = Some(false)))
   }
 
   private[validation] def validateOptionalIdentifier(

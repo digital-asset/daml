@@ -5,7 +5,7 @@ package com.daml.lf.speedy
 package svalue
 
 import com.daml.lf.crypto
-import com.daml.lf.data.{FrontStack, Ref}
+import com.daml.lf.data.{Bytes, FrontStack, Ref}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SExpr.{SEApp, SEImportValue, SELocA, SEMakeClo}
@@ -14,8 +14,10 @@ import com.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.daml.lf.value.test.ValueGenerators.{cidV0Gen, comparableCoidsGen}
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.iface
+import com.daml.lf.interpretation.Error.ContractIdComparability
 import com.daml.lf.language.{Ast, Util => AstUtil}
 import org.scalacheck.{Arbitrary, Gen}
+import org.scalatest.Inside
 import org.scalatest.prop.TableFor2
 import org.scalatestplus.scalacheck.{
   Checkers,
@@ -29,9 +31,11 @@ import scalaz.syntax.order._
 import scalaz.scalacheck.{ScalazProperties => SzP}
 
 import scala.language.implicitConversions
+import scala.util.{Failure, Try}
 
 class OrderingSpec
     extends AnyWordSpec
+    with Inside
     with Matchers
     with Checkers
     with ScalaCheckDrivenPropertyChecks
@@ -74,10 +78,9 @@ class OrderingSpec
 
   private val randomComparableValues: TableFor2[String, Gen[SValue]] = {
     import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
-    implicit val ordNo: Order[Nothing] =
-      Order order [Nothing] ((_: Any, _: Any) => sys.error("impossible"))
-    def r(name: String, va: VA)(sv: va.Inj[Nothing] => SValue) =
-      (name, va.injarb[Nothing].arbitrary map sv)
+    implicit val cidArb: Arbitrary[Value.ContractId] = Arbitrary(Gen.fail[Value.ContractId])
+    def r(name: String, va: VA)(sv: va.Inj => SValue) =
+      (name, va.injarb.arbitrary map sv)
     Table(
       ("comparable value subset", "generator"),
       Seq(
@@ -116,8 +119,8 @@ class OrderingSpec
 
     "match SValue Ordering" in forAll(genAddend, minSuccessful(100)) { va =>
       import va.{injarb, injshrink}
-      implicit val valueOrd: Order[Value[Cid]] = Tag unsubst Value.orderInstance[Cid](EmptyScope)
-      forAll(minSuccessful(20)) { (a: va.Inj[Cid], b: va.Inj[Cid]) =>
+      implicit val valueOrd: Order[Value] = Tag unsubst Value.orderInstance(EmptyScope)
+      forAll(minSuccessful(20)) { (a: va.Inj, b: va.Inj) =>
         import va.injord
         val ta = va.inj(a)
         val tb = va.inj(b)
@@ -132,14 +135,58 @@ class OrderingSpec
           Cid.`Cid Order`.order(a, b) should ===(cidOrd.order(a, b))
         }
     }
+
+    "fail when trying to compare local contract ID with global contract ID with same discriminator" in {
+
+      val discriminator1 = crypto.Hash.hashPrivateKey("discriminator1")
+      val discriminator2 = crypto.Hash.hashPrivateKey("discriminator2")
+      val suffix1 = Bytes.assertFromString("00")
+      val suffix2 = Bytes.assertFromString("01")
+
+      val cid10 = Value.ContractId.V1(discriminator1, Bytes.Empty)
+      val cid11 = Value.ContractId.V1(discriminator1, suffix1)
+      val cid12 = Value.ContractId.V1(discriminator1, suffix2)
+      val cid21 = Value.ContractId.V1(discriminator2, suffix1)
+
+      val List(vCid10, vCid11, vCid12, vCid21) = List(cid10, cid11, cid12, cid21).map(SContractId)
+
+      val negativeTestCases =
+        Table(
+          "cid1" -> "cid2",
+          vCid10 -> vCid10,
+          vCid11 -> vCid11,
+          vCid11 -> vCid12,
+          vCid11 -> vCid21,
+        )
+
+      val positiveTestCases = Table(
+        "glovalCid2",
+        cid11,
+        cid12,
+      )
+
+      forEvery(negativeTestCases) { (cid1, cid2) =>
+        Ordering.compare(cid1, cid2) == 0 shouldBe cid1 == cid2
+        Ordering.compare(cid2, cid1) == 0 shouldBe cid1 == cid2
+      }
+
+      forEvery(positiveTestCases) { globalCid =>
+        Try(Ordering.compare(vCid10, SContractId(globalCid))) shouldBe
+          Failure(SError.SErrorDamlException(ContractIdComparability(globalCid)))
+        Try(Ordering.compare(SContractId(globalCid), vCid10)) shouldBe
+          Failure(SError.SErrorDamlException(ContractIdComparability(globalCid)))
+      }
+
+    }
   }
 
-  private def translatePrimValue(typ: iface.Type, v: Value[Value.ContractId]) = {
+  private def translatePrimValue(typ: iface.Type, v: Value) = {
     val seed = crypto.Hash.hashPrivateKey("OrderingSpec")
-    val machine = Speedy.Machine.fromScenarioSExpr(
+    val machine = Speedy.Machine.fromUpdateSExpr(
       PureCompiledPackages.Empty,
       transactionSeed = seed,
-      scenario = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(SEImportValue(toAstType(typ), v))),
+      updateSE = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(SEImportValue(toAstType(typ), v))),
+      committer = Ref.Party.assertFromString("Alice"),
     )
 
     machine.run() match {

@@ -6,7 +6,7 @@ package com.daml.ledger.indexerbenchmark
 import java.time.Duration
 
 import com.daml.lf.data.Ref
-import com.daml.platform.configuration.MetricsReporter
+import com.daml.metrics.MetricsReporter
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import scopt.OptionParser
@@ -23,6 +23,7 @@ case class Config(
     metricsReportingInterval: Duration,
     indexerConfig: IndexerConfig,
     waitForUserInput: Boolean,
+    minUpdateRate: Option[Long],
 )
 
 object Config {
@@ -30,7 +31,7 @@ object Config {
     updateCount = None,
     updateSource = "",
     metricsReporter = None,
-    metricsReportingInterval = Duration.ofSeconds(10),
+    metricsReportingInterval = Duration.ofSeconds(1),
     indexerConfig = IndexerConfig(
       participantId = Ref.ParticipantId.assertFromString("IndexerBenchmarkParticipant"),
       jdbcUrl = "",
@@ -38,6 +39,7 @@ object Config {
       enableAppendOnlySchema = true,
     ),
     waitForUserInput = false,
+    minUpdateRate = None,
   )
 
   private[this] val Parser: OptionParser[Config] =
@@ -52,37 +54,42 @@ object Config {
         .action((value, config) => config.copy(updateSource = value))
 
       opt[Int]("indexer-input-mapping-parallelism")
-        .text("[TODO] Sets the corresponding indexer parameter.")
+        .text("Sets the value of IndexerConfig.inputMappingParallelism.")
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(inputMappingParallelism = value))
         )
       opt[Int]("indexer-ingestion-parallelism")
-        .text("[TODO] Sets the corresponding indexer parameter.")
+        .text("Sets the value of IndexerConfig.ingestionParallelism.")
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(ingestionParallelism = value))
         )
+      opt[Int]("indexer-batching-parallelism")
+        .text("Sets the value of IndexerConfig.batchingParallelism.")
+        .action((value, config) =>
+          config.copy(indexerConfig = config.indexerConfig.copy(batchingParallelism = value))
+        )
       opt[Long]("indexer-submission-batch-size")
-        .text("[TODO] Sets the corresponding indexer parameter.")
+        .text("Sets the value of IndexerConfig.submissionBatchSize.")
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(submissionBatchSize = value))
         )
       opt[Int]("indexer-tailing-rate-limit-per-second")
-        .text("[TODO] Sets the corresponding indexer parameter.")
+        .text("Sets the value of IndexerConfig.tailingRateLimitPerSecond.")
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(tailingRateLimitPerSecond = value))
         )
       opt[Long]("indexer-batch-within-millis")
-        .text("[TODO] Sets the corresponding indexer parameter.")
+        .text("Sets the value of IndexerConfig.batchWithinMillis.")
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(batchWithinMillis = value))
         )
       opt[Boolean]("indexer-enable-compression")
-        .text("[TODO] Sets the corresponding indexer parameter.")
+        .text("Sets the value of IndexerConfig.enableCompression.")
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(enableCompression = value))
         )
       opt[Int]("indexer-max-input-buffer-size")
-        .text("[TODO] Sets the corresponding indexer parameter.")
+        .text("Sets the value of IndexerConfig.maxInputBufferSize.")
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(maxInputBufferSize = value))
         )
@@ -106,6 +113,12 @@ object Config {
           "If enabled, the app will wait for user input after the benchmark has finished, but before cleaning up resources. Use to inspect the contents of an ephemeral index database."
         )
         .action((value, config) => config.copy(waitForUserInput = value))
+
+      opt[Long]("min-update-rate")
+        .text(
+          "Minimum value of the processed updates per second. If not satisfied the application will report an error."
+        )
+        .action((value, config) => config.copy(minUpdateRate = Some(value)))
 
       opt[MetricsReporter]("metrics-reporter")
         .optional()

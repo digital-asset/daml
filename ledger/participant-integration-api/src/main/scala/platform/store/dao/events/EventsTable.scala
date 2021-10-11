@@ -9,7 +9,6 @@ import java.time.Instant
 
 import anorm.SqlParser.{array, binaryStream, bool, int, long, str}
 import anorm.{RowParser, ~}
-import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
@@ -23,10 +22,11 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.ledger.offset.Offset
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import com.daml.platform.index.TransactionConversion
-import com.daml.platform.store.Conversions.{identifier, instant, offset}
+import com.daml.platform.store.Conversions.{identifier, instantFromTimestamp, offset}
 import com.daml.platform.store.DbType
 import com.google.protobuf.timestamp.Timestamp
 
@@ -46,6 +46,8 @@ private[events] object EventsTable {
     Offset ~ String ~ Int ~ Long ~ String ~ String ~ Instant ~ Identifier ~ Option[String] ~
       Option[String] ~ Array[String]
 
+  import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
+
   private val sharedRow: RowParser[SharedRow] =
     offset("event_offset") ~
       str("transaction_id") ~
@@ -53,7 +55,7 @@ private[events] object EventsTable {
       long("event_sequential_id") ~
       str("event_id") ~
       str("contract_id") ~
-      instant("ledger_effective_time") ~
+      instantFromTimestamp("ledger_effective_time") ~
       identifier("template_id") ~
       str("command_id").? ~
       str("workflow_id").? ~
@@ -124,6 +126,9 @@ private[events] object EventsTable {
       events.headOption.flatMap { first =>
         val flatEvents =
           TransactionConversion.removeTransient(events.iterator.map(_.event).toVector)
+        // Allows emitting flat transactions with no events, a use-case needed
+        // for the functioning of DAML triggers.
+        // (more details in https://github.com/digital-asset/daml/issues/6975)
         if (flatEvents.nonEmpty || first.commandId.nonEmpty)
           Some(
             ApiTransaction(
@@ -157,7 +162,6 @@ private[events] object EventsTable {
             offset = "", // only the last response will have an offset.
             workflowId = entry.workflowId,
             activeContracts = Seq(entry.event.getCreated),
-            traceContext = None,
           )
         case entry =>
           throw new IllegalStateException(
@@ -207,7 +211,6 @@ private[events] object EventsTable {
           offset = ApiOffset.toApiString(first.eventOffset),
           eventsById = eventsById,
           rootEventIds = rootEventIds,
-          traceContext = None,
         )
       }
 

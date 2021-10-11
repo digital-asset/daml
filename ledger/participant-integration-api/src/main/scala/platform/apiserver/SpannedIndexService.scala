@@ -26,9 +26,10 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.api.{TraceIdentifiers, domain}
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
@@ -42,15 +43,15 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
-  ): Future[Map[PackageId, v2.PackageDetails]] =
+  ): Future[Map[Ref.PackageId, v2.PackageDetails]] =
     delegate.listLfPackages()
 
-  override def getLfArchive(packageId: PackageId)(implicit
+  override def getLfArchive(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[DamlLf.Archive]] =
     delegate.getLfArchive(packageId)
 
-  override def getLfPackage(packageId: PackageId)(implicit
+  override def getLfPackage(packageId: Ref.PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Ast.Package]] =
     delegate.getLfPackage(packageId)
@@ -73,7 +74,7 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
   override def getCompletions(
       begin: domain.LedgerOffset,
       applicationId: ApplicationId,
-      parties: Set[Party],
+      parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
     delegate.getCompletions(begin, applicationId, parties)
 
@@ -111,13 +112,13 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
 
   override def getTransactionById(
       transactionId: TransactionId,
-      requestingParties: Set[Party],
+      requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
     delegate.getTransactionById(transactionId, requestingParties)
 
   override def getTransactionTreeById(
       transactionId: TransactionId,
-      requestingParties: Set[Party],
+      requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     delegate.getTransactionTreeById(transactionId, requestingParties)
 
@@ -128,15 +129,15 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
     delegate.getActiveContracts(filter, verbose)
 
   override def lookupActiveContract(
-      readers: Set[Party],
+      readers: Set[Ref.Party],
       contractId: Value.ContractId,
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]]] =
+  ): Future[Option[Value.ContractInst[Value.VersionedValue]]] =
     delegate.lookupActiveContract(readers, contractId)
 
   override def lookupContractKey(
-      readers: Set[Party],
+      readers: Set[Ref.Party],
       key: GlobalKey,
   )(implicit loggingContext: LoggingContext): Future[Option[Value.ContractId]] =
     delegate.lookupContractKey(readers, key)
@@ -149,10 +150,12 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
   override def getLedgerId()(implicit loggingContext: LoggingContext): Future[LedgerId] =
     delegate.getLedgerId()
 
-  override def getParticipantId()(implicit loggingContext: LoggingContext): Future[ParticipantId] =
+  override def getParticipantId()(implicit
+      loggingContext: LoggingContext
+  ): Future[Ref.ParticipantId] =
     delegate.getParticipantId()
 
-  override def getParties(parties: Seq[Party])(implicit
+  override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContext
   ): Future[List[domain.PartyDetails]] =
     delegate.getParties(parties)
@@ -193,10 +196,10 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     delegate.stopDeduplicatingCommand(commandId, submitter)
 
-  override def prune(pruneUpToInclusive: Offset)(implicit
+  override def prune(pruneUpToInclusive: Offset, pruneAllDivulgedContracts: Boolean)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
-    delegate.prune(pruneUpToInclusive)
+    delegate.prune(pruneUpToInclusive, pruneAllDivulgedContracts)
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()

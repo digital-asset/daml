@@ -3,10 +3,11 @@
 
 package com.daml.platform.sandbox
 
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.lf.data.Ref
+import com.daml.logging.entries.LoggingEntry
 
 package object logging {
 
-  def participantId(id: ParticipantId): (String, String) = "participantId" -> id
+  def participantId(id: Ref.ParticipantId): LoggingEntry = "participantId" -> id
 
 }

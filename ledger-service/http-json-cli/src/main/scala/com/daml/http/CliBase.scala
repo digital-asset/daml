@@ -3,18 +3,22 @@
 
 package com.daml.http
 
+import com.daml.dbutils.DBConfig
+
 trait CliBase {
 
   private[http] def parseConfig(
       args: collection.Seq[String],
       supportedJdbcDriverNames: Set[String],
       getEnvVar: String => Option[String] = sys.env.get,
-  ): Option[Config] =
-    configParser(getEnvVar, supportedJdbcDriverNames).parse(args, Config.Empty)
+  ): Option[Config] = {
+    implicit val jcd: DBConfig.JdbcConfigDefaults =
+      DBConfig.JdbcConfigDefaults(supportedJdbcDriverNames)
+    configParser(getEnvVar).parse(args, Config.Empty)
+  }
 
-  protected def configParser(
-      getEnvVar: String => Option[String],
-      supportedJdbcDriverNames: Set[String],
+  protected[this] def configParser(getEnvVar: String => Option[String])(implicit
+      jcd: DBConfig.JdbcConfigDefaults
   ): OptionParser
 
 }

@@ -11,12 +11,12 @@ import com.daml.ledger.participant.state.kvutils.export.{
   ProtobufBasedLedgerDataImporter,
   SubmissionInfo,
 }
-import com.daml.ledger.participant.state.kvutils.{Envelope, Raw, DamlKvutils => Proto}
-import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
+import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.crypto
 import com.daml.lf.data._
-import com.daml.lf.engine.{Engine, EngineConfig, Error, VisibleByKey}
+import com.daml.lf.engine.{Engine, EngineConfig, Error}
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.transaction.{
   GlobalKey,
@@ -35,7 +35,7 @@ import scala.jdk.CollectionConverters._
 
 final case class TxEntry(
     tx: SubmittedTransaction,
-    participantId: ParticipantId,
+    participantId: Ref.ParticipantId,
     submitters: List[Ref.Party],
     ledgerTime: Time.Timestamp,
     submissionTime: Time.Timestamp,
@@ -45,7 +45,7 @@ final case class TxEntry(
 final case class BenchmarkState(
     name: String,
     transaction: TxEntry,
-    contracts: Map[ContractId, Tx.ContractInst[ContractId]],
+    contracts: Map[ContractId, Tx.ContractInst],
     contractKeys: Map[GlobalKey, ContractId],
 ) {
 
@@ -65,7 +65,7 @@ final case class BenchmarkState(
         transaction.submissionTime,
         transaction.submissionSeed,
       )
-      .consume(getContract, Replay.unexpectedError, getContractKey, _ => VisibleByKey.Visible)
+      .consume(getContract, Replay.unexpectedError, getContractKey)
       .map(_ => ())
 
   def validate(engine: Engine): Either[Error, Unit] =
@@ -78,7 +78,7 @@ final case class BenchmarkState(
         transaction.submissionTime,
         transaction.submissionSeed,
       )
-      .consume(getContract, Replay.unexpectedError, getContractKey, _ => VisibleByKey.Visible)
+      .consume(getContract, Replay.unexpectedError, getContractKey)
 }
 
 class Benchmarks(private val benchmarks: Map[String, Vector[BenchmarkState]]) {
@@ -104,14 +104,7 @@ private[replay] object Replay {
 
   def loadDar(darFile: Path): Map[Ref.PackageId, Ast.Package] = {
     println(s"%%% loading dar file $darFile ...")
-    UniversalArchiveReader()
-      .readFile(darFile.toFile)
-      .get
-      .all
-      .map { case (pkgId, pkgArchive) =>
-        Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
-      }
-      .toMap
+    UniversalArchiveDecoder.assertReadFile(darFile.toFile).all.toMap
   }
 
   def compile(pkgs: Map[Ref.PackageId, Ast.Package], profileDir: Option[Path] = None): Engine = {
@@ -122,7 +115,7 @@ private[replay] object Replay {
     AstUtil.dependenciesInTopologicalOrder(pkgs.keys.toList, pkgs).foreach { pkgId =>
       val r = engine
         .preloadPackage(pkgId, pkgs(pkgId))
-        .consume(unexpectedError, unexpectedError, unexpectedError, unexpectedError)
+        .consume(unexpectedError, unexpectedError, unexpectedError)
       assert(r.isRight)
     }
     engine
@@ -130,10 +123,10 @@ private[replay] object Replay {
 
   private[this] def decodeSubmission(
       participantId: Ref.ParticipantId,
-      submission: Proto.DamlSubmission,
+      submission: DamlSubmission,
   ): LazyList[TxEntry] =
     submission.getPayloadCase match {
-      case Proto.DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
+      case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         val entry = submission.getTransactionEntry
         val tx = TxCoder
           .decodeTransaction(
@@ -185,25 +178,23 @@ private[replay] object Replay {
       val transactions = importer.read().map(_._1).flatMap(decodeSubmissionInfo)
       if (transactions.isEmpty) sys.error("no transaction find")
 
-      val createsNodes: Seq[Node.NodeCreate[ContractId]] =
+      val createsNodes: Seq[Node.NodeCreate] =
         transactions.flatMap(entry =>
-          entry.tx.nodes.values.collect { case create: Node.NodeCreate[ContractId] =>
+          entry.tx.nodes.values.collect { case create: Node.NodeCreate =>
             create
           }
         )
 
-      val allContracts: Map[ContractId, Value.ContractInst[Tx.Value[ContractId]]] =
+      val allContracts: Map[ContractId, Value.ContractInst[Tx.Value]] =
         createsNodes.map(node => node.coid -> node.versionedCoinst).toMap
 
       val allContractsWithKey = createsNodes.flatMap { node =>
-        node.key.toList.map(key =>
-          node.coid -> GlobalKey.assertBuild(node.coinst.template, key.key)
-        )
+        node.key.toList.map(key => node.coid -> GlobalKey.assertBuild(node.templateId, key.key))
       }.toMap
 
       val benchmarks = transactions.flatMap { entry =>
         entry.tx.roots.map(entry.tx.nodes) match {
-          case ImmArray(exe: Node.NodeExercises[_, ContractId]) =>
+          case ImmArray(exe: Node.NodeExercises) =>
             val inputContracts = entry.tx.inputContracts
             List(
               BenchmarkState(

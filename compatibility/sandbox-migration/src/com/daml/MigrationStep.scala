@@ -26,7 +26,7 @@ object MigrationStep {
   }
 
   private def readPackageId(path: Path): String =
-    DarReader().readArchiveFromFile(path.toFile).get.map(_._1.toString).main
+    DarReader.readArchiveFromFile(path.toFile).toOption.get.map(_.pkgId).main
 
   def main(args: Array[String]): Unit = {
     val config = Config.parser.parse(args, Config.default).getOrElse(sys.exit(1))

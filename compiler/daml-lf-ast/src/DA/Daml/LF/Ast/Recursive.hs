@@ -50,6 +50,9 @@ data ExprF expr
   | EToAnyExceptionF !Type !expr
   | EFromAnyExceptionF !Type !expr
   | EThrowF !Type !Type !expr
+  | EToInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
+  | EFromInterfaceF !(Qualified TypeConName) !(Qualified TypeConName) !expr
+  | ECallInterfaceF !(Qualified TypeConName) !MethodName !expr
   | EExperimentalF !T.Text !Type
   deriving (Foldable, Functor, Traversable)
 
@@ -61,8 +64,10 @@ data UpdateF expr
   | UBindF     !(BindingF expr) !expr
   | UCreateF   !(Qualified TypeConName) !expr
   | UExerciseF !(Qualified TypeConName) !ChoiceName !expr !expr
+  | UExerciseInterfaceF !(Qualified TypeConName) !ChoiceName !expr !expr
   | UExerciseByKeyF !(Qualified TypeConName) !ChoiceName !expr !expr
   | UFetchF    !(Qualified TypeConName) !expr
+  | UFetchInterfaceF    !(Qualified TypeConName) !expr
   | UGetTimeF
   | UEmbedExprF !Type !expr
   | UFetchByKeyF !(RetrieveByKeyF expr)
@@ -107,8 +112,10 @@ projectUpdate = \case
   UBind a b -> UBindF (projectBinding a) b
   UCreate a b -> UCreateF a b
   UExercise a b c d -> UExerciseF a b c d
+  UExerciseInterface a b c d -> UExerciseInterfaceF a b c d
   UExerciseByKey a b c d -> UExerciseByKeyF a b c d
   UFetch a b -> UFetchF a b
+  UFetchInterface a b -> UFetchInterfaceF a b
   UGetTime -> UGetTimeF
   UEmbedExpr a b -> UEmbedExprF a b
   ULookupByKey a -> ULookupByKeyF (projectRetrieveByKey a)
@@ -124,8 +131,10 @@ embedUpdate = \case
   UBindF a b -> UBind (embedBinding a) b
   UCreateF a b -> UCreate a b
   UExerciseF a b c d -> UExercise a b c d
+  UExerciseInterfaceF a b c d -> UExerciseInterface a b c d
   UExerciseByKeyF a b c d -> UExerciseByKey a b c d
   UFetchF a b -> UFetch a b
+  UFetchInterfaceF a b -> UFetchInterface a b
   UGetTimeF -> UGetTime
   UEmbedExprF a b -> UEmbedExpr a b
   UFetchByKeyF a -> UFetchByKey (embedRetrieveByKey a)
@@ -192,6 +201,9 @@ instance Recursive Expr where
     EToAnyException a b -> EToAnyExceptionF a b
     EFromAnyException a b -> EFromAnyExceptionF a b
     EThrow a b c -> EThrowF a b c
+    EToInterface a b c -> EToInterfaceF a b c
+    EFromInterface a b c -> EFromInterfaceF a b c
+    ECallInterface a b c -> ECallInterfaceF a b c
     EExperimental a b -> EExperimentalF a b
 
 instance Corecursive Expr where
@@ -226,4 +238,7 @@ instance Corecursive Expr where
     EToAnyExceptionF a b -> EToAnyException a b
     EFromAnyExceptionF a b -> EFromAnyException a b
     EThrowF a b c -> EThrow a b c
+    EToInterfaceF a b c -> EToInterface a b c
+    EFromInterfaceF a b c -> EFromInterface a b c
+    ECallInterfaceF a b c -> ECallInterface a b c
     EExperimentalF a b -> EExperimental a b

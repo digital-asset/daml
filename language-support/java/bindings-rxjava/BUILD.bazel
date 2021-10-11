@@ -4,6 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "da_scala_test",
     "da_scala_test_suite",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
@@ -62,7 +63,9 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
     ],
     versioned_scala_deps = {
         "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
@@ -75,22 +78,27 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
-        "//libs-scala/grpc-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_reactivex_rxjava2_rxjava",
         "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
+bot_test = "src/test/scala/com/daml/ledger/rxjava/components/BotTest.scala"
+
 da_scala_test_suite(
     name = "bindings-java-tests",
-    srcs = glob([
-        "src/test/**/*Spec.scala",
-        "src/test/**/*Test.scala",
-    ]),
+    srcs = glob(
+        [
+            "src/test/**/*Spec.scala",
+            "src/test/**/*Test.scala",
+        ],
+        exclude = [bot_test],
+    ),
     data = [
         ":bindings-integration-tests-model-latest.dar",
     ],
@@ -100,8 +108,11 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
     ],
     versioned_scala_deps = {
         "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
@@ -114,6 +125,45 @@ da_scala_test_suite(
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:org_pcollections_pcollections",
+        "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_scalatest_scalatest_compatible",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_test(
+    name = "bindings-java-bot-tests",
+    srcs = [bot_test],
+    data = [
+        ":bindings-integration-tests-model-latest.dar",
+    ],
+    # See https://github.com/digital-asset/daml/issues/10273#issuecomment-882681521
+    flaky = True,
+    resources = [
+        ":src/test/resources/logback-test.xml",
+    ],
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+    ],
+    versioned_scala_deps = {
+        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    },
+    deps = [
+        ":bindings-java-tests-lib",
+        ":bindings-rxjava",
+        "//language-support/java/bindings:bindings-java",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//ledger/ledger-api-auth",
         "//libs-scala/grpc-utils",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -122,6 +172,7 @@ da_scala_test_suite(
         "@maven//:io_reactivex_rxjava2_rxjava",
         "@maven//:org_pcollections_pcollections",
         "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

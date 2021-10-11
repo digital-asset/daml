@@ -76,8 +76,8 @@ sealed abstract class ValuePredicate extends Product with Serializable {
     go(this)
   }
 
-  def toSqlWhereClause(implicit sjd: dbbackend.SupportedJdbcDriver): Fragment = {
-    import sjd.queries.{cmpContractPathToScalar, containsAtContractPath, equalAtContractPath}
+  def toSqlWhereClause(implicit sjd: dbbackend.SupportedJdbcDriver.TC): Fragment = {
+    import sjd.q.queries.{cmpContractPathToScalar, containsAtContractPath, equalAtContractPath}
     import dbbackend.Queries.{JsonPath => Path}, dbbackend.Queries.OrderOperator._
 
     object RefName {
@@ -194,7 +194,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
 
 object ValuePredicate {
   type TypeLookup = Ref.Identifier => Option[iface.DefDataType.FWT]
-  type LfV = V[V.ContractId]
+  type LfV = V
   type SqlWhereClause = Vector[Fragment]
 
   val AlwaysFails: SqlWhereClause = Vector(sql"1 = 2")
@@ -393,7 +393,7 @@ object ValuePredicate {
   private final val Inclusive = true
   private final val Exclusive = false
 
-  type Boundaries[+A] = (Inclusive, A) \&/ (Inclusive, A)
+  type Boundaries[A] = (Inclusive, A) \&/ (Inclusive, A)
 
   private[this] final case class RangeExpr[A](
       scalar: JsValue PartialFunction A,
@@ -411,7 +411,7 @@ object ValuePredicate {
     def unapply(it: JsValue): Option[PredicateParseError \/ Boundaries[A]] =
       it match {
         case JsObject(fields) if fields.keySet exists keys =>
-          def badRangeSyntax(s: String): PredicateParseError \/ Nothing =
+          def badRangeSyntax[Bot](s: String): PredicateParseError \/ Bot =
             predicateParseError(s"Invalid range query, as $s: $it")
 
           def side(exK: String, inK: String) = {

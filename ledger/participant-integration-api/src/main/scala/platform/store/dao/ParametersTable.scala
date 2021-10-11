@@ -8,7 +8,8 @@ import java.sql.Connection
 import anorm.SqlParser.byteArray
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
-import com.daml.ledger.participant.state.v1.{Configuration, Offset}
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.offset.Offset
 import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetStep}
 import com.daml.platform.store.Conversions.{OffsetToStatement, ledgerString, offset, participantId}
 import com.daml.scalautil.Statement.discard
@@ -24,8 +25,8 @@ private[store] object ParametersTable {
   private val LedgerIdParser: RowParser[LedgerId] =
     ledgerString(LedgerIdColumnName).map(LedgerId(_))
 
-  private val ParticipantIdParser: RowParser[Option[ParticipantId]] =
-    participantId(ParticipantIdColumnName).map(ParticipantId(_)).?
+  private val ParticipantIdParser: RowParser[ParticipantId] =
+    participantId(ParticipantIdColumnName).map(ParticipantId(_))
 
   private val LedgerEndParser: RowParser[Option[Offset]] =
     offset(LedgerEndColumnName).?
@@ -55,7 +56,7 @@ private[store] object ParametersTable {
     )
 
   def getParticipantId(connection: Connection): Option[ParticipantId] =
-    SQL"select #$ParticipantIdColumnName from #$TableName".as(ParticipantIdParser.single)(
+    SQL"select #$ParticipantIdColumnName from #$TableName".as(ParticipantIdParser.singleOpt)(
       connection
     )
 

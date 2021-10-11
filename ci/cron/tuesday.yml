@@ -28,6 +28,6 @@ jobs:
 
       source "$(bash_lib)"
 
-      RELEASE_MANAGER=$(head -1 release/rotation | awk '{print $1}')
+      RELEASE_MANAGER=$(next_in_rotation_slack)
 
       tell_slack "$(echo -e "Hi <@$RELEASE_MANAGER>! According to the <https://github.com/digital-asset/daml/blob/main/release/rotation|rotation>, you are in charge of the release tomorrow. Please make sure you plan accordingly, or find a replacement.\n\nIf anyone knows of any reason to delay or block the release (e.g. a PR that needs to get merged first), please make it known in thread before EOD.")"

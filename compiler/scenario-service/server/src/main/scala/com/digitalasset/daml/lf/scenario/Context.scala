@@ -8,18 +8,13 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.lf.archive.Decode
-import com.daml.lf.archive.Decode.ParseError
-import com.daml.lf.data.assertRight
+import com.daml.lf.archive
+import com.daml.lf.data.{assertRight, ImmArray}
 import com.daml.lf.data.Ref.{DottedName, Identifier, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
-import com.daml.lf.speedy.Compiler
-import com.daml.lf.speedy.ScenarioRunner
-import com.daml.lf.speedy.SError._
-import com.daml.lf.speedy.Speedy
-import com.daml.lf.speedy.{SDefinition, SExpr, SValue}
+import com.daml.lf.speedy.{Compiler, SDefinition, SExpr, Speedy}
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
@@ -82,19 +77,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     newCtx
   }
 
-  private[this] val dop: Decode.OfPackage[_] = Decode.decoders
-    .lift(languageVersion)
-    .getOrElse(
-      throw Context.ContextException(s"No decode support for LF ${languageVersion.pretty}")
-    )
-    .decoder
-
-  private def decodeModule(bytes: ByteString): Ast.Module = {
-    val lfScenarioModule = dop.protoScenarioModule(Decode.damlLfCodedInputStream(bytes.newInput))
-    dop.decodeScenarioModule(homePackageId, lfScenarioModule)
-  }
-
-  @throws[ParseError]
+  @throws[archive.Error]
   def update(
       unloadModules: Set[ModuleName],
       loadModules: collection.Seq[ProtoScenarioModule],
@@ -103,20 +86,20 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       omitValidation: Boolean,
   ): Unit = synchronized {
 
-    val newModules = loadModules.map(module => decodeModule(module.getDamlLf1))
+    val newModules = loadModules.map(module =>
+      archive.moduleDecoder(languageVersion, homePackageId).assertFromByteString(module.getDamlLf1)
+    )
     modules --= unloadModules
     newModules.foreach(mod => modules += mod.name -> mod)
 
     val newPackages =
-      loadPackages.map { archive =>
-        Decode.decodeArchiveFromInputStream(archive.newInput)
-      }.toMap
+      loadPackages.map(archive.ArchiveDecoder.assertFromByteString).toMap
 
     val modulesToCompile =
       if (unloadPackages.nonEmpty || newPackages.nonEmpty) {
         val invalidPackages = unloadModules ++ newPackages.keys
         val newExtSignature = extSignatures -- unloadPackages ++ AstUtil.toSignatures(newPackages)
-        val interface = new language.Interface(newExtSignature)
+        val interface = new language.PackageInterface(newExtSignature)
         val newExtDefns = extDefns.view.filterKeys(sdef => !invalidPackages(sdef.packageId)) ++
           assertRight(Compiler.compilePackages(interface, newPackages, compilerConfig))
         // we update only if we manage to compile the new packages
@@ -129,7 +112,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
         newModules
       }
 
-    val interface = new language.Interface(this.allSignatures)
+    val interface = new language.PackageInterface(this.allSignatures)
     val compiler = new Compiler(interface, compilerConfig)
 
     modulesToCompile.foreach { mod =>
@@ -162,7 +145,6 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       defn <- defns.get(LfDefRef(identifier))
     } yield Speedy.Machine.fromScenarioSExpr(
       compiledPackages,
-      txSeeding,
       defn.body,
     )
   }
@@ -170,16 +152,11 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   def interpretScenario(
       pkgId: String,
       name: String,
-  ): Option[(ScenarioLedger, Speedy.Machine, Either[SError, SValue])] = {
+  ): Option[ScenarioRunner.ScenarioResult] = {
     buildMachine(
       Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
     ).map { machine =>
-      ScenarioRunner(machine).run() match {
-        case Right((diff @ _, steps @ _, ledger, value)) =>
-          (ledger, machine, Right(value))
-        case Left((err, ledger)) =>
-          (ledger, machine, Left(err))
-      }
+      ScenarioRunner(machine, txSeeding).run()
     }
   }
 
@@ -190,7 +167,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Option[(ScenarioLedger, (Speedy.Machine, Speedy.Machine), Either[SError, SValue])]] = {
+  ): Future[Option[ScenarioRunner.ScenarioResult]] = {
     val defns = this.defns
     val compiledPackages = PureCompiledPackages(allSignatures, defns, compilerConfig)
     val expectedScriptId = DottedName.assertFromString("Daml.Script")
@@ -205,36 +182,54 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
       ScriptTimeMode.Static,
     )
-    val ledgerClient = new IdeLedgerClient(compiledPackages)
+    val traceLog = Speedy.Machine.newTraceLog
+    val warningLog = Speedy.Machine.newWarningLog
+    val ledgerClient: IdeLedgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog)
     val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
-    val (clientMachine, resultF) = runner.runWithClients(participants)
+    val (clientMachine, resultF) = runner.runWithClients(participants, traceLog, warningLog)
 
-    def handleFailure(e: SError) = {
+    def handleFailure(e: Error) =
       // SError are the errors that should be handled and displayed as
       // failed partial transactions.
-
-      // We copy tracelogs after every submit but on failures we need
-      // to copy the tracelog from the partial transaction as well since we
-      // don’t reach the end of the submit.
-      for ((msg, optLoc) <- ledgerClient.tracelogIterator) {
-        clientMachine.traceLog.add(msg, optLoc)
-      }
       Success(
-        Some((ledgerClient.scenarioRunner.ledger, (clientMachine, ledgerClient.machine), Left(e)))
+        Some(
+          ScenarioRunner.ScenarioError(
+            ledgerClient.ledger,
+            clientMachine.traceLog,
+            clientMachine.warningLog,
+            ledgerClient.currentSubmission,
+            // TODO (MK) https://github.com/digital-asset/daml/issues/7276
+            ImmArray.Empty,
+            e,
+          )
+        )
       )
-    }
+
+    val dummyDuration: Double = 0
+    val dummySteps: Int = 0
 
     resultF.transform {
       case Success(v) =>
         Success(
           Some(
-            (ledgerClient.scenarioRunner.ledger, (clientMachine, ledgerClient.machine), Right(v))
+            ScenarioRunner.ScenarioSuccess(
+              ledgerClient.ledger,
+              clientMachine.traceLog,
+              clientMachine.warningLog,
+              dummyDuration,
+              dummySteps,
+              v,
+            )
           )
         )
-      case Failure(e: SError) => handleFailure(e)
+      case Failure(e: Error) => handleFailure(e)
+      case Failure(e: Runner.InterpretationError) => {
+        handleFailure(Error.RunnerException(e.error))
+      }
       case Failure(e: ScriptF.FailedCmd) =>
         e.cause match {
-          case e: SError => handleFailure(e)
+          case e: Error => handleFailure(e)
+          case e: speedy.SError.SError => handleFailure(Error.RunnerException(e))
           case _ => Failure(e)
         }
       case Failure(e) => Failure(e)

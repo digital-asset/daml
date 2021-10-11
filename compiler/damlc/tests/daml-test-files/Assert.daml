@@ -1,0 +1,9 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @INFO range=9:3-9:18; Use ===
+
+module Assert where
+
+test = scenario do
+  assert (1 == 1)

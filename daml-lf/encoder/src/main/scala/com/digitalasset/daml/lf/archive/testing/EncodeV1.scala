@@ -99,6 +99,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       builder.accumulateLeft(module.definitions.sortByKey)(addDefinition)
       builder.accumulateLeft(module.templates.sortByKey) { (a, b) => a.addTemplates(b) }
       builder.accumulateLeft(module.exceptions.sortByKey) { (a, b) => a.addExceptions(b) }
+      builder.accumulateLeft(module.interfaces.sortByKey) { (a, b) => a.addInterfaces(b) }
       builder.build()
     }
 
@@ -226,7 +227,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val (typ, args) =
         typ0 match {
           case TApps(typ1, args1) => typ1 -> args1
-          case _ => typ0 -> ImmArray.empty
+          case _ => typ0 -> ImmArray.Empty
         }
       val builder = PLF.Type.newBuilder()
       // Be warned: Both the use of the unapply pattern TForalls and the pattern
@@ -364,6 +365,10 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setCreate(PLF.Update.Create.newBuilder().setTemplate(templateId).setExpr(arg))
         case UpdateFetch(templateId, contractId) =>
           builder.setFetch(PLF.Update.Fetch.newBuilder().setTemplate(templateId).setCid(contractId))
+        case UpdateFetchInterface(interface, contractId) =>
+          builder.setFetchInterface(
+            PLF.Update.FetchInterface.newBuilder().setInterface(interface).setCid(contractId)
+          )
         case UpdateExercise(templateId, choice, cid, arg) =>
           val b = PLF.Update.Exercise.newBuilder()
           b.setTemplate(templateId)
@@ -371,6 +376,13 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           b.setCid(cid)
           b.setArg(arg)
           builder.setExercise(b)
+        case UpdateExerciseInterface(interface, choice, cid, arg) =>
+          val b = PLF.Update.ExerciseInterface.newBuilder()
+          b.setInterface(interface)
+          setInternedString(choice, b.setChoiceInternedStr)
+          b.setCid(cid)
+          b.setArg(arg)
+          builder.setExerciseInterface(b)
         case UpdateExerciseByKey(templateId, choice, key, arg) =>
           assertSince(LV.Features.exerciseByKey, "exerciseByKey")
           val b = PLF.Update.ExerciseByKey.newBuilder()
@@ -469,7 +481,6 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           setString(binder, b.setBinderStr, b.setBinderInternedStr)
           builder.setVariant(b)
         case CPEnum(tyCon, con) =>
-          assertSince(LV.Features.enum, "CaseAlt.Enum")
           val b = PLF.CaseAlt.Enum.newBuilder()
           b.setCon(tyCon)
           setString(con, b.setConstructorStr, b.setConstructorInternedStr)
@@ -547,7 +558,6 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           b.setVariantArg(arg)
           builder.setVariantCon(b)
         case EEnumCon(tyCon, con) =>
-          assertSince(LV.Features.enum, "Expr.Enum")
           val b = PLF.Expr.EnumCon.newBuilder().setTycon(tyCon)
           setString(con, b.setEnumConStr, b.setEnumConInternedStr)
           builder.setEnumCon(b.build())
@@ -645,6 +655,24 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setFromAnyException(
             PLF.Expr.FromAnyException.newBuilder().setType(ty).setExpr(body)
           )
+        case EToInterface(iface, tpl, value) =>
+          assertSince(LV.Features.interfaces, "Expr.ToInterface")
+          builder.setToInterface(
+            PLF.Expr.ToInterface
+              .newBuilder()
+              .setInterfaceType(iface)
+              .setTemplateType(tpl)
+              .setTemplateExpr(value)
+          )
+        case EFromInterface(iface, tpl, value) =>
+          assertSince(LV.Features.interfaces, "Expr.FromInterface")
+          builder.setFromInterface(
+            PLF.Expr.FromInterface
+              .newBuilder()
+              .setInterfaceType(iface)
+              .setTemplateType(tpl)
+              .setInterfaceExpr(value)
+          )
         case EExperimental(name, ty) =>
           assertSince(LV.v1_dev, "Expr.experimental")
           builder.setExperimental(PLF.Expr.Experimental.newBuilder().setName(name).setType(ty))
@@ -669,12 +697,13 @@ private[daml] class EncodeV1(minor: LV.Minor) {
             PLF.DefDataType.Fields.newBuilder().accumulateLeft(variants)(_ addFields _)
           )
         case DataEnum(constructors) =>
-          assertSince(LV.Features.enum, "DefDataType.Enum")
           val b = PLF.DefDataType.EnumConstructors.newBuilder()
           constructors.foreach(
             setString(_, b.addConstructorsStr, b.addConstructorsInternedStr)
           )
           builder.setEnum(b)
+        case DataInterface =>
+          builder.setInterface(PLF.Unit.newBuilder())
       }
       builder.build()
     }
@@ -686,6 +715,18 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val builder = PLF.DefException.newBuilder()
       builder.setNameInternedDname(dottedNameTable.insert(dottedName))
       builder.setMessage(exception.message)
+      builder.build()
+    }
+
+    private implicit def encodeInterfaceDef(
+        nameWithDef: (DottedName, DefInterface)
+    ): PLF.DefInterface = {
+      val (dottedName, interface) = nameWithDef
+      val builder = PLF.DefInterface.newBuilder()
+      builder.setTyconInternedDname(dottedNameTable.insert(dottedName))
+      builder.accumulateLeft(interface.virtualChoices.sortByKey)(_ addChoices _)
+      // TODO https://github.com/digital-asset/daml/issues/11006
+      //   encode interface methods as well
       builder.build()
     }
 
@@ -742,6 +783,18 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       b.build()
     }
 
+    private implicit def encodeInterfaceChoice(
+        nameWithChoice: (ChoiceName, InterfaceChoice)
+    ): PLF.InterfaceChoice = {
+      val (name, choice) = nameWithChoice
+      val b = PLF.InterfaceChoice.newBuilder()
+      b.setNameInternedString(stringsTable.insert(name))
+      b.setConsuming(choice.consuming)
+      b.setArgType(choice.argType)
+      b.setRetType(choice.returnType)
+      b.build()
+    }
+
     private implicit def encodeTemplateKey(key: TemplateKey): PLF.DefTemplate.DefKey =
       PLF.DefTemplate.DefKey
         .newBuilder()
@@ -763,6 +816,17 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       b.accumulateLeft(template.choices.sortByKey)(_ addChoices _)
       b.setObservers(template.observers)
       template.key.foreach(b.setKey(_))
+      b.accumulateLeft(template.implements.values)(_ addImplements encodeTemplateImplements(_))
+      b.build()
+    }
+
+    // TODO https://github.com/digital-asset/daml/issues/11006
+    //  encode rest of TemplateImplements
+    private implicit def encodeTemplateImplements(
+        impl: TemplateImplements
+    ): PLF.DefTemplate.Implements = {
+      val b = PLF.DefTemplate.Implements.newBuilder()
+      b.setInterface(impl.interface)
       b.build()
     }
 
@@ -771,6 +835,11 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         setDirect(s)
       else
         setThroughTable(stringsTable.insert(s))
+      ()
+    }
+
+    private def setInternedString[X](s: String, setThroughTable: Int => X) = {
+      setThroughTable(stringsTable.insert(s))
       ()
     }
 

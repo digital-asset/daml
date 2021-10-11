@@ -138,7 +138,7 @@ class JsonLedgerClient(
       val ctx = templateId.qualifiedName
       val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).toOption.get
       val parsedResults = queryResponse.results.map(r => {
-        val payload = r.payload.convertTo[Value[ContractId]](
+        val payload = r.payload.convertTo[Value](
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
         )
         val cid = ContractId.assertFromString(r.contractId)
@@ -162,7 +162,7 @@ class JsonLedgerClient(
       val ctx = templateId.qualifiedName
       val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).toOption.get
       fetchResponse.result.map(r => {
-        val payload = r.payload.convertTo[Value[ContractId]](
+        val payload = r.payload.convertTo[Value](
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
         )
         val cid = ContractId.assertFromString(r.contractId)
@@ -174,19 +174,19 @@ class JsonLedgerClient(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       key: SValue,
-      translateKey: (Identifier, Value[ContractId]) => Either[String, SValue],
+      translateKey: (Identifier, Value) => Either[String, SValue],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
     for {
       _ <- validateTokenParties(parties, "queryContractKey")
       fetchResponse <- requestSuccess[FetchKeyArgs, FetchResponse](
         uri.path./("v1")./("fetch"),
-        FetchKeyArgs(templateId, key.toValue),
+        FetchKeyArgs(templateId, key.toUnnormalizedValue),
       )
     } yield {
       val ctx = templateId.qualifiedName
       val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).toOption.get
       fetchResponse.result.map(r => {
-        val payload = r.payload.convertTo[Value[ContractId]](
+        val payload = r.payload.convertTo[Value](
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
         )
         val cid = ContractId.assertFromString(r.contractId)
@@ -324,7 +324,7 @@ class JsonLedgerClient(
 
   private def create(
       tplId: Identifier,
-      argument: Value[ContractId],
+      argument: Value,
   ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CreateResult]]] = {
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
     commandRequest[CreateArgs, CreateResponse]("create", CreateArgs(tplId, jsonArgument))
@@ -337,7 +337,7 @@ class JsonLedgerClient(
       tplId: Identifier,
       contractId: ContractId,
       choice: ChoiceName,
-      argument: Value[ContractId],
+      argument: Value,
   ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
@@ -354,7 +354,7 @@ class JsonLedgerClient(
           ScriptLedgerClient.ExerciseResult(
             tplId,
             choice,
-            result.convertTo[Value[ContractId]](
+            result.convertTo[Value](
               LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_))
             ),
           )
@@ -364,9 +364,9 @@ class JsonLedgerClient(
 
   private def exerciseByKey(
       tplId: Identifier,
-      key: Value[ContractId],
+      key: Value,
       choice: ChoiceName,
-      argument: Value[ContractId],
+      argument: Value,
   ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
@@ -384,7 +384,7 @@ class JsonLedgerClient(
         ScriptLedgerClient.ExerciseResult(
           tplId,
           choice,
-          result.convertTo[Value[ContractId]](
+          result.convertTo[Value](
             LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_))
           ),
         )
@@ -394,9 +394,9 @@ class JsonLedgerClient(
 
   private def createAndExercise(
       tplId: Identifier,
-      template: Value[ContractId],
+      template: Value,
       choice: ChoiceName,
-      argument: Value[ContractId],
+      argument: Value,
   ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CommandResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
@@ -417,7 +417,7 @@ class JsonLedgerClient(
           ScriptLedgerClient.ExerciseResult(
             tplId,
             choice,
-            result.convertTo[Value[ContractId]](
+            result.convertTo[Value](
               LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_))
             ),
           ),
@@ -451,9 +451,6 @@ class JsonLedgerClient(
       case SuccessResponse(result, _) => Future.successful(Right(result))
     }
   }
-
-  override def tracelogIterator = Iterator.empty
-  override def clearTracelog = ()
 }
 
 object JsonLedgerClient {
@@ -507,7 +504,7 @@ object JsonLedgerClient {
   final case class QueryResponse(results: List[ActiveContract])
   final case class ActiveContract(contractId: String, payload: JsValue)
   final case class FetchArgs(contractId: ContractId)
-  final case class FetchKeyArgs(templateId: Identifier, key: Value[ContractId])
+  final case class FetchKeyArgs(templateId: Identifier, key: Value)
   final case class FetchResponse(result: Option[ActiveContract])
 
   final case class CreateArgs(templateId: Identifier, payload: JsValue)

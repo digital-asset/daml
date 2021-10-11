@@ -10,12 +10,14 @@ terraform {
 
 provider "google" {
   project = "da-dev-gcp-daml-language"
-  region  = "us-east4"
+  region  = local.region
+  zone    = local.zone
 }
 
 provider "google-beta" {
   project = "da-dev-gcp-daml-language"
-  region  = "us-east4"
+  region  = local.region
+  zone    = local.zone
 }
 
 provider "secret" {

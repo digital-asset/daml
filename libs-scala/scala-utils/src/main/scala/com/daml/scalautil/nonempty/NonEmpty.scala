@@ -3,11 +3,13 @@
 
 package com.daml.scalautil.nonempty
 
+import scala.collection.compat._
 import scala.collection.{immutable => imm}, imm.Map, imm.Set
 import scalaz.Id.Id
-import scalaz.{Foldable, Traverse}
+import scalaz.{Foldable, Foldable1, Monoid, OneAnd, Semigroup, Traverse}
 import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
+import scalaz.syntax.std.option._
 import NonEmptyCollCompat._
 
 /** The visible interface of [[NonEmpty]]; use that value to access
@@ -23,7 +25,7 @@ sealed abstract class NonEmptyColl {
 
   private[nonempty] def substF[T[_[_]], F[_]](tf: T[F]): T[NonEmptyF[F, *]]
   private[nonempty] def subst[F[_[_]]](tf: F[Id]): F[NonEmpty]
-  private[nonempty] def unsafeNarrow[Self](self: Self with imm.Iterable[_]): NonEmpty[Self]
+  private[nonempty] def unsafeNarrow[Self <: imm.Iterable[Any]](self: Self): NonEmpty[Self]
 
   /** Usable proof that [[NonEmpty]] is a subtype of its argument.  (We cannot put
     * this in an upper-bound, because that would prevent us from adding implicit
@@ -68,7 +70,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
 
     override def apply[Self](self: Self with imm.Iterable[_]) =
       if (self.nonEmpty) Some(self) else None
-    private[nonempty] override def unsafeNarrow[Self](self: Self with imm.Iterable[_]) = self
+    private[nonempty] override def unsafeNarrow[Self <: imm.Iterable[Any]](self: Self) = self
   }
 
   implicit final class ReshapeOps[F[_], A](private val nfa: NonEmpty[F[A]]) extends AnyVal {
@@ -110,6 +112,12 @@ object NonEmptyColl extends NonEmptyCollInstances {
     private type ESelf = IterableOps[A, imm.Iterable, C with imm.Iterable[A]]
     def toList: NonEmpty[List[A]] = un((self: ESelf).toList)
     def toVector: NonEmpty[Vector[A]] = un((self: ESelf).toVector)
+    def toSeq: NonEmpty[imm.Seq[A]] = un((self: ESelf) match {
+      case is: imm.Seq[A] => is
+      case other => other.to(imm.Seq)
+    }) // can just use .toSeq in scala 2.13
+    def toSet: NonEmpty[Set[A]] = un((self: ESelf).toSet)
+    def toMap[K, V](implicit isPair: A <:< (K, V)): NonEmpty[Map[K, V]] = un((self: ESelf).toMap)
     // ideas for extension: safe head/tail (not valuable unless also using
     // wartremover to disable partial Seq ops)
   }
@@ -119,13 +127,51 @@ object NonEmptyColl extends NonEmptyCollInstances {
   // it; we can add collection-like `map` later if it seems to be really
   // important.
 
+  implicit final class `Seq Ops`[A, CC[_], C](
+      private val self: NonEmpty[SeqOps[A, CC, C with CC[A]]]
+  ) extends AnyVal {
+    def toOneAnd: OneAnd[CC, A] = {
+      val h +-: t = self
+      OneAnd(h, t)
+    }
+  }
+
   implicit def traverse[F[_]](implicit F: Traverse[F]): Traverse[NonEmptyF[F, *]] =
     NonEmpty.substF(F)
 }
 
-sealed abstract class NonEmptyCollInstances {
+sealed abstract class NonEmptyCollInstances extends NonEmptyCollInstances0 {
   implicit def foldable[F[_]](implicit F: Foldable[F]): Foldable[NonEmptyF[F, *]] =
     NonEmpty.substF(F)
+}
+
+sealed abstract class NonEmptyCollInstances0 {
+  implicit def foldable1[F[_]](implicit F: Foldable[F]): Foldable1[NonEmptyF[F, *]] =
+    NonEmpty.substF(new Foldable1[F] {
+      private[this] def errEmpty(fa: F[_]) =
+        throw new IllegalArgumentException(
+          s"empty structure coerced to non-empty: $fa: ${fa.getClass.getSimpleName}"
+        )
+
+      private[this] def assertNE[Z](original: F[_], fa: Option[Z]) =
+        fa.cata(identity, errEmpty(original))
+
+      override def foldMap1[A, B: Semigroup](fa: F[A])(f: A => B) =
+        assertNE(fa, F.foldMap1Opt(fa)(f))
+
+      override def foldMapRight1[A, B](fa: F[A])(z: A => B)(f: (A, => B) => B) =
+        assertNE(fa, F.foldMapRight1Opt(fa)(z)(f))
+
+      override def foldMapLeft1[A, B](fa: F[A])(z: A => B)(f: (B, A) => B) =
+        assertNE(fa, F.foldMapLeft1Opt(fa)(z)(f))
+
+      override def foldMap[A, B: Monoid](fa: F[A])(f: A => B) = F.foldMap(fa)(f)
+
+      override def foldRight[A, B](fa: F[A], z: => B)(f: (A, => B) => B) = F.foldRight(fa, z)(f)
+
+      override def foldLeft[A, B](fa: F[A], z: B)(f: (B, A) => B) =
+        F.foldLeft(fa, z)(f)
+    })
 
   import scala.language.implicitConversions
 

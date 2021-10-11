@@ -28,23 +28,35 @@ final class TransactionService(
     TransactionServiceGrpc.stub(channel)
 
   def transactions[Result](
-      config: Config.StreamConfig,
+      config: Config.StreamConfig.TransactionsStreamConfig,
       observer: ObserverWithResult[GetTransactionsResponse, Result],
   ): Future[Result] = {
-    val request = getTransactionsRequest(ledgerId, config)
+    val request = getTransactionsRequest(
+      ledgerId = ledgerId,
+      party = config.party,
+      templateIds = config.templateIds,
+      beginOffset = config.beginOffset,
+      endOffset = config.endOffset,
+    )
     service.getTransactions(request, observer)
     logger.info("Started fetching transactions")
     observer.result
   }
 
   def transactionTrees[Result](
-      config: Config.StreamConfig,
+      config: Config.StreamConfig.TransactionTreesStreamConfig,
       observer: ObserverWithResult[
         GetTransactionTreesResponse,
         Result,
       ],
   ): Future[Result] = {
-    val request = getTransactionsRequest(ledgerId, config)
+    val request = getTransactionsRequest(
+      ledgerId = ledgerId,
+      party = config.party,
+      templateIds = config.templateIds,
+      beginOffset = config.beginOffset,
+      endOffset = config.endOffset,
+    )
     service.getTransactionTrees(request, observer)
     logger.info("Started fetching transaction trees")
     observer.result
@@ -52,13 +64,20 @@ final class TransactionService(
 
   private def getTransactionsRequest(
       ledgerId: String,
-      config: Config.StreamConfig,
+      party: String,
+      templateIds: Option[List[Identifier]],
+      beginOffset: Option[LedgerOffset],
+      endOffset: Option[LedgerOffset],
   ): GetTransactionsRequest = {
-    GetTransactionsRequest.defaultInstance
+    val getTransactionsRequest = GetTransactionsRequest.defaultInstance
       .withLedgerId(ledgerId)
-      .withBegin(config.beginOffset.getOrElse(ledgerBeginOffset))
-      .withEnd(config.endOffset.getOrElse(ledgerEndOffset))
-      .withFilter(partyFilter(config.party, config.templateIds))
+      .withBegin(beginOffset.getOrElse(ledgerBeginOffset))
+      .withFilter(partyFilter(party, templateIds))
+
+    endOffset match {
+      case Some(end) => getTransactionsRequest.withEnd(end)
+      case None => getTransactionsRequest
+    }
   }
 
   private def partyFilter(
@@ -79,8 +98,5 @@ final class TransactionService(
 
   private def ledgerBeginOffset: LedgerOffset =
     LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
-
-  private def ledgerEndOffset: LedgerOffset =
-    LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)
 
 }

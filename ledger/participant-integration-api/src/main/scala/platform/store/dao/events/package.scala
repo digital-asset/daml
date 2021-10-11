@@ -16,17 +16,17 @@ package object events {
   import com.daml.lf.value.{Value => lfval}
   private[events] type ContractId = lfval.ContractId
   private[events] val ContractId = com.daml.lf.value.Value.ContractId
-  private[events] type Value = lfval.VersionedValue[ContractId]
+  private[events] type Value = lfval.VersionedValue
   private[events] type Contract = lfval.ContractInst[Value]
   private[events] val Contract = lfval.ContractInst
 
   import com.daml.lf.{transaction => lftx}
   private[events] type NodeId = lftx.NodeId
-  private[events] type Node = lftx.Node.GenNode[NodeId, ContractId]
-  private[events] type Create = lftx.Node.NodeCreate[ContractId]
-  private[events] type Exercise = lftx.Node.NodeExercises[NodeId, ContractId]
-  private[events] type Fetch = lftx.Node.NodeFetch[ContractId]
-  private[events] type LookupByKey = lftx.Node.NodeLookupByKey[ContractId]
+  private[events] type Node = lftx.Node.GenNode
+  private[events] type Create = lftx.Node.NodeCreate
+  private[events] type Exercise = lftx.Node.NodeExercises
+  private[events] type Fetch = lftx.Node.NodeFetch
+  private[events] type LookupByKey = lftx.Node.NodeLookupByKey
   private[events] type Key = lftx.GlobalKey
   private[events] val Key = lftx.GlobalKey
 
@@ -43,6 +43,10 @@ package object events {
   private[events] val ModuleName = lfdata.Ref.ModuleName
   private[events] type LedgerString = lfdata.Ref.LedgerString
   private[events] val LedgerString = lfdata.Ref.LedgerString
+  private[events] type TransactionId = lfdata.Ref.LedgerString
+  private[events] val TransactionId = lfdata.Ref.LedgerString
+  private[events] type WorkflowId = lfdata.Ref.LedgerString
+  private[events] val WorkflowId = lfdata.Ref.LedgerString
   private[events] type ChoiceName = lfdata.Ref.ChoiceName
   private[events] val ChoiceName = lfdata.Ref.ChoiceName
   private[events] type PackageId = lfdata.Ref.PackageId
@@ -104,7 +108,7 @@ package object events {
 
   private[events] def convertLfValueKey(
       template: Identifier,
-      key: KeyWithMaintainers[lfval[ContractId]],
+      key: KeyWithMaintainers[lfval],
   ) =
     Key.assertBuild(template, key.key)
 

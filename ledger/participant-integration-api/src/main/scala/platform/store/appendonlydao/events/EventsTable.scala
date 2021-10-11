@@ -3,13 +3,8 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import java.io.InputStream
-import java.sql.Connection
 import java.time.Instant
 
-import anorm.SqlParser.{array, binaryStream, bool, int, long, str}
-import anorm.{RowParser, ~}
-import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
@@ -23,67 +18,14 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.ledger.offset.Offset
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import com.daml.platform.index.TransactionConversion
-import com.daml.platform.store.Conversions.{identifier, instant, offset}
 import com.google.protobuf.timestamp.Timestamp
 
-private[events] object EventsTable {
-
-  private type SharedRow =
-    Offset ~ String ~ Int ~ Long ~ String ~ String ~ Instant ~ Identifier ~ Option[String] ~
-      Option[String] ~ Array[String]
-
-  private val sharedRow: RowParser[SharedRow] =
-    offset("event_offset") ~
-      str("transaction_id") ~
-      int("node_index") ~
-      long("event_sequential_id") ~
-      str("event_id") ~
-      str("contract_id") ~
-      instant("ledger_effective_time") ~
-      identifier("template_id") ~
-      str("command_id").? ~
-      str("workflow_id").? ~
-      array[String]("event_witnesses")
-
-  type CreatedEventRow =
-    SharedRow ~ InputStream ~ Option[Int] ~ Array[String] ~ Array[String] ~ Option[String] ~
-      Option[InputStream] ~ Option[Int]
-
-  val createdEventRow: RowParser[CreatedEventRow] =
-    sharedRow ~
-      binaryStream("create_argument") ~
-      int("create_argument_compression").? ~
-      array[String]("create_signatories") ~
-      array[String]("create_observers") ~
-      str("create_agreement_text").? ~
-      binaryStream("create_key_value").? ~
-      int("create_key_value_compression").?
-
-  type ExercisedEventRow =
-    SharedRow ~ Boolean ~ String ~ InputStream ~ Option[Int] ~ Option[InputStream] ~ Option[Int] ~
-      Array[String] ~ Array[String]
-
-  val exercisedEventRow: RowParser[ExercisedEventRow] =
-    sharedRow ~
-      bool("exercise_consuming") ~
-      str("exercise_choice") ~
-      binaryStream("exercise_argument") ~
-      int("exercise_argument_compression").? ~
-      binaryStream("exercise_result").? ~
-      int("exercise_result_compression").? ~
-      array[String]("exercise_actors") ~
-      array[String]("exercise_child_event_ids")
-
-  type ArchiveEventRow = SharedRow
-
-  val archivedEventRow: RowParser[ArchiveEventRow] = sharedRow
-
-  trait Batches {
-    def execute()(implicit connection: Connection): Unit
-  }
+// TODO append-only: FIXME: move to the right place
+object EventsTable {
 
   final case class Entry[+E](
       eventOffset: Offset,
@@ -105,6 +47,9 @@ private[events] object EventsTable {
       events.headOption.flatMap { first =>
         val flatEvents =
           TransactionConversion.removeTransient(events.iterator.map(_.event).toVector)
+        // Allows emitting flat transactions with no events, a use-case needed
+        // for the functioning of DAML triggers.
+        // (more details in https://github.com/digital-asset/daml/issues/6975)
         if (flatEvents.nonEmpty || first.commandId.nonEmpty)
           Some(
             ApiTransaction(
@@ -138,7 +83,6 @@ private[events] object EventsTable {
             offset = "", // only the last response will have an offset.
             workflowId = entry.workflowId,
             activeContracts = Seq(entry.event.getCreated),
-            traceContext = None,
           )
         case entry =>
           throw new IllegalStateException(
@@ -188,7 +132,6 @@ private[events] object EventsTable {
           offset = ApiOffset.toApiString(first.eventOffset),
           eventsById = eventsById,
           rootEventIds = rootEventIds,
-          traceContext = None,
         )
       }
 

@@ -6,15 +6,19 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
+    "silencer_plugin",
 )
 
 da_scala_library(
     name = "db-backend",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        silencer_plugin,
+    ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
-        "@maven//:com_lihaoyi_sourcecode",
         "@maven//:io_spray_spray_json",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_tpolecat_doobie_core",
         "@maven//:org_tpolecat_doobie_free",
@@ -22,6 +26,7 @@ da_scala_library(
         "@maven//:org_typelevel_cats_effect",
         "@maven//:org_typelevel_cats_free",
         "@maven//:org_typelevel_cats_kernel",
+        "@maven//:org_tpolecat_typename",
     ],
     scala_runtime_deps = [
         "@maven//:org_tpolecat_doobie_postgres",
@@ -36,7 +41,13 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/data",
+        "//daml-lf/transaction",
+        "//ledger-service/utils",
+        "//ledger/caching",
+        "//ledger/metrics",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",
+        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
 
@@ -45,15 +56,23 @@ da_scala_test(
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
     scala_deps = [
-        "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_tpolecat_doobie_core",
+        "@maven//:org_tpolecat_doobie_free",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_effect",
+        "@maven//:org_typelevel_cats_free",
+        "@maven//:org_typelevel_cats_kernel",
     ],
     scalacopts = lf_scalacopts,
     # data = ["//docs:quickstart-model.dar"],
     deps = [
         ":db-backend",
-        "//libs-scala/scala-utils",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

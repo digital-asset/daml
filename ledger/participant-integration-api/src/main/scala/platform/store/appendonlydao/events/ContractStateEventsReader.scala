@@ -3,60 +3,17 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import java.io.InputStream
-import java.sql.Connection
-import java.time.Instant
+import java.io.ByteArrayInputStream
 
-import anorm.SqlParser.{binaryStream, int, long}
-import anorm._
-import com.daml.ledger.participant.state.v1.Offset
-import com.daml.lf.data.Ref
-import com.daml.platform.store.Conversions.{contractId, offset, _}
 import com.daml.platform.store.appendonlydao.events
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
-import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.backend.StorageBackend.RawContractStateEvent
 
 import scala.util.control.NoStackTrace
 
 object ContractStateEventsReader {
-  val contractStateRowParser: RowParser[RawContractStateEvent] =
-    (int("event_kind") ~
-      contractId("contract_id") ~
-      identifier("template_id").? ~
-      instant("ledger_effective_time").? ~
-      binaryStream("create_key_value").? ~
-      int("create_key_value_compression").? ~
-      binaryStream("create_argument").? ~
-      int("create_argument_compression").? ~
-      long("event_sequential_id") ~
-      flatEventWitnessesColumn("flat_event_witnesses") ~
-      offset("event_offset")).map {
-      case eventKind ~ contractId ~ templateId ~ ledgerEffectiveTime ~ createKeyValue ~ createKeyCompression ~ createArgument ~ createArgumentCompression ~ eventSequentialId ~ flatEventWitnesses ~ offset =>
-        RawContractStateEvent(
-          eventKind,
-          contractId,
-          templateId,
-          ledgerEffectiveTime,
-          createKeyValue,
-          createKeyCompression,
-          createArgument,
-          createArgumentCompression,
-          flatEventWitnesses,
-          eventSequentialId,
-          offset,
-        )
-    }
-
-  /** This method intentionally produces a generic DTO to perform as much work as possible outside of the db thread pool
-    * (specifically the translation to the `ContractStateEvent`)
-    */
-  def readRawEvents(range: EventsRange[(Offset, Long)])(implicit
-      conn: Connection
-  ): Vector[RawContractStateEvent] =
-    createsAndArchives(EventsRange(range.startExclusive._2, range.endInclusive._2))
-      .asVectorOf(contractStateRowParser)
 
   def toContractStateEvent(
       raw: RawContractStateEvent,
@@ -112,7 +69,7 @@ object ContractStateEventsReader {
   private def getCachedOrDecompressContract(
       contractId: ContractId,
       templateId: events.Identifier,
-      createArgument: InputStream,
+      createArgument: Array[Byte],
       maybeCreateArgumentCompression: Option[Int],
       lfValueTranslation: LfValueTranslation,
   ): Contract = {
@@ -131,7 +88,7 @@ object ContractStateEventsReader {
 
   private def decompressKey(
       templateId: events.Identifier,
-      maybeCreateKeyValue: Option[InputStream],
+      maybeCreateKeyValue: Option[Array[Byte]],
       maybeCreateKeyValueCompression: Option[Int],
   ): Option[Key] =
     for {
@@ -142,31 +99,8 @@ object ContractStateEventsReader {
       keyValue = decompressAndDeserialize(createKeyValueCompression, createKeyValue)
     } yield Key.assertBuild(templateId, keyValue.value)
 
-  private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: InputStream) =
-    ValueSerializer.deserializeValue(algorithm.decompress(value))
-
-  private val createsAndArchives: EventsRange[Long] => SimpleSql[Row] =
-    (range: EventsRange[Long]) => SQL(s"""
-                                         |SELECT
-                                         |    event_kind,
-                                         |    contract_id,
-                                         |    template_id,
-                                         |    create_key_value,
-                                         |    create_key_value_compression,
-                                         |    create_argument,
-                                         |    create_argument_compression,
-                                         |    flat_event_witnesses,
-                                         |    ledger_effective_time,
-                                         |    event_sequential_id,
-                                         |    event_offset
-                                         |FROM
-                                         |    participant_events
-                                         |WHERE
-                                         |    event_sequential_id > ${range.startExclusive}
-                                         |    and event_sequential_id <= ${range.endInclusive}
-                                         |    and (event_kind = 10 or event_kind = 20)
-                                         |ORDER BY event_sequential_id ASC
-                                         |""".stripMargin)
+  private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: Array[Byte]) =
+    ValueSerializer.deserializeValue(algorithm.decompress(new ByteArrayInputStream(value)))
 
   case class CreateMissingError(field: String) extends NoStackTrace {
     override def getMessage: String =
@@ -177,20 +111,6 @@ object ContractStateEventsReader {
     override def getMessage: String =
       s"Invalid event kind: $eventKind"
   }
-
-  private[events] case class RawContractStateEvent(
-      eventKind: Int,
-      contractId: ContractId,
-      templateId: Option[Ref.Identifier],
-      ledgerEffectiveTime: Option[Instant],
-      createKeyValue: Option[InputStream],
-      createKeyCompression: Option[Int],
-      createArgument: Option[InputStream],
-      createArgumentCompression: Option[Int],
-      flatEventWitnesses: Set[Party],
-      eventSequentialId: Long,
-      offset: Offset,
-  )
 
   private object EventKind {
     val Create = 10

@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import com.daml.ledger.participant.state.kvutils.store.DamlStateValue
+import com.daml.ledger.participant.state.kvutils.wire._
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
 import com.google.protobuf.ByteString
 import org.scalatest.matchers.should.Matchers
@@ -12,7 +14,7 @@ class EnvelopeSpec extends AnyWordSpec with Matchers {
   "envelope" should {
 
     "be able to enclose and open" in {
-      val submission = Proto.DamlSubmission.getDefaultInstance
+      val submission = DamlSubmission.getDefaultInstance
 
       Envelope.open(Envelope.enclose(submission)) shouldEqual
         Right(Envelope.SubmissionMessage(submission))
@@ -21,15 +23,15 @@ class EnvelopeSpec extends AnyWordSpec with Matchers {
       Envelope.open(Envelope.enclose(logEntry)) shouldEqual
         Right(Envelope.LogEntryMessage(logEntry))
 
-      val stateValue = Proto.DamlStateValue.getDefaultInstance
+      val stateValue = DamlStateValue.getDefaultInstance
       Envelope.open(Envelope.enclose(stateValue)) shouldEqual
         Right(Envelope.StateValueMessage(stateValue))
     }
 
     "be able to enclose and open batch submission batch message" in {
-      val submissionBatch = Proto.DamlSubmissionBatch.newBuilder
+      val submissionBatch = DamlSubmissionBatch.newBuilder
         .addSubmissions(
-          Proto.DamlSubmissionBatch.CorrelatedSubmission.newBuilder
+          DamlSubmissionBatch.CorrelatedSubmission.newBuilder
             .setCorrelationId("anId")
             .setSubmission(ByteString.copyFromUtf8("a submission"))
         )

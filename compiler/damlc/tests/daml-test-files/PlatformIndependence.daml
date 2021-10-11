@@ -1,0 +1,17 @@
+module PlatformIndependence where
+
+import DA.Stack
+import DA.Text
+
+{-
+File paths from call stacks end up encoded in the Daml package. This would make the package hash
+dependendent on the platform, where the package is compiled.
+Make sure that they are always encoded as POSIX filepath, regardless the compiling platform.
+-}
+checkFilePath : HasCallStack => Scenario ()
+checkFilePath = do
+  let [fs] = [ srcLocFile srcLoc | (_t, srcLoc) <- getCallStack callStack]
+  assert $ "compiler/damlc/tests/daml-test-files/PlatformIndependence.daml" `isSuffixOf` fs
+
+test : Scenario ()
+test = checkFilePath

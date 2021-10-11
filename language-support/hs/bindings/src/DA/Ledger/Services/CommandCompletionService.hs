@@ -50,7 +50,7 @@ completionEnd lid =
     withGRPCClient config $ \client -> do
         service <- commandCompletionServiceClient client
         let CommandCompletionService {commandCompletionServiceCompletionEnd=rpc} = service
-        let request = CompletionEndRequest (unLedgerId lid) noTrace
+        let request = CompletionEndRequest (unLedgerId lid)
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrap
             >>= \case

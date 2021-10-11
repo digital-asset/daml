@@ -63,13 +63,15 @@ private[validation] object Collision {
       case dDef @ Ast.DDataType(_, _, Ast.DataEnum(values)) =>
         val enumDef = NEnumDef(module, defName, dDef)
         enumDef :: values.toList.map(NEnumCon(enumDef, _))
+      case iDef @ Ast.DDataType(_, _, Ast.DataInterface) =>
+        val interfaceDef = NInterface(module, defName, iDef)
+        interfaceDef :: List.empty
       case _: Ast.DValue =>
         // ignore values
-        // List(NValDef(module, defName, vDef))
         List.empty
-
       case _: Ast.DTypeSyn =>
-        List.empty // TODO #3616: check type synonyms
+        val synDef = NSynDef(module, defName)
+        synDef :: List.empty
 
     }
 
