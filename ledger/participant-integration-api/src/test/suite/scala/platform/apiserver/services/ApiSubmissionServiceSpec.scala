@@ -36,6 +36,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.{ErrorCodesVersionSwitcher, SeedService}
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
+import com.daml.platform.apiserver.error.RejectionGenerators
 import com.daml.platform.apiserver.execution.CommandExecutor
 import com.daml.platform.apiserver.services.ApiSubmissionServiceSpec._
 import com.daml.platform.store.ErrorCause
@@ -495,6 +496,7 @@ object ApiSubmissionServiceSpec {
       errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
         enableSelfServiceErrorCodes = useSelfServiceErrorCodes
       ),
+      rejectionGenerators = new RejectionGenerators(conformanceMode = true),
     )
   }
 }

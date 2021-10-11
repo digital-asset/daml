@@ -23,6 +23,7 @@ import com.daml.platform.apiserver.configuration.{
   LedgerConfigurationInitializer,
   LedgerConfigurationSubscription,
 }
+import com.daml.platform.apiserver.error.RejectionGenerators
 import com.daml.platform.apiserver.execution.{
   LedgerTimeAwareCommandExecutor,
   StoreBackedCommandExecutor,
@@ -120,6 +121,8 @@ private[daml] object ApiServices {
 
     private val errorsVersionsSwitcher =
       new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = enableSelfServiceErrorCodes)
+
+    private val rejectionGenerators = new RejectionGenerators(conformanceMode = true)
 
     override def acquire()(implicit context: ResourceContext): Resource[ApiServices] = {
       logger.info(engine.info.toString)
@@ -236,6 +239,7 @@ private[daml] object ApiServices {
           ),
           metrics,
           errorsVersionsSwitcher,
+          rejectionGenerators,
         )
 
         // Note: the command service uses the command submission, command completion, and transaction

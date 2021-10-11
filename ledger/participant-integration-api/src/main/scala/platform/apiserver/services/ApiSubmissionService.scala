@@ -55,6 +55,7 @@ private[apiserver] object ApiSubmissionService {
       configuration: ApiSubmissionService.Configuration,
       metrics: Metrics,
       errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+      rejectionGenerators: RejectionGenerators,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -72,6 +73,7 @@ private[apiserver] object ApiSubmissionService {
         configuration,
         metrics,
         errorCodesVersionSwitcher,
+        rejectionGenerators,
       ),
       ledgerId = ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
@@ -101,6 +103,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
     configuration: ApiSubmissionService.Configuration,
     metrics: Metrics,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+    rejectionGenerators: RejectionGenerators,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends CommandSubmissionService
     with ErrorFactories
@@ -175,7 +178,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
               logger.debug(exception.getMessage)
               exception
             },
-            v2 = RejectionGenerators.duplicateCommand(
+            v2 = rejectionGenerators.duplicateCommand(
               logger = logger,
               loggingContext = loggingContext,
               correlationId = CorrelationId.none,
@@ -211,7 +214,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
         metrics.daml.commands.failedCommandInterpretations.mark()
         errorCodesVersionSwitcher.chooseAsFailedFuture(
           v1 = toStatusExceptionV1(error),
-          v2 = RejectionGenerators
+          v2 = rejectionGenerators
             .commandExecutorError(cause = ErrorCauseExport.fromErrorCause(error))(
               logger = logger,
               loggingContext = implicitly[LoggingContext],
