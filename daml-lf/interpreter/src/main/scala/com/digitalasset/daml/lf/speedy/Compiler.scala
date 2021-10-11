@@ -402,7 +402,7 @@ private[lf] final class Compiler(
     case SCPCons => 2
   }
 
-  private[this] def compile(expr0: Expr): SExpr =
+  private[lf] def compile(expr0: Expr): SExpr =
     expr0 match {
       case EVar(name) =>
         lookupExprVar(name)
