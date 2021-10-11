@@ -18,6 +18,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+
 private[kvutils] object PartyAllocationCommitter {
   type Result = DamlPartyAllocationEntry.Builder
 

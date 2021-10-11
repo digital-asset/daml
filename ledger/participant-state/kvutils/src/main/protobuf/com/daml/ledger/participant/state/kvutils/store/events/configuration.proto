@@ -10,6 +10,9 @@ option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils.Store.Event
 
 import "com/daml/ledger/configuration/ledger_configuration.proto";
 
+// This message is in it's own file because `state.proto` depends on this message,
+// and it would introduce a circular dependency if kept in `daml_kvutils.proto`
+
 // Configuration entry that records a configuration change.
 // Also used in state to look up latest configuration.
 // When a configuration exists, only the participant that
@@ -24,4 +27,3 @@ message DamlConfigurationEntry {
   // The ledger configuration.
   com.daml.ledger.configuration.LedgerConfiguration configuration = 3;
 }
-
