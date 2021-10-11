@@ -133,7 +133,6 @@ object UsedTypeParams {
               case Record(fields) => fields
               case Variant(fields) => fields
               case Enum(_) => ImmArraySeq.empty
-              case Iface() => ImmArraySeq.empty
             }
             fields foldMap { case (_, typ) => goTypeDefn(dt, seen)(typ) }
           }

@@ -159,7 +159,6 @@ case class PackageRegistry(
           fields.foldLeft(deps)((r, field) => foldType(field._2, r, instantiatesRemaining))
         case DamlLfEnum(_) =>
           deps
-        case DamlLfInterface() => deps
       }
     }
 

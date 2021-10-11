@@ -15,9 +15,9 @@ import scalaz.Bifoldable
 
 import scala.collection.compat._
 
-sealed abstract class DependencyGraph[If, TmplI] {
+sealed abstract class DependencyGraph[Iface, TmplI] {
   def orderedDependencies(
-      library: If
+      library: Iface
   ): OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[TmplI]]
 }
 

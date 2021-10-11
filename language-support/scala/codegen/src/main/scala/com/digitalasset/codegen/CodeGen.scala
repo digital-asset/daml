@@ -258,8 +258,6 @@ object CodeGen {
             Left(Right(sdt copy (dataType = v)))
           case e: Enum =>
             Right(sdt copy (dataType = e))
-          case _: Iface =>
-            sys.error("Interfaces are not supported")
         }
     }
 

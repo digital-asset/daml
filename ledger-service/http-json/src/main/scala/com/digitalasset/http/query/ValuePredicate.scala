@@ -245,7 +245,6 @@ object ValuePredicate {
         case e @ iface.Enum(_) => { case JsString(s) =>
           fromEnum(s, id, e)
         }
-        case iface.Iface() => sys.error("Interfaces are not supported")
       }(fallback = illTypedQuery(it, id))
 
     def fromRecord(

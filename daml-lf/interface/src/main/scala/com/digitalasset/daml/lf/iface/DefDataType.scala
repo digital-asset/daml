@@ -82,7 +82,6 @@ object DataType {
             Functor[Variant].map(v)(g).widen
           case e @ Enum(_) =>
             e
-          case e @ Iface() => e
         }
 
       override def bifoldMap[A, B, M: Monoid](fab: DataType[A, B])(f: A => M)(g: B => M): M =
@@ -92,10 +91,6 @@ object DataType {
           case v @ Variant(_) =>
             Foldable[Variant].foldMap(v)(g)
           case Enum(_) => {
-            val m = implicitly[Monoid[M]]
-            m.zero
-          }
-          case Iface() => {
             val m = implicitly[Monoid[M]]
             m.zero
           }
@@ -110,8 +105,6 @@ object DataType {
           case v @ Variant(_) =>
             Traverse[Variant].traverse(v)(g).widen
           case e @ Enum(_) =>
-            Applicative[G].pure(e)
-          case e @ Iface() =>
             Applicative[G].pure(e)
         }
     }
@@ -175,12 +168,6 @@ object Variant extends FWTLike[Variant] {
 }
 
 final case class Enum(constructors: ImmArraySeq[Ref.Name]) extends DataType[Nothing, Nothing] {
-
-  /** Widen to DataType, in Java. */
-  def asDataType[RT, PVT]: DataType[RT, PVT] = this
-}
-
-final case class Iface() extends DataType[Nothing, Nothing] {
 
   /** Widen to DataType, in Java. */
   def asDataType[RT, PVT]: DataType[RT, PVT] = this

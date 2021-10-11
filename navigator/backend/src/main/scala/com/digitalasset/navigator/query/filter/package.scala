@@ -60,7 +60,6 @@ package object filter {
                   .toLeft(false)
               case (Some(DamlLfEnum(constructors)), _) =>
                 Right(constructors.exists(checkContained(_, expectedValue)))
-              case (Some(DamlLfInterface()), _) => sys.error("Interface not supported")
               case (None, _) | (_, None) =>
                 Right(false)
             }

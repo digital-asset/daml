@@ -282,7 +282,6 @@ case object LedgerApiV1 {
       dt <- typeCon.instantiate(ddt) match {
         case r @ iface.Record(_) => Right(r)
         case iface.Variant(_) | iface.Enum(_) => Left(GenericConversionError(s"Record expected"))
-        case iface.Iface() | iface.Iface() => Left(GenericConversionError(s"Record expected"))
       }
       fields <- value.fields.toSeq zip dt.fields traverseEitherStrictly {
         case ((von, vv), (tn, fieldType)) =>
@@ -385,8 +384,6 @@ case object LedgerApiV1 {
       dt <- typeCon.instantiate(ddt) match {
         case v @ iface.Variant(_) => Right(v)
         case iface.Record(_) | iface.Enum(_) =>
-          Left(GenericConversionError(s"Variant expected"))
-        case iface.Iface() | iface.Iface() =>
           Left(GenericConversionError(s"Variant expected"))
       }
       constructor = variant.variant
