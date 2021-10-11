@@ -41,7 +41,7 @@ final class ExposedMetrics[T](
 }
 
 object ExposedMetrics {
-  private val Prefix: MetricName = MetricName.DAML :+ "bench_tool"
+  private val Prefix: MetricName = MetricName.Daml :+ "bench_tool"
 
   case class CounterMetric[T](counter: Counter, countingFunction: T => Long)
   case class BytesProcessedMetric[T](bytesProcessed: Counter, sizingFunction: T => Long)
