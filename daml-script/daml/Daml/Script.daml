@@ -519,7 +519,7 @@ exerciseByKeyCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> 
 exerciseByKeyCmd key arg = internalExerciseByKeyCmd (templateTypeRep @t) (toAnyContractKey @t key) (toAnyChoice @t arg)
 
 -- | Create a contract and exercise a choice on it in the same transaction.
-createAndExerciseCmd : forall t c r. Choice t c r => t -> c -> Commands r
+createAndExerciseCmd : forall t c r. (Template t, Choice t c r) => t -> c -> Commands r
 createAndExerciseCmd tplArg choiceArg = internalCreateAndExerciseCmd (toAnyTemplate tplArg) (toAnyChoice @t choiceArg)
 
 -- | Archive the given contract.
