@@ -1056,6 +1056,9 @@ private[lf] final class Compiler(
     }
   }
 
+  // TODO https://github.com/digital-asset/daml/issues/10810:
+  //  Fetch twice, one by interface Id once by template Id.
+  //  Try to bypass the second one.
   private[this] def compileVirtualChoice(
       ifaceId: TypeConName,
       choice: InterfaceChoice,
@@ -1479,6 +1482,9 @@ private[lf] final class Compiler(
       compileFetchBody(tmplId, tmpl)(cidPos, None, tokenPos)
     }
 
+  // TODO https://github.com/digital-asset/daml/issues/10810:
+  //  Fetch twice, one by interface Id once by template Id.
+  //  Try to bypass the second one.
   private[this] def compileFetchInterface(
       ifaceId: Identifier
   ): (SDefinitionRef, SDefinition) =
