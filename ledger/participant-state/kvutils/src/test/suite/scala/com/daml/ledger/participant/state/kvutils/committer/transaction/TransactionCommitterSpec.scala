@@ -12,9 +12,16 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepStop}
+import com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationEntry
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlCommandDedupValue,
+  DamlPartyAllocation,
+  DamlStateKey,
+  DamlStateValue,
+}
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err, committer}
-import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -42,9 +49,8 @@ class TransactionCommitterSpec
     with Matchers
     with MockitoSugar
     with OptionValues {
-  import TransactionCommitterSpec._
-
   import TransactionBuilder.Implicits._
+  import TransactionCommitterSpec._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 

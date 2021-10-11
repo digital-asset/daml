@@ -8,7 +8,6 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{
   packageStateKey,
   parseTimestamp,
 }
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlContractState, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
   Rejection,
@@ -16,6 +15,7 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   Step,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
+import com.daml.ledger.participant.state.kvutils.store.{DamlContractState, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.lf.archive
 import com.daml.lf.data.Ref.PackageId

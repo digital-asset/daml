@@ -16,6 +16,7 @@ import com.daml.ledger.participant.state.kvutils.export.{
   SubmissionAggregator,
   SubmissionInfo,
 }
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{CorrelationId, Envelope, KeyValueCommitting, Raw}
 import com.daml.ledger.validator
 import com.daml.ledger.validator.SubmissionValidator.LogEntryAndState

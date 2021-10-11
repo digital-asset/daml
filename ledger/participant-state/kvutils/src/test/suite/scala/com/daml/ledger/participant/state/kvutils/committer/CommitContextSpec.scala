@@ -3,12 +3,12 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+import com.daml.ledger.participant.state.kvutils.committer.CommitContextSpec._
+import com.daml.ledger.participant.state.kvutils.store.{
   DamlPartyAllocation,
   DamlStateKey,
   DamlStateValue,
 }
-import com.daml.ledger.participant.state.kvutils.committer.CommitContextSpec._
 import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Err, TestHelpers}
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext

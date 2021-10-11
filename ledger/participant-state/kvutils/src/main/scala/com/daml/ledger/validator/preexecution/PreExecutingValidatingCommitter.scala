@@ -5,13 +5,13 @@ package com.daml.ledger.validator.preexecution
 
 import java.time.Instant
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataExporter,
   SubmissionAggregatorWriteOperations,
   SubmissionInfo,
 }
+import com.daml.ledger.participant.state.kvutils.store.DamlStateKey
 import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.validator.reading.{LedgerStateReader, StateReader}
 import com.daml.ledger.validator.{

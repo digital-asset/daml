@@ -25,6 +25,11 @@ breaking:
     # Moving an individual field into a new `one_of` retains binary backwards
     # compatibility.
     - FIELD_SAME_ONEOF
+    # `daml_kvutils.proto` file was split into multiple files with different packages during the `v1.18.0` release
+    # Changing the proto package for a message retains binary backwards compatibility but
+    # buf treats the message as a new type for existing fields
+    # This exception will be removed once the latest stable tag contains the updated field types
+    - FIELD_SAME_TYPE
   ignore:
     # Changes in daml_lf_1.proto do not impact KV, as it never parses archive
     # payload directly
