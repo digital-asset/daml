@@ -9,7 +9,11 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
-import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlLogEntryId,
+  DamlStateKey,
+  DamlStateValue,
+}
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmissionBatch.CorrelatedSubmission
 import com.daml.ledger.participant.state.kvutils.wire.{
   DamlConfigurationSubmission,

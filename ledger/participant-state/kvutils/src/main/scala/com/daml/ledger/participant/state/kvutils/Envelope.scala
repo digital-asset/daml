@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
-import com.daml.ledger.participant.state.kvutils.store.DamlStateValue
+import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto, envelope => proto}
 import com.google.protobuf.ByteString
 
@@ -21,7 +21,7 @@ object Envelope {
 
   final case class SubmissionMessage(submission: wire.DamlSubmission) extends Message
 
-  final case class LogEntryMessage(logEntry: Proto.DamlLogEntry) extends Message
+  final case class LogEntryMessage(logEntry: DamlLogEntry) extends Message
 
   final case class StateValueMessage(value: DamlStateValue) extends Message
 
@@ -54,10 +54,10 @@ object Envelope {
   def enclose(sub: wire.DamlSubmission, compression: Boolean): Raw.Envelope =
     enclose(proto.Envelope.MessageKind.SUBMISSION, sub.toByteString, compression)
 
-  def enclose(logEntry: Proto.DamlLogEntry): Raw.Envelope =
+  def enclose(logEntry: DamlLogEntry): Raw.Envelope =
     enclose(logEntry, compression = DefaultCompression)
 
-  def enclose(logEntry: Proto.DamlLogEntry, compression: Boolean): Raw.Envelope =
+  def enclose(logEntry: DamlLogEntry, compression: Boolean): Raw.Envelope =
     enclose(proto.Envelope.MessageKind.LOG_ENTRY, logEntry.toByteString, compression)
 
   def enclose(stateValue: DamlStateValue): Raw.Envelope =
@@ -93,7 +93,7 @@ object Envelope {
       }
       message <- parsedEnvelope.getKind match {
         case proto.Envelope.MessageKind.LOG_ENTRY =>
-          parseMessageSafe(() => Proto.DamlLogEntry.parseFrom(uncompressedMessage))
+          parseMessageSafe(() => DamlLogEntry.parseFrom(uncompressedMessage))
             .map(LogEntryMessage)
         case proto.Envelope.MessageKind.SUBMISSION =>
           parseMessageSafe(() => wire.DamlSubmission.parseFrom(uncompressedMessage))
@@ -109,7 +109,7 @@ object Envelope {
       }
     } yield message
 
-  def openLogEntry(envelopeBytes: Raw.Envelope): Either[String, Proto.DamlLogEntry] =
+  def openLogEntry(envelopeBytes: Raw.Envelope): Either[String, DamlLogEntry] =
     open(envelopeBytes).flatMap {
       case LogEntryMessage(entry) => Right(entry)
       case msg => Left(s"Expected log entry, got ${msg.getClass}")

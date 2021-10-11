@@ -7,6 +7,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.partyAllocationDedu
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer.buildLogEntryWithOptionalRecordTime
 import com.daml.ledger.participant.state.kvutils.store.{
+  DamlLogEntry,
   DamlPartyAllocation,
   DamlStateKey,
   DamlStateValue,

@@ -11,7 +11,11 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
-import com.daml.ledger.participant.state.kvutils.store.{DamlStateValue, DamlSubmissionDedupValue}
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlLogEntry,
+  DamlStateValue,
+  DamlSubmissionDedupValue,
+}
 import com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationEntry
 import com.daml.ledger.participant.state.kvutils.wire.{DamlConfigurationSubmission, DamlSubmission}
 import com.daml.lf.data.Time.Timestamp

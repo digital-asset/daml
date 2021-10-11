@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.util.concurrent.atomic.AtomicLong
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
+import com.daml.ledger.participant.state.kvutils.store.DamlLogEntryId
 import com.google.protobuf.ByteString
 
 class SequentialLogEntryId(prefix: String) {

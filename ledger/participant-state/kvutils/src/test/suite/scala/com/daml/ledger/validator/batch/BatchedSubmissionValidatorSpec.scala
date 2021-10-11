@@ -7,12 +7,16 @@ import java.time.Clock
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.export.{
   NoOpLedgerDataExporter,
   SubmissionAggregator,
 }
-import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlLogEntry,
+  DamlLogEntryId,
+  DamlStateKey,
+  DamlStateValue,
+}
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmissionBatch.CorrelatedSubmission
 import com.daml.ledger.participant.state.kvutils.wire._
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
