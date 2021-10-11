@@ -1061,9 +1061,7 @@ private[lf] final class Compiler(
     topLevelFunction(ChoiceDefRef(ifaceId, choice.name), 3) {
       case List(cidPos, choiceArgPos, tokenPos) =>
         withEnv { _ =>
-          let(
-            SBUFetchInterface(ifaceId)(svar(cidPos), svar(tokenPos))
-          ) { payloadPos =>
+          let(SBUFetchInterface(ifaceId)(svar(cidPos))) { payloadPos =>
             SBResolveVirtualChoice(choice.name)(
               svar(payloadPos),
               svar(cidPos),
@@ -1452,7 +1450,6 @@ private[lf] final class Compiler(
   private[this] def compileFetchBody(tmplId: Identifier, tmpl: Template)(
       cidPos: Position,
       mbKey: Option[Position], //defined for byKey operation
-      tokenPos: Position,
   ) =
     withEnv { _ =>
       let(
@@ -1461,11 +1458,7 @@ private[lf] final class Compiler(
         )(svar(cidPos), mbKey.fold(SEValue.None: SExpr)(pos => SBSome(svar(pos))))
       ) { tmplArgPos =>
         addExprVar(tmpl.param, tmplArgPos)
-        let(
-          SBUInsertFetchNode(tmplId, byKey = mbKey.isDefined)(
-            svar(cidPos)
-          )
-        ) { _ =>
+        let(SBUInsertFetchNode(tmplId, byKey = mbKey.isDefined)(svar(cidPos))) { _ =>
           svar(tmplArgPos)
         }
       }
@@ -1481,15 +1474,15 @@ private[lf] final class Compiler(
     //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] [tmpl.key]
     //   in <tmplArg>
     topLevelFunction(FetchDefRef(tmplId), 2) { case List(cidPos, tokenPos) =>
-      compileFetchBody(tmplId, tmpl)(cidPos, None, tokenPos)
+      compileFetchBody(tmplId, tmpl)(cidPos, None)
     }
 
   private[this] def compileFetchInterface(
       ifaceId: Identifier
   ): (SDefinitionRef, SDefinition) =
-    topLevelFunction(FetchDefRef(ifaceId), 2) { case List(cidPos, _) =>
+    topLevelFunction(FetchDefRef(ifaceId), 2) { case List(cidPos, tokenPos) =>
       let(SBUFetchInterface(ifaceId)(svar(cidPos))) { payloadPos =>
-        SBResolveVirtualFetch(svar(payloadPos), svar(cidPos), svar(payloadPos))
+        SBResolveVirtualFetch(svar(payloadPos), svar(cidPos), svar(payloadPos), svar(tokenPos))
       }
     }
 
