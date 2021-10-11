@@ -457,7 +457,7 @@ private[validation] object Typing {
       implementations.values.foreach(env.checkIfaceImplementation(tplName, _))
     }
 
-    def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit = {
+    def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
         case DefInterface(param, virtualChoices, fixedChoices, methods) =>
           fixedChoices.values.foreach(
@@ -466,7 +466,6 @@ private[validation] object Typing {
           virtualChoices.values.foreach(checkIfaceChoice)
           methods.values.foreach(checkIfaceMethod)
       }
-    }
 
     def checkIfaceChoice(choice: InterfaceChoice): Unit = {
       checkType(choice.argType, KStar)
