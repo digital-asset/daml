@@ -273,45 +273,41 @@ NEXT_SERVERS = {
     },
 }
 
+# Server arguments that enable the append-only schema
+APPEND_ONLY_ARGS = [
+    "--enable-append-only-schema",
+]
+
+# Full conformance test
 server_conformance_test(
-    name = "next-conformance-test-static-time",
+    name = "next-conformance-test",
     lf_versions = [
         "default",
         "latest",
         "preview",
     ],
     server_args = [
-        "--static-time",
-    ],
-    servers = NEXT_SERVERS,
-    test_tool_args = [
-        "--open-world",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-        "--exclude=ClosedWorldIT",
-    ],
-)
-
-server_conformance_test(
-    name = "next-conformance-test-wall-clock",
-    server_args = [
-        "--wall-clock-time",
         "--max-deduplication-duration=PT5S",
-    ],
+    ] + APPEND_ONLY_ARGS,
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
-        "--additional=KVCommandDeduplicationIT",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        "--additional=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
         "--exclude=ClosedWorldIT",
     ],
 )
 
+# Feature test: --implicit-party-allocation=false (closed world mode)
 server_conformance_test(
     name = "next-conformance-test-closed-world",
     server_args = [
-        "--wall-clock-time",
         "--implicit-party-allocation=false",
-    ],
+    ] + APPEND_ONLY_ARGS,
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--verbose",
@@ -319,29 +315,15 @@ server_conformance_test(
     ],
 )
 
+# Feature test: --static-time
 server_conformance_test(
-    name = "next-conformance-test-contract-ids",
-    servers = {"memory": NEXT_SERVERS["memory"]},
-    test_tool_args = [
-        "--verbose",
-        "--include=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
-    ],
-)
-
-# TODO append-only: cleanup
-server_conformance_test(
-    name = "next-conformance-test-append-only",
+    name = "next-conformance-test-static-time",
     server_args = [
-        "--enable-append-only-schema",
-        "--max-deduplication-duration=PT5S",
-    ],
-    servers = {"postgresql": NEXT_SERVERS["postgresql"]},
+        "--static-time",
+    ] + APPEND_ONLY_ARGS,
+    servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=AppendOnlyKVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ClosedWorldIT",
     ],

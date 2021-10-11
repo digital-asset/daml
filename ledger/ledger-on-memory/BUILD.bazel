@@ -137,6 +137,7 @@ da_scala_binary(
     ],
 )
 
+# Full conformance test (single node setup)
 conformance_test(
     name = "conformance-test",
     ports = [6865],
@@ -145,18 +146,25 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
         "--max-deduplication-duration=PT5S",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
     ],
     test_tool_args = [
         "--additional=MultiPartySubmissionIT",
         "--additional=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
         "--additional=ParticipantPruningIT",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=KVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-        # Disable tests targeting only append-only schema functionality
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
+# Feature test: --daml-lf-min-version-1.14-unsafe
+# This asserts that you can use the 1.14 packages despite their dependencies on a few stable packages in older LF versions.
 conformance_test(
     name = "conformance-test-min-1.14",
     lf_versions = ["1.14"],
@@ -167,6 +175,8 @@ conformance_test(
         "--participant=participant-id=example,port=6865",
         "--daml-lf-min-version-1.14-unsafe",
         "--max-deduplication-duration=PT5S",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
     ],
     test_tool_args = [
         "--additional=MultiPartySubmissionIT",
@@ -175,32 +185,9 @@ conformance_test(
     ],
 )
 
+# Full conformance test (two participant setup)
 conformance_test(
     name = "conformance-test-multi-participant",
-    ports = [
-        6865,
-        6866,
-    ],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example1,port=6865",
-        "--participant=participant-id=example2,port=6866",
-        "--max-deduplication-duration=PT5S",
-    ],
-    test_tool_args = [
-        "--verbose",
-        "--additional=ParticipantPruningIT",
-        "--additional=KVCommandDeduplicationIT",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-        "--exclude=ConfigManagementServiceIT",
-        # Disable tests targeting only append-only schema functionality
-        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-append-only-multi-participant",
     ports = [
         6865,
         6866,
@@ -227,6 +214,7 @@ conformance_test(
     ],
 )
 
+# Full conformance test (indexer and ledger api server separated)
 conformance_test(
     name = "conformance-test-split-participant",
     ports = [
@@ -235,15 +223,23 @@ conformance_test(
     server = ":app",
     server_args = [
         "--contract-id-seeding=testing-weak",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
         "--participant=participant-id=split-example,port=6865,server-jdbc-url=jdbc:h2:mem:split-example;db_close_delay=-1;db_close_on_exit=false,shard-name=server1,run-mode=ledger-api-server",
         "--participant=participant-id=split-example,port=6865,server-jdbc-url=jdbc:h2:mem:split-example;db_close_delay=-1;db_close_on_exit=false,shard-name=indexer,run-mode=indexer",
         "--max-deduplication-duration=PT5S",
     ],
     test_tool_args = [
         "--verbose",
+        "--additional=ParticipantPruningIT",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=KVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ConfigManagementServiceIT",
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -254,6 +250,8 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
+        "--index-append-only-schema",
+        "--mutable-contract-state-cache",
     ],
     test_tool_args = [
         "--verbose",
