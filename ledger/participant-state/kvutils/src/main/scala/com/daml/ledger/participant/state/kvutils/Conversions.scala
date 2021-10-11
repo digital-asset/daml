@@ -479,7 +479,7 @@ private[state] object Conversions {
         val rejection = entry.getInvalidLedgerTime
         Some(
           buildStatus(
-            Code.ABORTED,
+            Code.FAILED_PRECONDITION,
             s"Invalid ledger time: ${rejection.getDetails}",
             Map(
               "ledger_time" -> rejection.getLedgerTime.toString,
@@ -492,7 +492,7 @@ private[state] object Conversions {
         val rejection = entry.getDisputed
         Some(
           buildStatus(
-            Code.INVALID_ARGUMENT,
+            Code.INTERNAL, // It should have been caught by the participant
             s"Disputed: ${rejection.getDetails}",
           )
         )
@@ -512,7 +512,7 @@ private[state] object Conversions {
         val rejection = entry.getInconsistent
         Some(
           buildStatus(
-            Code.ABORTED,
+            Code.FAILED_PRECONDITION, // In the past it was used for external inconsistencies
             s"Inconsistent: ${rejection.getDetails}",
           )
         )
@@ -535,7 +535,7 @@ private[state] object Conversions {
         val rejection = entry.getPartyNotKnownOnLedger
         Some(
           buildStatus(
-            Code.INVALID_ARGUMENT,
+            Code.FAILED_PRECONDITION, // The participant can't check parties as they may be non-local
             s"Party not known on ledger: ${rejection.getDetails}",
           )
         )
@@ -543,42 +543,42 @@ private[state] object Conversions {
         val rejection = entry.getValidationFailure
         Some(
           buildStatus(
-            Code.INVALID_ARGUMENT,
+            Code.INTERNAL, // It should have been caught by the participant
             s"Disputed: ${rejection.getDetails}",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.INTERNALLY_DUPLICATE_KEYS =>
         Some(
           buildStatus(
-            Code.INVALID_ARGUMENT,
+            Code.INTERNAL, // It should have been caught by the participant
             s"Disputed: ${InternallyInconsistentTransaction.DuplicateKeys.description}",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.INTERNALLY_INCONSISTENT_KEYS =>
         Some(
           buildStatus(
-            Code.INVALID_ARGUMENT,
+            Code.INTERNAL, // It should have been caught by the participant
             s"Disputed: ${InternallyInconsistentTransaction.InconsistentKeys.description}",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_CONTRACTS =>
         Some(
           buildStatus(
-            Code.ABORTED,
+            Code.FAILED_PRECONDITION,
             s"Inconsistent: ${ExternallyInconsistentTransaction.InconsistentContracts.description}",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_DUPLICATE_KEYS =>
         Some(
           buildStatus(
-            Code.ABORTED,
+            Code.FAILED_PRECONDITION,
             s"Inconsistent: ${ExternallyInconsistentTransaction.DuplicateKeys.description}",
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_KEYS =>
         Some(
           buildStatus(
-            Code.ABORTED,
+            Code.FAILED_PRECONDITION,
             s"Inconsistent: ${ExternallyInconsistentTransaction.InconsistentKeys.description}",
           )
         )
@@ -586,7 +586,7 @@ private[state] object Conversions {
         val rejection = entry.getMissingInputState
         Some(
           buildStatus(
-            Code.ABORTED,
+            Code.INTERNAL, // The participant should have provided the needed input
             s"Inconsistent: Missing input state for key ${rejection.getKey.toString}",
             Map("key" -> rejection.getKey.toString),
           )
@@ -595,7 +595,7 @@ private[state] object Conversions {
         val rejection = entry.getRecordTimeOutOfRange
         Some(
           buildStatus(
-            Code.ABORTED,
+            Code.FAILED_PRECONDITION,
             s"Invalid ledger time: Record time is outside of valid range [${rejection.getMinimumRecordTime}, ${rejection.getMaximumRecordTime}]",
             Map(
               "minimum_record_time" -> Instant
@@ -616,7 +616,7 @@ private[state] object Conversions {
       case DamlTransactionRejectionEntry.ReasonCase.CAUSAL_MONOTONICITY_VIOLATED =>
         Some(
           buildStatus(
-            Code.ABORTED,
+            Code.FAILED_PRECONDITION,
             "Invalid ledger time: Causal monotonicity violated",
           )
         )
@@ -624,7 +624,7 @@ private[state] object Conversions {
         val rejection = entry.getSubmittingPartyNotKnownOnLedger
         Some(
           buildStatus(
-            Code.INVALID_ARGUMENT,
+            Code.FAILED_PRECONDITION, // The participant can't check parties as they may be non-local
             s"Party not known on ledger: Submitting party '${rejection.getSubmitterParty}' not known",
             Map("submitter_party" -> rejection.getSubmitterParty),
           )
@@ -634,7 +634,7 @@ private[state] object Conversions {
         val parties = rejection.getPartiesList
         Some(
           buildStatus(
-            Code.INVALID_ARGUMENT,
+            Code.FAILED_PRECONDITION, // The participant can't check parties as they may be non-local
             s"Party not known on ledger: Parties not known on ledger ${parties.asScala.mkString("[", ",", "]")}",
             Map("parties" -> objectToJsonString(parties)),
           )
@@ -643,7 +643,7 @@ private[state] object Conversions {
         val rejection = entry.getInvalidParticipantState
         Some(
           buildStatus(
-            Code.INVALID_ARGUMENT,
+            Code.INTERNAL,
             s"Disputed: ${rejection.getDetails}",
             rejection.getMetadataMap.asScala.toMap,
           )
@@ -651,7 +651,7 @@ private[state] object Conversions {
       case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
         Some(
           buildStatus(
-            Code.UNKNOWN,
+            Code.INTERNAL, // We always set a reason
             "No reason set for rejection",
           )
         )

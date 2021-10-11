@@ -114,89 +114,89 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             ("rejection", "expected code", "expected additional details"),
             (
               Rejection.ValidationFailure(Error.Package(Error.Package.Internal("ERROR", "ERROR"))),
-              Code.INVALID_ARGUMENT,
+              Code.INTERNAL,
               Map.empty,
             ),
             (
               Rejection.InternallyInconsistentTransaction.InconsistentKeys,
-              Code.INVALID_ARGUMENT,
+              Code.INTERNAL,
               Map.empty,
             ),
             (
               Rejection.InternallyInconsistentTransaction.DuplicateKeys,
-              Code.INVALID_ARGUMENT,
+              Code.INTERNAL,
               Map.empty,
             ),
             (
               Rejection.ExternallyInconsistentTransaction.InconsistentContracts,
-              Code.ABORTED,
+              Code.FAILED_PRECONDITION,
               Map.empty,
             ),
             (
               Rejection.ExternallyInconsistentTransaction.InconsistentKeys,
-              Code.ABORTED,
+              Code.FAILED_PRECONDITION,
               Map.empty,
             ),
             (
               Rejection.ExternallyInconsistentTransaction.DuplicateKeys,
-              Code.ABORTED,
+              Code.FAILED_PRECONDITION,
               Map.empty,
             ),
             (
               Rejection.MissingInputState(DamlStateKey.getDefaultInstance),
-              Code.ABORTED,
+              Code.INTERNAL,
               Map.empty,
             ),
             (
               Rejection.InvalidParticipantState(Err.InternalError("error")),
-              Code.INVALID_ARGUMENT,
+              Code.INTERNAL,
               Map.empty,
             ),
             (
               Rejection.InvalidParticipantState(
                 Err.ArchiveDecodingFailed(Ref.PackageId.assertFromString("id"), "reason")
               ),
-              Code.INVALID_ARGUMENT,
+              Code.INTERNAL,
               Map("package_id" -> "id"),
             ),
             (
               Rejection.InvalidParticipantState(Err.MissingDivulgedContractInstance("id")),
-              Code.INVALID_ARGUMENT,
+              Code.INTERNAL,
               Map("contract_id" -> "id"),
             ),
             (
               Rejection.RecordTimeOutOfRange(now, now),
-              Code.ABORTED,
+              Code.FAILED_PRECONDITION,
               Map.empty,
             ),
             (
               Rejection.LedgerTimeOutOfRange(LedgerTimeModel.OutOfRange(now, now, now)),
-              Code.ABORTED,
+              Code.FAILED_PRECONDITION,
               Map.empty,
             ),
             (
               Rejection.CausalMonotonicityViolated,
-              Code.ABORTED,
+              Code.FAILED_PRECONDITION,
               Map.empty,
             ),
             (
               Rejection.SubmittingPartyNotKnownOnLedger(Ref.Party.assertFromString("party")),
-              Code.INVALID_ARGUMENT,
+              Code.FAILED_PRECONDITION,
               Map.empty,
             ),
             (
               Rejection.PartiesNotKnownOnLedger(Seq.empty),
-              Code.INVALID_ARGUMENT,
+              Code.FAILED_PRECONDITION,
               Map.empty,
             ),
             (
               Rejection.MissingInputState(partyStateKey("party")),
-              Code.ABORTED,
+              Code.INTERNAL,
               Map("key" -> "party: \"party\"\n"),
             ),
             (
               Rejection.RecordTimeOutOfRange(Instant.EPOCH, Instant.EPOCH),
-              Code.ABORTED,
+              Code.FAILED_PRECONDITION,
               Map(
                 "minimum_record_time" -> Instant.EPOCH.toString,
                 "maximum_record_time" -> Instant.EPOCH.toString,
@@ -204,12 +204,12 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             ),
             (
               Rejection.SubmittingPartyNotKnownOnLedger(party0),
-              Code.INVALID_ARGUMENT,
+              Code.FAILED_PRECONDITION,
               Map("submitter_party" -> party0),
             ),
             (
               Rejection.PartiesNotKnownOnLedger(Iterable(party0, party1)),
-              Code.INVALID_ARGUMENT,
+              Code.FAILED_PRECONDITION,
               Map("parties" -> s"""[\"$party0\",\"$party1\"]"""),
             ),
           )
@@ -290,12 +290,12 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               ("rejection builder", "code", "expected additional details"),
               (
                 _.setInconsistent(Inconsistent.newBuilder()),
-                Code.ABORTED,
+                Code.FAILED_PRECONDITION,
                 Map.empty,
               ),
               (
                 _.setDisputed(Disputed.newBuilder()),
-                Code.INVALID_ARGUMENT,
+                Code.INTERNAL,
                 Map.empty,
               ),
               (
@@ -305,7 +305,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               ),
               (
                 _.setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder()),
-                Code.INVALID_ARGUMENT,
+                Code.FAILED_PRECONDITION,
                 Map.empty,
               ),
               (
@@ -334,7 +334,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
                     .setLedgerTime(Timestamp.newBuilder().setSeconds(2L))
                     .setUpperBound(Timestamp.newBuilder().setSeconds(3L))
                 ),
-                Code.ABORTED,
+                Code.FAILED_PRECONDITION,
                 Map(
                   "lower_bound" -> "seconds: 1\n",
                   "ledger_time" -> "seconds: 2\n",
