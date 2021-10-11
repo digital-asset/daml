@@ -7,7 +7,6 @@ import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
 import com.daml.ledger.participant.state.kvutils.store.DamlStateValue
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
-import com.daml.ledger.participant.state.kvutils.envelope
 import com.google.protobuf.ByteString
 
 import scala.util.Try
