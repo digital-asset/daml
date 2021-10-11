@@ -22,13 +22,7 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, Result}
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.Transaction.{
-  DuplicateKeys,
-  InconsistentKeys,
-  KeyActive,
-  KeyInput,
-  KeyInputError,
-}
+import com.daml.lf.transaction.Transaction._
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext

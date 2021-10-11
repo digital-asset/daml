@@ -12,14 +12,7 @@ import com.daml.ledger.validator.caching.{
   CachingStateReader,
 }
 import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
-import com.daml.ledger.validator.{
-  CommitStrategy,
-  DamlLedgerStateReader,
-  DefaultStateKeySerializationStrategy,
-  LedgerStateOperations,
-  LogAppendingCommitStrategy,
-  StateKeySerializationStrategy,
-}
+import com.daml.ledger.validator._
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
