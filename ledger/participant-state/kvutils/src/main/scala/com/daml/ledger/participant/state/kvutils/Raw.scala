@@ -59,8 +59,8 @@ object Raw {
   final case class Envelope(override val bytes: ByteString) extends Value
 
   object Envelope extends Companion[Envelope] {
-    def apply(envelope: DamlKvutils.Envelope): Envelope =
-      apply(envelope.toByteString)
+    def apply(protoEnvelope: envelope.Envelope): Envelope =
+      apply(protoEnvelope.toByteString)
   }
 
   type LogEntry = (LogEntryId, Envelope)
