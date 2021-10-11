@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
 import com.daml.ledger.participant.state.kvutils.store.DamlStateValue
-import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
+import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto, envelope => proto}
 import com.google.protobuf.ByteString
 
 import scala.util.Try
@@ -30,20 +30,20 @@ object Envelope {
   private val DefaultCompression = true
 
   private def enclose(
-      kind: envelope.Envelope.MessageKind,
+      kind: proto.Envelope.MessageKind,
       bytes: ByteString,
       compression: Boolean,
   ): Raw.Envelope =
     Raw.Envelope(
-      envelope.Envelope.newBuilder
+      proto.Envelope.newBuilder
         .setVersion(Version.version)
         .setKind(kind)
         .setMessage(if (compression) compress(bytes) else bytes)
         .setCompression(
           if (compression)
-            envelope.Envelope.CompressionSchema.GZIP
+            proto.Envelope.CompressionSchema.GZIP
           else
-            envelope.Envelope.CompressionSchema.NONE
+            proto.Envelope.CompressionSchema.NONE
         )
         .build
     )
@@ -52,30 +52,30 @@ object Envelope {
     enclose(sub, compression = DefaultCompression)
 
   def enclose(sub: wire.DamlSubmission, compression: Boolean): Raw.Envelope =
-    enclose(envelope.Envelope.MessageKind.SUBMISSION, sub.toByteString, compression)
+    enclose(proto.Envelope.MessageKind.SUBMISSION, sub.toByteString, compression)
 
   def enclose(logEntry: Proto.DamlLogEntry): Raw.Envelope =
     enclose(logEntry, compression = DefaultCompression)
 
   def enclose(logEntry: Proto.DamlLogEntry, compression: Boolean): Raw.Envelope =
-    enclose(envelope.Envelope.MessageKind.LOG_ENTRY, logEntry.toByteString, compression)
+    enclose(proto.Envelope.MessageKind.LOG_ENTRY, logEntry.toByteString, compression)
 
   def enclose(stateValue: DamlStateValue): Raw.Envelope =
     enclose(stateValue, compression = DefaultCompression)
 
   def enclose(stateValue: DamlStateValue, compression: Boolean): Raw.Envelope =
-    enclose(envelope.Envelope.MessageKind.STATE_VALUE, stateValue.toByteString, compression)
+    enclose(proto.Envelope.MessageKind.STATE_VALUE, stateValue.toByteString, compression)
 
   def enclose(batch: wire.DamlSubmissionBatch): Raw.Envelope =
-    enclose(envelope.Envelope.MessageKind.SUBMISSION_BATCH, batch.toByteString, compression = false)
+    enclose(proto.Envelope.MessageKind.SUBMISSION_BATCH, batch.toByteString, compression = false)
 
   def open(envelopeBytes: Raw.Envelope): Either[String, Message] =
-    openWithParser(() => envelope.Envelope.parseFrom(envelopeBytes.bytes))
+    openWithParser(() => proto.Envelope.parseFrom(envelopeBytes.bytes))
 
   def open(envelopeBytes: Array[Byte]): Either[String, Message] =
-    openWithParser(() => envelope.Envelope.parseFrom(envelopeBytes))
+    openWithParser(() => proto.Envelope.parseFrom(envelopeBytes))
 
-  private def openWithParser(parseEnvelope: () => envelope.Envelope): Either[String, Message] =
+  private def openWithParser(parseEnvelope: () => proto.Envelope): Either[String, Message] =
     for {
       parsedEnvelope <- Try(parseEnvelope()).toEither.left.map(_.getMessage)
       _ <- Either.cond(
@@ -84,27 +84,27 @@ object Envelope {
         s"Unsupported version ${parsedEnvelope.getVersion}",
       )
       uncompressedMessage <- parsedEnvelope.getCompression match {
-        case envelope.Envelope.CompressionSchema.GZIP =>
+        case proto.Envelope.CompressionSchema.GZIP =>
           parseMessageSafe(() => decompress(parsedEnvelope.getMessage))
-        case envelope.Envelope.CompressionSchema.NONE =>
+        case proto.Envelope.CompressionSchema.NONE =>
           Right(parsedEnvelope.getMessage)
-        case envelope.Envelope.CompressionSchema.UNRECOGNIZED =>
+        case proto.Envelope.CompressionSchema.UNRECOGNIZED =>
           Left(s"Unrecognized compression schema: ${parsedEnvelope.getCompressionValue}")
       }
       message <- parsedEnvelope.getKind match {
-        case envelope.Envelope.MessageKind.LOG_ENTRY =>
+        case proto.Envelope.MessageKind.LOG_ENTRY =>
           parseMessageSafe(() => Proto.DamlLogEntry.parseFrom(uncompressedMessage))
             .map(LogEntryMessage)
-        case envelope.Envelope.MessageKind.SUBMISSION =>
+        case proto.Envelope.MessageKind.SUBMISSION =>
           parseMessageSafe(() => wire.DamlSubmission.parseFrom(uncompressedMessage))
             .map(SubmissionMessage)
-        case envelope.Envelope.MessageKind.STATE_VALUE =>
+        case proto.Envelope.MessageKind.STATE_VALUE =>
           parseMessageSafe(() => DamlStateValue.parseFrom(uncompressedMessage))
             .map(StateValueMessage)
-        case envelope.Envelope.MessageKind.SUBMISSION_BATCH =>
+        case proto.Envelope.MessageKind.SUBMISSION_BATCH =>
           parseMessageSafe(() => wire.DamlSubmissionBatch.parseFrom(uncompressedMessage))
             .map(SubmissionBatchMessage)
-        case envelope.Envelope.MessageKind.UNRECOGNIZED =>
+        case proto.Envelope.MessageKind.UNRECOGNIZED =>
           Left(s"Unrecognized message kind: ${parsedEnvelope.getKind}")
       }
     } yield message
