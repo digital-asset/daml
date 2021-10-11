@@ -27,6 +27,7 @@ class ValueTranslatorSpec
   import Preprocessor.ArrayList
   import com.daml.lf.testing.parser.Implicits._
   import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
+
   private[this] implicit val defaultPackageId: Ref.PackageId =
     defaultParserParameters.defaultPackageId
 
