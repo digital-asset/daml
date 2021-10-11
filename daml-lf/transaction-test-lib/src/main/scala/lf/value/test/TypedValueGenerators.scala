@@ -84,6 +84,7 @@ object TypedValueGenerators {
 
     import Value._, ValueGenerators.Implicits._, data.Utf8.ImplicitOrder._
     import scalaz.std.anyVal._
+
     val text = noCid(PT.Text, ValueText) { case ValueText(t) => t }
     val int64 = noCid(PT.Int64, ValueInt64) { case ValueInt64(i) => i }
     val unit = noCid(PT.Unit, (_: Unit) => ValueUnit) { case ValueUnit => () }

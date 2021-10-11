@@ -25,6 +25,7 @@ class CommandPreprocessorSpec
 
   import com.daml.lf.testing.parser.Implicits._
   import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
+
   private implicit val defaultPackageId = defaultParserParameters.defaultPackageId
 
   private[this] val pkg =

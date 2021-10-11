@@ -37,6 +37,7 @@ import scala.util.{Failure, Success, Try}
 class Server(config: Config) extends StrictLogging {
   import com.daml.auth.middleware.api.JsonProtocol._
   import com.daml.auth.oauth2.api.JsonProtocol._
+
   implicit private val unmarshal: Unmarshaller[String, Uri] = Unmarshaller.strict(Uri(_))
 
   private def toRedirectUri(uri: Uri) =
