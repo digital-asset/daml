@@ -1,8 +1,6 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE CPP #-}
-
 module DA.Experimental.Interface(
   interfaceCreate,
   interfaceSignatory,
@@ -18,4 +16,4 @@ interfaceSignatory: t -> [Party]
 interfaceSignatory payload = primitive @"$RESOLVE_VIRTUAL_SIGNATORY" payload payload
 
 interfaceObserver: t -> [Party]
-interfaceObserver payload = primitive @"$RESOLVER_VIRTUAL_OBSERVER"  payload payload
+interfaceObserver payload = primitive @"$RESOLVE_VIRTUAL_OBSERVER"  payload payload
