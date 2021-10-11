@@ -11,7 +11,11 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmissionBatch.CorrelatedSubmission
-import com.daml.ledger.participant.state.kvutils.wire.{DamlSubmission, DamlSubmissionBatch}
+import com.daml.ledger.participant.state.kvutils.wire.{
+  DamlConfigurationSubmission,
+  DamlSubmission,
+  DamlSubmissionBatch,
+}
 import com.daml.ledger.participant.state.kvutils.{
   DamlStateMap,
   Envelope,

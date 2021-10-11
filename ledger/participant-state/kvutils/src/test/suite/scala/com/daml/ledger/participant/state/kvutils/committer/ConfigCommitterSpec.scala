@@ -6,9 +6,9 @@ package com.daml.ledger.participant.state.kvutils.committer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlConfigurationSubmission
 import com.daml.ledger.participant.state.kvutils.TestHelpers
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
+import com.daml.ledger.participant.state.kvutils.wire.DamlConfigurationSubmission
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics

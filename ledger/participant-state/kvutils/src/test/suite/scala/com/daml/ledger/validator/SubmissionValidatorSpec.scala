@@ -7,9 +7,12 @@ import java.time.Clock
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.caching.Cache
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.wire.{DamlSubmission, DamlSubmissionBatch}
+import com.daml.ledger.participant.state.kvutils.wire.{
+  DamlConfigurationSubmission,
+  DamlSubmission,
+  DamlSubmissionBatch,
+}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
 import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, anyLoggingContext}
 import com.daml.ledger.validator.SubmissionValidatorSpec._

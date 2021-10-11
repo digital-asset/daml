@@ -273,24 +273,6 @@ message DamlPackageUploadRejectionEntry {
   }
 }
 
-// Configuration change request to change the ledger configuration.
-message DamlConfigurationSubmission {
-  // A unique string scoped to a particular participant for matching the
-  // request with the result.
-  // Implementers are free to select adequate mechanism e.g. UUID or similar.
-  string submission_id = 1;
-
-  // Submitting participant's id.
-  string participant_id = 2;
-
-  // The maximum record time after which the submission will be rejected.
-  // Allows submitter to control when the request times out and to retry.
-  google.protobuf.Timestamp maximum_record_time = 3;
-
-  // The new configuration that replaces the current configuration.
-  com.daml.ledger.configuration.LedgerConfiguration configuration = 4;
-}
-
 // A log entry describing a rejected configuration change.
 message DamlConfigurationRejectionEntry {
   // A unique string scoped to a particular participant for matching the
