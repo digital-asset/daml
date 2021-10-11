@@ -48,7 +48,7 @@ trait BaseError extends LocationMixin {
   def logWithContext(extra: Map[String, String] = Map())(implicit
       errorCodeLoggingContext: ErrorCodeLoggingContext
   ): Unit =
-    code.log(this, extra)
+    errorCodeLoggingContext.logError(this, extra)
 
   def asGrpcErrorFromContext(implicit
       errorCodeLoggingContext: ErrorCodeLoggingContext

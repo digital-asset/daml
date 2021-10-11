@@ -13,12 +13,7 @@ import org.slf4j.event.Level
 trait ErrorCodeLoggingContext extends CanLog {
   def properties: Map[String, String]
   def correlationId: Option[String]
-  def logError(
-      errorCode: ErrorCode,
-      err: BaseError,
-      logLevel: Level,
-      extra: Map[String, String],
-  ): Unit
+  def logError(err: BaseError, extra: Map[String, String]): Unit
 }
 
 trait CanLog {
@@ -52,13 +47,9 @@ class DamlErrorCodeLoggingContext(
   def error(message: String, throwable: Throwable): Unit =
     logger.error(message, throwable)(loggingContext)
 
-  def logError(
-      // TODO error codes: Consider not passing the ErrorCode and extracting it from the BaseError
-      errorCode: ErrorCode,
-      err: BaseError,
-      logLevel: Level,
-      extra: Map[String, String],
-  ): Unit = {
+  def logError(err: BaseError, extra: Map[String, String]): Unit = {
+    val errorCode = err.code
+    val logLevel = errorCode.logLevel
     val mergedContext = err.context ++ err.location.map(("location", _)).toList.toMap ++ extra
 
     LoggingContext.withEnrichedLoggingContext(
@@ -70,6 +61,7 @@ class DamlErrorCodeLoggingContext(
         case (Level.INFO, Some(tr)) => logger.info(message, tr)
         case (Level.WARN, None) => logger.warn(message)
         case (Level.WARN, Some(tr)) => logger.warn(message, tr)
+        // TODO error codes: Handle below INFO levels explicitly
         // an error that is logged with < INFO is not an error ...
         case (_, None) => logger.error(message)
         case (_, Some(tr)) => logger.error(message, tr)

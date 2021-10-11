@@ -138,14 +138,10 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     * Generally, the log level is defined by the error category. In rare cases, it might be overridden
     * by the error code.
     */
-  protected def logLevel: Level = category.logLevel
+  def logLevel: Level = category.logLevel
 
   /** True if this error may appear on the API */
   protected def exposedViaApi: Boolean = category.grpcCode.nonEmpty
-
-  def log(err: BaseError, extra: Map[String, String] = Map())(implicit
-      errorCodeLoggingContext: ErrorCodeLoggingContext
-  ): Unit = errorCodeLoggingContext.logError(this, err, logLevel, extra)
 
   def getStatusInfo(
       err: BaseError
@@ -158,7 +154,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
         code.toMsg(err.cause, loggingContext.correlationId)
     val codeGrpc = category.grpcCode
       .getOrElse {
-        loggingContext.warn(s"Passing non-grpc error via grpc ${id} ")
+        loggingContext.warn(s"Passing non-grpc error via grpc $id ")
         Code.INTERNAL
       }
     val contextMap = getTruncatedContext(err) + ("category" -> category.asInt.toString)

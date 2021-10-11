@@ -50,6 +50,7 @@ da_scala_library(
         ":error",
         "//libs-scala/contextualized-logging",
         "@maven//:io_grpc_grpc_api",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
