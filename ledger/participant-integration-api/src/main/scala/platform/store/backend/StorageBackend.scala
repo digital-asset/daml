@@ -22,7 +22,7 @@ import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
 import com.daml.platform.store.backend.h2.H2StorageBackend
 import com.daml.platform.store.backend.oracle.OracleStorageBackend
 import com.daml.platform.store.backend.postgresql.{PostgresDataSourceConfig, PostgresStorageBackend}
-import com.daml.platform.store.cache.StringInterningCache
+import com.daml.platform.store.cache.StringInterning
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.scalautil.NeverEqualsOverride
@@ -77,7 +77,7 @@ trait IngestionStorageBackend[DB_BATCH] {
     * @return the database-specific batch DTO, which can be inserted via insertBatch
     *         // TODO FIX scaladoc
     */
-  def batch(dbDtos: Vector[DbDto], resolveStringInterningId: String => Int): DB_BATCH
+  def batch(dbDtos: Vector[DbDto], stringInterning: StringInterning): DB_BATCH
 
   /** Using a JDBC connection, a batch will be inserted into the database.
     * No significant CPU load, mostly blocking JDBC communication with the database backend.
@@ -223,7 +223,7 @@ trait CompletionStorageBackend {
       endInclusive: Offset,
       applicationId: Ref.ApplicationId,
       parties: Set[Ref.Party],
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(connection: Connection): List[CompletionStreamResponse]
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
@@ -241,12 +241,12 @@ trait ContractStorageBackend {
   def keyState(
       key: Key,
       validAt: Long,
-      stringInterningCache: StringInterningCache,
+      stringInterningCache: StringInterning,
   )(connection: Connection): KeyState
   def contractState(
       contractId: ContractId,
       before: Long,
-      stringInterningCache: StringInterningCache,
+      stringInterningCache: StringInterning,
   )(
       connection: Connection
   ): Option[StorageBackend.RawContractState]
@@ -254,7 +254,7 @@ trait ContractStorageBackend {
       readers: Set[Ref.Party],
       contractId: ContractId,
       lastEventSequentialId: Long,
-      stringInterningCache: StringInterningCache,
+      stringInterningCache: StringInterning,
   )(
       connection: Connection
   ): Option[StorageBackend.RawContract]
@@ -262,7 +262,7 @@ trait ContractStorageBackend {
       readers: Set[Ref.Party],
       contractId: ContractId,
       lastEventSequentialId: Long,
-      stringInterningCache: StringInterningCache,
+      stringInterningCache: StringInterning,
   )(
       connection: Connection
   ): Option[String]
@@ -270,14 +270,14 @@ trait ContractStorageBackend {
       readers: Set[Ref.Party],
       key: Key,
       validAt: Long,
-      stringInterningCache: StringInterningCache,
+      stringInterningCache: StringInterning,
   )(
       connection: Connection
   ): Option[ContractId]
   def contractStateEvents(
       startExclusive: Long,
       endInclusive: Long,
-      stringInterningCache: StringInterningCache,
+      stringInterningCache: StringInterning,
   )(
       connection: Connection
   ): Vector[StorageBackend.RawContractStateEvent]
@@ -299,30 +299,30 @@ trait EventStorageBackend {
   def transactionEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
   def activeContractEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,
       endInclusiveOffset: Offset,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
   def flatTransaction(
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,
       ledgerEndOffset: Offset,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
   def transactionTreeEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]]
   def transactionTree(
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,
       ledgerEndOffset: Offset,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]]
 
   /** Max event sequential id of observable (create, consuming and nonconsuming exercise) events. */
@@ -330,7 +330,7 @@ trait EventStorageBackend {
   def rawEvents(
       startExclusive: Long,
       endInclusive: Long,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(
       connection: Connection
   ): Vector[RawTransactionEvent]

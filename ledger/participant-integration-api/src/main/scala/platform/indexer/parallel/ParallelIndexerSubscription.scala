@@ -5,7 +5,6 @@ package com.daml.platform.indexer.parallel
 
 import java.sql.Connection
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink}
@@ -24,13 +23,13 @@ import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValu
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{
   DbDto,
+  DbDtoToStringsForInterning,
   IngestionStorageBackend,
   ParameterStorageBackend,
   StringInterningStorageBackend,
   UpdateToDbDto,
-  DbDtoToStringsForInterning,
 }
-import com.daml.platform.store.cache.StringInterningCache
+import com.daml.platform.store.cache.{RawStringInterningCache, StringInterningCache}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.Future
@@ -60,7 +59,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
       materializer: Materializer,
   )(implicit loggingContext: LoggingContext): InitializeParallelIngestion.Initialized => Handle = {
     initialized =>
-      val stringInterningCache = new AtomicReference(initialized.initialStringInterningCache)
+      val stringInterningCache = new StringInterningCache(initialized.initialStringInterningCache)
       val (killSwitch, completionFuture) = BatchingParallelIngestionPipe(
         submissionBatchSize = submissionBatchSize,
         batchWithinMillis = batchWithinMillis,
@@ -81,16 +80,17 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
         ),
         seqMapper = seqMapper(
           metrics = metrics,
-          dbDtoToStringsForInterning = DbDtoToStringsForInterning(_),
+          dbDtoToStringsForTemplateInterning = DbDtoToStringsForInterning.templateId,
+          dbDtoToStringsForPartyInterning = DbDtoToStringsForInterning.party,
           stringInterningCache = stringInterningCache,
         ),
         batchingParallelism = batchingParallelism,
         batcher = batcherExecutor.execute(
-          batcher(storageBackend.batch(_, stringInterningCache.get().map), metrics)
+          batcher(storageBackend.batch(_, stringInterningCache), metrics)
         ),
         ingestingParallelism = ingestionParallelism,
         ingester = ingester(storageBackend.insertBatch, dbDispatcher, metrics),
-        tailer = tailer(storageBackend.batch(Vector.empty, _ => 0)),
+        tailer = tailer(storageBackend.batch(Vector.empty, stringInterningCache)),
         tailingRateLimitPerSecond = tailingRateLimitPerSecond,
         ingestTail = ingestTail[DB_BATCH](storageBackend.updateLedgerEnd, dbDispatcher, metrics),
       )(
@@ -190,12 +190,12 @@ object ParallelIndexerSubscription {
       offsets = Vector.empty,
     )
 
+  // TODO with some complexity it would be possible to push the rendering aside of the sequential step. not sure it is needed.
   def seqMapper(
       metrics: Metrics,
-      dbDtoToStringsForInterning: DbDto => Iterator[
-        String
-      ], // TODO with some complexity it would be possible to push the rendering aside of the sequential step. not sure it is needed.
-      stringInterningCache: AtomicReference[StringInterningCache],
+      dbDtoToStringsForTemplateInterning: DbDto => Iterator[String],
+      dbDtoToStringsForPartyInterning: DbDto => Iterator[String],
+      stringInterningCache: StringInterningCache,
   )(
       previous: Batch[Vector[DbDto]],
       current: Batch[Vector[DbDto]],
@@ -217,22 +217,23 @@ object ParallelIndexerSubscription {
       case notEvent => notEvent
     }
 
-    val actualStringInterningCache = stringInterningCache.get()
-    val newEntries = StringInterningCache.newEntries(
-      current.batch.iterator.flatMap(dbDtoToStringsForInterning),
-      actualStringInterningCache,
+    val newEntries = RawStringInterningCache.newEntries(
+      strings = stringInterningCache.allRawEntries(
+        templateEntries = current.batch.iterator.flatMap(dbDtoToStringsForTemplateInterning),
+        partyEntries = current.batch.iterator.flatMap(dbDtoToStringsForPartyInterning),
+      ),
+      rawStringInterningCache = stringInterningCache.raw,
     )
     val (newLastStringInterningId, dbDtosWithStringInterning) =
       if (newEntries.isEmpty)
         previous.lastStringInterningId -> batchWithSeqIds
       else {
-        val newStringInterningCache =
-          StringInterningCache.from(newEntries, actualStringInterningCache)
-        stringInterningCache.set(newStringInterningCache)
+        stringInterningCache.raw =
+          RawStringInterningCache.from(newEntries, stringInterningCache.raw)
         val allDbDtos = batchWithSeqIds ++ newEntries.map { case (id, s) =>
-          DbDto.StringInterning(id, s)
+          DbDto.StringInterningDto(id, s)
         }
-        newStringInterningCache.lastId -> allDbDtos
+        stringInterningCache.raw.lastId -> allDbDtos
       }
 
     val nowNanos = System.nanoTime()

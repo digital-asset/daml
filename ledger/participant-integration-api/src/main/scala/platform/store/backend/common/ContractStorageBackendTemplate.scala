@@ -14,7 +14,7 @@ import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.{ContractStorageBackend, StorageBackend}
-import com.daml.platform.store.cache.StringInterningCache
+import com.daml.platform.store.cache.StringInterning
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyAssigned,
   KeyState,
@@ -34,11 +34,9 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       resultColumns = List("contract_id"),
       resultParser = contractId("contract_id"),
     )(
-      readers = None,
+      readersWithStringInterning = None,
       key = key,
       validAt = validAt,
-      stringInterningCache =
-        StringInterningCache(Map.empty, Map.empty, 0), // TODO pull out to a constant
     )(connection)
 
   private def emptyContractIds: Throwable =
@@ -129,7 +127,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
   override def keyState(
       key: Key,
       validAt: Long,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(connection: Connection): KeyState =
     contractKey(
       resultColumns = List("contract_id", "flat_event_witnesses"),
@@ -139,19 +137,17 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       ).map { case cId ~ stakeholders =>
         KeyAssigned(
           cId,
-          stakeholders.view.map(stringInterningCache.idMap).map(Ref.Party.assertFromString).toSet,
+          stakeholders.view.map(stringInterning.party.interned).toSet,
         )
       },
     )(
-      readers = None,
+      readersWithStringInterning = None,
       key = key,
       validAt = validAt,
-      stringInterningCache =
-        StringInterningCache(Map.empty, Map.empty, 0), // TODO pull out to a constant
     )(connection).getOrElse(KeyUnassigned)
 
   private val fullDetailsContractRowParser
-      : RowParser[StringInterningCache => StorageBackend.RawContractState] =
+      : RowParser[StringInterning => StorageBackend.RawContractState] =
     (int("template_id").?
       ~ array[Int]("flat_event_witnesses")
       ~ byteArray("create_argument").?
@@ -159,12 +155,11 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       ~ int("event_kind") ~ instantFromMicros("ledger_effective_time").?)
       .map {
         case internedTemplateId ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ eventKind ~ ledgerEffectiveTime =>
-          stringInterningCache =>
+          stringInterning =>
             StorageBackend.RawContractState(
-              templateId = internedTemplateId.map(stringInterningCache.idMap),
+              templateId = internedTemplateId.map(stringInterning.templateId.unsafe.interned),
               flatEventWitnesses = flatEventWitnesses.view
-                .map(stringInterningCache.idMap)
-                .map(Ref.Party.assertFromString)
+                .map(stringInterning.party.interned)
                 .toSet,
               createArgument = createArgument,
               createArgumentCompression = createArgumentCompression,
@@ -176,7 +171,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
   override def contractState(
       contractId: ContractId,
       before: Long,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(
       connection: Connection
   ): Option[StorageBackend.RawContractState] = {
@@ -197,11 +192,11 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
            ORDER BY event_sequential_id DESC
            FETCH NEXT 1 ROW ONLY"""
       .as(fullDetailsContractRowParser.singleOpt)(connection)
-      .map(_(stringInterningCache))
+      .map(_(stringInterning))
   }
 
   private val contractStateRowParser
-      : RowParser[StringInterningCache => StorageBackend.RawContractStateEvent] =
+      : RowParser[StringInterning => StorageBackend.RawContractStateEvent] =
     (int("event_kind") ~
       contractId("contract_id") ~
       int("template_id").? ~
@@ -214,19 +209,18 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       array[Int]("flat_event_witnesses") ~
       offset("event_offset")).map {
       case eventKind ~ contractId ~ templateId ~ ledgerEffectiveTime ~ createKeyValue ~ createKeyCompression ~ createArgument ~ createArgumentCompression ~ eventSequentialId ~ flatEventWitnesses ~ offset =>
-        stringInterningCache =>
+        stringInterning =>
           StorageBackend.RawContractStateEvent(
             eventKind,
             contractId,
-            templateId.map(stringInterningCache.idMap).map(Ref.Identifier.assertFromString),
+            templateId.map(stringInterning.templateId.interned),
             ledgerEffectiveTime,
             createKeyValue,
             createKeyCompression,
             createArgument,
             createArgumentCompression,
             flatEventWitnesses.view
-              .map(stringInterningCache.idMap)
-              .map(Ref.Party.assertFromString)
+              .map(stringInterning.party.interned)
               .toSet,
             eventSequentialId,
             offset,
@@ -236,7 +230,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
   override def contractStateEvents(
       startExclusive: Long,
       endInclusive: Long,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(
       connection: Connection
   ): Vector[StorageBackend.RawContractStateEvent] =
@@ -261,16 +255,16 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
                and (event_kind = 10 or event_kind = 20)
            ORDER BY event_sequential_id ASC"""
       .asVectorOf(contractStateRowParser)(connection)
-      .map(_(stringInterningCache))
+      .map(_(stringInterning))
 
-  private val contractRowParser: RowParser[StringInterningCache => StorageBackend.RawContract] =
+  private val contractRowParser: RowParser[StringInterning => StorageBackend.RawContract] =
     (int("template_id")
       ~ byteArray("create_argument")
       ~ int("create_argument_compression").?)
       .map { case internedTemplateId ~ createArgument ~ createArgumentCompression =>
-        stringInterningCache =>
+        stringInterning =>
           new StorageBackend.RawContract(
-            templateId = stringInterningCache.idMap(internedTemplateId),
+            templateId = stringInterning.templateId.unsafe.interned(internedTemplateId),
             createArgument = createArgument,
             createArgumentCompression = createArgumentCompression,
           )
@@ -346,13 +340,13 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       readers: Set[Ref.Party],
       contractId: ContractId,
       lastEventSequentialId: Long,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(connection: Connection): T = {
     val treeEventWitnessesClause: CompositeSql =
       queryStrategy.arrayIntersectionNonEmptyClause(
         columnName = "tree_event_witnesses",
         parties = readers,
-        stringInterningCache = stringInterningCache,
+        stringInterning = stringInterning,
       )
     val coalescedColumns: String = resultColumns
       .map(columnName =>
@@ -376,7 +370,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       readers: Set[Ref.Party],
       contractId: ContractId,
       lastEventSequentialId: Long,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(connection: Connection): Option[StorageBackend.RawContract] = {
     activeContract(
       resultSetParser = contractRowParser.singleOpt,
@@ -385,15 +379,15 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       readers = readers,
       contractId = contractId,
       lastEventSequentialId = lastEventSequentialId,
-      stringInterningCache = stringInterningCache,
-    )(connection).map(_(stringInterningCache))
+      stringInterning = stringInterning,
+    )(connection).map(_(stringInterning))
   }
 
   override def activeContractWithoutArgument(
       readers: Set[Ref.Party],
       contractId: ContractId,
       lastEventSequentialId: Long,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(connection: Connection): Option[String] =
     activeContract(
       resultSetParser = contractWithoutValueRowParser.singleOpt,
@@ -402,14 +396,14 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       readers = readers,
       contractId = contractId,
       lastEventSequentialId = lastEventSequentialId,
-      stringInterningCache = stringInterningCache,
-    )(connection).map(stringInterningCache.idMap)
+      stringInterning = stringInterning,
+    )(connection).map(stringInterning.templateId.unsafe.interned)
 
   override def contractKey(
       readers: Set[Ref.Party],
       key: Key,
       validAt: Long,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(
       connection: Connection
   ): Option[ContractId] =
@@ -417,29 +411,27 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       resultColumns = List("contract_id"),
       resultParser = contractId("contract_id"),
     )(
-      readers = Some(readers),
+      readersWithStringInterning = Some(readers -> stringInterning),
       key = key,
       validAt = validAt,
-      stringInterningCache = stringInterningCache,
     )(connection)
 
   private def contractKey[T](
       resultColumns: List[String],
       resultParser: RowParser[T],
   )(
-      readers: Option[Set[Ref.Party]],
+      readersWithStringInterning: Option[(Set[Ref.Party], StringInterning)],
       key: Key,
       validAt: Long,
-      stringInterningCache: StringInterningCache,
   )(
       connection: Connection
   ): Option[T] = {
     def withAndIfNonEmptyReaders(
-        queryF: Set[Ref.Party] => CompositeSql
+        queryF: (Set[Ref.Party], StringInterning) => CompositeSql
     ): CompositeSql =
-      readers match {
-        case Some(readers) =>
-          cSQL"${queryF(readers)} AND"
+      readersWithStringInterning match {
+        case Some((readers, stringInterning)) =>
+          cSQL"${queryF(readers, stringInterning)} AND"
 
         case None =>
           cSQL""
@@ -450,7 +442,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
         queryStrategy.arrayIntersectionNonEmptyClause(
           columnName = "last_contract_key_create.flat_event_witnesses",
           _,
-          stringInterningCache,
+          _,
         )
       )
     val participantEventsFlatEventWitnessesClause =
@@ -458,7 +450,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
         queryStrategy.arrayIntersectionNonEmptyClause(
           columnName = "participant_events.flat_event_witnesses",
           _,
-          stringInterningCache,
+          _,
         )
       )
 

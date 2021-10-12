@@ -40,7 +40,7 @@ import com.daml.platform.store.backend.{
   StorageBackend,
   common,
 }
-import com.daml.platform.store.cache.StringInterningCache
+import com.daml.platform.store.cache.StringInterning
 
 import javax.sql.DataSource
 import org.postgresql.ds.PGSimpleDataSource
@@ -70,9 +70,9 @@ private[backend] object PostgresStorageBackend
 
   override def batch(
       dbDtos: Vector[DbDto],
-      resolveStringInterningId: String => Int,
+      stringInterning: StringInterning,
   ): AppendOnlySchema.Batch =
-    PGSchema.schema.prepareData(dbDtos, resolveStringInterningId)
+    PGSchema.schema.prepareData(dbDtos, stringInterning)
 
   private val SQL_INSERT_COMMAND: String =
     """insert into participant_command_submissions as pcs (deduplication_key, deduplicate_until)
@@ -162,11 +162,11 @@ private[backend] object PostgresStorageBackend
     override def arrayIntersectionNonEmptyClause(
         columnName: String,
         parties: Set[Ref.Party],
-        stringInterningCache: StringInterningCache,
+        stringInterning: StringInterning,
     ): CompositeSql = {
       import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
       val partiesArray: Array[java.lang.Integer] =
-        parties.flatMap(party => stringInterningCache.map.get(party).map(Int.box)).toArray
+        parties.flatMap(party => stringInterning.party.getId(party).map(Int.box)).toArray
       cSQL"#$columnName::int[] && $partiesArray::int[]"
     }
 
@@ -182,10 +182,10 @@ private[backend] object PostgresStorageBackend
     override def filteredEventWitnessesClause(
         witnessesColumnName: String,
         parties: Set[Party],
-        stringInterningCache: StringInterningCache,
+        stringInterning: StringInterning,
     ): CompositeSql = {
       val internedParties: Array[java.lang.Integer] = parties.view
-        .flatMap(party => stringInterningCache.map.get(party.toString).map(Int.box))
+        .flatMap(party => stringInterning.party.getId(party).map(Int.box))
         .toArray
       if (internedParties.length == 1)
         cSQL"array[${internedParties.head}]::integer[]"
@@ -196,10 +196,10 @@ private[backend] object PostgresStorageBackend
     override def submittersArePartiesClause(
         submittersColumnName: String,
         parties: Set[Party],
-        stringInterningCache: StringInterningCache,
+        stringInterning: StringInterning,
     ): CompositeSql = {
       val partiesArray: Array[java.lang.Integer] = parties.view
-        .flatMap(party => stringInterningCache.map.get(party.toString).map(Int.box))
+        .flatMap(party => stringInterning.party.getId(party).map(Int.box))
         .toArray
       cSQL"(#$submittersColumnName::integer[] && $partiesArray::integer[])"
     }
@@ -207,7 +207,7 @@ private[backend] object PostgresStorageBackend
     override def witnessesWhereClause(
         witnessesColumnName: String,
         filterParams: FilterParams,
-        stringInterningCache: StringInterningCache,
+        stringInterning: StringInterning,
     ): CompositeSql = {
       val wildCardClause = filterParams.wildCardParties match {
         case wildCardParties if wildCardParties.isEmpty =>
@@ -215,7 +215,7 @@ private[backend] object PostgresStorageBackend
 
         case wildCardParties =>
           val partiesArray: Array[java.lang.Integer] = wildCardParties.view
-            .flatMap(party => stringInterningCache.map.get(party.toString).map(Int.box))
+            .flatMap(party => stringInterning.party.getId(party).map(Int.box))
             .toArray
           if (partiesArray.isEmpty)
             Nil
@@ -226,8 +226,8 @@ private[backend] object PostgresStorageBackend
         filterParams.partiesAndTemplates.iterator
           .map { case (parties, templateIds) =>
             (
-              parties.flatMap(s => stringInterningCache.map.get(s.toString)),
-              templateIds.flatMap(s => stringInterningCache.map.get(s.toString)),
+              parties.flatMap(s => stringInterning.party.getId(s)),
+              templateIds.flatMap(s => stringInterning.templateId.getId(s)),
             )
           }
           .filterNot(_._1.isEmpty)

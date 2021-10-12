@@ -40,7 +40,7 @@ import com.daml.platform.store.backend.{
   common,
 }
 
-import com.daml.platform.store.cache.StringInterningCache
+import com.daml.platform.store.cache.StringInterning
 import javax.sql.DataSource
 import scala.util.control.NonFatal
 
@@ -136,9 +136,9 @@ private[backend] object H2StorageBackend
 
   override def batch(
       dbDtos: Vector[DbDto],
-      resolveStringInterningId: String => Int,
+      stringInterning: StringInterning,
   ): AppendOnlySchema.Batch =
-    H2Schema.schema.prepareData(dbDtos, resolveStringInterningId)
+    H2Schema.schema.prepareData(dbDtos, stringInterning)
 
   override def insertBatch(connection: Connection, batch: AppendOnlySchema.Batch): Unit =
     H2Schema.schema.executeUpdate(batch, connection)
@@ -165,7 +165,7 @@ FETCH NEXT 1 ROW ONLY;
     override def arrayIntersectionNonEmptyClause(
         columnName: String,
         parties: Set[Ref.Party],
-        stringInterningCache: StringInterningCache,
+        stringInterningCache: StringInterning,
     ): CompositeSql =
       if (parties.isEmpty)
         cSQL"false"
@@ -186,7 +186,7 @@ FETCH NEXT 1 ROW ONLY;
     override def filteredEventWitnessesClause(
         witnessesColumnName: String,
         parties: Set[Ref.Party],
-        stringInterningCache: StringInterningCache,
+        stringInterningCache: StringInterning,
     ): CompositeSql = {
       val partiesArray = parties.view.map(_.toString).toArray
       cSQL"array_intersection(#$witnessesColumnName, $partiesArray)"
@@ -195,7 +195,7 @@ FETCH NEXT 1 ROW ONLY;
     override def submittersArePartiesClause(
         submittersColumnName: String,
         parties: Set[Ref.Party],
-        stringInterningCache: StringInterningCache,
+        stringInterningCache: StringInterning,
     ): CompositeSql =
       H2QueryStrategy.arrayIntersectionNonEmptyClause(
         columnName = submittersColumnName,
@@ -206,7 +206,7 @@ FETCH NEXT 1 ROW ONLY;
     override def witnessesWhereClause(
         witnessesColumnName: String,
         filterParams: FilterParams,
-        stringInterningCache: StringInterningCache,
+        stringInterningCache: StringInterning,
     ): CompositeSql = {
       val wildCardClause = filterParams.wildCardParties match {
         case wildCardParties if wildCardParties.isEmpty =>

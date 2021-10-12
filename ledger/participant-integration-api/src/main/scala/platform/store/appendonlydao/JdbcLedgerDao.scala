@@ -36,7 +36,7 @@ import com.daml.platform.store.Conversions._
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackend, UpdateToDbDto}
-import com.daml.platform.store.cache.StringInterningCache
+import com.daml.platform.store.cache.{RawStringInterningCache, StringInterningCache}
 import com.daml.platform.store.dao.{
   DeduplicationKeyMaker,
   LedgerDao,
@@ -71,7 +71,7 @@ private class JdbcLedgerDao(
     sequentialIndexer: SequentialWriteDao,
     participantId: Ref.ParticipantId,
     storageBackend: StorageBackend[_],
-    stringInterningCache: AtomicReference[StringInterningCache],
+    stringInterningCache: StringInterningCache,
     ledgerEnd: AtomicReference[(Offset, Long)],
 ) extends LedgerDao {
 
@@ -707,7 +707,7 @@ private class JdbcLedgerDao(
       metrics = metrics,
       lfValueTranslation = translation,
       ledgerEnd = ledgerEnd,
-      stringInterningCache = stringInterningCache,
+      stringInterning = stringInterningCache,
     )(
       servicesExecutionContext
     )
@@ -806,16 +806,17 @@ private class JdbcLedgerDao(
       loggingContext: LoggingContext
   ): Future[Unit] = synchronized { // TODO because we first dereference, then update
     import scala.util.chaining._
-    val currentCache = stringInterningCache.get()
-    if (lastStringInterningId == currentCache.lastId)
+    if (lastStringInterningId == stringInterningCache.raw.lastId)
       Future.unit
     else
       dbDispatcher.executeSql(metrics.daml.index.db.storeTransactionDbMetrics)(
         conn => // TODO FIXME db metrics
           storageBackend
-            .loadStringInterningEntries(currentCache.lastId, lastStringInterningId)(conn)
-            .pipe(StringInterningCache.from(_, currentCache))
-            .pipe(stringInterningCache.set)
+            .loadStringInterningEntries(stringInterningCache.raw.lastId, lastStringInterningId)(
+              conn
+            )
+            .pipe(RawStringInterningCache.from(_, stringInterningCache.raw))
+            .pipe(stringInterningCache.raw = _)
       )
   }
 
@@ -994,7 +995,7 @@ private[platform] object JdbcLedgerDao {
       ),
       participantId,
       storageBackend,
-      new AtomicReference(StringInterningCache.from(Nil)),
+      new StringInterningCache(RawStringInterningCache.from(Nil)),
       new AtomicReference(Offset.beforeBegin -> 0L), // TODO fix constants
     )
   }

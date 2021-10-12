@@ -28,7 +28,7 @@ import com.daml.platform.ApiOffset
 import com.daml.platform.store.appendonlydao.{DbDispatcher, PaginatingAsyncStream}
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.StorageBackend
-import com.daml.platform.store.cache.StringInterningCache
+import com.daml.platform.store.cache.StringInterning
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -56,7 +56,7 @@ private[appendonlydao] final class TransactionsReader(
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
     ledgerEnd: AtomicReference[(Offset, Long)], // TODO make it just an accessor function
-    stringInterningCache: AtomicReference[StringInterningCache],
+    stringInterning: StringInterning,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 
@@ -64,9 +64,9 @@ private[appendonlydao] final class TransactionsReader(
   private val eventSeqIdReader =
     new EventsRange.EventSeqIdReader(storageBackend.maxEventSequentialIdOfAnObservableEvent)
   private val getTransactions =
-    new EventsTableFlatEventsRangeQueries.GetTransactions(storageBackend, stringInterningCache)
+    new EventsTableFlatEventsRangeQueries.GetTransactions(storageBackend, stringInterning)
   private val getActiveContracts =
-    new EventsTableFlatEventsRangeQueries.GetActiveContracts(storageBackend, stringInterningCache)
+    new EventsTableFlatEventsRangeQueries.GetActiveContracts(storageBackend, stringInterning)
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -167,7 +167,7 @@ private[appendonlydao] final class TransactionsReader(
             partiesAndTemplates = Set.empty,
           ),
           ledgerEnd.get()._1,
-          stringInterningCache.get(),
+          stringInterning,
         )
       )
       .flatMap(rawEvents =>
@@ -211,7 +211,7 @@ private[appendonlydao] final class TransactionsReader(
                   wildCardParties = requestingParties,
                   partiesAndTemplates = Set.empty,
                 ),
-                stringInterningCache = stringInterningCache.get(),
+                stringInterning = stringInterning,
               ),
             range = EventsRange(range.startExclusive._2, range.endInclusive._2),
             pageSize = pageSize,
@@ -271,7 +271,7 @@ private[appendonlydao] final class TransactionsReader(
             partiesAndTemplates = Set.empty,
           ),
           ledgerEnd.get()._1,
-          stringInterningCache.get(),
+          stringInterning,
         )
       )
       .flatMap(rawEvents =>
@@ -319,7 +319,7 @@ private[appendonlydao] final class TransactionsReader(
             query = storageBackend.rawEvents(
               startExclusive = range.startExclusive,
               endInclusive = range.endInclusive,
-              stringInterningCache = stringInterningCache.get(),
+              stringInterning = stringInterning,
             )(conn),
             minOffsetExclusive = startExclusive._1,
             error = pruned =>
@@ -452,7 +452,7 @@ private[appendonlydao] final class TransactionsReader(
               .contractStateEvents(
                 range.startExclusive,
                 range.endInclusive,
-                stringInterningCache.get(),
+                stringInterning,
               )(conn),
             startExclusive._1,
             pruned =>

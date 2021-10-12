@@ -6,31 +6,32 @@ package com.daml.platform.store.backend.postgresql
 import com.daml.platform.store.backend.DbDto
 import com.daml.platform.store.backend.common.AppendOnlySchema.FieldStrategy
 import com.daml.platform.store.backend.common.{AppendOnlySchema, Field, Schema, Table}
+import com.daml.platform.store.cache.StringInterning
 
 private[postgresql] object PGSchema {
   private val PGFieldStrategy = new FieldStrategy {
     override def stringArray[FROM, _](
-        extractor: (String => Int) => FROM => Iterable[String]
+        extractor: StringInterning => FROM => Iterable[String]
     ): Field[FROM, Iterable[String], _] =
       PGStringArray(extractor)
 
     override def stringArrayOptional[FROM, _](
-        extractor: (String => Int) => FROM => Option[Iterable[String]]
+        extractor: StringInterning => FROM => Option[Iterable[String]]
     ): Field[FROM, Option[Iterable[String]], _] =
       PGStringArrayOptional(extractor)
 
     override def intArray[FROM, _](
-        extractor: (String => Int) => FROM => Iterable[Int]
+        extractor: StringInterning => FROM => Iterable[Int]
     ): Field[FROM, Iterable[Int], _] =
       PGIntArray(extractor)
 
     override def intArrayOptional[FROM, _](
-        extractor: (String => Int) => FROM => Option[Iterable[Int]]
+        extractor: StringInterning => FROM => Option[Iterable[Int]]
     ): Field[FROM, Option[Iterable[Int]], _] =
       PGIntArrayOptional(extractor)
 
     override def smallintOptional[FROM, _](
-        extractor: (String => Int) => FROM => Option[Int]
+        extractor: StringInterning => FROM => Option[Int]
     ): Field[FROM, Option[Int], _] =
       PGSmallintOptional(extractor)
 

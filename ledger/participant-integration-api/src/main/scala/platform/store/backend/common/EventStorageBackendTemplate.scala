@@ -18,7 +18,7 @@ import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
-import com.daml.platform.store.cache.StringInterningCache
+import com.daml.platform.store.cache.StringInterning
 
 import scala.collection.compat.immutable.ArraySeq
 
@@ -108,14 +108,14 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
   private val archivedEventRow: RowParser[ArchiveEventRow] = sharedRow
 
   private val createdFlatEventParser
-      : RowParser[StringInterningCache => EventsTable.Entry[Raw.FlatEvent.Created]] =
+      : RowParser[StringInterning => EventsTable.Entry[Raw.FlatEvent.Created]] =
     createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
           templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createArgumentCompression ~
           createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
-        stringInterningCache =>
+        stringInterning =>
           EventsTable.Entry(
             eventOffset = eventOffset,
             transactionId = transactionId,
@@ -127,29 +127,31 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
             event = Raw.FlatEvent.Created(
               eventId = eventId,
               contractId = contractId,
-              templateId = Ref.Identifier.assertFromString(stringInterningCache.idMap(templateId)),
+              templateId = stringInterning.templateId.interned(templateId),
               createArgument = createArgument,
               createArgumentCompression = createArgumentCompression,
-              createSignatories =
-                ArraySeq.unsafeWrapArray(createSignatories.map(stringInterningCache.idMap)),
-              createObservers =
-                ArraySeq.unsafeWrapArray(createObservers.map(stringInterningCache.idMap)),
+              createSignatories = ArraySeq.unsafeWrapArray(
+                createSignatories.map(stringInterning.party.unsafe.interned)
+              ),
+              createObservers = ArraySeq.unsafeWrapArray(
+                createObservers.map(stringInterning.party.unsafe.interned)
+              ),
               createAgreementText = createAgreementText,
               createKeyValue = createKeyValue,
               createKeyValueCompression = createKeyValueCompression,
               eventWitnesses =
-                ArraySeq.unsafeWrapArray(eventWitnesses.map(stringInterningCache.idMap)),
+                ArraySeq.unsafeWrapArray(eventWitnesses.map(stringInterning.party.unsafe.interned)),
             ),
           )
     }
 
   private val archivedFlatEventParser
-      : RowParser[StringInterningCache => EventsTable.Entry[Raw.FlatEvent.Archived]] =
+      : RowParser[StringInterning => EventsTable.Entry[Raw.FlatEvent.Archived]] =
     archivedEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
-        stringInterningCache =>
+        stringInterning =>
           EventsTable.Entry(
             eventOffset = eventOffset,
             transactionId = transactionId,
@@ -161,24 +163,23 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
             event = Raw.FlatEvent.Archived(
               eventId = eventId,
               contractId = contractId,
-              templateId = Ref.Identifier.assertFromString(stringInterningCache.idMap(templateId)),
+              templateId = stringInterning.templateId.interned(templateId),
               eventWitnesses =
-                ArraySeq.unsafeWrapArray(eventWitnesses.map(stringInterningCache.idMap)),
+                ArraySeq.unsafeWrapArray(eventWitnesses.map(stringInterning.party.unsafe.interned)),
             ),
           )
     }
 
-  private val rawFlatEventParser
-      : RowParser[StringInterningCache => EventsTable.Entry[Raw.FlatEvent]] =
+  private val rawFlatEventParser: RowParser[StringInterning => EventsTable.Entry[Raw.FlatEvent]] =
     createdFlatEventParser | archivedFlatEventParser
 
   private val createdTreeEventParser
-      : RowParser[StringInterningCache => EventsTable.Entry[Raw.TreeEvent.Created]] =
+      : RowParser[StringInterning => EventsTable.Entry[Raw.TreeEvent.Created]] =
     createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
-        stringInterningCache =>
+        stringInterning =>
           EventsTable.Entry(
             eventOffset = eventOffset,
             transactionId = transactionId,
@@ -190,29 +191,31 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
             event = Raw.TreeEvent.Created(
               eventId = eventId,
               contractId = contractId,
-              templateId = Ref.Identifier.assertFromString(stringInterningCache.idMap(templateId)),
+              templateId = stringInterning.templateId.interned(templateId),
               createArgument = createArgument,
               createArgumentCompression = createArgumentCompression,
-              createSignatories =
-                ArraySeq.unsafeWrapArray(createSignatories.map(stringInterningCache.idMap)),
-              createObservers =
-                ArraySeq.unsafeWrapArray(createObservers.map(stringInterningCache.idMap)),
+              createSignatories = ArraySeq.unsafeWrapArray(
+                createSignatories.map(stringInterning.party.unsafe.interned)
+              ),
+              createObservers = ArraySeq.unsafeWrapArray(
+                createObservers.map(stringInterning.party.unsafe.interned)
+              ),
               createAgreementText = createAgreementText,
               createKeyValue = createKeyValue,
               createKeyValueCompression = createKeyValueCompression,
               eventWitnesses =
-                ArraySeq.unsafeWrapArray(eventWitnesses.map(stringInterningCache.idMap)),
+                ArraySeq.unsafeWrapArray(eventWitnesses.map(stringInterning.party.unsafe.interned)),
             ),
           )
     }
 
   private val exercisedTreeEventParser
-      : RowParser[StringInterningCache => EventsTable.Entry[Raw.TreeEvent.Exercised]] =
+      : RowParser[StringInterning => EventsTable.Entry[Raw.TreeEvent.Exercised]] =
     exercisedEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~ exerciseChildEventIds =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
-        stringInterningCache =>
+        stringInterning =>
           EventsTable.Entry(
             eventOffset = eventOffset,
             transactionId = transactionId,
@@ -224,7 +227,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
             event = Raw.TreeEvent.Exercised(
               eventId = eventId,
               contractId = contractId,
-              templateId = Ref.Identifier.assertFromString(stringInterningCache.idMap(templateId)),
+              templateId = stringInterning.templateId.interned(templateId),
               exerciseConsuming = exerciseConsuming,
               exerciseChoice = exerciseChoice,
               exerciseArgument = exerciseArgument,
@@ -232,16 +235,15 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
               exerciseResult = exerciseResult,
               exerciseResultCompression = exerciseResultCompression,
               exerciseActors =
-                ArraySeq.unsafeWrapArray(exerciseActors.map(stringInterningCache.idMap)),
+                ArraySeq.unsafeWrapArray(exerciseActors.map(stringInterning.party.unsafe.interned)),
               exerciseChildEventIds = ArraySeq.unsafeWrapArray(exerciseChildEventIds),
               eventWitnesses =
-                ArraySeq.unsafeWrapArray(eventWitnesses.map(stringInterningCache.idMap)),
+                ArraySeq.unsafeWrapArray(eventWitnesses.map(stringInterning.party.unsafe.interned)),
             ),
           )
     }
 
-  private val rawTreeEventParser
-      : RowParser[StringInterningCache => EventsTable.Entry[Raw.TreeEvent]] =
+  private val rawTreeEventParser: RowParser[StringInterning => EventsTable.Entry[Raw.TreeEvent]] =
     createdTreeEventParser | exercisedTreeEventParser
 
   private val selectColumnsForTransactionTree = Seq(
@@ -281,20 +283,20 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       limit: Option[Int],
       fetchSizeHint: Option[Int],
       filterParams: FilterParams,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(connection: Connection): Vector[T] = {
     val parties = filterParams.wildCardParties ++ filterParams.partiesAndTemplates.flatMap(_._1)
     SQL"""
         SELECT
           #$selectColumns, ${eventStrategy
-      .filteredEventWitnessesClause(witnessesColumn, parties, stringInterningCache)} as event_witnesses,
+      .filteredEventWitnessesClause(witnessesColumn, parties, stringInterning)} as event_witnesses,
           case when ${eventStrategy
-      .submittersArePartiesClause("submitters", parties, stringInterningCache)} then command_id else '' end as command_id
+      .submittersArePartiesClause("submitters", parties, stringInterning)} then command_id else '' end as command_id
         FROM
           participant_events #$columnPrefix $joinClause
         WHERE
         $additionalAndClause
-          ${eventStrategy.witnessesWhereClause(witnessesColumn, filterParams, stringInterningCache)}
+          ${eventStrategy.witnessesWhereClause(witnessesColumn, filterParams, stringInterning)}
         ORDER BY event_sequential_id
         ${queryStrategy.limitClause(limit)}"""
       .withFetchSize(fetchSizeHint)
@@ -305,7 +307,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       rangeParams: RangeParams,
       filterParams: FilterParams,
       endInclusiveOffset: Offset,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     events(
@@ -330,14 +332,14 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       limit = rangeParams.limit,
       fetchSizeHint = rangeParams.fetchSizeHint,
       filterParams = filterParams,
-      stringInterningCache = stringInterningCache,
-    )(connection).map(_(stringInterningCache))
+      stringInterning = stringInterning,
+    )(connection).map(_(stringInterning))
   }
 
   override def transactionEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     events(
       columnPrefix = "",
@@ -352,15 +354,15 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       limit = rangeParams.limit,
       fetchSizeHint = rangeParams.fetchSizeHint,
       filterParams = filterParams,
-      stringInterningCache = stringInterningCache,
+      stringInterning = stringInterning,
     )(connection)
-  }.map(_(stringInterningCache))
+  }.map(_(stringInterning))
 
   override def flatTransaction(
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,
       ledgerEndOffset: Offset,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.ledgerStringToStatement
     events(
@@ -378,14 +380,14 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       limit = None,
       fetchSizeHint = None,
       filterParams = filterParams,
-      stringInterningCache = stringInterningCache,
-    )(connection).map(_(stringInterningCache))
+      stringInterning = stringInterning,
+    )(connection).map(_(stringInterning))
   }
 
   override def transactionTreeEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     events(
       columnPrefix = "",
@@ -402,15 +404,15 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       limit = rangeParams.limit,
       fetchSizeHint = rangeParams.fetchSizeHint,
       filterParams = filterParams,
-      stringInterningCache = stringInterningCache,
-    )(connection).map(_(stringInterningCache))
+      stringInterning = stringInterning,
+    )(connection).map(_(stringInterning))
   }
 
   override def transactionTree(
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,
       ledgerEndOffset: Offset,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     import com.daml.platform.store.Conversions.ledgerStringToStatement
     events(
@@ -429,8 +431,8 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       limit = None,
       fetchSizeHint = None,
       filterParams = filterParams,
-      stringInterningCache = stringInterningCache,
-    )(connection).map(_(stringInterningCache))
+      stringInterning = stringInterning,
+    )(connection).map(_(stringInterning))
   }
 
   // TODO Refactoring: This method is too complex for StorageBackend.
@@ -535,7 +537,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
     logger.info(s"$queryDescription finished: deleted $deletedRows rows.")(loggingContext)
   }
 
-  private val rawTransactionEventParser: RowParser[StringInterningCache => RawTransactionEvent] = {
+  private val rawTransactionEventParser: RowParser[StringInterning => RawTransactionEvent] = {
     import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
     (int("event_kind") ~
       str("transaction_id") ~
@@ -570,7 +572,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
           createArgument ~ createArgumentCompression ~ treeEventWitnesses ~ flatEventWitnesses ~ submitters ~ exerciseChoice ~
           exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~
           exerciseChildEventIds ~ eventSequentialId ~ offset =>
-        stringInterningCache =>
+        stringInterning =>
           RawTransactionEvent(
             eventKind,
             transactionId,
@@ -579,24 +581,26 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
             workflowId,
             eventId,
             contractId,
-            templateId.map(stringInterningCache.idMap).map(Ref.Identifier.assertFromString),
+            templateId.map(stringInterning.templateId.interned),
             ledgerEffectiveTime,
-            createSignatories.map(_.map(stringInterningCache.idMap)),
-            createObservers.map(_.map(stringInterningCache.idMap)),
+            createSignatories.map(_.map(stringInterning.party.unsafe.interned)),
+            createObservers.map(_.map(stringInterning.party.unsafe.interned)),
             createAgreementText,
             createKeyValue,
             createKeyCompression,
             createArgument,
             createArgumentCompression,
-            treeEventWitnesses.view.map(stringInterningCache.idMap).toSet,
-            flatEventWitnesses.view.map(stringInterningCache.idMap).toSet,
-            submitters.map(_.view.map(stringInterningCache.idMap).toSet).getOrElse(Set.empty),
+            treeEventWitnesses.view.map(stringInterning.party.unsafe.interned).toSet,
+            flatEventWitnesses.view.map(stringInterning.party.unsafe.interned).toSet,
+            submitters
+              .map(_.view.map(stringInterning.party.unsafe.interned).toSet)
+              .getOrElse(Set.empty),
             exerciseChoice,
             exerciseArgument,
             exerciseArgumentCompression,
             exerciseResult,
             exerciseResultCompression,
-            exerciseActors.map(_.map(stringInterningCache.idMap)),
+            exerciseActors.map(_.map(stringInterning.party.unsafe.interned)),
             exerciseChildEventIds,
             eventSequentialId,
             offset,
@@ -607,7 +611,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
   override def rawEvents(
       startExclusive: Long,
       endInclusive: Long,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(
       connection: Connection
   ): Vector[RawTransactionEvent] =
@@ -649,7 +653,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
            and event_kind != 0
        ORDER BY event_sequential_id ASC"""
       .asVectorOf(rawTransactionEventParser)(connection)
-      .map(_(stringInterningCache))
+      .map(_(stringInterning))
 }
 
 /** This encapsulates the moving part as composing various Events queries.
@@ -667,7 +671,7 @@ trait EventStrategy {
   def filteredEventWitnessesClause(
       witnessesColumnName: String,
       parties: Set[Ref.Party],
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   ): CompositeSql
 
   /** This populates the following part of the query:
@@ -681,7 +685,7 @@ trait EventStrategy {
   def submittersArePartiesClause(
       submittersColumnName: String,
       parties: Set[Ref.Party],
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   ): CompositeSql
 
   /** This populates the following part of the query:
@@ -696,6 +700,6 @@ trait EventStrategy {
   def witnessesWhereClause(
       witnessesColumnName: String,
       filterParams: FilterParams,
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   ): CompositeSql
 }

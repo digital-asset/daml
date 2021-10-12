@@ -6,11 +6,12 @@ package com.daml.platform.store.backend.common
 import java.sql.Connection
 
 import com.daml.platform.store.backend.DbDto
+import com.daml.platform.store.cache.StringInterning
 
 import scala.reflect.ClassTag
 
 private[backend] trait Schema[FROM] {
-  def prepareData(in: Vector[FROM], resolveStringInterningId: String => Int): Array[Array[Array[_]]]
+  def prepareData(in: Vector[FROM], stringInterning: StringInterning): Array[Array[Array[_]]]
   def executeUpdate(data: Array[Array[Array[_]]], connection: Connection): Unit
 }
 
@@ -19,70 +20,70 @@ private[backend] object AppendOnlySchema {
   type Batch = Array[Array[Array[_]]]
 
   private[backend] trait FieldStrategy {
-    def string[FROM, _](extractor: (String => Int) => FROM => String): Field[FROM, String, _] =
+    def string[FROM, _](extractor: StringInterning => FROM => String): Field[FROM, String, _] =
       StringField(extractor)
 
     def stringOptional[FROM, _](
-        extractor: (String => Int) => FROM => Option[String]
+        extractor: StringInterning => FROM => Option[String]
     ): Field[FROM, Option[String], _] =
       StringOptional(extractor)
 
     def stringArray[FROM, _](
-        extractor: (String => Int) => FROM => Iterable[String]
+        extractor: StringInterning => FROM => Iterable[String]
     ): Field[FROM, Iterable[String], _] =
       StringArray(extractor)
 
     def stringArrayOptional[FROM, _](
-        extractor: (String => Int) => FROM => Option[Iterable[String]]
+        extractor: StringInterning => FROM => Option[Iterable[String]]
     ): Field[FROM, Option[Iterable[String]], _] =
       StringArrayOptional(extractor)
 
     def intArray[FROM, _](
-        extractor: (String => Int) => FROM => Iterable[Int]
+        extractor: StringInterning => FROM => Iterable[Int]
     ): Field[FROM, Iterable[Int], _] =
       IntArray(extractor)
 
     def intArrayOptional[FROM, _](
-        extractor: (String => Int) => FROM => Option[Iterable[Int]]
+        extractor: StringInterning => FROM => Option[Iterable[Int]]
     ): Field[FROM, Option[Iterable[Int]], _] =
       IntArrayOptional(extractor)
 
     def bytea[FROM, _](
-        extractor: (String => Int) => FROM => Array[Byte]
+        extractor: StringInterning => FROM => Array[Byte]
     ): Field[FROM, Array[Byte], _] =
       Bytea(extractor)
 
     def byteaOptional[FROM, _](
-        extractor: (String => Int) => FROM => Option[Array[Byte]]
+        extractor: StringInterning => FROM => Option[Array[Byte]]
     ): Field[FROM, Option[Array[Byte]], _] =
       ByteaOptional(extractor)
 
-    def bigint[FROM, _](extractor: (String => Int) => FROM => Long): Field[FROM, Long, _] =
+    def bigint[FROM, _](extractor: StringInterning => FROM => Long): Field[FROM, Long, _] =
       Bigint(extractor)
 
     def bigintOptional[FROM, _](
-        extractor: (String => Int) => FROM => Option[Long]
+        extractor: StringInterning => FROM => Option[Long]
     ): Field[FROM, Option[Long], _] =
       BigintOptional(extractor)
 
     def smallintOptional[FROM, _](
-        extractor: (String => Int) => FROM => Option[Int]
+        extractor: StringInterning => FROM => Option[Int]
     ): Field[FROM, Option[Int], _] =
       SmallintOptional(extractor)
 
-    def int[FROM, _](extractor: (String => Int) => FROM => Int): Field[FROM, Int, _] =
+    def int[FROM, _](extractor: StringInterning => FROM => Int): Field[FROM, Int, _] =
       Integer(extractor)
 
     def intOptional[FROM, _](
-        extractor: (String => Int) => FROM => Option[Int]
+        extractor: StringInterning => FROM => Option[Int]
     ): Field[FROM, Option[Int], _] =
       IntOptional(extractor)
 
-    def boolean[FROM, _](extractor: (String => Int) => FROM => Boolean): Field[FROM, Boolean, _] =
+    def boolean[FROM, _](extractor: StringInterning => FROM => Boolean): Field[FROM, Boolean, _] =
       BooleanField(extractor)
 
     def booleanOptional[FROM, _](
-        extractor: (String => Int) => FROM => Option[Boolean]
+        extractor: StringInterning => FROM => Option[Boolean]
     ): Field[FROM, Option[Boolean], _] =
       BooleanOptional(extractor)
 
@@ -100,15 +101,15 @@ private[backend] object AppendOnlySchema {
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
         "application_id" -> fieldStrategy.stringOptional(_ => _.application_id),
-        "submitters" -> fieldStrategy.intArrayOptional(resolveStringInterningId =>
-          _.submitters.map(_.map(resolveStringInterningId))
+        "submitters" -> fieldStrategy.intArrayOptional(stringInterning =>
+          _.submitters.map(_.map(stringInterning.party.unsafe.id))
         ),
         "contract_id" -> fieldStrategy.string(_ => _.contract_id),
-        "template_id" -> fieldStrategy.intOptional(resolveStringInterningId =>
-          _.template_id.map(resolveStringInterningId)
+        "template_id" -> fieldStrategy.intOptional(stringInterning =>
+          _.template_id.map(stringInterning.templateId.unsafe.id)
         ),
-        "tree_event_witnesses" -> fieldStrategy.intArray(resolveStringInterningId =>
-          _.tree_event_witnesses.map(resolveStringInterningId)
+        "tree_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
+          _.tree_event_witnesses.map(stringInterning.party.unsafe.id)
         ),
         "create_argument" -> fieldStrategy.byteaOptional(_ => _.create_argument),
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
@@ -125,27 +126,27 @@ private[backend] object AppendOnlySchema {
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
         "application_id" -> fieldStrategy.stringOptional(_ => _.application_id),
-        "submitters" -> fieldStrategy.intArrayOptional(resolveStringInterningId =>
-          _.submitters.map(_.map(resolveStringInterningId))
+        "submitters" -> fieldStrategy.intArrayOptional(stringInterning =>
+          _.submitters.map(_.map(stringInterning.party.unsafe.id))
         ),
         "node_index" -> fieldStrategy.intOptional(_ => _.node_index),
         "event_id" -> fieldStrategy.stringOptional(_ => _.event_id),
         "contract_id" -> fieldStrategy.string(_ => _.contract_id),
-        "template_id" -> fieldStrategy.intOptional(resolveStringInterningId =>
-          _.template_id.map(resolveStringInterningId)
+        "template_id" -> fieldStrategy.intOptional(stringInterning =>
+          _.template_id.map(stringInterning.templateId.unsafe.id)
         ),
-        "flat_event_witnesses" -> fieldStrategy.intArray(resolveStringInterningId =>
-          _.flat_event_witnesses.map(resolveStringInterningId)
+        "flat_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
+          _.flat_event_witnesses.map(stringInterning.party.unsafe.id)
         ),
-        "tree_event_witnesses" -> fieldStrategy.intArray(resolveStringInterningId =>
-          _.tree_event_witnesses.map(resolveStringInterningId)
+        "tree_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
+          _.tree_event_witnesses.map(stringInterning.party.unsafe.id)
         ),
         "create_argument" -> fieldStrategy.byteaOptional(_ => _.create_argument),
-        "create_signatories" -> fieldStrategy.intArrayOptional(resolveStringInterningId =>
-          _.create_signatories.map(_.map(resolveStringInterningId))
+        "create_signatories" -> fieldStrategy.intArrayOptional(stringInterning =>
+          _.create_signatories.map(_.map(stringInterning.party.unsafe.id))
         ),
-        "create_observers" -> fieldStrategy.intArrayOptional(resolveStringInterningId =>
-          _.create_observers.map(_.map(resolveStringInterningId))
+        "create_observers" -> fieldStrategy.intArrayOptional(stringInterning =>
+          _.create_observers.map(_.map(stringInterning.party.unsafe.id))
         ),
         "create_agreement_text" -> fieldStrategy.stringOptional(_ => _.create_agreement_text),
         "create_key_value" -> fieldStrategy.byteaOptional(_ => _.create_key_value),
@@ -170,27 +171,27 @@ private[backend] object AppendOnlySchema {
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
         "application_id" -> fieldStrategy.stringOptional(_ => _.application_id),
-        "submitters" -> fieldStrategy.intArrayOptional(resolveStringInterningId =>
-          _.submitters.map(_.map(resolveStringInterningId))
+        "submitters" -> fieldStrategy.intArrayOptional(stringInterning =>
+          _.submitters.map(_.map(stringInterning.party.unsafe.id))
         ),
         "create_key_value" -> fieldStrategy.byteaOptional(_ => _.create_key_value),
         "exercise_choice" -> fieldStrategy.stringOptional(_ => _.exercise_choice),
         "exercise_argument" -> fieldStrategy.byteaOptional(_ => _.exercise_argument),
         "exercise_result" -> fieldStrategy.byteaOptional(_ => _.exercise_result),
-        "exercise_actors" -> fieldStrategy.intArrayOptional(resolveStringInterningId =>
-          _.exercise_actors.map(_.map(resolveStringInterningId))
+        "exercise_actors" -> fieldStrategy.intArrayOptional(stringInterning =>
+          _.exercise_actors.map(_.map(stringInterning.party.unsafe.id))
         ),
         "exercise_child_event_ids" -> fieldStrategy.stringArrayOptional(_ =>
           _.exercise_child_event_ids
         ),
-        "template_id" -> fieldStrategy.intOptional(resolveStringInterningId =>
-          _.template_id.map(resolveStringInterningId)
+        "template_id" -> fieldStrategy.intOptional(stringInterning =>
+          _.template_id.map(stringInterning.templateId.unsafe.id)
         ),
-        "flat_event_witnesses" -> fieldStrategy.intArray(resolveStringInterningId =>
-          _.flat_event_witnesses.map(resolveStringInterningId)
+        "flat_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
+          _.flat_event_witnesses.map(stringInterning.party.unsafe.id)
         ),
-        "tree_event_witnesses" -> fieldStrategy.intArray(resolveStringInterningId =>
-          _.tree_event_witnesses.map(resolveStringInterningId)
+        "tree_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
+          _.tree_event_witnesses.map(stringInterning.party.unsafe.id)
         ),
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
         "create_key_value_compression" -> fieldStrategy.smallintOptional(_ =>
@@ -253,8 +254,8 @@ private[backend] object AppendOnlySchema {
         "typ" -> fieldStrategy.string(_ => _.typ),
         "rejection_reason" -> fieldStrategy.stringOptional(_ => _.rejection_reason),
         "is_local" -> fieldStrategy.booleanOptional(_ => _.is_local),
-        "party_id" -> fieldStrategy.intOptional(resolveStringInterningId =>
-          _.party.map(resolveStringInterningId)
+        "party_id" -> fieldStrategy.intOptional(stringInterning =>
+          _.party.map(stringInterning.party.unsafe.id)
         ), // TODO maybe just keep this and drop the string party entirely?
       )
 
@@ -263,8 +264,8 @@ private[backend] object AppendOnlySchema {
         "completion_offset" -> fieldStrategy.string(_ => _.completion_offset),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),
         "application_id" -> fieldStrategy.string(_ => _.application_id),
-        "submitters" -> fieldStrategy.intArray(resolveStringInterningId =>
-          _.submitters.map(resolveStringInterningId)
+        "submitters" -> fieldStrategy.intArray(stringInterning =>
+          _.submitters.map(stringInterning.party.unsafe.id)
         ),
         "command_id" -> fieldStrategy.string(_ => _.command_id),
         "transaction_id" -> fieldStrategy.stringOptional(_ => _.transaction_id),
@@ -287,7 +288,7 @@ private[backend] object AppendOnlySchema {
         "deduplication_key" -> fieldStrategy.string(_ => _.deduplication_key)
       )
 
-    val stringInterning: Table[DbDto.StringInterning] =
+    val stringInterningTable: Table[DbDto.StringInterningDto] =
       fieldStrategy.insert("string_interning")(
         "id" -> fieldStrategy.int(_ => _.id),
         "s" -> fieldStrategy.string(_ => _.s),
@@ -304,33 +305,33 @@ private[backend] object AppendOnlySchema {
       partyEntries.executeUpdate,
       commandCompletions.executeUpdate,
       commandSubmissionDeletes.executeUpdate,
-      stringInterning.executeUpdate,
+      stringInterningTable.executeUpdate,
     )
 
     new Schema[DbDto] {
       override def prepareData(
           in: Vector[DbDto],
-          resolveStringInterningId: String => Int,
+          stringInterning: StringInterning,
       ): Array[Array[Array[_]]] = {
         def collectWithFilter[T <: DbDto: ClassTag](filter: T => Boolean): Vector[T] =
           in.collect { case dbDto: T if filter(dbDto) => dbDto }
         def collect[T <: DbDto: ClassTag]: Vector[T] = collectWithFilter[T](_ => true)
         import DbDto._
         Array(
-          eventsDivulgence.prepareData(collect[EventDivulgence], resolveStringInterningId),
-          eventsCreate.prepareData(collect[EventCreate], resolveStringInterningId),
+          eventsDivulgence.prepareData(collect[EventDivulgence], stringInterning),
+          eventsCreate.prepareData(collect[EventCreate], stringInterning),
           eventsConsumingExercise
-            .prepareData(collectWithFilter[EventExercise](_.consuming), resolveStringInterningId),
+            .prepareData(collectWithFilter[EventExercise](_.consuming), stringInterning),
           eventsNonConsumingExercise
-            .prepareData(collectWithFilter[EventExercise](!_.consuming), resolveStringInterningId),
-          configurationEntries.prepareData(collect[ConfigurationEntry], resolveStringInterningId),
-          packageEntries.prepareData(collect[PackageEntry], resolveStringInterningId),
-          packages.prepareData(collect[Package], resolveStringInterningId),
-          partyEntries.prepareData(collect[PartyEntry], resolveStringInterningId),
-          commandCompletions.prepareData(collect[CommandCompletion], resolveStringInterningId),
+            .prepareData(collectWithFilter[EventExercise](!_.consuming), stringInterning),
+          configurationEntries.prepareData(collect[ConfigurationEntry], stringInterning),
+          packageEntries.prepareData(collect[PackageEntry], stringInterning),
+          packages.prepareData(collect[Package], stringInterning),
+          partyEntries.prepareData(collect[PartyEntry], stringInterning),
+          commandCompletions.prepareData(collect[CommandCompletion], stringInterning),
           commandSubmissionDeletes
-            .prepareData(collect[CommandDeduplication], resolveStringInterningId),
-          stringInterning.prepareData(collect[StringInterning], resolveStringInterningId),
+            .prepareData(collect[CommandDeduplication], stringInterning),
+          stringInterningTable.prepareData(collect[StringInterningDto], stringInterning),
         )
       }
 

@@ -15,7 +15,7 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
 import com.daml.platform.store.appendonlydao.events.ContractsReader._
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.ContractStorageBackend
-import com.daml.platform.store.cache.StringInterningCache
+import com.daml.platform.store.cache.StringInterning
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
@@ -26,7 +26,7 @@ private[appendonlydao] sealed class ContractsReader(
     dispatcher: DbDispatcher,
     metrics: Metrics,
     ledgerEnd: AtomicReference[(Offset, Long)], // TODO make it just an accessor function
-    stringInterningCache: AtomicReference[StringInterningCache],
+    stringInterning: StringInterning,
 )(implicit ec: ExecutionContext)
     extends LedgerDaoContractsReader {
 
@@ -54,7 +54,7 @@ private[appendonlydao] sealed class ContractsReader(
     Timed.future(
       metrics.daml.index.db.lookupKey,
       dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics)(
-        storageBackend.keyState(key, validAt, stringInterningCache.get())
+        storageBackend.keyState(key, validAt, stringInterning)
       ),
     )
 
@@ -65,7 +65,7 @@ private[appendonlydao] sealed class ContractsReader(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
         .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics)(
-          storageBackend.contractState(contractId, before, stringInterningCache.get())
+          storageBackend.contractState(contractId, before, stringInterning)
         )
         .map(_.map {
           case raw if raw.eventKind == 10 =>
@@ -109,7 +109,7 @@ private[appendonlydao] sealed class ContractsReader(
             readers,
             contractId,
             ledgerEnd.get()._2,
-            stringInterningCache.get(),
+            stringInterning,
           )
         )
         .map(_.map { raw =>
@@ -143,7 +143,7 @@ private[appendonlydao] sealed class ContractsReader(
             readers,
             contractId,
             ledgerEnd.get()._2,
-            stringInterningCache.get(),
+            stringInterning,
           )
         )
         .map(
@@ -164,7 +164,7 @@ private[appendonlydao] sealed class ContractsReader(
     Timed.future(
       metrics.daml.index.db.lookupKey,
       dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics)(
-        storageBackend.contractKey(readers, key, ledgerEnd.get()._2, stringInterningCache.get())
+        storageBackend.contractKey(readers, key, ledgerEnd.get()._2, stringInterning)
       ),
     )
 }
@@ -176,14 +176,14 @@ private[appendonlydao] object ContractsReader {
       metrics: Metrics,
       storageBackend: ContractStorageBackend,
       ledgerEnd: AtomicReference[(Offset, Long)],
-      stringInterningCache: AtomicReference[StringInterningCache],
+      stringInterning: StringInterning,
   )(implicit ec: ExecutionContext): ContractsReader = {
     new ContractsReader(
       storageBackend = storageBackend,
       dispatcher = dispatcher,
       metrics = metrics,
       ledgerEnd = ledgerEnd,
-      stringInterningCache = stringInterningCache,
+      stringInterning = stringInterning,
     )
   }
 

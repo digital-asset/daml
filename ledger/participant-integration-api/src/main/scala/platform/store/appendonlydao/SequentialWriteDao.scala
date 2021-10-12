@@ -8,6 +8,7 @@ import java.sql.Connection
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.platform.store.backend.{DbDto, IngestionStorageBackend, ParameterStorageBackend}
+import com.daml.platform.store.cache.{RawStringInterningCache, StringInterningCache}
 
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -52,7 +53,9 @@ case class SequentialWriteDaoImpl[DB_BATCH](
         .getOrElse(Vector.empty)
 
       dbDtos
-        .pipe(storageBackend.batch(_, _ => 1)) // TODO add support for sandbox-classic
+        .pipe(
+          storageBackend.batch(_, new StringInterningCache(RawStringInterningCache.from(Nil)))
+        ) // TODO add support for sandbox-classic
         .pipe(storageBackend.insertBatch(connection, _))
 
       storageBackend.updateLedgerEnd(

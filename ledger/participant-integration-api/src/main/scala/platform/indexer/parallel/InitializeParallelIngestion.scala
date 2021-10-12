@@ -19,7 +19,7 @@ import com.daml.platform.store.backend.{
   ParameterStorageBackend,
   StringInterningStorageBackend,
 }
-import com.daml.platform.store.cache.StringInterningCache
+import com.daml.platform.store.cache.RawStringInterningCache
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -72,7 +72,7 @@ private[platform] case class InitializeParallelIngestion(
       )
     } yield InitializeParallelIngestion.Initialized(
       initialEventSeqId = ledgerEnd.map(_.lastEventSeqId).getOrElse(EventSequentialId.beforeBegin),
-      initialStringInterningCache = StringInterningCache.from(allStringInterningEntries),
+      initialStringInterningCache = RawStringInterningCache.from(allStringInterningEntries),
       readServiceSource = readService.stateUpdates(beginAfter = ledgerEnd.map(_.lastOffset)),
     )
   }
@@ -83,7 +83,7 @@ object InitializeParallelIngestion {
 
   case class Initialized(
       initialEventSeqId: Long,
-      initialStringInterningCache: StringInterningCache,
+      initialStringInterningCache: RawStringInterningCache,
       readServiceSource: Source[(Offset, Update), NotUsed],
   )
 

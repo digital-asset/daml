@@ -18,7 +18,7 @@ import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Conversions.{instantFromMicros, offset}
 import com.daml.platform.store.backend.CompletionStorageBackend
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-import com.daml.platform.store.cache.StringInterningCache
+import com.daml.platform.store.cache.StringInterning
 import com.google.protobuf.any
 import com.google.rpc.status.{Status => StatusProto}
 
@@ -33,7 +33,7 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
       endInclusive: Offset,
       applicationId: Ref.ApplicationId,
       parties: Set[Party],
-      stringInterningCache: StringInterningCache,
+      stringInterning: StringInterning,
   )(connection: Connection): List[CompletionStreamResponse] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     import com.daml.platform.store.Conversions.ledgerStringToStatement
@@ -62,7 +62,7 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
           ${queryStrategy.arrayIntersectionNonEmptyClause(
       "submitters",
       parties,
-      stringInterningCache,
+      stringInterning,
     )}
         ORDER BY completion_offset ASC"""
       .as(completionParser.*)(connection)
