@@ -40,6 +40,8 @@ da_scala_library(
     deps = [
         ":error",
         "//libs-scala/contextualized-logging",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
     ],
 )
