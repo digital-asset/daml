@@ -3,8 +3,8 @@
 
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
-CODEOWNERS   @gerolf-da @cocreature
-LATEST       @gerolf-da @bame-da @cocreature
+CODEOWNERS   @gerolf-da @cocreature @stefanobaghino-da
+LATEST       @gerolf-da @bame-da @cocreature @stefanobaghino-da @adriaanm-da
 
 # Build / CI / environment
 /ci/                @garyverhaegen-da
@@ -69,7 +69,6 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /ledger/participant-state/kvutils/src/main/protobuf  @meiersi-da @digital-asset/kv-committer
 
 
-/runtime-components/    @stefanobaghino-da
 
 # Ecosystems
 /language-support/hs/       @nickchapman-da @cocreature
@@ -77,9 +76,10 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /language-support/scala/    @S11001001 @stefanobaghino-da
 /language-support/ts/        @robin-da @garyverhaegen-da @stefanobaghino-da
 
-# Tools
-/extractor/         @S11001001 @stefanobaghino-da
-/navigator/         @stefanobaghino-da
+# Application Runtime
+/extractor/            @S11001001 @stefanobaghino-da
+/navigator/            @stefanobaghino-da
+/runtime-components/   @stefanobaghino-da
 /navigator/backend/src/main/scala/com/digitalasset/navigator/json/    @S11001001
 
 # Misc
