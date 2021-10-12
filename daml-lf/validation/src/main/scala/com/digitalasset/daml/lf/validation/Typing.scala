@@ -304,12 +304,11 @@ private[validation] object Typing {
           throw EExpectedExceptionableType(env.ctx, tyConName)
       }
     }
-    mod.interfaces.foreach { case (ifaceName, defInterface) =>
+    mod.interfaces.foreach { case (ifaceName, iface) =>
       // uniquess of choice names is already checked on construction of the choice map.
       val tyConName = TypeConName(pkgId, QualifiedName(mod.name, ifaceName))
       val env = Env(langVersion, interface, ContextDefInterface(tyConName), Map.empty)
-      defInterface.virtualChoices.values.foreach(env.checkIfaceChoice(_))
-      defInterface.methods.values.foreach(env.checkIfaceMethod(_))
+      env.checkDefIface(tyConName, iface)
     }
   }
 
@@ -457,6 +456,16 @@ private[validation] object Typing {
       }
       implementations.values.foreach(env.checkIfaceImplementation(tplName, _))
     }
+
+    def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
+      iface match {
+        case DefInterface(param, virtualChoices, fixedChoices, methods) =>
+          fixedChoices.values.foreach(
+            introExprVar(param, TTyCon(ifaceName)).checkChoice(ifaceName, _)
+          )
+          virtualChoices.values.foreach(checkIfaceChoice)
+          methods.values.foreach(checkIfaceMethod)
+      }
 
     def checkIfaceChoice(choice: InterfaceChoice): Unit = {
       checkType(choice.argType, KStar)
