@@ -16,6 +16,7 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.{
 import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepStop}
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlContractState,
+  DamlLogEntry,
   DamlStateKey,
   DamlStateValue,
 }

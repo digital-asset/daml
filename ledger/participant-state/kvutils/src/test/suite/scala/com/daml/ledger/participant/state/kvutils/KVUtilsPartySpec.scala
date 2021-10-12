@@ -3,10 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntry,
-  DamlPartyAllocationRejectionEntry,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlPartyAllocationRejectionEntry
+import com.daml.ledger.participant.state.kvutils.store.DamlLogEntry
 import com.daml.logging.LoggingContext
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
