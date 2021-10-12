@@ -177,7 +177,7 @@ data Env = Env
     ,envImplements :: MS.Map TypeConName [GHC.TyCon]
     ,envInterfaceInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) (GHC.Expr GHC.CoreBndr)
     ,envInterfaceChoiceData :: MS.Map TypeConName [ChoiceData]
-    ,envInterfaces :: S.Set TypeConName
+    ,envInterfaces :: MS.Map TypeConName GHC.TyCon
     ,envIsGenerated :: Bool
     ,envTypeVars :: !(MS.Map Var TypeVarName)
         -- ^ Maps GHC type variables in scope to their LF type variable names
@@ -411,37 +411,41 @@ modInstanceInfoFromDetails :: ModDetails -> ModInstanceInfo
 modInstanceInfoFromDetails ModDetails{..} = MS.fromList
     [ (is_dfun, overlapMode is_flag) | ClsInst{..} <- md_insts ]
 
-interfaceNames :: LF.Version -> [TyThing] -> S.Set TypeConName
+interfaceNames :: LF.Version -> [TyThing] -> MS.Map TypeConName TyCon
 interfaceNames lfVersion tyThings
-    | lfVersion `supports` featureInterfaces =
-      S.fromList [ mkTypeCon [getOccText t] | ATyCon t <- tyThings, hasDamlInterfaceCtx t ]
-    | otherwise = S.empty
+    | lfVersion `supports` featureInterfaces = MS.fromList
+        [ (mkTypeCon [getOccText t], t)
+        | ATyCon t <- tyThings
+        , hasDamlInterfaceCtx t
+        ]
+    | otherwise = MS.empty
 
 convertInterfaces :: Env -> [TyThing] -> ConvertM [Definition]
 convertInterfaces env tyThings = interfaceClasses
   where
+    interfaceClasses :: ConvertM [Definition]
     interfaceClasses = sequence
-        [ DInterface <$> convertInterface interface cls choiceData
+        [ DInterface <$> convertInterface name tycon cls
         | ATyCon t <- tyThings
         , Just cls <- [tyConClass_maybe t]
         , Just interface <- [T.stripPrefix "Is" (getOccText t)]
-        , TypeConName [interface] `S.member` (envInterfaces env)
-        , choiceData <- [MS.findWithDefault [] (TypeConName [interface]) $ envInterfaceChoiceData env]
+        , let name = TypeConName [interface]
+        , Just tycon <- [MS.lookup name (envInterfaces env)]
         ]
-    convertInterface :: T.Text -> Class -> [ChoiceData] -> ConvertM DefInterface
-    convertInterface name cls choiceData = do
-      methods <- mapM convertMethod (drop 4 $ classMethods cls)
-      choices <- mapM convertChoice choiceData
-      pure DefInterface
-        { intLocation = Nothing
-        , intName = mkTypeCon [name]
-        , intParam = ExprVarName "this"
-        , intVirtualChoices = NM.fromList choices
-        , intFixedChoices = NM.empty -- TODO https://github.com/digital-asset/daml/issues/11137
-        , intMethods = NM.fromList methods
-        }
-    convertChoice :: ChoiceData -> ConvertM InterfaceChoice
-    convertChoice (ChoiceData ty _expr) = do
+
+    convertInterface :: LF.TypeConName -> GHC.TyCon -> Class -> ConvertM DefInterface
+    convertInterface intName tyCon cls = do
+        let intLocation = convNameLoc (GHC.tyConName tyCon)
+        let intParam = this
+        withRange intLocation $ do
+            intMethods <- NM.fromList <$> mapM convertMethod (drop 4 $ classMethods cls)
+            intVirtualChoices <- NM.fromList <$> mapM convertVirtualChoice
+                (MS.findWithDefault [] intName (envInterfaceChoiceData env))
+            intFixedChoices <- convertChoices env intName emptyTemplateBinds
+            pure DefInterface {..}
+
+    convertVirtualChoice :: ChoiceData -> ConvertM InterfaceChoice
+    convertVirtualChoice (ChoiceData ty _expr) = do
         TConApp _ [_ :-> _ :-> arg@(TConApp choiceTyCon _) :-> TUpdate res, consumingTy] <- convertType env ty
         let choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choiceTyCon)
         consuming <- convertConsuming consumingTy
@@ -452,6 +456,7 @@ convertInterfaces env tyThings = interfaceClasses
           , ifcArgType = arg
           , ifcRetType = res
           }
+
     convertMethod :: Var -> ConvertM InterfaceMethod
     convertMethod method = do
         retTy <- convertType env (varType method) >>= \case
@@ -812,7 +817,7 @@ convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
         pure Template {..}
 
     | otherwise =
-        unhandled "Missing required instances in template definition." (show tplTypeCon)
+        unhandled ("Missing required instances in template definition for " <> show tplTypeCon) ()
 
   where
     wrapPrecondition b
@@ -910,8 +915,7 @@ convertChoices env tplTypeCon tbinds =
         (MS.findWithDefault [] tplTypeCon (envChoiceData env))
 
 convertChoice :: Env -> TemplateBinds -> ChoiceData -> ConvertM TemplateChoice
-convertChoice env tbinds (ChoiceData ty expr)
-    | Just fArchive <- tbArchive tbinds = do
+convertChoice env tbinds (ChoiceData ty expr) = do
     TConApp _ [_, _ :-> _ :-> choiceTy@(TConApp choiceTyCon _) :-> TUpdate choiceRetTy, consumingTy, _] <- convertType env ty
     let choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choiceTyCon)
     ERecCon _ [ (_, controllers)
@@ -928,17 +932,22 @@ convertChoice env tbinds (ChoiceData ty expr)
 
     consuming <- convertConsuming consumingTy
     let update = action `ETmApp` EVar self `ETmApp` EVar this `ETmApp` EVar arg
-    archiveSelf <- useSingleMethodDict env fArchive (`ETmApp` EVar self)
-    update <- pure $
-      case consuming of
-        Consuming -> update
-        NonConsuming -> update
-        PreConsuming ->
-          EUpdate $ UBind (Binding (mkVar "_", TUnit) archiveSelf) update
-        PostConsuming ->
-          EUpdate $ UBind (Binding (res, choiceRetTy) update) $
-          EUpdate $ UBind (Binding (mkVar "_", TUnit) archiveSelf) $
-          EUpdate $ UPure choiceRetTy $ EVar res
+    update <- case consuming of
+        Consuming -> pure update
+        NonConsuming -> pure update
+        PreConsuming | Just fArchive <- tbArchive tbinds -> do
+          archiveSelf <- useSingleMethodDict env fArchive (`ETmApp` EVar self)
+          pure $ EUpdate $ UBind (Binding (mkVar "_", TUnit) archiveSelf) update
+        PreConsuming | otherwise ->
+          unsupported "preconsuming choice for interface" ()
+        PostConsuming | Just fArchive <- tbArchive tbinds -> do
+          archiveSelf <- useSingleMethodDict env fArchive (`ETmApp` EVar self)
+          pure $
+            EUpdate $ UBind (Binding (res, choiceRetTy) update) $
+            EUpdate $ UBind (Binding (mkVar "_", TUnit) archiveSelf) $
+            EUpdate $ UPure choiceRetTy $ EVar res
+        PostConsuming | otherwise ->
+          unsupported "postconsuming choice for interface" ()
     pure TemplateChoice
         { chcLocation = Nothing
         , chcName = choiceName
@@ -975,7 +984,7 @@ convertBind env (name, x)
     -- Reconsider once we have a constructor for existential interfaces
     -- in LF.
     | Just iface <- T.stripPrefix "$W" (getOccText name)
-    , mkTypeCon [iface] `S.member` (envInterfaces env) = pure []
+    , mkTypeCon [iface] `MS.member` envInterfaces env = pure []
 
     -- NOTE(MH): Our inline return type syntax produces a local letrec for
     -- recursive functions. We currently don't support local letrecs.

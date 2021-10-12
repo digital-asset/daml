@@ -8,7 +8,9 @@ module Interface where
 import DA.Assert ((===))
 
 interface Token where
+  getOwner : Party
   getAmount : Int
+  setAmount : Int -> Token
 
   choice Split : (ContractId Token, ContractId Token)
     with
@@ -22,6 +24,41 @@ interface Token where
     with
       nothing : ()
 
+-- TODO https://github.com/digital-asset/daml/issues/10810
+--   Add HasCreate, HasSignatory, HasObserver instances in GHC parser
+instance HasCreate Token where
+  create = GHC.Types.primitive @"$INTERFACE_CREATE"
+instance HasObserver Token where
+  observer = GHC.Types.primitive @"$INTERFACE_OBSERVERS"
+-- TODO https://github.com/digital-asset/daml/issues/11198
+--   Instance disabled until issue is resolved.
+-- instance HasSignatory Token where
+--  signatory = GHC.Types.primitive @"$INTERFACE_SIGNATORIES"
+
+
+-- TODO https://github.com/digital-asset/daml/issues/11137
+--   Implement fixed choices in GHC parser.
+data GetRich = GetRich { byHowMuch : Int }
+_choice_TokenGetRich :
+  ( Token -> GetRich -> [DA.Internal.Desugar.Party]
+  , DA.Internal.Desugar.ContractId Token -> Token -> GetRich -> DA.Internal.Desugar.Update (ContractId Token)
+  , DA.Internal.Desugar.Consuming Token
+  , DA.Internal.Desugar.Optional (Token -> GetRich -> [DA.Internal.Desugar.Party])
+  )
+_choice_TokenGetRich =
+  ( \this _ -> [getOwner this]
+  , \self this GetRich{byHowMuch} -> do
+      assert (byHowMuch > 0)
+      create $ setAmount this (getAmount this + byHowMuch)
+  , DA.Internal.Desugar.Consuming
+  , DA.Internal.Desugar.None
+  )
+instance IsToken t => HasExercise t GetRich (ContractId Token) where
+  -- TODO https://github.com/digital-asset/daml/issues/11137
+  --   uncomment once speedy supports fixed choices
+  -- exercise cid = GHC.Types.primitive @"UExerciseInterface" (toTokenContractId cid)
+  exercise = undefined
+
 template Asset
   with
     issuer : Party
@@ -30,7 +67,11 @@ template Asset
   where
     signatory issuer, owner
     implements Token where
+      let getOwner = owner
       let getAmount = amount
+      let setAmount = \x -> toToken (this with amount = x)
+        -- TODO https://github.com/digital-asset/daml/issues/10810
+        --  (maybe) support `let setAmount x = ...` syntax.
 
       choice Split : (ContractId Token, ContractId Token)
         with
@@ -79,4 +120,15 @@ main = scenario do
       None -> abort "expected Asset"
       Some Asset {amount} ->
         amount === 5
+
+    -- TODO https://github.com/digital-asset/daml/issues/11137
+    --   uncomment once speedy supports fixed choices
+    -- cidToken4 <- exercise cidToken3 (GetRich 20)
+    -- token4 <- fetch cidToken4
+    -- getAmount token4 === 25
+    -- case fromToken token4 of
+    --   None -> abort "expected Asset"
+    --   Some Asset {amount} ->
+    --     amount === 25
+
     pure ()
