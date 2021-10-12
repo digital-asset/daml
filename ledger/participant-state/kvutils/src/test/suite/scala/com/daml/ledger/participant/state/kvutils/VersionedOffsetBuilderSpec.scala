@@ -14,6 +14,7 @@ class VersionedOffsetBuilderSpec
     extends AnyWordSpec
     with Matchers
     with ScalaCheckDrivenPropertyChecks {
+
   import VersionedOffsetBuilderSpec._
 
   "VersionedOffsetBuilder" should {
@@ -77,6 +78,26 @@ class VersionedOffsetBuilderSpec
               offset
             ) should have message s"requirement failed: wrong version ${versions._1}, should be ${versions._2}"
           }
+      }
+    }
+
+    "test the version of the offset, returning `true` on a match" in {
+      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int], arbitrary[Byte]) {
+        (highest, middle, lowest, version) =>
+          val offsetBuilder = VersionedOffsetBuilder(version)
+          val offset = offsetBuilder.of(highest, middle, lowest)
+
+          offsetBuilder.matchesVersionOf(offset) should be(true)
+      }
+    }
+
+    "test the version of the offset, returning `false` on a mismatch" in {
+      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int], genDifferentVersions) {
+        (highest, middle, lowest, versions) =>
+          val offset = VersionedOffsetBuilder(versions._1).of(highest, middle, lowest)
+          val offsetBuilder = VersionedOffsetBuilder(versions._2)
+
+          offsetBuilder.matchesVersionOf(offset) should be(false)
       }
     }
   }
