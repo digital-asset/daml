@@ -10,6 +10,8 @@ cd $SCRIPT_DIR
 BUILD_DIR=$(cd ..; pwd)/build
 BAZEL_BIN="$SCRIPT_DIR/../../bazel-bin"
 
+echo "Scripts dir: '${SCRIPT_DIR}'"
+
 trap cleanup 1 2 3 6
 
 cleanup()
@@ -75,6 +77,7 @@ do
         cp -L ../../bazel-bin/ledger-api/grpc-definitions/proto-docs.rst ../source/app-dev/grpc/
 
         #StdLib
+        mkdir -p -- ../source/daml/stdlib
         bazel build //compiler/damlc:daml-base-rst.tar.gz
         tar xf ../../bazel-bin/compiler/damlc/daml-base-rst.tar.gz \
             --strip-components 1 -C ../source/daml/stdlib
@@ -85,4 +88,4 @@ DATE=$(date +"%Y-%m-%d")
 echo { \"$DATE\" : \"$DATE\" } >  $BUILD_DIR/gen/versions.json
 
 pipenv install
-pipenv run sphinx-autobuild -c $BUILD_DIR/configs/html $BUILD_DIR/source $BUILD_DIR/gen
+pipenv run sphinx-autobuild -D error_codes_json_export=../../bazel-bin/docs/error_codes_export.json -c $BUILD_DIR/configs/html $BUILD_DIR/source $BUILD_DIR/gen

@@ -198,6 +198,7 @@ genrule(
 genrule(
     name = "docs-no-pdf",
     srcs = glob([
+        "sphinx_ext/**",
         "configs/html/**",
         "configs/static/pygments_daml_lexer.py",
         "configs/static/typescript.py",
@@ -205,6 +206,7 @@ genrule(
         ":sources",
         ":theme",
         ":hoogle_db.tar.gz",
+        "//docs:generate-error-codes-json",
         "//language-support/java:javadoc",
         "//language-support/ts/daml-react:docs",
         "//language-support/ts/daml-ledger:docs",
@@ -274,6 +276,8 @@ genrule(
         fi
 
         # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary. Note flag to overwrite
+
+        mkdir -p --  html/app-dev/bindings-java/javadocs
         unzip -q -o ../$(locations //language-support/java:javadoc) -d html/app-dev/bindings-java/javadocs
         # Remove JAR metadata
         rm -r html/app-dev/bindings-java/javadocs/META-INF
@@ -303,6 +307,7 @@ genrule(
     tools = [
         "@sphinx_nix//:bin/sphinx-build",
         "//bazel_tools/sh:mktgz",
+        "//docs:generate-error-codes-json",
     ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
 ) if not is_windows else None
 
@@ -642,6 +647,14 @@ pkg_tar(
     ),
     strip_prefix = "source/daml-script/template-root",
     visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "generate-error-codes-json",
+    srcs = [],
+    outs = ["error_codes_export.json"],
+    cmd = "$(location //ledger/error:export-error-codes-json-app) $(location error_codes_export.json)",
+    tools = ["//ledger/error:gen-docs"],
 )
 
 exports_files([

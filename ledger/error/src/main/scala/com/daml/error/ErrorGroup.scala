@@ -7,6 +7,20 @@ abstract class ErrorGroup()(implicit parent: ErrorClass) {
   private val fullClassName: String = getClass.getName
   // Hit https://github.com/scala/bug/issues/5425?orig=1 here: we cannot use .getSimpleName in deeply nested objects
   // TODO error codes: Switch to using .getSimpleName when switching to JDK 9+
-  implicit val errorClass: ErrorClass =
-    parent.extend(fullClassName.substring(fullClassName.lastIndexOf("$")))
+  implicit val errorClass: ErrorClass = resolveErrorClass()
+
+  private def resolveErrorClass(): ErrorClass = {
+    val name = fullClassName
+      .replace("$", ".")
+      .split("\\.")
+      .view
+      .reverse
+      .find(segment => segment.trim.nonEmpty)
+      .getOrElse(
+        throw new IllegalStateException(
+          s"Could not parse full class name: '${fullClassName}' for the error class name"
+        )
+      )
+    parent.extend(name)
+  }
 }
