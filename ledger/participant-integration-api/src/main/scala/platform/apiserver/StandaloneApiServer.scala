@@ -5,11 +5,11 @@ package com.daml.platform.apiserver
 
 import java.io.File
 import java.time.{Clock, Instant}
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.domain
@@ -92,7 +92,12 @@ final class StandaloneApiServer(
           enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
         )
         .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
-      authorizer = new Authorizer(Clock.systemUTC.instant _, ledgerId, participantId)
+      authorizer = new Authorizer(
+        Clock.systemUTC.instant _,
+        ledgerId,
+        participantId,
+        new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes),
+      )
       healthChecksWithIndexService = healthChecks + ("index" -> indexService)
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
       apiServicesOwner = new ApiServices.Owner(

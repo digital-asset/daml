@@ -7,13 +7,13 @@ import java.io.File
 import java.nio.file.Files
 import java.time.Instant
 import java.util.concurrent.Executors
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.dec.DirectExecutionContext
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain.LedgerId
@@ -353,6 +353,7 @@ final class SandboxServer(
         () => java.time.Clock.systemUTC.instant(),
         LedgerId.unwrap(ledgerId),
         config.participantId,
+        new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes),
       )
       healthChecks = new HealthChecks(
         "index" -> indexAndWriteService.indexService,

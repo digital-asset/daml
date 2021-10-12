@@ -35,6 +35,7 @@ da_java_library(
     deps = [
         "//language-support/java/bindings:bindings-java",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger/error",
         "//ledger/ledger-api-auth-client",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",

@@ -46,6 +46,7 @@ alias(
             "//daml-lf/transaction",
             "//language-support/scala/bindings",
             "//ledger/caching",
+            "//ledger/error",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
             "//ledger/ledger-api-domain",

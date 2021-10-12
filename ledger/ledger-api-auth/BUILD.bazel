@@ -29,6 +29,7 @@ da_scala_library(
         "//ledger-service/jwt",
         "//ledger/error",
         "//ledger/ledger-api-common",
+        "//libs-scala/contextualized-logging",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_context",

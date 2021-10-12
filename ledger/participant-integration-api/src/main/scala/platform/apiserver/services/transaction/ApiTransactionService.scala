@@ -6,7 +6,11 @@ package com.daml.platform.apiserver.services.transaction
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+<<<<<<< HEAD
 import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+=======
+import com.daml.error.{DamlErrorCodeLoggingContext, ErrorCodesVersionSwitcher}
+>>>>>>> [Self-service error codes] Implement V2 in Authorizer
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{

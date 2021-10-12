@@ -3,12 +3,14 @@
 
 package com.daml.ledger.api.auth
 
-import com.daml.error.{ContextualizedErrorLogger, NoLogging}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher, NoLogging}
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
-import com.daml.platform.server.api.validation.ErrorFactories.{permissionDenied, unauthenticated}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.server.api.validation.ErrorFactories
+import io.grpc.StatusRuntimeException
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
-import org.slf4j.LoggerFactory
 
 import java.time.Instant
 import scala.collection.compat._
@@ -18,9 +20,9 @@ import scala.util.{Failure, Success, Try}
 /** A simple helper that allows services to use authorization claims
   * that have been stored by [[AuthorizationInterceptor]].
   */
-final class Authorizer(now: () => Instant, ledgerId: String, participantId: String) {
+final class Authorizer(now: () => Instant, ledgerId: String, participantId: String, errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
   // TODO error codes: Enable logging
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
 
@@ -161,7 +163,9 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       call,
     )
 
-  private def assertServerCall[A](observer: StreamObserver[A]): ServerCallStreamObserver[A] =
+  private def assertServerCall[A](
+      observer: StreamObserver[A]
+  ): ServerCallStreamObserver[A] =
     observer match {
       case _: ServerCallStreamObserver[_] =>
         observer.asInstanceOf[ServerCallStreamObserver[A]]
@@ -174,33 +178,34 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
   private def ongoingAuthorization[Res](
       scso: ServerCallStreamObserver[Res],
       claims: ClaimSet.Claims,
-  ) =
+  )(implicit loggingContext: LoggingContext) =
     new OngoingAuthorizationObserver[Res](
       scso,
       claims,
       _.notExpired(now()),
-      authorizationError => {
-        logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
-        permissionDenied()
-      },
+      authorizationError => permissionDenied(authorizationError.reason),
     )
 
-  private def authenticatedClaimsFromContext(): Try[ClaimSet.Claims] =
+  private def authenticatedClaimsFromContext()(implicit
+      loggingContext: LoggingContext
+  ): Try[ClaimSet.Claims] =
     AuthorizationInterceptor
       .extractClaimSetFromContext()
       .fold[Try[ClaimSet.Claims]](Failure(unauthenticated())) {
-        case ClaimSet.Unauthenticated => Failure(unauthenticated())
+        case ClaimSet.Unauthenticated =>
+          Failure(unauthenticated())
         case claims: ClaimSet.Claims => Success(claims)
       }
 
   private def authorize[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
       authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
-  ): (Req, StreamObserver[Res]) => Unit =
-    (request, observer) => {
+  ): (Req, StreamObserver[Res]) => Unit = (request, observer) =>
+    LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>
       val scso = assertServerCall(observer)
       authenticatedClaimsFromContext()
         .fold(
           ex => {
+            // TODO error codes: Remove once fully relying on self-service error codes with logging on creation
             logger.debug(
               s"No authenticated claims found in the request context. Returning UNAUTHENTICATED"
             )
@@ -217,19 +222,19 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
                     scso,
                 )
               case Left(authorizationError) =>
-                logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
-                observer.onError(permissionDenied())
+                observer.onError(permissionDenied(authorizationError.reason))
             },
         )
     }
 
   private def authorize[Req, Res](call: Req => Future[Res])(
       authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
-  ): Req => Future[Res] =
-    request =>
+  ): Req => Future[Res] = LoggingContext.newLoggingContext {
+    implicit loggingContext: LoggingContext => request =>
       authenticatedClaimsFromContext()
         .fold(
           ex => {
+            // TODO error codes: Remove once fully relying on self-service error codes with logging on creation
             logger.debug(
               s"No authenticated claims found in the request context. Returning UNAUTHENTICATED"
             )
@@ -239,9 +244,29 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
             authorized(claims) match {
               case Right(_) => call(request)
               case Left(authorizationError) =>
-                logger.warn(s"Permission denied. Reason: ${authorizationError.reason}.")
-                Future.failed(permissionDenied())
+                Future.failed(permissionDenied(authorizationError.reason))
             },
         )
+  }
 
+  private def permissionDenied(
+      cause: String
+  )(implicit loggingContext: LoggingContext): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = {
+        logger.warn(s"Permission denied. Reason: $cause.")
+        ErrorFactories.permissionDenied()
+      },
+      v2 = LedgerApiErrors.AuthorizationChecks.PermissionDenied
+        .Reject(cause)(new DamlContextualizedErrorLogger(logger, loggingContext, None))
+        .asGrpcError,
+    )
+
+  private def unauthenticated()(implicit loggingContext: LoggingContext): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = ErrorFactories.unauthenticated(),
+      v2 = LedgerApiErrors.AuthorizationChecks.Unauthenticated
+        .MissingJwtToken()(new DamlContextualizedErrorLogger(logger, loggingContext, None))
+        .asGrpcError,
+    )
 }
