@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.committer.transaction
 
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.Conversions.parseTimestamp
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlSubmitterInfo,
   DamlTransactionEntry,
 }

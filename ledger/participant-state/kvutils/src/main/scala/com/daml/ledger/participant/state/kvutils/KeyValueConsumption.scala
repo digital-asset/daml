@@ -8,6 +8,11 @@ import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.DamlPackageUploadRejectionEntry
+import com.daml.ledger.participant.state.kvutils.store.events.{
+  DamlTransactionBlindingInfo,
+  DamlTransactionEntry,
+  DamlTransactionRejectionEntry,
+}
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlLogEntry,
   DamlLogEntryId,

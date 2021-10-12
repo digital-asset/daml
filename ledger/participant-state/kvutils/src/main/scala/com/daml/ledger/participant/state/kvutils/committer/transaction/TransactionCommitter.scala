@@ -18,6 +18,7 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.validatio
   ModelConformanceValidator,
   TransactionConsistencyValidator,
 }
+import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionRejectionEntry
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlCommandDedupValue,
   DamlContractKeyState,
