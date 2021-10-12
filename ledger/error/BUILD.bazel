@@ -12,6 +12,7 @@ da_scala_library(
     name = "error",
     srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [
+        "@maven//:org_typelevel_cats_core",
         "@maven//:io_spray_spray_json",
     ],
     tags = ["maven_coordinates=com.daml:error:__VERSION__"],
@@ -20,6 +21,14 @@ da_scala_library(
     },
     visibility = ["//visibility:public"],
     deps = [
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-lf/validation",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+        "//ledger/participant-integration-api:participant-integration-api-proto_scala",
+        "//ledger/participant-state",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
@@ -41,6 +50,7 @@ da_scala_library(
         ":error",
         "//libs-scala/contextualized-logging",
         "@maven//:io_grpc_grpc_api",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 

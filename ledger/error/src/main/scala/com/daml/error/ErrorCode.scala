@@ -3,9 +3,7 @@
 
 package com.daml.error
 
-import com.daml.error.ErrorCode.{StatusInfo, loggingValueToString, truncateResourceForTransport}
-import com.daml.logging.entries.LoggingValue
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.error.ErrorCode.{ValidMetadataKeyRegex, truncateResourceForTransport}
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
@@ -60,24 +58,25 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
   def toMsg(cause: => String, correlationId: Option[String]): String =
     s"${codeStr(correlationId)}: ${ErrorCode.truncateCause(cause)}"
 
-  def asGrpcError(err: BaseError, logger: ContextualizedLogger, correlationId: Option[String])(
-      loggingContext: LoggingContext
+  def asGrpcError(err: BaseError)(implicit
+      loggingContext: ErrorCodeLoggingContext
   ): StatusRuntimeException = {
-    val StatusInfo(codeInt, message, contextMap, _) =
-      getStatusInfo(err, correlationId, logger)(loggingContext)
+    val ErrorCode.StatusInfo(codeGrpc, message, contextMap, correlationId) =
+      getStatusInfo(err)
 
     // Provide error id and context via ErrorInfo
-    val errInfoBuilder = com.google.rpc.ErrorInfo
-      .newBuilder()
-      .setReason(id)
-    val errInfoPrep =
-      if (!code.category.securitySensitive) {
-        contextMap
-          .foldLeft(errInfoBuilder) { case (bld, (k, v)) =>
-            bld.putMetadata(k, v)
-          }
-      } else errInfoBuilder
-    val errInfo = com.google.protobuf.Any.pack(errInfoPrep.build())
+    val errInfoBld = com.google.rpc.ErrorInfo.newBuilder().setReason(id)
+    if (!code.category.securitySensitive) {
+      contextMap.foreach { case (k, v) => errInfoBld.putMetadata(k, v) }
+    }
+
+    // TODO error codes: Resolve dependency and use constant
+    //    val definiteAnswerKey = com.daml.ledger.grpc.GrpcStatuses.DefiniteAnswerKey
+    val definiteAnswerKey = "definite_answer"
+    err.definiteAnswerO.foreach { definiteAnswer =>
+      errInfoBld.putMetadata(definiteAnswerKey, definiteAnswer.toString)
+    }
+    val errInfo = com.google.protobuf.Any.pack(errInfoBld.build())
 
     // Build retry info
     val retryInfo = err.retryable.map { ri =>
@@ -120,7 +119,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     // Build status
     val statusBuilder = com.google.rpc.Status
       .newBuilder()
-      .setCode(codeInt.value())
+      .setCode(codeGrpc.value())
       .setMessage(message)
 
     (Seq(errInfo) ++ retryInfo.toList ++ requestInfo.toList ++ resourceInfo)
@@ -134,87 +133,45 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     new ErrorCode.ApiException(ex.getStatus, ex.getTrailers)
   }
 
-  def formatContextAsString(contextMap: Map[String, String]): String =
-    contextMap.view
-      .filter(_._2.nonEmpty)
-      .map { case (k, v) => s"$k=$v" }
-      .mkString(", ")
-
   /** log level of the error code
     *
     * Generally, the log level is defined by the error category. In rare cases, it might be overridden
     * by the error code.
     */
-  protected def logLevel: Level = category.logLevel
+  def logLevel: Level = category.logLevel
 
   /** True if this error may appear on the API */
   protected def exposedViaApi: Boolean = category.grpcCode.nonEmpty
 
-  // TODO error codes: support polymorphic logging/tracing
-  private[error] def log(
-      logger: ContextualizedLogger,
-      err: BaseError,
-      correlationId: Option[String],
-      extra: Map[String, String],
-  )(implicit
-      loggingContext: LoggingContext
-  ): Unit = {
-    val mergedContext = err.context ++ err.location.map(("location", _)).toList.toMap ++ extra
-
-    LoggingContext.withEnrichedLoggingContext(
-      "err-context" -> ("{" + formatContextAsString(mergedContext) + "}")
-    ) { implicit loggingContext =>
-      val message = toMsg(err.cause, correlationId)
-      (logLevel, err.throwableO) match {
-        case (Level.INFO, None) => logger.info(message)
-        case (Level.INFO, Some(tr)) => logger.info(message, tr)
-        case (Level.WARN, None) => logger.warn(message)
-        case (Level.WARN, Some(tr)) => logger.warn(message, tr)
-        // an error that is logged with < INFO is not an error ...
-        case (_, None) => logger.error(message)
-        case (_, Some(tr)) => logger.error(message, tr)
-      }
-    }
-  }
-
   def getStatusInfo(
-      err: BaseError,
-      correlationId: Option[String],
-      logger: ContextualizedLogger,
-  )(loggingContext: LoggingContext): StatusInfo = {
+      err: BaseError
+  )(implicit loggingContext: ErrorCodeLoggingContext): ErrorCode.StatusInfo = {
+    val correlationId = loggingContext.correlationId
     val message =
       if (code.category.securitySensitive)
-        s"${BaseError.SECURITY_SENSITIVE_MESSAGE_ON_API}: ${correlationId.getOrElse("<no-correlation-id>")}"
+        s"${BaseError.SecuritySensitiveMessageOnApi} ${correlationId.getOrElse("<no-correlation-id>")}"
       else
-        code.toMsg(err.cause, correlationId)
-
-    val codeInt = category.grpcCode
+        code.toMsg(err.cause, loggingContext.correlationId)
+    val codeGrpc = category.grpcCode
       .getOrElse {
-        logger.warn(s"Passing non-grpc error via grpc $id ")(loggingContext)
+        loggingContext.warn(s"Passing non-grpc error via grpc $id ")
         Code.INTERNAL
       }
+    val contextMap = getTruncatedContext(err) + ("category" -> category.asInt.toString)
 
-    val contextMap =
-      getTruncatedContext(err, loggingContext) + ("category" -> category.asInt.toString)
-
-    StatusInfo(codeInt, message, contextMap, correlationId)
+    ErrorCode.StatusInfo(codeGrpc, message, contextMap, correlationId)
   }
 
   private[error] def getTruncatedContext(
-      err: BaseError,
-      loggingContext: LoggingContext,
-  ): Map[String, String] = {
-    val loggingContextEntries =
-      loggingContext.entries.contents.view.map { case (key, value) =>
-        key -> loggingValueToString(value)
-      }
+      err: BaseError
+  )(implicit loggingContext: ErrorCodeLoggingContext): Map[String, String] = {
     val raw =
-      (err.context ++ loggingContextEntries).toSeq.filter(_._2.nonEmpty).sortBy(_._2.length)
+      (err.context ++ loggingContext.properties).toSeq.filter(_._2.nonEmpty).sortBy(_._2.length)
     val maxPerEntry = ErrorCode.MaxContentBytes / Math.max(1, raw.size)
     // truncate smart, starting with the smallest value strings such that likely only truncate the largest args
     raw
       .foldLeft((Map.empty[String, String], 0)) { case ((map, free), (k, v)) =>
-        val adjustedKey = ErrorCode.ValidMetadataKeyRegex.replaceAllIn(k, "").take(63)
+        val adjustedKey = ValidMetadataKeyRegex.replaceAllIn(k, "").take(63)
         val maxSize = free + maxPerEntry - adjustedKey.length
         val truncatedValue = if (maxSize >= v.length || v.isEmpty) v else v.take(maxSize) + "..."
         // note that we silently discard empty context values and we automatically make the
@@ -250,23 +207,6 @@ object ErrorCode {
   private val MaxContentBytes = 2000
   private[error] val MaxCauseLogLength = 512
 
-  // TODO error-codes: Extract this function into `LoggingContext` companion (and test)
-  private val loggingValueToString: LoggingValue => String = {
-    case LoggingValue.Empty => ""
-    case LoggingValue.False => "false"
-    case LoggingValue.True => "true"
-    case LoggingValue.OfString(value) => s"'$value'"
-    case LoggingValue.OfInt(value) => value.toString
-    case LoggingValue.OfLong(value) => value.toString
-    case LoggingValue.OfIterable(sequence) =>
-      sequence.map(loggingValueToString).mkString("[", ", ", "]")
-    case LoggingValue.Nested(entries) =>
-      entries.contents.view
-        .map { case (key, value) => s"$key: ${loggingValueToString(value)}" }
-        .mkString("{", ", ", "}")
-    case LoggingValue.OfJson(json) => json.toString()
-  }
-
   class ApiException(status: io.grpc.Status, metadata: io.grpc.Metadata)
       extends StatusRuntimeException(status, metadata)
       with NoStackTrace
@@ -295,6 +235,16 @@ object ErrorCode {
         }
       }
       ._1
+  }
+
+  /** Formats the context as a string for e.g. transport or file logging */
+  def formatContextAsString(contextMap: Map[String, String]): String = {
+    contextMap
+      .filter(_._2.nonEmpty)
+      .map { case (k, v) =>
+        s"$k=$v"
+      }
+      .mkString(", ")
   }
 
   private[error] def truncateCause(cause: String): String =
