@@ -9,10 +9,6 @@ import com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationE
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlLogEntry,
   DamlLogEntryId,
-  DamlPartyAllocationEntry,
-}
-import com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationEntry
-import com.daml.ledger.participant.state.kvutils.store.{
   DamlPartyAllocation,
   DamlStateKey,
   DamlStateValue,
