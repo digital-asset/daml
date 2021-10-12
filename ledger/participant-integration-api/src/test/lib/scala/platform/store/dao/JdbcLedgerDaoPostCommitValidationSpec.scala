@@ -7,6 +7,7 @@ import java.util.UUID
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
+import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -144,10 +145,19 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
     val divulgedContracts =
       Map((divulgedContractId, someVersionedContractInstance) -> Set(alice))
 
+    val blindingInfo = BlindingInfo(
+      disclosure = Map.empty,
+      divulgence = Map(divulgedContractId -> Set(alice)),
+    )
+
     for {
       from <- ledgerDao.lookupLedgerEnd()
       (_, fetch1) <- store(txFetch(alice, divulgedContractId))
-      (_, divulgence) <- store(divulgedContracts, blindingInfo = None, emptyTransaction(alice))
+      (_, divulgence) <- store(
+        divulgedContracts,
+        blindingInfo = Some(blindingInfo),
+        emptyTransaction(alice),
+      )
       (_, fetch2) <- store(txFetch(alice, divulgedContractId))
       to <- ledgerDao.lookupLedgerEnd()
       completions <- getCompletions(from, to, defaultAppId, Set(alice))
@@ -160,14 +170,14 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
     }
   }
 
-  it should "refuse to insert entries with conflicting transaction ids" in {
+  it should "do not refuse to insert entries with conflicting transaction ids" in {
     val original = txCreateContractWithKey(alice, "some-key", Some("1337"))
     val duplicateTxId = txCreateContractWithKey(alice, "another-key", Some("1337"))
-    recoverToSucceededIf[Exception] {
-      for {
-        _ <- store(original)
-        _ <- store(duplicateTxId)
-      } yield ()
-    }
+
+    // Post-commit validation does not prevent duplicate transaction ids
+    for {
+      _ <- store(original)
+      _ <- store(duplicateTxId)
+    } yield succeed
   }
 }
