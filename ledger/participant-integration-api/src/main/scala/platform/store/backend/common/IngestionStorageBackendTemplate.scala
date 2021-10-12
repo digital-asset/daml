@@ -35,7 +35,7 @@ private[backend] trait IngestionStorageBackendTemplate[DB_BATCH]
         import com.daml.platform.store.Conversions.OffsetToStatement
         query
           .on("ledger_offset" -> existingLedgerEnd.lastOffset)
-          .on("ledger_offset" -> existingLedgerEnd.lastStringInterningId)
+          .on("last_string_interning_id" -> existingLedgerEnd.lastStringInterningId)
           .execute()(connection)
         ()
       }

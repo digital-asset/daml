@@ -816,11 +816,6 @@ private class JdbcLedgerDao(
             .loadStringInterningEntries(currentCache.lastId, lastStringInterningId)(conn)
             .pipe(StringInterningCache.from(_, currentCache))
             .pipe(stringInterningCache.set)
-            .tap(_ =>
-              println(
-                s"update on read side to $lastStringInterningId so size will be now ${stringInterningCache.get().map.size}"
-              )
-            )
       )
   }
 
