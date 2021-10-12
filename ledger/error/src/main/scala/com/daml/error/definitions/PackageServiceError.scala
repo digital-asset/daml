@@ -137,17 +137,6 @@ object PackageServiceError extends PackageServiceErrorGroup {
           throwableO = Some(throwable),
         )
         with PackageServiceError
-
-    // TODO error codes: Consider removing
-    //    @VisibleForTesting
-    //    final case class Test(reason: String)(implicit
-    //        val loggingContext: ErrorCodeLoggingContext
-    //    ) extends BaseError.Impl(
-    //          cause = "A testing error."
-    //        )
-    //        with PackageServiceError {
-    //      override def logOnCreation: Boolean = false
-    //    }
   }
 
   object Validation {
