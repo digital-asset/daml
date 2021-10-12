@@ -4,6 +4,7 @@
 package com.daml.error
 
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.google.rpc.Status
 import io.grpc.StatusRuntimeException
 
 /** The main error interface for everything that should be logged and notified.
@@ -53,6 +54,11 @@ trait BaseError extends LocationMixin {
   )(implicit loggingContext: LoggingContext): Unit =
     code.log(logger, this, correlationId, extra)
 
+  def asGrpcStatusFromContext(correlationId: Option[String], logger: ContextualizedLogger)(
+      loggingContext: LoggingContext
+  ): Status =
+    code.asGrpcStatus(this, logger, correlationId)(loggingContext)
+
   def asGrpcErrorFromContext(correlationId: Option[String], logger: ContextualizedLogger)(
       loggingContext: LoggingContext
   ): StatusRuntimeException =
@@ -91,7 +97,7 @@ object BaseError {
   val SECURITY_SENSITIVE_MESSAGE_ON_API =
     "An error occurred. Please contact the operator and inquire about the request"
 
-  def extractContext[D](obj: D): Map[String, String] = {
+  def extractContext[D](obj: D): Map[String, String] =
     obj.getClass.getDeclaredFields
       .filterNot(x => ignoreFields.contains(x.getName) || x.getName.startsWith("_"))
       .map { field =>
@@ -99,7 +105,6 @@ object BaseError {
         (field.getName, field.get(obj).toString)
       }
       .toMap
-  }
 
   abstract class Impl(
       correlationId: Option[String],
@@ -122,9 +127,11 @@ object BaseError {
 
     def log(): Unit = logWithContext(logger, correlationId)(loggingContext)
 
-    def asGrpcError: StatusRuntimeException = {
+    def asGrpcStatus: Status =
+      code.asGrpcStatus(this, logger, correlationId)(loggingContext)
+
+    def asGrpcError: StatusRuntimeException =
       code.asGrpcError(this, logger, correlationId)(loggingContext)
-    }
 
     // Automatically log the error on generation
     if (logOnCreation) {
