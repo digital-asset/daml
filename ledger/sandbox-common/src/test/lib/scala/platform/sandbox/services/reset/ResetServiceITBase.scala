@@ -59,10 +59,12 @@ import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.Span
 import org.scalatest.wordspec.AsyncWordSpec
+import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
-import scala.concurrent.duration.{DurationInt, DurationLong, FiniteDuration}
+import scala.concurrent.duration.{DurationInt, DurationLong, FiniteDuration, MILLISECONDS}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 abstract class ResetServiceITBase
     extends AsyncWordSpec
@@ -73,6 +75,8 @@ abstract class ResetServiceITBase
     with AbstractSandboxFixture
     with SuiteResourceManagementAroundAll
     with TestCommands {
+
+  protected val logger = LoggerFactory.getLogger(getClass)
 
   override def timeLimit: Span = scaled(30.seconds)
 
@@ -103,15 +107,27 @@ abstract class ResetServiceITBase
     }
 
   // Resets and waits for a new ledger identity to be available
-  protected def reset(ledgerId: LedgerId): Future[LedgerId] =
+  protected def reset(ledgerId: LedgerId): Future[LedgerId] = {
+    timedReset(ledgerId).map(_._1)
+  }
+
+  protected def timedReset(ledgerId: LedgerId): Future[(LedgerId, FiniteDuration)] = {
+    logger.info(s"Calling reset on $ledgerId")
+    val start = System.nanoTime()
     ResetServiceGrpc
       .stub(channel)
       .reset(ResetRequest(ledgerId.unwrap))
       .flatMap(_ => waitForLedgerToRestart(ledgerId))
-
-  protected def timedReset(ledgerId: LedgerId): Future[(LedgerId, FiniteDuration)] = {
-    val start = System.nanoTime()
-    reset(ledgerId).map(_ -> (System.nanoTime() - start).nanos)
+      .map(_ -> (System.nanoTime() - start).nanos)
+      .andThen {
+        case Success((newLedgerId, d)) =>
+          info(s"Ledger $ledgerId reset")
+          logger.info(
+            s"Reset finished on $ledgerId after ${FiniteDuration(d.toMillis, MILLISECONDS)}, new ledgerId is $newLedgerId"
+          )
+        case Failure(e) =>
+          logger.warn(s"Reset failed on $ledgerId because of $e")
+      }
   }
 
   protected def allocateParty(hint: String): Future[String] =
@@ -201,10 +217,10 @@ abstract class ResetServiceITBase
         }
       }
 
-      "return new ledger ID - 20 resets" in {
+      "return new ledger ID - 10 resets" in {
         Future
-          .sequence(Iterator.iterate(fetchLedgerId())(_.flatMap(reset)).take(20).toVector)
-          .map(ids => ids.distinct should have size 20L)
+          .sequence(Iterator.iterate(fetchLedgerId())(_.flatMap(reset)).take(10).toVector)
+          .map(ids => ids.distinct should have size 10L)
       }
 
       // 4 attempts with 5 transactions each seem to strike the right balance to complete before the

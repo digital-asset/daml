@@ -151,6 +151,7 @@ reset_service_pattern = "src/test/suite/**/*ResetService*.scala"
 [
     da_scala_test_suite(
         name = "sandbox-tests{}".format(suffix),
+        size = size,
         srcs = glob(
             [pattern],
             exclude = exclusions,
@@ -238,18 +239,20 @@ reset_service_pattern = "src/test/suite/**/*ResetService*.scala"
             "@maven//:org_slf4j_slf4j_api",
         ],
     )
-    for (suffix, pattern, exclusions, flaky) in [
+    for (suffix, pattern, exclusions, flaky, size) in [
         (
             "",
             "src/test/suite/**/*.scala",
             [reset_service_pattern],
             False,
+            "medium",  # Default timeout of 5min
         ),
         (
             "-resetservice",
             reset_service_pattern,
             [],
             True,
+            "large",  # Reset service tests have a large variance in their run time, use a timeout of 15min
         ),
     ]
 ]
