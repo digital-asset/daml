@@ -14,6 +14,7 @@ import "google/protobuf/timestamp.proto";
 import "com/daml/ledger/participant/state/kvutils/daml_kvutils.proto";
 import "com/daml/ledger/participant/state/kvutils/store/events/configuration.proto";
 import "com/daml/ledger/participant/state/kvutils/store/events/package_upload.proto";
+import "com/daml/ledger/participant/state/kvutils/store/events/transaction.proto";
 
 // A log entry for a committed Daml submission.
 // Produced by [[KeyValueCommitting]] from the `DamlSubmission` message.
@@ -30,10 +31,10 @@ message DamlLogEntry {
   oneof payload {
     // A committed Daml transaction.
     // Can be converted into `Update.TransactionAccepted`.
-    DamlTransactionEntry transaction_entry = 2;
+    com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionEntry transaction_entry = 2;
 
     // A rejected transaction.
-    DamlTransactionRejectionEntry transaction_rejection_entry = 3;
+    com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionRejectionEntry transaction_rejection_entry = 3;
 
     // A collection of Daml-LF archives uploaded together by a participant.
     com.daml.ledger.participant.state.kvutils.store.events.DamlPackageUploadEntry package_upload_entry = 4;

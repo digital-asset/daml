@@ -14,6 +14,11 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   Rejections,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepStop}
+import com.daml.ledger.participant.state.kvutils.store.events.{
+  DamlSubmitterInfo,
+  DamlTransactionEntry,
+  DamlTransactionRejectionEntry,
+}
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlContractState,
   DamlLogEntry,

@@ -7,7 +7,6 @@ import java.util.UUID
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{
   createCommitContext,
   createTransactionEntry,
@@ -24,6 +23,7 @@ import com.daml.ledger.participant.state.kvutils.committer.{
   StepResult,
   StepStop,
 }
+import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionRejectionEntry
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlContractKey,
   DamlContractKeyState,
@@ -42,12 +42,12 @@ import com.daml.metrics.Metrics
 import com.google.protobuf.Timestamp
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.prop.TableDrivenPropertyChecks.{forAll, _}
+import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.wordspec.AnyWordSpec
 
 class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
-  import TransactionConsistencyValidatorSpec._
   import TransactionBuilder.Implicits._
+  import TransactionConsistencyValidatorSpec._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
