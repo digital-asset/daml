@@ -4,8 +4,8 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlPartyAllocationEntry
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, theRecordTime}
+import com.daml.ledger.participant.state.kvutils.store.events.DamlPartyAllocationEntry
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import org.scalatest.matchers.should.Matchers
