@@ -44,7 +44,6 @@ import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import com.daml.scalautil.ExceptionOps._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
-import scalaz.syntax.show._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, EitherT, NonEmptyList, Show, Traverse, \/, \/-}
 import spray.json._
@@ -522,7 +521,7 @@ class Endpoints(
     } yield domain.OkResponse(())
 
   private def handleFutureEitherFailure[A, B](fa: Future[A \/ B])(implicit
-      A: IntoServerError[A],
+      A: IntoEndpointsError[A],
       lc: LoggingContextOf[InstanceUUID with RequestID],
   ): Future[Error \/ B] =
     fa.map(_ leftMap A.run).recover { case NonFatal(e) =>
@@ -747,12 +746,15 @@ object Endpoints {
 
   private type LfValue = lf.value.Value
 
-  private final class IntoServerError[-A](val run: A => Error) extends AnyVal
-  private object IntoServerError extends IntoServerErrorLow {
-    implicit val id: IntoServerError[Error] = new IntoServerError(identity)
-  }
-  private sealed abstract class IntoServerErrorLow {
-    implicit def shown[A: Show]: IntoServerError[A] = new IntoServerError(a => ServerError(a.shows))
+  private final class IntoEndpointsError[-A](val run: A => Error) extends AnyVal
+  private object IntoEndpointsError {
+    implicit val id: IntoEndpointsError[Error] = new IntoEndpointsError(identity)
+    implicit val fromCommands: IntoEndpointsError[CommandService.Error] = new IntoEndpointsError({
+      case CommandService.InternalError(id, message) =>
+        ServerError(s"command service error, ${id.cata(sym => s"${sym.name}: ", "")}$message")
+      case CommandService.ClientError(LedgerClientJwt.Grpc.Category.PermissionDenied, message) =>
+        Unauthorized(message)
+    })
   }
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =

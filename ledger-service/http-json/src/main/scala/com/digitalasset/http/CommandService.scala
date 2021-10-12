@@ -313,6 +313,7 @@ object CommandService {
   final case class InternalError(id: Option[Symbol], message: String) extends Error
 
   object Error {
+    @deprecated("TODO s11 remainder", since = "1.18.0")
     implicit val errorShow: Show[Error] = Show shows {
       case ClientError(c @ Grpc.Category.PermissionDenied, message) =>
         s"CommandService Error, $c: $message"
