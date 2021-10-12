@@ -20,6 +20,8 @@ import scala.jdk.CollectionConverters._
 class ErrorCodeSpec extends AnyFlatSpec with Matchers with BeforeAndAfter {
   implicit private val testLoggingContext: LoggingContext = LoggingContext.ForTesting
   private val logger = ContextualizedLogger.get(getClass)
+  private val errorLoggingContext: Option[String] => DamlErrorCodeLoggingContext = correlationId =>
+    new DamlErrorCodeLoggingContext(logger, testLoggingContext, correlationId)
 
   private val className = classOf[ErrorCode].getSimpleName
 
@@ -29,13 +31,14 @@ class ErrorCodeSpec extends AnyFlatSpec with Matchers with BeforeAndAfter {
 
   s"$className.log" should "log the error message with the correct markers" in {
     logSeriousError(
-      correlationId = Some("1234567890"),
-      extra = Map("extra-context-key" -> "extra-context-value"),
-    )
+      extra = Map("extra-context-key" -> "extra-context-value")
+    )(errorLoggingContext(Some("1234567890")))
 
     val actualLogs = LogCollector
       .readWithMarkers[this.type, this.type]
-      .map { case (level, (errMsg, marker)) => level -> (errMsg -> marker.toString) }
+      .map { case (level, (errMsg, marker)) =>
+        level -> (errMsg -> marker.toString)
+      }
 
     actualLogs.size shouldBe 1
     val (actualLogLevel, (actualLogMessage, actualLogMarker)) = actualLogs.head
@@ -48,7 +51,7 @@ class ErrorCodeSpec extends AnyFlatSpec with Matchers with BeforeAndAfter {
 
   s"$className.log" should s"truncate the cause size if larger than ${ErrorCode.MaxCauseLogLength}" in {
     val veryLongCause = "o" * (ErrorCode.MaxCauseLogLength * 2)
-    logSeriousError(cause = veryLongCause)
+    logSeriousError(cause = veryLongCause)(errorLoggingContext(None))
 
     val expectedErrorLog = "BLUE_SCREEN(4,0): " + ("o" * ErrorCode.MaxCauseLogLength + "...")
     val actualLogs = LogCollector.read[this.type, this.type]
@@ -60,10 +63,7 @@ class ErrorCodeSpec extends AnyFlatSpec with Matchers with BeforeAndAfter {
     val error = NotSoSeriousError.Error("some error cause")
     val correlationId = "12345678"
 
-    val actualGrpcError =
-      error.asGrpcErrorFromContext(correlationId = Some(correlationId), logger)(
-        testLoggingContext
-      )
+    val actualGrpcError = error.asGrpcErrorFromContext(errorLoggingContext(Some(correlationId)))
     val expectedErrorMessage =
       "UNAVAILABLE: TEST_ROUTINE_FAILURE_PLEASE_IGNORE(1,12345678): Some obscure cause"
 
@@ -90,14 +90,9 @@ class ErrorCodeSpec extends AnyFlatSpec with Matchers with BeforeAndAfter {
 
   private def logSeriousError(
       cause: String = "the error argument",
-      correlationId: Option[String] = None,
       extra: Map[String, String] = Map.empty,
-  ): Unit =
+  )(implicit errorLoggingContext: ErrorCodeLoggingContext): Unit =
     SeriousError
       .Error(cause)
-      .logWithContext(
-        logger = logger,
-        correlationId = correlationId,
-        extra = extra,
-      )
+      .logWithContext(extra)
 }

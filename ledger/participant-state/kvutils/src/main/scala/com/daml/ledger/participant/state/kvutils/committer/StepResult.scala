@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry
+import com.daml.ledger.participant.state.kvutils.store.DamlLogEntry
 
 private[kvutils] sealed trait StepResult[+PartialResult] {
   def map[NewPartialResult](f: PartialResult => NewPartialResult): StepResult[NewPartialResult]

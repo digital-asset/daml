@@ -3,8 +3,8 @@
 
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
-CODEOWNERS   @gerolf-da @cocreature
-LATEST       @gerolf-da @bame-da @cocreature
+CODEOWNERS   @gerolf-da @cocreature @stefanobaghino-da
+LATEST       @gerolf-da @bame-da @cocreature @stefanobaghino-da @adriaanm-da
 
 # Build / CI / environment
 /ci/                @garyverhaegen-da
@@ -13,6 +13,8 @@ LATEST       @gerolf-da @bame-da @cocreature
 /infra/             @garyverhaegen-da
 azure-pipelines.yml @garyverhaegen-da
 azure-cron.yml      @garyverhaegen-da
+/release/           @garyverhaegen-da
+/release.sh         @garyverhaegen-da
 
 # Blackduck
 NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
@@ -57,7 +59,7 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /ledger/sandbox/                    @digital-asset/kv-participant @digital-asset/kv-committer
 
 # Owned by KV Participant except for IndexDB schema which is jointly owned with @meiersi-da
-/ledger/participant-integration-api/                    @digital-asset/kv-participant @meiersi-da 
+/ledger/participant-integration-api/                    @digital-asset/kv-participant @meiersi-da
 
 
 # KV Committer
@@ -69,7 +71,6 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /ledger/participant-state/kvutils/src/main/protobuf  @meiersi-da @digital-asset/kv-committer
 
 
-/runtime-components/    @stefanobaghino-da
 
 # Ecosystems
 /language-support/hs/       @nickchapman-da @cocreature
@@ -77,9 +78,10 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /language-support/scala/    @S11001001 @stefanobaghino-da
 /language-support/ts/        @robin-da @garyverhaegen-da @stefanobaghino-da
 
-# Tools
-/extractor/         @S11001001 @stefanobaghino-da
-/navigator/         @stefanobaghino-da
+# Application Runtime
+/extractor/            @S11001001 @stefanobaghino-da
+/navigator/            @stefanobaghino-da
+/runtime-components/   @stefanobaghino-da
 /navigator/backend/src/main/scala/com/digitalasset/navigator/json/    @S11001001
 
 # Misc

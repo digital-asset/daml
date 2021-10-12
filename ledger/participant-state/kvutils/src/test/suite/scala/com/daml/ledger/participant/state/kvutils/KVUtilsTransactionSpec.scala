@@ -5,12 +5,9 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.Duration
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntry,
-  DamlTransactionRejectionEntry,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionRejectionEntry
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
-import com.daml.ledger.participant.state.kvutils.store.DamlStateValue
+import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.test._

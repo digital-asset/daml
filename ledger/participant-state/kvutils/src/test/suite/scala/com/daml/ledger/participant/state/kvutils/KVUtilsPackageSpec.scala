@@ -4,10 +4,8 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntry,
-  DamlPackageUploadRejectionEntry,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlPackageUploadRejectionEntry
+import com.daml.ledger.participant.state.kvutils.store.DamlLogEntry
 import com.daml.ledger.test.{ModelTestDar, SimplePackagePartyTestDar}
 import com.daml.logging.LoggingContext
 import com.daml.platform.testing.TestDarReader

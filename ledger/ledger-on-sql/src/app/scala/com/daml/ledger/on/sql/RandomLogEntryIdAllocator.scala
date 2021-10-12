@@ -5,7 +5,7 @@ package com.daml.ledger.on.sql
 
 import java.util.UUID
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
+import com.daml.ledger.participant.state.kvutils.store.DamlLogEntryId
 import com.daml.ledger.validator.LogEntryIdAllocator
 import com.google.protobuf.ByteString
 

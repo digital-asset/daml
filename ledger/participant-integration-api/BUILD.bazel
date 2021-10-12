@@ -39,7 +39,6 @@ compile_deps = [
     "//daml-lf/transaction",
     "//daml-lf/transaction:transaction_proto_java",
     "//daml-lf/transaction:value_proto_java",
-    "//daml-lf/validation",
     "//language-support/scala/bindings",
     "//ledger-api/rs-grpc-akka",
     "//ledger-api/rs-grpc-bridge",
@@ -52,7 +51,6 @@ compile_deps = [
     "//ledger/ledger-api-domain",
     "//ledger/ledger-api-health",
     "//ledger/ledger-configuration",
-    "//ledger/ledger-grpc",
     "//ledger/ledger-offset",
     "//ledger/ledger-resources",
     "//ledger/metrics",
@@ -88,7 +86,6 @@ compile_deps = [
 
 scala_compile_deps = [
     "@maven//:com_github_scopt_scopt",
-    "@maven//:org_typelevel_cats_core",
     "@maven//:com_typesafe_akka_akka_actor",
     "@maven//:com_typesafe_akka_akka_stream",
     "@maven//:org_playframework_anorm_anorm",
@@ -284,6 +281,7 @@ da_scala_test_suite(
         "//ledger-api/sample-service",
         "//ledger-api/testing-utils",
         "//ledger/caching",
+        "//ledger/error",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",

@@ -717,9 +717,10 @@ object Runner extends StrictLogging {
       timeProviderType: TimeProviderType,
       applicationId: ApplicationId,
       party: String,
+      config: Compiler.Config,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] = {
     val darMap = dar.all.toMap
-    val compiledPackages = PureCompiledPackages.build(darMap) match {
+    val compiledPackages = PureCompiledPackages.build(darMap, config) match {
       case Left(err) => throw new RuntimeException(s"Failed to compile packages: $err")
       case Right(pkgs) => pkgs
     }

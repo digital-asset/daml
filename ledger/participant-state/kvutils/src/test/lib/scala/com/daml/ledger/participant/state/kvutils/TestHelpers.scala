@@ -9,13 +9,13 @@ import java.util.UUID
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntryId,
   DamlSubmitterInfo,
   DamlTransactionEntry,
   DamlTransactionRejectionEntry,
 }
 import com.daml.ledger.participant.state.kvutils.committer.transaction.DamlTransactionEntrySummary
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepResult, StepStop}
+import com.daml.ledger.participant.state.kvutils.store.DamlLogEntryId
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.SubmittedTransaction

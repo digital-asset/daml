@@ -22,6 +22,7 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlCommandDedupValue,
   DamlContractKeyState,
   DamlContractState,
+  DamlLogEntry,
   DamlStateKey,
   DamlStateValue,
 }

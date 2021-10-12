@@ -4,20 +4,18 @@
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import com.daml.ledger.configuration.protobuf.LedgerConfiguration
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlPartyAllocationEntry
+import com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationEntry
+import com.daml.ledger.participant.state.kvutils.store.{
   DamlLogEntry,
   DamlLogEntryId,
-  DamlPartyAllocationEntry,
-}
-import com.daml.ledger.participant.state.kvutils.store.{
   DamlPartyAllocation,
   DamlStateKey,
   DamlStateValue,
 }
-import com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationEntry
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.RawWriteSetComparisonSpec._
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.WriteSetComparison.rawHexString
-import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, Raw, Version}
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw, Version, envelope => protoEnvelope}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.google.protobuf.{ByteString, Empty}
 import org.scalatest.Inside
@@ -55,7 +53,7 @@ final class RawWriteSetComparisonSpec extends AsyncWordSpec with Matchers with I
 
     "fail on an unknown entry" in {
       val envelope = Raw.Envelope(
-        DamlKvutils.Envelope.newBuilder
+        protoEnvelope.Envelope.newBuilder
           .setVersion(Version.version)
           .build
       )
@@ -66,9 +64,9 @@ final class RawWriteSetComparisonSpec extends AsyncWordSpec with Matchers with I
 
     "fail on a submission entry" in {
       val envelope = Raw.Envelope(
-        DamlKvutils.Envelope.newBuilder
+        protoEnvelope.Envelope.newBuilder
           .setVersion(Version.version)
-          .setKind(DamlKvutils.Envelope.MessageKind.SUBMISSION)
+          .setKind(protoEnvelope.Envelope.MessageKind.SUBMISSION)
           .build
       )
       inside(writeSetComparison.checkEntryIsReadable(noKey, envelope)) { case Left(message) =>
@@ -78,9 +76,9 @@ final class RawWriteSetComparisonSpec extends AsyncWordSpec with Matchers with I
 
     "fail on a submission batch entry" in {
       val envelope = Raw.Envelope(
-        DamlKvutils.Envelope.newBuilder
+        protoEnvelope.Envelope.newBuilder
           .setVersion(Version.version)
-          .setKind(DamlKvutils.Envelope.MessageKind.SUBMISSION_BATCH)
+          .setKind(protoEnvelope.Envelope.MessageKind.SUBMISSION_BATCH)
           .build
       )
       inside(writeSetComparison.checkEntryIsReadable(noKey, envelope)) { case Left(message) =>

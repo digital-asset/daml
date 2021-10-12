@@ -12,6 +12,8 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlContractKey,
   DamlContractKeyState,
   DamlContractState,
+  DamlLogEntry,
+  DamlLogEntryId,
   DamlStateKey,
   DamlStateValue,
   DamlSubmissionDedupKey,

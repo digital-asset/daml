@@ -5,7 +5,7 @@ package com.daml.platform.sandboxnext
 
 import java.util.UUID
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
+import com.daml.ledger.participant.state.kvutils.store.DamlLogEntryId
 import com.daml.ledger.validator.LogEntryIdAllocator
 import com.daml.platform.apiserver.SeedService
 import com.google.protobuf.ByteString
