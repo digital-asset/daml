@@ -147,7 +147,6 @@ class CommandService(
           logger.error(s"$opName failure: ${e.e}: ${e.message}")
           Future.successful(-\/(e.e match {
             case -\/(c @ Grpc.Category.PermissionDenied) =>
-              // TODO SC propagate error code
               ClientError(c, e.message)
             case \/-(Grpc.Category.Aborted) =>
               // TODO SC: ambiguous whether "contract key is missing or duplicated
