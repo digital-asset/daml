@@ -21,6 +21,7 @@ import com.daml.http.util.FutureUtil._
 import com.daml.http.util.IdentifierConverters.refApiIdentifier
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.http.util.{Commands, Transactions}
+import LedgerClientJwt.Grpc
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
@@ -130,7 +131,10 @@ class CommandService(
       et.run
     }
 
-  private def logResult[A](op: Symbol, fa: Future[A])(implicit
+  private def logResult[A](
+      op: Symbol,
+      fa: Grpc.EFuture[Grpc.Category.PermissionDenied \/ Grpc.Category.Aborted, A],
+  )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[A] = {
     val opName = op.name
@@ -138,8 +142,19 @@ class CommandService(
       fa.transformWith {
         case Failure(e) =>
           logger.error(s"$opName failure", e)
-          Future.successful(-\/(Error(None, e.toString)))
-        case Success(a) =>
+          Future.successful(-\/(InternalError(None, e.toString)))
+        case Success(-\/(e)) =>
+          logger.error(s"$opName failure: ${e.e}: ${e.message}")
+          Future.successful(-\/(e.e match {
+            case -\/(c @ Grpc.Category.PermissionDenied) =>
+              // TODO SC propagate error code
+              ClientError(c, e.message)
+            case \/-(Grpc.Category.Aborted) =>
+              // TODO SC: ambiguous whether "contract key is missing or duplicated
+              // due to for example contention on resources" should be an HTTP 409
+              InternalError(None, e.message)
+          }))
+        case Success(\/-(a)) =>
           logger.debug(s"$opName success: $a")
           Future.successful(\/-(a))
       }
@@ -218,7 +233,7 @@ class CommandService(
       case Seq(x) => \/-(x)
       case xs @ _ =>
         -\/(
-          Error(
+          InternalError(
             Some(Symbol("exactlyOneActiveContract")),
             s"Expected exactly one active contract, got: $xs",
           )
@@ -230,7 +245,10 @@ class CommandService(
   ): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(
-        Error(Some(Symbol("activeContracts")), s"Received response without transaction: $response")
+        InternalError(
+          Some(Symbol("activeContracts")),
+          s"Received response without transaction: $response",
+        )
       )
       .flatMap(activeContracts)
 
@@ -240,7 +258,7 @@ class CommandService(
     Transactions
       .allCreatedEvents(tx)
       .traverse(ActiveContract.fromLedgerApi(_))
-      .leftMap(e => Error(Some(Symbol("activeContracts")), e.shows))
+      .leftMap(e => InternalError(Some(Symbol("activeContracts")), e.shows))
   }
 
   private def contracts(
@@ -248,7 +266,10 @@ class CommandService(
   ): Error \/ List[Contract[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(
-        Error(Some(Symbol("contracts")), s"Received response without transaction: $response")
+        InternalError(
+          Some(Symbol("contracts")),
+          s"Received response without transaction: $response",
+        )
       )
       .flatMap(contracts)
 
@@ -257,7 +278,7 @@ class CommandService(
   ): Error \/ List[Contract[lav1.value.Value]] =
     Contract
       .fromTransactionTree(tx)
-      .leftMap(e => Error(Some(Symbol("contracts")), e.shows))
+      .leftMap(e => InternalError(Some(Symbol("contracts")), e.shows))
       .map(_.toList)
 
   private def exerciseResult(
@@ -270,7 +291,7 @@ class CommandService(
     } yield exResult
 
     result.toRightDisjunction(
-      Error(
+      InternalError(
         Some(Symbol("choiceArgument")),
         s"Cannot get exerciseResult from the first ExercisedEvent of gRPC response: ${a.toString}",
       )
@@ -287,13 +308,17 @@ class CommandService(
 }
 
 object CommandService {
-  final case class Error(id: Option[Symbol], message: String)
+  sealed abstract class Error extends Product with Serializable
+  final case class ClientError(id: Grpc.Category.PermissionDenied, message: String) extends Error
+  final case class InternalError(id: Option[Symbol], message: String) extends Error
 
   object Error {
     implicit val errorShow: Show[Error] = Show shows {
-      case Error(None, message) =>
+      case ClientError(c @ Grpc.Category.PermissionDenied, message) =>
+        s"CommandService Error, $c: $message"
+      case InternalError(None, message) =>
         s"CommandService Error, $message"
-      case Error(Some(id), message) =>
+      case InternalError(Some(id), message) =>
         s"CommandService Error, $id: $message"
     }
   }

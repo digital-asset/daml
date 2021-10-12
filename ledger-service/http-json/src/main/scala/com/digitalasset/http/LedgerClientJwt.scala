@@ -23,21 +23,30 @@ import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.google.protobuf
 import io.grpc.Status, Status.Code, Code.{values => _, _}
-import scalaz.{OneAnd, -\/, \/}
+import scalaz.{OneAnd, \/, -\/, \/-}
 
 import scala.concurrent.{ExecutionContext => EC, Future}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 object LedgerClientJwt {
-  import Grpc.{EFuture, Error}, Grpc.Category._
+  import Grpc.EFuture, Grpc.Category._
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
+  // there are other error categories of interest if we wish to propagate
+  // different 5xx errors, but PermissionDenied and Aborted are the only
+  // "client" errors here
   type SubmitAndWaitForTransaction =
-    (Jwt, SubmitAndWaitRequest) => Future[SubmitAndWaitForTransactionResponse]
+    (
+        Jwt,
+        SubmitAndWaitRequest,
+    ) => EFuture[PermissionDenied \/ Aborted, SubmitAndWaitForTransactionResponse]
 
   type SubmitAndWaitForTransactionTree =
-    (Jwt, SubmitAndWaitRequest) => Future[SubmitAndWaitForTransactionTreeResponse]
+    (
+        Jwt,
+        SubmitAndWaitRequest,
+    ) => EFuture[PermissionDenied \/ Aborted, SubmitAndWaitForTransactionTreeResponse]
 
   type GetTermination =
     (Jwt, LedgerApiDomain.LedgerId) => Future[Option[Terminates.AtAbsolute]]
@@ -94,11 +103,25 @@ object LedgerClientJwt {
 
   private def bearer(jwt: Jwt): Some[String] = Some(jwt.value: String)
 
-  def submitAndWaitForTransaction(client: DamlLedgerClient): SubmitAndWaitForTransaction =
-    (jwt, req) => client.commandServiceClient.submitAndWaitForTransaction(req, bearer(jwt))
+  def submitAndWaitForTransaction(
+      client: DamlLedgerClient
+  )(implicit ec: EC): SubmitAndWaitForTransaction =
+    (jwt, req) =>
+      client.commandServiceClient.submitAndWaitForTransaction(req, bearer(jwt)).requireHandling {
+        case PERMISSION_DENIED => -\/(PermissionDenied)
+        case ABORTED => \/-(Aborted)
+      }
 
-  def submitAndWaitForTransactionTree(client: DamlLedgerClient): SubmitAndWaitForTransactionTree =
-    (jwt, req) => client.commandServiceClient.submitAndWaitForTransactionTree(req, bearer(jwt))
+  def submitAndWaitForTransactionTree(
+      client: DamlLedgerClient
+  )(implicit ec: EC): SubmitAndWaitForTransactionTree =
+    (jwt, req) =>
+      client.commandServiceClient
+        .submitAndWaitForTransactionTree(req, bearer(jwt))
+        .requireHandling {
+          case PERMISSION_DENIED => -\/(PermissionDenied)
+          case ABORTED => \/-(Aborted)
+        }
 
   def getTermination(client: DamlLedgerClient)(implicit ec: EC): GetTermination =
     (jwt, ledgerId) =>
@@ -223,6 +246,8 @@ object LedgerClientJwt {
       case object PermissionDenied
       type InvalidArgument = InvalidArgument.type
       case object InvalidArgument
+      type Aborted = Aborted.type
+      case object Aborted
 
       private[LedgerClientJwt] implicit final class `Future Status Category ops`[A](
           private val fa: Future[A]
