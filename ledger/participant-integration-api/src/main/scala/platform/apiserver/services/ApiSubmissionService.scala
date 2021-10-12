@@ -55,7 +55,6 @@ private[apiserver] object ApiSubmissionService {
       configuration: ApiSubmissionService.Configuration,
       metrics: Metrics,
       errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
-      rejectionGenerators: RejectionGenerators,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -73,7 +72,6 @@ private[apiserver] object ApiSubmissionService {
         configuration,
         metrics,
         errorCodesVersionSwitcher,
-        rejectionGenerators,
       ),
       ledgerId = ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
@@ -103,13 +101,15 @@ private[apiserver] final class ApiSubmissionService private[services] (
     configuration: ApiSubmissionService.Configuration,
     metrics: Metrics,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
-    rejectionGenerators: RejectionGenerators,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends CommandSubmissionService
     with ErrorFactories
     with AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
+
+  // TODO error codes: review conformance mode usages wherever RejectionGenerators is instantiated
+  private val rejectionGenerators = new RejectionGenerators(conformanceMode = true)
 
   override def submit(
       request: SubmitRequest
@@ -131,16 +131,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
               .transform(handleSubmissionResult)
           }
         case None =>
-          errorCodesVersionSwitcher.chooseAsFailedFuture(
-            v1 = ErrorFactories.missingLedgerConfig(definiteAnswer = Some(false)),
-            v2 = LedgerApiErrors.InterpreterErrors.LookupErrors.LedgerConfigurationNotFound
-              .Reject(cause = "The ledger configuration is not available.")(
-                correlationId = CorrelationId.none,
-                loggingContext = loggingContext,
-                logger = logger,
-              )
-              .asGrpcError,
-          )
+          failedOnMissingLedgerConfiguration()
       }
       evaluatedCommand
         .andThen(logger.logErrorsOnCall[Unit])
@@ -172,18 +163,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
             }
         case _: CommandDeduplicationDuplicate =>
           metrics.daml.commands.deduplicatedCommands.mark()
-          errorCodesVersionSwitcher.chooseAsFailedFuture(
-            v1 = {
-              val exception = duplicateCommandException
-              logger.debug(exception.getMessage)
-              exception
-            },
-            v2 = rejectionGenerators.duplicateCommand(
-              logger = logger,
-              loggingContext = loggingContext,
-              correlationId = CorrelationId.none,
-            ),
-          )
+          failedOnDuplicateCommand()
       }
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit
@@ -212,15 +192,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
     result.fold(
       error => {
         metrics.daml.commands.failedCommandInterpretations.mark()
-        errorCodesVersionSwitcher.chooseAsFailedFuture(
-          v1 = toStatusExceptionV1(error),
-          v2 = rejectionGenerators
-            .commandExecutorError(cause = ErrorCauseExport.fromErrorCause(error))(
-              logger = logger,
-              loggingContext = implicitly[LoggingContext],
-              correlationId = CorrelationId.none,
-            ),
-        )
+        failedOnCommandExecution(error)
       },
       Future.successful,
     )
@@ -323,9 +295,9 @@ private[apiserver] final class ApiSubmissionService private[services] (
   /** This method encodes logic related to legacy error codes (V1).
     * Cf. self-service error codes (V2) in //ledger/error
     */
-  def toStatusExceptionV1(errorCause: ErrorCause): StatusRuntimeException =
+  private def toStatusExceptionV1(errorCause: ErrorCause): StatusRuntimeException =
     errorCause match {
-      case cause @ ErrorCause.DamlLf(error: LfError) =>
+      case cause @ ErrorCause.DamlLf(error) =>
         error match {
           case LfError.Interpretation(
                 LfError.Interpretation.DamlException(
@@ -341,6 +313,50 @@ private[apiserver] final class ApiSubmissionService private[services] (
       case cause: ErrorCause.LedgerTime =>
         ErrorFactories.aborted(cause.explain, definiteAnswer = Some(false))
     }
+
+  private def failedOnMissingLedgerConfiguration()(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit] = {
+    errorCodesVersionSwitcher.chooseAsFailedFuture(
+      v1 = ErrorFactories.missingLedgerConfig(definiteAnswer = Some(false)),
+      v2 = LedgerApiErrors.InterpreterErrors.LookupErrors.LedgerConfigurationNotFound
+        .Reject()(
+          correlationId = CorrelationId.none,
+          loggingContext = loggingContext,
+          logger = logger,
+        )
+        .asGrpcError,
+    )
+  }
+
+  private def failedOnDuplicateCommand()(implicit loggingContext: LoggingContext): Future[Unit] = {
+    errorCodesVersionSwitcher.chooseAsFailedFuture(
+      v1 = {
+        val exception = duplicateCommandException
+        logger.debug(exception.getMessage)
+        exception
+      },
+      v2 = rejectionGenerators.duplicateCommand(
+        logger = logger,
+        loggingContext = loggingContext,
+        correlationId = CorrelationId.none,
+      ),
+    )
+  }
+
+  private def failedOnCommandExecution(
+      error: ErrorCause
+  )(implicit loggingContext: LoggingContext): Future[CommandExecutionResult] = {
+    errorCodesVersionSwitcher.chooseAsFailedFuture(
+      v1 = toStatusExceptionV1(error),
+      v2 = rejectionGenerators
+        .commandExecutorError(cause = ErrorCauseExport.fromErrorCause(error))(
+          logger = logger,
+          loggingContext = loggingContext,
+          correlationId = CorrelationId.none,
+        ),
+    )
+  }
 
   override def close(): Unit = ()
 

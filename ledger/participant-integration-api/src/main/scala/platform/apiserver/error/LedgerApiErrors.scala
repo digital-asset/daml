@@ -428,14 +428,12 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
           ) {
 
-        case class Reject(
-            override val cause: String
-        )(implicit
+        case class Reject()(implicit
             loggingContext: LoggingContext,
             logger: ContextualizedLogger,
             correlationId: CorrelationId,
         ) extends LoggingTransactionErrorImpl(
-              cause = cause
+              cause = "The ledger configuration is not available."
             )
       }
 
