@@ -405,6 +405,8 @@ As a user, you don't need to interact with Daml-LF directly. But internally, it'
 - sending and receiving values via the Ledger API (using a protocol such as gRPC)
 - generating code in other languages for interacting with Daml models (often called “codegen”)
 
+.. include:: ../ctn/tutorials/concepts.inc
+
 General concepts
 ****************
 

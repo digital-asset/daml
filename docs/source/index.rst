@@ -61,7 +61,11 @@ Daml Documentation
    :caption: Daml Connect Node
 
    ctn/index
-   ctn/canton_toc
+   ctn/connect_node_config
+   Connect Node Console <ctn/usermanual/console.rst>
+   High Availability <ctn/architecture/ha>
+   ctn/tutorials/composability
+   Support and Licence <ctn/general_information>
 
 .. toctree::
    :maxdepth: 2
@@ -81,7 +85,7 @@ Daml Documentation
 
    ops/index
    ops/connect/index
-   ctn/operating_node
+   ctn/usermanual/operational_processes
 
 .. toctree::
    :titlesonly:
@@ -103,9 +107,8 @@ Daml Documentation
    :caption: Background concepts
 
    concepts/glossary
-   ctn/tutorials/concepts
-   ctn/connect_node_design
-   ctn/identity_management_content
+   ctn/architecture/overview
+   ctn/usermanual/identity_management.rst
    concepts/ledger-model/index
    concepts/time
    concepts/local-ledger
