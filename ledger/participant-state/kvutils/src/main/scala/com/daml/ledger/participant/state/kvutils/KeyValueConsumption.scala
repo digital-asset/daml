@@ -6,9 +6,9 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.DamlPackageUploadRejectionEntry
 import com.daml.ledger.participant.state.kvutils.store.events.{
+  DamlConfigurationRejectionEntry,
   DamlPartyAllocationRejectionEntry,
   DamlTransactionBlindingInfo,
   DamlTransactionEntry,
