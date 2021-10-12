@@ -330,15 +330,12 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       machine.run() match {
         case SResultFinalValue(_) => finished = true
 
-        case SResultError(SError.SErrorDamlException(error)) =>
-          return ResultError(Error.Interpretation.DamlException(error), detailMsg)
-
         case SResultError(err) =>
           err match {
+            case SError.SErrorDamlException(error) =>
+              return ResultError(Error.Interpretation.DamlException(error), detailMsg)
             case SError.SErrorCrash(where, reason) =>
               return ResultError(Error.Interpretation.Internal(where, reason))
-            case SError.SErrorDamlException(error) =>
-              return ResultError(Error.Interpretation.DamlException(error))
           }
         case SResultNeedPackage(pkgId, context, callback) =>
           return Result.needPackage(
