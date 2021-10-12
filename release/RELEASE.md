@@ -45,7 +45,7 @@ patches we backport to the 1.0 release branch).
    you can look at the output of the `check_for_release` build step.
 
 1. **[STABLE]** The PR **must** be approved by a team lead before merging. As
-   of this writing (2021-10-12), @bame-da, @gerolf-da, @cocreature, @stefanobaghino-da or @adriaanm-da
+   of this writing (2021-10-12), @bame-da, @gerolf-da, @cocreature, @stefanobaghino-da or @adriaanm-da.
 
 1. Merge the PR and wait for the corresponding `main` build to finish. You
    will be notified on `#team-daml`.
