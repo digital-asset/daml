@@ -13,7 +13,7 @@
 
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
@@ -120,6 +120,9 @@ haskell_library(
         urls = ["https://github.com/digital-asset/daml-ghcide/archive/%s.tar.gz" % GHCIDE_REV],
     )
 
+    cbit_dep = ":fat_cbits" if is_windows else ":needed-cbits-clib" if is_linux else ":cbits"
+    grpc_dep = "@com_github_grpc_grpc//:grpc" if is_windows else "@grpc_nix//:grpc_lib"
+
     http_archive(
         name = "grpc_haskell_core",
         build_file_content = """
@@ -146,8 +149,38 @@ c2hs_suite(
     compiler_flags = ["-XCPP", "-Wno-unused-imports", "-Wno-unused-record-wildcards"],
     visibility = ["//visibility:public"],
     deps = [
-        ":fat_cbits",
+        "{cbit_dep}",
     ],
+)
+
+cc_library(
+  name = "needed-cbits-clib",
+  srcs = [":libneeded-cbits.so"],
+  deps = ["{grpc_dep}"],
+  hdrs = glob(["include/*.h"]),
+  includes = ["include/"],
+)
+
+# Bazel produces cbits without NEEDED entries which makes
+# ghci unhappy. We cannot use fat_cbits on the nix-built grpc
+# since it lacks static libs but we can patchelf the cbits to add
+# the NEEDED entry.
+# Apparently this is not needed on macos for whatever reason and patchelf
+# doesn’t work there anyway so we only use it on Linux.
+genrule(
+  name = "needed-cbits",
+  srcs = [":cbits", "@grpc_nix//:grpc_file"],
+  outs = ["libneeded-cbits.so"],
+  tools = ["@patchelf_nix//:bin/patchelf"],
+  cmd = '''
+  set -eou pipefail
+  # We get 3 libs. We want the shared lib which comes last.
+  CBITS=$$(echo $(locations :cbits) | cut -f 3 -d ' ')
+  OLD_RPATH=$$($(location @patchelf_nix//:bin/patchelf) --print-rpath $$CBITS)
+  GRPC_RPATH=$$(dirname $$(readlink -f $$(echo $(locations @grpc_nix//:grpc_file) | cut -f 1 -d ' ')))
+  $(location @patchelf_nix//:bin/patchelf) $$CBITS --add-needed libgrpc.so.18 --output $(location libneeded-cbits.so)
+  $(location @patchelf_nix//:bin/patchelf) $(location libneeded-cbits.so) --set-rpath "$$OLD_RPATH:$$GRPC_RPATH"
+  '''
 )
 
 fat_cc_library(
@@ -160,10 +193,10 @@ cc_library(
   hdrs = glob(["include/*.h"]),
   includes = ["include/"],
   deps = [
-    "@com_github_grpc_grpc//:grpc",
+    "{grpc_dep}",
   ]
 )
-""",
+""".format(cbit_dep = cbit_dep, grpc_dep = grpc_dep),
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-cpp-options.patch",
