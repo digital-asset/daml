@@ -24,35 +24,6 @@ import "com/daml/lf/transaction.proto";
 import "com/daml/ledger/configuration/ledger_configuration.proto";
 import "com/daml/ledger/participant/state/kvutils/store/state.proto";
 import "com/daml/ledger/participant/state/kvutils/store/events/configuration.proto";
-// Envelope with which we wrap all kvutils messages that are sent over the network
-// or persisted on disk. The envelope specifies the kvutils version that defines how
-// a message is decoded and processed. Optionally the message payload may be stored
-// compressed.
-message Envelope {
-  enum MessageKind {
-    SUBMISSION = 0;
-    LOG_ENTRY = 1;
-    STATE_VALUE = 2;
-    SUBMISSION_BATCH = 3;
-  }
-
-  enum CompressionSchema {
-    NONE = 0;
-    GZIP = 1;
-  }
-
-  // Kvutils version number
-  int64 version = 1;
-
-  // Kind of message contained within.
-  MessageKind kind = 2;
-
-  // Compression schema, if any, used to compress the message.
-  CompressionSchema compression = 3;
-
-  // The enclosed, potentially compressed, message
-  bytes message = 4;
-}
 
 // A log entry for a committed Daml submission.
 // Produced by [[KeyValueCommitting]] from the `DamlSubmission` message.
