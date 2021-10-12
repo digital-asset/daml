@@ -17,6 +17,10 @@ import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.store.DamlLogEntry.PayloadCase._
 import com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationEntry
+import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.{
+  DamlPackageUploadEntry,
+  DamlPackageUploadRejectionEntry,
+}
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlLogEntry,
   DamlLogEntryId,
