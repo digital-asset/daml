@@ -7,12 +7,12 @@ import java.io.File
 import java.time.{Clock, Instant}
 import java.util.UUID
 import java.util.concurrent.Executors
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.caching
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.{AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
@@ -223,7 +223,12 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
               resetService = {
                 val clock = Clock.systemUTC()
                 val authorizer =
-                  new Authorizer(() => clock.instant(), ledgerId, config.participantId)
+                  new Authorizer(
+                    () => clock.instant(),
+                    ledgerId,
+                    config.participantId,
+                    new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes),
+                  )
                 new SandboxResetService(
                   domain.LedgerId(ledgerId),
                   () => {

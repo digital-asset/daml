@@ -31,10 +31,10 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "UNAUTHENTICATED",
           ErrorCategory.AuthInterceptorInvalidAuthenticationCredentials,
         ) {
-      case class Reject()(implicit
+      case class MissingJwtToken()(implicit
           loggingContext: ErrorCodeLoggingContext
       ) extends LoggingTransactionErrorImpl(
-            cause = "The command is missing a JWT token"
+            cause = s"The command is missing a JWT token"
           )
     }
 
@@ -47,10 +47,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     )
     object PermissionDenied
         extends ErrorCode(id = "PERMISSION_DENIED", ErrorCategory.InsufficientPermission) {
-      case class Reject()(implicit
+      case class Reject(override val cause: String)(implicit
           loggingContext: ErrorCodeLoggingContext
       ) extends LoggingTransactionErrorImpl(
-            cause = "The provided JWT token is not sufficient to authorize the intended command"
+            cause =
+              s"The provided JWT token is not sufficient to authorize the intended command: $cause"
           )
     }
   }

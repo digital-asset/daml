@@ -1,9 +1,9 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.apiserver
+package com
+package daml.error
 
-import com.daml.error.ValueSwitch
 import io.grpc.StatusRuntimeException
 
 import scala.concurrent.Future
