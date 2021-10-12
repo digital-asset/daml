@@ -2,7 +2,7 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 Self-Service Error Codes (Experimental)
-###############
+#######################################
 
 .. toctree::
    :hidden:

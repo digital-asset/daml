@@ -654,7 +654,7 @@ genrule(
     srcs = [],
     outs = ["error_codes_export.json"],
     cmd = "$(location //ledger/error:export-error-codes-json-app) $(location error_codes_export.json)",
-    tools = ["//ledger/error:gen-docs"],
+    tools = ["//ledger/error:export-error-codes-json-app"],
 )
 
 exports_files([
