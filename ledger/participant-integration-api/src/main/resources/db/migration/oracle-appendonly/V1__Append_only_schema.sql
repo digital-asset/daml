@@ -399,7 +399,7 @@ CREATE INDEX participant_events_non_consuming_exercise_template_id_idx ON partic
 CREATE SEARCH INDEX participant_events_non_consuming_exercise_flat_event_witness_idx ON participant_events_non_consuming_exercise (flat_event_witnesses) FOR JSON;
 CREATE SEARCH INDEX participant_events_non_consuming_exercise_tree_event_witness_idx ON participant_events_non_consuming_exercise (tree_event_witnesses) FOR JSON;
 
-CREATE VIEW participant_events AS
+CREATE OR REPLACE VIEW participant_events AS
 SELECT cast(0 as SMALLINT)          AS event_kind,
        participant_events_divulgence.event_sequential_id,
        participant_events_divulgence.event_offset,
