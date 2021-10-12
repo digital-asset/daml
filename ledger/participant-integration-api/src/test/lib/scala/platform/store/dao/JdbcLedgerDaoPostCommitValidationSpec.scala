@@ -6,11 +6,14 @@ package com.daml.platform.store.dao
 import java.util.UUID
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.lf.data.Ref
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.appendonlydao.events.CompressionStrategy
 import org.scalatest.LoneElement
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -23,7 +26,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
   override protected def daoOwner(eventsPageSize: Int, eventsProcessingParallelism: Int)(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] = {
-    val _ = eventsProcessingParallelism // Silence unused param warning
+    val metrics = new Metrics(new MetricRegistry)
     JdbcLedgerDao
       .validatingWriteOwner(
         serverRole = ServerRole.Testing(getClass),
@@ -31,10 +34,13 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
         connectionPoolSize = 16,
         connectionTimeout = 250.millis,
         eventsPageSize = eventsPageSize,
+        eventsProcessingParallelism = eventsProcessingParallelism,
         servicesExecutionContext = executionContext,
-        metrics = new Metrics(new MetricRegistry),
+        metrics = metrics,
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         enricher = None,
+        participantId = Ref.ParticipantId.assertFromString("JdbcLedgerDaoPostCommitValidationSpec"),
+        compressionStrategy = CompressionStrategy.none(metrics),
       )
   }
 

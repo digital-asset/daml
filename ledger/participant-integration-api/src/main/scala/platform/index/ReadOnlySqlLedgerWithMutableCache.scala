@@ -4,7 +4,6 @@
 package com.daml.platform.index
 
 import java.util.concurrent.TimeUnit
-
 import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
@@ -19,11 +18,11 @@ import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.index.ReadOnlySqlLedgerWithMutableCache.DispatcherLagMeter
+import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.{EventSequentialId, LfValueTranslationCache}
 import com.daml.platform.store.appendonlydao.events.{BufferedTransactionsReader, LfValueTranslation}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.SignalNewLedgerHead
 import com.daml.platform.store.cache.{EventsBuffer, MutableCacheBackedContractStore}
-import com.daml.platform.store.dao.{LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.scalautil.Statement.discard
 

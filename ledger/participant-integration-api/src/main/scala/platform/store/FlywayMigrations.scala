@@ -18,8 +18,6 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[platform] class FlywayMigrations(
     jdbcUrl: String,
-    enableAppendOnlySchema: Boolean =
-      false, // TODO append-only: remove after removing support for the current (mutating) schema
     additionalMigrationPaths: Seq[String] = Seq.empty,
 )(implicit resourceContext: ResourceContext, loggingContext: LoggingContext) {
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -35,7 +33,7 @@ private[platform] class FlywayMigrations(
   private def configurationBase(dataSource: DataSource): FluentConfiguration =
     Flyway
       .configure()
-      .locations((locations(enableAppendOnlySchema, dbType) ++ additionalMigrationPaths): _*)
+      .locations((locations(dbType) ++ additionalMigrationPaths): _*)
       .dataSource(dataSource)
 
   def validate(): Future[Unit] = run { configBase =>
@@ -117,34 +115,16 @@ private[platform] class FlywayMigrations(
   }
 }
 
-// TODO append-only: move all migrations from the '-appendonly' folder to the main folder, and remove the enableAppendOnlySchema parameter here
 private[platform] object FlywayMigrations {
-  private val appendOnlyFromScratch = Map(
-    DbType.Postgres -> false,
-    DbType.H2Database -> true,
-    DbType.Oracle -> true,
-  )
-
   private val sqlMigrationClasspathBase = "classpath:db/migration/"
   private val javaMigrationClasspathBase = "classpath:com/daml/platform/db/migration/"
 
-  private[platform] def locations(enableAppendOnlySchema: Boolean, dbType: DbType) = {
-    def mutableClassPath =
-      List(
-        sqlMigrationClasspathBase,
-        javaMigrationClasspathBase,
-      ).map(_ + dbType.name)
-
-    def appendOnlyClassPath =
-      List(sqlMigrationClasspathBase)
-        .map(_ + dbType.name + "-appendonly")
-
-    (enableAppendOnlySchema, appendOnlyFromScratch(dbType)) match {
-      case (true, true) => appendOnlyClassPath
-      case (true, false) => mutableClassPath ++ appendOnlyClassPath
-      case (false, _) => mutableClassPath
-    }
-  }
+  private[platform] def locations(dbType: DbType) =
+    // TODO append-only: rename the -appendonly folders
+    List(
+      sqlMigrationClasspathBase + dbType.name + "-appendonly",
+      javaMigrationClasspathBase + dbType.name,
+    )
 
   case class MigrationIncomplete(pendingMigrations: Int)
       extends RuntimeException(s"Migration incomplete with $pendingMigrations migrations remaining")

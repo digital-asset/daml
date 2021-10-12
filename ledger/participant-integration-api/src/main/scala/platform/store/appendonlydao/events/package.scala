@@ -41,6 +41,10 @@ package object events {
   val ModuleName = lfdata.Ref.ModuleName
   type LedgerString = lfdata.Ref.LedgerString
   val LedgerString = lfdata.Ref.LedgerString
+  type TransactionId = lfdata.Ref.LedgerString
+  val TransactionId = lfdata.Ref.LedgerString
+  type WorkflowId = lfdata.Ref.LedgerString
+  val WorkflowId = lfdata.Ref.LedgerString
   type ChoiceName = lfdata.Ref.ChoiceName
   val ChoiceName = lfdata.Ref.ChoiceName
   type PackageId = lfdata.Ref.PackageId
@@ -48,7 +52,7 @@ package object events {
   type WitnessRelation[A] = lfdata.Relation.Relation[A, Party]
   type DisclosureRelation = WitnessRelation[NodeId]
   type DivulgenceRelation = WitnessRelation[ContractId]
-  private[appendonlydao] type FilterRelation =
+  private[store] type FilterRelation =
     lfdata.Relation.Relation[Party, lfdata.Ref.Identifier]
   val Relation = lfdata.Relation.Relation
 

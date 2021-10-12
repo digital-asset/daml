@@ -5,7 +5,6 @@ package com.daml.platform.index
 
 import java.sql.SQLException
 import java.time.Instant
-
 import akka.Done
 import akka.actor.Cancellable
 import akka.stream._
@@ -23,14 +22,17 @@ import com.daml.platform.PruneBuffers
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao.{LedgerDaoTransactionsReader, LedgerReadDao}
-import com.daml.platform.store.{BaseLedger, LfValueTranslationCache, appendonlydao, dao}
+import com.daml.platform.store.appendonlydao.{
+  JdbcLedgerDao,
+  LedgerDaoTransactionsReader,
+  LedgerReadDao,
+}
+import com.daml.platform.store.{BaseLedger, LfValueTranslationCache}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.Failure
 
 private[platform] object ReadOnlySqlLedger {
 
@@ -49,8 +51,6 @@ private[platform] object ReadOnlySqlLedger {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: ValueEnricher,
-      // TODO append-only: remove after removing support for the current (mutating) schema
-      enableAppendOnlySchema: Boolean,
       maxContractStateCacheSize: Long,
       maxContractKeyStateCacheSize: Long,
       enableMutableContractStateCache: Boolean,
@@ -69,21 +69,17 @@ private[platform] object ReadOnlySqlLedger {
 
     private def ledgerOwner(ledgerDao: LedgerReadDao, ledgerId: LedgerId) =
       if (enableMutableContractStateCache) {
-        if (!enableAppendOnlySchema) {
-          failAppendOnlyNotEnabled()
-        } else {
-          new ReadOnlySqlLedgerWithMutableCache.Owner(
-            ledgerDao,
-            enricher,
-            ledgerId,
-            metrics,
-            maxContractStateCacheSize,
-            maxContractKeyStateCacheSize,
-            maxTransactionsInMemoryFanOutBufferSize,
-            enableInMemoryFanOutForLedgerApi,
-            servicesExecutionContext = servicesExecutionContext,
-          )
-        }
+        new ReadOnlySqlLedgerWithMutableCache.Owner(
+          ledgerDao,
+          enricher,
+          ledgerId,
+          metrics,
+          maxContractStateCacheSize,
+          maxContractKeyStateCacheSize,
+          maxTransactionsInMemoryFanOutBufferSize,
+          enableInMemoryFanOutForLedgerApi,
+          servicesExecutionContext = servicesExecutionContext,
+        )
       } else
         new ReadOnlySqlLedgerWithTranslationCache.Owner(
           ledgerDao,
@@ -134,42 +130,21 @@ private[platform] object ReadOnlySqlLedger {
     private def ledgerDaoOwner(
         servicesExecutionContext: ExecutionContext
     ): ResourceOwner[LedgerReadDao] =
-      if (enableAppendOnlySchema)
-        appendonlydao.JdbcLedgerDao.readOwner(
-          serverRole,
-          jdbcUrl,
-          databaseConnectionPoolSize,
-          databaseConnectionTimeout,
-          eventsPageSize,
-          eventsProcessingParallelism,
-          servicesExecutionContext,
-          metrics,
-          lfValueTranslationCache,
-          Some(enricher),
-          participantId,
-        )
-      else
-        dao.JdbcLedgerDao.readOwner(
-          serverRole,
-          jdbcUrl,
-          databaseConnectionPoolSize,
-          databaseConnectionTimeout,
-          eventsPageSize,
-          servicesExecutionContext,
-          metrics,
-          lfValueTranslationCache,
-          Some(enricher),
-        )
+      JdbcLedgerDao.readOwner(
+        serverRole,
+        jdbcUrl,
+        databaseConnectionPoolSize,
+        databaseConnectionTimeout,
+        eventsPageSize,
+        eventsProcessingParallelism,
+        servicesExecutionContext,
+        metrics,
+        lfValueTranslationCache,
+        Some(enricher),
+        participantId,
+      )
   }
 
-  private def failAppendOnlyNotEnabled() =
-    ResourceOwner.forTry(() =>
-      Failure[ReadOnlySqlLedger](
-        new IllegalArgumentException(
-          "Mutable contract state cache must be enabled in conjunction with append-only schema"
-        )
-      )
-    )
 }
 
 private[index] abstract class ReadOnlySqlLedger(

@@ -19,11 +19,7 @@ import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandbox.services.{
-  SandboxEnableAppendOnlySchema,
-  SandboxFixture,
-  TestCommands,
-}
+import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.daml.platform.testing.StreamConsumer
 import org.scalatest.Inspectors
 import org.scalatest.matchers.should.Matchers
@@ -163,10 +159,3 @@ sealed trait CompletionServiceITBase
 final class CompletionServicePostgresIT
     extends CompletionServiceITBase
     with SandboxBackend.Postgresql
-
-// CompletionServiceIT on a Postgresql ledger with the append-only schema
-// TODO append-only: remove this class once the append-only schema is the default one
-final class CompletionServiceAppendOnlyIT
-    extends CompletionServiceITBase
-    with SandboxBackend.Postgresql
-    with SandboxEnableAppendOnlySchema

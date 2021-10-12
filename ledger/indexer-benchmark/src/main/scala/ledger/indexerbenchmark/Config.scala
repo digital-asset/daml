@@ -36,7 +36,6 @@ object Config {
       participantId = Ref.ParticipantId.assertFromString("IndexerBenchmarkParticipant"),
       jdbcUrl = "",
       startupMode = IndexerStartupMode.MigrateAndStart,
-      enableAppendOnlySchema = true,
     ),
     waitForUserInput = false,
     minUpdateRate = None,

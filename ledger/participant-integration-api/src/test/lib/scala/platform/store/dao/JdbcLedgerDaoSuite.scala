@@ -7,7 +7,6 @@ import java.io.File
 import java.time.{Duration, Instant}
 import java.util.UUID
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
-
 import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
@@ -25,9 +24,8 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText, VersionedContractInstance}
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.logging.LoggingContext
-import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetStep}
+import com.daml.platform.store.appendonlydao.PersistenceResponse
 import com.daml.platform.store.dao.JdbcLedgerDaoSuite._
-import com.daml.platform.store.dao.events.TransactionsWriter
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.AsyncTestSuite
 
@@ -175,7 +173,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   private[dao] def store(
       completionInfo: Option[state.CompletionInfo],
       tx: LedgerEntry.Transaction,
-      offsetStep: OffsetStep,
+      offsetStep: Offset,
       divulgedContracts: List[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
   ): Future[(Offset, LedgerEntry.Transaction)]
@@ -653,46 +651,17 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     )
   }
 
-  protected final def prepareInsert(
-      completionInfo: Option[state.CompletionInfo],
-      tx: LedgerEntry.Transaction,
-      offsetStep: OffsetStep,
-      divulgedContracts: List[state.DivulgedContract] = List.empty,
-      blindingInfo: Option[BlindingInfo] = None,
-  ): TransactionsWriter.PreparedInsert =
-    ledgerDao.prepareTransactionInsert(
-      completionInfo,
-      tx.workflowId,
-      tx.transactionId,
-      tx.ledgerEffectiveTime,
-      offsetStep.offset,
-      tx.transaction,
-      divulgedContracts,
-      blindingInfo,
-    )
-
   protected final def store(
       divulgedContracts: DivulgedContracts,
       blindingInfo: Option[BlindingInfo],
       offsetAndTx: (Offset, LedgerEntry.Transaction),
-  ): Future[(Offset, LedgerEntry.Transaction)] =
-    storeOffsetStepAndTx(
-      divulgedContracts = divulgedContracts,
-      blindingInfo = blindingInfo,
-      offsetStepAndTx = nextOffsetStep(offsetAndTx._1) -> offsetAndTx._2,
-    )
-
-  protected final def storeOffsetStepAndTx(
-      divulgedContracts: DivulgedContracts,
-      blindingInfo: Option[BlindingInfo],
-      offsetStepAndTx: (OffsetStep, LedgerEntry.Transaction),
   ): Future[(Offset, LedgerEntry.Transaction)] = {
-    val (offsetStep, entry) = offsetStepAndTx
+    val (offset, entry) = offsetAndTx
     val info = completionInfoFrom(entry)
     val divulged =
       divulgedContracts.keysIterator.map(c => state.DivulgedContract(c._1, c._2)).toList
 
-    store(info, entry, offsetStep, divulged, blindingInfo)
+    store(info, entry, offset, divulged, blindingInfo)
   }
 
   protected def completionInfoFrom(entry: LedgerEntry.Transaction): Option[state.CompletionInfo] =
@@ -706,10 +675,10 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected final def store(
       offsetAndTx: (Offset, LedgerEntry.Transaction)
   ): Future[(Offset, LedgerEntry.Transaction)] =
-    storeOffsetStepAndTx(
+    store(
       divulgedContracts = Map.empty,
       blindingInfo = None,
-      offsetStepAndTx = nextOffsetStep(offsetAndTx._1) -> offsetAndTx._2,
+      offsetAndTx = offsetAndTx,
     )
 
   protected final def storeSync(
@@ -885,22 +854,15 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       .map(c => c.commandId -> c.status.get.code)
       .runWith(Sink.seq)
 
-  def nextOffsetStep(offset: Offset): OffsetStep =
-    OffsetStep(previousOffset.getAndSet(Some(offset)), offset)
-
   protected def storeConfigurationEntry(
       offset: Offset,
       submissionId: String,
       lastConfig: Configuration,
       rejectionReason: Option[String] = None,
-      maybePreviousOffset: Option[Offset] = Option.empty,
   ): Future[PersistenceResponse] =
     ledgerDao
       .storeConfigurationEntry(
-        offsetStep = maybePreviousOffset
-          .orElse(previousOffset.get())
-          .map(IncrementalOffsetStep(_, offset))
-          .getOrElse(CurrentOffset(offset)),
+        offset = offset,
         Instant.EPOCH,
         submissionId,
         lastConfig,

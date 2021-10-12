@@ -49,7 +49,6 @@ final case class Config[Extra](
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
     allowedLanguageVersions: VersionRange[LanguageVersion],
-    enableAppendOnlySchema: Boolean, // TODO append-only: remove after removing support for the current (mutating) schema
     enableMutableContractStateCache: Boolean,
     enableInMemoryFanOutForLedgerApi: Boolean,
     extra: Extra,
@@ -84,7 +83,6 @@ object Config {
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
       allowedLanguageVersions = LanguageVersion.StableVersions,
-      enableAppendOnlySchema = false,
       enableMutableContractStateCache = false,
       enableInMemoryFanOutForLedgerApi = false,
       maxDeduplicationDuration = None,
@@ -217,10 +215,6 @@ object Config {
               .get("api-server-connection-timeout")
               .map(Duration.parse)
               .getOrElse(ParticipantConfig.DefaultApiServerDatabaseConnectionTimeout)
-            val indexerConnectionPoolSize = kv
-              .get("indexer-connection-pool-size")
-              .map(_.toInt)
-              .getOrElse(ParticipantIndexerConfig.DefaultDatabaseConnectionPoolSize)
             val indexerConnectionTimeout = kv
               .get("indexer-connection-timeout")
               .map(Duration.parse)
@@ -284,7 +278,6 @@ object Config {
               portFile,
               jdbcUrl,
               indexerConfig = ParticipantIndexerConfig(
-                databaseConnectionPoolSize = indexerConnectionPoolSize,
                 databaseConnectionTimeout =
                   FiniteDuration(indexerConnectionTimeout.toMillis, TimeUnit.MILLISECONDS),
                 allowExistingSchema = false,
@@ -573,52 +566,6 @@ object Config {
             "Set minimum LF version for unstable packages to 1.14. Should not be used in production."
           )
 
-        // TODO append-only: remove after removing support for the current (mutating) schema
-        opt[Unit]("index-append-only-schema")
-          .optional()
-          .text(
-            "Use the append-only index database with parallel ingestion." +
-              " The first time this flag is enabled, the index database will migrate to a new schema that allows for significantly higher ingestion performance." +
-              " This migration is irreversible, subsequent starts will have to enable this flag as well." +
-              " In the future, this flag will be removed and this application will automatically migrate to the new schema."
-          )
-          .action((_, config) => config.copy(enableAppendOnlySchema = true))
-
-        // TODO append-only: remove after removing support for the current (mutating) schema
-        checkConfig(c => {
-          if (
-            c.enableAppendOnlySchema && c.participants.exists(
-              _.indexerConfig.databaseConnectionPoolSize != ParticipantIndexerConfig.DefaultDatabaseConnectionPoolSize
-            )
-          ) {
-            failure(
-              "The following participant setting keys are not compatible with the --index-append-only-schema flag: " +
-                "indexer-connection-pool-size."
-            )
-          } else if (
-            !c.enableAppendOnlySchema && c.participants.exists(pc =>
-              pc.indexerConfig.maxInputBufferSize != ParticipantIndexerConfig.DefaultMaxInputBufferSize ||
-                pc.indexerConfig.inputMappingParallelism != ParticipantIndexerConfig.DefaultInputMappingParallelism ||
-                pc.indexerConfig.ingestionParallelism != ParticipantIndexerConfig.DefaultIngestionParallelism ||
-                pc.indexerConfig.submissionBatchSize != ParticipantIndexerConfig.DefaultSubmissionBatchSize ||
-                pc.indexerConfig.tailingRateLimitPerSecond != ParticipantIndexerConfig.DefaultTailingRateLimitPerSecond ||
-                pc.indexerConfig.batchWithinMillis != ParticipantIndexerConfig.DefaultBatchWithinMillis
-            )
-          ) {
-            failure(
-              "The following participant setting keys can only be used together with the --index-append-only-schema flag: " +
-                "indexer-max-input-buffer-size, " +
-                "indexer-input-mapping-parallelism, " +
-                "indexer-ingestion-parallelism, " +
-                "indexer-batching-parallelism, " +
-                "indexer-submission-batch-size, " +
-                "indexer-tailing-rate-limit-per-second, " +
-                "indexer-batch-within-millis. "
-            )
-          } else
-            success
-        })
-
         opt[Unit]("mutable-contract-state-cache")
           .optional()
           .hidden()
@@ -634,20 +581,6 @@ object Config {
             "Experimental buffer for Ledger API streaming queries. Must be enabled in conjunction with index-append-only-schema and mutable-contract-state-cache. Should not be used in production."
           )
           .action((_, config) => config.copy(enableInMemoryFanOutForLedgerApi = true))
-
-        checkConfig(config =>
-          if (config.enableMutableContractStateCache && !config.enableAppendOnlySchema)
-            failure(
-              "mutable-contract-state-cache must be enabled in conjunction with index-append-only-schema."
-            )
-          else if (
-            config.enableInMemoryFanOutForLedgerApi && !(config.enableMutableContractStateCache && config.enableAppendOnlySchema)
-          )
-            failure(
-              "buffered-ledger-api-streams-unsafe must be enabled in conjunction with index-append-only-schema and mutable-contract-state-cache."
-            )
-          else success
-        )
 
         opt[Unit]("use-self-service-error-codes")
           .optional()
