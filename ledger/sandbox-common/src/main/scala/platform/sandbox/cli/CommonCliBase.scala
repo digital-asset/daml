@@ -323,6 +323,12 @@ class CommonCliBase(name: LedgerName) {
         )
 
       // TODO append-only: cleanup
+      opt[Unit]("enable-append-only-schema")
+        .optional()
+        .action((_, config) => config)
+        .text("Legacy flag with no effect")
+
+      // TODO append-only: cleanup
       opt[Unit]("enable-compression")
         .optional()
         .action((_, config) => config.copy(enableCompression = true))

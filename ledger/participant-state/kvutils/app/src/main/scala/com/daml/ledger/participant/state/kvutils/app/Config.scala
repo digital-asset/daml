@@ -566,6 +566,12 @@ object Config {
             "Set minimum LF version for unstable packages to 1.14. Should not be used in production."
           )
 
+        // TODO append-only: remove after removing support for the current (mutating) schema
+        opt[Unit]("index-append-only-schema")
+          .optional()
+          .text("Legacy flag with no effect")
+          .action((_, config) => config)
+
         opt[Unit]("mutable-contract-state-cache")
           .optional()
           .hidden()
