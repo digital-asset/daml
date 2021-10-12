@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
 import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto, envelope => proto}
+import com.daml.ledger.participant.state.kvutils.{envelope => proto}
 import com.google.protobuf.ByteString
 
 import scala.util.Try
