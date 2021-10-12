@@ -44,7 +44,7 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "ledger-on-memory-tests",
-    size = "small",
+    size = "medium",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
         "//ledger/test-common:model-tests-default.dar",
