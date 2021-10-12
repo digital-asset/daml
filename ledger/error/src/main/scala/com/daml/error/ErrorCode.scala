@@ -4,6 +4,7 @@
 package com.daml.error
 
 import com.daml.error.ErrorCode.{ValidMetadataKeyRegex, truncateResourceForTransport}
+import com.google.rpc.Status
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
@@ -58,9 +59,9 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
   def toMsg(cause: => String, correlationId: Option[String]): String =
     s"${codeStr(correlationId)}: ${ErrorCode.truncateCause(cause)}"
 
-  def asGrpcError(err: BaseError)(implicit
+  def asGrpcStatus(err: BaseError)(implicit
       loggingContext: ErrorCodeLoggingContext
-  ): StatusRuntimeException = {
+  ): Status = {
     val ErrorCode.StatusInfo(codeGrpc, message, contextMap, correlationId) =
       getStatusInfo(err)
 
@@ -126,9 +127,15 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
       .foldLeft(statusBuilder) { case (acc, item) =>
         acc.addDetails(item)
       }
+    statusBuilder.build()
+  }
 
+  def asGrpcError(err: BaseError)(implicit
+      loggingContext: ErrorCodeLoggingContext
+  ): StatusRuntimeException = {
+    val status = asGrpcStatus(err)
     // Builder methods for metadata are not exposed, so going route via creating an exception
-    val ex = StatusProto.toStatusRuntimeException(statusBuilder.build())
+    val ex = StatusProto.toStatusRuntimeException(status)
     // Strip stack trace from exception
     new ErrorCode.ApiException(ex.getStatus, ex.getTrailers)
   }

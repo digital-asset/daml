@@ -3,6 +3,7 @@
 
 package com.daml.error
 
+import com.google.rpc.Status
 import io.grpc.StatusRuntimeException
 
 /** The main error interface for everything that should be logged and notified.
@@ -50,6 +51,11 @@ trait BaseError extends LocationMixin {
   ): Unit =
     errorCodeLoggingContext.logError(this, extra)
 
+  def asGrpcStatusFromContext(implicit
+      errorCodeLoggingContext: ErrorCodeLoggingContext
+  ): Status =
+    code.asGrpcStatus(this)
+
   def asGrpcErrorFromContext(implicit
       errorCodeLoggingContext: ErrorCodeLoggingContext
   ): StatusRuntimeException =
@@ -88,7 +94,7 @@ object BaseError {
   val SecuritySensitiveMessageOnApi =
     "An error occurred. Please contact the operator and inquire about the request"
 
-  def extractContext[D](obj: D): Map[String, String] = {
+  def extractContext[D](obj: D): Map[String, String] =
     obj.getClass.getDeclaredFields
       .filterNot(x => ignoreFields.contains(x.getName) || x.getName.startsWith("_"))
       .map { field =>
@@ -96,7 +102,6 @@ object BaseError {
         (field.getName, field.get(obj).toString)
       }
       .toMap
-  }
 
   abstract class Impl(
       override val cause: String,
@@ -116,9 +121,11 @@ object BaseError {
 
     def log(): Unit = logWithContext()(loggingContext)
 
-    def asGrpcError: StatusRuntimeException = {
+    def asGrpcStatus: Status =
+      code.asGrpcStatus(this)(loggingContext)
+
+    def asGrpcError: StatusRuntimeException =
       code.asGrpcError(this)(loggingContext)
-    }
 
     // Automatically log the error on generation
     if (logOnCreation) {
