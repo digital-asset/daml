@@ -140,7 +140,6 @@ conformance_test(
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
         "--max-deduplication-duration=PT5S",
-        "--index-append-only-schema",
         "--mutable-contract-state-cache",
     ],
     test_tool_args = [
@@ -168,7 +167,6 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant=participant-id=example,port=6865",
-        "--index-append-only-schema",
         "--mutable-contract-state-cache",
     ],
     test_tool_args = [
