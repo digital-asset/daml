@@ -6,10 +6,11 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.error.ValueSwitch
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.updates.TransactionRejections._
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.DamlPackageUploadRejectionEntry
 import com.daml.ledger.participant.state.kvutils.store.events.{
+  DamlConfigurationRejectionEntry,
+  DamlPartyAllocationRejectionEntry,
   DamlTransactionBlindingInfo,
   DamlTransactionEntry,
   DamlTransactionRejectionEntry,

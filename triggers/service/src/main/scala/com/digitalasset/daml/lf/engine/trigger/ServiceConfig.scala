@@ -3,6 +3,8 @@
 
 package com.daml.lf.engine.trigger
 
+import com.daml.lf.speedy.Compiler
+
 import java.nio.file.{Path, Paths}
 import java.time.Duration
 
@@ -41,6 +43,7 @@ private[trigger] final case class ServiceConfig(
     jdbcConfig: Option[JdbcConfig],
     portFile: Option[Path],
     allowExistingSchema: Boolean,
+    compilerConfig: Compiler.Config,
 )
 
 private[trigger] object ServiceConfig {
@@ -53,6 +56,7 @@ private[trigger] object ServiceConfig {
   val DefaultAuthCallbackTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
   val DefaultMaxHttpEntityUploadSize: Long = RunnerConfig.DefaultMaxInboundMessageSize.toLong
   val DefaultHttpEntityUploadTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
+  val DefaultCompilerConfig: Compiler.Config = Compiler.Config.Default
 
   implicit val redirectToLoginRead: scopt.Read[AuthClient.RedirectToLogin] = scopt.Read.reads {
     _.toLowerCase match {
@@ -190,6 +194,14 @@ private[trigger] object ServiceConfig {
       }
       .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
 
+    opt[Unit]("dev-mode-unsafe")
+      .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev))
+      .optional()
+      .text(
+        "Turns on development mode. Development mode allows development versions of Daml-LF language."
+      )
+      .hidden()
+
     implicit val jcd: DBConfig.JdbcConfigDefaults = DBConfig.JdbcConfigDefaults(
       supportedJdbcDrivers = supportedJdbcDriverNames,
       defaultDriver = Some("org.postgresql.Driver"),
@@ -263,6 +275,7 @@ private[trigger] object ServiceConfig {
         jdbcConfig = None,
         portFile = None,
         allowExistingSchema = false,
+        compilerConfig = DefaultCompilerConfig,
       ),
     )
 }

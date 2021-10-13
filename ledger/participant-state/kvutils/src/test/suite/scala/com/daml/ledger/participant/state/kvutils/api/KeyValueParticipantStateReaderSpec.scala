@@ -9,9 +9,9 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.error.ValueSwitch
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReader.offsetForUpdate
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReaderSpec._
+import com.daml.ledger.participant.state.kvutils.store.events.DamlPartyAllocationEntry
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlLogEntry,
   DamlLogEntryId,

@@ -13,7 +13,9 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "com/daml/ledger/participant/state/kvutils/daml_kvutils.proto";
 import "com/daml/ledger/participant/state/kvutils/store/events/configuration.proto";
+import "com/daml/ledger/participant/state/kvutils/store/events/configuration_rejection.proto";
 import "com/daml/ledger/participant/state/kvutils/store/events/package_upload.proto";
+import "com/daml/ledger/participant/state/kvutils/store/events/party_allocation.proto";
 import "com/daml/ledger/participant/state/kvutils/store/events/transaction.proto";
 
 // A log entry for a committed Daml submission.
@@ -46,13 +48,13 @@ message DamlLogEntry {
     com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationEntry configuration_entry = 6;
 
     // A rejected configuration change.
-    DamlConfigurationRejectionEntry configuration_rejection_entry = 7;
+    com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationRejectionEntry configuration_rejection_entry = 7;
 
     // Allocation of a new Daml party and its assignment to a participant.
-    DamlPartyAllocationEntry party_allocation_entry = 8;
+    com.daml.ledger.participant.state.kvutils.store.events.DamlPartyAllocationEntry party_allocation_entry = 8;
 
     // A rejection of party allocation request.
-    DamlPartyAllocationRejectionEntry party_allocation_rejection_entry = 9;
+    com.daml.ledger.participant.state.kvutils.store.events.DamlPartyAllocationRejectionEntry party_allocation_rejection_entry = 9;
 
     // A rejection of a pre-executed submission because of out-of-time-bounds.
     DamlOutOfTimeBoundsEntry out_of_time_bounds_entry = 10;

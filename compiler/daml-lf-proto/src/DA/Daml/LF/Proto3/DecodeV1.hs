@@ -24,6 +24,7 @@ import           Data.List
 import           DA.Daml.LF.Mangling
 import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
 import qualified Data.NameMap as NM
+import qualified Data.HashSet as HS
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Vector.Extended as V
@@ -229,16 +230,18 @@ decodeModule (LF1.Module name flags synonyms dataTypes values templates exceptio
     <*> decodeNM DuplicateInterface decodeDefInterface interfaces
 
 decodeDefInterface :: LF1.DefInterface -> Decode DefInterface
-decodeDefInterface LF1.DefInterface {..} =
-  DefInterface
-    <$> traverse decodeLocation defInterfaceLocation
-    <*> decodeDottedNameId TypeConName defInterfaceTyconInternedDname
-    <*> decodeNameId ExprVarName defInterfaceParamInternedStr
-    <*> decodeNM DuplicateChoice decodeInterfaceChoice defInterfaceChoices
-    <*> decodeNM DuplicateChoice decodeChoice defInterfaceFixedChoices
-    <*> decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods
-    -- TODO https://github.com/digital-asset/daml/issues/11137
-    --   maybe also check that choice names are unique between virtual choices & fixed choices
+decodeDefInterface LF1.DefInterface {..} = do
+  intLocation <- traverse decodeLocation defInterfaceLocation
+  intName <- decodeDottedNameId TypeConName defInterfaceTyconInternedDname
+  intParam <- decodeNameId ExprVarName defInterfaceParamInternedStr
+  intVirtualChoices <- decodeNM DuplicateChoice decodeInterfaceChoice defInterfaceChoices
+  intFixedChoices <- decodeNM DuplicateChoice decodeChoice defInterfaceFixedChoices
+  intMethods <- decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods
+  unless (HS.null (NM.namesSet intFixedChoices `HS.intersection` NM.namesSet intVirtualChoices)) $
+    throwError $ ParseError $ unwords
+      [ "Interface", T.unpack (T.intercalate "." (unTypeConName intName))
+      , "has collision between fixed choice and virtual choice." ]
+  pure DefInterface {..}
 
 decodeInterfaceChoice :: LF1.InterfaceChoice -> Decode InterfaceChoice
 decodeInterfaceChoice LF1.InterfaceChoice {..} =

@@ -1,0 +1,77 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Interface where
+
+import DA.Foldable
+import Daml.Trigger
+
+test : Trigger Int
+test = Trigger with
+  initialize = pure 3
+  updateState = \msg -> case msg of
+      MCompletion c
+        | Failed {} <- c.status -> modify (subtract 1)
+      _ -> pure ()
+  rule = \p1 -> do
+    cs <- query @Asset
+    case cs of
+      [] -> do
+        dedupCreate Asset {owner = p1, issuer = p1, amount = 10}
+      cs -> do
+        forA_ cs $ \(cid, _asset) -> do
+          dedupExercise (toTokenContractId cid) $ Transfer with newOwner = p1
+  registeredTemplates = AllInDar
+  heartbeat = None
+
+interface Token where
+  getAmount : Int
+
+  choice Split : (ContractId Token, ContractId Token)
+    with
+      splitAmount : Int
+
+  choice Transfer : ContractId Token
+    with
+      newOwner : Party
+
+  nonconsuming choice Noop : ()
+    with
+      nothing : ()
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory issuer
+    implements Token where
+      let getAmount = amount
+
+      choice Split : (ContractId Token, ContractId Token)
+        with
+          splitAmount : Int
+        controller owner
+        do
+          assert (splitAmount < amount)
+          cid1 <- create this with amount = splitAmount
+          cid2 <- create this with amount = amount - splitAmount
+          pure (toTokenContractId cid1, toTokenContractId cid2)
+
+      choice Transfer : ContractId Token
+        with
+          newOwner : Party
+        controller owner
+        do
+          cid <- create this with owner = newOwner
+          pure (toTokenContractId cid)
+
+      nonconsuming choice Noop : ()
+        with
+          nothing : ()
+        controller owner
+        do
+          pure ()
+
+

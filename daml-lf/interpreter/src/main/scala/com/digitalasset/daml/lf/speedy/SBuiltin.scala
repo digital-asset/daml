@@ -1128,6 +1128,17 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case class SBResolveSBUBeginExercise(
+      choiceName: ChoiceName,
+      consuming: Boolean,
+      byKey: Boolean,
+  ) extends SBuiltin(1) {
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
+      machine.ctrl = SEBuiltin(
+        SBUBeginExercise(getSRecord(args, 0).id, choiceName, consuming, byKey)
+      )
+  }
+
   // Return a definition matching the templateId of a given payload
   sealed class SBResolveVirtual(toDef: Ref.Identifier => SDefinitionRef) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =

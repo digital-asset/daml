@@ -331,7 +331,7 @@ private[kvutils] object TransactionRejections {
       rejection: ResourcesExhausted,
   ): Status = buildStatus(
     entry,
-    Code.RESOURCE_EXHAUSTED,
+    Code.ABORTED,
     s"Resources exhausted: ${rejection.getDetails}",
   )
 

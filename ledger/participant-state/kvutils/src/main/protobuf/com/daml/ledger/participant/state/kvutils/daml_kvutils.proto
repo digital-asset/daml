@@ -20,63 +20,6 @@ import "google/protobuf/timestamp.proto";
 import "com/daml/ledger/configuration/ledger_configuration.proto";
 import "com/daml/ledger/participant/state/kvutils/store/state.proto";
 
-// A log entry describing a rejected configuration change.
-message DamlConfigurationRejectionEntry {
-  // A unique string scoped to a particular participant for matching the
-  // request with the result.
-  string submission_id = 1;
-
-  // Submitting participant's id.
-  string participant_id = 2;
-
-  // The new proposed configuration that was rejected.
-  com.daml.ledger.configuration.LedgerConfiguration configuration = 3;
-
-  oneof reason {
-    ParticipantNotAuthorized participant_not_authorized = 4;
-    GenerationMismatch generation_mismatch = 5;
-    Invalid invalid_configuration = 6;
-    TimedOut timed_out = 7;
-    Duplicate duplicate_submission = 8;
-  }
-}
-
-// An allocation of party name and assignment of a party to a given
-// participant.
-// A party can only be hosted once (this may not be true in more
-// sophisticated ledgers in the future).
-message DamlPartyAllocationEntry {
-  // A unique string scoped to a particular participant.
-  // Implementers are free to select adequate mechanism e.g. UUID or similar.
-  string submission_id = 1;
-
-  // The party name to be allocated.
-  string party = 2;
-
-  // Allocating participant's id.
-  string participant_id = 3;
-
-  // A display name associated with the given party.
-  string display_name = 4;
-}
-
-// A message indicating that party allocation was unsuccessful.
-message DamlPartyAllocationRejectionEntry {
-  // An id selected by the submitter, can be used for matching rejection with
-  // the original upload entry.
-  string submission_id = 1;
-
-  // Uploading participant's id.
-  string participant_id = 2;
-
-  oneof reason {
-    AlreadyExists already_exists = 3;
-    Invalid invalid_name = 4;
-    ParticipantNotAuthorized participant_not_authorized = 5;
-    Duplicate duplicate_submission = 6;
-  }
-}
-
 // Errors
 
 //
