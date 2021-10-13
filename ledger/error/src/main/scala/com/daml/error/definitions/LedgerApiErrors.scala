@@ -502,6 +502,23 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             )
       }
 
+      @Explanation(
+        """TODO: Explanations needs yet to be filled out"""
+      )
+      @Resolution("TODO: Resolution needs yet to be filled out")
+      object TransactionNotFound
+          extends ErrorCode(
+            id = "TRANSACTION_NOT_FOUND",
+            ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+          ) {
+
+        case class Reject(transactionId: String)(implicit loggingContext: ContextualizedErrorLogger)
+            extends LoggingTransactionErrorImpl(cause = "Transaction not found, or not visible.") {
+          override def resources: Seq[(ErrorResource, String)] = Seq(
+            (ErrorResource.ContractKey, transactionId)
+          )
+        }
+      }
     }
 
     @Explanation("""This error occurs if the Daml transaction fails due to an authorization error.
