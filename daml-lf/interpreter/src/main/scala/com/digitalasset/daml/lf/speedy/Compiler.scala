@@ -1014,7 +1014,7 @@ private[lf] final class Compiler(
         )
       ) { _ =>
         addExprVar(choice.selfBinder, cidPos)
-        SEScopeExercise(tmplId, app(compile(choice.update), svar(tokenPos)))
+        SEScopeExercise(app(compile(choice.update), svar(tokenPos)))
       }
     }
   }
@@ -1048,7 +1048,7 @@ private[lf] final class Compiler(
         )
       ) { _ =>
         addExprVar(choice.selfBinder, cidPos)
-        SEScopeExercise(ifaceId, app(compile(choice.update), svar(tokenPos)))
+        SEScopeExercise(app(compile(choice.update), svar(tokenPos)))
       }
     }
   }
@@ -1248,8 +1248,8 @@ private[lf] final class Compiler(
           closureConvert(shift(remaps, 1), handler),
         )
 
-      case SEScopeExercise(templateId, body) =>
-        SEScopeExercise(templateId, closureConvert(remaps, body))
+      case SEScopeExercise(body) =>
+        SEScopeExercise(closureConvert(remaps, body))
 
       case SELabelClosure(label, expr) =>
         SELabelClosure(label, closureConvert(remaps, expr))
@@ -1320,7 +1320,7 @@ private[lf] final class Compiler(
           go(expr, bound, free)
         case SETryCatch(body, handler) =>
           go(body, bound, go(handler, 1 + bound, free))
-        case SEScopeExercise(_, body) =>
+        case SEScopeExercise(body) =>
           go(body, bound, free)
 
         case _: SELoc | _: SEMakeClo | _: SEDamlException | _: SEImportValue |
@@ -1411,7 +1411,7 @@ private[lf] final class Compiler(
         case SETryCatch(body, handler) =>
           go(body)
           goBody(maxS + 1, maxA, maxF)(handler)
-        case SEScopeExercise(_, body) =>
+        case SEScopeExercise(body) =>
           go(body)
 
         case _: SEVar | _: SEAbs | _: SEDamlException | _: SEImportValue =>
