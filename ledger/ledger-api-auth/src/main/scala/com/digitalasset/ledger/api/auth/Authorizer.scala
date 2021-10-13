@@ -165,9 +165,7 @@ final class Authorizer(
       call,
     )
 
-  private def assertServerCall[A](
-      observer: StreamObserver[A]
-  ): ServerCallStreamObserver[A] =
+  private def assertServerCall[A](observer: StreamObserver[A]): ServerCallStreamObserver[A] =
     observer match {
       case _: ServerCallStreamObserver[_] =>
         observer.asInstanceOf[ServerCallStreamObserver[A]]
@@ -190,7 +188,7 @@ final class Authorizer(
 
   private def authenticatedClaimsFromContext()(implicit
       loggingContext: LoggingContext
-  ): Try[ClaimSet.Claims] =
+  ): Try[ClaimSet.Claims] = {
     AuthorizationInterceptor
       .extractClaimSetFromContext()
       .fold[Try[ClaimSet.Claims]](Failure(unauthenticated())) {
@@ -198,6 +196,7 @@ final class Authorizer(
           Failure(unauthenticated())
         case claims: ClaimSet.Claims => Success(claims)
       }
+  }
 
   private def authorize[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
       authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
@@ -229,10 +228,10 @@ final class Authorizer(
         )
     }
 
-  private def authorize[Req, Res](call: Req => Future[Res])(
+  private[auth] def authorize[Req, Res](call: Req => Future[Res])(
       authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
-  ): Req => Future[Res] = LoggingContext.newLoggingContext {
-    implicit loggingContext: LoggingContext => request =>
+  ): Req => Future[Res] = request =>
+    LoggingContext.newLoggingContext { implicit loggingContext =>
       authenticatedClaimsFromContext()
         .fold(
           ex => {
@@ -249,7 +248,7 @@ final class Authorizer(
                 Future.failed(permissionDenied(authorizationError.reason))
             },
         )
-  }
+    }
 
   private def permissionDenied(
       cause: String

@@ -65,7 +65,7 @@ final class AuthorizationInterceptor(protected val authService: AuthService, ec:
 
 object AuthorizationInterceptor {
 
-  private val contextKeyClaimSet = Context.key[ClaimSet]("AuthServiceDecodedClaim")
+  private[auth] val contextKeyClaimSet = Context.key[ClaimSet]("AuthServiceDecodedClaim")
 
   def extractClaimSetFromContext(): Option[ClaimSet] =
     Option(contextKeyClaimSet.get())
