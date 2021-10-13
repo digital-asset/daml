@@ -732,7 +732,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
     }
 
     private implicit def encodeInterfaceChoice(
-        nameWithChoice: (ChoiceName, InterfaceChoice),
+        nameWithChoice: (ChoiceName, InterfaceChoice)
     ): PLF.InterfaceChoice = {
       val (name, choice) = nameWithChoice
       val b = PLF.InterfaceChoice.newBuilder()
@@ -744,7 +744,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
     }
 
     private implicit def encodeInterfaceMethod(
-        nameWithMethod: (MethodName, InterfaceMethod),
+        nameWithMethod: (MethodName, InterfaceMethod)
     ): PLF.InterfaceMethod = {
       val (name, method) = nameWithMethod
       val b = PLF.InterfaceMethod.newBuilder()
@@ -832,7 +832,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
     }
 
     private implicit def encodeTemplateImplements(
-        interfaceWithImplements: (TypeConName, TemplateImplements),
+        interfaceWithImplements: (TypeConName, TemplateImplements)
     ): PLF.DefTemplate.Implements = {
       val (interface, implements) = interfaceWithImplements
       val b = PLF.DefTemplate.Implements.newBuilder()
@@ -842,7 +842,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
     }
 
     private implicit def encodeTemplateImplementsMethod(
-        nameWithMethod: (MethodName, TemplateImplementsMethod),
+        nameWithMethod: (MethodName, TemplateImplementsMethod)
     ): PLF.DefTemplate.ImplementsMethod = {
       val (name, method) = nameWithMethod
       val b = PLF.DefTemplate.ImplementsMethod.newBuilder()

@@ -175,35 +175,39 @@ private[validation] object ExprIterable {
 
   private[iterable] def iterator(x: TemplateImplements): Iterator[Expr] =
     x match {
-      case TemplateImplements (
-          interface @ _,
-          methods,
-        ) => methods.values.iterator.flatMap(iterator(_))
+      case TemplateImplements(
+            interface @ _,
+            methods,
+          ) =>
+        methods.values.iterator.flatMap(iterator(_))
     }
 
   private[iterable] def iterator(x: TemplateImplementsMethod): Iterator[Expr] =
     x match {
-      case TemplateImplementsMethod (
-        name @ _,
-        value,
-      ) => Iterator(value)
+      case TemplateImplementsMethod(
+            name @ _,
+            value,
+          ) =>
+        Iterator(value)
     }
 
   private[iterable] def iterator(x: DefException): Iterator[Expr] =
     x match {
-      case DefException (
-        message,
-      ) => Iterator(message)
+      case DefException(
+            message
+          ) =>
+        Iterator(message)
     }
 
   private[iterable] def iterator(x: DefInterface): Iterator[Expr] =
     x match {
-      case DefInterface (
-        param @ _,
-        virtualChoices @ _,
-        fixedChoices,
-        methods @ _,
-      ) => fixedChoices.values.iterator.flatMap(iterator(_))
+      case DefInterface(
+            param @ _,
+            virtualChoices @ _,
+            fixedChoices,
+            methods @ _,
+          ) =>
+        fixedChoices.values.iterator.flatMap(iterator(_))
     }
 
   def apply(expr: Expr): Iterable[Expr] =
@@ -220,8 +224,8 @@ private[validation] object ExprIterable {
     new Iterable[Expr] {
       override def iterator: Iterator[Expr] =
         module.definitions.values.iterator.flatMap(ExprIterable.iterator(_)) ++
-        module.exceptions.values.iterator.flatMap(ExprIterable.iterator(_)) ++
-        module.interfaces.values.iterator.flatMap(ExprIterable.iterator(_)) ++
+          module.exceptions.values.iterator.flatMap(ExprIterable.iterator(_)) ++
+          module.interfaces.values.iterator.flatMap(ExprIterable.iterator(_)) ++
           module.templates.values.iterator.flatMap(ExprIterable.iterator(_))
     }
 }
