@@ -233,14 +233,12 @@ main = scenario do
       Some Asset {amount} ->
         amount === 5
 
-    -- TODO https://github.com/digital-asset/daml/issues/11137
-    --   uncomment once speedy supports fixed choices
-    -- cidToken4 <- exercise cidToken3 (GetRich 20)
-    -- token4 <- fetch cidToken4
-    -- getAmount token4 === 25
-    -- case fromToken token4 of
-    --   None -> abort "expected Asset"
-    --   Some Asset {amount} ->
-    --     amount === 25
+    cidToken4 <- exercise cidToken3 (GetRich 20)
+    token4 <- fetch cidToken4
+    getAmount token4 === 25
+    case fromToken token4 of
+      None -> abort "expected Asset"
+      Some Asset {amount} ->
+        amount === 25
 
     pure ()
