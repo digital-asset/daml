@@ -73,6 +73,7 @@ private[backend] object OracleStorageBackend
       "truncate table participant_events_consuming_exercise cascade",
       "truncate table participant_events_non_consuming_exercise cascade",
       "truncate table party_entries cascade",
+      "truncate table string_interning cascade",
     ).map(SQL(_)).foreach(_.execute()(connection))
 
   override def resetAll(connection: Connection): Unit =
@@ -88,6 +89,7 @@ private[backend] object OracleStorageBackend
       "truncate table participant_events_consuming_exercise cascade",
       "truncate table participant_events_non_consuming_exercise cascade",
       "truncate table party_entries cascade",
+      "truncate table string_interning cascade",
     ).map(SQL(_)).foreach(_.execute()(connection))
 
   val SQL_INSERT_COMMAND: String =
@@ -144,10 +146,13 @@ private[backend] object OracleStorageBackend
     override def arrayIntersectionNonEmptyClause(
         columnName: String,
         parties: Set[Ref.Party],
-        stringInterningCache: StringInterning,
-    ): CompositeSql =
-      cSQL"EXISTS (SELECT 1 FROM JSON_TABLE(#$columnName, '$$[*]' columns (value PATH '$$')) WHERE value IN (${parties
-        .map(_.toString)}))"
+        stringInterning: StringInterning,
+    ): CompositeSql = {
+      val internedParties = parties.flatMap(stringInterning.party.getId)
+      if (internedParties.isEmpty) cSQL"false"
+      else
+        cSQL"EXISTS (SELECT 1 FROM JSON_TABLE(#$columnName, '$$[*]' columns (value NUMBER PATH '$$')) WHERE value IN ($internedParties))"
+    }
 
     override def columnEqualityBoolean(column: String, value: String): String =
       s"""case when ($column = $value) then 1 else 0 end"""
@@ -155,7 +160,7 @@ private[backend] object OracleStorageBackend
     override def booleanOrAggregationFunction: String = "max"
 
     override def arrayContains(arrayColumnName: String, elementColumnName: String): String =
-      s"EXISTS (SELECT 1 FROM JSON_TABLE($arrayColumnName, '$$[*]' columns (value PATH '$$')) WHERE value = $elementColumnName)"
+      s"EXISTS (SELECT 1 FROM JSON_TABLE($arrayColumnName, '$$[*]' columns (value NUMBER PATH '$$')) WHERE value = $elementColumnName)"
 
     override def isTrue(booleanColumnName: String): String = s"$booleanColumnName = 1"
   }
@@ -167,46 +172,68 @@ private[backend] object OracleStorageBackend
     override def filteredEventWitnessesClause(
         witnessesColumnName: String,
         parties: Set[Ref.Party],
-        stringInterningCache: StringInterning,
-    ): CompositeSql =
-      if (parties.size == 1)
-        cSQL"(json_array(${parties.head.toString}))"
+        stringInterning: StringInterning,
+    ): CompositeSql = {
+      val internedParties = parties.flatMap(stringInterning.party.getId)
+      if (internedParties.size == 1)
+        cSQL"(json_array(${internedParties.head}))"
       else
         cSQL"""
            (select json_arrayagg(value) from (select value
-           from json_table(#$witnessesColumnName, '$$[*]' columns (value PATH '$$'))
-           where value IN (${parties.map(_.toString)})))
+           from json_table(#$witnessesColumnName, '$$[*]' columns (value NUMBER PATH '$$'))
+           where value IN ($internedParties)))
            """
+    }
 
     override def submittersArePartiesClause(
         submittersColumnName: String,
         parties: Set[Ref.Party],
-        stringInterningCache: StringInterning,
+        stringInterning: StringInterning,
     ): CompositeSql =
-      cSQL"(${OracleQueryStrategy.arrayIntersectionNonEmptyClause(submittersColumnName, parties, stringInterningCache)})"
+      cSQL"(${OracleQueryStrategy.arrayIntersectionNonEmptyClause(submittersColumnName, parties, stringInterning)})"
 
     override def witnessesWhereClause(
         witnessesColumnName: String,
         filterParams: FilterParams,
-        stringInterningCache: StringInterning,
+        stringInterning: StringInterning,
     ): CompositeSql = {
       val wildCardClause = filterParams.wildCardParties match {
         case wildCardParties if wildCardParties.isEmpty =>
           Nil
 
         case wildCardParties =>
-          cSQL"(${OracleQueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, wildCardParties, stringInterningCache)})" :: Nil
+          cSQL"(${OracleQueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, wildCardParties, stringInterning)})" :: Nil
       }
       val partiesTemplatesClauses =
-        filterParams.partiesAndTemplates.iterator.map { case (parties, templateIds) =>
-          val clause =
-            OracleQueryStrategy.arrayIntersectionNonEmptyClause(
-              witnessesColumnName,
-              parties,
-              stringInterningCache,
+        filterParams.partiesAndTemplates.iterator
+          .map { case (parties, templateIds) =>
+            (
+              parties.flatMap(s => stringInterning.party.getId(s)),
+              templateIds.flatMap(s => stringInterning.templateId.getId(s)),
             )
-          cSQL"( ($clause) AND (template_id IN (${templateIds.map(_.toString)})) )"
-        }.toList
+          }
+          .filterNot(_._1.isEmpty)
+          .filterNot(_._2.isEmpty)
+          .map { case (parties, templateIds) =>
+            val clause =
+              OracleQueryStrategy.arrayIntersectionNonEmptyClause(
+                witnessesColumnName,
+                parties.map(stringInterning.party.interned),
+                stringInterning,
+              )
+            cSQL"( ($clause) AND (template_id IN (${templateIds.map(_.toString)})) )"
+          }
+          .toList
+
+      filterParams.partiesAndTemplates.iterator.map { case (parties, templateIds) =>
+        val clause =
+          OracleQueryStrategy.arrayIntersectionNonEmptyClause(
+            witnessesColumnName,
+            parties,
+            stringInterning,
+          )
+        cSQL"( ($clause) AND (template_id IN (${templateIds.map(_.toString)})) )"
+      }.toList
       (wildCardClause ::: partiesTemplatesClauses).mkComposite("(", " OR ", ")")
     }
   }

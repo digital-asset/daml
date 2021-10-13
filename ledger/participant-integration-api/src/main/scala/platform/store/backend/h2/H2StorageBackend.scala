@@ -167,9 +167,9 @@ FETCH NEXT 1 ROW ONLY;
     override def arrayIntersectionNonEmptyClause(
         columnName: String,
         parties: Set[Ref.Party],
-        stringInterningCache: StringInterning,
+        stringInterning: StringInterning,
     ): CompositeSql = {
-      val internedParties = parties.flatMap(stringInterningCache.party.getId)
+      val internedParties = parties.flatMap(stringInterning.party.getId)
       if (internedParties.isEmpty)
         cSQL"false"
       else
@@ -190,10 +190,10 @@ FETCH NEXT 1 ROW ONLY;
     override def filteredEventWitnessesClause(
         witnessesColumnName: String,
         parties: Set[Ref.Party],
-        stringInterningCache: StringInterning,
+        stringInterning: StringInterning,
     ): CompositeSql = {
       val partiesArray: Array[java.lang.Integer] =
-        parties.view.flatMap(stringInterningCache.party.getId).map(Int.box).toArray
+        parties.view.flatMap(stringInterning.party.getId).map(Int.box).toArray
       if (partiesArray.isEmpty) cSQL"false"
       else cSQL"array_intersection(#$witnessesColumnName, $partiesArray)"
     }
@@ -201,25 +201,25 @@ FETCH NEXT 1 ROW ONLY;
     override def submittersArePartiesClause(
         submittersColumnName: String,
         parties: Set[Ref.Party],
-        stringInterningCache: StringInterning,
+        stringInterning: StringInterning,
     ): CompositeSql =
       H2QueryStrategy.arrayIntersectionNonEmptyClause(
         columnName = submittersColumnName,
         parties = parties,
-        stringInterningCache = stringInterningCache,
+        stringInterning = stringInterning,
       )
 
     override def witnessesWhereClause(
         witnessesColumnName: String,
         filterParams: FilterParams,
-        stringInterningCache: StringInterning,
+        stringInterning: StringInterning,
     ): CompositeSql = {
       val wildCardClause = filterParams.wildCardParties match {
         case wildCardParties if wildCardParties.isEmpty =>
           Nil
 
         case wildCardParties =>
-          cSQL"(${H2QueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, wildCardParties, stringInterningCache)})" :: Nil
+          cSQL"(${H2QueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, wildCardParties, stringInterning)})" :: Nil
       }
       val partiesTemplatesClauses =
         filterParams.partiesAndTemplates.iterator.flatMap { case (parties, templateIds) =>
@@ -227,10 +227,10 @@ FETCH NEXT 1 ROW ONLY;
             H2QueryStrategy.arrayIntersectionNonEmptyClause(
               witnessesColumnName,
               parties,
-              stringInterningCache,
+              stringInterning,
             )
           val templateIdsArray: Array[java.lang.Integer] =
-            templateIds.view.flatMap(stringInterningCache.templateId.getId).map(Int.box).toArray
+            templateIds.view.flatMap(stringInterning.templateId.getId).map(Int.box).toArray
           if (templateIdsArray.isEmpty) None
           else Some(cSQL"( ($clause) AND (template_id = ANY($templateIdsArray)) )")
         }.toList

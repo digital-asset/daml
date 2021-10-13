@@ -98,6 +98,7 @@ CREATE TABLE party_entries
     rejection_reason NVARCHAR2(1000),
     -- true if the party was added on participantId node that owns the party
     is_local         NUMBER(1, 0),
+    party_id         NUMBER NOT NULL,
 
     constraint check_party_entry_type
         check (
@@ -107,6 +108,7 @@ CREATE TABLE party_entries
 );
 CREATE INDEX idx_party_entries ON party_entries(submission_id);
 CREATE INDEX idx_party_entries_party_and_ledger_offset ON party_entries(party, ledger_offset);
+CREATE INDEX idx_party_entries_party_id_and_ledger_offset ON party_entries(party_id, ledger_offset);
 
 CREATE TABLE participant_command_completions
 (
@@ -165,7 +167,7 @@ CREATE TABLE participant_events_divulgence (
 
     -- * shared event information
     contract_id VARCHAR2(4000) NOT NULL,
-    template_id VARCHAR2(4000),
+    template_id NUMBER,
     tree_event_witnesses CLOB DEFAULT '[]' NOT NULL CONSTRAINT ensure_json_tree_event_witnesses CHECK (tree_event_witnesses IS JSON),       -- informees for create, exercise, and divulgance events
 
     -- * divulgence and create events
@@ -218,7 +220,7 @@ CREATE TABLE participant_events_create (
 
     -- * shared event information
     contract_id VARCHAR2(4000) NOT NULL,
-    template_id VARCHAR2(4000) NOT NULL,
+    template_id NUMBER NOT NULL,
     flat_event_witnesses CLOB DEFAULT '[]' NOT NULL CONSTRAINT ensure_json_pec_flat_event_witnesses CHECK (flat_event_witnesses IS JSON),       -- stakeholders of create events and consuming exercise events
     tree_event_witnesses CLOB DEFAULT '[]' NOT NULL CONSTRAINT ensure_json_pec_tree_event_witnesses CHECK (tree_event_witnesses IS JSON),       -- informees for create, exercise, and divulgance events
 
@@ -290,7 +292,7 @@ CREATE TABLE participant_events_consuming_exercise (
 
     -- * shared event information
     contract_id VARCHAR2(4000) NOT NULL,
-    template_id VARCHAR2(4000) NOT NULL,
+    template_id NUMBER NOT NULL,
     flat_event_witnesses CLOB DEFAULT '[]' NOT NULL CONSTRAINT ensure_json_pece_flat_event_witnesses CHECK (flat_event_witnesses IS JSON),       -- stakeholders of create events and consuming exercise events
     tree_event_witnesses CLOB DEFAULT '[]' NOT NULL CONSTRAINT ensure_json_pece_tree_event_witnesses CHECK (tree_event_witnesses IS JSON),       -- informees for create, exercise, and divulgance events
 
@@ -358,7 +360,7 @@ CREATE TABLE participant_events_non_consuming_exercise (
 
     -- * shared event information
     contract_id VARCHAR2(4000) NOT NULL,
-    template_id VARCHAR2(4000) NOT NULL,
+    template_id NUMBER NOT NULL,
     flat_event_witnesses CLOB DEFAULT '{}' NOT NULL CONSTRAINT ensure_json_pence_flat_event_witnesses CHECK (flat_event_witnesses IS JSON),       -- stakeholders of create events and consuming exercise events
     tree_event_witnesses CLOB DEFAULT '{}' NOT NULL CONSTRAINT ensure_json_pence_tree_event_witnesses CHECK (tree_event_witnesses IS JSON),       -- informees for create, exercise, and divulgance events
 
@@ -543,6 +545,12 @@ CREATE TABLE parameters
     participant_id                     NVARCHAR2(1000) not null,
     participant_pruned_up_to_inclusive VARCHAR2(4000),
     participant_all_divulged_contracts_pruned_up_to_inclusive VARCHAR2(4000),
-    ledger_end_sequential_id           NUMBER
+    ledger_end_sequential_id           NUMBER,
+    ledger_end_string_interning_id     NUMBER
+);
+
+CREATE TABLE string_interning (
+    id NUMBER PRIMARY KEY NOT NULL,
+    s  VARCHAR2(4000)
 );
 

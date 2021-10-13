@@ -24,6 +24,7 @@ import scala.collection.compat.immutable.ArraySeq
 
 trait EventStorageBackendTemplate extends EventStorageBackend {
   import com.daml.platform.store.Conversions.ArrayColumnToIntArray._
+  import com.daml.platform.store.Conversions.ArrayColumnToStringArray._
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 

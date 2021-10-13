@@ -241,12 +241,12 @@ trait ContractStorageBackend {
   def keyState(
       key: Key,
       validAt: Long,
-      stringInterningCache: StringInterning,
+      stringInterning: StringInterning,
   )(connection: Connection): KeyState
   def contractState(
       contractId: ContractId,
       before: Long,
-      stringInterningCache: StringInterning,
+      stringInterning: StringInterning,
   )(
       connection: Connection
   ): Option[StorageBackend.RawContractState]
@@ -254,7 +254,7 @@ trait ContractStorageBackend {
       readers: Set[Ref.Party],
       contractId: ContractId,
       lastEventSequentialId: Long,
-      stringInterningCache: StringInterning,
+      stringInterning: StringInterning,
   )(
       connection: Connection
   ): Option[StorageBackend.RawContract]
@@ -262,7 +262,7 @@ trait ContractStorageBackend {
       readers: Set[Ref.Party],
       contractId: ContractId,
       lastEventSequentialId: Long,
-      stringInterningCache: StringInterning,
+      stringInterning: StringInterning,
   )(
       connection: Connection
   ): Option[String]
@@ -270,14 +270,14 @@ trait ContractStorageBackend {
       readers: Set[Ref.Party],
       key: Key,
       validAt: Long,
-      stringInterningCache: StringInterning,
+      stringInterning: StringInterning,
   )(
       connection: Connection
   ): Option[ContractId]
   def contractStateEvents(
       startExclusive: Long,
       endInclusive: Long,
-      stringInterningCache: StringInterning,
+      stringInterning: StringInterning,
   )(
       connection: Connection
   ): Vector[StorageBackend.RawContractStateEvent]
