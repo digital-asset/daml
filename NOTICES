@@ -100,7 +100,7 @@ ASM 5.0.4 : BSD 3-clause "New" or "Revised" License
 asn1-encoding 0.9.6 : BSD 3-clause "New" or "Revised" License
 asn1-parse 0.9.5 : BSD 3-clause "New" or "Revised" License
 asn1-types 0.3.4 : BSD 3-clause "New" or "Revised" License
-asn1.js-rfc2560 v5.4.1 : MIT License
+asn1.js v5.4.1 : MIT License
 assoc 1.0.2 : BSD 3-clause "New" or "Revised" License
 Async 0.9.2 : MIT License
 Async 1.5.2 : MIT License
@@ -10549,7 +10549,7 @@ SOFTWARE
 ---
 
 MIT License
-(asn1.js-rfc2560 v5.4.1)
+(asn1.js v5.4.1)
 
 MIT License
 
