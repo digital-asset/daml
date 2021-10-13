@@ -65,6 +65,9 @@ da_scala_test_suite(
     ],
     deps = [
         ":ledger-api-auth",
+        "//ledger/error",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_context",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
