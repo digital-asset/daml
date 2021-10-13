@@ -8,7 +8,6 @@ import java.time.Instant
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, parseInstant}
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
   TimeBounds,
   logEntryToUpdate,
@@ -22,6 +21,7 @@ import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.{
 }
 import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlConfigurationEntry,
+  DamlConfigurationRejectionEntry,
   DamlPartyAllocationEntry,
   DamlPartyAllocationRejectionEntry,
   DamlSubmitterInfo,
