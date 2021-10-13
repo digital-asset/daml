@@ -223,7 +223,10 @@ object Database {
         .load()
 
     def migrate(): Database = {
+      val t = System.nanoTime
       flyway.migrate()
+      val duration = (System.nanoTime - t) / 1e9
+      println(s"MIGRATION DURATION: $duration")
       new Database(queries = system.queries, metrics = metrics)
     }
 

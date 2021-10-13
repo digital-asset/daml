@@ -1,0 +1,30 @@
+load("//bazel_tools:scala.bzl", "da_scala_test")
+
+da_scala_test(
+  name = "debug",
+  srcs = ["Debug.scala"],
+  deps = [
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-domain",
+        "//ledger/ledger-resources",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//libs-scala/ports",
+        "@maven//:io_netty_netty_handler",
+        "@maven//:org_scalatest_scalatest_compatible",
+        "//libs-scala/resources",
+  ],
+    data = [
+        "//ledger/test-common:dar-files",
+    ],
+    resources = glob(["src/resources/logback.xml"]),
+  scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scalatest_scalatest_freespec",
+  ],
+)

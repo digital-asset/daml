@@ -20,7 +20,11 @@ final class OwnedResource[Context, T: ClassTag](
 
   override def construct(): T = {
     resource = owner.acquire()
-    Await.result(resource.asFuture, acquisitionTimeout)
+    val t = System.nanoTime
+    val r = Await.result(resource.asFuture, acquisitionTimeout)
+    val duration = (System.nanoTime - t) / 1e9
+    println(s"DURATION: $duration")
+    r
   }
 
   override def destruct(value: T): Unit = {
