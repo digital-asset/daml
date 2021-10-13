@@ -748,12 +748,16 @@ object Endpoints {
 
   private final class IntoEndpointsError[-A](val run: A => Error) extends AnyVal
   private object IntoEndpointsError {
+    import LedgerClientJwt.Grpc.Category
+
     implicit val id: IntoEndpointsError[Error] = new IntoEndpointsError(identity)
     implicit val fromCommands: IntoEndpointsError[CommandService.Error] = new IntoEndpointsError({
       case CommandService.InternalError(id, message) =>
         ServerError(s"command service error, ${id.cata(sym => s"${sym.name}: ", "")}$message")
-      case CommandService.ClientError(LedgerClientJwt.Grpc.Category.PermissionDenied, message) =>
+      case CommandService.ClientError(-\/(Category.PermissionDenied), message) =>
         Unauthorized(message)
+      case CommandService.ClientError(\/-(Category.InvalidArgument), message) =>
+        InvalidUserInput(message)
     })
   }
 

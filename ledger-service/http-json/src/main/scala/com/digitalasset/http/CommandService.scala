@@ -133,7 +133,7 @@ class CommandService(
 
   private def logResult[A](
       op: Symbol,
-      fa: Grpc.EFuture[Grpc.Category.PermissionDenied \/ Grpc.Category.Aborted, A],
+      fa: Grpc.EFuture[Grpc.Category.SubmitError, A],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[A] = {
@@ -145,10 +145,13 @@ class CommandService(
           Future.successful(-\/(InternalError(None, e.toString)))
         case Success(-\/(e)) =>
           logger.error(s"$opName failure: ${e.e}: ${e.message}")
+          import Grpc.Category._
           Future.successful(-\/(e.e match {
-            case -\/(c @ Grpc.Category.PermissionDenied) =>
-              ClientError(c, e.message)
-            case \/-(Grpc.Category.Aborted) =>
+            case PermissionDenied =>
+              ClientError(-\/(PermissionDenied), e.message)
+            case InvalidArgument =>
+              ClientError(\/-(InvalidArgument), e.message)
+            case Aborted =>
               // TODO SC: ambiguous whether "contract key is missing or duplicated
               // due to for example contention on resources" should be an HTTP 409
               InternalError(None, e.message)
@@ -308,14 +311,17 @@ class CommandService(
 
 object CommandService {
   sealed abstract class Error extends Product with Serializable
-  final case class ClientError(id: Grpc.Category.PermissionDenied, message: String) extends Error
+  final case class ClientError(
+      id: Grpc.Category.PermissionDenied \/ Grpc.Category.InvalidArgument,
+      message: String,
+  ) extends Error
   final case class InternalError(id: Option[Symbol], message: String) extends Error
 
   object Error {
     @deprecated("TODO s11 remainder", since = "1.18.0")
     implicit val errorShow: Show[Error] = Show shows {
-      case ClientError(c @ Grpc.Category.PermissionDenied, message) =>
-        s"CommandService Error, $c: $message"
+      case ClientError(c, message) =>
+        s"CommandService Error, ${c.merge}: $message"
       case InternalError(None, message) =>
         s"CommandService Error, $message"
       case InternalError(Some(id), message) =>

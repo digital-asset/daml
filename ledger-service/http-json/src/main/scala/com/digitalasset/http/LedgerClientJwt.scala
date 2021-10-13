@@ -23,7 +23,7 @@ import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.google.protobuf
 import io.grpc.Status, Status.Code, Code.{values => _, _}
-import scalaz.{OneAnd, \/, -\/, \/-}
+import scalaz.{OneAnd, \/, -\/}
 
 import scala.concurrent.{ExecutionContext => EC, Future}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
@@ -40,13 +40,13 @@ object LedgerClientJwt {
     (
         Jwt,
         SubmitAndWaitRequest,
-    ) => EFuture[PermissionDenied \/ Aborted, SubmitAndWaitForTransactionResponse]
+    ) => EFuture[SubmitError, SubmitAndWaitForTransactionResponse]
 
   type SubmitAndWaitForTransactionTree =
     (
         Jwt,
         SubmitAndWaitRequest,
-    ) => EFuture[PermissionDenied \/ Aborted, SubmitAndWaitForTransactionTreeResponse]
+    ) => EFuture[SubmitError, SubmitAndWaitForTransactionTreeResponse]
 
   type GetTermination =
     (Jwt, LedgerApiDomain.LedgerId) => Future[Option[Terminates.AtAbsolute]]
@@ -107,10 +107,9 @@ object LedgerClientJwt {
       client: DamlLedgerClient
   )(implicit ec: EC): SubmitAndWaitForTransaction =
     (jwt, req) =>
-      client.commandServiceClient.submitAndWaitForTransaction(req, bearer(jwt)).requireHandling {
-        case PERMISSION_DENIED => -\/(PermissionDenied)
-        case ABORTED => \/-(Aborted)
-      }
+      client.commandServiceClient
+        .submitAndWaitForTransaction(req, bearer(jwt))
+        .requireHandling(submitErrors)
 
   def submitAndWaitForTransactionTree(
       client: DamlLedgerClient
@@ -118,10 +117,7 @@ object LedgerClientJwt {
     (jwt, req) =>
       client.commandServiceClient
         .submitAndWaitForTransactionTree(req, bearer(jwt))
-        .requireHandling {
-          case PERMISSION_DENIED => -\/(PermissionDenied)
-          case ABORTED => \/-(Aborted)
-        }
+        .requireHandling(submitErrors)
 
   def getTermination(client: DamlLedgerClient)(implicit ec: EC): GetTermination =
     (jwt, ledgerId) =>
@@ -241,13 +237,20 @@ object LedgerClientJwt {
     // e.g. Unauthenticated never needs to be specially handled, because we should
     // have caught that the jwt token was missing and reported that to client already
     object Category {
+      sealed trait SubmitError
       // XXX SC we might be able to assign singleton types to the Codes instead in 2.13+
       type PermissionDenied = PermissionDenied.type
-      case object PermissionDenied
+      case object PermissionDenied extends SubmitError
       type InvalidArgument = InvalidArgument.type
-      case object InvalidArgument
+      case object InvalidArgument extends SubmitError
       type Aborted = Aborted.type
-      case object Aborted
+      case object Aborted extends SubmitError
+
+      private[LedgerClientJwt] val submitErrors: Code PartialFunction SubmitError = {
+        case PERMISSION_DENIED => PermissionDenied
+        case INVALID_ARGUMENT => InvalidArgument
+        case ABORTED => Aborted
+      }
 
       private[LedgerClientJwt] implicit final class `Future Status Category ops`[A](
           private val fa: Future[A]
