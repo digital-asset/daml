@@ -409,7 +409,6 @@ class TransactionCommitterSpec
       defaultConfig,
       mock[Engine],
       metrics,
-      inStaticTimeMode = false,
     )
 
   private def newDedupValue(deduplicationTime: Timestamp): DamlStateValue =

@@ -56,7 +56,6 @@ private[kvutils] class TransactionCommitter(
     defaultConfig: Configuration,
     engine: Engine,
     override protected val metrics: Metrics,
-    inStaticTimeMode: Boolean,
 ) extends Committer[DamlTransactionEntrySummary] {
 
   import TransactionCommitter._
@@ -119,9 +118,7 @@ private[kvutils] class TransactionCommitter(
         .map { recordTime =>
           val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
           val dedupEntry = commitContext.get(dedupKey)
-          val submissionTime =
-            if (inStaticTimeMode) Instant.now() else recordTime.toInstant
-          if (dedupEntry.forall(isAfterDeduplicationTime(submissionTime, _))) {
+          if (dedupEntry.forall(isAfterDeduplicationTime(recordTime.toInstant, _))) {
             StepContinue(transactionEntry)
           } else {
             rejections.reject(

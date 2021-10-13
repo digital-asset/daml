@@ -117,7 +117,6 @@ object SqlLedgerReaderWriter {
           stateValueCache = stateValueCache,
           engine = engine,
           metrics = metrics,
-          inStaticTimeMode = timeProvider != TimeProvider.UTC,
         )
         committer = new ValidatingCommitter[Index](
           () => timeProvider.getCurrentTime,

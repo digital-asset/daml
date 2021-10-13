@@ -332,11 +332,10 @@ object SubmissionValidator {
       stateValueCache: StateValueCache,
       engine: Engine,
       metrics: Metrics,
-      inStaticTimeMode: Boolean,
   ): SubmissionValidator[LogResult] =
     new SubmissionValidator(
       ledgerStateAccess,
-      processSubmission(new KeyValueCommitting(engine, metrics, inStaticTimeMode)),
+      processSubmission(new KeyValueCommitting(engine, metrics)),
       logEntryIdAllocator,
       checkForMissingInputs,
       stateValueCache,
