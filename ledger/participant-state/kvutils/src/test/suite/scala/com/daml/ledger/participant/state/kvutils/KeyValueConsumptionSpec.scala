@@ -22,6 +22,8 @@ import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.{
 }
 import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlConfigurationEntry,
+  DamlPartyAllocationEntry,
+  DamlPartyAllocationRejectionEntry,
   DamlSubmitterInfo,
   DamlTransactionEntry,
   DamlTransactionRejectionEntry,

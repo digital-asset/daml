@@ -3,8 +3,8 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlPartyAllocationRejectionEntry
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
+import com.daml.ledger.participant.state.kvutils.store.events.DamlPartyAllocationRejectionEntry
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlContractState,
   DamlLogEntry,
