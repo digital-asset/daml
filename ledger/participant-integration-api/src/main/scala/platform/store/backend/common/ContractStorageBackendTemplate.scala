@@ -138,7 +138,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       ).map { case cId ~ stakeholders =>
         KeyAssigned(
           cId,
-          stakeholders.view.map(stringInterning.party.interned).toSet,
+          stakeholders.view.map(stringInterning.party.externalize).toSet,
         )
       },
     )(
@@ -158,9 +158,9 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
         case internedTemplateId ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ eventKind ~ ledgerEffectiveTime =>
           stringInterning =>
             StorageBackend.RawContractState(
-              templateId = internedTemplateId.map(stringInterning.templateId.unsafe.interned),
+              templateId = internedTemplateId.map(stringInterning.templateId.unsafe.externalize),
               flatEventWitnesses = flatEventWitnesses.view
-                .map(stringInterning.party.interned)
+                .map(stringInterning.party.externalize)
                 .toSet,
               createArgument = createArgument,
               createArgumentCompression = createArgumentCompression,
@@ -214,14 +214,14 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
           StorageBackend.RawContractStateEvent(
             eventKind,
             contractId,
-            templateId.map(stringInterning.templateId.interned),
+            templateId.map(stringInterning.templateId.externalize),
             ledgerEffectiveTime,
             createKeyValue,
             createKeyCompression,
             createArgument,
             createArgumentCompression,
             flatEventWitnesses.view
-              .map(stringInterning.party.interned)
+              .map(stringInterning.party.externalize)
               .toSet,
             eventSequentialId,
             offset,
@@ -265,7 +265,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       .map { case internedTemplateId ~ createArgument ~ createArgumentCompression =>
         stringInterning =>
           new StorageBackend.RawContract(
-            templateId = stringInterning.templateId.unsafe.interned(internedTemplateId),
+            templateId = stringInterning.templateId.unsafe.externalize(internedTemplateId),
             createArgument = createArgument,
             createArgumentCompression = createArgumentCompression,
           )
@@ -398,7 +398,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       contractId = contractId,
       lastEventSequentialId = lastEventSequentialId,
       stringInterning = stringInterning,
-    )(connection).map(stringInterning.templateId.unsafe.interned)
+    )(connection).map(stringInterning.templateId.unsafe.externalize)
 
   override def contractKey(
       readers: Set[Ref.Party],

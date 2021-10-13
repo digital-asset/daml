@@ -148,7 +148,7 @@ private[backend] object OracleStorageBackend
         parties: Set[Ref.Party],
         stringInterning: StringInterning,
     ): CompositeSql = {
-      val internedParties = parties.flatMap(stringInterning.party.getId)
+      val internedParties = parties.flatMap(stringInterning.party.tryInternalize)
       if (internedParties.isEmpty) cSQL"false"
       else
         cSQL"EXISTS (SELECT 1 FROM JSON_TABLE(#$columnName, '$$[*]' columns (value NUMBER PATH '$$')) WHERE value IN ($internedParties))"
@@ -174,7 +174,7 @@ private[backend] object OracleStorageBackend
         parties: Set[Ref.Party],
         stringInterning: StringInterning,
     ): CompositeSql = {
-      val internedParties = parties.flatMap(stringInterning.party.getId)
+      val internedParties = parties.flatMap(stringInterning.party.tryInternalize)
       if (internedParties.size == 1)
         cSQL"(json_array(${internedParties.head}))"
       else
@@ -208,8 +208,8 @@ private[backend] object OracleStorageBackend
         filterParams.partiesAndTemplates.iterator
           .map { case (parties, templateIds) =>
             (
-              parties.flatMap(s => stringInterning.party.getId(s)),
-              templateIds.flatMap(s => stringInterning.templateId.getId(s)),
+              parties.flatMap(s => stringInterning.party.tryInternalize(s)),
+              templateIds.flatMap(s => stringInterning.templateId.tryInternalize(s)),
             )
           }
           .filterNot(_._1.isEmpty)
@@ -218,7 +218,7 @@ private[backend] object OracleStorageBackend
             val clause =
               OracleQueryStrategy.arrayIntersectionNonEmptyClause(
                 witnessesColumnName,
-                parties.map(stringInterning.party.interned),
+                parties.map(stringInterning.party.externalize),
                 stringInterning,
               )
             cSQL"( ($clause) AND (template_id IN (${templateIds.map(_.toString)})) )"

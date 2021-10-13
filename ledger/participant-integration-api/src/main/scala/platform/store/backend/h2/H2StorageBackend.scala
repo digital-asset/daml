@@ -169,7 +169,7 @@ FETCH NEXT 1 ROW ONLY;
         parties: Set[Ref.Party],
         stringInterning: StringInterning,
     ): CompositeSql = {
-      val internedParties = parties.flatMap(stringInterning.party.getId)
+      val internedParties = parties.flatMap(stringInterning.party.tryInternalize)
       if (internedParties.isEmpty)
         cSQL"false"
       else
@@ -193,7 +193,7 @@ FETCH NEXT 1 ROW ONLY;
         stringInterning: StringInterning,
     ): CompositeSql = {
       val partiesArray: Array[java.lang.Integer] =
-        parties.view.flatMap(stringInterning.party.getId).map(Int.box).toArray
+        parties.view.flatMap(stringInterning.party.tryInternalize).map(Int.box).toArray
       if (partiesArray.isEmpty) cSQL"false"
       else cSQL"array_intersection(#$witnessesColumnName, $partiesArray)"
     }
@@ -230,7 +230,7 @@ FETCH NEXT 1 ROW ONLY;
               stringInterning,
             )
           val templateIdsArray: Array[java.lang.Integer] =
-            templateIds.view.flatMap(stringInterning.templateId.getId).map(Int.box).toArray
+            templateIds.view.flatMap(stringInterning.templateId.tryInternalize).map(Int.box).toArray
           if (templateIdsArray.isEmpty) None
           else Some(cSQL"( ($clause) AND (template_id = ANY($templateIdsArray)) )")
         }.toList

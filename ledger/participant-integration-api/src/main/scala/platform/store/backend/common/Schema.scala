@@ -102,14 +102,14 @@ private[backend] object AppendOnlySchema {
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
         "application_id" -> fieldStrategy.stringOptional(_ => _.application_id),
         "submitters" -> fieldStrategy.intArrayOptional(stringInterning =>
-          _.submitters.map(_.map(stringInterning.party.unsafe.id))
+          _.submitters.map(_.map(stringInterning.party.unsafe.internalize))
         ),
         "contract_id" -> fieldStrategy.string(_ => _.contract_id),
         "template_id" -> fieldStrategy.intOptional(stringInterning =>
-          _.template_id.map(stringInterning.templateId.unsafe.id)
+          _.template_id.map(stringInterning.templateId.unsafe.internalize)
         ),
         "tree_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
-          _.tree_event_witnesses.map(stringInterning.party.unsafe.id)
+          _.tree_event_witnesses.map(stringInterning.party.unsafe.internalize)
         ),
         "create_argument" -> fieldStrategy.byteaOptional(_ => _.create_argument),
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
@@ -127,26 +127,26 @@ private[backend] object AppendOnlySchema {
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
         "application_id" -> fieldStrategy.stringOptional(_ => _.application_id),
         "submitters" -> fieldStrategy.intArrayOptional(stringInterning =>
-          _.submitters.map(_.map(stringInterning.party.unsafe.id))
+          _.submitters.map(_.map(stringInterning.party.unsafe.internalize))
         ),
         "node_index" -> fieldStrategy.intOptional(_ => _.node_index),
         "event_id" -> fieldStrategy.stringOptional(_ => _.event_id),
         "contract_id" -> fieldStrategy.string(_ => _.contract_id),
         "template_id" -> fieldStrategy.intOptional(stringInterning =>
-          _.template_id.map(stringInterning.templateId.unsafe.id)
+          _.template_id.map(stringInterning.templateId.unsafe.internalize)
         ),
         "flat_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
-          _.flat_event_witnesses.map(stringInterning.party.unsafe.id)
+          _.flat_event_witnesses.map(stringInterning.party.unsafe.internalize)
         ),
         "tree_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
-          _.tree_event_witnesses.map(stringInterning.party.unsafe.id)
+          _.tree_event_witnesses.map(stringInterning.party.unsafe.internalize)
         ),
         "create_argument" -> fieldStrategy.byteaOptional(_ => _.create_argument),
         "create_signatories" -> fieldStrategy.intArrayOptional(stringInterning =>
-          _.create_signatories.map(_.map(stringInterning.party.unsafe.id))
+          _.create_signatories.map(_.map(stringInterning.party.unsafe.internalize))
         ),
         "create_observers" -> fieldStrategy.intArrayOptional(stringInterning =>
-          _.create_observers.map(_.map(stringInterning.party.unsafe.id))
+          _.create_observers.map(_.map(stringInterning.party.unsafe.internalize))
         ),
         "create_agreement_text" -> fieldStrategy.stringOptional(_ => _.create_agreement_text),
         "create_key_value" -> fieldStrategy.byteaOptional(_ => _.create_key_value),
@@ -172,26 +172,26 @@ private[backend] object AppendOnlySchema {
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
         "application_id" -> fieldStrategy.stringOptional(_ => _.application_id),
         "submitters" -> fieldStrategy.intArrayOptional(stringInterning =>
-          _.submitters.map(_.map(stringInterning.party.unsafe.id))
+          _.submitters.map(_.map(stringInterning.party.unsafe.internalize))
         ),
         "create_key_value" -> fieldStrategy.byteaOptional(_ => _.create_key_value),
         "exercise_choice" -> fieldStrategy.stringOptional(_ => _.exercise_choice),
         "exercise_argument" -> fieldStrategy.byteaOptional(_ => _.exercise_argument),
         "exercise_result" -> fieldStrategy.byteaOptional(_ => _.exercise_result),
         "exercise_actors" -> fieldStrategy.intArrayOptional(stringInterning =>
-          _.exercise_actors.map(_.map(stringInterning.party.unsafe.id))
+          _.exercise_actors.map(_.map(stringInterning.party.unsafe.internalize))
         ),
         "exercise_child_event_ids" -> fieldStrategy.stringArrayOptional(_ =>
           _.exercise_child_event_ids
         ),
         "template_id" -> fieldStrategy.intOptional(stringInterning =>
-          _.template_id.map(stringInterning.templateId.unsafe.id)
+          _.template_id.map(stringInterning.templateId.unsafe.internalize)
         ),
         "flat_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
-          _.flat_event_witnesses.map(stringInterning.party.unsafe.id)
+          _.flat_event_witnesses.map(stringInterning.party.unsafe.internalize)
         ),
         "tree_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
-          _.tree_event_witnesses.map(stringInterning.party.unsafe.id)
+          _.tree_event_witnesses.map(stringInterning.party.unsafe.internalize)
         ),
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
         "create_key_value_compression" -> fieldStrategy.smallintOptional(_ =>
@@ -255,7 +255,7 @@ private[backend] object AppendOnlySchema {
         "rejection_reason" -> fieldStrategy.stringOptional(_ => _.rejection_reason),
         "is_local" -> fieldStrategy.booleanOptional(_ => _.is_local),
         "party_id" -> fieldStrategy.intOptional(stringInterning =>
-          _.party.map(stringInterning.party.unsafe.id)
+          _.party.map(stringInterning.party.unsafe.internalize)
         ), // TODO maybe just keep this and drop the string party entirely?
       )
 
@@ -265,7 +265,7 @@ private[backend] object AppendOnlySchema {
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),
         "application_id" -> fieldStrategy.string(_ => _.application_id),
         "submitters" -> fieldStrategy.intArray(stringInterning =>
-          _.submitters.map(stringInterning.party.unsafe.id)
+          _.submitters.map(stringInterning.party.unsafe.internalize)
         ),
         "command_id" -> fieldStrategy.string(_ => _.command_id),
         "transaction_id" -> fieldStrategy.stringOptional(_ => _.transaction_id),

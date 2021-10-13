@@ -15,10 +15,10 @@ trait StringInterningDomain[T] extends StringInterningAccessor[T] {
 }
 
 trait StringInterningAccessor[T] {
-  def id(t: T): Int
-  def getId(t: T): Option[Int]
-  def interned(id: Int): T
-  def getInterned(id: Int): Option[T]
+  def internalize(t: T): Int
+  def tryInternalize(t: T): Option[Int]
+  def externalize(id: Int): T
+  def tryExternalize(id: Int): Option[T]
 }
 
 case class RawStringInterningCache(
@@ -43,47 +43,49 @@ class StringInterningCache(initialRaw: RawStringInterningCache = RawStringIntern
   override val templateId: StringInterningDomain[Ref.Identifier] =
     new StringInterningDomain[Ref.Identifier] {
       override val unsafe: StringInterningAccessor[String] = new StringInterningAccessor[String] {
-        override def id(t: String): Int = raw.map(TemplatePrefix + t)
+        override def internalize(t: String): Int = raw.map(TemplatePrefix + t)
 
-        override def getId(t: String): Option[Int] = raw.map.get(TemplatePrefix + t)
+        override def tryInternalize(t: String): Option[Int] = raw.map.get(TemplatePrefix + t)
 
-        override def interned(id: Int): String = raw.idMap(id).substring(TemplatePrefix.length)
+        override def externalize(id: Int): String = raw.idMap(id).substring(TemplatePrefix.length)
 
-        override def getInterned(id: Int): Option[String] =
+        override def tryExternalize(id: Int): Option[String] =
           raw.idMap.get(id).map(_.substring(TemplatePrefix.length))
       }
 
-      override def id(t: Ref.Identifier): Int = unsafe.id(t.toString)
+      override def internalize(t: Ref.Identifier): Int = unsafe.internalize(t.toString)
 
-      override def getId(t: Ref.Identifier): Option[Int] = unsafe.getId(t.toString)
+      override def tryInternalize(t: Ref.Identifier): Option[Int] =
+        unsafe.tryInternalize(t.toString)
 
-      override def interned(id: Int): Ref.Identifier =
-        Ref.Identifier.assertFromString(unsafe.interned(id))
+      override def externalize(id: Int): Ref.Identifier =
+        Ref.Identifier.assertFromString(unsafe.externalize(id))
 
-      override def getInterned(id: Int): Option[Ref.Identifier] =
-        unsafe.getInterned(id).map(Ref.Identifier.assertFromString)
+      override def tryExternalize(id: Int): Option[Ref.Identifier] =
+        unsafe.tryExternalize(id).map(Ref.Identifier.assertFromString)
     }
 
   override def party: StringInterningDomain[Ref.Party] = new StringInterningDomain[Ref.Party] {
     override val unsafe: StringInterningAccessor[String] = new StringInterningAccessor[String] {
-      override def id(t: String): Int = raw.map(PartyPrefix + t)
+      override def internalize(t: String): Int = raw.map(PartyPrefix + t)
 
-      override def getId(t: String): Option[Int] = raw.map.get(PartyPrefix + t)
+      override def tryInternalize(t: String): Option[Int] = raw.map.get(PartyPrefix + t)
 
-      override def interned(id: Int): String = raw.idMap(id).substring(PartyPrefix.length)
+      override def externalize(id: Int): String = raw.idMap(id).substring(PartyPrefix.length)
 
-      override def getInterned(id: Int): Option[String] =
+      override def tryExternalize(id: Int): Option[String] =
         raw.idMap.get(id).map(_.substring(PartyPrefix.length))
     }
 
-    override def id(t: Ref.Party): Int = unsafe.id(t.toString)
+    override def internalize(t: Ref.Party): Int = unsafe.internalize(t.toString)
 
-    override def getId(t: Ref.Party): Option[Int] = unsafe.getId(t.toString)
+    override def tryInternalize(t: Ref.Party): Option[Int] = unsafe.tryInternalize(t.toString)
 
-    override def interned(id: Int): Ref.Party = Ref.Party.assertFromString(unsafe.interned(id))
+    override def externalize(id: Int): Ref.Party =
+      Ref.Party.assertFromString(unsafe.externalize(id))
 
-    override def getInterned(id: Int): Option[Ref.Party] =
-      unsafe.getInterned(id).map(Ref.Party.assertFromString)
+    override def tryExternalize(id: Int): Option[Ref.Party] =
+      unsafe.tryExternalize(id).map(Ref.Party.assertFromString)
   }
 }
 

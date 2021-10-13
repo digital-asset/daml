@@ -168,7 +168,7 @@ private[backend] object PostgresStorageBackend
     ): CompositeSql = {
       import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
       val partiesArray: Array[java.lang.Integer] =
-        parties.flatMap(party => stringInterning.party.getId(party).map(Int.box)).toArray
+        parties.flatMap(party => stringInterning.party.tryInternalize(party).map(Int.box)).toArray
       cSQL"#$columnName::int[] && $partiesArray::int[]"
     }
 
@@ -187,7 +187,7 @@ private[backend] object PostgresStorageBackend
         stringInterning: StringInterning,
     ): CompositeSql = {
       val internedParties: Array[java.lang.Integer] = parties.view
-        .flatMap(party => stringInterning.party.getId(party).map(Int.box))
+        .flatMap(party => stringInterning.party.tryInternalize(party).map(Int.box))
         .toArray
       if (internedParties.length == 1)
         cSQL"array[${internedParties.head}]::integer[]"
@@ -201,7 +201,7 @@ private[backend] object PostgresStorageBackend
         stringInterning: StringInterning,
     ): CompositeSql = {
       val partiesArray: Array[java.lang.Integer] = parties.view
-        .flatMap(party => stringInterning.party.getId(party).map(Int.box))
+        .flatMap(party => stringInterning.party.tryInternalize(party).map(Int.box))
         .toArray
       cSQL"(#$submittersColumnName::integer[] && $partiesArray::integer[])"
     }
@@ -217,7 +217,7 @@ private[backend] object PostgresStorageBackend
 
         case wildCardParties =>
           val partiesArray: Array[java.lang.Integer] = wildCardParties.view
-            .flatMap(party => stringInterning.party.getId(party).map(Int.box))
+            .flatMap(party => stringInterning.party.tryInternalize(party).map(Int.box))
             .toArray
           if (partiesArray.isEmpty)
             Nil
@@ -228,8 +228,8 @@ private[backend] object PostgresStorageBackend
         filterParams.partiesAndTemplates.iterator
           .map { case (parties, templateIds) =>
             (
-              parties.flatMap(s => stringInterning.party.getId(s)),
-              templateIds.flatMap(s => stringInterning.templateId.getId(s)),
+              parties.flatMap(s => stringInterning.party.tryInternalize(s)),
+              templateIds.flatMap(s => stringInterning.templateId.tryInternalize(s)),
             )
           }
           .filterNot(_._1.isEmpty)

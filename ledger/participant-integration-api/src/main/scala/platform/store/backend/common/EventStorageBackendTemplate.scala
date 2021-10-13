@@ -128,20 +128,21 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
             event = Raw.FlatEvent.Created(
               eventId = eventId,
               contractId = contractId,
-              templateId = stringInterning.templateId.interned(templateId),
+              templateId = stringInterning.templateId.externalize(templateId),
               createArgument = createArgument,
               createArgumentCompression = createArgumentCompression,
               createSignatories = ArraySeq.unsafeWrapArray(
-                createSignatories.map(stringInterning.party.unsafe.interned)
+                createSignatories.map(stringInterning.party.unsafe.externalize)
               ),
               createObservers = ArraySeq.unsafeWrapArray(
-                createObservers.map(stringInterning.party.unsafe.interned)
+                createObservers.map(stringInterning.party.unsafe.externalize)
               ),
               createAgreementText = createAgreementText,
               createKeyValue = createKeyValue,
               createKeyValueCompression = createKeyValueCompression,
-              eventWitnesses =
-                ArraySeq.unsafeWrapArray(eventWitnesses.map(stringInterning.party.unsafe.interned)),
+              eventWitnesses = ArraySeq.unsafeWrapArray(
+                eventWitnesses.map(stringInterning.party.unsafe.externalize)
+              ),
             ),
           )
     }
@@ -164,9 +165,10 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
             event = Raw.FlatEvent.Archived(
               eventId = eventId,
               contractId = contractId,
-              templateId = stringInterning.templateId.interned(templateId),
-              eventWitnesses =
-                ArraySeq.unsafeWrapArray(eventWitnesses.map(stringInterning.party.unsafe.interned)),
+              templateId = stringInterning.templateId.externalize(templateId),
+              eventWitnesses = ArraySeq.unsafeWrapArray(
+                eventWitnesses.map(stringInterning.party.unsafe.externalize)
+              ),
             ),
           )
     }
@@ -192,20 +194,21 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
             event = Raw.TreeEvent.Created(
               eventId = eventId,
               contractId = contractId,
-              templateId = stringInterning.templateId.interned(templateId),
+              templateId = stringInterning.templateId.externalize(templateId),
               createArgument = createArgument,
               createArgumentCompression = createArgumentCompression,
               createSignatories = ArraySeq.unsafeWrapArray(
-                createSignatories.map(stringInterning.party.unsafe.interned)
+                createSignatories.map(stringInterning.party.unsafe.externalize)
               ),
               createObservers = ArraySeq.unsafeWrapArray(
-                createObservers.map(stringInterning.party.unsafe.interned)
+                createObservers.map(stringInterning.party.unsafe.externalize)
               ),
               createAgreementText = createAgreementText,
               createKeyValue = createKeyValue,
               createKeyValueCompression = createKeyValueCompression,
-              eventWitnesses =
-                ArraySeq.unsafeWrapArray(eventWitnesses.map(stringInterning.party.unsafe.interned)),
+              eventWitnesses = ArraySeq.unsafeWrapArray(
+                eventWitnesses.map(stringInterning.party.unsafe.externalize)
+              ),
             ),
           )
     }
@@ -228,18 +231,20 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
             event = Raw.TreeEvent.Exercised(
               eventId = eventId,
               contractId = contractId,
-              templateId = stringInterning.templateId.interned(templateId),
+              templateId = stringInterning.templateId.externalize(templateId),
               exerciseConsuming = exerciseConsuming,
               exerciseChoice = exerciseChoice,
               exerciseArgument = exerciseArgument,
               exerciseArgumentCompression = exerciseArgumentCompression,
               exerciseResult = exerciseResult,
               exerciseResultCompression = exerciseResultCompression,
-              exerciseActors =
-                ArraySeq.unsafeWrapArray(exerciseActors.map(stringInterning.party.unsafe.interned)),
+              exerciseActors = ArraySeq.unsafeWrapArray(
+                exerciseActors.map(stringInterning.party.unsafe.externalize)
+              ),
               exerciseChildEventIds = ArraySeq.unsafeWrapArray(exerciseChildEventIds),
-              eventWitnesses =
-                ArraySeq.unsafeWrapArray(eventWitnesses.map(stringInterning.party.unsafe.interned)),
+              eventWitnesses = ArraySeq.unsafeWrapArray(
+                eventWitnesses.map(stringInterning.party.unsafe.externalize)
+              ),
             ),
           )
     }
@@ -582,26 +587,26 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
             workflowId,
             eventId,
             contractId,
-            templateId.map(stringInterning.templateId.interned),
+            templateId.map(stringInterning.templateId.externalize),
             ledgerEffectiveTime,
-            createSignatories.map(_.map(stringInterning.party.unsafe.interned)),
-            createObservers.map(_.map(stringInterning.party.unsafe.interned)),
+            createSignatories.map(_.map(stringInterning.party.unsafe.externalize)),
+            createObservers.map(_.map(stringInterning.party.unsafe.externalize)),
             createAgreementText,
             createKeyValue,
             createKeyCompression,
             createArgument,
             createArgumentCompression,
-            treeEventWitnesses.view.map(stringInterning.party.unsafe.interned).toSet,
-            flatEventWitnesses.view.map(stringInterning.party.unsafe.interned).toSet,
+            treeEventWitnesses.view.map(stringInterning.party.unsafe.externalize).toSet,
+            flatEventWitnesses.view.map(stringInterning.party.unsafe.externalize).toSet,
             submitters
-              .map(_.view.map(stringInterning.party.unsafe.interned).toSet)
+              .map(_.view.map(stringInterning.party.unsafe.externalize).toSet)
               .getOrElse(Set.empty),
             exerciseChoice,
             exerciseArgument,
             exerciseArgumentCompression,
             exerciseResult,
             exerciseResultCompression,
-            exerciseActors.map(_.map(stringInterning.party.unsafe.interned)),
+            exerciseActors.map(_.map(stringInterning.party.unsafe.externalize)),
             exerciseChildEventIds,
             eventSequentialId,
             offset,
