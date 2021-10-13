@@ -724,10 +724,33 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val (dottedName, interface) = nameWithDef
       val builder = PLF.DefInterface.newBuilder()
       builder.setTyconInternedDname(dottedNameTable.insert(dottedName))
+      builder.setParamInternedStr(stringsTable.insert(interface.param))
       builder.accumulateLeft(interface.virtualChoices.sortByKey)(_ addChoices _)
-      // TODO https://github.com/digital-asset/daml/issues/11006
-      //   encode interface methods as well
+      builder.accumulateLeft(interface.fixedChoices.sortByKey)(_ addFixedChoices _)
+      builder.accumulateLeft(interface.methods.sortByKey)(_ addMethods _)
       builder.build()
+    }
+
+    private implicit def encodeInterfaceChoice(
+        nameWithChoice: (ChoiceName, InterfaceChoice)
+    ): PLF.InterfaceChoice = {
+      val (name, choice) = nameWithChoice
+      val b = PLF.InterfaceChoice.newBuilder()
+      b.setNameInternedString(stringsTable.insert(name))
+      b.setConsuming(choice.consuming)
+      b.setArgType(choice.argType)
+      b.setRetType(choice.returnType)
+      b.build()
+    }
+
+    private implicit def encodeInterfaceMethod(
+        nameWithMethod: (MethodName, InterfaceMethod)
+    ): PLF.InterfaceMethod = {
+      val (name, method) = nameWithMethod
+      val b = PLF.InterfaceMethod.newBuilder()
+      b.setMethodInternedName(stringsTable.insert(name))
+      b.setType(method.returnType)
+      b.build()
     }
 
     private implicit def encodeSynonymDef(nameWithDef: (DottedName, DTypeSyn)): PLF.DefTypeSyn = {
@@ -783,18 +806,6 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       b.build()
     }
 
-    private implicit def encodeInterfaceChoice(
-        nameWithChoice: (ChoiceName, InterfaceChoice)
-    ): PLF.InterfaceChoice = {
-      val (name, choice) = nameWithChoice
-      val b = PLF.InterfaceChoice.newBuilder()
-      b.setNameInternedString(stringsTable.insert(name))
-      b.setConsuming(choice.consuming)
-      b.setArgType(choice.argType)
-      b.setRetType(choice.returnType)
-      b.build()
-    }
-
     private implicit def encodeTemplateKey(key: TemplateKey): PLF.DefTemplate.DefKey =
       PLF.DefTemplate.DefKey
         .newBuilder()
@@ -816,17 +827,27 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       b.accumulateLeft(template.choices.sortByKey)(_ addChoices _)
       b.setObservers(template.observers)
       template.key.foreach(b.setKey(_))
-      b.accumulateLeft(template.implements.values)(_ addImplements encodeTemplateImplements(_))
+      b.accumulateLeft(template.implements.sortByKey)(_ addImplements _)
       b.build()
     }
 
-    // TODO https://github.com/digital-asset/daml/issues/11006
-    //  encode rest of TemplateImplements
     private implicit def encodeTemplateImplements(
-        impl: TemplateImplements
+        interfaceWithImplements: (TypeConName, TemplateImplements)
     ): PLF.DefTemplate.Implements = {
+      val (interface, implements) = interfaceWithImplements
       val b = PLF.DefTemplate.Implements.newBuilder()
-      b.setInterface(impl.interface)
+      b.setInterface(interface)
+      b.accumulateLeft(implements.methods.sortByKey)(_ addMethods _)
+      b.build()
+    }
+
+    private implicit def encodeTemplateImplementsMethod(
+        nameWithMethod: (MethodName, TemplateImplementsMethod)
+    ): PLF.DefTemplate.ImplementsMethod = {
+      val (name, method) = nameWithMethod
+      val b = PLF.DefTemplate.ImplementsMethod.newBuilder()
+      b.setMethodInternedName(stringsTable.insert(name))
+      b.setValue(method.value)
       b.build()
     }
 
