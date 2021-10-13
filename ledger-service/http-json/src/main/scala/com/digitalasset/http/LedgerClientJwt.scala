@@ -69,7 +69,7 @@ object LedgerClientJwt {
     ) => Source[Transaction, NotUsed]
 
   type ListKnownParties =
-    Jwt => Future[List[api.domain.PartyDetails]]
+    Jwt => EFuture[PermissionDenied, List[api.domain.PartyDetails]]
 
   type GetParties =
     (
@@ -185,8 +185,11 @@ object LedgerClientJwt {
     }
   }
 
-  def listKnownParties(client: DamlLedgerClient): ListKnownParties =
-    jwt => client.partyManagementClient.listKnownParties(bearer(jwt))
+  def listKnownParties(client: DamlLedgerClient)(implicit ec: EC): ListKnownParties =
+    jwt =>
+      client.partyManagementClient.listKnownParties(bearer(jwt)).requireHandling {
+        case PERMISSION_DENIED => PermissionDenied
+      }
 
   def getParties(client: DamlLedgerClient)(implicit ec: EC): GetParties =
     (jwt, partyIds) =>

@@ -453,7 +453,8 @@ class Endpoints(
   def allParties(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
-    proxyWithoutCommand((jwt, _) => partiesService.allParties(jwt))(req).map(domain.OkResponse(_))
+    proxyWithoutCommand((jwt, _) => partiesService.allParties(jwt))(req)
+      .flatMap(pd => either(pd map (domain.OkResponse(_))))
 
   def parties(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
