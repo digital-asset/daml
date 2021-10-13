@@ -1034,10 +1034,8 @@ private[lf] final class Compiler(
       addExprVar(param, payloadPos)
       addExprVar(choice.argBinder._1, choiceArgPos)
       let(
-        // TODO https://github.com/digital-asset/daml/issues/10810:
-        //   Here we insert an Exercise Node with the interface Id instead of the template Id. \
-        //   Review if that can cause issues.
-        SBUBeginExercise(ifaceId, choice.name, choice.consuming, byKey = false)(
+        ResolveSBUBeginExercise(choice.name, choice.consuming, byKey = false)(
+          svar(payloadPos),
           svar(choiceArgPos),
           svar(cidPos),
           compile(choice.controllers),
