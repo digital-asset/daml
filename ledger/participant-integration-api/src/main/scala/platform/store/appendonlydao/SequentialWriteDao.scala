@@ -4,6 +4,7 @@
 package com.daml.platform.store.appendonlydao
 
 import java.sql.Connection
+import java.util.concurrent.atomic.AtomicReference
 
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
@@ -19,14 +20,18 @@ trait SequentialWriteDao {
 case class SequentialWriteDaoImpl[DB_BATCH](
     storageBackend: IngestionStorageBackend[DB_BATCH] with ParameterStorageBackend,
     updateToDbDtos: Offset => state.Update => Iterator[DbDto],
+    dbDtoToStringsForTemplateInterning: DbDto => Iterator[String],
+    dbDtoToStringsForPartyInterning: DbDto => Iterator[String],
+    stringInterningCache: StringInterningCache,
+    ledgerEnd: AtomicReference[(Offset, Long)],
 ) extends SequentialWriteDao {
 
   private var lastEventSeqId: Long = _
   private var lastEventSeqIdInitialized = false
 
-  private def lazyInit(connection: Connection): Unit =
+  private def lazyInit(): Unit =
     if (!lastEventSeqIdInitialized) {
-      lastEventSeqId = storageBackend.ledgerEndOrBeforeBegin(connection).lastEventSeqId
+      lastEventSeqId = ledgerEnd.get()._2
       lastEventSeqIdInitialized = true
     }
 
@@ -45,25 +50,43 @@ case class SequentialWriteDaoImpl[DB_BATCH](
 
   override def store(connection: Connection, offset: Offset, update: Option[state.Update]): Unit =
     synchronized {
-      lazyInit(connection)
+      lazyInit()
 
       val dbDtos = update
         .map(updateToDbDtos(offset))
         .map(adaptEventSeqIds)
         .getOrElse(Vector.empty)
 
-      dbDtos
-        .pipe(
-          storageBackend.batch(_, new StringInterningCache(RawStringInterningCache.from(Nil)))
-        ) // TODO add support for sandbox-classic
+      val newEntries = RawStringInterningCache.newEntries(
+        strings = stringInterningCache.allRawEntries(
+          templateEntries = dbDtos.iterator.flatMap(dbDtoToStringsForTemplateInterning),
+          partyEntries = dbDtos.iterator.flatMap(dbDtoToStringsForPartyInterning),
+        ),
+        rawStringInterningCache = stringInterningCache.raw,
+      )
+      val dbDtosWithStringInterning =
+        if (newEntries.isEmpty)
+          dbDtos
+        else {
+          stringInterningCache.raw =
+            RawStringInterningCache.from(newEntries, stringInterningCache.raw)
+          dbDtos ++ newEntries.map { case (id, s) =>
+            DbDto.StringInterningDto(id, s)
+          }
+        }
+
+      dbDtosWithStringInterning
+        .pipe(storageBackend.batch(_, stringInterningCache))
         .pipe(storageBackend.insertBatch(connection, _))
 
       storageBackend.updateLedgerEnd(
         ParameterStorageBackend.LedgerEnd(
           lastOffset = offset,
           lastEventSeqId = lastEventSeqId,
-          lastStringInterningId = 0, // TODO add support for sandbox-classic
+          lastStringInterningId = stringInterningCache.raw.lastId,
         )
       )(connection)
+
+      ledgerEnd.set(offset -> lastEventSeqId)
     }
 }

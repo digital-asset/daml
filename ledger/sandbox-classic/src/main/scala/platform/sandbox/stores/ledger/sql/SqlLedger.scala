@@ -112,6 +112,9 @@ private[sandbox] object SqlLedger {
         ledgerId <- Resource.fromFuture(initialize(dao, existingLedgerId, existingParticipantId))
         ledgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())
         ledgerConfig <- Resource.fromFuture(dao.lookupLedgerConfiguration())
+        _ <- Resource.fromFuture(
+          initializeAppendOnlyDaoCaches(enableAppendOnlySchema, dao, servicesExecutionContext)
+        )
         dispatcher <- dispatcherOwner(ledgerEnd).acquire()
         persistenceQueue <- new PersistenceQueueOwner(dispatcher).acquire()
         // Close the dispatcher before the persistence queue.
@@ -284,6 +287,22 @@ private[sandbox] object SqlLedger {
           validatePartyAllocation,
           Some(new ValueEnricher(engine)),
         )
+
+    private def initializeAppendOnlyDaoCaches(
+        enableAppendOnlySchema: Boolean,
+        dao: LedgerDao,
+        servicesExecutionContext: ExecutionContext,
+    )(implicit loggingContext: LoggingContext): Future[Unit] =
+      if (enableAppendOnlySchema) {
+        dao
+          .lookupLedgerEndOffsetAndSequentialId()
+          .flatMap { ledgerEnd =>
+            dao.updateLedgerEnd(ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId)
+            dao.updateStringInterningCache(ledgerEnd.lastStringInterningId)
+          }(servicesExecutionContext)
+      } else {
+        Future.unit
+      }
 
     private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =
       Dispatcher.owner(

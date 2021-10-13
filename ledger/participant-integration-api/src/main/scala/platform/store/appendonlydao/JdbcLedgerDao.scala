@@ -35,7 +35,12 @@ import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetSt
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.events._
-import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackend, UpdateToDbDto}
+import com.daml.platform.store.backend.{
+  DbDtoToStringsForInterning,
+  ParameterStorageBackend,
+  StorageBackend,
+  UpdateToDbDto,
+}
 import com.daml.platform.store.cache.{RawStringInterningCache, StringInterningCache}
 import com.daml.platform.store.dao.{
   DeduplicationKeyMaker,
@@ -935,6 +940,8 @@ private[platform] object JdbcLedgerDao {
       metrics: Metrics,
       compressionStrategy: CompressionStrategy,
       storageBackend: StorageBackend[_],
+      stringInterningCache: StringInterningCache,
+      ledgerEnd: AtomicReference[(Offset, Long)],
   ): SequentialWriteDao =
     SequentialWriteDaoImpl(
       storageBackend = storageBackend,
@@ -948,6 +955,10 @@ private[platform] object JdbcLedgerDao {
         ),
         compressionStrategy = compressionStrategy,
       ),
+      dbDtoToStringsForTemplateInterning = DbDtoToStringsForInterning.templateId,
+      dbDtoToStringsForPartyInterning = DbDtoToStringsForInterning.party,
+      stringInterningCache = stringInterningCache,
+      ledgerEnd = ledgerEnd,
     )
 
   private def owner(
@@ -976,6 +987,8 @@ private[platform] object JdbcLedgerDao {
         connectionTimeout,
         metrics,
       )
+      stringInterningCache = new StringInterningCache(RawStringInterningCache.from(Nil))
+      ledgerEndCache = new AtomicReference(Offset.beforeBegin -> 0L) // TODO fix constants
     } yield new JdbcLedgerDao(
       dbDispatcher,
       servicesExecutionContext,
@@ -992,11 +1005,13 @@ private[platform] object JdbcLedgerDao {
         metrics,
         compressionStrategy,
         storageBackend,
+        stringInterningCache,
+        ledgerEndCache,
       ),
       participantId,
       storageBackend,
-      new StringInterningCache(RawStringInterningCache.from(Nil)),
-      new AtomicReference(Offset.beforeBegin -> 0L), // TODO fix constants
+      stringInterningCache,
+      ledgerEndCache,
     )
   }
 
