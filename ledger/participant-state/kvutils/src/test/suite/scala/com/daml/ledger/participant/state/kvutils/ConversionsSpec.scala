@@ -3,8 +3,9 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.time.{Duration, Instant}
+import com.daml.error.ValueSwitch
 
+import java.time.{Duration, Instant}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.participant.state.kvutils.Conversions._
@@ -34,6 +35,7 @@ import com.daml.lf.value.ValueOuterClass
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.{TextFormat, Timestamp}
 import com.google.rpc.error_details.ErrorInfo
+import com.google.rpc.status.Status
 import io.grpc.Status.Code
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
@@ -226,7 +228,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             )
             .build()
           val finalReason = Conversions
-            .decodeTransactionRejectionEntry(encodedEntry)
+            .decodeTransactionRejectionEntry(encodedEntry, v1ErrorSwitch)
             .value
           finalReason.code shouldBe expectedCode.value()
           finalReason.definiteAnswer shouldBe false
@@ -275,7 +277,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             )
             .build()
           val finalReason = Conversions
-            .decodeTransactionRejectionEntry(encodedEntry)
+            .decodeTransactionRejectionEntry(encodedEntry, v1ErrorSwitch)
             .value
           finalReason.definiteAnswer shouldBe false
           val actualDetails = finalReasonToDetails(finalReason).toMap
@@ -352,7 +354,8 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               val finalReason = Conversions
                 .decodeTransactionRejectionEntry(
                   rejectionBuilder(DamlTransactionRejectionEntry.newBuilder())
-                    .build()
+                    .build(),
+                  v1ErrorSwitch,
                 )
                 .value
               finalReason.code shouldBe code.value()
@@ -479,6 +482,8 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       .build
 
   private[this] val txVersion = TransactionVersion.StableVersions.max
+
+  private[this] val v1ErrorSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes = false)
 
   private def deduplicationKeyBytesFor(parties: List[String]): Array[Byte] = {
     val submitterInfo = DamlSubmitterInfo.newBuilder

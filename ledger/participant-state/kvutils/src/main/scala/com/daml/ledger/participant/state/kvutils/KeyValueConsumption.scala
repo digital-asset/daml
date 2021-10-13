@@ -5,9 +5,9 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.error.ValueSwitch
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.updates.TransactionRejections._
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.DamlPackageUploadRejectionEntry
 import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlTransactionBlindingInfo,
@@ -20,7 +20,6 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlOutOfTimeBoundsEntry,
   DamlStateKey,
 }
-import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2.{DivulgedContract, TransactionMeta, Update}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
@@ -28,13 +27,9 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
-import com.google.protobuf.any.{Any => AnyProto}
-import com.google.rpc.code.Code
-import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
 import org.slf4j.LoggerFactory
 
-import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
 /** Utilities for producing [[Update]] events from [[DamlLogEntry]]'s committed to a
@@ -61,9 +56,7 @@ object KeyValueConsumption {
   def logEntryToUpdate(
       entryId: DamlLogEntryId,
       entry: DamlLogEntry,
-      @nowarn(
-        "msg=parameter value errorVersionSwitch.* is never used"
-      ) errorVersionSwitch: ValueSwitch[Status],
+      errorVersionSwitch: ValueSwitch[Status],
       recordTimeForUpdate: Option[Timestamp] = None,
   ): List[Update] = {
     val recordTimeFromLogEntry = PartialFunction.condOpt(entry.hasRecordTime) { case true =>
@@ -217,10 +210,15 @@ object KeyValueConsumption {
         transactionRejectionEntryToUpdate(
           recordTime,
           entry.getTransactionRejectionEntry,
+          errorVersionSwitch,
         ).toList
 
       case DamlLogEntry.PayloadCase.OUT_OF_TIME_BOUNDS_ENTRY =>
-        outOfTimeBoundsEntryToUpdate(recordTime, entry.getOutOfTimeBoundsEntry).toList
+        outOfTimeBoundsEntryToUpdate(
+          recordTime,
+          entry.getOutOfTimeBoundsEntry,
+          errorVersionSwitch,
+        ).toList
 
       case DamlLogEntry.PayloadCase.TIME_UPDATE_ENTRY =>
         List.empty
@@ -244,8 +242,9 @@ object KeyValueConsumption {
   private def transactionRejectionEntryToUpdate(
       recordTime: Timestamp,
       rejEntry: DamlTransactionRejectionEntry,
+      errorVersionSwitch: ValueSwitch[Status],
   ): Option[Update] = Conversions
-    .decodeTransactionRejectionEntry(rejEntry)
+    .decodeTransactionRejectionEntry(rejEntry, errorVersionSwitch)
     .map { reason =>
       Update.CommandRejected(
         recordTime = recordTime,
@@ -337,6 +336,7 @@ object KeyValueConsumption {
   private[kvutils] def outOfTimeBoundsEntryToUpdate(
       recordTime: Timestamp,
       outOfTimeBoundsEntry: DamlOutOfTimeBoundsEntry,
+      errorVersionSwitch: ValueSwitch[Status],
   ): Option[Update] = {
     val timeBounds = parseTimeBounds(outOfTimeBoundsEntry)
     val deduplicated = timeBounds.deduplicateUntil.exists(recordTime <= _)
@@ -348,31 +348,7 @@ object KeyValueConsumption {
     wrappedLogEntry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY if deduplicated =>
         val rejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
-        Some(
-          Update.CommandRejected(
-            recordTime = recordTime,
-            completionInfo = parseCompletionInfo(
-              Conversions.parseInstant(recordTime),
-              rejectionEntry.getSubmitterInfo,
-            ),
-            reasonTemplate = FinalReason(
-              Status.of(
-                Code.ALREADY_EXISTS.value,
-                "Duplicate commands",
-                Seq(
-                  AnyProto.pack[ErrorInfo](
-                    // the definite answer is false, as the rank-based deduplication is not yet implemented
-                    ErrorInfo(metadata =
-                      Map(
-                        GrpcStatuses.DefiniteAnswerKey -> rejectionEntry.getDefiniteAnswer.toString
-                      )
-                    )
-                  )
-                ),
-              )
-            ),
-          )
-        )
+        duplicateCommandsRejectionUpdate(recordTime, rejectionEntry, errorVersionSwitch)
 
       case _ if deduplicated =>
         // We only emit updates for duplicate transaction submissions.
@@ -390,30 +366,7 @@ object KeyValueConsumption {
           case _ =>
             "Record time outside of valid range"
         }
-        Some(
-          Update.CommandRejected(
-            recordTime = recordTime,
-            completionInfo = parseCompletionInfo(
-              Conversions.parseInstant(recordTime),
-              rejectionEntry.getSubmitterInfo,
-            ),
-            reasonTemplate = FinalReason(
-              Status.of(
-                Code.ABORTED.value,
-                reason,
-                Seq(
-                  AnyProto.pack[ErrorInfo](
-                    ErrorInfo(metadata =
-                      Map(
-                        GrpcStatuses.DefiniteAnswerKey -> rejectionEntry.getDefiniteAnswer.toString
-                      )
-                    )
-                  )
-                ),
-              )
-            ),
-          )
-        )
+        invalidRecordTimeRejectionUpdate(recordTime, rejectionEntry, reason, errorVersionSwitch)
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY if invalidRecordTime =>
         val configurationRejectionEntry = wrappedLogEntry.getConfigurationRejectionEntry
@@ -452,7 +405,6 @@ object KeyValueConsumption {
         )
     }
   }
-
   private def parseTimeBounds(outOfTimeBoundsEntry: DamlOutOfTimeBoundsEntry): TimeBounds = {
     val duplicateUntilMaybe = parseOptionalTimestamp(
       outOfTimeBoundsEntry.hasDuplicateUntil,

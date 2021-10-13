@@ -180,7 +180,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
         TRANSACTION_REJECTION_ENTRY,
         definiteAnswer = Some(true),
       )
-      val actual = outOfTimeBoundsEntryToUpdate(aRecordTime, inputEntry)
+      val actual = outOfTimeBoundsEntryToUpdate(aRecordTime, inputEntry, v1ErrorSwitch)
       inside(actual) { case Some(CommandRejected(_, _, FinalReason(status))) =>
         status.code shouldBe Code.ALREADY_EXISTS.value
         status.details shouldBe Seq(
@@ -360,10 +360,10 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
         val inputEntry = buildOutOfTimeBoundsEntry(timeBounds, logEntryType)
         if (assertions.throwsInternalError) {
           assertThrows[Err.InternalError](
-            outOfTimeBoundsEntryToUpdate(recordTime, inputEntry)
+            outOfTimeBoundsEntryToUpdate(recordTime, inputEntry, v1ErrorSwitch)
           )
         } else {
-          val actual = outOfTimeBoundsEntryToUpdate(recordTime, inputEntry)
+          val actual = outOfTimeBoundsEntryToUpdate(recordTime, inputEntry, v1ErrorSwitch)
           assertions.verify(actual)
           ()
         }
@@ -439,4 +439,6 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
     }
     builder.build
   }
+
+  private[this] val v1ErrorSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes = false)
 }
