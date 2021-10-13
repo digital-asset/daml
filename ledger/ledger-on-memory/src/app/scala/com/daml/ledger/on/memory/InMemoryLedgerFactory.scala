@@ -46,6 +46,7 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
       readerWriter,
       readerWriter,
       createMetrics(participantConfig, config),
+      config.enableSelfServiceErrorCodes,
     )
   }
 

@@ -3,8 +3,9 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.time.Instant
+import com.daml.error.ValueSwitch
 
+import java.time.Instant
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, parseInstant}
@@ -39,6 +40,7 @@ import com.google.protobuf.any.{Any => AnyProto}
 import com.google.protobuf.{ByteString, Empty}
 import com.google.rpc.code.Code
 import com.google.rpc.error_details.ErrorInfo
+import com.google.rpc.status.Status
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
@@ -47,6 +49,8 @@ import org.scalatest.prop.Tables.Table
 import org.scalatest.wordspec.AnyWordSpec
 
 class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
+  private val errorVersionSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes = false)
+
   private val aLogEntryIdString = "test"
   private val aLogEntryId =
     DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFromUtf8(aLogEntryIdString)).build()
@@ -64,7 +68,12 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
   "logEntryToUpdate" should {
     "throw in case no record time is available from the log entry or input argument" in {
       assertThrows[Err](
-        logEntryToUpdate(aLogEntryId, aLogEntryWithoutRecordTime, recordTimeForUpdate = None)
+        logEntryToUpdate(
+          aLogEntryId,
+          aLogEntryWithoutRecordTime,
+          errorVersionSwitch,
+          recordTimeForUpdate = None,
+        )
       )
     }
 
@@ -72,6 +81,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
       val actual :: Nil = logEntryToUpdate(
         aLogEntryId,
         aLogEntryWithRecordTime,
+        errorVersionSwitch,
         recordTimeForUpdate = Some(aRecordTime),
       )
 
@@ -80,7 +90,12 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
 
     "use record time from log entry if not provided as input" in {
       val actual :: Nil =
-        logEntryToUpdate(aLogEntryId, aLogEntryWithRecordTime, recordTimeForUpdate = None)
+        logEntryToUpdate(
+          aLogEntryId,
+          aLogEntryWithRecordTime,
+          errorVersionSwitch,
+          recordTimeForUpdate = None,
+        )
 
       actual.recordTime shouldBe Timestamp.assertFromInstant(Instant.ofEpochSecond(100))
     }
@@ -90,7 +105,12 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
         .setRecordTime(Conversions.buildTimestamp(aRecordTime))
         .setTimeUpdateEntry(Empty.getDefaultInstance)
         .build
-      logEntryToUpdate(aLogEntryId, timeUpdateEntry, recordTimeForUpdate = None) shouldBe Nil
+      logEntryToUpdate(
+        aLogEntryId,
+        timeUpdateEntry,
+        errorVersionSwitch,
+        recordTimeForUpdate = None,
+      ) shouldBe Nil
     }
   }
 

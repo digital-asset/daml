@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import com.daml.error.ValueSwitch
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions._
@@ -33,6 +34,7 @@ import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
 import org.slf4j.LoggerFactory
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
 /** Utilities for producing [[Update]] events from [[DamlLogEntry]]'s committed to a
@@ -51,6 +53,7 @@ object KeyValueConsumption {
     *
     * @param entryId: The log entry identifier.
     * @param entry: The log entry.
+    * @param errorVersionSwitch: Decides between v1 and v2 (self-service) errors.
     * @return [[Update]]s constructed from log entry.
     */
   // TODO(BH): add participantId to ensure participant id matches in DamlLogEntry
@@ -58,6 +61,9 @@ object KeyValueConsumption {
   def logEntryToUpdate(
       entryId: DamlLogEntryId,
       entry: DamlLogEntry,
+      @nowarn(
+        "msg=parameter value errorVersionSwitch.* is never used"
+      ) errorVersionSwitch: ValueSwitch[Status],
       recordTimeForUpdate: Option[Timestamp] = None,
   ): List[Update] = {
     val recordTimeFromLogEntry = PartialFunction.condOpt(entry.hasRecordTime) { case true =>

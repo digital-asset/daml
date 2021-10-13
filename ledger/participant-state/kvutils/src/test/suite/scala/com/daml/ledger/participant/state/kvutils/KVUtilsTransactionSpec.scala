@@ -3,8 +3,9 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.time.Duration
+import com.daml.error.ValueSwitch
 
+import java.time.Duration
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionRejectionEntry
 import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlStateValue}
@@ -40,6 +41,9 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
   import KVTest._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
+  private val errorVersionSwitch =
+    new ValueSwitch[com.google.rpc.status.Status](enableSelfServiceErrorCodes = false)
 
   private val alice = party("Alice")
   private val bob = party("Bob")
@@ -95,7 +99,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         )
         (entryId, logEntry) = result
         contractId = contractIdOfCreateTransaction(
-          KeyValueConsumption.logEntryToUpdate(entryId, logEntry)
+          KeyValueConsumption.logEntryToUpdate(entryId, logEntry, errorVersionSwitch)
         )
 
         transaction2 <- runSimpleCommand(
@@ -219,6 +223,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
               KeyValueConsumption.logEntryToUpdate(
                 entryId,
                 preExecutionResult.successfulLogEntry,
+                errorVersionSwitch,
                 Some(recordTime),
               )
             )
@@ -303,7 +308,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         )
         (entryId, logEntry) = result
         contractId = contractIdOfCreateTransaction(
-          KeyValueConsumption.logEntryToUpdate(entryId, logEntry)
+          KeyValueConsumption.logEntryToUpdate(entryId, logEntry, errorVersionSwitch)
         )
 
         transaction2 <- runSimpleCommand(
@@ -519,7 +524,8 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         strippedEntry.getTransactionEntryBuilder.clearSubmitterInfo
 
         // Process into updates and verify
-        val updates = KeyValueConsumption.logEntryToUpdate(entryId, strippedEntry.build)
+        val updates =
+          KeyValueConsumption.logEntryToUpdate(entryId, strippedEntry.build, errorVersionSwitch)
         inside(updates) { case Seq(txAccepted: Update.TransactionAccepted) =>
           txAccepted.optCompletionInfo should be(None)
         }
@@ -573,6 +579,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       KeyValueConsumption.logEntryToUpdate(
         entryId,
         preExecutionResult.successfulLogEntry,
+        errorVersionSwitch,
         Some(recordTime),
       )
     )
