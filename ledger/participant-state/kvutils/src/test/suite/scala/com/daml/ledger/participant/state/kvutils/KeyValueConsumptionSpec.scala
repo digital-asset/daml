@@ -4,8 +4,6 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.error.ValueSwitch
-
-import java.time.Instant
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, parseInstant}
@@ -20,15 +18,7 @@ import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.{
   DamlPackageUploadEntry,
   DamlPackageUploadRejectionEntry,
 }
-import com.daml.ledger.participant.state.kvutils.store.events.{
-  DamlConfigurationEntry,
-  DamlConfigurationRejectionEntry,
-  DamlPartyAllocationEntry,
-  DamlPartyAllocationRejectionEntry,
-  DamlSubmitterInfo,
-  DamlTransactionEntry,
-  DamlTransactionRejectionEntry,
-}
+import com.daml.ledger.participant.state.kvutils.store.events._
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlLogEntry,
   DamlLogEntryId,
@@ -46,13 +36,13 @@ import com.google.rpc.status.Status
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
-import org.scalatest.prop.TableFor4
+import org.scalatest.prop.{TableFor4, TableFor5}
 import org.scalatest.prop.Tables.Table
 import org.scalatest.wordspec.AnyWordSpec
 
-class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
-  private val errorVersionSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes = false)
+import java.time.Instant
 
+class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
   private val aLogEntryIdString = "test"
   private val aLogEntryId =
     DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFromUtf8(aLogEntryIdString)).build()
@@ -69,50 +59,82 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
 
   "logEntryToUpdate" should {
     "throw in case no record time is available from the log entry or input argument" in {
-      assertThrows[Err](
-        logEntryToUpdate(
-          aLogEntryId,
-          aLogEntryWithoutRecordTime,
-          errorVersionSwitch,
-          recordTimeForUpdate = None,
+      forAll(
+        Table[ValueSwitch[Status]](
+          "Error Version",
+          v1ErrorSwitch,
+          v2ErrorSwitch,
         )
-      )
+      ) { errorSwitch =>
+        assertThrows[Err](
+          logEntryToUpdate(
+            aLogEntryId,
+            aLogEntryWithoutRecordTime,
+            errorSwitch,
+            recordTimeForUpdate = None,
+          )
+        )
+      }
     }
 
     "use log entry's record time instead of one provided as input" in {
-      val actual :: Nil = logEntryToUpdate(
-        aLogEntryId,
-        aLogEntryWithRecordTime,
-        errorVersionSwitch,
-        recordTimeForUpdate = Some(aRecordTime),
-      )
+      forAll(
+        Table[ValueSwitch[Status]](
+          "Error Version",
+          v1ErrorSwitch,
+          v2ErrorSwitch,
+        )
+      ) { errorSwitch =>
+        val actual :: Nil = logEntryToUpdate(
+          aLogEntryId,
+          aLogEntryWithRecordTime,
+          errorSwitch,
+          recordTimeForUpdate = Some(aRecordTime),
+        )
 
-      actual.recordTime shouldBe aRecordTimeFromLogEntry
+        actual.recordTime shouldBe aRecordTimeFromLogEntry
+      }
     }
 
     "use record time from log entry if not provided as input" in {
-      val actual :: Nil =
-        logEntryToUpdate(
-          aLogEntryId,
-          aLogEntryWithRecordTime,
-          errorVersionSwitch,
-          recordTimeForUpdate = None,
+      forAll(
+        Table[ValueSwitch[Status]](
+          "Error Version",
+          v1ErrorSwitch,
+          v2ErrorSwitch,
         )
+      ) { errorSwitch =>
+        val actual :: Nil =
+          logEntryToUpdate(
+            aLogEntryId,
+            aLogEntryWithRecordTime,
+            errorSwitch,
+            recordTimeForUpdate = None,
+          )
 
-      actual.recordTime shouldBe Timestamp.assertFromInstant(Instant.ofEpochSecond(100))
+        actual.recordTime shouldBe Timestamp.assertFromInstant(Instant.ofEpochSecond(100))
+      }
     }
 
     "not generate an update from a time update entry" in {
-      val timeUpdateEntry = DamlLogEntry.newBuilder
-        .setRecordTime(Conversions.buildTimestamp(aRecordTime))
-        .setTimeUpdateEntry(Empty.getDefaultInstance)
-        .build
-      logEntryToUpdate(
-        aLogEntryId,
-        timeUpdateEntry,
-        errorVersionSwitch,
-        recordTimeForUpdate = None,
-      ) shouldBe Nil
+      forAll(
+        Table[ValueSwitch[Status]](
+          "Error Version",
+          v1ErrorSwitch,
+          v2ErrorSwitch,
+        )
+      ) { errorSwitch =>
+        val timeUpdateEntry = DamlLogEntry.newBuilder
+          .setRecordTime(Conversions.buildTimestamp(aRecordTime))
+          .setTimeUpdateEntry(Empty.getDefaultInstance)
+          .build
+        logEntryToUpdate(
+          aLogEntryId,
+          timeUpdateEntry,
+          errorSwitch,
+          recordTimeForUpdate = None,
+        ) shouldBe Nil
+      }
     }
   }
 
@@ -152,44 +174,52 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           ),
           aRecordTime,
           TRANSACTION_REJECTION_ENTRY,
-          Assertions(),
+          Assertions(verify = verifyNoUpdateIsGenerated),
         ),
         (
           TimeBounds(deduplicateUntil = Some(aRecordTime)),
           aRecordTime,
           PACKAGE_UPLOAD_REJECTION_ENTRY,
-          Assertions(),
+          Assertions(verify = verifyNoUpdateIsGenerated),
         ),
         (
           TimeBounds(deduplicateUntil = Some(aRecordTime)),
           aRecordTime,
           CONFIGURATION_REJECTION_ENTRY,
-          Assertions(),
+          Assertions(verify = verifyNoUpdateIsGenerated),
         ),
         (
           TimeBounds(deduplicateUntil = Some(aRecordTime)),
           aRecordTime,
           PARTY_ALLOCATION_REJECTION_ENTRY,
-          Assertions(),
+          Assertions(verify = verifyNoUpdateIsGenerated),
         ),
       )
       runAll(testCases)
     }
 
     "generate update for deduplicated transaction with definite answer set to true" in {
-      val inputEntry = buildOutOfTimeBoundsEntry(
-        TimeBounds(deduplicateUntil = Some(aRecordTime)),
-        TRANSACTION_REJECTION_ENTRY,
-        definiteAnswer = Some(true),
-      )
-      val actual = outOfTimeBoundsEntryToUpdate(aRecordTime, inputEntry, v1ErrorSwitch)
-      inside(actual) { case Some(CommandRejected(_, _, FinalReason(status))) =>
-        status.code shouldBe Code.ALREADY_EXISTS.value
-        status.details shouldBe Seq(
-          AnyProto.pack[ErrorInfo](
-            ErrorInfo(metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "true"))
-          )
+      forAll(
+        Table[ValueSwitch[Status]](
+          "Error Version",
+          v1ErrorSwitch,
+          v2ErrorSwitch,
         )
+      ) { errorSwitch =>
+        val inputEntry = buildOutOfTimeBoundsEntry(
+          TimeBounds(deduplicateUntil = Some(aRecordTime)),
+          TRANSACTION_REJECTION_ENTRY,
+          definiteAnswer = Some(true),
+        )
+        val actual = outOfTimeBoundsEntryToUpdate(aRecordTime, inputEntry, errorSwitch)
+        inside(actual) { case Some(CommandRejected(_, _, FinalReason(status))) =>
+          status.code shouldBe Code.ALREADY_EXISTS.value
+          status.details shouldBe Seq(
+            AnyProto.pack[ErrorInfo](
+              ErrorInfo(metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "true"))
+            )
+          )
+        }
       }
     }
 
@@ -202,7 +232,6 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
             someSubmitterInfo,
           )
           completionInfo.submissionId shouldBe Some(someSubmitterInfo.getSubmissionId)
-          status.code shouldBe Code.ABORTED.value
           status.details shouldBe Seq(
             AnyProto.pack[ErrorInfo](
               ErrorInfo(metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "false"))
@@ -211,45 +240,110 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           ()
         case _ => fail()
       }
+      def verifyStatusCode(actual: Option[Update], code: Code): Unit = actual match {
+        case Some(Update.CommandRejected(_, _, FinalReason(status))) =>
+          status.code shouldBe code.value
+          ()
+        case _ => fail()
+      }
       val testCases = Table(
-        ("Time Bounds", "Record Time", "Log Entry Type", "Assertions"),
+        ("Error Version", "Time Bounds", "Record Time", "Log Entry Type", "Assertions"),
         (
+          v1ErrorSwitch,
           TimeBounds(
             tooLateFrom = Some(Timestamp.assertFromInstant(aRecordTimeInstant.minusMillis(1)))
           ),
           aRecordTime,
           TRANSACTION_REJECTION_ENTRY,
-          Assertions(verify = verifyCommandRejection),
+          Assertions(verify = { update =>
+            verifyCommandRejection(update)
+            verifyStatusCode(update, Code.ABORTED)
+          }),
         ),
         (
+          v1ErrorSwitch,
           TimeBounds(
             tooEarlyUntil = Some(Timestamp.assertFromInstant(aRecordTimeInstant.plusMillis(1)))
           ),
           aRecordTime,
           TRANSACTION_REJECTION_ENTRY,
-          Assertions(verify = verifyCommandRejection),
+          Assertions(verify = { update =>
+            verifyCommandRejection(update)
+            verifyStatusCode(update, Code.ABORTED)
+          }),
         ),
         (
+          v1ErrorSwitch,
           TimeBounds(tooLateFrom = Some(aRecordTime)),
           aRecordTime,
           TRANSACTION_REJECTION_ENTRY,
-          Assertions(),
+          Assertions(verify = verifyNoUpdateIsGenerated),
         ),
         (
+          v1ErrorSwitch,
           TimeBounds(tooEarlyUntil = Some(aRecordTime)),
           aRecordTime,
           TRANSACTION_REJECTION_ENTRY,
-          Assertions(),
+          Assertions(verify = verifyNoUpdateIsGenerated),
         ),
-        // Record time within time bounds.
         (
+          v1ErrorSwitch,
           TimeBounds(
             tooEarlyUntil = Some(Timestamp.assertFromInstant(aRecordTimeInstant.minusMillis(1))),
             tooLateFrom = Some(Timestamp.assertFromInstant(aRecordTimeInstant.plusMillis(1))),
           ),
           aRecordTime,
           TRANSACTION_REJECTION_ENTRY,
-          Assertions(),
+          Assertions(verify = verifyNoUpdateIsGenerated),
+        ),
+        (
+          v2ErrorSwitch,
+          TimeBounds(
+            tooLateFrom = Some(Timestamp.assertFromInstant(aRecordTimeInstant.minusMillis(1)))
+          ),
+          aRecordTime,
+          TRANSACTION_REJECTION_ENTRY,
+          Assertions(verify = { update =>
+            verifyCommandRejection(update)
+            verifyStatusCode(update, Code.FAILED_PRECONDITION)
+          }),
+        ),
+        (
+          v2ErrorSwitch,
+          TimeBounds(
+            tooEarlyUntil = Some(Timestamp.assertFromInstant(aRecordTimeInstant.plusMillis(1)))
+          ),
+          aRecordTime,
+          TRANSACTION_REJECTION_ENTRY,
+          Assertions(verify = { update =>
+            verifyCommandRejection(update)
+            verifyStatusCode(update, Code.FAILED_PRECONDITION)
+          }),
+        ),
+        (
+          v2ErrorSwitch,
+          TimeBounds(tooLateFrom = Some(aRecordTime)),
+          aRecordTime,
+          TRANSACTION_REJECTION_ENTRY,
+          Assertions(verify = verifyNoUpdateIsGenerated),
+        ),
+        (
+          v2ErrorSwitch,
+          TimeBounds(tooEarlyUntil = Some(aRecordTime)),
+          aRecordTime,
+          TRANSACTION_REJECTION_ENTRY,
+          Assertions(verify = verifyNoUpdateIsGenerated),
+        ),
+        // Record time within time bounds.
+        (
+          v2ErrorSwitch,
+          TimeBounds(
+            tooEarlyUntil = Some(Timestamp.assertFromInstant(aRecordTimeInstant.minusMillis(1))),
+            tooLateFrom = Some(Timestamp.assertFromInstant(aRecordTimeInstant.plusMillis(1))),
+          ),
+          aRecordTime,
+          TRANSACTION_REJECTION_ENTRY,
+          Assertions(verify = verifyNoUpdateIsGenerated),
         ),
       )
       runAll(testCases)
@@ -298,13 +392,13 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           TimeBounds(tooLateFrom = Some(aRecordTime)),
           aRecordTime,
           CONFIGURATION_REJECTION_ENTRY,
-          Assertions(),
+          Assertions(verify = verifyNoUpdateIsGenerated),
         ),
         (
           TimeBounds(tooEarlyUntil = Some(aRecordTime)),
           aRecordTime,
           CONFIGURATION_REJECTION_ENTRY,
-          Assertions(),
+          Assertions(verify = verifyNoUpdateIsGenerated),
         ),
         // Record time within time bounds.
         (
@@ -314,7 +408,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           ),
           aRecordTime,
           CONFIGURATION_REJECTION_ENTRY,
-          Assertions(),
+          Assertions(verify = verifyNoUpdateIsGenerated),
         ),
       )
       runAll(testCases)
@@ -323,10 +417,30 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
     "not generate an update for rejected entries" in {
       val testCases = Table(
         ("Time Bounds", "Record Time", "Log Entry Type", "Assertions"),
-        (TimeBounds(), aRecordTime, TRANSACTION_REJECTION_ENTRY, Assertions()),
-        (TimeBounds(), aRecordTime, PACKAGE_UPLOAD_REJECTION_ENTRY, Assertions()),
-        (TimeBounds(), aRecordTime, CONFIGURATION_REJECTION_ENTRY, Assertions()),
-        (TimeBounds(), aRecordTime, PARTY_ALLOCATION_REJECTION_ENTRY, Assertions()),
+        (
+          TimeBounds(),
+          aRecordTime,
+          TRANSACTION_REJECTION_ENTRY,
+          Assertions(verify = verifyNoUpdateIsGenerated),
+        ),
+        (
+          TimeBounds(),
+          aRecordTime,
+          PACKAGE_UPLOAD_REJECTION_ENTRY,
+          Assertions(verify = verifyNoUpdateIsGenerated),
+        ),
+        (
+          TimeBounds(),
+          aRecordTime,
+          CONFIGURATION_REJECTION_ENTRY,
+          Assertions(verify = verifyNoUpdateIsGenerated),
+        ),
+        (
+          TimeBounds(),
+          aRecordTime,
+          PARTY_ALLOCATION_REJECTION_ENTRY,
+          Assertions(verify = verifyNoUpdateIsGenerated),
+        ),
       )
       runAll(testCases)
     }
@@ -350,10 +464,13 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
   }
 
   private def runAll(
-      table: TableFor4[TimeBounds, Timestamp, DamlLogEntry.PayloadCase, Assertions]
-  ): Unit = {
+      table: TableFor5[ValueSwitch[
+        Status
+      ], TimeBounds, Timestamp, DamlLogEntry.PayloadCase, Assertions]
+  ): Unit =
     forAll(table) {
       (
+          errorVersionSwitch: ValueSwitch[Status],
           timeBounds: TimeBounds,
           recordTime: Timestamp,
           logEntryType: DamlLogEntry.PayloadCase,
@@ -362,14 +479,36 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
         val inputEntry = buildOutOfTimeBoundsEntry(timeBounds, logEntryType)
         if (assertions.throwsInternalError) {
           assertThrows[Err.InternalError](
-            outOfTimeBoundsEntryToUpdate(recordTime, inputEntry, v1ErrorSwitch)
+            outOfTimeBoundsEntryToUpdate(recordTime, inputEntry, errorVersionSwitch)
           )
         } else {
-          val actual = outOfTimeBoundsEntryToUpdate(recordTime, inputEntry, v1ErrorSwitch)
+          val actual = outOfTimeBoundsEntryToUpdate(recordTime, inputEntry, errorVersionSwitch)
           assertions.verify(actual)
           ()
         }
     }
+
+  private def runAll(
+      table: TableFor4[TimeBounds, Timestamp, DamlLogEntry.PayloadCase, Assertions]
+  ): Unit = {
+    val (head1, head2, head3, head4) = table.heading
+    runAll(
+      Table(
+        heading = ("Error Version", head1, head2, head3, head4),
+        rows = table.flatMap {
+          case (
+                timeBounds: TimeBounds,
+                recordTime: Timestamp,
+                logEntryType: DamlLogEntry.PayloadCase,
+                assertions: Assertions,
+              ) =>
+            Seq(
+              (v1ErrorSwitch, timeBounds, recordTime, logEntryType, assertions),
+              (v2ErrorSwitch, timeBounds, recordTime, logEntryType, assertions),
+            )
+        }: _*,
+      )
+    )
   }
 
   private def buildOutOfTimeBoundsEntry(
@@ -442,5 +581,10 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
     builder.build
   }
 
-  private[this] val v1ErrorSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes = false)
+  private lazy val v1ErrorSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes = false) {
+    override def toString: String = "1"
+  }
+  private lazy val v2ErrorSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes = true) {
+    override def toString: String = "2"
+  }
 }

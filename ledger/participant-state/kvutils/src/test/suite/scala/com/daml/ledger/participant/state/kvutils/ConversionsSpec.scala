@@ -117,49 +117,58 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
 
       "convert rejection to proto models and back to expected grpc code" in {
         forAll(
-          Table[Rejection, Code, Map[String, String]](
-            ("rejection", "expected code", "expected additional details"),
+          Table[ValueSwitch[Status], Rejection, Code, Map[String, String]](
+            ("Error Version", "Rejection", "Expected Code", "Expected Additional Details"),
             (
+              v1ErrorSwitch,
               Rejection.ValidationFailure(Error.Package(Error.Package.Internal("ERROR", "ERROR"))),
               Code.INVALID_ARGUMENT,
               Map.empty,
             ),
             (
+              v1ErrorSwitch,
               Rejection.InternallyInconsistentTransaction.InconsistentKeys,
               Code.INVALID_ARGUMENT,
               Map.empty,
             ),
             (
+              v1ErrorSwitch,
               Rejection.InternallyInconsistentTransaction.DuplicateKeys,
               Code.INVALID_ARGUMENT,
               Map.empty,
             ),
             (
+              v1ErrorSwitch,
               Rejection.ExternallyInconsistentTransaction.InconsistentContracts,
               Code.ABORTED,
               Map.empty,
             ),
             (
+              v1ErrorSwitch,
               Rejection.ExternallyInconsistentTransaction.InconsistentKeys,
               Code.ABORTED,
               Map.empty,
             ),
             (
+              v1ErrorSwitch,
               Rejection.ExternallyInconsistentTransaction.DuplicateKeys,
               Code.ABORTED,
               Map.empty,
             ),
             (
+              v1ErrorSwitch,
               Rejection.MissingInputState(DamlStateKey.getDefaultInstance),
               Code.ABORTED,
               Map.empty,
             ),
             (
+              v1ErrorSwitch,
               Rejection.InvalidParticipantState(Err.InternalError("error")),
               Code.INVALID_ARGUMENT,
               Map.empty,
             ),
             (
+              v1ErrorSwitch,
               Rejection.InvalidParticipantState(
                 Err.ArchiveDecodingFailed(Ref.PackageId.assertFromString("id"), "reason")
               ),
@@ -167,41 +176,49 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               Map("package_id" -> "id"),
             ),
             (
+              v1ErrorSwitch,
               Rejection.InvalidParticipantState(Err.MissingDivulgedContractInstance("id")),
               Code.INVALID_ARGUMENT,
               Map("contract_id" -> "id"),
             ),
             (
+              v1ErrorSwitch,
               Rejection.RecordTimeOutOfRange(now, now),
               Code.ABORTED,
               Map.empty,
             ),
             (
+              v1ErrorSwitch,
               Rejection.LedgerTimeOutOfRange(LedgerTimeModel.OutOfRange(now, now, now)),
               Code.ABORTED,
               Map.empty,
             ),
             (
+              v1ErrorSwitch,
               Rejection.CausalMonotonicityViolated,
               Code.ABORTED,
               Map.empty,
             ),
             (
+              v1ErrorSwitch,
               Rejection.SubmittingPartyNotKnownOnLedger(Ref.Party.assertFromString("party")),
               Code.INVALID_ARGUMENT,
               Map.empty,
             ),
             (
+              v1ErrorSwitch,
               Rejection.PartiesNotKnownOnLedger(Seq.empty),
               Code.INVALID_ARGUMENT,
               Map.empty,
             ),
             (
+              v1ErrorSwitch,
               Rejection.MissingInputState(partyStateKey("party")),
               Code.ABORTED,
               Map("key" -> "party: \"party\"\n"),
             ),
             (
+              v1ErrorSwitch,
               Rejection.RecordTimeOutOfRange(Instant.EPOCH, Instant.EPOCH),
               Code.ABORTED,
               Map(
@@ -210,17 +227,138 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               ),
             ),
             (
+              v1ErrorSwitch,
               Rejection.SubmittingPartyNotKnownOnLedger(party0),
               Code.INVALID_ARGUMENT,
               Map("submitter_party" -> party0),
             ),
             (
+              v1ErrorSwitch,
               Rejection.PartiesNotKnownOnLedger(Iterable(party0, party1)),
               Code.INVALID_ARGUMENT,
               Map("parties" -> s"""[\"$party0\",\"$party1\"]"""),
             ),
+            (
+              v2ErrorSwitch,
+              Rejection.ValidationFailure(Error.Package(Error.Package.Internal("ERROR", "ERROR"))),
+              Code.INTERNAL,
+              Map.empty,
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.InternallyInconsistentTransaction.InconsistentKeys,
+              Code.INTERNAL,
+              Map.empty,
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.InternallyInconsistentTransaction.DuplicateKeys,
+              Code.INTERNAL,
+              Map.empty,
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.ExternallyInconsistentTransaction.InconsistentContracts,
+              Code.FAILED_PRECONDITION,
+              Map.empty,
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.ExternallyInconsistentTransaction.InconsistentKeys,
+              Code.FAILED_PRECONDITION,
+              Map.empty,
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.ExternallyInconsistentTransaction.DuplicateKeys,
+              Code.FAILED_PRECONDITION,
+              Map.empty,
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.MissingInputState(DamlStateKey.getDefaultInstance),
+              Code.INTERNAL,
+              Map.empty,
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.InvalidParticipantState(Err.InternalError("error")),
+              Code.INTERNAL,
+              Map.empty,
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.InvalidParticipantState(
+                Err.ArchiveDecodingFailed(Ref.PackageId.assertFromString("id"), "reason")
+              ),
+              Code.INTERNAL,
+              Map("package_id" -> "id"),
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.InvalidParticipantState(Err.MissingDivulgedContractInstance("id")),
+              Code.INTERNAL,
+              Map("contract_id" -> "id"),
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.RecordTimeOutOfRange(now, now),
+              Code.FAILED_PRECONDITION,
+              Map.empty,
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.LedgerTimeOutOfRange(LedgerTimeModel.OutOfRange(now, now, now)),
+              Code.FAILED_PRECONDITION,
+              Map.empty,
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.CausalMonotonicityViolated,
+              Code.FAILED_PRECONDITION,
+              Map.empty,
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.SubmittingPartyNotKnownOnLedger(Ref.Party.assertFromString("party")),
+              Code.FAILED_PRECONDITION,
+              Map.empty,
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.PartiesNotKnownOnLedger(Seq.empty),
+              Code.FAILED_PRECONDITION,
+              Map.empty,
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.MissingInputState(partyStateKey("party")),
+              Code.INTERNAL,
+              Map("key" -> "party: \"party\"\n"),
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.RecordTimeOutOfRange(Instant.EPOCH, Instant.EPOCH),
+              Code.FAILED_PRECONDITION,
+              Map(
+                "minimum_record_time" -> Instant.EPOCH.toString,
+                "maximum_record_time" -> Instant.EPOCH.toString,
+              ),
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.SubmittingPartyNotKnownOnLedger(party0),
+              Code.FAILED_PRECONDITION,
+              Map("submitter_party" -> party0),
+            ),
+            (
+              v2ErrorSwitch,
+              Rejection.PartiesNotKnownOnLedger(Iterable(party0, party1)),
+              Code.FAILED_PRECONDITION,
+              Map("parties" -> s"""[\"$party0\",\"$party1\"]"""),
+            ),
           )
-        ) { (rejection, expectedCode, expectedAdditionalDetails) =>
+        ) { (errorVersionSwitch, rejection, expectedCode, expectedAdditionalDetails) =>
           val encodedEntry = Conversions
             .encodeTransactionRejectionEntry(
               submitterInfo,
@@ -228,7 +366,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             )
             .build()
           val finalReason = Conversions
-            .decodeTransactionRejectionEntry(encodedEntry, v1ErrorSwitch)
+            .decodeTransactionRejectionEntry(encodedEntry, errorVersionSwitch)
             .value
           finalReason.code shouldBe expectedCode.value()
           finalReason.definiteAnswer shouldBe false
@@ -481,9 +619,14 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       )
       .build
 
-  private[this] val txVersion = TransactionVersion.StableVersions.max
+  private lazy val v1ErrorSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes = false) {
+    override def toString: String = "1"
+  }
+  private lazy val v2ErrorSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes = true) {
+    override def toString: String = "2"
+  }
 
-  private[this] val v1ErrorSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes = false)
+  private[this] val txVersion = TransactionVersion.StableVersions.max
 
   private def deduplicationKeyBytesFor(parties: List[String]): Array[Byte] = {
     val submitterInfo = DamlSubmitterInfo.newBuilder

@@ -349,7 +349,7 @@ object KeyValueConsumption {
     wrappedLogEntry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY if deduplicated =>
         val rejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
-        duplicateCommandsRejectionUpdate(recordTime, rejectionEntry, errorVersionSwitch)
+        duplicateCommandsRejectionUpdate(recordTime, rejectionEntry)
 
       case _ if deduplicated =>
         // We only emit updates for duplicate transaction submissions.

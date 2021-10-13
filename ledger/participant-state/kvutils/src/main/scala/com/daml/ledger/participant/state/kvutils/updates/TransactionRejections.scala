@@ -70,9 +70,7 @@ private[kvutils] object TransactionRejections {
   def duplicateCommandsRejectionUpdate(
       recordTime: Timestamp,
       rejectionEntry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch[Status],
-  ): Some[Update.CommandRejected] = {
-    val statusBuilder = duplicateCommandsRejectionStatus(rejectionEntry, _)
+  ): Some[Update.CommandRejected] =
     Some(
       Update.CommandRejected(
         recordTime = recordTime,
@@ -81,14 +79,10 @@ private[kvutils] object TransactionRejections {
           rejectionEntry.getSubmitterInfo,
         ),
         reasonTemplate = FinalReason(
-          errorVersionSwitch.choose(
-            statusBuilder(Code.ALREADY_EXISTS),
-            statusBuilder(Code.FAILED_PRECONDITION), // Unexpired dedup key
-          )
+          duplicateCommandsRejectionStatus(rejectionEntry, Code.ALREADY_EXISTS)
         ),
       )
     )
-  }
 
   def reasonNotSetStatus(
       entry: DamlTransactionRejectionEntry,
