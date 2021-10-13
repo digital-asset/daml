@@ -4,9 +4,9 @@
 package com.daml.http.util
 
 import scalaz.syntax.show._
-import scalaz.{-\/, Applicative, EitherT, Functor, Show, \/, \/-}
+import scalaz.{Applicative, EitherT, Functor, Show, \/}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.Try
 
 object FutureUtil {
@@ -40,12 +40,4 @@ object FutureUtil {
 
   def leftT[A, B](fa: Future[A])(implicit ev: Functor[Future]): EitherT[Future, A, B] =
     EitherT.leftT(fa)
-
-  def stripLeft[A: Show, B](fa: Future[A \/ B])(implicit ec: ExecutionContext): Future[B] =
-    fa.flatMap {
-      case -\/(e) =>
-        Future.failed(new IllegalStateException(e.shows))
-      case \/-(a) =>
-        Future.successful(a)
-    }
 }
