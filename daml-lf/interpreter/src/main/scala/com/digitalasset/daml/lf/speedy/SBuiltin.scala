@@ -1128,7 +1128,7 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case class ResolveSBUBeginExercise(
+  final case class SBResolveSBUBeginExercise(
       choiceName: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,

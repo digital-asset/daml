@@ -1034,7 +1034,7 @@ private[lf] final class Compiler(
       addExprVar(param, payloadPos)
       addExprVar(choice.argBinder._1, choiceArgPos)
       let(
-        ResolveSBUBeginExercise(choice.name, choice.consuming, byKey = false)(
+        SBResolveSBUBeginExercise(choice.name, choice.consuming, byKey = false)(
           svar(payloadPos),
           svar(choiceArgPos),
           svar(cidPos),
