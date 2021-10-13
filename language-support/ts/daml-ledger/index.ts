@@ -83,12 +83,8 @@ export type ArchiveEvent<T extends object, I extends string = string> = {
  * @typeparam I The contract id type.
  */
 export type Event<T extends object, K = unknown, I extends string = string> =
-  | { created: CreateEvent<T, K, I>, matchedQueries: number[] }
+  | { created: CreateEvent<T, K, I>; matchedQueries: number[] }
   | { archived: ArchiveEvent<T, I> };
-
-function isCreate<T extends object, K = unknown, I extends string = string>(event: Event<T, K, I>): event is { created: CreateEvent<T, K, I>, matchedQueries: number[] } {
-    return isRecordWith('created', event);
-}
 
 /**
  * Decoder for a [[CreateEvent]].
@@ -167,6 +163,15 @@ async function decodeArchiveResponse<T extends object, K, I extends string>(
 function isRecordWith<Field extends string>(field: Field, x: unknown): x is Record<Field, unknown> {
   return typeof x === 'object' && x !== null && field in x;
 }
+
+/**
+ *
+ * @internal
+ */
+function isCreate<T extends object, K = unknown, I extends string = string>(event: Event<T, K, I>): event is { created: CreateEvent<T, K, I>; matchedQueries: number[] } {
+    return isRecordWith('created', event);
+}
+
 
 /** @internal
  * exported for testing only
@@ -355,23 +360,23 @@ const NoOffsetReceivedYet = Symbol('NoOffsetReceivedYet');
 const NullOffsetReceived = Symbol('NullOffsetReceived');
 
 type StreamingQuery<T extends object, K, I extends string> = {
-    template: Template<T, K, I>,
-    queries: Query<T>[],
-    stream: QueryResponseStream<T, K, I>,
-    offset: string | typeof NoOffsetReceivedYet | typeof NullOffsetReceived,
-    state: Map<ContractId<T>, CreateEvent<T, K, I>>, // all JavaScript Map iterators preserve insertion order
-    caller: string,
+    template: Template<T, K, I>;
+    queries: Query<T>[];
+    stream: QueryResponseStream<T, K, I>;
+    offset: string | typeof NoOffsetReceivedYet | typeof NullOffsetReceived;
+    state: Map<ContractId<T>, CreateEvent<T, K, I>>; // all JavaScript Map iterators preserve insertion order
+    caller: string;
 }
 
 type StreamingQueryRequest = {
-    templateIds: string[],
-    query?: object,
-    offset?: string,
+    templateIds: string[];
+    query?: object;
+    offset?: string;
 };
 
 function append<K, V>(map: Map<K, V[]>, key: K, value: V): void {
     if (map.has(key)) {
-        map.get(key)!.push(value);
+        map.get(key)?.push(value);
     } else {
         map.set(key, [value]);
     }
@@ -420,7 +425,7 @@ class QueryStreamsManager {
     // web socket handle and associated properties
     private ws?: WebSocket;
     private wsLiveSince?: number;
-    private wsClosed: boolean = true;
+    private wsClosed: boolean = false;
 
     // Mutable state END
 
@@ -450,7 +455,7 @@ class QueryStreamsManager {
       this.wsClosed = true;
     }
 
-    private handleQueriesChange() {
+    private handleQueriesChange(): void {
       if (this.ws !== undefined) {
           this.wsClosed = true;
           this.wsLiveSince = undefined;
@@ -458,7 +463,9 @@ class QueryStreamsManager {
           this.ws = undefined;
       }
       if (this.queries.size > 0) {
+        //eslint-disable-next-line @typescript-eslint/no-this-alias
         const manager = this; // stable self-reference for callbacks
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const onWsMessage = ({data}: {data: any}): void => {
           const json: unknown = JSON.parse(data.toString());
           if (isRecordWith('events', json)) {
@@ -528,6 +535,14 @@ class QueryStreamsManager {
           }
         }
 
+        const onWsOpen = (): void => {
+              manager.wsClosed = false;
+
+              // Purposefully ignoring 'error' events; they are always followed by a 'close' event, which needs to be handled anyway
+              // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+              manager.ws?.send(JSON.stringify(manager.request));
+          };
+
         const onWsClose = (): void => {
           if (manager.wsClosed === false) {
             // The web socket has been closed due to an error
@@ -550,42 +565,39 @@ class QueryStreamsManager {
           }
         }
 
-        const onWsOpen = (): void => {
-          manager.wsClosed = false;
-
-          for (const query of materialize(manager.queries.values())) {
-              const request = QueryStreamsManager.toRequest(query);
-
-              // Add entries to the lookup table for create events
-              const matchIndexOffset = manager.matchIndexLookupTable.length;
-              const matchIndexLookupTableEntries = new Array(request.length).fill([query, matchIndexOffset]);
-              manager.matchIndexLookupTable = manager.matchIndexLookupTable.concat(matchIndexLookupTableEntries);
-
-              // Add entries to the lookup table for archive events
-              for (const {templateIds} of request) {
-                  for (const templateId of templateIds) {
-                      manager.templateIdsLookupTable[templateId] = manager.templateIdsLookupTable[templateId] || new Set();
-                      manager.templateIdsLookupTable[templateId].add(query);
-                  }
-              }
-
-              manager.request = manager.request.concat(request);
-          }
-
-          // Purposefully ignoring 'error' events; they are always followed by a 'close' event, which needs to be handled anyway
-
-          manager.ws!.send(JSON.stringify(manager.request));
-        };
         manager.ws = new WebSocket(manager.url, manager.protocols);
         manager.ws.addEventListener('open', onWsOpen);
         manager.ws.addEventListener('message', onWsMessage);
         manager.ws.addEventListener('close', onWsClose);
+        manager.refreshQueryRequests();
       }
 
 
     }
 
-    constructor({token, wsBaseUrl, reconnectThreshold}: { token: string, wsBaseUrl: string, reconnectThreshold: number }) {
+    refreshQueryRequests(): void {
+        for (const query of materialize(this.queries.values())) {
+
+            const request = QueryStreamsManager.toRequest(query);
+
+            // Add entries to the lookup table for create events
+            const matchIndexOffset = this.matchIndexLookupTable.length;
+            const matchIndexLookupTableEntries = new Array(request.length).fill([query, matchIndexOffset]);
+            this.matchIndexLookupTable = this.matchIndexLookupTable.concat(matchIndexLookupTableEntries);
+
+            // Add entries to the lookup table for archive events
+            for (const {templateIds} of request) {
+                for (const templateId of templateIds) {
+                    this.templateIdsLookupTable[templateId] = this.templateIdsLookupTable[templateId] || new Set();
+                    this.templateIdsLookupTable[templateId].add(query);
+                }
+            }
+
+            this.request = this.request.concat(request);
+        }
+    }
+
+    constructor({token, wsBaseUrl, reconnectThreshold}: { token: string; wsBaseUrl: string; reconnectThreshold: number }) {
         this.protocols = ['jwt.token.' + token, 'daml.ws.auth'];
         this.url = wsBaseUrl + QueryStreamsManager.ENDPOINT;
         this.reconnectThresholdMs = reconnectThreshold;
@@ -596,6 +608,7 @@ class QueryStreamsManager {
         queries: Query<T>[],
         caller: string,
     ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
+        //eslint-disable-next-line @typescript-eslint/no-this-alias
         const manager = this;
         const query: StreamingQuery<T, K, I> = {
             template,
@@ -612,7 +625,26 @@ class QueryStreamsManager {
         }
         manager.queries.add(query as unknown as StreamingQuery<object, unknown, string>);
         manager.handleQueriesChange();
-        return query.stream;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const on = (type: string, listener: any): void => {
+            if (manager.wsClosed === false) {
+                query.stream.on(type, listener);
+            } else {
+                console.error("Trying to add a listener to a closed stream.");
+            }
+        };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const off = (type: string, listener: any): void => {
+            if (manager.wsClosed === false) {
+                query.stream.off(type, listener);
+            } else {
+                console.error("Trying to remove a listener from a closed stream.");
+            }
+        };
+        const close = (): void => {
+            query.stream.close();
+        }
+        return {on, off, close};
     }
 
 }

@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Template, Choice, ContractId } from "@daml/types";
+import { Template, Choice, ContractId, registerTemplate } from "@daml/types";
 import Ledger, {CreateEvent} from "./index";
 import {assert} from "./index";
 import { Event } from "./index";
@@ -191,7 +191,7 @@ describe("streamSubmit", () => {
     expect(mockConstructor).toHaveBeenCalled();
     mockInstance.serverOpen();
     expect(mockSend).toHaveBeenNthCalledWith(1, {offset: "3"});
-    expect(mockSend).toHaveBeenNthCalledWith(2, [{"templateIds": ["foo-id"]}]);
+    expect(mockSend).toHaveBeenNthCalledWith(1, [{"templateIds": ["foo-id"]}]);
     mockSend.mockClear();
     mockConstructor.mockClear();
 
@@ -220,6 +220,7 @@ describe("streamSubmit", () => {
 
   test("stop listening to a stream", () => {
     const ledger = new Ledger(mockOptions);
+    registerTemplate(Foo as unknown as Template<Foo, unknown, string>);
     const stream = ledger.streamQuery(Foo);
     const count1 = jest.fn();
     const count2 = jest.fn();
