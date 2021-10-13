@@ -3,13 +3,13 @@
 
 package com.daml.ledger.validator
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
+import com.daml.ledger.participant.state.kvutils.store.{
   DamlLogEntry,
   DamlLogEntryId,
   DamlStateKey,
   DamlStateValue,
 }
-import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext

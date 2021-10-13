@@ -11,7 +11,7 @@ Note that the Windows installer is already signed (within the binary itself), an
 To do that:
 
 1. Go to https://github.com/digital-asset/daml/releases. Confirm your browser sees a valid certificate for the github.com domain.
-2. Download the artifact (*Assets* section, after the release notes) for your platform as well as the corresponding signature file. For example, if you are on macOS and want to install release 1.4.0, you would download the files ``daml-sdk-1.4.0-macos.tar.gz`` and ``daml-sdk-1.4.0-macos.tar.gz.asc``. Note that for Windows you can choose between the tarball (ends in ``.tar.gz``), which follows the same instructions as the Linux and macOS ones (but assumes you have a number of typical Unix tools installed), or the installer, which ends with ``.exe``. Regardless, the steps to verify the signature are the same.
+2. Download the artifact (*Assets* section, after the release notes) for your platform as well as the corresponding signature file. For example, if you are on macOS and want to install the latest release (1.4.0 at the time of writing), you would download the files ``daml-sdk-1.4.0-macos.tar.gz`` and ``daml-sdk-1.4.0-macos.tar.gz.asc``. Note that for Windows you can choose between the tarball (ends in ``.tar.gz``), which follows the same instructions as the Linux and macOS ones (but assumes you have a number of typical Unix tools installed), or the installer, which ends with ``.exe``. Regardless, the steps to verify the signature are the same.
 3. To verify the signature, you need to have ``gpg`` installed (see
    https://gnupg.org for more information on that) and the Digital Asset
    Security Public Key imported into your keychain. Once you have ``gpg``

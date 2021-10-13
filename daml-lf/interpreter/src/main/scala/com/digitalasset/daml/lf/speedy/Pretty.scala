@@ -391,6 +391,7 @@ private[lf] object Pretty {
 
     import com.daml.lf.language.Ast._
     import com.daml.lf.speedy.SExpr._
+
     def prettyAlt(index: Int)(alt: SCaseAlt): Doc = {
       val (pat, newIndex) = alt.pattern match {
         case SCPNil => (text("nil"), index)
@@ -518,7 +519,7 @@ private[lf] object Pretty {
           text("try-catch") + char('(') + prettySExpr(index)(body) + text(", ") +
             prettySExpr(index)(handler) + char(')')
 
-        case SEScopeExercise(_, body) =>
+        case SEScopeExercise(body) =>
           text("exercise") + char('(') + prettySExpr(index)(body) + text(")")
 
         case x: SEBuiltinRecursiveDefinition => str(x)

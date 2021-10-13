@@ -10,10 +10,15 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.configuration.protobuf.LedgerConfiguration
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, configurationStateKey}
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Err
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, theDefaultConfig}
 import com.daml.ledger.participant.state.kvutils.committer.CommitterSpec._
+import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.DamlPackageUploadRejectionEntry
+import com.daml.ledger.participant.state.kvutils.store.events.{
+  DamlConfigurationEntry,
+  DamlPartyAllocationEntry,
+}
+import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp

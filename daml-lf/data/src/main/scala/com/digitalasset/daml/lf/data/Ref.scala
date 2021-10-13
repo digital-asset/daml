@@ -4,6 +4,8 @@
 package com.daml.lf
 package data
 
+import com.daml.scalautil.Statement.discard
+
 object Ref {
 
   val IdString: IdString = new IdStringImpl
@@ -82,13 +84,13 @@ object Ref {
     s.codePoints()
       .forEach(ch => {
         if (ch == splitCodepoint) {
-          segments += currentString.toString
+          discard(segments += currentString.toString)
           currentString.setLength(0)
         } else {
           val _ = currentString.appendCodePoint(ch)
         }
       })
-    segments += currentString.toString
+    discard(segments += currentString.toString)
     segments.result()
   }
 

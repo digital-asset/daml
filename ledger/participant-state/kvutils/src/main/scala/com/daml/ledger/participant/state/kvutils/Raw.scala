@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntryId, DamlStateKey}
+import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntryId, DamlStateKey}
 import com.google.protobuf.ByteString
 
 object Raw {
@@ -58,8 +58,8 @@ object Raw {
   final case class Envelope(override val bytes: ByteString) extends Value
 
   object Envelope extends Companion[Envelope] {
-    def apply(envelope: DamlKvutils.Envelope): Envelope =
-      apply(envelope.toByteString)
+    def apply(protoEnvelope: envelope.Envelope): Envelope =
+      apply(protoEnvelope.toByteString)
   }
 
   type LogEntry = (LogEntryId, Envelope)

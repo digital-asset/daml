@@ -5,11 +5,7 @@ package com.daml.ledger.participant.state.kvutils.committer
 
 import java.time.Instant
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntry,
-  DamlStateKey,
-  DamlStateValue,
-}
+import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Err}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp

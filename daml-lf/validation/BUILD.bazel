@@ -6,6 +6,7 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
+    "lf_scalacopts_stricter",
     "silencer_plugin",
 )
 
@@ -16,16 +17,17 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-validation:__VERSION__"],
     visibility = [
         "//compiler/scenario-service:__subpackages__",
         "//daml-lf:__subpackages__",
-        "//ledger/participant-integration-api:__subpackages__",
+        "//ledger/error:__subpackages__",
     ],
     deps = [
         "//daml-lf/data",
         "//daml-lf/language",
+        "//libs-scala/scala-utils",
     ],
 )
 

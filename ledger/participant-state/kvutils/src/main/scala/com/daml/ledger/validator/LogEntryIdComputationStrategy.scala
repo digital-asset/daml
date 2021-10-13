@@ -5,8 +5,8 @@ package com.daml.ledger.validator
 
 import java.security.MessageDigest
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.kvutils.Raw
+import com.daml.ledger.participant.state.kvutils.store.DamlLogEntryId
 import com.google.protobuf.ByteString
 
 /** Computes log entry IDs from raw submission envelopes. */

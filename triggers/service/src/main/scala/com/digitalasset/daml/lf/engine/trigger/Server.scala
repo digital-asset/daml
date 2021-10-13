@@ -44,6 +44,7 @@ import com.daml.auth.middleware.api.{
   Request => AuthRequest,
   Response => AuthResponse,
 }
+import com.daml.lf.speedy.Compiler
 import com.daml.scalautil.Statement.discard
 import com.daml.scalautil.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
@@ -59,6 +60,7 @@ import scala.util.{Failure, Success, Try}
 class Server(
     authRoutes: Option[Directive1[AuthClient.Routes]],
     triggerDao: RunningTriggerDao,
+    compilerConfig: Compiler.Config,
     val logTriggerStatus: (UUID, String) => Unit,
 )(implicit ctx: ActorContext[Server.Message])
     extends StrictLogging {
@@ -67,7 +69,7 @@ class Server(
   // When running with a persistent store we also write the encoded packages so we can recover
   // our state after the service shuts down or crashes.
   val compiledPackages: MutableCompiledPackages =
-    ConcurrentCompiledPackages(speedy.Compiler.Config.Dev)
+    ConcurrentCompiledPackages(compilerConfig)
 
   private def addPackagesInMemory(pkgs: List[(PackageId, DamlLf.ArchivePayload)]): Unit = {
     // We store decoded packages in memory
@@ -504,6 +506,7 @@ object Server {
       initialDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       allowExistingSchema: Boolean,
+      compilerConfig: speedy.Compiler.Config,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
   ): Behavior[Message] = Behaviors.setup { implicit ctx =>
     // Implicit boilerplate.
@@ -540,11 +543,11 @@ object Server {
     val (dao, server, initializeF): (RunningTriggerDao, Server, Future[Unit]) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
-        val server = new Server(authRoutes, dao, logTriggerStatus)
+        val server = new Server(authRoutes, dao, compilerConfig, logTriggerStatus)
         (dao, server, Future.successful(()))
       case Some(c) =>
         val dao = DbTriggerDao(c)
-        val server = new Server(authRoutes, dao, logTriggerStatus)
+        val server = new Server(authRoutes, dao, compilerConfig, logTriggerStatus)
         val initialize = for {
           _ <- dao.initialize(allowExistingSchema)
           packages <- dao.readPackages

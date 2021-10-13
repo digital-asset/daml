@@ -5,8 +5,14 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.export.WriteSet
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlLogEntry,
+  DamlLogEntryId,
+  DamlStateKey,
+  DamlStateValue,
+}
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.WriteSetComparison._
-import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, Raw}
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 
 import scala.PartialFunction.condOpt
@@ -128,23 +134,23 @@ final class RawWriteSetComparison(stateKeySerializationStrategy: StateKeySeriali
       rawKey: Raw.Key,
       rawEnvelope: Raw.Envelope,
   ): Either[String, Either[
-    (DamlKvutils.DamlLogEntryId, DamlKvutils.DamlLogEntry),
-    (DamlKvutils.DamlStateKey, DamlKvutils.DamlStateValue),
+    (DamlLogEntryId, DamlLogEntry),
+    (DamlStateKey, DamlStateValue),
   ]] =
     Envelope.open(rawEnvelope) match {
       case Left(errorMessage) =>
         Left(s"Invalid value envelope: $errorMessage")
       case Right(Envelope.LogEntryMessage(logEntry)) =>
-        val logEntryId = DamlKvutils.DamlLogEntryId.parseFrom(rawKey.bytes)
-        if (logEntry.getPayloadCase == DamlKvutils.DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET)
+        val logEntryId = DamlLogEntryId.parseFrom(rawKey.bytes)
+        if (logEntry.getPayloadCase == DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET)
           Left("Log entry payload not set.")
         else
           Right(Left(logEntryId -> logEntry))
       case Right(Envelope.StateValueMessage(value)) =>
         val key = stateKeySerializationStrategy.deserializeStateKey(Raw.StateKey(rawKey.bytes))
-        if (key.getKeyCase == DamlKvutils.DamlStateKey.KeyCase.KEY_NOT_SET)
+        if (key.getKeyCase == DamlStateKey.KeyCase.KEY_NOT_SET)
           Left("State key not set.")
-        else if (value.getValueCase == DamlKvutils.DamlStateValue.ValueCase.VALUE_NOT_SET)
+        else if (value.getValueCase == DamlStateValue.ValueCase.VALUE_NOT_SET)
           Left("State value not set.")
         else
           Right(Right(key -> value))

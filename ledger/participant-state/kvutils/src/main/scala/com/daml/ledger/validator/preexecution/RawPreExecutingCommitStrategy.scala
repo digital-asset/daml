@@ -3,7 +3,7 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+import com.daml.ledger.participant.state.kvutils.store.{
   DamlLogEntry,
   DamlLogEntryId,
   DamlStateKey,

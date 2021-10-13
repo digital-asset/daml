@@ -1,10 +1,10 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.apiserver.error
+package com.daml.error.definitions
 
+import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.SubmissionErrorGroup
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
-import com.daml.platform.apiserver.error.ErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.SubmissionErrorGroup
 import org.slf4j.event.Level
 
 object SubmissionErrors extends SubmissionErrorGroup {
@@ -36,7 +36,7 @@ object SubmissionErrors extends SubmissionErrorGroup {
         id = "PARTICIPANT_BACKPRESSURE",
         ErrorCategory.ContentionOnSharedResources,
       ) {
-    override protected def logLevel: Level = Level.WARN
+    override def logLevel: Level = Level.WARN
 
     case class Rejection(reason: String)
         extends TransactionErrorImpl(cause = "The participant is overloaded")

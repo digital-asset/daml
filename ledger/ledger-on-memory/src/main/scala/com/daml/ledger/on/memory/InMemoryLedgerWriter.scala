@@ -9,9 +9,9 @@ import com.daml.api.util.TimeProvider
 import com.daml.caching.Cache
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.on.memory.InMemoryLedgerWriter._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.api.{CommitMetadata, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, Raw}
 import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}

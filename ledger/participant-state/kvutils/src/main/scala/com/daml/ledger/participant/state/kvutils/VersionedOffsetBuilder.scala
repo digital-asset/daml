@@ -21,6 +21,7 @@ import java.nio.ByteBuffer
   * @see com.daml.ledger.offset.Offset
   */
 class VersionedOffsetBuilder(version: Byte) {
+
   import VersionedOffsetBuilder._
 
   def onlyKeepHighestIndex(offset: Offset): Offset = {
@@ -67,6 +68,12 @@ class VersionedOffsetBuilder(version: Byte) {
     extractedVersion
   }
 
+  def matchesVersionOf(offset: Offset): Boolean = {
+    val stream = toDataInputStream(offset)
+    val extractedVersion = stream.readByte()
+    extractedVersion == version
+  }
+
   // `highestIndex` is used a lot, so it's worth optimizing a little rather than reusing `split`.
   def highestIndex(offset: Offset): Long = {
     val stream = toDataInputStream(offset)
@@ -93,7 +100,6 @@ class VersionedOffsetBuilder(version: Byte) {
 }
 
 object VersionedOffsetBuilder {
-
   val MaxHighest: Long = (1L << 56) - 1
 
   private val highestStartByte = 1

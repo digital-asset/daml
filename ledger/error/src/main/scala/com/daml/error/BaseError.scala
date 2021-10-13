@@ -3,7 +3,7 @@
 
 package com.daml.error
 
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.google.rpc.Status
 import io.grpc.StatusRuntimeException
 
 /** The main error interface for everything that should be logged and notified.
@@ -46,17 +46,20 @@ trait BaseError extends LocationMixin {
     */
   def resources: Seq[(ErrorResource, String)] = Seq()
 
-  def logWithContext(
-      logger: ContextualizedLogger,
-      correlationId: Option[String],
-      extra: Map[String, String] = Map(),
-  )(implicit loggingContext: LoggingContext): Unit =
-    code.log(logger, this, correlationId, extra)
+  def logWithContext(extra: Map[String, String] = Map())(implicit
+      errorCodeLoggingContext: ErrorCodeLoggingContext
+  ): Unit =
+    errorCodeLoggingContext.logError(this, extra)
 
-  def asGrpcErrorFromContext(correlationId: Option[String], logger: ContextualizedLogger)(
-      loggingContext: LoggingContext
+  def asGrpcStatusFromContext(implicit
+      errorCodeLoggingContext: ErrorCodeLoggingContext
+  ): Status =
+    code.asGrpcStatus(this)
+
+  def asGrpcErrorFromContext(implicit
+      errorCodeLoggingContext: ErrorCodeLoggingContext
   ): StatusRuntimeException =
-    code.asGrpcError(this, logger, correlationId)(loggingContext)
+    code.asGrpcError(this)
 
   /** Returns retryability information of this particular error
     *
@@ -88,10 +91,10 @@ trait LocationMixin {
 
 object BaseError {
   private val ignoreFields = Set("cause", "throwable", "loggingContext")
-  val SECURITY_SENSITIVE_MESSAGE_ON_API =
+  val SecuritySensitiveMessageOnApi =
     "An error occurred. Please contact the operator and inquire about the request"
 
-  def extractContext[D](obj: D): Map[String, String] = {
+  def extractContext[D](obj: D): Map[String, String] =
     obj.getClass.getDeclaredFields
       .filterNot(x => ignoreFields.contains(x.getName) || x.getName.startsWith("_"))
       .map { field =>
@@ -99,19 +102,15 @@ object BaseError {
         (field.getName, field.get(obj).toString)
       }
       .toMap
-  }
 
   abstract class Impl(
-      correlationId: Option[String],
       override val cause: String,
       override val throwableO: Option[Throwable] = None,
   )(implicit override val code: ErrorCode)
       extends BaseError {
 
     /** The logging context obtained when we created the error, usually passed in as implicit */
-    def loggingContext: LoggingContext
-
-    def logger: ContextualizedLogger
+    def loggingContext: ErrorCodeLoggingContext
 
     /** Flag to control if an error should be logged at creation
       *
@@ -120,11 +119,13 @@ object BaseError {
       */
     def logOnCreation: Boolean = true
 
-    def log(): Unit = logWithContext(logger, correlationId)(loggingContext)
+    def log(): Unit = logWithContext()(loggingContext)
 
-    def asGrpcError: StatusRuntimeException = {
-      code.asGrpcError(this, logger, correlationId)(loggingContext)
-    }
+    def asGrpcStatus: Status =
+      code.asGrpcStatus(this)(loggingContext)
+
+    def asGrpcError: StatusRuntimeException =
+      code.asGrpcError(this)(loggingContext)
 
     // Automatically log the error on generation
     if (logOnCreation) {

@@ -9,12 +9,9 @@ import java.util.concurrent.TimeUnit
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntry,
-  DamlLogEntryId,
-  DamlPartyAllocationEntry,
-}
 import com.daml.ledger.participant.state.kvutils.export.SubmissionInfo
+import com.daml.ledger.participant.state.kvutils.store.events.DamlPartyAllocationEntry
+import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlLogEntryId}
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.LogAppendingReadServiceFactorySpec._
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v2.Update

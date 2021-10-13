@@ -4,9 +4,13 @@
 package com.daml.ledger.validator.caching
 
 import com.daml.caching.Cache
-import com.daml.ledger.participant.state.kvutils.DamlKvutils
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlLogEntry,
+  DamlLogEntryId,
+  DamlStateKey,
+  DamlStateValue,
+}
 import com.daml.ledger.validator.{
   CommitStrategy,
   LedgerStateOperations,
@@ -27,8 +31,8 @@ final class CachingCommitStrategy[Result](
   override def commit(
       participantId: Ref.ParticipantId,
       correlationId: String,
-      entryId: DamlKvutils.DamlLogEntryId,
-      entry: DamlKvutils.DamlLogEntry,
+      entryId: DamlLogEntryId,
+      entry: DamlLogEntry,
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
       outputState: Map[DamlStateKey, DamlStateValue],
       exporterWriteSet: Option[SubmissionAggregator.WriteSetBuilder],

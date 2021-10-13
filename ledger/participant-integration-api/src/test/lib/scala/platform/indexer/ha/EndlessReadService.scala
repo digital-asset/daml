@@ -65,7 +65,7 @@ case class EndlessReadService(
     synchronized {
       logger.info(s"EndlessReadService.stateUpdates($beginAfter) called")
       stateUpdatesCalls.incrementAndGet()
-      val startIndex: Int = beginAfter.map(index).getOrElse(1)
+      val startIndex: Int = beginAfter.map(index).getOrElse(0) + 1
       Source
         .fromIterator(() => Iterator.from(startIndex))
         .throttle(updatesPerSecond, 1.second)
@@ -161,10 +161,10 @@ object EndlessReadService {
 
   // Note: all methods in this object MUST be fully deterministic
   def index(o: Offset): Int = Integer.parseInt(o.toHexString, 16)
-  def offset(i: Int): Offset = Offset.fromHexString(Ref.HexString.assertFromString(f"$i%08d"))
-  def submissionId(i: Int): Ref.SubmissionId = Ref.SubmissionId.assertFromString(f"sub$i%08d")
-  def transactionId(i: Int): Ref.TransactionId = Ref.TransactionId.assertFromString(f"tx$i%08d")
-  def commandId(i: Int): Ref.CommandId = Ref.CommandId.assertFromString(f"cmd$i%08d")
+  def offset(i: Int): Offset = Offset.fromHexString(Ref.HexString.assertFromString(f"$i%08x"))
+  def submissionId(i: Int): Ref.SubmissionId = Ref.SubmissionId.assertFromString(f"sub$i%08x")
+  def transactionId(i: Int): Ref.TransactionId = Ref.TransactionId.assertFromString(f"tx$i%08x")
+  def commandId(i: Int): Ref.CommandId = Ref.CommandId.assertFromString(f"cmd$i%08x")
   def cid(i: Int): Value.ContractId = Value.ContractId.V0.assertFromString(s"#$i")
   def recordTime(i: Int): Timestamp =
     Timestamp.assertFromInstant(Instant.EPOCH.plusSeconds(i.toLong))

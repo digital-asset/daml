@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.metrics.MetricName
 
 /** The participant-state key-value utilities provide methods to succinctly implement
@@ -32,6 +32,6 @@ package object kvutils {
 
   type CorrelationId = String
 
-  val MetricPrefix: MetricName = MetricName.DAML :+ "kvutils"
+  val MetricPrefix: MetricName = MetricName.Daml :+ "kvutils"
 
 }

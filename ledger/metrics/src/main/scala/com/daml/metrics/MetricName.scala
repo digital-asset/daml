@@ -15,7 +15,7 @@ final class MetricName(private val segments: Vector[String]) extends AnyVal {
 
 object MetricName {
 
-  val DAML: MetricName = MetricName("daml")
+  val Daml: MetricName = MetricName("daml")
 
   def apply(segments: String*): MetricName =
     new MetricName(segments.toVector)

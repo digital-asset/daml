@@ -3,6 +3,8 @@
 
 package com.daml.lf.data
 
+import com.daml.scalautil.Statement.discard
+
 import scala.annotation.tailrec
 import scala.collection.BuildFrom
 
@@ -20,7 +22,7 @@ private[daml] object LawlessTraversals {
         if (i.hasNext) f(i.next()) match {
           case Left(b) => Left(b)
           case Right(c) =>
-            that += c
+            discard(that += c)
             lp()
         }
         else Right(that.result())

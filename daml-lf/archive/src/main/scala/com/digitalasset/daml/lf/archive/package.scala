@@ -7,6 +7,7 @@ import com.daml.daml_lf_dev.{DamlLf, DamlLf1}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.nameof.NameOf
+import com.daml.scalautil.Statement.discard
 import com.google.protobuf.CodedInputStream
 
 import scala.util.Using
@@ -50,7 +51,7 @@ package object archive {
   // just set the recursion limit
   private[this] val Base: GenReader[CodedInputStream] =
     new GenReader[CodedInputStream]({ cos =>
-      cos.setRecursionLimit(PROTOBUF_RECURSION_LIMIT)
+      discard(cos.setRecursionLimit(PROTOBUF_RECURSION_LIMIT))
       Right(cos)
     })
 

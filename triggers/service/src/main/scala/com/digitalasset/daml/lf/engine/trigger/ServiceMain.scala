@@ -17,6 +17,7 @@ import com.daml.dbutils.JdbcConfig
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
+import com.daml.lf.speedy.Compiler
 import com.daml.logging.ContextualizedLogger
 import com.daml.ports.{Port, PortFiles}
 import com.daml.scalautil.Statement.discard
@@ -51,6 +52,7 @@ object ServiceMain {
       encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       allowExistingSchema: Boolean,
+      compilerConfig: Compiler.Config,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
   ): Future[(ServerBinding, ActorSystem[Server.Message])] = {
 
@@ -71,6 +73,7 @@ object ServiceMain {
           encodedDars,
           jdbcConfig,
           allowExistingSchema,
+          compilerConfig,
           logTriggerStatus,
         ),
         "TriggerService",
@@ -164,6 +167,7 @@ object ServiceMain {
               encodedDars,
               config.jdbcConfig,
               config.allowExistingSchema,
+              config.compilerConfig,
             ),
             "TriggerService",
           )

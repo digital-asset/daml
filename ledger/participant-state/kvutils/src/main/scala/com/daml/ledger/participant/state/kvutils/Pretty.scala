@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
+import com.daml.ledger.participant.state.kvutils.store.DamlLogEntryId
 import com.google.common.io.BaseEncoding
 
 object Pretty {

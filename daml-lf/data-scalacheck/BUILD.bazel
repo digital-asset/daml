@@ -4,7 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "lf_scalacopts",
+    "lf_scalacopts_stricter",
 )
 load("@scala_version//:index.bzl", "scala_version_suffix")
 
@@ -18,7 +18,7 @@ da_scala_library(
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-data-scalacheck:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [

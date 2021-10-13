@@ -76,8 +76,8 @@ davl_v3_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
 davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
 
 # daml cheat sheet
-daml_cheat_sheet_version = "5ae141096d7fc0031392206e80f71f7dc3b23e1c"  # 2021-03-11
-daml_cheat_sheet_sha256 = "e51651b34bc67704c8f6995207982f9e87758460246c2132dd8fe524277f612b"
+daml_cheat_sheet_version = "2710b8df28d97253b5487a68feb2d1452d29fc54"  # 2021-09-17
+daml_cheat_sheet_sha256 = "eb022565a929a69d869f0ab0497f02d1a3eacb4dafdafa076a82ecbe7c401315"
 
 platforms_version = "0.0.3"
 platforms_sha256 = "15b66b5219c03f9e8db34c1ac89c458bb94bfe055186e5505d5c6f09cb38307f"
@@ -216,11 +216,12 @@ def daml_deps():
         )
 
     if "com_github_grpc_grpc" not in native.existing_rules():
+        # This should be kept in sync with the grpc version we get from Nix.
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.36.0",
-            urls = ["https://github.com/grpc/grpc/archive/v1.36.0.tar.gz"],
-            sha256 = "1a5127c81487f4e3e57973bb332f04b9159f94d860c207e096d8a587d371edbd",
+            strip_prefix = "grpc-1.39.0",
+            urls = ["https://github.com/grpc/grpc/archive/v1.39.0.tar.gz"],
+            sha256 = "b16992aa1c949c10d5d5ce2a62f9d99fa7de77da2943e643fb66dcaf075826d6",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
             ],
@@ -230,14 +231,11 @@ def daml_deps():
     if "com_google_absl" not in native.existing_rules():
         http_archive(
             name = "com_google_absl",
-            sha256 = "3d74cdc98b42fd4257d91f652575206de195e2c824fcd8d6e6d227f85cb143ef",
-            strip_prefix = "abseil-cpp-0f3bb466b868b523cf1dc9b2aaaed65c77b28862",
+            sha256 = "35f22ef5cb286f09954b7cc4c85b5a3f6221c9d4df6b8c4a1e9d399555b366ee",
+            strip_prefix = "abseil-cpp-997aaf3a28308eba1b9156aa35ab7bca9688e9f6",
             urls = [
-                "https://storage.googleapis.com/grpc-bazel-mirror/github.com/abseil/abseil-cpp/archive/0f3bb466b868b523cf1dc9b2aaaed65c77b28862.tar.gz",
-                "https://github.com/abseil/abseil-cpp/archive/0f3bb466b868b523cf1dc9b2aaaed65c77b28862.tar.gz",
-            ],
-            patches = [
-                "@com_github_digital_asset_daml//bazel_tools:absl-mingw.patch",
+                "https://storage.googleapis.com/grpc-bazel-mirror/github.com/abseil/abseil-cpp/archive/997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
+                "https://github.com/abseil/abseil-cpp/archive/997aaf3a28308eba1b9156aa35ab7bca9688e9f6.tar.gz",
             ],
             patch_args = ["-p1"],
         )

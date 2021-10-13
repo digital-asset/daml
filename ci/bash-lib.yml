@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
-  var_name: ''
+  var_name: ""
 
 steps:
 - bash: |
     set -euo pipefail
     TMP=$(mktemp)
-    PROJ_DIR="$(pwd)"
-    cat > $TMP <<'END'
+    cat > "$TMP" <<'END'
+    PROJ_DIR="$PWD"
     escape_slack() {
       local r
       r="$1"

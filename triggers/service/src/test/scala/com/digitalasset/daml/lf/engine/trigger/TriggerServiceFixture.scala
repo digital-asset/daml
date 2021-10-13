@@ -47,6 +47,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
+import com.daml.lf.speedy.Compiler
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
@@ -524,6 +525,7 @@ trait TriggerServiceFixture
                 encodedDars,
                 jdbcConfig,
                 false,
+                Compiler.Config.Dev,
                 logTriggerStatus,
               )
             } yield r

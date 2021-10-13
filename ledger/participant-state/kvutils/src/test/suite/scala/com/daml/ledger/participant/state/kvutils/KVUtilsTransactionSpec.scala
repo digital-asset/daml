@@ -5,11 +5,9 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.Duration
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntry,
-  DamlTransactionRejectionEntry,
-}
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
+import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionRejectionEntry
+import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.test._
@@ -487,10 +485,10 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         // Check that all contracts and keys are in the archived state.
         finalState.damlState.foreach { case (_, v) =>
           v.getValueCase match {
-            case DamlKvutils.DamlStateValue.ValueCase.CONTRACT_KEY_STATE =>
+            case DamlStateValue.ValueCase.CONTRACT_KEY_STATE =>
               v.getContractKeyState.getContractId shouldBe Symbol("empty")
 
-            case DamlKvutils.DamlStateValue.ValueCase.CONTRACT_STATE =>
+            case DamlStateValue.ValueCase.CONTRACT_STATE =>
               val cs = v.getContractState
               cs.hasArchivedAt shouldBe true
 

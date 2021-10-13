@@ -5,8 +5,19 @@ package com.daml.ledger.validator
 
 import java.util.UUID
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Raw
+import com.daml.ledger.participant.state.kvutils.store.events.DamlPartyAllocationEntry
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlCommandDedupKey,
+  DamlContractKey,
+  DamlContractKeyState,
+  DamlContractState,
+  DamlLogEntry,
+  DamlLogEntryId,
+  DamlStateKey,
+  DamlStateValue,
+  DamlSubmissionDedupKey,
+}
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.data.Ref
 import com.daml.lf.value.ValueOuterClass.Identifier

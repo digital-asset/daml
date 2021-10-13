@@ -784,6 +784,7 @@ completionTests run _runScenarios = testGroup "completion"
               map (set documentation Nothing) completions @?=
               [ mkTypeCompletion "Party"
               , mkTypeCompletion "IsParties"
+              , mkTypeCompletion "TemplateOrInterface"
               ]
     , testCase "with keyword" $ run $ do
           foo <- openDoc' "Foo.daml" damlId $ T.unlines

@@ -4,12 +4,6 @@
 package com.daml.ledger.participant.state.kvutils.committer.transaction.validation
 
 import com.daml.ledger.participant.state.kvutils.Conversions
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlContractKey,
-  DamlContractKeyState,
-  DamlContractState,
-  DamlStateKey,
-}
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
   Rejection,
@@ -17,6 +11,12 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   Step,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlContractKey,
+  DamlContractKeyState,
+  DamlContractState,
+  DamlStateKey,
+}
 import com.daml.lf.transaction.Transaction.{
   DuplicateKeys,
   InconsistentKeys,

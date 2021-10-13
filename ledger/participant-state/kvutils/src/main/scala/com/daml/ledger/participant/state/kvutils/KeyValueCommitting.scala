@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter
 import com.daml.ledger.participant.state.kvutils.committer.{
@@ -14,6 +13,14 @@ import com.daml.ledger.participant.state.kvutils.committer.{
   PackageCommitter,
   PartyAllocationCommitter,
   SubmissionExecutor,
+}
+import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionEntry
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlContractKey,
+  DamlLogEntry,
+  DamlLogEntryId,
+  DamlStateKey,
+  DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.lf.data.Ref

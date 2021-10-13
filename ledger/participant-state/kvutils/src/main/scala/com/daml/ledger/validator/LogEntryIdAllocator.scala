@@ -3,7 +3,7 @@
 
 package com.daml.ledger.validator
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
+import com.daml.ledger.participant.state.kvutils.store.DamlLogEntryId
 
 trait LogEntryIdAllocator {
   def allocate(): DamlLogEntryId

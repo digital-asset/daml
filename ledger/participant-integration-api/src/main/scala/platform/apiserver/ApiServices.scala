@@ -235,6 +235,7 @@ private[daml] object ApiServices {
             submissionConfig.enableDeduplication,
           ),
           metrics,
+          errorsVersionsSwitcher,
         )
 
         // Note: the command service uses the command submission, command completion, and transaction

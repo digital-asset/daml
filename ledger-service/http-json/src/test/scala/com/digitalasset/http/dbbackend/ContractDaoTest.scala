@@ -85,6 +85,7 @@ class ContractDaoTest
 object ContractDaoTest {
   import org.scalacheck.Arbitrary, Arbitrary.arbitrary
   import ContractDao.Lagginess
+
   implicit def `arb Lagginess`[TpId: Arbitrary, Off: Arbitrary]: Arbitrary[Lagginess[TpId, Off]] =
     Arbitrary(arbitrary[(Set[TpId], Set[TpId], Off)].map((Lagginess[TpId, Off] _).tupled))
 }

@@ -1,21 +1,18 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.apiserver.error
+package com.daml.error.definitions
 
-import com.daml.error.{BaseError, ErrorCode}
+import com.daml.error.{BaseError, ErrorCause, ErrorCode, ErrorCodeLoggingContext}
 import com.daml.ledger.participant.state
 import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
-import com.daml.lf.engine.{Error => LfError}
-import com.daml.lf.interpretation.{Error => LfInterpretationError}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.apiserver.error.RejectionGenerators.ErrorCauseExport
-import com.daml.platform.store.ErrorCause
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
 
 import scala.util.{Failure, Success, Try}
+import com.daml.lf.engine.{Error => LfError}
+import com.daml.lf.interpretation.{Error => LfInterpretationError}
 
 class RejectionGenerators(conformanceMode: Boolean) {
   private val adjustErrors = Map(
@@ -48,24 +45,18 @@ class RejectionGenerators(conformanceMode: Boolean) {
     }
 
   def toGrpc(reject: BaseError)(implicit
-      logger: ContextualizedLogger,
-      loggingContext: LoggingContext,
-      correlationId: CorrelationId,
+      errorLoggingContext: ErrorCodeLoggingContext
   ): StatusRuntimeException =
-    enforceConformance(reject.asGrpcErrorFromContext(correlationId.id, logger)(loggingContext))
+    enforceConformance(reject.asGrpcErrorFromContext)
 
   def duplicateCommand(implicit
-      logger: ContextualizedLogger,
-      loggingContext: LoggingContext,
-      correlationId: CorrelationId,
+      errorLoggingContext: ErrorCodeLoggingContext
   ): StatusRuntimeException =
     toGrpc(LedgerApiErrors.CommandPreparation.DuplicateCommand.Reject())
 
   def commandExecutorError(cause: ErrorCauseExport)(implicit
-      logger: ContextualizedLogger,
-      loggingContext: LoggingContext,
-      correlationId: CorrelationId,
-  ): Option[StatusRuntimeException] = {
+      errorLoggingContext: ErrorCodeLoggingContext
+  ): StatusRuntimeException = {
 
     def processPackageError(err: LfError.Package.Error): BaseError = err match {
       case e: Package.Internal => LedgerApiErrors.InternalError.PackageInternal(e)
@@ -181,12 +172,11 @@ class RejectionGenerators(conformanceMode: Boolean) {
       toGrpc(transformed)
     }
 
-    val rej = cause match {
+    cause match {
       case ErrorCauseExport.DamlLf(error) => processLfError(error)
       case x: ErrorCauseExport.LedgerTime =>
         toGrpc(LedgerApiErrors.CommandPreparation.FailedToDetermineLedgerTime.Reject(x.explain))
     }
-    Some(rej)
   }
 
   def submissionResult(result: Try[state.v2.SubmissionResult]): Option[Try[Unit]] = {
@@ -202,9 +192,7 @@ class RejectionGenerators(conformanceMode: Boolean) {
   //                   Instead of using this, construct proper validation errors in callers of this method
   //                   and only convert to StatusRuntimeExceptions when dispatched (e.g. in ApiSubmissionService)
   def validationFailure(reject: StatusRuntimeException)(implicit
-      logger: ContextualizedLogger,
-      loggingContext: LoggingContext,
-      correlationId: CorrelationId,
+      errorCodeLoggingContext: ErrorCodeLoggingContext
   ): StatusRuntimeException = {
     val description = reject.getStatus.getDescription
     reject.getStatus.getCode match {
@@ -216,27 +204,25 @@ class RejectionGenerators(conformanceMode: Boolean) {
         } else if (description.startsWith("Invalid field:")) {
           toGrpc(LedgerApiErrors.CommandValidation.InvalidField.Reject(description))
         } else {
-          logger.warn(s"Unknown invalid argument rejection: ${reject.getStatus}")
+          errorCodeLoggingContext.warn(s"Unknown invalid argument rejection: ${reject.getStatus}")
           reject
         }
       case Code.NOT_FOUND if description.startsWith("Ledger ID") =>
         toGrpc(LedgerApiErrors.CommandValidation.LedgerIdMismatch.Reject(description))
       case _ =>
-        logger.warn(s"Unknown rejection: ${reject.getStatus}")
+        errorCodeLoggingContext.warn(s"Unknown rejection: ${reject.getStatus}")
         reject
     }
   }
 }
 
-object RejectionGenerators {
-  sealed trait ErrorCauseExport
-  object ErrorCauseExport {
-    final case class DamlLf(error: LfError) extends ErrorCauseExport
-    final case class LedgerTime(retries: Int, explain: String) extends ErrorCauseExport
+sealed trait ErrorCauseExport
+object ErrorCauseExport {
+  final case class DamlLf(error: LfError) extends ErrorCauseExport
+  final case class LedgerTime(retries: Int, explain: String) extends ErrorCauseExport
 
-    private[platform] def fromErrorCause(err: ErrorCause): ErrorCauseExport = err match {
-      case ErrorCause.DamlLf(error) => DamlLf(error)
-      case x: ErrorCause.LedgerTime => LedgerTime(x.retries, x.explain)
-    }
+  def fromErrorCause(err: ErrorCause): ErrorCauseExport = err match {
+    case ErrorCause.DamlLf(error) => DamlLf(error)
+    case x: ErrorCause.LedgerTime => LedgerTime(x.retries, x.explain)
   }
 }

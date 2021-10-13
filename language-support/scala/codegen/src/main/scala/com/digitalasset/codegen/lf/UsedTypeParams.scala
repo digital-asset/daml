@@ -44,6 +44,7 @@ object UsedTypeParams {
 
   import VarianceConstraint.BaseResolution
   import Variance._
+
   private[this] type TVar = Ref.Name
 
   final class ResolvedVariance private (private val prior: Map[Identifier, ImmArraySeq[Variance]]) {
