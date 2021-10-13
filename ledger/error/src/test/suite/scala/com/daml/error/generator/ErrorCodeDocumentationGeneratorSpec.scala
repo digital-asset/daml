@@ -3,7 +3,6 @@
 
 package com.daml.error.generator
 
-import com.daml.error.ErrorCategory.{SystemInternalAssumptionViolated, TransientServerFailure}
 import com.daml.error.utils.testpackage.SeriousError
 import com.daml.error.utils.testpackage.subpackage.NotSoSeriousError
 import com.daml.error.{Explanation, Resolution}
@@ -22,7 +21,7 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
     val expectedDocItems = Seq(
       DocItem(
         className = SeriousError.getClass.getTypeName,
-        category = SystemInternalAssumptionViolated.getClass.getSimpleName,
+        category = "SystemInternalAssumptionViolated",
         hierarchicalGrouping = Nil,
         conveyance =
           "This error is logged with log-level ERROR on the server side.\nThis error is exposed on the API with grpc-status INTERNAL without any details due to security reasons",
@@ -32,7 +31,7 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
       ),
       DocItem(
         className = NotSoSeriousError.getClass.getTypeName,
-        category = TransientServerFailure.getClass.getSimpleName,
+        category = "TransientServerFailure",
         hierarchicalGrouping = "Some error class" :: Nil,
         conveyance =
           "This error is logged with log-level INFO on the server side.\nThis error is exposed on the API with grpc-status UNAVAILABLE including a detailed error message",
