@@ -44,6 +44,10 @@ DAML_LF_VERSIONS = [
       cp -L $(location //templates:copy-trigger/src/CopyTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger{suffix}.dar) $$TMP_DIR/daml-trigger.dar
       cp -L $(location //daml-script/daml:daml-script{suffix}.dar) $$TMP_DIR/daml-script.dar
+      if [ "{lf_version}" = "1.dev" ]
+      then
+        cp -L $(location :daml/Interface.daml) $$TMP_DIR/daml
+      fi
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: acs
@@ -131,7 +135,7 @@ da_scala_library(
                 "Tls",
                 "RunnerSpec",
                 "UnfoldStateSpec",
-            ]
+            ] + (["DevOnly"] if lf_version else [])
         ],
         data = [
             ":acs%s.dar" % suffix,
