@@ -3,7 +3,7 @@ name: Feature request
 about: Suggest an idea to improve Daml
 title: "[FEATURE REQUEST] "
 labels: ''
-assignees: stefanobaghino-da, cocreature, gerolf-da, adriaanm-da
+assignees: stefanobaghino-da
 
 ---
 
