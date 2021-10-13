@@ -26,6 +26,7 @@ final class AuthorizationInterceptor(protected val authService: AuthService, ec:
     extends ServerInterceptor {
 
   private val logger: Logger = LoggerFactory.getLogger(AuthorizationInterceptor.getClass)
+  // TODO error codes: Convert to self-service error codes spec
   private val internalAuthenticationError =
     Status.INTERNAL.withDescription("Failed to get claims from request metadata")
 
