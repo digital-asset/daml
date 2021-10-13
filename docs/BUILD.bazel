@@ -17,6 +17,7 @@ exports_files(
         "source/tools/export/output-root/Export.daml",
         "source/tools/export/output-root/args.json",
         "source/tools/export/output-root/daml.yaml",
+        "sphinx_ext/self_service_error_codes_extension.py",
     ],
 )
 
@@ -217,6 +218,7 @@ genrule(
         "@daml-cheat-sheet//:site",
         ":scripts/check-closing-quotes.sh",
         ":scripts/check-closing-quotes.sh.allow",
+        "//docs:error_codes_export.json",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -267,9 +269,27 @@ genrule(
         # Unfortunately, an update is not so easy because Sphinx 2.3.1 breaks
         # the PDF documentation due to issues with the FreeSerif font in the
         # fontspec package. So, for now we ignore `FutureWarning`.
-        WARNINGS=$$(../$(location @sphinx_nix//:bin/sphinx-build) -c docs/configs/html docs/source html 2>&1 | \\
-            grep -Pi "(?<!future)warning:" || true)
 
+        set +e # Prevent exiting from the script on a subshell error so that we have a chance to print out the subshell's output captured in a variable.
+        ls -al
+        pwd
+        ls -al  ../$(location //docs:error_codes_export.json)
+        SPHINX_BUILD_OUTPUT=$$(../$(location @sphinx_nix//:bin/sphinx-build) -D error_codes_json_export=../$(location //docs:error_codes_export.json) -c docs/configs/html docs/source html 2>&1)
+        SPHINX_BUILD_EXIT_CODE=$$?
+        set -e # Restore previous option. (Assuming 'set -e' was set in the first place)
+        if [ "$$SPHINX_BUILD_EXIT_CODE" -ne 0 ]; then
+            >&2 echo "## SPHINX-BUILD OUTPUT BEGIN:"
+            >&2 echo "$$SPHINX_BUILD_OUTPUT"
+            >&2 echo "## SPHINX-BUILD OUTPUT END"
+            exit 1
+        fi
+        # NOTE: appending ' || true' to force exit code of 0 from grep because grep normally exits with 1 if no lines are selected:
+        # '''
+        # 0     One or more lines were selected.
+        # 1     No lines were selected.
+        # >1    An error occurred.
+        # '''
+        WARNINGS=$$(echo "$$SPHINX_BUILD_OUTPUT" | grep -Pi "(?<!future)warning:" || true)
         if [ "$$WARNINGS" != "" ]; then
             echo "$$WARNINGS"
             exit 1
@@ -655,6 +675,7 @@ genrule(
     outs = ["error_codes_export.json"],
     cmd = "$(location //ledger/error:export-error-codes-json-app) $(location error_codes_export.json)",
     tools = ["//ledger/error:export-error-codes-json-app"],
+    visibility = ["//visibility:public"],
 )
 
 exports_files([
