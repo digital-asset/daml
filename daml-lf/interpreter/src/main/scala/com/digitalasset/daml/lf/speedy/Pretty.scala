@@ -519,7 +519,7 @@ private[lf] object Pretty {
           text("try-catch") + char('(') + prettySExpr(index)(body) + text(", ") +
             prettySExpr(index)(handler) + char(')')
 
-        case SEScopeExercise(_, body) =>
+        case SEScopeExercise(body) =>
           text("exercise") + char('(') + prettySExpr(index)(body) + text(")")
 
         case x: SEBuiltinRecursiveDefinition => str(x)

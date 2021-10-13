@@ -343,9 +343,9 @@ private[lf] object Anf {
           ).bounce
         Bounce(() => transform(depth, SETryCatch(body, handler), k))
 
-      case SEScopeExercise(templateId, body0) =>
+      case SEScopeExercise(body0) =>
         val body: SExpr = flattenExp(depth, env, body0)(anf => Land(anf.wrapped)).bounce
-        Bounce(() => transform(depth, SEScopeExercise(templateId, body), k))
+        Bounce(() => transform(depth, SEScopeExercise(body), k))
 
       case _: SEAbs | _: SEDamlException | _: SEAppAtomicFun | _: SEAppAtomicGeneral |
           _: SEAppAtomicSaturatedBuiltin | _: SELet1Builtin | _: SELet1BuiltinArithmetic |

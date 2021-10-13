@@ -1291,13 +1291,11 @@ private[lf] object Speedy {
     * (1) by 'endExercises' if this continuation is entered normally, or
     * (2) by 'abortExercises' if we unwind the stack through this continuation
     */
-  private[speedy] final case class KCloseExercise(templateId: TypeConName, machine: Machine)
-      extends Kont {
+  private[speedy] final case class KCloseExercise(machine: Machine) extends Kont {
 
     def execute(exerciseResult: SValue) = {
       machine.withOnLedger("KCloseExercise") { onLedger =>
-        val exerciseResultValue = onLedger.ptx.normValue(templateId, exerciseResult)
-        onLedger.ptx = onLedger.ptx.endExercises(exerciseResultValue)
+        onLedger.ptx = onLedger.ptx.endExercises(exerciseResult)
         checkAborted(onLedger.ptx)
       }
       machine.returnValue = exerciseResult
