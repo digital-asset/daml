@@ -9,7 +9,7 @@ steps:
     set -euo pipefail
     TMP=$(mktemp)
     cat > "$TMP" <<'END'
-    export PROJ_DIR="$PWD"
+    PROJ_DIR="$PWD"
     escape_slack() {
       local r
       r="$1"
