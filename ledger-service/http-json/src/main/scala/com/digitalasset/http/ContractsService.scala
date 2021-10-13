@@ -222,9 +222,8 @@ class ContractsService(
 
   private def lookupResult(
       errorOrAc: Option[Error \/ domain.ActiveContract[LfValue]]
-  ): Future[Option[domain.ActiveContract[LfValue]]] = {
-    errorOrAc.cata(x => toFuture(x).map(Some(_)), Future.successful(None))
-  }
+  ): Future[Option[domain.ActiveContract[LfValue]]] =
+    errorOrAc traverse (toFuture(_))
 
   private def isContractId(k: domain.ContractId)(a: domain.ActiveContract[LfValue]): Boolean =
     (a.contractId: domain.ContractId) == k
