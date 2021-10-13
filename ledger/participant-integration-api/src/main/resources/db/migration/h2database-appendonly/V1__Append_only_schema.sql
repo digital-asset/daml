@@ -12,7 +12,8 @@ CREATE TABLE parameters (
   ledger_end VARCHAR,
   ledger_end_sequential_id BIGINT,
   participant_pruned_up_to_inclusive VARCHAR,
-  participant_all_divulged_contracts_pruned_up_to_inclusive VARCHAR
+  participant_all_divulged_contracts_pruned_up_to_inclusive VARCHAR,
+  ledger_end_string_interning_id INTEGER
 );
 
 ---------------------------------------------------------------------------------------------------
@@ -81,6 +82,7 @@ CREATE TABLE party_entries (
     typ VARCHAR NOT NULL,
     rejection_reason VARCHAR,
     is_local BOOLEAN,
+    party_id integer NOT NULL DEFAULT 0,
 
     CONSTRAINT check_party_entry_type
         CHECK (
@@ -91,6 +93,7 @@ CREATE TABLE party_entries (
 
 CREATE INDEX idx_party_entries ON party_entries (submission_id);
 CREATE INDEX idx_party_entries_party_and_ledger_offset ON party_entries(party, ledger_offset);
+CREATE INDEX idx_party_entries_party_id_and_ledger_offset ON party_entries(party_id, ledger_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Submissions table
@@ -154,7 +157,7 @@ CREATE TABLE participant_events_divulgence (
 
     -- * shared event information
     contract_id VARCHAR NOT NULL,
-    template_id VARCHAR,
+    template_id INTEGER,
     tree_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
     -- * contract data
@@ -208,7 +211,7 @@ CREATE TABLE participant_events_create (
 
     -- * shared event information
     contract_id VARCHAR NOT NULL,
-    template_id VARCHAR NOT NULL,
+    template_id INTEGER NOT NULL,
     flat_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
     tree_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
@@ -279,7 +282,7 @@ CREATE TABLE participant_events_consuming_exercise (
 
     -- * shared event information
     contract_id VARCHAR NOT NULL,
-    template_id VARCHAR NOT NULL,
+    template_id INTEGER NOT NULL,
     flat_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
     tree_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
@@ -350,7 +353,7 @@ CREATE TABLE participant_events_non_consuming_exercise (
 
     -- * shared event information
     contract_id VARCHAR NOT NULL,
-    template_id VARCHAR NOT NULL,
+    template_id INTEGER NOT NULL,
     flat_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
     tree_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
@@ -539,3 +542,8 @@ SELECT
     exercise_result_compression
 FROM participant_events_non_consuming_exercise
 ;
+
+CREATE TABLE string_interning (
+    id integer PRIMARY KEY NOT NULL,
+    s text
+);

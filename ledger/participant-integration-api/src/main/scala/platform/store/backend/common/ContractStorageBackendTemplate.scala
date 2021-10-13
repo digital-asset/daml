@@ -24,6 +24,7 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
 import scala.util.{Failure, Success, Try}
 
 trait ContractStorageBackendTemplate extends ContractStorageBackend {
+  import com.daml.platform.store.Conversions.ArrayColumnToIntArray._
 
   def queryStrategy: QueryStrategy
 

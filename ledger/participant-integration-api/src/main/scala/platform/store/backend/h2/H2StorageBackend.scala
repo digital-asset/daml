@@ -73,6 +73,7 @@ private[backend] object H2StorageBackend
         |truncate table participant_events_consuming_exercise;
         |truncate table participant_events_non_consuming_exercise;
         |truncate table party_entries;
+        |truncate table string_interning;
         |set referential_integrity true;""".stripMargin)
       .execute()(connection)
     ()
@@ -91,6 +92,7 @@ private[backend] object H2StorageBackend
           |truncate table participant_events_consuming_exercise;
           |truncate table participant_events_non_consuming_exercise;
           |truncate table party_entries;
+          |truncate table string_interning;
           |set referential_integrity true;""".stripMargin)
       .execute()(connection)
     ()
@@ -166,13 +168,15 @@ FETCH NEXT 1 ROW ONLY;
         columnName: String,
         parties: Set[Ref.Party],
         stringInterningCache: StringInterning,
-    ): CompositeSql =
-      if (parties.isEmpty)
+    ): CompositeSql = {
+      val internedParties = parties.flatMap(stringInterningCache.party.getId)
+      if (internedParties.isEmpty)
         cSQL"false"
       else
-        parties.view
-          .map(p => cSQL"array_contains(#$columnName, '#${p.toString}')")
+        internedParties.view
+          .map(p => cSQL"array_contains(#$columnName, $p)")
           .mkComposite("(", " or ", ")")
+    }
 
     override def arrayContains(arrayColumnName: String, elementColumnName: String): String =
       s"array_contains($arrayColumnName, $elementColumnName)"
@@ -188,8 +192,10 @@ FETCH NEXT 1 ROW ONLY;
         parties: Set[Ref.Party],
         stringInterningCache: StringInterning,
     ): CompositeSql = {
-      val partiesArray = parties.view.map(_.toString).toArray
-      cSQL"array_intersection(#$witnessesColumnName, $partiesArray)"
+      val partiesArray: Array[java.lang.Integer] =
+        parties.view.flatMap(stringInterningCache.party.getId).map(Int.box).toArray
+      if (partiesArray.isEmpty) cSQL"false"
+      else cSQL"array_intersection(#$witnessesColumnName, $partiesArray)"
     }
 
     override def submittersArePartiesClause(
@@ -216,15 +222,17 @@ FETCH NEXT 1 ROW ONLY;
           cSQL"(${H2QueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, wildCardParties, stringInterningCache)})" :: Nil
       }
       val partiesTemplatesClauses =
-        filterParams.partiesAndTemplates.iterator.map { case (parties, templateIds) =>
+        filterParams.partiesAndTemplates.iterator.flatMap { case (parties, templateIds) =>
           val clause =
             H2QueryStrategy.arrayIntersectionNonEmptyClause(
               witnessesColumnName,
               parties,
               stringInterningCache,
             )
-          val templateIdsArray = templateIds.view.map(_.toString).toArray
-          cSQL"( ($clause) AND (template_id = ANY($templateIdsArray)) )"
+          val templateIdsArray: Array[java.lang.Integer] =
+            templateIds.view.flatMap(stringInterningCache.templateId.getId).map(Int.box).toArray
+          if (templateIdsArray.isEmpty) None
+          else Some(cSQL"( ($clause) AND (template_id = ANY($templateIdsArray)) )")
         }.toList
       (wildCardClause ::: partiesTemplatesClauses).mkComposite("(", " OR ", ")")
     }
@@ -298,23 +306,23 @@ FETCH NEXT 1 ROW ONLY;
     SQL"""
   WITH archival_event AS (
          SELECT 1
-           FROM participant_events_consuming_exercise, parameters
+           FROM participant_events_consuming_exercise
           WHERE contract_id = $id
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND event_sequential_id <= $lastEventSequentialId
           FETCH NEXT 1 ROW ONLY
        ),
        create_event AS (
          SELECT ledger_effective_time
-           FROM participant_events_create, parameters
+           FROM participant_events_create
           WHERE contract_id = $id
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND event_sequential_id <= $lastEventSequentialId
           FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
        ),
        divulged_contract AS (
          SELECT NULL::BIGINT
-           FROM participant_events_divulgence, parameters
+           FROM participant_events_divulgence
           WHERE contract_id = $id
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND event_sequential_id <= $lastEventSequentialId
           ORDER BY event_sequential_id
             -- prudent engineering: make results more stable by preferring earlier divulgence events
             -- Results might still change due to pruning.
@@ -341,26 +349,26 @@ FETCH NEXT 1 ROW ONLY;
     import com.daml.platform.store.Conversions.ContractIdToStatement
     SQL"""  WITH archival_event AS (
                SELECT 1
-                 FROM participant_events_consuming_exercise, parameters
+                 FROM participant_events_consuming_exercise
                 WHERE contract_id = $contractId
-                  AND event_sequential_id <= parameters.ledger_end_sequential_id
+                  AND event_sequential_id <= $lastEventSequentialId
                   AND $treeEventWitnessesClause  -- only use visible archivals
                 FETCH NEXT 1 ROW ONLY
              ),
              create_event AS (
                SELECT contract_id, #${resultColumns.mkString(", ")}
-                 FROM participant_events_create, parameters
+                 FROM participant_events_create
                 WHERE contract_id = $contractId
-                  AND event_sequential_id <= parameters.ledger_end_sequential_id
+                  AND event_sequential_id <= $lastEventSequentialId
                   AND $treeEventWitnessesClause
                 FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
              ),
              -- no visibility check, as it is used to backfill missing template_id and create_arguments for divulged contracts
              create_event_unrestricted AS (
                SELECT contract_id, #${resultColumns.mkString(", ")}
-                 FROM participant_events_create, parameters
+                 FROM participant_events_create
                 WHERE contract_id = $contractId
-                  AND event_sequential_id <= parameters.ledger_end_sequential_id
+                  AND event_sequential_id <= $lastEventSequentialId
                 FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
              ),
              divulged_contract AS (
@@ -371,10 +379,9 @@ FETCH NEXT 1 ROW ONLY;
                       -- therefore only communicates the change in visibility to the IndexDB, but
                       -- does not include a full divulgence event.
                       #$coalescedColumns
-                 FROM participant_events_divulgence divulgence_events LEFT OUTER JOIN create_event_unrestricted ON (divulgence_events.contract_id = create_event_unrestricted.contract_id),
-                      parameters
+                 FROM participant_events_divulgence divulgence_events LEFT OUTER JOIN create_event_unrestricted ON (divulgence_events.contract_id = create_event_unrestricted.contract_id)
                 WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
-                  AND divulgence_events.event_sequential_id <= parameters.ledger_end_sequential_id
+                  AND divulgence_events.event_sequential_id <= $lastEventSequentialId
                   AND $treeEventWitnessesClause
                 ORDER BY divulgence_events.event_sequential_id
                   -- prudent engineering: make results more stable by preferring earlier divulgence events
