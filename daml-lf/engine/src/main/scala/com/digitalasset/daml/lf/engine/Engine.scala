@@ -18,6 +18,7 @@ import java.nio.file.Files
 import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackages}
 import com.daml.lf.validation.Validation
 import com.daml.nameof.NameOf
+import com.daml.scalautil.Statement.discard
 
 /** Allows for evaluating [[Commands]] and validating [[Transaction]]s.
   * <p>
@@ -329,15 +330,12 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       machine.run() match {
         case SResultFinalValue(_) => finished = true
 
-        case SResultError(SError.SErrorDamlException(error)) =>
-          return ResultError(Error.Interpretation.DamlException(error), detailMsg)
-
         case SResultError(err) =>
           err match {
-            case SError.SErrorCrash(where, reason) =>
-              Error.Interpretation.Internal(where, reason)
             case SError.SErrorDamlException(error) =>
-              Error.Interpretation.DamlException(error)
+              return ResultError(Error.Interpretation.DamlException(error), detailMsg)
+            case SError.SErrorCrash(where, reason) =>
+              return ResultError(Error.Interpretation.Internal(where, reason))
           }
         case SResultNeedPackage(pkgId, context, callback) =>
           return Result.needPackage(
@@ -367,7 +365,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
           return ResultNeedKey(
             gk,
             { result =>
-              cb(result)
+              discard[Boolean](cb(result))
               interpretLoop(machine, time)
             },
           )

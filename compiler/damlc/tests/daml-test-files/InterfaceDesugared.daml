@@ -5,25 +5,44 @@
 -- @WARN Modules compiled with the DatatypeContexts language extension
 {-# LANGUAGE DatatypeContexts #-}
 
+-- | The "desugared" counterpart to Interface.daml
+-- Please keep in sync with Interface.daml
 module InterfaceDesugared where
 
-data Split = Split { splitAmount : Decimal }
+import DA.Assert ((===))
+
+data Split = Split { splitAmount : Int }
 
 data Transfer = Transfer { newOwner : Party }
+
+data Noop = Noop { nothing : () }
+
+data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
 
 class
   ( HasExercise t Split (ContractId Token, ContractId Token)
   , HasExercise t Transfer (ContractId Token)
+  , HasExercise t Noop ()
   ) => IsToken t where
--- TODO https://github.com/digital-asset/daml/issues/11006
--- enable once we support pure functions
---  getAmount : t -> Decimal
   toToken : t -> Token
   fromToken : Token -> Optional t
   toTokenContractId : ContractId t -> ContractId Token
   fromTokenContractId : ContractId Token -> Update (Optional (ContractId t))
+  getOwner : t -> Party
+  getAmount : t -> Int
+  setAmount : t -> Int -> Token
 
-data GHC.Types.DamlInterface => Token = Token GHC.Types.Opaque
+instance HasCreate Token where
+  create x = GHC.Types.primitive @"$RESOLVE_VIRTUAL_CREATE" x x
+instance HasObserver Token where
+  observer x = GHC.Types.primitive @"$RESOLVE_VIRTUAL_OBSERVERS" x x
+-- TODO https://github.com/digital-asset/daml/issues/11198
+--   Instance disabled until issue is resolved.
+-- instance HasSignatory Token where
+--   signatory x = GHC.Types.primitive @"$RESOLVE_VIRTUAL_SIGNATORIES" x x
+
+instance HasFetch Token where
+  fetch = GHC.Types.primitive @"UFetchInterface"
 
 instance HasExercise Token Split (ContractId Token, ContractId Token) where
   exercise = GHC.Types.primitive @"UExerciseInterface"
@@ -31,83 +50,17 @@ instance HasExercise Token Split (ContractId Token, ContractId Token) where
 instance HasExercise Token Transfer (ContractId Token) where
   exercise = GHC.Types.primitive @"UExerciseInterface"
 
+instance HasExercise Token Noop () where
+  exercise = GHC.Types.primitive @"UExerciseInterface"
+
 instance IsToken Token where
--- TODO https://github.com/digital-asset/daml/issues/11006
--- enable once we support pure functions
---  getAmount = primitivInterface @"getAmount"
   toToken = GHC.Types.primitive @"EToInterface"
   fromToken = GHC.Types.primitive @"EFromInterface"
   toTokenContractId = GHC.Types.primitive @"EToInterfaceContractId"
   fromTokenContractId = GHC.Types.primitive @"UFromInterfaceContractId"
-
-data Asset = Asset { amount : Decimal, issuer : Party, owner : Party }
-  deriving (Eq, Show)
-
-instance IsToken Asset where
--- TODO https://github.com/digital-asset/daml/issues/11006
--- enable once we support pure functions
---  getAmount Asset{..} = amount
-  toToken = GHC.Types.primitive @"EToInterface"
-  fromToken = GHC.Types.primitive @"EFromInterface"
-  toTokenContractId = GHC.Types.primitive @"EToInterfaceContractId"
-  fromTokenContractId = GHC.Types.primitive @"UFromInterfaceContractId"
-
-_implements_AssetToken : DA.Internal.Desugar.Implements Asset Token
-_implements_AssetToken = DA.Internal.Desugar.Implements
-
-instance HasCreate Asset where
-  create = GHC.Types.primitive @"UCreate"
-
-instance HasSignatory Asset where
-  signatory = error "unimplemented"
-
-instance HasEnsure Asset where
-  ensure = error "unimplemented"
-
-instance HasAgreement Asset where
-  agreement = error "agreement"
-
-instance HasObserver Asset where
-  observer = error "unimplemented"
-
-instance HasExercise Asset Transfer (ContractId Token) where
-  exercise = GHC.Types.primitive @"UExercise"
-
-instance HasExercise Asset Archive () where
-  exercise = GHC.Types.primitive @"UExercise"
-
-instance HasExercise Asset Split (ContractId Token, ContractId Token) where
-  exercise = GHC.Types.primitive @"UExercise"
-
-instance HasArchive Asset where
-  archive cid = exercise cid Archive
-
-_choice_AssetTransfer :
-  ( Asset -> Transfer -> [DA.Internal.Desugar.Party]
-  , DA.Internal.Desugar.ContractId Asset -> Asset -> Transfer -> DA.Internal.Desugar.Update (ContractId Token)
-  , DA.Internal.Desugar.Consuming Asset
-  , DA.Internal.Desugar.Optional (Asset -> Transfer -> [DA.Internal.Desugar.Party])
-  )
-_choice_AssetTransfer =
-  (error "abc", error "abc", error "abc", DA.Internal.Desugar.None)
-
-_choice_AssetArchive :
-  ( Asset -> Archive -> [DA.Internal.Desugar.Party]
-  , DA.Internal.Desugar.ContractId Asset -> Asset -> Archive -> DA.Internal.Desugar.Update ()
-  , DA.Internal.Desugar.Consuming Asset
-  , DA.Internal.Desugar.Optional (Asset -> Archive -> [DA.Internal.Desugar.Party])
-  )
-_choice_AssetArchive =
-  (error "abc", error "abc", error "abc", DA.Internal.Desugar.None)
-
-_choice_AssetSplit :
-  ( Asset -> Split -> [DA.Internal.Desugar.Party]
-  , DA.Internal.Desugar.ContractId Asset -> Asset -> Split -> DA.Internal.Desugar.Update (ContractId Token, ContractId Token)
-  , DA.Internal.Desugar.Consuming Asset
-  , DA.Internal.Desugar.Optional (Asset -> Split -> [DA.Internal.Desugar.Party])
-  )
-_choice_AssetSplit =
-  (error "abc", error "abc", error "abc", DA.Internal.Desugar.None)
+  getOwner = GHC.Types.primitiveInterface @"getOwner"
+  getAmount = GHC.Types.primitiveInterface @"getAmount"
+  setAmount = GHC.Types.primitiveInterface @"setAmount"
 
 _interface_choice_TokenTransfer :
   (DA.Internal.Desugar.ContractId Token
@@ -125,3 +78,169 @@ _interface_choice_TokenSplit :
    DA.Internal.Desugar.Consuming Token)
 _interface_choice_TokenSplit
   = (error "", DA.Internal.Desugar.Consuming)
+
+_interface_choice_TokenNoop :
+  (DA.Internal.Desugar.ContractId Token -> Token -> Noop
+    -> DA.Internal.Desugar.Update (),
+   DA.Internal.Desugar.NonConsuming Token)
+_interface_choice_TokenNoop
+  = (error "", DA.Internal.Desugar.NonConsuming)
+
+data GetRich = GetRich { byHowMuch : Int }
+_choice_TokenGetRich :
+  ( Token -> GetRich -> [DA.Internal.Desugar.Party]
+  , DA.Internal.Desugar.ContractId Token -> Token -> GetRich -> DA.Internal.Desugar.Update (ContractId Token)
+  , DA.Internal.Desugar.Consuming Token
+  , DA.Internal.Desugar.Optional (Token -> GetRich -> [DA.Internal.Desugar.Party])
+  )
+_choice_TokenGetRich =
+  ( \this _ -> [getOwner this]
+  , \self this GetRich{byHowMuch} -> do
+      assert (byHowMuch > 0)
+      create $ setAmount this (getAmount this + byHowMuch)
+  , DA.Internal.Desugar.Consuming
+  , DA.Internal.Desugar.None
+  )
+instance IsToken t => HasExercise t GetRich (ContractId Token) where
+  exercise cid = GHC.Types.primitive @"UExerciseInterface" (toTokenContractId cid)
+
+data Asset = Asset { amount : Int, issuer : Party, owner : Party }
+  deriving (Eq, Show)
+
+instance IsToken Asset where
+  toToken = GHC.Types.primitive @"EToInterface"
+  fromToken = GHC.Types.primitive @"EFromInterface"
+  toTokenContractId = GHC.Types.primitive @"EToInterfaceContractId"
+  fromTokenContractId = GHC.Types.primitive @"UFromInterfaceContractId"
+  getOwner Asset{..} = owner
+  getAmount Asset{..} = amount
+  setAmount this x = toToken (this with amount = x)
+
+_implements_AssetToken : DA.Internal.Desugar.Implements Asset Token
+_implements_AssetToken = DA.Internal.Desugar.Implements
+
+instance HasCreate Asset where
+  create = GHC.Types.primitive @"UCreate"
+
+instance HasSignatory Asset where
+  signatory Asset{..} = [issuer, owner]
+
+instance HasEnsure Asset where
+  ensure _ = True
+
+instance HasAgreement Asset where
+  agreement _ = ""
+
+instance HasObserver Asset where
+  observer _ = []
+
+instance HasFetch Asset where
+  fetch = GHC.Types.primitive @"UFetch"
+
+instance HasExercise Asset Transfer (ContractId Token) where
+  exercise = GHC.Types.primitive @"UExercise"
+
+instance HasExercise Asset Archive () where
+  exercise = GHC.Types.primitive @"UExercise"
+
+instance HasExercise Asset Split (ContractId Token, ContractId Token) where
+  exercise = GHC.Types.primitive @"UExercise"
+
+instance HasExercise Asset Noop () where
+  exercise = GHC.Types.primitive @"UExercise"
+
+instance HasArchive Asset where
+  archive cid = exercise cid Archive
+
+_choice_AssetTransfer :
+  ( Asset -> Transfer -> [DA.Internal.Desugar.Party]
+  , DA.Internal.Desugar.ContractId Asset -> Asset -> Transfer -> DA.Internal.Desugar.Update (ContractId Token)
+  , DA.Internal.Desugar.Consuming Asset
+  , DA.Internal.Desugar.Optional (Asset -> Transfer -> [DA.Internal.Desugar.Party])
+  )
+_choice_AssetTransfer =
+  ( \Asset{..} Transfer{..} -> [owner, newOwner]
+  , \_ this Transfer{..} -> do
+      cid <- create this with owner = newOwner
+      pure (toTokenContractId cid)
+  , DA.Internal.Desugar.Consuming
+  , DA.Internal.Desugar.None
+  )
+
+_choice_AssetArchive :
+  ( Asset -> Archive -> [DA.Internal.Desugar.Party]
+  , DA.Internal.Desugar.ContractId Asset -> Asset -> Archive -> DA.Internal.Desugar.Update ()
+  , DA.Internal.Desugar.Consuming Asset
+  , DA.Internal.Desugar.Optional (Asset -> Archive -> [DA.Internal.Desugar.Party])
+  )
+_choice_AssetArchive =
+  ( \a _ -> signatory a
+  , \_ _ _ -> pure ()
+  , DA.Internal.Desugar.Consuming
+  , DA.Internal.Desugar.None
+  )
+
+_choice_AssetSplit :
+  ( Asset -> Split -> [DA.Internal.Desugar.Party]
+  , DA.Internal.Desugar.ContractId Asset -> Asset -> Split -> DA.Internal.Desugar.Update (ContractId Token, ContractId Token)
+  , DA.Internal.Desugar.Consuming Asset
+  , DA.Internal.Desugar.Optional (Asset -> Split -> [DA.Internal.Desugar.Party])
+  )
+_choice_AssetSplit =
+  ( \a _ -> [a.owner]
+  , \_ this@Asset{..} Split{..} -> do
+      assert (splitAmount < amount)
+      cid1 <- create this with amount = splitAmount
+      cid2 <- create this with amount = amount - splitAmount
+      pure (toTokenContractId cid1, toTokenContractId cid2)
+  , DA.Internal.Desugar.Consuming
+  , DA.Internal.Desugar.None
+  )
+
+_choice_AssetNoop :
+  ( Asset -> Noop -> [DA.Internal.Desugar.Party]
+  , DA.Internal.Desugar.ContractId Asset -> Asset -> Noop -> DA.Internal.Desugar.Update ()
+  , DA.Internal.Desugar.NonConsuming Asset
+  , DA.Internal.Desugar.Optional (Asset -> Noop -> [DA.Internal.Desugar.Party])
+  )
+_choice_AssetNoop =
+  ( \a _ -> [a.owner]
+  , \_ _ _ -> pure ()
+  , DA.Internal.Desugar.NonConsuming
+  , DA.Internal.Desugar.None
+  )
+
+main = scenario do
+  p <- getParty "Alice"
+  p `submit` do
+    cidAsset1 <- create Asset with
+      issuer = p
+      owner = p
+      amount = 15
+    let cidToken1 = toTokenContractId cidAsset1
+    _ <- exercise cidToken1 (Noop ())
+    (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)
+    token2 <- fetch cidToken2
+    getAmount token2 === 10
+    case fromToken token2 of
+      None -> abort "expected Asset"
+      Some Asset {amount} ->
+        amount === 10
+    token3 <- fetch cidToken3
+    getAmount token3 === 5
+    case fromToken token3 of
+      None -> abort "expected Asset"
+      Some Asset {amount} ->
+        amount === 5
+
+    -- TODO https://github.com/digital-asset/daml/issues/11137
+    --   uncomment once speedy supports fixed choices
+    -- cidToken4 <- exercise cidToken3 (GetRich 20)
+    -- token4 <- fetch cidToken4
+    -- getAmount token4 === 25
+    -- case fromToken token4 of
+    --   None -> abort "expected Asset"
+    --   Some Asset {amount} ->
+    --     amount === 25
+
+    pure ()

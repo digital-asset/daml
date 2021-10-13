@@ -130,26 +130,29 @@ object InterfaceReader {
         val fullName = QualifiedName(module.name, name)
         val tyVars: ImmArraySeq[Ast.TypeVarName] = params.map(_._1).toSeq
 
-        val result: InterfaceReaderError \/ (QualifiedName, iface.InterfaceType) = dataType match {
-          case dfn: Ast.DataRecord =>
-            module.templates.get(name) match {
-              case Some(tmpl) => template(fullName, dfn, tmpl)
-              case None => record(fullName, tyVars, dfn)
-            }
-          case dfn: Ast.DataVariant =>
-            variant(fullName, tyVars, dfn)
-          case dfn: Ast.DataEnum =>
-            enum(fullName, tyVars, dfn)
-          case Ast.DataInterface =>
-            // TODO https://github.com/digital-asset/daml/issues/10810
-            sys.error("Interface not supported")
-        }
+        val result: InterfaceReaderError \/ Option[(QualifiedName, iface.InterfaceType)] =
+          dataType match {
+            case dfn: Ast.DataRecord =>
+              module.templates.get(name) match {
+                case Some(tmpl) => template(fullName, dfn, tmpl)
+                case None => record(fullName, tyVars, dfn)
+              }
+            case dfn: Ast.DataVariant =>
+              variant(fullName, tyVars, dfn)
+            case dfn: Ast.DataEnum =>
+              enum(fullName, tyVars, dfn)
+            case Ast.DataInterface =>
+              \/-(
+                None
+              ) // TODO (https://github.com/digital-asset/daml/issues/10810) Add support for interfaces.
+          }
 
         locate(Symbol("name"), rootErrOf[ErrorLoc](result)) match {
           case -\/(e) =>
             state.addError(e)
-          case \/-(d) =>
+          case \/-(Some(d)) =>
             state.addTypeDecl(d)
+          case \/-(None) => state
         }
       case (state, _) =>
         state
@@ -162,7 +165,7 @@ object InterfaceReader {
   ) =
     for {
       fields <- fieldsOrCons(name, record.fields)
-    } yield name -> (iface.InterfaceType.Normal(DefDataType(tyVars, Record(fields))): T)
+    } yield Some(name -> (iface.InterfaceType.Normal(DefDataType(tyVars, Record(fields))): T))
 
   private[reader] def template[T >: iface.InterfaceType.Template](
       name: QualifiedName,
@@ -175,10 +178,12 @@ object InterfaceReader {
         visitChoice(name, choice) map (x => choiceName -> x)
       }
       key <- dfn.key traverse (k => toIfaceType(name, k.typ))
-    } yield name -> (iface.InterfaceType.Template(
-      Record(fields),
-      DefTemplate(choices.toMap, key),
-    ): T)
+    } yield Some(
+      name -> (iface.InterfaceType.Template(
+        Record(fields),
+        DefTemplate(choices.toMap, key),
+      ): T)
+    )
 
   private def visitChoice(
       ctx: QualifiedName,
@@ -200,18 +205,20 @@ object InterfaceReader {
   ) = {
     for {
       cons <- fieldsOrCons(name, variant.variants)
-    } yield name -> (iface.InterfaceType.Normal(DefDataType(tyVars, Variant(cons))): T)
+    } yield Some(name -> (iface.InterfaceType.Normal(DefDataType(tyVars, Variant(cons))): T))
   }
 
   private[reader] def enum[T >: iface.InterfaceType.Normal](
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
       enum: Ast.DataEnum,
-  ): InterfaceReaderError \/ (QualifiedName, T) =
+  ): InterfaceReaderError \/ Some[(QualifiedName, T)] =
     if (tyVars.isEmpty)
       \/-(
-        name -> iface.InterfaceType.Normal(
-          DefDataType(ImmArraySeq.empty, Enum(enum.constructors.toSeq))
+        Some(
+          name -> iface.InterfaceType.Normal(
+            DefDataType(ImmArraySeq.empty, Enum(enum.constructors.toSeq))
+          )
         )
       )
     else

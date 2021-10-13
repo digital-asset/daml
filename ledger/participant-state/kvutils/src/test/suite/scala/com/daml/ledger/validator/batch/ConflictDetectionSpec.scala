@@ -4,9 +4,11 @@
 package com.daml.ledger.validator.batch
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionRejectionEntry
+import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.DamlPackageUploadEntry
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlContractKey,
+  DamlLogEntry,
   DamlPartyAllocation,
   DamlStateKey,
   DamlStateValue,

@@ -338,8 +338,11 @@ private[lf] final class Compiler(
     module.interfaces.foreach { case (ifaceName, iface) =>
       val identifier = Identifier(pkgId, QualifiedName(module.name, ifaceName))
       addDef(compileFetchInterface(identifier))
+      iface.fixedChoices.values.foreach(
+        builder += compileFixedChoice(identifier, iface.param, _)
+      )
       iface.virtualChoices.values.foreach(
-        builder += compileChoiceInterface(identifier, _)
+        builder += compileVirtualChoice(identifier, _)
       )
     }
 
@@ -991,24 +994,22 @@ private[lf] final class Compiler(
       cidPos: Position,
       mbKey: Option[Position], // defined for byKey operation
       tokenPos: Position,
-  ) = {
+  ) = withEnv { _ =>
     let(
       SBUFetch(
         tmplId
       )(svar(cidPos), mbKey.fold(SEValue.None: SExpr)(pos => SBSome(svar(pos))))
     ) { tmplArgPos =>
       addExprVar(tmpl.param, tmplArgPos)
+      addExprVar(choice.argBinder._1, choiceArgPos)
       let(
         SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
           svar(choiceArgPos),
-          svar(cidPos), {
-            addExprVar(choice.argBinder._1, choiceArgPos)
-            compile(choice.controllers)
-          }, {
-            choice.choiceObservers match {
-              case Some(observers) => compile(observers)
-              case None => SEValue.EmptyList
-            }
+          svar(cidPos),
+          compile(choice.controllers),
+          choice.choiceObservers match {
+            case Some(observers) => compile(observers)
+            case None => SEValue.EmptyList
           },
         )
       ) { _ =>
@@ -1018,22 +1019,70 @@ private[lf] final class Compiler(
     }
   }
 
-  private[this] def compileChoiceInterface(
+  // TODO https://github.com/digital-asset/daml/issues/10810:
+  //   Try to factorise this with compileChoiceBody above.
+  private[this] def compileFixedChoiceBody(
+      ifaceId: TypeConName,
+      param: ExprVarName,
+      choice: TemplateChoice,
+  )(
+      choiceArgPos: Position,
+      cidPos: Position,
+      tokenPos: Position,
+  ) = withEnv { _ =>
+    let(SBUFetchInterface(ifaceId)(svar(cidPos))) { payloadPos =>
+      addExprVar(param, payloadPos)
+      addExprVar(choice.argBinder._1, choiceArgPos)
+      let(
+        // TODO https://github.com/digital-asset/daml/issues/10810:
+        //   Here we insert an Exercise Node with the interface Id instead of the template Id. \
+        //   Review if that can cause issues.
+        SBUBeginExercise(ifaceId, choice.name, choice.consuming, byKey = false)(
+          svar(choiceArgPos),
+          svar(cidPos),
+          compile(choice.controllers),
+          choice.choiceObservers match {
+            case Some(observers) => compile(observers)
+            case None => SEValue.EmptyList
+          },
+        )
+      ) { _ =>
+        addExprVar(choice.selfBinder, cidPos)
+        SEScopeExercise(ifaceId, app(compile(choice.update), svar(tokenPos)))
+      }
+    }
+  }
+
+  // TODO https://github.com/digital-asset/daml/issues/10810:
+  //  Here we fetch twice, once by interface Id once by template Id. Try to bypass the second fetch.
+  private[this] def compileVirtualChoice(
       ifaceId: TypeConName,
       choice: InterfaceChoice,
   ): (SDefinitionRef, SDefinition) =
-    topLevelFunction(ChoiceDefRef(ifaceId, choice.name), 3) { case List(cidPos, choiceArgPos, _) =>
-      withEnv { _ =>
-        let(
-          SBUPreFetchInterface(ifaceId)(svar(cidPos))
-        ) { tmplArgPos =>
-          SBUChoiceInterface(ifaceId, choice.name)(
+    topLevelFunction(ChoiceDefRef(ifaceId, choice.name), 3) {
+      case List(cidPos, choiceArgPos, tokenPos) =>
+        let(SBUFetchInterface(ifaceId)(svar(cidPos))) { payloadPos =>
+          SBResolveVirtualChoice(choice.name)(
+            svar(payloadPos),
             svar(cidPos),
             svar(choiceArgPos),
-            svar(tmplArgPos),
+            svar(tokenPos),
           )
         }
-      }
+    }
+
+  private[this] def compileFixedChoice(
+      ifaceId: TypeConName,
+      param: ExprVarName,
+      choice: TemplateChoice,
+  ): (SDefinitionRef, SDefinition) =
+    topLevelFunction(ChoiceDefRef(ifaceId, choice.name), 3) {
+      case List(cidPos, choiceArgPos, tokenPos) =>
+        compileFixedChoiceBody(ifaceId, param, choice)(
+          choiceArgPos,
+          cidPos,
+          tokenPos,
+        )
     }
 
   private[this] def compileChoice(
@@ -1427,19 +1476,14 @@ private[lf] final class Compiler(
       compileFetchBody(tmplId, tmpl)(cidPos, None, tokenPos)
     }
 
+  // TODO https://github.com/digital-asset/daml/issues/10810:
+  //  Here we fetch twice, once by interface Id once by template Id. Try to bypass the second fetch.
   private[this] def compileFetchInterface(
       ifaceId: Identifier
   ): (SDefinitionRef, SDefinition) =
-    topLevelFunction(FetchDefRef(ifaceId), 2) { case List(cidPos, _) =>
-      withEnv { _ =>
-        let(
-          SBUPreFetchInterface(ifaceId)(svar(cidPos))
-        ) { tmplArgPos =>
-          SBUFetchInterface(ifaceId)(
-            svar(cidPos),
-            svar(tmplArgPos),
-          )
-        }
+    topLevelFunction(FetchDefRef(ifaceId), 2) { case List(cidPos, tokenPos) =>
+      let(SBUFetchInterface(ifaceId)(svar(cidPos))) { payloadPos =>
+        SBResolveVirtualFetch(svar(payloadPos), svar(cidPos), svar(tokenPos))
       }
     }
 

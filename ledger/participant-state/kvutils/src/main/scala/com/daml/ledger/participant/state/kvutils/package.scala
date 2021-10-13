@@ -32,6 +32,6 @@ package object kvutils {
 
   type CorrelationId = String
 
-  val MetricPrefix: MetricName = MetricName.DAML :+ "kvutils"
+  val MetricPrefix: MetricName = MetricName.Daml :+ "kvutils"
 
 }

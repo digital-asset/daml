@@ -4,6 +4,7 @@
 package com.daml.platform.apiserver.services
 
 import com.daml.api.util.TimeProvider
+import com.daml.error.ErrorCause
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}
@@ -28,7 +29,6 @@ import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.ErrorCause
 import com.daml.telemetry.TelemetryContext
 import com.daml.timer.Delayed
 import io.grpc.StatusRuntimeException

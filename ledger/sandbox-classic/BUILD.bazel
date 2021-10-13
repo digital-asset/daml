@@ -322,109 +322,131 @@ SERVERS = {
     },
 }
 
-# TODO append-only: only for temporary testing
-ONLY_POSTGRES_SERVER = {
-    "postgresql": {
-        "binary": ":sandbox-classic-ephemeral-postgresql",
-        "server_args": [
-            "--port=6865",
-            "--eager-package-loading",
-        ],
-    },
+# =============================================================================
+# Conformance tests: supported ledger backend
+# =============================================================================
+
+APPEND_ONLY_SCHEMA_SERVERS = {
+    "postgresql": SERVERS["postgresql"],
+    "h2database": SERVERS["h2database"],
 }
 
+# Server arguments that enable the append-only schema
+APPEND_ONLY_ARGS = [
+    "--enable-append-only-schema",
+]
+
+# Full conformance test (Postgres)
 server_conformance_test(
-    name = "conformance-test-static-time",
+    name = "conformance-test",
     lf_versions = [
         "default",
         "preview",
     ],
     server_args = [
-        "--static-time",
         "--contract-id-seeding=testing-weak",
-    ],
-    servers = SERVERS,
+    ] + APPEND_ONLY_ARGS,
+    servers = {"postgresql": SERVERS["postgresql"]},
     test_tool_args = [
-        "--open-world",
-        "--exclude=ClosedWorldIT",
-    ],
-)
-
-# TODO append-only: only for temporary testing
-server_conformance_test(
-    name = "conformance-test-static-time-append-only",
-    lf_versions = [
-        "default",
-    ],
-    server_args = [
-        "--static-time",
-        "--contract-id-seeding=testing-weak",
-        "--enable-append-only-schema",
-    ],
-    servers = ONLY_POSTGRES_SERVER,
-    test_tool_args = [
+        "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
+        "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
         "--additional=AppendOnlyCommandDeduplicationParallelIT",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
-        "--exclude=ClosedWorldIT",
-    ],
-)
-
-server_conformance_test(
-    name = "conformance-test-wall-clock",
-    server_args = [
-        "--wall-clock-time",
-        "--contract-id-seeding=testing-weak",
-    ],
-    servers = SERVERS,
-    test_tool_args = [
-        "--open-world",
-        "--exclude=ClosedWorldIT",
-    ],
-)
-
-# TODO append-only: only for temporary testing
-server_conformance_test(
-    name = "conformance-test-wall-clock-append-only",
-    server_args = [
-        "--wall-clock-time",
-        "--contract-id-seeding=testing-weak",
-        "--enable-append-only-schema",
-    ],
-    servers = ONLY_POSTGRES_SERVER,
-    test_tool_args = [
-        "--open-world",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=ContractIdIT:Accept",
         "--additional=ParticipantPruningIT",
-        "--exclude=ClosedWorldIT",
         # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
         "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
+        "--exclude=ClosedWorldIT",
     ],
 )
 
+# Full conformance test (H2)
+# Only run a minimal set of tests on H2. The full test suite is very slow on H2, and prone to fail due to timeouts.
+server_conformance_test(
+    name = "conformance-test-h2",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+    ] + APPEND_ONLY_ARGS,
+    servers = {"h2database": SERVERS["h2database"]},
+    test_tool_args = [
+        "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
+        "--timeout-scale-factor=2",  # sandbox classic is slow in general
+        "--open-world",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--exclude=ClosedWorldIT",
+    ],
+)
+
+# Feature test: --static-time
+server_conformance_test(
+    name = "conformance-test-static-time",
+    server_args = [
+        "--static-time",
+        "--contract-id-seeding=testing-weak",
+    ] + APPEND_ONLY_ARGS,
+    servers = APPEND_ONLY_SCHEMA_SERVERS,
+    test_tool_args = [
+        "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
+        "--timeout-scale-factor=2",  # sandbox classic is slow in general
+        "--open-world",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--exclude=ClosedWorldIT",
+    ],
+)
+
+# Feature test: --contract-id-seeding=no (legacy contract ids)
 server_conformance_test(
     name = "conformance-test-legacy-cid",
     lf_versions = ["legacy"],
     server_args = [
-        "--wall-clock-time",
         "--contract-id-seeding=no",
+    ] + APPEND_ONLY_ARGS,
+    servers = APPEND_ONLY_SCHEMA_SERVERS,
+    test_tool_args = [
+        "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
+        "--timeout-scale-factor=2",  # sandbox classic is slow in general
+        "--open-world",
+        "--exclude=ClosedWorldIT",
     ],
-    servers = SERVERS,
+)
+
+# =============================================================================
+# Conformance tests: deprecated ledger backends (in-memory ledger)
+# =============================================================================
+
+DEPRECATED_SERVERS = {
+    "memory": SERVERS["memory"],
+}
+
+# Full conformance test (in-memory ledger)
+server_conformance_test(
+    name = "conformance-test-deprecated",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+    ],
+    servers = DEPRECATED_SERVERS,
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
     ],
 )
 
+# Feature test: --static-time (in-memory ledger)
 server_conformance_test(
-    name = "conformance-test-contract-ids",
-    server_args = ["--contract-id-seeding=testing-weak"],
-    servers = {"memory": SERVERS["memory"]},
+    name = "conformance-test-deprecated-static-time",
+    server_args = [
+        "--static-time",
+        "--contract-id-seeding=testing-weak",
+    ],
+    servers = DEPRECATED_SERVERS,
     test_tool_args = [
-        "--verbose",
-        "--include=ContractIdIT:Accept",
+        "--open-world",
+        "--exclude=ClosedWorldIT",
     ],
 )

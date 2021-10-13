@@ -1,22 +1,19 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.apiserver.error
+package com.daml.error.definitions
 
 import cats.data.EitherT
-
 import com.daml.error._
+import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.PackageServiceErrorGroup
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.Error
 import com.daml.lf.{VersionRange, language, validation}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.apiserver.error.ErrorGroups.ParticipantErrorGroup.PackageServiceErrorGroup
-import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.{ExecutionContext, Future}
 
-sealed trait PackageServiceError extends BaseError
+trait PackageServiceError extends BaseError
 object PackageServiceError extends PackageServiceErrorGroup {
 
   object Reading extends ErrorGroup {
@@ -31,12 +28,9 @@ object PackageServiceError extends PackageServiceErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       final case class Error(reason: String)(implicit
-          val logger: ContextualizedLogger,
-          val loggingContext: LoggingContext,
-          val correlationId: CorrelationId,
+          val loggingContext: ErrorCodeLoggingContext
       ) extends BaseError.Impl(
-            cause = "Dar file name is invalid",
-            correlationId = correlationId.id,
+            cause = "Dar file name is invalid"
           )
           with PackageServiceError
 
@@ -47,12 +41,9 @@ object PackageServiceError extends PackageServiceErrorGroup {
     object InvalidDar
         extends ErrorCode(id = "INVALID_DAR", ErrorCategory.InvalidIndependentOfSystemState) {
       final case class Error(entries: Seq[String], throwable: Throwable)(implicit
-          val logger: ContextualizedLogger,
-          val loggingContext: LoggingContext,
-          val correlationId: CorrelationId,
+          val loggingContext: ErrorCodeLoggingContext
       ) extends BaseError.Impl(
             cause = "Dar file is corrupt",
-            correlationId = correlationId.id,
             throwableO = Some(throwable),
           )
           with PackageServiceError
@@ -62,12 +53,9 @@ object PackageServiceError extends PackageServiceErrorGroup {
     object InvalidZipEntry
         extends ErrorCode(id = "INVALID_ZIP_ENTRY", ErrorCategory.InvalidIndependentOfSystemState) {
       final case class Error(name: String, entries: Seq[String])(implicit
-          val logger: ContextualizedLogger,
-          val loggingContext: LoggingContext,
-          val correlationId: CorrelationId,
+          val loggingContext: ErrorCodeLoggingContext
       ) extends BaseError.Impl(
-            cause = "Dar zip file is corrupt",
-            correlationId = correlationId.id,
+            cause = "Dar zip file is corrupt"
           )
           with PackageServiceError
     }
@@ -82,12 +70,9 @@ object PackageServiceError extends PackageServiceErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       final case class Error(entries: Seq[String])(implicit
-          val logger: ContextualizedLogger,
-          val loggingContext: LoggingContext,
-          val correlationId: CorrelationId,
+          val loggingContext: ErrorCodeLoggingContext
       ) extends BaseError.Impl(
-            cause = "Unsupported legacy Dar zip file",
-            correlationId = correlationId.id,
+            cause = "Unsupported legacy Dar zip file"
           )
           with PackageServiceError
     }
@@ -97,12 +82,9 @@ object PackageServiceError extends PackageServiceErrorGroup {
     object ZipBomb
         extends ErrorCode(id = "ZIP_BOMB", ErrorCategory.InvalidIndependentOfSystemState) {
       final case class Error(msg: String)(implicit
-          val logger: ContextualizedLogger,
-          val loggingContext: LoggingContext,
-          val correlationId: CorrelationId,
+          val loggingContext: ErrorCodeLoggingContext
       ) extends BaseError.Impl(
-            cause = "Dar zip file seems to be a zip bomb.",
-            correlationId = correlationId.id,
+            cause = "Dar zip file seems to be a zip bomb."
           )
           with PackageServiceError
     }
@@ -114,12 +96,9 @@ object PackageServiceError extends PackageServiceErrorGroup {
     object ParseError
         extends ErrorCode(id = "DAR_PARSE_ERROR", ErrorCategory.InvalidIndependentOfSystemState) {
       final case class Error(reason: String)(implicit
-          val logger: ContextualizedLogger,
-          val loggingContext: LoggingContext,
-          val correlationId: CorrelationId,
+          val loggingContext: ErrorCodeLoggingContext
       ) extends BaseError.Impl(
-            cause = "Failed to parse the dar file content.",
-            correlationId = correlationId.id,
+            cause = "Failed to parse the dar file content."
           )
           with PackageServiceError
     }
@@ -134,63 +113,37 @@ object PackageServiceError extends PackageServiceErrorGroup {
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
     final case class Validation(nameOfFunc: String, msg: String, detailMsg: String = "")(implicit
-        val logger: ContextualizedLogger,
-        val loggingContext: LoggingContext,
-        val correlationId: CorrelationId,
+        val loggingContext: ErrorCodeLoggingContext
     ) extends BaseError.Impl(
-          cause = "Internal package validation error.",
-          correlationId = correlationId.id,
+          cause = "Internal package validation error."
         )
         with PackageServiceError
     final case class Error(missing: Set[PackageId])(implicit
-        val logger: ContextualizedLogger,
-        val loggingContext: LoggingContext,
-        val correlationId: CorrelationId,
+        val loggingContext: ErrorCodeLoggingContext
     ) extends BaseError.Impl(
-          cause = "Failed to resolve package ids locally.",
-          correlationId = correlationId.id,
+          cause = "Failed to resolve package ids locally."
         )
         with PackageServiceError
     final case class Generic(reason: String)(implicit
-        val logger: ContextualizedLogger,
-        val loggingContext: LoggingContext,
-        val correlationId: CorrelationId,
+        val loggingContext: ErrorCodeLoggingContext
     ) extends BaseError.Impl(
-          cause = "Generic error (please check the reason string).",
-          correlationId = correlationId.id,
+          cause = "Generic error (please check the reason string)."
         )
         with PackageServiceError
     final case class Unhandled(throwable: Throwable)(implicit
-        val logger: ContextualizedLogger,
-        val loggingContext: LoggingContext,
-        val correlationId: CorrelationId,
+        val loggingContext: ErrorCodeLoggingContext
     ) extends BaseError.Impl(
           cause = "Failed with an unknown error cause",
-          correlationId = correlationId.id,
           throwableO = Some(throwable),
         )
         with PackageServiceError
-    @VisibleForTesting
-    final case class Test(reason: String)(implicit
-        val logger: ContextualizedLogger,
-        val loggingContext: LoggingContext,
-        val correlationId: CorrelationId,
-    ) extends BaseError.Impl(
-          cause = "A testing error.",
-          correlationId = correlationId.id,
-        )
-        with PackageServiceError {
-      override def logOnCreation: Boolean = false
-    }
   }
 
   object Validation {
 
     def fromDamlLfEnginePackageError(err: Either[Error.Package.Error, Unit])(implicit
-        logger: ContextualizedLogger,
-        loggingContext: LoggingContext,
-        correlationId: CorrelationId,
         executionContext: ExecutionContext,
+        loggingContext: ErrorCodeLoggingContext,
     ): EitherT[Future, PackageServiceError, Unit] =
       EitherT.fromEither[Future](err.left.map {
         case Error.Package.Internal(nameOfFunc, msg) =>
@@ -214,12 +167,9 @@ object PackageServiceError extends PackageServiceErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       final case class Error(validationError: validation.ValidationError)(implicit
-          val logger: ContextualizedLogger,
-          val loggingContext: LoggingContext,
-          val correlationId: CorrelationId,
+          val loggingContext: ErrorCodeLoggingContext
       ) extends BaseError.Impl(
-            cause = "Package validation failed.",
-            correlationId = correlationId.id,
+            cause = "Package validation failed."
           )
           with PackageServiceError
     }
@@ -229,13 +179,10 @@ object PackageServiceError extends PackageServiceErrorGroup {
         languageVersion: language.LanguageVersion,
         allowedLanguageVersions: VersionRange[language.LanguageVersion],
     )(implicit
-        val logger: ContextualizedLogger,
-        val loggingContext: LoggingContext,
-        val correlationId: CorrelationId,
+        val loggingContext: ErrorCodeLoggingContext
     ) extends BaseError.Impl(
           cause = LedgerApiErrors.Package.AllowedLanguageVersions
-            .buildCause(packageId, languageVersion, allowedLanguageVersions),
-          correlationId = correlationId.id,
+            .buildCause(packageId, languageVersion, allowedLanguageVersions)
         )(LedgerApiErrors.Package.AllowedLanguageVersions) // reuse error code of ledger api server
         with PackageServiceError
 
@@ -252,13 +199,10 @@ object PackageServiceError extends PackageServiceErrorGroup {
           packageIds: Set[Ref.PackageId],
           missingDependencies: Set[Ref.PackageId],
       )(implicit
-          val logger: ContextualizedLogger,
-          val loggingContext: LoggingContext,
-          val correlationId: CorrelationId,
+          val loggingContext: ErrorCodeLoggingContext
       ) extends BaseError.Impl(
             cause =
-              "The set of packages in the dar is not self-consistent and is missing dependencies",
-            correlationId = correlationId.id,
+              "The set of packages in the dar is not self-consistent and is missing dependencies"
           )
           with PackageServiceError
     }

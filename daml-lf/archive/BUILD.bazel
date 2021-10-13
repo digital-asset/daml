@@ -11,6 +11,7 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
     "lf_scalacopts",
+    "lf_scalacopts_stricter",
     "silencer_plugin",
 )
 load("//daml-lf/language:daml-lf.bzl", "LF_MAJOR_VERSIONS", "PROTO_LF_VERSIONS", "lf_version_package", "mangle_for_java")
@@ -108,7 +109,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-archive-reader:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
@@ -116,6 +117,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "//libs-scala/nameof",
+        "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

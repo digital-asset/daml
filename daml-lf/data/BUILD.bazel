@@ -6,6 +6,7 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
+    "lf_scalacopts_stricter",
     "silencer_plugin",
 )
 load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
@@ -24,7 +25,7 @@ da_scala_library(
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = lf_scalacopts + [
+    scalacopts = lf_scalacopts_stricter + [
         "-P:silencer:lineContentFilters=import ImmArraySeq.Implicits._",
     ],
     tags = ["maven_coordinates=com.daml:daml-lf-data:__VERSION__"],
@@ -33,6 +34,7 @@ da_scala_library(
     ],
     deps = [
         "//libs-scala/logging-entries",
+        "//libs-scala/scala-utils",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_slf4j_slf4j_api",

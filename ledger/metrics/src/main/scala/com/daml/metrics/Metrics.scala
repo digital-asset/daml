@@ -20,7 +20,7 @@ final class Metrics(val registry: MetricRegistry) {
   }
 
   object daml {
-    private val Prefix: MetricName = MetricName.DAML
+    private val Prefix: MetricName = MetricName.Daml
 
     object commands {
       private val Prefix: MetricName = daml.Prefix :+ "commands"

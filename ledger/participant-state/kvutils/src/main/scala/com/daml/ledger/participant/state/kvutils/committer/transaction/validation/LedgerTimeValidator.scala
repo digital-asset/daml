@@ -7,7 +7,6 @@ import java.time.Instant
 
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.Conversions.{commandDedupKey, parseTimestamp}
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry
 import com.daml.ledger.participant.state.kvutils.committer.Committer.getCurrentConfiguration
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
@@ -16,6 +15,7 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   Step,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
+import com.daml.ledger.participant.state.kvutils.store.DamlLogEntry
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 

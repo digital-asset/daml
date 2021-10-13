@@ -106,8 +106,7 @@ private[engine] final class Preprocessor(
                     case Ast.DataEnum(_) =>
                       typesToProcess0
                     case Ast.DataInterface =>
-                      // TODO https://github.com/digital-asset/daml/issues/10810
-                      sys.error("Interface not supported")
+                      typesToProcess0
                   }
                   go(
                     typesToProcess,

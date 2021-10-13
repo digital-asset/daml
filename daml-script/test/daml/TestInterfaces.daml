@@ -1,0 +1,77 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module TestInterfaces where
+
+import Daml.Script
+import DA.Assert
+
+interface Token where
+  getAmount : Int
+
+  choice Split : (ContractId Token, ContractId Token)
+    with
+      splitAmount : Int
+
+  choice Transfer : ContractId Token
+    with
+      newOwner : Party
+
+  nonconsuming choice Noop : ()
+    with
+      nothing : ()
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory issuer, owner
+    implements Token where
+      let getAmount = amount
+
+      choice Split : (ContractId Token, ContractId Token)
+        with
+          splitAmount : Int
+        controller owner
+        do
+          assert (splitAmount < amount)
+          cid1 <- create this with amount = splitAmount
+          cid2 <- create this with amount = amount - splitAmount
+          pure (toTokenContractId cid1, toTokenContractId cid2)
+
+      choice Transfer : ContractId Token
+        with
+          newOwner : Party
+        controller owner, newOwner
+        do
+          cid <- create this with owner = newOwner
+          pure (toTokenContractId cid)
+
+      nonconsuming choice Noop : ()
+        with
+          nothing : ()
+        controller owner
+        do
+          pure ()
+
+test : Script ()
+test = script do
+  p <- allocateParty "Alice"
+  cidAsset1 <- p `submit`  createCmd Asset with
+      issuer = p
+      owner = p
+      amount = 15
+  let cidToken1 = toTokenContractId cidAsset1
+
+  _ <- p `submit` exerciseCmd cidToken1 (Noop ())
+
+  (cidToken2, cidToken3) <- p `submit` do
+    exerciseCmd cidToken1 (Split 10)
+
+  Some asset2 <- queryContractId p (coerceContractId cidToken2 : ContractId Asset)
+  Some asset3 <- queryContractId p (coerceContractId cidToken3 : ContractId Asset)
+  asset2 === Asset with {issuer = p, owner = p, amount = 10}
+  asset3 === Asset with {issuer = p, owner = p, amount = 5}
+  pure ()

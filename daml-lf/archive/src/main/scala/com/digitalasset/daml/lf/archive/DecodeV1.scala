@@ -13,6 +13,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.language.{LanguageVersion => LV}
 import com.daml.nameof.NameOf
+import com.daml.scalautil.Statement.discard
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.compat._
@@ -167,7 +168,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     private val deps = mutable.Set.empty[PackageId]
     def markDependency(pkgId: PackageId): Unit =
       if (pkgId != self)
-        deps += pkgId
+        discard(deps += pkgId)
     def getDependencies: Set[PackageId] = deps.toSet
   }
 

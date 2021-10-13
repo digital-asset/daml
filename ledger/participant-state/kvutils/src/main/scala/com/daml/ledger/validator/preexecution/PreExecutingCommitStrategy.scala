@@ -3,8 +3,8 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
+import com.daml.ledger.participant.state.kvutils.store.DamlLogEntryId
 import com.daml.lf.data.Ref
 
 import scala.concurrent.{ExecutionContext, Future}

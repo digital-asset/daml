@@ -32,8 +32,7 @@ sealed trait ErrorCategory {
   def asInt: Int
 
   /** Rank used to order severity (internal only) */
-  private[error] def rank: Int
-
+  def rank: Int
 }
 
 object ErrorCategory {

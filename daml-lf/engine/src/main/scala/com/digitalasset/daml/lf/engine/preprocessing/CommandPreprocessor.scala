@@ -8,6 +8,7 @@ package preprocessing
 import com.daml.lf.data._
 import com.daml.lf.language.Ast
 import com.daml.lf.value.Value
+import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
 
@@ -129,7 +130,7 @@ private[lf] final class CommandPreprocessor(
       case command.FetchCommand(templateId, coid) =>
         // TODO https://github.com/digital-asset/daml/issues/10810
         //  -- handle the case where templateId is an interface
-        handleLookup(interface.lookupTemplate(templateId))
+        discard[Ast.TemplateSignature](handleLookup(interface.lookupTemplate(templateId)))
         val cid = valueTranslator.unsafeTranslateCid(coid)
         speedy.Command.Fetch(templateId, cid)
       case command.FetchByKeyCommand(templateId, key) =>

@@ -3,9 +3,10 @@
 
 package com.daml.platform.apiserver.execution
 
+import com.daml.error.ErrorCause
+
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
-
 import com.daml.ledger.api.domain.{Commands => ApiCommands}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
@@ -26,7 +27,6 @@ import com.daml.lf.transaction.Node
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.packages.DeduplicatingPackageLoader
-import com.daml.platform.store.ErrorCause
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}

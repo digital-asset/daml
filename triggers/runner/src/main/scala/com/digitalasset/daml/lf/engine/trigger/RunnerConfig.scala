@@ -10,6 +10,7 @@ import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.lf.speedy.Compiler
 
 case class RunnerConfig(
     darPath: Path,
@@ -26,6 +27,7 @@ case class RunnerConfig(
     accessTokenFile: Option[Path],
     applicationId: ApplicationId,
     tlsConfig: TlsConfiguration,
+    compilerConfig: Compiler.Config,
 )
 
 object RunnerConfig {
@@ -33,6 +35,7 @@ object RunnerConfig {
   private[trigger] val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
   private[trigger] val DefaultApplicationId: ApplicationId =
     ApplicationId("daml-trigger")
+  private[trigger] val DefaultCompilerConfig: Compiler.Config = Compiler.Config.Default
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
   private val parser = new scopt.OptionParser[RunnerConfig]("trigger-runner") {
@@ -98,6 +101,14 @@ object RunnerConfig {
       }
       .text(s"Application ID used to submit commands. Defaults to ${DefaultApplicationId}")
 
+    opt[Unit]("dev-mode-unsafe")
+      .action((_, c) => c.copy(compilerConfig = Compiler.Config.Dev))
+      .optional()
+      .text(
+        "Turns on development mode. Development mode allows development versions of Daml-LF language."
+      )
+      .hidden()
+
     TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
       c.copy(tlsConfig = f(c.tlsConfig))
     )
@@ -158,6 +169,7 @@ object RunnerConfig {
         accessTokenFile = None,
         tlsConfig = TlsConfiguration(false, None, None, None),
         applicationId = DefaultApplicationId,
+        compilerConfig = DefaultCompilerConfig,
       ),
     )
 }

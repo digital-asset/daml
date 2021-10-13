@@ -136,17 +136,18 @@ object TestMain extends StrictLogging {
                 new Runner(compiledPackages, script, config.timeMode)
               val testRun: Future[Unit] = runner.runWithClients(clients)._2.map(_ => ())
               // Print test result and remember failure.
-              testRun.onComplete {
-                case Failure(exception) =>
-                  success.set(false)
-                  println(s"${id.qualifiedName} FAILURE ($exception)")
-                case Success(_) =>
-                  println(s"${id.qualifiedName} SUCCESS")
-              }
-              // Do not abort in case of failure, but complete all test runs.
-              testRun.recover { case _ =>
-                ()
-              }
+              testRun
+                .andThen {
+                  case Failure(exception) =>
+                    success.set(false)
+                    println(s"${id.qualifiedName} FAILURE ($exception)")
+                  case Success(_) =>
+                    println(s"${id.qualifiedName} SUCCESS")
+                }
+                .recover { case _ =>
+                  // Do not abort in case of failure, but complete all test runs.
+                  ()
+                }
           }
         } yield success.get()
 

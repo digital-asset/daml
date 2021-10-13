@@ -3,7 +3,7 @@ name: Bug report
 about: Create a report to help Daml improve
 title: "[BUG] "
 labels: ''
-assignees: stefanobaghino-da, cocreature, gerolf-da, adriaanm-da
+assignees: stefanobaghino-da
 
 ---
 
