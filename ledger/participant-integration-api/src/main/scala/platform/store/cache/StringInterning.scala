@@ -23,7 +23,7 @@ trait StringInterningAccessor[T] {
 
 case class RawStringInterningCache(
     map: Map[String, Int],
-    idMap: Map[Int, String], // TODO fixme this is not necessary for the Indexer side (extension over this for the read side? guava bimap? Vector?)
+    idMap: Map[Int, String], // TODO interning fixme this is not necessary for the Indexer side (extension over this for the read side? guava bimap? Vector?)
     lastId: Int,
 )
 

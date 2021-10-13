@@ -256,7 +256,7 @@ private[backend] object AppendOnlySchema {
         "is_local" -> fieldStrategy.booleanOptional(_ => _.is_local),
         "party_id" -> fieldStrategy.intOptional(stringInterning =>
           _.party.map(stringInterning.party.unsafe.internalize)
-        ), // TODO maybe just keep this and drop the string party entirely?
+        ), // TODO interning maybe just keep this and drop the string party entirely?
       )
 
     val commandCompletions: Table[DbDto.CommandCompletion] =

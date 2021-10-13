@@ -154,7 +154,7 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       loggingContext: LoggingContext
   ): Future[Unit] =
     Timed.future(
-      metrics.daml.index.db.prune, // TODO fix metrics
+      metrics.daml.index.db.prune, // TODO interning fix metrics
       ledgerDao.updateStringInterningCache(lastStringInterningId),
     )
 

@@ -809,13 +809,13 @@ private class JdbcLedgerDao(
 
   override def updateStringInterningCache(lastStringInterningId: Int)(implicit
       loggingContext: LoggingContext
-  ): Future[Unit] = synchronized { // TODO because we first dereference, then update
+  ): Future[Unit] = synchronized { // TODO interning because we first dereference, then update
     import scala.util.chaining._
     if (lastStringInterningId == stringInterningCache.raw.lastId)
       Future.unit
     else
       dbDispatcher.executeSql(metrics.daml.index.db.storeTransactionDbMetrics)(
-        conn => // TODO FIXME db metrics
+        conn => // TODO interning FIXME db metrics
           storageBackend
             .loadStringInterningEntries(stringInterningCache.raw.lastId, lastStringInterningId)(
               conn
@@ -988,7 +988,7 @@ private[platform] object JdbcLedgerDao {
         metrics,
       )
       stringInterningCache = new StringInterningCache(RawStringInterningCache.from(Nil))
-      ledgerEndCache = new AtomicReference(Offset.beforeBegin -> 0L) // TODO fix constants
+      ledgerEndCache = new AtomicReference(Offset.beforeBegin -> 0L) // TODO interning fix constants
     } yield new JdbcLedgerDao(
       dbDispatcher,
       servicesExecutionContext,

@@ -32,7 +32,7 @@ case class QueryNonPrunedImpl(storageBackend: ParameterStorageBackend) extends Q
     * the objects and only afterwards checking that no pruning operation has interfered, avoids
     * such a race condition.
     */
-  // TODO as part of ledger end notion on API: can we remove here the database query and corresponding joins in queries??? Idea: how about we first set the pruned_upto field, and simply wait some time (for views to be refreshed), and then do the actual pruning?
+  // TODO interning as part of ledger end notion on API: can we remove here the database query and corresponding joins in queries??? Idea: how about we first set the pruned_upto field, and simply wait some time (for views to be refreshed), and then do the actual pruning?
   def executeSql[T](query: => T, minOffsetExclusive: Offset, error: Offset => String)(implicit
       conn: Connection
   ): T = {

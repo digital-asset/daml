@@ -190,7 +190,7 @@ object ParallelIndexerSubscription {
       offsets = Vector.empty,
     )
 
-  // TODO with some complexity it would be possible to push the rendering aside of the sequential step. not sure it is needed.
+  // TODO interning with some complexity it would be possible to push the rendering aside of the sequential step. not sure it is needed.
   def seqMapper(
       metrics: Metrics,
       dbDtoToStringsForTemplateInterning: DbDto => Iterator[String],

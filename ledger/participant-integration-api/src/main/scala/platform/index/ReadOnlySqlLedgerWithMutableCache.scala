@@ -284,7 +284,7 @@ private final class ReadOnlySqlLedgerWithMutableCache(
     ) {
 
   implicit private val ec: ExecutionContextExecutor =
-    mat.executionContext // TODO verify this is ok for the for comprehension below
+    mat.executionContext // TODO interning verify this is ok for the for comprehension below
 
   protected val (ledgerEndUpdateKillSwitch, ledgerEndUpdateDone) =
     RestartSource

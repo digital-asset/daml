@@ -75,7 +75,7 @@ trait IngestionStorageBackend[DB_BATCH] {
     *
     * @param dbDtos is a collection of DbDto from which the batch is formed
     * @return the database-specific batch DTO, which can be inserted via insertBatch
-    *         // TODO FIX scaladoc
+    *         // TODO interning FIX scaladoc
     */
   def batch(dbDtos: Vector[DbDto], stringInterning: StringInterning): DB_BATCH
 
@@ -128,7 +128,7 @@ trait ParameterStorageBackend {
         Offset.beforeBegin,
         EventSequentialId.beforeBegin,
         0,
-      ) // TODO constantify
+      ) // TODO interning constantify
     )
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations

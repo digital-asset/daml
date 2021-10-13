@@ -138,7 +138,7 @@ trait PartyStorageBackendTemplate extends PartyStorageBackend {
           party_entries.ledger_offset = relevant_offsets.ledger_offset
        """.asVectorOf(partyDetailsParser)(
       connection
-    ) // TODO here the parameters join could be also removed, but not strictly needed for interning (in fact we have all the parties in cache, so would be worth revisiting potential improvements here)
+    )
   }
 
   override def parties(parties: Seq[Ref.Party], ledgerEndOffset: Offset)(

@@ -192,7 +192,7 @@ private[backend] object PostgresStorageBackend
       if (internedParties.length == 1)
         cSQL"array[${internedParties.head}]::integer[]"
       else
-        cSQL"array(select unnest(#$witnessesColumnName) intersect select unnest($internedParties::integer[]))" // TODO why are we doing this in SQL??
+        cSQL"array(select unnest(#$witnessesColumnName) intersect select unnest($internedParties::integer[]))" // TODO interning why are we doing this in SQL??
     }
 
     override def submittersArePartiesClause(
@@ -239,7 +239,7 @@ private[backend] object PostgresStorageBackend
             val templateIdsArray: Array[java.lang.Integer] =
               templateIds.view
                 .map(Int.box)
-                .toArray // TODO anorm does not like primitive arrays it seem, so we need to box it
+                .toArray // TODO interning anorm does not like primitive arrays it seem, so we need to box it
             cSQL"( (#$witnessesColumnName::integer[] && $partiesArray::integer[]) AND (template_id = ANY($templateIdsArray::integer[])) )"
           }
           .toList

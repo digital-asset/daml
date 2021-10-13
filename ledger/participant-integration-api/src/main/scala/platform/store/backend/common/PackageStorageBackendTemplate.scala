@@ -23,7 +23,7 @@ private[backend] trait PackageStorageBackendTemplate extends PackageStorageBacke
       """select packages.package_id, packages.source_description, packages.known_since, packages.package_size
         |from packages
         |where packages.ledger_offset <= {ledgerEndOffset}
-        |""".stripMargin // TODO here the parameters join could be also removed, but not strictly needed for interning
+        |""".stripMargin
     )
 
   private case class ParsedPackageData(
@@ -61,7 +61,7 @@ private[backend] trait PackageStorageBackendTemplate extends PackageStorageBacke
           |where package_id = {package_id}
           |and packages.ledger_offset <= {ledgerEndOffset}
           |""".stripMargin
-    ) // TODO here the parameters join could be also removed, but not strictly needed for interning
+    )
 
   def lfArchive(packageId: PackageId, ledgerEndOffset: Offset)(
       connection: Connection

@@ -34,7 +34,7 @@ object ComposableQuery {
         .SQL(valueParts: _*)
     }
 
-    // TODO remove this...only for debugging
+    // TODO interning remove this...only for debugging
     def debugSQL(args: QueryPart*): SimpleSql[Row] = {
       val (stringParts, valueParts) = flattenComposite(sc.parts, args)
 

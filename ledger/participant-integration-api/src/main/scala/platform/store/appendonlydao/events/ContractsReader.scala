@@ -25,7 +25,7 @@ private[appendonlydao] sealed class ContractsReader(
     storageBackend: ContractStorageBackend,
     dispatcher: DbDispatcher,
     metrics: Metrics,
-    ledgerEnd: AtomicReference[(Offset, Long)], // TODO make it just an accessor function
+    ledgerEnd: AtomicReference[(Offset, Long)], // TODO interning make it just an accessor function
     stringInterning: StringInterning,
 )(implicit ec: ExecutionContext)
     extends LedgerDaoContractsReader {

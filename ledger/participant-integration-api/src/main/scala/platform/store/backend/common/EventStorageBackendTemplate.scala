@@ -498,7 +498,6 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
         }
       }
 
-      // TODO FIXME support pruning here. Ideas: implement with joining on the cache? add interning of parties as well, and add the interning id to pary_entries?
       pruneWithLogging(queryDescription = "Immediate divulgence events pruning") {
         SQL"""
             -- Immediate divulgence pruning
@@ -701,7 +700,7 @@ trait EventStrategy {
     * @param witnessesColumnName name of the Array column holding witnesses
     * @param filterParams the filtering criteria
     * @return the composable SQL
-    *         TODO FIXME
+    *         TODO interning FIXME
     */
   def witnessesWhereClause(
       witnessesColumnName: String,

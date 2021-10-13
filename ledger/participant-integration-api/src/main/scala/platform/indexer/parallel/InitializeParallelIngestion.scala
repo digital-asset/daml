@@ -62,12 +62,12 @@ private[platform] case class InitializeParallelIngestion(
       )
       allStringInterningEntries <- dbDispatcher.executeSql(
         metrics.daml.parallelIndexer.initialization
-      )( // TODO FIXME metrics
+      )( // TODO interning FIXME metrics
         storageBackend.loadStringInterningEntries(
-          fromIdExclusive = 0, // TODO FIXME pull out and constantify zero element
+          fromIdExclusive = 0, // TODO interning FIXME pull out and constantify zero element
           untilIdInclusive = ledgerEnd
             .map(_.lastStringInterningId)
-            .getOrElse(0), // TODO FIXME pull out and constantify zero element
+            .getOrElse(0), // TODO interning FIXME pull out and constantify zero element
         )
       )
     } yield InitializeParallelIngestion.Initialized(

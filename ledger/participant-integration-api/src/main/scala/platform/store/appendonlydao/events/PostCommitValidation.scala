@@ -58,7 +58,7 @@ private[appendonlydao] object PostCommitValidation {
   final class BackedBy(
       dao: PartyStorageBackend with ContractStorageBackend,
       validatePartyAllocation: Boolean,
-      ledgerEnd: AtomicReference[(Offset, Long)], // TODO make it just an accessor function
+      ledgerEnd: AtomicReference[(Offset, Long)], // TODO interning make it just an accessor function
   ) extends PostCommitValidation {
 
     def validate(

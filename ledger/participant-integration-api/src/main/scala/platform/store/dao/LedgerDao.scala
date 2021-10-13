@@ -233,12 +233,12 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       loggingContext: LoggingContext
   ): Future[Unit]
 
-  // TODO very clumsy, but with the combinatorial situation on append-only/sandbox-classic/mutable-cache not sure there is a better solution for now
+  // TODO interning very clumsy, but with the combinatorial situation on append-only/sandbox-classic/mutable-cache not sure there is a better solution for now
   def updateStringInterningCache(lastStringInterningId: Int)(implicit
       loggingContext: LoggingContext
   ): Future[Unit]
 
-  // TODO very clumsy, but with the combinatorial situation on append-only/sandbox-classic/mutable-cache not sure there is a better solution for now
+  // TODO interning very clumsy, but with the combinatorial situation on append-only/sandbox-classic/mutable-cache not sure there is a better solution for now
   def updateLedgerEnd(offset: Offset, eventSeqId: Long): Unit
 }
 

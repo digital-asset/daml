@@ -16,7 +16,7 @@ object DbDto {
       event_offset: Option[String],
       command_id: Option[String],
       workflow_id: Option[String],
-      application_id: Option[String], // TODO maybe intern?
+      application_id: Option[String], // TODO interning maybe intern?
       submitters: Option[Set[String]],
       contract_id: String,
       template_id: Option[String],

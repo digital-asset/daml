@@ -55,7 +55,7 @@ private[appendonlydao] final class TransactionsReader(
     eventProcessingParallelism: Int,
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
-    ledgerEnd: AtomicReference[(Offset, Long)], // TODO make it just an accessor function
+    ledgerEnd: AtomicReference[(Offset, Long)], // TODO interning make it just an accessor function
     stringInterning: StringInterning,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
