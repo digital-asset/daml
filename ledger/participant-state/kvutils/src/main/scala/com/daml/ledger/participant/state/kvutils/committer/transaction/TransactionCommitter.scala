@@ -10,7 +10,6 @@ import java.time.Instant
 
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.validation.{
@@ -18,7 +17,10 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.validatio
   ModelConformanceValidator,
   TransactionConsistencyValidator,
 }
-import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionRejectionEntry
+import com.daml.ledger.participant.state.kvutils.store.events.{
+  DamlTransactionRejectionEntry,
+  Duplicate,
+}
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlCommandDedupValue,
   DamlContractKeyState,

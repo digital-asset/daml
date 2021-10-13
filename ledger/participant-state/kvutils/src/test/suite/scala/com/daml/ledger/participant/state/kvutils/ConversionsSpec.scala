@@ -8,7 +8,6 @@ import java.time.{Duration, Instant}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
 import com.daml.ledger.participant.state.kvutils.store.DamlStateKey
 import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionBlindingInfo.{
@@ -19,6 +18,13 @@ import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlSubmitterInfo,
   DamlTransactionBlindingInfo,
   DamlTransactionRejectionEntry,
+  Disputed,
+  Duplicate,
+  Inconsistent,
+  InvalidLedgerTime,
+  PartyNotKnownOnLedger,
+  ResourcesExhausted,
+  SubmitterCannotActViaParticipant,
 }
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.lf.crypto

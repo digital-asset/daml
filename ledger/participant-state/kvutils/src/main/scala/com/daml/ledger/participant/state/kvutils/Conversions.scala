@@ -9,7 +9,6 @@ import java.time.{Duration, Instant}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
   ExternallyInconsistentTransaction,
@@ -21,9 +20,21 @@ import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionBli
   DivulgenceEntry,
 }
 import com.daml.ledger.participant.state.kvutils.store.events.{
+  CausalMonotonicityViolated,
   DamlSubmitterInfo,
   DamlTransactionBlindingInfo,
   DamlTransactionRejectionEntry,
+  DuplicateKeys,
+  InconsistentContracts,
+  InconsistentKeys,
+  InvalidLedgerTime,
+  InvalidParticipantState,
+  MissingInputState,
+  PartiesNotKnownOnLedger,
+  RecordTimeOutOfRange,
+  SubmitterCannotActViaParticipant,
+  SubmittingPartyNotKnownOnLedger,
+  ValidationFailure,
 }
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlCommandDedupKey,
