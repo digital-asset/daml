@@ -4,7 +4,8 @@
 package com.daml.platform.apiserver.services
 
 import com.daml.api.util.TimeProvider
-import com.daml.error.ErrorCause
+import com.daml.error.definitions.{ErrorCauseExport, LedgerApiErrors, RejectionGenerators}
+import com.daml.error.{DamlErrorCodeLoggingContext, ErrorCause}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}
@@ -21,8 +22,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
-import com.daml.platform.apiserver.error.RejectionGenerators.ErrorCauseExport
-import com.daml.platform.apiserver.error.{CorrelationId, LedgerApiErrors, RejectionGenerators}
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
 import com.daml.platform.apiserver.{ErrorCodesVersionSwitcher, SeedService}
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
@@ -187,8 +186,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
 
   private def handleCommandExecutionResult(
       result: Either[ErrorCause, CommandExecutionResult]
-  ): Future[CommandExecutionResult] = {
-
+  ): Future[CommandExecutionResult] =
     result.fold(
       error => {
         metrics.daml.commands.failedCommandInterpretations.mark()
@@ -196,8 +194,6 @@ private[apiserver] final class ApiSubmissionService private[services] (
       },
       Future.successful,
     )
-
-  }
 
   private def evaluateAndSubmit(
       submissionSeed: crypto.Hash,
@@ -320,11 +316,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
     errorCodesVersionSwitcher.chooseAsFailedFuture(
       v1 = ErrorFactories.missingLedgerConfig(definiteAnswer = Some(false)),
       v2 = LedgerApiErrors.InterpreterErrors.LookupErrors.LedgerConfigurationNotFound
-        .Reject()(
-          correlationId = CorrelationId.none,
-          loggingContext = loggingContext,
-          logger = logger,
-        )
+        .Reject()(new DamlErrorCodeLoggingContext(logger, loggingContext, None))
         .asGrpcError,
     )
   }
@@ -337,9 +329,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
         exception
       },
       v2 = rejectionGenerators.duplicateCommand(
-        logger = logger,
-        loggingContext = loggingContext,
-        correlationId = CorrelationId.none,
+        new DamlErrorCodeLoggingContext(logger, loggingContext, None)
       ),
     )
   }
@@ -351,9 +341,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
       v1 = toStatusExceptionV1(error),
       v2 = rejectionGenerators
         .commandExecutorError(cause = ErrorCauseExport.fromErrorCause(error))(
-          logger = logger,
-          loggingContext = loggingContext,
-          correlationId = CorrelationId.none,
+          new DamlErrorCodeLoggingContext(logger, loggingContext, None)
         ),
     )
   }

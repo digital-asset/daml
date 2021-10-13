@@ -392,9 +392,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ) {
 
         case class Reject()(implicit
-            loggingContext: LoggingContext,
-            logger: ContextualizedLogger,
-            correlationId: CorrelationId,
+            loggingContext: ErrorCodeLoggingContext
         ) extends LoggingTransactionErrorImpl(
               cause = "The ledger configuration is not available."
             )
