@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "private": true,
   "resolutions": {
-    "**/elliptic": "^6.5.3"
+    "**/elliptic": "^6.5.3",
+    "**/chalk": "^2.4.1"
   },
   "devDependencies": {
     "bower": "^1.8.8",
