@@ -28,28 +28,29 @@ class AuthorizerSpec extends AsyncFlatSpec with Matchers {
 
   it should "authorize if claims are valid" in {
     contextWithClaims {
-      authorizer(false).authorize(dummyReqRes)(allAuthorized)(dummyRequest)
+      authorizer(selfServiceErrorCodes = false)
+        .authorize(dummyReqRes)(allAuthorized)(dummyRequest)
     }.map(_ shouldBe expectedSuccessfulResponse)
   }
 
   behavior of s"$className.authorize (V1 error codes)"
 
   it should "return unauthenticated if missing claims" in {
-    testUnauthenticated(false)
+    testUnauthenticated(selfServiceErrorCodes = false)
   }
 
   it should "return permission denied on authorization error" in {
-    testPermissionDenied(false)
+    testPermissionDenied(selfServiceErrorCodes = false)
   }
 
   behavior of s"$className.authorize (V2 error codes)"
 
   it should "return unauthenticated if missing claims" in {
-    testUnauthenticated(true)
+    testUnauthenticated(selfServiceErrorCodes = true)
   }
 
   it should "return permission denied on authorization error" in {
-    testPermissionDenied(true)
+    testPermissionDenied(selfServiceErrorCodes = true)
   }
 
   private def testPermissionDenied(selfServiceErrorCodes: Boolean) =
