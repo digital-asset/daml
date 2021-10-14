@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.error.ValueSwitch
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.updates.TransactionRejections._
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.DamlPackageUploadRejectionEntry
 import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlConfigurationRejectionEntry,
@@ -21,6 +20,7 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlOutOfTimeBoundsEntry,
   DamlStateKey,
 }
+import com.daml.ledger.participant.state.kvutils.updates.TransactionRejections._
 import com.daml.ledger.participant.state.v2.{DivulgedContract, TransactionMeta, Update}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
@@ -367,7 +367,9 @@ object KeyValueConsumption {
           case _ =>
             "Record time outside of valid range"
         }
-        Some(invalidRecordTimeRejectionUpdate(recordTime, rejectionEntry, reason, errorVersionSwitch))
+        Some(
+          invalidRecordTimeRejectionUpdate(recordTime, rejectionEntry, reason, errorVersionSwitch)
+        )
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY if invalidRecordTime =>
         val configurationRejectionEntry = wrappedLogEntry.getConfigurationRejectionEntry

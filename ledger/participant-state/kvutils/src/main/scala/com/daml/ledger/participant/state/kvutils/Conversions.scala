@@ -11,7 +11,6 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
   ExternallyInconsistentTransaction,
   InternallyInconsistentTransaction,
 }
-import com.daml.ledger.participant.state.kvutils.updates.TransactionRejections._
 import com.daml.ledger.participant.state.kvutils.store.events.DamlSubmitterInfo.DeduplicationPeriodCase
 import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionBlindingInfo.{
   DisclosureEntry,
@@ -40,6 +39,7 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlStateKey,
   DamlSubmissionDedupKey,
 }
+import com.daml.ledger.participant.state.kvutils.updates.TransactionRejections._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2.{CompletionInfo, SubmitterInfo}
 import com.daml.lf.data.Relation.Relation
