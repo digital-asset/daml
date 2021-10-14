@@ -275,12 +275,12 @@ object ValueGenerators {
     } yield ContractInst(template, arg, agreement)
   }
 
-  val versionedContractInstanceGen: Gen[ContractInst[Value.VersionedValue]] =
+  val versionedContractInstanceGen: Gen[Value.VersionedContractInstance] =
     for {
       template <- idGen
       arg <- versionedValueGen
       agreement <- Arbitrary.arbitrary[String]
-    } yield ContractInst(template, arg, agreement)
+    } yield Value.VersionedContractInstance(arg.version, template, arg.value, agreement)
 
   val keyWithMaintainersGen: Gen[KeyWithMaintainers[Value]] = {
     for {

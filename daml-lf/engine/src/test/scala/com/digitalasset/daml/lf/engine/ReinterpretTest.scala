@@ -20,7 +20,7 @@ import com.daml.lf.transaction.{
 import com.daml.lf.transaction.Node.{NodeRollback, NodeExercises, NodeCreate}
 import com.daml.lf.value.Value._
 import com.daml.lf.command._
-import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedValue
+import com.daml.lf.transaction.test.TransactionBuilder.{assertAsVersionedContract}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
 import org.scalatest.wordspec.AnyWordSpec
@@ -50,18 +50,18 @@ class ReinterpretTest
     "daml-lf/tests/ReinterpretTests.dar"
   )
 
-  private val defaultContracts: Map[ContractId, ContractInst[VersionedValue]] =
+  private val defaultContracts: Map[ContractId, VersionedContractInstance] =
     Map(
       toContractId("ReinterpretTests:MySimple:1") ->
-        ContractInst(
-          TypeConName(miniTestsPkgId, "ReinterpretTests:MySimple"),
-          assertAsVersionedValue(
+        assertAsVersionedContract(
+          ContractInst(
+            TypeConName(miniTestsPkgId, "ReinterpretTests:MySimple"),
             ValueRecord(
               Some(Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")),
               ImmArray((Some[Name]("p"), ValueParty(party))),
-            )
-          ),
-          "",
+            ),
+            "",
+          )
         )
     )
 

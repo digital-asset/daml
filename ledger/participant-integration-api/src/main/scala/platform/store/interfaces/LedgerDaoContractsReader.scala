@@ -85,7 +85,7 @@ object LedgerDaoContractsReader {
   import com.daml.lf.value.{Value => lfval}
   private type ContractId = lfval.ContractId
   private type Value = lfval.VersionedValue
-  private type Contract = lfval.ContractInst[Value]
+  private type Contract = lfval.VersionedContractInstance
 
   sealed trait ContractState extends Product with Serializable {
     def stakeholders: Set[Party]

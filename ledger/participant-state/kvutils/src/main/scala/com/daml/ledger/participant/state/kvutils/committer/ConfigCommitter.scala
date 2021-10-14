@@ -9,11 +9,15 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{
   configDedupKey,
   configurationStateKey,
 }
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlConfigurationEntry,
   DamlConfigurationRejectionEntry,
+  Duplicate,
+  GenerationMismatch,
+  Invalid,
+  ParticipantNotAuthorized,
+  TimedOut,
 }
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlLogEntry,

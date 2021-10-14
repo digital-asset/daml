@@ -22,7 +22,7 @@ import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText, VersionedValue}
+import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText, VersionedContractInstance}
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetStep}
@@ -914,7 +914,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 object JdbcLedgerDaoSuite {
 
   private type DivulgedContracts =
-    Map[(ContractId, ContractInst[VersionedValue]), Set[Party]]
+    Map[(ContractId, VersionedContractInstance), Set[Party]]
 
   implicit final class `TraverseFM Ops`[T[_], A](private val self: T[A]) extends AnyVal {
 

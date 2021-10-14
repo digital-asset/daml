@@ -17,8 +17,8 @@ package object events {
   private[events] type ContractId = lfval.ContractId
   private[events] val ContractId = com.daml.lf.value.Value.ContractId
   private[events] type Value = lfval.VersionedValue
-  private[events] type Contract = lfval.ContractInst[Value]
-  private[events] val Contract = lfval.ContractInst
+  private[events] type Contract = lfval.VersionedContractInstance
+  private[events] val Contract = lfval.VersionedContractInstance
 
   import com.daml.lf.{transaction => lftx}
   private[events] type NodeId = lftx.NodeId

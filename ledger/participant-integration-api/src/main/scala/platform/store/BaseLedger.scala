@@ -28,8 +28,7 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.LoggingContext
 import com.daml.platform.PruneBuffers
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
@@ -116,7 +115,7 @@ private[platform] abstract class BaseLedger(
       forParties: Set[Ref.Party],
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Option[ContractInst[Value.VersionedValue]]] =
+  ): Future[Option[VersionedContractInstance]] =
     contractStore.lookupActiveContract(forParties, contractId)
 
   override def lookupFlatTransactionById(

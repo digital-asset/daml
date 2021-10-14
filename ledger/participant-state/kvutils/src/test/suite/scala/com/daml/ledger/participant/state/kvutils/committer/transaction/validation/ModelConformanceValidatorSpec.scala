@@ -7,7 +7,6 @@ import java.time.{Instant, ZoneOffset, ZonedDateTime}
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, lfTuple}
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
@@ -15,6 +14,7 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.{
 }
 import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepStop}
 import com.daml.ledger.participant.state.kvutils.store.events.{
+  CausalMonotonicityViolated,
   DamlSubmitterInfo,
   DamlTransactionEntry,
   DamlTransactionRejectionEntry,
@@ -108,7 +108,7 @@ class ModelConformanceValidatorSpec
       when(
         mockValidationResult.consume(
           any[Value.ContractId => Option[
-            Value.ContractInst[Value.VersionedValue]
+            Value.VersionedContractInstance
           ]],
           any[Ref.PackageId => Option[Ast.Package]],
           any[GlobalKeyWithMaintainers => Option[Value.ContractId]],
@@ -213,7 +213,7 @@ class ModelConformanceValidatorSpec
       when(
         mockValidationResult.consume(
           any[Value.ContractId => Option[
-            Value.ContractInst[Value.VersionedValue]
+            Value.VersionedContractInstance
           ]],
           any[Ref.PackageId => Option[Ast.Package]],
           any[GlobalKeyWithMaintainers => Option[Value.ContractId]],
@@ -446,11 +446,13 @@ object ModelConformanceValidatorSpec {
       .build()
   }
 
-  private val aContractInst = Value.ContractInst(
-    aTemplateId,
-    Value.VersionedValue(txVersion, ValueText("dummyValue")),
-    "",
-  )
+  private val aContractInst =
+    Value.VersionedContractInstance(
+      txVersion,
+      aTemplateId,
+      ValueText("dummyValue"),
+      "",
+    )
 
   private val anArchive: DamlLf.Archive = {
     val pkg = Ast.GenPackage[Expr](

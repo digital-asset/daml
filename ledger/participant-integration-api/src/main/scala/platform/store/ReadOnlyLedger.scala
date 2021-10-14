@@ -24,8 +24,7 @@ import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, P
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
@@ -65,11 +64,11 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
   )(implicit loggingContext: LoggingContext): (Source[GetActiveContractsResponse, NotUsed], Offset)
 
   def lookupContract(
-      contractId: Value.ContractId,
+      contractId: ContractId,
       forParties: Set[Ref.Party],
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Option[ContractInst[Value.VersionedValue]]]
+  ): Future[Option[VersionedContractInstance]]
 
   def lookupMaximumLedgerTime(
       contractIds: Set[ContractId]

@@ -7,12 +7,15 @@ import java.util.concurrent.Executors
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.Conversions.packageUploadDedupKey
-import com.daml.ledger.participant.state.kvutils.DamlKvutils
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer.buildLogEntryWithOptionalRecordTime
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.{
   DamlPackageUploadEntry,
   DamlPackageUploadRejectionEntry,
+}
+import com.daml.ledger.participant.state.kvutils.store.events.{
+  Duplicate,
+  Invalid,
+  ParticipantNotAuthorized,
 }
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlLogEntry,
@@ -188,7 +191,7 @@ final private[kvutils] class PackageCommitter(
           ctx.recordTime,
           uploadEntry.getSubmissionId,
           uploadEntry.getParticipantId,
-          _.setInvalidPackage(DamlKvutils.Invalid.newBuilder.setDetails(message)),
+          _.setInvalidPackage(Invalid.newBuilder.setDetails(message)),
         )
       } else {
         StepContinue(partialResult)
@@ -253,7 +256,7 @@ final private[kvutils] class PackageCommitter(
             ctx.recordTime,
             uploadEntry.getSubmissionId,
             uploadEntry.getParticipantId,
-            _.setInvalidPackage(DamlKvutils.Invalid.newBuilder.setDetails(message)),
+            _.setInvalidPackage(Invalid.newBuilder.setDetails(message)),
           )
       }
     }
@@ -331,7 +334,7 @@ final private[kvutils] class PackageCommitter(
             ctx.recordTime,
             uploadEntry.getSubmissionId,
             uploadEntry.getParticipantId,
-            _.setInvalidPackage(DamlKvutils.Invalid.newBuilder.setDetails(message)),
+            _.setInvalidPackage(Invalid.newBuilder.setDetails(message)),
           )
       }
     }

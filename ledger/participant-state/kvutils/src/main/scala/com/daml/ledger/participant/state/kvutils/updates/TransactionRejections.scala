@@ -6,34 +6,20 @@ package com.daml.ledger.participant.state.kvutils.updates
 import com.daml.error.ValueSwitch
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions.parseCompletionInfo
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  Disputed,
-  Inconsistent,
-  InvalidLedgerTime,
-  InvalidParticipantState,
-  MissingInputState,
-  PartiesNotKnownOnLedger,
-  PartyNotKnownOnLedger,
-  RecordTimeOutOfRange,
-  ResourcesExhausted,
-  SubmitterCannotActViaParticipant,
-  SubmittingPartyNotKnownOnLedger,
-  ValidationFailure,
-}
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
   ExternallyInconsistentTransaction,
   InternallyInconsistentTransaction,
 }
+import com.daml.ledger.participant.state.kvutils.store.events._
 import com.daml.ledger.participant.state.kvutils.{Conversions, CorrelationId}
-import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionRejectionEntry
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.protobuf.any.{Any => AnyProto}
 import com.google.rpc.code.Code
 import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
-import com.google.protobuf.any.{Any => AnyProto}
 
 import java.io.StringWriter
 import java.time.Instant

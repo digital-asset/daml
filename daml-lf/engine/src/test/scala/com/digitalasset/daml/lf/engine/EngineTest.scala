@@ -32,7 +32,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.transaction.Node.{GenActionNode, GenNode}
-import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedValue
+import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
@@ -73,47 +73,47 @@ class EngineTest
 
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
-  val withKeyContractInst: ContractInst[Value.VersionedValue] =
-    ContractInst(
-      TypeConName(basicTestsPkgId, withKeyTemplate),
-      assertAsVersionedValue(
+  val withKeyContractInst: VersionedContractInstance =
+    assertAsVersionedContract(
+      ContractInst(
+        TypeConName(basicTestsPkgId, withKeyTemplate),
         ValueRecord(
           Some(BasicTests_WithKey),
           ImmArray(
             (Some[Ref.Name]("p"), ValueParty(alice)),
             (Some[Ref.Name]("k"), ValueInt64(42)),
           ),
-        )
-      ),
-      "",
+        ),
+        "",
+      )
     )
 
-  val defaultContracts: Map[ContractId, ContractInst[Value.VersionedValue]] =
+  val defaultContracts: Map[ContractId, VersionedContractInstance] =
     Map(
       toContractId("BasicTests:Simple:1") ->
-        ContractInst(
-          TypeConName(basicTestsPkgId, "BasicTests:Simple"),
-          assertAsVersionedValue(
+        assertAsVersionedContract(
+          ContractInst(
+            TypeConName(basicTestsPkgId, "BasicTests:Simple"),
             ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
               ImmArray((Some[Name]("p"), ValueParty(party))),
-            )
-          ),
-          "",
+            ),
+            "",
+          )
         ),
       toContractId("BasicTests:CallablePayout:1") ->
-        ContractInst(
-          TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
-          assertAsVersionedValue(
+        assertAsVersionedContract(
+          ContractInst(
+            TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
             ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
               ImmArray(
                 (Some[Ref.Name]("giver"), ValueParty(alice)),
                 (Some[Ref.Name]("receiver"), ValueParty(bob)),
               ),
-            )
-          ),
-          "",
+            ),
+            "",
+          )
         ),
       toContractId("BasicTests:WithKey:1") ->
         withKeyContractInst,
@@ -1170,13 +1170,15 @@ class EngineTest
         tid: Ref.QualifiedName,
         targs: ImmArray[(Option[Name], Value)],
     ) =
-      ContractInst(
-        TypeConName(basicTestsPkgId, tid),
-        assertAsVersionedValue(ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs)),
-        "",
+      assertAsVersionedContract(
+        ContractInst(
+          TypeConName(basicTestsPkgId, tid),
+          ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs),
+          "",
+        )
       )
 
-    def lookupContract(id: ContractId): Option[ContractInst[Value.VersionedValue]] = {
+    def lookupContract(id: ContractId): Option[VersionedContractInstance] = {
       id match {
         case `fetchedCid` => Some(makeContract(fetchedStrTid, fetchedTArgs))
         case `fetcher1Cid` => Some(makeContract(fetcherStrTid, fetcher1TArgs))
@@ -1285,22 +1287,23 @@ class EngineTest
     val fetchedStrTid = "BasicTests:Fetched"
     val fetchedTid = Identifier(basicTestsPkgId, fetchedStrTid)
 
-    val fetchedContract = ContractInst(
-      TypeConName(basicTestsPkgId, fetchedStrTid),
-      assertAsVersionedValue(
-        ValueRecord(
-          Some(Identifier(basicTestsPkgId, fetchedStrTid)),
-          ImmArray(
-            (Some[Name]("sig1"), ValueParty(alice)),
-            (Some[Name]("sig2"), ValueParty(bob)),
-            (Some[Name]("obs"), ValueParty(clara)),
+    val fetchedContract =
+      assertAsVersionedContract(
+        ContractInst(
+          TypeConName(basicTestsPkgId, fetchedStrTid),
+          ValueRecord(
+            Some(Identifier(basicTestsPkgId, fetchedStrTid)),
+            ImmArray(
+              (Some[Name]("sig1"), ValueParty(alice)),
+              (Some[Name]("sig2"), ValueParty(bob)),
+              (Some[Name]("obs"), ValueParty(clara)),
+            ),
           ),
+          "",
         )
-      ),
-      "",
-    )
+      )
 
-    def lookupContract(id: ContractId): Option[ContractInst[Value.VersionedValue]] = {
+    def lookupContract(id: ContractId): Option[VersionedContractInstance] = {
       id match {
         case `fetchedCid` => Some(fetchedContract)
         case _ => None
@@ -1341,13 +1344,14 @@ class EngineTest
     val lookerUpTemplate = "BasicTests:LookerUpByKey"
     val lookerUpTemplateId = Identifier(basicTestsPkgId, lookerUpTemplate)
     val lookerUpCid = toContractId("2")
-    val lookerUpInst = ContractInst(
-      TypeConName(basicTestsPkgId, lookerUpTemplate),
-      assertAsVersionedValue(
-        ValueRecord(Some(lookerUpTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice))))
-      ),
-      "",
-    )
+    val lookerUpInst =
+      assertAsVersionedContract(
+        ContractInst(
+          TypeConName(basicTestsPkgId, lookerUpTemplate),
+          ValueRecord(Some(lookerUpTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
+          "",
+        )
+      )
 
     def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] = {
       (key.globalKey.templateId, key.globalKey.key) match {
@@ -1589,12 +1593,12 @@ class EngineTest
       val fetcherTemplate = "BasicTests:FetcherByKey"
       val fetcherTemplateId = Identifier(basicTestsPkgId, fetcherTemplate)
       val fetcherCid = toContractId("2")
-      val fetcherInst = ContractInst(
-        TypeConName(basicTestsPkgId, fetcherTemplate),
-        assertAsVersionedValue(
-          ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice))))
-        ),
-        "",
+      val fetcherInst = assertAsVersionedContract(
+        ContractInst(
+          TypeConName(basicTestsPkgId, fetcherTemplate),
+          ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
+          "",
+        )
       )
 
       def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] = {
@@ -1666,15 +1670,19 @@ class EngineTest
     val fetcherId = Identifier(basicTestsPkgId, "BasicTests:Fetcher")
     val cid = toContractId("BasicTests:WithKey:1")
     val fetcherCid = toContractId("42")
-    val fetcherInst = ContractInst(
-      fetcherId,
-      assertAsVersionedValue(
+    val fetcherInst = assertAsVersionedContract(
+      ContractInst(
+        fetcherId,
         ValueRecord(
           None,
-          ImmArray((None, ValueParty(alice)), (None, ValueParty(alice)), (None, ValueParty(alice))),
-        )
-      ),
-      "",
+          ImmArray(
+            (None, ValueParty(alice)),
+            (None, ValueParty(alice)),
+            (None, ValueParty(alice)),
+          ),
+        ),
+        "",
+      )
     )
     val contracts = defaultContracts + (fetcherCid -> fetcherInst)
     val lookupContract = contracts.get(_)
@@ -1950,10 +1958,12 @@ class EngineTest
 
       val cid1 = toContractId("1")
       val cid2 = toContractId("2")
-      val keyedInst = ContractInst(
-        TypeConName(multiKeysPkgId, "MultiKeys:Keyed"),
-        assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueParty(party))))),
-        "",
+      val keyedInst = assertAsVersionedContract(
+        ContractInst(
+          TypeConName(multiKeysPkgId, "MultiKeys:Keyed"),
+          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          "",
+        )
       )
       val contracts = Map(cid1 -> keyedInst, cid2 -> keyedInst)
       val lookupContract = contracts.get(_)
@@ -2074,12 +2084,12 @@ class EngineTest
       val seeding = Engine.initialSeeding(submissionSeed, participant, let)
       val cid = toContractId("1")
       val contracts = Map(
-        cid -> ContractInst(
-          TypeConName(exceptionsPkgId, "Exceptions:K"),
-          assertAsVersionedValue(
-            ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0))))
-          ),
-          "",
+        cid -> assertAsVersionedContract(
+          ContractInst(
+            TypeConName(exceptionsPkgId, "Exceptions:K"),
+            ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
+            "",
+          )
         )
       )
       val lookupContract = contracts.get(_)
@@ -2184,12 +2194,12 @@ class EngineTest
       val seeding = Engine.initialSeeding(submissionSeed, participant, let)
       val cid = toContractId("1")
       val contracts = Map(
-        cid -> ContractInst(
-          TypeConName(exceptionsPkgId, "Exceptions:K"),
-          assertAsVersionedValue(
-            ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0))))
-          ),
-          "",
+        cid -> assertAsVersionedContract(
+          ContractInst(
+            TypeConName(exceptionsPkgId, "Exceptions:K"),
+            ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
+            "",
+          )
         )
       )
       val lookupContract = contracts.get(_)
@@ -2261,12 +2271,12 @@ class EngineTest
       val seeding = Engine.initialSeeding(submissionSeed, participant, let)
       val cid = toContractId("1")
       val contracts = Map(
-        cid -> ContractInst(
-          TypeConName(exceptionsPkgId, "Exceptions:K"),
-          assertAsVersionedValue(
-            ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0))))
-          ),
-          "",
+        cid -> assertAsVersionedContract(
+          ContractInst(
+            TypeConName(exceptionsPkgId, "Exceptions:K"),
+            ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
+            "",
+          )
         )
       )
       val lookupContract = contracts.get(_)
@@ -2453,7 +2463,7 @@ object EngineTest {
     data.assertRight(tx.suffixCid(_ => dummySuffix))
 
   private[this] case class ReinterpretState(
-      contracts: Map[ContractId, ContractInst[Value.VersionedValue]],
+      contracts: Map[ContractId, VersionedContractInstance],
       keys: Map[GlobalKey, ContractId],
       nodes: HashMap[NodeId, GenNode] = HashMap.empty,
       roots: BackStack[NodeId] = BackStack.empty,
@@ -2497,7 +2507,7 @@ object EngineTest {
       txMeta: Tx.Metadata,
       ledgerEffectiveTime: Time.Timestamp,
       lookupPackages: PackageId => Option[Package],
-      contracts: Map[ContractId, ContractInst[Value.VersionedValue]] = Map.empty,
+      contracts: Map[ContractId, VersionedContractInstance] = Map.empty,
       keys: Map[GlobalKey, ContractId] = Map.empty,
   ): Either[Error, (Tx.Transaction, Tx.Metadata)] = {
 
