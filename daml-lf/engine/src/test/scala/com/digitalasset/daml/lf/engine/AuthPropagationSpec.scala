@@ -26,8 +26,7 @@ import com.daml.lf.ledger.FailedAuthorization.{
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.transaction.Transaction.Metadata
 import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst, VersionedValue, ValueRecord, ValueParty}
+import com.daml.lf.value.Value.{ContractId, ValueRecord, ValueParty, VersionedContractInstance}
 
 import java.io.File
 
@@ -70,15 +69,13 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   def alice: Party = Party.assertFromString("Alice")
   def bob: Party = Party.assertFromString("Bob")
 
-  def t1InstanceFor(x: Party): ContractInst[Value.VersionedValue] = {
-    ContractInst(
+  def t1InstanceFor(x: Party): VersionedContractInstance = {
+    VersionedContractInstance(
+      TransactionVersion.VDev,
       t1,
-      VersionedValue(
-        TransactionVersion.VDev,
-        ValueRecord(
-          Some(t1),
-          ImmArray((Some[Name](party), ValueParty(x))),
-        ),
+      ValueRecord(
+        Some(t1),
+        ImmArray((Some[Name](party), ValueParty(x))),
       ),
       "",
     )
@@ -87,7 +84,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   val t1a = t1InstanceFor(alice)
   val t1b = t1InstanceFor(bob)
 
-  val defaultContracts: Map[ContractId, ContractInst[Value.VersionedValue]] =
+  val defaultContracts: Map[ContractId, VersionedContractInstance] =
     Map(
       toContractId("t1a") -> t1a,
       toContractId("t1b") -> t1b,
@@ -101,7 +98,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   def lookupPackage: PackageId => Option[Package] =
     pkgId => allPackages.get(pkgId)
 
-  def lookupContract: ContractId => Option[ContractInst[VersionedValue]] =
+  def lookupContract: ContractId => Option[VersionedContractInstance] =
     cid => defaultContracts.get(cid)
 
   def lookupKey: GlobalKeyWithMaintainers => Option[ContractId] =
