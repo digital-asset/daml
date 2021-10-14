@@ -406,6 +406,7 @@ object KeyValueConsumption {
         )
     }
   }
+
   private def parseTimeBounds(outOfTimeBoundsEntry: DamlOutOfTimeBoundsEntry): TimeBounds = {
     val duplicateUntilMaybe = parseOptionalTimestamp(
       outOfTimeBoundsEntry.hasDuplicateUntil,
