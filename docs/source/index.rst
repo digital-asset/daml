@@ -107,8 +107,9 @@ Daml Documentation
    :caption: Background concepts
 
    concepts/glossary
+   ctn/tutorials/concepts
    ctn/architecture/overview
-   ctn/usermanual/identity_management.rst
+   concepts/identity-and-package-management.rst
    concepts/ledger-model/index
    concepts/time
    concepts/local-ledger
