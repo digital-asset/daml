@@ -694,14 +694,36 @@ private[validation] object Typing {
         throw EExpectedFunctionType(ctx, typ)
     }
 
-    private def typeOfTyApp(expr: Expr, typ: Type): Type =
-      typeOf(expr) match {
-        case TForall((v, k), body) =>
-          checkType(typ, k)
-          TypeSubst.substitute(Map(v -> typ), body)
-        case typ0 =>
-          throw EExpectedUniversalType(ctx, typ0)
+    private def typeOfTyApp(expr: Expr, typs: List[Type]): Type = {
+      def unwrapForall(t: Type, depth: Int) = {
+        @tailrec def go(
+            binders: List[(TypeVarName, Kind)],
+            t: Type,
+            depth: Int,
+        ): (List[(TypeVarName, Kind)], Type) =
+          t match {
+            case _ if depth <= 0 => (binders, t)
+            case TForall(binder, t) => go(binder :: binders, t, depth - 1)
+            case _ => (binders, t)
+          }
+        go(Nil, t, depth) match {
+          case (binders, _) if binders.isEmpty => None
+          case (binders, t) => Some((binders.reverse, t))
+        }
       }
+      val t = typeOf(expr)
+      unwrapForall(t, typs.length) match {
+        case Some((binders, body)) if binders.length == typs.length =>
+          binders.zip(typs).foreach { case ((_, k), typ) =>
+            checkType(typ, k)
+          }
+          TypeSubst.substitute(
+            binders.zip(typs).map({ case ((v, _), typ) => v -> typ }).toMap,
+            body,
+          )
+        case _ => throw EExpectedUniversalType(ctx, t)
+      }
+    }
 
     private def typeOfTmLam(x: ExprVarName, typ: Type, body: Expr): Type = {
       checkType(typ, KStar)
@@ -1121,8 +1143,9 @@ private[validation] object Typing {
         typeOfStructUpd(upd)
       case EApp(fun, arg) =>
         typeOfTmApp(fun, arg)
-      case ETyApp(expr, typ) =>
-        typeOfTyApp(expr, typ)
+      case ETyApp(expr0, typ) =>
+        val (expr, typs) = destructETyApp(expr0, List(typ))
+        typeOfTyApp(expr, typs)
       case EAbs((varName, typ), body, _) =>
         typeOfTmLam(varName, typ, body)
       case ETyAbs((vName, kind), body) =>
