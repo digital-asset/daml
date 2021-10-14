@@ -1,14 +1,5 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-
-//
-// Protocol buffer messages used by the participant state key-value utilities
-// for implementing a Daml ledger backed by a key-value store.
-//
-// These messages should only be produced and consumed by the methods in
-// `KeyValueCommitting`, `KeyValueConsumption` and `KeyValueSubmission` objects.
-//
-
 syntax = "proto3";
 
 package com.daml.ledger.participant.state.kvutils.store.events;
@@ -17,7 +8,7 @@ option java_package = "com.daml.ledger.participant.state.kvutils.store.events";
 option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils.Store.Events";
 
 import "com/daml/daml_lf_dev/daml_lf.proto";
-import "com/daml/ledger/participant/state/kvutils/daml_kvutils.proto";
+import "com/daml/ledger/participant/state/kvutils/store/events/rejection_reason.proto";
 
 // A public package upload.
 // Daml-LF packages will be deduplicated based on their hashes. Only unique

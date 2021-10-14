@@ -11,7 +11,6 @@ option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils.Store";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-import "com/daml/ledger/participant/state/kvutils/daml_kvutils.proto";
 import "com/daml/ledger/participant/state/kvutils/store/events/configuration.proto";
 import "com/daml/ledger/participant/state/kvutils/store/events/configuration_rejection.proto";
 import "com/daml/ledger/participant/state/kvutils/store/events/package_upload.proto";

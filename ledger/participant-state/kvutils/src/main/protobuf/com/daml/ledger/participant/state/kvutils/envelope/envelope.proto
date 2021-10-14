@@ -1,14 +1,5 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-
-//
-// Protocol buffer messages used by the participant state key-value utilities
-// for implementing a Daml ledger backed by a key-value store.
-//
-// These messages should only be produced and consumed by the methods in
-// `KeyValueCommitting`, `KeyValueConsumption` and `KeyValueSubmission` objects.
-//
-
 syntax = "proto3";
 
 package com.daml.ledger.participant.state.kvutils.envelope;
