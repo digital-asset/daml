@@ -397,7 +397,6 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             .build()
           val finalReason = Conversions
             .decodeTransactionRejectionEntry(encodedEntry, v1ErrorSwitch)
-            .value
           finalReason.definiteAnswer shouldBe false
           val actualDetails = finalReasonToDetails(finalReason).toMap
           metadataParser(actualDetails(metadataKey)) shouldBe expectedParsedMetadata
@@ -476,7 +475,6 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
                     .build(),
                   v1ErrorSwitch,
                 )
-                .value
               finalReason.code shouldBe code.value()
               finalReason.definiteAnswer shouldBe false
               val actualDetails = finalReasonToDetails(finalReason)
@@ -545,7 +543,6 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       .build()
     val finalReason = Conversions
       .decodeTransactionRejectionEntry(encodedEntry, errorVersionSwitch)
-      .value
     finalReason.code shouldBe expectedCode.value()
     finalReason.definiteAnswer shouldBe false
     val actualDetails = finalReasonToDetails(finalReason)
