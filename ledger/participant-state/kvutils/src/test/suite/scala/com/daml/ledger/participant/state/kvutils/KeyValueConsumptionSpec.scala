@@ -36,8 +36,8 @@ import com.google.rpc.status.Status
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
-import org.scalatest.prop.{TableFor4, TableFor5}
 import org.scalatest.prop.Tables.Table
+import org.scalatest.prop.{TableFor1, TableFor4, TableFor5}
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.Instant
@@ -57,14 +57,16 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
     .setPackageUploadEntry(DamlPackageUploadEntry.getDefaultInstance)
     .build
 
+  private val errorVersionsTable: TableFor1[ValueSwitch[Status]] = Table[ValueSwitch[Status]](
+    "Error Version",
+    v1ErrorSwitch,
+    v2ErrorSwitch,
+  )
+
   "logEntryToUpdate" should {
     "throw in case no record time is available from the log entry or input argument" in {
       forAll(
-        Table[ValueSwitch[Status]](
-          "Error Version",
-          v1ErrorSwitch,
-          v2ErrorSwitch,
-        )
+        errorVersionsTable
       ) { errorSwitch =>
         assertThrows[Err](
           logEntryToUpdate(
@@ -79,11 +81,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
 
     "use log entry's record time instead of one provided as input" in {
       forAll(
-        Table[ValueSwitch[Status]](
-          "Error Version",
-          v1ErrorSwitch,
-          v2ErrorSwitch,
-        )
+        errorVersionsTable
       ) { errorSwitch =>
         val actual :: Nil = logEntryToUpdate(
           aLogEntryId,
@@ -98,11 +96,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
 
     "use record time from log entry if not provided as input" in {
       forAll(
-        Table[ValueSwitch[Status]](
-          "Error Version",
-          v1ErrorSwitch,
-          v2ErrorSwitch,
-        )
+        errorVersionsTable
       ) { errorSwitch =>
         val actual :: Nil =
           logEntryToUpdate(
@@ -118,11 +112,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
 
     "not generate an update from a time update entry" in {
       forAll(
-        Table[ValueSwitch[Status]](
-          "Error Version",
-          v1ErrorSwitch,
-          v2ErrorSwitch,
-        )
+        errorVersionsTable
       ) { errorSwitch =>
         val timeUpdateEntry = DamlLogEntry.newBuilder
           .setRecordTime(Conversions.buildTimestamp(aRecordTime))
@@ -200,11 +190,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
 
     "generate update for deduplicated transaction with definite answer set to true" in {
       forAll(
-        Table[ValueSwitch[Status]](
-          "Error Version",
-          v1ErrorSwitch,
-          v2ErrorSwitch,
-        )
+        errorVersionsTable
       ) { errorSwitch =>
         val inputEntry = buildOutOfTimeBoundsEntry(
           TimeBounds(deduplicateUntil = Some(aRecordTime)),
