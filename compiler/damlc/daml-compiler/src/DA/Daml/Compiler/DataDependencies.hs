@@ -34,6 +34,7 @@ import System.FilePath
 import "ghc-lib-parser" Bag
 import "ghc-lib-parser" BasicTypes
 import "ghc-lib-parser" FastString
+import "ghc-lib-parser" FieldLabel (FieldLbl (..))
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module
 import "ghc-lib-parser" Name
@@ -299,7 +300,9 @@ generateSrcFromLf env = noLoc mod
             }
 
     genExports :: Gen [LIE GhcPs]
-    genExports = sequence $ selfReexport : classReexports
+    genExports = (++)
+        <$> (sequence $ selfReexport : classReexports)
+        <*> allExports
 
     genDecls :: Gen [LHsDecl GhcPs]
     genDecls = do
@@ -321,6 +324,35 @@ generateSrcFromLf env = noLoc mod
         , (fieldName, _) <- fields
         , Just methodName <- [getClassMethodName fieldName]
         ]
+
+    allExports :: Gen [LIE GhcPs]
+    allExports = sequence $ do
+        Just LF.DefValue{dvalBinder=(_, ty)} <- [NM.lookup LFC.exportsName . LF.moduleValues $ envMod env]
+        Just quals <- [LFC.decodeExports ty]
+        mkLIE <$> quals
+        where
+            mkLIE :: LFC.ExportInfo -> Gen (LIE GhcPs)
+            mkLIE = fmap noLoc . \case
+                LFC.ExportInfoVal name ->
+                    IEVar NoExt
+                        <$> mkWrappedRdrName name
+                LFC.ExportInfoTC name pieces fields ->
+                    IEThingWith NoExt
+                        <$> mkWrappedRdrName name
+                        <*> pure NoIEWildcard
+                        <*> mapM mkWrappedRdrName pieces
+                        <*> mapM mkFieldLblRdrName fields
+
+            mkWrappedRdrName :: LFC.QualName -> Gen (LIEWrappedName RdrName)
+            mkWrappedRdrName = fmap (noLoc . IEName . noLoc) . mkRdrName
+
+            mkRdrName :: LFC.QualName -> Gen RdrName
+            mkRdrName (LFC.QualName q) = do
+                ghcMod <- genModule env (LF.qualPackage q) (LF.qualModule q)
+                pure $ mkOrig ghcMod (LF.qualObject q)
+
+            mkFieldLblRdrName :: FieldLbl LFC.QualName -> Gen (Located (FieldLbl RdrName))
+            mkFieldLblRdrName = fmap noLoc . traverse mkRdrName
 
     selfReexport :: Gen (LIE GhcPs)
     selfReexport = pure . noLoc $
