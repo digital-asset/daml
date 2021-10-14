@@ -24,7 +24,9 @@ final class Authorizer(
     now: () => Instant,
     ledgerId: String,
     participantId: String,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+    // Using a default parameter here, since we don't expose the error code switching
+    // mechanism outside the Ledger API (i.e. rxJava bindings)
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(false),
 ) {
   private val logger = ContextualizedLogger.get(getClass)
 

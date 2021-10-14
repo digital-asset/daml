@@ -34,7 +34,22 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class MissingJwtToken()(implicit
           loggingContext: ErrorCodeLoggingContext
       ) extends LoggingTransactionErrorImpl(
-            cause = s"The command is missing a JWT token"
+            cause = "The command is missing a JWT token"
+          )
+    }
+
+    @Explanation("An internal system authorization error occurred.")
+    @Resolution("Contact the participant operator.")
+    object InternalAuthorizationError
+        extends ErrorCode(
+          id = "INTERNAL_AUTHORIZATION_ERROR",
+          ErrorCategory.AuthInterceptorInvalidAuthenticationCredentials,
+        ) {
+      case class ClaimsFromMetadataExtractionFailed(throwable: Throwable)(implicit
+          loggingContext: ErrorCodeLoggingContext
+      ) extends LoggingTransactionErrorImpl(
+            cause = "Failed to get claims from request metadata",
+            throwableO = Some(throwable),
           )
     }
 

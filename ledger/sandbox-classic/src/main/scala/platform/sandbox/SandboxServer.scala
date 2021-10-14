@@ -3,17 +3,13 @@
 
 package com.daml.platform.sandbox
 
-import java.io.File
-import java.nio.file.Files
-import java.time.Instant
-import java.util.concurrent.Executors
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.dec.DirectExecutionContext
-import com.daml.error.ErrorCodesVersionSwitcher
+import com.daml.error.{ErrorCodesVersionSwitcher, ValueSwitch}
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain.LedgerId
@@ -49,6 +45,10 @@ import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 import com.daml.ports.Port
 import scalaz.syntax.tag._
 
+import java.io.File
+import java.nio.file.Files
+import java.time.Instant
+import java.util.concurrent.Executors
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
@@ -398,7 +398,11 @@ final class SandboxServer(
         config.address,
         config.tlsConfig,
         List(
-          AuthorizationInterceptor(authService, executionContext),
+          AuthorizationInterceptor(
+            authService,
+            executionContext,
+            new ValueSwitch(config.enableSelfServiceErrorCodes),
+          ),
           resetService,
         ),
         servicesExecutionContext,

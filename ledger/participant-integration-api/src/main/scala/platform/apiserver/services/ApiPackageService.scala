@@ -103,7 +103,6 @@ private[apiserver] final class ApiPackageService private (
     }
     GetPackageResponse(hashF, archive.getPayload, archive.getHash)
   }
-
 }
 
 private[platform] object ApiPackageService {

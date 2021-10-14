@@ -3,10 +3,9 @@
 
 package com.daml.ledger
 
-import com.daml.error.ErrorCodesVersionSwitcher
-
 import java.time.Clock
 import java.util.UUID
+
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.auth.{
   AuthServiceStatic,
@@ -25,12 +24,7 @@ package object rxjava {
     throw new UnsupportedOperationException("Untested endpoint, implement if needed")
 
   private[rxjava] val authorizer =
-    new Authorizer(
-      () => Clock.systemUTC().instant(),
-      "testLedgerId",
-      "testParticipantId",
-      new ErrorCodesVersionSwitcher(false),
-    )
+    new Authorizer(() => Clock.systemUTC().instant(), "testLedgerId", "testParticipantId")
 
   private[rxjava] val emptyToken = "empty"
   private[rxjava] val publicToken = "public"
