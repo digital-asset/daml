@@ -10,15 +10,14 @@ import anorm._
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
-import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
+import com.daml.ledger.participant.state.kvutils.{Raw, VersionedOffsetBuilder}
 
 import scala.collection.compat._
 import scala.collection.immutable
 import scala.util.Try
 
-trait CommonQueries extends Queries {
-  protected implicit val connection: Connection
-
+abstract class CommonQueries(offsetBuilder: VersionedOffsetBuilder)(implicit connection: Connection)
+    extends Queries {
   override final def selectLatestLogEntryId(): Try[Option[Index]] = Try {
     SQL"SELECT MAX(sequence_no) max_sequence_no FROM #$LogTable"
       .as(get[Option[Long]]("max_sequence_no").singleOpt)
@@ -32,7 +31,7 @@ trait CommonQueries extends Queries {
     SQL"SELECT sequence_no, entry_id, envelope FROM #$LogTable WHERE sequence_no > $startExclusive AND sequence_no <= $endInclusive ORDER BY sequence_no"
       .as((long("sequence_no") ~ rawLogEntryId("entry_id") ~ rawEnvelope("envelope")).map {
         case index ~ entryId ~ envelope =>
-          index -> LedgerRecord(OffsetBuilder.fromLong(index), entryId, envelope)
+          index -> LedgerRecord(offsetBuilder.of(index), entryId, envelope)
       }.*)
   }
 
