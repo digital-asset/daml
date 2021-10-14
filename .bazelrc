@@ -7,8 +7,8 @@ build --remote_upload_local_results=false
 # Do still push local build results to the local disk cache.
 build --incompatible_remote_results_ignore_disk=true
 # Enable the disk cache in addition to the http cache.
-build:linux --disk_cache=.bazel-cache/disk
-build:darwin --disk_cache=.bazel-cache/disk
+#build:linux --disk_cache=.bazel-cache/disk
+#build:darwin --disk_cache=.bazel-cache/disk
 # `--repository_cache` must be repeated for all relevant actions.
 # TODO: use `common` starting from Bazel 2.2.0
 # See https://github.com/bazelbuild/bazel/issues/11232
