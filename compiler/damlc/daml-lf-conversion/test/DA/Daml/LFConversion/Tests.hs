@@ -16,9 +16,12 @@ import qualified Data.Text as T
 import DA.Daml.LFConversion
 import DA.Daml.LFConversion.MetadataEncoding
 import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.UtilGHC (fsFromText)
 
 import qualified "ghc-lib-parser" BasicTypes as GHC
 import qualified "ghc-lib-parser" BooleanFormula as BF
+import qualified "ghc-lib-parser" FieldLabel as GHC
+import "ghc-lib-parser" OccName (mkVarOcc, mkTcOcc)
 import "ghc-lib-parser" SrcLoc (noLoc)
 
 main :: IO ()
@@ -76,6 +79,25 @@ metadataEncodingTests = testGroup "MetadataEncoding"
             [ mkImport (Just "foo") ["Foo", "Bar"]
             , mkImport (Just "baz") ["Baz", "Qux", "Florp"]])
         ]
+    , roundtripTests "exports" encodeExports decodeExports
+        [ ("()", [])
+        , ("(Foo.Bar (qux))"
+          , [ mkExportInfoVal Nothing ["Foo", "Bar"] "qux" ])
+        , ("(\"foo\" Foo.Bar (qux))"
+          , [ mkExportInfoVal (Just "foo") ["Foo", "Bar"] "qux" ])
+        , ("(Foo.Bar (Qux()))"
+          , [ mkExportInfoTC Nothing ["Foo", "Bar"] "Qux" [] []])
+        , ("(\"foo\" Foo.Bar (Qux()))"
+          , [ mkExportInfoTC (Just "foo") ["Foo", "Bar"] "Qux" [] []])
+        , ("(Foo.Bar (Qux(getQux)))"
+          , [ mkExportInfoTC Nothing ["Foo", "Bar"] "Qux" ["getQux"] []])
+        , ("(\"foo\" Foo.Bar (Qux(getQux)))"
+          , [ mkExportInfoTC (Just "foo") ["Foo", "Bar"] "Qux" ["getQux"] []])
+        , ("(Foo.Bar (Qux($sel:getQux:Qux)))"
+          , [ mkExportInfoTC Nothing ["Foo", "Bar"] "Qux" [] ["getQux"]])
+        , ("(\"foo\" Foo.Bar (Qux($sel:getQux:Qux)))"
+          , [ mkExportInfoTC (Just "foo") ["Foo", "Bar"] "Qux" [] ["getQux"]])
+        ]
     ]
 
 mkImport :: Maybe T.Text -> [T.Text] -> LF.Qualified ()
@@ -85,6 +107,28 @@ mkImport mPackage moduleComponents =
     , qualModule = LF.ModuleName moduleComponents
     , qualObject = ()
     }
+
+mkExportInfoVal :: Maybe T.Text -> [T.Text] -> T.Text -> ExportInfo
+mkExportInfoVal mPackage moduleComponents value =
+  ExportInfoVal $ QualName (mkImport mPackage moduleComponents)
+    { LF.qualObject = mkVarOcc (T.unpack value)
+    }
+
+mkExportInfoTC :: Maybe T.Text -> [T.Text] -> T.Text -> [T.Text] -> [T.Text] -> ExportInfo
+mkExportInfoTC mPackage moduleComponents value pieces fields =
+  ExportInfoTC name (name:pieceNames) fieldLabels
+  where
+    mkQualName mk v = QualName (mkImport mPackage moduleComponents)
+      { LF.qualObject = mk (T.unpack v)
+      }
+    mkFieldLabel label = GHC.FieldLabel
+      { GHC.flLabel = fsFromText label
+      , GHC.flIsOverloaded = True
+      , GHC.flSelector = mkQualName mkVarOcc ("$sel:" <> label <> ":" <> value)
+      }
+    name = mkQualName mkTcOcc value
+    pieceNames = mkQualName mkVarOcc <$> pieces
+    fieldLabels = mkFieldLabel <$> fields
 
 roundtripTests :: (Eq a) => String -> (a -> b) -> (b -> Maybe a) -> [(String, a)] -> TestTree
 roundtripTests groupName encode decode examples =
