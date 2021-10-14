@@ -208,11 +208,13 @@ object KeyValueConsumption {
         }
 
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY =>
-        List(transactionRejectionEntryToUpdate(
-          recordTime,
-          entry.getTransactionRejectionEntry,
-          errorVersionSwitch,
-        ))
+        List(
+          transactionRejectionEntryToUpdate(
+            recordTime,
+            entry.getTransactionRejectionEntry,
+            errorVersionSwitch,
+          )
+        )
 
       case DamlLogEntry.PayloadCase.OUT_OF_TIME_BOUNDS_ENTRY =>
         outOfTimeBoundsEntryToUpdate(
