@@ -1951,15 +1951,15 @@ convertQualifiedModuleName x env (GHC.Module unitId moduleName) = do
     modName
     x
 
-convertQualified :: NamedThing a => (T.Text -> t) -> Env -> a -> ConvertM (Qualified t)
+convertQualified :: NamedThing a => (Name -> t) -> Env -> a -> ConvertM (Qualified t)
 convertQualified toT env x = do
-  convertQualifiedModuleName (toT (getOccText x)) env (nameModule (getName x))
+  convertQualifiedModuleName (toT (getName x)) env (nameModule (getName x))
 
 convertQualifiedTySyn :: NamedThing a => Env -> a -> ConvertM (Qualified TypeSynName)
-convertQualifiedTySyn = convertQualified (\t -> mkTypeSyn [t])
+convertQualifiedTySyn = convertQualified (\n -> mkTypeSyn [getOccText n])
 
 convertQualifiedTyCon :: NamedThing a => Env -> a -> ConvertM (Qualified TypeConName)
-convertQualifiedTyCon = convertQualified (\t -> mkTypeCon [t])
+convertQualifiedTyCon = convertQualified (\n -> mkTypeCon [getOccText n])
 
 nameToPkgRef :: NamedThing a => Env -> a -> ConvertM LF.PackageRef
 nameToPkgRef env x =
