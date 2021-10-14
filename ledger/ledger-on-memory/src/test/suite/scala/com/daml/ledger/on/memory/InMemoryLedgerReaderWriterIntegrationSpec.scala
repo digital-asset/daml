@@ -37,6 +37,7 @@ class InMemoryLedgerReaderWriterIntegrationSpec
       readerWriter <- new InMemoryLedgerReaderWriter.Owner(
         ledgerId = ledgerId,
         participantId = participantId,
+        offsetVersion = 0,
         keySerializationStrategy = StateKeySerializationStrategy.createDefault(),
         metrics = metrics,
         dispatcher = dispatcher,

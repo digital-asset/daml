@@ -12,7 +12,7 @@ import com.daml.ledger.on.memory.InMemoryLedgerWriter._
 import com.daml.ledger.participant.state.kvutils.api.{CommitMetadata, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, Raw}
+import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, Raw, VersionedOffsetBuilder}
 import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator.caching.{CachingStateReader, ImmutablesOnlyCacheUpdatePolicy}
@@ -39,6 +39,7 @@ import scala.util.Success
 final class InMemoryLedgerWriter private[memory] (
     override val participantId: Ref.ParticipantId,
     dispatcher: Dispatcher[Index],
+    offsetBuilder: VersionedOffsetBuilder,
     now: () => Instant,
     state: InMemoryState,
     committer: Committer,
@@ -57,7 +58,7 @@ final class InMemoryLedgerWriter private[memory] (
         correlationId,
         envelope,
         exportRecordTime = now(),
-        ledgerStateAccess = new InMemoryLedgerStateAccess(state, metrics),
+        ledgerStateAccess = new InMemoryLedgerStateAccess(offsetBuilder, state, metrics),
       )(committerExecutionContext)
       .andThen { case Success(SubmissionResult.Acknowledged) =>
         dispatcher.signalNewHead(state.newHeadSinceLastWrite())
@@ -85,6 +86,7 @@ object InMemoryLedgerWriter {
       timeProvider: TimeProvider = DefaultTimeProvider,
       stateValueCache: StateValueCache = Cache.none,
       dispatcher: Dispatcher[Index],
+      offsetBuilder: VersionedOffsetBuilder,
       state: InMemoryState,
       engine: Engine,
       committerExecutionContext: ExecutionContext,
@@ -97,6 +99,7 @@ object InMemoryLedgerWriter {
       } yield new InMemoryLedgerWriter(
         participantId,
         dispatcher,
+        offsetBuilder,
         now,
         state,
         newCommitter(ledgerDataExporter),

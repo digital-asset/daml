@@ -269,6 +269,7 @@ object RecoveringIndexerIntegrationSpec {
         readerWriter <- new memory.InMemoryLedgerReaderWriter.Owner(
           ledgerId = ledgerId,
           participantId = participantId,
+          offsetVersion = 0,
           keySerializationStrategy = StateKeySerializationStrategy.createDefault(),
           metrics = metrics,
           dispatcher = dispatcher,
