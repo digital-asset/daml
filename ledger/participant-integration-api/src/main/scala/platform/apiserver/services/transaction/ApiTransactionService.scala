@@ -58,7 +58,7 @@ private[apiserver] object ApiTransactionService {
     )
 }
 
-private[apiserver] final class ApiTransactionService private (
+private[apiserver] final class ApiTransactionService private[apiserver] (
     transactionsService: IndexTransactionsService,
     metrics: Metrics,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
@@ -215,35 +215,30 @@ private[apiserver] final class ApiTransactionService private (
   ): Future[GetTransactionResponse] =
     transactionsService
       .getTransactionTreeById(transactionId, requestingParties)
-      .map(getOrElseThrowNotFound(transactionId))
+      .flatMap(failedOnNotFound(transactionId))
 
-  private def lookUpFlatByTransactionId(
+  private[transaction] def lookUpFlatByTransactionId(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): Future[GetFlatTransactionResponse] = {
     transactionsService
       .getTransactionById(transactionId, requestingParties)
-      .map(getOrElseThrowNotFound(transactionId))
+      .flatMap(failedOnNotFound(transactionId))
   }
 
-  @throws[StatusRuntimeException]
-  private def getOrElseThrowNotFound[A](transactionId: TransactionId)(a: Option[A]): A = {
-    implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
-    a.getOrElse {
-      val exception = errorCodesVersionSwitcher.choose(
+  private def failedOnNotFound[A](transactionId: TransactionId)(found: Option[A]): Future[A] =
+    found.fold {
+      errorCodesVersionSwitcher.chooseAsFailedFuture[A](
         v1 = Status.NOT_FOUND
           .withDescription("Transaction not found, or not visible.")
           .asRuntimeException(),
         v2 = LedgerApiErrors.InterpreterErrors.LookupErrors.TransactionNotFound
           .Reject(
             transactionId = transactionId.unwrap
-          )
+          )(new DamlContextualizedErrorLogger(logger, loggingContext, None))
           .asGrpcError,
       )
-      throw exception
-    }
-  }
+    }(Future.successful)
 
   private def transactionsLoggable(transactions: GetTransactionsResponse): String =
     s"Responding with transactions: ${transactions.transactions.toList
