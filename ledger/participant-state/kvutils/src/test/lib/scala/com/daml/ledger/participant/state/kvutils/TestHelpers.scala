@@ -68,7 +68,7 @@ object TestHelpers {
       tx: SubmittedTransaction,
   ): DamlTransactionEntry =
     DamlTransactionEntry.newBuilder
-      .setTransaction(Conversions.encodeTransaction(tx))
+      .setTransaction(com.google.protobuf.Any.pack(Conversions.encodeTransaction(tx)))
       .setSubmitterInfo(
         DamlSubmitterInfo.newBuilder
           .setCommandId("commandId")

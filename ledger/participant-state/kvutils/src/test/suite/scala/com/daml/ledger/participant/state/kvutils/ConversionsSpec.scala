@@ -428,7 +428,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
     DivulgenceEntry.newBuilder
       .setContractId(contractId)
       .addAllDivulgedToLocalParties(parties.asJava)
-      .setContractInstance(contractInstance)
+      .setContractInstance(com.google.protobuf.Any.pack(contractInstance))
       .build
 
   private lazy val party0: Party = Party.assertFromString("party0")

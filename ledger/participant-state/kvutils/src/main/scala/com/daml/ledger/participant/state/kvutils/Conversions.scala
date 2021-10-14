@@ -369,7 +369,10 @@ private[state] object Conversions {
           case (Right(contractInstanceIndex), divulgenceEntry) =>
             if (divulgenceEntry.hasContractInstance) {
               val contractId = decodeContractId(divulgenceEntry.getContractId)
-              val contractInstance = decodeContractInstance(divulgenceEntry.getContractInstance)
+              val contractInstance = decodeContractInstance(
+                divulgenceEntry.getContractInstance
+                  .unpack(classOf[TransactionOuterClass.ContractInstance])
+              )
               Right(contractInstanceIndex += (contractId -> contractInstance))
             } else {
               Left(Vector(divulgenceEntry.getContractId))
@@ -706,7 +709,7 @@ private[state] object Conversions {
     DivulgenceEntry.newBuilder
       .setContractId(contractIdToString(contractId))
       .addAllDivulgedToLocalParties(encodeParties(divulgedTo).asJava)
-      .setContractInstance(contractInstance)
+      .setContractInstance(com.google.protobuf.Any.pack(contractInstance))
       .build
 
   private def encodeDivulgence(

@@ -17,9 +17,9 @@ option java_package = "com.daml.ledger.participant.state.kvutils.store.events";
 option java_multiple_files = true;
 option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils.Store.Events";
 
+import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
-import "com/daml/lf/transaction.proto";
 import "com/daml/ledger/participant/state/kvutils/store/events/rejection_reason.proto";
 
 message DamlSubmitterInfo {
@@ -41,7 +41,7 @@ message DamlSubmitterInfo {
 // their source).
 message DamlTransactionEntry {
   // The original submitted transaction, with relative identifiers.
-  com.daml.lf.transaction.Transaction transaction = 1;
+  google.protobuf.Any transaction = 1;
 
   // The submitting party and metadata about the submitted command.
   // The submitting party is authorized against the submitting participant
@@ -87,7 +87,7 @@ message DamlTransactionBlindingInfo {
   message DivulgenceEntry {
     string contract_id = 1;
     repeated string divulged_to_local_parties = 2;
-    com.daml.lf.transaction.ContractInstance contract_instance = 3;
+    google.protobuf.Any contract_instance = 3;
   }
 
   // Disclosure, specified in terms of local transaction node IDs.

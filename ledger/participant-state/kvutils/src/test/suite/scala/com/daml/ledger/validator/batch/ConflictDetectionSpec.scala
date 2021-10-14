@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlStateKey,
   DamlStateValue,
 }
+import com.daml.lf.transaction.TransactionOuterClass
 import com.daml.lf.value.ValueOuterClass
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -266,7 +267,9 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
       .setRecordTime(com.google.protobuf.Timestamp.getDefaultInstance)
     builder.getTransactionEntryBuilder
       .setLedgerEffectiveTime(com.google.protobuf.Timestamp.getDefaultInstance)
-      .getTransactionBuilder
+      .getTransaction
+      .unpack(classOf[TransactionOuterClass.Transaction])
+      .toBuilder
       .addRoots("foo")
     builder.build
   }

@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.kvutils.store.events.{
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.{TransactionOuterClass, Transaction => Tx}
 
 import scala.jdk.CollectionConverters._
 
@@ -44,6 +44,8 @@ private[transaction] object DamlTransactionEntrySummary {
   ): DamlTransactionEntrySummary =
     new DamlTransactionEntrySummary(
       submission,
-      Conversions.decodeTransaction(submission.getTransaction),
+      Conversions.decodeTransaction(
+        submission.getTransaction.unpack(classOf[TransactionOuterClass.Transaction])
+      ),
     )
 }

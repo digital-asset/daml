@@ -78,7 +78,7 @@ class KeyValueSubmission(metrics: Metrics) {
         .addAllInputDamlState(contractKeyStates.asJava)
         .setTransactionEntry(
           DamlTransactionEntry.newBuilder
-            .setTransaction(Conversions.encodeTransaction(tx))
+            .setTransaction(com.google.protobuf.Any.pack(Conversions.encodeTransaction(tx)))
             .setSubmitterInfo(encodedSubInfo)
             .setLedgerEffectiveTime(buildTimestamp(meta.ledgerEffectiveTime))
             .setWorkflowId(meta.workflowId.getOrElse(""))

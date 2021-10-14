@@ -217,13 +217,16 @@ object KeyValueCommitting {
       transactionEntry: DamlTransactionEntry
   ): Set[DamlStateKey] = {
     val outputs = Set.newBuilder[DamlStateKey]
+    // TODO: Stop depending on the transaction internals here as well(?)
+    val transaction =
+      transactionEntry.getTransaction.unpack(classOf[TransactionOuterClass.Transaction])
     val txVersion =
-      TransactionCoder.decodeVersion(transactionEntry.getTransaction.getVersion) match {
+      TransactionCoder.decodeVersion(transaction.getVersion) match {
         case Right(value) => value
         case Left(err) => throw Err.DecodeError("Transaction", err.errorMessage)
       }
 
-    transactionEntry.getTransaction.getNodesList.asScala.foreach { node =>
+    transaction.getNodesList.asScala.foreach { node =>
       val nodeVersion = TransactionCoder.decodeNodeVersion(txVersion, node) match {
         case Right(value) => value
         case Left(err) => throw Err.DecodeError("Node", err.errorMessage)

@@ -238,7 +238,8 @@ private[kvutils] class TransactionCommitter(
         commitContext: CommitContext,
         transactionEntry: DamlTransactionEntrySummary,
     )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
-      val transaction = transactionEntry.submission.getTransaction
+      val rawTransaction = transactionEntry.submission.getTransaction
+      val transaction = rawTransaction.unpack(classOf[TransactionOuterClass.Transaction])
       val nodes = transaction.getNodesList.asScala
       val nodeMap: Map[String, TransactionOuterClass.Node] =
         nodes.view.map(n => n.getNodeId -> n).toMap
@@ -295,7 +296,7 @@ private[kvutils] class TransactionCommitter(
         .build()
 
       val newTransactionEntry = transactionEntry.submission.toBuilder
-        .setTransaction(newTransaction)
+        .setTransaction(com.google.protobuf.Any.pack(newTransaction))
         .build()
 
       StepContinue(DamlTransactionEntrySummary(newTransactionEntry))

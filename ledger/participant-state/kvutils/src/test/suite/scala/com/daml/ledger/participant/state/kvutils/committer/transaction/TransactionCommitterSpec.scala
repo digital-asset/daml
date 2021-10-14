@@ -148,7 +148,8 @@ class TransactionCommitterSpec
 
       actual match {
         case StepContinue(logEntry) =>
-          val transaction = logEntry.submission.getTransaction
+          val transaction =
+            logEntry.submission.getTransaction.unpack(classOf[TransactionOuterClass.Transaction])
           transaction.getRootsList.asScala should contain theSameElementsInOrderAs Seq(
             "Exercise-1",
             "Create-1",
@@ -510,7 +511,8 @@ object TransactionCommitterSpec {
       .addAllRoots(roots.asJava)
       .addAllNodes(nodes.asJava)
       .build()
-    val outTx = aDamlTransactionEntry.toBuilder.setTransaction(tx).build()
+    val outTx =
+      aDamlTransactionEntry.toBuilder.setTransaction(com.google.protobuf.Any.pack(tx)).build()
     DamlTransactionEntrySummary(outTx)
   }
 

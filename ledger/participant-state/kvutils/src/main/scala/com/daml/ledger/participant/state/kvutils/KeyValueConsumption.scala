@@ -25,7 +25,7 @@ import com.daml.ledger.participant.state.v2.{DivulgedContract, TransactionMeta, 
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.CommittedTransaction
+import com.daml.lf.transaction.{CommittedTransaction, TransactionOuterClass}
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import com.google.protobuf.any.{Any => AnyProto}
@@ -255,7 +255,9 @@ object KeyValueConsumption {
       txEntry: DamlTransactionEntry,
       recordTime: Timestamp,
   ): Update.TransactionAccepted = {
-    val transaction = Conversions.decodeTransaction(txEntry.getTransaction)
+    val transaction = Conversions.decodeTransaction(
+      txEntry.getTransaction.unpack(classOf[TransactionOuterClass.Transaction])
+    )
     val hexTxId = parseLedgerString("TransactionId")(
       BaseEncoding.base16.encode(entryId.toByteArray)
     )
