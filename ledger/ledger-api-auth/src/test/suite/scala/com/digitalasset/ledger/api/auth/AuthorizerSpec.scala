@@ -17,7 +17,7 @@ import scala.util.{Failure, Success, Try}
 class AuthorizerSpec extends AsyncFlatSpec with Matchers {
   private val className = classOf[Authorizer].getSimpleName
   private val dummyRequest = 1337L
-  private val expectedSuccessfulResponse = "leet"
+  private val expectedSuccessfulResponse = "expectedSuccessfulResponse"
   private val dummyReqRes: Long => Future[String] =
     Map(dummyRequest -> Future.successful(expectedSuccessfulResponse))
   private val allAuthorized: ClaimSet.Claims => Either[AuthorizationError, Unit] = _ => Right(())
