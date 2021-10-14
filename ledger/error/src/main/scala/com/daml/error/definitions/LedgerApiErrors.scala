@@ -125,6 +125,21 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           )
     }
 
+    @Explanation("An internal system authorization error occurred.")
+    @Resolution("Contact the participant operator.")
+    object InternalAuthorizationError
+        extends ErrorCode(
+          id = "INTERNAL_AUTHORIZATION_ERROR",
+          ErrorCategory.AuthInterceptorInvalidAuthenticationCredentials,
+        ) {
+      case class ClaimsFromMetadataExtractionFailed(throwable: Throwable)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = "Failed to get claims from request metadata",
+            throwableO = Some(throwable),
+          )
+    }
+
     @Explanation(
       """This rejection is given if the supplied JWT token is not sufficient for the intended command.
         |The exact reason is logged on the participant, but not given to the user for security reasons."""

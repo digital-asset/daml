@@ -3,17 +3,11 @@
 
 package com.daml.ledger.api.auth.interceptor
 
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.{DamlErrorCodeLoggingContext, ValueSwitch}
 import com.daml.ledger.api.auth.{AuthService, ClaimSet}
-import io.grpc.{
-  Context,
-  Contexts,
-  Metadata,
-  ServerCall,
-  ServerCallHandler,
-  ServerInterceptor,
-  Status,
-}
-import org.slf4j.{Logger, LoggerFactory}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import io.grpc._
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.ExecutionContext
@@ -22,13 +16,12 @@ import scala.util.{Failure, Success}
 /** This interceptor uses the given [[AuthService]] to get [[Claims]] for the current request,
   * and then stores them in the current [[Context]].
   */
-final class AuthorizationInterceptor(protected val authService: AuthService, ec: ExecutionContext)
-    extends ServerInterceptor {
-
-  private val logger: Logger = LoggerFactory.getLogger(AuthorizationInterceptor.getClass)
-  // TODO error codes: Convert to self-service error codes spec
-  private val internalAuthenticationError =
-    Status.INTERNAL.withDescription("Failed to get claims from request metadata")
+final class AuthorizationInterceptor(
+    protected val authService: AuthService,
+    ec: ExecutionContext,
+    errorCodesStatusSwitcher: ValueSwitch[Status],
+) extends ServerInterceptor {
+  private val logger = ContextualizedLogger.get(getClass)
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
@@ -48,8 +41,7 @@ final class AuthorizationInterceptor(protected val authService: AuthService, ec:
         .toScala(authService.decodeMetadata(headers))
         .onComplete {
           case Failure(exception) =>
-            logger.warn(s"Failed to get claims from request metadata: ${exception.getMessage}")
-            call.close(internalAuthenticationError, new Metadata())
+            call.close(internalAuthenticationError(exception), new Metadata())
             new ServerCall.Listener[Nothing]() {}
           case Success(claimSet) =>
             val nextCtx = prevCtx.withValue(AuthorizationInterceptor.contextKeyClaimSet, claimSet)
@@ -62,6 +54,24 @@ final class AuthorizationInterceptor(protected val authService: AuthService, ec:
         }(ec)
     }
   }
+
+  private def internalAuthenticationError(
+      exception: Throwable
+  ) =
+    LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>
+      errorCodesStatusSwitcher.choose(
+        v1 = {
+          logger.warn(s"Failed to get claims from request metadata: ${exception.getMessage}")
+          Status.INTERNAL.withDescription("Failed to get claims from request metadata")
+        },
+        v2 = LedgerApiErrors.AuthorizationChecks.InternalAuthorizationError
+          .ClaimsFromMetadataExtractionFailed(exception)(
+            new DamlErrorCodeLoggingContext(logger, loggingContext, None)
+          )
+          .asGrpcError
+          .getStatus,
+      )
+    }
 }
 
 object AuthorizationInterceptor {
@@ -71,7 +81,13 @@ object AuthorizationInterceptor {
   def extractClaimSetFromContext(): Option[ClaimSet] =
     Option(contextKeyClaimSet.get())
 
-  def apply(authService: AuthService, ec: ExecutionContext): AuthorizationInterceptor =
-    new AuthorizationInterceptor(authService, ec)
+  def apply(
+      authService: AuthService,
+      ec: ExecutionContext,
+      // Using a default parameter here, since we don't expose the error code switching
+      // mechanism outside the Ledger API (i.e. rxJava bindings)
+      errorCodesStatusSwitcher: ValueSwitch[Status] = new ValueSwitch(false),
+  ): AuthorizationInterceptor =
+    new AuthorizationInterceptor(authService, ec, errorCodesStatusSwitcher)
 
 }

@@ -20,12 +20,17 @@ import scala.util.{Failure, Success, Try}
 /** A simple helper that allows services to use authorization claims
   * that have been stored by [[AuthorizationInterceptor]].
   */
-final class Authorizer(now: () => Instant, ledgerId: String, participantId: String, errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
-
+final class Authorizer(
+    now: () => Instant,
+    ledgerId: String,
+    participantId: String,
+    // Using a default parameter here, since we don't expose the error code switching
+    // mechanism outside the Ledger API (i.e. rxJava bindings)
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(false),
+) {
   private val logger = ContextualizedLogger.get(this.getClass)
   // TODO error codes: Enable logging
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
-
   /** Validates all properties of claims that do not depend on the request,
     * such as expiration time or ledger ID.
     */

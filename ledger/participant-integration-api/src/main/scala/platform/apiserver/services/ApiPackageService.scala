@@ -114,7 +114,6 @@ private[apiserver] final class ApiPackageService private (
       loggingContext: LoggingContext
   ): DamlContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
-
 }
 
 private[platform] object ApiPackageService {

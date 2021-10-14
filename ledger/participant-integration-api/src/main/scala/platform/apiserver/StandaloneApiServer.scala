@@ -9,7 +9,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.error.ErrorCodesVersionSwitcher
+import com.daml.error.{ErrorCodesVersionSwitcher, ValueSwitch}
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.domain
@@ -131,7 +131,11 @@ final class StandaloneApiServer(
         config.maxInboundMessageSize,
         config.address,
         config.tlsConfig,
-        AuthorizationInterceptor(authService, executionContext) :: otherInterceptors,
+        AuthorizationInterceptor(
+          authService,
+          executionContext,
+          new ValueSwitch(config.enableSelfServiceErrorCodes),
+        ) :: otherInterceptors,
         servicesExecutionContext,
         metrics,
       )

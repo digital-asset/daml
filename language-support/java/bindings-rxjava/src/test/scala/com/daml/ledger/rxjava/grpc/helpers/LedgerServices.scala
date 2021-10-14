@@ -3,8 +3,6 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.daml.error.ErrorCodesVersionSwitcher
-
 import java.net.{InetSocketAddress, SocketAddress}
 import java.time.{Clock, Duration}
 import java.util.concurrent.TimeUnit
@@ -32,10 +30,10 @@ import com.daml.ledger.api.v1.package_service.{
 }
 import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
 import com.google.protobuf.empty.Empty
+
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
 import io.reactivex.Observable
-
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -47,12 +45,7 @@ final class LedgerServices(val ledgerId: String) {
   private val esf: ExecutionSequencerFactory = new SingleThreadExecutionSequencerPool(ledgerId)
   private val participantId = "LedgerServicesParticipant"
   private val authorizer =
-    new Authorizer(
-      () => Clock.systemUTC().instant(),
-      ledgerId,
-      participantId,
-      new ErrorCodesVersionSwitcher(false),
-    )
+    new Authorizer(() => Clock.systemUTC().instant(), ledgerId, participantId)
 
   def newServerBuilder(): NettyServerBuilder = NettyServerBuilder.forAddress(nextAddress())
 
