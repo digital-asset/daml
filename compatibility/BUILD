@@ -128,7 +128,7 @@ first_post_7587_trigger_version = "1.7.0-snapshot.20201012.5405.0.af92198d"
 
 migration_test(
     name = "migration-stable",
-    timeout = "long",
+    timeout = "eternal",
     # Exclusive due to hardcoded postgres ports.
     tags = [
         "exclusive",
@@ -152,7 +152,7 @@ migration_test(
 
 migration_test(
     name = "migration-all",
-    timeout = "long",
+    timeout = "eternal",
     # Exclusive due to hardcoded postgres ports.
     tags = ["exclusive"],
     versions = platform_versions,
