@@ -67,6 +67,7 @@ final case class SandboxConfig(
     enableAppendOnlySchema: Boolean,
     enableCompression: Boolean,
     enableSelfServiceErrorCodes: Boolean,
+    allowExistingSchema: Boolean,
 ) {
 
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): SandboxConfig =
@@ -148,6 +149,7 @@ object SandboxConfig {
       enableAppendOnlySchema = false,
       enableCompression = false,
       enableSelfServiceErrorCodes = false,
+      allowExistingSchema = false,
     )
 
   sealed abstract class EngineMode extends Product with Serializable

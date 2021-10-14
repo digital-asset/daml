@@ -458,6 +458,7 @@ final class SqlLedgerOnMutableIndexSpec
         validatePartyAllocation = false,
         enableAppendOnlySchema = false,
         enableCompression = false,
+        allowExistingSchema = false,
       ).acquire()(ResourceContext(system.dispatcher))
     createdLedgers += ledger
     ledger.asFuture

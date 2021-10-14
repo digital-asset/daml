@@ -108,7 +108,7 @@ object SandboxServer {
     newLoggingContextWith(logging.participantId(config.participantId)) { implicit loggingContext =>
       logger.info("Running only schema migration scripts")
       new FlywayMigrations(config.jdbcUrl.get, config.enableAppendOnlySchema)
-        .migrate()
+        .migrate(config.allowExistingSchema)
     }
   }
 
@@ -333,6 +333,7 @@ final class SandboxServer(
             validatePartyAllocation = !config.implicitPartyAllocation,
             enableAppendOnlySchema = config.enableAppendOnlySchema,
             enableCompression = config.enableCompression,
+            allowExistingSchema = config.allowExistingSchema,
           )
         case None =>
           SandboxIndexAndWriteService.inMemory(

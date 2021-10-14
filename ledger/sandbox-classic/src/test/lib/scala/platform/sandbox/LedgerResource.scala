@@ -97,6 +97,7 @@ private[sandbox] object LedgerResource {
           validatePartyAllocation = false,
           enableAppendOnlySchema = false,
           enableCompression = false,
+          allowExistingSchema = false,
         )
       } yield ledger
     )

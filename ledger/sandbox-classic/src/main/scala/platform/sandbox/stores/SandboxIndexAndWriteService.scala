@@ -65,6 +65,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       enableAppendOnlySchema: Boolean,
       enableCompression: Boolean,
       validatePartyAllocation: Boolean = false,
+      allowExistingSchema: Boolean,
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
@@ -92,6 +93,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       validatePartyAllocation = validatePartyAllocation,
       enableAppendOnlySchema = enableAppendOnlySchema,
       enableCompression = enableCompression,
+      allowExistingSchema = allowExistingSchema,
     ).flatMap(ledger =>
       owner(
         ledger = MeteredLedger(ledger, metrics),

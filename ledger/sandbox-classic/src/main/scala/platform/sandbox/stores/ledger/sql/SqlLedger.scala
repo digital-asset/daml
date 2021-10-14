@@ -90,6 +90,7 @@ private[sandbox] object SqlLedger {
       validatePartyAllocation: Boolean,
       enableAppendOnlySchema: Boolean,
       enableCompression: Boolean,
+      allowExistingSchema: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[Ledger] {
 
@@ -98,7 +99,7 @@ private[sandbox] object SqlLedger {
     override def acquire()(implicit context: ResourceContext): Resource[Ledger] =
       for {
         _ <- Resource.fromFuture(
-          new FlywayMigrations(jdbcUrl, enableAppendOnlySchema).migrate()
+          new FlywayMigrations(jdbcUrl, enableAppendOnlySchema).migrate(allowExistingSchema)
         )
         dao <- ledgerDaoOwner(servicesExecutionContext).acquire()
         _ <- startMode match {

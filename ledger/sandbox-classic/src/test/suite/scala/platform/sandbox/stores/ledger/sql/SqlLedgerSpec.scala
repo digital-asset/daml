@@ -469,6 +469,7 @@ final class SqlLedgerSpec
         validatePartyAllocation = false,
         enableAppendOnlySchema = true,
         enableCompression = false,
+        allowExistingSchema = false,
       ).acquire()(ResourceContext(system.dispatcher))
     createdLedgers += ledger
     ledger.asFuture
