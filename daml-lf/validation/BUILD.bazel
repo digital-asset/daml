@@ -3,6 +3,7 @@
 
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
@@ -51,5 +52,31 @@ da_scala_test(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
+    ],
+)
+
+da_scala_benchmark_jmh(
+    name = "typechecking-benchmark",
+    srcs = glob(["src/bench/**/*.scala"]),
+    data = [
+        "//ledger/test-common:model-tests-1.14.dar",
+    ],
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/scenario-interpreter",
+        "//daml-lf/transaction",
+        "//daml-lf/validation",
+        "//ledger/test-common:dar-files-default-lib",
+        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
