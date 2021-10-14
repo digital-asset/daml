@@ -4,7 +4,7 @@
 package com.daml.platform.store.dao
 
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
@@ -38,7 +38,7 @@ private[dao] trait JdbcLedgerDaoExceptionSpec extends LoneElement with Inside wi
       result2 <- contractsReader.lookupActiveContractAndLoadArgument(Set(alice), cid2)
     } yield {
       result1 shouldBe None
-      result2.value shouldBe a[ContractInst[_]]
+      result2.value shouldBe a[VersionedContractInstance]
     }
   }
 
@@ -100,10 +100,10 @@ private[dao] trait JdbcLedgerDaoExceptionSpec extends LoneElement with Inside wi
       resultCharlie <- contractsReader.lookupActiveContractAndLoadArgument(Set(charlie), createCid)
     } yield {
       withClue("Alice is stakeholder") {
-        resultAlice.value shouldBe a[ContractInst[_]]
+        resultAlice.value shouldBe a[VersionedContractInstance]
       }
       withClue("Contract was divulged to Bob under a rollback node") {
-        resultBob.value shouldBe a[ContractInst[_]]
+        resultBob.value shouldBe a[VersionedContractInstance]
       }
       withClue("Charlie is unrelated and must not see the contract") {
         resultCharlie shouldBe None
@@ -151,10 +151,10 @@ private[dao] trait JdbcLedgerDaoExceptionSpec extends LoneElement with Inside wi
       resultCharlie <- contractsReader.lookupActiveContractAndLoadArgument(Set(charlie), createCid)
     } yield {
       withClue("Alice is stakeholder") {
-        resultAlice.value shouldBe a[ContractInst[_]]
+        resultAlice.value shouldBe a[VersionedContractInstance]
       }
       withClue("Contract was divulged to Bob under a rollback node") {
-        resultBob.value shouldBe a[ContractInst[_]]
+        resultBob.value shouldBe a[VersionedContractInstance]
       }
       withClue("Charlie is unrelated and must not see the contract") {
         resultCharlie shouldBe None

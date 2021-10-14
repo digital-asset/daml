@@ -4,12 +4,12 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.speedy.SError._
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ContractId
 
 /** The result from small-step evaluation.
   * If the result is not Done or Continue, then the machine
@@ -36,7 +36,7 @@ object SResult {
       // Callback
       // returns the next expression to evaluate.
       // In case of failure the call back does not throw but returns a SErrorDamlException
-      callback: ContractInst[Value.VersionedValue] => Unit,
+      callback: Value.VersionedContractInstance => Unit,
   ) extends SResult
 
   /** Machine needs a definition that was not present when the machine was

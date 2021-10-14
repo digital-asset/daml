@@ -67,12 +67,15 @@ class IdeLedgerClient(
       effectiveAt = ledger.currentTime,
     )
     val filtered = acs.collect {
-      case ScenarioLedger.LookupOk(cid, Value.ContractInst(tpl, arg, _), stakeholders)
-          if tpl == templateId && parties.any(stakeholders.contains(_)) =>
+      case ScenarioLedger.LookupOk(
+            cid,
+            Value.VersionedContractInstance(_, tpl, arg, _),
+            stakeholders,
+          ) if tpl == templateId && parties.any(stakeholders.contains(_)) =>
         (cid, arg)
     }
     Future.successful(filtered.map { case (cid, c) =>
-      ScriptLedgerClient.ActiveContract(templateId, cid, c.value)
+      ScriptLedgerClient.ActiveContract(templateId, cid, c)
     })
   }
 
@@ -89,9 +92,9 @@ class IdeLedgerClient(
       effectiveAt = ledger.currentTime,
       cid,
     ) match {
-      case ScenarioLedger.LookupOk(_, Value.ContractInst(_, arg, _), stakeholders)
+      case ScenarioLedger.LookupOk(_, Value.VersionedContractInstance(_, _, arg, _), stakeholders)
           if parties.any(stakeholders.contains(_)) =>
-        Future.successful(Some(ScriptLedgerClient.ActiveContract(templateId, cid, arg.value)))
+        Future.successful(Some(ScriptLedgerClient.ActiveContract(templateId, cid, arg)))
       case _ =>
         // Note that contrary to `fetch` in a scenario, we do not
         // abort on any of the error cases. This makes sense if you

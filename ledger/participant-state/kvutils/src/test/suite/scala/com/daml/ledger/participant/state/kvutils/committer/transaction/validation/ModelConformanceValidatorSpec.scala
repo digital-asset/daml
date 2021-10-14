@@ -108,7 +108,7 @@ class ModelConformanceValidatorSpec
       when(
         mockValidationResult.consume(
           any[Value.ContractId => Option[
-            Value.ContractInst[Value.VersionedValue]
+            Value.VersionedContractInstance
           ]],
           any[Ref.PackageId => Option[Ast.Package]],
           any[GlobalKeyWithMaintainers => Option[Value.ContractId]],
@@ -213,7 +213,7 @@ class ModelConformanceValidatorSpec
       when(
         mockValidationResult.consume(
           any[Value.ContractId => Option[
-            Value.ContractInst[Value.VersionedValue]
+            Value.VersionedContractInstance
           ]],
           any[Ref.PackageId => Option[Ast.Package]],
           any[GlobalKeyWithMaintainers => Option[Value.ContractId]],
@@ -446,11 +446,13 @@ object ModelConformanceValidatorSpec {
       .build()
   }
 
-  private val aContractInst = Value.ContractInst(
-    aTemplateId,
-    Value.VersionedValue(txVersion, ValueText("dummyValue")),
-    "",
-  )
+  private val aContractInst =
+    Value.VersionedContractInstance(
+      txVersion,
+      aTemplateId,
+      ValueText("dummyValue"),
+      "",
+    )
 
   private val anArchive: DamlLf.Archive = {
     val pkg = Ast.GenPackage[Expr](

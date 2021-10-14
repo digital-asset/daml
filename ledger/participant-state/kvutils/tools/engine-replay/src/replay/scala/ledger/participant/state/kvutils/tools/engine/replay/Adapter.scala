@@ -62,11 +62,8 @@ private[replay] final class Adapter(
   ): Node.KeyWithMaintainers[Value] =
     k.copy(adapt(k.key))
 
-  def adapt(coinst: Tx.ContractInst): Tx.ContractInst =
-    coinst.copy(
-      template = adapt(coinst.template),
-      arg = coinst.arg.copy(value = adapt(coinst.arg.value)),
-    )
+  def adapt(coinst: Value.VersionedContractInstance): Value.VersionedContractInstance =
+    coinst.copy(template = adapt(coinst.template), arg = adapt(coinst.arg))
 
   def adapt(gkey: GlobalKey): GlobalKey =
     GlobalKey.assertBuild(adapt(gkey.templateId), adapt(gkey.key))

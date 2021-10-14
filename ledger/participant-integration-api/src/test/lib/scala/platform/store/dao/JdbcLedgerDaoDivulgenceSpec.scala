@@ -10,7 +10,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises, NodeFetch}
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.value.Value.{ContractInst, ValueParty, VersionedValue}
+import com.daml.lf.value.Value.{VersionedContractInstance, ValueParty}
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.{Inside, LoneElement}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -135,13 +135,11 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
     }
 
     val someVersionedContractInstance =
-      ContractInst(
+      VersionedContractInstance(
+        version = TransactionVersion.V10,
         template = someContractInstance.template,
         agreementText = someContractInstance.agreementText,
-        arg = VersionedValue(
-          version = TransactionVersion.V10,
-          value = someContractInstance.arg,
-        ),
+        arg = someContractInstance.arg,
       )
 
     val t1 = Instant.now()

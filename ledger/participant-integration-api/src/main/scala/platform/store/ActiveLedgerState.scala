@@ -80,6 +80,6 @@ private[platform] trait ActiveLedgerState[ALS <: ActiveLedgerState[ALS]] {
 object ActiveLedgerState {
 
   type ReferencedContracts =
-    List[(Value.ContractId, Value.ContractInst[Value.VersionedValue])]
+    List[(Value.ContractId, Value.VersionedContractInstance)]
 
 }

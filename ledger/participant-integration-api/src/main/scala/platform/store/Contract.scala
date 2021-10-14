@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.transaction.Node.KeyWithMaintainers
 import com.daml.lf.transaction.NodeId
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst, VersionedValue}
+import com.daml.lf.value.Value.{ContractId, VersionedContractInstance, VersionedValue}
 
 /** A contract that is part of the [[ActiveLedgerState]].
   * Depending on where the contract came from, other metadata may be available.
@@ -17,7 +17,7 @@ import com.daml.lf.value.Value.{ContractId, ContractInst, VersionedValue}
 private[platform] sealed abstract class Contract {
   def id: ContractId
 
-  def contract: ContractInst[VersionedValue]
+  def contract: VersionedContractInstance
 
   /** For each party, the transaction id at which the contract was divulged */
   def divulgences: Map[Ref.Party, Ref.TransactionId]
@@ -39,7 +39,7 @@ private[platform] object Contract {
     */
   final case class DivulgedContract(
       id: Value.ContractId,
-      contract: ContractInst[VersionedValue],
+      contract: VersionedContractInstance,
       divulgences: Map[Ref.Party, Ref.TransactionId],
   ) extends Contract
 
@@ -51,7 +51,7 @@ private[platform] object Contract {
       transactionId: Ref.TransactionId, // transaction id where the contract originates
       nodeId: NodeId,
       workflowId: Option[Ref.WorkflowId], // workflow id from where the contract originates
-      contract: ContractInst[VersionedValue],
+      contract: VersionedContractInstance,
       witnesses: Set[Ref.Party],
       divulgences: Map[
         Ref.Party,

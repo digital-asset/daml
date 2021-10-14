@@ -89,8 +89,8 @@ object Node {
     def coinst: Value.ContractInst[Value] =
       Value.ContractInst(templateId, arg, agreementText)
 
-    def versionedCoinst: Value.ContractInst[Value.VersionedValue] =
-      Value.ContractInst(templateId, versionedArg, agreementText)
+    def versionedCoinst: Value.VersionedContractInstance =
+      Value.VersionedContractInstance(version, templateId, arg, agreementText)
 
     def versionedKey: Option[KeyWithMaintainers[Value.VersionedValue]] =
       key.map(_.map(versionValue))

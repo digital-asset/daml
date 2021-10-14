@@ -9,7 +9,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.{TransactionOuterClass => proto}
-import com.daml.lf.value.Value.{ContractId, ContractInst, ValueParty}
+import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.daml.lf.value.{Value, ValueCoder}
 import org.scalacheck.{Arbitrary, Gen}
@@ -226,7 +226,7 @@ class TransactionCoderSpec
         NodeCreate(
           coid = absCid("#test-cid"),
           templateId = Identifier.assertFromString("pkg-id:Test:Name"),
-          arg = ValueParty(Party.assertFromString("francesco")),
+          arg = Value.ValueParty(Party.assertFromString("francesco")),
           agreementText = "agreement",
           signatories = Set(Party.assertFromString("alice")),
           stakeholders = Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
@@ -947,16 +947,8 @@ class TransactionCoderSpec
     key.copy(key = normalize(key.key, version))
   }
 
-  private[this] def normalizeContract(
-      contract: ContractInst[Value.VersionedValue]
-  ) = {
-    contract.copy(arg = normalizeValue(contract.arg))
-  }
-
-  private[this] def normalizeValue(versionedValue: Value.VersionedValue) = {
-    val Value.VersionedValue(version, value) = versionedValue
-    Value.VersionedValue(version, normalize(value, version))
-  }
+  private[this] def normalizeContract(contract: Value.VersionedContractInstance) =
+    contract.copy(arg = normalize(contract.arg, contract.version))
 
   private[this] def normalize(
       value0: Value,
