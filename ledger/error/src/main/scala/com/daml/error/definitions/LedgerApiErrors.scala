@@ -43,7 +43,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     object InternalAuthorizationError
         extends ErrorCode(
           id = "INTERNAL_AUTHORIZATION_ERROR",
-          ErrorCategory.AuthInterceptorInvalidAuthenticationCredentials,
+          ErrorCategory.SystemInternalAssumptionViolated,
         ) {
       case class ClaimsFromMetadataExtractionFailed(throwable: Throwable)(implicit
           loggingContext: ErrorCodeLoggingContext
