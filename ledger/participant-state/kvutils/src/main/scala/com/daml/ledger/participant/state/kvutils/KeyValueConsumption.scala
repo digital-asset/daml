@@ -349,7 +349,7 @@ object KeyValueConsumption {
     wrappedLogEntry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY if deduplicated =>
         val rejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
-        duplicateCommandsRejectionUpdate(recordTime, rejectionEntry)
+        Some(duplicateCommandsRejectionUpdate(recordTime, rejectionEntry))
 
       case _ if deduplicated =>
         // We only emit updates for duplicate transaction submissions.
@@ -367,7 +367,7 @@ object KeyValueConsumption {
           case _ =>
             "Record time outside of valid range"
         }
-        invalidRecordTimeRejectionUpdate(recordTime, rejectionEntry, reason, errorVersionSwitch)
+        Some(invalidRecordTimeRejectionUpdate(recordTime, rejectionEntry, reason, errorVersionSwitch))
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY if invalidRecordTime =>
         val configurationRejectionEntry = wrappedLogEntry.getConfigurationRejectionEntry

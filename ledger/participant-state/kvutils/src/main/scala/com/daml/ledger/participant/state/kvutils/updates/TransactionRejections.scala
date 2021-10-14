@@ -34,40 +34,36 @@ private[kvutils] object TransactionRejections {
       rejectionEntry: DamlTransactionRejectionEntry,
       reason: CorrelationId,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Some[Update.CommandRejected] = {
+  ): Update.CommandRejected = {
     val statusBuilder = invalidRecordTimeRejectionStatus(rejectionEntry, reason, _)
-    Some(
-      Update.CommandRejected(
-        recordTime = recordTime,
-        completionInfo = parseCompletionInfo(
-          Conversions.parseInstant(recordTime),
-          rejectionEntry.getSubmitterInfo,
-        ),
-        reasonTemplate = FinalReason(
-          errorVersionSwitch.choose(
-            statusBuilder(Code.ABORTED),
-            statusBuilder(Code.FAILED_PRECONDITION),
-          )
-        ),
-      )
+    Update.CommandRejected(
+      recordTime = recordTime,
+      completionInfo = parseCompletionInfo(
+        Conversions.parseInstant(recordTime),
+        rejectionEntry.getSubmitterInfo,
+      ),
+      reasonTemplate = FinalReason(
+        errorVersionSwitch.choose(
+          statusBuilder(Code.ABORTED),
+          statusBuilder(Code.FAILED_PRECONDITION),
+        )
+      ),
     )
   }
 
   def duplicateCommandsRejectionUpdate(
       recordTime: Timestamp,
       rejectionEntry: DamlTransactionRejectionEntry,
-  ): Some[Update.CommandRejected] =
-    Some(
-      Update.CommandRejected(
-        recordTime = recordTime,
-        completionInfo = parseCompletionInfo(
-          Conversions.parseInstant(recordTime),
-          rejectionEntry.getSubmitterInfo,
-        ),
-        reasonTemplate = FinalReason(
-          duplicateCommandsRejectionStatus(rejectionEntry, Code.ALREADY_EXISTS)
-        ),
-      )
+  ): Update.CommandRejected =
+    Update.CommandRejected(
+      recordTime = recordTime,
+      completionInfo = parseCompletionInfo(
+        Conversions.parseInstant(recordTime),
+        rejectionEntry.getSubmitterInfo,
+      ),
+      reasonTemplate = FinalReason(
+        duplicateCommandsRejectionStatus(rejectionEntry, Code.ALREADY_EXISTS)
+      ),
     )
 
   def reasonNotSetStatus(
