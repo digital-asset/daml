@@ -6,7 +6,6 @@ package com.daml.platform.sandbox.services.reset
 import java.io.File
 import java.time.Instant
 import java.util.UUID
-
 import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.domain.LedgerId
@@ -46,6 +45,7 @@ import com.daml.ledger.api.v1.testing.time_service.{
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.ledger.test.ModelTestDar
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.AbstractSandboxFixture
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -59,7 +59,6 @@ import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.Span
 import org.scalatest.wordspec.AsyncWordSpec
-import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration.{DurationInt, DurationLong, FiniteDuration, MILLISECONDS}
@@ -76,7 +75,8 @@ abstract class ResetServiceITBase
     with SuiteResourceManagementAroundAll
     with TestCommands {
 
-  protected val logger = LoggerFactory.getLogger(getClass)
+  protected val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+  protected implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   override def timeLimit: Span = scaled(30.seconds)
 
@@ -107,9 +107,8 @@ abstract class ResetServiceITBase
     }
 
   // Resets and waits for a new ledger identity to be available
-  protected def reset(ledgerId: LedgerId): Future[LedgerId] = {
+  protected def reset(ledgerId: LedgerId): Future[LedgerId] =
     timedReset(ledgerId).map(_._1)
-  }
 
   protected def timedReset(ledgerId: LedgerId): Future[(LedgerId, FiniteDuration)] = {
     logger.info(s"Calling reset on $ledgerId")
