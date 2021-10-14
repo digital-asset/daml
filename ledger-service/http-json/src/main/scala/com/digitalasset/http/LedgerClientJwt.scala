@@ -24,8 +24,10 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.google.protobuf
 import io.grpc.Status, Status.Code, Code.{values => _, _}
 import scalaz.{OneAnd, \/, -\/}
+import scalaz.syntax.std.boolean._
 
 import scala.concurrent.{ExecutionContext => EC, Future}
+import scala.util.control.NonFatal
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 object LedgerClientJwt {
@@ -233,6 +235,16 @@ object LedgerClientJwt {
     type EFuture[E, A] = Future[Error[E] \/ A]
 
     final case class Error[+E](e: E, message: String)
+
+    private[http] object StatusEnvelope {
+      def unapply(t: Throwable): Option[Status] = t match {
+        case NonFatal(t) =>
+          val s = Status fromThrowable t
+          // fromThrowable uses UNKNOWN if it didn't find one
+          (s.getCode != UNKNOWN) option s
+        case _ => None
+      }
+    }
 
     // like Code but with types
     // only needs to contain types that may be reported to the json-api user;
