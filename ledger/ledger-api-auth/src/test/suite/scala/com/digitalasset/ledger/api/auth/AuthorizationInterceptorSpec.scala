@@ -27,23 +27,22 @@ class AuthorizationInterceptorSpec
   behavior of s"$className.interceptCall"
 
   it should "close the ServerCall with a V1 status code on decoding failure" in {
-    testServerCloseError(usesSelfServiceErrorCodes = false) { case (status, metadata) =>
-      status.getCode shouldBe Status.Code.INTERNAL
-      status.getDescription shouldBe "Failed to get claims from request metadata"
-      metadata.keys() shouldBe empty
+    testServerCloseError(usesSelfServiceErrorCodes = false) { case (actualStatus, actualMetadata) =>
+      actualStatus.getCode shouldBe Status.Code.INTERNAL
+      actualStatus.getDescription shouldBe "Failed to get claims from request metadata"
+      actualMetadata.keys() shouldBe empty
     }
   }
 
   it should "close the ServerCall with a V2 status code on decoding failure" in {
-    testServerCloseError(usesSelfServiceErrorCodes = true) {
-      case (actualStatus: Status, actualTrailers) =>
-        actualStatus.getCode shouldBe Status.Code.INTERNAL
-        actualStatus.getDescription shouldBe "An error occurred. Please contact the operator and inquire about the request <no-correlation-id>"
+    testServerCloseError(usesSelfServiceErrorCodes = true) { case (actualStatus, actualMetadata) =>
+      actualStatus.getCode shouldBe Status.Code.INTERNAL
+      actualStatus.getDescription shouldBe "An error occurred. Please contact the operator and inquire about the request <no-correlation-id>"
 
-        val actualRpcStatus = StatusProto.fromStatusAndTrailers(actualStatus, actualTrailers)
-        actualRpcStatus.getDetailsList.size() shouldBe 1
-        val errorInfo = actualRpcStatus.getDetailsList.get(0).unpack(classOf[ErrorInfo])
-        errorInfo.getReason shouldBe "INTERNAL_AUTHORIZATION_ERROR"
+      val actualRpcStatus = StatusProto.fromStatusAndTrailers(actualStatus, actualMetadata)
+      actualRpcStatus.getDetailsList.size() shouldBe 1
+      val errorInfo = actualRpcStatus.getDetailsList.get(0).unpack(classOf[ErrorInfo])
+      errorInfo.getReason shouldBe "INTERNAL_AUTHORIZATION_ERROR"
     }
   }
 
@@ -68,8 +67,6 @@ class AuthorizationInterceptorSpec
 
     verify(serverCall, timeout(1000)).close(statusCaptor.capture, metadataCaptor.capture)
 
-    val actualStatus = statusCaptor.value
-
-    assertRpcStatus(actualStatus, metadataCaptor.value)
+    assertRpcStatus(statusCaptor.value, metadataCaptor.value)
   }
 }
