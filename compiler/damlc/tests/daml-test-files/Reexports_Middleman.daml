@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- This test checks that we produce an $$exports value including all values and
--- types exposed by this module, including those reexported from another module.
+-- types exposed reexported by this module from another module.
 -- Namely,
 -- * Type "Reexports_Datatype.T" (TcClsName namespace)
 --     * with pieces:

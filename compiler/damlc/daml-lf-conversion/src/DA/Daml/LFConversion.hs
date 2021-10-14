@@ -752,11 +752,22 @@ convertDepOrphanModules env orphanModules = do
 
 convertExports :: Env -> [GHC.AvailInfo] -> ConvertM [Definition]
 convertExports env availInfos = do
-    exportInfos <- mapM availInfoToExportInfo availInfos
+    let externalExportInfos = filter isExternalAvailInfo availInfos
+    exportInfos <- mapM availInfoToExportInfo externalExportInfos
     let exportsType = encodeExports exportInfos
         exportsDef = DValue (mkMetadataStub exportsName exportsType)
     pure [exportsDef]
     where
+        isExternalAvailInfo :: GHC.AvailInfo -> Bool
+        isExternalAvailInfo = isExternalName . GHC.availName
+            where
+                isExternalName name =
+                    not $
+                        nameIsLocalOrFrom thisModule name
+                        || isSystemName name
+                        || isWiredInName name
+                thisModule = GHC.Module (envModuleUnitId env) (envGHCModuleName env)
+
         availInfoToExportInfo :: GHC.AvailInfo -> ConvertM ExportInfo
         availInfoToExportInfo = \case
             GHC.Avail name -> ExportInfoVal
