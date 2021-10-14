@@ -9,7 +9,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.dec.DirectExecutionContext
-import com.daml.error.{ErrorCodesVersionSwitcher, ValueSwitch}
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain.LedgerId
@@ -349,11 +349,14 @@ final class SandboxServer(
           )
       }).acquire()
       ledgerId <- Resource.fromFuture(indexAndWriteService.indexService.getLedgerId())
+      errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
+        config.enableSelfServiceErrorCodes
+      )
       authorizer = new Authorizer(
         () => java.time.Clock.systemUTC.instant(),
         LedgerId.unwrap(ledgerId),
         config.participantId,
-        new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes),
+        errorCodesVersionSwitcher,
       )
       healthChecks = new HealthChecks(
         "index" -> indexAndWriteService.indexService,
@@ -401,7 +404,7 @@ final class SandboxServer(
           AuthorizationInterceptor(
             authService,
             executionContext,
-            new ValueSwitch(config.enableSelfServiceErrorCodes),
+            errorCodesVersionSwitcher,
           ),
           resetService,
         ),
