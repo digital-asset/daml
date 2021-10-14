@@ -269,11 +269,7 @@ genrule(
         # Unfortunately, an update is not so easy because Sphinx 2.3.1 breaks
         # the PDF documentation due to issues with the FreeSerif font in the
         # fontspec package. So, for now we ignore `FutureWarning`.
-
         set +e # Prevent exiting from the script on a subshell error so that we have a chance to print out the subshell's output captured in a variable.
-        ls -al
-        pwd
-        ls -al  ../$(location //docs:error_codes_export.json)
         SPHINX_BUILD_OUTPUT=$$(../$(location @sphinx_nix//:bin/sphinx-build) -D error_codes_json_export=../$(location //docs:error_codes_export.json) -c docs/configs/html docs/source html 2>&1)
         SPHINX_BUILD_EXIT_CODE=$$?
         set -e # Restore previous option. (Assuming 'set -e' was set in the first place)
