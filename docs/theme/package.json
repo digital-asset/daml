@@ -3,7 +3,7 @@
   "main": "js/theme.js",
   "version": "1.0.0",
   "private": true,
-  "resolutions" : {
+  "resolutions": {
     "**/elliptic": "^6.5.4",
     "**/chalk": "^2.4.1"
   },
