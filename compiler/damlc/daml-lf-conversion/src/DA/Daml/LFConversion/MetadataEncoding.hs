@@ -26,6 +26,12 @@ module DA.Daml.LFConversion.MetadataEncoding
     , moduleImportsName
     , encodeModuleImports
     , decodeModuleImports
+    -- * Exports
+    , exportsName
+    , ExportInfo (..)
+    , QualName (..)
+    , encodeExports
+    , decodeExports
     ) where
 
 import Safe (readMay)
@@ -35,11 +41,16 @@ import qualified Data.Set as S
 import qualified Data.Text as T
 
 import qualified "ghc-lib-parser" BasicTypes as GHC
-import qualified "ghc-lib-parser" Class as GHC
-import qualified "ghc-lib-parser" SrcLoc as GHC
 import qualified "ghc-lib-parser" BooleanFormula as BF
+import qualified "ghc-lib-parser" Class as GHC
+import qualified "ghc-lib-parser" FieldLabel as GHC
+import qualified "ghc-lib-parser" Name as GHC
+import qualified "ghc-lib-parser" SrcLoc as GHC
+import "ghc-lib-parser" FastString (FastString)
+import "ghc-lib-parser" FieldLabel (FieldLbl)
 
 import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.UtilGHC (fsFromText, fsToText)
 
 -----------------------------
 -- FUNCTIONAL DEPENDENCIES --
@@ -205,6 +216,153 @@ decodePackageRef = \case
 
 decodeModuleName :: LF.Type -> Maybe LF.ModuleName
 decodeModuleName = fmap LF.ModuleName . decodeTypeList decodeText
+
+--------------------
+-- Module Exports --
+--------------------
+exportsName :: LF.ExprValName
+exportsName = LF.ExprValName "$$exports"
+
+newtype QualName = QualName (LF.Qualified GHC.OccName)
+    deriving (Eq)
+
+-- | Identical to Avail.AvailInfo, but with QualName instead of GHC.Name.
+data ExportInfo
+    = ExportInfoVal QualName
+    | ExportInfoTC QualName [QualName] [FieldLbl QualName]
+    deriving (Eq)
+
+encodeExports :: [ExportInfo] -> LF.Type
+encodeExports = encodeTypeList encodeExportInfo
+
+encodeExportInfo :: ExportInfo -> LF.Type
+encodeExportInfo = \case
+    ExportInfoVal qualName ->
+        TEncodedCon "ExportInfoVal" (encodeExportInfoVal qualName)
+    ExportInfoTC qualName pieces fields ->
+        TEncodedCon "ExportInfoTC" (encodeExportInfoTC qualName pieces fields)
+
+encodeQualName :: QualName -> LF.Type
+encodeQualName (QualName q) = encodeTypeList id
+    [ encodePackageRef (LF.qualPackage q)
+    , encodeModuleName (LF.qualModule q)
+    , encodeOccName (LF.qualObject q)
+    ]
+
+encodeOccName :: GHC.OccName -> LF.Type
+encodeOccName o =
+    encodeTypeList id
+        [ encodeNameSpace . GHC.occNameSpace $ o
+        , TEncodedStr . fsToText . GHC.occNameFS $ o
+        ]
+
+encodeNameSpace :: GHC.NameSpace -> LF.Type
+encodeNameSpace x = maybe LF.TUnit TEncodedStr $ lookup x
+    [ (GHC.varName, "VarName")
+    , (GHC.dataName, "DataName")
+    , (GHC.tvName, "TvName")
+    , (GHC.tcClsName, "TcClsName")
+    ]
+
+encodeExportInfoVal :: QualName -> LF.Type
+encodeExportInfoVal name = encodeTypeList id
+    [ encodeQualName name
+    ]
+
+encodeExportInfoTC :: QualName -> [QualName] -> [FieldLbl QualName] -> LF.Type
+encodeExportInfoTC name pieces fields = encodeTypeList id
+    [ encodeQualName name
+    , encodeTypeList encodeQualName pieces
+    , encodeTypeList (encodeFieldLbl encodeQualName) fields
+    ]
+
+encodeFieldLbl :: (a -> LF.Type) -> FieldLbl a -> LF.Type
+encodeFieldLbl encodeSelector field = encodeTypeList id
+    [ encodeFastString (GHC.flLabel field)
+    , encodeBool (GHC.flIsOverloaded field)
+    , encodeSelector (GHC.flSelector field)
+    ]
+
+encodeFastString :: FastString -> LF.Type
+encodeFastString = TEncodedStr . fsToText
+
+encodeBool :: Bool -> LF.Type
+encodeBool = \case
+    True -> TEncodedStr "True"
+    False -> TEncodedStr "False"
+
+decodeExports :: LF.Type -> Maybe [ExportInfo]
+decodeExports = decodeTypeList decodeExportInfo
+
+decodeExportInfo :: LF.Type -> Maybe ExportInfo
+decodeExportInfo = \case
+    TEncodedCon "ExportInfoVal" t ->
+        decodeExportInfoVal t
+    TEncodedCon "ExportInfoTC" t -> do
+        decodeExportInfoTC t
+    _ -> Nothing
+
+decodeQualName :: LF.Type -> Maybe QualName
+decodeQualName x = do
+    [p, m, o] <- decodeTypeList Just x
+    qualPackage <- decodePackageRef p
+    qualModule <- decodeModuleName m
+    qualObject <- decodeOccName o
+    pure $ QualName LF.Qualified
+        { qualPackage
+        , qualModule
+        , qualObject
+        }
+
+decodeOccName :: LF.Type -> Maybe GHC.OccName
+decodeOccName x = do
+    [ns, n] <- decodeTypeList Just x
+    occNameSpace <- decodeNameSpace ns
+    occNameFS <- decodeFastString n
+    pure $ GHC.mkOccNameFS occNameSpace occNameFS
+
+decodeNameSpace :: LF.Type -> Maybe GHC.NameSpace
+decodeNameSpace t = do
+    TEncodedStr x <- Just t
+    lookup x
+        [ ("VarName", GHC.varName)
+        , ("DataName", GHC.dataName)
+        , ("TvName", GHC.tvName)
+        , ("TcClsName", GHC.tcClsName)
+        ]
+
+decodeFastString :: LF.Type -> Maybe FastString
+decodeFastString = \case
+    TEncodedStr s -> Just (fsFromText s)
+    _ -> Nothing
+
+decodeExportInfoVal :: LF.Type -> Maybe ExportInfo
+decodeExportInfoVal t = do
+    [name] <- decodeTypeList Just t
+    ExportInfoVal
+        <$> decodeQualName name
+
+decodeExportInfoTC :: LF.Type -> Maybe ExportInfo
+decodeExportInfoTC t = do
+    [name, pieces, fields] <- decodeTypeList Just t
+    ExportInfoTC
+        <$> decodeQualName name
+        <*> decodeTypeList decodeQualName pieces
+        <*> decodeTypeList (decodeFieldLbl decodeQualName) fields
+
+decodeFieldLbl :: (LF.Type -> Maybe a) -> LF.Type -> Maybe (FieldLbl a)
+decodeFieldLbl decodeSelector t = do
+    [label, isOverloaded, selector] <- decodeTypeList Just t
+    GHC.FieldLabel
+        <$> decodeFastString label
+        <*> decodeBool isOverloaded
+        <*> decodeSelector selector
+
+decodeBool :: LF.Type -> Maybe Bool
+decodeBool = \case
+    TEncodedStr "True" -> Just True
+    TEncodedStr "False" -> Just False
+    _ -> Nothing
 
 ---------------------
 -- STUB GENERATION --
