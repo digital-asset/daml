@@ -469,8 +469,8 @@ private[state] object Conversions {
   def decodeTransactionRejectionEntry(
       entry: DamlTransactionRejectionEntry,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Option[FinalReason] = {
-    val status = Some(entry.getReasonCase match {
+  ): FinalReason =
+    FinalReason(entry.getReasonCase match {
       case DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME =>
         val rejection = entry.getInvalidLedgerTime
         invalidLedgerTimeStatus(entry, rejection, errorVersionSwitch)
@@ -524,8 +524,6 @@ private[state] object Conversions {
       case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
         reasonNotSetStatus(entry, errorVersionSwitch)
     })
-    status.map(FinalReason)
-  }
 
   private def encodeParties(parties: Set[Ref.Party]): List[String] =
     (parties.toList: List[String]).sorted

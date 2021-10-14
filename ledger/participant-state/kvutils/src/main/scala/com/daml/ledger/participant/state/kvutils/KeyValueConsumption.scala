@@ -208,11 +208,11 @@ object KeyValueConsumption {
         }
 
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY =>
-        transactionRejectionEntryToUpdate(
+        List(transactionRejectionEntryToUpdate(
           recordTime,
           entry.getTransactionRejectionEntry,
           errorVersionSwitch,
-        ).toList
+        ))
 
       case DamlLogEntry.PayloadCase.OUT_OF_TIME_BOUNDS_ENTRY =>
         outOfTimeBoundsEntryToUpdate(
@@ -244,15 +244,14 @@ object KeyValueConsumption {
       recordTime: Timestamp,
       rejEntry: DamlTransactionRejectionEntry,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Option[Update] = Conversions
-    .decodeTransactionRejectionEntry(rejEntry, errorVersionSwitch)
-    .map { reason =>
-      Update.CommandRejected(
-        recordTime = recordTime,
-        completionInfo = parseCompletionInfo(parseInstant(recordTime), rejEntry.getSubmitterInfo),
-        reasonTemplate = reason,
-      )
-    }
+  ): Update = {
+    val reason = Conversions.decodeTransactionRejectionEntry(rejEntry, errorVersionSwitch)
+    Update.CommandRejected(
+      recordTime = recordTime,
+      completionInfo = parseCompletionInfo(parseInstant(recordTime), rejEntry.getSubmitterInfo),
+      reasonTemplate = reason,
+    )
+  }
 
   /** Transform the transaction entry into the [[Update.TransactionAccepted]] event. */
   private def transactionEntryToUpdate(
