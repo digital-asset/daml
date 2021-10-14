@@ -1,0 +1,23 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module AuthTests where
+
+template T1 with
+    party : Party
+  where
+    signatory party
+
+    nonconsuming choice Choice1 : ContractId T2
+      with
+        party1 : Party
+        party2 : Party
+      controller party2
+      do
+        create T2 with party1; party2
+
+template T2 with
+    party1 : Party
+    party2 : Party
+  where
+    signatory [party1,party2]

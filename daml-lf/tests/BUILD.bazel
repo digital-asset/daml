@@ -19,6 +19,7 @@ TEST_FILES = \
         "LargeTransaction",
         "ConjunctionChoices",
         "ContractKeys",
+        "AuthTests",
     ]
 
 [
