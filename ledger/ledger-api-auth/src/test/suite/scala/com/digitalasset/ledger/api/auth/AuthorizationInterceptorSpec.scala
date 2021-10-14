@@ -35,14 +35,15 @@ class AuthorizationInterceptorSpec
   }
 
   it should "close the ServerCall with a V2 status code on decoding failure" in {
-    testServerCloseError(usesSelfServiceErrorCodes = true) { case (actualStatus, actualTrailers) =>
-      actualStatus.getCode shouldBe Status.Code.INTERNAL
-      actualStatus.getDescription shouldBe "An error occurred. Please contact the operator and inquire about the request <no-correlation-id>"
+    testServerCloseError(usesSelfServiceErrorCodes = true) {
+      case (actualStatus: Status, actualTrailers) =>
+        actualStatus.getCode shouldBe Status.Code.INTERNAL
+        actualStatus.getDescription shouldBe "An error occurred. Please contact the operator and inquire about the request <no-correlation-id>"
 
-      val actualRpcStatus = StatusProto.fromStatusAndTrailers(actualStatus, actualTrailers)
-      actualRpcStatus.getDetailsList.size() shouldBe 1
-      val errorInfo = actualRpcStatus.getDetailsList.get(0).unpack(classOf[ErrorInfo])
-      errorInfo.getReason shouldBe "INTERNAL_AUTHORIZATION_ERROR"
+        val actualRpcStatus = StatusProto.fromStatusAndTrailers(actualStatus, actualTrailers)
+        actualRpcStatus.getDetailsList.size() shouldBe 1
+        val errorInfo = actualRpcStatus.getDetailsList.get(0).unpack(classOf[ErrorInfo])
+        errorInfo.getReason shouldBe "INTERNAL_AUTHORIZATION_ERROR"
     }
   }
 

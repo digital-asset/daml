@@ -88,10 +88,7 @@ object AuthorizationInterceptor {
   def apply(
       authService: AuthService,
       ec: ExecutionContext,
-      // Using a default parameter here, since we don't expose the error code switching
-      // mechanism outside the Ledger API (i.e. rxJava bindings)
-      errorCodesStatusSwitcher: ErrorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(false),
+      errorCodesStatusSwitcher: ErrorCodesVersionSwitcher,
   ): AuthorizationInterceptor =
     new AuthorizationInterceptor(authService, ec, errorCodesStatusSwitcher)
-
 }
