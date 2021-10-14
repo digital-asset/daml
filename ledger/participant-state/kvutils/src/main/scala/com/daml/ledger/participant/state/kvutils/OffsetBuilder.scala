@@ -25,7 +25,7 @@ object OffsetBuilder {
   private[kvutils] val lowestStart = 12
   private[kvutils] val end = 16
 
-  private val delegate = VersionedOffsetBuilder(version = 0)
+  private val delegate = new VersionedOffsetBuilder(version = 0)
 
   def onlyKeepHighestIndex(offset: Offset): Offset = delegate.onlyKeepHighestIndex(offset)
 

@@ -107,11 +107,8 @@ object VersionedOffsetBuilder {
   private val versionMask = 0xff00000000000000L
   private val highestMask = 0x00ffffffffffffffL
 
-  def apply(version: Byte): VersionedOffsetBuilder = new VersionedOffsetBuilder(version)
-
-  private def toDataInputStream(offset: Offset) = new DataInputStream(
-    new ByteArrayInputStream(offset.toByteArray)
-  )
+  private def toDataInputStream(offset: Offset) =
+    new DataInputStream(new ByteArrayInputStream(offset.toByteArray))
 
   private def readVersionAndHighest(stream: DataInputStream): (Byte, Long) = {
     val versionAndHighest = stream.readLong()
