@@ -117,6 +117,7 @@ import           "ghc-lib-parser" TysPrim
 import           "ghc-lib-parser" TyCoRep
 import           "ghc-lib-parser" Class (classHasFds, classMinimalDef, classOpItems)
 import qualified "ghc-lib-parser" Name
+import qualified "ghc-lib-parser" Avail as GHC
 import qualified "ghc-lib-parser" BooleanFormula as BF
 import           Safe.Exact (zipExact, zipExactMay)
 import           SdkVersion
@@ -494,7 +495,16 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
     templates <- convertTemplateDefs env
     exceptions <- convertExceptionDefs env
     interfaces <- convertInterfaces env (eltsUFM (cm_types x))
-    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ templates ++ exceptions ++ definitions ++ interfaces ++ depOrphanModules))
+    exports <- convertExports env (md_exports details)
+    let defs =
+            types
+            ++ templates
+            ++ exceptions
+            ++ definitions
+            ++ interfaces
+            ++ depOrphanModules
+            ++ exports
+    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags defs)
     where
         ghcModName = GHC.moduleName $ cm_module x
         thisUnitId = GHC.moduleUnitId $ cm_module x
@@ -739,6 +749,39 @@ convertDepOrphanModules env orphanModules = do
     let moduleImportsType = encodeModuleImports qualifiedDepOrphanModules
         moduleImportsDef = DValue (mkMetadataStub moduleImportsName moduleImportsType)
     pure [moduleImportsDef]
+
+convertExports :: Env -> [GHC.AvailInfo] -> ConvertM [Definition]
+convertExports env availInfos = do
+    exportInfos <- mapM availInfoToExportInfo availInfos
+    let exportsType = encodeExports exportInfos
+        exportsDef = DValue (mkMetadataStub exportsName exportsType)
+    pure [exportsDef]
+    where
+        availInfoToExportInfo :: GHC.AvailInfo -> ConvertM ExportInfo
+        availInfoToExportInfo = \case
+            GHC.Avail name -> ExportInfoVal
+                <$> convertQualName name
+            GHC.AvailTC name pieces fields -> ExportInfoTC
+                <$> convertQualName name
+                <*> mapM convertQualName (filter (/= name) pieces)
+                    -- NOTE (MA): 'pieces' includes an entry for the type/class,
+                    -- but we exclude it since otherwise the export list entry
+                    -- would include it as a child, e.g.
+                    -- for
+                    --   module Type
+                    --   data T = MkT
+                    -- we'd get
+                    --   module Type     (Type.T (Type.T, Type.MkT)) where
+                    -- with an error reported for this ^
+                <*> mapM convertFieldLabel fields
+
+        convertQualName :: GHC.Name -> ConvertM QualName
+        convertQualName = fmap QualName . convertQualified getOccName env
+
+        convertFieldLabel :: GHC.FieldLabel -> ConvertM (GHC.FieldLbl QualName)
+        convertFieldLabel f = do
+            flSelector <- convertQualName (flSelector f)
+            pure f { flSelector }
 
 defNewtypeWorker :: NamedThing a => LF.ModuleName -> a -> TypeConName -> DataCon
     -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition
