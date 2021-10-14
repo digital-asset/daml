@@ -178,25 +178,28 @@ describe("streamSubmit", () => {
     expect(mockChange).not.toHaveBeenCalled();
   });
 
-  test("reconnect on server close", async () => {
+  test("reconnect on server close with appropriate offsets", async () => {
     const reconnectThreshold = 200;
     const ledger = new Ledger({...mockOptions, reconnectThreshold: reconnectThreshold});
-    const stream = ledger.streamQuery(Foo);
+    const stream = ledger.streamQuery(Foo, {"key": "1"});
     stream.on("live", mockLive);
     stream.on("close", mockClose);
-    mockInstance.serverSend({events: [], offset: '3'});
+    mockInstance.serverOpen()
+    mockInstance.serverSend({events: [], offset: '4'});
     await new Promise(resolve => setTimeout(resolve, reconnectThreshold * 2));
     mockConstructor.mockClear();
     mockInstance.serverClose({code: 1, reason: 'test close'});
     expect(mockConstructor).toHaveBeenCalled();
     mockInstance.serverOpen();
-    expect(mockSend).toHaveBeenNthCalledWith(1, {offset: "3"});
-    expect(mockSend).toHaveBeenNthCalledWith(1, [{"templateIds": ["foo-id"]}]);
+    //first query with no offsets.
+    expect(mockSend).toHaveBeenNthCalledWith(1, [{"query": {"key": "1"}, "templateIds": ["foo-id"]}]);
+    //subsequent one on reconnection with offsets received
+    expect(mockSend).toHaveBeenNthCalledWith(2, [{"offset": "4", "query": {"key": "1"}, "templateIds": ["foo-id"]}]);
     mockSend.mockClear();
     mockConstructor.mockClear();
 
     // check that the client doesn't try to reconnect again.  it should only reconnect if it
-    // received an event confirming the stream is live again, i.e. {events: [], offset: '3'}
+    // received an event confirming the stream is live again, i.e. {events: [], offset: '4'}
     mockInstance.serverClose({code: 1, reason: 'test close'});
     expect(mockConstructor).not.toHaveBeenCalled();
   });
@@ -226,6 +229,7 @@ describe("streamSubmit", () => {
     const count2 = jest.fn();
     stream.on("change", count1);
     stream.on("change", count2);
+    mockInstance.serverOpen();
     mockInstance.serverSend({ events: [1, 2, 3].map(fooEvent) });
     expect(count1).toHaveBeenCalledTimes(1);
     expect(count2).toHaveBeenCalledTimes(1);
@@ -242,6 +246,7 @@ describe("streamQuery", () => {
     const stream = ledger.streamQuery(Foo);
     stream.on("live", mockLive);
     stream.on("change", state => mockChange(state));
+    mockInstance.serverOpen();
     mockInstance.serverSend({ events: [fooEvent(1)], offset: '3' });
     expect(mockLive).toHaveBeenCalledTimes(1);
     expect(mockLive).toHaveBeenLastCalledWith([fooCreateEvent(1)]);
@@ -253,6 +258,7 @@ describe("streamQuery", () => {
     const ledger = new Ledger(mockOptions);
     const stream = ledger.streamQuery(Foo);
     stream.on("change", state => mockChange(state));
+    mockInstance.serverOpen();
     mockInstance.serverSend({ events: [fooEvent(1)] });
     expect(mockChange).toHaveBeenCalledTimes(1);
     expect(mockChange).toHaveBeenLastCalledWith([fooCreateEvent(1)]);
@@ -262,6 +268,7 @@ describe("streamQuery", () => {
     const ledger = new Ledger(mockOptions);
     const stream = ledger.streamQuery(Foo);
     stream.on("change", state => mockChange(state));
+    mockInstance.serverOpen();
     mockInstance.serverSend({ events: [1, 2, 3].map(fooEvent) });
     expect(mockChange).toHaveBeenCalledTimes(1);
     expect(mockChange).toHaveBeenCalledWith([1, 2, 3].map(cid => fooCreateEvent(cid)));
@@ -271,6 +278,7 @@ describe("streamQuery", () => {
     const ledger = new Ledger(mockOptions);
     const stream = ledger.streamQuery(Foo);
     stream.on("change", state => mockChange(state));
+    mockInstance.serverOpen();
     mockInstance.serverSend({ events: [fooEvent(1), fooEvent(2)] });
     expect(mockChange).toHaveBeenCalledTimes(1);
     expect(mockChange).toHaveBeenCalledWith([fooCreateEvent(1), fooCreateEvent(2)]);
@@ -287,6 +295,7 @@ describe("streamQueries", () => {
     const stream = ledger.streamQueries(Foo, []);
     stream.on("live", mockLive);
     stream.on("change", state => mockChange(state));
+    mockInstance.serverOpen();
     mockInstance.serverSend({ events: [fooEvent(1)], offset: '3' });
     expect(mockLive).toHaveBeenCalledTimes(1);
     expect(mockLive).toHaveBeenLastCalledWith([fooCreateEvent(1)]);
@@ -298,6 +307,7 @@ describe("streamQueries", () => {
     const ledger = new Ledger(mockOptions);
     const stream = ledger.streamQueries(Foo, []);
     stream.on("change", state => mockChange(state));
+    mockInstance.serverOpen();
     mockInstance.serverSend({ events: [fooEvent(1)] });
     expect(mockChange).toHaveBeenCalledTimes(1);
     expect(mockChange).toHaveBeenLastCalledWith([fooCreateEvent(1)]);
@@ -307,6 +317,7 @@ describe("streamQueries", () => {
     const ledger = new Ledger(mockOptions);
     const stream = ledger.streamQueries(Foo, []);
     stream.on("change", state => mockChange(state));
+    mockInstance.serverOpen();
     mockInstance.serverSend({ events: [1, 2, 3].map(fooEvent) });
     expect(mockChange).toHaveBeenCalledTimes(1);
     expect(mockChange).toHaveBeenCalledWith([1, 2, 3].map(cid => fooCreateEvent(cid)));
@@ -316,6 +327,7 @@ describe("streamQueries", () => {
     const ledger = new Ledger(mockOptions);
     const stream = ledger.streamQueries(Foo, []);
     stream.on("change", state => mockChange(state));
+    mockInstance.serverOpen();
     mockInstance.serverSend({ events: [fooEvent(1), fooEvent(2)] });
     expect(mockChange).toHaveBeenCalledTimes(1);
     expect(mockChange).toHaveBeenCalledWith([fooCreateEvent(1), fooCreateEvent(2)]);

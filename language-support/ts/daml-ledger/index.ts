@@ -536,12 +536,31 @@ class QueryStreamsManager {
         }
 
         const onWsOpen = (): void => {
-              manager.wsClosed = false;
+          manager.wsClosed = false;
 
-              // Purposefully ignoring 'error' events; they are always followed by a 'close' event, which needs to be handled anyway
-              // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-              manager.ws?.send(JSON.stringify(manager.request));
-          };
+          for (const query of materialize(this.queries.values())) {
+
+            const request = QueryStreamsManager.toRequest(query);
+
+            // Add entries to the lookup table for create events
+            const matchIndexOffset = this.matchIndexLookupTable.length;
+            const matchIndexLookupTableEntries = new Array(request.length).fill([query, matchIndexOffset]);
+            this.matchIndexLookupTable = this.matchIndexLookupTable.concat(matchIndexLookupTableEntries);
+
+            // Add entries to the lookup table for archive events
+            for (const {templateIds} of request) {
+                for (const templateId of templateIds) {
+                    this.templateIdsLookupTable[templateId] = this.templateIdsLookupTable[templateId] || new Set();
+                    this.templateIdsLookupTable[templateId].add(query);
+                }
+            }
+
+            //since we go through all queries on the manager, we should be safely able to rebuild the whole request
+            this.request = request;
+          }
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+          manager.ws?.send(JSON.stringify(Array.from(manager.request.values())));
+        };
 
         const onWsClose = (): void => {
           if (manager.wsClosed === false) {
@@ -564,37 +583,13 @@ class QueryStreamsManager {
             }
           }
         }
+        // Purposefully ignoring 'error' events; they are always followed by a 'close' event, which needs to be handled anyway
 
         manager.ws = new WebSocket(manager.url, manager.protocols);
         manager.ws.addEventListener('open', onWsOpen);
         manager.ws.addEventListener('message', onWsMessage);
         manager.ws.addEventListener('close', onWsClose);
-        manager.refreshQueryRequests();
       }
-
-
-    }
-
-    refreshQueryRequests(): void {
-        for (const query of materialize(this.queries.values())) {
-
-            const request = QueryStreamsManager.toRequest(query);
-
-            // Add entries to the lookup table for create events
-            const matchIndexOffset = this.matchIndexLookupTable.length;
-            const matchIndexLookupTableEntries = new Array(request.length).fill([query, matchIndexOffset]);
-            this.matchIndexLookupTable = this.matchIndexLookupTable.concat(matchIndexLookupTableEntries);
-
-            // Add entries to the lookup table for archive events
-            for (const {templateIds} of request) {
-                for (const templateId of templateIds) {
-                    this.templateIdsLookupTable[templateId] = this.templateIdsLookupTable[templateId] || new Set();
-                    this.templateIdsLookupTable[templateId].add(query);
-                }
-            }
-
-            this.request = this.request.concat(request);
-        }
     }
 
     constructor({token, wsBaseUrl, reconnectThreshold}: { token: string; wsBaseUrl: string; reconnectThreshold: number }) {
