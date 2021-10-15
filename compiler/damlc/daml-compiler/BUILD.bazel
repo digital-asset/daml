@@ -51,6 +51,7 @@ da_haskell_library(
         "//compiler/daml-lf-reader",
         "//compiler/daml-lf-tools",
         "//compiler/damlc/daml-doctest",
+        "//compiler/damlc/daml-ghc-util",
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-lf-conversion",
         "//compiler/damlc/daml-opts",

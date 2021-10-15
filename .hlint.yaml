@@ -115,7 +115,7 @@
 #   - {name: Control.Arrow, within: []} # Certain modules are banned entirely
 #
 - functions:
-  - {name: unsafePerformIO, within: [DA.Daml.LFConversion.UtilGHC]}
+  - {name: unsafePerformIO, within: [DA.Daml.UtilGHC]}
   - {name: unsafeInterleaveIO, within: []}
   - {name: unsafeDupablePerformIO, within: []}
   - {name: setCurrentDirectory, within: [DA.Daml.Assistant.Tests, Main]}

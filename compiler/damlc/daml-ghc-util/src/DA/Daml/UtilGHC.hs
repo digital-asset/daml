@@ -12,8 +12,8 @@
 -- * Call runGhc, use runGhcFast instead. It's faster and doesn't require config we don't have.
 --
 -- * Call setSessionDynFlags, use modifyDynFlags instead. It's faster and avoids loading packages.
-module DA.Daml.LFConversion.UtilGHC(
-    module DA.Daml.LFConversion.UtilGHC
+module DA.Daml.UtilGHC (
+    module DA.Daml.UtilGHC
     ) where
 
 import "ghc-lib" GHC hiding (convertLit)
@@ -327,3 +327,7 @@ collectNonRecLets = \case
 makeNonRecLets :: [(GHC.Var, GHC.Expr Var)] -> GHC.Expr Var -> GHC.Expr Var
 makeNonRecLets lets body =
     foldr (\(x,y) b -> Let (NonRec x y) b) body lets
+
+convertModuleName :: GHC.ModuleName -> LF.ModuleName
+convertModuleName =
+    LF.ModuleName . T.split (== '.') . fsToText . moduleNameFS
