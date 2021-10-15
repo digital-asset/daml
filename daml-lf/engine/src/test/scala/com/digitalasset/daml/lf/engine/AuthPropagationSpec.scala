@@ -142,8 +142,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
         submitters = Set(alice),
         command = command,
       )
-      inside(interpretResult) { case Right(_) =>
-      }
+      interpretResult shouldBe a[Right[_, _]]
     }
     "fail" in {
       val interpretResult = go(
@@ -182,8 +181,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
         submitters = Set(alice, bob),
         command = command,
       )
-      inside(interpretResult) { case Right(_) =>
-      }
+      interpretResult shouldBe a[Right[_, _]]
     }
     "fail" in {
       val interpretResult = go(
@@ -227,8 +225,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
         submitters = Set(bob),
         command = command,
       )
-      inside(interpretResult) { case Right(_) =>
-      }
+      interpretResult shouldBe a[Right[_, _]]
     }
 
     "fail: ExerciseMissingAuthorization" in {
@@ -311,8 +308,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
         submitters = Set(alice),
         command = command,
       )
-      inside(interpretResult) { case Right(_) =>
-      }
+      interpretResult shouldBe a[Right[_, _]]
     }
 
   }
