@@ -49,8 +49,6 @@ case class ReadWriteServiceBridge(
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
-  override def isApiDeduplicationEnabled: Boolean = true
-
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
