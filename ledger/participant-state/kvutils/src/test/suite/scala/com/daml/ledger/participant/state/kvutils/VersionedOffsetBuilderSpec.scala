@@ -25,11 +25,17 @@ class VersionedOffsetBuilderSpec
           val builder = new VersionedOffsetBuilder(version)
           val offset = builder.of(highest, middle, lowest)
 
-          builder.version(offset) should be(version)
-          builder.highestIndex(offset) should be(highest)
-          builder.middleIndex(offset) should be(middle)
-          builder.lowestIndex(offset) should be(lowest)
           builder.split(offset) should be(VersionedOffset(version, highest, middle, lowest))
+      }
+    }
+
+    "extract the highest index" in {
+      forAll(arbitrary[Byte], genHighest, Gen.posNum[Int], Gen.posNum[Int]) {
+        (version, highest, middle, lowest) =>
+          val builder = new VersionedOffsetBuilder(version)
+          val offset = builder.of(highest, middle, lowest)
+
+          builder.highestIndex(offset) should be(highest)
       }
     }
 

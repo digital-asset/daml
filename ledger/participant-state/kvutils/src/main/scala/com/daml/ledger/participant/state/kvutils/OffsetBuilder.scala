@@ -28,22 +28,12 @@ object OffsetBuilder {
 
   private val delegate = new VersionedOffsetBuilder(version = 0)
 
-  def onlyKeepHighestIndex(offset: Offset): Offset = delegate.onlyKeepHighestIndex(offset)
-
   def dropLowestIndex(offset: Offset): Offset = delegate.dropLowestIndex(offset)
-
-  def setMiddleIndex(offset: Offset, middle: Int): Offset = delegate.setMiddleIndex(offset, middle)
 
   def setLowestIndex(offset: Offset, lowest: Int): Offset = delegate.setLowestIndex(offset, lowest)
 
   def fromLong(first: Long, second: Int = 0, third: Int = 0): Offset =
     delegate.of(first, second, third)
-
-  def highestIndex(offset: Offset): Long = delegate.highestIndex(offset)
-
-  def middleIndex(offset: Offset): Int = delegate.middleIndex(offset)
-
-  def lowestIndex(offset: Offset): Int = delegate.lowestIndex(offset)
 
   private[kvutils] def split(offset: Offset): (Long, Int, Int) = {
     val VersionedOffset(_, highest, middle, lowest) = delegate.split(offset)

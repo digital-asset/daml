@@ -27,27 +27,6 @@ class OffsetBuilderSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenP
       }
     }
 
-    "construct and extract" in {
-      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int]) { (highest, middle, lowest) =>
-        val offset = OffsetBuilder.fromLong(highest, middle, lowest)
-
-        OffsetBuilder.highestIndex(offset) should be(highest)
-        OffsetBuilder.middleIndex(offset) should be(middle)
-        OffsetBuilder.lowestIndex(offset) should be(lowest)
-        OffsetBuilder.split(offset) should be((highest, middle, lowest))
-      }
-    }
-
-    "set the middle index" in {
-      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int], Gen.posNum[Int]) {
-        (highest, middle, lowest, newMiddle) =>
-          val offset = OffsetBuilder.fromLong(highest, middle, lowest)
-          val modifiedOffset = OffsetBuilder.setMiddleIndex(offset, newMiddle)
-
-          OffsetBuilder.split(modifiedOffset) should be((highest, newMiddle, lowest))
-      }
-    }
-
     "only change individual indexes" in {
       forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int], Gen.posNum[Int]) {
         (highest, middle, lowest, newLowest) =>
@@ -55,15 +34,6 @@ class OffsetBuilderSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenP
           val modifiedOffset = OffsetBuilder.setLowestIndex(offset, newLowest)
 
           OffsetBuilder.split(modifiedOffset) should be((highest, middle, newLowest))
-      }
-    }
-
-    "zero out the middle and lowest index" in {
-      forAll(genHighest, Gen.posNum[Int], Gen.posNum[Int]) { (highest, middle, lowest) =>
-        val offset = OffsetBuilder.fromLong(highest, middle, lowest)
-        val modifiedOffset = OffsetBuilder.onlyKeepHighestIndex(offset)
-
-        OffsetBuilder.split(modifiedOffset) should be((highest, 0, 0))
       }
     }
 
