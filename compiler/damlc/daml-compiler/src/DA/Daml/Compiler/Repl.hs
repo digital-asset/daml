@@ -34,9 +34,9 @@ import DA.Daml.LF.Ast.Optics (packageRefs)
 import qualified DA.Daml.LF.ReplClient as ReplClient
 import DA.Daml.LFConversion (convertModule)
 import DA.Daml.LFConversion.UtilLF (buildPackage)
-import DA.Daml.LFConversion.UtilGHC
 import DA.Daml.Options.Types
 import qualified DA.Daml.Preprocessor.Records as Preprocessor
+import DA.Daml.UtilGHC
 import Data.Bifunctor (first)
 import Data.Functor.Alt
 import Data.Functor.Bind
