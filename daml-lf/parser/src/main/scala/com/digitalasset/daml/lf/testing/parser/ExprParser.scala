@@ -92,7 +92,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     expr0 ~ rep(eAppAgr) ^^ { case e0 ~ args =>
       def tyApps(e: Expr, args: List[Type]) =
         if (args.isEmpty) e else ETyApps(e, args.to(ImmArray))
-      (args foldLeft [(Expr, List[Type])] (e0, Nil)) {
+      args.foldLeft[(Expr, List[Type])]((e0, Nil)) {
         case ((acc, tyArgs), EAppExprArg(e)) =>
           (EApp(tyApps(acc, tyArgs.reverse), e), Nil)
         case ((acc, tyArgs), EAppTypArg(t)) => (acc, t :: tyArgs)
