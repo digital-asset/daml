@@ -58,6 +58,7 @@ da_haskell_library(
         "//compiler/daml-lf-tools",
         "//compiler/damlc/daml-doctest",
         "//compiler/damlc/daml-lf-conversion",
+        "//compiler/damlc/daml-lf-util",
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-rule-types",

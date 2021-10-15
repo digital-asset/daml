@@ -54,6 +54,7 @@ da_haskell_library(
         "//compiler/damlc/daml-ghc-util",
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-lf-conversion",
+        "//compiler/damlc/daml-lf-util",
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-package-config",

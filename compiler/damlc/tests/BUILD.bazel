@@ -171,7 +171,7 @@ da_haskell_library(
         "//compiler/daml-lf-proto",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-ide-core",
-        "//compiler/damlc/daml-lf-conversion",
+        "//compiler/damlc/daml-lf-util",
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/scenario-service/client",
