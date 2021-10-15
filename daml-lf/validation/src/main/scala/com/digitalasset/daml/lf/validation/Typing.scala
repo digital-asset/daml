@@ -704,25 +704,20 @@ private[validation] object Typing {
           t match {
             case _ if depth <= 0 => (binders, t)
             case TForall(binder, t) => go(binder :: binders, t, depth - 1)
-            case _ => (binders, t)
+            case _ => throw EExpectedUniversalType(ctx, t)
           }
-        go(Nil, t, depth) match {
-          case (binders, _) if binders.isEmpty => None
-          case (binders, t) => Some((binders.reverse, t))
-        }
+        val (binders, unwrappedT) = go(Nil, t, depth)
+        (binders.reverse, unwrappedT)
       }
       val typ = typeOf(expr)
-      unwrapForall(typ, typs.length) match {
-        case Some((binders, body)) if binders.length == typs.length =>
-          (binders zip typs.iterator).foreach { case ((_, k), typ) =>
-            checkType(typ, k)
-          }
-          // Later entries override earliers in toMap so shadowing works correctly.
-          val subst = (binders zip typs.iterator).map({ case ((v, _), typ) => v -> typ }).toMap
-          TypeSubst.substitute(subst, body)
-        case _ =>
-          throw EExpectedUniversalType(ctx, typ)
-      }
+      val (binders, body) = unwrapForall(typ, typs.length)
+      assert(binders.length == typs.length)
+        (binders zip typs.iterator).foreach { case ((_, k), typ) =>
+          checkType(typ, k)
+        }
+      // Later entries override earliers in toMap so shadowing works correctly.
+      val subst = (binders zip typs.iterator).map({ case ((v, _), typ) => v -> typ }).toMap
+      TypeSubst.substitute(subst, body)
     }
 
     private def typeOfTmLam(x: ExprVarName, typ: Type, body: Expr): Type = {
