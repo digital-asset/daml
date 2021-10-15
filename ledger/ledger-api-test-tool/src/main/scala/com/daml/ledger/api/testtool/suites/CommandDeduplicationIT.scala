@@ -14,8 +14,11 @@ import scala.concurrent.{ExecutionContext, Future}
 /** Command deduplication tests for participant side deduplication
   * Should be disabled for ledgers that have committer side deduplication enabled (KV)
   */
-final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterval: FiniteDuration)
-    extends CommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval) {
+final class CommandDeduplicationIT(
+    timeoutScaleFactor: Double,
+    ledgerTimeInterval: FiniteDuration,
+    staticTime: Boolean,
+) extends CommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval, staticTime) {
 
   override def runWithDelay(
       participants: Seq[ParticipantTestContext]

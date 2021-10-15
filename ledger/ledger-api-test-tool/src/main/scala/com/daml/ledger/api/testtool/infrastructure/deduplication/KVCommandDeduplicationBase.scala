@@ -31,7 +31,7 @@ abstract class KVCommandDeduplicationBase(
     timeoutScaleFactor: Double,
     ledgerTimeInterval: FiniteDuration,
     staticTime: Boolean,
-) extends CommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval) {
+) extends CommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval, staticTime) {
   private[this] val logger = LoggerFactory.getLogger(getClass.getName)
 
   testGivenAllParticipants(

@@ -26,11 +26,12 @@ object Tests {
   def default(
       timeoutScaleFactor: Double = Defaults.TimeoutScaleFactor,
       ledgerClockGranularity: FiniteDuration = Defaults.LedgerClockGranularity,
+      staticTime: Boolean = Defaults.StaticTime,
   ): Vector[LedgerTestSuite] =
     Vector(
       new ActiveContractsServiceIT,
       new ClosedWorldIT,
-      new CommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
+      new CommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity, staticTime),
       new CommandServiceIT,
       new CommandSubmissionCompletionIT,
       new ConfigManagementServiceIT,

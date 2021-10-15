@@ -61,6 +61,6 @@ object Config {
     partyAllocation = PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants,
     ledgerClockGranularity = tests.Defaults.LedgerClockGranularity,
     uploadDars = true,
-    staticTime = false,
+    staticTime = tests.Defaults.StaticTime,
   )
 }

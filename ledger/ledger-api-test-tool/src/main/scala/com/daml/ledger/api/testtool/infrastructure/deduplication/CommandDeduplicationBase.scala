@@ -30,6 +30,7 @@ import scala.util.{Failure, Success}
 private[testtool] abstract class CommandDeduplicationBase(
     timeoutScaleFactor: Double,
     ledgerTimeInterval: FiniteDuration,
+    staticTime: Boolean,
 ) extends LedgerTestSuite {
 
   val deduplicationDuration: FiniteDuration = scaledDuration(3.seconds)
@@ -191,8 +192,9 @@ private[testtool] abstract class CommandDeduplicationBase(
     }
   )
 
-  // Without the submission id we cannot assert the received completions for parallel submissions
-  if (deduplicationFeatures.appendOnlySchema)
+  // appendOnlySchema - without the submission id we cannot assert the received completions for parallel submissions
+  // staticTime - we run calls in parallel and with static time we advance the time, therefore this cannot be run in static time
+  if (deduplicationFeatures.appendOnlySchema && !staticTime)
     testGivenAllParticipants(
       s"${testNamingPrefix}SimpleDeduplicationMixedClients",
       "Deduplicate commands within the deduplication time window using the command client and the command submission client",

@@ -333,7 +333,6 @@ server_conformance_test(
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
         "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=AppendOnlyKVCommandDeduplicationIT",
-        "--exclude=AppendOnlyKVCommandDeduplicationIT:AppendOnlyKVCommandDeduplicationSimpleDeduplicationMixedClients",  # we run calls in parallel and with static time we advance the time, therefore this cannot be run in static time
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ClosedWorldIT",
     ],
