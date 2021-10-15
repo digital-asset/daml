@@ -259,7 +259,7 @@ object Cli {
       .optional()
       .hidden()
       .action((_, c) => c.copy(staticTime = true))
-      .text("The ledger is run using static time")
+      .text("Must be enabled if the ledger is using static time")
 
     help("help").text("Prints this usage text")
   }
