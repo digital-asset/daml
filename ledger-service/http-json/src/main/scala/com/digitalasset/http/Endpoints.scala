@@ -749,6 +749,8 @@ object Endpoints {
     implicit val fromCommands: IntoEndpointsError[CommandService.Error] = new IntoEndpointsError({
       case CommandService.InternalError(id, message) =>
         ServerError(s"command service error, ${id.cata(sym => s"${sym.name}: ", "")}$message")
+      case CommandService.GrpcError(status) =>
+        ParticipantServerError(status.getCode, Option(status.getDescription))
       case CommandService.ClientError(-\/(Category.PermissionDenied), message) =>
         Unauthorized(message)
       case CommandService.ClientError(\/-(Category.InvalidArgument), message) =>

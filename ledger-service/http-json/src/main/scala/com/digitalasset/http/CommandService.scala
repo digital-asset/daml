@@ -142,7 +142,10 @@ class CommandService(
       fa.transformWith {
         case Failure(e) =>
           logger.error(s"$opName failure", e)
-          Future.successful(-\/(InternalError(None, e.toString)))
+          Future.successful(-\/(e match {
+            case Grpc.StatusEnvelope(status) => GrpcError(status)
+            case _ => InternalError(None, e.toString)
+          }))
         case Success(-\/(e)) =>
           logger.error(s"$opName failure: ${e.e}: ${e.message}")
           import Grpc.Category._
@@ -315,6 +318,7 @@ object CommandService {
       id: Grpc.Category.PermissionDenied \/ Grpc.Category.InvalidArgument,
       message: String,
   ) extends Error
+  final case class GrpcError(status: io.grpc.Status) extends Error
   final case class InternalError(id: Option[Symbol], message: String) extends Error
 
   object Error {
@@ -322,6 +326,7 @@ object CommandService {
     implicit val errorShow: Show[Error] = Show shows {
       case ClientError(c, message) =>
         s"CommandService Error, ${c.merge}: $message"
+      case GrpcError(status) => s"CommandService Error, ${status.asRuntimeException.getMessage}"
       case InternalError(None, message) =>
         s"CommandService Error, $message"
       case InternalError(Some(id), message) =>
