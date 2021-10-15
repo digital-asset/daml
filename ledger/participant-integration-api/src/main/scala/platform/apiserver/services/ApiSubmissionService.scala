@@ -5,7 +5,7 @@ package com.daml.platform.apiserver.services
 
 import com.daml.api.util.TimeProvider
 import com.daml.error.definitions.{ErrorCauseExport, LedgerApiErrors, RejectionGenerators}
-import com.daml.error.{DamlErrorCodeLoggingContext, ErrorCause}
+import com.daml.error.{DamlErrorCodeLoggingContext, ErrorCause, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}
@@ -23,7 +23,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
-import com.daml.platform.apiserver.{ErrorCodesVersionSwitcher, SeedService}
+import com.daml.platform.apiserver.SeedService
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.daml.platform.server.api.validation.ErrorFactories
