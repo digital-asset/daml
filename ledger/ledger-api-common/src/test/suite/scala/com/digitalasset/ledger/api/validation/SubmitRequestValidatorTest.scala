@@ -4,6 +4,7 @@
 package com.daml.ledger.api.validation
 
 import com.daml.api.util.{DurationConversion, TimestampConversion}
+import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.DomainMocks.{applicationId, commandId, submissionId, workflowId}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.v1.commands.Commands.{DeduplicationPeriod => DeduplicationPeriodProto}
@@ -30,8 +31,8 @@ class SubmitRequestValidatorTest
     extends AnyWordSpec
     with ValidatorTestUtils
     with TableDrivenPropertyChecks {
-
   private val ledgerId = LedgerId("ledger-id")
+  private implicit val errorCodeLoggingContext: ContextualizedErrorLogger = NoLogging
 
   private object api {
     val identifier = Identifier("package", moduleName = "module", entityName = "entity")

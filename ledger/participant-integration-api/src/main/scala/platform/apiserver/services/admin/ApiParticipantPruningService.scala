@@ -3,8 +3,9 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import java.util.UUID
+import com.daml.error.{DamlContextualizedErrorLogger, ContextualizedErrorLogger}
 
+import java.util.UUID
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{
   ParticipantPruningServiceGrpc,
   PruneRequest,
@@ -34,6 +35,8 @@ final class ApiParticipantPruningService private (
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+  private implicit val errorCodeLoggingContext: ContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, logCtx, None)
 
   override def bindService(): ServerServiceDefinition =
     ParticipantPruningServiceGrpc.bindService(this, executionContext)
@@ -47,7 +50,7 @@ final class ApiParticipantPruningService private (
       .map(err => ErrorFactories.invalidArgument(None)(s"submission_id $err"))
 
     submissionIdOrErr.fold(
-      t => Future.failed(ValidationLogger.logFailure(request, t)(logger.withoutContext)),
+      t => Future.failed(ValidationLogger.logFailure(request, t)),
       submissionId =>
         LoggingContext.withEnrichedLoggingContext(logging.submissionId(submissionId)) {
           implicit logCtx =>

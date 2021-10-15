@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.daml.api.util.TimeProvider
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.{
@@ -77,6 +78,7 @@ private[apiserver] final class ApiCommandService private[services] (
   private def submitAndWaitInternal(request: SubmitAndWaitRequest)(implicit
       loggingContext: LoggingContext
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
+    val errorCodeLoggingContext = new DamlContextualizedErrorLogger(logger, loggingContext, None)
     val commands = request.getCommands
     withEnrichedLoggingContext(
       logging.submissionId(commands.submissionId),
@@ -91,7 +93,7 @@ private[apiserver] final class ApiCommandService private[services] (
         submissionTracker.track(CommandSubmission(commands, timeout))
       } else {
         Future.failed(
-          ErrorFactories.serviceNotRunning(definiteAnswer = Some(false))
+          ErrorFactories.serviceNotRunning(definiteAnswer = Some(false))(errorCodeLoggingContext)
         )
       }.andThen(logger.logErrorsOnCall[Completion])
     }

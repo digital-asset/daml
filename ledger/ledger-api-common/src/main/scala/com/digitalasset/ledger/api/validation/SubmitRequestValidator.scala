@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.validation
 
+import com.daml.error.ContextualizedErrorLogger
+
 import java.time.{Duration, Instant}
 
 import com.daml.ledger.api.messages.command.submission
@@ -17,6 +19,8 @@ class SubmitRequestValidator(commandsValidator: CommandsValidator) {
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
       maxDeduplicationTime: Option[Duration],
+  )(implicit
+      errorCodeLoggingContext: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, submission.SubmitRequest] =
     for {
       commands <- requirePresence(req.commands, "commands")

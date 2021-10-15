@@ -5,9 +5,9 @@ package com.daml.platform.apiserver.services.admin
 
 import java.time.Duration
 import java.util.UUID
-
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.error.{DamlContextualizedErrorLogger, ContextualizedErrorLogger}
 import com.daml.ledger.api.domain.{LedgerOffset, PartyEntry}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v1.admin.party_management_service._
@@ -45,6 +45,8 @@ private[apiserver] final class ApiPartyManagementService private (
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+  private implicit val errorCodeLoggingContext: ContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(transactionService, writeService, partyManagementService),
@@ -178,6 +180,9 @@ private[apiserver] object ApiPartyManagementService {
         PartyEntry,
         PartyEntry.AllocationAccepted,
       ] {
+    private val logger = ContextualizedLogger.get(getClass)
+    private implicit val errorCodeLoggingContext: ContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
     override def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]] =
       ledgerEndService.currentLedgerEnd().map(Some(_))

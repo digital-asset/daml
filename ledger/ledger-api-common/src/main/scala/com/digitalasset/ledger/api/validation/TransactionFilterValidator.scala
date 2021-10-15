@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.validation
 
+import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.InclusiveFilters
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
@@ -17,6 +18,8 @@ object TransactionFilterValidator {
 
   def validate(
       txFilter: TransactionFilter
+  )(implicit
+      errorCodeLoggingContext: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.TransactionFilter] = {
     if (txFilter.filtersByParty.isEmpty) {
       Left(ErrorFactories.invalidArgument(None)("filtersByParty cannot be empty"))
@@ -32,7 +35,9 @@ object TransactionFilterValidator {
     }
   }
 
-  def validateFilters(filters: Filters): Either[StatusRuntimeException, domain.Filters] = {
+  def validateFilters(filters: Filters)(implicit
+      errorCodeLoggingContext: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, domain.Filters] = {
     filters.inclusive
       .fold[Either[StatusRuntimeException, domain.Filters]](Right(domain.Filters.noFilter)) {
         inclusive =>

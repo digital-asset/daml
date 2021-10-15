@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion._
+import com.daml.error.{DamlContextualizedErrorLogger, ContextualizedErrorLogger}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
@@ -36,7 +37,13 @@ private[apiserver] final class ApiTimeService private (
     with FieldValidations
     with GrpcApiService {
 
-  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
+  private implicit val errorCodeLoggingContext: ContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(
+      logger,
+      loggingContext,
+      None,
+    )
 
   logger.debug(
     s"${getClass.getSimpleName} initialized with ledger ID ${ledgerId.unwrap}, start time ${backend.getCurrentTime}"

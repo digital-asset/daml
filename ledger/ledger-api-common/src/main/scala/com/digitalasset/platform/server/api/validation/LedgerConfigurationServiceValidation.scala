@@ -3,6 +3,7 @@
 
 package com.daml.platform.server.api.validation
 
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.daml.ledger.api.v1.ledger_configuration_service.{
@@ -10,30 +11,36 @@ import com.daml.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationResponse,
   LedgerConfigurationServiceGrpc,
 }
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
-import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.ExecutionContext
 
 class LedgerConfigurationServiceValidation(
     protected val service: LedgerConfigurationService with GrpcApiService,
     protected val ledgerId: LedgerId,
-)(implicit executionContext: ExecutionContext)
+)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends LedgerConfigurationService
     with ProxyCloseable
     with GrpcApiService
     with FieldValidations {
 
-  protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
+  protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(service.getClass)
 
   override def getLedgerConfiguration(
       request: GetLedgerConfigurationRequest,
       responseObserver: StreamObserver[GetLedgerConfigurationResponse],
   ): Unit =
-    matchLedgerId(ledgerId)(LedgerId(request.ledgerId)).fold(
+    matchLedgerId(ledgerId)(LedgerId(request.ledgerId))(
+      new DamlContextualizedErrorLogger(
+        logger,
+        loggingContext,
+        None,
+      )
+    ).fold(
       t => responseObserver.onError(ValidationLogger.logFailure(request, t)),
       _ => service.getLedgerConfiguration(request, responseObserver),
     )

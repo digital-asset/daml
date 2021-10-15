@@ -6,6 +6,7 @@ package com.daml.platform.apiserver.services
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
@@ -39,7 +40,7 @@ private[apiserver] final class ApiActiveContractsService private (
       request: GetActiveContractsRequest
   ): Source[GetActiveContractsResponse, NotUsed] =
     TransactionFilterValidator
-      .validate(request.getFilter)
+      .validate(request.getFilter)(new DamlContextualizedErrorLogger(logger, loggingContext, None))
       .fold(
         t => Source.failed(ValidationLogger.logFailureWithContext(request, t)),
         filters =>

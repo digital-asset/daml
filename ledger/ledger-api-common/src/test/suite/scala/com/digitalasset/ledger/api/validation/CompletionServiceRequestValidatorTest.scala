@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.validation
 
+import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
@@ -14,7 +15,7 @@ import io.grpc.Status.Code._
 import org.scalatest.wordspec.AnyWordSpec
 
 class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTestUtils {
-
+  private implicit val noLogging: ContextualizedErrorLogger = NoLogging
   private val completionReq = CompletionStreamRequest(
     expectedLedgerId,
     expectedApplicationId,

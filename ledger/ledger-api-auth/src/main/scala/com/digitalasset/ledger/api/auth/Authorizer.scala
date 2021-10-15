@@ -3,14 +3,14 @@
 
 package com.daml.ledger.api.auth
 
-import java.time.Instant
-
+import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.platform.server.api.validation.ErrorFactories.{permissionDenied, unauthenticated}
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import org.slf4j.LoggerFactory
 
+import java.time.Instant
 import scala.collection.compat._
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -21,6 +21,8 @@ import scala.util.{Failure, Success, Try}
 final class Authorizer(now: () => Instant, ledgerId: String, participantId: String) {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
+  // TODO error codes: Enable logging
+  private implicit val errorCodeLoggingContext: ContextualizedErrorLogger = NoLogging
 
   /** Validates all properties of claims that do not depend on the request,
     * such as expiration time or ledger ID.

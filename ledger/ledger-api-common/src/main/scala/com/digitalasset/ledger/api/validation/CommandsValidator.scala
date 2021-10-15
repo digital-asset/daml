@@ -4,6 +4,7 @@
 package com.daml.ledger.api.validation
 
 import com.daml.api.util.{DurationConversion, TimestampConversion}
+import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.commands.Command.Command.{
@@ -14,6 +15,7 @@ import com.daml.ledger.api.v1.commands.Command.Command.{
   ExerciseByKey => ProtoExerciseByKey,
 }
 import com.daml.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
+import com.daml.ledger.api.validation.CommandsValidator.{Submitters, effectiveSubmitters}
 import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.value.{Value => Lf}
@@ -35,6 +37,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
       maxDeduplicationTime: Option[Duration],
+  )(implicit
+      errorCodeLoggingContext: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.Commands] =
     for {
       cmdLegerId <- requireLedgerString(commands.ledgerId, "ledger_id")
@@ -46,7 +50,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         .map(domain.ApplicationId(_))
       commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
       submissionId <- requireSubmissionId(commands.submissionId)
-      submitters <- CommandsValidator.validateSubmitters(commands)
+      submitters <- validateSubmitters(commands)
       commandz <- requireNonEmpty(commands.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz)
       ledgerEffectiveTime <- validateLedgerTime(currentLedgerTime, commands)
@@ -83,6 +87,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
   private def validateLedgerTime(
       currentTime: Instant,
       commands: ProtoCommands,
+  )(implicit
+      errorCodeLoggingContext: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Instant] = {
     val minLedgerTimeAbs = commands.minLedgerTimeAbs
     val minLedgerTimeRel = commands.minLedgerTimeRel
@@ -103,6 +109,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
 
   private def validateInnerCommands(
       commands: Seq[ProtoCommand]
+  )(implicit
+      errorCodeLoggingContext: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, immutable.Seq[ApiCommand]] =
     commands.foldLeft[Either[StatusRuntimeException, Vector[ApiCommand]]](
       Right(Vector.empty[ApiCommand])
@@ -115,6 +123,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
 
   private def validateInnerCommand(
       command: ProtoCommand.Command
+  )(implicit
+      errorCodeLoggingContext: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, ApiCommand] =
     command match {
       case c: ProtoCreate =>
@@ -180,6 +190,25 @@ final class CommandsValidator(ledgerId: LedgerId) {
         Left(missingField("command", definiteAnswer = Some(false)))
     }
 
+  private def validateSubmitters(
+      commands: ProtoCommands
+  )(implicit
+      errorCodeLoggingContext: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Submitters[Ref.Party]] = {
+    def actAsMustNotBeEmpty(effectiveActAs: Set[Ref.Party]) =
+      Either.cond(
+        effectiveActAs.nonEmpty,
+        (),
+        missingField("party or act_as", definiteAnswer = Some(false)),
+      )
+
+    val submitters = effectiveSubmitters(commands)
+    for {
+      actAs <- requireParties(submitters.actAs)
+      readAs <- requireParties(submitters.readAs)
+      _ <- actAsMustNotBeEmpty(actAs)
+    } yield Submitters(actAs, readAs)
+  }
 }
 
 object CommandsValidator {
@@ -207,22 +236,4 @@ object CommandsValidator {
       commands.actAs.toSet + commands.party
 
   val noSubmitters: Submitters[String] = Submitters(Set.empty, Set.empty)
-
-  def validateSubmitters(
-      commands: ProtoCommands
-  ): Either[StatusRuntimeException, Submitters[Ref.Party]] = {
-    def actAsMustNotBeEmpty(effectiveActAs: Set[Ref.Party]) =
-      Either.cond(
-        effectiveActAs.nonEmpty,
-        (),
-        missingField("party or act_as", definiteAnswer = Some(false)),
-      )
-
-    val submitters = effectiveSubmitters(commands)
-    for {
-      actAs <- requireParties(submitters.actAs)
-      readAs <- requireParties(submitters.readAs)
-      _ <- actAsMustNotBeEmpty(actAs)
-    } yield Submitters(actAs, readAs)
-  }
 }

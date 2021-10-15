@@ -7,6 +7,7 @@ import java.sql.Connection
 import java.time.Instant
 import anorm.SQL
 import anorm.SqlParser.{get, int}
+import com.daml.error.NoLogging
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -20,12 +21,12 @@ import com.daml.platform.store.backend.common.{
   ConfigurationStorageBackendTemplate,
   ContractStorageBackendTemplate,
   DataSourceStorageBackendTemplate,
-  IntegrityStorageBackendTemplate,
   DeduplicationStorageBackendTemplate,
   EventStorageBackendTemplate,
   EventStrategy,
   IngestionStorageBackendTemplate,
   InitHookDataSourceProxy,
+  IntegrityStorageBackendTemplate,
   PackageStorageBackendTemplate,
   ParameterStorageBackendTemplate,
   PartyStorageBackendTemplate,
@@ -147,7 +148,7 @@ private[backend] object PostgresStorageBackend
         .foreach(_ =>
           throw ErrorFactories.invalidArgument(None)(
             "Pruning offset for all divulged contracts needs to be after the migration offset"
-          )
+          )(NoLogging)
         )
     }
 

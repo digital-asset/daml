@@ -4,11 +4,11 @@
 package com.daml.platform.index
 
 import java.time.Instant
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.dec.{DirectExecutionContext => DEC}
+import com.daml.error.NoLogging
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
 import com.daml.ledger.api.domain.{
@@ -144,7 +144,7 @@ private[platform] final class LedgerBackedIndexService(
             Source.failed(
               ErrorFactories.invalidArgument(None)(
                 s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."
-              )
+              )(NoLogging) // TODO error codes: Enable logging
             )
           case endOpt: Option[Offset] =>
             f(Some(begin), endOpt)

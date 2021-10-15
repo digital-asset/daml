@@ -3,7 +3,7 @@
 
 package com.daml.error.definitions
 
-import com.daml.error.{BaseError, ErrorCause, ErrorCode, ErrorCodeLoggingContext}
+import com.daml.error.{BaseError, ErrorCause, ErrorCode, ContextualizedErrorLogger}
 import com.daml.ledger.participant.state
 import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
 import io.grpc.Status.Code
@@ -45,17 +45,17 @@ class RejectionGenerators(conformanceMode: Boolean) {
     }
 
   def toGrpc(reject: BaseError)(implicit
-      errorLoggingContext: ErrorCodeLoggingContext
+      errorLoggingContext: ContextualizedErrorLogger
   ): StatusRuntimeException =
     enforceConformance(reject.asGrpcErrorFromContext)
 
   def duplicateCommand(implicit
-      errorLoggingContext: ErrorCodeLoggingContext
+      errorLoggingContext: ContextualizedErrorLogger
   ): StatusRuntimeException =
     toGrpc(LedgerApiErrors.CommandPreparation.DuplicateCommand.Reject())
 
   def commandExecutorError(cause: ErrorCauseExport)(implicit
-      errorLoggingContext: ErrorCodeLoggingContext
+      errorLoggingContext: ContextualizedErrorLogger
   ): StatusRuntimeException = {
 
     def processPackageError(err: LfError.Package.Error): BaseError = err match {
@@ -192,7 +192,7 @@ class RejectionGenerators(conformanceMode: Boolean) {
   //                   Instead of using this, construct proper validation errors in callers of this method
   //                   and only convert to StatusRuntimeExceptions when dispatched (e.g. in ApiSubmissionService)
   def validationFailure(reject: StatusRuntimeException)(implicit
-      errorCodeLoggingContext: ErrorCodeLoggingContext
+      errorCodeLoggingContext: ContextualizedErrorLogger
   ): StatusRuntimeException = {
     val description = reject.getStatus.getDescription
     reject.getStatus.getCode match {

@@ -6,18 +6,19 @@ package com.daml.platform.server.api.services.grpc
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_service._
 import com.daml.ledger.api.validation.TransactionServiceRequestValidator.Result
 import com.daml.ledger.api.validation.{PartyNameChecker, TransactionServiceRequestValidator}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import io.grpc.ServerServiceDefinition
-import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -29,12 +30,20 @@ final class GrpcTransactionService(
     protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
     executionContext: ExecutionContext,
+    loggingContext: LoggingContext,
 ) extends TransactionServiceAkkaGrpc
     with GrpcApiService
     with ErrorFactories
     with FieldValidations {
 
-  protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
+  // TODO error codes: Remove and pass argument at instantiation time
+  override def errorCodesVersionSwitcher: ErrorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
+    false
+  )
+
+  protected implicit val logger = ContextualizedLogger.get(getClass)
+  private implicit val errorCodeLoggingContext =
+    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val validator =
     new TransactionServiceRequestValidator(ledgerId, partyNameChecker)
@@ -42,7 +51,7 @@ final class GrpcTransactionService(
   override protected def getTransactionsSource(
       request: GetTransactionsRequest
   ): Source[GetTransactionsResponse, NotUsed] = {
-    logger.debug("Received new transaction request {}", request)
+    logger.debug(s"Received new transaction request $request")
     Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
       val validation = validator.validate(request, ledgerEnd)
 
@@ -58,7 +67,7 @@ final class GrpcTransactionService(
   override protected def getTransactionTreesSource(
       request: GetTransactionsRequest
   ): Source[GetTransactionTreesResponse, NotUsed] = {
-    logger.debug("Received new transaction tree request {}", request)
+    logger.debug(s"Received new transaction tree request $request")
     Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
       val validation = validator.validateTree(request, ledgerEnd)
 
