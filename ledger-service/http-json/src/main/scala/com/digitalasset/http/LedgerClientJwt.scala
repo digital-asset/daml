@@ -230,8 +230,6 @@ object LedgerClientJwt {
 
   // a shim error model to stand in for https://github.com/digital-asset/daml/issues/9834
   object Grpc {
-    import io.grpc.StatusRuntimeException
-
     type EFuture[E, A] = Future[Error[E] \/ A]
 
     final case class Error[+E](e: E, message: String)
@@ -272,8 +270,8 @@ object LedgerClientJwt {
       ) extends AnyVal {
         def requireHandling[E](c: Code PartialFunction E)(implicit ec: EC): EFuture[E, A] =
           fa map \/.right[Error[E], A] recover Function.unlift {
-            case sre: StatusRuntimeException =>
-              c.lift(sre.getStatus.getCode) map (e => -\/(Error(e, sre.getMessage)))
+            case StatusEnvelope(status) =>
+              c.lift(status.getCode) map (e => -\/(Error(e, status.asRuntimeException.getMessage)))
             case _ => None
           }
       }
