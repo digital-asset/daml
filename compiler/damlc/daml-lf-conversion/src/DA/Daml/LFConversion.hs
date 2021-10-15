@@ -751,12 +751,16 @@ convertDepOrphanModules env orphanModules = do
     pure [moduleImportsDef]
 
 convertExports :: Env -> [GHC.AvailInfo] -> ConvertM [Definition]
-convertExports env availInfos = do
-    let externalExportInfos = filter isExternalAvailInfo availInfos
-    exportInfos <- mapM availInfoToExportInfo externalExportInfos
-    let exportsType = encodeExports exportInfos
-        exportsDef = DValue (mkMetadataStub exportsName exportsType)
-    pure [exportsDef]
+convertExports env availInfos =
+    if envLfVersion env `supports` featureTypeSynonyms
+        then do
+            let externalExportInfos = filter isExternalAvailInfo availInfos
+            exportInfos <- mapM availInfoToExportInfo externalExportInfos
+            let exportsType = encodeExports exportInfos
+                exportsDef = DValue (mkMetadataStub exportsName exportsType)
+            pure [exportsDef]
+        else
+            pure []
     where
         isExternalAvailInfo :: GHC.AvailInfo -> Bool
         isExternalAvailInfo = isExternalName . GHC.availName
