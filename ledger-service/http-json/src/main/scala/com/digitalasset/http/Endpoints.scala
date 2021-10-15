@@ -44,7 +44,7 @@ import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, NonEmptyList, Show, Traverse, \/, \/-}
+import scalaz.{-\/, EitherT, NonEmptyList, Traverse, \/, \/-}
 import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
@@ -532,11 +532,12 @@ class Endpoints(
   ): Future[Error \/ A] =
     fa.map(a => \/-(a)).recover(logException("Future") andThen Error.fromThrowable andThen (-\/(_)))
 
-  private def handleSourceFailure[E: Show, A](implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+  private def handleSourceFailure[E, A](implicit
+      E: IntoEndpointsError[E],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): Flow[E \/ A, Error \/ A, NotUsed] =
     Flow
-      .fromFunction((_: E \/ A).liftErr[Error](ServerError))
+      .fromFunction((_: E \/ A).leftMap(E.run))
       .recover(logException("Source") andThen Error.fromThrowable andThen (-\/(_)))
 
   private def httpResponse(
@@ -746,6 +747,7 @@ object Endpoints {
     import LedgerClientJwt.Grpc.Category
 
     implicit val id: IntoEndpointsError[Error] = new IntoEndpointsError(identity)
+
     implicit val fromCommands: IntoEndpointsError[CommandService.Error] = new IntoEndpointsError({
       case CommandService.InternalError(id, message) =>
         ServerError(s"command service error, ${id.cata(sym => s"${sym.name}: ", "")}$message")
@@ -756,6 +758,11 @@ object Endpoints {
       case CommandService.ClientError(\/-(Category.InvalidArgument), message) =>
         InvalidUserInput(message)
     })
+
+    implicit val fromContracts: IntoEndpointsError[ContractsService.Error] =
+      new IntoEndpointsError({ case ContractsService.InternalError(id, msg) =>
+        ServerError(s"contracts service error, ${id.name}: $msg")
+      })
   }
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =

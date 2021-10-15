@@ -404,7 +404,7 @@ class ContractsService(
       queryParams: InMemoryQuery,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
-  ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] = {
+  ): Source[InternalError \/ domain.ActiveContract[LfValue], NotUsed] = {
 
     logger.debug(
       s"Searching in memory, parties: $parties, templateIds: $templateIds, queryParms: $queryParams"
@@ -422,7 +422,7 @@ class ContractsService(
         val (errors, converted) = step.toInsertDelete.partitionMapPreservingIds { apiEvent =>
           domain.ActiveContract
             .fromLedgerApi(apiEvent)
-            .leftMap(e => Error(Symbol("searchInMemory"), e.shows))
+            .leftMap(e => InternalError(Symbol("searchInMemory"), e.shows))
             .flatMap(apiAcToLfAc): Error \/ Ac
         }
         val convertedInserts = converted.inserts filter { ac =>
@@ -528,7 +528,7 @@ class ContractsService(
       ac: domain.ActiveContract[ApiValue]
   ): Error \/ domain.ActiveContract[LfValue] =
     ac.traverse(ApiValueToLfValueConverter.apiValueToLfValue)
-      .leftMap(e => Error(Symbol("apiAcToLfAc"), e.shows))
+      .leftMap(e => InternalError(Symbol("apiAcToLfAc"), e.shows))
 
   private[http] def valuePredicate(
       templateId: domain.TemplateId.RequiredPkg,
@@ -538,7 +538,7 @@ class ContractsService(
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.attempt(LfValueCodec.apiValueToJsValue(a))(e =>
-      Error(Symbol("lfValueToJsValue"), e.description)
+      InternalError(Symbol("lfValueToJsValue"), e.description)
     )
 
   private[http] def resolveTemplateIds[Tid <: domain.TemplateId.OptionalPkg](
@@ -643,7 +643,9 @@ object ContractsService {
     ): Source[Error \/ domain.ActiveContract[LfV], NotUsed]
   }
 
-  case class Error(id: Symbol, message: String)
+  final case class Error(id: Symbol, message: String)
+  private type InternalError = Error
+  private[http] val InternalError: Error.type = Error
 
   object Error {
     implicit val errorShow: Show[Error] = Show shows { e =>
