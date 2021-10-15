@@ -7,6 +7,7 @@ package engine
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.command.{ApiCommand, Commands, CreateCommand, ExerciseCommand}
+import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref.{
   Name,
   Party,
@@ -26,7 +27,14 @@ import com.daml.lf.ledger.FailedAuthorization.{
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.transaction.Transaction.Metadata
 import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion}
-import com.daml.lf.value.Value.{ContractId, ValueRecord, ValueParty, VersionedContractInstance}
+import com.daml.lf.value.Value.{
+  ContractId,
+  ValueRecord,
+  ValueParty,
+  VersionedContractInstance,
+  ValueContractId,
+  ValueList,
+}
 
 import java.io.File
 
@@ -51,10 +59,14 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
   }
 
-  // field names
+  // field names //NICK: prefix? -- or perhaps inline bindings; with implicit?!
+  def f_cid: Name = Name.assertFromString("cid")
+  def controllerA: Name = Name.assertFromString("controllerA")
+  def controllersB: Name = Name.assertFromString("controllersB")
   def party: Name = Name.assertFromString("party")
   def party1: Name = Name.assertFromString("party1")
   def party2: Name = Name.assertFromString("party2")
+  def party3: Name = Name.assertFromString("party3")
 
   def t1: Identifier =
     Identifier(packageId, QualifiedName.assertFromString("AuthTests:T1"))
@@ -62,12 +74,21 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   def t2: Identifier =
     Identifier(packageId, QualifiedName.assertFromString("AuthTests:T2"))
 
+  // NICK: simplfy examples so just have one set of templates (not T and X)
+  def x1: Identifier =
+    Identifier(packageId, QualifiedName.assertFromString("AuthTests:X1"))
+
   def choice1name: ChoiceName = ChoiceName.assertFromString("Choice1")
   def choice1type: Identifier =
     Identifier(packageId, QualifiedName.assertFromString("AuthTests:Choice1"))
 
+  def choiceAname: ChoiceName = ChoiceName.assertFromString("ChoiceA")
+  def choiceAtype: Identifier =
+    Identifier(packageId, QualifiedName.assertFromString("AuthTests:ChoiceA"))
+
   def alice: Party = Party.assertFromString("Alice")
   def bob: Party = Party.assertFromString("Bob")
+  def charlie: Party = Party.assertFromString("Charlie")
 
   def t1InstanceFor(x: Party): VersionedContractInstance = {
     VersionedContractInstance(
@@ -81,13 +102,30 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     )
   }
 
+  def x1InstanceFor(p: Party): VersionedContractInstance = {
+    VersionedContractInstance(
+      TransactionVersion.VDev,
+      x1,
+      ValueRecord(
+        Some(x1),
+        ImmArray((Some[Name](party), ValueParty(p))),
+      ),
+      "",
+    )
+  }
+
   val t1a = t1InstanceFor(alice)
   val t1b = t1InstanceFor(bob)
+
+  val x1b = x1InstanceFor(bob)
+  val x1c = x1InstanceFor(charlie)
 
   val defaultContracts: Map[ContractId, VersionedContractInstance] =
     Map(
       toContractId("t1a") -> t1a,
       toContractId("t1b") -> t1b,
+      toContractId("x1b") -> x1b,
+      toContractId("x1c") -> x1c,
     )
 
   def readAs: Set[Party] = Set.empty
@@ -310,6 +348,83 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
       )
       interpretResult shouldBe a[Right[_, _]]
     }
+  }
 
+  "Exercise (within exercise)" - {
+
+    "fail (no implicit authority from outer exercise's contract's signatories)" in {
+      def command: ApiCommand =
+        ExerciseCommand(
+          x1,
+          toContractId("x1b"),
+          choiceAname,
+          ValueRecord(
+            Some(choiceAtype),
+            ImmArray(
+              (Some(f_cid), ValueContractId(toContractId("x1c"))),
+              (Some(controllerA), ValueParty(alice)),
+              (
+                Some(controllersB),
+                ValueList(
+                  FrontStack(
+                    ValueParty(alice)
+                  )
+                ),
+              ),
+              (Some(party1), ValueParty(alice)),
+              (Some(party2), ValueParty(bob)),
+              (Some(party3), ValueParty(charlie)),
+            ),
+          ),
+        )
+      val interpretResult = go(
+        submitters = Set(alice),
+        command = command,
+      )
+      inside(interpretResult) {
+        case Left(
+              engine.Error.Interpretation(
+                engine.Error.Interpretation.DamlException(
+                  interpretation.Error
+                    .FailedAuthorization(_, CreateMissingAuthorization(_, _, _, _))
+                ),
+                _,
+              )
+            ) =>
+      }
+    }
+
+    "ok" in {
+      def command: ApiCommand =
+        ExerciseCommand(
+          x1,
+          toContractId("x1b"),
+          choiceAname,
+          ValueRecord(
+            Some(choiceAtype),
+            ImmArray(
+              (Some(f_cid), ValueContractId(toContractId("x1c"))),
+              (Some(controllerA), ValueParty(alice)),
+              (
+                Some(controllersB),
+                ValueList(
+                  FrontStack(
+                    ValueParty(alice),
+                    ValueParty(bob), // bob must be an explicit controller on inner exercise
+                  )
+                ),
+              ),
+              (Some(party1), ValueParty(alice)),
+              (Some(party2), ValueParty(bob)),
+              (Some(party3), ValueParty(charlie)),
+            ),
+          ),
+        )
+      val interpretResult = go(
+        submitters = Set(alice),
+        command = command,
+      )
+      interpretResult shouldBe a[Right[_, _]]
+    }
   }
 }
