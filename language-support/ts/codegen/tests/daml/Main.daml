@@ -169,3 +169,22 @@ template Counter with
         with n: Int
         do
           create Counter {c = n, ..}
+
+interface Token where
+  choice Transfer : ContractId Token
+    with
+      newOwner: Party
+
+template Asset with
+    issuer: Party
+    owner: Party
+  where
+    signatory issuer
+    observer owner
+    implements Token where
+      choice Transfer: ContractId Token with
+          newOwner : Party
+        controller owner
+        do
+          cid <- create Asset with issuer = issuer, owner = newOwner
+          pure (toTokenContractId cid)

@@ -6,7 +6,7 @@ import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
 import Ledger, { Event, Stream, PartyInfo } from  '@daml/ledger';
-import { Int, emptyMap, Map } from '@daml/types';
+import { Int, emptyMap, Map, ContractId } from '@daml/types';
 import pEvent from 'p-event';
 import _ from 'lodash';
 import WebSocket from 'ws';
@@ -331,6 +331,35 @@ test('create + fetch & exercise', async () => {
   expect(nonTopLevelContract.payload).toEqual(nonTopLevel);
   const nonTopLevelContracts = await aliceLedger.query(buildAndLint.Lib.Mod.NonTopLevel);
   expect(nonTopLevelContracts).toEqual([nonTopLevelContract]);
+
+});
+
+test("interfaces", async () => {
+  const aliceLedger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
+  const bobLedger = new Ledger({token: BOB_TOKEN, httpBaseUrl: httpBaseUrl()});
+
+  const assetPayload = {
+    issuer: ALICE_PARTY,
+    owner: ALICE_PARTY
+  }
+  const ifaceContract = await aliceLedger.create(buildAndLint.Main.Asset, assetPayload);
+  expect(ifaceContract.payload).toEqual(assetPayload);
+  const [ifaceContract1, events1] = await aliceLedger.exercise(buildAndLint.Main.Asset.Transfer, ifaceContract.contractId, {newOwner: BOB_PARTY});
+  expect(events1).toMatchObject(
+    [ {archived: {templateId: buildAndLint.Main.Asset.templateId}},
+      {created: {templateId: buildAndLint.Main.Asset.templateId,
+       signatories: [ALICE_PARTY],
+       payload: {issuer: ALICE_PARTY, owner: BOB_PARTY}}}
+    ]
+  )
+  const [,events2] = await bobLedger.exercise(buildAndLint.Main.Asset.Transfer, ifaceContract1 as unknown as ContractId<buildAndLint.Main.Asset>, {newOwner: ALICE_PARTY});
+  expect(events2).toMatchObject(
+    [ {archived: {templateId: buildAndLint.Main.Asset.templateId}},
+      {created: {templateId: buildAndLint.Main.Asset.templateId,
+       signatories: [ALICE_PARTY],
+       payload: {issuer: ALICE_PARTY, owner: ALICE_PARTY}}}
+    ]
+  )
 });
 
 test("createAndExercise", async () => {
