@@ -3,7 +3,7 @@
 
 package com.daml.lf.validation
 
-import com.daml.lf.data.{ImmArray, Numeric, Struct}
+import com.daml.lf.data.{BackStack, ImmArray, Numeric, Struct}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
@@ -697,26 +697,25 @@ private[validation] object Typing {
     private def typeOfTyApps(expr: Expr, typs: ImmArray[Type]): Type = {
       def unwrapForall(t: Type, depth: Int) = {
         @tailrec def go(
-            binders: List[(TypeVarName, Kind)],
+            binders: BackStack[(TypeVarName, Kind)],
             t: Type,
             depth: Int,
-        ): (List[(TypeVarName, Kind)], Type) =
+        ): (ImmArray[(TypeVarName, Kind)], Type) =
           t match {
-            case _ if depth <= 0 => (binders, t)
-            case TForall(binder, t) => go(binder :: binders, t, depth - 1)
+            case _ if depth <= 0 => (binders.toImmArray, t)
+            case TForall(binder, t) => go(binders :+ binder, t, depth - 1)
             case _ => throw EExpectedUniversalType(ctx, t)
           }
-        val (binders, unwrappedT) = go(Nil, t, depth)
-        (binders.reverse, unwrappedT)
+        go(BackStack.empty, t, depth)
       }
       val typ = typeOf(expr)
       val (binders, body) = unwrapForall(typ, typs.length)
       assert(binders.length == typs.length)
-        (binders zip typs.iterator).foreach { case ((_, k), typ) =>
-          checkType(typ, k)
-        }
+      (binders.iterator zip typs.iterator).foreach { case ((_, k), typ) =>
+        checkType(typ, k)
+      }
       // Later entries override earliers in toMap so shadowing works correctly.
-      val subst = (binders zip typs.iterator).map({ case ((v, _), typ) => v -> typ }).toMap
+      val subst = (binders.iterator zip typs.iterator).map({ case ((v, _), typ) => v -> typ }).toMap
       TypeSubst.substitute(subst, body)
     }
 
