@@ -192,7 +192,7 @@ class RejectionGenerators(conformanceMode: Boolean) {
   //                   Instead of using this, construct proper validation errors in callers of this method
   //                   and only convert to StatusRuntimeExceptions when dispatched (e.g. in ApiSubmissionService)
   def validationFailure(reject: StatusRuntimeException)(implicit
-      errorCodeLoggingContext: ContextualizedErrorLogger
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException = {
     val description = reject.getStatus.getDescription
     reject.getStatus.getCode match {
@@ -204,13 +204,13 @@ class RejectionGenerators(conformanceMode: Boolean) {
         } else if (description.startsWith("Invalid field:")) {
           toGrpc(LedgerApiErrors.CommandValidation.InvalidField.Reject(description))
         } else {
-          errorCodeLoggingContext.warn(s"Unknown invalid argument rejection: ${reject.getStatus}")
+          contextualizedErrorLogger.warn(s"Unknown invalid argument rejection: ${reject.getStatus}")
           reject
         }
       case Code.NOT_FOUND if description.startsWith("Ledger ID") =>
         toGrpc(LedgerApiErrors.CommandValidation.LedgerIdMismatch.Reject(description))
       case _ =>
-        errorCodeLoggingContext.warn(s"Unknown rejection: ${reject.getStatus}")
+        contextualizedErrorLogger.warn(s"Unknown rejection: ${reject.getStatus}")
         reject
     }
   }

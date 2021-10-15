@@ -3,8 +3,9 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import java.sql.Connection
+import com.daml.error.NoLogging
 
+import java.sql.Connection
 import com.daml.ledger.offset.Offset
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.backend.ParameterStorageBackend
@@ -45,7 +46,11 @@ case class QueryNonPrunedImpl(storageBackend: ParameterStorageBackend) extends Q
         result
 
       case Some(pruningOffsetUpToInclusive) =>
-        throw ErrorFactories.participantPrunedDataAccessed(error(pruningOffsetUpToInclusive))
+        // TODO error codes: Do not throw
+        // TODO error codes: Enable logging
+        throw ErrorFactories.participantPrunedDataAccessed(error(pruningOffsetUpToInclusive))(
+          NoLogging
+        )
     }
   }
 }

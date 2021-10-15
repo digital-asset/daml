@@ -4,7 +4,7 @@
 package com.daml.http.util
 
 import com.daml.lf
-import com.daml.ledger.api.validation.ValueValidator
+import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.ledger.api.{v1 => lav1}
 import io.grpc.StatusRuntimeException
 import scalaz.{Show, \/}
@@ -23,6 +23,6 @@ object ApiValueToLfValueConverter {
     lav1.value.Value => Error \/ lf.value.Value
 
   def apiValueToLfValue: ApiValueToLfValue = { a: lav1.value.Value =>
-    \/.fromEither(ValueValidator.validateValue(a)).leftMap(e => Error(e))
+    \/.fromEither(NoLoggingValueValidator.validateValue(a)).leftMap(e => Error(e))
   }
 }

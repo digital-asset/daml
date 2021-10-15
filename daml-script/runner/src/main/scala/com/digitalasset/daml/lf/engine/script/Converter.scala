@@ -8,7 +8,7 @@ package script
 import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value
-import com.daml.ledger.api.validation.ValueValidator
+import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.engine.script.ledgerinteraction.ScriptLedgerClient
@@ -699,7 +699,7 @@ object Converter {
               tplId <- Converter.fromApiIdentifier(created.getTemplateId)
               cid <- ContractId.fromString(created.contractId)
               arg <-
-                ValueValidator
+                NoLoggingValueValidator
                   .validateRecord(created.getCreateArguments)
                   .left
                   .map(err => s"Failed to validate create argument: $err")
@@ -713,7 +713,7 @@ object Converter {
               tplId <- Converter.fromApiIdentifier(exercised.getTemplateId)
               cid <- ContractId.fromString(exercised.contractId)
               choice <- ChoiceName.fromString(exercised.choice)
-              choiceArg <- ValueValidator
+              choiceArg <- NoLoggingValueValidator
                 .validateValue(exercised.getChoiceArgument)
                 .left
                 .map(err => s"Failed to validate exercise argument: $err")

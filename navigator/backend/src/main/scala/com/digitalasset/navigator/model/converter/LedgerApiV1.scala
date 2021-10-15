@@ -11,7 +11,7 @@ import com.daml.lf.iface
 import com.daml.lf.value.{Value => V}
 import com.daml.ledger.api.{v1 => V1}
 import com.daml.ledger.api.refinements.ApiTypes
-import com.daml.ledger.api.validation.ValueValidator.{validateRecord, validateValue}
+import com.daml.ledger.api.validation.NoLoggingValueValidator.{validateRecord, validateValue}
 import com.daml.navigator.{model => Model}
 import com.daml.navigator.model.{IdentifierApiConversions, IdentifierDamlConversions}
 import com.daml.platform.participant.util.LfEngineToApi.{lfValueToApiRecord, lfValueToApiValue}

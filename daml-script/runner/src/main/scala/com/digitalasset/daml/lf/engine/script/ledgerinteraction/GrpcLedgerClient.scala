@@ -17,7 +17,7 @@ import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeServiceSt
 import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
 import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
-import com.daml.ledger.api.validation.ValueValidator
+import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.command
 import com.daml.lf.data.Ref._
@@ -73,12 +73,13 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     acsResponses.map(acsPages =>
       acsPages.toVector.flatMap(page =>
         page.activeContracts.toVector.map(createdEvent => {
-          val argument = ValueValidator.validateRecord(createdEvent.getCreateArguments) match {
-            case Left(err) => throw new ConverterException(err.toString)
-            case Right(argument) => argument
-          }
+          val argument =
+            NoLoggingValueValidator.validateRecord(createdEvent.getCreateArguments) match {
+              case Left(err) => throw new ConverterException(err.toString)
+              case Right(argument) => argument
+            }
           val key: Option[Value] = createdEvent.contractKey.map { key =>
-            ValueValidator.validateValue(key) match {
+            NoLoggingValueValidator.validateValue(key) match {
               case Left(err) => throw new ConverterException(err.toString)
               case Right(argument) => argument
             }
@@ -315,7 +316,10 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
         } yield ScriptLedgerClient.CreateResult(cid)
       case TreeEvent(TreeEvent.Kind.Exercised(exercised)) =>
         for {
-          result <- ValueValidator.validateValue(exercised.getExerciseResult).left.map(_.toString)
+          result <- NoLoggingValueValidator
+            .validateValue(exercised.getExerciseResult)
+            .left
+            .map(_.toString)
           templateId <- Converter.fromApiIdentifier(exercised.getTemplateId)
           choice <- ChoiceName.fromString(exercised.choice)
         } yield ScriptLedgerClient.ExerciseResult(templateId, choice, result)

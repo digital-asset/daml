@@ -5,7 +5,12 @@ package com.daml.platform.apiserver.services
 
 import com.daml.api.util.TimeProvider
 import com.daml.error.definitions.{ErrorCauseExport, LedgerApiErrors, RejectionGenerators}
-import com.daml.error.{DamlContextualizedErrorLogger, ErrorCause, ErrorCodesVersionSwitcher}
+import com.daml.error.{
+  DamlContextualizedErrorLogger,
+  ErrorCause,
+  ContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}
@@ -99,10 +104,9 @@ private[apiserver] final class ApiSubmissionService private[services] (
     commandExecutor: CommandExecutor,
     configuration: ApiSubmissionService.Configuration,
     metrics: Metrics,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+    val errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends CommandSubmissionService
-    with ErrorFactories
     with AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -162,7 +166,11 @@ private[apiserver] final class ApiSubmissionService private[services] (
             }
         case _: CommandDeduplicationDuplicate =>
           metrics.daml.commands.deduplicatedCommands.mark()
-          failedOnDuplicateCommand()
+          Future.failed(
+            ErrorFactories.duplicateCommandException(
+              new DamlContextualizedErrorLogger(logger, loggingContext, None)
+            )
+          )
       }
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit
@@ -291,7 +299,9 @@ private[apiserver] final class ApiSubmissionService private[services] (
   /** This method encodes logic related to legacy error codes (V1).
     * Cf. self-service error codes (V2) in //ledger/error
     */
-  private def toStatusExceptionV1(errorCause: ErrorCause): StatusRuntimeException =
+  private def toStatusExceptionV1(
+      errorCause: ErrorCause
+  )(implicit errorCodeLoggingContext: ContextualizedErrorLogger): StatusRuntimeException =
     errorCause match {
       case cause @ ErrorCause.DamlLf(error) =>
         error match {
@@ -313,36 +323,27 @@ private[apiserver] final class ApiSubmissionService private[services] (
   private def failedOnMissingLedgerConfiguration()(implicit
       loggingContext: LoggingContext
   ): Future[Unit] = {
+    implicit val errorCodeLoggingContext: ContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
     errorCodesVersionSwitcher.chooseAsFailedFuture(
       v1 = ErrorFactories.missingLedgerConfig(definiteAnswer = Some(false)),
       v2 = LedgerApiErrors.InterpreterErrors.LookupErrors.LedgerConfigurationNotFound
-        .Reject()(new DamlContextualizedErrorLogger(logger, loggingContext, None))
+        .Reject()
         .asGrpcError,
-    )
-  }
-
-  private def failedOnDuplicateCommand()(implicit loggingContext: LoggingContext): Future[Unit] = {
-    errorCodesVersionSwitcher.chooseAsFailedFuture(
-      v1 = {
-        val exception = duplicateCommandException
-        logger.debug(exception.getMessage)
-        exception
-      },
-      v2 = rejectionGenerators.duplicateCommand(
-        new DamlContextualizedErrorLogger(logger, loggingContext, None)
-      ),
     )
   }
 
   private def failedOnCommandExecution(
       error: ErrorCause
   )(implicit loggingContext: LoggingContext): Future[CommandExecutionResult] = {
+    implicit val errorCodeLoggingContext: ContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
     errorCodesVersionSwitcher.chooseAsFailedFuture(
       v1 = toStatusExceptionV1(error),
       v2 = rejectionGenerators
-        .commandExecutorError(cause = ErrorCauseExport.fromErrorCause(error))(
-          new DamlContextualizedErrorLogger(logger, loggingContext, None)
-        ),
+        .commandExecutorError(cause = ErrorCauseExport.fromErrorCause(error)),
     )
   }
 

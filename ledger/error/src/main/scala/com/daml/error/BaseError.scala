@@ -47,17 +47,17 @@ trait BaseError extends LocationMixin {
   def resources: Seq[(ErrorResource, String)] = Seq()
 
   def logWithContext(extra: Map[String, String] = Map())(implicit
-      errorCodeLoggingContext: ContextualizedErrorLogger
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Unit =
-    errorCodeLoggingContext.logError(this, extra)
+    contextualizedErrorLogger.logError(this, extra)
 
   def asGrpcStatusFromContext(implicit
-      errorCodeLoggingContext: ContextualizedErrorLogger
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Status =
     code.asGrpcStatus(this)
 
   def asGrpcErrorFromContext(implicit
-      errorCodeLoggingContext: ContextualizedErrorLogger
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     code.asGrpcError(this)
 

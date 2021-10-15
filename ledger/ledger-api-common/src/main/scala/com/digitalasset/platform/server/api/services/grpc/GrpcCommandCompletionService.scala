@@ -5,6 +5,7 @@ package com.daml.platform.server.api.services.grpc
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
@@ -14,9 +15,9 @@ import com.daml.ledger.api.messages.command.completion.{
 import com.daml.ledger.api.v1.command_completion_service._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.validation.{CompletionServiceRequestValidator, PartyNameChecker}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.services.domain.CommandCompletionService
-import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -43,10 +44,13 @@ class GrpcCommandCompletionService(
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
     executionContext: ExecutionContext,
+    loggingContext: LoggingContext,
 ) extends CommandCompletionServiceAkkaGrpc {
 
   private val validator = new CompletionServiceRequestValidator(ledgerId, partyNameChecker)
-  protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
+  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
+  private implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   override def completionStreamSource(
       request: CompletionStreamRequest

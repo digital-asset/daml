@@ -17,6 +17,55 @@ import com.daml.lf.interpretation.{Error => LfInterpretationError}
 
 object LedgerApiErrors extends LedgerApiErrorGroup {
 
+  @Explanation("This rejection is given when the requested service has already been closed.")
+  @Resolution("Contact the participant operator.")
+  object ServiceNotRunning
+      extends ErrorCode(
+        id = "SERVICE_NOT_RUNNING",
+        // TODO error codes: Re-check this error category
+        ErrorCategory.TransientServerFailure,
+      ) {
+    case class Reject()(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends LoggingTransactionErrorImpl(
+          cause = "Service has been shut down."
+        )
+  }
+
+  object ReadErrors extends ErrorGroup() {
+    @Explanation("This rejection is given when a read request tries to access pruned data.")
+    @Resolution("Use an offset that is after the pruning offset.")
+    object ParticipantPrunedDataAccesses
+        extends ErrorCode(
+          id = "PARTICIPANT_PRUNED_DATA_ACCESSED",
+          // TODO error codes: Rename error category to cover this scenario
+          //                   where the data accessed is before the allowed pruning begin
+          ErrorCategory.InvalidGivenCurrentSystemStateSeekAfterEnd,
+        ) {
+      case class Reject(message: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = message
+          )
+    }
+
+    @Explanation(
+      "This rejection is given when a read request uses an offset beyond the current ledger end."
+    )
+    @Resolution("Use an offset that is before the ledger end.")
+    object RequestedOffsetAfterLedgerEnd
+        extends ErrorCode(
+          id = "REQUESTED_OFFSET_OUT_OF_RANGE",
+          ErrorCategory.InvalidGivenCurrentSystemStateSeekAfterEnd,
+        ) {
+      case class Reject(message: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = message
+          )
+    }
+  }
+
   // the authorization checks are here only for documentation purpose.
   // TODO error codes: Extract these errors in ledger-api-auth and use them in [[com.daml.ledger.api.auth.Authorizer]]
   //                   (i.e. in lieu of ErrorFactories.permissionDenied() and ErrorFactories.unauthenticated())
@@ -69,7 +118,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(override val cause: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = cause
+            cause = cause,
+            definiteAnswer = true,
           )
     }
 
@@ -78,11 +128,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     )
     @Resolution("Inspect the reason given and correct your application.")
     object MissingField
-        extends ErrorCode(id = "MISSING_FIELDS", ErrorCategory.InvalidIndependentOfSystemState) {
-      case class Reject(_reason: String)(implicit
+        extends ErrorCode(id = "MISSING_FIELD", ErrorCategory.InvalidIndependentOfSystemState) {
+      case class Reject(missingField: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = s"The submitted command is missing a mandatory field: ${_reason}"
+            cause = s"The submitted command is missing a mandatory field: $missingField"
           )
     }
 
