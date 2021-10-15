@@ -82,6 +82,7 @@ module DA.Daml.LFConversion
 
 import           DA.Daml.LFConversion.Primitives
 import           DA.Daml.LFConversion.MetadataEncoding
+import           DA.Daml.Preprocessor (isInternal)
 import           DA.Daml.UtilGHC
 import           DA.Daml.UtilLF
 
@@ -770,6 +771,7 @@ convertExports env availInfos =
                         nameIsLocalOrFrom thisModule name
                         || isSystemName name
                         || isWiredInName name
+                        || maybe False (isInternal . GHC.moduleName) (nameModule_maybe name)
                 thisModule = GHC.Module (envModuleUnitId env) (envGHCModuleName env)
 
         availInfoToExportInfo :: GHC.AvailInfo -> ConvertM ExportInfo

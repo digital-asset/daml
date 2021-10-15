@@ -6,6 +6,7 @@ module DA.Daml.Preprocessor
   ( damlPreprocessor
   , generatedPreprocessor
   , noPreprocessor
+  , isInternal
   ) where
 
 import           DA.Daml.Preprocessor.Records
