@@ -15,7 +15,7 @@ import qualified Data.Text as T
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Proto3.Archive
-import DA.Daml.LFConversion.UtilLF
+import DA.Daml.UtilLF
 
 allStablePackages :: [Package]
 allStablePackages =
