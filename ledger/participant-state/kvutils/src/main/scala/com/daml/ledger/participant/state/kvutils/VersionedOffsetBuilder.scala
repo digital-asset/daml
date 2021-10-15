@@ -28,13 +28,13 @@ class VersionedOffsetBuilder(version: Byte) {
   private val versionBytes = Bytes.fromByteArray(Array(version))
 
   def dropLowestIndex(offset: Offset): Offset = {
-    val VersionedOffset(_, highest, middle, _) = split(offset)
-    of(highest, middle)
+    val versionedOffset = VersionedOffset(offset)
+    of(versionedOffset.highest, versionedOffset.middle)
   }
 
   def setLowestIndex(offset: Offset, lowest: Int): Offset = {
-    val VersionedOffset(_, highest, middle, _) = split(offset)
-    of(highest, middle, lowest)
+    val versionedOffset = VersionedOffset(offset)
+    of(versionedOffset.highest, versionedOffset.middle, lowest)
   }
 
   def of(highest: Long, middle: Int = 0, lowest: Int = 0): Offset = {
@@ -75,11 +75,7 @@ class VersionedOffsetBuilder(version: Byte) {
 
   private[kvutils] def split(offset: Offset): VersionedOffset = {
     validateVersion(offset)
-    val stream = toDataInputStream(offset)
-    val highest = readHighest(stream)
-    val middle = stream.readInt()
-    val lowest = stream.readInt()
-    VersionedOffset(version, highest, middle, lowest)
+    VersionedOffset(offset)
   }
 
   private def validateVersion(offset: Offset): Unit =
@@ -111,11 +107,4 @@ object VersionedOffsetBuilder {
     buffer.putLong(highest)
     stream.write(buffer.array(), highestStartByte, highestSizeBytes)
   }
-
-  private[kvutils] final case class VersionedOffset(
-      version: Byte,
-      highest: Long,
-      middle: Int,
-      lowest: Int,
-  )
 }

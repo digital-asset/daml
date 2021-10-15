@@ -4,7 +4,6 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.kvutils.VersionedOffsetBuilder.VersionedOffset
 
 /** Helper functions for generating 16 byte [[Offset]]s from integers.
   * The created offset will look as follows:
@@ -36,7 +35,7 @@ object OffsetBuilder {
     delegate.of(first, second, third)
 
   private[kvutils] def split(offset: Offset): (Long, Int, Int) = {
-    val VersionedOffset(_, highest, middle, lowest) = delegate.split(offset)
-    (highest, middle, lowest)
+    val versionedOffset = delegate.split(offset)
+    (versionedOffset.highest, versionedOffset.middle, versionedOffset.lowest)
   }
 }

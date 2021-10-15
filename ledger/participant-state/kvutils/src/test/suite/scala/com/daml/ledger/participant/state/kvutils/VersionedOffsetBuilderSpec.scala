@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.ledger.participant.state.kvutils.VersionedOffsetBuilder.VersionedOffset
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen
 import org.scalatest.matchers.should.Matchers
@@ -25,7 +24,11 @@ class VersionedOffsetBuilderSpec
           val builder = new VersionedOffsetBuilder(version)
           val offset = builder.of(highest, middle, lowest)
 
-          builder.split(offset) should be(VersionedOffset(version, highest, middle, lowest))
+          val splitOffset = builder.split(offset)
+          splitOffset.version should be(version)
+          splitOffset.highest should be(highest)
+          splitOffset.middle should be(middle)
+          splitOffset.lowest should be(lowest)
       }
     }
 
