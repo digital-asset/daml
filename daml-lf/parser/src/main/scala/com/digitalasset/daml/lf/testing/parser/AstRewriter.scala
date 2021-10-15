@@ -93,8 +93,8 @@ private[daml] class AstRewriter(
           EStructUpd(field, apply(struct), apply(update))
         case EApp(fun, arg) =>
           EApp(apply(fun), apply(arg))
-        case ETyApp(expr, typ) =>
-          ETyApp(apply(expr), apply(typ))
+        case ETyApps(expr, typs) =>
+          ETyApps(apply(expr), typs.map(apply))
         case EAbs(binder, body, ref) =>
           EAbs(apply(binder), apply(body), ref)
         case ETyAbs(binder, body) =>

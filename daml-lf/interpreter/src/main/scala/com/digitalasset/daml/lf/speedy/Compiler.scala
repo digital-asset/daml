@@ -421,7 +421,7 @@ private[lf] final class Compiler(
         withEnv { _ =>
           compileAbss(expr0)
         }
-      case EApp(_, _) | ETyApp(_, _) =>
+      case EApp(_, _) | ETyApps(_, _) =>
         compileApps(expr0)
       case ERecCon(tApp, fields) =>
         compileERecCon(tApp, fields)
@@ -850,8 +850,8 @@ private[lf] final class Compiler(
     expr0 match {
       case EApp(fun, arg) =>
         compileApps(fun, compile(arg) :: args)
-      case ETyApp(fun, arg) =>
-        compileApps(fun, translateType(arg).fold(args)(_ :: args))
+      case ETyApps(fun, tyArgs) =>
+        compileApps(fun, tyArgs.collect(Function.unlift(translateType)).toList ++ args)
       case _ if args.isEmpty =>
         compile(expr0)
       case _ =>

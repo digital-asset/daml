@@ -408,9 +408,6 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
       def eApps(e: Expr, args: Expr*) =
         args.foldLeft(e)(EApp)
 
-      def etApps(e: Expr, types: Type*) =
-        types.foldLeft(e)(ETyApp)
-
       def text(s: String) = EPrimLit(PLText(s))
 
       val eitherT = t"Mod:Either"
@@ -642,7 +639,7 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
         binder1,
         Ast.EAbs(
           binder2,
-          Ast.EAbs(binder3, Ast.EApp(Ast.EApp(Ast.ETyApp(Ast.EBuiltin(bi), t), x), y), None),
+          Ast.EAbs(binder3, Ast.EApp(Ast.EApp(etApps(Ast.EBuiltin(bi), t), x), y), None),
           None,
         ),
         None,
@@ -658,5 +655,8 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
       }
     } catch { case Goodbye(err) => Left(err) }
   }
+
+  private[this] def etApps(e: Ast.Expr, types: Ast.Type*): Ast.Expr =
+    Ast.ETyApps(e, types.to(ImmArray))
 
 }

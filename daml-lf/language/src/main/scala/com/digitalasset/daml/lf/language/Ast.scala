@@ -46,8 +46,8 @@ object Ast {
       (args foldLeft EApp(this, arg))(EApp)
 
     /** Infix alias for repeated [[ETyApp]] application. */
-    @inline final def eTyApp(typ: Type, typs: Type*): ETyApp =
-      (typs foldLeft ETyApp(this, typ))(ETyApp)
+    @inline final def eTyApps(typ: Type, typs: Type*): ETyApps =
+      ETyApps(this, (typ +: typs).to(ImmArray))
   }
 
   /** Reference to a variable in current lexical scope. */
@@ -100,7 +100,7 @@ object Ast {
   final case class EApp(fun: Expr, arg: Expr) extends Expr
 
   /** Type application. */
-  final case class ETyApp(expr: Expr, typ: Type) extends Expr
+  final case class ETyApps(expr: Expr, typs: ImmArray[Type]) extends Expr
 
   /** Expression abstraction. */
   final case class EAbs(

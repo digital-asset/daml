@@ -283,9 +283,9 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "x (y z)" ->
           EApp(e"x", EApp(e"y", e"z")),
         "x @Int64" ->
-          ETyApp(e"x", t"Int64"),
+          ETyApps(e"x", ImmArray(t"Int64")),
         "x @Int64 @Bool" ->
-          ETyApp(ETyApp(e"x", t"Int64"), t"Bool"),
+          ETyApps(e"x", ImmArray(t"Int64", t"Bool")),
         """\ (x:Int64) -> x""" ->
           EAbs((x.value, t"Int64"), e"x", None),
         """\ (x:Int64) (y:Bool) -> <f1=x, f2=y>""" -> EAbs(

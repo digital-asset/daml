@@ -1033,9 +1033,8 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           val tyapp = lfExpr.getTyApp
           val args = tyapp.getTypesList.asScala
           assertNonEmpty(args, "args")
-          (args foldLeft decodeExpr(tyapp.getExpr, definition))((e, arg) =>
-            ETyApp(e, decodeType(arg))
-          )
+          val expr = decodeExpr(tyapp.getExpr, definition)
+          ETyApps(expr, args.view.map(decodeType(_)).to(ImmArray))
 
         case PLF.Expr.SumCase.TY_ABS =>
           val lfTyAbs = lfExpr.getTyAbs
@@ -1608,7 +1607,11 @@ private[lf] object DecodeV1 {
       maxVersion: Option[LV] = None, // first version that does not support the builtin
       implicitParameters: List[Type] = List.empty,
   ) {
-    val expr: Expr = implicitParameters.foldLeft[Expr](EBuiltin(builtin))(ETyApp)
+    val expr: Expr =
+      if (implicitParameters.isEmpty)
+        EBuiltin(builtin)
+      else
+        ETyApps(EBuiltin(builtin), implicitParameters.to(ImmArray))
   }
 
   val builtinFunctionInfos: List[BuiltinFunctionInfo] = {

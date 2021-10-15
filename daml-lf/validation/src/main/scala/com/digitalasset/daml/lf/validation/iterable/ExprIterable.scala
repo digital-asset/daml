@@ -34,7 +34,7 @@ private[validation] object ExprIterable {
         Iterator(struct, update)
       case EApp(fun, arg) =>
         Iterator(fun, arg)
-      case ETyApp(expr, typ @ _) =>
+      case ETyApps(expr, typs @ _) =>
         Iterator(expr)
       case EAbs(binder @ _, body, ref @ _) =>
         Iterator(body)

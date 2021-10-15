@@ -41,8 +41,8 @@ private[validation] object TypeIterable {
       case EVariantCon(tycon, variant @ _, arg) =>
         Iterator(toType(tycon)) ++
           iterator(arg)
-      case ETyApp(expr, typ) =>
-        iterator(expr) ++ Iterator(typ)
+      case ETyApps(expr, typs) =>
+        iterator(expr) ++ typs.iterator
       case EAbs((boundVarName @ _, boundVarType), body, ref @ _) =>
         Iterator(boundVarType) ++ iterator(body)
       case ELet(binding, body) =>

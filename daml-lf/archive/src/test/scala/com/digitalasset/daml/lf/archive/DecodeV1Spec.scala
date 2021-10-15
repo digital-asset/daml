@@ -7,7 +7,7 @@ import java.math.BigDecimal
 import java.nio.file.Paths
 
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.lf.data.{Decimal, Numeric, Ref}
+import com.daml.lf.data.{Decimal, ImmArray, Numeric, Ref}
 import com.daml.lf.language.Util._
 import com.daml.lf.language.{Ast, LanguageVersion => LV}
 import com.daml.lf.data.ImmArray.ImmArraySeq
@@ -28,6 +28,11 @@ class DecodeV1Spec
     with Inside
     with OptionValues
     with ScalaCheckPropertyChecks {
+
+  private object ETyApp {
+    def apply(e: Ast.Expr, t: Ast.Type) =
+      Ast.ETyApps(e, ImmArray(t))
+  }
 
   val unitTyp: DamlLf1.Type = DamlLf1.Type
     .newBuilder()
@@ -400,67 +405,67 @@ class DecodeV1Spec
       (
         DamlLf1.BuiltinFunction.ADD_DECIMAL,
         "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BAddNumeric), TDecimalScale),
+        ETyApp(Ast.EBuiltin(Ast.BAddNumeric), TDecimalScale),
       ),
       (
         DamlLf1.BuiltinFunction.SUB_DECIMAL,
         "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BSubNumeric), TDecimalScale),
+        ETyApp(Ast.EBuiltin(Ast.BSubNumeric), TDecimalScale),
       ),
       (
         DamlLf1.BuiltinFunction.MUL_DECIMAL,
         "6",
-        Ast.ETyApp(
-          Ast.ETyApp(Ast.ETyApp(Ast.EBuiltin(Ast.BMulNumeric), TDecimalScale), TDecimalScale),
-          TDecimalScale,
+        Ast.ETyApps(
+          Ast.EBuiltin(Ast.BMulNumeric),
+          ImmArray(TDecimalScale, TDecimalScale, TDecimalScale),
         ),
       ),
       (
         DamlLf1.BuiltinFunction.DIV_DECIMAL,
         "6",
-        Ast.ETyApp(
-          Ast.ETyApp(Ast.ETyApp(Ast.EBuiltin(Ast.BDivNumeric), TDecimalScale), TDecimalScale),
-          TDecimalScale,
+        Ast.ETyApps(
+          Ast.EBuiltin(Ast.BDivNumeric),
+          ImmArray(TDecimalScale, TDecimalScale, TDecimalScale),
         ),
       ),
       (
         DamlLf1.BuiltinFunction.ROUND_DECIMAL,
         "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BRoundNumeric), TDecimalScale),
+        ETyApp(Ast.EBuiltin(Ast.BRoundNumeric), TDecimalScale),
       ),
-      (DamlLf1.BuiltinFunction.LEQ_DECIMAL, "6", Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TDecimal)),
-      (DamlLf1.BuiltinFunction.LESS_DECIMAL, "6", Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TDecimal)),
+      (DamlLf1.BuiltinFunction.LEQ_DECIMAL, "6", ETyApp(Ast.EBuiltin(Ast.BLessEq), TDecimal)),
+      (DamlLf1.BuiltinFunction.LESS_DECIMAL, "6", ETyApp(Ast.EBuiltin(Ast.BLess), TDecimal)),
       (
         DamlLf1.BuiltinFunction.GEQ_DECIMAL,
         "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TDecimal),
+        ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TDecimal),
       ),
       (
         DamlLf1.BuiltinFunction.GREATER_DECIMAL,
         "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TDecimal),
+        ETyApp(Ast.EBuiltin(Ast.BGreater), TDecimal),
       ),
       (
         DamlLf1.BuiltinFunction.DECIMAL_TO_TEXT,
         "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BNumericToText), TDecimalScale),
+        ETyApp(Ast.EBuiltin(Ast.BNumericToText), TDecimalScale),
       ),
       (
         DamlLf1.BuiltinFunction.TEXT_TO_DECIMAL,
         "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BTextToNumeric), TDecimalScale),
+        ETyApp(Ast.EBuiltin(Ast.BTextToNumeric), TDecimalScale),
       ),
       (
         DamlLf1.BuiltinFunction.INT64_TO_DECIMAL,
         "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BInt64ToNumeric), TDecimalScale),
+        ETyApp(Ast.EBuiltin(Ast.BInt64ToNumeric), TDecimalScale),
       ),
       (
         DamlLf1.BuiltinFunction.DECIMAL_TO_INT64,
         "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BNumericToInt64), TDecimalScale),
+        ETyApp(Ast.EBuiltin(Ast.BNumericToInt64), TDecimalScale),
       ),
-      (DamlLf1.BuiltinFunction.EQUAL_DECIMAL, "6", Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TDecimal)),
+      (DamlLf1.BuiltinFunction.EQUAL_DECIMAL, "6", ETyApp(Ast.EBuiltin(Ast.BEqual), TDecimal)),
     )
 
     val numericBuiltinTestCases = Table(
@@ -478,32 +483,31 @@ class DecodeV1Spec
 
     val comparisonBuiltinCases = Table(
       "compare builtins" -> "expected output",
-      DamlLf1.BuiltinFunction.EQUAL_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TInt64),
-      DamlLf1.BuiltinFunction.LEQ_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TInt64),
-      DamlLf1.BuiltinFunction.LESS_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TInt64),
-      DamlLf1.BuiltinFunction.GEQ_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TInt64),
-      DamlLf1.BuiltinFunction.GREATER_INT64 -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TInt64),
-      DamlLf1.BuiltinFunction.EQUAL_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TDate),
-      DamlLf1.BuiltinFunction.LEQ_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TDate),
-      DamlLf1.BuiltinFunction.LESS_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TDate),
-      DamlLf1.BuiltinFunction.GEQ_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TDate),
-      DamlLf1.BuiltinFunction.GREATER_DATE -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TDate),
-      DamlLf1.BuiltinFunction.EQUAL_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TTimestamp),
-      DamlLf1.BuiltinFunction.LEQ_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TTimestamp),
-      DamlLf1.BuiltinFunction.LESS_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TTimestamp),
-      DamlLf1.BuiltinFunction.GEQ_TIMESTAMP -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TTimestamp),
-      DamlLf1.BuiltinFunction.GREATER_TIMESTAMP -> Ast
-        .ETyApp(Ast.EBuiltin(Ast.BGreater), TTimestamp),
-      DamlLf1.BuiltinFunction.EQUAL_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TText),
-      DamlLf1.BuiltinFunction.LEQ_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TText),
-      DamlLf1.BuiltinFunction.LESS_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TText),
-      DamlLf1.BuiltinFunction.GEQ_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TText),
-      DamlLf1.BuiltinFunction.GREATER_TEXT -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TText),
-      DamlLf1.BuiltinFunction.EQUAL_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TParty),
-      DamlLf1.BuiltinFunction.LEQ_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TParty),
-      DamlLf1.BuiltinFunction.LESS_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TParty),
-      DamlLf1.BuiltinFunction.GEQ_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TParty),
-      DamlLf1.BuiltinFunction.GREATER_PARTY -> Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TParty),
+      DamlLf1.BuiltinFunction.EQUAL_INT64 -> ETyApp(Ast.EBuiltin(Ast.BEqual), TInt64),
+      DamlLf1.BuiltinFunction.LEQ_INT64 -> ETyApp(Ast.EBuiltin(Ast.BLessEq), TInt64),
+      DamlLf1.BuiltinFunction.LESS_INT64 -> ETyApp(Ast.EBuiltin(Ast.BLess), TInt64),
+      DamlLf1.BuiltinFunction.GEQ_INT64 -> ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TInt64),
+      DamlLf1.BuiltinFunction.GREATER_INT64 -> ETyApp(Ast.EBuiltin(Ast.BGreater), TInt64),
+      DamlLf1.BuiltinFunction.EQUAL_DATE -> ETyApp(Ast.EBuiltin(Ast.BEqual), TDate),
+      DamlLf1.BuiltinFunction.LEQ_DATE -> ETyApp(Ast.EBuiltin(Ast.BLessEq), TDate),
+      DamlLf1.BuiltinFunction.LESS_DATE -> ETyApp(Ast.EBuiltin(Ast.BLess), TDate),
+      DamlLf1.BuiltinFunction.GEQ_DATE -> ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TDate),
+      DamlLf1.BuiltinFunction.GREATER_DATE -> ETyApp(Ast.EBuiltin(Ast.BGreater), TDate),
+      DamlLf1.BuiltinFunction.EQUAL_TIMESTAMP -> ETyApp(Ast.EBuiltin(Ast.BEqual), TTimestamp),
+      DamlLf1.BuiltinFunction.LEQ_TIMESTAMP -> ETyApp(Ast.EBuiltin(Ast.BLessEq), TTimestamp),
+      DamlLf1.BuiltinFunction.LESS_TIMESTAMP -> ETyApp(Ast.EBuiltin(Ast.BLess), TTimestamp),
+      DamlLf1.BuiltinFunction.GEQ_TIMESTAMP -> ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TTimestamp),
+      DamlLf1.BuiltinFunction.GREATER_TIMESTAMP -> ETyApp(Ast.EBuiltin(Ast.BGreater), TTimestamp),
+      DamlLf1.BuiltinFunction.EQUAL_TEXT -> ETyApp(Ast.EBuiltin(Ast.BEqual), TText),
+      DamlLf1.BuiltinFunction.LEQ_TEXT -> ETyApp(Ast.EBuiltin(Ast.BLessEq), TText),
+      DamlLf1.BuiltinFunction.LESS_TEXT -> ETyApp(Ast.EBuiltin(Ast.BLess), TText),
+      DamlLf1.BuiltinFunction.GEQ_TEXT -> ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TText),
+      DamlLf1.BuiltinFunction.GREATER_TEXT -> ETyApp(Ast.EBuiltin(Ast.BGreater), TText),
+      DamlLf1.BuiltinFunction.EQUAL_PARTY -> ETyApp(Ast.EBuiltin(Ast.BEqual), TParty),
+      DamlLf1.BuiltinFunction.LEQ_PARTY -> ETyApp(Ast.EBuiltin(Ast.BLessEq), TParty),
+      DamlLf1.BuiltinFunction.LESS_PARTY -> ETyApp(Ast.EBuiltin(Ast.BLess), TParty),
+      DamlLf1.BuiltinFunction.GEQ_PARTY -> ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TParty),
+      DamlLf1.BuiltinFunction.GREATER_PARTY -> ETyApp(Ast.EBuiltin(Ast.BGreater), TParty),
     )
 
     val numericComparisonBuiltinCases = Table(

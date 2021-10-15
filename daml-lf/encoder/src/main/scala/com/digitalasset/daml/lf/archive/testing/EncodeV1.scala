@@ -509,9 +509,6 @@ private[daml] class EncodeV1(minor: LV.Minor) {
     private val EApps = LeftRecMatcher[Expr, Expr]({ case EApp(fun, arg) =>
       fun -> arg
     })
-    private val ETyApps = LeftRecMatcher[Expr, Type]({ case ETyApp(exp, typ) =>
-      exp -> typ
-    })
     private val EAbss = RightRecMatcher[(ExprVarName, Type), Expr]({ case EAbs(binder, body, _) =>
       binder -> body
     })
@@ -588,10 +585,6 @@ private[daml] class EncodeV1(minor: LV.Minor) {
                 PLF.Expr.TyApp.newBuilder().setExpr(expr).accumulateLeft(typs0)(_ addTypes _)
               )
           }
-        case ETyApps(expr, typs) =>
-          builder.setTyApp(
-            PLF.Expr.TyApp.newBuilder().setExpr(expr).accumulateLeft(typs)(_ addTypes _)
-          )
         case EAbss(binders, body) =>
           builder.setAbs(
             PLF.Expr.Abs.newBuilder().accumulateLeft(binders)(_ addParam _).setBody(body)
