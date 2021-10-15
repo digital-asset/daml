@@ -232,7 +232,7 @@ private[apiserver] final class ApiTransactionService private[apiserver] (
         v1 = Status.NOT_FOUND
           .withDescription("Transaction not found, or not visible.")
           .asRuntimeException(),
-        v2 = LedgerApiErrors.InterpreterErrors.LookupErrors.TransactionNotFound
+        v2 = LedgerApiErrors.ReadErrors.TransactionNotFound
           .Reject(
             transactionId = transactionId.unwrap
           )(new DamlContextualizedErrorLogger(logger, loggingContext, None))
