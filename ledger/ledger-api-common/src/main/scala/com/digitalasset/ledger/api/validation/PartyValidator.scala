@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.validation
 
+import com.daml.error.ErrorCodeLoggingContext
 import com.daml.lf.data.Ref.Party
 import com.daml.platform.server.api.validation.ErrorFactories.invalidArgument
 import com.daml.platform.server.api.validation.FieldValidations.requireParties
@@ -11,7 +12,9 @@ import io.grpc.StatusRuntimeException
 class PartyValidator(partyNameChecker: PartyNameChecker) {
   type Result[X] = Either[StatusRuntimeException, X]
 
-  def requireKnownParties(parties: Iterable[String]): Result[Set[Party]] =
+  def requireKnownParties(
+      parties: Iterable[String]
+  )(implicit errorCodeLoggingContext: ErrorCodeLoggingContext): Result[Set[Party]] =
     for {
       ps <- requireParties(parties.toSet)
       knownParties <- requireKnownParties(ps)

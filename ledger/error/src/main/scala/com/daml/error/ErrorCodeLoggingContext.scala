@@ -88,3 +88,23 @@ object ErrorCodeLoggingContext {
     case LoggingValue.OfJson(json) => json.toString()
   }
 }
+
+object NoLogging extends ErrorCodeLoggingContext {
+  override def properties: Map[String, String] = Map.empty
+
+  override def correlationId: Option[String] = None
+
+  override def logError(err: BaseError, extra: Map[String, String]): Unit = ()
+
+  override def info(message: String): Unit = ()
+
+  override def info(message: String, throwable: Throwable): Unit = ()
+
+  override def warn(message: String): Unit = ()
+
+  override def warn(message: String, throwable: Throwable): Unit = ()
+
+  override def error(message: String): Unit = ()
+
+  override def error(message: String, throwable: Throwable): Unit = ()
+}

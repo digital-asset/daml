@@ -3,23 +3,29 @@
 
 package com.daml.ledger.api.validation
 
-import java.time.{Duration, Instant}
+import com.daml.error.ErrorCodeLoggingContext
 
+import java.time.{Duration, Instant}
 import com.daml.ledger.api.messages.command.submission
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.daml.platform.server.api.validation.FieldValidations.requirePresence
+import com.daml.platform.server.api.validation.FieldValidations
 import io.grpc.StatusRuntimeException
 
-class SubmitAndWaitRequestValidator(commandsValidator: CommandsValidator) {
+class SubmitAndWaitRequestValidator(
+    commandsValidator: CommandsValidator,
+    fieldValidations: FieldValidations,
+) {
 
   def validate(
       req: SubmitAndWaitRequest,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
       maxDeduplicationTime: Option[Duration],
+  )(implicit
+      errorCodeLoggingContext: ErrorCodeLoggingContext
   ): Either[StatusRuntimeException, submission.SubmitRequest] =
     for {
-      commands <- requirePresence(req.commands, "commands")
+      commands <- fieldValidations.requirePresence(req.commands, "commands")
       validatedCommands <- commandsValidator.validateCommands(
         commands,
         currentLedgerTime,
@@ -27,5 +33,4 @@ class SubmitAndWaitRequestValidator(commandsValidator: CommandsValidator) {
         maxDeduplicationTime,
       )
     } yield submission.SubmitRequest(validatedCommands)
-
 }

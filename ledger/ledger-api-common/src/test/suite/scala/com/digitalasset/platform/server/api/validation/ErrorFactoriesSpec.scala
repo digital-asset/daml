@@ -3,6 +3,7 @@
 
 package com.daml
 
+import com.daml.error.NoLogging
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.platform.server.api.validation.ErrorFactories._
 import com.google.rpc.Status
@@ -18,7 +19,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
 
   "ErrorFactories" should {
     "return the DuplicateCommandException" in {
-      val status = StatusProto.fromThrowable(duplicateCommandException)
+      val status = StatusProto.fromThrowable(duplicateCommandException(NoLogging))
       status.getCode shouldBe Code.ALREADY_EXISTS.value()
       status.getMessage shouldBe "Duplicate command"
       status.getDetailsList.asScala shouldBe Seq(definiteAnswers(false))
@@ -87,7 +88,8 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       )
 
       forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        val exception = ledgerIdMismatch(LedgerId("expected"), LedgerId("received"), definiteAnswer)
+        val exception =
+          ledgerIdMismatch(LedgerId("expected"), LedgerId("received"), definiteAnswer)(NoLogging)
         val status = StatusProto.fromThrowable(exception)
         status.getCode shouldBe Code.NOT_FOUND.value()
         status.getMessage shouldBe "Ledger ID 'received' not found. Actual Ledger ID is 'expected'."
@@ -100,7 +102,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         LedgerId("expected"),
         LedgerId("received"),
         definiteAnswer = Some(true),
-      )
+      )(NoLogging)
     }
 
     "return a participantPrunedDataAccessed error" in {

@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.daml.api.util.TimeProvider
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.{
@@ -177,6 +178,7 @@ private[apiserver] object ApiCommandService {
       timeProvider: TimeProvider,
       ledgerConfigurationSubscription: LedgerConfigurationSubscription,
       metrics: Metrics,
+      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -196,6 +198,7 @@ private[apiserver] object ApiCommandService {
       maxDeduplicationTime = () =>
         ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
       generateSubmissionId = SubmissionIdGenerator.Random,
+      errorCodesVersionSwitcher,
     )
   }
 

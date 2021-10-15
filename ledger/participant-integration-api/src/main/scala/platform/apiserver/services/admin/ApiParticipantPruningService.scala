@@ -47,7 +47,7 @@ final class ApiParticipantPruningService private (
       .map(err => ErrorFactories.invalidArgument(None)(s"submission_id $err"))
 
     submissionIdOrErr.fold(
-      t => Future.failed(ValidationLogger.logFailure(request, t)(logger.withoutContext)),
+      t => Future.failed(ValidationLogger.logFailure(request, t)),
       submissionId =>
         LoggingContext.withEnrichedLoggingContext(logging.submissionId(submissionId)) {
           implicit logCtx =>

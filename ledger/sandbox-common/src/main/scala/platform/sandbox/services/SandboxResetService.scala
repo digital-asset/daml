@@ -4,8 +4,8 @@
 package com.daml.platform.sandbox.services
 
 import java.util.concurrent.atomic.AtomicBoolean
-
 import com.daml.dec.{DirectExecutionContext => DE}
+import com.daml.error.DamlErrorCodeLoggingContext
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
@@ -27,6 +27,8 @@ class SandboxResetService(
     with ServerInterceptor {
 
   private val logger = ContextualizedLogger.get(this.getClass)
+  private implicit val errorCodeLoggingContext: DamlErrorCodeLoggingContext =
+    new DamlErrorCodeLoggingContext(logger, loggingContext, None)
 
   private val resetInitialized = new AtomicBoolean(false)
 

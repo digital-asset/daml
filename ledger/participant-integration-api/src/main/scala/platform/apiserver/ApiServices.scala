@@ -264,6 +264,7 @@ private[daml] object ApiServices {
           timeProvider = timeProvider,
           ledgerConfigurationSubscription = ledgerConfigurationSubscription,
           metrics = metrics,
+          errorCodesVersionSwitcher = errorsVersionsSwitcher,
         )
 
         val apiPartyManagementService = ApiPartyManagementService.createApiService(

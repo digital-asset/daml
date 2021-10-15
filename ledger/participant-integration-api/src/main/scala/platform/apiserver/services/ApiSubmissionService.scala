@@ -79,6 +79,7 @@ private[apiserver] object ApiSubmissionService {
         ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
       submissionIdGenerator = SubmissionIdGenerator.Random,
       metrics = metrics,
+      errorCodesVersionSwitcher,
     )
 
   final case class Configuration(
@@ -99,7 +100,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
     commandExecutor: CommandExecutor,
     configuration: ApiSubmissionService.Configuration,
     metrics: Metrics,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+    val errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends CommandSubmissionService
     with ErrorFactories
@@ -324,7 +325,8 @@ private[apiserver] final class ApiSubmissionService private[services] (
   private def failedOnDuplicateCommand()(implicit loggingContext: LoggingContext): Future[Unit] = {
     errorCodesVersionSwitcher.chooseAsFailedFuture(
       v1 = {
-        val exception = duplicateCommandException
+        val exception =
+          duplicateCommandException(new DamlErrorCodeLoggingContext(logger, loggingContext, None))
         logger.debug(exception.getMessage)
         exception
       },

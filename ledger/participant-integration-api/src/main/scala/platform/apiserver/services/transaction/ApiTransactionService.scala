@@ -35,7 +35,6 @@ import com.daml.platform.apiserver.services.transaction.ApiTransactionService._
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
-import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc._
 import scalaz.syntax.tag._
 
@@ -71,10 +70,10 @@ private[apiserver] object ApiTransactionService {
 private[apiserver] final class ApiTransactionService private (
     transactionsService: IndexTransactionsService,
     metrics: Metrics,
-    errorsVersionsSwitcher: ErrorCodesVersionSwitcher,
+    val errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
-    extends TransactionService
-    with ErrorFactories {
+    extends TransactionService {
+
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
@@ -144,7 +143,7 @@ private[apiserver] final class ApiTransactionService private (
       .getOrElse {
         val msg = s"invalid eventId: ${request.eventId}"
         Future.failed(
-          errorsVersionsSwitcher.choose(
+          errorCodesVersionSwitcher.choose(
             v1 = Status.NOT_FOUND
               .withDescription(msg)
               .asRuntimeException(),

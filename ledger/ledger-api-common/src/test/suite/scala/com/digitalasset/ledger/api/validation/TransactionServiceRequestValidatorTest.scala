@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.validation
 
+import com.daml.error.{ErrorCodeLoggingContext, NoLogging}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
@@ -18,6 +19,7 @@ import io.grpc.Status.Code._
 import org.scalatest.wordspec.AnyWordSpec
 
 class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTestUtils {
+  private implicit val noLogging: ErrorCodeLoggingContext = NoLogging
 
   private val txReq = GetTransactionsRequest(
     expectedLedgerId,

@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.validation
 
+import com.daml.error.{ErrorCodeLoggingContext, NoLogging}
 import com.daml.ledger.api.DomainMocks
 import com.daml.ledger.api.v1.value.Identifier
 import io.grpc.Status.Code.INVALID_ARGUMENT
@@ -10,6 +11,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import com.daml.platform.server.api.validation.FieldValidations._
 
 class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils {
+  private implicit val errorCodeLoggingContext: ErrorCodeLoggingContext = NoLogging
 
   object api {
     val identifier = Identifier("package", moduleName = "module", entityName = "entity")

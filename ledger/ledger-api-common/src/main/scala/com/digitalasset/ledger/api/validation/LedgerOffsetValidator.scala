@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.validation
 
+import com.daml.error.ErrorCodeLoggingContext
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
@@ -23,6 +24,8 @@ object LedgerOffsetValidator {
   def validateOptional(
       ledgerOffset: Option[LedgerOffset],
       fieldName: String,
+  )(implicit
+      errorCodeLoggingContext: ErrorCodeLoggingContext
   ): Either[StatusRuntimeException, Option[domain.LedgerOffset]] =
     ledgerOffset
       .map(validate(_, fieldName))
@@ -33,6 +36,8 @@ object LedgerOffsetValidator {
   def validate(
       ledgerOffset: LedgerOffset,
       fieldName: String,
+  )(implicit
+      errorCodeLoggingContext: ErrorCodeLoggingContext
   ): Either[StatusRuntimeException, domain.LedgerOffset] = {
     ledgerOffset.value match {
       case LedgerOffset.Value.Absolute(value) =>

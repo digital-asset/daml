@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.validation
 
+import com.daml.error.ErrorCodeLoggingContext
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain.{ApplicationId, LedgerId, LedgerOffset}
 import com.daml.ledger.api.messages.command.completion
@@ -23,6 +24,8 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
   def validateCompletionStreamRequest(
       request: GrpcCompletionStreamRequest,
       ledgerEnd: LedgerOffset.Absolute,
+  )(implicit
+      errorCodeLoggingContext: ErrorCodeLoggingContext
   ): Either[StatusRuntimeException, CompletionStreamRequest] =
     for {
       _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
@@ -48,6 +51,8 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
 
   def validateCompletionEndRequest(
       req: CompletionEndRequest
+  )(implicit
+      errorCodeLoggingContext: ErrorCodeLoggingContext
   ): Either[StatusRuntimeException, completion.CompletionEndRequest] =
     for {
       ledgerId <- matchLedgerId(ledgerId)(LedgerId(req.ledgerId))

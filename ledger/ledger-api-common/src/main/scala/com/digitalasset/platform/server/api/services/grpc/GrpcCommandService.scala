@@ -3,18 +3,20 @@
 
 package com.daml.platform.server.api.services.grpc
 
-import java.time.{Duration, Instant}
+import com.daml.error.{DamlErrorCodeLoggingContext, ErrorCodesVersionSwitcher}
 
+import java.time.{Duration, Instant}
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitAndWaitRequestValidator}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
-import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -25,14 +27,22 @@ class GrpcCommandService(
     currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Option[Duration],
     generateSubmissionId: SubmissionIdGenerator,
-)(implicit executionContext: ExecutionContext)
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends CommandService
     with GrpcApiService
     with ProxyCloseable {
 
-  protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
+  protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
+  private implicit val errorCodeLoggingContext =
+    new DamlErrorCodeLoggingContext(logger, loggingContext, None)
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val fieldValidations = FieldValidations(errorFactories)
 
-  private[this] val validator = new SubmitAndWaitRequestValidator(new CommandsValidator(ledgerId))
+  private[this] val validator = new SubmitAndWaitRequestValidator(
+    new CommandsValidator(ledgerId, errorFactories, fieldValidations),
+    fieldValidations,
+  )
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] = {
     val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
