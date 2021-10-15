@@ -19,7 +19,6 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation, TextKey, TextKeyOperations}
-import com.daml.timer.Delayed
 import io.grpc.Status.Code
 
 import scala.annotation.nowarn
@@ -40,9 +39,9 @@ private[testtool] abstract class CommandDeduplicationBase(
 
   def deduplicationFeatures: DeduplicationFeatures
 
-  protected def runGivenDeduplicationWait(
+  protected def runWithDelay(
       participants: Seq[ParticipantTestContext]
-  )(test: Duration => Future[Unit])(implicit
+  )(test: (() => Future[Unit]) => Future[Unit])(implicit
       ec: ExecutionContext
   ): Future[Unit]
 
@@ -62,7 +61,7 @@ private[testtool] abstract class CommandDeduplicationBase(
             deduplicationDuration.asProtobuf
           )
         )
-      runGivenDeduplicationWait(configuredParticipants) { deduplicationWait =>
+      runWithDelay(configuredParticipants) { delay =>
         for {
           // Submit command (first deduplication window)
           // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
@@ -70,7 +69,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           completion1 <- submitRequestAndAssertCompletionAccepted(ledger)(request, party)
           _ <- submitRequestAndAssertDeduplication(ledger)(request, party)
           // Wait until the end of first deduplication window
-          _ <- Delayed.by(deduplicationWait)(())
+          _ <- delay()
 
           // Submit command (second deduplication window)
           // Note: the deduplication window is guaranteed to have passed on both
@@ -169,14 +168,14 @@ private[testtool] abstract class CommandDeduplicationBase(
         .update(
           _.commands.deduplicationTime := deduplicationDuration.asProtobuf
         )
-      runGivenDeduplicationWait(configuredParticipants) { deduplicationWait =>
+      runWithDelay(configuredParticipants) { delay =>
         for {
           // Submit command (first deduplication window)
           _ <- ledger.submitAndWait(request)
           _ <- submitAndWaitRequestAndAssertDeduplication(ledger)(request)
 
           // Wait until the end of first deduplication window
-          _ <- Delayed.by(deduplicationWait)(())
+          _ <- delay()
 
           // Submit command (second deduplication window)
           _ <- ledger.submitAndWait(request)
@@ -206,7 +205,7 @@ private[testtool] abstract class CommandDeduplicationBase(
             case currentElement :: tail =>
               currentElement.flatMap(value => generateVariations(tail).map(value :: _))
           }
-        runGivenDeduplicationWait(configuredParticipants) { deduplicationWait =>
+        runWithDelay(configuredParticipants) { delay =>
           {
             val numberOfCalls = 4
             Future // cover all the different generated variations of submit and submitAndWait
@@ -237,7 +236,7 @@ private[testtool] abstract class CommandDeduplicationBase(
                     _ <- submitAndAssertDeduplicated(secondCall)
 
                     // Wait until the end of first deduplication window
-                    _ <- Delayed.by(deduplicationWait)(())
+                    _ <- delay()
 
                     // Submit command (second deduplication window)
                     _ <- submitAndAssertAccepted(thirdCall)

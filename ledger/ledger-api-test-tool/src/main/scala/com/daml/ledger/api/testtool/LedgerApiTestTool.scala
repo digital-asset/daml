@@ -96,6 +96,7 @@ object LedgerApiTestTool {
     val optionalTests: Vector[LedgerTestSuite] = Tests.optional(
       timeoutScaleFactor = config.timeoutScaleFactor,
       ledgerClockGranularity = config.ledgerClockGranularity,
+      staticTime = config.staticTime,
     )
     val visibleTests: Vector[LedgerTestSuite] = defaultTests ++ optionalTests
     val allTests: Vector[LedgerTestSuite] = visibleTests ++ Tests.retired

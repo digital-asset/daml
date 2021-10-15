@@ -64,14 +64,19 @@ object Tests {
   def optional(
       timeoutScaleFactor: Double = Defaults.TimeoutScaleFactor,
       ledgerClockGranularity: FiniteDuration = Defaults.LedgerClockGranularity,
+      staticTime: Boolean = Defaults.StaticTime,
   ): Vector[LedgerTestSuite] =
     Vector(
       new AppendOnlyCompletionDeduplicationInfoIT(CommandService),
       new AppendOnlyCompletionDeduplicationInfoIT(CommandSubmissionService),
-      new AppendOnlyKVCommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
+      new AppendOnlyKVCommandDeduplicationIT(
+        timeoutScaleFactor,
+        ledgerClockGranularity,
+        staticTime,
+      ),
       new AppendOnlyCommandDeduplicationParallelIT,
       new ContractIdIT,
-      new KVCommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity),
+      new KVCommandDeduplicationIT(timeoutScaleFactor, ledgerClockGranularity, staticTime),
       new MultiPartySubmissionIT,
       new ParticipantPruningIT,
       new MonotonicRecordTimeIT,

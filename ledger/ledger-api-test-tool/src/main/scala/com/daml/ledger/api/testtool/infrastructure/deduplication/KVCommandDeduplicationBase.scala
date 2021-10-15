@@ -30,6 +30,7 @@ import scala.util.control.NonFatal
 abstract class KVCommandDeduplicationBase(
     timeoutScaleFactor: Double,
     ledgerTimeInterval: FiniteDuration,
+    staticTime: Boolean,
 ) extends CommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval) {
   private[this] val logger = LoggerFactory.getLogger(getClass.getName)
 
@@ -53,7 +54,7 @@ abstract class KVCommandDeduplicationBase(
           // Validate committer deduplication
           duplicateCompletion <- submitRequestAndAssertAsyncDeduplication(ledger)(request, party)
           // Wait for the end of committer deduplication
-          _ <- Delayed.by(maxDeduplicationDuration.plus(minSkew))(())
+          _ <- delay(ledger, maxDeduplicationDuration, minSkew)
           // Deduplication has finished
           completion2 <- submitRequestAndAssertCompletionAccepted(ledger)(request, party)
           // Inspect created contracts
@@ -98,12 +99,37 @@ abstract class KVCommandDeduplicationBase(
     }
   )
 
-  protected override def runGivenDeduplicationWait(
+  protected override def runWithDelay(
       participants: Seq[ParticipantTestContext]
-  )(test: Duration => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
+  )(test: (() => Future[Unit]) => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
     runWithConfig(participants) { case (maxDeduplicationDuration, minSkew) =>
-      test(maxDeduplicationDuration.plus(minSkew).plus(ledgerWaitInterval))
+      val anyParticipant = participants.head
+      test(() => delay(anyParticipant, maxDeduplicationDuration, minSkew))
     }
+  }
+
+  private def delay(
+      ledger: ParticipantTestContext,
+      maxDeduplicationDuration: Duration,
+      minSkew: Duration,
+  )(implicit ec: ExecutionContext) = {
+    val committerDeduplicationWindow =
+      maxDeduplicationDuration.plus(minSkew).plus(ledgerWaitInterval)
+    if (staticTime) {
+      forwardTimeWithDuration(ledger, committerDeduplicationWindow)
+    } else {
+      Delayed.by(committerDeduplicationWindow)(())
+    }
+  }
+
+  private def forwardTimeWithDuration(ledger: ParticipantTestContext, duration: Duration)(implicit
+      ec: ExecutionContext
+  ) = {
+    ledger
+      .time()
+      .flatMap(currentTime => {
+        ledger.setTime(currentTime, currentTime.plusMillis(duration.toMillis))
+      })
   }
 
   private def runWithConfig(
@@ -184,7 +210,7 @@ abstract class KVCommandDeduplicationBase(
       })
   }
 
-  /** Try to run the [[update]] sequentially on all the participants.
+  /** Try to run the update sequentially on all the participants.
     * The function returns the first success or the last failure of the update operation.
     * Useful for updating the configuration when we don't know which participant can update the config,
     * as only the first one that submitted the initial configuration has the permissions to do so.
