@@ -107,8 +107,8 @@ private[platform] object ReadOnlySqlLedger {
         case _: MismatchException.LedgerId => false
         case _ => false
       }
-      val retryDelay = 5.seconds
-      val maxAttempts = 100
+      val retryDelay = 100.millis
+      val maxAttempts = 3000 // give up after 5min
       RetryStrategy.constant(attempts = Some(maxAttempts), waitTime = retryDelay)(predicate) {
         (attempt, _) =>
           ledgerDao
