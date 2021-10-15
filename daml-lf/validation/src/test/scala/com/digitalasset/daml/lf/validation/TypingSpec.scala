@@ -250,6 +250,9 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         // EExperimental
         E"experimental ANSWER (Unit -> Int64)" ->
           T"Unit -> Int64",
+        // Forall shadowing
+        E"(Λ (τ : ⋆) (τ : ⋆). λ (e₁ : τ)  → 0) @Int64 @Text" ->
+          T"Text -> Int64",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>

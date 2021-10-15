@@ -717,6 +717,7 @@ private[validation] object Typing {
           binders.zip(typs).foreach { case ((_, k), typ) =>
             checkType(typ, k)
           }
+          // Later entries override earliers in toMap so shadowing works correctly.
           TypeSubst.substitute(
             binders.zip(typs).map({ case ((v, _), typ) => v -> typ }).toMap,
             body,
