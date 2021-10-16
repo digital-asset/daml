@@ -16,7 +16,7 @@ object PruningServiceError extends PruningServiceErrorGroup {
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
     final case class Error(reason: String)(implicit
-        val loggingContext: ErrorCodeLoggingContext
+        val loggingContext: ContextualizedErrorLogger
     ) extends BaseError.Impl(
           cause = "Internal error such as the inability to write to the database"
         )

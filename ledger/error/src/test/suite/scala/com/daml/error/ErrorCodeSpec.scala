@@ -20,8 +20,8 @@ import scala.jdk.CollectionConverters._
 class ErrorCodeSpec extends AnyFlatSpec with Matchers with BeforeAndAfter {
   implicit private val testLoggingContext: LoggingContext = LoggingContext.ForTesting
   private val logger = ContextualizedLogger.get(getClass)
-  private val errorLoggingContext: Option[String] => DamlErrorCodeLoggingContext = correlationId =>
-    new DamlErrorCodeLoggingContext(logger, testLoggingContext, correlationId)
+  private val errorLoggingContext: Option[String] => DamlContextualizedErrorLogger =
+    correlationId => new DamlContextualizedErrorLogger(logger, testLoggingContext, correlationId)
 
   private val className = classOf[ErrorCode].getSimpleName
 
@@ -91,7 +91,7 @@ class ErrorCodeSpec extends AnyFlatSpec with Matchers with BeforeAndAfter {
   private def logSeriousError(
       cause: String = "the error argument",
       extra: Map[String, String] = Map.empty,
-  )(implicit errorLoggingContext: ErrorCodeLoggingContext): Unit =
+  )(implicit errorLoggingContext: ContextualizedErrorLogger): Unit =
     SeriousError
       .Error(cause)
       .logWithContext(extra)

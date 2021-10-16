@@ -5,7 +5,7 @@ package com.daml.platform.apiserver.services
 
 import com.daml.api.util.TimeProvider
 import com.daml.error.definitions.{ErrorCauseExport, LedgerApiErrors, RejectionGenerators}
-import com.daml.error.{DamlErrorCodeLoggingContext, ErrorCause, ErrorCodesVersionSwitcher}
+import com.daml.error.{DamlContextualizedErrorLogger, ErrorCause, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}
@@ -316,7 +316,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
     errorCodesVersionSwitcher.chooseAsFailedFuture(
       v1 = ErrorFactories.missingLedgerConfig(definiteAnswer = Some(false)),
       v2 = LedgerApiErrors.InterpreterErrors.LookupErrors.LedgerConfigurationNotFound
-        .Reject()(new DamlErrorCodeLoggingContext(logger, loggingContext, None))
+        .Reject()(new DamlContextualizedErrorLogger(logger, loggingContext, None))
         .asGrpcError,
     )
   }
@@ -329,7 +329,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
         exception
       },
       v2 = rejectionGenerators.duplicateCommand(
-        new DamlErrorCodeLoggingContext(logger, loggingContext, None)
+        new DamlContextualizedErrorLogger(logger, loggingContext, None)
       ),
     )
   }
@@ -341,7 +341,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
       v1 = toStatusExceptionV1(error),
       v2 = rejectionGenerators
         .commandExecutorError(cause = ErrorCauseExport.fromErrorCause(error))(
-          new DamlErrorCodeLoggingContext(logger, loggingContext, None)
+          new DamlContextualizedErrorLogger(logger, loggingContext, None)
         ),
     )
   }

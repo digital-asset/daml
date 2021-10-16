@@ -6,12 +6,23 @@ package com.daml.platform.apiserver.services.transaction
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.error.{DamlErrorCodeLoggingContext, ErrorCodesVersionSwitcher}
+import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain.{Filters, LedgerId, LedgerOffset, TransactionFilter, TransactionId}
+import com.daml.ledger.api.domain.{
+  Filters,
+  LedgerId,
+  LedgerOffset,
+  TransactionFilter,
+  TransactionId,
+}
 import com.daml.ledger.api.messages.transaction._
-import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionResponse, GetTransactionTreesResponse, GetTransactionsResponse}
+import com.daml.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse,
+  GetTransactionTreesResponse,
+  GetTransactionsResponse,
+}
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
 import com.daml.lf.data.Ref.Party
@@ -138,7 +149,7 @@ private[apiserver] final class ApiTransactionService private (
               .withDescription(msg)
               .asRuntimeException(),
             v2 = LedgerApiErrors.CommandValidation.InvalidArgument
-              .Reject(msg)(new DamlErrorCodeLoggingContext(logger, loggingContext, None))
+              .Reject(msg)(new DamlContextualizedErrorLogger(logger, loggingContext, None))
               .asGrpcError,
           )
         )

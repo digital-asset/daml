@@ -60,7 +60,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     s"${codeStr(correlationId)}: ${ErrorCode.truncateCause(cause)}"
 
   def asGrpcStatus(err: BaseError)(implicit
-      loggingContext: ErrorCodeLoggingContext
+      loggingContext: ContextualizedErrorLogger
   ): Status = {
     val ErrorCode.StatusInfo(codeGrpc, message, contextMap, correlationId) =
       getStatusInfo(err)
@@ -131,7 +131,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
   }
 
   def asGrpcError(err: BaseError)(implicit
-      loggingContext: ErrorCodeLoggingContext
+      loggingContext: ContextualizedErrorLogger
   ): StatusRuntimeException = {
     val status = asGrpcStatus(err)
     // Builder methods for metadata are not exposed, so going route via creating an exception
@@ -152,7 +152,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
 
   def getStatusInfo(
       err: BaseError
-  )(implicit loggingContext: ErrorCodeLoggingContext): ErrorCode.StatusInfo = {
+  )(implicit loggingContext: ContextualizedErrorLogger): ErrorCode.StatusInfo = {
     val correlationId = loggingContext.correlationId
     val message =
       if (code.category.securitySensitive)
@@ -171,7 +171,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
 
   private[error] def getTruncatedContext(
       err: BaseError
-  )(implicit loggingContext: ErrorCodeLoggingContext): Map[String, String] = {
+  )(implicit loggingContext: ContextualizedErrorLogger): Map[String, String] = {
     val raw =
       (err.context ++ loggingContext.properties).toSeq.filter(_._2.nonEmpty).sortBy(_._2.length)
     val maxPerEntry = ErrorCode.MaxContentBytes / Math.max(1, raw.size)

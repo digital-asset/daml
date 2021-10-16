@@ -28,7 +28,7 @@ object PackageServiceError extends PackageServiceErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       final case class Error(reason: String)(implicit
-          val loggingContext: ErrorCodeLoggingContext
+          val loggingContext: ContextualizedErrorLogger
       ) extends BaseError.Impl(
             cause = "Dar file name is invalid"
           )
@@ -41,7 +41,7 @@ object PackageServiceError extends PackageServiceErrorGroup {
     object InvalidDar
         extends ErrorCode(id = "INVALID_DAR", ErrorCategory.InvalidIndependentOfSystemState) {
       final case class Error(entries: Seq[String], throwable: Throwable)(implicit
-          val loggingContext: ErrorCodeLoggingContext
+          val loggingContext: ContextualizedErrorLogger
       ) extends BaseError.Impl(
             cause = "Dar file is corrupt",
             throwableO = Some(throwable),
@@ -53,7 +53,7 @@ object PackageServiceError extends PackageServiceErrorGroup {
     object InvalidZipEntry
         extends ErrorCode(id = "INVALID_ZIP_ENTRY", ErrorCategory.InvalidIndependentOfSystemState) {
       final case class Error(name: String, entries: Seq[String])(implicit
-          val loggingContext: ErrorCodeLoggingContext
+          val loggingContext: ContextualizedErrorLogger
       ) extends BaseError.Impl(
             cause = "Dar zip file is corrupt"
           )
@@ -70,7 +70,7 @@ object PackageServiceError extends PackageServiceErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       final case class Error(entries: Seq[String])(implicit
-          val loggingContext: ErrorCodeLoggingContext
+          val loggingContext: ContextualizedErrorLogger
       ) extends BaseError.Impl(
             cause = "Unsupported legacy Dar zip file"
           )
@@ -82,7 +82,7 @@ object PackageServiceError extends PackageServiceErrorGroup {
     object ZipBomb
         extends ErrorCode(id = "ZIP_BOMB", ErrorCategory.InvalidIndependentOfSystemState) {
       final case class Error(msg: String)(implicit
-          val loggingContext: ErrorCodeLoggingContext
+          val loggingContext: ContextualizedErrorLogger
       ) extends BaseError.Impl(
             cause = "Dar zip file seems to be a zip bomb."
           )
@@ -96,7 +96,7 @@ object PackageServiceError extends PackageServiceErrorGroup {
     object ParseError
         extends ErrorCode(id = "DAR_PARSE_ERROR", ErrorCategory.InvalidIndependentOfSystemState) {
       final case class Error(reason: String)(implicit
-          val loggingContext: ErrorCodeLoggingContext
+          val loggingContext: ContextualizedErrorLogger
       ) extends BaseError.Impl(
             cause = "Failed to parse the dar file content."
           )
@@ -113,25 +113,25 @@ object PackageServiceError extends PackageServiceErrorGroup {
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
     final case class Validation(nameOfFunc: String, msg: String, detailMsg: String = "")(implicit
-        val loggingContext: ErrorCodeLoggingContext
+        val loggingContext: ContextualizedErrorLogger
     ) extends BaseError.Impl(
           cause = "Internal package validation error."
         )
         with PackageServiceError
     final case class Error(missing: Set[PackageId])(implicit
-        val loggingContext: ErrorCodeLoggingContext
+        val loggingContext: ContextualizedErrorLogger
     ) extends BaseError.Impl(
           cause = "Failed to resolve package ids locally."
         )
         with PackageServiceError
     final case class Generic(reason: String)(implicit
-        val loggingContext: ErrorCodeLoggingContext
+        val loggingContext: ContextualizedErrorLogger
     ) extends BaseError.Impl(
           cause = "Generic error (please check the reason string)."
         )
         with PackageServiceError
     final case class Unhandled(throwable: Throwable)(implicit
-        val loggingContext: ErrorCodeLoggingContext
+        val loggingContext: ContextualizedErrorLogger
     ) extends BaseError.Impl(
           cause = "Failed with an unknown error cause",
           throwableO = Some(throwable),
@@ -143,7 +143,7 @@ object PackageServiceError extends PackageServiceErrorGroup {
 
     def fromDamlLfEnginePackageError(err: Either[Error.Package.Error, Unit])(implicit
         executionContext: ExecutionContext,
-        loggingContext: ErrorCodeLoggingContext,
+        loggingContext: ContextualizedErrorLogger,
     ): EitherT[Future, PackageServiceError, Unit] =
       EitherT.fromEither[Future](err.left.map {
         case Error.Package.Internal(nameOfFunc, msg) =>
@@ -167,7 +167,7 @@ object PackageServiceError extends PackageServiceErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       final case class Error(validationError: validation.ValidationError)(implicit
-          val loggingContext: ErrorCodeLoggingContext
+          val loggingContext: ContextualizedErrorLogger
       ) extends BaseError.Impl(
             cause = "Package validation failed."
           )
@@ -179,7 +179,7 @@ object PackageServiceError extends PackageServiceErrorGroup {
         languageVersion: language.LanguageVersion,
         allowedLanguageVersions: VersionRange[language.LanguageVersion],
     )(implicit
-        val loggingContext: ErrorCodeLoggingContext
+        val loggingContext: ContextualizedErrorLogger
     ) extends BaseError.Impl(
           cause = LedgerApiErrors.Package.AllowedLanguageVersions
             .buildCause(packageId, languageVersion, allowedLanguageVersions)
@@ -199,7 +199,7 @@ object PackageServiceError extends PackageServiceErrorGroup {
           packageIds: Set[Ref.PackageId],
           missingDependencies: Set[Ref.PackageId],
       )(implicit
-          val loggingContext: ErrorCodeLoggingContext
+          val loggingContext: ContextualizedErrorLogger
       ) extends BaseError.Impl(
             cause =
               "The set of packages in the dar is not self-consistent and is missing dependencies"

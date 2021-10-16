@@ -20,13 +20,34 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.apiserver.configuration.{LedgerConfigurationInitializer, LedgerConfigurationSubscription}
-import com.daml.platform.apiserver.execution.{LedgerTimeAwareCommandExecutor, StoreBackedCommandExecutor, TimedCommandExecutor}
+import com.daml.platform.apiserver.configuration.{
+  LedgerConfigurationInitializer,
+  LedgerConfigurationSubscription,
+}
+import com.daml.platform.apiserver.execution.{
+  LedgerTimeAwareCommandExecutor,
+  StoreBackedCommandExecutor,
+  TimedCommandExecutor,
+}
 import com.daml.platform.apiserver.services._
-import com.daml.platform.apiserver.services.admin.{ApiConfigManagementService, ApiPackageManagementService, ApiParticipantPruningService, ApiPartyManagementService}
+import com.daml.platform.apiserver.services.admin.{
+  ApiConfigManagementService,
+  ApiPackageManagementService,
+  ApiParticipantPruningService,
+  ApiPartyManagementService,
+}
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
-import com.daml.platform.configuration.{CommandConfiguration, InitialLedgerConfiguration, PartyConfiguration, SubmissionConfiguration}
-import com.daml.platform.server.api.services.grpc.{GrpcCommandCompletionService, GrpcHealthService, GrpcTransactionService}
+import com.daml.platform.configuration.{
+  CommandConfiguration,
+  InitialLedgerConfiguration,
+  PartyConfiguration,
+  SubmissionConfiguration,
+}
+import com.daml.platform.server.api.services.grpc.{
+  GrpcCommandCompletionService,
+  GrpcHealthService,
+  GrpcTransactionService,
+}
 import com.daml.platform.services.time.TimeProviderType
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
