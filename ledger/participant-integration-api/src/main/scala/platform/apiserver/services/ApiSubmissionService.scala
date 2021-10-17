@@ -4,11 +4,11 @@
 package com.daml.platform.apiserver.services
 
 import com.daml.api.util.TimeProvider
-import com.daml.error.definitions.{ErrorCauseExport, LedgerApiErrors, RejectionGenerators}
+import com.daml.error.definitions.{ErrorCauseExport, RejectionGenerators}
 import com.daml.error.{
+  ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
   ErrorCause,
-  ContextualizedErrorLogger,
   ErrorCodesVersionSwitcher,
 }
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
@@ -26,9 +26,9 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.apiserver.SeedService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
-import com.daml.platform.apiserver.SeedService
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -113,6 +113,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
 
   // TODO error codes: review conformance mode usages wherever RejectionGenerators is instantiated
   private val rejectionGenerators = new RejectionGenerators(conformanceMode = true)
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
 
   override def submit(
       request: SubmitRequest
@@ -134,10 +135,13 @@ private[apiserver] final class ApiSubmissionService private[services] (
               .transform(handleSubmissionResult)
           }
         case None =>
-          failedOnMissingLedgerConfiguration()
+          Future.failed(
+            errorFactories.missingLedgerConfig(definiteAnswer = Some(false))(
+              new DamlContextualizedErrorLogger(logger, loggingContext, None)
+            )
+          )
       }
-      evaluatedCommand
-        .andThen(logger.logErrorsOnCall[Unit])
+      evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])
     }
 
   private def deduplicateAndRecordOnLedger(
@@ -167,7 +171,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
         case _: CommandDeduplicationDuplicate =>
           metrics.daml.commands.deduplicatedCommands.mark()
           Future.failed(
-            ErrorFactories.duplicateCommandException(
+            errorFactories.duplicateCommandException(
               new DamlContextualizedErrorLogger(logger, loggingContext, None)
             )
           )
@@ -301,7 +305,9 @@ private[apiserver] final class ApiSubmissionService private[services] (
     */
   private def toStatusExceptionV1(
       errorCause: ErrorCause
-  )(implicit errorCodeLoggingContext: ContextualizedErrorLogger): StatusRuntimeException =
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException = {
+    // Explicitly instantiate here a V1-enabled ErrorFactories to support the legacy error code dispatching logic.
+    val v1ErrorFactories = ErrorFactories(new ErrorCodesVersionSwitcher(false))
     errorCause match {
       case cause @ ErrorCause.DamlLf(error) =>
         error match {
@@ -312,32 +318,19 @@ private[apiserver] final class ApiSubmissionService private[services] (
                 ),
                 _,
               ) | LfError.Validation(LfError.Validation.ReplayMismatch(_)) =>
-            ErrorFactories.aborted(cause.explain, definiteAnswer = Some(false))
+            v1ErrorFactories.aborted(cause.explain, definiteAnswer = Some(false))
           case _ =>
-            ErrorFactories.invalidArgument(definiteAnswer = Some(false))(cause.explain)
+            v1ErrorFactories.invalidArgument(definiteAnswer = Some(false))(cause.explain)
         }
       case cause: ErrorCause.LedgerTime =>
-        ErrorFactories.aborted(cause.explain, definiteAnswer = Some(false))
+        v1ErrorFactories.aborted(cause.explain, definiteAnswer = Some(false))
     }
-
-  private def failedOnMissingLedgerConfiguration()(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] = {
-    implicit val errorCodeLoggingContext: ContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
-
-    errorCodesVersionSwitcher.chooseAsFailedFuture(
-      v1 = ErrorFactories.missingLedgerConfig(definiteAnswer = Some(false)),
-      v2 = LedgerApiErrors.InterpreterErrors.LookupErrors.LedgerConfigurationNotFound
-        .Reject()
-        .asGrpcError,
-    )
   }
 
   private def failedOnCommandExecution(
       error: ErrorCause
   )(implicit loggingContext: LoggingContext): Future[CommandExecutionResult] = {
-    implicit val errorCodeLoggingContext: ContextualizedErrorLogger =
+    implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
       new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
     errorCodesVersionSwitcher.chooseAsFailedFuture(
