@@ -315,8 +315,6 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
 
   "Exercise (within exercise)" - {
 
-    Specifically the interesting case is that in the body of
-
     // Test that an inner exercise has only the authorization of the signatories and
     // controllers; with no implicit authorization of signatories of the outer exercise.
 
