@@ -8,7 +8,13 @@ import java.time.Instant
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
+import com.daml.lf.transaction.{
+  BlindingInfo,
+  CommittedTransaction,
+  TransactionCoder,
+  TransactionOuterClass,
+}
+import com.daml.lf.value.ValueCoder
 import com.daml.platform.store.serialization.Compression
 
 import scala.collection.compat._
@@ -51,7 +57,11 @@ object TransactionIndexing {
     }
 
     for (state.DivulgedContract(contractId, contractInst) <- divulgence) {
-      val serializedCreateArgument = translation.serialize(contractId, contractInst.versionedArg)
+      val contractInstance = decodeContractInstance(
+        contractInst.unpack(classOf[TransactionOuterClass.ContractInstance])
+      )
+      val serializedCreateArgument =
+        translation.serialize(contractId, contractInstance.versionedArg)
       divulgedContracts += ((contractId, serializedCreateArgument))
     }
 
@@ -64,6 +74,15 @@ object TransactionIndexing {
     )
 
   }
+
+  // FIXME, deduplicate
+  private def decodeContractInstance(
+      coinst: TransactionOuterClass.ContractInstance
+  ): com.daml.lf.value.Value.VersionedContractInstance =
+    assertDecode(TransactionCoder.decodeVersionedContractInstance(ValueCoder.CidDecoder, coinst))
+
+  private def assertDecode[X](x: Either[ValueCoder.DecodeError, X]): X =
+    x.fold(err => throw new IllegalStateException(err.errorMessage), identity)
 
   def compress(
       serialized: Serialized,

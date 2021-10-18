@@ -7,7 +7,6 @@
 package com.daml.ledger.participant.state.kvutils.committer.transaction
 
 import java.time.Instant
-
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
@@ -33,6 +32,7 @@ import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.engine.{Blinding, Engine}
+import com.daml.lf.kv.TransactionConverter
 import com.daml.lf.transaction.{BlindingInfo, TransactionOuterClass}
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.entries.LoggingEntries
@@ -367,7 +367,7 @@ private[kvutils] class TransactionCommitter(
       commitContext: CommitContext,
   )(implicit
       loggingContext: LoggingContext
-  ): Map[ContractId, TransactionOuterClass.ContractInstance] = {
+  ): Map[ContractId, com.google.protobuf.Any] = {
     val localContracts = transactionEntry.transaction.localContracts
     val consumedContracts = transactionEntry.transaction.consumedContracts
     val contractKeys = transactionEntry.transaction.updatedContractKeys
@@ -406,7 +406,7 @@ private[kvutils] class TransactionCommitter(
     }
     // Update contract state of divulged contracts.
     val divulgedContractsBuilder = {
-      val builder = Map.newBuilder[ContractId, TransactionOuterClass.ContractInstance]
+      val builder = Map.newBuilder[ContractId, com.google.protobuf.Any]
       builder.sizeHint(blindingInfo.divulgence.size)
       builder
     }
@@ -414,7 +414,7 @@ private[kvutils] class TransactionCommitter(
     for ((coid, parties) <- blindingInfo.divulgence) {
       val key = contractIdToStateKey(coid)
       val cs = getContractState(commitContext, key)
-      divulgedContractsBuilder += (coid -> cs.getContractInstance)
+      divulgedContractsBuilder += (coid -> com.google.protobuf.Any.pack(cs.getContractInstance))
       val divulged: Set[String] = cs.getDivulgedToList.asScala.toSet
       val newDivulgences: Set[String] = parties.toSet[String] -- divulged
       if (newDivulgences.nonEmpty) {
@@ -472,9 +472,28 @@ private[kvutils] object TransactionCommitter {
         .build
       commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
     }
+    // FIXME
+    val transaction = transactionEntry.submission.getTransaction
+      .unpack(classOf[TransactionOuterClass.Transaction])
     buildLogEntryWithOptionalRecordTime(
       commitContext.recordTime,
-      _.setTransactionEntry(transactionEntry.submission),
+      _.setTransactionEntry(
+        transactionEntry.submission.toBuilder
+          .setTransactionVersion(transaction.getVersion)
+          .putAllNodeIdToTransactionNode(
+            transaction.getNodesList.asScala
+              .map(node => node.getNodeId -> com.google.protobuf.Any.pack(node))
+              .toMap
+              .asJava
+          )
+          .addAllWitnessingParties(
+            TransactionConverter
+              .transactionToWitnesses(
+                transaction
+              )
+              .asJava
+          )
+      ),
     )
   }
 

@@ -58,8 +58,8 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       encodeBlindingInfo(
         wronglySortedBlindingInfo,
         Map(
-          contractId0 -> apiContractInstance0,
-          contractId1 -> apiContractInstance1,
+          contractId0 -> com.google.protobuf.Any.pack(apiContractInstance0),
+          contractId1 -> com.google.protobuf.Any.pack(apiContractInstance1),
         ),
       ) shouldBe correctlySortedEncodedBlindingInfo
     }

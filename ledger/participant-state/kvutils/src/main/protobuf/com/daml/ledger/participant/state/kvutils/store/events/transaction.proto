@@ -42,6 +42,7 @@ message DamlSubmitterInfo {
 message DamlTransactionEntry {
   // The original submitted transaction, with relative identifiers.
   google.protobuf.Any transaction = 1;
+//  reserved 1; // was the original transaction
 
   // The submitting party and metadata about the submitted command.
   // The submitting party is authorized against the submitting participant
@@ -70,6 +71,18 @@ message DamlTransactionEntry {
 
   // The pre-computed transaction blinding information.
   DamlTransactionBlindingInfo blinding_info = 7;
+
+  string transaction_version = 8;
+
+  map<string, google.protobuf.Any> node_id_to_transaction_node = 9;
+
+  // Keeps the order
+  repeated TransactionNodeWitnesses witnessing_parties = 10;
+}
+
+message TransactionNodeWitnesses {
+  string node_id = 1;
+  repeated string party = 2;
 }
 
 // A transaction's blinding information, consisting of disclosure and

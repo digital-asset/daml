@@ -15,6 +15,8 @@ import com.daml.ledger.participant.state.v2.AdaptedV1ReadService._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.RejectionReasonTemplate
 import com.daml.lf.data.Ref
+import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
+import com.daml.lf.value.{Value, ValueCoder}
 
 /** Adapts a [[com.daml.ledger.participant.state.v1.ReadService]] implementation to the
   * [[com.daml.ledger.participant.state.v2.ReadService]] API.
@@ -156,6 +158,18 @@ private[v2] object AdaptedV1ReadService {
   private def adaptDivulgedContract(divulgedContract: v1.DivulgedContract): DivulgedContract =
     DivulgedContract(
       contractId = divulgedContract.contractId,
-      contractInst = divulgedContract.contractInst,
+      contractInst = com.google.protobuf.Any.pack(
+        encodeContractInstance(divulgedContract.contractInst)
+      ),
     )
+
+  // from kvutils.Conversions
+  // FIXME
+  private def encodeContractInstance(
+      coinst: Value.VersionedContractInstance
+  ): TransactionOuterClass.ContractInstance =
+    TransactionCoder
+      .encodeContractInstance(ValueCoder.CidEncoder, coinst)
+      .fold(err => throw new IllegalArgumentException(err.errorMessage), identity)
+
 }

@@ -45,6 +45,7 @@ private[transaction] object DamlTransactionEntrySummary {
     new DamlTransactionEntrySummary(
       submission,
       Conversions.decodeTransaction(
+        // FIXME?
         submission.getTransaction.unpack(classOf[TransactionOuterClass.Transaction])
       ),
     )

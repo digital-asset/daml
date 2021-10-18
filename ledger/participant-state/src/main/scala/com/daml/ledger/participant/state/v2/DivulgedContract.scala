@@ -16,5 +16,5 @@ import com.daml.lf.value.Value
   */
 final case class DivulgedContract(
     contractId: Value.ContractId,
-    contractInst: Value.VersionedContractInstance,
+    contractInst: com.google.protobuf.Any,
 )

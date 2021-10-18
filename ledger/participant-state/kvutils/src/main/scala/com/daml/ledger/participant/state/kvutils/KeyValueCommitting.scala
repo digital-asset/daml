@@ -217,7 +217,7 @@ object KeyValueCommitting {
       transactionEntry: DamlTransactionEntry
   ): Set[DamlStateKey] = {
     val outputs = Set.newBuilder[DamlStateKey]
-    // TODO: Stop depending on the transaction internals here as well(?)
+    // FIXME
     val transaction =
       transactionEntry.getTransaction.unpack(classOf[TransactionOuterClass.Transaction])
     val txVersion =

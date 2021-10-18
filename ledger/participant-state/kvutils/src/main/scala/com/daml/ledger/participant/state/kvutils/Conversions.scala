@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.io.StringWriter
 import java.time.{Duration, Instant}
-
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.offset.Offset
@@ -321,7 +320,7 @@ private[state] object Conversions {
     */
   def encodeBlindingInfo(
       blindingInfo: BlindingInfo,
-      divulgedContracts: Map[ContractId, TransactionOuterClass.ContractInstance],
+      divulgedContracts: Map[ContractId, com.google.protobuf.Any],
   ): DamlTransactionBlindingInfo =
     DamlTransactionBlindingInfo.newBuilder
       .addAllDisclosures(encodeDisclosure(blindingInfo.disclosure).asJava)
@@ -355,25 +354,21 @@ private[state] object Conversions {
 
   def extractDivulgedContracts(
       damlTransactionBlindingInfo: DamlTransactionBlindingInfo
-  ): Either[Seq[String], Map[ContractId, Value.VersionedContractInstance]] = {
+  ): Either[Seq[String], Map[ContractId, com.google.protobuf.Any]] = {
     val divulgences = damlTransactionBlindingInfo.getDivulgencesList.asScala.toVector
     if (divulgences.isEmpty) {
       Right(Map.empty)
     } else {
       val resultAccumulator: Either[Seq[String], mutable.Builder[
-        (ContractId, Value.VersionedContractInstance),
-        Map[ContractId, Value.VersionedContractInstance],
+        (ContractId, com.google.protobuf.Any),
+        Map[ContractId, com.google.protobuf.Any],
       ]] = Right(Map.newBuilder)
       divulgences
         .foldLeft(resultAccumulator) {
           case (Right(contractInstanceIndex), divulgenceEntry) =>
             if (divulgenceEntry.hasContractInstance) {
               val contractId = decodeContractId(divulgenceEntry.getContractId)
-              val contractInstance = decodeContractInstance(
-                divulgenceEntry.getContractInstance
-                  .unpack(classOf[TransactionOuterClass.ContractInstance])
-              )
-              Right(contractInstanceIndex += (contractId -> contractInstance))
+              Right(contractInstanceIndex += (contractId -> divulgenceEntry.getContractInstance))
             } else {
               Left(Vector(divulgenceEntry.getContractId))
             }
@@ -704,17 +699,17 @@ private[state] object Conversions {
   private def encodeDivulgenceEntry(
       contractId: ContractId,
       divulgedTo: Set[Ref.Party],
-      contractInstance: TransactionOuterClass.ContractInstance,
+      contractInstance: com.google.protobuf.Any,
   ): DivulgenceEntry =
     DivulgenceEntry.newBuilder
       .setContractId(contractIdToString(contractId))
       .addAllDivulgedToLocalParties(encodeParties(divulgedTo).asJava)
-      .setContractInstance(com.google.protobuf.Any.pack(contractInstance))
+      .setContractInstance(contractInstance)
       .build
 
   private def encodeDivulgence(
       divulgence: Relation[ContractId, Ref.Party],
-      divulgedContractsIndex: Map[ContractId, TransactionOuterClass.ContractInstance],
+      divulgedContractsIndex: Map[ContractId, com.google.protobuf.Any],
   ): List[DivulgenceEntry] =
     divulgence.toList
       .sortBy(_._1.coid)

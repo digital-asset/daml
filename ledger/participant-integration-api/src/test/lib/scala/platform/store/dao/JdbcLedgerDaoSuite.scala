@@ -690,7 +690,14 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val (offsetStep, entry) = offsetStepAndTx
     val info = completionInfoFrom(entry)
     val divulged =
-      divulgedContracts.keysIterator.map(c => state.DivulgedContract(c._1, c._2)).toList
+      divulgedContracts.keysIterator
+        .map(c =>
+          state.DivulgedContract(
+            c._1,
+            com.google.protobuf.Any.getDefaultInstance, // FIXME
+          )
+        )
+        .toList
 
     store(info, entry, offsetStep, divulged, blindingInfo)
   }

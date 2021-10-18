@@ -34,6 +34,7 @@ import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
 import org.slf4j.LoggerFactory
 
+import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 /** Utilities for producing [[Update]] events from [[DamlLogEntry]]'s committed to a
@@ -256,7 +257,10 @@ object KeyValueConsumption {
       recordTime: Timestamp,
   ): Update.TransactionAccepted = {
     val transaction = Conversions.decodeTransaction(
-      txEntry.getTransaction.unpack(classOf[TransactionOuterClass.Transaction])
+      reconstructTransaction(
+        txEntry.getTransactionVersion,
+        txEntry.getNodeIdToTransactionNodeMap.asScala,
+      )
     )
     val hexTxId = parseLedgerString("TransactionId")(
       BaseEncoding.base16.encode(entryId.toByteArray)
@@ -294,6 +298,35 @@ object KeyValueConsumption {
       divulgedContracts = divulgedContracts,
       blindingInfo = maybeBlindingInfo,
     )
+  }
+
+  private def reconstructTransaction(
+      txVersion: String,
+      nodesWithIds: mutable.Map[String, com.google.protobuf.Any],
+  ): TransactionOuterClass.Transaction = {
+    // Reconstruct roots by considering the transaction nodes in order and
+    // marking all child nodes as non-roots and skipping over them.
+    val nonRoots = mutable.HashSet.empty[Int]
+    val txBuilder =
+      TransactionOuterClass.Transaction.newBuilder
+        .setVersion(txVersion)
+    for ((rawNodeId, rawNode) <- nodesWithIds) {
+      // FIXME
+      val nodeId = rawNodeId.toInt
+      val node = rawNode.unpack(classOf[TransactionOuterClass.Node])
+      txBuilder.addNodes(node)
+      if (!nonRoots.contains(nodeId)) {
+        txBuilder.addRoots(rawNodeId)
+      }
+      if (node.hasExercise) {
+        val children =
+          node.getExercise.getChildrenList.asScala
+            .map(_.toInt) // FIXME
+            .toSet
+        nonRoots ++= children
+      }
+    }
+    txBuilder.build
   }
 
   /** Extracts divulgence entries and checks that they have an associated contract instance.
