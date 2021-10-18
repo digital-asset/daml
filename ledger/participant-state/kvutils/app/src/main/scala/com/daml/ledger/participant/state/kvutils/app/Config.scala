@@ -588,6 +588,14 @@ object Config {
           )
           .action((_, config) => config.copy(enableInMemoryFanOutForLedgerApi = true))
 
+        checkConfig(config =>
+          if (config.enableInMemoryFanOutForLedgerApi && !config.enableMutableContractStateCache)
+            failure(
+              "buffered-ledger-api-streams-unsafe must be enabled in conjunction with mutable-contract-state-cache."
+            )
+          else success
+        )
+
         opt[Unit]("use-self-service-error-codes")
           .optional()
           .hidden()
