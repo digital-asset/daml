@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import akka.stream.Materializer
 import com.daml.ledger.on.memory.{InMemoryLedgerStateAccess, InMemoryState, Index}
-import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
+import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, VersionedOffsetBuilder}
 import com.daml.ledger.participant.state.kvutils.export.{
   NoOpLedgerDataExporter,
   SubmissionInfo,
@@ -28,6 +28,7 @@ final class LogAppendingCommitStrategySupport(
     metrics: Metrics
 )(implicit executionContext: ExecutionContext)
     extends CommitStrategySupport[Index] {
+  private val offsetBuilder = new VersionedOffsetBuilder(0)
   private val state = InMemoryState.empty
 
   private val serializationStrategy = StateKeySerializationStrategy.createDefault()
@@ -48,7 +49,9 @@ final class LogAppendingCommitStrategySupport(
   override def commit(
       submissionInfo: SubmissionInfo
   )(implicit materializer: Materializer, loggingContext: LoggingContext): Future[WriteSet] = {
-    val access = new WriteRecordingLedgerStateAccess(new InMemoryLedgerStateAccess(state, metrics))
+    val access = new WriteRecordingLedgerStateAccess(
+      new InMemoryLedgerStateAccess(offsetBuilder, state, metrics)
+    )
     access.inTransaction { operations =>
       val (ledgerStateReader, commitStrategy) =
         BatchedSubmissionValidatorFactory.readerAndCommitStrategyFrom(
@@ -69,7 +72,7 @@ final class LogAppendingCommitStrategySupport(
   }
 
   override def newReadServiceFactory(): ReplayingReadServiceFactory =
-    new LogAppendingReadServiceFactory(metrics)
+    new LogAppendingReadServiceFactory(offsetBuilder, metrics)
 
   override val writeSetComparison: WriteSetComparison =
     new RawWriteSetComparison(serializationStrategy)

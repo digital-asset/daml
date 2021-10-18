@@ -10,13 +10,12 @@ import anorm._
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
-import com.daml.ledger.participant.state.kvutils.Raw
+import com.daml.ledger.participant.state.kvutils.{Raw, VersionedOffsetBuilder}
 
 import scala.util.Try
 
-final class H2Queries(override protected implicit val connection: Connection)
-    extends Queries
-    with CommonQueries {
+final class H2Queries(offsetBuilder: VersionedOffsetBuilder)(implicit connection: Connection)
+    extends CommonQueries(offsetBuilder) {
   override def updateOrRetrieveLedgerId(providedLedgerId: LedgerId): Try[LedgerId] = Try {
     SQL"MERGE INTO #$MetaTable USING DUAL ON table_key = $MetaTableKey WHEN NOT MATCHED THEN INSERT (table_key, ledger_id) VALUES ($MetaTableKey, $providedLedgerId)"
       .executeInsert()
@@ -47,9 +46,9 @@ final class H2Queries(override protected implicit val connection: Connection)
   }
 }
 
-object H2Queries {
-  def apply(connection: Connection): Queries = {
+object H2Queries extends QueriesFactory {
+  override def apply(offsetBuilder: VersionedOffsetBuilder, connection: Connection): Queries = {
     implicit val conn: Connection = connection
-    new H2Queries
+    new H2Queries(offsetBuilder)
   }
 }

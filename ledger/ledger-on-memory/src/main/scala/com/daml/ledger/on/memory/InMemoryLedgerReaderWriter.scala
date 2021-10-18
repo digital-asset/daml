@@ -6,6 +6,7 @@ package com.daml.ledger.on.memory
 import com.daml.api.util.TimeProvider
 import com.daml.caching.Cache
 import com.daml.ledger.configuration.LedgerId
+import com.daml.ledger.participant.state.kvutils.VersionedOffsetBuilder
 import com.daml.ledger.participant.state.kvutils.api._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator.StateKeySerializationStrategy
@@ -21,6 +22,7 @@ object InMemoryLedgerReaderWriter {
   final class Owner(
       ledgerId: LedgerId,
       participantId: Ref.ParticipantId,
+      offsetVersion: Byte,
       keySerializationStrategy: StateKeySerializationStrategy,
       metrics: Metrics,
       timeProvider: TimeProvider = InMemoryLedgerWriter.DefaultTimeProvider,
@@ -31,7 +33,8 @@ object InMemoryLedgerReaderWriter {
       committerExecutionContext: ExecutionContext,
   ) extends ResourceOwner[KeyValueLedger] {
     override def acquire()(implicit context: ResourceContext): Resource[KeyValueLedger] = {
-      val reader = new InMemoryLedgerReader(ledgerId, dispatcher, state, metrics)
+      val offsetBuilder = new VersionedOffsetBuilder(offsetVersion)
+      val reader = new InMemoryLedgerReader(ledgerId, dispatcher, offsetBuilder, state, metrics)
       for {
         writer <- new InMemoryLedgerWriter.Owner(
           participantId,
@@ -40,6 +43,7 @@ object InMemoryLedgerReaderWriter {
           timeProvider,
           stateValueCache,
           dispatcher,
+          offsetBuilder,
           state,
           engine,
           committerExecutionContext,
