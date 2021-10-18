@@ -58,28 +58,16 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     "daml-lf/tests/AuthTests.dar"
   )
 
+  implicit private def toIdentifier(s: String): Identifier =
+    Identifier(packageId, QualifiedName.assertFromString(s"AuthTests:$s"))
+
   private def toContractId(s: String): ContractId = {
     val dummySuffix: Bytes = Bytes.assertFromString("00")
     ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
   }
 
-  private val t1: Identifier =
-    Identifier(packageId, QualifiedName.assertFromString("AuthTests:T1"))
-
-  private val t2: Identifier =
-    Identifier(packageId, QualifiedName.assertFromString("AuthTests:T2"))
-
-  // NICK: simplfy examples so just have one set of templates (not T and X)
-  private val x1: Identifier =
-    Identifier(packageId, QualifiedName.assertFromString("AuthTests:X1"))
-
   private val choice1name: ChoiceName = ChoiceName.assertFromString("Choice1")
-  private val choice1type: Identifier =
-    Identifier(packageId, QualifiedName.assertFromString("AuthTests:Choice1"))
-
   private val choiceAname: ChoiceName = ChoiceName.assertFromString("ChoiceA")
-  private val choiceAtype: Identifier =
-    Identifier(packageId, QualifiedName.assertFromString("AuthTests:ChoiceA"))
 
   private val alice: Party = Party.assertFromString("Alice")
   private val bob: Party = Party.assertFromString("Bob")
@@ -88,9 +76,9 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   private def t1InstanceFor(party: Party): VersionedContractInstance = {
     VersionedContractInstance(
       TransactionVersion.VDev,
-      t1,
+      "T1",
       ValueRecord(
-        Some(t1),
+        Some("T1"),
         ImmArray((Some[Name]("party"), ValueParty(party))),
       ),
       "",
@@ -100,27 +88,21 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   private def x1InstanceFor(party: Party): VersionedContractInstance = {
     VersionedContractInstance(
       TransactionVersion.VDev,
-      x1,
+      "X1",
       ValueRecord(
-        Some(x1),
+        Some("X1"),
         ImmArray((Some[Name]("party"), ValueParty(party))),
       ),
       "",
     )
   }
 
-  private val t1a = t1InstanceFor(alice)
-  private val t1b = t1InstanceFor(bob)
-
-  private val x1b = x1InstanceFor(bob)
-  private val x1c = x1InstanceFor(charlie)
-
   private val defaultContracts: Map[ContractId, VersionedContractInstance] =
     Map(
-      toContractId("t1a") -> t1a,
-      toContractId("t1b") -> t1b,
-      toContractId("x1b") -> x1b,
-      toContractId("x1c") -> x1c,
+      toContractId("t1a") -> t1InstanceFor(alice),
+      toContractId("t1b") -> t1InstanceFor(bob),
+      toContractId("x1b") -> x1InstanceFor(bob),
+      toContractId("x1c") -> x1InstanceFor(charlie),
     )
 
   private val readAs: Set[Party] = Set.empty
@@ -162,9 +144,9 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   "Create(T1)" - {
     val command: ApiCommand =
       CreateCommand(
-        t1,
+        "T1",
         ValueRecord(
-          Some(t1),
+          Some("T1"),
           ImmArray(
             (Some[Name]("party"), ValueParty(alice))
           ),
@@ -199,9 +181,9 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   "Create(T2)" - {
     val command: ApiCommand =
       CreateCommand(
-        t2,
+        "T2",
         ValueRecord(
-          Some(t2),
+          Some("T2"),
           ImmArray(
             (Some[Name]("party1"), ValueParty(alice)),
             (Some[Name]("party2"), ValueParty(bob)),
@@ -243,11 +225,11 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     "ok (Alice signed contract; Bob exercised Choice)" in {
       val command: ApiCommand =
         ExerciseCommand(
-          t1,
+          "T1",
           toContractId("t1a"),
           choice1name,
           ValueRecord(
-            Some(choice1type),
+            Some("Choice1"),
             ImmArray(
               (Some[Name]("party1"), ValueParty(alice)),
               (Some[Name]("party2"), ValueParty(bob)),
@@ -264,11 +246,11 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     "fail: ExerciseMissingAuthorization" in {
       val command: ApiCommand =
         ExerciseCommand(
-          t1,
+          "T1",
           toContractId("t1a"),
           choice1name,
           ValueRecord(
-            Some(choice1type),
+            Some("Choice1"),
             ImmArray(
               (Some[Name]("party1"), ValueParty(alice)),
               (Some[Name]("party2"), ValueParty(bob)),
@@ -295,11 +277,11 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     "fail: CreateMissingAuthorization" in {
       val command: ApiCommand =
         ExerciseCommand(
-          t1,
+          "T1",
           toContractId("t1a"),
           choice1name,
           ValueRecord(
-            Some(choice1type),
+            Some("Choice1"),
             ImmArray(
               (Some[Name]("party1"), ValueParty(bob)),
               (Some[Name]("party2"), ValueParty(alice)),
@@ -326,11 +308,11 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     "ok (Bob signed contract; Alice exercised Choice)" in {
       val command: ApiCommand =
         ExerciseCommand(
-          t1,
+          "T1",
           toContractId("t1b"),
           choice1name,
           ValueRecord(
-            Some(choice1type),
+            Some("Choice1"),
             ImmArray(
               (Some[Name]("party1"), ValueParty(bob)),
               (Some[Name]("party2"), ValueParty(alice)),
@@ -350,11 +332,11 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     "fail (no implicit authority from outer exercise's contract's signatories)" in {
       val command: ApiCommand =
         ExerciseCommand(
-          x1,
+          "X1",
           toContractId("x1b"),
           choiceAname,
           ValueRecord(
-            Some(choiceAtype),
+            Some("ChoiceA"),
             ImmArray(
               (Some("cid"), ValueContractId(toContractId("x1c"))),
               (Some("controllerA"), ValueParty(alice)),
@@ -392,11 +374,11 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     "ok" in {
       val command: ApiCommand =
         ExerciseCommand(
-          x1,
+          "X1",
           toContractId("x1b"),
           choiceAname,
           ValueRecord(
-            Some(choiceAtype),
+            Some("ChoiceA"),
             ImmArray(
               (Some("cid"), ValueContractId(toContractId("x1c"))),
               (Some("controllerA"), ValueParty(alice)),
