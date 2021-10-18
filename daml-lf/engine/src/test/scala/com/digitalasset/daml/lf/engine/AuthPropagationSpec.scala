@@ -8,15 +8,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.command.{ApiCommand, Commands, CreateCommand, ExerciseCommand}
 import com.daml.lf.data.FrontStack
-import com.daml.lf.data.Ref.{
-  Name,
-  Party,
-  ParticipantId,
-  PackageId,
-  Identifier,
-  QualifiedName,
-  ChoiceName,
-}
+import com.daml.lf.data.Ref.{Name, Party, ParticipantId, PackageId, Identifier, QualifiedName}
 import com.daml.lf.data.Time
 import com.daml.lf.data.{ImmArray, Bytes}
 import com.daml.lf.language.Ast.Package
@@ -47,6 +39,7 @@ import scala.language.implicitConversions
 class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with BazelRunfiles {
 
   implicit private def toName(s: String): Name = Name.assertFromString(s)
+  implicit private def toParty(s: String): Party = Party.assertFromString(s)
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
@@ -65,13 +58,6 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     val dummySuffix: Bytes = Bytes.assertFromString("00")
     ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
   }
-
-  private val choice1name: ChoiceName = ChoiceName.assertFromString("Choice1")
-  private val choiceAname: ChoiceName = ChoiceName.assertFromString("ChoiceA")
-
-  private val alice: Party = Party.assertFromString("Alice")
-  private val bob: Party = Party.assertFromString("Bob")
-  private val charlie: Party = Party.assertFromString("Charlie")
 
   private def t1InstanceFor(party: Party): VersionedContractInstance = {
     VersionedContractInstance(
@@ -99,10 +85,10 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
 
   private val defaultContracts: Map[ContractId, VersionedContractInstance] =
     Map(
-      toContractId("t1a") -> t1InstanceFor(alice),
-      toContractId("t1b") -> t1InstanceFor(bob),
-      toContractId("x1b") -> x1InstanceFor(bob),
-      toContractId("x1c") -> x1InstanceFor(charlie),
+      toContractId("t1a") -> t1InstanceFor("Alice"),
+      toContractId("t1b") -> t1InstanceFor("Bob"),
+      toContractId("x1b") -> x1InstanceFor("Bob"),
+      toContractId("x1c") -> x1InstanceFor("Charlie"),
     )
 
   private val readAs: Set[Party] = Set.empty
@@ -148,13 +134,13 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
         ValueRecord(
           Some("T1"),
           ImmArray(
-            (Some[Name]("party"), ValueParty(alice))
+            (Some[Name]("party"), ValueParty("Alice"))
           ),
         ),
       )
     "ok" in {
       val interpretResult = go(
-        submitters = Set(alice),
+        submitters = Set("Alice"),
         command = command,
       )
       interpretResult shouldBe a[Right[_, _]]
@@ -185,22 +171,22 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
         ValueRecord(
           Some("T2"),
           ImmArray(
-            (Some[Name]("party1"), ValueParty(alice)),
-            (Some[Name]("party2"), ValueParty(bob)),
+            (Some[Name]("party1"), ValueParty("Alice")),
+            (Some[Name]("party2"), ValueParty("Bob")),
           ),
         ),
       )
 
     "ok" in {
       val interpretResult = go(
-        submitters = Set(alice, bob),
+        submitters = Set("Alice", "Bob"),
         command = command,
       )
       interpretResult shouldBe a[Right[_, _]]
     }
     "fail" in {
       val interpretResult = go(
-        submitters = Set(alice),
+        submitters = Set("Alice"),
         command = command,
       )
       inside(interpretResult) {
@@ -227,17 +213,17 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
         ExerciseCommand(
           "T1",
           toContractId("t1a"),
-          choice1name,
+          "Choice1",
           ValueRecord(
             Some("Choice1"),
             ImmArray(
-              (Some[Name]("party1"), ValueParty(alice)),
-              (Some[Name]("party2"), ValueParty(bob)),
+              (Some[Name]("party1"), ValueParty("Alice")),
+              (Some[Name]("party2"), ValueParty("Bob")),
             ),
           ),
         )
       val interpretResult = go(
-        submitters = Set(bob),
+        submitters = Set("Bob"),
         command = command,
       )
       interpretResult shouldBe a[Right[_, _]]
@@ -248,17 +234,17 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
         ExerciseCommand(
           "T1",
           toContractId("t1a"),
-          choice1name,
+          "Choice1",
           ValueRecord(
             Some("Choice1"),
             ImmArray(
-              (Some[Name]("party1"), ValueParty(alice)),
-              (Some[Name]("party2"), ValueParty(bob)),
+              (Some[Name]("party1"), ValueParty("Alice")),
+              (Some[Name]("party2"), ValueParty("Bob")),
             ),
           ),
         )
       val interpretResult = go(
-        submitters = Set(alice),
+        submitters = Set("Alice"),
         command = command,
       )
       inside(interpretResult) {
@@ -279,17 +265,17 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
         ExerciseCommand(
           "T1",
           toContractId("t1a"),
-          choice1name,
+          "Choice1",
           ValueRecord(
             Some("Choice1"),
             ImmArray(
-              (Some[Name]("party1"), ValueParty(bob)),
-              (Some[Name]("party2"), ValueParty(alice)),
+              (Some[Name]("party1"), ValueParty("Bob")),
+              (Some[Name]("party2"), ValueParty("Alice")),
             ),
           ),
         )
       val interpretResult = go(
-        submitters = Set(alice),
+        submitters = Set("Alice"),
         command = command,
       )
       inside(interpretResult) {
@@ -310,17 +296,17 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
         ExerciseCommand(
           "T1",
           toContractId("t1b"),
-          choice1name,
+          "Choice1",
           ValueRecord(
             Some("Choice1"),
             ImmArray(
-              (Some[Name]("party1"), ValueParty(bob)),
-              (Some[Name]("party2"), ValueParty(alice)),
+              (Some[Name]("party1"), ValueParty("Bob")),
+              (Some[Name]("party2"), ValueParty("Alice")),
             ),
           ),
         )
       val interpretResult = go(
-        submitters = Set(alice),
+        submitters = Set("Alice"),
         command = command,
       )
       interpretResult shouldBe a[Right[_, _]]
@@ -334,28 +320,28 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
         ExerciseCommand(
           "X1",
           toContractId("x1b"),
-          choiceAname,
+          "ChoiceA",
           ValueRecord(
             Some("ChoiceA"),
             ImmArray(
               (Some("cid"), ValueContractId(toContractId("x1c"))),
-              (Some("controllerA"), ValueParty(alice)),
+              (Some("controllerA"), ValueParty("Alice")),
               (
                 Some("controllersB"),
                 ValueList(
                   FrontStack(
-                    ValueParty(alice)
+                    ValueParty("Alice")
                   )
                 ),
               ),
-              (Some("party1"), ValueParty(alice)),
-              (Some("party2"), ValueParty(bob)),
-              (Some("party3"), ValueParty(charlie)),
+              (Some("party1"), ValueParty("Alice")),
+              (Some("party2"), ValueParty("Bob")),
+              (Some("party3"), ValueParty("Charlie")),
             ),
           ),
         )
       val interpretResult = go(
-        submitters = Set(alice),
+        submitters = Set("Alice"),
         command = command,
       )
       inside(interpretResult) {
@@ -376,29 +362,29 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
         ExerciseCommand(
           "X1",
           toContractId("x1b"),
-          choiceAname,
+          "ChoiceA",
           ValueRecord(
             Some("ChoiceA"),
             ImmArray(
               (Some("cid"), ValueContractId(toContractId("x1c"))),
-              (Some("controllerA"), ValueParty(alice)),
+              (Some("controllerA"), ValueParty("Alice")),
               (
                 Some("controllersB"),
                 ValueList(
                   FrontStack(
-                    ValueParty(alice),
-                    ValueParty(bob), // bob must be an explicit controller on inner exercise
+                    ValueParty("Alice"),
+                    ValueParty("Bob"), // Bob must be an explicit controller on inner exercise
                   )
                 ),
               ),
-              (Some("party1"), ValueParty(alice)),
-              (Some("party2"), ValueParty(bob)),
-              (Some("party3"), ValueParty(charlie)),
+              (Some("party1"), ValueParty("Alice")),
+              (Some("party2"), ValueParty("Bob")),
+              (Some("party3"), ValueParty("Charlie")),
             ),
           ),
         )
       val interpretResult = go(
-        submitters = Set(alice),
+        submitters = Set("Alice"),
         command = command,
       )
       interpretResult shouldBe a[Right[_, _]]
