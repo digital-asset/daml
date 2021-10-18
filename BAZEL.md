@@ -920,6 +920,30 @@ the target `foo_deploy.jar` next to the regular `foo.jar` target. Building the
 `foo_deploy.jar` target will generate a self-contained fat JAR suitable to be
 passed to `java -jar`.
 
+### Scaladoc
+
+We generate scaladoc targets for each `da_scala_library` with a
+`_scaladoc` name suffix. All scaladoc targets have a `scaladoc` tag
+which allows you to filter them out to speed up your builds. You can
+either do that on the command line by running e.g.
+
+```
+bazel build --build_tag_filters=-scaladoc //...
+```
+
+or if you want to never build them locally you can set this in your `.bazelrc.local`:
+
+```
+build --build_tag_filters=-scaladoc
+```
+
+You can still build an individual target by selecting it explicitly, e.g.
+
+
+```
+bazel build //daml-lf/validation:validation_scaladoc
+```
+
 ### Daml Packages
 
 Daml package targets are defined using the `daml` rule loaded from
