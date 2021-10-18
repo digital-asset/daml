@@ -3,7 +3,7 @@
 
 package com.daml.error.definitions
 import com.daml.error.ErrorCode.{formatContextAsString, truncateResourceForTransport}
-import com.daml.error.{BaseError, ErrorCode, ErrorCodeLoggingContext}
+import com.daml.error.{BaseError, ErrorCode, ContextualizedErrorLogger}
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.{
   FinalReason,
   RejectionReasonTemplate,
@@ -14,7 +14,7 @@ import io.grpc.{Status, StatusRuntimeException}
 trait TransactionError extends BaseError {
   def createRejection(
       correlationId: Option[String]
-  )(implicit loggingContext: ErrorCodeLoggingContext): RejectionReasonTemplate = {
+  )(implicit loggingContext: ContextualizedErrorLogger): RejectionReasonTemplate = {
     FinalReason(rpcStatus(correlationId))
   }
 
@@ -25,13 +25,13 @@ trait TransactionError extends BaseError {
 
   def rpcStatus(
       correlationId: Option[String]
-  )(implicit loggingContext: ErrorCodeLoggingContext): RpcStatus =
+  )(implicit loggingContext: ContextualizedErrorLogger): RpcStatus =
     _rpcStatus(None, correlationId)
 
   def _rpcStatus(
       overrideCode: Option[Status.Code],
       correlationId: Option[String],
-  )(implicit loggingContext: ErrorCodeLoggingContext): RpcStatus = {
+  )(implicit loggingContext: ContextualizedErrorLogger): RpcStatus = {
 
     // yes, this is a horrible duplication of ErrorCode.asGrpcError. why? because
     // scalapb does not really support grpc rich errors. there is literally no method
@@ -103,7 +103,7 @@ abstract class LoggingTransactionErrorImpl(
     definiteAnswer: Boolean = false,
 )(implicit
     code: ErrorCode,
-    loggingContext: ErrorCodeLoggingContext,
+    loggingContext: ContextualizedErrorLogger,
 ) extends TransactionErrorImpl(cause, throwableO, definiteAnswer)(code) {
 
   def asGrpcError: StatusRuntimeException = asGrpcErrorFromContext

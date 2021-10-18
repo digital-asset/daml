@@ -3,13 +3,14 @@
 
 package com.daml.ledger.api.validation
 
+import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
 import com.daml.platform.server.api.validation.ErrorFactories.{
   invalidArgument,
   missingField,
-  outOfRange,
+  offsetAfterLedgerEnd,
 }
 import com.daml.platform.server.api.validation.FieldValidations.requireLedgerString
 import io.grpc.StatusRuntimeException
@@ -23,6 +24,8 @@ object LedgerOffsetValidator {
   def validateOptional(
       ledgerOffset: Option[LedgerOffset],
       fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Option[domain.LedgerOffset]] =
     ledgerOffset
       .map(validate(_, fieldName))
@@ -33,6 +36,8 @@ object LedgerOffsetValidator {
   def validate(
       ledgerOffset: LedgerOffset,
       fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.LedgerOffset] = {
     ledgerOffset.value match {
       case LedgerOffset.Value.Absolute(value) =>
@@ -48,10 +53,16 @@ object LedgerOffsetValidator {
       offsetType: String,
       ledgerOffset: domain.LedgerOffset,
       ledgerEnd: domain.LedgerOffset.Absolute,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Unit] =
     ledgerOffset match {
       case abs: domain.LedgerOffset.Absolute if abs > ledgerEnd =>
-        Left(outOfRange(s"$offsetType offset ${abs.value} is after ledger end ${ledgerEnd.value}"))
+        Left(
+          offsetAfterLedgerEnd(
+            s"$offsetType offset ${abs.value} is after ledger end ${ledgerEnd.value}"
+          )
+        )
       case _ => Right(())
     }
 
@@ -60,6 +71,8 @@ object LedgerOffsetValidator {
       offsetType: String,
       ledgerOffset: Option[domain.LedgerOffset],
       ledgerEnd: domain.LedgerOffset.Absolute,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Unit] =
     ledgerOffset.fold[Either[StatusRuntimeException, Unit]](Right(()))(
       offsetIsBeforeEndIfAbsolute(offsetType, _, ledgerEnd)
@@ -68,6 +81,8 @@ object LedgerOffsetValidator {
   private def convertLedgerBoundary(
       fieldName: String,
       value: LedgerBoundary,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.LedgerOffset] = {
     value match {
       case LedgerBoundary.Unrecognized(invalid) =>

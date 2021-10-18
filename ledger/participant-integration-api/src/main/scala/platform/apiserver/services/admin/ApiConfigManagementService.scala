@@ -4,10 +4,10 @@
 package com.daml.platform.apiserver.services.admin
 
 import java.time.{Duration => JDuration}
-
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.{DurationConversion, TimeProvider, TimestampConversion}
+import com.daml.error.{DamlContextualizedErrorLogger, ContextualizedErrorLogger}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
@@ -43,6 +43,8 @@ private[apiserver] final class ApiConfigManagementService private (
 ) extends ConfigManagementService
     with GrpcApiService {
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   override def close(): Unit = ()
 
@@ -57,10 +59,8 @@ private[apiserver] final class ApiConfigManagementService private (
         case Some((_, configuration)) =>
           Future.successful(configurationToResponse(configuration))
         case None =>
-          logger.warn(
-            "Could not get the current time model. The index does not yet have any ledger configuration."
-          )
-          Future.failed(ErrorFactories.missingLedgerConfigUponRequest())
+          // TODO error codes: Duplicate of missingLedgerConfig
+          Future.failed(ErrorFactories.missingLedgerConfigUponRequest)
       }
       .andThen(logger.logErrorsOnCall[GetTimeModelResponse])
   }
@@ -86,6 +86,8 @@ private[apiserver] final class ApiConfigManagementService private (
 
         implicit val telemetryContext: TelemetryContext =
           DefaultTelemetry.contextFromGrpcThreadLocalContext()
+        implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+          new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
         val response = for {
           // Validate and convert the request parameters
@@ -157,6 +159,8 @@ private[apiserver] final class ApiConfigManagementService private (
 
   private def validateParameters(
       request: SetTimeModelRequest
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, SetTimeModelParameters] = {
     import validation.FieldValidations._
     for {

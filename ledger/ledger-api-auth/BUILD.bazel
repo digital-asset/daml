@@ -27,6 +27,7 @@ da_scala_library(
         "//daml-lf/data",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-service/jwt",
+        "//ledger/error",
         "//ledger/ledger-api-common",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_grpc_grpc_api",
