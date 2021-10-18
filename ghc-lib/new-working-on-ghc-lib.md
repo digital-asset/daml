@@ -67,7 +67,7 @@ Once you have the GHC patch you want to incorporate into the Daml repo, here's t
 4. Before merging the PR, the pin command will also have to be run on windows, and those changes committed as well. You will need access to a windows machine for that: `ad-hoc.sh windows create`
 
 
-### Working on an `add-hoc` windows machine
+### Working on an `ad-hoc` windows machine
 
 1. First time, clone the `daml-language-ad-hoc` repo: (On following times, just pull for any updates to the scripts)
 ```
