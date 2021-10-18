@@ -4,7 +4,10 @@
 package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase
-import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.DeduplicationFeatures
+import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.{
+  DeduplicationFeatures,
+  DelayMechanism,
+}
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.timer.Delayed
 
@@ -20,13 +23,12 @@ final class CommandDeduplicationIT(
     staticTime: Boolean,
 ) extends CommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval, staticTime) {
 
-  override def runWithDelay(
+  override def runWithDeduplicationDelay(
       participants: Seq[ParticipantTestContext]
-  )(test: (() => Future[Unit]) => Future[Unit])(implicit
-      ec: ExecutionContext
-  ): Future[Unit] = {
-    test(() => Delayed.by(defaultDeduplicationWindowWait)(()))
-  }
+  )(
+      testWithDelayMechanism: DelayMechanism => Future[Unit]
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    testWithDelayMechanism(() => Delayed.by(defaultDeduplicationWindowWait)(()))
 
   override def testNamingPrefix: String = "ParticipantCommandDeduplication"
 

@@ -10,6 +10,7 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   allocate,
 }
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
+import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.DelayMechanism
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
 import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
@@ -99,12 +100,14 @@ abstract class KVCommandDeduplicationBase(
     }
   )
 
-  protected override def runWithDelay(
+  protected override def runWithDeduplicationDelay(
       participants: Seq[ParticipantTestContext]
-  )(test: (() => Future[Unit]) => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
+  )(
+      testWithDelayMechanism: DelayMechanism => Future[Unit]
+  )(implicit ec: ExecutionContext): Future[Unit] = {
     runWithConfig(participants) { case (maxDeduplicationDuration, minSkew) =>
       val anyParticipant = participants.head
-      test(() => delay(anyParticipant, maxDeduplicationDuration, minSkew))
+      testWithDelayMechanism(() => delay(anyParticipant, maxDeduplicationDuration, minSkew))
     }
   }
 
@@ -122,15 +125,15 @@ abstract class KVCommandDeduplicationBase(
     }
   }
 
-  private def forwardTimeWithDuration(ledger: ParticipantTestContext, duration: Duration)(implicit
-      ec: ExecutionContext
-  ) = {
+  private def forwardTimeWithDuration(
+      ledger: ParticipantTestContext,
+      duration: Duration,
+  )(implicit ec: ExecutionContext): Future[Unit] =
     ledger
       .time()
       .flatMap(currentTime => {
         ledger.setTime(currentTime, currentTime.plusMillis(duration.toMillis))
       })
-  }
 
   private def runWithConfig(
       participants: Seq[ParticipantTestContext]
@@ -190,6 +193,7 @@ abstract class KVCommandDeduplicationBase(
             ()
           }
         }
+
         for {
           time <- anyParticipant.time()
           updatedModel = timeModelUpdate(timeModel.getTimeModel)
