@@ -695,35 +695,22 @@ private[validation] object Typing {
     }
 
     private def typeOfTyApp(expr: Expr, typs: List[Type]): Type = {
-      def unwrapForall(t: Type, depth: Int) = {
-        @tailrec def go(
-            binders: List[(TypeVarName, Kind)],
-            t: Type,
-            depth: Int,
-        ): (List[(TypeVarName, Kind)], Type) =
-          t match {
-            case _ if depth <= 0 => (binders, t)
-            case TForall(binder, t) => go(binder :: binders, t, depth - 1)
-            case _ => (binders, t)
-          }
-        go(Nil, t, depth) match {
-          case (binders, _) if binders.isEmpty => None
-          case (binders, t) => Some((binders.reverse, t))
+      @tailrec
+      def unwrapForall(body0: Type, typs: List[Type], acc: Map[TypeVarName, Type]): Type =
+        typs match {
+          case head :: tail =>
+            body0 match {
+              case TForall((v, k), body) =>
+                checkType(head, k)
+                unwrapForall(body, tail, acc.updated(v, head))
+              case otherwise =>
+                throw EExpectedUniversalType(ctx, otherwise)
+            }
+          case Nil =>
+            TypeSubst.substitute(acc, body0)
         }
-      }
-      val t = typeOf(expr)
-      unwrapForall(t, typs.length) match {
-        case Some((binders, body)) if binders.length == typs.length =>
-          binders.zip(typs).foreach { case ((_, k), typ) =>
-            checkType(typ, k)
-          }
-          // Later entries override earliers in toMap so shadowing works correctly.
-          TypeSubst.substitute(
-            binders.zip(typs).map({ case ((v, _), typ) => v -> typ }).toMap,
-            body,
-          )
-        case _ => throw EExpectedUniversalType(ctx, t)
-      }
+
+      unwrapForall(typs, typeOf(expr), Map.empty)
     }
 
     private def typeOfTmLam(x: ExprVarName, typ: Type, body: Expr): Type = {
