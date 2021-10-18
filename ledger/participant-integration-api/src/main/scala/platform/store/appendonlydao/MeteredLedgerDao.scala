@@ -155,12 +155,12 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
   override def storeRejection(
       completionInfo: Option[state.CompletionInfo],
       recordTime: Instant,
-      Offset: Offset,
+      offset: Offset,
       reason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     Timed.future(
       metrics.daml.index.db.storeRejection,
-      ledgerDao.storeRejection(completionInfo, recordTime, Offset, reason),
+      ledgerDao.storeRejection(completionInfo, recordTime, offset, reason),
     )
 
   override def storeInitialState(
@@ -182,16 +182,16 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     ledgerDao.reset()
 
   override def storePartyEntry(
-      Offset: Offset,
+      offset: Offset,
       partyEntry: PartyLedgerEntry,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     Timed.future(
       metrics.daml.index.db.storePartyEntry,
-      ledgerDao.storePartyEntry(Offset, partyEntry),
+      ledgerDao.storePartyEntry(offset, partyEntry),
     )
 
   override def storeConfigurationEntry(
-      Offset: Offset,
+      offset: Offset,
       recordTime: Instant,
       submissionId: String,
       configuration: Configuration,
@@ -200,7 +200,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     Timed.future(
       metrics.daml.index.db.storeConfigurationEntry,
       ledgerDao.storeConfigurationEntry(
-        Offset,
+        offset,
         recordTime,
         submissionId,
         configuration,
@@ -209,13 +209,13 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     )
 
   override def storePackageEntry(
-      Offset: Offset,
+      offset: Offset,
       packages: List[(Archive, PackageDetails)],
       entry: Option[PackageLedgerEntry],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     Timed.future(
       metrics.daml.index.db.storePackageEntry,
-      ledgerDao.storePackageEntry(Offset, packages, entry),
+      ledgerDao.storePackageEntry(offset, packages, entry),
     )
 
   /** This is a combined store transaction method to support sandbox-classic and tests

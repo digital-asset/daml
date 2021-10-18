@@ -173,7 +173,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   private[dao] def store(
       completionInfo: Option[state.CompletionInfo],
       tx: LedgerEntry.Transaction,
-      offsetStep: Offset,
+      offset: Offset,
       divulgedContracts: List[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
   ): Future[(Offset, LedgerEntry.Transaction)]
