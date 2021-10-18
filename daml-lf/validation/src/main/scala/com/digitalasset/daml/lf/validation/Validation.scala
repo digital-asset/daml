@@ -20,8 +20,20 @@ object Validation {
   def checkPackages(pkgs: Map[PackageId, Package]): Either[ValidationError, Unit] =
     runSafely {
       val interface = PackageInterface(pkgs)
-      pkgs.foreach { case (pkgId, pkg) => unsafeCheckPackage(interface, pkgId, pkg) }
+      unsafeCheckPackages(interface, pkgs)
     }
+
+  private[lf] def checkPackages(
+      interface: PackageInterface,
+      pkgs: Map[PackageId, Package],
+  ): Either[ValidationError, Unit] =
+    runSafely(unsafeCheckPackages(interface, pkgs))
+
+  private[lf] def unsafeCheckPackages(
+      interface: PackageInterface,
+      pkgs: Map[PackageId, Package],
+  ): Unit =
+    pkgs.foreach { case (pkgId, pkg) => unsafeCheckPackage(interface, pkgId, pkg) }
 
   def checkPackage(
       interface: PackageInterface,
