@@ -32,6 +32,11 @@ private[validation] object AlphaEquiv {
       case (TStruct(fs1), TStruct(fs2)) =>
         (fs1.names sameElements fs2.names) &&
           (fs1.values zip fs2.values).forall((alphaEquiv _).tupled)
+      case (TSynApp(f, xs), TSynApp(g, ys)) =>
+        // We treat type synonyms nominally here. If alpha equivalence
+        // fails, we expand all of them and try again.
+        f == g && xs.length == ys.length &&
+          (xs.iterator zip ys.iterator).forall((alphaEquiv _).tupled)
       case _ => false
     }
   }
