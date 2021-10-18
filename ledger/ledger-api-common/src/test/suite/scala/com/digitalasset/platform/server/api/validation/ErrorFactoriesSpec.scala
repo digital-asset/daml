@@ -4,8 +4,8 @@
 package com.daml
 
 import com.daml.error.{
-  DamlContextualizedErrorLogger,
   ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
   ErrorCodesVersionSwitcher,
 }
 import com.daml.ledger.api.domain.LedgerId
@@ -31,6 +31,33 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     new DamlContextualizedErrorLogger(logger, loggingContext, Some(correlationId))
 
   "ErrorFactories" should {
+
+    "return malformedPackageId" in {
+      assertVersionedError(
+        _.malformedPackageId(request = "request123", message = "message123")(
+          contextualizedErrorLogger = contextualizedErrorLogger,
+          logger = logger,
+          loggingContext = loggingContext,
+        )
+      )(
+        v1_code = Code.INVALID_ARGUMENT,
+        v1_message = "message123",
+        v1_details = Seq.empty,
+        v2_code = Code.INVALID_ARGUMENT,
+        v2_message = s"MALFORMED_PACKAGE_ID(8,$correlationId): message123",
+      )
+    }
+
+    "return couldNotFindPackage" in {
+      assertVersionedError(_.couldNotFindPackage)(
+        v1_code = Code.NOT_FOUND,
+        v1_message = "",
+        v1_details = Seq.empty,
+        v2_code = Code.NOT_FOUND,
+        v2_message = s"COULD_NOT_FIND_PACKAGE(11,$correlationId): Could not found package.",
+      )
+    }
+
     "return the DuplicateCommandException" in {
       assertVersionedError(_.duplicateCommandException)(
         v1_code = Code.ALREADY_EXISTS,

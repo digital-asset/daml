@@ -8,12 +8,12 @@ import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.TransactionE
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.Error.Validation.ReplayMismatch
+import com.daml.lf.engine.{Error => LfError}
+import com.daml.lf.interpretation.{Error => LfInterpretationError}
 import com.daml.lf.language.{LanguageVersion, LookupError, Reference}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.{VersionRange, language}
-import com.daml.lf.engine.{Error => LfError}
-import com.daml.lf.interpretation.{Error => LfInterpretationError}
 
 object LedgerApiErrors extends LedgerApiErrorGroup {
 
@@ -33,6 +33,40 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   }
 
   object ReadErrors extends ErrorGroup() {
+
+    @Explanation("This rejection is given when a package id is malformed.")
+    @Resolution(
+      """Make sure the package id provided in the request has correct form.""".stripMargin
+    )
+    object MalformedPackageId
+        extends ErrorCode(
+          id = "MALFORMED_PACKAGE_ID",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+      case class Reject(message: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = message
+          )
+    }
+
+    @Explanation(
+      "This rejection is given when a read request tries to access a package which does not exist."
+    )
+    @Resolution("""Make sure the requested package is available on the ledger.
+        |It might have not been uploaded or the upload might have been rejected.""".stripMargin)
+    object CouldNotFindPackage
+        extends ErrorCode(
+          id = "COULD_NOT_FIND_PACKAGE",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+      case class Reject()(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = "Could not found package."
+          )
+    }
+
     @Explanation("This rejection is given when a read request tries to access pruned data.")
     @Resolution("Use an offset that is after the pruning offset.")
     object ParticipantPrunedDataAccessed

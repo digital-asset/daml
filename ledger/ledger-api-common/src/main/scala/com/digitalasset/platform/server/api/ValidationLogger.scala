@@ -15,10 +15,10 @@ object ValidationLogger {
     t
   }
 
-  def logFailureWithContext[Request](request: Request, t: Throwable)(implicit
+  def logFailureWithContext[Request, T <: Throwable](request: Request, t: T)(implicit
       logger: ContextualizedLogger,
       loggingContext: LoggingContext,
-  ): Throwable = {
+  ): T = {
     logger.debug(s"Request validation failed for $request. Message: ${t.getMessage}")
     logger.info(t.getMessage)
     t

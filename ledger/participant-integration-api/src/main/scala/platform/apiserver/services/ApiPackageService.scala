@@ -4,11 +4,8 @@
 package com.daml.platform.apiserver.services
 
 import com.daml.daml_lf_dev.DamlLf.{Archive, HashFunction}
+import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.api.v1.package_service.HashFunction.{
-  SHA256 => APISHA256,
-  Unrecognized => APIUnrecognized,
-}
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service.{HashFunction => APIHashFunction, _}
 import com.daml.ledger.participant.state.index.v2.IndexPackagesService
@@ -16,19 +13,24 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.ValidationLogger
-import com.daml.platform.server.api.validation.PackageServiceValidation
-import io.grpc.{BindableService, ServerServiceDefinition, Status}
+import com.daml.platform.server.api.validation.{ErrorFactories, PackageServiceValidation}
+import io.grpc.{BindableService, ServerServiceDefinition}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiPackageService private (
-    backend: IndexPackagesService
+    backend: IndexPackagesService,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends PackageService
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+
+  private implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
 
   override def bindService(): ServerServiceDefinition =
     PackageServiceGrpc.bindService(this, executionContext)
@@ -47,13 +49,14 @@ private[apiserver] final class ApiPackageService private (
     withEnrichedLoggingContext("packageId" -> request.packageId) { implicit loggingContext =>
       logger.info(s"Received request for a package: $request")
       withValidatedPackageId(request.packageId, request) { packageId =>
+        def archiveOToResponse(archiveO: Option[Archive]): Future[GetPackageResponse] =
+          archiveO.fold(
+            Future.failed(errorFactories.couldNotFindPackage)
+          )(archive => Future.successful(toGetPackageResponse(archive)))
+
         backend
           .getLfArchive(packageId)
-          .flatMap(
-            _.fold(Future.failed[GetPackageResponse](Status.NOT_FOUND.asRuntimeException()))(
-              archive => Future.successful(toGetPackageResponse(archive))
-            )
-          )
+          .flatMap(archiveOToResponse)
           .andThen(logger.logErrorsOnCall[GetPackageResponse])
       }
     }
@@ -80,28 +83,27 @@ private[apiserver] final class ApiPackageService private (
 
   private def withValidatedPackageId[T, R](packageId: String, request: R)(
       block: Ref.PackageId => Future[T]
-  ) =
+  ): Future[T] =
     Ref.PackageId
       .fromString(packageId)
       .fold(
-        error =>
+        errorMessage =>
           Future.failed[T](
-            ValidationLogger.logFailureWithContext(
-              request,
-              Status.INVALID_ARGUMENT
-                .withDescription(error)
-                .asRuntimeException(),
-            )
+            errorFactories.malformedPackageId(request = request, message = errorMessage)
           ),
-        pId => block(pId),
+        packageId => block(packageId),
       )
 
   private def toGetPackageResponse(archive: Archive): GetPackageResponse = {
-    val hashF: APIHashFunction = archive.getHashFunction match {
-      case HashFunction.SHA256 => APISHA256
-      case _ => APIUnrecognized(-1)
+    val hashFunction = archive.getHashFunction match {
+      case HashFunction.SHA256 => APIHashFunction.SHA256
+      case _ => APIHashFunction.Unrecognized(-1)
     }
-    GetPackageResponse(hashF, archive.getPayload, archive.getHash)
+    GetPackageResponse(
+      hashFunction = hashFunction,
+      archivePayload = archive.getPayload,
+      hash = archive.getHash,
+    )
   }
 
 }
@@ -110,12 +112,21 @@ private[platform] object ApiPackageService {
   def create(
       ledgerId: LedgerId,
       backend: IndexPackagesService,
+      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-  ): PackageService with GrpcApiService =
-    new PackageServiceValidation(new ApiPackageService(backend), ledgerId) with BindableService {
+  ): PackageService with GrpcApiService = {
+    val service = new ApiPackageService(
+      backend = backend,
+      errorCodesVersionSwitcher = errorCodesVersionSwitcher,
+    )
+    new PackageServiceValidation(
+      service = service,
+      ledgerId = ledgerId,
+    ) with BindableService {
       override def bindService(): ServerServiceDefinition =
         PackageServiceGrpc.bindService(this, executionContext)
     }
+  }
 }
