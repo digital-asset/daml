@@ -1132,6 +1132,8 @@ private[validation] object Typing {
       case EApp(fun, arg) =>
         typeOfTmApp(fun, arg)
       case ETyApp(expr0, typ) =>
+        // Typechecking multiple applications in one go allows us to
+        // only substitute once which is a bit faster.
         val (expr, typs) = destructETyApp(expr0, List(typ))
         typeOfTyApp(expr, typs)
       case EAbs((varName, typ), body, _) =>
