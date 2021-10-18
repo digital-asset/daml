@@ -46,46 +46,46 @@ import scala.language.implicitConversions
 
 class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with BazelRunfiles {
 
-  implicit def toName(s: String): Name = Name.assertFromString(s)
+  implicit private def toName(s: String): Name = Name.assertFromString(s)
 
-  def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
+  private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
     (mainPkgId, mainPkg, packages.all.toMap)
   }
 
-  val (packageId, _, allPackages) = loadPackage(
+  private val (packageId, _, allPackages) = loadPackage(
     "daml-lf/tests/AuthTests.dar"
   )
 
-  def toContractId(s: String): ContractId = {
+  private def toContractId(s: String): ContractId = {
     val dummySuffix: Bytes = Bytes.assertFromString("00")
     ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
   }
 
-  val t1: Identifier =
+  private val t1: Identifier =
     Identifier(packageId, QualifiedName.assertFromString("AuthTests:T1"))
 
-  val t2: Identifier =
+  private val t2: Identifier =
     Identifier(packageId, QualifiedName.assertFromString("AuthTests:T2"))
 
   // NICK: simplfy examples so just have one set of templates (not T and X)
-  val x1: Identifier =
+  private val x1: Identifier =
     Identifier(packageId, QualifiedName.assertFromString("AuthTests:X1"))
 
-  val choice1name: ChoiceName = ChoiceName.assertFromString("Choice1")
-  val choice1type: Identifier =
+  private val choice1name: ChoiceName = ChoiceName.assertFromString("Choice1")
+  private val choice1type: Identifier =
     Identifier(packageId, QualifiedName.assertFromString("AuthTests:Choice1"))
 
-  val choiceAname: ChoiceName = ChoiceName.assertFromString("ChoiceA")
-  val choiceAtype: Identifier =
+  private val choiceAname: ChoiceName = ChoiceName.assertFromString("ChoiceA")
+  private val choiceAtype: Identifier =
     Identifier(packageId, QualifiedName.assertFromString("AuthTests:ChoiceA"))
 
-  val alice: Party = Party.assertFromString("Alice")
-  val bob: Party = Party.assertFromString("Bob")
-  val charlie: Party = Party.assertFromString("Charlie")
+  private val alice: Party = Party.assertFromString("Alice")
+  private val bob: Party = Party.assertFromString("Bob")
+  private val charlie: Party = Party.assertFromString("Charlie")
 
-  def t1InstanceFor(party: Party): VersionedContractInstance = {
+  private def t1InstanceFor(party: Party): VersionedContractInstance = {
     VersionedContractInstance(
       TransactionVersion.VDev,
       t1,
@@ -97,7 +97,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     )
   }
 
-  def x1InstanceFor(party: Party): VersionedContractInstance = {
+  private def x1InstanceFor(party: Party): VersionedContractInstance = {
     VersionedContractInstance(
       TransactionVersion.VDev,
       x1,
@@ -109,13 +109,13 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     )
   }
 
-  val t1a = t1InstanceFor(alice)
-  val t1b = t1InstanceFor(bob)
+  private val t1a = t1InstanceFor(alice)
+  private val t1b = t1InstanceFor(bob)
 
-  val x1b = x1InstanceFor(bob)
-  val x1c = x1InstanceFor(charlie)
+  private val x1b = x1InstanceFor(bob)
+  private val x1c = x1InstanceFor(charlie)
 
-  val defaultContracts: Map[ContractId, VersionedContractInstance] =
+  private val defaultContracts: Map[ContractId, VersionedContractInstance] =
     Map(
       toContractId("t1a") -> t1a,
       toContractId("t1b") -> t1b,
@@ -123,24 +123,24 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
       toContractId("x1c") -> x1c,
     )
 
-  val readAs: Set[Party] = Set.empty
-  val let: Time.Timestamp = Time.Timestamp.now()
-  val participant: ParticipantId = ParticipantId.assertFromString("participant")
-  val submissionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("submissionSeed")
+  private val readAs: Set[Party] = Set.empty
+  private val let: Time.Timestamp = Time.Timestamp.now()
+  private val participant: ParticipantId = ParticipantId.assertFromString("participant")
+  private val submissionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("submissionSeed")
 
-  val lookupPackage: PackageId => Option[Package] =
+  private val lookupPackage: PackageId => Option[Package] =
     pkgId => allPackages.get(pkgId)
 
-  val lookupContract: ContractId => Option[VersionedContractInstance] =
+  private val lookupContract: ContractId => Option[VersionedContractInstance] =
     cid => defaultContracts.get(cid)
 
-  val lookupKey: GlobalKeyWithMaintainers => Option[ContractId] =
+  private val lookupKey: GlobalKeyWithMaintainers => Option[ContractId] =
     _ => None
 
-  val testEngine: Engine =
+  private val testEngine: Engine =
     Engine.DevEngine()
 
-  def go(
+  private def go(
       submitters: Set[Party],
       command: ApiCommand,
   ): Either[engine.Error, (SubmittedTransaction, Metadata)] = {
