@@ -42,7 +42,11 @@ import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.language.implicitConversions
+
 class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with BazelRunfiles {
+
+  implicit def toName(s: String): Name = Name.assertFromString(s)
 
   def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
@@ -58,15 +62,6 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     def dummySuffix: Bytes = Bytes.assertFromString("00")
     ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
   }
-
-  // field names //NICK: prefix? -- or perhaps inline bindings; with implicit?!
-  def f_cid: Name = Name.assertFromString("cid")
-  def controllerA: Name = Name.assertFromString("controllerA")
-  def controllersB: Name = Name.assertFromString("controllersB")
-  def party: Name = Name.assertFromString("party")
-  def party1: Name = Name.assertFromString("party1")
-  def party2: Name = Name.assertFromString("party2")
-  def party3: Name = Name.assertFromString("party3")
 
   def t1: Identifier =
     Identifier(packageId, QualifiedName.assertFromString("AuthTests:T1"))
@@ -90,25 +85,25 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   def bob: Party = Party.assertFromString("Bob")
   def charlie: Party = Party.assertFromString("Charlie")
 
-  def t1InstanceFor(x: Party): VersionedContractInstance = {
+  def t1InstanceFor(party: Party): VersionedContractInstance = {
     VersionedContractInstance(
       TransactionVersion.VDev,
       t1,
       ValueRecord(
         Some(t1),
-        ImmArray((Some[Name](party), ValueParty(x))),
+        ImmArray((Some[Name]("party"), ValueParty(party))),
       ),
       "",
     )
   }
 
-  def x1InstanceFor(p: Party): VersionedContractInstance = {
+  def x1InstanceFor(party: Party): VersionedContractInstance = {
     VersionedContractInstance(
       TransactionVersion.VDev,
       x1,
       ValueRecord(
         Some(x1),
-        ImmArray((Some[Name](party), ValueParty(p))),
+        ImmArray((Some[Name]("party"), ValueParty(party))),
       ),
       "",
     )
@@ -171,7 +166,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
         ValueRecord(
           Some(t1),
           ImmArray(
-            (Some[Name](party), ValueParty(alice))
+            (Some[Name]("party"), ValueParty(alice))
           ),
         ),
       )
@@ -208,8 +203,8 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
         ValueRecord(
           Some(t2),
           ImmArray(
-            (Some[Name](party1), ValueParty(alice)),
-            (Some[Name](party2), ValueParty(bob)),
+            (Some[Name]("party1"), ValueParty(alice)),
+            (Some[Name]("party2"), ValueParty(bob)),
           ),
         ),
       )
@@ -254,8 +249,8 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
           ValueRecord(
             Some(choice1type),
             ImmArray(
-              (Some[Name](party1), ValueParty(alice)),
-              (Some[Name](party2), ValueParty(bob)),
+              (Some[Name]("party1"), ValueParty(alice)),
+              (Some[Name]("party2"), ValueParty(bob)),
             ),
           ),
         )
@@ -275,8 +270,8 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
           ValueRecord(
             Some(choice1type),
             ImmArray(
-              (Some[Name](party1), ValueParty(alice)),
-              (Some[Name](party2), ValueParty(bob)),
+              (Some[Name]("party1"), ValueParty(alice)),
+              (Some[Name]("party2"), ValueParty(bob)),
             ),
           ),
         )
@@ -306,8 +301,8 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
           ValueRecord(
             Some(choice1type),
             ImmArray(
-              (Some[Name](party1), ValueParty(bob)),
-              (Some[Name](party2), ValueParty(alice)),
+              (Some[Name]("party1"), ValueParty(bob)),
+              (Some[Name]("party2"), ValueParty(alice)),
             ),
           ),
         )
@@ -337,8 +332,8 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
           ValueRecord(
             Some(choice1type),
             ImmArray(
-              (Some[Name](party1), ValueParty(bob)),
-              (Some[Name](party2), ValueParty(alice)),
+              (Some[Name]("party1"), ValueParty(bob)),
+              (Some[Name]("party2"), ValueParty(alice)),
             ),
           ),
         )
@@ -361,19 +356,19 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
           ValueRecord(
             Some(choiceAtype),
             ImmArray(
-              (Some(f_cid), ValueContractId(toContractId("x1c"))),
-              (Some(controllerA), ValueParty(alice)),
+              (Some("cid"), ValueContractId(toContractId("x1c"))),
+              (Some("controllerA"), ValueParty(alice)),
               (
-                Some(controllersB),
+                Some("controllersB"),
                 ValueList(
                   FrontStack(
                     ValueParty(alice)
                   )
                 ),
               ),
-              (Some(party1), ValueParty(alice)),
-              (Some(party2), ValueParty(bob)),
-              (Some(party3), ValueParty(charlie)),
+              (Some("party1"), ValueParty(alice)),
+              (Some("party2"), ValueParty(bob)),
+              (Some("party3"), ValueParty(charlie)),
             ),
           ),
         )
@@ -403,10 +398,10 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
           ValueRecord(
             Some(choiceAtype),
             ImmArray(
-              (Some(f_cid), ValueContractId(toContractId("x1c"))),
-              (Some(controllerA), ValueParty(alice)),
+              (Some("cid"), ValueContractId(toContractId("x1c"))),
+              (Some("controllerA"), ValueParty(alice)),
               (
-                Some(controllersB),
+                Some("controllersB"),
                 ValueList(
                   FrontStack(
                     ValueParty(alice),
@@ -414,9 +409,9 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
                   )
                 ),
               ),
-              (Some(party1), ValueParty(alice)),
-              (Some(party2), ValueParty(bob)),
-              (Some(party3), ValueParty(charlie)),
+              (Some("party1"), ValueParty(alice)),
+              (Some("party2"), ValueParty(bob)),
+              (Some("party3"), ValueParty(charlie)),
             ),
           ),
         )
