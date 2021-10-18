@@ -20,6 +20,7 @@ final class JdbcLedgerDaoH2DatabaseSpec
     with JdbcLedgerDaoContractsSpec
     with JdbcLedgerDaoContractsAppendOnlySpec
     with JdbcLedgerDaoDivulgenceSpec
+    with JdbcLedgerDaoExceptionSpec
     with JdbcLedgerDaoPartiesSpec
     with JdbcLedgerDaoTransactionsSpec
     with JdbcLedgerDaoTransactionTreesSpec
