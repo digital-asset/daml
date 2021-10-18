@@ -9,6 +9,7 @@ import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.lf.data.Ref.TransactionId
 import com.daml.platform.server.api.validation.ErrorFactories.{
   addDefiniteAnswerDetails,
   definiteAnswers,
@@ -22,6 +23,21 @@ import io.grpc.{Metadata, StatusRuntimeException}
 import scalaz.syntax.tag._
 
 class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
+  def transactionNotFound(transactionId: TransactionId)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = grpcError(
+        Status
+          .newBuilder()
+          .setCode(Code.NOT_FOUND.value())
+          .setMessage("Transaction not found or not visible.")
+          .build()
+      ),
+      v2 = LedgerApiErrors.ReadErrors.TransactionNotFound
+        .Reject(transactionId)
+        .asGrpcError,
+    )
 
   def malformedPackageId[Request](request: Request, message: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger,

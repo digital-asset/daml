@@ -116,7 +116,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
 
       case class Reject(transactionId: String)(implicit loggingContext: ContextualizedErrorLogger)
-          extends LoggingTransactionErrorImpl(cause = "Transaction not found, or not visible.") {
+          extends LoggingTransactionErrorImpl(cause = "Transaction not found or not visible.") {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           (ErrorResource.TransactionId, transactionId)
         )
