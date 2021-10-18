@@ -42,13 +42,10 @@ import scala.jdk.CollectionConverters._
 class KeyValueCommitting private[daml] (
     engine: Engine,
     metrics: Metrics,
-    inStaticTimeMode: Boolean,
 ) {
   import KeyValueCommitting.submissionOutputs
 
   private val logger = ContextualizedLogger.get(getClass)
-
-  def this(engine: Engine, metrics: Metrics) = this(engine, metrics, false)
 
   /** Processes a Daml submission, given the allocated log entry id, the submission and its resolved inputs.
     * Produces the log entry to be committed, and Daml state updates.
@@ -145,7 +142,7 @@ class KeyValueCommitting private[daml] (
         new ConfigCommitter(defaultConfig, maximumRecordTime, metrics)
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
-        new TransactionCommitter(defaultConfig, engine, metrics, inStaticTimeMode)
+        new TransactionCommitter(defaultConfig, engine, metrics)
 
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
         throw Err.InvalidSubmission("DamlSubmission payload not set")

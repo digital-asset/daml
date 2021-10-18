@@ -38,7 +38,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
 
-  val schemaVersion = 2
+  val schemaVersion = 3
 
   private[http] val surrogateTpIdCache = new SurrogateTemplateIdCache(metrics, tpIdCacheMaxEntries)
 

@@ -106,6 +106,13 @@ object Util {
   val CPFalse = CPPrimCon(PCFalse)
 
   @tailrec
+  def destructETyApp(e: Expr, targs: List[Type] = List.empty): (Expr, List[Type]) =
+    e match {
+      case ETyApp(e, t) => destructETyApp(e, t :: targs)
+      case _ => (e, targs)
+    }
+
+  @tailrec
   def destructApp(typ: Type, tyArgs: List[Type] = List.empty): (Type, List[Type]) =
     typ match {
       case TApp(tyFun, tyArg) => destructApp(tyFun, tyArg :: tyArgs)

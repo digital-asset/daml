@@ -47,6 +47,7 @@ da_scala_test_suite(
         ],
     ),
     data = [
+        "//daml-lf/tests:AuthTests.dar",
         "//daml-lf/tests:BasicTests.dar",
         "//daml-lf/tests:Exceptions.dar",
         "//daml-lf/tests:MultiKeys.dar",

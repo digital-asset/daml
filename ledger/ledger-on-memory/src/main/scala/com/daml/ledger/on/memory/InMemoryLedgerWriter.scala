@@ -108,7 +108,6 @@ object InMemoryLedgerWriter {
       val keyValueCommitting = new KeyValueCommitting(
         engine,
         metrics,
-        inStaticTimeMode = needStaticTimeModeFor(timeProvider),
       )
       new Committer(
         transformStateReader = transformStateReader(keySerializationStrategy, stateValueCache),
@@ -135,8 +134,5 @@ object InMemoryLedgerWriter {
       )
     }
   }
-
-  private def needStaticTimeModeFor(timeProvider: TimeProvider): Boolean =
-    timeProvider != TimeProvider.UTC
 
 }

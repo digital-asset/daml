@@ -75,14 +75,19 @@ beforeAll(async () => {
     `--json-api-option=--port-file=${JSON_API_PORT_FILE_NAME}`,
   ];
 
+  console.debug("Starting daml start");
+
   startProc = spawn('daml', startArgs, startOpts);
 
   await waitOn({resources: [`file:${jsonApiPortFilePath}`]});
+
+  console.debug("daml start API are running");
 
   // Run `npm start` in another shell.
   // Disable automatically opening a browser using the env var described here:
   // https://github.com/facebook/create-react-app/issues/873#issuecomment-266318338
   const env = {...process.env, BROWSER: 'none'};
+  console.debug("Starting npm start");
   uiProc = spawn('npm-cli.js', ['run-script', 'start'], { env, stdio: 'inherit', detached: true});
   // Note(kill-npm-start): The `detached` flag starts the process in a new process group.
   // This allows us to kill the process with all its descendents after the tests finish,
@@ -90,10 +95,13 @@ beforeAll(async () => {
 
   // Ensure the UI server is ready by checking that the port is available.
   await waitOn({resources: [`tcp:localhost:${UI_PORT}`]});
+  console.debug("npm start is running");
 
   // Launch a single browser for all tests.
+  console.debug("Starting puppeteer");
   browser = await puppeteer.launch();
-}, 40_000);
+  console.debug("Puppeteer is running");
+}, 60_000);
 
 afterAll(async () => {
   // Kill the `daml start` process, allowing the sandbox and JSON API server to

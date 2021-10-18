@@ -4,8 +4,8 @@
 
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | DAML-LF utility functions, may move to the LF utility if they are generally useful
-module DA.Daml.LFConversion.UtilLF(
-    module DA.Daml.LFConversion.UtilLF
+module DA.Daml.UtilLF (
+    module DA.Daml.UtilLF
     ) where
 
 import           DA.Daml.LF.Ast

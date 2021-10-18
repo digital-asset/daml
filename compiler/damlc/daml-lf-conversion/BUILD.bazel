@@ -38,6 +38,8 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-tools",
+        "//compiler/damlc/daml-ghc-util",
+        "//compiler/damlc/daml-lf-util",
         "//libs-haskell/da-hs-base",
     ],
 )

@@ -74,7 +74,6 @@
 
 module DA.Daml.LFConversion
     ( convertModule
-    , convertModuleName
     , sourceLocToRange
     , convertRationalBigNumeric -- exposed for festing
     , runConvertM -- exposed for testing
@@ -82,9 +81,9 @@ module DA.Daml.LFConversion
     ) where
 
 import           DA.Daml.LFConversion.Primitives
-import           DA.Daml.LFConversion.UtilGHC
-import           DA.Daml.LFConversion.UtilLF
 import           DA.Daml.LFConversion.MetadataEncoding
+import           DA.Daml.UtilGHC
+import           DA.Daml.UtilLF
 
 import           Development.IDE.Types.Diagnostics
 import           Development.IDE.Types.Location
@@ -1893,10 +1892,6 @@ convertCoercion env co = evalStateT (go env co) 0
       where
         flv = tyConFlavour t
     isSatNewTyCon _ _ = Nothing
-
-convertModuleName :: GHC.ModuleName -> LF.ModuleName
-convertModuleName =
-    ModuleName . T.split (== '.') . fsToText . moduleNameFS
 
 qualify :: Env -> GHC.Module -> a -> ConvertM (Qualified a)
 qualify env m x = do

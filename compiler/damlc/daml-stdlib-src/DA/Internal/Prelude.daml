@@ -540,13 +540,19 @@ traceId x = trace x x
 --
 -- Note that on some ledgers, those messages are not displayed at the default log level. For Sandbox, you can use `--log-level=debug` to include them.
 debug : (Show b, Action m) => b -> m ()
-debug x =
+debug x = debugRaw (show x)
+
+-- | `debugRaw msg` prints `msg` for debugging purposes.
+--
+-- Note that on some ledgers, those messages are not displayed at the default log level. For Sandbox, you can use `--log-level=debug` to include them.
+debugRaw : Action m => Text -> m ()
+debugRaw x =
   -- NOTE (MK): We introduce an explicit indirection via >>=
   -- to make sure that evaluating something like
   -- `debug x >> pure ()` does not print the debug statement.
   -- Instead it will only be printed when you execute the monadic
   -- action.
-  pure () >>= \_ -> pure (trace x ())
+  pure () >>= \_ -> pure (traceRaw x ())
 
 -- | Return the first element of a tuple.
 fst : (a, b) -> a

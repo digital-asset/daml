@@ -694,14 +694,24 @@ private[validation] object Typing {
         throw EExpectedFunctionType(ctx, typ)
     }
 
-    private def typeOfTyApp(expr: Expr, typ: Type): Type =
-      typeOf(expr) match {
-        case TForall((v, k), body) =>
-          checkType(typ, k)
-          TypeSubst.substitute(Map(v -> typ), body)
-        case typ0 =>
-          throw EExpectedUniversalType(ctx, typ0)
-      }
+    private def typeOfTyApp(expr: Expr, typs: List[Type]): Type = {
+      @tailrec
+      def unwrapForall(body0: Type, typs: List[Type], acc: Map[TypeVarName, Type]): Type =
+        typs match {
+          case head :: tail =>
+            body0 match {
+              case TForall((v, k), body) =>
+                checkType(head, k)
+                unwrapForall(body, tail, acc.updated(v, head))
+              case otherwise =>
+                throw EExpectedUniversalType(ctx, otherwise)
+            }
+          case Nil =>
+            TypeSubst.substitute(acc, body0)
+        }
+
+      unwrapForall(typeOf(expr), typs, Map.empty)
+    }
 
     private def typeOfTmLam(x: ExprVarName, typ: Type, body: Expr): Type = {
       checkType(typ, KStar)
@@ -1121,8 +1131,11 @@ private[validation] object Typing {
         typeOfStructUpd(upd)
       case EApp(fun, arg) =>
         typeOfTmApp(fun, arg)
-      case ETyApp(expr, typ) =>
-        typeOfTyApp(expr, typ)
+      case ETyApp(expr0, typ) =>
+        // Typechecking multiple applications in one go allows us to
+        // only substitute once which is a bit faster.
+        val (expr, typs) = destructETyApp(expr0, List(typ))
+        typeOfTyApp(expr, typs)
       case EAbs((varName, typ), body, _) =>
         typeOfTmLam(varName, typ, body)
       case ETyAbs((vName, kind), body) =>

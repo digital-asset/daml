@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.{Clock, Instant}
+
 import com.daml.ledger.api.refinements.ApiTypes.TemplateId
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
@@ -58,7 +59,7 @@ import com.daml.ledger.api.v1.ledger_configuration_service.{
 }
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.package_service._
-import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, GetTimeResponse}
+import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, GetTimeResponse, SetTimeRequest}
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
@@ -171,6 +172,17 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .recover { case NonFatal(_) =>
         Clock.systemUTC().instant()
       }
+
+  def setTime(currentTime: Instant, newTime: Instant): Future[Unit] =
+    services.time
+      .setTime(
+        SetTimeRequest(
+          ledgerId = ledgerId,
+          currentTime = Some(currentTime.asProtobuf),
+          newTime = Some(newTime.asProtobuf),
+        )
+      )
+      .map(_ => ())
 
   def listKnownPackages(): Future[Seq[PackageDetails]] =
     services.packageManagement

@@ -16,7 +16,7 @@ da_haskell_library(
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
-        "//compiler/damlc/daml-lf-conversion",
+        "//compiler/damlc/daml-lf-util",
         "//libs-haskell/da-hs-base",
     ],
 )

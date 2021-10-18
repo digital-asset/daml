@@ -59,7 +59,7 @@ final class RawPreExecutingCommitStrategySupport(
   ](
     transformStateReader = SerializingStateReader(stateKeySerializationStrategy),
     validator = new PreExecutingSubmissionValidator(
-      new KeyValueCommitting(new Engine(), metrics, inStaticTimeMode = true),
+      new KeyValueCommitting(new Engine(), metrics),
       new RawPreExecutingCommitStrategy(stateKeySerializationStrategy),
       metrics = metrics,
     ),
