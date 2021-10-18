@@ -18,6 +18,12 @@ private[kvutils] final case class VersionedOffset(offset: Offset) {
     val lowest = stream.readInt()
     (version, highest, middle, lowest)
   }
+
+  def zeroLowest: VersionedOffset =
+    setLowest(0)
+
+  def setLowest(newLowest: Int): VersionedOffset =
+    VersionedOffset(new VersionedOffsetBuilder(version).of(highest, middle, newLowest))
 }
 
 object VersionedOffset {

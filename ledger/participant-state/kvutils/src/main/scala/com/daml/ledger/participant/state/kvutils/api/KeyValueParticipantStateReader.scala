@@ -9,11 +9,7 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.LedgerInitialConditions
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlLogEntryId}
-import com.daml.ledger.participant.state.kvutils.{
-  Envelope,
-  KeyValueConsumption,
-  VersionedOffsetMutator,
-}
+import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueConsumption, VersionedOffset}
 import com.daml.ledger.participant.state.v2._
 import com.daml.ledger.validator.preexecution.TimeUpdatesProvider
 import com.daml.lf.data.Time
@@ -43,7 +39,7 @@ class KeyValueParticipantStateReader private[api] (
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
     Source
-      .single(beginAfter.map(VersionedOffsetMutator.zeroLowest))
+      .single(beginAfter.map(offset => VersionedOffset(offset).zeroLowest.offset))
       .flatMapConcat(reader.events)
       .flatMapConcat { case LedgerRecord(offset, entryId, envelope) =>
         Timed
@@ -106,7 +102,7 @@ object KeyValueParticipantStateReader {
       totalUpdates: Int,
   ): Offset =
     if (totalUpdates > 1) {
-      VersionedOffsetMutator.setLowest(offsetFromRecord, index)
+      VersionedOffset(offsetFromRecord).setLowest(index).offset
     } else {
       offsetFromRecord
     }

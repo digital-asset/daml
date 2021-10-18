@@ -20,7 +20,7 @@ class VersionedOffsetBuilderSpec
         val builder = new VersionedOffsetBuilder(version)
         val offset = builder.of(highest, middle, lowest)
 
-        val splitOffset = builder.split(offset)
+        val splitOffset = VersionedOffset(offset)
         splitOffset.version should be(version)
         splitOffset.highest should be(highest)
         splitOffset.middle should be(middle)
