@@ -4,23 +4,31 @@
 package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase
-import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.DeduplicationFeatures
+import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.{
+  DeduplicationFeatures,
+  DelayMechanism,
+}
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.timer.Delayed
 
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Command deduplication tests for participant side deduplication
   * Should be disabled for ledgers that have committer side deduplication enabled (KV)
   */
-final class CommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterval: FiniteDuration)
-    extends CommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval) {
+final class CommandDeduplicationIT(
+    timeoutScaleFactor: Double,
+    ledgerTimeInterval: FiniteDuration,
+    staticTime: Boolean,
+) extends CommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval, staticTime) {
 
-  override def runGivenDeduplicationWait(
+  override def runWithDeduplicationDelay(
       participants: Seq[ParticipantTestContext]
-  )(test: Duration => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
-    test(defaultDeduplicationWindowWait)
-  }
+  )(
+      testWithDelayMechanism: DelayMechanism => Future[Unit]
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    testWithDelayMechanism(() => Delayed.by(defaultDeduplicationWindowWait)(()))
 
   override def testNamingPrefix: String = "ParticipantCommandDeduplication"
 

@@ -16,8 +16,11 @@ import scala.concurrent.duration.FiniteDuration
   * The committer side deduplication period adds `minSkew` to the participant-side one, so we have to account for that as well.
   * If updating the time model fails then the tests will assume a `minSkew` of 1 second.
   */
-class KVCommandDeduplicationIT(timeoutScaleFactor: Double, ledgerTimeInterval: FiniteDuration)
-    extends KVCommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval) {
+class KVCommandDeduplicationIT(
+    timeoutScaleFactor: Double,
+    ledgerTimeInterval: FiniteDuration,
+    staticTime: Boolean,
+) extends KVCommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval, staticTime) {
 
   override def testNamingPrefix: String = "KVCommandDeduplication"
 
