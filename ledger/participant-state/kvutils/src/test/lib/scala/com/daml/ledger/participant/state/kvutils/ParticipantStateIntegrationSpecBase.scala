@@ -764,7 +764,13 @@ object ParticipantStateIntegrationSpecBase {
 
   // We us a random offset version in order to verify that versioned offsets work.
   private def randomOffsetVersion: ResourceOwner[Byte] =
-    ResourceOwner.forValue(() => Random.between(0, Byte.MaxValue).toByte)
+    ResourceOwner.forValue { () =>
+      val bytes = Array[Byte](Byte.MinValue)
+      while (bytes.head < 0) {
+        Random.nextBytes(bytes)
+      }
+      bytes.head
+    }
 
   private def newLedgerId(): LedgerId =
     Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
