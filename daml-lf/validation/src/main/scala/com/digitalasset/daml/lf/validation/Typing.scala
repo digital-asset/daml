@@ -710,7 +710,7 @@ private[validation] object Typing {
             TypeSubst.substitute(acc, body0)
         }
 
-      unwrapForall(typs, typeOf(expr), Map.empty)
+      unwrapForall(typeOf(expr), typs, Map.empty)
     }
 
     private def typeOfTmLam(x: ExprVarName, typ: Type, body: Expr): Type = {
