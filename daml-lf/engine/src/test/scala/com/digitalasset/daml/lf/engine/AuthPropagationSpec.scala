@@ -59,31 +59,31 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   )
 
   def toContractId(s: String): ContractId = {
-    def dummySuffix: Bytes = Bytes.assertFromString("00")
+    val dummySuffix: Bytes = Bytes.assertFromString("00")
     ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
   }
 
-  def t1: Identifier =
+  val t1: Identifier =
     Identifier(packageId, QualifiedName.assertFromString("AuthTests:T1"))
 
-  def t2: Identifier =
+  val t2: Identifier =
     Identifier(packageId, QualifiedName.assertFromString("AuthTests:T2"))
 
   // NICK: simplfy examples so just have one set of templates (not T and X)
-  def x1: Identifier =
+  val x1: Identifier =
     Identifier(packageId, QualifiedName.assertFromString("AuthTests:X1"))
 
-  def choice1name: ChoiceName = ChoiceName.assertFromString("Choice1")
-  def choice1type: Identifier =
+  val choice1name: ChoiceName = ChoiceName.assertFromString("Choice1")
+  val choice1type: Identifier =
     Identifier(packageId, QualifiedName.assertFromString("AuthTests:Choice1"))
 
-  def choiceAname: ChoiceName = ChoiceName.assertFromString("ChoiceA")
-  def choiceAtype: Identifier =
+  val choiceAname: ChoiceName = ChoiceName.assertFromString("ChoiceA")
+  val choiceAtype: Identifier =
     Identifier(packageId, QualifiedName.assertFromString("AuthTests:ChoiceA"))
 
-  def alice: Party = Party.assertFromString("Alice")
-  def bob: Party = Party.assertFromString("Bob")
-  def charlie: Party = Party.assertFromString("Charlie")
+  val alice: Party = Party.assertFromString("Alice")
+  val bob: Party = Party.assertFromString("Bob")
+  val charlie: Party = Party.assertFromString("Charlie")
 
   def t1InstanceFor(party: Party): VersionedContractInstance = {
     VersionedContractInstance(
@@ -123,21 +123,21 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
       toContractId("x1c") -> x1c,
     )
 
-  def readAs: Set[Party] = Set.empty
-  def let: Time.Timestamp = Time.Timestamp.now()
-  def participant: ParticipantId = ParticipantId.assertFromString("participant")
-  def submissionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("submissionSeed")
+  val readAs: Set[Party] = Set.empty
+  val let: Time.Timestamp = Time.Timestamp.now()
+  val participant: ParticipantId = ParticipantId.assertFromString("participant")
+  val submissionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("submissionSeed")
 
-  def lookupPackage: PackageId => Option[Package] =
+  val lookupPackage: PackageId => Option[Package] =
     pkgId => allPackages.get(pkgId)
 
-  def lookupContract: ContractId => Option[VersionedContractInstance] =
+  val lookupContract: ContractId => Option[VersionedContractInstance] =
     cid => defaultContracts.get(cid)
 
-  def lookupKey: GlobalKeyWithMaintainers => Option[ContractId] =
+  val lookupKey: GlobalKeyWithMaintainers => Option[ContractId] =
     _ => None
 
-  def testEngine: Engine =
+  val testEngine: Engine =
     Engine.DevEngine()
 
   def go(
@@ -160,7 +160,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   }
 
   "Create(T1)" - {
-    def command: ApiCommand =
+    val command: ApiCommand =
       CreateCommand(
         t1,
         ValueRecord(
@@ -197,7 +197,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   }
 
   "Create(T2)" - {
-    def command: ApiCommand =
+    val command: ApiCommand =
       CreateCommand(
         t2,
         ValueRecord(
@@ -241,7 +241,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   "Exercise(Choice1 of T1 to create T2)" - {
 
     "ok (Alice signed contract; Bob exercised Choice)" in {
-      def command: ApiCommand =
+      val command: ApiCommand =
         ExerciseCommand(
           t1,
           toContractId("t1a"),
@@ -262,7 +262,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     }
 
     "fail: ExerciseMissingAuthorization" in {
-      def command: ApiCommand =
+      val command: ApiCommand =
         ExerciseCommand(
           t1,
           toContractId("t1a"),
@@ -293,7 +293,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     }
 
     "fail: CreateMissingAuthorization" in {
-      def command: ApiCommand =
+      val command: ApiCommand =
         ExerciseCommand(
           t1,
           toContractId("t1a"),
@@ -324,7 +324,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     }
 
     "ok (Bob signed contract; Alice exercised Choice)" in {
-      def command: ApiCommand =
+      val command: ApiCommand =
         ExerciseCommand(
           t1,
           toContractId("t1b"),
@@ -348,7 +348,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
   "Exercise (within exercise)" - {
 
     "fail (no implicit authority from outer exercise's contract's signatories)" in {
-      def command: ApiCommand =
+      val command: ApiCommand =
         ExerciseCommand(
           x1,
           toContractId("x1b"),
@@ -390,7 +390,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     }
 
     "ok" in {
-      def command: ApiCommand =
+      val command: ApiCommand =
         ExerciseCommand(
           x1,
           toContractId("x1b"),
