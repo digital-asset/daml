@@ -269,6 +269,15 @@ hasDamlInterfaceCtx t
     = True
 hasDamlInterfaceCtx _ = False
 
+hasDamlTemplateCtx :: TyCon -> Bool
+hasDamlTemplateCtx t
+    | isAlgTyCon t
+    , [theta] <- tyConStupidTheta t
+    , TypeCon tycon [] <- theta
+    , NameIn GHC_Types "DamlTemplate" <- tycon
+    = True
+hasDamlTemplateCtx _ = False
+
 -- Pretty printing is very expensive, so clone the logic for when to add unique suffix
 varPrettyPrint :: Var -> T.Text
 varPrettyPrint (varName -> x) = getOccText x <> (if isSystemName x then "_" <> T.pack (show $ nameUnique x) else "")
