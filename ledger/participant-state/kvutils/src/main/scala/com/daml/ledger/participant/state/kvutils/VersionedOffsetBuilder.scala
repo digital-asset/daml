@@ -3,8 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.io.{ByteArrayOutputStream, DataInputStream, DataOutputStream}
-import java.nio.ByteBuffer
+import java.io.DataInputStream
 
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Bytes
@@ -27,22 +26,8 @@ class VersionedOffsetBuilder(version: Byte) {
 
   private val versionBytes = Bytes.fromByteArray(Array(version))
 
-  def of(highest: Long, middle: Int = 0, lowest: Int = 0): Offset = {
-    require(
-      highest >= 0 && highest <= MaxHighest,
-      s"highest ($highest) is out of range [0, $MaxHighest]",
-    )
-    require(middle >= 0, s"middle ($middle) is lower than 0")
-    require(lowest >= 0, s"lowest ($lowest) is lower than 0")
-
-    val bytes = new ByteArrayOutputStream
-    val stream = new DataOutputStream(bytes)
-    stream.writeByte(version.toInt)
-    writeHighest(highest, stream)
-    stream.writeInt(middle)
-    stream.writeInt(lowest)
-    Offset.fromByteArray(bytes.toByteArray)
-  }
+  def of(highest: Long, middle: Int = 0, lowest: Int = 0): Offset =
+    VersionedOffset.of(version, highest, middle, lowest).offset
 
   def version(offset: Offset): Byte = {
     validateVersion(offset)
@@ -78,23 +63,11 @@ class VersionedOffsetBuilder(version: Byte) {
 }
 
 object VersionedOffsetBuilder {
-  val MaxHighest: Long = (1L << 56) - 1
-
-  private val highestStartByte = 1
-  private val highestSizeBytes = 7
-  private val highestMask = 0x00ffffffffffffffL
-
   private def toDataInputStream(offset: Offset) =
     new DataInputStream(offset.toInputStream)
 
   private def readHighest(stream: DataInputStream): Long = {
     val versionAndHighest = stream.readLong()
-    versionAndHighest & highestMask
-  }
-
-  private def writeHighest(highest: Long, stream: DataOutputStream): Unit = {
-    val buffer = ByteBuffer.allocate(8)
-    buffer.putLong(highest)
-    stream.write(buffer.array(), highestStartByte, highestSizeBytes)
+    versionAndHighest & VersionedOffset.HighestMask
   }
 }

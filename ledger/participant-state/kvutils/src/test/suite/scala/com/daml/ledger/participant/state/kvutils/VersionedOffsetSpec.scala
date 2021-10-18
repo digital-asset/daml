@@ -11,33 +11,60 @@ class VersionedOffsetSpec extends AnyWordSpec with Matchers with ScalaCheckDrive
 
   import OffsetGen._
 
-  "VersionedOffset" should {
-    "split up an offset" in {
-      forAll(genVersion, genHighest, genMiddle, genLowest) { (version, highest, middle, lowest) =>
-        val builder = new VersionedOffsetBuilder(version)
-        val offset = builder.of(highest, middle, lowest)
+  "VersionedOffset" when {
+    "constructing" should {
+      "construct and split up an offset" in {
+        forAll(genVersion, genHighest, genMiddle, genLowest) { (version, highest, middle, lowest) =>
+          val offset = VersionedOffset.of(version, highest, middle, lowest)
 
-        val splitOffset = VersionedOffset(offset)
-        splitOffset.version should be(version)
-        splitOffset.highest should be(highest)
-        splitOffset.middle should be(middle)
-        splitOffset.lowest should be(lowest)
+          offset.version should be(version)
+          offset.highest should be(highest)
+          offset.middle should be(middle)
+          offset.lowest should be(lowest)
+        }
+      }
+
+      "fail on a highest that is out of range" in {
+        forAll(genVersion, genOutOfRangeHighest, genMiddle, genLowest) {
+          (version, highest, middle, lowest) =>
+            val builder = new VersionedOffsetBuilder(version)
+            (the[IllegalArgumentException] thrownBy builder.of(highest, middle, lowest)
+              should have message s"requirement failed: highest ($highest) is out of range [0, ${VersionedOffset.MaxHighest}]")
+        }
+      }
+
+      "fail on a negative middle index" in {
+        forAll(genVersion, genHighest, genOutOfRangeMiddle, genLowest) {
+          (version, highest, middle, lowest) =>
+            val builder = new VersionedOffsetBuilder(version)
+            (the[IllegalArgumentException] thrownBy builder.of(highest, middle, lowest)
+              should have message s"requirement failed: middle ($middle) is lower than 0")
+        }
+      }
+
+      "fail on a negative lowest index" in {
+        forAll(genVersion, genHighest, genMiddle, genOutOfRangeLowest) {
+          (version, highest, middle, lowest) =>
+            val builder = new VersionedOffsetBuilder(version)
+            (the[IllegalArgumentException] thrownBy builder.of(highest, middle, lowest)
+              should have message s"requirement failed: lowest ($lowest) is lower than 0")
+        }
       }
     }
 
-    "only change individual indexes" in {
-      forAll(genVersion, genHighest, genMiddle, genLowest, genLowest) {
-        (version, highest, middle, lowest, newLowest) =>
-          val builder = new VersionedOffsetBuilder(version)
-          val offset = VersionedOffset(builder.of(highest, middle, lowest))
+    "mutating" should {
+      "only change individual indexes" in {
+        forAll(genVersion, genHighest, genMiddle, genLowest, genLowest) {
+          (version, highest, middle, lowest, newLowest) =>
+            val offset = VersionedOffset.of(version, highest, middle, lowest)
 
-          val modifiedOffset = offset.setLowest(newLowest)
+            val modifiedOffset = offset.setLowest(newLowest)
 
-          modifiedOffset.offset should be(builder.of(highest, middle, newLowest))
-          modifiedOffset.version should be(version)
-          modifiedOffset.highest should be(highest)
-          modifiedOffset.middle should be(middle)
-          modifiedOffset.lowest should be(newLowest)
+            modifiedOffset.version should be(version)
+            modifiedOffset.highest should be(highest)
+            modifiedOffset.middle should be(middle)
+            modifiedOffset.lowest should be(newLowest)
+        }
       }
     }
   }

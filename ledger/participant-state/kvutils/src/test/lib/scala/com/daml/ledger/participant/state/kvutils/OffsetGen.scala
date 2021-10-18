@@ -14,10 +14,10 @@ object OffsetGen {
     version2 <- genVersion.suchThat(_ != version1)
   } yield (version1, version2)
 
-  val genHighest: Gen[Long] = Gen.chooseNum(0L, VersionedOffsetBuilder.MaxHighest)
+  val genHighest: Gen[Long] = Gen.chooseNum(0L, VersionedOffset.MaxHighest)
 
   val genOutOfRangeHighest: Gen[Long] =
-    Gen.oneOf(Gen.negNum[Long], Gen.chooseNum(VersionedOffsetBuilder.MaxHighest + 1, Long.MaxValue))
+    Gen.oneOf(Gen.negNum[Long], Gen.chooseNum(VersionedOffset.MaxHighest + 1, Long.MaxValue))
 
   val genMiddle: Gen[Int] = Gen.chooseNum(0, Int.MaxValue, 0, 1, Int.MaxValue)
 

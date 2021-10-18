@@ -37,33 +37,6 @@ class VersionedOffsetBuilderSpec
       }
     }
 
-    "fail on a highest that is out of range" in {
-      forAll(genVersion, genOutOfRangeHighest, genMiddle, genLowest) {
-        (version, highest, middle, lowest) =>
-          val builder = new VersionedOffsetBuilder(version)
-          (the[IllegalArgumentException] thrownBy builder.of(highest, middle, lowest)
-            should have message s"requirement failed: highest ($highest) is out of range [0, ${VersionedOffsetBuilder.MaxHighest}]")
-      }
-    }
-
-    "fail on a negative middle index" in {
-      forAll(genVersion, genHighest, genOutOfRangeMiddle, genLowest) {
-        (version, highest, middle, lowest) =>
-          val builder = new VersionedOffsetBuilder(version)
-          (the[IllegalArgumentException] thrownBy builder.of(highest, middle, lowest)
-            should have message s"requirement failed: middle ($middle) is lower than 0")
-      }
-    }
-
-    "fail on a negative lowest index" in {
-      forAll(genVersion, genHighest, genMiddle, genOutOfRangeLowest) {
-        (version, highest, middle, lowest) =>
-          val builder = new VersionedOffsetBuilder(version)
-          (the[IllegalArgumentException] thrownBy builder.of(highest, middle, lowest)
-            should have message s"requirement failed: lowest ($lowest) is lower than 0")
-      }
-    }
-
     "fail on a wrong version" in {
       forAll(genDifferentVersions, genHighest, genMiddle, genLowest) {
         case ((versionA, versionB), highest, middle, lowest) =>
