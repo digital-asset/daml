@@ -119,7 +119,14 @@ object SandboxConfig {
       configurationLoadTimeout = Duration.ofSeconds(10),
       maxDeduplicationDuration = None,
       delayBeforeSubmittingLedgerConfiguration = Duration.ofSeconds(1),
-      timeModel = LedgerTimeModel.reasonableDefault,
+      // Sandbox is a slow ledger, use a big skew to avoid failing commands under load.
+      // If sandbox ever gets fast enough not to cause flakes in our tests,
+      // this can be reverted to LedgerTimeModel.reasonableDefault.
+      timeModel = LedgerTimeModel(
+        avgTransactionLatency = Duration.ofSeconds(0L),
+        minSkew = Duration.ofSeconds(120L),
+        maxSkew = Duration.ofSeconds(120L),
+      ).get,
       commandConfig = CommandConfiguration.default,
       submissionConfig = SubmissionConfiguration.default,
       tlsConfig = None,
