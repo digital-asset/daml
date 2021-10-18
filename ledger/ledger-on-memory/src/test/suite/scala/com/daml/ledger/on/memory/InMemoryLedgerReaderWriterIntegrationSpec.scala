@@ -17,11 +17,21 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 
 import scala.concurrent.ExecutionContext
+import scala.util.Random
 
 class InMemoryLedgerReaderWriterIntegrationSpec
     extends ParticipantStateIntegrationSpecBase(s"In-memory ledger/participant") {
 
   override val isPersistent: Boolean = false
+
+  // Select a random offset version to ensure that this works with any possible value.
+  override val offsetVersion: Byte = {
+    val bytes = Array[Byte](Byte.MinValue)
+    while (bytes.head < 0) {
+      Random.nextBytes(bytes)
+    }
+    bytes.head
+  }
 
   override def participantStateFactory(
       ledgerId: LedgerId,
