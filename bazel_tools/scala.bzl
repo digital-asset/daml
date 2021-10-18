@@ -570,9 +570,9 @@ def _create_scala_repl(
         **kwargs):
     name = name + "_repl"
     deps = resolve_scala_deps(deps, scala_deps, versioned_deps, versioned_scala_deps)
-    runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
+    runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps) + ["@maven//:org_jline_jline"]
     tags = tags + ["manual"]
-    scala_repl(name = name, deps = deps, runtime_deps = runtime_deps, tags = tags, **kwargs)
+    _wrap_rule(scala_repl, name = name, deps = deps, runtime_deps = runtime_deps, tags = tags, **kwargs)
 
 def da_scala_library(name, **kwargs):
     """
