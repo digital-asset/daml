@@ -23,6 +23,7 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       ledgerId: LedgerId,
       participantId: Ref.ParticipantId,
       testId: String,
+      offsetVersion: Byte,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState] =
     new SqlLedgerReaderWriter.Owner(
@@ -32,6 +33,7 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       engine = Engine.DevEngine(),
       jdbcUrl = jdbcUrl(testId),
       resetOnStartup = false,
+      offsetVersion = offsetVersion,
       logEntryIdAllocator = RandomLogEntryIdAllocator,
     ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
 }

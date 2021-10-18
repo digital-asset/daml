@@ -94,6 +94,7 @@ object SqlLedgerReaderWriter {
       engine: Engine,
       jdbcUrl: String,
       resetOnStartup: Boolean,
+      offsetVersion: Byte,
       logEntryIdAllocator: LogEntryIdAllocator,
       stateValueCache: StateValueCache = Cache.none,
       timeProvider: TimeProvider = DefaultTimeProvider,
@@ -102,7 +103,7 @@ object SqlLedgerReaderWriter {
     override def acquire()(implicit context: ResourceContext): Resource[SqlLedgerReaderWriter] = {
       implicit val migratorExecutionContext: ExecutionContext[Database.Migrator] =
         ExecutionContext(context.executionContext)
-      val offsetBuilder = new VersionedOffsetBuilder(0)
+      val offsetBuilder = new VersionedOffsetBuilder(offsetVersion)
       for {
         uninitializedDatabase <- Database.owner(jdbcUrl, offsetBuilder, metrics).acquire()
         database <- Resource.fromFuture(

@@ -27,6 +27,7 @@ class InMemoryLedgerReaderWriterIntegrationSpec
       ledgerId: LedgerId,
       participantId: Ref.ParticipantId,
       testId: String,
+      offsetVersion: Byte,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState] =
     for {
@@ -37,7 +38,7 @@ class InMemoryLedgerReaderWriterIntegrationSpec
       readerWriter <- new InMemoryLedgerReaderWriter.Owner(
         ledgerId = ledgerId,
         participantId = participantId,
-        offsetVersion = 0,
+        offsetVersion = offsetVersion,
         keySerializationStrategy = StateKeySerializationStrategy.createDefault(),
         metrics = metrics,
         dispatcher = dispatcher,
@@ -46,5 +47,4 @@ class InMemoryLedgerReaderWriterIntegrationSpec
         committerExecutionContext = committerExecutionContext,
       )
     } yield new KeyValueParticipantState(readerWriter, readerWriter, metrics)
-
 }
