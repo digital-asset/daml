@@ -27,16 +27,6 @@ class VersionedOffsetBuilder(version: Byte) {
 
   private val versionBytes = Bytes.fromByteArray(Array(version))
 
-  def dropLowestIndex(offset: Offset): Offset = {
-    val versionedOffset = VersionedOffset(offset)
-    of(versionedOffset.highest, versionedOffset.middle)
-  }
-
-  def setLowestIndex(offset: Offset, lowest: Int): Offset = {
-    val versionedOffset = VersionedOffset(offset)
-    of(versionedOffset.highest, versionedOffset.middle, lowest)
-  }
-
   def of(highest: Long, middle: Int = 0, lowest: Int = 0): Offset = {
     require(
       highest >= 0 && highest <= MaxHighest,
