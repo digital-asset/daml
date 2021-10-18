@@ -24,6 +24,7 @@ import com.daml.lf.transaction.Transaction.{
   KeyCreate,
   NegativeKeyLookup,
 }
+import com.daml.lf.transaction.TransactionOuterClass
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 
@@ -70,7 +71,10 @@ private[transaction] object TransactionConsistencyValidator extends TransactionV
         k.getContractKey -> v.getContractId
     }
 
-    val transaction = transactionEntry.transaction
+    // FIXME
+    val transaction = Conversions.decodeTransaction(
+      transactionEntry.transaction.unpack(classOf[TransactionOuterClass.Transaction])
+    )
 
     import scalaz.std.either._
     import scalaz.std.list._
@@ -125,9 +129,12 @@ private[transaction] object TransactionConsistencyValidator extends TransactionV
           Conversions.stateKeyToContractId(key) -> value.getContractState
       }
 
-    val areContractsConsistent = transactionEntry.transaction.inputContracts.forall(contractId =>
-      !inputContracts(contractId).hasArchivedAt
+    // FIXME
+    val transaction = Conversions.decodeTransaction(
+      transactionEntry.transaction.unpack(classOf[TransactionOuterClass.Transaction])
     )
+    val areContractsConsistent =
+      transaction.inputContracts.forall(contractId => !inputContracts(contractId).hasArchivedAt)
 
     if (areContractsConsistent)
       StepContinue(transactionEntry)

@@ -29,7 +29,12 @@ import com.daml.lf.transaction.Transaction.{
   KeyInput,
   KeyInputError,
 }
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, SubmittedTransaction}
+import com.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  SubmittedTransaction,
+  TransactionOuterClass,
+}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -58,11 +63,15 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
     def apply(
         commitContext: CommitContext,
         transactionEntry: DamlTransactionEntrySummary,
-    )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] =
+    )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
+      // FIXME
+      val transaction = Conversions.decodeTransaction(
+        transactionEntry.transaction.unpack(classOf[TransactionOuterClass.Transaction])
+      )
       metrics.daml.kvutils.committer.transaction.interpretTimer.time(() => {
         val validationResult = engine.validate(
           transactionEntry.submitters.toSet,
-          SubmittedTransaction(transactionEntry.transaction),
+          SubmittedTransaction(transaction),
           transactionEntry.ledgerEffectiveTime,
           commitContext.participantId,
           transactionEntry.submissionTime,
@@ -79,6 +88,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
           finalStepResult <- validateCausalMonotonicity(stepResult, commitContext, rejections)
         } yield finalStepResult
       })
+    }
   }
 
   private def consumeValidationResult(
@@ -88,8 +98,12 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
       rejections: Rejections,
   )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
     try {
+      // FIXME
+      val transaction = Conversions.decodeTransaction(
+        transactionEntry.transaction.unpack(classOf[TransactionOuterClass.Transaction])
+      )
       val stepResult = for {
-        contractKeyInputs <- transactionEntry.transaction.contractKeyInputs.left
+        contractKeyInputs <- transaction.contractKeyInputs.left
           .map(rejectionForKeyInputError(transactionEntry, commitContext.recordTime, rejections))
         _ <- validationResult
           .consume(
@@ -205,7 +219,11 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
           Conversions.stateKeyToContractId(key) -> value.getContractState
       }
 
-    val isCausallyMonotonic = transactionEntry.transaction.inputContracts.forall { contractId =>
+    // FIXME
+    val transaction = Conversions.decodeTransaction(
+      transactionEntry.transaction.unpack(classOf[TransactionOuterClass.Transaction])
+    )
+    val isCausallyMonotonic = transaction.inputContracts.forall { contractId =>
       // Checking contract existence is part of contract consistency checks at a later validation step,
       // hence, we don't want to leak contract information to a potentially malicious participant here
       // by producing a rejection for non-existent contracts.

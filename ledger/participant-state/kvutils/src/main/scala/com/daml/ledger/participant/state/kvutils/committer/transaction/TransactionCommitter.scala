@@ -212,7 +212,11 @@ private[kvutils] class TransactionCommitter(
     )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
       setDedupEntry(commitContext, transactionEntry)
 
-      val blindingInfo = Blinding.blind(transactionEntry.transaction)
+      // FIXME?
+      val transaction = Conversions.decodeTransaction(
+        transactionEntry.transaction.unpack(classOf[TransactionOuterClass.Transaction])
+      )
+      val blindingInfo = Blinding.blind(transaction)
 
       val divulgedContracts =
         updateContractStateAndFetchDivulgedContracts(transactionEntry, blindingInfo, commitContext)
@@ -320,7 +324,11 @@ private[kvutils] class TransactionCommitter(
         commitContext: CommitContext,
         transactionEntry: DamlTransactionEntrySummary,
     )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
-      val parties = transactionEntry.transaction.informees
+      // FIXME
+      val transaction = Conversions.decodeTransaction(
+        transactionEntry.transaction.unpack(classOf[TransactionOuterClass.Transaction])
+      )
+      val parties = transaction.informees
       val missingParties = parties.filter(party => commitContext.get(partyStateKey(party)).isEmpty)
       if (missingParties.isEmpty)
         StepContinue(transactionEntry)
@@ -368,9 +376,13 @@ private[kvutils] class TransactionCommitter(
   )(implicit
       loggingContext: LoggingContext
   ): Map[ContractId, com.google.protobuf.Any] = {
-    val localContracts = transactionEntry.transaction.localContracts
-    val consumedContracts = transactionEntry.transaction.consumedContracts
-    val contractKeys = transactionEntry.transaction.updatedContractKeys
+    // FIXME
+    val transaction = Conversions.decodeTransaction(
+      transactionEntry.transaction.unpack(classOf[TransactionOuterClass.Transaction])
+    )
+    val localContracts = transaction.localContracts
+    val consumedContracts = transaction.consumedContracts
+    val contractKeys = transaction.updatedContractKeys
     // Add contract state entries to mark contract activeness (checked by 'validateModelConformance').
     for ((cid, (nid, createNode)) <- localContracts) {
       val cs = DamlContractState.newBuilder
