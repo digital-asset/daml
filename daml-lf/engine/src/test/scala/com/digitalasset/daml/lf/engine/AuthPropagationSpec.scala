@@ -315,6 +315,11 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
 
   "Exercise (within exercise)" - {
 
+    Specifically the interesting case is that in the body of
+
+    // Test that an inner exercise has only the authorization of the signatories and
+    // controllers; with no implicit authorization of signatories of the outer exercise.
+
     "fail (no implicit authority from outer exercise's contract's signatories)" in {
       val command: ApiCommand =
         ExerciseCommand(
@@ -373,7 +378,8 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
                 ValueList(
                   FrontStack(
                     ValueParty("Alice"),
-                    ValueParty("Bob"), // Bob must be an explicit controller on inner exercise
+                    // Adding Bob as an explicit controller of the inner exercise make the Authorization check pass again:
+                    ValueParty("Bob"),
                   )
                 ),
               ),
