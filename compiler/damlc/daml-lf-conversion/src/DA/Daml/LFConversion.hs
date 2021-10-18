@@ -757,9 +757,7 @@ convertExports env availInfos =
         then do
             let externalExportInfos = filter isExternalAvailInfo availInfos
             exportInfos <- mapM availInfoToExportInfo externalExportInfos
-            let exportsType = encodeExports exportInfos
-                exportsDef = DValue (mkMetadataStub exportsName exportsType)
-            pure [exportsDef]
+            pure $ zipWith mkExportDef [0..] exportInfos
         else
             pure []
     where
@@ -799,6 +797,11 @@ convertExports env availInfos =
         convertFieldLabel f = do
             flSelector <- convertQualName (flSelector f)
             pure f { flSelector }
+
+        mkExportDef :: Integer -> ExportInfo -> Definition
+        mkExportDef i info =
+            let exportType = encodeExportInfo info
+            in DValue (mkMetadataStub (exportName i) exportType)
 
 defNewtypeWorker :: NamedThing a => LF.ModuleName -> a -> TypeConName -> DataCon
     -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition

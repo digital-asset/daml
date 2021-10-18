@@ -79,24 +79,23 @@ metadataEncodingTests = testGroup "MetadataEncoding"
             [ mkImport (Just "foo") ["Foo", "Bar"]
             , mkImport (Just "baz") ["Baz", "Qux", "Florp"]])
         ]
-    , roundtripTests "exports" encodeExports decodeExports
-        [ ("()", [])
-        , ("(Foo.Bar (qux))"
-          , [ mkExportInfoVal Nothing ["Foo", "Bar"] "qux" ])
-        , ("(\"foo\" Foo.Bar (qux))"
-          , [ mkExportInfoVal (Just "foo") ["Foo", "Bar"] "qux" ])
-        , ("(Foo.Bar (Qux()))"
-          , [ mkExportInfoTC Nothing ["Foo", "Bar"] "Qux" [] []])
-        , ("(\"foo\" Foo.Bar (Qux()))"
-          , [ mkExportInfoTC (Just "foo") ["Foo", "Bar"] "Qux" [] []])
-        , ("(Foo.Bar (Qux(getQux)))"
-          , [ mkExportInfoTC Nothing ["Foo", "Bar"] "Qux" ["getQux"] []])
-        , ("(\"foo\" Foo.Bar (Qux(getQux)))"
-          , [ mkExportInfoTC (Just "foo") ["Foo", "Bar"] "Qux" ["getQux"] []])
-        , ("(Foo.Bar (Qux($sel:getQux:Qux)))"
-          , [ mkExportInfoTC Nothing ["Foo", "Bar"] "Qux" [] ["getQux"]])
-        , ("(\"foo\" Foo.Bar (Qux($sel:getQux:Qux)))"
-          , [ mkExportInfoTC (Just "foo") ["Foo", "Bar"] "Qux" [] ["getQux"]])
+    , roundtripTests "exports" encodeExportInfo decodeExportInfo
+        [ ("Foo.Bar (qux)"
+          , mkExportInfoVal Nothing ["Foo", "Bar"] "qux")
+        , ("\"foo\" Foo.Bar (qux)"
+          , mkExportInfoVal (Just "foo") ["Foo", "Bar"] "qux")
+        , ("Foo.Bar (Qux())"
+          , mkExportInfoTC Nothing ["Foo", "Bar"] "Qux" [] [])
+        , ("\"foo\" Foo.Bar (Qux())"
+          , mkExportInfoTC (Just "foo") ["Foo", "Bar"] "Qux" [] [])
+        , ("Foo.Bar (Qux(getQux))"
+          , mkExportInfoTC Nothing ["Foo", "Bar"] "Qux" ["getQux"] [])
+        , ("\"foo\" Foo.Bar (Qux(getQux))"
+          , mkExportInfoTC (Just "foo") ["Foo", "Bar"] "Qux" ["getQux"] [])
+        , ("Foo.Bar (Qux($sel:getQux:Qux))"
+          , mkExportInfoTC Nothing ["Foo", "Bar"] "Qux" [] ["getQux"])
+        , ("\"foo\" Foo.Bar (Qux($sel:getQux:Qux))"
+          , mkExportInfoTC (Just "foo") ["Foo", "Bar"] "Qux" [] ["getQux"])
         ]
     ]
 

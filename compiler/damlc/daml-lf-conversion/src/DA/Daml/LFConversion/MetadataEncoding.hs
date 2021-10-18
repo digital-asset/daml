@@ -27,11 +27,12 @@ module DA.Daml.LFConversion.MetadataEncoding
     , encodeModuleImports
     , decodeModuleImports
     -- * Exports
-    , exportsName
+    , exportName
+    , unExportName
     , ExportInfo (..)
     , QualName (..)
-    , encodeExports
-    , decodeExports
+    , encodeExportInfo
+    , decodeExportInfo
     ) where
 
 import Safe (readMay)
@@ -220,8 +221,13 @@ decodeModuleName = fmap LF.ModuleName . decodeTypeList decodeText
 --------------------
 -- Module Exports --
 --------------------
-exportsName :: LF.ExprValName
-exportsName = LF.ExprValName "$$exports"
+exportName :: Integer -> LF.ExprValName
+exportName i = LF.ExprValName $ "$$export" <> T.pack (show i)
+
+unExportName :: LF.ExprValName -> Maybe Integer
+unExportName (LF.ExprValName name) = do
+    suffix <- T.stripPrefix "$$export" name
+    readMay (T.unpack suffix)
 
 newtype QualName = QualName (LF.Qualified GHC.OccName)
     deriving (Eq)
@@ -231,9 +237,6 @@ data ExportInfo
     = ExportInfoVal QualName
     | ExportInfoTC QualName [QualName] [FieldLbl QualName]
     deriving (Eq)
-
-encodeExports :: [ExportInfo] -> LF.Type
-encodeExports = encodeTypeList encodeExportInfo
 
 encodeExportInfo :: ExportInfo -> LF.Type
 encodeExportInfo = \case
@@ -290,9 +293,6 @@ encodeBool :: Bool -> LF.Type
 encodeBool = \case
     True -> TEncodedStr "True"
     False -> TEncodedStr "False"
-
-decodeExports :: LF.Type -> Maybe [ExportInfo]
-decodeExports = decodeTypeList decodeExportInfo
 
 decodeExportInfo :: LF.Type -> Maybe ExportInfo
 decodeExportInfo = \case

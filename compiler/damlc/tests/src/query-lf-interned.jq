@@ -66,23 +66,20 @@ def norm_field_label(pkg):
     };
 
 # @SINCE-LF 1.7
-def norm_exports(pkg):
-    .type | norm_ty(pkg) | .struct.fields |
-    map(
-        .type | norm_ty(pkg) | .struct.fields[0] |
-        { (get_field(pkg)):
-            .type | norm_ty(pkg) | .struct.fields |
-            { name:
-                .[0] |
-                norm_qualified_module_name(pkg)
-            , pieces:
-                .[1] |
-                (try (.type | norm_ty(pkg) | .struct.fields |
-                map(norm_qualified_module_name(pkg))) catch null)
-            , fields:
-                .[2] |
-                (try (.type | norm_ty(pkg) | .struct.fields |
-                map(norm_field_label(pkg))) catch null)
-            }
+def norm_export_info(pkg):
+    .type | norm_ty(pkg) | .struct.fields[0] |
+    { (get_field(pkg)):
+        .type | norm_ty(pkg) | .struct.fields |
+        { name:
+            .[0] |
+            norm_qualified_module_name(pkg)
+        , pieces:
+            .[1] |
+            (try (.type | norm_ty(pkg) | .struct.fields |
+            map(norm_qualified_module_name(pkg))) catch null)
+        , fields:
+            .[2] |
+            (try (.type | norm_ty(pkg) | .struct.fields |
+            map(norm_field_label(pkg))) catch null)
         }
-    );
+    };
