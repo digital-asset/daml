@@ -35,7 +35,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   object ReadErrors extends ErrorGroup() {
     @Explanation("This rejection is given when a read request tries to access pruned data.")
     @Resolution("Use an offset that is after the pruning offset.")
-    object ParticipantPrunedDataAccesses
+    object ParticipantPrunedDataAccessed
         extends ErrorCode(
           id = "PARTICIPANT_PRUNED_DATA_ACCESSED",
           // TODO error codes: Rename error category to cover this scenario

@@ -39,11 +39,7 @@ private[apiserver] final class ApiTimeService private (
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(
-      logger,
-      loggingContext,
-      None,
-    )
+    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   logger.debug(
     s"${getClass.getSimpleName} initialized with ledger ID ${ledgerId.unwrap}, start time ${backend.getCurrentTime}"

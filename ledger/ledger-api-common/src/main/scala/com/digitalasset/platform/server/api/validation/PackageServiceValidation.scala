@@ -24,13 +24,9 @@ class PackageServiceValidation(
     with ProxyCloseable
     with GrpcApiService {
 
-  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
+  protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(
-      logger,
-      loggingContext,
-      None,
-    )
+    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] =
     matchLedgerId(ledgerId)(LedgerId(request.ledgerId))

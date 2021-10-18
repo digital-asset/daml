@@ -87,11 +87,8 @@ private[apiserver] final class ApiConfigManagementService private (
         implicit val telemetryContext: TelemetryContext =
           DefaultTelemetry.contextFromGrpcThreadLocalContext()
         implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-          new DamlContextualizedErrorLogger(
-            logger,
-            loggingContext,
-            None,
-          )
+          new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
         val response = for {
           // Validate and convert the request parameters
           params <- validateParameters(request).fold(

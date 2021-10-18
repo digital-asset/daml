@@ -3,7 +3,7 @@
 
 package com.daml.platform.server.api.validation
 
-import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.daml.ledger.api.v1.active_contracts_service.{
@@ -17,6 +17,7 @@ import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 import FieldValidations._
+
 import scala.concurrent.ExecutionContext
 
 class ActiveContractsServiceValidation(
@@ -28,14 +29,14 @@ class ActiveContractsServiceValidation(
     with GrpcApiService {
 
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(service.getClass)
+  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   override def getActiveContracts(
       request: GetActiveContractsRequest,
       responseObserver: StreamObserver[GetActiveContractsResponse],
   ): Unit =
-    matchLedgerId(ledgerId)(LedgerId(request.ledgerId))(
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
-    )
+    matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .fold(
         t => responseObserver.onError(ValidationLogger.logFailure(request, t)),
         _ => service.getActiveContracts(request, responseObserver),

@@ -33,7 +33,7 @@ final class GrpcTransactionService(
 ) extends TransactionServiceAkkaGrpc
     with GrpcApiService {
 
-  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
+  protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 

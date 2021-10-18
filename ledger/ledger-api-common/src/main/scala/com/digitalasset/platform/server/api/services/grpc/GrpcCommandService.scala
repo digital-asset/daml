@@ -30,7 +30,7 @@ class GrpcCommandService(
     with GrpcApiService
     with ProxyCloseable {
 
-  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
+  protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 

@@ -48,7 +48,7 @@ class GrpcCommandCompletionService(
 ) extends CommandCompletionServiceAkkaGrpc {
 
   private val validator = new CompletionServiceRequestValidator(ledgerId, partyNameChecker)
-  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
+  protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 

@@ -238,7 +238,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           .setMessage(message)
           .build()
       ),
-      v2 = LedgerApiErrors.ReadErrors.ParticipantPrunedDataAccesses.Reject(message).asGrpcError,
+      v2 = LedgerApiErrors.ReadErrors.ParticipantPrunedDataAccessed.Reject(message).asGrpcError,
     )
 
   /** @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.

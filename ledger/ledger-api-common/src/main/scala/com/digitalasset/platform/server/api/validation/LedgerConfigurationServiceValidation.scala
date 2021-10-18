@@ -3,7 +3,7 @@
 
 package com.daml.platform.server.api.validation
 
-import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.daml.ledger.api.v1.ledger_configuration_service.{
@@ -29,18 +29,14 @@ class LedgerConfigurationServiceValidation(
     with GrpcApiService {
 
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(service.getClass)
+  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   override def getLedgerConfiguration(
       request: GetLedgerConfigurationRequest,
       responseObserver: StreamObserver[GetLedgerConfigurationResponse],
   ): Unit =
-    matchLedgerId(ledgerId)(LedgerId(request.ledgerId))(
-      new DamlContextualizedErrorLogger(
-        logger,
-        loggingContext,
-        None,
-      )
-    ).fold(
+    matchLedgerId(ledgerId)(LedgerId(request.ledgerId)).fold(
       t => responseObserver.onError(ValidationLogger.logFailure(request, t)),
       _ => service.getLedgerConfiguration(request, responseObserver),
     )
