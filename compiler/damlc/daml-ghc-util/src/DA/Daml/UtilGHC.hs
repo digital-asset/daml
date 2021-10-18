@@ -42,6 +42,9 @@ getOccText = fsToText . getOccFS
 fsToText :: FastString -> T.Text
 fsToText = T.decodeUtf8 . fastStringToByteString
 
+fsFromText :: T.Text -> FastString
+fsFromText = mkFastStringByteString . T.encodeUtf8
+
 pattern Is :: NamedThing a => FastString -> a
 pattern Is x <- (occNameFS . getOccName -> x)
 

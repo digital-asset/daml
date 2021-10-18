@@ -40,6 +40,7 @@ da_haskell_library(
         "//compiler/daml-lf-tools",
         "//compiler/damlc/daml-ghc-util",
         "//compiler/damlc/daml-lf-util",
+        "//compiler/damlc/daml-preprocessor",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -65,5 +66,6 @@ da_haskell_test(
     deps = [
         ":daml-lf-conversion",
         "//compiler/daml-lf-ast",
+        "//compiler/damlc/daml-ghc-util",
     ],
 )
