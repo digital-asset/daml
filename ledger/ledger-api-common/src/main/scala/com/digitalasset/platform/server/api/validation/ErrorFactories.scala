@@ -235,7 +235,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         )
       },
       v2 = LedgerApiErrors.AuthorizationChecks.InternalAuthorizationError
-        .ClaimsFromMetadataExtractionFailed(exception)
+        .Reject(securitySafeMessage, exception)
         .asGrpcError,
     )
 

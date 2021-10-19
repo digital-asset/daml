@@ -132,10 +132,10 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "INTERNAL_AUTHORIZATION_ERROR",
           ErrorCategory.SystemInternalAssumptionViolated,
         ) {
-      case class ClaimsFromMetadataExtractionFailed(throwable: Throwable)(implicit
+      case class Reject(message: String, throwable: Throwable)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = "Failed to get claims from request metadata",
+            cause = message,
             throwableO = Some(throwable),
           )
     }
