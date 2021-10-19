@@ -1214,7 +1214,7 @@ private[validation] object Typing {
           }
       }
 
-    private def toScenario(t: Type): TScenario =
+    private def toScenario(t: Type): Type =
       t match {
         case s @ TScenario(_) => s
         case _ =>
