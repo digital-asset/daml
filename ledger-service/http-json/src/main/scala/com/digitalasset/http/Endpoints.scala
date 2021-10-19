@@ -563,7 +563,7 @@ class Endpoints(
     val response: Source[ByteString, NotUsed] = searchResult match {
       case domain.OkResponse(result, warnings, _) =>
         val warningsJsVal: Option[JsValue] = warnings.map(SprayJson.encodeUnsafe(_))
-        ResponseFormats.resultJsObject(result, warningsJsVal)
+        ResponseFormats.resultJsObject(result via filterStreamErrors, warningsJsVal)
       case error: domain.ErrorResponse =>
         val jsVal: JsValue = SprayJson.encodeUnsafe(error)
         Source.single(ByteString(jsVal.compactPrint))
@@ -575,6 +575,12 @@ class Endpoints(
         .Chunked(ContentTypes.`application/json`, response.map(HttpEntity.ChunkStreamPart(_))),
     )
   }
+
+  private[this] def filterStreamErrors[E, A]: Flow[Error \/ A, Error \/ A, NotUsed] =
+    Flow[Error \/ A].map {
+      case -\/(ServerError(_)) => -\/(ServerError("internal server error"))
+      case o => o
+    }
 
   private def httpResponse[A: JsonWriter](
       result: ET[domain.SyncResponse[A]]
