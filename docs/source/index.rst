@@ -17,6 +17,7 @@ Daml Documentation
    :hidden:
    :caption: Getting started
 
+   ctn/tutorials/demo
    Installing the SDK <getting-started/installation>
    Building Your App <getting-started/index>
    getting-started/app-architecture
@@ -57,20 +58,34 @@ Daml Documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Deploying to Daml ledgers
+   :caption: Daml Connect Node
 
-   deploy/index
-   deploy/generic_ledger
-   deploy/ledger-topologies
+   ctn/index
+   ctn/connect_node_config
+   Connect Node Console <ctn/usermanual/console.rst>
+   High Availability <ctn/architecture/ha>
+   ctn/tutorials/composability
+   Support and Licence <ctn/general_information>
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :titlesonly:
+   :caption: Deploying a Daml Network
+
+   ctn/usermanual/installation.rst
+   ctn/usermanual/docker.rst
+   Enterprise Daml Drivers <ctn/usermanual/domains/domains.rst>
+   (REMOVE?) Daml Network Topologies <deploy/ledger-topologies>
 
 .. toctree::
    :titlesonly:
    :maxdepth: 2
-   :hidden:
    :caption: Operating Daml
 
    ops/index
    ops/connect/index
+   ctn/usermanual/operational_processes
 
 .. toctree::
    :titlesonly:
@@ -92,10 +107,13 @@ Daml Documentation
    :caption: Background concepts
 
    concepts/glossary
+   ctn/tutorials/concepts
+   ctn/architecture/overview
+   concepts/identity-and-package-management.rst
    concepts/ledger-model/index
-   concepts/identity-and-package-management
    concepts/time
    concepts/local-ledger
+   Daml Drivers Architecture <ctn/architecture/domains/domains>
 
 .. toctree::
    :titlesonly:
@@ -129,61 +147,13 @@ Daml Documentation
    support/compatibility
    support/support
 
-.. toctree::  
-   :titlesonly:
+.. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: Canton
+   :titlesonly:
+   :caption: Leftovers
 
-   ctn/index
-
-.. toctree::
-   :caption: Canton Documentation
-   :maxdepth: 3
-   :hidden:
-
-   ctn/general_information
-
-.. toctree::
-   :maxdepth: 3
-   :hidden:
-   :caption: Tutorials
-
-   ctn/tutorials/demo
-   ctn/tutorials/getting_started
-   ctn/tutorials/use_daml_sdk
-   ctn/tutorials/concepts
-   ctn/tutorials/composability
-
-.. toctree::
-   :maxdepth: 3
-   :hidden:
-   :caption: User Manual
-
-   ctn/usermanual/installation.rst
-   ctn/usermanual/docker.rst
-   ctn/usermanual/static_conf.rst
-   ctn/usermanual/administration.rst
-   ctn/usermanual/command_line.rst
-   ctn/usermanual/console.rst
-   ctn/usermanual/contract_keys.rst
-   ctn/usermanual/domains/domains.rst
-   ctn/usermanual/error_codes.rst
-   ctn/usermanual/ha.rst
-   ctn/usermanual/identity_management.rst
-   ctn/usermanual/monitoring.rst
-   ctn/usermanual/operational_processes.rst
-   ctn/usermanual/versioning.rst
-
-.. toctree::
-   :maxdepth: 3
-   :hidden:
-   :caption: Architecture In-Depth
-
-   ctn/architecture/requirements/requirements.rst
-   ctn/architecture/overview.rst
-   ctn/architecture/domains/domains.rst
-   ctn/architecture/ha.rst
-   ctn/architecture/identity.rst
-   ctn/architecture/research.rst
-   ctn/architecture/security.rst
+   ctn/architecture/security
+   ctn/architecture/research
+   deploy/generic_ledger
+   deploy/index

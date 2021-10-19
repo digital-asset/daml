@@ -3,8 +3,8 @@
 
 .. _daml-ledger-topologies:
 
-Daml Ledger Topologies
-######################
+Daml Network Topologies
+#######################
 
 The Ledger API provides parties with an abstraction of a virtual shared ledger, visualized as follows.
 

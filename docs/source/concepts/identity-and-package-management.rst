@@ -186,3 +186,11 @@ Package Upgrades
 The Ledger API does not have any special support for package upgrades.
 A new version of an existing package is treated the same as a completely new package, and undergoes the same vetting process.
 Upgrades to active contracts can be done by the Daml code of the new package version, by archiving the old contracts and creating new ones.
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :titlesonly:
+
+   Identity Management with Daml Connect Node <../ctn/usermanual/identity_management.rst>
+   Identity Management Design Principles in Daml <../ctn/architecture/identity.rst>
