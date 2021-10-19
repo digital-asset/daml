@@ -62,7 +62,7 @@ private[apiserver] object ApiTransactionService {
     )
 }
 
-private[apiserver] final class ApiTransactionService private[apiserver] (
+private[apiserver] final class ApiTransactionService private (
     transactionsService: IndexTransactionsService,
     metrics: Metrics,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
@@ -202,7 +202,6 @@ private[apiserver] final class ApiTransactionService private[apiserver] (
       new DamlContextualizedErrorLogger(logger, loggingContext, None)
     }
     logger.trace(s"Flat transaction by ID request: $request")
-    // TODO error codes: Do we need more context here?
 
     lookUpFlatByTransactionId(request.transactionId, request.requestingParties)(errorLogger)
       .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
