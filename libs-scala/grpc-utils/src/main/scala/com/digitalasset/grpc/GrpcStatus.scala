@@ -64,9 +64,8 @@ object GrpcStatus {
       status.getCode == code
   }
 
-  private def details(statusJavaProto: StatusJavaProto) = {
+  private def details(statusJavaProto: StatusJavaProto): Seq[AnyProto] =
     statusJavaProto.getDetailsList.asScala.map(detail => AnyProto.fromJavaProto(detail)).toSeq
-  }
 
   val OK = new SpecificGrpcStatus(Code.OK)
   val CANCELLED = new SpecificGrpcStatus(Code.CANCELLED)
