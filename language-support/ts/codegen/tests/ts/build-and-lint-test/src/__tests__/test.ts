@@ -547,7 +547,7 @@ test('package API', async () => {
       await p;
       expect(true).toBe(false);
     } catch (exc) {
-      expect(exc.status).toBe(500);
+      expect([400, 404]).toContain(exc.status);
       expect(exc.errors.length).toBe(1);
     }
   };
