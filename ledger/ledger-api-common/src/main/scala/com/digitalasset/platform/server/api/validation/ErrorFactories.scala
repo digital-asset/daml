@@ -42,12 +42,12 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     )
   }
 
-  def couldNotFindPackage(implicit
+  def packageNotFound(packageId: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException = {
     errorCodesVersionSwitcher.choose(
       v1 = io.grpc.Status.NOT_FOUND.asRuntimeException(),
-      v2 = LedgerApiErrors.ReadErrors.CouldNotFindPackage.Reject().asGrpcError,
+      v2 = LedgerApiErrors.ReadErrors.PackageNotFound.Reject(packageId = packageId).asGrpcError,
     )
   }
 

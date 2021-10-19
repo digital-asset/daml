@@ -27,7 +27,10 @@ private[apiserver] final class ApiPackageService private (
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  private implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
+  // NOTE: Using `def` to capture the most specific `loggingContext` at the call sites.
+  private implicit def contextualizedErrorLogger(implicit
+      loggingContext: LoggingContext
+  ): DamlContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
@@ -49,14 +52,15 @@ private[apiserver] final class ApiPackageService private (
     withEnrichedLoggingContext("packageId" -> request.packageId) { implicit loggingContext =>
       logger.info(s"Received request for a package: $request")
       withValidatedPackageId(request.packageId, request) { packageId =>
-        def archiveOToResponse(archiveO: Option[Archive]): Future[GetPackageResponse] =
-          archiveO.fold(
-            Future.failed[GetPackageResponse](errorFactories.couldNotFindPackage)
-          )(archive => Future.successful(toGetPackageResponse(archive)))
-
         backend
           .getLfArchive(packageId)
-          .flatMap(archiveOToResponse)
+          .flatMap {
+            case None =>
+              Future.failed[GetPackageResponse](
+                errorFactories.packageNotFound(packageId = packageId)
+              )
+            case Some(archive) => Future.successful(toGetPackageResponse(archive))
+          }
           .andThen(logger.logErrorsOnCall[GetPackageResponse])
       }
     }

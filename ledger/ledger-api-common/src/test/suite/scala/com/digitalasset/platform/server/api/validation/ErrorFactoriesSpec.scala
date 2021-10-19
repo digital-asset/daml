@@ -12,7 +12,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.server.api.validation.ErrorFactories._
-import com.google.rpc.Status
+import com.google.rpc._
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
@@ -48,13 +48,13 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       )
     }
 
-    "return couldNotFindPackage" in {
-      assertVersionedError(_.couldNotFindPackage)(
+    "return packageNotFound" in {
+      assertVersionedError(_.packageNotFound("packageId123"))(
         v1_code = Code.NOT_FOUND,
         v1_message = "",
         v1_details = Seq.empty,
         v2_code = Code.NOT_FOUND,
-        v2_message = s"COULD_NOT_FIND_PACKAGE(11,$correlationId): Could not found package.",
+        v2_message = s"PACKAGE_NOT_FOUND(11,$correlationId): Could not found package.",
       )
     }
 

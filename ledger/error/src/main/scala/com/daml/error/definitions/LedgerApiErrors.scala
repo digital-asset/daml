@@ -51,20 +51,25 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
 
     @Explanation(
-      "This rejection is given when a read request tries to access a package which does not exist."
+      "This rejection is given when a read request tries to access a package which does not exist on the ledger."
     )
-    @Resolution("""Make sure the requested package is available on the ledger.
-        |It might have not been uploaded or the upload might have been rejected.""".stripMargin)
-    object CouldNotFindPackage
+    @Resolution("Use a package id pertaining to a package existing on the ledger.")
+    // TODO error codes: Possible duplicate of `LedgerApiErrors.Package.MissingPackage`
+    object PackageNotFound
         extends ErrorCode(
-          id = "COULD_NOT_FIND_PACKAGE",
+          id = "PACKAGE_NOT_FOUND",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-      case class Reject()(implicit
+      case class Reject(packageId: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
             cause = "Could not found package."
-          )
+          ) {
+
+        override def resources: Seq[(ErrorResource, String)] = {
+          super.resources :+ ((ErrorResource.PackageId, packageId))
+        }
+      }
     }
 
     @Explanation("This rejection is given when a read request tries to access pruned data.")
