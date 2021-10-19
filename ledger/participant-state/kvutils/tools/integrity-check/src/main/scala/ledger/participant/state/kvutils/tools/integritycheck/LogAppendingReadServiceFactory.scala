@@ -26,8 +26,7 @@ import scala.collection.mutable.ListBuffer
 final class LogAppendingReadServiceFactory(
     offsetBuilder: KVOffsetBuilder,
     metrics: Metrics,
-)(implicit val loggingContext: LoggingContext)
-    extends ReplayingReadServiceFactory {
+) extends ReplayingReadServiceFactory {
   private val recordedBlocks = ListBuffer.empty[LedgerRecord]
 
   override def appendBlock(submissionInfo: SubmissionInfo, writeSet: WriteSet): Unit =

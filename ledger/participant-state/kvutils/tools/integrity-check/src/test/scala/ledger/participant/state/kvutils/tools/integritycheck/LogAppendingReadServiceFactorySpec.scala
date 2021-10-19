@@ -73,7 +73,6 @@ final class LogAppendingReadServiceFactorySpec
 }
 
 object LogAppendingReadServiceFactorySpec {
-  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private def createFactory() = {
     val offsetBuilder = new KVOffsetBuilder(0)
