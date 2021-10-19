@@ -3,23 +3,20 @@
 
 package com.daml
 
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
-import com.daml.ledger.api.domain.LedgerId
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.server.api.validation.ErrorFactories._
-import com.google.rpc.{ErrorInfo, RequestInfo, ResourceInfo, RetryInfo, Status}
+import error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+import ledger.api.domain.LedgerId
+import logging.{ContextualizedLogger, LoggingContext}
+import platform.server.api.validation.ErrorFactories
+import platform.server.api.validation.ErrorFactories._
+
+import com.google.protobuf
+import com.google.rpc._
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
-import com.google.protobuf
 
 import scala.jdk.CollectionConverters._
 
@@ -87,7 +84,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     }
 
     "return a permissionDenied error" in {
-      assertVersionedError(_.permissionDenied())(
+      assertVersionedError(_.permissionDenied("some cause"))(
         v1_code = Code.PERMISSION_DENIED,
         v1_message = "",
         v1_details = Seq.empty,
@@ -96,6 +93,38 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           s"An error occurred. Please contact the operator and inquire about the request $correlationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("PERMISSION_DENIED"),
+          DefaultTraceIdRequestInfo,
+        ),
+      )
+    }
+
+    "return an unauthenticatedMissingJwtToken error" in {
+      assertVersionedError(_.unauthenticatedMissingJwtToken())(
+        v1_code = Code.UNAUTHENTICATED,
+        v1_message = "",
+        v1_details = Seq.empty,
+        v2_code = Code.UNAUTHENTICATED,
+        v2_message =
+          s"An error occurred. Please contact the operator and inquire about the request $correlationId",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("UNAUTHENTICATED"),
+          DefaultTraceIdRequestInfo,
+        ),
+      )
+    }
+
+    "return an internalAuthenticationError" in {
+      val someSecuritySafeMessage = "nothing security sensitive in here"
+      val someThrowable = new RuntimeException("some internal authentication error")
+      assertVersionedError(_.internalAuthenticationError(someSecuritySafeMessage, someThrowable))(
+        v1_code = Code.INTERNAL,
+        v1_message = someSecuritySafeMessage,
+        v1_details = Seq.empty,
+        v2_code = Code.INTERNAL,
+        v2_message =
+          s"An error occurred. Please contact the operator and inquire about the request $correlationId",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("INTERNAL_AUTHORIZATION_ERROR"),
           DefaultTraceIdRequestInfo,
         ),
       )
@@ -163,21 +192,6 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           ),
         )
       }
-    }
-
-    "return an unauthenticated error" in {
-      assertVersionedError(_.unauthenticated())(
-        v1_code = Code.UNAUTHENTICATED,
-        v1_message = "",
-        v1_details = Seq.empty,
-        v2_code = Code.UNAUTHENTICATED,
-        v2_message =
-          s"An error occurred. Please contact the operator and inquire about the request $correlationId",
-        v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("UNAUTHENTICATED"),
-          DefaultTraceIdRequestInfo,
-        ),
-      )
     }
 
     "return a ledgerIdMismatch error" in {

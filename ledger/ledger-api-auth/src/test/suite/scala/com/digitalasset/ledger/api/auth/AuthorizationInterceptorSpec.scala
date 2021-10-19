@@ -57,7 +57,7 @@ class AuthorizationInterceptorSpec
 
     val errorCodesStatusSwitcher = new ErrorCodesVersionSwitcher(usesSelfServiceErrorCodes)
     val authorizationInterceptor =
-      new AuthorizationInterceptor(authService, global, errorCodesStatusSwitcher)
+      AuthorizationInterceptor(authService, global, errorCodesStatusSwitcher)
 
     val statusCaptor = ArgCaptor[Status]
     val metadataCaptor = ArgCaptor[Metadata]

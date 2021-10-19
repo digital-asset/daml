@@ -3,11 +3,10 @@
 
 package com.daml.ledger.api.auth.interceptor
 
-import com.daml.error.ErrorCode.ApiException
-import com.daml.error.definitions.LedgerApiErrors
-import com.daml.error.{DamlErrorCodeLoggingContext, ErrorCodesVersionSwitcher}
+import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.auth.{AuthService, ClaimSet}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc._
 
 import scala.compat.java8.FutureConverters
@@ -20,9 +19,12 @@ import scala.util.{Failure, Success}
 final class AuthorizationInterceptor(
     protected val authService: AuthService,
     ec: ExecutionContext,
-    errorCodesStatusSwitcher: ErrorCodesVersionSwitcher,
-) extends ServerInterceptor {
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+)(implicit loggingContext: LoggingContext)
+    extends ServerInterceptor {
   private val logger = ContextualizedLogger.get(getClass)
+  private val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
@@ -42,7 +44,10 @@ final class AuthorizationInterceptor(
         .toScala(authService.decodeMetadata(headers))
         .onComplete {
           case Failure(exception) =>
-            val error = internalAuthenticationError(exception)
+            val error = errorFactories.internalAuthenticationError(
+              securitySafeMessage = "Failed to get claims from request metadata",
+              exception = exception,
+            )(errorLogger)
             call.close(error.getStatus, error.getTrailers)
             new ServerCall.Listener[Nothing]() {}
           case Success(claimSet) =>
@@ -56,26 +61,6 @@ final class AuthorizationInterceptor(
         }(ec)
     }
   }
-
-  private def internalAuthenticationError(
-      exception: Throwable
-  ): StatusRuntimeException =
-    LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>
-      errorCodesStatusSwitcher.choose(
-        v1 = {
-          logger.warn(s"Failed to get claims from request metadata: ${exception.getMessage}")
-          new ApiException(
-            status = Status.INTERNAL.withDescription("Failed to get claims from request metadata"),
-            metadata = new Metadata(),
-          )
-        },
-        v2 = LedgerApiErrors.AuthorizationChecks.InternalAuthorizationError
-          .ClaimsFromMetadataExtractionFailed(exception)(
-            new DamlErrorCodeLoggingContext(logger, loggingContext, None)
-          )
-          .asGrpcError,
-      )
-    }
 }
 
 object AuthorizationInterceptor {
@@ -90,5 +75,7 @@ object AuthorizationInterceptor {
       ec: ExecutionContext,
       errorCodesStatusSwitcher: ErrorCodesVersionSwitcher,
   ): AuthorizationInterceptor =
-    new AuthorizationInterceptor(authService, ec, errorCodesStatusSwitcher)
+    LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>
+      new AuthorizationInterceptor(authService, ec, errorCodesStatusSwitcher)
+    }
 }

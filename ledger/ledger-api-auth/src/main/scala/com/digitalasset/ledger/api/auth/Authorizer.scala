@@ -3,13 +3,15 @@
 
 package com.daml.ledger.api.auth
 
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher, NoLogging}
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories
-import io.grpc.StatusRuntimeException
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 
 import java.time.Instant
@@ -27,8 +29,8 @@ final class Authorizer(
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 ) {
   private val logger = ContextualizedLogger.get(this.getClass)
-  // TODO error codes: Enable logging
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+
   /** Validates all properties of claims that do not depend on the request,
     * such as expiration time or ledger ID.
     */
@@ -184,17 +186,22 @@ final class Authorizer(
       scso,
       claims,
       _.notExpired(now()),
-      authorizationError => permissionDenied(authorizationError.reason),
+      authorizationError => {
+        val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
+        errorFactories.permissionDenied(authorizationError.reason)(errorLogger)
+      },
     )
 
   private def authenticatedClaimsFromContext()(implicit
       loggingContext: LoggingContext
   ): Try[ClaimSet.Claims] = {
+    implicit val errorLogger: ContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
     AuthorizationInterceptor
       .extractClaimSetFromContext()
-      .fold[Try[ClaimSet.Claims]](Failure(unauthenticated())) {
+      .fold[Try[ClaimSet.Claims]](Failure(errorFactories.unauthenticatedMissingJwtToken())) {
         case ClaimSet.Unauthenticated =>
-          Failure(unauthenticated())
+          Failure(errorFactories.unauthenticatedMissingJwtToken())
         case claims: ClaimSet.Claims => Success(claims)
       }
   }
@@ -224,7 +231,10 @@ final class Authorizer(
                     scso,
                 )
               case Left(authorizationError) =>
-                observer.onError(permissionDenied(authorizationError.reason))
+                val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
+                observer.onError(
+                  errorFactories.permissionDenied(authorizationError.reason)(errorLogger)
+                )
             },
         )
     }
@@ -246,29 +256,11 @@ final class Authorizer(
             authorized(claims) match {
               case Right(_) => call(request)
               case Left(authorizationError) =>
-                Future.failed(permissionDenied(authorizationError.reason))
+                val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
+                Future.failed(
+                  errorFactories.permissionDenied(authorizationError.reason)(errorLogger)
+                )
             },
         )
     }
-
-  private def permissionDenied(
-      cause: String
-  )(implicit loggingContext: LoggingContext): StatusRuntimeException =
-    errorCodesVersionSwitcher.choose(
-      v1 = {
-        logger.warn(s"Permission denied. Reason: $cause.")
-        ErrorFactories.permissionDenied()
-      },
-      v2 = LedgerApiErrors.AuthorizationChecks.PermissionDenied
-        .Reject(cause)(new DamlContextualizedErrorLogger(logger, loggingContext, None))
-        .asGrpcError,
-    )
-
-  private def unauthenticated()(implicit loggingContext: LoggingContext): StatusRuntimeException =
-    errorCodesVersionSwitcher.choose(
-      v1 = ErrorFactories.unauthenticated(),
-      v2 = LedgerApiErrors.AuthorizationChecks.Unauthenticated
-        .MissingJwtToken()(new DamlContextualizedErrorLogger(logger, loggingContext, None))
-        .asGrpcError,
-    )
 }
