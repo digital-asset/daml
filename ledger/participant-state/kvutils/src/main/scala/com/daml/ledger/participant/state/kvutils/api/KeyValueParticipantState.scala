@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.api
 
+import java.util.concurrent.CompletionStage
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
@@ -23,8 +25,6 @@ import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext
-
-import java.util.concurrent.CompletionStage
 
 /** Implements read and write operations required for running a participant server.
   *

@@ -5,6 +5,7 @@ package com.daml.ledger.indexerbenchmark
 
 import java.nio.file.{Files, Paths}
 import java.util.concurrent.atomic.AtomicLong
+
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
