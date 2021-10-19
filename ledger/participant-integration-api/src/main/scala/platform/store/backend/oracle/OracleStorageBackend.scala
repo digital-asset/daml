@@ -190,16 +190,22 @@ private[backend] object OracleStorageBackend
 
   override def eventStrategy: common.EventStrategy = OracleEventStrategy
 
-  // TODO FIXME: Use tables directly instead of the participant_events view.
   def maxEventSequentialIdOfAnObservableEvent(
       offset: Offset
   )(connection: Connection): Option[Long] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
-    // This query could be: "select max(event_sequential_id) from participant_events where event_offset <= ${range.endInclusive}"
-    // however tests using PostgreSQL 12 with tens of millions of events have shown that the index
-    // on `event_offset` is not used unless we _hint_ at it by specifying `order by event_offset`
-    val limitClause = OracleQueryStrategy.limitClause(Some(1))
-    SQL"select max(event_sequential_id) from participant_events where event_offset <= $offset group by event_offset order by event_offset desc $limitClause"
+        SQL"""SELECT max(max_esi) FROM (
+           (
+               SELECT max(event_sequential_id) AS max_esi FROM participant_events_consuming_exercise
+               WHERE event_offset = (select max(event_offset) from participant_events_consuming_exercise where event_offset <= $offset)
+           ) UNION ALL (
+               SELECT max(event_sequential_id) AS max_esi FROM participant_events_create
+               WHERE event_offset = (select max(event_offset) from participant_events_create where event_offset <= $offset)
+           ) UNION ALL (
+               SELECT max(event_sequential_id) AS max_esi FROM participant_events_non_consuming_exercise
+               WHERE event_offset = (select max(event_offset) from participant_events_non_consuming_exercise where event_offset <= $offset)
+           )
+       ) having max(max_esi) is not null"""
       .as(get[Long](1).singleOpt)(connection)
   }
 
