@@ -274,7 +274,7 @@ genrule(
         SPHINX_BUILD_EXIT_CODE=$$?
         set -e # Restore previous option. (Assuming 'set -e' was set in the first place)
         if [ "$$SPHINX_BUILD_EXIT_CODE" -ne 0 ]; then
-            >&2 echo "## SPHINX-BUILD OUTPUT BEGIN:"
+            >&2 echo "## SPHINX-BUILD OUTPUT:"
             >&2 echo "$$SPHINX_BUILD_OUTPUT"
             >&2 echo "## SPHINX-BUILD OUTPUT END"
             exit 1
