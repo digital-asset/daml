@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
-
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -17,6 +16,7 @@ import com.daml.ledger.participant.state.kvutils.{Envelope, KVOffsetBuilder, Raw
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 import org.scalatest.matchers.should.Matchers
@@ -71,6 +71,8 @@ final class LogAppendingReadServiceFactorySpec
 }
 
 object LogAppendingReadServiceFactorySpec {
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   private def createFactory() = {
     val offsetBuilder = new KVOffsetBuilder(0)
     val metrics = new Metrics(new MetricRegistry)

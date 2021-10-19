@@ -17,6 +17,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
 import com.daml.ledger.participant.state.kvutils.export.{SubmissionInfo, WriteSet}
 import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v2.Update
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 
 import scala.collection.immutable
@@ -25,7 +26,8 @@ import scala.collection.mutable.ListBuffer
 final class LogAppendingReadServiceFactory(
     offsetBuilder: KVOffsetBuilder,
     metrics: Metrics,
-) extends ReplayingReadServiceFactory {
+)(implicit val loggingContext: LoggingContext)
+    extends ReplayingReadServiceFactory {
   private val recordedBlocks = ListBuffer.empty[LedgerRecord]
 
   override def appendBlock(submissionInfo: SubmissionInfo, writeSet: WriteSet): Unit =

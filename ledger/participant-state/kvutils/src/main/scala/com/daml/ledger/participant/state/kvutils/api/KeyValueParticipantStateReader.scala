@@ -15,6 +15,7 @@ import com.daml.ledger.participant.state.v2._
 import com.daml.ledger.validator.preexecution.TimeUpdatesProvider
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.google.rpc.status.Status
 
@@ -103,7 +104,7 @@ object KeyValueParticipantStateReader {
       enableSelfServiceErrorCodes: Boolean,
       timeUpdatesProvider: TimeUpdatesProvider = TimeUpdatesProvider.ReasonableDefault,
       failOnUnexpectedEvent: Boolean = true,
-  ): KeyValueParticipantStateReader =
+  )(implicit loggingContext: LoggingContext): KeyValueParticipantStateReader =
     new KeyValueParticipantStateReader(
       reader,
       metrics,

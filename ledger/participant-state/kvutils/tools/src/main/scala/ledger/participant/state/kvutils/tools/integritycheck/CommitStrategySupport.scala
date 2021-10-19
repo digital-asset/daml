@@ -17,7 +17,7 @@ trait CommitStrategySupport[LogResult] {
       submissionInfo: SubmissionInfo
   )(implicit materializer: Materializer, loggingContext: LoggingContext): Future[WriteSet]
 
-  def newReadServiceFactory(): ReplayingReadServiceFactory
+  def newReadServiceFactory()(implicit loggingContext: LoggingContext): ReplayingReadServiceFactory
 
   def writeSetComparison: WriteSetComparison
 }

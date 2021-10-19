@@ -28,6 +28,7 @@ import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext
 import com.google.protobuf.any.{Any => AnyProto}
 import com.google.protobuf.{ByteString, Empty}
 import com.google.rpc.code.Code
@@ -62,6 +63,8 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
     v1ErrorSwitch,
     v2ErrorSwitch,
   )
+
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   "logEntryToUpdate" should {
     "throw in case no record time is available from the log entry or input argument" in {

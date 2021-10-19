@@ -5,7 +5,6 @@ package com.daml.ledger.indexerbenchmark
 
 import java.nio.file.{Files, Paths}
 import java.util.concurrent.atomic.AtomicLong
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -23,6 +22,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
 import com.daml.ledger.participant.state.kvutils.export.ProtobufBasedLedgerDataImporter
 import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v2.Update
+import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 
 import scala.concurrent.Future
@@ -72,12 +72,14 @@ object Main {
 
     val metricRegistry = new MetricRegistry
     val metrics = new Metrics(metricRegistry)
-    val keyValueStateReader = KeyValueParticipantStateReader(
-      keyValueSource,
-      metrics,
-      failOnUnexpectedEvent = false,
-      enableSelfServiceErrorCodes = false,
-    )
+    val keyValueStateReader = newLoggingContext { implicit loggingContext =>
+      KeyValueParticipantStateReader(
+        keyValueSource,
+        metrics,
+        failOnUnexpectedEvent = false,
+        enableSelfServiceErrorCodes = false,
+      )
+    }
 
     // Note: this method is doing quite a lot of work to transform a sequence of write sets
     // to a sequence of state updates.

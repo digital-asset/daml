@@ -3,8 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.api
 
-import java.util.concurrent.CompletionStage
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
@@ -22,8 +20,11 @@ import com.daml.ledger.participant.state.v2.{
 }
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext
+
+import java.util.concurrent.CompletionStage
 
 /** Implements read and write operations required for running a participant server.
   *
@@ -41,7 +42,8 @@ class KeyValueParticipantState(
     writer: LedgerWriter,
     metrics: Metrics,
     enableSelfServiceErrorCodes: Boolean,
-) extends ReadService
+)(implicit loggingContext: LoggingContext)
+    extends ReadService
     with WriteService {
   private val readerAdapter =
     KeyValueParticipantStateReader(reader, metrics, enableSelfServiceErrorCodes)
