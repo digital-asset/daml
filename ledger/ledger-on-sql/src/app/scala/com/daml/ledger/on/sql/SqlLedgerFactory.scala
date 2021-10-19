@@ -71,6 +71,7 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
         engine = engine,
         jdbcUrl = jdbcUrl,
         resetOnStartup = false,
+        offsetVersion = 0,
         logEntryIdAllocator = RandomLogEntryIdAllocator,
         stateValueCache = caching.WeightedCache.from(
           configuration = config.stateValueCache,

@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.kvutils.export.SubmissionInfo
 import com.daml.ledger.participant.state.kvutils.store.events.DamlPartyAllocationEntry
 import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlLogEntryId}
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.LogAppendingReadServiceFactorySpec._
-import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw, VersionedOffsetBuilder}
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -72,8 +72,9 @@ final class LogAppendingReadServiceFactorySpec
 
 object LogAppendingReadServiceFactorySpec {
   private def createFactory() = {
+    val offsetBuilder = new VersionedOffsetBuilder(0)
     val metrics = new Metrics(new MetricRegistry)
-    new LogAppendingReadServiceFactory(metrics)
+    new LogAppendingReadServiceFactory(offsetBuilder, metrics)
   }
 
   private val anEntryId = "AnEntryId"

@@ -4,34 +4,29 @@
 package com.daml.error
 
 import com.daml.error.ErrorCode.formatContextAsString
-import com.daml.error.ErrorCodeLoggingContext.loggingValueToString
+import com.daml.error.ContextualizedErrorLogger.loggingValueToString
 import com.daml.logging.entries.LoggingValue
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import org.slf4j.event.Level
 
 /** Abstracts away from the logging tech stack used. */
-trait ErrorCodeLoggingContext extends CanLog {
+trait ContextualizedErrorLogger {
   def properties: Map[String, String]
   def correlationId: Option[String]
   def logError(err: BaseError, extra: Map[String, String]): Unit
-}
-
-trait CanLog {
   def info(message: String): Unit
   def info(message: String, throwable: Throwable): Unit
-
   def warn(message: String): Unit
   def warn(message: String, throwable: Throwable): Unit
-
   def error(message: String): Unit
   def error(message: String, throwable: Throwable): Unit
 }
 
-class DamlErrorCodeLoggingContext(
+class DamlContextualizedErrorLogger(
     logger: ContextualizedLogger,
     loggingContext: LoggingContext,
     val correlationId: Option[String],
-) extends ErrorCodeLoggingContext {
+) extends ContextualizedErrorLogger {
   override def properties: Map[String, String] =
     loggingContext.entries.contents.view.map { case (key, value) =>
       key -> loggingValueToString(value)
@@ -70,7 +65,7 @@ class DamlErrorCodeLoggingContext(
   }
 }
 
-object ErrorCodeLoggingContext {
+object ContextualizedErrorLogger {
   // TODO error-codes: Extract this function into `LoggingContext` companion (and test)
   private[error] val loggingValueToString: LoggingValue => String = {
     case LoggingValue.Empty => ""
@@ -87,4 +82,16 @@ object ErrorCodeLoggingContext {
         .mkString("{", ", ", "}")
     case LoggingValue.OfJson(json) => json.toString()
   }
+}
+
+object NoLogging extends ContextualizedErrorLogger {
+  override def properties: Map[String, String] = Map.empty
+  override def correlationId: Option[String] = None
+  override def logError(err: BaseError, extra: Map[String, String]): Unit = ()
+  override def info(message: String): Unit = ()
+  override def info(message: String, throwable: Throwable): Unit = ()
+  override def warn(message: String): Unit = ()
+  override def warn(message: String, throwable: Throwable): Unit = ()
+  override def error(message: String): Unit = ()
+  override def error(message: String, throwable: Throwable): Unit = ()
 }

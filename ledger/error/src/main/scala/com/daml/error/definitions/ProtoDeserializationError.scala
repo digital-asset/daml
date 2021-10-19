@@ -10,7 +10,7 @@ import com.google.protobuf.InvalidProtocolBufferException
 
 trait ProtoDeserializationError extends Product with Serializable {
   def toAdminError(implicit
-      loggingContext: ErrorCodeLoggingContext
+      loggingContext: ContextualizedErrorLogger
   ): BaseError =
     ProtoDeserializationFailure.Wrap(this)
 }
@@ -51,7 +51,7 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
         ErrorCategory.InvalidIndependentOfSystemState,
       ) {
     case class Wrap(reason: ProtoDeserializationError)(implicit
-        val loggingContext: ErrorCodeLoggingContext
+        val loggingContext: ContextualizedErrorLogger
     ) extends BaseError.Impl(
           cause = "Deserialization of protobuf message failed"
         )

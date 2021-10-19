@@ -3,6 +3,7 @@
 
 package com.daml.platform.server.api.services.grpc
 
+import com.daml.error.{DamlContextualizedErrorLogger, ContextualizedErrorLogger}
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
@@ -13,6 +14,7 @@ import com.daml.ledger.api.v1.command_submission_service.{
   SubmitRequest => ApiSubmitRequest,
 }
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
@@ -20,7 +22,6 @@ import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import com.daml.telemetry.{DefaultTelemetry, SpanAttribute, TelemetryContext}
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
-import org.slf4j.{Logger, LoggerFactory}
 
 import java.time.{Duration, Instant}
 import scala.concurrent.{ExecutionContext, Future}
@@ -33,13 +34,18 @@ class GrpcCommandSubmissionService(
     maxDeduplicationTime: () => Option[Duration],
     submissionIdGenerator: SubmissionIdGenerator,
     metrics: Metrics,
-)(implicit executionContext: ExecutionContext)
+)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends ApiCommandSubmissionService
     with ProxyCloseable
     with GrpcApiService {
 
-  protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
-
+  protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
+  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(
+      logger,
+      loggingContext,
+      None,
+    )
   private val validator = new SubmitRequestValidator(new CommandsValidator(ledgerId))
 
   override def submit(request: ApiSubmitRequest): Future[Empty] = {

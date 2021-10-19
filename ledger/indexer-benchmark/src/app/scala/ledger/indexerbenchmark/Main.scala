@@ -21,7 +21,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
   LedgerRecord,
 }
 import com.daml.ledger.participant.state.kvutils.export.ProtobufBasedLedgerDataImporter
-import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
+import com.daml.ledger.participant.state.kvutils.{Raw, VersionedOffsetBuilder}
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.metrics.Metrics
 
@@ -38,6 +38,7 @@ object Main {
     }
     val importer = ProtobufBasedLedgerDataImporter(path)
 
+    val offsetBuilder = new VersionedOffsetBuilder(0)
     val dataSource: Source[LedgerRecord, NotUsed] = Source
       .fromIterator(() => importer.read().iterator)
       .statefulMapConcat { () =>
@@ -45,7 +46,7 @@ object Main {
 
         { case (_, writeSet) =>
           writeSet.map { case (key, value) =>
-            val offset = OffsetBuilder.fromLong(nextOffset.getAndIncrement())
+            val offset = offsetBuilder.of(nextOffset.getAndIncrement())
             val logEntryId = Raw.LogEntryId(key.bytes) // `key` is of an unknown type.
             LedgerRecord(offset, logEntryId, value)
           }

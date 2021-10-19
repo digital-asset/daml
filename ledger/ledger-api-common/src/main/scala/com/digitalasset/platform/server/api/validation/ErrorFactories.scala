@@ -3,9 +3,15 @@
 
 package com.daml.platform.server.api.validation
 
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.platform.server.api.ApiException
+import com.daml.platform.server.api.validation.ErrorFactories.{
+  addDefiniteAnswerDetails,
+  definiteAnswers,
+}
 import com.google.protobuf.{Any => AnyProto}
 import com.google.rpc.{ErrorInfo, Status}
 import io.grpc.Status.Code
@@ -13,18 +19,25 @@ import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
 import scalaz.syntax.tag._
 
-trait ErrorFactories {
+class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
 
-  import ErrorFactories._
-
-  def duplicateCommandException: StatusRuntimeException =
-    grpcError(
-      Status
-        .newBuilder()
-        .setCode(Code.ALREADY_EXISTS.value())
-        .setMessage("Duplicate command")
-        .addDetails(definiteAnswers(false))
-        .build()
+  def duplicateCommandException(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = {
+        val exception = grpcError(
+          Status
+            .newBuilder()
+            .setCode(Code.ALREADY_EXISTS.value())
+            .setMessage("Duplicate command")
+            .addDetails(definiteAnswers(false))
+            .build()
+        )
+        contextualizedErrorLogger.info(exception.getMessage)
+        exception
+      },
+      v2 = LedgerApiErrors.CommandPreparation.DuplicateCommand.Reject().asGrpcError,
     )
 
   /** @param expected Expected ledger id.
@@ -36,43 +49,68 @@ trait ErrorFactories {
       expected: LedgerId,
       received: LedgerId,
       definiteAnswer: Option[Boolean],
-  ): StatusRuntimeException = {
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException = {
     require(!definiteAnswer.contains(true), "Wrong ledger ID can never be a definite answer.")
-    val statusBuilder = Status
-      .newBuilder()
-      .setCode(Code.NOT_FOUND.value())
-      .setMessage(
-        s"Ledger ID '${received.unwrap}' not found. Actual Ledger ID is '${expected.unwrap}'."
-      )
-    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
-    grpcError(statusBuilder.build())
+    errorCodesVersionSwitcher.choose(
+      v1 = {
+        val statusBuilder = Status
+          .newBuilder()
+          .setCode(Code.NOT_FOUND.value())
+          .setMessage(
+            s"Ledger ID '${received.unwrap}' not found. Actual Ledger ID is '${expected.unwrap}'."
+          )
+        addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+        grpcError(statusBuilder.build())
+      },
+      v2 = LedgerApiErrors.CommandValidation.LedgerIdMismatch
+        .Reject(
+          s"Ledger ID '${received.unwrap}' not found. Actual Ledger ID is '${expected.unwrap}'."
+        )
+        .asGrpcError,
+    )
   }
 
   /** @param fieldName A missing field's name.
     * @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
     * @return An exception with the [[Code.INVALID_ARGUMENT]] status code.
     */
-  def missingField(fieldName: String, definiteAnswer: Option[Boolean]): StatusRuntimeException = {
-    val statusBuilder = Status
-      .newBuilder()
-      .setCode(Code.INVALID_ARGUMENT.value())
-      .setMessage(s"Missing field: $fieldName")
-    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
-    grpcError(statusBuilder.build())
-  }
+  def missingField(fieldName: String, definiteAnswer: Option[Boolean])(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = {
+        val statusBuilder = Status
+          .newBuilder()
+          .setCode(Code.INVALID_ARGUMENT.value())
+          .setMessage(s"Missing field: $fieldName")
+        addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+        grpcError(statusBuilder.build())
+      },
+      v2 = LedgerApiErrors.CommandValidation.MissingField
+        .Reject(fieldName)
+        .asGrpcError,
+    )
 
   /** @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
     * @param message A status' message.
     * @return An exception with the [[Code.INVALID_ARGUMENT]] status code.
     */
-  def invalidArgument(definiteAnswer: Option[Boolean])(message: String): StatusRuntimeException = {
-    val statusBuilder = Status
-      .newBuilder()
-      .setCode(Code.INVALID_ARGUMENT.value())
-      .setMessage(s"Invalid argument: $message")
-    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
-    grpcError(statusBuilder.build())
-  }
+  def invalidArgument(definiteAnswer: Option[Boolean])(message: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = {
+        val statusBuilder = Status
+          .newBuilder()
+          .setCode(Code.INVALID_ARGUMENT.value())
+          .setMessage(s"Invalid argument: $message")
+        addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+        grpcError(statusBuilder.build())
+      },
+      v2 = LedgerApiErrors.CommandValidation.InvalidArgument
+        .Reject(message)
+        .asGrpcError,
+    )
 
   /** @param fieldName An invalid field's name.
     * @param message A status' message.
@@ -83,22 +121,34 @@ trait ErrorFactories {
       fieldName: String,
       message: String,
       definiteAnswer: Option[Boolean],
-  ): StatusRuntimeException = {
-    val statusBuilder = Status
-      .newBuilder()
-      .setCode(Code.INVALID_ARGUMENT.value())
-      .setMessage(s"Invalid field $fieldName: $message")
-    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
-    grpcError(statusBuilder.build())
-  }
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = {
+        val statusBuilder = Status
+          .newBuilder()
+          .setCode(Code.INVALID_ARGUMENT.value())
+          .setMessage(s"Invalid field $fieldName: $message")
+        addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+        grpcError(statusBuilder.build())
+      },
+      v2 = LedgerApiErrors.CommandValidation.InvalidField
+        .Reject(s"Invalid field $fieldName: $message")
+        .asGrpcError,
+    )
 
-  def outOfRange(description: String): StatusRuntimeException =
-    grpcError(
-      Status
-        .newBuilder()
-        .setCode(Code.OUT_OF_RANGE.value())
-        .setMessage(description)
-        .build()
+  def offsetAfterLedgerEnd(description: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    // TODO error codes: Pass the offsets as arguments to this method and build the description here
+    errorCodesVersionSwitcher.choose(
+      v1 = grpcError(
+        Status
+          .newBuilder()
+          .setCode(Code.OUT_OF_RANGE.value())
+          .setMessage(description)
+          .build()
+      ),
+      v2 = LedgerApiErrors.ReadErrors.RequestedOffsetAfterLedgerEnd.Reject(description).asGrpcError,
     )
 
   /** @param message A status' message.
@@ -106,6 +156,8 @@ trait ErrorFactories {
     * @return An exception with the [[Code.ABORTED]] status code.
     */
   def aborted(message: String, definiteAnswer: Option[Boolean]): StatusRuntimeException = {
+    // TODO error codes: This error code is not specific enough.
+    //                   Break down into more specific errors.
     val statusBuilder = Status
       .newBuilder()
       .setCode(Code.ABORTED.value())
@@ -115,63 +167,98 @@ trait ErrorFactories {
   }
 
   // permission denied is intentionally without description to ensure we don't leak security relevant information by accident
-  def permissionDenied(): StatusRuntimeException =
-    grpcError(
+  def permissionDenied()(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = errorCodesVersionSwitcher.choose(
+    v1 = grpcError(
       Status
         .newBuilder()
         .setCode(Code.PERMISSION_DENIED.value())
         .build()
-    )
+    ),
+    v2 = LedgerApiErrors.AuthorizationChecks.PermissionDenied.Reject().asGrpcError,
+  )
 
-  def unauthenticated(): StatusRuntimeException =
-    grpcError(
+  def unauthenticated()(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = errorCodesVersionSwitcher.choose(
+    v1 = grpcError(
       Status
         .newBuilder()
         .setCode(Code.UNAUTHENTICATED.value())
         .build()
-    )
+    ),
+    v2 = LedgerApiErrors.AuthorizationChecks.Unauthenticated.Reject().asGrpcError,
+  )
 
   /** @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
     * @return An exception with the [[Code.UNAVAILABLE]] status code.
     */
-  def missingLedgerConfig(definiteAnswer: Option[Boolean]): StatusRuntimeException = {
-    val statusBuilder = Status
-      .newBuilder()
-      .setCode(Code.UNAVAILABLE.value())
-      .setMessage("The ledger configuration is not available.")
-    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
-    grpcError(statusBuilder.build())
-  }
+  def missingLedgerConfig(definiteAnswer: Option[Boolean])(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = {
+        val statusBuilder = Status
+          .newBuilder()
+          .setCode(Code.UNAVAILABLE.value())
+          .setMessage("The ledger configuration is not available.")
+        addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+        grpcError(statusBuilder.build())
+      },
+      v2 = LedgerApiErrors.InterpreterErrors.LookupErrors.LedgerConfigurationNotFound
+        .Reject()
+        .asGrpcError,
+    )
 
-  def missingLedgerConfigUponRequest(): StatusRuntimeException =
-    grpcError(
+  // TODO error codes: Duplicate of missingLedgerConfig
+  def missingLedgerConfigUponRequest(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = errorCodesVersionSwitcher.choose(
+    v1 = grpcError(
       Status
         .newBuilder()
         .setCode(Code.NOT_FOUND.value())
         .setMessage("The ledger configuration is not available.")
         .build()
-    )
+    ),
+    v2 = LedgerApiErrors.InterpreterErrors.LookupErrors.LedgerConfigurationNotFound
+      .Reject()
+      .asGrpcError,
+  )
 
-  def participantPrunedDataAccessed(message: String): StatusRuntimeException =
-    grpcError(
-      Status
-        .newBuilder()
-        .setCode(Code.NOT_FOUND.value())
-        .setMessage(message)
-        .build()
+  def participantPrunedDataAccessed(message: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = grpcError(
+        Status
+          .newBuilder()
+          .setCode(Code.NOT_FOUND.value())
+          .setMessage(message)
+          .build()
+      ),
+      v2 = LedgerApiErrors.ReadErrors.ParticipantPrunedDataAccessed.Reject(message).asGrpcError,
     )
 
   /** @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
     * @return An exception with the [[Code.UNAVAILABLE]] status code.
     */
-  def serviceNotRunning(definiteAnswer: Option[Boolean]): StatusRuntimeException = {
-    val statusBuilder = Status
-      .newBuilder()
-      .setCode(Code.UNAVAILABLE.value())
-      .setMessage("Service has been shut down.")
-    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
-    grpcError(statusBuilder.build())
-  }
+  def serviceNotRunning(definiteAnswer: Option[Boolean])(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = {
+        val statusBuilder = Status
+          .newBuilder()
+          .setCode(Code.UNAVAILABLE.value())
+          .setMessage("Service has been shut down.")
+        addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+        grpcError(statusBuilder.build())
+      },
+      // TODO error codes: Add service name to the error cause
+      v2 = LedgerApiErrors.ServiceNotRunning.Reject().asGrpcError,
+    )
 
   /** Transforms Protobuf [[Status]] objects, possibly including metadata packed as [[ErrorInfo]] objects,
     * into exceptions with metadata in the trailers.
@@ -186,7 +273,14 @@ trait ErrorFactories {
   )
 }
 
-object ErrorFactories extends ErrorFactories {
+/** Object exposing the legacy error factories.
+  * TODO error codes: Remove default implementation once all Ledger API services
+  *                   output versioned error codes.
+  */
+object ErrorFactories extends ErrorFactories(new ErrorCodesVersionSwitcher(false)) {
+  def apply(errorCodesVersionSwitcher: ErrorCodesVersionSwitcher): ErrorFactories =
+    new ErrorFactories(errorCodesVersionSwitcher)
+
   private[daml] lazy val definiteAnswers = Map(
     true -> AnyProto.pack[ErrorInfo](
       ErrorInfo.newBuilder().putMetadata(GrpcStatuses.DefiniteAnswerKey, "true").build()

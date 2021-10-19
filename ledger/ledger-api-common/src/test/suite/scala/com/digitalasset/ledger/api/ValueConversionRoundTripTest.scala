@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api
 
+import com.daml.error.NoLogging
 import com.daml.lf.data.Time
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.{value => api}
@@ -24,7 +25,7 @@ class ValueConversionRoundTripTest
 
   private def roundTrip(v: api.Value): Either[String, api.Value] =
     for {
-      lfValue <- ValueValidator.validateValue(v).left.map(_.getMessage)
+      lfValue <- ValueValidator.validateValue(v)(NoLogging).left.map(_.getMessage)
       apiValue <- LfEngineToApi.lfValueToApiValue(true, lfValue)
     } yield apiValue
 

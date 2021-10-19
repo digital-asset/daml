@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.stream.Materializer
 import com.daml.ledger.on.memory.{InMemoryLedgerStateAccess, InMemoryState, Index}
-import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
+import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, VersionedOffsetBuilder}
 import com.daml.ledger.participant.state.kvutils.export.{
   NoOpLedgerDataExporter,
   SubmissionInfo,
@@ -38,8 +38,9 @@ final class RawPreExecutingCommitStrategySupport(
   override val stateKeySerializationStrategy: StateKeySerializationStrategy =
     StateKeySerializationStrategy.createDefault()
 
+  private val offsetBuilder = new VersionedOffsetBuilder(0)
   private val state = InMemoryState.empty
-  private val ledgerStateAccess = new InMemoryLedgerStateAccess(state, metrics)
+  private val ledgerStateAccess = new InMemoryLedgerStateAccess(offsetBuilder, state, metrics)
 
   // To mimic the original pre-execution as closely as possible, we use the original submission
   // record time as the current time. This effectively means that the committer thinks the
@@ -86,7 +87,7 @@ final class RawPreExecutingCommitStrategySupport(
   }
 
   override def newReadServiceFactory(): ReplayingReadServiceFactory =
-    new LogAppendingReadServiceFactory(metrics)
+    new LogAppendingReadServiceFactory(offsetBuilder, metrics)
 
   override val writeSetComparison: WriteSetComparison =
     new RawWriteSetComparison(stateKeySerializationStrategy)

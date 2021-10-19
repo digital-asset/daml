@@ -3,6 +3,7 @@
 
 package com.daml.platform.apiserver.services
 
+import com.daml.error.{DamlContextualizedErrorLogger, ContextualizedErrorLogger}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.{
   LedgerIdentityService => GrpcLedgerIdentityService
@@ -25,10 +26,11 @@ private[apiserver] final class ApiLedgerIdentityService private (
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends GrpcLedgerIdentityService
     with GrpcApiService {
+  private val logger = ContextualizedLogger.get(this.getClass)
+  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   @volatile var closed = false
-
-  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def getLedgerIdentity(
       request: GetLedgerIdentityRequest

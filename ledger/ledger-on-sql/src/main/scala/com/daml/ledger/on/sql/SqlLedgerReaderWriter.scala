@@ -15,7 +15,6 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
 import com.daml.ledger.participant.state.kvutils.api.{
   CommitMetadata,
@@ -23,7 +22,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
   LedgerRecord,
   LedgerWriter,
 }
-import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
+import com.daml.ledger.participant.state.kvutils.{Raw, VersionedOffsetBuilder}
 import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator._
@@ -43,6 +42,7 @@ final class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: Ref.ParticipantId,
     metrics: Metrics,
+    offsetBuilder: VersionedOffsetBuilder,
     database: Database,
     dispatcher: Dispatcher[Index],
     committer: ValidatingCommitter[Index],
@@ -50,12 +50,14 @@ final class SqlLedgerReaderWriter(
 ) extends LedgerWriter
     with LedgerReader {
 
+  private val startOffset: Offset = offsetBuilder.of(StartIndex)
+
   override def currentHealth(): HealthStatus = Healthy
 
   override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher
       .startingAt(
-        OffsetBuilder.highestIndex(startExclusive.getOrElse(StartOffset)),
+        offsetBuilder.highestIndex(startExclusive.getOrElse(startOffset)),
         RangeSource((startExclusive, endInclusive) =>
           Source
             .future(
@@ -83,8 +85,6 @@ final class SqlLedgerReaderWriter(
 }
 
 object SqlLedgerReaderWriter {
-  private val StartOffset: Offset = OffsetBuilder.fromLong(StartIndex)
-
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
   final class Owner(
@@ -94,6 +94,7 @@ object SqlLedgerReaderWriter {
       engine: Engine,
       jdbcUrl: String,
       resetOnStartup: Boolean,
+      offsetVersion: Byte,
       logEntryIdAllocator: LogEntryIdAllocator,
       stateValueCache: StateValueCache = Cache.none,
       timeProvider: TimeProvider = DefaultTimeProvider,
@@ -102,8 +103,9 @@ object SqlLedgerReaderWriter {
     override def acquire()(implicit context: ResourceContext): Resource[SqlLedgerReaderWriter] = {
       implicit val migratorExecutionContext: ExecutionContext[Database.Migrator] =
         ExecutionContext(context.executionContext)
+      val offsetBuilder = new VersionedOffsetBuilder(offsetVersion)
       for {
-        uninitializedDatabase <- Database.owner(jdbcUrl, metrics).acquire()
+        uninitializedDatabase <- Database.owner(jdbcUrl, offsetBuilder, metrics).acquire()
         database <- Resource.fromFuture(
           if (resetOnStartup) uninitializedDatabase.migrateAndReset().removeExecutionContext
           else sc.Future(uninitializedDatabase.migrate())
@@ -132,6 +134,7 @@ object SqlLedgerReaderWriter {
         ledgerId,
         participantId,
         metrics,
+        offsetBuilder,
         database,
         dispatcher,
         committer,

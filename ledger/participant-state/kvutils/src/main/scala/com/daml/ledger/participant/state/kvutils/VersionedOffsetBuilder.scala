@@ -3,10 +3,10 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.ledger.offset.Offset
+import java.io.DataInputStream
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, DataInputStream, DataOutputStream}
-import java.nio.ByteBuffer
+import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Bytes
 
 /** Helper functions for generating versioned 16 byte [[Offset]]s from integers.
   * The created offset will look as follows:
@@ -24,48 +24,15 @@ class VersionedOffsetBuilder(version: Byte) {
 
   import VersionedOffsetBuilder._
 
-  def onlyKeepHighestIndex(offset: Offset): Offset = {
-    val highest = highestIndex(offset)
-    of(highest)
-  }
+  private val versionBytes = Bytes.fromByteArray(Array(version))
 
-  def dropLowestIndex(offset: Offset): Offset = {
-    val (highest, middle, _) = split(offset)
-    of(highest, middle)
-  }
-
-  def setMiddleIndex(offset: Offset, middle: Int): Offset = {
-    val (highest, _, lowest) = split(offset)
-    of(highest, middle, lowest)
-  }
-
-  def setLowestIndex(offset: Offset, lowest: Int): Offset = {
-    val (highest, middle, _) = split(offset)
-    of(highest, middle, lowest)
-  }
-
-  def of(highest: Long, middle: Int = 0, lowest: Int = 0): Offset = {
-    require(
-      highest >= 0 && highest <= MaxHighest,
-      s"highest ($highest) is out of range [0, $MaxHighest]",
-    )
-    require(middle >= 0, s"middle ($middle) is lower than 0")
-    require(lowest >= 0, s"lowest ($lowest) is lower than 0")
-
-    val bytes = new ByteArrayOutputStream
-    val stream = new DataOutputStream(bytes)
-    stream.writeByte(version.toInt)
-    writeHighest(highest, stream)
-    stream.writeInt(middle)
-    stream.writeInt(lowest)
-    Offset.fromByteArray(bytes.toByteArray)
-  }
+  def of(highest: Long, middle: Int = 0, lowest: Int = 0): Offset =
+    VersionedOffset.of(version, highest, middle, lowest).offset
 
   def version(offset: Offset): Byte = {
+    validateVersion(offset)
     val stream = toDataInputStream(offset)
-    val extractedVersion = stream.readByte()
-    validateVersion(extractedVersion)
-    extractedVersion
+    stream.readByte()
   }
 
   def matchesVersionOf(offset: Offset): Boolean = {
@@ -76,53 +43,31 @@ class VersionedOffsetBuilder(version: Byte) {
 
   // `highestIndex` is used a lot, so it's worth optimizing a little rather than reusing `split`.
   def highestIndex(offset: Offset): Long = {
+    validateVersion(offset)
     val stream = toDataInputStream(offset)
-    val (extractedVersion, highest) = readVersionAndHighest(stream)
-    validateVersion(extractedVersion)
-    highest
+    readHighest(stream)
   }
 
-  def middleIndex(offset: Offset): Int = split(offset)._2
-
-  def lowestIndex(offset: Offset): Int = split(offset)._3
-
-  private[kvutils] def split(offset: Offset): (Long, Int, Int) = {
-    val stream = toDataInputStream(offset)
-    val (extractedVersion, highest) = readVersionAndHighest(stream)
-    validateVersion(extractedVersion)
-    val middle = stream.readInt()
-    val lowest = stream.readInt()
-    (highest, middle, lowest)
+  private[kvutils] def split(offset: Offset): VersionedOffset = {
+    validateVersion(offset)
+    VersionedOffset(offset)
   }
 
-  private def validateVersion(extractedVersion: Byte): Unit =
-    require(version == extractedVersion, s"wrong version $extractedVersion, should be $version")
+  private def validateVersion(offset: Offset): Unit =
+    require(
+      offset.bytes.startsWith(versionBytes), {
+        val extractedVersion = toDataInputStream(offset).readByte()
+        s"wrong version $extractedVersion, should be $version"
+      },
+    )
 }
 
 object VersionedOffsetBuilder {
-  val MaxHighest: Long = (1L << 56) - 1
+  private def toDataInputStream(offset: Offset) =
+    new DataInputStream(offset.toInputStream)
 
-  private val highestStartByte = 1
-  private val highestSizeBytes = 7
-  private val versionMask = 0xff00000000000000L
-  private val highestMask = 0x00ffffffffffffffL
-
-  def apply(version: Byte): VersionedOffsetBuilder = new VersionedOffsetBuilder(version)
-
-  private def toDataInputStream(offset: Offset) = new DataInputStream(
-    new ByteArrayInputStream(offset.toByteArray)
-  )
-
-  private def readVersionAndHighest(stream: DataInputStream): (Byte, Long) = {
+  private def readHighest(stream: DataInputStream): Long = {
     val versionAndHighest = stream.readLong()
-    val version = ((versionAndHighest & versionMask) >> 56).toByte
-    val highest = versionAndHighest & highestMask
-    version -> highest
-  }
-
-  private def writeHighest(highest: Long, stream: DataOutputStream): Unit = {
-    val buffer = ByteBuffer.allocate(8)
-    buffer.putLong(highest)
-    stream.write(buffer.array(), highestStartByte, highestSizeBytes)
+    versionAndHighest & VersionedOffset.HighestMask
   }
 }

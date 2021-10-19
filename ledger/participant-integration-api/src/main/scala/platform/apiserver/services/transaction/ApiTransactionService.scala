@@ -6,7 +6,7 @@ package com.daml.platform.apiserver.services.transaction
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.error.DamlErrorCodeLoggingContext
+import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{
@@ -31,12 +31,10 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.apiserver.ErrorCodesVersionSwitcher
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService._
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
-import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc._
 import scalaz.syntax.tag._
 
@@ -72,10 +70,10 @@ private[apiserver] object ApiTransactionService {
 private[apiserver] final class ApiTransactionService private (
     transactionsService: IndexTransactionsService,
     metrics: Metrics,
-    errorsVersionsSwitcher: ErrorCodesVersionSwitcher,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
-    extends TransactionService
-    with ErrorFactories {
+    extends TransactionService {
+
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
@@ -145,12 +143,12 @@ private[apiserver] final class ApiTransactionService private (
       .getOrElse {
         val msg = s"invalid eventId: ${request.eventId}"
         Future.failed(
-          errorsVersionsSwitcher.choose(
+          errorCodesVersionSwitcher.choose(
             v1 = Status.NOT_FOUND
               .withDescription(msg)
               .asRuntimeException(),
             v2 = LedgerApiErrors.CommandValidation.InvalidArgument
-              .Reject(msg)(new DamlErrorCodeLoggingContext(logger, loggingContext, None))
+              .Reject(msg)(new DamlContextualizedErrorLogger(logger, loggingContext, None))
               .asGrpcError,
           )
         )

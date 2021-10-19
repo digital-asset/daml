@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.validation
 
+import com.daml.error.ContextualizedErrorLogger
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain.{ApplicationId, LedgerId, LedgerOffset}
 import com.daml.ledger.api.messages.command.completion
@@ -11,18 +12,19 @@ import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
   CompletionStreamRequest => GrpcCompletionStreamRequest,
 }
-import com.daml.platform.server.api.validation.FieldValidations
+import com.daml.platform.server.api.validation.FieldValidations._
 import io.grpc.StatusRuntimeException
 import com.daml.platform.server.api.validation.ErrorFactories._
 
-class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: PartyNameChecker)
-    extends FieldValidations {
+class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: PartyNameChecker) {
 
   private val partyValidator = new PartyValidator(partyNameChecker)
 
   def validateCompletionStreamRequest(
       request: GrpcCompletionStreamRequest,
       ledgerEnd: LedgerOffset.Absolute,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, CompletionStreamRequest] =
     for {
       _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
@@ -48,6 +50,8 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
 
   def validateCompletionEndRequest(
       req: CompletionEndRequest
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, completion.CompletionEndRequest] =
     for {
       ledgerId <- matchLedgerId(ledgerId)(LedgerId(req.ledgerId))

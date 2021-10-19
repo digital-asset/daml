@@ -4,8 +4,8 @@
 package com.daml.platform.store.dao.events
 
 import java.sql.Connection
-
 import anorm.SQL
+import com.daml.error.NoLogging
 import com.daml.ledger.offset.Offset
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.Conversions.offset
@@ -38,7 +38,9 @@ object QueryNonPruned {
         Either.cond(
           minOffsetExclusive >= pruningOffsetUpToInclusive,
           result,
-          ErrorFactories.participantPrunedDataAccessed(error(pruningOffsetUpToInclusive)),
+          ErrorFactories.participantPrunedDataAccessed(error(pruningOffsetUpToInclusive))(
+            NoLogging
+          ),
         )
       )
   }
