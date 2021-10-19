@@ -358,6 +358,25 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       }
     }
 
+    "return an invalidArgument (with legacy error code as NOT_FOUND) error" in {
+      val testCases = Table(
+        ("definite answer", "expected details"),
+        (None, Seq.empty),
+        (Some(false), Seq(definiteAnswers(false))),
+      )
+
+      forEvery(testCases) { (definiteAnswer, expectedDetails) =>
+        assertVersionedError(_.invalidArgumentWasNotFound(definiteAnswer)("my message"))(
+          v1_code = Code.NOT_FOUND,
+          v1_message = "my message",
+          v1_details = expectedDetails,
+          v2_code = Code.INVALID_ARGUMENT,
+          v2_message =
+            s"INVALID_ARGUMENT(8,$correlationId): The submitted command has invalid arguments: my message",
+        )
+      }
+    }
+
     "should create an ApiException without the stack trace" in {
       val status = Status.newBuilder().setCode(Code.INTERNAL.value()).build()
       val exception = grpcError(status)

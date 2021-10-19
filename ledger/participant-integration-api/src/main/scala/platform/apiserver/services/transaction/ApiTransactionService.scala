@@ -142,7 +142,7 @@ private[apiserver] final class ApiTransactionService private (
       }
       .getOrElse {
         Future.failed {
-          errorFactories.invalidArgument(None)(s"invalid eventId: ${request.eventId}")
+          errorFactories.invalidArgumentWasNotFound(None)(s"invalid eventId: ${request.eventId}")
         }
       }
       .andThen(logger.logErrorsOnCall[GetTransactionResponse])
@@ -185,7 +185,7 @@ private[apiserver] final class ApiTransactionService private (
       }
       .getOrElse {
         val msg = s"eventId: ${request.eventId}"
-        Future.failed(errorFactories.invalidArgument(None)(msg))
+        Future.failed(errorFactories.invalidArgumentWasNotFound(None)(msg))
       }
       .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
   }

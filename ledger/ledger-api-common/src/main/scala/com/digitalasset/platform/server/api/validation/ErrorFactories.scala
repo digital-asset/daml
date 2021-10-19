@@ -159,6 +159,26 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         .asGrpcError,
     )
 
+  // This error builder covers cases where existing logic handling invalid arguments returned NOT_FOUND.
+  def invalidArgumentWasNotFound(definiteAnswer: Option[Boolean])(message: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = {
+        val statusBuilder = Status
+          .newBuilder()
+          .setCode(Code.NOT_FOUND.value())
+          .setMessage(message)
+        addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+        grpcError(statusBuilder.build())
+      },
+      // TODO error codes: This error group is confusing for this generic error as it can be dispatched
+      //                   from call-sites that do not involve command validation (e.g. ApiTransactionService).
+      v2 = LedgerApiErrors.CommandValidation.InvalidArgument
+        .Reject(message)
+        .asGrpcError,
+    )
+
   /** @param fieldName An invalid field's name.
     * @param message A status' message.
     * @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
