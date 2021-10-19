@@ -25,7 +25,7 @@ package object rxjava {
     throw new UnsupportedOperationException("Untested endpoint, implement if needed")
 
   private[rxjava] val authorizer =
-    new Authorizer(
+    Authorizer(
       () => Clock.systemUTC().instant(),
       "testLedgerId",
       "testParticipantId",

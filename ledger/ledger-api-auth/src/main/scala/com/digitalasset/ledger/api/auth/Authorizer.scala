@@ -27,9 +27,11 @@ final class Authorizer(
     ledgerId: String,
     participantId: String,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
-) {
+)(implicit loggingContext: LoggingContext) {
   private val logger = ContextualizedLogger.get(this.getClass)
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private implicit val errorLogger: ContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   /** Validates all properties of claims that do not depend on the request,
     * such as expiration time or ledger ID.
@@ -181,22 +183,16 @@ final class Authorizer(
   private def ongoingAuthorization[Res](
       scso: ServerCallStreamObserver[Res],
       claims: ClaimSet.Claims,
-  )(implicit loggingContext: LoggingContext) =
-    new OngoingAuthorizationObserver[Res](
-      scso,
-      claims,
-      _.notExpired(now()),
-      authorizationError => {
-        val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
-        errorFactories.permissionDenied(authorizationError.reason)(errorLogger)
-      },
-    )
+  ) = new OngoingAuthorizationObserver[Res](
+    scso,
+    claims,
+    _.notExpired(now()),
+    authorizationError => {
+      errorFactories.permissionDenied(authorizationError.reason)
+    },
+  )
 
-  private def authenticatedClaimsFromContext()(implicit
-      loggingContext: LoggingContext
-  ): Try[ClaimSet.Claims] = {
-    implicit val errorLogger: ContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+  private def authenticatedClaimsFromContext(): Try[ClaimSet.Claims] =
     AuthorizationInterceptor
       .extractClaimSetFromContext()
       .fold[Try[ClaimSet.Claims]](Failure(errorFactories.unauthenticatedMissingJwtToken())) {
@@ -204,63 +200,69 @@ final class Authorizer(
           Failure(errorFactories.unauthenticatedMissingJwtToken())
         case claims: ClaimSet.Claims => Success(claims)
       }
-  }
 
   private def authorize[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
       authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
-  ): (Req, StreamObserver[Res]) => Unit = (request, observer) =>
-    LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>
-      val scso = assertServerCall(observer)
-      authenticatedClaimsFromContext()
-        .fold(
-          ex => {
-            // TODO error codes: Remove once fully relying on self-service error codes with logging on creation
-            logger.debug(
-              s"No authenticated claims found in the request context. Returning UNAUTHENTICATED"
-            )
-            observer.onError(ex)
+  ): (Req, StreamObserver[Res]) => Unit = (request, observer) => {
+    val scso = assertServerCall(observer)
+    authenticatedClaimsFromContext()
+      .fold(
+        ex => {
+          // TODO error codes: Remove once fully relying on self-service error codes with logging on creation
+          logger.debug(
+            s"No authenticated claims found in the request context. Returning UNAUTHENTICATED"
+          )
+          observer.onError(ex)
+        },
+        claims =>
+          authorized(claims) match {
+            case Right(_) =>
+              call(
+                request,
+                if (claims.expiration.isDefined)
+                  ongoingAuthorization(scso, claims)
+                else
+                  scso,
+              )
+            case Left(authorizationError) =>
+              observer.onError(
+                errorFactories.permissionDenied(authorizationError.reason)
+              )
           },
-          claims =>
-            authorized(claims) match {
-              case Right(_) =>
-                call(
-                  request,
-                  if (claims.expiration.isDefined)
-                    ongoingAuthorization(scso, claims)
-                  else
-                    scso,
-                )
-              case Left(authorizationError) =>
-                val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
-                observer.onError(
-                  errorFactories.permissionDenied(authorizationError.reason)(errorLogger)
-                )
-            },
-        )
-    }
+      )
+  }
 
   private[auth] def authorize[Req, Res](call: Req => Future[Res])(
       authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
   ): Req => Future[Res] = request =>
-    LoggingContext.newLoggingContext { implicit loggingContext =>
-      authenticatedClaimsFromContext()
-        .fold(
-          ex => {
-            // TODO error codes: Remove once fully relying on self-service error codes with logging on creation
-            logger.debug(
-              s"No authenticated claims found in the request context. Returning UNAUTHENTICATED"
-            )
-            Future.failed(ex)
+    authenticatedClaimsFromContext()
+      .fold(
+        ex => {
+          // TODO error codes: Remove once fully relying on self-service error codes with logging on creation
+          logger.debug(
+            s"No authenticated claims found in the request context. Returning UNAUTHENTICATED"
+          )
+          Future.failed(ex)
+        },
+        claims =>
+          authorized(claims) match {
+            case Right(_) => call(request)
+            case Left(authorizationError) =>
+              Future.failed(
+                errorFactories.permissionDenied(authorizationError.reason)
+              )
           },
-          claims =>
-            authorized(claims) match {
-              case Right(_) => call(request)
-              case Left(authorizationError) =>
-                val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
-                Future.failed(
-                  errorFactories.permissionDenied(authorizationError.reason)(errorLogger)
-                )
-            },
-        )
+      )
+}
+
+object Authorizer {
+  def apply(
+      now: () => Instant,
+      ledgerId: String,
+      participantId: String,
+      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+  ): Authorizer =
+    LoggingContext.newLoggingContext { loggingContext =>
+      new Authorizer(now, ledgerId, participantId, errorCodesVersionSwitcher)(loggingContext)
     }
 }

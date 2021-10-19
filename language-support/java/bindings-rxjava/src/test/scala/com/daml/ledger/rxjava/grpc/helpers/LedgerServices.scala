@@ -47,7 +47,7 @@ final class LedgerServices(val ledgerId: String) {
   private val esf: ExecutionSequencerFactory = new SingleThreadExecutionSequencerPool(ledgerId)
   private val participantId = "LedgerServicesParticipant"
   private val authorizer =
-    new Authorizer(
+    Authorizer(
       () => Clock.systemUTC().instant(),
       ledgerId,
       participantId,

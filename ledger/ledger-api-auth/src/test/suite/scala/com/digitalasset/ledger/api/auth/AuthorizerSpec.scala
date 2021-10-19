@@ -92,7 +92,7 @@ class AuthorizerSpec extends AsyncFlatSpec with Matchers {
       .withValue(AuthorizationInterceptor.contextKeyClaimSet, ClaimSet.Claims.Wildcard)
       .call(() => f)
 
-  private def authorizer(selfServiceErrorCodes: Boolean) = new Authorizer(
+  private def authorizer(selfServiceErrorCodes: Boolean) = Authorizer(
     () => Instant.ofEpochSecond(1337L),
     "some-ledger-id",
     "participant-id",
