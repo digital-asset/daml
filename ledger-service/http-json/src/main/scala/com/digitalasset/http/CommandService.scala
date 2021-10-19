@@ -31,7 +31,7 @@ import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, Show, \/, \/-}
+import scalaz.{-\/, EitherT, \/, \/-}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -315,19 +315,6 @@ object CommandService {
   ) extends Error
   final case class GrpcError(status: io.grpc.Status) extends Error
   final case class InternalError(id: Option[Symbol], message: String) extends Error
-
-  object Error {
-    @deprecated("TODO s11 remainder", since = "1.18.0")
-    implicit val errorShow: Show[Error] = Show shows {
-      case ClientError(c, message) =>
-        s"CommandService Error, ${c.merge}: $message"
-      case GrpcError(status) => s"CommandService Error, ${status.asRuntimeException.getMessage}"
-      case InternalError(None, message) =>
-        s"CommandService Error, $message"
-      case InternalError(Some(id), message) =>
-        s"CommandService Error, $id: $message"
-    }
-  }
 
   private type ET[A] = EitherT[Future, Error, A]
 

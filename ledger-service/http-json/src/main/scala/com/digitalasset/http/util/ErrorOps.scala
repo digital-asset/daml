@@ -27,8 +27,5 @@ object ErrorOps {
       extends AnyRef {
     def liftErr[M](f: String => M)(implicit L: Show[L]): EitherT[F, M, R] =
       self leftMap (e => f(e.shows))
-
-    def liftErrS[M](msg: String)(f: String => M)(implicit L: Show[L]): EitherT[F, M, R] =
-      liftErr(x => f(msg + " " + x))
   }
 }
