@@ -17,7 +17,7 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlPartyAllocation,
   DamlStateValue,
 }
-import com.daml.ledger.participant.state.kvutils.{Envelope, Raw, VersionedOffsetBuilder}
+import com.daml.ledger.participant.state.kvutils.{Envelope, KVOffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -35,7 +35,7 @@ class KeyValueParticipantStateReaderSpec
     with Matchers
     with AkkaBeforeAndAfterAll {
 
-  private val offsetBuilder = new VersionedOffsetBuilder(0)
+  private val offsetBuilder = new KVOffsetBuilder(0)
 
   "participant state reader" should {
     "stream offsets from the start" in {

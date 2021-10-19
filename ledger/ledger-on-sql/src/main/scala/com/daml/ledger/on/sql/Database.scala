@@ -5,19 +5,18 @@ package com.daml.ledger.on.sql
 
 import java.sql.{Connection, SQLException}
 import java.util.concurrent.Executors
+import javax.sql.DataSource
 
 import com.daml.concurrent.{ExecutionContext, Future}
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.on.sql.Database._
 import com.daml.ledger.on.sql.queries._
+import com.daml.ledger.participant.state.kvutils.KVOffsetBuilder
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.resources.ProgramResource.StartupException
 import com.zaxxer.hikari.HikariDataSource
-import javax.sql.DataSource
-
-import com.daml.ledger.participant.state.kvutils.VersionedOffsetBuilder
 import org.flywaydb.core.Flyway
 import scalaz.syntax.bind._
 
@@ -26,7 +25,7 @@ import scala.util.{Failure, Success}
 
 final class Database(
     queries: QueriesFactory,
-    offsetBuilder: VersionedOffsetBuilder,
+    offsetBuilder: KVOffsetBuilder,
     metrics: Metrics,
 )(implicit
     readerConnectionPool: ConnectionPool[Reader],
@@ -86,7 +85,7 @@ object Database {
 
   def owner(
       jdbcUrl: String,
-      offsetBuilder: VersionedOffsetBuilder,
+      offsetBuilder: KVOffsetBuilder,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[UninitializedDatabase] =
     (jdbcUrl match {
@@ -117,7 +116,7 @@ object Database {
     def owner(
         system: RDBMS,
         jdbcUrl: String,
-        offsetBuilder: VersionedOffsetBuilder,
+        offsetBuilder: KVOffsetBuilder,
         metrics: Metrics,
     ): ResourceOwner[UninitializedDatabase] =
       for {
@@ -153,7 +152,7 @@ object Database {
     def owner(
         system: RDBMS,
         jdbcUrl: String,
-        offsetBuilder: VersionedOffsetBuilder,
+        offsetBuilder: KVOffsetBuilder,
         metrics: Metrics,
     ): ResourceOwner[UninitializedDatabase] =
       for {
@@ -216,7 +215,7 @@ object Database {
 
   class UninitializedDatabase(
       system: RDBMS,
-      offsetBuilder: VersionedOffsetBuilder,
+      offsetBuilder: KVOffsetBuilder,
       metrics: Metrics,
   )(implicit
       readerConnectionPool: ConnectionPool[Reader],

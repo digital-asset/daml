@@ -20,14 +20,14 @@ import com.daml.lf.data.Bytes
   *
   * @see com.daml.ledger.offset.Offset
   */
-class VersionedOffsetBuilder(version: Byte) {
+class KVOffsetBuilder(version: Byte) {
 
-  import VersionedOffsetBuilder._
+  import KVOffsetBuilder._
 
   private val versionBytes = Bytes.fromByteArray(Array(version))
 
   def of(highest: Long, middle: Int = 0, lowest: Int = 0): Offset =
-    VersionedOffset.of(version, highest, middle, lowest).offset
+    KVOffset.of(version, highest, middle, lowest).offset
 
   def version(offset: Offset): Byte = {
     validateVersion(offset)
@@ -48,9 +48,9 @@ class VersionedOffsetBuilder(version: Byte) {
     readHighest(stream)
   }
 
-  private[kvutils] def split(offset: Offset): VersionedOffset = {
+  private[kvutils] def split(offset: Offset): KVOffset = {
     validateVersion(offset)
-    VersionedOffset(offset)
+    KVOffset(offset)
   }
 
   private def validateVersion(offset: Offset): Unit =
@@ -62,12 +62,12 @@ class VersionedOffsetBuilder(version: Byte) {
     )
 }
 
-object VersionedOffsetBuilder {
+object KVOffsetBuilder {
   private def toDataInputStream(offset: Offset) =
     new DataInputStream(offset.toInputStream)
 
   private def readHighest(stream: DataInputStream): Long = {
     val versionAndHighest = stream.readLong()
-    versionAndHighest & VersionedOffset.HighestMask
+    versionAndHighest & KVOffset.HighestMask
   }
 }

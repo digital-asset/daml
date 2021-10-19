@@ -5,12 +5,12 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import akka.stream.Materializer
 import com.daml.ledger.on.memory.{InMemoryLedgerStateAccess, InMemoryState, Index}
-import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, VersionedOffsetBuilder}
 import com.daml.ledger.participant.state.kvutils.export.{
   NoOpLedgerDataExporter,
   SubmissionInfo,
   WriteSet,
 }
+import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, KeyValueCommitting}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
@@ -28,7 +28,7 @@ final class LogAppendingCommitStrategySupport(
     metrics: Metrics
 )(implicit executionContext: ExecutionContext)
     extends CommitStrategySupport[Index] {
-  private val offsetBuilder = new VersionedOffsetBuilder(0)
+  private val offsetBuilder = new KVOffsetBuilder(0)
   private val state = InMemoryState.empty
 
   private val serializationStrategy = StateKeySerializationStrategy.createDefault()

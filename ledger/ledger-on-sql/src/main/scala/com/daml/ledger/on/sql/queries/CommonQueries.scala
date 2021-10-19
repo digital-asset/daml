@@ -10,13 +10,13 @@ import anorm._
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
-import com.daml.ledger.participant.state.kvutils.{Raw, VersionedOffsetBuilder}
+import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, Raw}
 
 import scala.collection.compat._
 import scala.collection.immutable
 import scala.util.Try
 
-abstract class CommonQueries(offsetBuilder: VersionedOffsetBuilder)(implicit connection: Connection)
+abstract class CommonQueries(offsetBuilder: KVOffsetBuilder)(implicit connection: Connection)
     extends Queries {
   override final def selectLatestLogEntryId(): Try[Option[Index]] = Try {
     SQL"SELECT MAX(sequence_no) max_sequence_no FROM #$LogTable"

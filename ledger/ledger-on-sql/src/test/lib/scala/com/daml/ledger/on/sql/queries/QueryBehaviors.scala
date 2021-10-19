@@ -7,7 +7,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.concurrent.{Future => DamlFuture}
 import com.daml.ledger.on.sql.Database
 import com.daml.ledger.on.sql.Database.RDBMS
-import com.daml.ledger.participant.state.kvutils.{Raw, VersionedOffsetBuilder}
+import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, Raw}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
@@ -19,7 +19,7 @@ trait QueryBehaviors { this: AsyncFlatSpec =>
 
   def queriesOnInsertion(rdbms: RDBMS, jdbcUrl: => String): Unit = {
     it should "insert the first log entry with an ID of 1" in {
-      val offsetBuilder = new VersionedOffsetBuilder(0)
+      val offsetBuilder = new KVOffsetBuilder(0)
       val metrics = new Metrics(new MetricRegistry)
       Database.SingleConnectionDatabase
         .owner(rdbms, jdbcUrl, offsetBuilder, metrics)
