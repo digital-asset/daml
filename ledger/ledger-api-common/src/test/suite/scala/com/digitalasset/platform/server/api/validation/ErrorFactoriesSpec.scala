@@ -23,41 +23,6 @@ import com.google.protobuf
 
 import scala.jdk.CollectionConverters._
 
-object ErrorDetails {
-
-  sealed trait ErrorDetail
-
-  final case class ResourceInfoDetail(name: String, typ: String) extends ErrorDetail
-
-  final case class ErrorInfoDetail(reason: String) extends ErrorDetail
-
-  final case class RetryInfoDetail(retryDelayInSeconds: Long) extends ErrorDetail
-
-  final case class RequestInfoDetail(requestId: String) extends ErrorDetail
-
-  def unapplySeq(anys: Seq[protobuf.Any]): Seq[ErrorDetail] = {
-    anys.toList.map(this.unapply)
-  }
-
-  private def unapply(any: protobuf.Any): ErrorDetail = {
-    if (any.is(classOf[ResourceInfo])) {
-      val v = any.unpack(classOf[ResourceInfo])
-      ResourceInfoDetail(v.getResourceType, v.getResourceName)
-    } else if (any.is(classOf[ErrorInfo])) {
-      val v = any.unpack(classOf[ErrorInfo])
-      ErrorInfoDetail(v.getReason)
-    } else if (any.is(classOf[RetryInfo])) {
-      val v = any.unpack(classOf[RetryInfo])
-      RetryInfoDetail(v.getRetryDelay.getSeconds)
-    } else if (any.is(classOf[RequestInfo])) {
-      val v = any.unpack(classOf[RequestInfo])
-      RequestInfoDetail(v.getRequestId)
-    } else {
-      throw new IllegalStateException(s"Could not unpack value of: |$any|")
-    }
-  }
-}
-
 class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
   private val correlationId = "trace-id"
   private val logger = ContextualizedLogger.get(getClass)
@@ -66,7 +31,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, Some(correlationId))
 
-  private val DEFAULT_TRACE_ID_REQUEST_INFO: ErrorDetails.RequestInfoDetail =
+  private val DefaultTraceIdRequestInfo: ErrorDetails.RequestInfoDetail =
     ErrorDetails.RequestInfoDetail("trace-id")
 
   "ErrorFactories" should {
@@ -80,7 +45,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           s"DUPLICATE_COMMAND(10,$correlationId): A command with the given command id has already been successfully processed",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("DUPLICATE_COMMAND"),
-          DEFAULT_TRACE_ID_REQUEST_INFO,
+          DefaultTraceIdRequestInfo,
         ),
       )
     }
@@ -95,7 +60,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           s"An error occurred. Please contact the operator and inquire about the request $correlationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("PERMISSION_DENIED"),
-          DEFAULT_TRACE_ID_REQUEST_INFO,
+          DefaultTraceIdRequestInfo,
         ),
       )
     }
@@ -117,7 +82,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
             s"LEDGER_CONFIGURATION_NOT_FOUND(11,$correlationId): The ledger configuration is not available.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("LEDGER_CONFIGURATION_NOT_FOUND"),
-            DEFAULT_TRACE_ID_REQUEST_INFO,
+            DefaultTraceIdRequestInfo,
           ),
         )
       }
@@ -158,7 +123,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
             s"INVALID_FIELD(8,$correlationId): The submitted command has a field with invalid value: Invalid field my field: my message",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("INVALID_FIELD"),
-            DEFAULT_TRACE_ID_REQUEST_INFO,
+            DefaultTraceIdRequestInfo,
           ),
         )
       }
@@ -174,7 +139,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           s"An error occurred. Please contact the operator and inquire about the request $correlationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("UNAUTHENTICATED"),
-          DEFAULT_TRACE_ID_REQUEST_INFO,
+          DefaultTraceIdRequestInfo,
         ),
       )
     }
@@ -198,7 +163,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
             s"LEDGER_ID_MISMATCH(11,$correlationId): Ledger ID 'received' not found. Actual Ledger ID is 'expected'.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("LEDGER_ID_MISMATCH"),
-            DEFAULT_TRACE_ID_REQUEST_INFO,
+            DefaultTraceIdRequestInfo,
           ),
         )
       }
@@ -221,7 +186,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         v2_message = s"PARTICIPANT_PRUNED_DATA_ACCESSED(12,$correlationId): my message",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("PARTICIPANT_PRUNED_DATA_ACCESSED"),
-          DEFAULT_TRACE_ID_REQUEST_INFO,
+          DefaultTraceIdRequestInfo,
         ),
       )
     }
@@ -235,7 +200,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         v2_message = s"REQUESTED_OFFSET_OUT_OF_RANGE(12,$correlationId): my message",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("REQUESTED_OFFSET_OUT_OF_RANGE"),
-          DEFAULT_TRACE_ID_REQUEST_INFO,
+          DefaultTraceIdRequestInfo,
         ),
       )
     }
@@ -256,7 +221,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           v2_message = s"SERVICE_NOT_RUNNING(1,$correlationId): Service has been shut down.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("SERVICE_NOT_RUNNING"),
-            DEFAULT_TRACE_ID_REQUEST_INFO,
+            DefaultTraceIdRequestInfo,
             ErrorDetails.RetryInfoDetail(1),
           ),
         )
@@ -273,7 +238,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           s"LEDGER_CONFIGURATION_NOT_FOUND(11,$correlationId): The ledger configuration is not available.",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("LEDGER_CONFIGURATION_NOT_FOUND"),
-          DEFAULT_TRACE_ID_REQUEST_INFO,
+          DefaultTraceIdRequestInfo,
         ),
       )
     }
@@ -295,7 +260,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
             s"MISSING_FIELD(8,$correlationId): The submitted command is missing a mandatory field: my field",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("MISSING_FIELD"),
-            DEFAULT_TRACE_ID_REQUEST_INFO,
+            DefaultTraceIdRequestInfo,
           ),
         )
       }
@@ -318,7 +283,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
             s"INVALID_ARGUMENT(8,$correlationId): The submitted command has invalid arguments: my message",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("INVALID_ARGUMENT"),
-            DEFAULT_TRACE_ID_REQUEST_INFO,
+            DefaultTraceIdRequestInfo,
           ),
         )
       }
@@ -367,7 +332,42 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     status.getCode shouldBe expectedCode.value()
     status.getMessage shouldBe expectedMessage
     val details = status.getDetailsList.asScala.toSeq
-    val _ = ErrorDetails.unapplySeq(details) should contain theSameElementsAs (expectedDetails)
+    val _ = ErrorDetails.from(details) should contain theSameElementsAs (expectedDetails)
     // TODO error codes: Assert logging
+  }
+}
+
+object ErrorDetails {
+
+  sealed trait ErrorDetail
+
+  final case class ResourceInfoDetail(name: String, typ: String) extends ErrorDetail
+
+  final case class ErrorInfoDetail(reason: String) extends ErrorDetail
+
+  final case class RetryInfoDetail(retryDelayInSeconds: Long) extends ErrorDetail
+
+  final case class RequestInfoDetail(requestId: String) extends ErrorDetail
+
+  def from(anys: Seq[protobuf.Any]): Seq[ErrorDetail] = {
+    anys.toList.map(from)
+  }
+
+  private def from(any: protobuf.Any): ErrorDetail = {
+    if (any.is(classOf[ResourceInfo])) {
+      val v = any.unpack(classOf[ResourceInfo])
+      ResourceInfoDetail(v.getResourceType, v.getResourceName)
+    } else if (any.is(classOf[ErrorInfo])) {
+      val v = any.unpack(classOf[ErrorInfo])
+      ErrorInfoDetail(v.getReason)
+    } else if (any.is(classOf[RetryInfo])) {
+      val v = any.unpack(classOf[RetryInfo])
+      RetryInfoDetail(v.getRetryDelay.getSeconds)
+    } else if (any.is(classOf[RequestInfo])) {
+      val v = any.unpack(classOf[RequestInfo])
+      RequestInfoDetail(v.getRequestId)
+    } else {
+      throw new IllegalStateException(s"Could not unpack value of: |$any|")
+    }
   }
 }
