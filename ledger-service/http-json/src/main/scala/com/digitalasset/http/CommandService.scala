@@ -149,16 +149,11 @@ class CommandService(
         case Success(-\/(e)) =>
           logger.error(s"$opName failure: ${e.e}: ${e.message}")
           import Grpc.Category._
-          Future.successful(-\/(e.e match {
-            case PermissionDenied =>
-              ClientError(-\/(PermissionDenied), e.message)
-            case InvalidArgument =>
-              ClientError(\/-(InvalidArgument), e.message)
-            case Aborted =>
-              // TODO SC: ambiguous whether "contract key is missing or duplicated
-              // due to for example contention on resources" should be an HTTP 409
-              InternalError(None, e.message)
-          }))
+          val tagged = e.e match {
+            case PermissionDenied => -\/(PermissionDenied)
+            case InvalidArgument => \/-(InvalidArgument)
+          }
+          Future.successful(-\/(ClientError(tagged, e.message)))
         case Success(\/-(a)) =>
           logger.debug(s"$opName success: $a")
           Future.successful(\/-(a))

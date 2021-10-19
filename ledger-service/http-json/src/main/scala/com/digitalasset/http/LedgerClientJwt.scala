@@ -36,7 +36,7 @@ object LedgerClientJwt {
   private[this] val logger = ContextualizedLogger.get(getClass)
 
   // there are other error categories of interest if we wish to propagate
-  // different 5xx errors, but PermissionDenied and Aborted are the only
+  // different 5xx errors, but PermissionDenied and InvalidArgument are the only
   // "client" errors here
   type SubmitAndWaitForTransaction =
     (
@@ -256,13 +256,12 @@ object LedgerClientJwt {
       case object PermissionDenied extends SubmitError
       type InvalidArgument = InvalidArgument.type
       case object InvalidArgument extends SubmitError
-      type Aborted = Aborted.type
-      case object Aborted extends SubmitError
+      // not *every* singleton here should be a subtype of SubmitError;
+      // think of it more like a Venn diagram
 
       private[LedgerClientJwt] val submitErrors: Code PartialFunction SubmitError = {
         case PERMISSION_DENIED => PermissionDenied
         case INVALID_ARGUMENT => InvalidArgument
-        case ABORTED => Aborted
       }
 
       private[LedgerClientJwt] implicit final class `Future Status Category ops`[A](
