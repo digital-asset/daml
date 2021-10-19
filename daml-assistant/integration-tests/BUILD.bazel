@@ -199,7 +199,7 @@ genrule(
         "@nodejs//:node_bin",
         "@nodejs//:npm_bin",
     ],
-)
+) if not is_windows else None
 
 da_haskell_library(
     name = "create-daml-app-tests-lib",
