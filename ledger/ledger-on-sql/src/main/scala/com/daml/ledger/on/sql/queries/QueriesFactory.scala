@@ -5,8 +5,8 @@ package com.daml.ledger.on.sql.queries
 
 import java.sql.Connection
 
-import com.daml.ledger.participant.state.kvutils.VersionedOffsetBuilder
+import com.daml.ledger.participant.state.kvutils.KVOffsetBuilder
 
 trait QueriesFactory {
-  def apply(offsetBuilder: VersionedOffsetBuilder, connection: Connection): Queries
+  def apply(offsetBuilder: KVOffsetBuilder, connection: Connection): Queries
 }

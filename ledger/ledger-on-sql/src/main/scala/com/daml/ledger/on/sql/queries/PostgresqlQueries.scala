@@ -10,12 +10,12 @@ import anorm._
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
-import com.daml.ledger.participant.state.kvutils.{Raw, VersionedOffsetBuilder}
+import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, Raw}
 
 import scala.util.Try
 
 final class PostgresqlQueries(
-    offsetBuilder: VersionedOffsetBuilder
+    offsetBuilder: KVOffsetBuilder
 )(implicit connection: Connection)
     extends CommonQueries(offsetBuilder) {
   override def updateOrRetrieveLedgerId(providedLedgerId: LedgerId): Try[LedgerId] = Try {
@@ -42,7 +42,7 @@ final class PostgresqlQueries(
 }
 
 object PostgresqlQueries extends QueriesFactory {
-  override def apply(offsetBuilder: VersionedOffsetBuilder, connection: Connection): Queries = {
+  override def apply(offsetBuilder: KVOffsetBuilder, connection: Connection): Queries = {
     implicit val conn: Connection = connection
     new PostgresqlQueries(offsetBuilder)
   }

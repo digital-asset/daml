@@ -22,7 +22,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
   LedgerRecord,
   LedgerWriter,
 }
-import com.daml.ledger.participant.state.kvutils.{Raw, VersionedOffsetBuilder}
+import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator._
@@ -42,7 +42,7 @@ final class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: Ref.ParticipantId,
     metrics: Metrics,
-    offsetBuilder: VersionedOffsetBuilder,
+    offsetBuilder: KVOffsetBuilder,
     database: Database,
     dispatcher: Dispatcher[Index],
     committer: ValidatingCommitter[Index],
@@ -103,7 +103,7 @@ object SqlLedgerReaderWriter {
     override def acquire()(implicit context: ResourceContext): Resource[SqlLedgerReaderWriter] = {
       implicit val migratorExecutionContext: ExecutionContext[Database.Migrator] =
         ExecutionContext(context.executionContext)
-      val offsetBuilder = new VersionedOffsetBuilder(offsetVersion)
+      val offsetBuilder = new KVOffsetBuilder(offsetVersion)
       for {
         uninitializedDatabase <- Database.owner(jdbcUrl, offsetBuilder, metrics).acquire()
         database <- Resource.fromFuture(

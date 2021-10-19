@@ -8,13 +8,13 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.stream.Materializer
 import com.daml.ledger.on.memory.{InMemoryLedgerStateAccess, InMemoryState, Index}
-import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, VersionedOffsetBuilder}
 import com.daml.ledger.participant.state.kvutils.export.{
   NoOpLedgerDataExporter,
   SubmissionInfo,
   WriteSet,
 }
 import com.daml.ledger.participant.state.kvutils.store.DamlStateValue
+import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, KeyValueCommitting}
 import com.daml.ledger.validator.preexecution.{
   EqualityBasedPostExecutionConflictDetector,
   PreExecutingSubmissionValidator,
@@ -38,7 +38,7 @@ final class RawPreExecutingCommitStrategySupport(
   override val stateKeySerializationStrategy: StateKeySerializationStrategy =
     StateKeySerializationStrategy.createDefault()
 
-  private val offsetBuilder = new VersionedOffsetBuilder(0)
+  private val offsetBuilder = new KVOffsetBuilder(0)
   private val state = InMemoryState.empty
   private val ledgerStateAccess = new InMemoryLedgerStateAccess(offsetBuilder, state, metrics)
 

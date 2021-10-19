@@ -6,14 +6,14 @@ package com.daml.ledger.on.memory
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.on.memory.InMemoryState.MutableLog
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
-import com.daml.ledger.participant.state.kvutils.{Raw, VersionedOffsetBuilder}
+import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, Raw}
 import com.daml.ledger.validator.BatchingLedgerStateOperations
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
 final class InMemoryLedgerStateOperations(
-    offsetBuilder: VersionedOffsetBuilder,
+    offsetBuilder: KVOffsetBuilder,
     log: InMemoryState.MutableLog,
     state: InMemoryState.MutableState,
 ) extends BatchingLedgerStateOperations[Index] {
