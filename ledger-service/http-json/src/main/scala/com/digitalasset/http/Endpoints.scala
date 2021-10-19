@@ -41,12 +41,10 @@ import com.daml.http.util.{ProtobufByteStrings, toLedgerId}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
-import com.daml.scalautil.ExceptionOps._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
-import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, NonEmptyList, Show, Traverse, \/, \/-}
+import scalaz.{-\/, EitherT, NonEmptyList, Traverse, \/, \/-}
 import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
@@ -454,7 +452,8 @@ class Endpoints(
   def allParties(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
-    proxyWithoutCommand((jwt, _) => partiesService.allParties(jwt))(req).map(domain.OkResponse(_))
+    proxyWithoutCommand((jwt, _) => partiesService.allParties(jwt))(req)
+      .flatMap(pd => either(pd map (domain.OkResponse(_))))
 
   def parties(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -522,31 +521,24 @@ class Endpoints(
     } yield domain.OkResponse(())
 
   private def handleFutureEitherFailure[A, B](fa: Future[A \/ B])(implicit
-      A: IntoServerError[A],
+      A: IntoEndpointsError[A],
       lc: LoggingContextOf[InstanceUUID with RequestID],
   ): Future[Error \/ B] =
-    fa.map(_ leftMap A.run).recover { case NonFatal(e) =>
-      logger.error("Future failed", e)
-      -\/(ServerError(e.description))
-    }
+    fa.map(_ leftMap A.run)
+      .recover(logException("Future") andThen Error.fromThrowable andThen (-\/(_)))
 
-  private def handleFutureFailure[E >: ServerError, A](fa: Future[A])(implicit
+  private def handleFutureFailure[A](fa: Future[A])(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[E \/ A] =
-    fa.map(a => \/-(a)).recover { case NonFatal(e) =>
-      logger.error("Future failed", e)
-      -\/(ServerError(e.description))
-    }
+  ): Future[Error \/ A] =
+    fa.map(a => \/-(a)).recover(logException("Future") andThen Error.fromThrowable andThen (-\/(_)))
 
-  private def handleSourceFailure[E: Show, A](implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+  private def handleSourceFailure[E, A](implicit
+      E: IntoEndpointsError[E],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): Flow[E \/ A, Error \/ A, NotUsed] =
     Flow
-      .fromFunction((_: E \/ A).liftErr[Error](ServerError))
-      .recover { case NonFatal(e) =>
-        logger.error("Source failed", e)
-        -\/(ServerError(e.description))
-      }
+      .fromFunction((_: E \/ A).leftMap(E.run))
+      .recover(logException("Source") andThen Error.fromThrowable andThen (-\/(_)))
 
   private def httpResponse(
       output: Future[Error \/ SearchResult[Error \/ JsValue]]
@@ -556,9 +548,14 @@ class Endpoints(
         case -\/(e) => httpResponseError(e)
         case \/-(searchResult) => httpResponse(searchResult)
       }
-      .recover { case NonFatal(e) =>
-        httpResponseError(ServerError(e.description))
-      }
+      .recover(Error.fromThrowable andThen (httpResponseError(_)))
+
+  private[this] def logException(fromWhat: String)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Throwable PartialFunction Throwable = { case NonFatal(e) =>
+    logger.error(s"$fromWhat failed", e)
+    e
+  }
 
   private def httpResponse(searchResult: SearchResult[Error \/ JsValue]): HttpResponse = {
     import json.JsonProtocol._
@@ -566,7 +563,7 @@ class Endpoints(
     val response: Source[ByteString, NotUsed] = searchResult match {
       case domain.OkResponse(result, warnings, _) =>
         val warningsJsVal: Option[JsValue] = warnings.map(SprayJson.encodeUnsafe(_))
-        ResponseFormats.resultJsObject(result, warningsJsVal)
+        ResponseFormats.resultJsObject(result via filterStreamErrors, warningsJsVal)
       case error: domain.ErrorResponse =>
         val jsVal: JsValue = SprayJson.encodeUnsafe(error)
         Source.single(ByteString(jsVal.compactPrint))
@@ -578,6 +575,12 @@ class Endpoints(
         .Chunked(ContentTypes.`application/json`, response.map(HttpEntity.ChunkStreamPart(_))),
     )
   }
+
+  private[this] def filterStreamErrors[E, A]: Flow[Error \/ A, Error \/ A, NotUsed] =
+    Flow[Error \/ A].map {
+      case -\/(ServerError(_)) => -\/(ServerError("internal server error"))
+      case o => o
+    }
 
   private def httpResponse[A: JsonWriter](
       result: ET[domain.SyncResponse[A]]
@@ -598,9 +601,7 @@ class Endpoints(
               status = status,
             )
         }
-        .recover { case NonFatal(e) =>
-          httpResponseError(ServerError(e.description))
-        },
+        .recover(Error.fromThrowable andThen (httpResponseError(_))),
     )
   }
 
@@ -747,12 +748,27 @@ object Endpoints {
 
   private type LfValue = lf.value.Value
 
-  private final class IntoServerError[-A](val run: A => Error) extends AnyVal
-  private object IntoServerError extends IntoServerErrorLow {
-    implicit val id: IntoServerError[Error] = new IntoServerError(identity)
-  }
-  private sealed abstract class IntoServerErrorLow {
-    implicit def shown[A: Show]: IntoServerError[A] = new IntoServerError(a => ServerError(a.shows))
+  private final class IntoEndpointsError[-A](val run: A => Error) extends AnyVal
+  private object IntoEndpointsError {
+    import LedgerClientJwt.Grpc.Category
+
+    implicit val id: IntoEndpointsError[Error] = new IntoEndpointsError(identity)
+
+    implicit val fromCommands: IntoEndpointsError[CommandService.Error] = new IntoEndpointsError({
+      case CommandService.InternalError(id, message) =>
+        ServerError(s"command service error, ${id.cata(sym => s"${sym.name}: ", "")}$message")
+      case CommandService.GrpcError(status) =>
+        ParticipantServerError(status.getCode, Option(status.getDescription))
+      case CommandService.ClientError(-\/(Category.PermissionDenied), message) =>
+        Unauthorized(message)
+      case CommandService.ClientError(\/-(Category.InvalidArgument), message) =>
+        InvalidUserInput(message)
+    })
+
+    implicit val fromContracts: IntoEndpointsError[ContractsService.Error] =
+      new IntoEndpointsError({ case ContractsService.InternalError(id, msg) =>
+        ServerError(s"contracts service error, ${id.name}: $msg")
+      })
   }
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =

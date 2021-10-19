@@ -58,6 +58,8 @@ import com.daml.ledger.api.{domain => LedgerApiDomain}
 object WebSocketService {
   import util.ErrorOps._
 
+  private val logger = ContextualizedLogger.get(getClass)
+
   private type CompiledQueries =
     Map[domain.TemplateId.RequiredPkg, (ValuePredicate, LfV => Boolean)]
 
@@ -97,6 +99,11 @@ object WebSocketService {
   ) {
     import JsonProtocol._, spray.json._
 
+    def logHiddenErrors()(implicit lc: LoggingContextOf[InstanceUUID]): Unit =
+      errors foreach { case ServerError(message) =>
+        logger.error(s"while rendering contract: ${message: String}")
+      }
+
     def render(implicit lfv: LfVT <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsObject = {
 
       def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
@@ -111,7 +118,9 @@ object WebSocketService {
         ++ inserts.map { case (ac, pos) =>
           val acj = inj("created", ac)
           acj copy (fields = acj.fields ++ pos)
-        } ++ errors.map(e => inj("error", e.message)))
+        } ++ errors.map(_ => inj("error", "error rendering contract")))
+      // XXX SC ^ all useful information is now hidden;
+      // can replace with an error count in later API version
 
       val offsetAfter = step.bookmark.map(_.toJson)
 
@@ -589,8 +598,6 @@ class WebSocketService(
     wsConfig: Option[WebsocketConfig],
 )(implicit mat: Materializer, ec: ExecutionContext) {
 
-  private[this] val logger = ContextualizedLogger.get(getClass)
-
   import WebSocketService._
   import com.daml.scalautil.Statement.discard
   import util.ErrorOps._
@@ -835,7 +842,10 @@ class WebSocketService(
             )
             .map(
               _.via(removePhantomArchives(remove = Q.removePhantomArchives(request)))
-                .map(_.mapPos(Q.renderCreatedMetadata).render)
+                .map { sae =>
+                  sae.logHiddenErrors()
+                  sae.mapPos(Q.renderCreatedMetadata).render
+                }
                 .prepend(reportUnresolvedTemplateIds(unresolved))
                 .map(jsv => \/-(wsMessage(jsv)))
             )

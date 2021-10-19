@@ -5,7 +5,7 @@ package com.daml.http
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.http.util.Logging.{InstanceUUID, RequestID}
+import util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api
 import com.daml.ledger.api.v1.package_service
@@ -22,20 +22,33 @@ import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.google.protobuf
-import scalaz.OneAnd
+import io.grpc.Status, Status.Code, Code.{values => _, _}
+import scalaz.{OneAnd, \/, -\/}
+import scalaz.syntax.std.boolean._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext => EC, Future}
+import scala.util.control.NonFatal
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 
 object LedgerClientJwt {
+  import Grpc.EFuture, Grpc.Category._
 
   private[this] val logger = ContextualizedLogger.get(getClass)
 
+  // there are other error categories of interest if we wish to propagate
+  // different 5xx errors, but PermissionDenied and InvalidArgument are the only
+  // "client" errors here
   type SubmitAndWaitForTransaction =
-    (Jwt, SubmitAndWaitRequest) => Future[SubmitAndWaitForTransactionResponse]
+    (
+        Jwt,
+        SubmitAndWaitRequest,
+    ) => EFuture[SubmitError, SubmitAndWaitForTransactionResponse]
 
   type SubmitAndWaitForTransactionTree =
-    (Jwt, SubmitAndWaitRequest) => Future[SubmitAndWaitForTransactionTreeResponse]
+    (
+        Jwt,
+        SubmitAndWaitRequest,
+    ) => EFuture[SubmitError, SubmitAndWaitForTransactionTreeResponse]
 
   type GetTermination =
     (Jwt, LedgerApiDomain.LedgerId) => Future[Option[Terminates.AtAbsolute]]
@@ -58,10 +71,13 @@ object LedgerClientJwt {
     ) => Source[Transaction, NotUsed]
 
   type ListKnownParties =
-    Jwt => Future[List[api.domain.PartyDetails]]
+    Jwt => EFuture[PermissionDenied, List[api.domain.PartyDetails]]
 
   type GetParties =
-    (Jwt, OneAnd[Set, Ref.Party]) => Future[List[api.domain.PartyDetails]]
+    (
+        Jwt,
+        OneAnd[Set, Ref.Party],
+    ) => EFuture[PermissionDenied, List[api.domain.PartyDetails]]
 
   type AllocateParty =
     (Jwt, Option[Ref.Party], Option[String]) => Future[api.domain.PartyDetails]
@@ -89,13 +105,23 @@ object LedgerClientJwt {
 
   private def bearer(jwt: Jwt): Some[String] = Some(jwt.value: String)
 
-  def submitAndWaitForTransaction(client: DamlLedgerClient): SubmitAndWaitForTransaction =
-    (jwt, req) => client.commandServiceClient.submitAndWaitForTransaction(req, bearer(jwt))
+  def submitAndWaitForTransaction(
+      client: DamlLedgerClient
+  )(implicit ec: EC): SubmitAndWaitForTransaction =
+    (jwt, req) =>
+      client.commandServiceClient
+        .submitAndWaitForTransaction(req, bearer(jwt))
+        .requireHandling(submitErrors)
 
-  def submitAndWaitForTransactionTree(client: DamlLedgerClient): SubmitAndWaitForTransactionTree =
-    (jwt, req) => client.commandServiceClient.submitAndWaitForTransactionTree(req, bearer(jwt))
+  def submitAndWaitForTransactionTree(
+      client: DamlLedgerClient
+  )(implicit ec: EC): SubmitAndWaitForTransactionTree =
+    (jwt, req) =>
+      client.commandServiceClient
+        .submitAndWaitForTransactionTree(req, bearer(jwt))
+        .requireHandling(submitErrors)
 
-  def getTermination(client: DamlLedgerClient)(implicit ec: ExecutionContext): GetTermination =
+  def getTermination(client: DamlLedgerClient)(implicit ec: EC): GetTermination =
     (jwt, ledgerId) =>
       client.transactionClient.getLedgerEnd(ledgerId, bearer(jwt)).map {
         _.offset flatMap {
@@ -161,11 +187,17 @@ object LedgerClientJwt {
     }
   }
 
-  def listKnownParties(client: DamlLedgerClient): ListKnownParties =
-    jwt => client.partyManagementClient.listKnownParties(bearer(jwt))
+  def listKnownParties(client: DamlLedgerClient)(implicit ec: EC): ListKnownParties =
+    jwt =>
+      client.partyManagementClient.listKnownParties(bearer(jwt)).requireHandling {
+        case PERMISSION_DENIED => PermissionDenied
+      }
 
-  def getParties(client: DamlLedgerClient): GetParties =
-    (jwt, partyIds) => client.partyManagementClient.getParties(partyIds, bearer(jwt))
+  def getParties(client: DamlLedgerClient)(implicit ec: EC): GetParties =
+    (jwt, partyIds) =>
+      client.partyManagementClient.getParties(partyIds, bearer(jwt)).requireHandling {
+        case PERMISSION_DENIED => PermissionDenied
+      }
 
   def allocateParty(client: DamlLedgerClient): AllocateParty =
     (jwt, identifierHint, displayName) =>
@@ -195,4 +227,53 @@ object LedgerClientJwt {
         logger.trace("sending upload dar request to ledger")
         client.packageManagementClient.uploadDarFile(darFile = byteString, token = bearer(jwt))
       }
+
+  // a shim error model to stand in for https://github.com/digital-asset/daml/issues/9834
+  object Grpc {
+    type EFuture[E, A] = Future[Error[E] \/ A]
+
+    final case class Error[+E](e: E, message: String)
+
+    private[http] object StatusEnvelope {
+      def unapply(t: Throwable): Option[Status] = t match {
+        case NonFatal(t) =>
+          val s = Status fromThrowable t
+          // fromThrowable uses UNKNOWN if it didn't find one
+          (s.getCode != UNKNOWN) option s
+        case _ => None
+      }
+    }
+
+    // like Code but with types
+    // only needs to contain types that may be reported to the json-api user;
+    // if it is an "internal error" there is no need to call it out for handling
+    // e.g. Unauthenticated never needs to be specially handled, because we should
+    // have caught that the jwt token was missing and reported that to client already
+    object Category {
+      sealed trait SubmitError
+      // XXX SC we might be able to assign singleton types to the Codes instead in 2.13+
+      type PermissionDenied = PermissionDenied.type
+      case object PermissionDenied extends SubmitError
+      type InvalidArgument = InvalidArgument.type
+      case object InvalidArgument extends SubmitError
+      // not *every* singleton here should be a subtype of SubmitError;
+      // think of it more like a Venn diagram
+
+      private[LedgerClientJwt] val submitErrors: Code PartialFunction SubmitError = {
+        case PERMISSION_DENIED => PermissionDenied
+        case INVALID_ARGUMENT => InvalidArgument
+      }
+
+      private[LedgerClientJwt] implicit final class `Future Status Category ops`[A](
+          private val fa: Future[A]
+      ) extends AnyVal {
+        def requireHandling[E](c: Code PartialFunction E)(implicit ec: EC): EFuture[E, A] =
+          fa map \/.right[Error[E], A] recover Function.unlift {
+            case StatusEnvelope(status) =>
+              c.lift(status.getCode) map (e => -\/(Error(e, status.asRuntimeException.getMessage)))
+            case _ => None
+          }
+      }
+    }
+  }
 }

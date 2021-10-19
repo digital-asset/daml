@@ -61,7 +61,7 @@ final class FailureTests
           uri,
           headersWithParties(List(p.unwrap)),
         )
-        _ = status shouldBe StatusCodes.InternalServerError
+        _ = status shouldBe StatusCodes.ServiceUnavailable
         (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
         _ = status shouldBe StatusCodes.ServiceUnavailable
         _ = out shouldBe
@@ -71,7 +71,7 @@ final class FailureTests
             |""".stripMargin.replace("\r\n", "\n")
         _ <- inside(output) { case JsObject(fields) =>
           inside(fields.get("status")) { case Some(JsNumber(code)) =>
-            code shouldBe 500
+            code shouldBe 503
           }
         }
         _ = proxy.enable()
