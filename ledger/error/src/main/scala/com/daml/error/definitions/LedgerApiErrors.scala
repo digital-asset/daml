@@ -38,6 +38,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     @Resolution(
       """Make sure the package id provided in the request has correct form.""".stripMargin
     )
+    // TODO error codes: Consider replacing with a variant `LedgerApiErrors.CommandValidation.InvalidArgument` that does not imply command validation
     object MalformedPackageId
         extends ErrorCode(
           id = "MALFORMED_PACKAGE_ID",
