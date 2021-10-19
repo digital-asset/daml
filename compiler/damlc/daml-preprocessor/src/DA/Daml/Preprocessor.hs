@@ -6,13 +6,14 @@ module DA.Daml.Preprocessor
   ( damlPreprocessor
   , generatedPreprocessor
   , noPreprocessor
+  , isInternal
   ) where
 
-import           DA.Daml.LFConversion (convertModuleName)
 import           DA.Daml.Preprocessor.Records
 import           DA.Daml.Preprocessor.Generics
 import           DA.Daml.Preprocessor.EnumType
 import           DA.Daml.StablePackages (stablePackageByModuleName)
+import           DA.Daml.UtilGHC (convertModuleName)
 
 import Development.IDE.Types.Options
 import qualified "ghc-lib" GHC

@@ -8,7 +8,7 @@ package object cache {
   private[cache] type ContractId = lfval.ContractId
   private[cache] val ContractId = com.daml.lf.value.Value.ContractId
   private[cache] type Value = lfval.VersionedValue
-  private[cache] type Contract = lfval.ContractInst[Value]
+  private[cache] type Contract = lfval.VersionedContractInstance
 
   import com.daml.lf.{transaction => lftx}
   private[cache] type Key = lftx.GlobalKey

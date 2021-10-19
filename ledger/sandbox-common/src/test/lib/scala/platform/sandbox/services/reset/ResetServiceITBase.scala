@@ -6,7 +6,6 @@ package com.daml.platform.sandbox.services.reset
 import java.io.File
 import java.time.Instant
 import java.util.UUID
-
 import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.domain.LedgerId
@@ -46,6 +45,7 @@ import com.daml.ledger.api.v1.testing.time_service.{
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.ledger.test.ModelTestDar
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.AbstractSandboxFixture
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -61,8 +61,9 @@ import org.scalatest.time.Span
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
-import scala.concurrent.duration.{DurationInt, DurationLong, FiniteDuration}
+import scala.concurrent.duration.{DurationInt, DurationLong, FiniteDuration, MILLISECONDS}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 abstract class ResetServiceITBase
     extends AsyncWordSpec
@@ -73,6 +74,9 @@ abstract class ResetServiceITBase
     with AbstractSandboxFixture
     with SuiteResourceManagementAroundAll
     with TestCommands {
+
+  protected val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+  protected implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   override def timeLimit: Span = scaled(30.seconds)
 
@@ -104,14 +108,25 @@ abstract class ResetServiceITBase
 
   // Resets and waits for a new ledger identity to be available
   protected def reset(ledgerId: LedgerId): Future[LedgerId] =
+    timedReset(ledgerId).map(_._1)
+
+  protected def timedReset(ledgerId: LedgerId): Future[(LedgerId, FiniteDuration)] = {
+    logger.info(s"Calling reset on $ledgerId")
+    val start = System.nanoTime()
     ResetServiceGrpc
       .stub(channel)
       .reset(ResetRequest(ledgerId.unwrap))
       .flatMap(_ => waitForLedgerToRestart(ledgerId))
-
-  protected def timedReset(ledgerId: LedgerId): Future[(LedgerId, FiniteDuration)] = {
-    val start = System.nanoTime()
-    reset(ledgerId).map(_ -> (System.nanoTime() - start).nanos)
+      .map(_ -> (System.nanoTime() - start).nanos)
+      .andThen {
+        case Success((newLedgerId, d)) =>
+          info(s"Ledger $ledgerId reset")
+          logger.info(
+            s"Reset finished on $ledgerId after ${FiniteDuration(d.toMillis, MILLISECONDS)}, new ledgerId is $newLedgerId"
+          )
+        case Failure(e) =>
+          logger.warn(s"Reset failed on $ledgerId because of $e")
+      }
   }
 
   protected def allocateParty(hint: String): Future[String] =
@@ -201,10 +216,10 @@ abstract class ResetServiceITBase
         }
       }
 
-      "return new ledger ID - 20 resets" in {
+      "return new ledger ID - 10 resets" in {
         Future
-          .sequence(Iterator.iterate(fetchLedgerId())(_.flatMap(reset)).take(20).toVector)
-          .map(ids => ids.distinct should have size 20L)
+          .sequence(Iterator.iterate(fetchLedgerId())(_.flatMap(reset)).take(10).toVector)
+          .map(ids => ids.distinct should have size 10L)
       }
 
       // 4 attempts with 5 transactions each seem to strike the right balance to complete before the

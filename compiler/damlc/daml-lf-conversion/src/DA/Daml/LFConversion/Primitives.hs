@@ -8,8 +8,8 @@
 -- | The DAML-LF primitives, matched with their type, and using 'primitive' on the libraries side.
 module DA.Daml.LFConversion.Primitives(convertPrim) where
 
-import           DA.Daml.LFConversion.UtilLF
 import           DA.Daml.LF.Ast
+import           DA.Daml.UtilLF
 import           DA.Pretty (renderPretty)
 import qualified Data.Text as T
 import qualified Data.List as L

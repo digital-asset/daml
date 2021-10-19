@@ -10,7 +10,6 @@ import java.time.Instant
 
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.validation.{
@@ -18,7 +17,10 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.validatio
   ModelConformanceValidator,
   TransactionConsistencyValidator,
 }
-import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionRejectionEntry
+import com.daml.ledger.participant.state.kvutils.store.events.{
+  DamlTransactionRejectionEntry,
+  Duplicate,
+}
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlCommandDedupValue,
   DamlContractKeyState,
@@ -41,22 +43,10 @@ import com.google.protobuf.{Timestamp => ProtoTimestamp}
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 
-// The parameter inStaticTimeMode indicates that the ledger is running in static time mode.
-//
-// Command deduplication is always based on wall clock time and not ledger time. In static time mode,
-// record time cannot be used for command deduplication. This flag indicates that the system clock should
-// be used as submission time for commands instead of record time.
-//
-// Other possible solutions that we discarded:
-// * Pass in an additional time provider, but this hides the intent
-// * Adding and additional submission field commandDedupSubmissionTime field. While having participants
-//   provide this field *could* lead to possible exploits, they are not exploits that could do any harm.
-//   The bigger concern is adding a public API for the specific use case of Sandbox with static time.
 private[kvutils] class TransactionCommitter(
     defaultConfig: Configuration,
     engine: Engine,
     override protected val metrics: Metrics,
-    inStaticTimeMode: Boolean,
 ) extends Committer[DamlTransactionEntrySummary] {
 
   import TransactionCommitter._
@@ -119,9 +109,7 @@ private[kvutils] class TransactionCommitter(
         .map { recordTime =>
           val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
           val dedupEntry = commitContext.get(dedupKey)
-          val submissionTime =
-            if (inStaticTimeMode) Instant.now() else recordTime.toInstant
-          if (dedupEntry.forall(isAfterDeduplicationTime(submissionTime, _))) {
+          if (dedupEntry.forall(isAfterDeduplicationTime(recordTime.toInstant, _))) {
             StepContinue(transactionEntry)
           } else {
             rejections.reject(

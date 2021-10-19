@@ -74,7 +74,6 @@
 
 module DA.Daml.LFConversion
     ( convertModule
-    , convertModuleName
     , sourceLocToRange
     , convertRationalBigNumeric -- exposed for festing
     , runConvertM -- exposed for testing
@@ -82,9 +81,10 @@ module DA.Daml.LFConversion
     ) where
 
 import           DA.Daml.LFConversion.Primitives
-import           DA.Daml.LFConversion.UtilGHC
-import           DA.Daml.LFConversion.UtilLF
 import           DA.Daml.LFConversion.MetadataEncoding
+import           DA.Daml.Preprocessor (isInternal)
+import           DA.Daml.UtilGHC
+import           DA.Daml.UtilLF
 
 import           Development.IDE.Types.Diagnostics
 import           Development.IDE.Types.Location
@@ -118,6 +118,7 @@ import           "ghc-lib-parser" TysPrim
 import           "ghc-lib-parser" TyCoRep
 import           "ghc-lib-parser" Class (classHasFds, classMinimalDef, classOpItems)
 import qualified "ghc-lib-parser" Name
+import qualified "ghc-lib-parser" Avail as GHC
 import qualified "ghc-lib-parser" BooleanFormula as BF
 import           Safe.Exact (zipExact, zipExactMay)
 import           SdkVersion
@@ -495,7 +496,16 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
     templates <- convertTemplateDefs env
     exceptions <- convertExceptionDefs env
     interfaces <- convertInterfaces env (eltsUFM (cm_types x))
-    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ templates ++ exceptions ++ definitions ++ interfaces ++ depOrphanModules))
+    exports <- convertExports env (md_exports details)
+    let defs =
+            types
+            ++ templates
+            ++ exceptions
+            ++ definitions
+            ++ interfaces
+            ++ depOrphanModules
+            ++ exports
+    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags defs)
     where
         ghcModName = GHC.moduleName $ cm_module x
         thisUnitId = GHC.moduleUnitId $ cm_module x
@@ -740,6 +750,58 @@ convertDepOrphanModules env orphanModules = do
     let moduleImportsType = encodeModuleImports qualifiedDepOrphanModules
         moduleImportsDef = DValue (mkMetadataStub moduleImportsName moduleImportsType)
     pure [moduleImportsDef]
+
+convertExports :: Env -> [GHC.AvailInfo] -> ConvertM [Definition]
+convertExports env availInfos =
+    if envLfVersion env `supports` featureTypeSynonyms
+        then do
+            let externalExportInfos = filter isExternalAvailInfo availInfos
+            exportInfos <- mapM availInfoToExportInfo externalExportInfos
+            pure $ zipWith mkExportDef [0..] exportInfos
+        else
+            pure []
+    where
+        isExternalAvailInfo :: GHC.AvailInfo -> Bool
+        isExternalAvailInfo = isExternalName . GHC.availName
+            where
+                isExternalName name =
+                    not $
+                        nameIsLocalOrFrom thisModule name
+                        || isSystemName name
+                        || isWiredInName name
+                        || maybe False (isInternal . GHC.moduleName) (nameModule_maybe name)
+                thisModule = GHC.Module (envModuleUnitId env) (envGHCModuleName env)
+
+        availInfoToExportInfo :: GHC.AvailInfo -> ConvertM ExportInfo
+        availInfoToExportInfo = \case
+            GHC.Avail name -> ExportInfoVal
+                <$> convertQualName name
+            GHC.AvailTC name pieces fields -> ExportInfoTC
+                <$> convertQualName name
+                <*> mapM convertQualName (filter (/= name) pieces)
+                    -- NOTE (MA): 'pieces' includes an entry for the type/class,
+                    -- but we exclude it since otherwise the export list entry
+                    -- would include it as a child, e.g.
+                    -- for
+                    --   module Type
+                    --   data T = MkT
+                    -- we'd get
+                    --   module Type     (Type.T (Type.T, Type.MkT)) where
+                    -- with an error reported for this ^
+                <*> mapM convertFieldLabel fields
+
+        convertQualName :: GHC.Name -> ConvertM QualName
+        convertQualName = fmap QualName . convertQualified getOccName env
+
+        convertFieldLabel :: GHC.FieldLabel -> ConvertM (GHC.FieldLbl QualName)
+        convertFieldLabel f = do
+            flSelector <- convertQualName (flSelector f)
+            pure f { flSelector }
+
+        mkExportDef :: Integer -> ExportInfo -> Definition
+        mkExportDef i info =
+            let exportType = encodeExportInfo info
+            in DValue (mkMetadataStub (exportName i) exportType)
 
 defNewtypeWorker :: NamedThing a => LF.ModuleName -> a -> TypeConName -> DataCon
     -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition
@@ -1894,10 +1956,6 @@ convertCoercion env co = evalStateT (go env co) 0
         flv = tyConFlavour t
     isSatNewTyCon _ _ = Nothing
 
-convertModuleName :: GHC.ModuleName -> LF.ModuleName
-convertModuleName =
-    ModuleName . T.split (== '.') . fsToText . moduleNameFS
-
 qualify :: Env -> GHC.Module -> a -> ConvertM (Qualified a)
 qualify env m x = do
     unitId <- convertUnitId (envModuleUnitId env) (envPkgMap env) $ GHC.moduleUnitId m
@@ -1956,15 +2014,15 @@ convertQualifiedModuleName x env (GHC.Module unitId moduleName) = do
     modName
     x
 
-convertQualified :: NamedThing a => (T.Text -> t) -> Env -> a -> ConvertM (Qualified t)
+convertQualified :: NamedThing a => (Name -> t) -> Env -> a -> ConvertM (Qualified t)
 convertQualified toT env x = do
-  convertQualifiedModuleName (toT (getOccText x)) env (nameModule (getName x))
+  convertQualifiedModuleName (toT (getName x)) env (nameModule (getName x))
 
 convertQualifiedTySyn :: NamedThing a => Env -> a -> ConvertM (Qualified TypeSynName)
-convertQualifiedTySyn = convertQualified (\t -> mkTypeSyn [t])
+convertQualifiedTySyn = convertQualified (\n -> mkTypeSyn [getOccText n])
 
 convertQualifiedTyCon :: NamedThing a => Env -> a -> ConvertM (Qualified TypeConName)
-convertQualifiedTyCon = convertQualified (\t -> mkTypeCon [t])
+convertQualifiedTyCon = convertQualified (\n -> mkTypeCon [getOccText n])
 
 nameToPkgRef :: NamedThing a => Env -> a -> ConvertM LF.PackageRef
 nameToPkgRef env x =

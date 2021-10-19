@@ -91,7 +91,6 @@ import Development.IDE.Core.RuleTypes.Daml
 import DA.Bazel.Runfiles
 import DA.Daml.DocTest
 import DA.Daml.LFConversion (convertModule)
-import DA.Daml.LFConversion.UtilLF
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.InferSerializability as Serializability
 import qualified DA.Daml.LF.PrettyScenario as LF
@@ -99,6 +98,7 @@ import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
+import DA.Daml.UtilLF
 import qualified DA.Pretty as Pretty
 import SdkVersion (damlStdlib)
 

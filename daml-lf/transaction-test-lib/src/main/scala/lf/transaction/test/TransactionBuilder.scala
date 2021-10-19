@@ -9,7 +9,7 @@ import com.daml.lf.data._
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.daml.lf.value.Value.{ContractId, ContractInst, VersionedContractInstance}
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
@@ -77,11 +77,8 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
 
   def newCid: ContractId = TransactionBuilder.newV1Cid
 
-  def versionContract(contract: Value.ContractInst[Value]): value.Value.ContractInst[TxValue] =
-    contract.map(transactionValue(contract.template))
-
-  private[this] def transactionValue(templateId: Ref.TypeConName): Value => TxValue =
-    value.Value.VersionedValue(pkgTxVersion(templateId.packageId), _)
+  def versionContract(contract: Value.ContractInst[Value]): value.Value.VersionedContractInstance =
+    VersionedContractInstance(pkgTxVersion(contract.template.packageId), contract)
 
   def create(
       id: ContractId,
@@ -321,6 +318,19 @@ object TransactionBuilder {
       supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
   ): TxValue =
     data.assertRight(asVersionedValue(value, supportedVersions))
+
+  def asVersionedContract(
+      contract: ContractInst[Value],
+      supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
+  ): Either[String, VersionedContractInstance] =
+    assignVersion(contract.arg, supportedVersions)
+      .map(VersionedContractInstance(_, contract))
+
+  def assertAsVersionedContract(
+      contract: ContractInst[Value],
+      supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
+  ): VersionedContractInstance =
+    data.assertRight(asVersionedContract(contract, supportedVersions))
 
   object Implicits {
 

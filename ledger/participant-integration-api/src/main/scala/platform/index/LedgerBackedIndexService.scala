@@ -4,11 +4,11 @@
 package com.daml.platform.index
 
 import java.time.Instant
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.dec.{DirectExecutionContext => DEC}
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
 import com.daml.ledger.api.domain.{
@@ -38,9 +38,8 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst}
-import com.daml.logging.LoggingContext
+import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -55,6 +54,7 @@ private[platform] final class LedgerBackedIndexService(
     ledger: ReadOnlyLedger,
     participantId: Ref.ParticipantId,
 ) extends IndexService {
+  private val logger = ContextualizedLogger.get(getClass)
 
   override def getLedgerId()(implicit loggingContext: LoggingContext): Future[LedgerId] =
     Future.successful(ledger.ledgerId)
@@ -143,9 +143,10 @@ private[platform] final class LedgerBackedIndexService(
             Source.empty
           case Some(end) if begin > end =>
             Source.failed(
+              // TODO error codes: Replace with LedgerApiErrors.ReadErrors.RequestedOffsetAfterLedgerEnd
               ErrorFactories.invalidArgument(None)(
                 s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."
-              )
+              )(new DamlContextualizedErrorLogger(logger, loggingContext, None))
             )
           case endOpt: Option[Offset] =>
             f(Some(begin), endOpt)
@@ -214,7 +215,7 @@ private[platform] final class LedgerBackedIndexService(
       contractId: ContractId,
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Option[ContractInst[Value.VersionedValue]]] =
+  ): Future[Option[VersionedContractInstance]] =
     ledger.lookupContract(contractId, readers)
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit

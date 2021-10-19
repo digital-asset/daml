@@ -255,6 +255,11 @@ object Cli {
         success
     )
 
+    opt[Unit]("static-time")
+      .optional()
+      .action((_, c) => c.copy(staticTime = true))
+      .text("Must be enabled if the ledger is using static time")
+
     help("help").text("Prints this usage text")
   }
 

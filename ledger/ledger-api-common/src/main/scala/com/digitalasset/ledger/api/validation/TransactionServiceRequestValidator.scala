@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.validation
 
+import com.daml.error.ContextualizedErrorLogger
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, LedgerOffset}
@@ -32,7 +33,9 @@ class TransactionServiceRequestValidator(
 
   private val partyValidator = new PartyValidator(partyNameChecker)
 
-  private def matchId(input: LedgerId): Result[LedgerId] = matchLedgerId(ledgerId)(input)
+  private def matchId(input: LedgerId)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Result[LedgerId] = matchLedgerId(ledgerId)(input)
 
   case class PartialValidation(
       ledgerId: domain.LedgerId,
@@ -42,7 +45,9 @@ class TransactionServiceRequestValidator(
       knownParties: Set[Ref.Party],
   )
 
-  private def commonValidations(req: GetTransactionsRequest): Result[PartialValidation] = {
+  private def commonValidations(
+      req: GetTransactionsRequest
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Result[PartialValidation] = {
     for {
       ledgerId <- matchId(LedgerId(req.ledgerId))
       filter <- requirePresence(req.filter, "filter")
@@ -63,6 +68,8 @@ class TransactionServiceRequestValidator(
   def validate(
       req: GetTransactionsRequest,
       ledgerEnd: LedgerOffset.Absolute,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Result[transaction.GetTransactionsRequest] = {
 
     for {
@@ -92,6 +99,8 @@ class TransactionServiceRequestValidator(
   def validateTree(
       req: GetTransactionsRequest,
       ledgerEnd: LedgerOffset.Absolute,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Result[GetTransactionTreesRequest] = {
 
     for {
@@ -118,7 +127,9 @@ class TransactionServiceRequestValidator(
     }
   }
 
-  def validateLedgerEnd(req: GetLedgerEndRequest): Result[transaction.GetLedgerEndRequest] = {
+  def validateLedgerEnd(req: GetLedgerEndRequest)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Result[transaction.GetLedgerEndRequest] = {
     for {
       ledgerId <- matchId(LedgerId(req.ledgerId))
     } yield {
@@ -128,6 +139,8 @@ class TransactionServiceRequestValidator(
 
   def validateTransactionById(
       req: GetTransactionByIdRequest
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Result[transaction.GetTransactionByIdRequest] = {
     for {
       ledgerId <- matchId(LedgerId(req.ledgerId))
@@ -146,6 +159,8 @@ class TransactionServiceRequestValidator(
 
   def validateTransactionByEventId(
       req: GetTransactionByEventIdRequest
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Result[transaction.GetTransactionByEventIdRequest] = {
     for {
       ledgerId <- matchId(LedgerId(req.ledgerId))
@@ -163,7 +178,7 @@ class TransactionServiceRequestValidator(
 
   private def transactionFilterToPartySet(
       transactionFilter: TransactionFilter
-  ) =
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger) =
     transactionFilter.filtersByParty
       .collectFirst { case (party, Filters(Some(inclusive))) =>
         invalidArgument(None)(

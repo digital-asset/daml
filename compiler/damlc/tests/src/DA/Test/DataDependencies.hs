@@ -1236,6 +1236,122 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             ]
         ]
 
+    , dataDependenciesTest "Using reexported modules"
+        -- This test checks that reexported modules are visible
+        [
+            (,) "Base.daml"
+            [ "module Base where"
+            , "data T = T"
+            ]
+        ,   (,) "Wrapper.daml"
+            [ "module Wrapper (module Base) where"
+            , "import Base"
+            ]
+        ]
+        [
+            (,) "Main.daml"
+            [ "module Main where"
+            , "import Wrapper"
+            , "t = T"
+            -- If reexported modules were not imported correctly,
+            -- we'd get a missing data constructor error from GHC.
+            ]
+        ]
+
+    , dataDependenciesTest "Using reexported values"
+        -- This test checks that reexported values are visible
+        [
+            (,) "Base.daml"
+            [ "module Base where"
+            , "x = ()"
+            ]
+        ,   (,) "Wrapper.daml"
+            [ "module Wrapper (x) where"
+            , "import Base"
+            ]
+        ]
+        [
+            (,) "Main.daml"
+            [ "module Main where"
+            , "import Wrapper"
+            , "y = x"
+            -- If reexported values were not imported correctly,
+            -- we'd get a missing variable error from GHC.
+            ]
+        ]
+
+    , dataDependenciesTest "Using reexported classes"
+        -- This test checks that reexported classes are visible
+        [
+            (,) "Base.daml"
+            [ "module Base where"
+            , "class C a where m : a"
+            ]
+        ,   (,) "Wrapper.daml"
+            [ "module Wrapper (C (..)) where"
+            , "import Base"
+            ]
+        ]
+        [
+            (,) "Main.daml"
+            [ "module Main where"
+            , "import Wrapper"
+            , "f : C a => a"
+            , "f = m"
+            -- If reexported classes were not imported correctly,
+            -- we'd get a missing class error from GHC.
+            ]
+        ]
+
+    , dataDependenciesTest "Using reexported methods"
+        -- This test checks that reexported methods are visible
+        [
+            (,) "Base.daml"
+            [ "module Base where"
+            , "class C a where m : a"
+            , "instance C () where m = ()"
+            ]
+        ,   (,) "Wrapper.daml"
+            [ "module Wrapper (C (..)) where"
+            , "import Base"
+            ]
+        ]
+        [
+            (,) "Main.daml"
+            [ "module Main where"
+            , "import Wrapper"
+            , "x : ()"
+            , "x = m"
+            -- If reexported methods were not imported correctly,
+            -- we'd get a missing variable error from GHC.
+            ]
+        ]
+
+    , dataDependenciesTest "Using reexported selectors"
+        -- This test checks that reexported selectors are visible
+        [
+            (,) "Base.daml"
+            [ "module Base where"
+            , "data R = R with"
+            , "  f : ()"
+            ]
+        ,   (,) "Wrapper.daml"
+            [ "module Wrapper (R (..), r) where"
+            , "import Base"
+            , "r = R ()"
+            ]
+        ]
+        [
+            (,) "Main.daml"
+            [ "module Main where"
+            , "import Wrapper"
+            , "x : ()"
+            , "x = r.f"
+            -- If reexported selectors were not imported correctly,
+            -- we'd get a missing variable error from GHC.
+            ]
+        ]
+
     , testCaseSteps "User-defined exceptions" $ \step -> withTempDir $ \tmpDir -> do
         step "building project to be imported via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "lib")

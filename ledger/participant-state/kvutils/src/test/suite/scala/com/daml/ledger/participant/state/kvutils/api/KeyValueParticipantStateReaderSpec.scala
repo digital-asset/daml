@@ -17,7 +17,7 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlPartyAllocation,
   DamlStateValue,
 }
-import com.daml.ledger.participant.state.kvutils.{Envelope, OffsetBuilder, Raw}
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw, VersionedOffsetBuilder}
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -35,15 +35,15 @@ class KeyValueParticipantStateReaderSpec
     with Matchers
     with AkkaBeforeAndAfterAll {
 
-  import OffsetBuilder.{fromLong => toOffset}
+  private val offsetBuilder = new VersionedOffsetBuilder(0)
 
   "participant state reader" should {
     "stream offsets from the start" in {
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(toOffset(1), aLogEntryId(1), aWrappedLogEntry),
-        LedgerRecord(toOffset(2), aLogEntryId(2), aWrappedLogEntry),
-        LedgerRecord(toOffset(3), aLogEntryId(3), aWrappedLogEntry),
+        LedgerRecord(offsetBuilder.of(1), aLogEntryId(1), aWrappedLogEntry),
+        LedgerRecord(offsetBuilder.of(2), aLogEntryId(2), aWrappedLogEntry),
+        LedgerRecord(offsetBuilder.of(3), aLogEntryId(3), aWrappedLogEntry),
       )
       val instance = createInstance(reader)
       val stream = instance.stateUpdates(None)
@@ -51,54 +51,54 @@ class KeyValueParticipantStateReaderSpec
       offsetsFrom(stream).map { actual =>
         actual should have size 3
         actual shouldBe Seq(
-          toOffset(1),
-          toOffset(2),
-          toOffset(3),
+          offsetBuilder.of(1),
+          offsetBuilder.of(2),
+          offsetBuilder.of(3),
         )
       }
     }
 
     "stream offsets from a given 1 component offset" in {
       val reader = readerStreamingFrom(
-        offset = Some(toOffset(4)),
-        LedgerRecord(toOffset(5), aLogEntryId(5), aWrappedLogEntry),
-        LedgerRecord(toOffset(6), aLogEntryId(6), aWrappedLogEntry),
-        LedgerRecord(toOffset(7), aLogEntryId(7), aWrappedLogEntry),
-        LedgerRecord(toOffset(8), aLogEntryId(8), aWrappedLogEntry),
+        offset = Some(offsetBuilder.of(4)),
+        LedgerRecord(offsetBuilder.of(5), aLogEntryId(5), aWrappedLogEntry),
+        LedgerRecord(offsetBuilder.of(6), aLogEntryId(6), aWrappedLogEntry),
+        LedgerRecord(offsetBuilder.of(7), aLogEntryId(7), aWrappedLogEntry),
+        LedgerRecord(offsetBuilder.of(8), aLogEntryId(8), aWrappedLogEntry),
       )
       val instance = createInstance(reader)
-      val stream = instance.stateUpdates(Some(toOffset(4)))
+      val stream = instance.stateUpdates(Some(offsetBuilder.of(4)))
 
       offsetsFrom(stream).map { actual =>
         actual should have size 4
         actual shouldBe Seq(
-          toOffset(5),
-          toOffset(6),
-          toOffset(7),
-          toOffset(8),
+          offsetBuilder.of(5),
+          offsetBuilder.of(6),
+          offsetBuilder.of(7),
+          offsetBuilder.of(8),
         )
       }
     }
 
     "remove third component of input offset when streaming from underlying reader" in {
       val reader = readerStreamingFrom(
-        offset = Some(toOffset(1, 2)),
-        LedgerRecord(toOffset(2), aLogEntryId(2), aWrappedLogEntry),
+        offset = Some(offsetBuilder.of(1, 2)),
+        LedgerRecord(offsetBuilder.of(2), aLogEntryId(2), aWrappedLogEntry),
       )
       val instance = createInstance(reader)
-      val stream = instance.stateUpdates(Some(toOffset(1, 2, 3)))
+      val stream = instance.stateUpdates(Some(offsetBuilder.of(1, 2, 3)))
 
       offsetsFrom(stream).map { actual =>
         actual should have size 1
-        actual shouldBe Seq(toOffset(2))
+        actual shouldBe Seq(offsetBuilder.of(2))
       }
     }
 
     "do not append index to underlying reader's offset in case of no more than 1 update" in {
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(toOffset(1), aLogEntryId(1), aWrappedLogEntry),
-        LedgerRecord(toOffset(2), aLogEntryId(2), aWrappedLogEntry),
+        LedgerRecord(offsetBuilder.of(1), aLogEntryId(1), aWrappedLogEntry),
+        LedgerRecord(offsetBuilder.of(2), aLogEntryId(2), aWrappedLogEntry),
       )
       for (updateGenerator <- Seq(zeroUpdateGenerator, singleUpdateGenerator)) {
         val instance = createInstance(reader, updateGenerator)
@@ -106,7 +106,7 @@ class KeyValueParticipantStateReaderSpec
 
         offsetsFrom(stream).map { actual =>
           actual should have size 2
-          actual shouldBe Seq(toOffset(1), toOffset(2))
+          actual shouldBe Seq(offsetBuilder.of(1), offsetBuilder.of(2))
         }
       }
       succeed
@@ -115,8 +115,8 @@ class KeyValueParticipantStateReaderSpec
     "append index to underlying reader's offset in case of more than 1 update" in {
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(toOffset(1, 11), aLogEntryId(1), aWrappedLogEntry),
-        LedgerRecord(toOffset(2, 22), aLogEntryId(2), aWrappedLogEntry),
+        LedgerRecord(offsetBuilder.of(1, 11), aLogEntryId(1), aWrappedLogEntry),
+        LedgerRecord(offsetBuilder.of(2, 22), aLogEntryId(2), aWrappedLogEntry),
       )
       val instance = createInstance(reader, twoUpdatesGenerator)
       val stream = instance.stateUpdates(None)
@@ -124,19 +124,19 @@ class KeyValueParticipantStateReaderSpec
       offsetsFrom(stream).map { actual =>
         actual should have size 4
         actual shouldBe Seq(
-          toOffset(1, 11, 0),
-          toOffset(1, 11, 1),
-          toOffset(2, 22, 0),
-          toOffset(2, 22, 1),
+          offsetBuilder.of(1, 11, 0),
+          offsetBuilder.of(1, 11, 1),
+          offsetBuilder.of(2, 22, 0),
+          offsetBuilder.of(2, 22, 1),
         )
       }
     }
 
     "skip events before specified offset" in {
       val records = List(
-        LedgerRecord(toOffset(1), aLogEntryId(1), aWrappedLogEntry),
-        LedgerRecord(toOffset(2), aLogEntryId(2), aWrappedLogEntry),
-        LedgerRecord(toOffset(3), aLogEntryId(3), aWrappedLogEntry),
+        LedgerRecord(offsetBuilder.of(1), aLogEntryId(1), aWrappedLogEntry),
+        LedgerRecord(offsetBuilder.of(2), aLogEntryId(2), aWrappedLogEntry),
+        LedgerRecord(offsetBuilder.of(3), aLogEntryId(3), aWrappedLogEntry),
       )
 
       def getInstance(
@@ -153,7 +153,7 @@ class KeyValueParticipantStateReaderSpec
 
       Future
         .sequence(
-          Seq(None, Some(toOffset(1)), Some(toOffset(2)), Some(toOffset(3)))
+          Seq(None, Some(offsetBuilder.of(1)), Some(offsetBuilder.of(2)), Some(offsetBuilder.of(3)))
             .map(offset => offsetsFrom(instances(offset).stateUpdates(offset)))
         )
         .map { case Seq(all, afterFirst, beforeLast, afterLast) =>
@@ -168,7 +168,7 @@ class KeyValueParticipantStateReaderSpec
       val anInvalidEnvelope = Raw.Envelope(ByteString.copyFrom(Array[Byte](0, 1, 2)))
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(toOffset(0), aLogEntryId(0), anInvalidEnvelope),
+        LedgerRecord(offsetBuilder.of(0), aLogEntryId(0), anInvalidEnvelope),
       )
       val instance = createInstance(reader)
 
@@ -181,7 +181,7 @@ class KeyValueParticipantStateReaderSpec
       val anInvalidEnvelopeMessage = Envelope.enclose(aStateValue)
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(toOffset(0), aLogEntryId(0), anInvalidEnvelopeMessage),
+        LedgerRecord(offsetBuilder.of(0), aLogEntryId(0), anInvalidEnvelopeMessage),
       )
       val instance = createInstance(reader)
 
@@ -194,7 +194,7 @@ class KeyValueParticipantStateReaderSpec
       val anInvalidEnvelopeMessage = Envelope.enclose(aStateValue)
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(toOffset(0), aLogEntryId(0), anInvalidEnvelopeMessage),
+        LedgerRecord(offsetBuilder.of(0), aLogEntryId(0), anInvalidEnvelopeMessage),
       )
       val instance = createInstance(reader, failOnUnexpectedEvent = false)
 
@@ -206,19 +206,16 @@ class KeyValueParticipantStateReaderSpec
 
   "offsetForUpdate" should {
     "not overwrite middle offset from record in case of 2 updates" in {
-      val offsetFromRecord = OffsetBuilder.fromLong(1, 2)
+      val offsetFromRecord = offsetBuilder.of(1, 2)
       for (subOffset <- Seq(0, 1)) {
-        offsetForUpdate(offsetFromRecord, subOffset, 2) shouldBe OffsetBuilder.fromLong(
-          1,
-          2,
-          subOffset,
-        )
+        (offsetForUpdate(offsetFromRecord, subOffset, 2)
+          shouldBe offsetBuilder.of(1, 2, subOffset))
       }
       succeed
     }
 
     "use original offset in case less than 2 updates" in {
-      val expectedOffset = OffsetBuilder.fromLong(1, 2, 3)
+      val expectedOffset = offsetBuilder.of(1, 2, 3)
       for (totalUpdates <- Seq(0, 1)) {
         for (i <- 0 until totalUpdates) {
           offsetForUpdate(expectedOffset, i, totalUpdates) shouldBe expectedOffset

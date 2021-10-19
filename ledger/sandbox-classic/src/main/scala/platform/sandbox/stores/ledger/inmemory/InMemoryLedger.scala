@@ -50,8 +50,7 @@ import com.daml.lf.transaction.{
   SubmittedTransaction,
   TransactionCommitter,
 }
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.index.TransactionConversion
 import com.daml.platform.packages.InMemoryPackageStore
@@ -296,7 +295,7 @@ private[sandbox] final class InMemoryLedger(
                   LfEngineToApi.assertOrRuntimeEx(
                     "converting stored contract",
                     LfEngineToApi
-                      .lfValueToApiRecord(verbose = verbose, contractInst.arg.value),
+                      .lfValueToApiRecord(verbose = verbose, contractInst.arg),
                   )
                 ),
                 contract.signatories.union(contract.observers).intersect(filter.keySet).toSeq,
@@ -316,7 +315,7 @@ private[sandbox] final class InMemoryLedger(
       forParties: Set[Ref.Party],
   )(implicit
       loggingContext: LoggingContext
-  ): Future[Option[ContractInst[Value.VersionedValue]]] =
+  ): Future[Option[VersionedContractInstance]] =
     Future.successful(this.synchronized {
       acs.activeContracts
         .get(contractId)

@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.validation
 
+import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.lf.data._
 import com.daml.lf.value.Value.{ContractId, ValueUnit}
 import com.daml.ledger.api.domain
@@ -16,10 +17,12 @@ import io.grpc.StatusRuntimeException
 import scalaz.syntax.bifunctor._
 import scalaz.std.either._
 
-object ValueValidator {
+trait ValueValidator {
 
   private[validation] def validateRecordFields(
       recordFields: Seq[api.RecordField]
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, ImmArray[(Option[Ref.Name], domain.Value)]] =
     recordFields
       .foldLeft[Either[StatusRuntimeException, BackStack[(Option[Ref.Name], domain.Value)]]](
@@ -34,7 +37,9 @@ object ValueValidator {
       })
       .map(_.toImmArray)
 
-  def validateRecord(rec: api.Record): Either[StatusRuntimeException, Lf.ValueRecord] =
+  def validateRecord(rec: api.Record)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Lf.ValueRecord] =
     for {
       recId <- validateOptionalIdentifier(rec.recordId)
       fields <- validateRecordFields(rec.fields)
@@ -43,7 +48,9 @@ object ValueValidator {
   private val validNumericString =
     """[+-]?\d{1,38}(\.\d{0,37})?""".r.pattern
 
-  def validateValue(v0: api.Value): Either[StatusRuntimeException, domain.Value] = v0.sum match {
+  def validateValue(v0: api.Value)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, domain.Value] = v0.sum match {
     case Sum.ContractId(cId) =>
       ContractId
         .fromString(cId)
@@ -147,7 +154,23 @@ object ValueValidator {
 
   private[validation] def validateOptionalIdentifier(
       variantIdO: Option[api.Identifier]
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Option[Ref.Identifier]] =
     variantIdO.map(validateIdentifier(_).map(Some.apply)).getOrElse(Right(None))
 
+}
+
+object ValueValidator extends ValueValidator
+
+/** Implementation of self-service error codes brings logging-on-creation to
+  * error factories and validators, used in the Ledger API where automatic logging is desired.
+  * For places where the ValueValidator is needed without logging(e.g. daml-script, navigator), use this implementation instead.
+  */
+object NoLoggingValueValidator extends ValueValidator {
+  def validateRecord(rec: api.Record): Either[StatusRuntimeException, Lf.ValueRecord] =
+    ValueValidator.validateRecord(rec)(NoLogging)
+
+  def validateValue(v0: api.Value): Either[StatusRuntimeException, Lf] =
+    ValueValidator.validateValue(v0)(NoLogging)
 }

@@ -6,10 +6,10 @@ package com.daml.ledger.api.testtool.infrastructure.deduplication
 import java.util.UUID
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
-import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertGrpcError, assertSingleton, _}
+import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
-import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.DeduplicationFeatures
+import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
@@ -19,7 +19,6 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation, TextKey, TextKeyOperations}
-import com.daml.timer.Delayed
 import io.grpc.Status.Code
 
 import scala.annotation.nowarn
@@ -31,6 +30,7 @@ import scala.util.{Failure, Success}
 private[testtool] abstract class CommandDeduplicationBase(
     timeoutScaleFactor: Double,
     ledgerTimeInterval: FiniteDuration,
+    staticTime: Boolean,
 ) extends LedgerTestSuite {
 
   val deduplicationDuration: FiniteDuration = scaledDuration(3.seconds)
@@ -40,11 +40,11 @@ private[testtool] abstract class CommandDeduplicationBase(
 
   def deduplicationFeatures: DeduplicationFeatures
 
-  protected def runGivenDeduplicationWait(
+  protected def runWithDeduplicationDelay(
       participants: Seq[ParticipantTestContext]
-  )(test: Duration => Future[Unit])(implicit
-      ec: ExecutionContext
-  ): Future[Unit]
+  )(
+      testWithDelayMechanism: DelayMechanism => Future[Unit]
+  )(implicit ec: ExecutionContext): Future[Unit]
 
   protected def testNamingPrefix: String
 
@@ -58,11 +58,10 @@ private[testtool] abstract class CommandDeduplicationBase(
       val request = ledger
         .submitRequest(party, DummyWithAnnotation(party, "Duplicate command").create.command)
         .update(
-          _.commands.deduplicationPeriod := DeduplicationPeriod.DeduplicationTime(
-            deduplicationDuration.asProtobuf
-          )
+          _.commands.deduplicationPeriod :=
+            DeduplicationPeriod.DeduplicationTime(deduplicationDuration.asProtobuf)
         )
-      runGivenDeduplicationWait(configuredParticipants) { deduplicationWait =>
+      runWithDeduplicationDelay(configuredParticipants) { delay =>
         for {
           // Submit command (first deduplication window)
           // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
@@ -70,7 +69,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           completion1 <- submitRequestAndAssertCompletionAccepted(ledger)(request, party)
           _ <- submitRequestAndAssertDeduplication(ledger)(request, party)
           // Wait until the end of first deduplication window
-          _ <- Delayed.by(deduplicationWait)(())
+          _ <- delay()
 
           // Submit command (second deduplication window)
           // Note: the deduplication window is guaranteed to have passed on both
@@ -169,14 +168,14 @@ private[testtool] abstract class CommandDeduplicationBase(
         .update(
           _.commands.deduplicationTime := deduplicationDuration.asProtobuf
         )
-      runGivenDeduplicationWait(configuredParticipants) { deduplicationWait =>
+      runWithDeduplicationDelay(configuredParticipants) { delay =>
         for {
           // Submit command (first deduplication window)
           _ <- ledger.submitAndWait(request)
           _ <- submitAndWaitRequestAndAssertDeduplication(ledger)(request)
 
           // Wait until the end of first deduplication window
-          _ <- Delayed.by(deduplicationWait)(())
+          _ <- delay()
 
           // Submit command (second deduplication window)
           _ <- ledger.submitAndWait(request)
@@ -192,8 +191,10 @@ private[testtool] abstract class CommandDeduplicationBase(
     }
   )
 
-  // Without the submission id we cannot assert the received completions for parallel submissions
-  if (deduplicationFeatures.appendOnlySchema)
+  // appendOnlySchema - without the submission id we cannot assert the received completions for parallel submissions
+  // staticTime - we run calls in parallel and with static time we would need to advance the time,
+  //              therefore this cannot be run in static time
+  if (deduplicationFeatures.appendOnlySchema && !staticTime)
     testGivenAllParticipants(
       s"${testNamingPrefix}SimpleDeduplicationMixedClients",
       "Deduplicate commands within the deduplication time window using the command client and the command submission client",
@@ -206,7 +207,8 @@ private[testtool] abstract class CommandDeduplicationBase(
             case currentElement :: tail =>
               currentElement.flatMap(value => generateVariations(tail).map(value :: _))
           }
-        runGivenDeduplicationWait(configuredParticipants) { deduplicationWait =>
+
+        runWithDeduplicationDelay(configuredParticipants) { delay =>
           {
             val numberOfCalls = 4
             Future // cover all the different generated variations of submit and submitAndWait
@@ -220,24 +222,27 @@ private[testtool] abstract class CommandDeduplicationBase(
                   val submitRequest = ledger
                     .submitRequest(party, Dummy(party).create.command)
                     .update(_.commands.commandId := submitAndWaitRequest.getCommands.commandId)
+
                   def submitAndAssertAccepted(submitAndWait: Boolean) = {
                     if (submitAndWait) ledger.submitAndWait(submitAndWaitRequest)
                     else
                       submitRequestAndAssertCompletionAccepted(ledger)(submitRequest, party)
                         .map(_ => ())
                   }
+
                   def submitAndAssertDeduplicated(submitAndWait: Boolean) = {
                     if (submitAndWait)
                       submitAndWaitRequestAndAssertDeduplication(ledger)(submitAndWaitRequest)
                     else submitRequestAndAssertDeduplication(ledger)(submitRequest, party)
                   }
+
                   for {
                     // Submit command (first deduplication window)
                     _ <- submitAndAssertAccepted(firstCall)
                     _ <- submitAndAssertDeduplicated(secondCall)
 
                     // Wait until the end of first deduplication window
-                    _ <- Delayed.by(deduplicationWait)(())
+                    _ <- delay()
 
                     // Submit command (second deduplication window)
                     _ <- submitAndAssertAccepted(thirdCall)
@@ -327,6 +332,7 @@ private[testtool] abstract class CommandDeduplicationBase(
         )
       )
   }
+
   protected def submitRequestAndAssertCompletionAccepted(
       ledger: ParticipantTestContext
   )(request: SubmitRequest, parties: Party*)(implicit ec: ExecutionContext): Future[Completion] = {
@@ -444,10 +450,13 @@ private[testtool] abstract class CommandDeduplicationBase(
 }
 
 object CommandDeduplicationBase {
+  trait DelayMechanism {
+    def apply(): Future[Unit]
+  }
 
   /** @param participantDeduplication If participant deduplication is enabled then we will receive synchronous rejections
-    * @param appendOnlySchema For [[Completion]], the submission id and deduplication period are filled only for append only schemas
-    * Therefore, we need to assert on those fields only if it's an append only schema
+    * @param appendOnlySchema          For [[Completion]], the submission id and deduplication period are filled only for append only schemas
+    *                                  Therefore, we need to assert on those fields only if it's an append only schema
     */
   case class DeduplicationFeatures(
       participantDeduplication: Boolean,

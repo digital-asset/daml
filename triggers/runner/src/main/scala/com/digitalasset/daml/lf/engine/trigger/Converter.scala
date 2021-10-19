@@ -24,7 +24,7 @@ import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.value
-import com.daml.ledger.api.validation.ValueValidator
+import com.daml.ledger.api.validation.NoLoggingValueValidator
 import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue,
@@ -162,7 +162,7 @@ object Converter {
       ),
     )
     for {
-      createArguments <- ValueValidator
+      createArguments <- NoLoggingValueValidator
         .validateRecord(created.getCreateArguments)
         .left
         .map(_.getMessage)

@@ -10,13 +10,14 @@ import anorm._
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
-import com.daml.ledger.participant.state.kvutils.Raw
+import com.daml.ledger.participant.state.kvutils.{Raw, VersionedOffsetBuilder}
 
 import scala.util.Try
 
-final class PostgresqlQueries(override protected implicit val connection: Connection)
-    extends Queries
-    with CommonQueries {
+final class PostgresqlQueries(
+    offsetBuilder: VersionedOffsetBuilder
+)(implicit connection: Connection)
+    extends CommonQueries(offsetBuilder) {
   override def updateOrRetrieveLedgerId(providedLedgerId: LedgerId): Try[LedgerId] = Try {
     SQL"INSERT INTO #$MetaTable (table_key, ledger_id) VALUES ($MetaTableKey, $providedLedgerId) ON CONFLICT DO NOTHING"
       .executeInsert()
@@ -40,9 +41,9 @@ final class PostgresqlQueries(override protected implicit val connection: Connec
   }
 }
 
-object PostgresqlQueries {
-  def apply(connection: Connection): Queries = {
+object PostgresqlQueries extends QueriesFactory {
+  override def apply(offsetBuilder: VersionedOffsetBuilder, connection: Connection): Queries = {
     implicit val conn: Connection = connection
-    new PostgresqlQueries
+    new PostgresqlQueries(offsetBuilder)
   }
 }

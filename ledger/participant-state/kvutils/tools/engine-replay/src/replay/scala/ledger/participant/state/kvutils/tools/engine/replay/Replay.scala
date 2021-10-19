@@ -23,7 +23,6 @@ import com.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,
   SubmittedTransaction,
-  Transaction => Tx,
   TransactionCoder => TxCoder,
 }
 import com.daml.lf.value.Value.ContractId
@@ -45,7 +44,7 @@ final case class TxEntry(
 final case class BenchmarkState(
     name: String,
     transaction: TxEntry,
-    contracts: Map[ContractId, Tx.ContractInst],
+    contracts: Map[ContractId, Value.VersionedContractInstance],
     contractKeys: Map[GlobalKey, ContractId],
 ) {
 
@@ -185,7 +184,7 @@ private[replay] object Replay {
           }
         )
 
-      val allContracts: Map[ContractId, Value.ContractInst[Tx.Value]] =
+      val allContracts: Map[ContractId, Value.VersionedContractInstance] =
         createsNodes.map(node => node.coid -> node.versionedCoinst).toMap
 
       val allContractsWithKey = createsNodes.flatMap { node =>

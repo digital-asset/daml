@@ -4,7 +4,7 @@
 package com.daml.platform.apiserver.services
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.error.ErrorCause
+import com.daml.error.{ErrorCause, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId, PartyDetails, SubmissionId}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -34,7 +34,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.execution.CommandExecutor
 import com.daml.platform.apiserver.services.ApiSubmissionServiceSpec._
-import com.daml.platform.apiserver.{ErrorCodesVersionSwitcher, SeedService}
+import com.daml.platform.apiserver.SeedService
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.Status

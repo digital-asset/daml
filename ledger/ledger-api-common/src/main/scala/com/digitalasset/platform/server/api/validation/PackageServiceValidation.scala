@@ -3,13 +3,15 @@
 
 package com.daml.platform.server.api.validation
 
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service._
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.validation.FieldValidations.matchLedgerId
 import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import io.grpc.ServerServiceDefinition
-import org.slf4j.{Logger, LoggerFactory}
 
 import scala.Function.const
 import scala.concurrent.{ExecutionContext, Future}
@@ -17,13 +19,14 @@ import scala.concurrent.{ExecutionContext, Future}
 class PackageServiceValidation(
     protected val service: PackageService with AutoCloseable,
     val ledgerId: LedgerId,
-)(implicit executionContext: ExecutionContext)
+)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends PackageService
     with ProxyCloseable
-    with GrpcApiService
-    with FieldValidations {
+    with GrpcApiService {
 
-  protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
+  protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
+  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] =
     matchLedgerId(ledgerId)(LedgerId(request.ledgerId))

@@ -11,7 +11,7 @@ module DA.Test.DamlcIntegration
 import           DA.Bazel.Runfiles
 import           DA.Daml.Options
 import           DA.Daml.Options.Types
-import           DA.Daml.LFConversion.UtilLF
+import           DA.Daml.UtilLF
 import           DA.Test.Util (standardizeQuotes)
 
 import           DA.Daml.LF.Ast as LF hiding (IsTest)

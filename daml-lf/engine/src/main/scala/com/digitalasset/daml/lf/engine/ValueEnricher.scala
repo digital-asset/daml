@@ -50,10 +50,10 @@ final class ValueEnricher(
     } yield contract.copy(arg = arg)
 
   def enrichVersionedContract(
-      contract: Value.ContractInst[VersionedValue]
-  ): Result[Value.ContractInst[VersionedValue]] =
+      contract: Value.VersionedContractInstance
+  ): Result[Value.VersionedContractInstance] =
     for {
-      arg <- enrichVersionedValue(Ast.TTyCon(contract.template), contract.arg)
+      arg <- enrichValue(Ast.TTyCon(contract.template), contract.arg)
     } yield contract.copy(arg = arg)
 
   def enrichContract(tyCon: Identifier, value: Value): Result[Value] =

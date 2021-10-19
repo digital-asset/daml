@@ -9,7 +9,6 @@ import java.time.{Duration, Instant}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
   ExternallyInconsistentTransaction,
@@ -21,9 +20,21 @@ import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionBli
   DivulgenceEntry,
 }
 import com.daml.ledger.participant.state.kvutils.store.events.{
+  CausalMonotonicityViolated,
   DamlSubmitterInfo,
   DamlTransactionBlindingInfo,
   DamlTransactionRejectionEntry,
+  DuplicateKeys,
+  InconsistentContracts,
+  InconsistentKeys,
+  InvalidLedgerTime,
+  InvalidParticipantState,
+  MissingInputState,
+  PartiesNotKnownOnLedger,
+  RecordTimeOutOfRange,
+  SubmitterCannotActViaParticipant,
+  SubmittingPartyNotKnownOnLedger,
+  ValidationFailure,
 }
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlCommandDedupKey,
@@ -272,7 +283,7 @@ private[state] object Conversions {
 
   def decodeContractInstance(
       coinst: TransactionOuterClass.ContractInstance
-  ): Value.ContractInst[VersionedValue] =
+  ): Value.VersionedContractInstance =
     assertDecode(
       "ContractInstance",
       TransactionCoder
@@ -280,7 +291,7 @@ private[state] object Conversions {
     )
 
   def encodeContractInstance(
-      coinst: Value.ContractInst[VersionedValue]
+      coinst: Value.VersionedContractInstance
   ): TransactionOuterClass.ContractInstance =
     assertEncode(
       "ContractInstance",
@@ -344,14 +355,14 @@ private[state] object Conversions {
 
   def extractDivulgedContracts(
       damlTransactionBlindingInfo: DamlTransactionBlindingInfo
-  ): Either[Seq[String], Map[ContractId, Value.ContractInst[VersionedValue]]] = {
+  ): Either[Seq[String], Map[ContractId, Value.VersionedContractInstance]] = {
     val divulgences = damlTransactionBlindingInfo.getDivulgencesList.asScala.toVector
     if (divulgences.isEmpty) {
       Right(Map.empty)
     } else {
       val resultAccumulator: Either[Seq[String], mutable.Builder[
-        (ContractId, Value.ContractInst[VersionedValue]),
-        Map[ContractId, Value.ContractInst[VersionedValue]],
+        (ContractId, Value.VersionedContractInstance),
+        Map[ContractId, Value.VersionedContractInstance],
       ]] = Right(Map.newBuilder)
       divulgences
         .foldLeft(resultAccumulator) {

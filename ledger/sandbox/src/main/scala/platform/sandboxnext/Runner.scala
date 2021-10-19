@@ -159,6 +159,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 engine = engine,
                 jdbcUrl = ledgerJdbcUrl,
                 resetOnStartup = isReset,
+                offsetVersion = 0,
                 logEntryIdAllocator =
                   new SeedServiceLogEntryIdAllocator(SeedService(config.seeding.get)),
                 stateValueCache = caching.WeightedCache.from(
@@ -176,12 +177,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 new KeyValueParticipantStateWriter(
                   new TimedLedgerWriter(readerWriter, metrics),
                   metrics,
-                ) {
-                  override def isApiDeduplicationEnabled: Boolean = {
-                    // KV-only command deduplication doesn't support static time yet
-                    timeProviderType == TimeProviderType.Static
-                  }
-                },
+                ),
                 metrics,
               )
               _ <-

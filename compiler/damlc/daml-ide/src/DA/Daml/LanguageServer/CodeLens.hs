@@ -8,8 +8,8 @@ module DA.Daml.LanguageServer.CodeLens
     ) where
 
 import Control.Monad.IO.Class
-import DA.Daml.LFConversion.UtilLF (sourceLocToRange)
 import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.UtilLF (sourceLocToRange)
 import qualified Data.Aeson as Aeson
 import Development.IDE.Core.Service.Daml
 import Data.Foldable

@@ -17,7 +17,8 @@ import scala.concurrent.duration.FiniteDuration
 class AppendOnlyKVCommandDeduplicationIT(
     timeoutScaleFactor: Double,
     ledgerTimeInterval: FiniteDuration,
-) extends KVCommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval) {
+    staticTime: Boolean,
+) extends KVCommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval, staticTime) {
 
   override protected def testNamingPrefix: String = "AppendOnlyKVCommandDeduplication"
 

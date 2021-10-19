@@ -5,6 +5,7 @@ package com.daml.platform.apiserver
 
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.auth.services._

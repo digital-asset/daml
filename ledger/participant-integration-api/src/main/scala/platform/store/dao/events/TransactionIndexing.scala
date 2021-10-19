@@ -51,7 +51,7 @@ object TransactionIndexing {
     }
 
     for (state.DivulgedContract(contractId, contractInst) <- divulgence) {
-      val serializedCreateArgument = translation.serialize(contractId, contractInst.arg)
+      val serializedCreateArgument = translation.serialize(contractId, contractInst.versionedArg)
       divulgedContracts += ((contractId, serializedCreateArgument))
     }
 

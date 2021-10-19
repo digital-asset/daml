@@ -51,7 +51,6 @@ alias(
             "//ledger/ledger-api-domain",
             "//ledger/ledger-api-health",
             "//ledger/ledger-configuration",
-            "//ledger/ledger-offset",
             "//ledger/ledger-on-sql",
             "//ledger/ledger-resources",
             "//ledger/metrics",
@@ -151,6 +150,7 @@ reset_service_pattern = "src/test/suite/**/*ResetService*.scala"
 [
     da_scala_test_suite(
         name = "sandbox-tests{}".format(suffix),
+        size = size,
         srcs = glob(
             [pattern],
             exclude = exclusions,
@@ -238,18 +238,20 @@ reset_service_pattern = "src/test/suite/**/*ResetService*.scala"
             "@maven//:org_slf4j_slf4j_api",
         ],
     )
-    for (suffix, pattern, exclusions, flaky) in [
+    for (suffix, pattern, exclusions, flaky, size) in [
         (
             "",
             "src/test/suite/**/*.scala",
             [reset_service_pattern],
             False,
+            "medium",  # Default timeout of 5min
         ),
         (
             "-resetservice",
             reset_service_pattern,
             [],
             True,
+            "large",  # Reset service tests have a large variance in their run time, use a timeout of 15min
         ),
     ]
 ]
@@ -320,10 +322,16 @@ server_conformance_test(
     name = "next-conformance-test-static-time",
     server_args = [
         "--static-time",
+        "--max-deduplication-duration=PT5S",
     ] + APPEND_ONLY_ARGS,
     servers = NEXT_SERVERS,
     test_tool_args = [
+        "--static-time",
         "--open-world",
+        "--additional=AppendOnlyCommandDeduplicationParallelIT",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
+        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=AppendOnlyKVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ClosedWorldIT",
     ],

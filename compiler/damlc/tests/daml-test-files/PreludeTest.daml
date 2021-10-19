@@ -407,3 +407,8 @@ testDateMinBoundPred : Scenario Date = do
 
 testDateMaxBoundSucc : Scenario Date = do
     return (succ maxBound)
+
+-- Only check that they are properly exposed & typecheck.
+testTypeCheckTrace = scenario do
+  debug 1
+  debugRaw "abc"

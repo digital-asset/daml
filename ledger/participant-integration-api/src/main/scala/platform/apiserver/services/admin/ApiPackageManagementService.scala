@@ -5,10 +5,10 @@ package com.daml.platform.apiserver.services.admin
 
 import java.time.Duration
 import java.util.zip.ZipInputStream
-
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.error.{DamlContextualizedErrorLogger, ContextualizedErrorLogger}
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service._
@@ -55,6 +55,8 @@ private[apiserver] final class ApiPackageManagementService private (
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(
@@ -171,6 +173,9 @@ private[apiserver] object ApiPackageManagementService {
         PackageEntry,
         PackageEntry.PackageUploadAccepted,
       ] {
+    private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+    private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
     override def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]] =
       ledgerEndService.currentLedgerEnd().map(Some(_))

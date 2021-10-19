@@ -11,7 +11,6 @@ import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
 import com.daml.ledger.api.tls.{SecretsUrl, TlsConfiguration}
-import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
@@ -312,7 +311,7 @@ class CommonCliBase(name: LedgerName) {
           config.copy(timeModel = config.timeModel.copy(minSkew = duration, maxSkew = duration))
         }
         .text(
-          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${LedgerTimeModel.reasonableDefault.maxSkew.getSeconds}."
+          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${SandboxConfig.defaultConfig.timeModel.maxSkew.getSeconds}."
         )
 
       opt[Duration]("management-service-timeout")
