@@ -35,5 +35,12 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       resetOnStartup = false,
       offsetVersion = offsetVersion,
       logEntryIdAllocator = RandomLogEntryIdAllocator,
-    ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
+    ).map(readerWriter =>
+      new KeyValueParticipantState(
+        readerWriter,
+        readerWriter,
+        metrics,
+        enableSelfServiceErrorCodes = false,
+      )
+    )
 }

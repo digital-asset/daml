@@ -3,11 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.io.StringWriter
-import java.time.{Duration, Instant}
-
+import com.daml.error.ValueSwitch
 import com.daml.ledger.api.DeduplicationPeriod
-import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
@@ -42,6 +39,7 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlStateKey,
   DamlSubmissionDedupKey,
 }
+import com.daml.ledger.participant.state.kvutils.updates.TransactionRejections._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2.{CompletionInfo, SubmitterInfo}
 import com.daml.lf.data.Relation.Relation
@@ -50,13 +48,10 @@ import com.daml.lf.transaction._
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.Empty
-import com.google.protobuf.any.{Any => AnyProto}
-import com.google.rpc.code.Code
-import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
 
+import java.time.{Duration, Instant}
 import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
@@ -219,8 +214,8 @@ private[state] object Conversions {
           Ref.SubmissionId.assertFromString
         ),
     )
-
   }
+
   def buildTimestamp(ts: Time.Timestamp): com.google.protobuf.Timestamp =
     buildTimestamp(ts.toInstant)
 
@@ -472,215 +467,63 @@ private[state] object Conversions {
 
   @nowarn("msg=deprecated")
   def decodeTransactionRejectionEntry(
-      entry: DamlTransactionRejectionEntry
-  ): Option[FinalReason] = {
-    def buildStatus(
-        code: Code,
-        message: String,
-        additionalMetadata: Map[String, String] = Map.empty,
-    ) = Status.of(
-      code.value,
-      message,
-      Seq(
-        AnyProto.pack[ErrorInfo](
-          ErrorInfo(metadata =
-            additionalMetadata + (GrpcStatuses.DefiniteAnswerKey -> entry.getDefiniteAnswer.toString)
-          )
-        )
-      ),
-    )
-
-    val status = entry.getReasonCase match {
+      entry: DamlTransactionRejectionEntry,
+      errorVersionSwitch: ValueSwitch[Status],
+  ): FinalReason =
+    FinalReason(entry.getReasonCase match {
       case DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME =>
         val rejection = entry.getInvalidLedgerTime
-        Some(
-          buildStatus(
-            Code.ABORTED,
-            s"Invalid ledger time: ${rejection.getDetails}",
-            Map(
-              "ledger_time" -> rejection.getLedgerTime.toString,
-              "lower_bound" -> rejection.getLowerBound.toString,
-              "upper_bound" -> rejection.getUpperBound.toString,
-            ),
-          )
-        )
+        invalidLedgerTimeStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.DISPUTED =>
         val rejection = entry.getDisputed
-        Some(
-          buildStatus(
-            Code.INVALID_ARGUMENT,
-            s"Disputed: ${rejection.getDetails}",
-          )
-        )
+        disputedStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT =>
         val rejection = entry.getSubmitterCannotActViaParticipant
-        Some(
-          buildStatus(
-            Code.PERMISSION_DENIED,
-            s"Submitter cannot act via participant: ${rejection.getDetails}",
-            Map(
-              "submitter_party" -> rejection.getSubmitterParty,
-              "participant_id" -> rejection.getParticipantId,
-            ),
-          )
-        )
+        submitterCannotActViaParticipantStatus(entry, rejection)
       case DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT =>
         val rejection = entry.getInconsistent
-        Some(
-          buildStatus(
-            Code.ABORTED,
-            s"Inconsistent: ${rejection.getDetails}",
-          )
-        )
+        inconsistentStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.RESOURCES_EXHAUSTED =>
         val rejection = entry.getResourcesExhausted
-        Some(
-          buildStatus(
-            Code.ABORTED,
-            s"Resources exhausted: ${rejection.getDetails}",
-          )
-        )
+        resourceExhaustedStatus(entry, rejection)
       case DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>
-        Some(
-          buildStatus(
-            Code.ALREADY_EXISTS,
-            "Duplicate commands",
-          )
-        )
+        duplicateCommandStatus(entry)
       case DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER =>
         val rejection = entry.getPartyNotKnownOnLedger
-        Some(
-          buildStatus(
-            Code.INVALID_ARGUMENT,
-            s"Party not known on ledger: ${rejection.getDetails}",
-          )
-        )
+        partyNotKnownOnLedgerStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.VALIDATION_FAILURE =>
         val rejection = entry.getValidationFailure
-        Some(
-          buildStatus(
-            Code.INVALID_ARGUMENT,
-            s"Disputed: ${rejection.getDetails}",
-          )
-        )
+        validationFailureStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.INTERNALLY_DUPLICATE_KEYS =>
-        Some(
-          buildStatus(
-            Code.INVALID_ARGUMENT,
-            s"Disputed: ${InternallyInconsistentTransaction.DuplicateKeys.description}",
-          )
-        )
+        internallyDuplicateKeysStatus(entry, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.INTERNALLY_INCONSISTENT_KEYS =>
-        Some(
-          buildStatus(
-            Code.INVALID_ARGUMENT,
-            s"Disputed: ${InternallyInconsistentTransaction.InconsistentKeys.description}",
-          )
-        )
+        internallyInconsistentKeysStatus(entry, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_CONTRACTS =>
-        Some(
-          buildStatus(
-            Code.ABORTED,
-            s"Inconsistent: ${ExternallyInconsistentTransaction.InconsistentContracts.description}",
-          )
-        )
+        externallyInconsistentContractsStatus(entry, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_DUPLICATE_KEYS =>
-        Some(
-          buildStatus(
-            Code.ABORTED,
-            s"Inconsistent: ${ExternallyInconsistentTransaction.DuplicateKeys.description}",
-          )
-        )
+        externallyDuplicateKeysStatus(entry, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.EXTERNALLY_INCONSISTENT_KEYS =>
-        Some(
-          buildStatus(
-            Code.ABORTED,
-            s"Inconsistent: ${ExternallyInconsistentTransaction.InconsistentKeys.description}",
-          )
-        )
+        externallyInconsistentKeysStatus(entry, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.MISSING_INPUT_STATE =>
         val rejection = entry.getMissingInputState
-        Some(
-          buildStatus(
-            Code.ABORTED,
-            s"Inconsistent: Missing input state for key ${rejection.getKey.toString}",
-            Map("key" -> rejection.getKey.toString),
-          )
-        )
+        missingInputStateStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.RECORD_TIME_OUT_OF_RANGE =>
         val rejection = entry.getRecordTimeOutOfRange
-        Some(
-          buildStatus(
-            Code.ABORTED,
-            s"Invalid ledger time: Record time is outside of valid range [${rejection.getMinimumRecordTime}, ${rejection.getMaximumRecordTime}]",
-            Map(
-              "minimum_record_time" -> Instant
-                .ofEpochSecond(
-                  rejection.getMinimumRecordTime.getSeconds,
-                  rejection.getMinimumRecordTime.getNanos.toLong,
-                )
-                .toString,
-              "maximum_record_time" -> Instant
-                .ofEpochSecond(
-                  rejection.getMaximumRecordTime.getSeconds,
-                  rejection.getMaximumRecordTime.getNanos.toLong,
-                )
-                .toString,
-            ),
-          )
-        )
+        recordTimeOutOfRangeStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.CAUSAL_MONOTONICITY_VIOLATED =>
-        Some(
-          buildStatus(
-            Code.ABORTED,
-            "Invalid ledger time: Causal monotonicity violated",
-          )
-        )
+        causalMonotonicityViolatedStatus(entry, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER =>
         val rejection = entry.getSubmittingPartyNotKnownOnLedger
-        Some(
-          buildStatus(
-            Code.INVALID_ARGUMENT,
-            s"Party not known on ledger: Submitting party '${rejection.getSubmitterParty}' not known",
-            Map("submitter_party" -> rejection.getSubmitterParty),
-          )
-        )
+        submittingPartyNotKnownOnLedgerStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.PARTIES_NOT_KNOWN_ON_LEDGER =>
         val rejection = entry.getPartiesNotKnownOnLedger
-        val parties = rejection.getPartiesList
-        Some(
-          buildStatus(
-            Code.INVALID_ARGUMENT,
-            s"Party not known on ledger: Parties not known on ledger ${parties.asScala.mkString("[", ",", "]")}",
-            Map("parties" -> objectToJsonString(parties)),
-          )
-        )
+        partiesNotKnownOnLedgerStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.INVALID_PARTICIPANT_STATE =>
         val rejection = entry.getInvalidParticipantState
-        Some(
-          buildStatus(
-            Code.INVALID_ARGUMENT,
-            s"Disputed: ${rejection.getDetails}",
-            rejection.getMetadataMap.asScala.toMap,
-          )
-        )
+        invalidParticipantStateStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
-        Some(
-          buildStatus(
-            Code.UNKNOWN,
-            "No reason set for rejection",
-          )
-        )
-    }
-    status.map(FinalReason)
-  }
-
-  private def objectToJsonString(obj: Object): String = {
-    val stringWriter = new StringWriter
-    val objectMapper = new ObjectMapper
-    objectMapper.writeValue(stringWriter, obj)
-    stringWriter.toString
-  }
+        reasonNotSetStatus(entry, errorVersionSwitch)
+    })
 
   private def encodeParties(parties: Set[Ref.Party]): List[String] =
     (parties.toList: List[String]).sorted

@@ -71,7 +71,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
   // This can be overridden by tests which use a different offset version.
   protected val offsetVersion: Byte = 0
 
-  private lazy val offsetBuilder = new VersionedOffsetBuilder(offsetVersion)
+  private lazy val offsetBuilder = new KVOffsetBuilder(offsetVersion)
 
   protected def participantStateFactory(
       ledgerId: LedgerId,

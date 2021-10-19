@@ -277,7 +277,12 @@ object RecoveringIndexerIntegrationSpec {
           engine = Engine.DevEngine(),
           committerExecutionContext = committerExecutionContext,
         )
-      } yield new KeyValueParticipantState(readerWriter, readerWriter, metrics)
+      } yield new KeyValueParticipantState(
+        readerWriter,
+        readerWriter,
+        metrics,
+        enableSelfServiceErrorCodes = false,
+      )
     }
   }
 

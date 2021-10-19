@@ -12,7 +12,7 @@ import com.daml.ledger.on.memory.InMemoryLedgerWriter._
 import com.daml.ledger.participant.state.kvutils.api.{CommitMetadata, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, Raw, VersionedOffsetBuilder}
+import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, KeyValueCommitting, Raw}
 import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator.caching.{CachingStateReader, ImmutablesOnlyCacheUpdatePolicy}
@@ -39,7 +39,7 @@ import scala.util.Success
 final class InMemoryLedgerWriter private[memory] (
     override val participantId: Ref.ParticipantId,
     dispatcher: Dispatcher[Index],
-    offsetBuilder: VersionedOffsetBuilder,
+    offsetBuilder: KVOffsetBuilder,
     now: () => Instant,
     state: InMemoryState,
     committer: Committer,
@@ -86,7 +86,7 @@ object InMemoryLedgerWriter {
       timeProvider: TimeProvider = DefaultTimeProvider,
       stateValueCache: StateValueCache = Cache.none,
       dispatcher: Dispatcher[Index],
-      offsetBuilder: VersionedOffsetBuilder,
+      offsetBuilder: KVOffsetBuilder,
       state: InMemoryState,
       engine: Engine,
       committerExecutionContext: ExecutionContext,

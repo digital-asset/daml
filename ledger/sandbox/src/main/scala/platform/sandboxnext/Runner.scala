@@ -170,7 +170,11 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
               )
               readService = new TimedReadService(
-                KeyValueParticipantStateReader(readerWriter, metrics),
+                KeyValueParticipantStateReader(
+                  readerWriter,
+                  metrics,
+                  enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+                ),
                 metrics,
               )
               writeService = new TimedWriteService(

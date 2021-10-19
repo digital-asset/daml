@@ -84,6 +84,8 @@ tests =
         assertFileDoesNotExist (uiDir </> "build" </> "index.html")
         withCurrentDirectory uiDir $ do
           patchTsDependencies uiDir "package.json"
+          extraDepsFile <- locateRunfiles (mainWorkspace </> "templates" </> "create-daml-app-test-resources" </> "testDeps.json")
+          addTestDependencies (uiDir </> "package.json") extraDepsFile
           step "Install dependencies for UI"
           retry 3 (callCommandSilent "npm-cli.js install")
           step "Run linter"
@@ -118,10 +120,6 @@ tests =
 
         -- Run end to end testing for the app.
         withCurrentDirectory (cdaDir </> "ui") $ do
-          step "Install Jest, Puppeteer and other dependencies"
-          extraDepsFile <- locateRunfiles (mainWorkspace </> "templates" </> "create-daml-app-test-resources" </> "testDeps.json")
-          addTestDependencies (uiDir </> "package.json") extraDepsFile
-          retry 3 (callCommandSilent "npm-cli.js install")
           step "Run Puppeteer end-to-end tests"
           testFile <- locateRunfiles (mainWorkspace </> "templates" </> "create-daml-app-test-resources" </> "index.test.ts")
           testFileContent <- T.readFileUtf8 testFile
