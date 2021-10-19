@@ -36,7 +36,7 @@ class KeyValueParticipantStateReader private[api] (
         DamlLogEntry,
         ValueSwitch[Status],
         Option[Timestamp],
-    ) => List[Update],
+    ) => LoggingContext => List[Update],
     timeUpdatesProvider: TimeUpdatesProvider,
     failOnUnexpectedEvent: Boolean,
 ) extends ReadService {
@@ -48,7 +48,9 @@ class KeyValueParticipantStateReader private[api] (
   override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Source.single(createLedgerInitialConditions())
 
-  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
+  override def stateUpdates(
+      beginAfter: Option[Offset]
+  )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] = {
     Source
       .single(beginAfter.map(offset => KVOffset(offset).zeroLowest.offset))
       .flatMapConcat(reader.events)
@@ -66,7 +68,7 @@ class KeyValueParticipantStateReader private[api] (
                       logEntry,
                       errorVersionSwitch,
                       timeUpdatesProvider(),
-                    )
+                    )(loggingContext)
                   val updatesWithOffsets =
                     Source(updates).zipWithIndex.map { case (update, index) =>
                       offsetForUpdate(offset, index.toInt, updates.size) -> update
@@ -104,7 +106,7 @@ object KeyValueParticipantStateReader {
       enableSelfServiceErrorCodes: Boolean,
       timeUpdatesProvider: TimeUpdatesProvider = TimeUpdatesProvider.ReasonableDefault,
       failOnUnexpectedEvent: Boolean = true,
-  )(implicit loggingContext: LoggingContext): KeyValueParticipantStateReader =
+  ): KeyValueParticipantStateReader =
     new KeyValueParticipantStateReader(
       reader,
       metrics,

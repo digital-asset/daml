@@ -130,7 +130,9 @@ case class ReadWriteServiceBridge(
     )
 
   var stateUpdatesWasCalledAlready = false
-  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
+  override def stateUpdates(
+      beginAfter: Option[Offset]
+  )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] = {
     // TODO for PoC purposes:
     //   This method may only be called once, either with `beginAfter` set or unset.
     //   A second call will result in an error unless the server is restarted.

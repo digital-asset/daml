@@ -42,8 +42,7 @@ class KeyValueParticipantState(
     writer: LedgerWriter,
     metrics: Metrics,
     enableSelfServiceErrorCodes: Boolean,
-)(implicit loggingContext: LoggingContext)
-    extends ReadService
+) extends ReadService
     with WriteService {
   private val readerAdapter =
     KeyValueParticipantStateReader(reader, metrics, enableSelfServiceErrorCodes)
@@ -58,7 +57,9 @@ class KeyValueParticipantState(
   override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     readerAdapter.ledgerInitialConditions()
 
-  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
+  override def stateUpdates(
+      beginAfter: Option[Offset]
+  )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] =
     readerAdapter.stateUpdates(beginAfter)
 
   override def submitTransaction(

@@ -75,7 +75,9 @@ final class LogAppendingReadServiceFactory(
           override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
             implementation.ledgerInitialConditions()
 
-          override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
+          override def stateUpdates(
+              beginAfter: Option[Offset]
+          )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] =
             implementation.stateUpdates(beginAfter)
 
           override def currentHealth(): HealthStatus = implementation.currentHealth()

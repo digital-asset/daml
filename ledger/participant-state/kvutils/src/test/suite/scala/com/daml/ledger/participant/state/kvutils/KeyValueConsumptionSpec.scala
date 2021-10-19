@@ -77,7 +77,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
             aLogEntryWithoutRecordTime,
             errorSwitch,
             recordTimeForUpdate = None,
-          )
+          )(loggingContext)
         )
       }
     }
@@ -91,7 +91,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           aLogEntryWithRecordTime,
           errorSwitch,
           recordTimeForUpdate = Some(aRecordTime),
-        )
+        )(loggingContext)
 
         actual.recordTime shouldBe aRecordTimeFromLogEntry
       }
@@ -107,7 +107,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
             aLogEntryWithRecordTime,
             errorSwitch,
             recordTimeForUpdate = None,
-          )
+          )(loggingContext)
 
         actual.recordTime shouldBe Timestamp.assertFromInstant(Instant.ofEpochSecond(100))
       }
@@ -126,7 +126,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           timeUpdateEntry,
           errorSwitch,
           recordTimeForUpdate = None,
-        ) shouldBe Nil
+        )(loggingContext) shouldBe Nil
       }
     }
   }

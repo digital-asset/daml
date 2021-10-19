@@ -9,6 +9,7 @@ import java.nio.file.Path
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.UpdateNormalizer.normalize
 import com.daml.ledger.participant.state.v2.ReadService
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -19,7 +20,11 @@ object StateUpdateExporter {
       actualReadService: ReplayingReadService,
       outputWriterFactory: Path => PrintWriter,
       config: Config,
-  )(implicit executionContext: ExecutionContext, materializer: Materializer): Future[Unit] = {
+  )(implicit
+      executionContext: ExecutionContext,
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ): Future[Unit] = {
     for {
       _ <- config.expectedUpdatesPath.fold(Future.unit)(path =>
         StateUpdateExporter.write(
@@ -45,6 +50,7 @@ object StateUpdateExporter {
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
   ): Future[Unit] = {
     readService
       .stateUpdates(None)

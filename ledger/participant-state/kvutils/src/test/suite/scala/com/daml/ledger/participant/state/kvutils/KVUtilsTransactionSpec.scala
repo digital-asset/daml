@@ -99,7 +99,11 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         )
         (entryId, logEntry) = result
         contractId = contractIdOfCreateTransaction(
-          KeyValueConsumption.logEntryToUpdate(entryId, logEntry, errorVersionSwitch)
+          KeyValueConsumption.logEntryToUpdate(
+            entryId,
+            logEntry,
+            errorVersionSwitch,
+          )(loggingContext)
         )
 
         transaction2 <- runSimpleCommand(
@@ -225,7 +229,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
                 preExecutionResult.successfulLogEntry,
                 errorVersionSwitch,
                 Some(recordTime),
-              )
+              )(loggingContext)
             )
           }
 
@@ -308,7 +312,11 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         )
         (entryId, logEntry) = result
         contractId = contractIdOfCreateTransaction(
-          KeyValueConsumption.logEntryToUpdate(entryId, logEntry, errorVersionSwitch)
+          KeyValueConsumption.logEntryToUpdate(
+            entryId,
+            logEntry,
+            errorVersionSwitch,
+          )(loggingContext)
         )
 
         transaction2 <- runSimpleCommand(
@@ -525,7 +533,11 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
         // Process into updates and verify
         val updates =
-          KeyValueConsumption.logEntryToUpdate(entryId, strippedEntry.build, errorVersionSwitch)
+          KeyValueConsumption.logEntryToUpdate(
+            entryId,
+            strippedEntry.build,
+            errorVersionSwitch,
+          )(loggingContext)
         inside(updates) { case Seq(txAccepted: Update.TransactionAccepted) =>
           txAccepted.optCompletionInfo should be(None)
         }
@@ -581,7 +593,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
         preExecutionResult.successfulLogEntry,
         errorVersionSwitch,
         Some(recordTime),
-      )
+      )(loggingContext)
     )
 
   private def prepareExerciseReplaceByKey(

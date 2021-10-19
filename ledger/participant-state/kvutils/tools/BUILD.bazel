@@ -81,6 +81,7 @@ da_scala_test(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/tools",
+        "//libs-scala/contextualized-logging",
         "@maven//:org_mockito_mockito_core",
     ] + (["@maven//:com_google_protobuf_protobuf_java"] if scala_major_version == "2.13" else []),
 )

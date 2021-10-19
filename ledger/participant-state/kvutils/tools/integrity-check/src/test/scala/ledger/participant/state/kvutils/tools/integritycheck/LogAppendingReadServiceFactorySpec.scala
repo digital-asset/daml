@@ -29,6 +29,8 @@ final class LogAppendingReadServiceFactorySpec
     with Matchers
     with AkkaBeforeAndAfterAll {
 
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   "LogAppendingReadServiceFactory" should {
     "handle empty blocks" in {
       val factory = createFactory()

@@ -59,7 +59,9 @@ object KeyValueConsumption {
       entry: DamlLogEntry,
       errorVersionSwitch: ValueSwitch[Status],
       recordTimeForUpdate: Option[Timestamp] = None,
-  )(implicit loggingContext: LoggingContext): List[Update] = {
+  )(loggingContext: LoggingContext): List[Update] = {
+    implicit val logContext: LoggingContext = loggingContext
+
     val recordTimeFromLogEntry = PartialFunction.condOpt(entry.hasRecordTime) { case true =>
       parseTimestamp(entry.getRecordTime)
     }

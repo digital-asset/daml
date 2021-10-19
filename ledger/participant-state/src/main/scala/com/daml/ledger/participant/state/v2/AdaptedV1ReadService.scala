@@ -15,6 +15,7 @@ import com.daml.ledger.participant.state.v2.AdaptedV1ReadService._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.RejectionReasonTemplate
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 
 /** Adapts a [[com.daml.ledger.participant.state.v1.ReadService]] implementation to the
   * [[com.daml.ledger.participant.state.v2.ReadService]] API.
@@ -25,7 +26,9 @@ class AdaptedV1ReadService(delegate: v1.ReadService) extends ReadService {
   override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     delegate.getLedgerInitialConditions()
 
-  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
+  override def stateUpdates(
+      beginAfter: Option[Offset]
+  )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] =
     delegate
       .stateUpdates(beginAfter)
       .map { case (offset, update) => Offset(offset.bytes) -> adaptUpdate(update) }

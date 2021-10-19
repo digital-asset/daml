@@ -9,11 +9,12 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.ComparisonFailureException
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.UpdateNormalizer.normalize
 import com.daml.ledger.participant.state.v2.Update
+import com.daml.logging.LoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
 trait StateUpdateComparison {
-  def compare(): Future[Unit]
+  def compare()(implicit loggingContext: LoggingContext): Future[Unit]
 }
 
 final class ReadServiceStateUpdateComparison(
@@ -29,7 +30,7 @@ final class ReadServiceStateUpdateComparison(
 
   import ReadServiceStateUpdateComparison._
 
-  def compare(): Future[Unit] = {
+  def compare()(implicit loggingContext: LoggingContext): Future[Unit] = {
     println("Comparing expected and actual state updates.".white)
     if (expectedReadService.updateCount() != actualReadService.updateCount()) {
       Future.failed(

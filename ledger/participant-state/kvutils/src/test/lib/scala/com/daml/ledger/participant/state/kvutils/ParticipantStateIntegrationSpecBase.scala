@@ -55,6 +55,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
 
   private implicit val resourceContext: ResourceContext = ResourceContext(testExecutionContext)
   private implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   // Can be used by [[participantStateFactory]] to get a stable ID throughout the test.
   // For example, for initializing a database.

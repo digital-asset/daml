@@ -73,14 +73,12 @@ object Main {
 
     val metricRegistry = new MetricRegistry
     val metrics = new Metrics(metricRegistry)
-    val keyValueStateReader = newLoggingContext { implicit loggingContext =>
-      KeyValueParticipantStateReader(
-        keyValueSource,
-        metrics,
-        failOnUnexpectedEvent = false,
-        enableSelfServiceErrorCodes = false,
-      )
-    }
+    val keyValueStateReader = KeyValueParticipantStateReader(
+      keyValueSource,
+      metrics,
+      failOnUnexpectedEvent = false,
+      enableSelfServiceErrorCodes = false,
+    )
 
     // Note: this method is doing quite a lot of work to transform a sequence of write sets
     // to a sequence of state updates.
@@ -89,16 +87,18 @@ object Main {
     // the benchmark.
     val system = ActorSystem("IndexerBenchmarkUpdateReader")
     implicit val materializer: Materializer = Materializer(system)
-    keyValueStateReader
-      .stateUpdates(None)
-      .take(config.updateCount.getOrElse(Long.MaxValue))
-      .zipWithIndex
-      .map { case (data, index) =>
-        if (index % 1000 == 0) println(s"Generated update $index")
-        data
-      }
-      .runWith(Sink.seq[(Offset, Update)])
-      .map(seq => seq.iterator)(DirectExecutionContext)
-      .andThen { case _ => system.terminate() }(DirectExecutionContext)
+    newLoggingContext { implicit loggingContext =>
+      keyValueStateReader
+        .stateUpdates(None)
+        .take(config.updateCount.getOrElse(Long.MaxValue))
+        .zipWithIndex
+        .map { case (data, index) =>
+          if (index % 1000 == 0) println(s"Generated update $index")
+          data
+        }
+        .runWith(Sink.seq[(Offset, Update)])
+        .map(seq => seq.iterator)(DirectExecutionContext)
+        .andThen { case _ => system.terminate() }(DirectExecutionContext)
+    }
   }
 }
