@@ -86,9 +86,7 @@ final class RawPreExecutingCommitStrategySupport(
       .map(_ => access.getWriteSet)
   }
 
-  override def newReadServiceFactory()(implicit
-      loggingContext: LoggingContext
-  ): ReplayingReadServiceFactory =
+  override def newReadServiceFactory(): ReplayingReadServiceFactory =
     new LogAppendingReadServiceFactory(offsetBuilder, metrics)
 
   override val writeSetComparison: WriteSetComparison =
