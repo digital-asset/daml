@@ -158,7 +158,7 @@ object EndpointsCompanion {
     val (status, errorMsg): (StatusCode, String) = error match {
       case InvalidUserInput(e) => StatusCodes.BadRequest -> e
       case ParticipantServerError(grpcStatus, d) =>
-        grpcStatus.asAkkaHttp -> s"$grpcStatus${d.cata((": " + _), "")}"
+        grpcStatus.asAkkaHttpForJsonApi -> s"$grpcStatus${d.cata((": " + _), "")}"
       // TODO SC suppress message in this case
       case ServerError(e) => StatusCodes.InternalServerError -> e
       case Unauthorized(e) => StatusCodes.Unauthorized -> e

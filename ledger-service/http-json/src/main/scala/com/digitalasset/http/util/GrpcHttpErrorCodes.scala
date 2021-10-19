@@ -24,6 +24,11 @@ private[http] object GrpcHttpErrorCodes {
       case G.UNAVAILABLE => A.ServiceUnavailable
       case G.DEADLINE_EXCEEDED => A.GatewayTimeout
     }
+
+    def asAkkaHttpForJsonApi: StatusCode = self match {
+      case G.UNAUTHENTICATED | G.CANCELLED => A.InternalServerError
+      case _ => self.asAkkaHttp
+    }
   }
 
   private[this] val ClientClosedRequest =
