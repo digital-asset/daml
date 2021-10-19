@@ -7,7 +7,7 @@ index 494217b7..3eb10a41 100644
              repository_ctx.attr.vendored_node.name,
          )
 +        npm_script = "/".join([f for f in [
-+            "../..",
++            "../../..",
 +            repository_ctx.attr.vendored_node.workspace_root,
 +            repository_ctx.attr.vendored_node.package,
 +            repository_ctx.attr.vendored_node.name,

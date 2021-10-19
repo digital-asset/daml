@@ -168,20 +168,55 @@ da_haskell_test(
     ],
 )
 
+genrule(
+    name = "create_daml_app_deps",
+    srcs = [
+        "//templates:create-daml-app/ui/package.json.template",
+        "//templates:create-daml-app-test-resources/testDeps.json",
+    ],
+    outs = ["create_daml_app_deps.tar"],
+    cmd = """
+      set -eou pipefail
+      export PATH=$$PWD/$$(dirname $(location @nodejs//:node_bin)):$$PATH
+      DIR=$$(mktemp -d)
+      trap "rm -rf $$DIR" EXIT
+      mkdir -p $$DIR/cache
+      mkdir -p $$DIR/deps
+      # Generate a package.json based on the template with SDK deps dropped
+      # and merge in the test dependencies.
+      $(location @jq_dev_env//:bin/jq) -s \
+        '(.[0] | .name |= "create-daml-app" | .dependencies |= del(."@daml/ledger", ."@daml/react", ."@daml/types", ."@daml.js/__PROJECT_NAME__")) * .[1]'  \
+        $(location //templates:create-daml-app/ui/package.json.template) \
+        $(location //templates:create-daml-app-test-resources/testDeps.json) > $$DIR/deps/package.json
+      NPM=$$PWD/$(location @nodejs//:npm_bin)
+      export NPM_CONFIG_CACHE=$$DIR/cache
+      (cd $$DIR/deps; $$NPM install --silent --no-update-notifier)
+      rm -rf $$DIR/deps/package.json
+      tar cf $(location create_daml_app_deps.tar) -C $$DIR deps
+    """,
+    tools = [
+        "@jq_dev_env//:bin/jq",
+        "@nodejs//:node_bin",
+        "@nodejs//:npm_bin",
+    ],
+)
+
 da_haskell_library(
     name = "create-daml-app-tests-lib",
     srcs = ["src/DA/Daml/Assistant/CreateDamlAppTests.hs"],
     data = [
         "//release:sdk-release-tarball",
-        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+        "@local_jdk//:bin/java",
         "//:yarn",
         "@patch_dev_env//:patch",
-    ] + ([] if is_windows else ts_libraries + create_daml_app_resources),
+        ":create_daml_app_deps.tar",
+    ] + ts_libraries + create_daml_app_resources,
     hackage_deps = [
         "aeson",
         "aeson-extra",
         "base",
         "bytestring",
+        "conduit",
         "directory",
         "extra",
         "filepath",
@@ -198,7 +233,7 @@ da_haskell_library(
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
     ],
-)
+) if not is_windows else None
 
 da_haskell_test(
     name = "create-daml-app-tests-proj-name",
@@ -219,4 +254,4 @@ da_haskell_test(
     # Exclusive until we stop hardcoding port numbers in index.test.ts
     tags = ["exclusive"],
     deps = [":create-daml-app-tests-lib"],
-)
+) if not is_windows else None
