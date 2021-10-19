@@ -9,6 +9,7 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.LedgerInitialConditions
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{ReadService, Update}
+import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 
 final class TimedReadService(delegate: ReadService, metrics: Metrics) extends ReadService {
@@ -19,7 +20,9 @@ final class TimedReadService(delegate: ReadService, metrics: Metrics) extends Re
       delegate.ledgerInitialConditions(),
     )
 
-  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
+  override def stateUpdates(
+      beginAfter: Option[Offset]
+  )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] =
     Timed.source(metrics.daml.services.read.stateUpdates, delegate.stateUpdates(beginAfter))
 
   override def currentHealth(): HealthStatus =

@@ -127,7 +127,7 @@ class IntegrityChecker[LogResult](
   private[integritycheck] def compareStateUpdates(
       config: Config,
       stateUpdates: StateUpdateComparison,
-  ): Future[Unit] =
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
     if (!config.indexOnly)
       stateUpdates.compare()
     else

@@ -23,6 +23,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
 import com.daml.ledger.participant.state.kvutils.export.ProtobufBasedLedgerDataImporter
 import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v2.Update
+import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 
 import scala.concurrent.Future
@@ -86,16 +87,18 @@ object Main {
     // the benchmark.
     val system = ActorSystem("IndexerBenchmarkUpdateReader")
     implicit val materializer: Materializer = Materializer(system)
-    keyValueStateReader
-      .stateUpdates(None)
-      .take(config.updateCount.getOrElse(Long.MaxValue))
-      .zipWithIndex
-      .map { case (data, index) =>
-        if (index % 1000 == 0) println(s"Generated update $index")
-        data
-      }
-      .runWith(Sink.seq[(Offset, Update)])
-      .map(seq => seq.iterator)(DirectExecutionContext)
-      .andThen { case _ => system.terminate() }(DirectExecutionContext)
+    newLoggingContext { implicit loggingContext =>
+      keyValueStateReader
+        .stateUpdates(None)
+        .take(config.updateCount.getOrElse(Long.MaxValue))
+        .zipWithIndex
+        .map { case (data, index) =>
+          if (index % 1000 == 0) println(s"Generated update $index")
+          data
+        }
+        .runWith(Sink.seq[(Offset, Update)])
+        .map(seq => seq.iterator)(DirectExecutionContext)
+        .andThen { case _ => system.terminate() }(DirectExecutionContext)
+    }
   }
 }

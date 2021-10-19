@@ -8,6 +8,7 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.configuration.LedgerInitialConditions
 import com.daml.ledger.offset.Offset
+import com.daml.logging.LoggingContext
 
 /** An interface for reading the state of a ledger participant.
   * '''Please note that this interface is unstable and may significantly change.'''
@@ -135,5 +136,7 @@ trait ReadService extends ReportsHealth {
     *
     * Note further that the offsets of the transactions might not agree, as these offsets are participant-local.
     */
-  def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed]
+  def stateUpdates(
+      beginAfter: Option[Offset]
+  )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed]
 }

@@ -28,6 +28,7 @@ import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext
 import com.google.protobuf.any.{Any => AnyProto}
 import com.google.protobuf.{ByteString, Empty}
 import com.google.rpc.code.Code
@@ -63,6 +64,8 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
     v2ErrorSwitch,
   )
 
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   "logEntryToUpdate" should {
     "throw in case no record time is available from the log entry or input argument" in {
       forAll(
@@ -74,7 +77,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
             aLogEntryWithoutRecordTime,
             errorSwitch,
             recordTimeForUpdate = None,
-          )
+          )(loggingContext)
         )
       }
     }
@@ -88,7 +91,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           aLogEntryWithRecordTime,
           errorSwitch,
           recordTimeForUpdate = Some(aRecordTime),
-        )
+        )(loggingContext)
 
         actual.recordTime shouldBe aRecordTimeFromLogEntry
       }
@@ -104,7 +107,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
             aLogEntryWithRecordTime,
             errorSwitch,
             recordTimeForUpdate = None,
-          )
+          )(loggingContext)
 
         actual.recordTime shouldBe Timestamp.assertFromInstant(Instant.ofEpochSecond(100))
       }
@@ -123,7 +126,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           timeUpdateEntry,
           errorSwitch,
           recordTimeForUpdate = None,
-        ) shouldBe Nil
+        )(loggingContext) shouldBe Nil
       }
     }
   }

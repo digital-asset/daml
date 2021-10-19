@@ -22,6 +22,7 @@ import com.daml.ledger.participant.state.kvutils.{Envelope, KVOffsetBuilder, Raw
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
@@ -37,6 +38,7 @@ class KeyValueParticipantStateReaderSpec
     with Matchers
     with AkkaBeforeAndAfterAll {
 
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
   private val offsetBuilder = new KVOffsetBuilder(0)
 
   "participant state reader" should {
@@ -243,37 +245,51 @@ object KeyValueParticipantStateReaderSpec {
 
   private val aWrappedLogEntry = Envelope.enclose(aLogEntry)
 
-  private val zeroUpdateGenerator
-      : (DamlLogEntryId, DamlLogEntry, ValueSwitch[Status], Option[Timestamp]) => List[Update] =
-    (_, _, _, _) => List.empty
+  private val zeroUpdateGenerator: (
+      DamlLogEntryId,
+      DamlLogEntry,
+      ValueSwitch[Status],
+      Option[Timestamp],
+  ) => LoggingContext => List[Update] =
+    (_, _, _, _) => _ => List.empty
 
-  private val singleUpdateGenerator
-      : (DamlLogEntryId, DamlLogEntry, ValueSwitch[Status], Option[Timestamp]) => List[Update] =
+  private val singleUpdateGenerator: (
+      DamlLogEntryId,
+      DamlLogEntry,
+      ValueSwitch[Status],
+      Option[Timestamp],
+  ) => LoggingContext => List[Update] =
     (_, _, _, _) =>
-      List(
-        Update.PartyAddedToParticipant(
-          Ref.Party.assertFromString("aParty"),
-          "a party",
-          Ref.ParticipantId.assertFromString("aParticipant"),
-          Timestamp.now(),
-          submissionId = None,
+      _ =>
+        List(
+          Update.PartyAddedToParticipant(
+            Ref.Party.assertFromString("aParty"),
+            "a party",
+            Ref.ParticipantId.assertFromString("aParticipant"),
+            Timestamp.now(),
+            submissionId = None,
+          )
         )
-      )
 
-  private val twoUpdatesGenerator
-      : (DamlLogEntryId, DamlLogEntry, ValueSwitch[Status], Option[Timestamp]) => List[Update] =
+  private val twoUpdatesGenerator: (
+      DamlLogEntryId,
+      DamlLogEntry,
+      ValueSwitch[Status],
+      Option[Timestamp],
+  ) => LoggingContext => List[Update] =
     (entryId, entry, errorVersionSwitch, recordTime) =>
-      singleUpdateGenerator(
-        entryId,
-        entry,
-        errorVersionSwitch,
-        recordTime,
-      ) ::: singleUpdateGenerator(
-        entryId,
-        entry,
-        errorVersionSwitch,
-        recordTime,
-      )
+      loggingContext =>
+        singleUpdateGenerator(
+          entryId,
+          entry,
+          errorVersionSwitch,
+          recordTime,
+        )(loggingContext) ::: singleUpdateGenerator(
+          entryId,
+          entry,
+          errorVersionSwitch,
+          recordTime,
+        )(loggingContext)
 
   private def aLogEntryId(index: Int): Raw.LogEntryId =
     Raw.LogEntryId(
@@ -296,7 +312,7 @@ object KeyValueParticipantStateReaderSpec {
           DamlLogEntry,
           ValueSwitch[Status],
           Option[Timestamp],
-      ) => List[Update] = singleUpdateGenerator,
+      ) => LoggingContext => List[Update] = singleUpdateGenerator,
       failOnUnexpectedEvent: Boolean = true,
   ): KeyValueParticipantStateReader =
     new KeyValueParticipantStateReader(

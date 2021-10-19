@@ -306,7 +306,10 @@ object RecoveringIndexerIntegrationSpec {
                 Source.single(value)
               }
             }
-          }).when(failingParticipantState).stateUpdates(ArgumentMatchers.any[Option[Offset]]())
+          }).when(failingParticipantState)
+            .stateUpdates(
+              ArgumentMatchers.any[Option[Offset]]()
+            )(ArgumentMatchers.any[LoggingContext])
           failingParticipantState
         }
 

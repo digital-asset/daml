@@ -385,7 +385,11 @@ object KVTest {
         newState.keySet subsetOf KeyValueCommitting.submissionOutputs(submission)
       )
       // Verify that we can always process the log entry.
-      val _ = KeyValueConsumption.logEntryToUpdate(entryId, logEntry, errorVersionSwitch)
+      val _ = KeyValueConsumption.logEntryToUpdate(
+        entryId,
+        logEntry,
+        errorVersionSwitch,
+      )(loggingContext)
 
       entryId -> logEntry
     }
@@ -417,13 +421,13 @@ object KVTest {
         successfulLogEntry,
         errorVersionSwitch,
         recordTimeFromTimeUpdateLogEntry,
-      )
+      )(loggingContext)
       KeyValueConsumption.logEntryToUpdate(
         entryId,
         outOfTimeBoundsLogEntry,
         errorVersionSwitch,
         recordTimeFromTimeUpdateLogEntry,
-      )
+      )(loggingContext)
 
       entryId -> preExecutionResult
     }

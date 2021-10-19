@@ -61,7 +61,9 @@ case class EndlessReadService(
     *
     *    The last two items above repeat indefinitely
     */
-  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
+  override def stateUpdates(
+      beginAfter: Option[Offset]
+  )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] =
     synchronized {
       logger.info(s"EndlessReadService.stateUpdates($beginAfter) called")
       stateUpdatesCalls.incrementAndGet()

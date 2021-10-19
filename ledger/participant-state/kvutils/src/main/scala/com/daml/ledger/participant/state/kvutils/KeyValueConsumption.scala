@@ -26,10 +26,10 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
-import org.slf4j.LoggerFactory
 
 import scala.jdk.CollectionConverters._
 
@@ -37,7 +37,7 @@ import scala.jdk.CollectionConverters._
   * key-value based ledger.
   */
 object KeyValueConsumption {
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   def packDamlLogEntry(entry: DamlStateKey): ByteString = entry.toByteString
   def unpackDamlLogEntry(bytes: ByteString): DamlLogEntry = DamlLogEntry.parseFrom(bytes)
@@ -59,7 +59,9 @@ object KeyValueConsumption {
       entry: DamlLogEntry,
       errorVersionSwitch: ValueSwitch[Status],
       recordTimeForUpdate: Option[Timestamp] = None,
-  ): List[Update] = {
+  )(loggingContext: LoggingContext): List[Update] = {
+    implicit val logContext: LoggingContext = loggingContext
+
     val recordTimeFromLogEntry = PartialFunction.condOpt(entry.hasRecordTime) { case true =>
       parseTimestamp(entry.getRecordTime)
     }
@@ -260,7 +262,7 @@ object KeyValueConsumption {
       entryId: DamlLogEntryId,
       txEntry: DamlTransactionEntry,
       recordTime: Timestamp,
-  ): Update.TransactionAccepted = {
+  )(implicit loggingContext: LoggingContext): Update.TransactionAccepted = {
     val transaction = Conversions.decodeTransaction(txEntry.getTransaction)
     val hexTxId = parseLedgerString("TransactionId")(
       BaseEncoding.base16.encode(entryId.toByteArray)
@@ -311,7 +313,7 @@ object KeyValueConsumption {
   private def validateDivulgedContracts(
       hexTxId: LedgerString,
       damlTransactionBlindingInfo: DamlTransactionBlindingInfo,
-  ) =
+  )(implicit loggingContext: LoggingContext): List[DivulgedContract] =
     if (!damlTransactionBlindingInfo.getDivulgencesList.isEmpty) {
       Conversions.extractDivulgedContracts(damlTransactionBlindingInfo) match {
         case Right(divulgedContractsIndex) =>
@@ -339,7 +341,7 @@ object KeyValueConsumption {
       recordTime: Timestamp,
       outOfTimeBoundsEntry: DamlOutOfTimeBoundsEntry,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Option[Update] = {
+  )(implicit loggingContext: LoggingContext): Option[Update] = {
     val timeBounds = parseTimeBounds(outOfTimeBoundsEntry)
     val deduplicated = timeBounds.deduplicateUntil.exists(recordTime <= _)
     val tooEarly = timeBounds.tooEarlyUntil.exists(recordTime < _)

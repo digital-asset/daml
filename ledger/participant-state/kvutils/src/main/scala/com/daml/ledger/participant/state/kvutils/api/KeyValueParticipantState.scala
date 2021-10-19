@@ -22,6 +22,7 @@ import com.daml.ledger.participant.state.v2.{
 }
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext
 
@@ -56,7 +57,9 @@ class KeyValueParticipantState(
   override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     readerAdapter.ledgerInitialConditions()
 
-  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
+  override def stateUpdates(
+      beginAfter: Option[Offset]
+  )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] =
     readerAdapter.stateUpdates(beginAfter)
 
   override def submitTransaction(

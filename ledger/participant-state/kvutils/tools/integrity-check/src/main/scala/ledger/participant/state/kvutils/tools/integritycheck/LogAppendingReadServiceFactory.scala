@@ -17,6 +17,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
 import com.daml.ledger.participant.state.kvutils.export.{SubmissionInfo, WriteSet}
 import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v2.Update
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 
 import scala.collection.immutable
@@ -73,7 +74,9 @@ final class LogAppendingReadServiceFactory(
           override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
             implementation.ledgerInitialConditions()
 
-          override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
+          override def stateUpdates(
+              beginAfter: Option[Offset]
+          )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] =
             implementation.stateUpdates(beginAfter)
 
           override def currentHealth(): HealthStatus = implementation.currentHealth()

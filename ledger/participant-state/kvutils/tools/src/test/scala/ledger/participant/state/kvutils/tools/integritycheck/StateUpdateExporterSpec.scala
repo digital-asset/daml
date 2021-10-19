@@ -16,6 +16,7 @@ import com.daml.ledger.configuration.LedgerInitialConditions
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.lf.data.Time
+import com.daml.logging.LoggingContext
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.BeforeAndAfterAll
@@ -33,8 +34,9 @@ class StateUpdateExporterSpec
     with BeforeAndAfterAll {
   import StateUpdateExporterSpec._
 
-  private[this] implicit val materializer: Materializer = Materializer(system)
-  private[this] implicit val ec: ExecutionContext = materializer.executionContext
+  private implicit val materializer: Materializer = Materializer(system)
+  private implicit val ec: ExecutionContext = materializer.executionContext
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
@@ -88,7 +90,9 @@ object StateUpdateExporterSpec extends MockitoSugar {
     override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
       Source.empty
 
-    override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
+    override def stateUpdates(
+        beginAfter: Option[Offset]
+    )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] =
       Source.single(
         (
           Offset.beforeBegin,
