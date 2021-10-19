@@ -527,5 +527,40 @@ abstract class AbstractFuncTests
         }
       }
     }
+
+    "readAs" should {
+      val visibleToPublicId = LedgerApi.Identifier(packageId, "ReadAs", "VisibleToPublic")
+      def visibleToPublic(party: String): CreateCommand =
+        CreateCommand(
+          templateId = Some(visibleToPublicId),
+          createArguments = Some(
+            LedgerApi.Record(fields =
+              Seq(LedgerApi.RecordField("public", Some(LedgerApi.Value().withParty(party))))
+            )
+          ),
+        )
+
+      "test" in {
+        for {
+          client <- ledgerClient()
+          public <- allocateParty(client)
+          party <- allocateParty(client)
+          _ <- create(client, public, visibleToPublic(public))
+          runner = getRunner(
+            client,
+            QualifiedName.assertFromString("ReadAs:test"),
+            party,
+            Set(public),
+          )
+          (acs, offset) <- runner.queryACS()
+          // 1 for the completion & 1 for the transaction.
+          result <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
+        } yield {
+          inside(toHighLevelResult(result).state) { case SInt64(i) =>
+            i shouldBe 3
+          }
+        }
+      }
+    }
   }
 }

@@ -8,7 +8,7 @@ import DA.Time
 
 trigger : Trigger ()
 trigger = Trigger
-  { initialState = \party _ -> pure ()
+  { initialState = \party _ _ -> pure ()
   , update = \_ -> pure (error "Intentional error")
   , registeredTemplates = AllInDar
   , heartbeat = Some (convertMicrosecondsToRelTime 1)

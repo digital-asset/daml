@@ -8,7 +8,7 @@ import Daml.Trigger.LowLevel
 
 test : Trigger Bool
 test = Trigger
-  { initialState = \party _ -> do
+  { initialState = \party _readAs _ -> do
       submitCommands [createCmd (T party 1.06)]
       pure False
   , update = \msg -> do

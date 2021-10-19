@@ -62,16 +62,18 @@ toACS cid = ACSBuilder $ \p ->
 testRule
   : Trigger s  -- ^ Test this trigger's 'Trigger.rule'.
   -> Party  -- ^ Execute the rule as this 'Party'.
+  -> [Party] -- ^ Execute the rule with these parties as `readAs`
   -> ACSBuilder  -- ^ List these contracts in the 'ACS'.
   -> Map CommandId [Command]  -- ^ The commands in flight.
   -> s  -- ^ The trigger state.
   -> Script (s, [Commands])  -- ^ The 'Commands' and new state emitted by the rule. The 'CommandId's will start from @"0"@.
-testRule trigger party acsBuilder commandsInFlight s = do
+testRule trigger party readAs acsBuilder commandsInFlight s = do
   time <- getTime
   acs <- buildACS party acsBuilder
   let state = TriggerState
         { acs = acs
         , party = party
+        , readAs = readAs
         , userState = s
         , commandsInFlight = commandsInFlight
         }
