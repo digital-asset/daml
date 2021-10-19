@@ -283,7 +283,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       )
     } yield {
       prunedTransactionTrees.foreach(
-        assertGrpcError(_, Status.Code.NOT_FOUND, Some("Transaction not found, or not visible."))
+        assertGrpcError(_, Status.Code.NOT_FOUND, Some("Transaction not found or not visible."))
       )
     }
   })
@@ -326,7 +326,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       )
     } yield {
       prunedFlatTransactions.foreach(
-        assertGrpcError(_, Status.Code.NOT_FOUND, Some("Transaction not found, or not visible."))
+        assertGrpcError(_, Status.Code.NOT_FOUND, Some("Transaction not found or not visible."))
       )
     }
   })
@@ -365,7 +365,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- Future.sequence(unprunedEventIds.map(participant.transactionTreeByEventId(_, submitter)))
     } yield {
       prunedEventsViaTree.foreach(
-        assertGrpcError(_, Status.Code.NOT_FOUND, Some("Transaction not found, or not visible."))
+        assertGrpcError(_, Status.Code.NOT_FOUND, Some("Transaction not found or not visible."))
       )
     }
   })
@@ -404,7 +404,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       _ <- Future.sequence(unprunedEventIds.map(participant.flatTransactionByEventId(_, submitter)))
     } yield {
       prunedEventsViaFlat.foreach(
-        assertGrpcError(_, Status.Code.NOT_FOUND, Some("Transaction not found, or not visible."))
+        assertGrpcError(_, Status.Code.NOT_FOUND, Some("Transaction not found or not visible."))
       )
     }
   })
