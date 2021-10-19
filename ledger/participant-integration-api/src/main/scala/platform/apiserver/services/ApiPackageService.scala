@@ -51,7 +51,7 @@ private[apiserver] final class ApiPackageService private (
       withValidatedPackageId(request.packageId, request) { packageId =>
         def archiveOToResponse(archiveO: Option[Archive]): Future[GetPackageResponse] =
           archiveO.fold(
-            Future.failed(errorFactories.couldNotFindPackage)
+            Future.failed[GetPackageResponse](errorFactories.couldNotFindPackage)
           )(archive => Future.successful(toGetPackageResponse(archive)))
 
         backend
