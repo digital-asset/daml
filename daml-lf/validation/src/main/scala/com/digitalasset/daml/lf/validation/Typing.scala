@@ -387,7 +387,7 @@ private[validation] object Typing {
         checkType(typ, KStar)
         checkExpr(body, typ)
         if (isTest) {
-          val TScenario(_) = toScenario(dropForalls(typ))
+          discard(toScenario(dropForalls(typ)))
         }
     }
 
@@ -473,10 +473,8 @@ private[validation] object Typing {
     }
 
     def alphaEquiv(t1: Type, t2: Type) =
-      AlphaEquiv.alphaEquiv(t1, t2) || AlphaEquiv.alphaEquiv(
-        expandTypeSynonyms(t1),
-        expandTypeSynonyms(t2),
-      )
+      AlphaEquiv.alphaEquiv(t1, t2) ||
+        AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
 
     def checkIfaceImplementation(tplTcon: TypeConName, impl: TemplateImplements): Unit = {
       val DefInterfaceSignature(_, virtualChoices, _, methods) =
@@ -1061,7 +1059,7 @@ private[validation] object Typing {
 
     // checks that typ contains neither variables, nor quantifiers, nor synonyms
     private def checkAnyType_(typ: Type): Unit = {
-      // No need to expand since we forbid TSynApp
+      // No expansion here because we forbid TSynApp
       typ match {
         case TVar(_) | TForall(_, _) | TSynApp(_, _) =>
           throw EExpectedAnyType(ctx, typ)
@@ -1196,7 +1194,7 @@ private[validation] object Typing {
       discard[Type](resolveExprType(expr, typ0))
     }
 
-    private def toStruct(t: Type): TStruct = {
+    private def toStruct(t: Type): TStruct =
       t match {
         case s: TStruct => s
         case _ =>
@@ -1205,7 +1203,6 @@ private[validation] object Typing {
             case _ => throw EExpectedStructType(ctx, t)
           }
       }
-    }
 
     private def toFunction(t: Type): (Type, Type) =
       t match {
@@ -1217,7 +1214,7 @@ private[validation] object Typing {
           }
       }
 
-    private def toScenario(t: Type): Type =
+    private def toScenario(t: Type): TScenario =
       t match {
         case s @ TScenario(_) => s
         case _ =>
