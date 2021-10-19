@@ -159,8 +159,7 @@ object EndpointsCompanion {
       case InvalidUserInput(e) => StatusCodes.BadRequest -> e
       case ParticipantServerError(grpcStatus, d) =>
         grpcStatus.asAkkaHttpForJsonApi -> s"$grpcStatus${d.cata((": " + _), "")}"
-      // TODO SC suppress message in this case
-      case ServerError(e) => StatusCodes.InternalServerError -> e
+      case ServerError(_) => StatusCodes.InternalServerError -> "HTTP JSON API Server Error"
       case Unauthorized(e) => StatusCodes.Unauthorized -> e
       case NotFound(e) => StatusCodes.NotFound -> e
     }
