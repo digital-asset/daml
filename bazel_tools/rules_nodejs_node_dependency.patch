@@ -1,8 +1,8 @@
-diff --git a/internal/node/node_repositories.bzl b/internal/node/node_repositories.bzl
-index 038a7458..fedc43f2 100644
---- a/internal/node/node_repositories.bzl
-+++ b/internal/node/node_repositories.bzl
-@@ -347,6 +347,11 @@ def _prepare_node(repository_ctx):
+diff --git a/nodejs/repositories.bzl b/nodejs/repositories.bzl
+index 494217b7..f58e6cf5 100644
+--- a/nodejs/repositories.bzl
++++ b/nodejs/repositories.bzl
+@@ -368,6 +368,11 @@ def _prepare_node(repository_ctx):
      is_windows = "_windows_" in repository_ctx.attr.name
  
      if repository_ctx.attr.vendored_node:
