@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils.api
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.daml.error.ValueSwitch
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.LedgerInitialConditions
 import com.daml.ledger.offset.Offset
@@ -15,6 +16,7 @@ import com.daml.ledger.validator.preexecution.TimeUpdatesProvider
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.{Metrics, Timed}
+import com.google.rpc.status.Status
 
 /** Adapts a [[LedgerReader]] instance to [[ReadService]].
   * Performs translation between the offsets required by the underlying reader and [[ReadService]]:
@@ -27,12 +29,20 @@ import com.daml.metrics.{Metrics, Timed}
 class KeyValueParticipantStateReader private[api] (
     reader: LedgerReader,
     metrics: Metrics,
-    logEntryToUpdate: (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update],
+    enableSelfServiceErrorCodes: Boolean,
+    logEntryToUpdate: (
+        DamlLogEntryId,
+        DamlLogEntry,
+        ValueSwitch[Status],
+        Option[Timestamp],
+    ) => List[Update],
     timeUpdatesProvider: TimeUpdatesProvider,
     failOnUnexpectedEvent: Boolean,
 ) extends ReadService {
 
   import KeyValueParticipantStateReader._
+
+  private val errorVersionSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes)
 
   override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Source.single(createLedgerInitialConditions())
@@ -50,7 +60,12 @@ class KeyValueParticipantStateReader private[api] (
                 metrics.daml.kvutils.reader.parseUpdates, {
                   val logEntryId = DamlLogEntryId.parseFrom(entryId.bytes)
                   val updates =
-                    logEntryToUpdate(logEntryId, logEntry, timeUpdatesProvider())
+                    logEntryToUpdate(
+                      logEntryId,
+                      logEntry,
+                      errorVersionSwitch,
+                      timeUpdatesProvider(),
+                    )
                   val updatesWithOffsets =
                     Source(updates).zipWithIndex.map { case (update, index) =>
                       offsetForUpdate(offset, index.toInt, updates.size) -> update
@@ -85,12 +100,14 @@ object KeyValueParticipantStateReader {
   def apply(
       reader: LedgerReader,
       metrics: Metrics,
+      enableSelfServiceErrorCodes: Boolean,
       timeUpdatesProvider: TimeUpdatesProvider = TimeUpdatesProvider.ReasonableDefault,
       failOnUnexpectedEvent: Boolean = true,
   ): KeyValueParticipantStateReader =
     new KeyValueParticipantStateReader(
       reader,
       metrics,
+      enableSelfServiceErrorCodes,
       KeyValueConsumption.logEntryToUpdate,
       timeUpdatesProvider,
       failOnUnexpectedEvent,

@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils.api
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
+import com.daml.error.ValueSwitch
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReader.offsetForUpdate
@@ -23,6 +24,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
+import com.google.rpc.status.Status
 import org.mockito.Mockito.when
 import org.mockito.MockitoSugar._
 import org.scalatest.matchers.should.Matchers
@@ -242,26 +244,34 @@ object KeyValueParticipantStateReaderSpec {
   private val aWrappedLogEntry = Envelope.enclose(aLogEntry)
 
   private val zeroUpdateGenerator
-      : (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update] = (_, _, _) => List.empty
+      : (DamlLogEntryId, DamlLogEntry, ValueSwitch[Status], Option[Timestamp]) => List[Update] =
+    (_, _, _, _) => List.empty
 
   private val singleUpdateGenerator
-      : (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update] = (_, _, _) =>
-    List(
-      Update.PartyAddedToParticipant(
-        Ref.Party.assertFromString("aParty"),
-        "a party",
-        Ref.ParticipantId.assertFromString("aParticipant"),
-        Timestamp.now(),
-        submissionId = None,
+      : (DamlLogEntryId, DamlLogEntry, ValueSwitch[Status], Option[Timestamp]) => List[Update] =
+    (_, _, _, _) =>
+      List(
+        Update.PartyAddedToParticipant(
+          Ref.Party.assertFromString("aParty"),
+          "a party",
+          Ref.ParticipantId.assertFromString("aParticipant"),
+          Timestamp.now(),
+          submissionId = None,
+        )
       )
-    )
 
   private val twoUpdatesGenerator
-      : (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update] =
-    (entryId, entry, recordTime) =>
-      singleUpdateGenerator(entryId, entry, recordTime) ::: singleUpdateGenerator(
+      : (DamlLogEntryId, DamlLogEntry, ValueSwitch[Status], Option[Timestamp]) => List[Update] =
+    (entryId, entry, errorVersionSwitch, recordTime) =>
+      singleUpdateGenerator(
         entryId,
         entry,
+        errorVersionSwitch,
+        recordTime,
+      ) ::: singleUpdateGenerator(
+        entryId,
+        entry,
+        errorVersionSwitch,
         recordTime,
       )
 
@@ -281,13 +291,18 @@ object KeyValueParticipantStateReaderSpec {
 
   private def createInstance(
       reader: LedgerReader,
-      logEntryToUpdate: (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update] =
-        singleUpdateGenerator,
+      logEntryToUpdate: (
+          DamlLogEntryId,
+          DamlLogEntry,
+          ValueSwitch[Status],
+          Option[Timestamp],
+      ) => List[Update] = singleUpdateGenerator,
       failOnUnexpectedEvent: Boolean = true,
   ): KeyValueParticipantStateReader =
     new KeyValueParticipantStateReader(
       reader,
       new Metrics(new MetricRegistry),
+      enableSelfServiceErrorCodes = false,
       logEntryToUpdate,
       () => None,
       failOnUnexpectedEvent,

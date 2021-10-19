@@ -40,10 +40,11 @@ class KeyValueParticipantState(
     reader: LedgerReader,
     writer: LedgerWriter,
     metrics: Metrics,
+    enableSelfServiceErrorCodes: Boolean,
 ) extends ReadService
     with WriteService {
   private val readerAdapter =
-    KeyValueParticipantStateReader(reader, metrics)
+    KeyValueParticipantStateReader(reader, metrics, enableSelfServiceErrorCodes)
   private val writerAdapter =
     new KeyValueParticipantStateWriter(
       new TimedLedgerWriter(writer, metrics),

@@ -78,7 +78,14 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
           metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
         ),
       ).acquire()
-        .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
+        .map(readerWriter =>
+          new KeyValueParticipantState(
+            readerWriter,
+            readerWriter,
+            metrics,
+            enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+          )
+        )
     }
   }
 }
