@@ -33,7 +33,7 @@ object GrpcStatus {
     StatusProto(
       code = statusJavaProto.getCode,
       message = statusJavaProto.getMessage,
-      details = details(statusJavaProto)
+      details = details(statusJavaProto),
     )
 
   def toJavaProto(status: StatusProto): StatusJavaProto = toJavaBuilder(status).build()
