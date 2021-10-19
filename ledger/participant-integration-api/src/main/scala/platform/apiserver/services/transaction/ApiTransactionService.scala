@@ -123,17 +123,17 @@ private[apiserver] final class ApiTransactionService private[apiserver] (
   override def getTransactionByEventId(
       request: GetTransactionByEventIdRequest
   ): Future[GetTransactionResponse] = {
-    withEnrichedLoggingContext(
+    // There is no problem in leaking the loggingContext in here, but the construction looks suspicious
+    // TODO error codes: Replace with non-closure-based enriched loggingContext builder here and in other constructions as well
+    implicit val errorLogger: ContextualizedErrorLogger = withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.eventId(request.eventId),
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
       logger.info("Received request for transaction by event ID.")
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
     }
     logger.trace(s"Transaction by event ID request: $request")
-
-    implicit val errorLogger: ContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
     LfEventId
       .fromString(request.eventId.unwrap)
@@ -151,16 +151,16 @@ private[apiserver] final class ApiTransactionService private[apiserver] (
   override def getTransactionById(
       request: GetTransactionByIdRequest
   ): Future[GetTransactionResponse] = {
-    withEnrichedLoggingContext(
+    val errorLogger: DamlContextualizedErrorLogger = withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.transactionId(request.transactionId),
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
       logger.info("Received request for transaction by ID.")
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
     }
     logger.trace(s"Transaction by ID request: $request")
 
-    val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
     lookUpTreeByTransactionId(request.transactionId, request.requestingParties)(errorLogger)
       .andThen(logger.logErrorsOnCall[GetTransactionResponse])
   }
@@ -168,17 +168,15 @@ private[apiserver] final class ApiTransactionService private[apiserver] (
   override def getFlatTransactionByEventId(
       request: GetTransactionByEventIdRequest
   ): Future[GetFlatTransactionResponse] = {
-    withEnrichedLoggingContext(
+    implicit val errorLogger: DamlContextualizedErrorLogger = withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.eventId(request.eventId),
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
       logger.info("Received request for flat transaction by event ID.")
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
     }
     logger.trace(s"Flat transaction by event ID request: $request")
-
-    implicit val errorLogger: ContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
     LfEventId
       .fromString(request.eventId.unwrap)
@@ -195,16 +193,17 @@ private[apiserver] final class ApiTransactionService private[apiserver] (
   override def getFlatTransactionById(
       request: GetTransactionByIdRequest
   ): Future[GetFlatTransactionResponse] = {
-    withEnrichedLoggingContext(
+    val errorLogger = withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.transactionId(request.transactionId),
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
       logger.info("Received request for flat transaction by ID.")
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
     }
     logger.trace(s"Flat transaction by ID request: $request")
     // TODO error codes: Do we need more context here?
-    val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
     lookUpFlatByTransactionId(request.transactionId, request.requestingParties)(errorLogger)
       .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
   }
