@@ -6,7 +6,7 @@ package com.daml.lf.engine.trigger
 import java.nio.file.{Path, Paths}
 import java.time.Duration
 
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.platform.services.time.TimeProviderType
@@ -19,7 +19,7 @@ case class RunnerConfig(
     triggerIdentifier: String,
     ledgerHost: String,
     ledgerPort: Int,
-    ledgerParty: String,
+    ledgerParty: Party,
     maxInboundMessageSize: Int,
     // optional so we can detect if both --static-time and --wall-clock-time are passed.
     timeProviderType: Option[TimeProviderType],
@@ -59,7 +59,7 @@ object RunnerConfig {
       .text("Ledger port")
 
     opt[String]("ledger-party")
-      .action((t, c) => c.copy(ledgerParty = t))
+      .action((t, c) => c.copy(ledgerParty = Party(t)))
       .text("Ledger party")
 
     opt[Int]("max-inbound-message-size")
@@ -162,7 +162,7 @@ object RunnerConfig {
         triggerIdentifier = null,
         ledgerHost = null,
         ledgerPort = 0,
-        ledgerParty = null,
+        ledgerParty = Party(""),
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         timeProviderType = None,
         commandTtl = Duration.ofSeconds(30L),

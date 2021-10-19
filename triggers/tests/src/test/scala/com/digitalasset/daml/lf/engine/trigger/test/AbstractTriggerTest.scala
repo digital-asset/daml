@@ -10,7 +10,7 @@ import java.util.UUID
 
 import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand, _}
 import com.daml.ledger.api.v1.event.CreatedEvent
@@ -76,7 +76,7 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
         client,
         config.timeProviderType.get,
         applicationId,
-        party,
+        Party(party),
       )
     }
   }
