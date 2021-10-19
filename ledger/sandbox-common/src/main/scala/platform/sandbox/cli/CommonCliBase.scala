@@ -326,7 +326,9 @@ class CommonCliBase(name: LedgerName) {
       opt[Unit]("enable-append-only-schema")
         .optional()
         .action((_, config) => config)
-        .text("Legacy flag with no effect")
+        .text(
+          "Deprecated parameter. The append-only index database with parallel ingestion is now always enabled."
+        )
 
       // TODO append-only: cleanup
       opt[Unit]("enable-compression")
