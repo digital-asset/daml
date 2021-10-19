@@ -78,7 +78,6 @@ do
         cp -L ../../bazel-bin/ledger-api/grpc-definitions/proto-docs.rst ../source/app-dev/grpc/
 
         #StdLib
-        mkdir -p -- ../source/daml/stdlib
         bazel build //compiler/damlc:daml-base-rst.tar.gz
         tar xf ../../bazel-bin/compiler/damlc/daml-base-rst.tar.gz \
             --strip-components 1 -C ../source/daml/stdlib

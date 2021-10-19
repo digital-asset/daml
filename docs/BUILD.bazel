@@ -285,7 +285,6 @@ genrule(
         fi
 
         # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary. Note flag to overwrite
-
         unzip -q -o ../$(locations //language-support/java:javadoc) -d html/app-dev/bindings-java/javadocs
         # Remove JAR metadata
         rm -r html/app-dev/bindings-java/javadocs/META-INF
