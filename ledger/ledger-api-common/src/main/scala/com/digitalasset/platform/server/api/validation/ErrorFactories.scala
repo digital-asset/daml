@@ -152,6 +152,8 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
         grpcError(statusBuilder.build())
       },
+      // TODO error codes: This error group is confusing for this generic error as it can be dispatched
+      //                   from call-sites that do not involve command validation (e.g. ApiTransactionService).
       v2 = LedgerApiErrors.CommandValidation.InvalidArgument
         .Reject(message)
         .asGrpcError,
