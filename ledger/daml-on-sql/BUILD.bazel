@@ -188,10 +188,8 @@ genrule(
         # Unfortunately, an update is not so easy because Sphinx 2.3.1 breaks
         # the PDF documentation due to issues with the FreeSerif font in the
         # fontspec package. So, for now we ignore `FutureWarning`.
-        set +e # Prevent exiting from the script on a subshell error so that we have a chance to print out the subshell's output captured in a variable.
-        SPHINX_BUILD_OUTPUT=$$(../$(location @sphinx_nix//:bin/sphinx-build) -D error_codes_json_export=../$(location //docs:error_codes_export.json) -c docs/configs/html docs/source html 2>&1)
-        SPHINX_BUILD_EXIT_CODE=$$?
-        set -e # Restore previous option. (Assuming 'set -e' was set in the first place)
+        SPHINX_BUILD_EXIT_CODE=0
+        SPHINX_BUILD_OUTPUT=$$(../$(location @sphinx_nix//:bin/sphinx-build) -D error_codes_json_export=../$(location //docs:error_codes_export.json) -c docs/configs/html docs/source html 2>&1) || SPHINX_BUILD_EXIT_CODE=$$?
         if [ "$$SPHINX_BUILD_EXIT_CODE" -ne 0 ]; then
             >&2 echo "## SPHINX-BUILD OUTPUT:"
             >&2 echo "$$SPHINX_BUILD_OUTPUT"
@@ -199,11 +197,6 @@ genrule(
             exit 1
         fi
         # NOTE: appending ' || true' to force exit code of 0 from grep because grep normally exits with 1 if no lines are selected:
-        # '''
-        # 0     One or more lines were selected.
-        # 1     No lines were selected.
-        # >1    An error occurred.
-        # '''
         WARNINGS=$$(echo "$$SPHINX_BUILD_OUTPUT" | grep -Pi "(?<!future)warning:" || true)
         if [ "$$WARNINGS" != "" ]; then
             echo "$$WARNINGS"

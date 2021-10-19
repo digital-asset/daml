@@ -10,8 +10,6 @@ cd $SCRIPT_DIR
 BUILD_DIR=$(cd ..; pwd)/build
 BAZEL_BIN="$SCRIPT_DIR/../../bazel-bin"
 
-echo "Scripts dir: '${SCRIPT_DIR}'"
-
 trap cleanup 1 2 3 6
 
 cleanup()
