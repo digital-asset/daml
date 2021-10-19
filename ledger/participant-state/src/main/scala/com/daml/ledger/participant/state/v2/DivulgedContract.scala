@@ -5,6 +5,7 @@ package com.daml.ledger
 package participant.state.v2
 
 import com.daml.lf.value.Value
+import com.google.protobuf.ByteString
 
 /** A divulged contract, that is, a contract that has been revealed to a non-stakeholder
   * after its creation.
@@ -12,9 +13,9 @@ import com.daml.lf.value.Value
   * https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#divulgence-when-non-stakeholders-see-contracts
   *
   * @param contractId: The contract identifier.
-  * @param contractInst: The contract instance.
+  * @param rawContractInstance: The contract instance bytes.
   */
 final case class DivulgedContract(
     contractId: Value.ContractId,
-    contractInst: Value.VersionedContractInstance,
+    rawContractInstance: ByteString,
 )

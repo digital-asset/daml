@@ -12,12 +12,21 @@ load(
 da_scala_library(
     name = "kv-transaction-support",
     srcs = glob(["src/main/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-kv-transaction-support:__VERSION__"],
+    versioned_scala_deps = {
+        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    },
     visibility = ["//ledger/participant-state/kvutils:__subpackages__"],
     deps = [
         "//daml-lf/data",
         "//daml-lf/transaction",
+        "//daml-lf/transaction:transaction_proto_java",
+        "//ledger/participant-state/kvutils:daml_kvutils_proto_java",
+        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 

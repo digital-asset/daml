@@ -97,7 +97,7 @@ class ModelConformanceValidatorSpec
     DamlTransactionEntry.newBuilder
       .setSubmissionSeed(aSubmissionSeed)
       .setLedgerEffectiveTime(Conversions.buildTimestamp(ledgerEffectiveTime))
-      .setTransaction(Conversions.encodeTransaction(aTransaction._1))
+      .setRawTransaction(Conversions.encodeTransaction(aTransaction._1).toByteString)
       .build
   )
 

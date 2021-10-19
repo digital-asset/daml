@@ -46,6 +46,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
+        "//daml-lf/kv-transaction-support",
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
@@ -241,6 +242,7 @@ proto_jars(
     strip_import_prefix = "src/main/protobuf",
     visibility = ["//visibility:public"],
     deps = [
+        "@com_google_protobuf//:any_proto",
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
         "@com_google_protobuf//:timestamp_proto",

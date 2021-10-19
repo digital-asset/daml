@@ -78,7 +78,8 @@ class KeyValueSubmission(metrics: Metrics) {
         .addAllInputDamlState(contractKeyStates.asJava)
         .setTransactionEntry(
           DamlTransactionEntry.newBuilder
-            .setTransaction(Conversions.encodeTransaction(tx))
+            // FIXME: move the conversion to kv-transaction-support
+            .setRawTransaction(Conversions.encodeTransaction(tx).toByteString)
             .setSubmitterInfo(encodedSubInfo)
             .setLedgerEffectiveTime(buildTimestamp(meta.ledgerEffectiveTime))
             .setWorkflowId(meta.workflowId.getOrElse(""))

@@ -25,7 +25,7 @@ import com.daml.ledger.participant.state.v2.{DivulgedContract, TransactionMeta, 
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.CommittedTransaction
+import com.daml.lf.transaction.{CommittedTransaction, TransactionOuterClass}
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import com.google.protobuf.any.{Any => AnyProto}
@@ -34,6 +34,7 @@ import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
 import org.slf4j.LoggerFactory
 
+import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 /** Utilities for producing [[Update]] events from [[DamlLogEntry]]'s committed to a
@@ -255,7 +256,12 @@ object KeyValueConsumption {
       txEntry: DamlTransactionEntry,
       recordTime: Timestamp,
   ): Update.TransactionAccepted = {
-    val transaction = Conversions.decodeTransaction(txEntry.getTransaction)
+    val transaction = Conversions.decodeTransaction(
+      reconstructTransaction(
+        txEntry.getTransactionVersion,
+        txEntry.getNodeIdToRawTransactionNodeMap.asScala,
+      )
+    )
     val hexTxId = parseLedgerString("TransactionId")(
       BaseEncoding.base16.encode(entryId.toByteArray)
     )
@@ -292,6 +298,36 @@ object KeyValueConsumption {
       divulgedContracts = divulgedContracts,
       blindingInfo = maybeBlindingInfo,
     )
+  }
+
+  // TODO: move to kv-transaction-support
+  private def reconstructTransaction(
+      txVersion: String,
+      rawNodesWithIds: mutable.Map[String, ByteString],
+  ): TransactionOuterClass.Transaction = {
+    // Reconstruct roots by considering the transaction nodes in order and
+    // marking all child nodes as non-roots and skipping over them.
+    val nonRoots = mutable.HashSet.empty[Int]
+    val txBuilder =
+      TransactionOuterClass.Transaction.newBuilder
+        .setVersion(txVersion)
+    for ((rawNodeId, rawNode) <- rawNodesWithIds) {
+      // FIXME
+      val nodeId = rawNodeId.toInt
+      val node = TransactionOuterClass.Node.parseFrom(rawNode)
+      txBuilder.addNodes(node)
+      if (!nonRoots.contains(nodeId)) {
+        txBuilder.addRoots(rawNodeId)
+      }
+      if (node.hasExercise) {
+        val children =
+          node.getExercise.getChildrenList.asScala
+            .map(_.toInt) // FIXME
+            .toSet
+        nonRoots ++= children
+      }
+    }
+    txBuilder.build
   }
 
   /** Extracts divulgence entries and checks that they have an associated contract instance.

@@ -1018,8 +1018,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         transactionId = Ref.TransactionId.assertFromString("TransactionId"),
         recordTime = someRecordTime,
-        divulgedContracts =
-          List(state.DivulgedContract(createNode.coid, createNode.versionedCoinst)),
+        divulgedContracts = List(
+          state.DivulgedContract(
+            createNode.coid,
+            ByteString.EMPTY, // FIXME
+          )
+        ),
         blindingInfo = Some(
           BlindingInfo(
             disclosure = Map(exerciseNodeId -> Set(Ref.Party.assertFromString("disclosee"))),

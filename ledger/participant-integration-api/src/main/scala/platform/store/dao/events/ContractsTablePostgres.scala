@@ -4,9 +4,10 @@
 package com.daml.platform.store.dao.events
 
 import java.sql.{Connection, Timestamp}
-
 import anorm.{Row, SimpleSql, SqlQuery}
 import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
+import com.daml.lf.value.ValueCoder
 import com.daml.platform.store.dao.events.ContractsTable.Executable
 
 object ContractsTablePostgres extends ContractsTable {
@@ -78,9 +79,12 @@ object ContractsTablePostgres extends ContractsTable {
     }
 
     contractsInfo.divulgedContracts.iterator.zipWithIndex.foreach {
-      case (state.DivulgedContract(contractId, contractInst), idx) =>
+      case (state.DivulgedContract(contractId, rawContractInstance), idx) =>
+        val contractInstance = decodeContractInstance(
+          TransactionOuterClass.ContractInstance.parseFrom(rawContractInstance)
+        )
         contractIds(idx + netCreatesSize) = contractId.coid
-        templateIds(idx + netCreatesSize) = contractInst.template.toString
+        templateIds(idx + netCreatesSize) = contractInstance.template.toString
         stakeholders(idx + netCreatesSize) = ""
         createArgs(idx + netCreatesSize) = serialized.createArguments(contractId)
         hashes(idx + netCreatesSize) = null
@@ -101,6 +105,15 @@ object ContractsTablePostgres extends ContractsTable {
 
     new InsertExecutable(inserts)
   }
+
+  // FIXME, deduplicate
+  private def decodeContractInstance(
+      coinst: TransactionOuterClass.ContractInstance
+  ): com.daml.lf.value.Value.VersionedContractInstance =
+    assertDecode(TransactionCoder.decodeVersionedContractInstance(ValueCoder.CidDecoder, coinst))
+
+  private def assertDecode[X](x: Either[ValueCoder.DecodeError, X]): X =
+    x.fold(err => throw new IllegalStateException(err.errorMessage), identity)
 
   private class InsertExecutable(insertQuery: SimpleSql[Row]) extends Executable {
     override def execute()(implicit connection: Connection): Unit = {

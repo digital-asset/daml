@@ -148,7 +148,8 @@ class TransactionCommitterSpec
 
       actual match {
         case StepContinue(logEntry) =>
-          val transaction = logEntry.submission.getTransaction
+          val transaction =
+            TransactionOuterClass.Transaction.parseFrom(logEntry.submission.getRawTransaction)
           transaction.getRootsList.asScala should contain theSameElementsInOrderAs Seq(
             "Exercise-1",
             "Create-1",
@@ -380,7 +381,7 @@ class TransactionCommitterSpec
                 (
                   entry.getContractId,
                   entry.getDivulgedToLocalPartiesList.asScala.toSet,
-                  entry.getContractInstance,
+                  entry.getRawContractInstance,
                 )
               )
 
@@ -510,7 +511,8 @@ object TransactionCommitterSpec {
       .addAllRoots(roots.asJava)
       .addAllNodes(nodes.asJava)
       .build()
-    val outTx = aDamlTransactionEntry.toBuilder.setTransaction(tx).build()
+    val outTx =
+      aDamlTransactionEntry.toBuilder.setRawTransaction(tx.toByteString).build()
     DamlTransactionEntrySummary(outTx)
   }
 

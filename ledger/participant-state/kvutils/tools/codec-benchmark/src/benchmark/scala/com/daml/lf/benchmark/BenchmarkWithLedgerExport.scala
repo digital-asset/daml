@@ -4,12 +4,12 @@
 package com.daml.lf.benchmark
 
 import java.nio.file.{Files, Paths}
-
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.participant.state.kvutils.export.ProtobufBasedLedgerDataImporter
 import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.lf.archive.Decode
+import com.daml.lf.transaction.TransactionOuterClass
 import org.openjdk.jmh.annotations.{Param, Scope, Setup, State}
 
 import scala.jdk.CollectionConverters._
@@ -46,7 +46,9 @@ abstract class BenchmarkWithLedgerExport {
           }
         case Envelope.SubmissionMessage(submission)
             if submission.getPayloadCase == DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
-          builder += submission.getTransactionEntry.getTransaction
+          builder += TransactionOuterClass.Transaction.parseFrom(
+            submission.getTransactionEntry.getRawTransaction
+          )
         case Envelope.SubmissionBatchMessage(batch) =>
           for (submission <- batch.getSubmissionsList.asScala) {
             decodeEnvelope(Raw.Envelope(submission.getSubmission))

@@ -7,7 +7,6 @@
 package com.daml.ledger.participant.state.kvutils.committer.transaction
 
 import java.time.Instant
-
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
@@ -33,12 +32,13 @@ import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.engine.{Blinding, Engine}
+import com.daml.lf.kv.TransactionConverter
 import com.daml.lf.transaction.{BlindingInfo, TransactionOuterClass}
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.google.protobuf.{Timestamp => ProtoTimestamp}
+import com.google.protobuf.{ByteString, Timestamp => ProtoTimestamp}
 
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
@@ -238,7 +238,9 @@ private[kvutils] class TransactionCommitter(
         commitContext: CommitContext,
         transactionEntry: DamlTransactionEntrySummary,
     )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
-      val transaction = transactionEntry.submission.getTransaction
+      // TODO: move to kv-transaction-support
+      val rawTransaction = transactionEntry.submission.getRawTransaction
+      val transaction = TransactionOuterClass.Transaction.parseFrom(rawTransaction)
       val nodes = transaction.getNodesList.asScala
       val nodeMap: Map[String, TransactionOuterClass.Node] =
         nodes.view.map(n => n.getNodeId -> n).toMap
@@ -295,7 +297,7 @@ private[kvutils] class TransactionCommitter(
         .build()
 
       val newTransactionEntry = transactionEntry.submission.toBuilder
-        .setTransaction(newTransaction)
+        .setRawTransaction(newTransaction.toByteString)
         .build()
 
       StepContinue(DamlTransactionEntrySummary(newTransactionEntry))
@@ -366,7 +368,7 @@ private[kvutils] class TransactionCommitter(
       commitContext: CommitContext,
   )(implicit
       loggingContext: LoggingContext
-  ): Map[ContractId, TransactionOuterClass.ContractInstance] = {
+  ): Map[ContractId, ByteString] = {
     val localContracts = transactionEntry.transaction.localContracts
     val consumedContracts = transactionEntry.transaction.consumedContracts
     val contractKeys = transactionEntry.transaction.updatedContractKeys
@@ -405,7 +407,7 @@ private[kvutils] class TransactionCommitter(
     }
     // Update contract state of divulged contracts.
     val divulgedContractsBuilder = {
-      val builder = Map.newBuilder[ContractId, TransactionOuterClass.ContractInstance]
+      val builder = Map.newBuilder[ContractId, ByteString]
       builder.sizeHint(blindingInfo.divulgence.size)
       builder
     }
@@ -413,7 +415,7 @@ private[kvutils] class TransactionCommitter(
     for ((coid, parties) <- blindingInfo.divulgence) {
       val key = contractIdToStateKey(coid)
       val cs = getContractState(commitContext, key)
-      divulgedContractsBuilder += (coid -> cs.getContractInstance)
+      divulgedContractsBuilder += (coid -> cs.getContractInstance.toByteString) // FIXME: when the state.proto is migrated
       val divulged: Set[String] = cs.getDivulgedToList.asScala.toSet
       val newDivulgences: Set[String] = parties.toSet[String] -- divulged
       if (newDivulgences.nonEmpty) {
@@ -471,9 +473,28 @@ private[kvutils] object TransactionCommitter {
         .build
       commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
     }
+    // TODO: move to kv-transaction-support
+    val transaction =
+      TransactionOuterClass.Transaction.parseFrom(transactionEntry.submission.getRawTransaction)
     buildLogEntryWithOptionalRecordTime(
       commitContext.recordTime,
-      _.setTransactionEntry(transactionEntry.submission),
+      _.setTransactionEntry(
+        transactionEntry.submission.toBuilder
+          .setTransactionVersion(transaction.getVersion)
+          .putAllNodeIdToRawTransactionNode(
+            transaction.getNodesList.asScala
+              .map(node => node.getNodeId -> node.toByteString)
+              .toMap
+              .asJava
+          )
+          .addAllWitnessingParties(
+            TransactionConverter
+              .transactionToWitnesses(
+                transaction
+              )
+              .asJava
+          )
+      ),
     )
   }
 

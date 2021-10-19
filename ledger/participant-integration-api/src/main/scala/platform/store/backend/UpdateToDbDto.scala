@@ -4,7 +4,6 @@
 package com.daml.platform.store.backend
 
 import java.util.UUID
-
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.api.domain
 import com.daml.ledger.configuration.Configuration
@@ -14,6 +13,8 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
+import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
+import com.daml.lf.value.{Value, ValueCoder}
 import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.daml.platform.store.appendonlydao.events._
@@ -234,7 +235,15 @@ object UpdateToDbDto {
         val divulgences = blinding.divulgence.iterator.collect {
           // only store divulgence events, which are divulging to parties
           case (contractId, visibleToParties) if visibleToParties.nonEmpty =>
-            val contractInst = divulgedContractIndex.get(contractId).map(_.contractInst)
+            val maybeDivulgedContract = divulgedContractIndex
+              .get(contractId)
+            val contractInstance = maybeDivulgedContract
+              .map(_.rawContractInstance)
+              .map(rawContractInstance =>
+                decodeContractInstance(
+                  TransactionOuterClass.ContractInstance.parseFrom(rawContractInstance)
+                )
+              )
             DbDto.EventDivulgence(
               event_offset = Some(offset.toHexString),
               command_id = u.optCompletionInfo.map(_.commandId),
@@ -242,9 +251,9 @@ object UpdateToDbDto {
               application_id = u.optCompletionInfo.map(_.applicationId),
               submitters = u.optCompletionInfo.map(_.actAs.toSet),
               contract_id = contractId.coid,
-              template_id = contractInst.map(_.template.toString),
+              template_id = contractInstance.map(_.template.toString),
               tree_event_witnesses = visibleToParties.map(_.toString),
-              create_argument = contractInst
+              create_argument = contractInstance
                 .map(_.versionedArg)
                 .map(translation.serialize(contractId, _))
                 .map(compressionStrategy.createArgumentCompression.compress),
@@ -261,6 +270,15 @@ object UpdateToDbDto {
         events ++ divulgences ++ completions
     }
   }
+
+  // FIXME, deduplicate
+  private def decodeContractInstance(
+      coinst: TransactionOuterClass.ContractInstance
+  ): Value.VersionedContractInstance =
+    assertDecode(TransactionCoder.decodeVersionedContractInstance(ValueCoder.CidDecoder, coinst))
+
+  private def assertDecode[X](x: Either[ValueCoder.DecodeError, X]): X =
+    x.fold(err => throw new IllegalStateException(err.errorMessage), identity)
 
   private def commandCompletion(
       offset: Offset,

@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.io.StringWriter
 import java.time.{Duration, Instant}
-
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.offset.Offset
@@ -51,7 +50,7 @@ import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.protobuf.Empty
+import com.google.protobuf.{ByteString, Empty}
 import com.google.protobuf.any.{Any => AnyProto}
 import com.google.rpc.code.Code
 import com.google.rpc.error_details.ErrorInfo
@@ -321,7 +320,7 @@ private[state] object Conversions {
     */
   def encodeBlindingInfo(
       blindingInfo: BlindingInfo,
-      divulgedContracts: Map[ContractId, TransactionOuterClass.ContractInstance],
+      divulgedContracts: Map[ContractId, ByteString],
   ): DamlTransactionBlindingInfo =
     DamlTransactionBlindingInfo.newBuilder
       .addAllDisclosures(encodeDisclosure(blindingInfo.disclosure).asJava)
@@ -355,29 +354,28 @@ private[state] object Conversions {
 
   def extractDivulgedContracts(
       damlTransactionBlindingInfo: DamlTransactionBlindingInfo
-  ): Either[Seq[String], Map[ContractId, Value.VersionedContractInstance]] = {
+  ): Either[Seq[String], Map[ContractId, ByteString]] = {
     val divulgences = damlTransactionBlindingInfo.getDivulgencesList.asScala.toVector
     if (divulgences.isEmpty) {
       Right(Map.empty)
     } else {
       val resultAccumulator: Either[Seq[String], mutable.Builder[
-        (ContractId, Value.VersionedContractInstance),
-        Map[ContractId, Value.VersionedContractInstance],
+        (ContractId, ByteString),
+        Map[ContractId, ByteString],
       ]] = Right(Map.newBuilder)
       divulgences
         .foldLeft(resultAccumulator) {
           case (Right(contractInstanceIndex), divulgenceEntry) =>
-            if (divulgenceEntry.hasContractInstance) {
+            if (divulgenceEntry.getRawContractInstance != ByteString.EMPTY) { // TODO: come up with sth better
               val contractId = decodeContractId(divulgenceEntry.getContractId)
-              val contractInstance = decodeContractInstance(divulgenceEntry.getContractInstance)
-              Right(contractInstanceIndex += (contractId -> contractInstance))
+              Right(contractInstanceIndex += (contractId -> divulgenceEntry.getRawContractInstance))
             } else {
               Left(Vector(divulgenceEntry.getContractId))
             }
           case (Left(missingContracts), divulgenceEntry) =>
             // If populated by an older version of the KV WriteService, the contract instances will be missing.
             // Hence, we assume that, if one is missing, all are and return the list of missing ids.
-            if (divulgenceEntry.hasContractInstance) {
+            if (divulgenceEntry.getRawContractInstance != ByteString.EMPTY) { // TODO: come up with sth better
               Left(missingContracts)
             } else {
               Left(missingContracts :+ divulgenceEntry.getContractId)
@@ -701,26 +699,26 @@ private[state] object Conversions {
   private def encodeDivulgenceEntry(
       contractId: ContractId,
       divulgedTo: Set[Ref.Party],
-      contractInstance: TransactionOuterClass.ContractInstance,
+      rawContractInstance: ByteString,
   ): DivulgenceEntry =
     DivulgenceEntry.newBuilder
       .setContractId(contractIdToString(contractId))
       .addAllDivulgedToLocalParties(encodeParties(divulgedTo).asJava)
-      .setContractInstance(contractInstance)
+      .setRawContractInstance(rawContractInstance)
       .build
 
   private def encodeDivulgence(
       divulgence: Relation[ContractId, Ref.Party],
-      divulgedContractsIndex: Map[ContractId, TransactionOuterClass.ContractInstance],
+      divulgedContractsIndex: Map[ContractId, ByteString],
   ): List[DivulgenceEntry] =
     divulgence.toList
       .sortBy(_._1.coid)
       .map { case (contractId, party) =>
-        val contractInst =
+        val rawContractInstance =
           divulgedContractsIndex.getOrElse(
             contractId,
             throw Err.MissingDivulgedContractInstance(contractId.coid),
           )
-        encodeDivulgenceEntry(contractId, party, contractInst)
+        encodeDivulgenceEntry(contractId, party, rawContractInstance)
       }
 }

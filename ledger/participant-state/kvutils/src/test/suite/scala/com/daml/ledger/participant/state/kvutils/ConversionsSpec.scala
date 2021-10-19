@@ -58,8 +58,8 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       encodeBlindingInfo(
         wronglySortedBlindingInfo,
         Map(
-          contractId0 -> apiContractInstance0,
-          contractId1 -> apiContractInstance1,
+          contractId0 -> apiContractInstance0.toByteString, // FIXME
+          contractId1 -> apiContractInstance1.toByteString, // FIXME
         ),
       ) shouldBe correctlySortedEncodedBlindingInfo
     }
@@ -428,7 +428,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
     DivulgenceEntry.newBuilder
       .setContractId(contractId)
       .addAllDivulgedToLocalParties(parties.asJava)
-      .setContractInstance(contractInstance)
+      .setRawContractInstance(contractInstance.toByteString) // FIXME
       .build
 
   private lazy val party0: Party = Party.assertFromString("party0")
