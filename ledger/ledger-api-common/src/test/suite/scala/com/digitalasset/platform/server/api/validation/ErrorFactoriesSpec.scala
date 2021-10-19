@@ -4,23 +4,59 @@
 package com.daml
 
 import com.daml.error.{
-  DamlContextualizedErrorLogger,
   ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
   ErrorCodesVersionSwitcher,
 }
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.server.api.validation.ErrorFactories._
-import com.google.rpc.Status
+import com.google.rpc.{ErrorInfo, RequestInfo, ResourceInfo, RetryInfo, Status}
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
+import com.google.protobuf
 
 import scala.jdk.CollectionConverters._
+
+object ErrorDetails {
+
+  sealed trait ErrorDetail
+
+  final case class ResourceInfoDetail(name: String, typ: String) extends ErrorDetail
+
+  final case class ErrorInfoDetail(reason: String) extends ErrorDetail
+
+  final case class RetryInfoDetail(retryDelayInSeconds: Long) extends ErrorDetail
+
+  final case class RequestInfoDetail(requestId: String) extends ErrorDetail
+
+  def unapplySeq(anys: Seq[protobuf.Any]): Seq[ErrorDetail] = {
+    anys.toList.map(this.unapply)
+  }
+
+  private def unapply(any: protobuf.Any): ErrorDetail = {
+    if (any.is(classOf[ResourceInfo])) {
+      val v = any.unpack(classOf[ResourceInfo])
+      ResourceInfoDetail(v.getResourceType, v.getResourceName)
+    } else if (any.is(classOf[ErrorInfo])) {
+      val v = any.unpack(classOf[ErrorInfo])
+      ErrorInfoDetail(v.getReason)
+    } else if (any.is(classOf[RetryInfo])) {
+      val v = any.unpack(classOf[RetryInfo])
+      RetryInfoDetail(v.getRetryDelay.getSeconds)
+    } else if (any.is(classOf[RequestInfo])) {
+      val v = any.unpack(classOf[RequestInfo])
+      RequestInfoDetail(v.getRequestId)
+    } else {
+      throw new IllegalStateException(s"Could not unpack value of: |$any|")
+    }
+  }
+}
 
 class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
   private val correlationId = "trace-id"
@@ -29,6 +65,9 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
 
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, Some(correlationId))
+
+  private val DEFAULT_TRACE_ID_REQUEST_INFO: ErrorDetails.RequestInfoDetail =
+    ErrorDetails.RequestInfoDetail("trace-id")
 
   "ErrorFactories" should {
     "return the DuplicateCommandException" in {
@@ -39,6 +78,10 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         v2_code = Code.ALREADY_EXISTS,
         v2_message =
           s"DUPLICATE_COMMAND(10,$correlationId): A command with the given command id has already been successfully processed",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("DUPLICATE_COMMAND"),
+          DEFAULT_TRACE_ID_REQUEST_INFO,
+        ),
       )
     }
 
@@ -50,6 +93,10 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         v2_code = Code.PERMISSION_DENIED,
         v2_message =
           s"An error occurred. Please contact the operator and inquire about the request $correlationId",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("PERMISSION_DENIED"),
+          DEFAULT_TRACE_ID_REQUEST_INFO,
+        ),
       )
     }
 
@@ -68,6 +115,10 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           v2_code = Code.NOT_FOUND,
           v2_message =
             s"LEDGER_CONFIGURATION_NOT_FOUND(11,$correlationId): The ledger configuration is not available.",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("LEDGER_CONFIGURATION_NOT_FOUND"),
+            DEFAULT_TRACE_ID_REQUEST_INFO,
+          ),
         )
       }
     }
@@ -105,6 +156,10 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           v2_code = Code.INVALID_ARGUMENT,
           v2_message =
             s"INVALID_FIELD(8,$correlationId): The submitted command has a field with invalid value: Invalid field my field: my message",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("INVALID_FIELD"),
+            DEFAULT_TRACE_ID_REQUEST_INFO,
+          ),
         )
       }
     }
@@ -117,6 +172,10 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         v2_code = Code.UNAUTHENTICATED,
         v2_message =
           s"An error occurred. Please contact the operator and inquire about the request $correlationId",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("UNAUTHENTICATED"),
+          DEFAULT_TRACE_ID_REQUEST_INFO,
+        ),
       )
     }
 
@@ -137,6 +196,10 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           v2_code = Code.NOT_FOUND,
           v2_message =
             s"LEDGER_ID_MISMATCH(11,$correlationId): Ledger ID 'received' not found. Actual Ledger ID is 'expected'.",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("LEDGER_ID_MISMATCH"),
+            DEFAULT_TRACE_ID_REQUEST_INFO,
+          ),
         )
       }
     }
@@ -156,6 +219,10 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         v1_details = Seq.empty,
         v2_code = Code.OUT_OF_RANGE,
         v2_message = s"PARTICIPANT_PRUNED_DATA_ACCESSED(12,$correlationId): my message",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("PARTICIPANT_PRUNED_DATA_ACCESSED"),
+          DEFAULT_TRACE_ID_REQUEST_INFO,
+        ),
       )
     }
 
@@ -166,6 +233,10 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         v1_details = Seq.empty,
         v2_code = Code.OUT_OF_RANGE,
         v2_message = s"REQUESTED_OFFSET_OUT_OF_RANGE(12,$correlationId): my message",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("REQUESTED_OFFSET_OUT_OF_RANGE"),
+          DEFAULT_TRACE_ID_REQUEST_INFO,
+        ),
       )
     }
 
@@ -183,6 +254,11 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           v1_details = expectedDetails,
           v2_code = Code.UNAVAILABLE,
           v2_message = s"SERVICE_NOT_RUNNING(1,$correlationId): Service has been shut down.",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("SERVICE_NOT_RUNNING"),
+            DEFAULT_TRACE_ID_REQUEST_INFO,
+            ErrorDetails.RetryInfoDetail(1),
+          ),
         )
       }
     }
@@ -195,6 +271,10 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         v2_code = Code.NOT_FOUND,
         v2_message =
           s"LEDGER_CONFIGURATION_NOT_FOUND(11,$correlationId): The ledger configuration is not available.",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("LEDGER_CONFIGURATION_NOT_FOUND"),
+          DEFAULT_TRACE_ID_REQUEST_INFO,
+        ),
       )
     }
 
@@ -213,6 +293,10 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           v2_code = Code.INVALID_ARGUMENT,
           v2_message =
             s"MISSING_FIELD(8,$correlationId): The submitted command is missing a mandatory field: my field",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("MISSING_FIELD"),
+            DEFAULT_TRACE_ID_REQUEST_INFO,
+          ),
         )
       }
     }
@@ -232,6 +316,10 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           v2_code = Code.INVALID_ARGUMENT,
           v2_message =
             s"INVALID_ARGUMENT(8,$correlationId): The submitted command has invalid arguments: my message",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("INVALID_ARGUMENT"),
+            DEFAULT_TRACE_ID_REQUEST_INFO,
+          ),
         )
       }
     }
@@ -245,29 +333,41 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
 
   private def assertVersionedError(
       error: ErrorFactories => StatusRuntimeException
-  )(v1_code: Code, v1_message: String, v1_details: Seq[Any], v2_code: Code, v2_message: String) = {
+  )(
+      v1_code: Code,
+      v1_message: String,
+      v1_details: Seq[Any],
+      v2_code: Code,
+      v2_message: String,
+      v2_details: Seq[ErrorDetails.ErrorDetail],
+  ): Unit = {
     val errorFactoriesV1 = ErrorFactories(new ErrorCodesVersionSwitcher(false))
     val errorFactoriesV2 = ErrorFactories(new ErrorCodesVersionSwitcher(true))
     assertV1Error(error(errorFactoriesV1))(v1_code, v1_message, v1_details)
-    assertV2Error(error(errorFactoriesV2))(v2_code, v2_message)
+    assertV2Error(error(errorFactoriesV2))(v2_code, v2_message, v2_details)
   }
 
   private def assertV1Error(
       statusRuntimeException: StatusRuntimeException
-  )(expectedCode: Code, expectedMessage: String, expectedDetails: Seq[Any]) = {
+  )(expectedCode: Code, expectedMessage: String, expectedDetails: Seq[Any]): Unit = {
     val status = StatusProto.fromThrowable(statusRuntimeException)
     status.getCode shouldBe expectedCode.value()
     status.getMessage shouldBe expectedMessage
-    status.getDetailsList.asScala shouldBe expectedDetails
+    val _ = status.getDetailsList.asScala shouldBe expectedDetails
   }
 
   private def assertV2Error(
       statusRuntimeException: StatusRuntimeException
-  )(expectedCode: Code, expectedMessage: String) = {
+  )(
+      expectedCode: Code,
+      expectedMessage: String,
+      expectedDetails: Seq[ErrorDetails.ErrorDetail],
+  ): Unit = {
     val status = StatusProto.fromThrowable(statusRuntimeException)
     status.getCode shouldBe expectedCode.value()
     status.getMessage shouldBe expectedMessage
-    // TODO error codes: Assert error details
+    val details = status.getDetailsList.asScala.toSeq
+    val _ = ErrorDetails.unapplySeq(details) should contain theSameElementsAs (expectedDetails)
     // TODO error codes: Assert logging
   }
 }
