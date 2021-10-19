@@ -64,7 +64,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(packageId: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = "Could not found package."
+            cause = "Could not find package."
           ) {
 
         override def resources: Seq[(ErrorResource, String)] = {

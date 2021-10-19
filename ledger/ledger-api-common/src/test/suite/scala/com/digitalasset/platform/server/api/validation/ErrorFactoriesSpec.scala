@@ -54,7 +54,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         v1_message = "",
         v1_details = Seq.empty,
         v2_code = Code.NOT_FOUND,
-        v2_message = s"PACKAGE_NOT_FOUND(11,$correlationId): Could not found package.",
+        v2_message = s"PACKAGE_NOT_FOUND(11,$correlationId): Could not find package.",
       )
     }
 
