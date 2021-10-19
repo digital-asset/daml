@@ -26,10 +26,15 @@ object GrpcStatus {
     val code = status.getCode.value
     val description = Option(status.getDescription).getOrElse("")
     val statusJavaProto = io.grpc.protobuf.StatusProto.fromStatusAndTrailers(status, metadata)
-    val details =
-      statusJavaProto.getDetailsList.asScala.map(detail => AnyProto.fromJavaProto(detail)).toSeq
-    StatusProto(code, description, details)
+    StatusProto(code, description, details(statusJavaProto))
   }
+
+  def toProto(statusJavaProto: StatusJavaProto): StatusProto =
+    StatusProto(
+      code = statusJavaProto.getCode,
+      message = statusJavaProto.getMessage,
+      details = details(statusJavaProto)
+    )
 
   def toJavaProto(status: StatusProto): StatusJavaProto = toJavaBuilder(status).build()
 
@@ -57,6 +62,10 @@ object GrpcStatus {
   private[grpc] final class SpecificGrpcStatus(code: Code) {
     def unapply(status: Status): Boolean =
       status.getCode == code
+  }
+
+  private def details(statusJavaProto: StatusJavaProto) = {
+    statusJavaProto.getDetailsList.asScala.map(detail => AnyProto.fromJavaProto(detail)).toSeq
   }
 
   val OK = new SpecificGrpcStatus(Code.OK)
