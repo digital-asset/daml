@@ -540,7 +540,7 @@ abstract class AbstractFuncTests
           ),
         )
 
-      "test" in {
+      "respected by trigger runner" in {
         for {
           client <- ledgerClient()
           public <- allocateParty(client)
