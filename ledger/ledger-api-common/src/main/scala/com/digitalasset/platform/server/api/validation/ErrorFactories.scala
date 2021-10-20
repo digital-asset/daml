@@ -21,6 +21,16 @@ import scalaz.syntax.tag._
 
 class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
 
+  def internalError(message: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = io.grpc.Status.INTERNAL
+        .withDescription(message)
+        .asRuntimeException(),
+      v2 = LedgerApiErrors.InternalError.Reject(message).asGrpcError,
+    )
+
   def duplicateCommandException(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =

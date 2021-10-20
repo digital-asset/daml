@@ -476,6 +476,12 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
 
+    case class Reject(message: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends LoggingTransactionErrorImpl(
+          cause = message
+        )
+
     case class PackageSelfConsistency(
         err: LfError.Package.SelfConsistency
     )(implicit

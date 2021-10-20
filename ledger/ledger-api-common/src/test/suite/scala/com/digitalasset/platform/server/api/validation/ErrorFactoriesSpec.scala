@@ -35,6 +35,22 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     ErrorDetails.RequestInfoDetail("trace-id")
 
   "ErrorFactories" should {
+
+    "return the internalError" in {
+      assertVersionedError(_.internalError("message123"))(
+        v1_code = Code.INTERNAL,
+        v1_message = "message123",
+        v1_details = Seq.empty,
+        v2_code = Code.INTERNAL,
+        v2_message =
+          s"An error occurred. Please contact the operator and inquire about the request trace-id",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("LEDGER_API_INTERNAL_ERROR"),
+          DefaultTraceIdRequestInfo,
+        ),
+      )
+    }
+
     "return the DuplicateCommandException" in {
       assertVersionedError(_.duplicateCommandException)(
         v1_code = Code.ALREADY_EXISTS,
