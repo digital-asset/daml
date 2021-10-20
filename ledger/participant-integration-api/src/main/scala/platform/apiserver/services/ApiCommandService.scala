@@ -93,7 +93,9 @@ private[apiserver] final class ApiCommandService private[services] (
         submissionTracker.track(CommandSubmission(commands, timeout))
       } else {
         Future.failed(
-          ErrorFactories.serviceNotRunning(definiteAnswer = Some(false))(contextualizedErrorLogger)
+          ErrorFactories.Default.serviceNotRunning(definiteAnswer = Some(false))(
+            contextualizedErrorLogger
+          )
         )
       }.andThen(logger.logErrorsOnCall[Completion])
     }

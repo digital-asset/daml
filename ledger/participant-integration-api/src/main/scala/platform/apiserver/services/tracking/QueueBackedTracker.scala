@@ -150,7 +150,7 @@ private[services] object QueueBackedTracker {
         _.get.values
           .foreach(
             _.failure(
-              ErrorFactories.grpcError(
+              ErrorFactories.Default.grpcError(
                 Status
                   .newBuilder()
                   .setCode(Code.INTERNAL.value())

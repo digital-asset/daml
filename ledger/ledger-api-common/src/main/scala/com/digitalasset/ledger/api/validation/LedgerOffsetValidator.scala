@@ -7,7 +7,7 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
-import com.daml.platform.server.api.validation.ErrorFactories.{
+import com.daml.platform.server.api.validation.ErrorFactories.Default.{
   invalidArgument,
   missingField,
   offsetAfterLedgerEnd,

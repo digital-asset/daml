@@ -147,7 +147,7 @@ private[backend] object PostgresStorageBackend
         .as(int("result").singleOpt)(connection)
         .foreach(_ =>
           // TODO error codes: Use specialized error and enable logging
-          throw ErrorFactories.invalidArgument(None)(
+          throw ErrorFactories.Default.invalidArgument(None)(
             "Pruning offset for all divulged contracts needs to be after the migration offset"
           )(NoLogging)
         )

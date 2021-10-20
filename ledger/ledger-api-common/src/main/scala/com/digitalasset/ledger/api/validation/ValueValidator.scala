@@ -10,7 +10,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.{value => api}
 import com.daml.lf.value.{Value => Lf}
-import com.daml.platform.server.api.validation.ErrorFactories._
+import com.daml.platform.server.api.validation.ErrorFactories.Default._
 import com.daml.platform.server.api.validation.FieldValidations.{requirePresence, _}
 import io.grpc.StatusRuntimeException
 

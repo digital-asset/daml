@@ -5,7 +5,7 @@ package com.daml.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.lf.data.Ref.Party
-import com.daml.platform.server.api.validation.ErrorFactories.invalidArgument
+import com.daml.platform.server.api.validation.ErrorFactories.Default.invalidArgument
 import com.daml.platform.server.api.validation.FieldValidations.requireParties
 import io.grpc.StatusRuntimeException
 

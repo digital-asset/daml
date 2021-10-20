@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.command_completion_service.{
 }
 import com.daml.platform.server.api.validation.FieldValidations._
 import io.grpc.StatusRuntimeException
-import com.daml.platform.server.api.validation.ErrorFactories._
+import com.daml.platform.server.api.validation.ErrorFactories.Default._
 
 class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: PartyNameChecker) {
 

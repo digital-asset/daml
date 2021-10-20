@@ -63,7 +63,7 @@ class SandboxResetService(
       .cond(
         ledgerId == LedgerId(request.ledgerId),
         request.ledgerId,
-        ErrorFactories.ledgerIdMismatch(ledgerId, LedgerId(request.ledgerId), None),
+        ErrorFactories.Default.ledgerIdMismatch(ledgerId, LedgerId(request.ledgerId), None),
       )
       .fold(Future.failed[Empty], _ => actuallyReset().map(_ => Empty())(DE))
 

@@ -144,7 +144,7 @@ private[platform] final class LedgerBackedIndexService(
           case Some(end) if begin > end =>
             Source.failed(
               // TODO error codes: Replace with LedgerApiErrors.ReadErrors.RequestedOffsetAfterLedgerEnd
-              ErrorFactories.invalidArgument(None)(
+              ErrorFactories.Default.invalidArgument(None)(
                 s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."
               )(new DamlContextualizedErrorLogger(logger, loggingContext, None))
             )

@@ -6,7 +6,10 @@ package com.daml.ledger.api.auth
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
-import com.daml.platform.server.api.validation.ErrorFactories.{permissionDenied, unauthenticated}
+import com.daml.platform.server.api.validation.ErrorFactories.Default.{
+  permissionDenied,
+  unauthenticated,
+}
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import org.slf4j.LoggerFactory
 

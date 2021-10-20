@@ -48,7 +48,9 @@ case class QueryNonPrunedImpl(storageBackend: ParameterStorageBackend) extends Q
       case Some(pruningOffsetUpToInclusive) =>
         // TODO error codes: Do not throw
         // TODO error codes: Enable logging
-        throw ErrorFactories.participantPrunedDataAccessed(error(pruningOffsetUpToInclusive))(
+        throw ErrorFactories.Default.participantPrunedDataAccessed(
+          error(pruningOffsetUpToInclusive)
+        )(
           NoLogging
         )
     }

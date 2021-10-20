@@ -80,7 +80,7 @@ private[apiserver] final class ApiTimeService private (
           if (success) Right(requestedTime)
           else
             Left(
-              ErrorFactories.invalidArgument(None)(
+              ErrorFactories.Default.invalidArgument(None)(
                 s"current_time mismatch. Provided: $expectedTime. Actual: ${backend.getCurrentTime}"
               )
             )
@@ -96,7 +96,7 @@ private[apiserver] final class ApiTimeService private (
           Right(())
         else
           Left(
-            ErrorFactories.invalidArgument(None)(
+            ErrorFactories.Default.invalidArgument(None)(
               s"new_time [$requestedTime] is before current_time [$expectedTime]. Setting time backwards is not allowed."
             )
           )

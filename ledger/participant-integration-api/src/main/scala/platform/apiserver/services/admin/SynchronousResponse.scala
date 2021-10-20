@@ -52,7 +52,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
             .runWith(Sink.head)
             .recoverWith { case _: TimeoutException =>
               Future.failed(
-                ErrorFactories.aborted("Request timed out", definiteAnswer = Some(false))
+                ErrorFactories.Default.aborted("Request timed out", definiteAnswer = Some(false))
               )
             }
             .flatten

@@ -82,7 +82,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       )
 
       forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        val exception = aborted("my message", definiteAnswer)
+        val exception = ErrorFactories.Default.aborted("my message", definiteAnswer)
         val status = StatusProto.fromThrowable(exception)
         status.getCode shouldBe Code.ABORTED.value()
         status.getMessage shouldBe "my message"
@@ -142,7 +142,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     }
 
     "fail on creating a ledgerIdMismatch error due to a wrong definite answer" in {
-      an[IllegalArgumentException] should be thrownBy ledgerIdMismatch(
+      an[IllegalArgumentException] should be thrownBy ErrorFactories.Default.ledgerIdMismatch(
         LedgerId("expected"),
         LedgerId("received"),
         definiteAnswer = Some(true),
@@ -238,7 +238,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
 
     "should create an ApiException without the stack trace" in {
       val status = Status.newBuilder().setCode(Code.INTERNAL.value()).build()
-      val exception = grpcError(status)
+      val exception = ErrorFactories.Default.grpcError(status)
       exception.getStackTrace shouldBe Array.empty
     }
   }

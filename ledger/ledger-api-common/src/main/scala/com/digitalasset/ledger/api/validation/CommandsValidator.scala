@@ -19,7 +19,7 @@ import com.daml.ledger.api.validation.CommandsValidator.{Submitters, effectiveSu
 import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.value.{Value => Lf}
-import com.daml.platform.server.api.validation.ErrorFactories._
+import com.daml.platform.server.api.validation.ErrorFactories.Default._
 import com.daml.platform.server.api.validation.FieldValidations.{requirePresence, _}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._

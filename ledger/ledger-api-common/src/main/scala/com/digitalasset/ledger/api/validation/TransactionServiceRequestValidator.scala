@@ -16,7 +16,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionByIdRequest,
   GetTransactionsRequest,
 }
-import com.daml.platform.server.api.validation.ErrorFactories._
+import com.daml.platform.server.api.validation.ErrorFactories.Default._
 import com.daml.platform.server.api.validation.FieldValidations._
 import io.grpc.StatusRuntimeException
 

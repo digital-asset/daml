@@ -38,7 +38,7 @@ object QueryNonPruned {
         Either.cond(
           minOffsetExclusive >= pruningOffsetUpToInclusive,
           result,
-          ErrorFactories.participantPrunedDataAccessed(error(pruningOffsetUpToInclusive))(
+          ErrorFactories.Default.participantPrunedDataAccessed(error(pruningOffsetUpToInclusive))(
             NoLogging
           ),
         )

@@ -47,7 +47,7 @@ final class ApiParticipantPruningService private (
         if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString
       )
       .left
-      .map(err => ErrorFactories.invalidArgument(None)(s"submission_id $err"))
+      .map(err => ErrorFactories.Default.invalidArgument(None)(s"submission_id $err"))
 
     submissionIdOrErr.fold(
       t => Future.failed(ValidationLogger.logFailure(request, t)),
@@ -124,7 +124,7 @@ final class ApiParticipantPruningService private (
     Either.cond(
       offset.nonEmpty,
       offset,
-      ErrorFactories.invalidArgument(None)("prune_up_to not specified"),
+      ErrorFactories.Default.invalidArgument(None)("prune_up_to not specified"),
     )
 
   private def checkOffsetIsHexadecimal(
@@ -136,7 +136,7 @@ final class ApiParticipantPruningService private (
       .left
       .map(t =>
         // TODO error codes: Use LedgerApiErrors.NonHexOffset
-        ErrorFactories.invalidArgument(None)(
+        ErrorFactories.Default.invalidArgument(None)(
           s"prune_up_to needs to be a hexadecimal string and not $pruneUpToString: ${t.getMessage}"
         )
       )
@@ -152,7 +152,7 @@ final class ApiParticipantPruningService private (
         else
           Future.failed(
             // TODO error codes: Use LedgerApiErrors.ReadErrors.requestedOffsetAfterLedgerEnd
-            ErrorFactories.invalidArgument(None)(
+            ErrorFactories.Default.invalidArgument(None)(
               s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
             )
           )

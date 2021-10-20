@@ -274,10 +274,14 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
 }
 
 /** Object exposing the legacy error factories.
-  * TODO error codes: Remove default implementation once all Ledger API services
-  *                   output versioned error codes.
   */
-object ErrorFactories extends ErrorFactories(new ErrorCodesVersionSwitcher(false)) {
+object ErrorFactories {
+
+  /** TODO error codes: Remove default implementation once all Ledger API services
+    *                   output versioned error codes.
+    */
+  val Default: ErrorFactories = apply(new ErrorCodesVersionSwitcher(false))
+
   def apply(errorCodesVersionSwitcher: ErrorCodesVersionSwitcher): ErrorFactories =
     new ErrorFactories(errorCodesVersionSwitcher)
 
@@ -298,4 +302,5 @@ object ErrorFactories extends ErrorFactories(new ErrorCodesVersionSwitcher(false
       statusBuilder.addDetails(definiteAnswers(definiteAnswer))
     }
   }
+
 }

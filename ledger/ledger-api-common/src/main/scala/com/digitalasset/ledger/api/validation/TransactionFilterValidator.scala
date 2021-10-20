@@ -22,7 +22,7 @@ object TransactionFilterValidator {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.TransactionFilter] = {
     if (txFilter.filtersByParty.isEmpty) {
-      Left(ErrorFactories.invalidArgument(None)("filtersByParty cannot be empty"))
+      Left(ErrorFactories.Default.invalidArgument(None)("filtersByParty cannot be empty"))
     } else {
       val convertedFilters =
         txFilter.filtersByParty.toList.traverse { case (k, v) =>

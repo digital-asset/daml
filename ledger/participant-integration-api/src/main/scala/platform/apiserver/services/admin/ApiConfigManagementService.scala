@@ -60,7 +60,7 @@ private[apiserver] final class ApiConfigManagementService private (
           Future.successful(configurationToResponse(configuration))
         case None =>
           // TODO error codes: Duplicate of missingLedgerConfig
-          Future.failed(ErrorFactories.missingLedgerConfigUponRequest)
+          Future.failed(ErrorFactories.Default.missingLedgerConfigUponRequest)
       }
       .andThen(logger.logErrorsOnCall[GetTimeModelResponse])
   }
@@ -106,7 +106,7 @@ private[apiserver] final class ApiConfigManagementService private (
                 logger.warn(
                   "Could not get the current time model. The index does not yet have any ledger configuration."
                 )
-                Future.failed(ErrorFactories.missingLedgerConfig(None))
+                Future.failed(ErrorFactories.Default.missingLedgerConfig(None))
             }
           (ledgerEndBeforeRequest, currentConfig) = configuration
 
@@ -117,7 +117,7 @@ private[apiserver] final class ApiConfigManagementService private (
               Future.failed(
                 ValidationLogger.logFailureWithContext(
                   request,
-                  ErrorFactories.invalidArgument(None)(
+                  ErrorFactories.Default.invalidArgument(None)(
                     s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
                   ),
                 )
@@ -176,7 +176,7 @@ private[apiserver] final class ApiConfigManagementService private (
         minSkew = DurationConversion.fromProto(pMinSkew),
         maxSkew = DurationConversion.fromProto(pMaxSkew),
       ) match {
-        case Failure(err) => Left(ErrorFactories.invalidArgument(None)(err.toString))
+        case Failure(err) => Left(ErrorFactories.Default.invalidArgument(None)(err.toString))
         case Success(ok) => Right(ok)
       }
       // TODO(JM): The maximum record time should be constrained, probably by the current active time model?
@@ -189,7 +189,7 @@ private[apiserver] final class ApiConfigManagementService private (
       }
       maximumRecordTime <- Time.Timestamp
         .fromInstant(mrtInstant)
-        .fold(err => Left(ErrorFactories.invalidArgument(None)(err)), Right(_))
+        .fold(err => Left(ErrorFactories.Default.invalidArgument(None)(err)), Right(_))
     } yield SetTimeModelParameters(newTimeModel, maximumRecordTime, timeToLive)
   }
 
@@ -252,7 +252,7 @@ private[apiserver] object ApiConfigManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[ConfigurationEntry, StatusRuntimeException] = {
       case domain.ConfigurationEntry.Rejected(`submissionId`, reason, _) =>
-        ErrorFactories.aborted(reason, None)
+        ErrorFactories.Default.aborted(reason, None)
     }
   }
 
