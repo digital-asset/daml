@@ -35,6 +35,42 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     ErrorDetails.RequestInfoDetail("trace-id")
 
   "ErrorFactories" should {
+
+    "return malformedPackageId" in {
+      assertVersionedError(
+        _.malformedPackageId(request = "request123", message = "message123")(
+          contextualizedErrorLogger = contextualizedErrorLogger,
+          logger = logger,
+          loggingContext = loggingContext,
+        )
+      )(
+        v1_code = Code.INVALID_ARGUMENT,
+        v1_message = "message123",
+        v1_details = Seq.empty,
+        v2_code = Code.INVALID_ARGUMENT,
+        v2_message = s"MALFORMED_PACKAGE_ID(8,$correlationId): message123",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("MALFORMED_PACKAGE_ID"),
+          DefaultTraceIdRequestInfo,
+        ),
+      )
+    }
+
+    "return packageNotFound" in {
+      assertVersionedError(_.packageNotFound("packageId123"))(
+        v1_code = Code.NOT_FOUND,
+        v1_message = "",
+        v1_details = Seq.empty,
+        v2_code = Code.NOT_FOUND,
+        v2_message = s"PACKAGE_NOT_FOUND(11,$correlationId): Could not find package.",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("PACKAGE_NOT_FOUND"),
+          DefaultTraceIdRequestInfo,
+          ErrorDetails.ResourceInfoDetail("PACKAGE", "packageId123"),
+        ),
+      )
+    }
+
     "return the DuplicateCommandException" in {
       assertVersionedError(_.duplicateCommandException)(
         v1_code = Code.ALREADY_EXISTS,

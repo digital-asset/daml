@@ -7,11 +7,12 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.grpc.GrpcStatuses
-import com.daml.platform.server.api.ApiException
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories.{
   addDefiniteAnswerDetails,
   definiteAnswers,
 }
+import com.daml.platform.server.api.{ApiException, ValidationLogger}
 import com.google.protobuf.{Any => AnyProto}
 import com.google.rpc.{ErrorInfo, Status}
 import io.grpc.Status.Code
@@ -20,6 +21,35 @@ import io.grpc.protobuf.StatusProto
 import scalaz.syntax.tag._
 
 class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
+
+  def malformedPackageId[Request](request: Request, message: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger,
+      logger: ContextualizedLogger,
+      loggingContext: LoggingContext,
+  ): StatusRuntimeException = {
+    errorCodesVersionSwitcher.choose(
+      v1 = ValidationLogger.logFailureWithContext(
+        request,
+        io.grpc.Status.INVALID_ARGUMENT
+          .withDescription(message)
+          .asRuntimeException(),
+      ),
+      v2 = LedgerApiErrors.ReadErrors.MalformedPackageId
+        .Reject(
+          message = message
+        )
+        .asGrpcError,
+    )
+  }
+
+  def packageNotFound(packageId: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = {
+    errorCodesVersionSwitcher.choose(
+      v1 = io.grpc.Status.NOT_FOUND.asRuntimeException(),
+      v2 = LedgerApiErrors.ReadErrors.PackageNotFound.Reject(packageId = packageId).asGrpcError,
+    )
+  }
 
   def duplicateCommandException(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
