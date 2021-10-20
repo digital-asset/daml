@@ -34,13 +34,10 @@ class
 
 instance HasCreate Token where
   create = GHC.Types.primitive @"UCreateInterface"
-  -- create x = GHC.Types.primitive @"$RESOLVE_VIRTUAL_CREATE" x x
 instance HasObserver Token where
   observer = GHC.Types.primitive @"EObserverInterface"
-  -- observer x = GHC.Types.primitive @"$RESOLVE_VIRTUAL_OBSERVERS" x x
 instance HasSignatory Token where
   signatory = GHC.Types.primitive @"ESignatoryInterface"
-  -- signatory x = GHC.Types.primitive @"$RESOLVE_VIRTUAL_SIGNATORIES" x x
 
 instance HasFetch Token where
   fetch = GHC.Types.primitive @"UFetchInterface"
