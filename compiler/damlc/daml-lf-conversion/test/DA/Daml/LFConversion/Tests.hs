@@ -130,11 +130,19 @@ mkExportInfoTC mPackage moduleComponents value pieces fields =
     fieldLabels = mkFieldLabel <$> fields
 
 roundtripTests :: (Eq a) => String -> (a -> b) -> (b -> Maybe a) -> [(String, a)] -> TestTree
-roundtripTests groupName encode decode examples =
-    roundtripTestsPartial groupName (Just . encode) decode [] examples
+roundtripTests groupName = roundtripTestsBy groupName (==)
+
+-- | Like 'roundtripTests', but using the supplied equality predicate
+roundtripTestsBy :: String -> (a -> c -> Bool) -> (a -> b) -> (b -> Maybe c) -> [(String, a)] -> TestTree
+roundtripTestsBy groupName eq encode decode examples =
+    roundtripTestsPartialBy groupName eq (Just . encode) decode [] examples
 
 roundtripTestsPartial :: (Eq a) => String -> (a -> Maybe b) -> (b -> Maybe a) -> [(String, a)] -> [(String, a)] -> TestTree
-roundtripTestsPartial groupName encode decode negativeExamples positiveExamples =
+roundtripTestsPartial groupName = roundtripTestsPartialBy groupName (==)
+
+-- | Like 'roundtripTestsPartial', but using the supplied equality predicate
+roundtripTestsPartialBy :: String -> (a -> c -> Bool) -> (a -> Maybe b) -> (b -> Maybe c) -> [(String, a)] -> [(String, a)] -> TestTree
+roundtripTestsPartialBy groupName eq encode decode negativeExamples positiveExamples =
     testGroup groupName $
         [ testCase name $
             assertBool "expected value to not have encoding"
@@ -143,7 +151,7 @@ roundtripTestsPartial groupName encode decode negativeExamples positiveExamples 
         ] ++
         [ testCase name $
             assertBool "expected value to survive roundtrip"
-                (Just value == (encode value >>= decode))
+                (maybe False (eq value) (encode value >>= decode))
         | (name, value) <- positiveExamples
         ]
 
