@@ -104,6 +104,10 @@ _choice_TokenGetRich =
   )
 instance IsToken t => HasExercise t GetRich (ContractId Token) where
   exercise cid = GHC.Types.primitive @"UExerciseInterface" (toTokenContractId cid)
+instance IsToken t => HasToAnyChoice t GetRich (ContractId Token) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance IsToken t => HasFromAnyChoice t GetRich (ContractId Token) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 
 data GHC.Types.DamlTemplate => Asset = Asset { amount : Int, issuer : Party, owner : Party }
   deriving (Eq, Show)

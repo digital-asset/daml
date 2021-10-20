@@ -372,11 +372,11 @@ convertPrim version "EFromAnyTemplate"
         EFromAny (TCon template) (EVar $ mkVar "any")
 
 convertPrim version "EFromAnyChoice"
-    ty@(TApp proxy (TCon template) :-> tAny :-> TOptional choice)
+    ty@(tProxy :-> tAny :-> TOptional choice)
     | tAny `elem` [TAny, TUnit] =
     -- TODO: restrict to known template/choice pairs
     whenRuntimeSupports version featureAnyType ty $
-        ETmLam (mkVar "_", TApp proxy (TCon template)) $
+        ETmLam (mkVar "_", tProxy) $
         ETmLam (mkVar "any", TAny) $
         EFromAny choice (EVar $ mkVar "any")
 
@@ -398,11 +398,11 @@ convertPrim version "EToAnyTemplate"
         EToAny (TCon template) (EVar $ mkVar "template")
 
 convertPrim version "EToAnyChoice"
-    ty@(TApp proxy (TCon template) :-> choice :-> tAny)
+    ty@(tProxy :-> choice :-> tAny)
     | tAny `elem` [TAny, TUnit] =
     -- TODO: restrict to known template/choice pairs
     whenRuntimeSupports version featureAnyType ty $
-        ETmLam (mkVar "_", TApp proxy (TCon template)) $
+        ETmLam (mkVar "_", tProxy) $
         ETmLam (mkVar "choice", choice) $
         EToAny choice (EVar $ mkVar "choice")
 
