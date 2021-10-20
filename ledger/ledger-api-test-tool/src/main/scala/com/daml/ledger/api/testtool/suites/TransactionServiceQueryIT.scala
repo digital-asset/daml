@@ -42,7 +42,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.NOT_FOUND,
-        Some("Transaction not found or not visible."),
+        Some("Transaction not found, or not visible."),
       )
     }
   })
@@ -60,7 +60,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.NOT_FOUND,
-        Some("Transaction not found or not visible."),
+        Some("Transaction not found, or not visible."),
       )
     }
   })
@@ -94,7 +94,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.NOT_FOUND,
-        Some("Transaction not found or not visible."),
+        Some("Transaction not found, or not visible."),
       )
     }
   })
@@ -112,7 +112,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.NOT_FOUND,
-        Some("Transaction not found or not visible."),
+        Some("Transaction not found, or not visible."),
       )
     }
   })
@@ -148,7 +148,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.NOT_FOUND,
-        Some("Transaction not found or not visible."),
+        Some("Transaction not found, or not visible."),
       )
     }
   })
@@ -166,7 +166,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.NOT_FOUND,
-        Some("Transaction not found or not visible."),
+        Some("Transaction not found, or not visible."),
       )
     }
   })
@@ -202,7 +202,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.NOT_FOUND,
-        Some("Transaction not found or not visible."),
+        Some("Transaction not found, or not visible."),
       )
     }
   })
@@ -220,7 +220,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.NOT_FOUND,
-        Some("Transaction not found or not visible."),
+        Some("Transaction not found, or not visible."),
       )
     }
   })

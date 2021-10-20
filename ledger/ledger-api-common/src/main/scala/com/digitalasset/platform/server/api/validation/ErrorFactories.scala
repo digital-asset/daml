@@ -31,7 +31,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         Status
           .newBuilder()
           .setCode(Code.NOT_FOUND.value())
-          .setMessage("Transaction not found or not visible.")
+          .setMessage("Transaction not found, or not visible.")
           .build()
       ),
       v2 = LedgerApiErrors.ReadErrors.TransactionNotFound

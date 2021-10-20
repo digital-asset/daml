@@ -74,11 +74,11 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     "return a transactionNotFound error" in {
       assertVersionedError(_.transactionNotFound(Ref.TransactionId.assertFromString("tId")))(
         v1_code = Code.NOT_FOUND,
-        v1_message = "Transaction not found or not visible.",
+        v1_message = "Transaction not found, or not visible.",
         v1_details = Seq.empty,
         v2_code = Code.NOT_FOUND,
         v2_message =
-          s"TRANSACTION_NOT_FOUND(11,$correlationId): Transaction not found or not visible.",
+          s"TRANSACTION_NOT_FOUND(11,$correlationId): Transaction not found, or not visible.",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("TRANSACTION_NOT_FOUND"),
           DefaultTraceIdRequestInfo,
@@ -373,6 +373,10 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           v2_code = Code.INVALID_ARGUMENT,
           v2_message =
             s"INVALID_ARGUMENT(8,$correlationId): The submitted command has invalid arguments: my message",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("INVALID_ARGUMENT"),
+            DefaultTraceIdRequestInfo,
+          ),
         )
       }
     }
