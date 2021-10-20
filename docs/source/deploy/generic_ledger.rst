@@ -37,7 +37,7 @@ The ``daml deploy`` command will
 
 #. allocate the parties specified in the project's ``daml.yaml`` on the ledger if they are missing.
 
-For more further interactions with the ledger, use the ``daml ledger`` command. Try running ``daml
+For additional interactions with the ledger, use the ``daml ledger`` command. Try running ``daml
 ledger --help`` to get a list of available ledger commands:
 
 .. code-block:: none
