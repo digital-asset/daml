@@ -45,12 +45,12 @@ private[apiserver] final class ApiTimeService private (
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val fieldValidations = FieldValidations(errorFactories)
+
   logger.debug(
     s"${getClass.getSimpleName} initialized with ledger ID ${ledgerId.unwrap}, start time ${backend.getCurrentTime}"
   )
-
-  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
-  private val fieldValidation = FieldValidations(errorFactories)
 
   private val dispatcher = SignalDispatcher[Instant]()
 
@@ -58,7 +58,7 @@ private[apiserver] final class ApiTimeService private (
       request: GetTimeRequest
   ): Source[GetTimeResponse, NotUsed] = {
     val validated =
-      fieldValidation.matchLedgerId(ledgerId = ledgerId)(received = LedgerId(request.ledgerId))
+      fieldValidations.matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
     validated.fold(
       t => Source.failed(ValidationLogger.logFailureWithContext(request, t)),
       { ledgerId =>
@@ -100,11 +100,11 @@ private[apiserver] final class ApiTimeService private (
     }
 
     val result = for {
-      _ <- fieldValidation.matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
-      expectedTime <- fieldValidation
+      _ <- fieldValidations.matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+      expectedTime <- fieldValidations
         .requirePresence(request.currentTime, "current_time")
         .map(toInstant)
-      requestedTime <- fieldValidation.requirePresence(request.newTime, "new_time").map(toInstant)
+      requestedTime <- fieldValidations.requirePresence(request.newTime, "new_time").map(toInstant)
       _ <- {
         if (!requestedTime.isBefore(expectedTime))
           Right(())
