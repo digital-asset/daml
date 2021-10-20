@@ -337,7 +337,6 @@ interface Asset where
   choice Transfer : ContractId Asset
     with
       newOwner : Party
-```.
 
 A Daml interface is translated to a TypeScript interface as follows.
 
