@@ -7,7 +7,11 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion._
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
@@ -17,8 +21,7 @@ import com.daml.platform.akkastreams.dispatcher.SignalDispatcher
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.TimeServiceBackend
 import com.daml.platform.server.api.ValidationLogger
-import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.server.api.validation.FieldValidations._
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.google.protobuf.empty.Empty
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.syntax.tag._
@@ -29,6 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[apiserver] final class ApiTimeService private (
     val ledgerId: LedgerId,
     backend: TimeServiceBackend,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -41,14 +45,21 @@ private[apiserver] final class ApiTimeService private (
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val fieldValidations = FieldValidations(errorFactories)
+
   logger.debug(
     s"${getClass.getSimpleName} initialized with ledger ID ${ledgerId.unwrap}, start time ${backend.getCurrentTime}"
   )
 
   private val dispatcher = SignalDispatcher[Instant]()
 
-  override protected def getTimeSource(request: GetTimeRequest): Source[GetTimeResponse, NotUsed] =
-    matchLedgerId(ledgerId)(LedgerId(request.ledgerId)).fold(
+  override protected def getTimeSource(
+      request: GetTimeRequest
+  ): Source[GetTimeResponse, NotUsed] = {
+    val validated =
+      fieldValidations.matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+    validated.fold(
       t => Source.failed(ValidationLogger.logFailureWithContext(request, t)),
       { ledgerId =>
         logger.info(s"Received request for time with ledger ID $ledgerId")
@@ -66,6 +77,7 @@ private[apiserver] final class ApiTimeService private (
           .via(logger.logErrorsOnStream)
       },
     )
+  }
 
   @SuppressWarnings(Array("org.wartremover.warts.JavaSerializable"))
   override def setTime(request: SetTimeRequest): Future[Empty] = {
@@ -80,7 +92,7 @@ private[apiserver] final class ApiTimeService private (
           if (success) Right(requestedTime)
           else
             Left(
-              ErrorFactories.invalidArgument(None)(
+              errorFactories.invalidArgument(None)(
                 s"current_time mismatch. Provided: $expectedTime. Actual: ${backend.getCurrentTime}"
               )
             )
@@ -88,15 +100,17 @@ private[apiserver] final class ApiTimeService private (
     }
 
     val result = for {
-      _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
-      expectedTime <- requirePresence(request.currentTime, "current_time").map(toInstant)
-      requestedTime <- requirePresence(request.newTime, "new_time").map(toInstant)
+      _ <- fieldValidations.matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+      expectedTime <- fieldValidations
+        .requirePresence(request.currentTime, "current_time")
+        .map(toInstant)
+      requestedTime <- fieldValidations.requirePresence(request.newTime, "new_time").map(toInstant)
       _ <- {
         if (!requestedTime.isBefore(expectedTime))
           Right(())
         else
           Left(
-            ErrorFactories.invalidArgument(None)(
+            errorFactories.invalidArgument(None)(
               s"new_time [$requestedTime] is before current_time [$expectedTime]. Setting time backwards is not allowed."
             )
           )
@@ -131,11 +145,15 @@ private[apiserver] final class ApiTimeService private (
 }
 
 private[apiserver] object ApiTimeService {
-  def create(ledgerId: LedgerId, backend: TimeServiceBackend)(implicit
+  def create(
+      ledgerId: LedgerId,
+      backend: TimeServiceBackend,
+      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+  )(implicit
       mat: Materializer,
       esf: ExecutionSequencerFactory,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): TimeService with GrpcApiService =
-    new ApiTimeService(ledgerId, backend)
+    new ApiTimeService(ledgerId, backend, errorCodesVersionSwitcher)
 }
