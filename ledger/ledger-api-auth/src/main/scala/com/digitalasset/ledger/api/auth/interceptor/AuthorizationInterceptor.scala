@@ -3,17 +3,11 @@
 
 package com.daml.ledger.api.auth.interceptor
 
+import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.auth.{AuthService, ClaimSet}
-import io.grpc.{
-  Context,
-  Contexts,
-  Metadata,
-  ServerCall,
-  ServerCallHandler,
-  ServerInterceptor,
-  Status,
-}
-import org.slf4j.{Logger, LoggerFactory}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.server.api.validation.ErrorFactories
+import io.grpc._
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.ExecutionContext
@@ -22,12 +16,15 @@ import scala.util.{Failure, Success}
 /** This interceptor uses the given [[AuthService]] to get [[Claims]] for the current request,
   * and then stores them in the current [[Context]].
   */
-final class AuthorizationInterceptor(protected val authService: AuthService, ec: ExecutionContext)
+final class AuthorizationInterceptor(
+    protected val authService: AuthService,
+    ec: ExecutionContext,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+)(implicit loggingContext: LoggingContext)
     extends ServerInterceptor {
-
-  private val logger: Logger = LoggerFactory.getLogger(AuthorizationInterceptor.getClass)
-  private val internalAuthenticationError =
-    Status.INTERNAL.withDescription("Failed to get claims from request metadata")
+  private val logger = ContextualizedLogger.get(getClass)
+  private val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
@@ -47,8 +44,11 @@ final class AuthorizationInterceptor(protected val authService: AuthService, ec:
         .toScala(authService.decodeMetadata(headers))
         .onComplete {
           case Failure(exception) =>
-            logger.warn(s"Failed to get claims from request metadata: ${exception.getMessage}")
-            call.close(internalAuthenticationError, new Metadata())
+            val error = errorFactories.internalAuthenticationError(
+              securitySafeMessage = "Failed to get claims from request metadata",
+              exception = exception,
+            )(errorLogger)
+            call.close(error.getStatus, error.getTrailers)
             new ServerCall.Listener[Nothing]() {}
           case Success(claimSet) =>
             val nextCtx = prevCtx.withValue(AuthorizationInterceptor.contextKeyClaimSet, claimSet)
@@ -65,12 +65,17 @@ final class AuthorizationInterceptor(protected val authService: AuthService, ec:
 
 object AuthorizationInterceptor {
 
-  private val contextKeyClaimSet = Context.key[ClaimSet]("AuthServiceDecodedClaim")
+  private[auth] val contextKeyClaimSet = Context.key[ClaimSet]("AuthServiceDecodedClaim")
 
   def extractClaimSetFromContext(): Option[ClaimSet] =
     Option(contextKeyClaimSet.get())
 
-  def apply(authService: AuthService, ec: ExecutionContext): AuthorizationInterceptor =
-    new AuthorizationInterceptor(authService, ec)
-
+  def apply(
+      authService: AuthService,
+      ec: ExecutionContext,
+      errorCodesStatusSwitcher: ErrorCodesVersionSwitcher,
+  ): AuthorizationInterceptor =
+    LoggingContext.newLoggingContext { implicit loggingContext: LoggingContext =>
+      new AuthorizationInterceptor(authService, ec, errorCodesStatusSwitcher)
+    }
 }

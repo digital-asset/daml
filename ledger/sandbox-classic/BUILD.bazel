@@ -62,6 +62,7 @@ alias(
             "//language-support/scala/bindings",
             "//ledger-api/rs-grpc-bridge",
             "//ledger/caching",
+            "//ledger/error",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
             "//ledger/ledger-api-domain",

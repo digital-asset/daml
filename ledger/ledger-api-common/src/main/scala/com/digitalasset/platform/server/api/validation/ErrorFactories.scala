@@ -3,6 +3,7 @@
 
 package com.daml.platform.server.api.validation
 
+import com.daml.error.ErrorCode.ApiException
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.LedgerId
@@ -12,12 +13,12 @@ import com.daml.platform.server.api.validation.ErrorFactories.{
   addDefiniteAnswerDetails,
   definiteAnswers,
 }
-import com.daml.platform.server.api.{ApiException, ValidationLogger}
+import com.daml.platform.server.api.{ValidationLogger, ApiException => NoStackTraceApiException}
 import com.google.protobuf.{Any => AnyProto}
 import com.google.rpc.{ErrorInfo, Status}
 import io.grpc.Status.Code
-import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
+import io.grpc.{Metadata, StatusRuntimeException}
 import scalaz.syntax.tag._
 
 class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
@@ -26,7 +27,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       contextualizedErrorLogger: ContextualizedErrorLogger,
       logger: ContextualizedLogger,
       loggingContext: LoggingContext,
-  ): StatusRuntimeException = {
+  ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
       v1 = ValidationLogger.logFailureWithContext(
         request,
@@ -40,16 +41,14 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         )
         .asGrpcError,
     )
-  }
 
   def packageNotFound(packageId: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): StatusRuntimeException = {
+  ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
       v1 = io.grpc.Status.NOT_FOUND.asRuntimeException(),
       v2 = LedgerApiErrors.ReadErrors.PackageNotFound.Reject(packageId = packageId).asGrpcError,
     )
-  }
 
   def duplicateCommandException(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -197,29 +196,48 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   }
 
   // permission denied is intentionally without description to ensure we don't leak security relevant information by accident
-  def permissionDenied()(implicit
+  def permissionDenied(cause: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException = errorCodesVersionSwitcher.choose(
-    v1 = grpcError(
-      Status
-        .newBuilder()
-        .setCode(Code.PERMISSION_DENIED.value())
-        .build()
-    ),
-    v2 = LedgerApiErrors.AuthorizationChecks.PermissionDenied.Reject().asGrpcError,
+    v1 = {
+      contextualizedErrorLogger.warn(s"Permission denied. Reason: $cause.")
+      new ApiException(
+        io.grpc.Status.PERMISSION_DENIED,
+        new Metadata(),
+      )
+    },
+    v2 = LedgerApiErrors.AuthorizationChecks.PermissionDenied.Reject(cause).asGrpcError,
   )
 
-  def unauthenticated()(implicit
+  def unauthenticatedMissingJwtToken()(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException = errorCodesVersionSwitcher.choose(
-    v1 = grpcError(
-      Status
-        .newBuilder()
-        .setCode(Code.UNAUTHENTICATED.value())
-        .build()
+    v1 = new ApiException(
+      io.grpc.Status.UNAUTHENTICATED,
+      new Metadata(),
     ),
-    v2 = LedgerApiErrors.AuthorizationChecks.Unauthenticated.Reject().asGrpcError,
+    v2 = LedgerApiErrors.AuthorizationChecks.Unauthenticated
+      .MissingJwtToken()
+      .asGrpcError,
   )
+
+  def internalAuthenticationError(securitySafeMessage: String, exception: Throwable)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = {
+        contextualizedErrorLogger.warn(
+          s"$securitySafeMessage: ${exception.getMessage}"
+        )
+        new ApiException(
+          io.grpc.Status.INTERNAL.withDescription(securitySafeMessage),
+          new Metadata(),
+        )
+      },
+      v2 = LedgerApiErrors.AuthorizationChecks.InternalAuthorizationError
+        .Reject(securitySafeMessage, exception)
+        .asGrpcError,
+    )
 
   /** @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
     * @return An exception with the [[Code.UNAVAILABLE]] status code.
@@ -298,7 +316,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     * @param status A Protobuf [[Status]] object.
     * @return An exception without a stack trace.
     */
-  def grpcError(status: Status): StatusRuntimeException = new ApiException(
+  def grpcError(status: Status): StatusRuntimeException = new NoStackTraceApiException(
     StatusProto.toStatusRuntimeException(status)
   )
 }

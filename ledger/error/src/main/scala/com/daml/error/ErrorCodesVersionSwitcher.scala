@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error
-
 import io.grpc.StatusRuntimeException
 
 import scala.concurrent.Future
