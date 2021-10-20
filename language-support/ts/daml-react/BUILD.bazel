@@ -48,6 +48,7 @@ eslint_test(
 
 pkg_npm(
     name = "npm_package",
+    package_name = "@daml/react",
     srcs = [
         ":README.md",
         ":package.json",

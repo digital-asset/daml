@@ -17,6 +17,7 @@ exports_files(
         "source/tools/export/output-root/Export.daml",
         "source/tools/export/output-root/args.json",
         "source/tools/export/output-root/daml.yaml",
+        "sphinx_ext/self_service_error_codes_extension.py",
     ],
 )
 
@@ -198,6 +199,7 @@ genrule(
 genrule(
     name = "docs-no-pdf",
     srcs = glob([
+        "sphinx_ext/**",
         "configs/html/**",
         "configs/static/pygments_daml_lexer.py",
         "configs/static/typescript.py",
@@ -205,6 +207,7 @@ genrule(
         ":sources",
         ":theme",
         ":hoogle_db.tar.gz",
+        "//docs:generate-error-codes-json",
         "//language-support/java:javadoc",
         "//language-support/ts/daml-react:docs",
         "//language-support/ts/daml-ledger:docs",
@@ -215,6 +218,7 @@ genrule(
         "@daml-cheat-sheet//:site",
         ":scripts/check-closing-quotes.sh",
         ":scripts/check-closing-quotes.sh.allow",
+        "//docs:error_codes_export.json",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -265,9 +269,16 @@ genrule(
         # Unfortunately, an update is not so easy because Sphinx 2.3.1 breaks
         # the PDF documentation due to issues with the FreeSerif font in the
         # fontspec package. So, for now we ignore `FutureWarning`.
-        WARNINGS=$$(../$(location @sphinx_nix//:bin/sphinx-build) -c docs/configs/html docs/source html 2>&1 | \\
-            grep -Pi "(?<!future)warning:" || true)
-
+        SPHINX_BUILD_EXIT_CODE=0
+        SPHINX_BUILD_OUTPUT=$$(../$(location @sphinx_nix//:bin/sphinx-build) -D error_codes_json_export=../$(location //docs:error_codes_export.json) -c docs/configs/html docs/source html 2>&1) || SPHINX_BUILD_EXIT_CODE=$$?
+        if [ "$$SPHINX_BUILD_EXIT_CODE" -ne 0 ]; then
+            >&2 echo "## SPHINX-BUILD OUTPUT:"
+            >&2 echo "$$SPHINX_BUILD_OUTPUT"
+            >&2 echo "## SPHINX-BUILD OUTPUT END"
+            exit 1
+        fi
+        # NOTE: appending ' || true' to force exit code of 0 from grep because grep normally exits with 1 if no lines are selected:
+        WARNINGS=$$(echo "$$SPHINX_BUILD_OUTPUT" | grep -Pi "(?<!future)warning:" || true)
         if [ "$$WARNINGS" != "" ]; then
             echo "$$WARNINGS"
             exit 1
@@ -303,6 +314,7 @@ genrule(
     tools = [
         "@sphinx_nix//:bin/sphinx-build",
         "//bazel_tools/sh:mktgz",
+        "//docs:generate-error-codes-json",
     ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
 ) if not is_windows else None
 
@@ -641,6 +653,15 @@ pkg_tar(
         exclude = ["**/*~"],
     ),
     strip_prefix = "source/daml-script/template-root",
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "generate-error-codes-json",
+    srcs = [],
+    outs = ["error_codes_export.json"],
+    cmd = "$(location //ledger/error:export-error-codes-json-app) $(location error_codes_export.json)",
+    tools = ["//ledger/error:export-error-codes-json-app"],
     visibility = ["//visibility:public"],
 )
 

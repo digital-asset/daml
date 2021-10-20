@@ -50,7 +50,7 @@ case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
     val (expl, res) = getErrorNameAndAnnotations(error)
     DocItem(
       className = error.getClass.getName,
-      category = error.category.getClass.getSimpleName,
+      category = error.category.getClass.getSimpleName.replace("$", ""),
       hierarchicalGrouping = error.parent.docNames.filter(_ != ""),
       conveyance = error.errorConveyanceDocString.getOrElse(""),
       code = error.id,

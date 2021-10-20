@@ -15,22 +15,24 @@ import com.daml.ledger.participant.state.kvutils.api.{
   LedgerRecord,
 }
 import com.daml.ledger.participant.state.kvutils.export.{SubmissionInfo, WriteSet}
-import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
+import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v2.Update
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 
 import scala.collection.immutable
 import scala.collection.mutable.ListBuffer
 
 final class LogAppendingReadServiceFactory(
-    metrics: Metrics
+    offsetBuilder: KVOffsetBuilder,
+    metrics: Metrics,
 ) extends ReplayingReadServiceFactory {
   private val recordedBlocks = ListBuffer.empty[LedgerRecord]
 
   override def appendBlock(submissionInfo: SubmissionInfo, writeSet: WriteSet): Unit =
     this.synchronized {
       writeSet.foreach { case (key, value) =>
-        val offset = OffsetBuilder.fromLong(recordedBlocks.length.toLong)
+        val offset = offsetBuilder.of(recordedBlocks.length.toLong)
         val logEntryId = Raw.LogEntryId(key.bytes) // `key` is of an unknown type.
         recordedBlocks.append(LedgerRecord(offset, logEntryId, value))
       }
@@ -64,6 +66,7 @@ final class LogAppendingReadServiceFactory(
             keyValueSource,
             metrics,
             failOnUnexpectedEvent = false,
+            enableSelfServiceErrorCodes = false,
           )
         new ReplayingReadService {
           override def updateCount(): Long = recordedBlocksSnapshot.length.toLong
@@ -71,7 +74,9 @@ final class LogAppendingReadServiceFactory(
           override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
             implementation.ledgerInitialConditions()
 
-          override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
+          override def stateUpdates(
+              beginAfter: Option[Offset]
+          )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] =
             implementation.stateUpdates(beginAfter)
 
           override def currentHealth(): HealthStatus = implementation.currentHealth()

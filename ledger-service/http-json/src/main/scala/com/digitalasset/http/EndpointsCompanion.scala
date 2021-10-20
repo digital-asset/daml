@@ -9,14 +9,18 @@ import akka.http.scaladsl.server.{RequestContext, Route}
 import akka.util.ByteString
 import com.daml.http.domain.{JwtPayload, JwtPayloadLedgerIdOnly, JwtWritePayload}
 import com.daml.http.json.SprayJson
+import util.GrpcHttpErrorCodes._
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.scalautil.ExceptionOps._
+import io.grpc.Status.{Code => GrpcCode}
 import scalaz.syntax.std.option._
 import scalaz.{-\/, NonEmptyList, Show, \/, \/-}
 import spray.json.JsValue
 
 import scala.concurrent.Future
+import scala.util.control.NonFatal
 
 object EndpointsCompanion {
 
@@ -30,14 +34,25 @@ object EndpointsCompanion {
 
   final case class ServerError(message: String) extends Error
 
+  final case class ParticipantServerError(grpcStatus: GrpcCode, description: Option[String])
+      extends Error
+
   final case class NotFound(message: String) extends Error
 
   object Error {
     implicit val ShowInstance: Show[Error] = Show shows {
       case InvalidUserInput(e) => s"Endpoints.InvalidUserInput: ${e: String}"
+      case ParticipantServerError(s, d) =>
+        s"Endpoints.ParticipantServerError: ${s: GrpcCode}${d.cata((": " + _), "")}"
       case ServerError(e) => s"Endpoints.ServerError: ${e: String}"
       case Unauthorized(e) => s"Endpoints.Unauthorized: ${e: String}"
       case NotFound(e) => s"Endpoints.NotFound: ${e: String}"
+    }
+
+    def fromThrowable: Throwable PartialFunction Error = {
+      case LedgerClientJwt.Grpc.StatusEnvelope(status) =>
+        ParticipantServerError(status.getCode, Option(status.getDescription))
+      case NonFatal(t) => ServerError(t.description)
     }
   }
 
@@ -142,7 +157,9 @@ object EndpointsCompanion {
   private[http] def errorResponse(error: Error): domain.ErrorResponse = {
     val (status, errorMsg): (StatusCode, String) = error match {
       case InvalidUserInput(e) => StatusCodes.BadRequest -> e
-      case ServerError(e) => StatusCodes.InternalServerError -> e
+      case ParticipantServerError(grpcStatus, d) =>
+        grpcStatus.asAkkaHttpForJsonApi -> s"$grpcStatus${d.cata((": " + _), "")}"
+      case ServerError(_) => StatusCodes.InternalServerError -> "HTTP JSON API Server Error"
       case Unauthorized(e) => StatusCodes.Unauthorized -> e
       case NotFound(e) => StatusCodes.NotFound -> e
     }

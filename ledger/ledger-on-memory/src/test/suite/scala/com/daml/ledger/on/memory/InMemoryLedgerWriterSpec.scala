@@ -7,8 +7,8 @@ import java.time.Instant
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.api.CommitMetadata
+import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.validator.LedgerStateAccess
 import com.daml.lf.data.Ref
@@ -52,6 +52,7 @@ class InMemoryLedgerWriterSpec
       val instance = new InMemoryLedgerWriter(
         participantId = Ref.ParticipantId.assertFromString("participant ID"),
         dispatcher = mockDispatcher,
+        offsetBuilder = new KVOffsetBuilder(0),
         now = () => Instant.EPOCH,
         state = InMemoryState.empty,
         committer = mockCommitter,

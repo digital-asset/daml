@@ -17,6 +17,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.{ReadService, Update}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time
+import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.{JvmMetricSet, Metrics}
 import com.daml.platform.configuration.ServerRole
@@ -198,15 +199,17 @@ class IndexerBenchmark() {
     )
 
     new ReadService {
-
       override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] = {
         Source.single(initialConditions)
       }
 
-      override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
+      override def stateUpdates(
+          beginAfter: Option[Offset]
+      )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] = {
         assert(beginAfter.isEmpty, s"beginAfter is $beginAfter")
         Source.fromIterator(() => updates)
       }
+
       override def currentHealth(): HealthStatus = Healthy
     }
   }

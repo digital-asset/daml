@@ -425,21 +425,28 @@ class JsonLedgerClient(
       })
   }
 
+  private[this] val SubmissionFailures: Set[StatusCode] = {
+    import StatusCodes._
+    Set(InternalServerError, BadRequest, Conflict)
+  }
+
   def commandRequest[In, Out](endpoint: String, argument: In)(implicit
       argumentWriter: JsonWriter[In],
       outputReader: RootJsonReader[Out],
   ): Future[Either[StatusRuntimeException, Out]] = {
     request[In, Out](uri.path./("v1")./(endpoint), argument).flatMap {
-      case ErrorResponse(errors, status) if status == StatusCodes.InternalServerError =>
+      case ErrorResponse(errors, status) if SubmissionFailures(status) =>
         // TODO (MK) Using a grpc exception here doesn’t make that much sense.
         // We should refactor this to provide something more general.
         Future.successful(
           Left(new StatusRuntimeException(Status.UNKNOWN.withDescription(errors.toString)))
         )
       case ErrorResponse(errors, status) =>
-        // A non-500 failure is something like invalid JSON or “cannot resolve template ID”.
-        // We don’t want to treat that failures as ones that can be caught
-        // via `submitMustFail` so fail hard.
+        // XXX SC JSON API doesn't distinguish between
+        // 400s that mean something like invalid JSON or “cannot resolve template ID”
+        // and those that mean a submission error or assertion failure.
+        // Ideally, the former would go through this path rather than be treated
+        // as `submitMustFail` success
         Future.failed(
           new FailedJsonApiRequest(
             uri.path./("v1")./(endpoint),

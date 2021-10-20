@@ -64,7 +64,7 @@ final class JdbcIndexerSpec
         )
       )
 
-    when(readService.stateUpdates(any[Option[Offset]]))
+    when(readService.stateUpdates(any[Option[Offset]])(any[LoggingContext]))
       .thenReturn(Source.fromIterator(() => updates.iterator))
 
     readService

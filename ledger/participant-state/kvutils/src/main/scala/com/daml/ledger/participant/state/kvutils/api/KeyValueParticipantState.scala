@@ -22,6 +22,7 @@ import com.daml.ledger.participant.state.v2.{
 }
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext
 
@@ -40,10 +41,11 @@ class KeyValueParticipantState(
     reader: LedgerReader,
     writer: LedgerWriter,
     metrics: Metrics,
+    enableSelfServiceErrorCodes: Boolean,
 ) extends ReadService
     with WriteService {
   private val readerAdapter =
-    KeyValueParticipantStateReader(reader, metrics)
+    KeyValueParticipantStateReader(reader, metrics, enableSelfServiceErrorCodes)
   private val writerAdapter =
     new KeyValueParticipantStateWriter(
       new TimedLedgerWriter(writer, metrics),
@@ -55,7 +57,9 @@ class KeyValueParticipantState(
   override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     readerAdapter.ledgerInitialConditions()
 
-  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
+  override def stateUpdates(
+      beginAfter: Option[Offset]
+  )(implicit loggingContext: LoggingContext): Source[(Offset, Update), NotUsed] =
     readerAdapter.stateUpdates(beginAfter)
 
   override def submitTransaction(

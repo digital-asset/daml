@@ -1183,7 +1183,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
     )
 
     forEvery(testCases) { (exp: Expr, expectedType: Type) =>
-      env.typeOf(exp) shouldBe expectedType
+      env.expandTypeSynonyms(env.typeOf(exp)) shouldBe expectedType
     }
   }
 

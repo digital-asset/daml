@@ -31,6 +31,7 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
       readerWriter <- new InMemoryLedgerReaderWriter.Owner(
         ledgerId = config.ledgerId,
         participantId = participantConfig.participantId,
+        offsetVersion = 0,
         keySerializationStrategy = DefaultStateKeySerializationStrategy,
         metrics = metrics,
         stateValueCache = caching.WeightedCache.from(
@@ -46,6 +47,7 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
       readerWriter,
       readerWriter,
       createMetrics(participantConfig, config),
+      config.enableSelfServiceErrorCodes,
     )
   }
 

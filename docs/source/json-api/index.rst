@@ -209,23 +209,27 @@ HTTP Status Codes
 The **JSON API** reports errors using standard HTTP status codes. It divides HTTP status codes into 3 groups indicating:
 
 1. success (200)
-2. failure due to a client-side problem (400, 401, 404)
-3. failure due to a server-side problem (500)
+2. failure due to a client-side problem (400, 401, 403, 404, 409, 429)
+3. failure due to a server-side problem (500, 503)
 
 The **JSON API** can return one of the following HTTP status codes:
 
 - 200 - OK
 - 400 - Bad Request (Client Error)
 - 401 - Unauthorized, authentication required
+- 403 - Forbidden, insufficient permissions
 - 404 - Not Found
+- 409 - Conflict, contract ID or key missing or duplicated
+- 429 - Too Many Requests, ledger server has hit configured limit of in-flight commands
 - 500 - Internal Server Error
+- 503 - Service Unavailable, ledger server is not running yet or has been shut down
 
 If a client's HTTP GET or POST request reaches an API endpoint, the corresponding response will always contain a JSON object with a ``status`` field, either an ``errors`` or ``result`` field and an optional ``warnings``:
 
 .. code-block:: none
 
     {
-        "status": <400 | 401 | 404 | 500>,
+        "status": <400 | 401 | 403 | 404 | 409 | 429 | 500 | 503>,
         "errors": <JSON array of strings>, | "result": <JSON object or array>,
         ["warnings": <JSON object> ]
     }

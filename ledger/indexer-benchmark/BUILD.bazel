@@ -66,6 +66,7 @@ da_scala_library(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//libs-scala/concurrent",
+        "//libs-scala/contextualized-logging",
         "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )

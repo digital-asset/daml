@@ -8,7 +8,6 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.language.{LanguageVersion, PackageInterface}
-import com.daml.lf.validation.AlphaEquiv._
 import com.daml.lf.validation.Util._
 import com.daml.lf.validation.iterable.TypeIterable
 import com.daml.scalautil.Statement.discard
@@ -387,11 +386,8 @@ private[validation] object Typing {
       case DValue(typ, _, body, isTest) =>
         checkType(typ, KStar)
         checkExpr(body, typ)
-        if (isTest) dropForalls(typ) match {
-          case TScenario(_) =>
-            ()
-          case _ =>
-            throw EExpectedScenarioType(ctx, typ)
+        if (isTest) {
+          discard(toScenario(dropForalls(typ)))
         }
     }
 
@@ -475,6 +471,10 @@ private[validation] object Typing {
     def checkIfaceMethod(method: InterfaceMethod): Unit = {
       checkType(method.returnType, KStar)
     }
+
+    def alphaEquiv(t1: Type, t2: Type) =
+      AlphaEquiv.alphaEquiv(t1, t2) ||
+        AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
 
     def checkIfaceImplementation(tplTcon: TypeConName, impl: TemplateImplements): Unit = {
       val DefInterfaceSignature(_, virtualChoices, _, methods) =
@@ -576,7 +576,7 @@ private[validation] object Typing {
         KStar
     }
 
-    private def expandTypeSynonyms(typ0: Type): Type = typ0 match {
+    private[lf] def expandTypeSynonyms(typ0: Type): Type = typ0 match {
       case TSynApp(syn, args) =>
         val ty = expandSynApp(syn, args)
         expandTypeSynonyms(ty)
@@ -658,40 +658,33 @@ private[validation] object Typing {
         .fromSeq(fields.iterator.map { case (f, x) => f -> typeOf(x) }.toSeq)
         .fold(name => throw EDuplicateField(ctx, name), TStruct)
 
-    private def typeOfStructProj(proj: EStructProj): Type = typeOf(proj.struct) match {
-      case TStruct(structType) =>
-        val index = structType.indexOf(proj.field)
-        if (index < 0)
-          throw EUnknownField(ctx, proj.field)
-        else {
-          proj.fieldIndex = Some(index)
-          structType.toImmArray(index)._2
-        }
-      case typ =>
-        throw EExpectedStructType(ctx, typ)
+    private def typeOfStructProj(proj: EStructProj): Type = {
+      val TStruct(structType) = toStruct(typeOf(proj.struct))
+      val index = structType.indexOf(proj.field)
+      if (index < 0)
+        throw EUnknownField(ctx, proj.field)
+      else {
+        proj.fieldIndex = Some(index)
+        structType.toImmArray(index)._2
+      }
     }
 
-    private def typeOfStructUpd(upd: EStructUpd): Type =
-      typeOf(upd.struct) match {
-        case typ @ TStruct(structType) =>
-          val index = structType.indexOf(upd.field)
-          if (index < 0)
-            throw EUnknownField(ctx, upd.field)
-          else {
-            upd.fieldIndex = Some(index)
-            checkExpr(upd.update, structType.toImmArray(index)._2)
-            typ
-          }
-        case typ =>
-          throw EExpectedStructType(ctx, typ)
+    private def typeOfStructUpd(upd: EStructUpd): Type = {
+      val typ @ TStruct(structType) = toStruct(typeOf(upd.struct))
+      val index = structType.indexOf(upd.field)
+      if (index < 0)
+        throw EUnknownField(ctx, upd.field)
+      else {
+        upd.fieldIndex = Some(index)
+        checkExpr(upd.update, structType.toImmArray(index)._2)
+        typ
       }
+    }
 
-    private def typeOfTmApp(fun: Expr, arg: Expr): Type = typeOf(fun) match {
-      case TApp(TApp(TBuiltin(BTArrow), argType), resType) =>
-        checkExpr(arg, argType)
-        resType
-      case typ =>
-        throw EExpectedFunctionType(ctx, typ)
+    private def typeOfTmApp(fun: Expr, arg: Expr): Type = {
+      val (argType, resType) = toFunction(typeOf(fun))
+      checkExpr(arg, argType)
+      resType
     }
 
     private def typeOfTyApp(expr: Expr, typs: List[Type]): Type = {
@@ -699,7 +692,7 @@ private[validation] object Typing {
       def unwrapForall(body0: Type, typs: List[Type], acc: Map[TypeVarName, Type]): Type =
         typs match {
           case head :: tail =>
-            body0 match {
+            toForall(body0) match {
               case TForall((v, k), body) =>
                 checkType(head, k)
                 unwrapForall(body, tail, acc.updated(v, head))
@@ -896,10 +889,7 @@ private[validation] object Typing {
         env.checkExpr(bound, TScenario(typ))
         env.introExprVar(vName, typ)
       }
-      env.typeOf(body) match {
-        case bodyTyp @ TScenario(_) => bodyTyp
-        case bodyTyp => throw EExpectedScenarioType(ctx, bodyTyp)
-      }
+      toScenario(env.typeOf(body))
     }
 
     private def typeOfUpdateBlock(bindings: ImmArray[Binding], body: Expr): Type = {
@@ -908,10 +898,7 @@ private[validation] object Typing {
         env.checkExpr(bound, TUpdate(typ))
         env.introExprVar(vName, typ)
       }
-      env.typeOf(body) match {
-        case bodyTyp @ TUpdate(_) => bodyTyp
-        case bodyTyp => throw EExpectedUpdateType(ctx, bodyTyp)
-      }
+      toUpdate(env.typeOf(body))
     }
 
     private def typeOfCreate(tpl: TypeConName, arg: Expr): Type = {
@@ -1072,6 +1059,7 @@ private[validation] object Typing {
 
     // checks that typ contains neither variables, nor quantifiers, nor synonyms
     private def checkAnyType_(typ: Type): Unit = {
+      // No expansion here because we forbid TSynApp
       typ match {
         case TVar(_) | TForall(_, _) | TSynApp(_, _) =>
           throw EExpectedAnyType(ctx, typ)
@@ -1085,21 +1073,13 @@ private[validation] object Typing {
       checkType(typ, KStar)
     }
 
-    private def checkExceptionType(typ: Type): Unit = {
-      typ match {
-        case TTyCon(tyCon) =>
-          discard(handleLookup(ctx, interface.lookupException(tyCon)))
-        case _ =>
-          throw EExpectedExceptionType(ctx, typ)
-      }
+    private def checkExceptionType(typ: Type): Unit = typ match {
+      case TTyCon(tyCon) =>
+        discard(handleLookup(ctx, interface.lookupException(tyCon)))
+      case _ => throw EExpectedExceptionType(ctx, typ)
     }
 
-    def typeOf(expr: Expr): Type = {
-      val typ0 = typeOf_(expr)
-      expandTypeSynonyms(typ0)
-    }
-
-    def typeOf_(expr0: Expr): Type = expr0 match {
+    def typeOf(expr0: Expr): Type = expr0 match {
       case EVar(name) =>
         lookupExpVar(name)
       case EVal(ref) =>
@@ -1203,9 +1183,8 @@ private[validation] object Typing {
         typ
     }
 
-    def resolveExprType(expr: Expr, typ0: Type): Type = {
+    def resolveExprType(expr: Expr, typ: Type): Type = {
       val exprType = typeOf(expr)
-      val typ = expandTypeSynonyms(typ0)
       if (!alphaEquiv(exprType, typ))
         throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
       exprType
@@ -1214,6 +1193,56 @@ private[validation] object Typing {
     def checkExpr(expr: Expr, typ0: Type): Unit = {
       discard[Type](resolveExprType(expr, typ0))
     }
+
+    private def toStruct(t: Type): TStruct =
+      t match {
+        case s: TStruct => s
+        case _ =>
+          expandTypeSynonyms(t) match {
+            case s: TStruct => s
+            case _ => throw EExpectedStructType(ctx, t)
+          }
+      }
+
+    private def toFunction(t: Type): (Type, Type) =
+      t match {
+        case TApp(TApp(TBuiltin(BTArrow), argType), resType) => (argType, resType)
+        case _ =>
+          expandTypeSynonyms(t) match {
+            case TApp(TApp(TBuiltin(BTArrow), argType), resType) => (argType, resType)
+            case _ => throw EExpectedFunctionType(ctx, t)
+          }
+      }
+
+    private def toScenario(t: Type): Type =
+      t match {
+        case s @ TScenario(_) => s
+        case _ =>
+          expandTypeSynonyms(t) match {
+            case s @ TScenario(_) => s
+            case _ => throw EExpectedScenarioType(ctx, t)
+          }
+      }
+
+    private def toForall(t: Type): TForall =
+      t match {
+        case f @ TForall(_, _) => f
+        case _ =>
+          expandTypeSynonyms(t) match {
+            case f @ TForall(_, _) => f
+            case _ => throw EExpectedUniversalType(ctx, t)
+          }
+      }
+
+    private def toUpdate(t: Type): Type =
+      t match {
+        case t @ TUpdate(_) => t
+        case _ =>
+          expandTypeSynonyms(t) match {
+            case t @ TUpdate(_) => t
+            case _ => throw EExpectedUpdateType(ctx, t)
+          }
+      }
   }
 
   /* Utils */

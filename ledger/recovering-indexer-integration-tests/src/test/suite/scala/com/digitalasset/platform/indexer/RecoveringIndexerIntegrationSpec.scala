@@ -269,6 +269,7 @@ object RecoveringIndexerIntegrationSpec {
         readerWriter <- new memory.InMemoryLedgerReaderWriter.Owner(
           ledgerId = ledgerId,
           participantId = participantId,
+          offsetVersion = 0,
           keySerializationStrategy = StateKeySerializationStrategy.createDefault(),
           metrics = metrics,
           dispatcher = dispatcher,
@@ -276,7 +277,12 @@ object RecoveringIndexerIntegrationSpec {
           engine = Engine.DevEngine(),
           committerExecutionContext = committerExecutionContext,
         )
-      } yield new KeyValueParticipantState(readerWriter, readerWriter, metrics)
+      } yield new KeyValueParticipantState(
+        readerWriter,
+        readerWriter,
+        metrics,
+        enableSelfServiceErrorCodes = false,
+      )
     }
   }
 
@@ -300,7 +306,10 @@ object RecoveringIndexerIntegrationSpec {
                 Source.single(value)
               }
             }
-          }).when(failingParticipantState).stateUpdates(ArgumentMatchers.any[Option[Offset]]())
+          }).when(failingParticipantState)
+            .stateUpdates(
+              ArgumentMatchers.any[Option[Offset]]()
+            )(ArgumentMatchers.any[LoggingContext])
           failingParticipantState
         }
 

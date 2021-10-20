@@ -187,6 +187,7 @@ object LedgerFactory {
         readerWriter,
         readerWriter,
         createMetrics(participantConfig, config),
+        config.enableSelfServiceErrorCodes,
       )
 
     def owner(

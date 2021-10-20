@@ -11,11 +11,15 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
+import com.daml.logging.LoggingContext
+
 final class IntegrityCheckerSpec
     extends AsyncWordSpec
     with Matchers
     with MockitoSugar
     with ArgumentMatchersSugar {
+
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   "compareStateUpdates" should {
     "call compare if not in index-only mode" in {

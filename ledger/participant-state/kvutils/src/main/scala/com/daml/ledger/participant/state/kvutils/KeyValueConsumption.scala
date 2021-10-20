@@ -3,8 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import com.daml.error.ValueSwitch
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.DamlPackageUploadRejectionEntry
 import com.daml.ledger.participant.state.kvutils.store.events.{
@@ -20,19 +20,16 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlOutOfTimeBoundsEntry,
   DamlStateKey,
 }
-import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
+import com.daml.ledger.participant.state.kvutils.updates.TransactionRejections._
 import com.daml.ledger.participant.state.v2.{DivulgedContract, TransactionMeta, Update}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
-import com.google.protobuf.any.{Any => AnyProto}
-import com.google.rpc.code.Code
-import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
-import org.slf4j.LoggerFactory
 
 import scala.jdk.CollectionConverters._
 
@@ -40,7 +37,7 @@ import scala.jdk.CollectionConverters._
   * key-value based ledger.
   */
 object KeyValueConsumption {
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   def packDamlLogEntry(entry: DamlStateKey): ByteString = entry.toByteString
   def unpackDamlLogEntry(bytes: ByteString): DamlLogEntry = DamlLogEntry.parseFrom(bytes)
@@ -52,6 +49,7 @@ object KeyValueConsumption {
     *
     * @param entryId: The log entry identifier.
     * @param entry: The log entry.
+    * @param errorVersionSwitch: Decides between v1 and v2 (self-service) errors.
     * @return [[Update]]s constructed from log entry.
     */
   // TODO(BH): add participantId to ensure participant id matches in DamlLogEntry
@@ -59,8 +57,11 @@ object KeyValueConsumption {
   def logEntryToUpdate(
       entryId: DamlLogEntryId,
       entry: DamlLogEntry,
+      errorVersionSwitch: ValueSwitch[Status],
       recordTimeForUpdate: Option[Timestamp] = None,
-  ): List[Update] = {
+  )(loggingContext: LoggingContext): List[Update] = {
+    implicit val logContext: LoggingContext = loggingContext
+
     val recordTimeFromLogEntry = PartialFunction.condOpt(entry.hasRecordTime) { case true =>
       parseTimestamp(entry.getRecordTime)
     }
@@ -209,13 +210,20 @@ object KeyValueConsumption {
         }
 
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY =>
-        transactionRejectionEntryToUpdate(
-          recordTime,
-          entry.getTransactionRejectionEntry,
-        ).toList
+        List(
+          transactionRejectionEntryToUpdate(
+            recordTime,
+            entry.getTransactionRejectionEntry,
+            errorVersionSwitch,
+          )
+        )
 
       case DamlLogEntry.PayloadCase.OUT_OF_TIME_BOUNDS_ENTRY =>
-        outOfTimeBoundsEntryToUpdate(recordTime, entry.getOutOfTimeBoundsEntry).toList
+        outOfTimeBoundsEntryToUpdate(
+          recordTime,
+          entry.getOutOfTimeBoundsEntry,
+          errorVersionSwitch,
+        ).toList
 
       case DamlLogEntry.PayloadCase.TIME_UPDATE_ENTRY =>
         List.empty
@@ -239,22 +247,22 @@ object KeyValueConsumption {
   private def transactionRejectionEntryToUpdate(
       recordTime: Timestamp,
       rejEntry: DamlTransactionRejectionEntry,
-  ): Option[Update] = Conversions
-    .decodeTransactionRejectionEntry(rejEntry)
-    .map { reason =>
-      Update.CommandRejected(
-        recordTime = recordTime,
-        completionInfo = parseCompletionInfo(parseInstant(recordTime), rejEntry.getSubmitterInfo),
-        reasonTemplate = reason,
-      )
-    }
+      errorVersionSwitch: ValueSwitch[Status],
+  ): Update = {
+    val reason = Conversions.decodeTransactionRejectionEntry(rejEntry, errorVersionSwitch)
+    Update.CommandRejected(
+      recordTime = recordTime,
+      completionInfo = parseCompletionInfo(parseInstant(recordTime), rejEntry.getSubmitterInfo),
+      reasonTemplate = reason,
+    )
+  }
 
   /** Transform the transaction entry into the [[Update.TransactionAccepted]] event. */
   private def transactionEntryToUpdate(
       entryId: DamlLogEntryId,
       txEntry: DamlTransactionEntry,
       recordTime: Timestamp,
-  ): Update.TransactionAccepted = {
+  )(implicit loggingContext: LoggingContext): Update.TransactionAccepted = {
     val transaction = Conversions.decodeTransaction(txEntry.getTransaction)
     val hexTxId = parseLedgerString("TransactionId")(
       BaseEncoding.base16.encode(entryId.toByteArray)
@@ -305,7 +313,7 @@ object KeyValueConsumption {
   private def validateDivulgedContracts(
       hexTxId: LedgerString,
       damlTransactionBlindingInfo: DamlTransactionBlindingInfo,
-  ) =
+  )(implicit loggingContext: LoggingContext): List[DivulgedContract] =
     if (!damlTransactionBlindingInfo.getDivulgencesList.isEmpty) {
       Conversions.extractDivulgedContracts(damlTransactionBlindingInfo) match {
         case Right(divulgedContractsIndex) =>
@@ -332,7 +340,8 @@ object KeyValueConsumption {
   private[kvutils] def outOfTimeBoundsEntryToUpdate(
       recordTime: Timestamp,
       outOfTimeBoundsEntry: DamlOutOfTimeBoundsEntry,
-  ): Option[Update] = {
+      errorVersionSwitch: ValueSwitch[Status],
+  )(implicit loggingContext: LoggingContext): Option[Update] = {
     val timeBounds = parseTimeBounds(outOfTimeBoundsEntry)
     val deduplicated = timeBounds.deduplicateUntil.exists(recordTime <= _)
     val tooEarly = timeBounds.tooEarlyUntil.exists(recordTime < _)
@@ -343,31 +352,7 @@ object KeyValueConsumption {
     wrappedLogEntry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY if deduplicated =>
         val rejectionEntry = wrappedLogEntry.getTransactionRejectionEntry
-        Some(
-          Update.CommandRejected(
-            recordTime = recordTime,
-            completionInfo = parseCompletionInfo(
-              Conversions.parseInstant(recordTime),
-              rejectionEntry.getSubmitterInfo,
-            ),
-            reasonTemplate = FinalReason(
-              Status.of(
-                Code.ALREADY_EXISTS.value,
-                "Duplicate commands",
-                Seq(
-                  AnyProto.pack[ErrorInfo](
-                    // the definite answer is false, as the rank-based deduplication is not yet implemented
-                    ErrorInfo(metadata =
-                      Map(
-                        GrpcStatuses.DefiniteAnswerKey -> rejectionEntry.getDefiniteAnswer.toString
-                      )
-                    )
-                  )
-                ),
-              )
-            ),
-          )
-        )
+        Some(duplicateCommandsRejectionUpdate(recordTime, rejectionEntry))
 
       case _ if deduplicated =>
         // We only emit updates for duplicate transaction submissions.
@@ -386,28 +371,7 @@ object KeyValueConsumption {
             "Record time outside of valid range"
         }
         Some(
-          Update.CommandRejected(
-            recordTime = recordTime,
-            completionInfo = parseCompletionInfo(
-              Conversions.parseInstant(recordTime),
-              rejectionEntry.getSubmitterInfo,
-            ),
-            reasonTemplate = FinalReason(
-              Status.of(
-                Code.ABORTED.value,
-                reason,
-                Seq(
-                  AnyProto.pack[ErrorInfo](
-                    ErrorInfo(metadata =
-                      Map(
-                        GrpcStatuses.DefiniteAnswerKey -> rejectionEntry.getDefiniteAnswer.toString
-                      )
-                    )
-                  )
-                ),
-              )
-            ),
-          )
+          invalidRecordTimeRejectionUpdate(recordTime, rejectionEntry, reason, errorVersionSwitch)
         )
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY if invalidRecordTime =>

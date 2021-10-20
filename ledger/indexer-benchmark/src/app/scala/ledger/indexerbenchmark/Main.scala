@@ -21,8 +21,9 @@ import com.daml.ledger.participant.state.kvutils.api.{
   LedgerRecord,
 }
 import com.daml.ledger.participant.state.kvutils.export.ProtobufBasedLedgerDataImporter
-import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
+import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v2.Update
+import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 
 import scala.concurrent.Future
@@ -38,6 +39,7 @@ object Main {
     }
     val importer = ProtobufBasedLedgerDataImporter(path)
 
+    val offsetBuilder = new KVOffsetBuilder(0)
     val dataSource: Source[LedgerRecord, NotUsed] = Source
       .fromIterator(() => importer.read().iterator)
       .statefulMapConcat { () =>
@@ -45,7 +47,7 @@ object Main {
 
         { case (_, writeSet) =>
           writeSet.map { case (key, value) =>
-            val offset = OffsetBuilder.fromLong(nextOffset.getAndIncrement())
+            val offset = offsetBuilder.of(nextOffset.getAndIncrement())
             val logEntryId = Raw.LogEntryId(key.bytes) // `key` is of an unknown type.
             LedgerRecord(offset, logEntryId, value)
           }
@@ -75,6 +77,7 @@ object Main {
       keyValueSource,
       metrics,
       failOnUnexpectedEvent = false,
+      enableSelfServiceErrorCodes = false,
     )
 
     // Note: this method is doing quite a lot of work to transform a sequence of write sets
@@ -84,16 +87,18 @@ object Main {
     // the benchmark.
     val system = ActorSystem("IndexerBenchmarkUpdateReader")
     implicit val materializer: Materializer = Materializer(system)
-    keyValueStateReader
-      .stateUpdates(None)
-      .take(config.updateCount.getOrElse(Long.MaxValue))
-      .zipWithIndex
-      .map { case (data, index) =>
-        if (index % 1000 == 0) println(s"Generated update $index")
-        data
-      }
-      .runWith(Sink.seq[(Offset, Update)])
-      .map(seq => seq.iterator)(DirectExecutionContext)
-      .andThen { case _ => system.terminate() }(DirectExecutionContext)
+    newLoggingContext { implicit loggingContext =>
+      keyValueStateReader
+        .stateUpdates(None)
+        .take(config.updateCount.getOrElse(Long.MaxValue))
+        .zipWithIndex
+        .map { case (data, index) =>
+          if (index % 1000 == 0) println(s"Generated update $index")
+          data
+        }
+        .runWith(Sink.seq[(Offset, Update)])
+        .map(seq => seq.iterator)(DirectExecutionContext)
+        .andThen { case _ => system.terminate() }(DirectExecutionContext)
+    }
   }
 }

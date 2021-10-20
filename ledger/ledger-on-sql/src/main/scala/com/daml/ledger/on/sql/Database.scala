@@ -5,17 +5,18 @@ package com.daml.ledger.on.sql
 
 import java.sql.{Connection, SQLException}
 import java.util.concurrent.Executors
+import javax.sql.DataSource
 
 import com.daml.concurrent.{ExecutionContext, Future}
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.on.sql.Database._
 import com.daml.ledger.on.sql.queries._
+import com.daml.ledger.participant.state.kvutils.KVOffsetBuilder
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.resources.ProgramResource.StartupException
 import com.zaxxer.hikari.HikariDataSource
-import javax.sql.DataSource
 import org.flywaydb.core.Flyway
 import scalaz.syntax.bind._
 
@@ -23,7 +24,8 @@ import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
 final class Database(
-    queries: Connection => Queries,
+    queries: QueriesFactory,
+    offsetBuilder: KVOffsetBuilder,
     metrics: Metrics,
 )(implicit
     readerConnectionPool: ConnectionPool[Reader],
@@ -54,7 +56,7 @@ final class Database(
     Timed.future(
       metrics.daml.ledger.database.transactions.run(name),
       Future[X] {
-        body(new TimedQueries(queries(connection), metrics))
+        body(new TimedQueries(queries(offsetBuilder, connection), metrics))
           .andThen {
             case Success(_) => connection.commit()
             case Failure(_) => connection.rollback()
@@ -81,26 +83,28 @@ object Database {
   // entries missing.
   private val MaximumWriterConnectionPoolSize: Int = 1
 
-  def owner(jdbcUrl: String, metrics: Metrics)(implicit
-      loggingContext: LoggingContext
-  ): ResourceOwner[UninitializedDatabase] =
+  def owner(
+      jdbcUrl: String,
+      offsetBuilder: KVOffsetBuilder,
+      metrics: Metrics,
+  )(implicit loggingContext: LoggingContext): ResourceOwner[UninitializedDatabase] =
     (jdbcUrl match {
       case "jdbc:h2:mem:" =>
         throw new InvalidDatabaseException(
           "Unnamed in-memory H2 databases are not supported. Please name the database using the format \"jdbc:h2:mem:NAME\"."
         )
       case url if url.startsWith("jdbc:h2:mem:") =>
-        SingleConnectionDatabase.owner(RDBMS.H2, jdbcUrl, metrics)
+        SingleConnectionDatabase.owner(RDBMS.H2, jdbcUrl, offsetBuilder, metrics)
       case url if url.startsWith("jdbc:h2:") =>
-        MultipleConnectionDatabase.owner(RDBMS.H2, jdbcUrl, metrics)
+        MultipleConnectionDatabase.owner(RDBMS.H2, jdbcUrl, offsetBuilder, metrics)
       case url if url.startsWith("jdbc:postgresql:") =>
-        MultipleConnectionDatabase.owner(RDBMS.PostgreSQL, jdbcUrl, metrics)
+        MultipleConnectionDatabase.owner(RDBMS.PostgreSQL, jdbcUrl, offsetBuilder, metrics)
       case url if url.startsWith("jdbc:sqlite::memory:") =>
         throw new InvalidDatabaseException(
           "Unnamed in-memory SQLite databases are not supported. Please name the database using the format \"jdbc:sqlite:file:NAME?mode=memory&cache=shared\"."
         )
       case url if url.startsWith("jdbc:sqlite:") =>
-        SingleConnectionDatabase.owner(RDBMS.SQLite, jdbcUrl, metrics)
+        SingleConnectionDatabase.owner(RDBMS.SQLite, jdbcUrl, offsetBuilder, metrics)
       case _ =>
         throw new InvalidDatabaseException(s"Unknown database")
     }).map { database =>
@@ -112,6 +116,7 @@ object Database {
     def owner(
         system: RDBMS,
         jdbcUrl: String,
+        offsetBuilder: KVOffsetBuilder,
         metrics: Metrics,
     ): ResourceOwner[UninitializedDatabase] =
       for {
@@ -139,7 +144,7 @@ object Database {
           new ConnectionPool(writerDataSource)
         implicit val adminConnectionPool: ConnectionPool[Migrator] =
           new ConnectionPool(adminDataSource)(DirectExecutionContext)
-        new UninitializedDatabase(system = system, metrics = metrics)
+        new UninitializedDatabase(system, offsetBuilder, metrics)
       }
   }
 
@@ -147,6 +152,7 @@ object Database {
     def owner(
         system: RDBMS,
         jdbcUrl: String,
+        offsetBuilder: KVOffsetBuilder,
         metrics: Metrics,
     ): ResourceOwner[UninitializedDatabase] =
       for {
@@ -164,7 +170,7 @@ object Database {
           new ConnectionPool(readerWriterDataSource)
         implicit val adminConnectionPool: ConnectionPool[Migrator] =
           new ConnectionPool(adminDataSource)(DirectExecutionContext)
-        new UninitializedDatabase(system = system, metrics = metrics)
+        new UninitializedDatabase(system, offsetBuilder, metrics)
       }
   }
 
@@ -184,31 +190,34 @@ object Database {
   sealed trait RDBMS {
     val name: String
 
-    val queries: Connection => Queries
+    val queries: QueriesFactory
   }
 
   object RDBMS {
     object H2 extends RDBMS {
       override val name: String = "h2"
 
-      override val queries: Connection => Queries = H2Queries.apply
+      override val queries: QueriesFactory = H2Queries.apply
     }
 
     object PostgreSQL extends RDBMS {
       override val name: String = "postgresql"
 
-      override val queries: Connection => Queries = PostgresqlQueries.apply
+      override val queries: QueriesFactory = PostgresqlQueries.apply
     }
 
     object SQLite extends RDBMS {
       override val name: String = "sqlite"
 
-      override val queries: Connection => Queries = SqliteQueries.apply
+      override val queries: QueriesFactory = SqliteQueries.apply
     }
-
   }
 
-  class UninitializedDatabase(system: RDBMS, metrics: Metrics)(implicit
+  class UninitializedDatabase(
+      system: RDBMS,
+      offsetBuilder: KVOffsetBuilder,
+      metrics: Metrics,
+  )(implicit
       readerConnectionPool: ConnectionPool[Reader],
       writerConnectionPool: ConnectionPool[Writer],
       adminConnectionPool: ConnectionPool[Migrator],
@@ -224,7 +233,7 @@ object Database {
 
     def migrate(): Database = {
       flyway.migrate()
-      new Database(queries = system.queries, metrics = metrics)
+      new Database(system.queries, offsetBuilder, metrics)
     }
 
     def migrateAndReset()(implicit

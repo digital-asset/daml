@@ -71,13 +71,21 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
         engine = engine,
         jdbcUrl = jdbcUrl,
         resetOnStartup = false,
+        offsetVersion = 0,
         logEntryIdAllocator = RandomLogEntryIdAllocator,
         stateValueCache = caching.WeightedCache.from(
           configuration = config.stateValueCache,
           metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
         ),
       ).acquire()
-        .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
+        .map(readerWriter =>
+          new KeyValueParticipantState(
+            readerWriter,
+            readerWriter,
+            metrics,
+            enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+          )
+        )
     }
   }
 }

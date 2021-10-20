@@ -1,8 +1,8 @@
-diff --git a/internal/node/node_repositories.bzl b/internal/node/node_repositories.bzl
-index 087c9ada..6eef8186 100644
---- a/internal/node/node_repositories.bzl
-+++ b/internal/node/node_repositories.bzl
-@@ -355,9 +355,17 @@ def _prepare_node(repository_ctx):
+diff --git a/nodejs/repositories.bzl b/nodejs/repositories.bzl
+index 494217b7..3eb10a41 100644
+--- a/nodejs/repositories.bzl
++++ b/nodejs/repositories.bzl
+@@ -379,9 +379,17 @@ def _prepare_node(repository_ctx):
              repository_ctx.attr.vendored_node.package,
              repository_ctx.attr.vendored_node.name,
          )
@@ -20,11 +20,11 @@ index 087c9ada..6eef8186 100644
  
      if repository_ctx.attr.vendored_yarn:
          yarn_path = "/".join([f for f in [
-@@ -381,7 +389,6 @@ def _prepare_node(repository_ctx):
-     # Use the npm-cli.js script as the bin for oxs & linux so there are no symlink issues with `%s/bin/npm`
+@@ -405,7 +413,6 @@ def _prepare_node(repository_ctx):
+     # Use the npm-cli.js script as the bin for osx & linux so there are no symlink issues with `%s/bin/npm`
      npm_bin = ("%s/lib/node_modules/npm/bin/npm-cli.js" % node_path) if not is_windows else ("%s/npm.cmd" % node_path)
      npm_bin_label = ("%s/lib/node_modules/npm/bin/npm-cli.js" % node_package) if not is_windows else ("%s/npm.cmd" % node_package)
 -    npm_script = ("%s/lib/node_modules/npm/bin/npm-cli.js" % node_path) if not is_windows else ("%s/node_modules/npm/bin/npm-cli.js" % node_path)
  
-     # Use the npx-cli.js script as the bin for oxs & linux so there are no symlink issues with `%s/bin/npx`
+     # Use the npx-cli.js script as the bin for osx & linux so there are no symlink issues with `%s/bin/npx`
      npx_bin = ("%s/lib/node_modules/npm/bin/npx-cli.js" % node_path) if not is_windows else ("%s/npx.cmd" % node_path)

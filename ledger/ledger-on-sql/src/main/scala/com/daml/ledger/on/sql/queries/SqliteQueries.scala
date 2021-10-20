@@ -10,13 +10,12 @@ import anorm._
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
-import com.daml.ledger.participant.state.kvutils.Raw
+import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, Raw}
 
 import scala.util.Try
 
-final class SqliteQueries(override protected implicit val connection: Connection)
-    extends Queries
-    with CommonQueries {
+final class SqliteQueries(offsetBuilder: KVOffsetBuilder)(implicit connection: Connection)
+    extends CommonQueries(offsetBuilder) {
   override def updateOrRetrieveLedgerId(providedLedgerId: LedgerId): Try[LedgerId] = Try {
     SQL"INSERT INTO #$MetaTable (table_key, ledger_id) VALUES ($MetaTableKey, $providedLedgerId) ON CONFLICT DO NOTHING"
       .executeInsert()
@@ -47,9 +46,9 @@ final class SqliteQueries(override protected implicit val connection: Connection
   }
 }
 
-object SqliteQueries {
-  def apply(connection: Connection): Queries = {
+object SqliteQueries extends QueriesFactory {
+  override def apply(offsetBuilder: KVOffsetBuilder, connection: Connection): Queries = {
     implicit val conn: Connection = connection
-    new SqliteQueries
+    new SqliteQueries(offsetBuilder)
   }
 }

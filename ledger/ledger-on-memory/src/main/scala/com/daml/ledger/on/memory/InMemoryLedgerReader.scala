@@ -8,7 +8,7 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.kvutils.OffsetBuilder
+import com.daml.ledger.participant.state.kvutils.KVOffsetBuilder
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
@@ -17,6 +17,7 @@ import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 class InMemoryLedgerReader(
     override val ledgerId: LedgerId,
     dispatcher: Dispatcher[Index],
+    offsetBuilder: KVOffsetBuilder,
     state: InMemoryState,
     metrics: Metrics,
 ) extends LedgerReader {
@@ -24,7 +25,7 @@ class InMemoryLedgerReader(
     dispatcher
       .startingAt(
         startExclusive
-          .map(OffsetBuilder.highestIndex(_).toInt)
+          .map(offsetBuilder.highestIndex(_).toInt)
           .getOrElse(StartIndex),
         RangeSource((startExclusive, endInclusive) =>
           Source.fromIterator(() => {
