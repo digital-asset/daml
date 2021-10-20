@@ -12,12 +12,17 @@ import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
 import doobie.util.log.LogHandler
+import doobie.free.{connection => fconn}
 import org.scalatest.freespec.AsyncFreeSpecLike
 import org.scalatest.{Assertion, AsyncTestSuite, BeforeAndAfterAll, Inside}
 import org.scalatest.matchers.should.Matchers
+import scalaz.std.list._
 
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.TimeUnit.SECONDS
 import scala.collection.compat._
 import scala.concurrent.Future
+import scala.util.Try
 
 abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with BeforeAndAfterAll {
   this: AsyncTestSuite with Matchers with Inside =>
@@ -184,25 +189,76 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
     } yield succeed
   }.unsafeToFuture()
 
-  "SurrogateTemplateIdCache should be used on template insertion and reads" in {
-    import dao.jdbcDriver.q.queries
-    def getOrElseInsertTemplate(tpid: TemplateId[String])(implicit
-        logHandler: LogHandler = dao.logHandler
-    ) = instanceUUIDLogCtx(implicit lc =>
-      dao.transact(
-        queries
-          .surrogateTemplateId(tpid.packageId, tpid.moduleName, tpid.entityName)
+  "SurrogateTemplateIdCache" - {
+    "should be used on template insertion and reads" in {
+      import dao.jdbcDriver.q.queries
+      def getOrElseInsertTemplate(tpid: TemplateId[String])(implicit
+          logHandler: LogHandler = dao.logHandler
+      ) = instanceUUIDLogCtx(implicit lc =>
+        dao.transact(
+          queries
+            .surrogateTemplateId(tpid.packageId, tpid.moduleName, tpid.entityName)
+        )
       )
-    )
-    val tpId = TemplateId("pkg", "mod", "ent")
-    for {
-      storedStpId <- getOrElseInsertTemplate(tpId) //insert the template id into the cache
-      cachedStpId <- getOrElseInsertTemplate(tpId) // should trigger a read from cache
-    } yield {
-      storedStpId shouldEqual cachedStpId
-      queries.surrogateTpIdCache.getHitCount shouldBe 1
-      queries.surrogateTpIdCache.getMissCount shouldBe 1
+
+      val tpId = TemplateId("pkg", "mod", "ent")
+      for {
+        storedStpId <- getOrElseInsertTemplate(tpId) //insert the template id into the cache
+        cachedStpId <- getOrElseInsertTemplate(tpId) // should trigger a read from cache
+      } yield {
+        storedStpId shouldEqual cachedStpId
+        queries.surrogateTpIdCache.getHitCount shouldBe 1
+        queries.surrogateTpIdCache.getMissCount shouldBe 1
+      }
+    }.unsafeToFuture()
+
+    "doesn't cache uncommitted template IDs" in {
+      import dbbackend.Queries.DBContract, spray.json.{JsObject, JsNull, JsValue},
+      spray.json.DefaultJsonProtocol._
+      import cats.syntax.apply._
+      import dao.logHandler, dao.jdbcDriver.q.queries,
+      queries.{insertContracts, surrogateTemplateId}
+
+      val tpId = TemplateId("pkg", "mod", "UncomCollision")
+      val barrier = new CyclicBarrier(2)
+      def waitForBarrier() = fconn.async[Int] { k =>
+        k(Try(barrier.await(5, SECONDS)).toEither)
+      }
+
+      def anUpdateThread(cid: String, first: Boolean) = instanceUUIDLogCtx { implicit lc =>
+        def stid = surrogateTemplateId(tpId.packageId, tpId.moduleName, tpId.entityName)
+        for {
+          tpid <- if (first) stid <* waitForBarrier() else waitForBarrier().flatMap(_ => stid)
+          _ <- insertContracts(
+            List(
+              DBContract(
+                contractId = cid,
+                templateId = tpid,
+                key = JsNull: JsValue,
+                keyHash = None,
+                payload = JsObject(): JsValue,
+                signatories = Seq("Alice"),
+                observers = Seq.empty,
+                agreementText = "",
+              )
+            )
+          )
+          _ <- if (first) waitForBarrier() *> fconn.commit else fconn.commit <* waitForBarrier()
+        } yield true
+      }
+
+      def actuallyAsync[A](ca: fconn.ConnectionIO[A]) =
+        Future(()).flatMap(_ => dao.transact(ca).unsafeToFuture())
+
+      dao
+        .transact(queries.dropAllTablesIfExist.flatMap(_ => queries.initDatabase))
+        .unsafeToFuture()
+        .flatMap(_ =>
+          actuallyAsync(anUpdateThread("foo", true))
+            zip actuallyAsync(anUpdateThread("bar", false))
+            map (_ shouldBe ((true, true)))
+        )
     }
-  }.unsafeToFuture()
+  }
 
 }
