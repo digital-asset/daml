@@ -15,6 +15,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+// SECURITY_TEST: Performance: Tail call optimization: Tail recursion does not blow the scala JVM stack.
 class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   val pkg =
