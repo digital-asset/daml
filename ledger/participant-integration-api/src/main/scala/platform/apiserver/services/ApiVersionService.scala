@@ -8,19 +8,18 @@ import com.daml.error.{
   DamlContextualizedErrorLogger,
   ErrorCodesVersionSwitcher,
 }
-import com.daml.ledger.api.v1.version_service.GetLedgerApiVersionRequest
-import com.daml.ledger.api.v1.version_service.GetLedgerApiVersionResponse
-import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
+import com.daml.ledger.api.v1.version_service.{
+  GetLedgerApiVersionRequest,
+  GetLedgerApiVersionResponse,
+  VersionServiceGrpc,
+}
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
-import com.daml.logging.ContextualizedLogger
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.ServerServiceDefinition
-import io.grpc.Status
 
-import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
 import scala.util.Try
 import scala.util.control.NonFatal
