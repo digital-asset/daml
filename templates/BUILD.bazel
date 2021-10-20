@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 load("@os_info//:os_info.bzl", "is_windows")
 
-exports_files(glob(["create-daml-app-test-resources/*"]) + ["copy-trigger/src/CopyTrigger.daml"])
+exports_files(glob(["create-daml-app-test-resources/*"]) + [
+    "copy-trigger/src/CopyTrigger.daml",
+    "create-daml-app/ui/package.json.template",
+])
 
 # Split out into a separate rule so we can cheaply include this in the
 # live-preview.

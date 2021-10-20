@@ -4,13 +4,13 @@
 package com.daml.platform.apiserver.services
 
 import com.daml.api.util.TimeProvider
-import com.daml.error.definitions.{ErrorCauseExport, RejectionGenerators}
 import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
   ErrorCause,
   ErrorCodesVersionSwitcher,
 }
+import com.daml.error.definitions.{ErrorCauseExport, RejectionGenerators}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}

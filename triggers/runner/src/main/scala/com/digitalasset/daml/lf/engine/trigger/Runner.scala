@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl._
 import com.daml.api.util.TimeProvider
-import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.api.v1.completion.Completion
@@ -19,6 +19,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement._
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
@@ -219,7 +220,7 @@ class Runner(
     client: LedgerClient,
     timeProviderType: TimeProviderType,
     applicationId: ApplicationId,
-    party: String,
+    party: Party,
 )(implicit loggingContext: LoggingContextOf[Trigger]) {
   import Runner.{SeenMsgs, alterF}
 
@@ -232,7 +233,7 @@ class Runner(
   // message, or both.
   private[this] var pendingCommandIds: Map[UUID, SeenMsgs] = Map.empty
   private val transactionFilter: TransactionFilter =
-    TransactionFilter(Seq((party, trigger.filters)).toMap)
+    TransactionFilter(Seq((party.unwrap, trigger.filters)).toMap)
 
   private[this] def logger = ContextualizedLogger get getClass
 
@@ -260,7 +261,7 @@ class Runner(
       ledgerId = client.ledgerId.unwrap,
       applicationId = applicationId.unwrap,
       commandId = commandUUID.toString,
-      party = party,
+      party = party.unwrap,
       commands = commands,
     )
     logger.debug(
@@ -321,7 +322,7 @@ class Runner(
       client: LedgerClient,
       offset: LedgerOffset,
       heartbeat: Option[FiniteDuration],
-      party: String,
+      party: Party,
       filter: TransactionFilter,
   ): Flow[SingleCommandFailure, TriggerMsg, NotUsed] = {
 
@@ -361,7 +362,7 @@ class Runner(
       submissionFailureQueue
         .merge(
           client.commandClient
-            .completionSource(List(party), offset)
+            .completionSource(List(party.unwrap), offset)
             .mapConcat {
               case CheckpointElement(_) => List()
               case CompletionElement(c) => List(c)
@@ -403,7 +404,10 @@ class Runner(
     val createdValue: SValue = converter.fromACS(acs).orConverterException
     // Setup an application expression of initialState on the ACS.
     val initialState: SExpr =
-      makeApp(getInitialState, Array(SParty(Party.assertFromString(party)), createdValue))
+      makeApp(
+        getInitialState,
+        Array(SParty(Ref.Party.assertFromString(party.unwrap)), createdValue),
+      )
     // Prepare a speedy machine for evaluating expressions.
     val machine: Speedy.Machine =
       Speedy.Machine.fromPureSExpr(compiledPackages, initialState)
@@ -716,7 +720,7 @@ object Runner extends StrictLogging {
       client: LedgerClient,
       timeProviderType: TimeProviderType,
       applicationId: ApplicationId,
-      party: String,
+      party: Party,
       config: Compiler.Config,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] = {
     val darMap = dar.all.toMap
