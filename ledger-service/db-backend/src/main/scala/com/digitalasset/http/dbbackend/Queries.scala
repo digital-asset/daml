@@ -177,7 +177,10 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
         Applicative[ConnectionIO].pure(tpId)
       }
       .getOrElse {
-        surrogateTemplateIdFromDb(packageId, moduleName, entityName).map { tpId =>
+        for {
+          tpId <- surrogateTemplateIdFromDb(packageId, moduleName, entityName)
+          _ <- connection.commit
+        } yield {
           surrogateTpIdCache.setCacheValue(packageId, moduleName, entityName, tpId)
           tpId
         }
