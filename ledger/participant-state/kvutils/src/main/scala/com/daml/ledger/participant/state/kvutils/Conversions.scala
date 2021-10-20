@@ -3,42 +3,15 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.error.ValueSwitch
+import com.daml.error.{ContextualizedErrorLogger, ValueSwitch}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
-import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
-  ExternallyInconsistentTransaction,
-  InternallyInconsistentTransaction,
-}
+import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{ExternallyInconsistentTransaction, InternallyInconsistentTransaction}
 import com.daml.ledger.participant.state.kvutils.store.events.DamlSubmitterInfo.DeduplicationPeriodCase
-import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionBlindingInfo.{
-  DisclosureEntry,
-  DivulgenceEntry,
-}
-import com.daml.ledger.participant.state.kvutils.store.events.{
-  CausalMonotonicityViolated,
-  DamlSubmitterInfo,
-  DamlTransactionBlindingInfo,
-  DamlTransactionRejectionEntry,
-  DuplicateKeys,
-  InconsistentContracts,
-  InconsistentKeys,
-  InvalidLedgerTime,
-  InvalidParticipantState,
-  MissingInputState,
-  PartiesNotKnownOnLedger,
-  RecordTimeOutOfRange,
-  SubmitterCannotActViaParticipant,
-  SubmittingPartyNotKnownOnLedger,
-  ValidationFailure,
-}
-import com.daml.ledger.participant.state.kvutils.store.{
-  DamlCommandDedupKey,
-  DamlContractKey,
-  DamlStateKey,
-  DamlSubmissionDedupKey,
-}
+import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionBlindingInfo.{DisclosureEntry, DivulgenceEntry}
+import com.daml.ledger.participant.state.kvutils.store.events.{CausalMonotonicityViolated, DamlSubmitterInfo, DamlTransactionBlindingInfo, DamlTransactionRejectionEntry, DuplicateKeys, InconsistentContracts, InconsistentKeys, InvalidLedgerTime, InvalidParticipantState, MissingInputState, PartiesNotKnownOnLedger, RecordTimeOutOfRange, SubmitterCannotActViaParticipant, SubmittingPartyNotKnownOnLedger, ValidationFailure}
+import com.daml.ledger.participant.state.kvutils.store.{DamlCommandDedupKey, DamlContractKey, DamlStateKey, DamlSubmissionDedupKey}
 import com.daml.ledger.participant.state.kvutils.updates.TransactionRejections._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2.{CompletionInfo, SubmitterInfo}
@@ -469,7 +442,7 @@ private[state] object Conversions {
   def decodeTransactionRejectionEntry(
       entry: DamlTransactionRejectionEntry,
       errorVersionSwitch: ValueSwitch[Status],
-  ): FinalReason =
+  )(implicit loggingContext: ContextualizedErrorLogger): FinalReason =
     FinalReason(entry.getReasonCase match {
       case DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME =>
         val rejection = entry.getInvalidLedgerTime
@@ -479,15 +452,15 @@ private[state] object Conversions {
         disputedStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT =>
         val rejection = entry.getSubmitterCannotActViaParticipant
-        submitterCannotActViaParticipantStatus(entry, rejection)
+        submitterCannotActViaParticipantStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT =>
         val rejection = entry.getInconsistent
         inconsistentStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.RESOURCES_EXHAUSTED =>
         val rejection = entry.getResourcesExhausted
-        resourceExhaustedStatus(entry, rejection)
+        resourceExhaustedStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>
-        duplicateCommandStatus(entry)
+        duplicateCommandStatus(entry, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER =>
         val rejection = entry.getPartyNotKnownOnLedger
         partyNotKnownOnLedgerStatus(entry, rejection, errorVersionSwitch)
@@ -522,7 +495,7 @@ private[state] object Conversions {
         val rejection = entry.getInvalidParticipantState
         invalidParticipantStateStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
-        reasonNotSetStatus(entry, errorVersionSwitch)
+        rejectionReasonNotSetStatus(entry, errorVersionSwitch)
     })
 
   private def encodeParties(parties: Set[Ref.Party]): List[String] =

@@ -3,15 +3,16 @@
 
 package com.daml.ledger.participant.state.kvutils.updates
 
-import com.daml.error.ValueSwitch
+import com.daml.error.{ContextualizedErrorLogger, ValueSwitch}
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions.parseCompletionInfo
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
   ExternallyInconsistentTransaction,
   InternallyInconsistentTransaction,
 }
+import com.daml.ledger.participant.state.kvutils.errors.KVCompletionErrors
 import com.daml.ledger.participant.state.kvutils.store.events._
-import com.daml.ledger.participant.state.kvutils.{Conversions, CorrelationId}
+import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
@@ -23,19 +24,21 @@ import com.google.rpc.status.Status
 
 import java.io.StringWriter
 import java.time.Instant
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
 /** Utilities for converting between rejection log entries and updates and/or gRPC statuses.
   */
 private[kvutils] object TransactionRejections {
 
+  @nowarn("msg=deprecated")
   def invalidRecordTimeRejectionUpdate(
       recordTime: Timestamp,
+      tooEarlyUntil: Option[Timestamp],
+      tooLateFrom: Option[Timestamp],
       rejectionEntry: DamlTransactionRejectionEntry,
-      reason: CorrelationId,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Update.CommandRejected = {
-    val statusBuilder = invalidRecordTimeRejectionStatus(rejectionEntry, reason, _)
+  )(implicit loggingContext: ContextualizedErrorLogger): Update.CommandRejected = {
     Update.CommandRejected(
       recordTime = recordTime,
       completionInfo = parseCompletionInfo(
@@ -44,17 +47,28 @@ private[kvutils] object TransactionRejections {
       ),
       reasonTemplate = FinalReason(
         errorVersionSwitch.choose(
-          statusBuilder(Code.ABORTED),
-          statusBuilder(Code.FAILED_PRECONDITION),
+          V1.invalidRecordTimeRejectionStatus(
+            rejectionEntry,
+            invalidRecordTimeReason(recordTime, tooEarlyUntil, tooEarlyUntil),
+            Code.ABORTED,
+          ),
+          V2.invalidRecordTimeRejectionStatus(
+            rejectionEntry,
+            recordTime,
+            tooEarlyUntil,
+            tooLateFrom,
+          ),
         )
       ),
     )
   }
 
+  @nowarn("msg=deprecated")
   def duplicateCommandsRejectionUpdate(
       recordTime: Timestamp,
       rejectionEntry: DamlTransactionRejectionEntry,
-  ): Update.CommandRejected =
+      errorVersionSwitch: ValueSwitch[Status],
+  )(implicit loggingContext: ContextualizedErrorLogger): Update.CommandRejected =
     Update.CommandRejected(
       recordTime = recordTime,
       completionInfo = parseCompletionInfo(
@@ -62,369 +76,612 @@ private[kvutils] object TransactionRejections {
         rejectionEntry.getSubmitterInfo,
       ),
       reasonTemplate = FinalReason(
-        duplicateCommandsRejectionStatus(rejectionEntry, Code.ALREADY_EXISTS)
+        errorVersionSwitch.choose(
+          V1.duplicateCommandsRejectionStatus(rejectionEntry, Code.ALREADY_EXISTS),
+          V2.duplicateCommandsRejectionStatus(),
+        )
       ),
     )
 
-  def reasonNotSetStatus(
+  @nowarn("msg=deprecated")
+  def rejectionReasonNotSetStatus(
       entry: DamlTransactionRejectionEntry,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Status = {
-    def statusBuilder: Code => Status = buildStatus(entry, _, "No reason set for rejection")
+  )(implicit loggingContext: ContextualizedErrorLogger): Status =
     errorVersionSwitch.choose(
-      statusBuilder(Code.UNKNOWN),
-      statusBuilder(Code.INTERNAL), // We should always set a reason
+      V1.status(entry, Code.UNKNOWN, "No reason set for rejection"),
+      V2.rejectionReasonNotSetStatus(),
     )
-  }
 
+  @nowarn("msg=deprecated")
   def invalidParticipantStateStatus(
       entry: DamlTransactionRejectionEntry,
       rejection: InvalidParticipantState,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Status = {
-    def statusBuilder: Code => Status = buildStatus(
-      entry,
-      _,
-      s"Disputed: ${rejection.getDetails}",
-      rejection.getMetadataMap.asScala.toMap,
-    )
+  )(implicit loggingContext: ContextualizedErrorLogger): Status = {
+    val details = rejection.getDetails
     errorVersionSwitch.choose(
-      statusBuilder(Code.INVALID_ARGUMENT),
-      statusBuilder(Code.INTERNAL),
+      V1.status(
+        entry,
+        Code.INVALID_ARGUMENT,
+        s"Disputed: $details",
+        rejection.getMetadataMap.asScala.toMap,
+      ),
+      V2.invalidParticipantStateStatus(details),
     )
   }
 
+  @nowarn("msg=deprecated")
   def partiesNotKnownOnLedgerStatus(
       entry: DamlTransactionRejectionEntry,
       rejection: PartiesNotKnownOnLedger,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Status = {
+  )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val parties = rejection.getPartiesList
-    def statusBuilder: Code => Status = buildStatus(
-      entry,
-      _,
-      s"Party not known on ledger: Parties not known on ledger ${parties.asScala.mkString("[", ",", "]")}",
-      Map("parties" -> objectToJsonString(parties)),
-    )
     errorVersionSwitch.choose(
-      statusBuilder(Code.INVALID_ARGUMENT),
-      statusBuilder(Code.FAILED_PRECONDITION), // The party may become known at a later time
+      V1.status(
+        entry,
+        Code.INVALID_ARGUMENT,
+        s"Party not known on ledger: Parties not known on ledger ${parties.asScala.mkString("[", ",", "]")}",
+        Map("parties" -> objectToJsonString(parties)),
+      ),
+      V2.partiesNotKnownOnLedgerStatus(parties.asScala.toSeq),
     )
   }
 
+  @nowarn("msg=deprecated")
   def submittingPartyNotKnownOnLedgerStatus(
       entry: DamlTransactionRejectionEntry,
       rejection: SubmittingPartyNotKnownOnLedger,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Status = {
-    def statusBuilder: Code => Status = buildStatus(
-      entry,
-      _,
-      s"Party not known on ledger: Submitting party '${rejection.getSubmitterParty}' not known",
-      Map("submitter_party" -> rejection.getSubmitterParty),
-    )
+  )(implicit loggingContext: ContextualizedErrorLogger): Status = {
+    val submitter = rejection.getSubmitterParty
     errorVersionSwitch.choose(
-      statusBuilder(Code.INVALID_ARGUMENT),
-      statusBuilder(Code.FAILED_PRECONDITION), // The party may become known at a later time
+      V1.status(
+        entry,
+        Code.INVALID_ARGUMENT,
+        s"Party not known on ledger: Submitting party '$submitter' not known",
+        Map("submitter_party" -> submitter),
+      ),
+      V2.submittingPartyNotKnownOnLedgerStatus(submitter),
     )
   }
 
-  def partyNotKnownOnLedgerStatus(
-      entry: DamlTransactionRejectionEntry,
-      rejection: PartyNotKnownOnLedger,
-      errorVersionSwitch: ValueSwitch[Status],
-  ): Status = {
-    def statusBuilder: Code => Status = buildStatus(
-      entry,
-      _,
-      s"Party not known on ledger: ${rejection.getDetails}",
-    )
-    errorVersionSwitch.choose(
-      statusBuilder(Code.INVALID_ARGUMENT),
-      statusBuilder(Code.FAILED_PRECONDITION), // The party may become known at a later time
-    )
-  }
-
+  @nowarn("msg=deprecated")
   def causalMonotonicityViolatedStatus(
       entry: DamlTransactionRejectionEntry,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Status = {
-    def statusBuilder: Code => Status = buildStatus(
-      entry,
-      _,
-      "Invalid ledger time: Causal monotonicity violated",
-    )
+  )(implicit loggingContext: ContextualizedErrorLogger): Status =
     errorVersionSwitch.choose(
-      statusBuilder(Code.ABORTED),
-      statusBuilder(Code.FAILED_PRECONDITION), // May succeed at a later time
+      V1.status(
+        entry,
+        Code.ABORTED,
+        "Invalid ledger time: Causal monotonicity violated",
+      ),
+      V2.causalMonotonicityViolatedStatus(),
     )
-  }
 
+  @nowarn("msg=deprecated")
   def recordTimeOutOfRangeStatus(
       entry: DamlTransactionRejectionEntry,
       rejection: RecordTimeOutOfRange,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Status = {
-    def statusBuilder: Code => Status = buildStatus(
-      entry,
-      _,
-      s"Invalid ledger time: Record time is outside of valid range [${rejection.getMinimumRecordTime}, ${rejection.getMaximumRecordTime}]",
-      Map(
-        "minimum_record_time" -> Instant
-          .ofEpochSecond(
-            rejection.getMinimumRecordTime.getSeconds,
-            rejection.getMinimumRecordTime.getNanos.toLong,
-          )
-          .toString,
-        "maximum_record_time" -> Instant
-          .ofEpochSecond(
-            rejection.getMaximumRecordTime.getSeconds,
-            rejection.getMaximumRecordTime.getNanos.toLong,
-          )
-          .toString,
-      ),
-    )
+  )(implicit loggingContext: ContextualizedErrorLogger): Status = {
+    val minRecordTime = Instant
+      .ofEpochSecond(
+        rejection.getMinimumRecordTime.getSeconds,
+        rejection.getMinimumRecordTime.getNanos.toLong,
+      )
+    val maxRecordTime = Instant
+      .ofEpochSecond(
+        rejection.getMaximumRecordTime.getSeconds,
+        rejection.getMaximumRecordTime.getNanos.toLong,
+      )
     errorVersionSwitch.choose(
-      statusBuilder(Code.ABORTED),
-      statusBuilder(Code.FAILED_PRECONDITION), // May succeed at a later time
+      V1.status(
+        entry,
+        Code.ABORTED,
+        s"Invalid ledger time: Record time is outside of valid range [${rejection.getMinimumRecordTime}, ${rejection.getMaximumRecordTime}]",
+        Map(
+          "minimum_record_time" -> minRecordTime.toString,
+          "maximum_record_time" -> maxRecordTime.toString,
+        ),
+      ),
+      V2.recordTimeOutOfRangeStatus(minRecordTime, maxRecordTime),
     )
   }
 
+  @nowarn("msg=deprecated")
+  def externallyDuplicateKeysStatus(
+      entry: DamlTransactionRejectionEntry,
+      errorVersionSwitch: ValueSwitch[Status],
+  )(implicit loggingContext: ContextualizedErrorLogger): Status =
+    errorVersionSwitch.choose(
+      V1.status(
+        entry,
+        Code.ABORTED,
+        s"Inconsistent: ${ExternallyInconsistentTransaction.DuplicateKeys.description}",
+      ),
+      V2.externallyDuplicateKeysStatus(),
+    )
+
+  @nowarn("msg=deprecated")
+  def externallyInconsistentKeysStatus(
+      entry: DamlTransactionRejectionEntry,
+      errorVersionSwitch: ValueSwitch[Status],
+  )(implicit loggingContext: ContextualizedErrorLogger): Status =
+    errorVersionSwitch.choose(
+      V1.status(
+        entry,
+        Code.ABORTED,
+        s"Inconsistent: ${ExternallyInconsistentTransaction.InconsistentKeys.description}",
+      ),
+      V2.externallyInconsistentKeysStatus(),
+    )
+
+  @nowarn("msg=deprecated")
+  def externallyInconsistentContractsStatus(
+      entry: DamlTransactionRejectionEntry,
+      errorVersionSwitch: ValueSwitch[Status],
+  )(implicit loggingContext: ContextualizedErrorLogger): Status =
+    errorVersionSwitch.choose(
+      V1.status(
+        entry,
+        Code.ABORTED,
+        s"Inconsistent: ${ExternallyInconsistentTransaction.InconsistentContracts.description}",
+      ),
+      V2.externallyInconsistentContractsStatus(),
+    )
+
+  @nowarn("msg=deprecated")
   def missingInputStateStatus(
       entry: DamlTransactionRejectionEntry,
       rejection: MissingInputState,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Status = {
-    def statusBuilder: Code => Status = buildStatus(
-      entry,
-      _,
-      s"Inconsistent: Missing input state for key ${rejection.getKey.toString}",
-      Map("key" -> rejection.getKey.toString),
-    )
+  )(implicit loggingContext: ContextualizedErrorLogger): Status = {
+    val key = rejection.getKey.toString
     errorVersionSwitch.choose(
-      statusBuilder(Code.ABORTED),
-      statusBuilder(Code.INTERNAL), // The inputs should have been provided by the participant
+      V1.status(
+        entry,
+        Code.ABORTED,
+        s"Inconsistent: Missing input state for key $key",
+        Map("key" -> key),
+      ),
+      V2.missingInputStateStatus(key),
     )
   }
 
-  def externallyInconsistentKeysStatus(
-      entry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch[Status],
-  ): Status = {
-    def statusBuilder: Code => Status = buildStatus(
-      entry,
-      _,
-      s"Inconsistent: ${ExternallyInconsistentTransaction.InconsistentKeys.description}",
-    )
-    errorVersionSwitch.choose(
-      statusBuilder(Code.ABORTED),
-      statusBuilder(Code.FAILED_PRECONDITION), // May succeed at a later time
-    )
-  }
-
-  def externallyDuplicateKeysStatus(
-      entry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch[Status],
-  ): Status = {
-    def statusBuilder: Code => Status = buildStatus(
-      entry,
-      _,
-      s"Inconsistent: ${ExternallyInconsistentTransaction.DuplicateKeys.description}",
-    )
-    errorVersionSwitch.choose(
-      statusBuilder(Code.ABORTED),
-      statusBuilder(Code.FAILED_PRECONDITION), // May succeed at a later time
-    )
-  }
-
-  def externallyInconsistentContractsStatus(
-      entry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch[Status],
-  ): Status = {
-    def statusBuilder: Code => Status = buildStatus(
-      entry,
-      _,
-      s"Inconsistent: ${ExternallyInconsistentTransaction.InconsistentContracts.description}",
-    )
-    errorVersionSwitch.choose(
-      statusBuilder(Code.ABORTED),
-      statusBuilder(Code.FAILED_PRECONDITION), // May succeed at a later time
-    )
-  }
-
+  @nowarn("msg=deprecated")
   def internallyInconsistentKeysStatus(
       entry: DamlTransactionRejectionEntry,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Status = {
-    def statusBuilder: Code => Status = buildStatus(
-      entry,
-      _,
-      s"Disputed: ${InternallyInconsistentTransaction.InconsistentKeys.description}",
-    )
+  )(implicit loggingContext: ContextualizedErrorLogger): Status =
     errorVersionSwitch.choose(
-      statusBuilder(Code.INVALID_ARGUMENT),
-      statusBuilder(Code.INTERNAL), // Should have been caught by the participant
+      V1.status(
+        entry,
+        Code.INVALID_ARGUMENT,
+        s"Disputed: ${InternallyInconsistentTransaction.InconsistentKeys.description}",
+      ),
+      V2.internallyInconsistentKeysStatus(), // Code.INTERNAL as it should have been caught by the participant
     )
-  }
 
+  @nowarn("msg=deprecated")
   def internallyDuplicateKeysStatus(
       entry: DamlTransactionRejectionEntry,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Status = {
-    def statusBuilder: Code => Status = buildStatus(
-      entry,
-      _,
-      s"Disputed: ${InternallyInconsistentTransaction.DuplicateKeys.description}",
-    )
+  )(implicit loggingContext: ContextualizedErrorLogger): Status =
     errorVersionSwitch.choose(
-      statusBuilder(Code.INVALID_ARGUMENT),
-      statusBuilder(Code.INTERNAL), // Should have been caught by the participant
+      V1.status(
+        entry,
+        Code.INVALID_ARGUMENT,
+        s"Disputed: ${InternallyInconsistentTransaction.DuplicateKeys.description}",
+      ),
+      V2.internallyDuplicateKeysStatus(), // Code.INTERNAL as it should have been caught by the participant
     )
-  }
 
+  @nowarn("msg=deprecated")
   def validationFailureStatus(
       entry: DamlTransactionRejectionEntry,
       rejection: ValidationFailure,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Status = {
-    val statusBuilder = disputedStatusBuilder(entry, rejection.getDetails)
+  )(implicit loggingContext: ContextualizedErrorLogger): Status = {
+    val details = rejection.getDetails
     errorVersionSwitch.choose(
-      statusBuilder(Code.INVALID_ARGUMENT),
-      statusBuilder(Code.INTERNAL), // Should have been caught by the participant
+      V1.disputedStatus(entry, details, Code.INVALID_ARGUMENT),
+      V2.validationFailureStatus(details),
     )
   }
 
+  @nowarn("msg=deprecated")
   def duplicateCommandStatus(
-      entry: DamlTransactionRejectionEntry
-  ): Status = buildStatus(
-    entry,
-    Code.ALREADY_EXISTS,
-    "Duplicate commands",
-  )
-
-  def resourceExhaustedStatus(
       entry: DamlTransactionRejectionEntry,
-      rejection: ResourcesExhausted,
-  ): Status = buildStatus(
-    entry,
-    Code.ABORTED,
-    s"Resources exhausted: ${rejection.getDetails}",
-  )
-
-  def inconsistentStatus(
-      entry: DamlTransactionRejectionEntry,
-      rejection: Inconsistent,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Status = {
-    def statusBuilder: Code => Status = buildStatus(
-      entry,
-      _,
-      s"Inconsistent: ${rejection.getDetails}",
-    )
+  )(implicit loggingContext: ContextualizedErrorLogger): Status =
     errorVersionSwitch.choose(
-      statusBuilder(Code.ABORTED),
-      statusBuilder(Code.FAILED_PRECONDITION), // May succeed at a later time
+      V1.status(
+        entry,
+        Code.ALREADY_EXISTS,
+        "Duplicate commands",
+      ),
+      V2.duplicateCommandsRejectionStatus(),
     )
-  }
 
+  @nowarn("msg=deprecated")
   def submitterCannotActViaParticipantStatus(
       entry: DamlTransactionRejectionEntry,
       rejection: SubmitterCannotActViaParticipant,
-  ): Status = buildStatus(
-    entry,
-    Code.PERMISSION_DENIED,
-    s"Submitter cannot act via participant: ${rejection.getDetails}",
-    Map(
-      "submitter_party" -> rejection.getSubmitterParty,
-      "participant_id" -> rejection.getParticipantId,
-    ),
-  )
-
-  def disputedStatus(
-      entry: DamlTransactionRejectionEntry,
-      rejection: Disputed,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Status = {
-    val statusBuilder = disputedStatusBuilder(entry, rejection.getDetails)
+  )(implicit loggingContext: ContextualizedErrorLogger): Status = {
+    val submitter = rejection.getSubmitterParty
+    val participantId = rejection.getParticipantId
+    val details = rejection.getDetails
     errorVersionSwitch.choose(
-      statusBuilder(Code.INVALID_ARGUMENT),
-      statusBuilder(Code.INTERNAL), // Should have been caught by the participant
+      V1.status(
+        entry,
+        Code.PERMISSION_DENIED,
+        s"Submitter cannot act via participant: $details",
+        Map(
+          "submitter_party" -> submitter,
+          "participant_id" -> participantId,
+        ),
+      ),
+      V2.submitterCannotActViaParticipantStatus(details, submitter, participantId),
     )
   }
 
+  @nowarn("msg=deprecated")
   def invalidLedgerTimeStatus(
       entry: DamlTransactionRejectionEntry,
       rejection: InvalidLedgerTime,
       errorVersionSwitch: ValueSwitch[Status],
-  ): Status = {
-    val statusBuilder = buildStatus(
-      entry,
-      _,
-      s"Invalid ledger time: ${rejection.getDetails}",
-      Map(
-        "ledger_time" -> rejection.getLedgerTime.toString,
-        "lower_bound" -> rejection.getLowerBound.toString,
-        "upper_bound" -> rejection.getUpperBound.toString,
-      ),
-    )
+  )(implicit loggingContext: ContextualizedErrorLogger): Status = {
+    val details = rejection.getDetails
+    val ledgerTime = rejection.getLedgerTime
+    val ledgerTimeLowerBound = rejection.getLowerBound
+    val ledgerTimeUpperBound = rejection.getUpperBound
+
     errorVersionSwitch.choose(
-      statusBuilder(Code.ABORTED),
-      statusBuilder(Code.FAILED_PRECONDITION), // May succeed at a later time
+      V1.status(
+        entry,
+        Code.ABORTED,
+        s"Invalid ledger time: $details",
+        Map(
+          "ledger_time" -> ledgerTime.toString,
+          "lower_bound" -> ledgerTimeLowerBound.toString,
+          "upper_bound" -> ledgerTimeUpperBound.toString,
+        ),
+      ),
+      V2.invalidLedgerTimeStatus(
+        details,
+        ledgerTime = Instant
+          .ofEpochSecond(
+            ledgerTime.getSeconds,
+            ledgerTime.getNanos.toLong,
+          ),
+        ledgerTimeLowerBound = Instant
+          .ofEpochSecond(
+            ledgerTimeLowerBound.getSeconds,
+            ledgerTimeLowerBound.getNanos.toLong,
+          ),
+        ledgerTimeUpperBound = Instant
+          .ofEpochSecond(
+            ledgerTimeUpperBound.getSeconds,
+            ledgerTimeUpperBound.getNanos.toLong,
+          ),
+      ),
     )
   }
 
-  private def buildStatus(
+  @deprecated
+  def partyNotKnownOnLedgerStatus(
       entry: DamlTransactionRejectionEntry,
-      code: Code,
-      message: String,
-      additionalMetadata: Map[String, String] = Map.empty,
-  ) = Status.of(
-    code.value,
-    message,
-    Seq(
-      AnyProto.pack[ErrorInfo](
-        ErrorInfo(metadata =
-          additionalMetadata + (GrpcStatuses.DefiniteAnswerKey -> entry.getDefiniteAnswer.toString)
-        )
-      )
-    ),
-  )
+      rejection: PartyNotKnownOnLedger,
+      errorVersionSwitch: ValueSwitch[Status],
+  )(implicit loggingContext: ContextualizedErrorLogger): Status = {
+    val details = rejection.getDetails
+    errorVersionSwitch.choose(
+      V1.status(
+        entry,
+        Code.INVALID_ARGUMENT,
+        s"Party not known on ledger: $details",
+      ),
+      V2.partyNotKnownOnLedgerStatus(details),
+    )
+  }
 
-  private def invalidRecordTimeRejectionStatus(
-      rejectionEntry: DamlTransactionRejectionEntry,
-      reason: CorrelationId,
-      errorCode: Code,
-  ) = Status.of(
-    errorCode.value,
-    reason,
-    Seq(
-      AnyProto.pack[ErrorInfo](
-        ErrorInfo(metadata =
-          Map(
-            GrpcStatuses.DefiniteAnswerKey -> rejectionEntry.getDefiniteAnswer.toString
+  @deprecated
+  def resourceExhaustedStatus(
+      entry: DamlTransactionRejectionEntry,
+      rejection: ResourcesExhausted,
+      errorVersionSwitch: ValueSwitch[Status],
+  )(implicit loggingContext: ContextualizedErrorLogger): Status = {
+    val details = rejection.getDetails
+    errorVersionSwitch.choose(
+      V1.status(
+        entry,
+        Code.ABORTED,
+        s"Resources exhausted: $details",
+      ),
+      V2.resourceExhaustedStatus(details),
+    )
+  }
+
+  @deprecated
+  def inconsistentStatus(
+      entry: DamlTransactionRejectionEntry,
+      rejection: Inconsistent,
+      errorVersionSwitch: ValueSwitch[Status],
+  )(implicit loggingContext: ContextualizedErrorLogger): Status = {
+    val details = rejection.getDetails
+    errorVersionSwitch.choose(
+      V1.status(
+        entry,
+        Code.ABORTED,
+        s"Inconsistent: $details",
+      ),
+      V2.inconsistentStatus(details),
+    )
+  }
+
+  @deprecated
+  def disputedStatus(
+      entry: DamlTransactionRejectionEntry,
+      rejection: Disputed,
+      errorVersionSwitch: ValueSwitch[Status],
+  )(implicit loggingContext: ContextualizedErrorLogger): Status = {
+    val details = rejection.getDetails
+    errorVersionSwitch.choose(
+      V1.disputedStatus(entry, details, Code.INVALID_ARGUMENT),
+      V2.disputedStatus(details),
+    )
+  }
+
+  private object V2 {
+
+    def externallyDuplicateKeysStatus(
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Race.ExternallyDuplicateKeys
+        .Reject()
+        .asStatus
+
+    def externallyInconsistentKeysStatus(
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Race.ExternallyInconsistentKeys
+        .Reject()
+        .asStatus
+
+    def externallyInconsistentContractsStatus(
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Race.ExternallyInconsistentContracts
+        .Reject()
+        .asStatus
+
+    def submitterCannotActViaParticipantStatus(
+        details: String,
+        submitter: String,
+        participantId: String,
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Unauthorized.SubmitterCannotActViaParticipant
+        .Reject(
+          details,
+          submitter,
+          participantId,
+        )
+        .asStatus
+
+    def recordTimeOutOfRangeStatus(
+        minimumRecordTime: Instant,
+        maximumRecordTime: Instant,
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Time.RecordTimeOutOfRange
+        .Reject(minimumRecordTime, maximumRecordTime)
+        .asStatus
+
+    def invalidRecordTimeRejectionStatus(
+        rejectionEntry: DamlTransactionRejectionEntry,
+        recordTime: Timestamp,
+        tooEarlyUntil: Option[Timestamp],
+        tooLateFrom: Option[Timestamp],
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Time.InvalidRecordTime
+        .Reject(
+          rejectionEntry.getDefiniteAnswer,
+          invalidRecordTimeReason(recordTime, tooEarlyUntil, tooLateFrom),
+          recordTime.toInstant,
+          tooEarlyUntil.map(_.toInstant),
+          tooLateFrom.map(_.toInstant),
+        )
+        .asStatus
+
+    def invalidLedgerTimeStatus(
+        details: String,
+        ledgerTime: Instant,
+        ledgerTimeLowerBound: Instant,
+        ledgerTimeUpperBound: Instant,
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Time.InvalidLedgerTime
+        .Reject(details, ledgerTime, ledgerTimeLowerBound, ledgerTimeUpperBound)
+        .asStatus
+
+    def causalMonotonicityViolatedStatus(
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Time.CausalMonotonicityViolated
+        .Reject()
+        .asStatus
+
+    def duplicateCommandsRejectionStatus(
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.DuplicateCommand
+        .Reject()
+        .asStatus
+
+    def rejectionReasonNotSetStatus(
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Internal.RejectionReasonNotSet
+        .Reject()
+        .asStatus
+
+    def invalidParticipantStateStatus(
+        details: String
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Internal.InvalidParticipantState
+        .Reject(details)
+        .asStatus
+
+    def validationFailureStatus(
+        details: String
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Internal.ValidationFailure
+        .Reject(details)
+        .asStatus
+
+    def missingInputStateStatus(
+        key: String
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Internal.MissingInputState
+        .Reject(key)
+        .asStatus
+
+    def internallyInconsistentKeysStatus(
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Internal.InternallyInconsistentKeys
+        .Reject()
+        .asStatus
+
+    def internallyDuplicateKeysStatus(
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Internal.InternallyDuplicateKeys
+        .Reject()
+        .asStatus
+
+    def submittingPartyNotKnownOnLedgerStatus(
+        submitter: String
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Parties.SubmittingPartyNotKnownOnLedger
+        .Reject(submitter)
+        .asStatus
+
+    def partiesNotKnownOnLedgerStatus(
+        parties: Seq[String]
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Parties.PartiesNotKnownOnLedger
+        .Reject(parties)
+        .asStatus
+
+    @deprecated
+    def partyNotKnownOnLedgerStatus(
+        details: String
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Parties.PartyNotKnownOnLedger
+        .Reject(details)
+        .asStatus
+
+    @deprecated
+    def resourceExhaustedStatus(
+        details: String
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Resources.ResourceExhausted
+        .Reject(details)
+        .asStatus
+
+    @deprecated
+    def inconsistentStatus(
+        details: String
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Inconsistent
+        .Reject(details)
+        .asStatus
+
+    @deprecated
+    def disputedStatus(
+        details: String
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Internal.Disputed
+        .Reject(details)
+        .asStatus
+  }
+
+  @deprecated
+  private object V1 {
+    def status(
+        entry: DamlTransactionRejectionEntry,
+        code: Code,
+        message: String,
+        additionalMetadata: Map[String, String] = Map.empty,
+    ): Status = Status.of(
+      code.value,
+      message,
+      Seq(
+        AnyProto.pack[ErrorInfo](
+          ErrorInfo(metadata =
+            additionalMetadata + (GrpcStatuses.DefiniteAnswerKey -> entry.getDefiniteAnswer.toString)
           )
         )
-      )
-    ),
-  )
+      ),
+    )
 
-  private def duplicateCommandsRejectionStatus(
-      rejectionEntry: DamlTransactionRejectionEntry,
-      errorCode: Code,
-  ) = Status.of(
-    errorCode.value,
-    "Duplicate commands",
-    Seq(
-      AnyProto.pack[ErrorInfo](
-        // the definite answer is false, as the rank-based deduplication is not yet implemented
-        ErrorInfo(metadata =
-          Map(
-            GrpcStatuses.DefiniteAnswerKey -> rejectionEntry.getDefiniteAnswer.toString
+    def disputedStatus(
+        entry: DamlTransactionRejectionEntry,
+        rejectionString: String,
+        code: Code,
+    ): Status = status(
+      entry,
+      code,
+      s"Disputed: $rejectionString",
+    )
+
+    def invalidRecordTimeRejectionStatus(
+        rejectionEntry: DamlTransactionRejectionEntry,
+        reason: String,
+        errorCode: Code,
+    ): Status = Status.of(
+      errorCode.value,
+      reason,
+      Seq(
+        AnyProto.pack[ErrorInfo](
+          ErrorInfo(metadata =
+            Map(
+              GrpcStatuses.DefiniteAnswerKey -> rejectionEntry.getDefiniteAnswer.toString
+            )
           )
         )
-      )
-    ),
-  )
+      ),
+    )
+
+    def duplicateCommandsRejectionStatus(
+        rejectionEntry: DamlTransactionRejectionEntry,
+        errorCode: Code,
+    ): Status = Status.of(
+      errorCode.value,
+      "Duplicate commands",
+      Seq(
+        AnyProto.pack[ErrorInfo](
+          // the definite answer is false, as the rank-based deduplication is not yet implemented
+          ErrorInfo(metadata =
+            Map(
+              GrpcStatuses.DefiniteAnswerKey -> rejectionEntry.getDefiniteAnswer.toString
+            )
+          )
+        )
+      ),
+    )
+  }
+
+  private def invalidRecordTimeReason(
+      recordTime: Timestamp,
+      tooEarlyUntil: Option[Timestamp],
+      tooLateFrom: Option[Timestamp],
+  ): String =
+    (tooEarlyUntil, tooLateFrom) match {
+      case (Some(lowerBound), Some(upperBound)) =>
+        s"Record time $recordTime outside of range [$lowerBound, $upperBound]"
+      case (Some(lowerBound), None) =>
+        s"Record time $recordTime  outside of valid range ($recordTime < $lowerBound)"
+      case (None, Some(upperBound)) =>
+        s"Record time $recordTime  outside of valid range ($recordTime > $upperBound)"
+      case _ =>
+        "Record time outside of valid range"
+    }
 
   private def objectToJsonString(obj: Object): String = {
     val stringWriter = new StringWriter
@@ -432,13 +689,4 @@ private[kvutils] object TransactionRejections {
     objectMapper.writeValue(stringWriter, obj)
     stringWriter.toString
   }
-
-  private def disputedStatusBuilder(
-      entry: DamlTransactionRejectionEntry,
-      rejectionString: String,
-  ): Code => Status = buildStatus(
-    entry,
-    _,
-    s"Disputed: $rejectionString",
-  )
 }
