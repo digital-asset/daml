@@ -2,12 +2,14 @@
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Assistant.CreateDamlAppTests (main) where
 
+import Conduit
 import Control.Exception.Extra
 import Control.Monad
 import Data.Aeson
 import Data.Aeson.Extra.Merge
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString as BS
+import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import qualified Data.HashMap.Strict as HMS
 import Data.List.Extra
 import Data.Proxy (Proxy (..))
@@ -57,7 +59,7 @@ tests :: TestTree
 tests =
     withSdkResource $ \_ ->
     askOption $ \(ProjectName projectName) -> do
-    testGroup "Create DAML App tests" [gettingStartedGuideTest projectName | not isWindows]
+    testGroup "Create DAML App tests" [gettingStartedGuideTest projectName]
   where
     gettingStartedGuideTest projectName = testCaseSteps "Getting Started Guide" $ \step ->
       withTempDir $ \tmpDir' -> do
@@ -87,6 +89,11 @@ tests =
           extraDepsFile <- locateRunfiles (mainWorkspace </> "templates" </> "create-daml-app-test-resources" </> "testDeps.json")
           addTestDependencies (uiDir </> "package.json") extraDepsFile
           step "Install dependencies for UI"
+          createDirectoryIfMissing True "node_modules"
+          cachedDeps <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "integration-tests" </> "create_daml_app_deps.tar")
+          runConduitRes
+              $ sourceFileBS cachedDeps
+              .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile (\a b -> fail (T.unpack $ a <> " " <> b)) ".")
           retry 3 (callCommandSilent "npm-cli.js install")
           step "Run linter"
           callCommandSilent "npm-cli.js run-script lint -- --max-warnings 0"

@@ -29,6 +29,7 @@ da_scala_library(
         "//ledger-service/jwt",
         "//ledger/error",
         "//ledger/ledger-api-common",
+        "//libs-scala/contextualized-logging",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_context",
@@ -55,6 +56,7 @@ da_scala_test_suite(
     srcs = glob(["src/test/suite/**/*.scala"]),
     scala_deps = [
         "@maven//:io_spray_spray_json",
+        "@maven//:org_mockito_mockito_scala",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
@@ -64,6 +66,14 @@ da_scala_test_suite(
     ],
     deps = [
         ":ledger-api-auth",
+        "//ledger/error",
+        "//ledger/test-common",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_context",
+        "@maven//:io_grpc_grpc_protobuf",
+        "@maven//:org_mockito_mockito_core",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

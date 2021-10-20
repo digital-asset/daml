@@ -156,7 +156,8 @@ private[daml] object ApiServices {
       val apiVersionService =
         ApiVersionService.create()
 
-      val apiPackageService = ApiPackageService.create(ledgerId, packagesService)
+      val apiPackageService =
+        ApiPackageService.create(ledgerId, packagesService, errorsVersionsSwitcher)
 
       val apiConfigurationService =
         ApiLedgerConfigurationService.create(ledgerId, configurationService)
