@@ -52,6 +52,7 @@ Daml Documentation
    triggers/index
    tools/trigger-service/index
    tools/auth-middleware/index
+   error-codes/self-service/index
 
 .. toctree::
    :titlesonly:
