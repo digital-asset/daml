@@ -3,6 +3,7 @@
 
 package com.daml
 
+import com.daml.error.utils.ErrorDetails
 import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
@@ -13,7 +14,6 @@ import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.server.api.validation.ErrorFactories._
-import com.google.protobuf
 import com.google.rpc._
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
@@ -441,40 +441,5 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     val details = status.getDetailsList.asScala.toSeq
     val _ = ErrorDetails.from(details) should contain theSameElementsAs (expectedDetails)
     // TODO error codes: Assert logging
-  }
-}
-
-object ErrorDetails {
-
-  sealed trait ErrorDetail
-
-  final case class ResourceInfoDetail(name: String, typ: String) extends ErrorDetail
-
-  final case class ErrorInfoDetail(reason: String) extends ErrorDetail
-
-  final case class RetryInfoDetail(retryDelayInSeconds: Long) extends ErrorDetail
-
-  final case class RequestInfoDetail(requestId: String) extends ErrorDetail
-
-  def from(anys: Seq[protobuf.Any]): Seq[ErrorDetail] = {
-    anys.toList.map(from)
-  }
-
-  private def from(any: protobuf.Any): ErrorDetail = {
-    if (any.is(classOf[ResourceInfo])) {
-      val v = any.unpack(classOf[ResourceInfo])
-      ResourceInfoDetail(v.getResourceType, v.getResourceName)
-    } else if (any.is(classOf[ErrorInfo])) {
-      val v = any.unpack(classOf[ErrorInfo])
-      ErrorInfoDetail(v.getReason)
-    } else if (any.is(classOf[RetryInfo])) {
-      val v = any.unpack(classOf[RetryInfo])
-      RetryInfoDetail(v.getRetryDelay.getSeconds)
-    } else if (any.is(classOf[RequestInfo])) {
-      val v = any.unpack(classOf[RequestInfo])
-      RequestInfoDetail(v.getRequestId)
-    } else {
-      throw new IllegalStateException(s"Could not unpack value of: |$any|")
-    }
   }
 }

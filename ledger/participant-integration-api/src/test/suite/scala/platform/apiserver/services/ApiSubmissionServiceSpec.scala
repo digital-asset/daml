@@ -248,7 +248,7 @@ class ApiSubmissionServiceSpec
           LfError.Interpretation.DamlException(LfInterpretationError.ContractNotFound("#cid")),
           None,
         )
-      ) -> ((Status.ABORTED, Status.ABORTED)),
+      ) -> ((Status.ABORTED, Status.NOT_FOUND)),
       ErrorCause.DamlLf(
         LfError.Interpretation(
           LfError.Interpretation.DamlException(

@@ -162,6 +162,7 @@ final class LedgerTestCasesRunner(
               applicationId = "upload-dars",
               identifierSuffix = identifierSuffix,
               clientTlsConfiguration = clientTlsConfiguration,
+              features = session.features,
             )
             _ <- Future.sequence(Dars.resources.map(uploadDar(context, _)))
           } yield ()
