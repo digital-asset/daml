@@ -27,12 +27,6 @@ private[apiserver] final class ApiPackageService private (
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  // NOTE: Using `def` to capture the most specific `loggingContext` at the call sites.
-  private implicit def contextualizedErrorLogger(implicit
-      loggingContext: LoggingContext
-  ): DamlContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(logger, loggingContext, None)
-
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
 
   override def bindService(): ServerServiceDefinition =
@@ -57,7 +51,9 @@ private[apiserver] final class ApiPackageService private (
           .flatMap {
             case None =>
               Future.failed[GetPackageResponse](
-                errorFactories.packageNotFound(packageId = packageId)
+                errorFactories.packageNotFound(packageId = packageId)(
+                  createContextualizedErrorLogger
+                )
               )
             case Some(archive) => Future.successful(toGetPackageResponse(archive))
           }
@@ -93,7 +89,11 @@ private[apiserver] final class ApiPackageService private (
       .fold(
         errorMessage =>
           Future.failed[T](
-            errorFactories.malformedPackageId(request = request, message = errorMessage)
+            errorFactories.malformedPackageId(request = request, message = errorMessage)(
+              createContextualizedErrorLogger,
+              logger,
+              loggingContext,
+            )
           ),
         packageId => block(packageId),
       )
@@ -109,6 +109,11 @@ private[apiserver] final class ApiPackageService private (
       hash = archive.getHash,
     )
   }
+
+  private def createContextualizedErrorLogger(implicit
+      loggingContext: LoggingContext
+  ): DamlContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
 }
 
