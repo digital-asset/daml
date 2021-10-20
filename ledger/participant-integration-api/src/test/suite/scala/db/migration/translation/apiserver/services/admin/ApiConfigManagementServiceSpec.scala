@@ -7,11 +7,11 @@ import java.time.Duration
 import java.util.concurrent.CompletableFuture.completedFuture
 import java.util.concurrent.CompletionStage
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
-
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -53,166 +53,188 @@ class ApiConfigManagementServiceSpec
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  "ApiConfigManagementService" should {
-    "get the time model" in {
-      val indexedTimeModel = LedgerTimeModel(
-        avgTransactionLatency = Duration.ofMinutes(5),
-        minSkew = Duration.ofMinutes(3),
-        maxSkew = Duration.ofMinutes(2),
-      ).get
-      val expectedTimeModel = TimeModel.of(
-        avgTransactionLatency = Some(DurationProto.of(5 * 60, 0)),
-        minSkew = Some(DurationProto.of(3 * 60, 0)),
-        maxSkew = Some(DurationProto.of(2 * 60, 0)),
-      )
+  addTests(true)
+  addTests(false)
 
-      val writeService = mock[state.WriteConfigService]
-      val apiConfigManagementService = ApiConfigManagementService.createApiService(
-        new FakeCurrentIndexConfigManagementService(
-          LedgerOffset.Absolute(Ref.LedgerString.assertFromString("0")),
-          Configuration(aConfigurationGeneration, indexedTimeModel, Duration.ZERO),
-        ),
-        writeService,
-        TimeProvider.UTC,
-      )
+  def addTests(useSelfServiceErrorCodes: Boolean): Unit = {
+    val suffix = s"(enableSelfServiceErrorCodes=${useSelfServiceErrorCodes})"
+    val errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(useSelfServiceErrorCodes)
 
-      apiConfigManagementService.getTimeModel(GetTimeModelRequest.defaultInstance).map { response =>
-        response.timeModel should be(Some(expectedTimeModel))
-        verifyZeroInteractions(writeService)
-        succeed
+    s"ApiConfigManagementService $suffix" should {
+      "get the time model" in {
+        val indexedTimeModel = LedgerTimeModel(
+          avgTransactionLatency = Duration.ofMinutes(5),
+          minSkew = Duration.ofMinutes(3),
+          maxSkew = Duration.ofMinutes(2),
+        ).get
+        val expectedTimeModel = TimeModel.of(
+          avgTransactionLatency = Some(DurationProto.of(5 * 60, 0)),
+          minSkew = Some(DurationProto.of(3 * 60, 0)),
+          maxSkew = Some(DurationProto.of(2 * 60, 0)),
+        )
+
+        val writeService = mock[state.WriteConfigService]
+        val apiConfigManagementService = ApiConfigManagementService.createApiService(
+          new FakeCurrentIndexConfigManagementService(
+            LedgerOffset.Absolute(Ref.LedgerString.assertFromString("0")),
+            Configuration(aConfigurationGeneration, indexedTimeModel, Duration.ZERO),
+          ),
+          writeService,
+          TimeProvider.UTC,
+          errorCodesVersionSwitcher,
+        )
+
+        apiConfigManagementService.getTimeModel(GetTimeModelRequest.defaultInstance).map {
+          response =>
+            response.timeModel should be(Some(expectedTimeModel))
+            verifyZeroInteractions(writeService)
+            succeed
+        }
       }
-    }
 
-    "return a `NOT_FOUND` error if a time model is not found" in {
-      val writeService = mock[state.WriteConfigService]
-      val apiConfigManagementService = ApiConfigManagementService.createApiService(
-        EmptyIndexConfigManagementService,
-        writeService,
-        TimeProvider.UTC,
-      )
-
-      apiConfigManagementService
-        .getTimeModel(GetTimeModelRequest.defaultInstance)
-        .transform(Success.apply)
-        .map { response =>
-          response should matchPattern { case Failure(GrpcException(GrpcStatus.NOT_FOUND(), _)) => }
-        }
-    }
-
-    "set a new time model" in {
-      val maximumDeduplicationTime = Duration.ofHours(6)
-      val initialGeneration = 2L
-      val initialTimeModel = LedgerTimeModel(
-        avgTransactionLatency = Duration.ofMinutes(1),
-        minSkew = Duration.ofMinutes(2),
-        maxSkew = Duration.ofMinutes(3),
-      ).get
-      val initialConfiguration = Configuration(
-        generation = initialGeneration,
-        timeModel = initialTimeModel,
-        maxDeduplicationTime = maximumDeduplicationTime,
-      )
-      val expectedGeneration = 3L
-      val expectedTimeModel = LedgerTimeModel(
-        avgTransactionLatency = Duration.ofMinutes(2),
-        minSkew = Duration.ofMinutes(1),
-        maxSkew = Duration.ofSeconds(30),
-      ).get
-      val expectedConfiguration = Configuration(
-        generation = expectedGeneration,
-        timeModel = expectedTimeModel,
-        maxDeduplicationTime = maximumDeduplicationTime,
-      )
-
-      val timeProvider = TimeProvider.UTC
-      val maximumRecordTime = timeProvider.getCurrentTime.plusSeconds(60)
-
-      val (indexService, writeService, currentConfiguration) = fakeServices(
-        startingOffset = 7,
-        submissions = Seq(Ref.SubmissionId.assertFromString("one") -> initialConfiguration),
-      )
-      val apiConfigManagementService = ApiConfigManagementService.createApiService(
-        indexService,
-        writeService,
-        timeProvider,
-      )
-
-      apiConfigManagementService
-        .setTimeModel(
-          SetTimeModelRequest.of(
-            "some submission ID",
-            maximumRecordTime = Some(Timestamp.of(maximumRecordTime.getEpochSecond, 0)),
-            configurationGeneration = initialGeneration,
-            newTimeModel = Some(
-              TimeModel(
-                avgTransactionLatency = Some(DurationProto.of(2 * 60, 0)),
-                minSkew = Some(DurationProto.of(60, 0)),
-                maxSkew = Some(DurationProto.of(30, 0)),
-              )
-            ),
-          )
+      "return a `NOT_FOUND` error if a time model is not found" in {
+        val writeService = mock[state.WriteConfigService]
+        val apiConfigManagementService = ApiConfigManagementService.createApiService(
+          EmptyIndexConfigManagementService,
+          writeService,
+          TimeProvider.UTC,
+          errorCodesVersionSwitcher,
         )
-        .map { response =>
-          response.configurationGeneration should be(expectedGeneration)
-          currentConfiguration() should be(Some(expectedConfiguration))
-        }
-    }
 
-    "refuse to set a new time model if none is indexed yet" in {
-      val initialGeneration = 0L
-
-      val timeProvider = TimeProvider.UTC
-      val maximumRecordTime = timeProvider.getCurrentTime.plusSeconds(60)
-
-      val writeService = mock[state.WriteService]
-      val apiConfigManagementService = ApiConfigManagementService.createApiService(
-        EmptyIndexConfigManagementService,
-        writeService,
-        timeProvider,
-      )
-
-      apiConfigManagementService
-        .setTimeModel(
-          SetTimeModelRequest.of(
-            "a submission ID",
-            maximumRecordTime = Some(Timestamp.of(maximumRecordTime.getEpochSecond, 0)),
-            configurationGeneration = initialGeneration,
-            newTimeModel = Some(
-              TimeModel(
-                avgTransactionLatency = Some(DurationProto.of(10, 0)),
-                minSkew = Some(DurationProto.of(20, 0)),
-                maxSkew = Some(DurationProto.of(40, 0)),
-              )
-            ),
-          )
-        )
-        .transform(Success.apply)
-        .map { response =>
-          verifyZeroInteractions(writeService)
-          response should matchPattern { case Failure(GrpcException(GrpcStatus.UNAVAILABLE(), _)) =>
+        apiConfigManagementService
+          .getTimeModel(GetTimeModelRequest.defaultInstance)
+          .transform(Success.apply)
+          .map { response =>
+            response should matchPattern { case Failure(GrpcException(GrpcStatus.NOT_FOUND(), _)) =>
+            }
           }
-        }
-    }
+      }
 
-    "propagate trace context" in {
-      val apiConfigManagementService = ApiConfigManagementService.createApiService(
-        new FakeStreamingIndexConfigManagementService(someConfigurationEntries),
-        TestWriteConfigService,
-        TimeProvider.UTC,
-        _ => Ref.SubmissionId.assertFromString("aSubmission"),
-      )
+      "set a new time model" in {
+        val maximumDeduplicationTime = Duration.ofHours(6)
+        val initialGeneration = 2L
+        val initialTimeModel = LedgerTimeModel(
+          avgTransactionLatency = Duration.ofMinutes(1),
+          minSkew = Duration.ofMinutes(2),
+          maxSkew = Duration.ofMinutes(3),
+        ).get
+        val initialConfiguration = Configuration(
+          generation = initialGeneration,
+          timeModel = initialTimeModel,
+          maxDeduplicationTime = maximumDeduplicationTime,
+        )
+        val expectedGeneration = 3L
+        val expectedTimeModel = LedgerTimeModel(
+          avgTransactionLatency = Duration.ofMinutes(2),
+          minSkew = Duration.ofMinutes(1),
+          maxSkew = Duration.ofSeconds(30),
+        ).get
+        val expectedConfiguration = Configuration(
+          generation = expectedGeneration,
+          timeModel = expectedTimeModel,
+          maxDeduplicationTime = maximumDeduplicationTime,
+        )
 
-      val span = anEmptySpan()
-      val scope = span.makeCurrent()
-      apiConfigManagementService
-        .setTimeModel(aSetTimeModelRequest)
-        .andThen { case _ =>
-          scope.close()
-          span.end()
-        }
-        .map { _ =>
-          spanExporter.finishedSpanAttributes should contain(anApplicationIdSpanAttribute)
-        }
+        val timeProvider = TimeProvider.UTC
+        val maximumRecordTime = timeProvider.getCurrentTime.plusSeconds(60)
+
+        val (indexService, writeService, currentConfiguration) = fakeServices(
+          startingOffset = 7,
+          submissions = Seq(Ref.SubmissionId.assertFromString("one") -> initialConfiguration),
+        )
+        val apiConfigManagementService = ApiConfigManagementService.createApiService(
+          indexService,
+          writeService,
+          timeProvider,
+          errorCodesVersionSwitcher,
+        )
+
+        apiConfigManagementService
+          .setTimeModel(
+            SetTimeModelRequest.of(
+              "some submission ID",
+              maximumRecordTime = Some(Timestamp.of(maximumRecordTime.getEpochSecond, 0)),
+              configurationGeneration = initialGeneration,
+              newTimeModel = Some(
+                TimeModel(
+                  avgTransactionLatency = Some(DurationProto.of(2 * 60, 0)),
+                  minSkew = Some(DurationProto.of(60, 0)),
+                  maxSkew = Some(DurationProto.of(30, 0)),
+                )
+              ),
+            )
+          )
+          .map { response =>
+            response.configurationGeneration should be(expectedGeneration)
+            currentConfiguration() should be(Some(expectedConfiguration))
+          }
+      }
+
+      "refuse to set a new time model if none is indexed yet" in {
+        val initialGeneration = 0L
+
+        val timeProvider = TimeProvider.UTC
+        val maximumRecordTime = timeProvider.getCurrentTime.plusSeconds(60)
+
+        val writeService = mock[state.WriteService]
+        val apiConfigManagementService = ApiConfigManagementService.createApiService(
+          EmptyIndexConfigManagementService,
+          writeService,
+          timeProvider,
+          errorCodesVersionSwitcher,
+        )
+
+        apiConfigManagementService
+          .setTimeModel(
+            SetTimeModelRequest.of(
+              "a submission ID",
+              maximumRecordTime = Some(Timestamp.of(maximumRecordTime.getEpochSecond, 0)),
+              configurationGeneration = initialGeneration,
+              newTimeModel = Some(
+                TimeModel(
+                  avgTransactionLatency = Some(DurationProto.of(10, 0)),
+                  minSkew = Some(DurationProto.of(20, 0)),
+                  maxSkew = Some(DurationProto.of(40, 0)),
+                )
+              ),
+            )
+          )
+          .transform(Success.apply)
+          .map { response =>
+            verifyZeroInteractions(writeService)
+            if (useSelfServiceErrorCodes) {
+              response should matchPattern {
+                case Failure(GrpcException(GrpcStatus.NOT_FOUND(), _)) =>
+              }
+            } else {
+              response should matchPattern {
+                case Failure(GrpcException(GrpcStatus.UNAVAILABLE(), _)) =>
+              }
+            }
+          }
+      }
+
+      "propagate trace context" in {
+        val apiConfigManagementService = ApiConfigManagementService.createApiService(
+          new FakeStreamingIndexConfigManagementService(someConfigurationEntries),
+          TestWriteConfigService,
+          TimeProvider.UTC,
+          errorCodesVersionSwitcher,
+          _ => Ref.SubmissionId.assertFromString("aSubmission"),
+        )
+
+        val span = anEmptySpan()
+        val scope = span.makeCurrent()
+        apiConfigManagementService
+          .setTimeModel(aSetTimeModelRequest)
+          .andThen { case _ =>
+            scope.close()
+            span.end()
+          }
+          .map { _ =>
+            spanExporter.finishedSpanAttributes should contain(anApplicationIdSpanAttribute)
+          }
+      }
     }
   }
 }

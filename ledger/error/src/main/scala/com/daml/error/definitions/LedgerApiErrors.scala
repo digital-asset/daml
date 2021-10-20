@@ -32,6 +32,22 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         )
   }
 
+  object WriteErrors extends ErrorGroup() {
+    @Explanation("This rejection is given when a configuration entry write was rejected.")
+    @Resolution("Fetch newest configuration and/or retry.")
+    object ConfigurationEntryRejected
+        extends ErrorCode(
+          id = "CONFIGURATION_ENTRY_REJECTED",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      case class Reject(message: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = message
+          )
+    }
+  }
+
   object ReadErrors extends ErrorGroup() {
     @Explanation("This rejection is given when a read request tries to access pruned data.")
     @Resolution("Use an offset that is after the pruning offset.")

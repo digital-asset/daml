@@ -285,6 +285,7 @@ private[daml] object ApiServices {
           configManagementService,
           writeService,
           timeProvider,
+          errorsVersionsSwitcher,
         )
 
         val apiParticipantPruningService =

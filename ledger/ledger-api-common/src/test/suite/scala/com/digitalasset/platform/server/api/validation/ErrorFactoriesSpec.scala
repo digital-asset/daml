@@ -35,6 +35,21 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     ErrorDetails.RequestInfoDetail("trace-id")
 
   "ErrorFactories" should {
+
+    "return the configurationEntryRejected" in {
+      assertVersionedError(_.configurationEntryRejected("message123", None))(
+        v1_code = Code.ABORTED,
+        v1_message = "message123",
+        v1_details = Seq.empty,
+        v2_code = Code.FAILED_PRECONDITION,
+        v2_message = s"CONFIGURATION_ENTRY_REJECTED(9,$correlationId): message123",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("CONFIGURATION_ENTRY_REJECTED"),
+          DefaultTraceIdRequestInfo,
+        ),
+      )
+    }
+
     "return the DuplicateCommandException" in {
       assertVersionedError(_.duplicateCommandException)(
         v1_code = Code.ALREADY_EXISTS,

@@ -166,6 +166,15 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     grpcError(statusBuilder.build())
   }
 
+  def configurationEntryRejected(message: String, definiteAnswer: Option[Boolean])(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = {
+    errorCodesVersionSwitcher.choose(
+      v1 = aborted(message, definiteAnswer),
+      v2 = LedgerApiErrors.WriteErrors.ConfigurationEntryRejected.Reject(message).asGrpcError,
+    )
+  }
+
   // permission denied is intentionally without description to ensure we don't leak security relevant information by accident
   def permissionDenied()(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
