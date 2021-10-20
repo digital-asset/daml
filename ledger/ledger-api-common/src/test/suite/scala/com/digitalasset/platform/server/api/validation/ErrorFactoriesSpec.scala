@@ -49,6 +49,10 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         v1_details = Seq.empty,
         v2_code = Code.INVALID_ARGUMENT,
         v2_message = s"MALFORMED_PACKAGE_ID(8,$correlationId): message123",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("MALFORMED_PACKAGE_ID"),
+          DefaultTraceIdRequestInfo,
+        ),
       )
     }
 
@@ -59,6 +63,11 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         v1_details = Seq.empty,
         v2_code = Code.NOT_FOUND,
         v2_message = s"PACKAGE_NOT_FOUND(11,$correlationId): Could not find package.",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("PACKAGE_NOT_FOUND"),
+          DefaultTraceIdRequestInfo,
+          ErrorDetails.ResourceInfoDetail("PACKAGE_ID", "packageId123"),
+        ),
       )
     }
 
