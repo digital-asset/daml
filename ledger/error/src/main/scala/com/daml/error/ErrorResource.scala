@@ -35,7 +35,4 @@ object ErrorResource {
   object CommandId extends ErrorResource {
     def asString: String = "COMMAND_ID"
   }
-  object PackageId extends ErrorResource {
-    def asString: String = "PACKAGE_ID"
-  }
 }

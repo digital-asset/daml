@@ -66,7 +66,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("PACKAGE_NOT_FOUND"),
           DefaultTraceIdRequestInfo,
-          ErrorDetails.ResourceInfoDetail("PACKAGE_ID", "packageId123"),
+          ErrorDetails.ResourceInfoDetail("PACKAGE", "packageId123"),
         ),
       )
     }

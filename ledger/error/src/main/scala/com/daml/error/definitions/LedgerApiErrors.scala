@@ -35,9 +35,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   object ReadErrors extends ErrorGroup() {
 
     @Explanation("This rejection is given when a package id is malformed.")
-    @Resolution(
-      """Make sure the package id provided in the request has correct form.""".stripMargin
-    )
+    @Resolution("Make sure the package id provided in the request has correct form.")
     // TODO error codes: Consider using `LedgerApiErrors.CommandValidation.InvalidArgument`
     object MalformedPackageId
         extends ErrorCode(
@@ -68,7 +66,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ) {
 
         override def resources: Seq[(ErrorResource, String)] = {
-          super.resources :+ ((ErrorResource.PackageId, packageId))
+          super.resources :+ ((ErrorResource.DalfPackage, packageId))
         }
       }
     }
