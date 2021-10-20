@@ -23,7 +23,7 @@ trait Dispatcher[Index] extends AutoCloseable {
   /** Signals and stores a new head in memory. */
   def signalNewHead(head: Index): Unit
 
-  /** Returns a stream of elements with the next index from start (inclusive) to end (exclusive) */
+  /** Returns a stream of elements with the next index from start (exclusive) to end (inclusive) */
   def startingAt[T](
       startExclusive: Index,
       subSource: SubSource[Index, T],
