@@ -74,13 +74,13 @@ Runtime components
      -
      -
    * - :doc:`Daml API of individual Triggers </triggers/index>`
-     - Beta
+     - Stable (Since SDK 1.10.0)
      -
    * - :doc:`Development CLI to start individual triggers in dev environment </triggers/index>` (``daml trigger``)
-     - Beta
+     - Stable (Since SDK 1.10.0)
      -
    * - :doc:`/tools/trigger-service/index` (``daml trigger-service``)
-     - Alpha
+     - Stable (Since SDK 1.10.0)
      -
    * - **Extractor**
      -
