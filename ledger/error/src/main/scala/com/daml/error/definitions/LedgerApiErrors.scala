@@ -102,6 +102,26 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             cause = message
           )
     }
+
+    @Explanation(
+      "The transaction does not exist or the requesting set of parties are not authorized to fetch it."
+    )
+    @Resolution(
+      "Check the transaction id and verify that the requested transaction is visible to the requesting parties."
+    )
+    object TransactionNotFound
+        extends ErrorCode(
+          id = "TRANSACTION_NOT_FOUND",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+
+      case class Reject(transactionId: String)(implicit loggingContext: ContextualizedErrorLogger)
+          extends LoggingTransactionErrorImpl(cause = "Transaction not found, or not visible.") {
+        override def resources: Seq[(ErrorResource, String)] = Seq(
+          (ErrorResource.TransactionId, transactionId)
+        )
+      }
+    }
   }
 
   // the authorization checks are here only for documentation purpose.
@@ -501,7 +521,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
               cause = "The ledger configuration is not available."
             )
       }
-
     }
 
     @Explanation("""This error occurs if the Daml transaction fails due to an authorization error.
