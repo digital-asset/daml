@@ -187,7 +187,7 @@ object TriggerRunnerImpl {
           client,
           config.ledgerConfig.timeProvider,
           config.applicationId,
-          config.party.unwrap,
+          config.party,
         )
         (acs, offset) <- runner.queryACS()
       } yield QueriedACS(runner, acs, offset)
