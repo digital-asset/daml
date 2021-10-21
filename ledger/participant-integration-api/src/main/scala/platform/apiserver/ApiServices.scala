@@ -151,7 +151,7 @@ private[daml] object ApiServices {
         ApiTransactionService.create(ledgerId, transactionsService, metrics, errorsVersionsSwitcher)
 
       val apiLedgerIdentityService =
-        ApiLedgerIdentityService.create(() => identityService.getLedgerId())
+        ApiLedgerIdentityService.create(() => identityService.getLedgerId(), errorsVersionsSwitcher)
 
       val apiVersionService =
         ApiVersionService.create()
@@ -170,7 +170,10 @@ private[daml] object ApiServices {
 
       val apiTimeServiceOpt =
         optTimeServiceBackend.map(tsb =>
-          new TimeServiceAuthorization(ApiTimeService.create(ledgerId, tsb), authorizer)
+          new TimeServiceAuthorization(
+            ApiTimeService.create(ledgerId, tsb, errorsVersionsSwitcher),
+            authorizer,
+          )
         )
       val writeServiceBackedApiServices =
         intitializeWriteServiceBackedApiServices(

@@ -10,7 +10,7 @@ import Daml.Trigger.LowLevel
 
 test : Trigger (Bool, [Time])
 test = Trigger
-  { initialState = \party _ -> do
+  { initialState = \party _readAs _ -> do
       submitCommands [createCmd (T party)]
       pure (False, [])
   , update = \msg -> case msg of

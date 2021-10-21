@@ -9,7 +9,7 @@ import Daml.Trigger.LowLevel
 
 test : Trigger Int
 test = Trigger
-  { initialState = \party _ -> pure 0
+  { initialState = \party _readAs _ -> pure 0
   , update = \msg ->
       modify (+ (case msg of
                    MHeartbeat -> 1

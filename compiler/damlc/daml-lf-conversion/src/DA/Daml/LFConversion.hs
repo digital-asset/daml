@@ -391,6 +391,7 @@ scrapeTemplateBinds binds = MS.filter (isJust . tbTyCon) $ MS.map ($ emptyTempla
         ShowDFunId tpl ->
             Just (tpl, \tb -> tb { tbShow = Just name })
         _ -> Nothing
+    , hasDamlTemplateCtx tpl
     ]
 
 data ExceptionBinds = ExceptionBinds

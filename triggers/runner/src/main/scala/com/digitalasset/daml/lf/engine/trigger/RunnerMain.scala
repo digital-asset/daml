@@ -95,7 +95,7 @@ object RunnerMain {
             client,
             config.timeProviderType.getOrElse(RunnerConfig.DefaultTimeProviderType),
             config.applicationId,
-            config.ledgerParty,
+            config.ledgerParties,
             config.compilerConfig,
           )
         } yield ()

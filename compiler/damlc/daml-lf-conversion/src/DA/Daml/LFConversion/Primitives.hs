@@ -372,11 +372,11 @@ convertPrim version "EFromAnyTemplate"
         EFromAny (TCon template) (EVar $ mkVar "any")
 
 convertPrim version "EFromAnyChoice"
-    ty@(TApp proxy (TCon template) :-> tAny :-> TOptional choice)
+    ty@(tProxy :-> tAny :-> TOptional choice)
     | tAny `elem` [TAny, TUnit] =
     -- TODO: restrict to known template/choice pairs
     whenRuntimeSupports version featureAnyType ty $
-        ETmLam (mkVar "_", TApp proxy (TCon template)) $
+        ETmLam (mkVar "_", tProxy) $
         ETmLam (mkVar "any", TAny) $
         EFromAny choice (EVar $ mkVar "any")
 
@@ -398,11 +398,11 @@ convertPrim version "EToAnyTemplate"
         EToAny (TCon template) (EVar $ mkVar "template")
 
 convertPrim version "EToAnyChoice"
-    ty@(TApp proxy (TCon template) :-> choice :-> tAny)
+    ty@(tProxy :-> choice :-> tAny)
     | tAny `elem` [TAny, TUnit] =
     -- TODO: restrict to known template/choice pairs
     whenRuntimeSupports version featureAnyType ty $
-        ETmLam (mkVar "_", TApp proxy (TCon template)) $
+        ETmLam (mkVar "_", tProxy) $
         ETmLam (mkVar "choice", choice) $
         EToAny choice (EVar $ mkVar "choice")
 
@@ -414,6 +414,25 @@ convertPrim version "EToAnyContractKey"
         ETmLam (mkVar "_", TApp proxy (TCon template)) $
         ETmLam (mkVar "key", key) $
         EToAny key (EVar $ mkVar "key")
+
+convertPrim _ "UCreateInterface" (TCon interface :-> TUpdate (TContractId (TCon interface')))
+    | interface == interface' =
+    ETmLam (mkVar "this", TCon interface) $
+    EExperimental "RESOLVE_VIRTUAL_CREATE"
+        (TCon interface :-> TCon interface :-> TUpdate (TContractId (TCon interface)))
+        `ETmApp` EVar (mkVar "this") `ETmApp` EVar (mkVar "this")
+
+convertPrim _ "ESignatoryInterface" (TCon interface :-> TList TParty) =
+    ETmLam (mkVar "this", TCon interface) $
+    EExperimental "RESOLVE_VIRTUAL_SIGNATORIES"
+        (TCon interface :-> TCon interface :-> TList TParty)
+        `ETmApp` EVar (mkVar "this") `ETmApp` EVar (mkVar "this")
+
+convertPrim _ "EObserverInterface" (TCon interface :-> TList TParty) =
+    ETmLam (mkVar "this", TCon interface) $
+    EExperimental "RESOLVE_VIRTUAL_OBSERVERS"
+        (TCon interface :-> TCon interface :-> TList TParty)
+        `ETmApp` EVar (mkVar "this") `ETmApp` EVar (mkVar "this")
 
 -- Exceptions
 convertPrim _ "BEAnyExceptionMessage" (TBuiltin BTAnyException :-> TText) =
