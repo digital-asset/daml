@@ -25,31 +25,19 @@ class FlywayMigrationsSpec extends AnyWordSpec {
 
   "Postgres flyway migration files" should {
     "always have a valid SHA-256 digest file accompanied" in {
-      assertFlywayMigrationFileHashes(DbType.Postgres, 10)
-    }
-    "always have a valid SHA-256 digest file accompanied (append-only)" in {
-      assertFlywayMigrationFileHashes(DbType.Postgres, 1, enableAppendOnlySchema = true)
+      assertFlywayMigrationFileHashes(DbType.Postgres, 57)
     }
   }
 
   "H2 database flyway migration files" should {
     "always have a valid SHA-256 digest file accompanied" in {
-      assertFlywayMigrationFileHashes(DbType.H2Database, 10)
-    }
-    // Technically we don't need to check this because with the append-only schema we have started
-    // modifying the existing migration instead of treating it as immutable, because we don't provide
-    // data continuity with H2.
-    "always have a valid SHA-256 digest file accompanied (append-only)" in {
-      assertFlywayMigrationFileHashes(DbType.H2Database, 1, enableAppendOnlySchema = true)
+      assertFlywayMigrationFileHashes(DbType.H2Database, 1)
     }
   }
 
   "Oracle database flyway migration files" should {
     "always have a valid SHA-256 digest file accompanied" in {
       assertFlywayMigrationFileHashes(DbType.Oracle, 1)
-    }
-    "always have a valid SHA-256 digest file accompanied (append-only)" in {
-      assertFlywayMigrationFileHashes(DbType.Oracle, 1, enableAppendOnlySchema = true)
     }
   }
 }
@@ -61,11 +49,10 @@ object FlywayMigrationsSpec {
   private def assertFlywayMigrationFileHashes(
       dbType: DbType,
       minMigrationCount: Int,
-      enableAppendOnlySchema: Boolean = false,
   ): Unit = {
     val config = Flyway
       .configure()
-      .locations(FlywayMigrations.locations(enableAppendOnlySchema, dbType): _*)
+      .locations(FlywayMigrations.locations(dbType): _*)
     val resourceScanner = scanner(config)
     val resources = resourceScanner.getResources("", ".sql").asScala.toSeq
     resources.size should be >= minMigrationCount

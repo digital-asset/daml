@@ -10,7 +10,7 @@ import com.daml.ledger.api.v1.ledger_configuration_service.{
   LedgerConfigurationServiceGrpc,
 }
 import com.daml.platform.sandbox.SandboxBackend
-import com.daml.platform.sandbox.services.{SandboxEnableAppendOnlySchema, SandboxFixture}
+import com.daml.platform.sandbox.services.SandboxFixture
 import com.google.protobuf.duration.Duration
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -49,12 +49,4 @@ final class LedgerConfigurationServicePostgresIT
     extends LedgerConfigurationServiceITBase
     with SandboxFixture
     with SandboxBackend.Postgresql
-    with SuiteResourceManagementAroundAll
-
-// TODO append-only: remove this class once the append-only schema is the default one
-final class LedgerConfigurationServicePostgresAppendOnlyIT
-    extends LedgerConfigurationServiceITBase
-    with SandboxFixture
-    with SandboxBackend.Postgresql
-    with SandboxEnableAppendOnlySchema
     with SuiteResourceManagementAroundAll

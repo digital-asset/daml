@@ -13,4 +13,4 @@ final class JdbcLedgerDaoValidatedPostgresqlSpec
     with JdbcLedgerDaoSuite
     with JdbcLedgerDaoBackendPostgresql
     with JdbcLedgerDaoPostCommitValidationSpec
-    with JdbcAtomicTransactionInsertion
+    with JdbcAppendOnlyTransactionInsertion

@@ -21,14 +21,13 @@ import scala.concurrent.{ExecutionContext, Future}
 object IndexMetadata {
 
   def read(
-      jdbcUrl: String,
-      enableAppendOnlySchema: Boolean = false,
+      jdbcUrl: String
   )(implicit
       resourceContext: ResourceContext,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[IndexMetadata] =
-    ownDao(jdbcUrl, enableAppendOnlySchema).use { dao =>
+    ownDao(jdbcUrl).use { dao =>
       for {
         ledgerId <- dao.lookupLedgerId()
         participantId <- dao.lookupParticipantId()
@@ -37,40 +36,26 @@ object IndexMetadata {
     }
 
   private def ownDao(
-      jdbcUrl: String,
-      enableAppendOnlySchema: Boolean,
+      jdbcUrl: String
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ) =
-    if (enableAppendOnlySchema)
-      com.daml.platform.store.appendonlydao.JdbcLedgerDao.readOwner(
-        serverRole = ServerRole.ReadIndexMetadata,
-        jdbcUrl = jdbcUrl,
-        connectionPoolSize = 1,
-        connectionTimeout = 250.millis,
-        eventsPageSize = 1000,
-        eventsProcessingParallelism = 8,
-        servicesExecutionContext = executionContext,
-        metrics = new Metrics(new MetricRegistry),
-        lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-        enricher = None,
-        // No participant ID is available for the dump index meta path,
-        // and this property is not needed for the used ReadDao.
-        participantId = Ref.ParticipantId.assertFromString("1"),
-      )
-    else
-      com.daml.platform.store.dao.JdbcLedgerDao.readOwner(
-        serverRole = ServerRole.ReadIndexMetadata,
-        jdbcUrl = jdbcUrl,
-        connectionPoolSize = 1,
-        connectionTimeout = 250.millis,
-        eventsPageSize = 1000,
-        servicesExecutionContext = executionContext,
-        metrics = new Metrics(new MetricRegistry),
-        lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-        enricher = None,
-      )
+    com.daml.platform.store.appendonlydao.JdbcLedgerDao.readOwner(
+      serverRole = ServerRole.ReadIndexMetadata,
+      jdbcUrl = jdbcUrl,
+      connectionPoolSize = 1,
+      connectionTimeout = 250.millis,
+      eventsPageSize = 1000,
+      eventsProcessingParallelism = 8,
+      servicesExecutionContext = executionContext,
+      metrics = new Metrics(new MetricRegistry),
+      lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+      enricher = None,
+      // No participant ID is available for the dump index meta path,
+      // and this property is not needed for the used ReadDao.
+      participantId = Ref.ParticipantId.assertFromString("1"),
+    )
 
   private val Empty = "<empty>"
 

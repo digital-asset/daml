@@ -7,7 +7,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.offset.Offset
 import com.daml.logging.LoggingContext
 import com.daml.platform.PruneBuffers
-import com.daml.platform.store.dao.LedgerReadDao
+import com.daml.platform.store.appendonlydao.LedgerReadDao
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

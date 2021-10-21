@@ -7,6 +7,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import com.daml.ledger.api.domain.CommandId
 import com.daml.lf.data.Ref
+import com.daml.platform.store.appendonlydao.DeduplicationKeyMaker
 import org.scalatest.prop.TableDrivenPropertyChecks
 
 import java.util.UUID
