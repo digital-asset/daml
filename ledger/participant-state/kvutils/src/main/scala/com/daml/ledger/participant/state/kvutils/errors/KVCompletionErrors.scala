@@ -213,7 +213,7 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
 
     object ValidationFailure
         extends ErrorCode(
-          id = "VALIDATION FAILURE",
+          id = "VALIDATION_FAILURE",
           ErrorCategory.SystemInternalAssumptionViolated, // It should have been caught by the participant
         ) {
       case class Reject(
