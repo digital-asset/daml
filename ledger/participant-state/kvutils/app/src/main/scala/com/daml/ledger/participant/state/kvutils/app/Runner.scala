@@ -56,6 +56,10 @@ final class Runner[T <: ReadWriteService, Extra](
       jdbcUrls: Seq[String],
       enableAppendOnlySchema: Boolean,
   )(implicit resourceContext: ResourceContext): Resource[Unit] = {
+    implicit val actorSystem: ActorSystem = ActorSystem(
+      "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-")
+    )
+    implicit val materializer: Materializer = Materializer(actorSystem) // TODO ACS boooooo
     val logger = ContextualizedLogger.get(this.getClass)
     import ExecutionContext.Implicits.global
     Resource.sequenceIgnoringValues(for (jdbcUrl <- jdbcUrls) yield {

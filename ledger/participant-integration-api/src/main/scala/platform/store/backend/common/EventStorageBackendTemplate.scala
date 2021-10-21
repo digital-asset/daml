@@ -36,7 +36,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       connection: Connection
   ): Option[Offset]
 
-  private val selectColumnsForFlatTransactions =
+  private val baseColumnsForFlatTransactions =
     Seq(
       "event_offset",
       "transaction_id",
@@ -54,7 +54,13 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       "create_agreement_text",
       "create_key_value",
       "create_key_value_compression",
-    ).mkString(", ")
+    )
+
+  private val selectColumnsForFlatTransactions =
+    baseColumnsForFlatTransactions.mkString(", ")
+
+  private val selectColumnsForACSEvents =
+    baseColumnsForFlatTransactions.map(c => s"create_evs.$c").mkString(", ")
 
   private type SharedRow =
     Offset ~ String ~ Int ~ Long ~ String ~ String ~ Instant ~ Int ~ Option[String] ~
@@ -474,6 +480,22 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       }(connection, loggingContext)
     }
 
+    pruneWithLogging(queryDescription = "Create events filter table pruning") {
+      SQL"""
+          -- Create events filter table (only for contracts archived before the specified offset)
+          delete from participant_events_create_filter
+          using participant_events_create delete_events
+          where
+            delete_events.event_offset <= $pruneUpToInclusive and
+            exists (
+              SELECT 1 FROM participant_events_consuming_exercise archive_events
+              WHERE
+                archive_events.event_offset <= $pruneUpToInclusive AND
+                archive_events.contract_id = delete_events.contract_id
+            ) and
+            delete_events.event_sequential_id = participant_events_create_filter.event_sequential_id"""
+    }(connection, loggingContext)
+
     pruneWithLogging(queryDescription = "Create events pruning") {
       SQL"""
           -- Create events (only for contracts archived before the specified offset)
@@ -497,6 +519,26 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
           case None => cSQL""
         }
       }
+
+      pruneWithLogging(queryDescription = "Immediate divulgence events filter_table pruning") {
+        SQL"""
+            -- Immediate divulgence pruning
+            delete from participant_events_create_filter
+            using participant_events_create c
+            where event_offset <= $pruneUpToInclusive
+            -- Only prune create events which did not have a locally hosted party before their creation offset
+            and not exists (
+              select 1
+              from party_entries p
+              where p.typ = 'accept'
+              and p.ledger_offset <= c.event_offset
+              and #${queryStrategy.isTrue("p.is_local")}
+              and #${queryStrategy.arrayContains("c.flat_event_witnesses", "p.party_id")}
+            )
+            $pruneAfterClause and
+            c.event_sequential_id = participant_events_create_filter.event_sequential_id
+         """
+      }(connection, loggingContext)
 
       pruneWithLogging(queryDescription = "Immediate divulgence events pruning") {
         SQL"""
@@ -659,6 +701,78 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
        ORDER BY event_sequential_id ASC"""
       .asVectorOf(rawTransactionEventParser)(connection)
       .map(_(stringInterning))
+
+  override def activeContractEvents2(
+      allFilterParties: Set[Ref.Party],
+      partyFilter: Ref.Party,
+      templateIdFilter: Option[Ref.Identifier],
+      excludeParties: Set[Ref.Party],
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+      stringInterning: StringInterning,
+  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
+    (
+      stringInterning.party.tryInternalize(partyFilter),
+      templateIdFilter.map(stringInterning.templateId.tryInternalize),
+    ) match {
+      case (None, _) => Vector.empty // partyFilter never seen
+      case (_, Some(None)) => Vector.empty // templateIdFilter never seen
+      case (Some(internedPartyFilter), internedTemplateIdFilterNested) =>
+        val eventWitnessesClause =
+          eventStrategy
+            .filteredEventWitnessesClause("flat_event_witnesses", allFilterParties, stringInterning)
+        val submittersArePartiesClause =
+          eventStrategy
+            .submittersArePartiesClause("submitters", allFilterParties, stringInterning)
+        val excludePartiesClause = queryStrategy
+          .arrayIntersectionNonEmptyClause(
+            "create_evs.flat_event_witnesses",
+            excludeParties,
+            stringInterning,
+          )
+        val (templateIdFilterClause, templateIdOrderingClause) =
+          internedTemplateIdFilterNested.flatten // flatten works for both None, Some(Some(x)) case, Some(None) excluded before
+          match {
+            case Some(internedTemplateId) =>
+              (
+                cSQL"AND filters.template_id = $internedTemplateId",
+                cSQL"filters.template_id,",
+              )
+            case None => (cSQL"", cSQL"")
+          }
+        SQL"""
+         SELECT
+           #$selectColumnsForACSEvents,
+           $eventWitnessesClause as event_witnesses,
+          case when $submittersArePartiesClause then command_id else '' end as command_id
+         FROM
+           participant_events_create_filter filters
+           INNER JOIN
+           participant_events_create create_evs USING (event_sequential_id)
+         WHERE
+           filters.party_id = $internedPartyFilter
+           $templateIdFilterClause
+           AND $startExclusive < event_sequential_id
+           AND event_sequential_id <= $endInclusive
+           AND NOT $excludePartiesClause
+           AND NOT EXISTS (  -- check not archived as of snapshot
+             SELECT 1
+             FROM participant_events_consuming_exercise consuming_evs
+             WHERE
+               create_evs.contract_id = consuming_evs.contract_id
+               AND consuming_evs.event_sequential_id <= $endInclusive
+           )
+         ORDER BY
+           filters.party_id,
+           $templateIdOrderingClause
+           filters.event_sequential_id -- deliver in index order TODO ACS @simon: wildcard party returns non monotonically increasing resultset by event_sequential_id...is that ok?
+         ${queryStrategy.limitClause(Some(limit))}
+       """
+          .asVectorOf(rawFlatEventParser)(connection)
+          .map(_(stringInterning))
+    }
+  }
 }
 
 /** This encapsulates the moving part as composing various Events queries.

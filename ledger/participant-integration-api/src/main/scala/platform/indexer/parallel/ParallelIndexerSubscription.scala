@@ -214,7 +214,11 @@ object ParallelIndexerSubscription {
         eventSeqId += 1
         dbDto.copy(event_sequential_id = eventSeqId)
 
-      case notEvent => notEvent
+      case dbDto: DbDto.CreateFilter =>
+        // the CreateFilter-s are always following the EventCreate
+        dbDto.copy(event_sequential_id = eventSeqId)
+
+      case unChanged => unChanged
     }
 
     val newEntries = RawStringInterningCache.newEntries(

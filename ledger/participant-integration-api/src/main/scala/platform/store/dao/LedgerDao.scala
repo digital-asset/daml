@@ -83,7 +83,7 @@ private[platform] trait LedgerDaoTransactionsReader {
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]]
 
   def getActiveContracts(
-      activeAt: Offset,
+      activeAt: Offset, // TODO ACS perhaps remove this, since undelying code is anyway ledgerEnd aware
       filter: FilterRelation,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed]

@@ -7,6 +7,7 @@ import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
+import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain
@@ -78,7 +79,8 @@ private class JdbcLedgerDao(
     storageBackend: StorageBackend[_],
     stringInterningCache: StringInterningCache,
     ledgerEnd: AtomicReference[(Offset, Long)],
-) extends LedgerDao {
+)(implicit materializer: Materializer)
+    extends LedgerDao { // TODO ACS remove materializer dep from here, and extract the ACS part
 
   import JdbcLedgerDao._
 
@@ -714,7 +716,8 @@ private class JdbcLedgerDao(
       ledgerEnd = ledgerEnd,
       stringInterning = stringInterningCache,
     )(
-      servicesExecutionContext
+      servicesExecutionContext,
+      materializer,
     )
 
   override val contractsReader: ContractsReader =
@@ -851,7 +854,10 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerReadDao] = {
+  )(implicit
+      loggingContext: LoggingContext,
+      materializer: Materializer,
+  ): ResourceOwner[LedgerReadDao] = {
     owner(
       serverRole,
       jdbcUrl,
@@ -881,7 +887,10 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
+  )(implicit
+      loggingContext: LoggingContext,
+      materializer: Materializer,
+  ): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     owner(
       serverRole,
@@ -914,7 +923,10 @@ private[platform] object JdbcLedgerDao {
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
       compressionStrategy: CompressionStrategy,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
+  )(implicit
+      loggingContext: LoggingContext,
+      materializer: Materializer,
+  ): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     owner(
       serverRole,
@@ -976,7 +988,10 @@ private[platform] object JdbcLedgerDao {
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
       compressionStrategy: CompressionStrategy,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
+  )(implicit
+      loggingContext: LoggingContext,
+      materializer: Materializer,
+  ): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val storageBackend = StorageBackend.of(dbType)
     for {

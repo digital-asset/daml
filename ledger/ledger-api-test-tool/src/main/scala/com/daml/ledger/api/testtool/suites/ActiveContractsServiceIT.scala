@@ -7,9 +7,13 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsRequest
 import com.daml.ledger.api.v1.event.Event.Event.Created
 import com.daml.ledger.api.v1.event.{CreatedEvent, Event}
+import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
+import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.client.binding.Primitive.{Party, TemplateId}
+import com.daml.ledger.client.binding.Template
 import com.daml.ledger.test.model.Test.Divulgence2._
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test.Witnesses._
@@ -19,6 +23,8 @@ import com.daml.ledger.test.model.Test.{
   Dummy,
   DummyFactory,
   DummyWithParam,
+  TriAgreement,
+  TriProposal,
   WithObservers,
   Witnesses => TestWitnesses,
 }
@@ -26,7 +32,7 @@ import io.grpc.Status
 import scalaz.syntax.tag._
 
 import scala.collection.immutable.Seq
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 class ActiveContractsServiceIT extends LedgerTestSuite {
   test(
@@ -392,6 +398,340 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       ce.observers == Seq(bob),
       s"Expected observers to only contain $bob, but received ${ce.observers}",
     )
+  })
+
+  test(
+    "ACSFilterCombinations",
+    "Testing a few combinations of ACSs",
+    allocate(Parties(3)),
+  )(implicit ec => { case Participants(Participant(ledger, p1, p2, p3)) =>
+    // Let we have 3 templates
+    val templateIds: Vector[Identifier] =
+      Vector(TriAgreement.id.unwrap, TriProposal.id.unwrap, WithObservers.id.unwrap)
+    // Let we have 3 parties
+    val parties: Vector[Party] = Vector(p1, p2, p3)
+    // Let we have all combinations for the 3 parties
+    val partyCombinations =
+      Vector(Set(0), Set(1), Set(2), Set(0, 1), Set(1, 2), Set(0, 2), Set(0, 1, 2))
+    case class FilterCoord(templateId: Int, stakeholders: Set[Int])
+    // Let we populate 3 contracts for each template/partyCombination pair (see createContracts below)
+    // Then we require the following Filter - Expectations to be upheld
+    val * = Set.empty[Int]
+    val allFilterCoords = Set(
+      FilterCoord(0, Set(0)),
+      FilterCoord(0, Set(1)),
+      FilterCoord(0, Set(2)),
+      FilterCoord(0, Set(0, 1)),
+      FilterCoord(0, Set(0, 2)),
+      FilterCoord(0, Set(1, 2)),
+      FilterCoord(0, Set(0, 1, 2)),
+      FilterCoord(1, Set(0)),
+      FilterCoord(1, Set(1)),
+      FilterCoord(1, Set(2)),
+      FilterCoord(1, Set(0, 1)),
+      FilterCoord(1, Set(0, 2)),
+      FilterCoord(1, Set(1, 2)),
+      FilterCoord(1, Set(0, 1, 2)),
+      FilterCoord(2, Set(0)),
+      FilterCoord(2, Set(1)),
+      FilterCoord(2, Set(2)),
+      FilterCoord(2, Set(0, 1)),
+      FilterCoord(2, Set(0, 2)),
+      FilterCoord(2, Set(1, 2)),
+      FilterCoord(2, Set(0, 1, 2)),
+    )
+    val fixtures: Vector[(Map[Int, Set[Int]], Set[FilterCoord])] = Vector(
+      // single filter
+      Map(0 -> *) -> Set(
+        FilterCoord(0, Set(0)),
+        FilterCoord(0, Set(0, 1)),
+        FilterCoord(0, Set(0, 2)),
+        FilterCoord(0, Set(0, 1, 2)),
+        FilterCoord(1, Set(0)),
+        FilterCoord(1, Set(0, 1)),
+        FilterCoord(1, Set(0, 2)),
+        FilterCoord(1, Set(0, 1, 2)),
+        FilterCoord(2, Set(0)),
+        FilterCoord(2, Set(0, 1)),
+        FilterCoord(2, Set(0, 2)),
+        FilterCoord(2, Set(0, 1, 2)),
+      ),
+      Map(0 -> Set(0)) -> Set(
+        FilterCoord(0, Set(0)),
+        FilterCoord(0, Set(0, 1)),
+        FilterCoord(0, Set(0, 2)),
+        FilterCoord(0, Set(0, 1, 2)),
+      ),
+      Map(0 -> Set(1)) -> Set(
+        FilterCoord(1, Set(0)),
+        FilterCoord(1, Set(0, 1)),
+        FilterCoord(1, Set(0, 2)),
+        FilterCoord(1, Set(0, 1, 2)),
+      ),
+      Map(0 -> Set(2)) -> Set(
+        FilterCoord(2, Set(0)),
+        FilterCoord(2, Set(0, 1)),
+        FilterCoord(2, Set(0, 2)),
+        FilterCoord(2, Set(0, 1, 2)),
+      ),
+      Map(0 -> Set(0, 1)) -> Set(
+        FilterCoord(0, Set(0)),
+        FilterCoord(0, Set(0, 1)),
+        FilterCoord(0, Set(0, 2)),
+        FilterCoord(0, Set(0, 1, 2)),
+        FilterCoord(1, Set(0)),
+        FilterCoord(1, Set(0, 1)),
+        FilterCoord(1, Set(0, 2)),
+        FilterCoord(1, Set(0, 1, 2)),
+      ),
+      Map(0 -> Set(0, 2)) -> Set(
+        FilterCoord(0, Set(0)),
+        FilterCoord(0, Set(0, 1)),
+        FilterCoord(0, Set(0, 2)),
+        FilterCoord(0, Set(0, 1, 2)),
+        FilterCoord(2, Set(0)),
+        FilterCoord(2, Set(0, 1)),
+        FilterCoord(2, Set(0, 2)),
+        FilterCoord(2, Set(0, 1, 2)),
+      ),
+      Map(0 -> Set(1, 2)) -> Set(
+        FilterCoord(1, Set(0)),
+        FilterCoord(1, Set(0, 1)),
+        FilterCoord(1, Set(0, 2)),
+        FilterCoord(1, Set(0, 1, 2)),
+        FilterCoord(2, Set(0)),
+        FilterCoord(2, Set(0, 1)),
+        FilterCoord(2, Set(0, 2)),
+        FilterCoord(2, Set(0, 1, 2)),
+      ),
+      Map(0 -> Set(0, 1, 2)) -> Set(
+        FilterCoord(0, Set(0)),
+        FilterCoord(0, Set(0, 1)),
+        FilterCoord(0, Set(0, 2)),
+        FilterCoord(0, Set(0, 1, 2)),
+        FilterCoord(1, Set(0)),
+        FilterCoord(1, Set(0, 1)),
+        FilterCoord(1, Set(0, 2)),
+        FilterCoord(1, Set(0, 1, 2)),
+        FilterCoord(2, Set(0)),
+        FilterCoord(2, Set(0, 1)),
+        FilterCoord(2, Set(0, 2)),
+        FilterCoord(2, Set(0, 1, 2)),
+      ),
+      // multi filter
+      Map(0 -> *, 1 -> *) -> (allFilterCoords -- Set(
+        FilterCoord(0, Set(2)),
+        FilterCoord(1, Set(2)),
+        FilterCoord(2, Set(2)),
+      )),
+      Map(0 -> *, 2 -> *) -> (allFilterCoords -- Set(
+        FilterCoord(0, Set(1)),
+        FilterCoord(1, Set(1)),
+        FilterCoord(2, Set(1)),
+      )),
+      Map(0 -> *, 1 -> *, 2 -> *) -> allFilterCoords,
+      Map(0 -> Set(0), 1 -> Set(1)) -> Set(
+        FilterCoord(0, Set(0)),
+        FilterCoord(0, Set(0, 1)),
+        FilterCoord(0, Set(0, 2)),
+        FilterCoord(0, Set(0, 1, 2)),
+        FilterCoord(1, Set(1)),
+        FilterCoord(1, Set(0, 1)),
+        FilterCoord(1, Set(1, 2)),
+        FilterCoord(1, Set(0, 1, 2)),
+      ),
+      Map(0 -> Set(0), 1 -> Set(1), 2 -> Set(2)) -> Set(
+        FilterCoord(0, Set(0)),
+        FilterCoord(0, Set(0, 1)),
+        FilterCoord(0, Set(0, 2)),
+        FilterCoord(0, Set(0, 1, 2)),
+        FilterCoord(1, Set(1)),
+        FilterCoord(1, Set(0, 1)),
+        FilterCoord(1, Set(1, 2)),
+        FilterCoord(1, Set(0, 1, 2)),
+        FilterCoord(2, Set(2)),
+        FilterCoord(2, Set(0, 2)),
+        FilterCoord(2, Set(1, 2)),
+        FilterCoord(2, Set(0, 1, 2)),
+      ),
+      Map(0 -> Set(0, 1), 1 -> Set(0, 2)) -> Set(
+        FilterCoord(0, Set(0)),
+        FilterCoord(0, Set(1)),
+        FilterCoord(0, Set(0, 1)),
+        FilterCoord(0, Set(0, 2)),
+        FilterCoord(0, Set(1, 2)),
+        FilterCoord(0, Set(0, 1, 2)),
+        FilterCoord(1, Set(0)),
+        FilterCoord(1, Set(0, 1)),
+        FilterCoord(1, Set(0, 2)),
+        FilterCoord(1, Set(0, 1, 2)),
+        FilterCoord(2, Set(1)),
+        FilterCoord(2, Set(0, 1)),
+        FilterCoord(2, Set(1, 2)),
+        FilterCoord(2, Set(0, 1, 2)),
+      ),
+      Map(0 -> Set(0, 1), 1 -> Set(0, 2), 2 -> Set(1, 2)) -> Set(
+        FilterCoord(0, Set(0)),
+        FilterCoord(0, Set(1)),
+        FilterCoord(0, Set(0, 1)),
+        FilterCoord(0, Set(0, 2)),
+        FilterCoord(0, Set(1, 2)),
+        FilterCoord(0, Set(0, 1, 2)),
+        FilterCoord(1, Set(0)),
+        FilterCoord(1, Set(2)),
+        FilterCoord(1, Set(0, 1)),
+        FilterCoord(1, Set(0, 2)),
+        FilterCoord(1, Set(1, 2)),
+        FilterCoord(1, Set(0, 1, 2)),
+        FilterCoord(2, Set(1)),
+        FilterCoord(2, Set(2)),
+        FilterCoord(2, Set(0, 1)),
+        FilterCoord(2, Set(0, 2)),
+        FilterCoord(2, Set(1, 2)),
+        FilterCoord(2, Set(0, 1, 2)),
+      ),
+      Map(0 -> *, 1 -> Set(0)) -> Set(
+        FilterCoord(0, Set(0)),
+        FilterCoord(0, Set(1)),
+        FilterCoord(0, Set(0, 1)),
+        FilterCoord(0, Set(0, 2)),
+        FilterCoord(0, Set(1, 2)),
+        FilterCoord(0, Set(0, 1, 2)),
+        FilterCoord(1, Set(0)),
+        FilterCoord(1, Set(0, 1)),
+        FilterCoord(1, Set(0, 2)),
+        FilterCoord(1, Set(0, 1, 2)),
+        FilterCoord(2, Set(0)),
+        FilterCoord(2, Set(0, 1)),
+        FilterCoord(2, Set(0, 2)),
+        FilterCoord(2, Set(0, 1, 2)),
+      ),
+      Map(0 -> *, 1 -> Set(0), 2 -> Set(1, 2)) -> Set(
+        FilterCoord(0, Set(0)),
+        FilterCoord(0, Set(1)),
+        FilterCoord(0, Set(0, 1)),
+        FilterCoord(0, Set(0, 2)),
+        FilterCoord(0, Set(1, 2)),
+        FilterCoord(0, Set(0, 1, 2)),
+        FilterCoord(1, Set(0)),
+        FilterCoord(1, Set(2)),
+        FilterCoord(1, Set(0, 1)),
+        FilterCoord(1, Set(0, 2)),
+        FilterCoord(1, Set(1, 2)),
+        FilterCoord(1, Set(0, 1, 2)),
+        FilterCoord(2, Set(0)),
+        FilterCoord(2, Set(2)),
+        FilterCoord(2, Set(0, 1)),
+        FilterCoord(2, Set(0, 2)),
+        FilterCoord(2, Set(1, 2)),
+        FilterCoord(2, Set(0, 1, 2)),
+      ),
+    )
+
+    def createContracts: Future[Map[FilterCoord, Set[String]]] = {
+      def withThreeParties[T](f: (Party, Party, Party) => T)(partySet: Set[Party]): T =
+        partySet.toList match {
+          case a :: b :: c :: Nil => f(a, b, c)
+          case a :: b :: Nil => f(a, b, b)
+          case a :: Nil => f(a, a, a)
+          case invalid =>
+            throw new Exception(s"Invalid partySet, length must be 1 or 2 or 3 but it was $invalid")
+        }
+      val templateFactories: Vector[Set[Party] => Template[Template[Any]]] = Vector(
+        withThreeParties(TriAgreement(_, _, _)),
+        withThreeParties(TriProposal(_, _, _)),
+        parties => WithObservers(parties.head, parties.toList),
+      )
+      def createContractFor(template: Int, partyCombination: Int) =
+        ledger.create(
+          partyCombinations(partyCombination).map(parties).toList,
+          partyCombinations(partyCombination).map(parties).toList,
+          templateFactories(template)(partyCombinations(partyCombination).map(parties)),
+        )
+
+      val createFs = for {
+        partyCombinationIndex <- partyCombinations.indices
+        templateIndex <- templateFactories.indices
+        _ <- 1 to 3
+      } yield createContractFor(templateIndex, partyCombinationIndex)
+        .map((partyCombinationIndex, templateIndex) -> _)
+
+      Future
+        .sequence(createFs)
+        .map(_.groupBy(_._1).map { case ((partyCombinationIndex, templateIndex), contractId) =>
+          (
+            FilterCoord(templateIndex, partyCombinations(partyCombinationIndex)),
+            contractId.view.map(_._2.toString).toSet,
+          )
+        })
+    }
+
+    def testForFixtures(
+        fixtures: Vector[(Map[Int, Set[Int]], Set[FilterCoord])],
+        allContracts: Map[FilterCoord, Set[String]],
+    ) = {
+      def activeContractIdsFor(filters: Map[Int, Set[Int]]): Future[Vector[String]] =
+        ledger
+          .activeContracts(
+            new GetActiveContractsRequest(
+              ledgerId = ledger.ledgerId,
+              filter = Some(
+                new TransactionFilter(
+                  filters.map {
+                    case (party, templates) if templates.isEmpty =>
+                      (parties(party).toString, new Filters(None))
+                    case (party, templates) =>
+                      (
+                        parties(party).toString,
+                        new Filters(Some(new InclusiveFilters(templates.toSeq.map(templateIds)))),
+                      )
+                  }
+                )
+              ),
+              verbose = true,
+            )
+          )
+          .map(_._2.map(_.contractId))
+
+      def testForFixture(actual: Vector[String], expected: Set[FilterCoord], hint: String): Unit = {
+        val actualSet = actual.toSet
+        assert(
+          expected.forall(allContracts.contains),
+          s"$hint expected FilterCoord(s) which do not exist(s): ${expected.filterNot(allContracts.contains)}",
+        )
+        assert(
+          actualSet.size == actual.size,
+          s"$hint ACS returned redundant entries ${actual.groupBy(identity).toList.filter(_._2.size > 1).map(_._1).mkString("\n")}",
+        )
+        val errors = allContracts.toList.flatMap {
+          case (filterCoord, contracts) if expected(filterCoord) && contracts.forall(actualSet) =>
+            Nil
+          case (filterCoord, contracts)
+              if expected(filterCoord) && contracts.forall(x => !actualSet(x)) =>
+            List(s"$filterCoord is missing from result")
+          case (filterCoord, _) if expected(filterCoord) =>
+            List(s"$filterCoord is partially missing from result")
+          case (filterCoord, contracts) if contracts.forall(actualSet) =>
+            List(s"$filterCoord is present (to many contracts in result)")
+          case (filterCoord, contracts) if contracts.exists(actualSet) =>
+            List(s"$filterCoord is partially present (to many contracts in result)")
+          case (_, _) => Nil
+        }
+        assert(errors == Nil, s"$hint ACS mismatch: ${errors.mkString(", ")}")
+      }
+
+      val testFs = fixtures.map { case (filter, expectedResultCoords) =>
+        activeContractIdsFor(filter).map(
+          testForFixture(_, expectedResultCoords, s"Filter: $filter")
+        )
+      }
+      Future.sequence(testFs)
+    }
+
+    for {
+      allContracts <- createContracts
+      _ <- testForFixtures(fixtures, allContracts)
+    } yield ()
   })
 
   private def createDummyContracts(party: Party, ledger: ParticipantTestContext)(implicit

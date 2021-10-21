@@ -6,7 +6,7 @@ package com.daml.platform.store.appendonlydao.events
 import java.sql.Connection
 import java.util.concurrent.atomic.AtomicReference
 
-import akka.stream.OverflowStrategy
+import akka.stream.{Materializer, OverflowStrategy}
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import com.daml.ledger.api.TraceIdentifiers
@@ -57,7 +57,10 @@ private[appendonlydao] final class TransactionsReader(
     lfValueTranslation: LfValueTranslation,
     ledgerEnd: AtomicReference[(Offset, Long)], // TODO interning make it just an accessor function
     stringInterning: StringInterning,
-)(implicit executionContext: ExecutionContext)
+)(implicit
+    executionContext: ExecutionContext,
+    materializer: Materializer,
+) // TODO ACS remove materializer dep from here, and extract the ACS part
     extends LedgerDaoTransactionsReader {
 
   private val dbMetrics = metrics.daml.index.db
@@ -67,6 +70,17 @@ private[appendonlydao] final class TransactionsReader(
     new EventsTableFlatEventsRangeQueries.GetTransactions(storageBackend, stringInterning)
   private val getActiveContracts =
     new EventsTableFlatEventsRangeQueries.GetActiveContracts(storageBackend, stringInterning)
+
+  private val acsReader: ACSReader = new ACSReader(
+    dispatcher = dispatcher,
+    queryNonPruned = queryNonPruned,
+    storageBackend: StorageBackend[_],
+    pageSize = pageSize,
+    parallelism = 4, // TODO ACS wire up
+    metrics = metrics,
+    stringInterning = stringInterning,
+    materializer = materializer,
+  )
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -370,6 +384,17 @@ private[appendonlydao] final class TransactionsReader(
       activeAt: Offset,
       filter: FilterRelation,
       verbose: Boolean,
+  )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] =
+    if (false) {
+      getActiveContractsOrignal(activeAt, filter, verbose)
+    } else {
+      getActiveContractsWithDisjointQueries(activeAt, filter, verbose)
+    }
+
+  private def getActiveContractsOrignal(
+      activeAt: Offset,
+      filter: FilterRelation,
+      verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
     val span =
       Telemetry.Transactions.createSpan(activeAt)(qualifiedNameOfCurrentFunc)
@@ -380,7 +405,7 @@ private[appendonlydao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => {
       implicit connection: Connection =>
         logger.debug(s"getActiveContracts query($range)")
-        queryNonPruned.executeSql(
+        queryNonPruned.executeSql( // TODO ACS do we need this?
           getActiveContracts(
             range,
             filter,
@@ -404,7 +429,7 @@ private[appendonlydao] final class TransactionsReader(
         })
         .mapMaterializedValue(_ => NotUsed)
 
-    groupContiguous(events)(by = _.transactionId)
+    groupContiguous(events)(by = _.transactionId) // TODO ACS this grouping is probably in vain
       .mapConcat(EventsTable.Entry.toGetActiveContractsResponse)
       .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
       .wireTap(response => {
@@ -413,6 +438,41 @@ private[appendonlydao] final class TransactionsReader(
           span,
         )
       })
+      .watchTermination()(endSpanOnTermination(span))
+  }
+
+  private def getActiveContractsWithDisjointQueries(
+      activeAt: Offset,
+      filter: FilterRelation,
+      verbose: Boolean,
+  )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
+    val span =
+      Telemetry.Transactions.createSpan(activeAt)(qualifiedNameOfCurrentFunc)
+    logger.debug(s"getActiveContracts($activeAt, $filter, $verbose)")
+
+    Source
+      .futureSource(
+        getAcsEventSeqIdRange(activeAt)
+          .map(requestedRange => acsReader.acsStream(filter, requestedRange.endInclusive))
+      )
+      .mapAsync(2) { // TODO ACS wire up
+        rawResult =>
+          Timed.future(
+            future = Future.traverse(rawResult)(
+              deserializeEntry(verbose)
+            ), // TODO ACS somehow not do this Future explosion madness?
+            timer = dbMetrics.getActiveContracts.translationTimer,
+          )
+      }
+      .mapConcat(EventsTable.Entry.toGetActiveContractsResponse)
+      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
+      .wireTap(response => {
+        Spans.addEventToSpan(
+          telemetry.Event("contract", Map((SpanAttribute.Offset, response.offset))),
+          span,
+        )
+      })
+      .mapMaterializedValue(_ => NotUsed)
       .watchTermination()(endSpanOnTermination(span))
   }
 
@@ -490,19 +550,19 @@ private[appendonlydao] final class TransactionsReader(
   ): Future[EventsRange[(Offset, Long)]] =
     dispatcher
       .executeSql(dbMetrics.getAcsEventSeqIdRange)(implicit connection =>
-        queryNonPruned.executeSql(
-          eventSeqIdReader.readEventSeqIdRange(activeAt)(connection),
+        queryNonPruned.executeSql( // TODO ACS do we need this?
+          ledgerEnd.get(),
           activeAt,
           pruned =>
             s"Active contracts request after ${activeAt.toHexString} precedes pruned offset ${pruned.toHexString}",
         )
       )
-      .map { x =>
+      .map(x =>
         EventsRange(
-          startExclusive = (Offset.beforeBegin, 0),
-          endInclusive = (activeAt, x.endInclusive),
+          startExclusive = (Offset.beforeBegin, 0), // TODO ACS constantify
+          endInclusive = x,
         )
-      }
+      )
 
   private def getEventSeqIdRange(
       startExclusive: Offset,

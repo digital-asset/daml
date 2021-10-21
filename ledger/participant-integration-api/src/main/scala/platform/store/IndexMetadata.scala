@@ -3,6 +3,7 @@
 
 package com.daml.platform.store
 
+import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
@@ -27,6 +28,7 @@ object IndexMetadata {
       resourceContext: ResourceContext,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
+      materializer: Materializer,
   ): Future[IndexMetadata] =
     ownDao(jdbcUrl, enableAppendOnlySchema).use { dao =>
       for {
@@ -42,6 +44,7 @@ object IndexMetadata {
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
+      materializer: Materializer,
   ) =
     if (enableAppendOnlySchema)
       com.daml.platform.store.appendonlydao.JdbcLedgerDao.readOwner(

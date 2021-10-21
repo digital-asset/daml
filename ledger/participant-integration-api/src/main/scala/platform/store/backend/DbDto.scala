@@ -136,4 +136,10 @@ object DbDto {
   final case class CommandDeduplication(deduplication_key: String) extends DbDto
 
   final case class StringInterningDto(id: Int, s: String) extends DbDto
+
+  final case class CreateFilter(
+      event_sequential_id: Long,
+      template_id: String,
+      party_id: String,
+  ) extends DbDto
 }

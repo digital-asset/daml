@@ -225,3 +225,12 @@ ALTER TABLE party_entries
   ADD column party_id integer NOT NULL DEFAULT 0; -- malicious: no migration PoC
 
 CREATE INDEX idx_party_entries_party_id_and_ledger_offset ON party_entries(party_id, ledger_offset);
+
+CREATE TABLE participant_events_create_filter (
+    event_sequential_id BIGINT NOT NULL,
+    template_id INTEGER NOT NULL,
+    party_id INTEGER NOT NULL
+);
+CREATE INDEX idx_participant_events_create_filter_event_sequential_id ON participant_events_create_filter(event_sequential_id);
+CREATE INDEX idx_participant_events_create_filter_party_template_seq_id_idx ON participant_events_create_filter(party_id, template_id, event_sequential_id);
+CREATE INDEX idx_participant_events_create_filter_party_seq_id_idx ON participant_events_create_filter(party_id, event_sequential_id);

@@ -149,83 +149,99 @@ object UpdateToDbDto {
           .reverse
 
         val events: Iterator[DbDto] = preorderTraversal.iterator
-          .collect { // It is okay to collect: blinding info is already there, we are free at hand to filter out the fetch and lookup nodes here already
+          .flatMap {
             case (nodeId, create: Create) =>
               val eventId = EventId(u.transactionId, nodeId)
+              val templateId = create.templateId.toString
+              val stakeholders = create.stakeholders.map(_.toString)
               val (createArgument, createKeyValue) = translation.serialize(eventId, create)
-              DbDto.EventCreate(
-                event_offset = Some(offset.toHexString),
-                transaction_id = Some(u.transactionId),
-                ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.micros),
-                command_id = u.optCompletionInfo.map(_.commandId),
-                workflow_id = u.transactionMeta.workflowId,
-                application_id = u.optCompletionInfo.map(_.applicationId),
-                submitters = u.optCompletionInfo.map(_.actAs.toSet),
-                node_index = Some(nodeId.index),
-                event_id = Some(eventId.toLedgerString),
-                contract_id = create.coid.coid,
-                template_id = Some(create.templateId.toString),
-                flat_event_witnesses = create.stakeholders.map(_.toString),
-                tree_event_witnesses =
-                  blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
-                create_argument = Some(createArgument)
-                  .map(compressionStrategy.createArgumentCompression.compress),
-                create_signatories = Some(create.signatories.map(_.toString)),
-                create_observers =
-                  Some(create.stakeholders.diff(create.signatories).map(_.toString)),
-                create_agreement_text = Some(create.agreementText).filter(_.nonEmpty),
-                create_key_value = createKeyValue
-                  .map(compressionStrategy.createKeyValueCompression.compress),
-                create_key_hash = create.key
-                  .map(convertLfValueKey(create.templateId, _))
-                  .map(_.hash.bytes.toHexString),
-                create_argument_compression = compressionStrategy.createArgumentCompression.id,
-                create_key_value_compression =
-                  compressionStrategy.createKeyValueCompression.id.filter(_ =>
-                    createKeyValue.isDefined
-                  ),
-                event_sequential_id = 0, // this is filled later
+              Iterator(
+                DbDto.EventCreate(
+                  event_offset = Some(offset.toHexString),
+                  transaction_id = Some(u.transactionId),
+                  ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.micros),
+                  command_id = u.optCompletionInfo.map(_.commandId),
+                  workflow_id = u.transactionMeta.workflowId,
+                  application_id = u.optCompletionInfo.map(_.applicationId),
+                  submitters = u.optCompletionInfo.map(_.actAs.toSet),
+                  node_index = Some(nodeId.index),
+                  event_id = Some(eventId.toLedgerString),
+                  contract_id = create.coid.coid,
+                  template_id = Some(templateId),
+                  flat_event_witnesses = stakeholders,
+                  tree_event_witnesses =
+                    blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
+                  create_argument = Some(createArgument)
+                    .map(compressionStrategy.createArgumentCompression.compress),
+                  create_signatories = Some(create.signatories.map(_.toString)),
+                  create_observers =
+                    Some(create.stakeholders.diff(create.signatories).map(_.toString)),
+                  create_agreement_text = Some(create.agreementText).filter(_.nonEmpty),
+                  create_key_value = createKeyValue
+                    .map(compressionStrategy.createKeyValueCompression.compress),
+                  create_key_hash = create.key
+                    .map(convertLfValueKey(create.templateId, _))
+                    .map(_.hash.bytes.toHexString),
+                  create_argument_compression = compressionStrategy.createArgumentCompression.id,
+                  create_key_value_compression =
+                    compressionStrategy.createKeyValueCompression.id.filter(_ =>
+                      createKeyValue.isDefined
+                    ),
+                  event_sequential_id = 0, // this is filled later
+                )
+              ) ++ stakeholders.iterator.map(
+                DbDto.CreateFilter(
+                  event_sequential_id = 0, // this is filled later
+                  template_id = templateId,
+                  _,
+                )
               )
 
             case (nodeId, exercise: Exercise) =>
               val eventId = EventId(u.transactionId, nodeId)
               val (exerciseArgument, exerciseResult, createKeyValue) =
                 translation.serialize(eventId, exercise)
-              DbDto.EventExercise(
-                consuming = exercise.consuming,
-                event_offset = Some(offset.toHexString),
-                transaction_id = Some(u.transactionId),
-                ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.micros),
-                command_id = u.optCompletionInfo.map(_.commandId),
-                workflow_id = u.transactionMeta.workflowId,
-                application_id = u.optCompletionInfo.map(_.applicationId),
-                submitters = u.optCompletionInfo.map(_.actAs.toSet),
-                node_index = Some(nodeId.index),
-                event_id = Some(EventId(u.transactionId, nodeId).toLedgerString),
-                contract_id = exercise.targetCoid.coid,
-                template_id = Some(exercise.templateId.toString),
-                flat_event_witnesses =
-                  if (exercise.consuming) exercise.stakeholders.map(_.toString) else Set.empty,
-                tree_event_witnesses =
-                  blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
-                create_key_value = createKeyValue
-                  .map(compressionStrategy.createKeyValueCompression.compress),
-                exercise_choice = Some(exercise.choiceId),
-                exercise_argument = Some(exerciseArgument)
-                  .map(compressionStrategy.exerciseArgumentCompression.compress),
-                exercise_result = exerciseResult
-                  .map(compressionStrategy.exerciseResultCompression.compress),
-                exercise_actors = Some(exercise.actingParties.map(_.toString)),
-                exercise_child_event_ids = Some(
-                  exercise.children.iterator
-                    .map(EventId(u.transactionId, _).toLedgerString.toString)
-                    .toSet
-                ),
-                create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
-                exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
-                exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
-                event_sequential_id = 0, // this is filled later
+              Iterator(
+                DbDto.EventExercise(
+                  consuming = exercise.consuming,
+                  event_offset = Some(offset.toHexString),
+                  transaction_id = Some(u.transactionId),
+                  ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.micros),
+                  command_id = u.optCompletionInfo.map(_.commandId),
+                  workflow_id = u.transactionMeta.workflowId,
+                  application_id = u.optCompletionInfo.map(_.applicationId),
+                  submitters = u.optCompletionInfo.map(_.actAs.toSet),
+                  node_index = Some(nodeId.index),
+                  event_id = Some(EventId(u.transactionId, nodeId).toLedgerString),
+                  contract_id = exercise.targetCoid.coid,
+                  template_id = Some(exercise.templateId.toString),
+                  flat_event_witnesses =
+                    if (exercise.consuming) exercise.stakeholders.map(_.toString) else Set.empty,
+                  tree_event_witnesses =
+                    blinding.disclosure.getOrElse(nodeId, Set.empty).map(_.toString),
+                  create_key_value = createKeyValue
+                    .map(compressionStrategy.createKeyValueCompression.compress),
+                  exercise_choice = Some(exercise.choiceId),
+                  exercise_argument = Some(exerciseArgument)
+                    .map(compressionStrategy.exerciseArgumentCompression.compress),
+                  exercise_result = exerciseResult
+                    .map(compressionStrategy.exerciseResultCompression.compress),
+                  exercise_actors = Some(exercise.actingParties.map(_.toString)),
+                  exercise_child_event_ids = Some(
+                    exercise.children.iterator
+                      .map(EventId(u.transactionId, _).toLedgerString.toString)
+                      .toSet
+                  ),
+                  create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
+                  exercise_argument_compression =
+                    compressionStrategy.exerciseArgumentCompression.id,
+                  exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
+                  event_sequential_id = 0, // this is filled later
+                )
               )
+
+            case _ =>
+              Iterator.empty // It is okay to collect: blinding info is already there, we are free at hand to filter out the fetch and lookup nodes here already
           }
 
         val divulgedContractIndex = u.divulgedContracts
