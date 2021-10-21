@@ -28,10 +28,8 @@ if [ -n "$SANDBOX_PID" ]; then
     echo $SANDBOX_PID | xargs kill
 fi
 
-bazel clean
-
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
-bazel build //... -j 100 \
+bazel build //... \
   --build_tag_filters "$tag_filter" \
   --profile build-profile.json \
   --experimental_profile_include_target_label \
@@ -70,7 +68,7 @@ stop_postgresql # in case it's running from a previous build
 start_postgresql
 
 # Run the tests.
-bazel test //... -j 100 \
+bazel test //... \
   --build_tag_filters "$tag_filter" \
   --test_tag_filters "$tag_filter" \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
