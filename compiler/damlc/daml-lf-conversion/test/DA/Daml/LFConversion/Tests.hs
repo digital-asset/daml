@@ -97,6 +97,69 @@ metadataEncodingTests = testGroup "MetadataEncoding"
         , ("\"foo\" Foo.Bar (Qux($sel:getQux:Qux))"
           , mkExportInfoTC (Just "foo") ["Foo", "Bar"] "Qux" [] ["getQux"])
         ]
+    , roundtripTestsBy "type synonyms"
+        (\(synName, _isConstraintSyn, _kind, synParams, synType) ->
+          (== (synName, synParams, synType)))
+        (\(synName, isConstraintSyn, kind, synParams, synType) ->
+          encodeTypeSynonym synName isConstraintSyn kind synParams synType)
+        decodeTypeSynonym
+        [ ( "type Zero = 0"
+          , ( LF.TypeSynName ["Zero"]
+            , False
+            , LF.KNat
+            , []
+            , LF.TNat (LF.typeLevelNat @Int 0)
+            )
+          )
+        , ( "type IsEnabled = Bool"
+          , ( LF.TypeSynName ["IsEnabled"]
+            , False
+            , LF.KStar
+            , []
+            , LF.TBuiltin LF.BTBool
+            )
+          )
+        , ( "type Perhaps = Optional"
+          , ( LF.TypeSynName ["Perhaps"]
+            , False
+            , LF.KStar `LF.KArrow` LF.KStar
+            , []
+            , LF.TBuiltin LF.BTOptional
+            )
+          )
+        , ( "type Possibly a = Optional a"
+          , let aVar = LF.TypeVarName "a"
+            in
+            ( LF.TypeSynName ["Possibly"]
+            , False
+            , LF.KStar
+            , [(aVar, LF.KStar)]
+            , LF.TBuiltin LF.BTOptional `LF.TApp` LF.TVar aVar
+            )
+          )
+        , ( "type Num = Number"
+          , let numberClass = LF.Qualified LF.PRSelf (LF.ModuleName ["GHC", "Num"]) (LF.TypeSynName ["Number"])
+            in
+            ( LF.TypeSynName ["Num"]
+            , True
+            , LF.KStar `LF.KArrow` LF.KStar
+            , []
+            , LF.TSynApp numberClass []
+            )
+          )
+        , ( "type Display a = Show a"
+          , let
+              aVar = LF.TypeVarName "a"
+              showClass = LF.Qualified LF.PRSelf (LF.ModuleName ["GHC", "Show"]) (LF.TypeSynName ["Show"])
+            in
+            ( LF.TypeSynName ["Display"]
+            , True
+            , LF.KStar
+            , [(aVar, LF.KStar)]
+            , LF.TSynApp showClass [LF.TVar aVar]
+            )
+          )
+        ]
     ]
 
 mkImport :: Maybe T.Text -> [T.Text] -> LF.Qualified ()
