@@ -55,7 +55,7 @@ class ApiConfigManagementServiceSpec
 
   val useSelfServiceErrorCodes = mock[ErrorCodesVersionSwitcher]
 
-  s"ApiConfigManagementService" should {
+  "ApiConfigManagementService" should {
     "get the time model" in {
       val indexedTimeModel = LedgerTimeModel(
         avgTransactionLatency = Duration.ofMinutes(5),
