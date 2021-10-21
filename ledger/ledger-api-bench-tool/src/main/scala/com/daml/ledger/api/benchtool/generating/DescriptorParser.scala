@@ -18,7 +18,10 @@ object DescriptorParser {
       .map(error => DescriptorParserError(error.getLocalizedMessage))
 
   implicit val decoder: Decoder[ContractSetDescriptor] =
-    Decoder.forProduct1("num_instances")(ContractSetDescriptor.apply)
+    Decoder.forProduct2(
+      "num_instances",
+      "payload_size_bytes",
+    )(ContractSetDescriptor.apply)
 
   case class DescriptorParserError(details: String)
 

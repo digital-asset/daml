@@ -7,20 +7,21 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.benchtool.infrastructure.TestDars
-import com.daml.ledger.api.v1.commands.Commands
-import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.benchtool.util.SimpleFileReader
+import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.client.binding.Primitive
+import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.test.model.Foo.Foo1
 import org.slf4j.LoggerFactory
+import scalaz.syntax.tag._
 
 import java.io.File
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
-import scalaz.syntax.tag._
-import com.daml.ledger.test.model.Foo.Foo1
+import java.nio.charset.StandardCharsets
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Random, Success, Try}
 
 case class ContractProducer(services: LedgerApiServices) {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -79,10 +80,17 @@ case class ContractProducer(services: LedgerApiServices) {
     } yield ()
   }
 
-  private def createContract(index: Int, party: Party)(implicit
-      ec: ExecutionContext
+  private def randomPayload(sizeBytes: Int, random: Random): String =
+    new String(random.nextBytes(sizeBytes), StandardCharsets.UTF_8)
+
+  private def createContract(index: Int, party: Party, payload: String)(
+      implicit ec: ExecutionContext
   ): Future[Int] = {
-    val createCommand = Foo1(signatory = party, observers = List(party)).create.command
+    val createCommand = Foo1(
+      signatory = party,
+      observers = List(party),
+      payload = payload,
+    ).create.command
     val commands = new Commands(
       ledgerId = services.ledgerId,
       applicationId = applicationId,
@@ -105,6 +113,7 @@ case class ContractProducer(services: LedgerApiServices) {
       }
 
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
+    val random = new Random(System.currentTimeMillis())
     materializerOwner()
       .use { implicit materializer =>
         Source
@@ -113,7 +122,11 @@ case class ContractProducer(services: LedgerApiServices) {
             elements = 100,
             per = 1.second,
           )
-          .mapAsync(8)(index => createContract(index, party))
+          .mapAsync(8)(index => createContract(
+            index = index,
+            party = party,
+            payload = randomPayload(descriptor.payloadSizeBytes, random),
+          ))
           .runForeach(logProgress)
       }
       .map(_ => ())

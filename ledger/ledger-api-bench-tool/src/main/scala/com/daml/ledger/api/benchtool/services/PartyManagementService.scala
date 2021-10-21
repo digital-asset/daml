@@ -38,5 +38,4 @@ class PartyManagementService(channel: Channel) {
             exception
           }
       }
-
 }
