@@ -9,8 +9,22 @@ import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
 import com.daml.ledger.participant.state.kvutils.store.DamlStateKey
-import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionBlindingInfo.{DisclosureEntry, DivulgenceEntry}
-import com.daml.ledger.participant.state.kvutils.store.events.{DamlSubmitterInfo, DamlTransactionBlindingInfo, DamlTransactionRejectionEntry, Disputed, Duplicate, Inconsistent, InvalidLedgerTime, PartyNotKnownOnLedger, ResourcesExhausted, SubmitterCannotActViaParticipant}
+import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionBlindingInfo.{
+  DisclosureEntry,
+  DivulgenceEntry,
+}
+import com.daml.ledger.participant.state.kvutils.store.events.{
+  DamlSubmitterInfo,
+  DamlTransactionBlindingInfo,
+  DamlTransactionRejectionEntry,
+  Disputed,
+  Duplicate,
+  Inconsistent,
+  InvalidLedgerTime,
+  PartyNotKnownOnLedger,
+  ResourcesExhausted,
+  SubmitterCannotActViaParticipant,
+}
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash
@@ -169,14 +183,17 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               Map("contract_id" -> "id"),
             ),
             (
-              Rejection.RecordTimeOutOfRange(now, now),
+              Rejection.RecordTimeOutOfRange(Instant.EPOCH, Instant.EPOCH),
               Code.ABORTED,
-              Map.empty,
+              Map(
+                "minimum_record_time" -> Instant.EPOCH.toString,
+                "maximum_record_time" -> Instant.EPOCH.toString,
+              ),
             ),
             (
               Rejection.LedgerTimeOutOfRange(LedgerTimeModel.OutOfRange(now, now, now)),
               Code.ABORTED,
-              Map.empty,
+              Map.empty
             ),
             (
               Rejection.CausalMonotonicityViolated,
@@ -197,14 +214,6 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               Rejection.MissingInputState(partyStateKey("party")),
               Code.ABORTED,
               Map("key" -> "party: \"party\"\n"),
-            ),
-            (
-              Rejection.RecordTimeOutOfRange(Instant.EPOCH, Instant.EPOCH),
-              Code.ABORTED,
-              Map(
-                "minimum_record_time" -> Instant.EPOCH.toString,
-                "maximum_record_time" -> Instant.EPOCH.toString,
-              ),
             ),
             (
               Rejection.SubmittingPartyNotKnownOnLedger(party0),
@@ -281,22 +290,29 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
                 Err.ArchiveDecodingFailed(Ref.PackageId.assertFromString("id"), "reason")
               ),
               Code.INTERNAL,
-              Map("package_id" -> "id"),
+              Map.empty, // package ID could be useful but the category is security sensitive
             ),
             (
               Rejection.InvalidParticipantState(Err.MissingDivulgedContractInstance("id")),
               Code.INTERNAL,
-              Map("contract_id" -> "id"),
+              Map.empty, // contract ID could be useful but the category is security sensitive
             ),
             (
-              Rejection.RecordTimeOutOfRange(now, now),
+              Rejection.RecordTimeOutOfRange(Instant.EPOCH, Instant.EPOCH),
               Code.FAILED_PRECONDITION,
-              Map.empty,
+              Map(
+                "minimum_record_time" -> Instant.EPOCH.toString,
+                "maximum_record_time" -> Instant.EPOCH.toString,
+              ),
             ),
             (
-              Rejection.LedgerTimeOutOfRange(LedgerTimeModel.OutOfRange(now, now, now)),
+              Rejection.LedgerTimeOutOfRange(LedgerTimeModel.OutOfRange(Instant.EPOCH, Instant.EPOCH, Instant.EPOCH)),
               Code.FAILED_PRECONDITION,
-              Map.empty,
+              Map(
+                "ledger_time" -> Instant.EPOCH.toString,
+                "ledger_time_lower_bound" -> Instant.EPOCH.toString,
+                "ledger_time_upper_bound" -> Instant.EPOCH.toString,
+              ),
             ),
             (
               Rejection.CausalMonotonicityViolated,
@@ -316,15 +332,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             (
               Rejection.MissingInputState(partyStateKey("party")),
               Code.INTERNAL,
-              Map("key" -> "party: \"party\"\n"),
-            ),
-            (
-              Rejection.RecordTimeOutOfRange(Instant.EPOCH, Instant.EPOCH),
-              Code.FAILED_PRECONDITION,
-              Map(
-                "minimum_record_time" -> Instant.EPOCH.toString,
-                "maximum_record_time" -> Instant.EPOCH.toString,
-              ),
+              Map.empty, // party could be useful but the category is security sensitive
             ),
             (
               Rejection.SubmittingPartyNotKnownOnLedger(party0),
@@ -538,7 +546,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
     finalReason.code shouldBe expectedCode.value()
     finalReason.definiteAnswer shouldBe false
     val actualDetails = finalReasonToDetails(finalReason)
-    actualDetails should contain allElementsOf (expectedAdditionalDetails)
+    actualDetails should contain allElementsOf expectedAdditionalDetails
   }
 
   private def newDisclosureEntry(node: NodeId, parties: List[String]) =
@@ -658,5 +666,6 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
 
   private def finalReasonToDetails(
       finalReason: CommandRejected.FinalReason
-  ): Seq[(String, String)] = finalReason.status.details.flatMap(_.unpack[ErrorInfo].metadata)
+  ): Seq[(String, String)] =
+    finalReason.status.details.flatMap(_.unpack[ErrorInfo].metadata)
 }

@@ -3,6 +3,14 @@
 
 package com.daml.ledger.participant.state.kvutils.updates
 
+import java.time.Instant
+
+import com.google.protobuf.ProtocolStringList
+import com.google.protobuf.any.{Any => AnyProto}
+import com.google.rpc.code.Code
+import com.google.rpc.error_details.ErrorInfo
+import com.google.rpc.status.Status
+
 import com.daml.error.{ContextualizedErrorLogger, ValueSwitch}
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions.parseCompletionInfo
@@ -16,14 +24,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.protobuf.any.{Any => AnyProto}
-import com.google.rpc.code.Code
-import com.google.rpc.error_details.ErrorInfo
-import com.google.rpc.status.Status
 
-import java.io.StringWriter
-import java.time.Instant
 import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
@@ -100,14 +101,15 @@ private[kvutils] object TransactionRejections {
       errorVersionSwitch: ValueSwitch[Status],
   )(implicit loggingContext: ContextualizedErrorLogger): Status = {
     val details = rejection.getDetails
+    val metadata = rejection.getMetadataMap.asScala.toMap
     errorVersionSwitch.choose(
       V1.status(
         entry,
         Code.INVALID_ARGUMENT,
         s"Disputed: $details",
-        rejection.getMetadataMap.asScala.toMap,
+        metadata,
       ),
-      V2.invalidParticipantStateStatus(details),
+      V2.invalidParticipantStateStatus(details, metadata),
     )
   }
 
@@ -123,9 +125,9 @@ private[kvutils] object TransactionRejections {
         entry,
         Code.INVALID_ARGUMENT,
         s"Party not known on ledger: Parties not known on ledger ${parties.asScala.mkString("[", ",", "]")}",
-        Map("parties" -> objectToJsonString(parties)),
+        Map("parties" -> Conversions.objectToJsonString(parties)),
       ),
-      V2.partiesNotKnownOnLedgerStatus(parties.asScala.toSeq),
+      V2.partiesNotKnownOnLedgerStatus(parties),
     )
   }
 
@@ -353,17 +355,17 @@ private[kvutils] object TransactionRejections {
       ),
       V2.invalidLedgerTimeStatus(
         details,
-        ledgerTime = Instant
+        ledger_time = Instant
           .ofEpochSecond(
             ledgerTime.getSeconds,
             ledgerTime.getNanos.toLong,
           ),
-        ledgerTimeLowerBound = Instant
+        ledger_time_lower_bound = Instant
           .ofEpochSecond(
             ledgerTimeLowerBound.getSeconds,
             ledgerTimeLowerBound.getNanos.toLong,
           ),
-        ledgerTimeUpperBound = Instant
+        ledger_time_upper_bound = Instant
           .ofEpochSecond(
             ledgerTimeUpperBound.getSeconds,
             ledgerTimeUpperBound.getNanos.toLong,
@@ -495,12 +497,12 @@ private[kvutils] object TransactionRejections {
 
     def invalidLedgerTimeStatus(
         details: String,
-        ledgerTime: Instant,
-        ledgerTimeLowerBound: Instant,
-        ledgerTimeUpperBound: Instant,
+        ledger_time: Instant,
+        ledger_time_lower_bound: Instant,
+        ledger_time_upper_bound: Instant,
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
       KVCompletionErrors.Time.InvalidLedgerTime
-        .Reject(details, ledgerTime, ledgerTimeLowerBound, ledgerTimeUpperBound)
+        .Reject(details, ledger_time, ledger_time_lower_bound, ledger_time_upper_bound)
         .asStatus
 
     def causalMonotonicityViolatedStatus(
@@ -522,10 +524,11 @@ private[kvutils] object TransactionRejections {
         .asStatus
 
     def invalidParticipantStateStatus(
-        details: String
+        details: String,
+        metadata: Map[String, String],
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
       KVCompletionErrors.Internal.InvalidParticipantState
-        .Reject(details)
+        .Reject(details, metadata)
         .asStatus
 
     def validationFailureStatus(
@@ -562,7 +565,7 @@ private[kvutils] object TransactionRejections {
         .asStatus
 
     def partiesNotKnownOnLedgerStatus(
-        parties: Seq[String]
+        parties: ProtocolStringList
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
       KVCompletionErrors.Parties.PartiesNotKnownOnLedger
         .Reject(parties)
@@ -682,11 +685,4 @@ private[kvutils] object TransactionRejections {
       case _ =>
         "Record time outside of valid range"
     }
-
-  private def objectToJsonString(obj: Object): String = {
-    val stringWriter = new StringWriter
-    val objectMapper = new ObjectMapper
-    objectMapper.writeValue(stringWriter, obj)
-    stringWriter.toString
-  }
 }

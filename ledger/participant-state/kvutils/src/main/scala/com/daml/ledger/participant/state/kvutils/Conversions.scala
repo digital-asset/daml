@@ -7,11 +7,38 @@ import com.daml.error.{ContextualizedErrorLogger, ValueSwitch}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
-import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{ExternallyInconsistentTransaction, InternallyInconsistentTransaction}
+import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
+  ExternallyInconsistentTransaction,
+  InternallyInconsistentTransaction,
+}
 import com.daml.ledger.participant.state.kvutils.store.events.DamlSubmitterInfo.DeduplicationPeriodCase
-import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionBlindingInfo.{DisclosureEntry, DivulgenceEntry}
-import com.daml.ledger.participant.state.kvutils.store.events.{CausalMonotonicityViolated, DamlSubmitterInfo, DamlTransactionBlindingInfo, DamlTransactionRejectionEntry, DuplicateKeys, InconsistentContracts, InconsistentKeys, InvalidLedgerTime, InvalidParticipantState, MissingInputState, PartiesNotKnownOnLedger, RecordTimeOutOfRange, SubmitterCannotActViaParticipant, SubmittingPartyNotKnownOnLedger, ValidationFailure}
-import com.daml.ledger.participant.state.kvutils.store.{DamlCommandDedupKey, DamlContractKey, DamlStateKey, DamlSubmissionDedupKey}
+import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionBlindingInfo.{
+  DisclosureEntry,
+  DivulgenceEntry,
+}
+import com.daml.ledger.participant.state.kvutils.store.events.{
+  CausalMonotonicityViolated,
+  DamlSubmitterInfo,
+  DamlTransactionBlindingInfo,
+  DamlTransactionRejectionEntry,
+  DuplicateKeys,
+  InconsistentContracts,
+  InconsistentKeys,
+  InvalidLedgerTime,
+  InvalidParticipantState,
+  MissingInputState,
+  PartiesNotKnownOnLedger,
+  RecordTimeOutOfRange,
+  SubmitterCannotActViaParticipant,
+  SubmittingPartyNotKnownOnLedger,
+  ValidationFailure,
+}
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlCommandDedupKey,
+  DamlContractKey,
+  DamlStateKey,
+  DamlSubmissionDedupKey,
+}
 import com.daml.ledger.participant.state.kvutils.updates.TransactionRejections._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2.{CompletionInfo, SubmitterInfo}
@@ -21,9 +48,11 @@ import com.daml.lf.transaction._
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.Empty
 import com.google.rpc.status.Status
 
+import java.io.StringWriter
 import java.time.{Duration, Instant}
 import scala.annotation.nowarn
 import scala.collection.mutable
@@ -497,6 +526,13 @@ private[state] object Conversions {
       case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
         rejectionReasonNotSetStatus(entry, errorVersionSwitch)
     })
+
+  private[kvutils] def objectToJsonString(obj: Object): String = {
+    val stringWriter = new StringWriter
+    val objectMapper = new ObjectMapper
+    objectMapper.writeValue(stringWriter, obj)
+    stringWriter.toString
+  }
 
   private def encodeParties(parties: Set[Ref.Party]): List[String] =
     (parties.toList: List[String]).sorted
