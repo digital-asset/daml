@@ -609,4 +609,21 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           cause = s"Offset in ${fieldName} not specified in hexadecimal: ${offsetValue}: ${message}"
         )
   }
+
+  object VersionServiceError extends ErrorGroup {
+    @Explanation("This error occurs if there was an unexpected error within the version service.")
+    @Resolution("Contact support.")
+    object InternalError
+        extends ErrorCode(
+          id = "VERSION_SERVICE_INTERNAL_ERROR",
+          ErrorCategory.SystemInternalAssumptionViolated,
+        ) {
+
+      case class Reject(message: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(cause = message)
+
+    }
+  }
+
 }
