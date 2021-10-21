@@ -301,9 +301,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "g : MyUnit -> MyUnit"
                 -- ^ this tests that MyUnit wasn't exported from Foo
               , "g a = a"
-              , "type MyOptional t = Int"
               , "h : MyOptional Int -> MyOptional Int"
-                  -- ^ this tests that MyOptional wasn't exported from Foo
               , "h a = a"
               , "myFmap : MyFunctor t => (a -> b) -> t a -> t b"
               , "myFmap = fmap"
