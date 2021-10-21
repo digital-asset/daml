@@ -9,7 +9,6 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -30,11 +29,9 @@ final class StandaloneIndexerServer(
     val flywayMigrations =
       new FlywayMigrations(
         config.jdbcUrl,
-        config.enableAppendOnlySchema,
         additionalMigrationPaths,
       )
     val indexerFactory = new JdbcIndexer.Factory(
-      ServerRole.Indexer,
       config,
       readService,
       servicesExecutionContext,
@@ -107,13 +104,11 @@ object StandaloneIndexerServer {
   // does not require any of the configurations of a full-fledged indexer except for the jdbc url.
   def migrateOnly(
       jdbcUrl: String,
-      // TODO append-only: remove after removing support for the current (mutating) schema
-      enableAppendOnlySchema: Boolean,
       allowExistingSchema: Boolean = false,
       additionalMigrationPaths: Seq[String] = Seq.empty,
   )(implicit rc: ResourceContext, loggingContext: LoggingContext): Future[Unit] = {
     val flywayMigrations =
-      new FlywayMigrations(jdbcUrl, enableAppendOnlySchema, additionalMigrationPaths)
+      new FlywayMigrations(jdbcUrl, additionalMigrationPaths)
     flywayMigrations.migrate(allowExistingSchema)
   }
 }

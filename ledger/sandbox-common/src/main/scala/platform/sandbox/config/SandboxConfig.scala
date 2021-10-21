@@ -64,7 +64,6 @@ final case class SandboxConfig(
     engineMode: SandboxConfig.EngineMode,
     managementServiceTimeout: Duration,
     sqlStartMode: Option[PostgresStartupMode],
-    enableAppendOnlySchema: Boolean,
     enableCompression: Boolean,
     enableSelfServiceErrorCodes: Boolean,
 ) {
@@ -152,7 +151,6 @@ object SandboxConfig {
       engineMode = EngineMode.Stable,
       managementServiceTimeout = DefaultManagementServiceTimeout,
       sqlStartMode = Some(DefaultSqlStartupMode),
-      enableAppendOnlySchema = false,
       enableCompression = false,
       enableSelfServiceErrorCodes = false,
     )

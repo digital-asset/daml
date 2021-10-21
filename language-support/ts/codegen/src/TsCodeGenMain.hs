@@ -196,7 +196,8 @@ genModule pkgMap (Scope scope) curPkgId mod
     Nothing -- If no serializable types, nothing to do.
   | otherwise =
     let (decls, refs) = unzip (map (genDataDef curPkgId mod tpls) serDefs)
-        imports = (PRSelf, modName) `Set.delete` Set.unions refs
+        (ifaceDecls, ifaceRefs) = unzip (map (genIfaceDecl curPkgId mod) $ NM.toList ifaces)
+        imports = (PRSelf, modName) `Set.delete` Set.unions (refs ++ ifaceRefs)
         (internalImports, externalImports) = splitImports imports
         rootPath = map (const "..") (unModuleName modName)
         makeMod jsSyntax body = T.unlines $ intercalate [""] $ filter (not . null) $
@@ -205,12 +206,13 @@ genModule pkgMap (Scope scope) curPkgId mod
           : map (internalImportDecl jsSyntax rootPath) internalImports
           : body
 
-        (jsBody, tsDeclsBody) = unzip $ map (unzip . map renderTsDecl) decls
+        (jsBody, tsDeclsBody) = unzip $ map (unzip . map renderTsDecl) (decls ++ ifaceDecls)
         depends = Set.map (Dependency . pkgRefStr pkgMap) externalImports
    in Just ((makeMod ES5 jsBody, makeMod ES6 tsDeclsBody), depends)
   where
     modName = moduleName mod
     tpls = moduleTemplates mod
+    ifaces = moduleInterfaces mod
     serDefs = defDataTypes mod
     modHeader ES5 = commonjsPrefix ++
       [ "/* eslint-disable-next-line no-unused-vars */"
@@ -285,6 +287,37 @@ genDataDef curPkgId mod tpls def = case unTypeConName (dataTypeCon def) of
         (decls, refs) = genDefDataType curPkgId c2 mod tpls def
         tyDecls = [d | DeclTypeDef d <- decls]
 
+genIfaceDecl :: PackageId -> Module -> DefInterface -> ([TsDecl], Set.Set ModuleRef)
+genIfaceDecl pkgId mod DefInterface {intName, intVirtualChoices, intFixedChoices} =
+  ( [ DeclInterface
+        (InterfaceDef
+           { ifName = name
+           , ifChoices = choices
+           , ifModule = moduleName mod
+           , ifPkgId = pkgId
+           })
+    ]
+  , Set.unions choiceRefs)
+  where
+    -- interfaces are not declared in JS code, only in the TS type declarations.
+    (name, _) = genTypeCon (moduleName mod) (Qualified PRSelf (moduleName mod) intName)
+    (choices, choiceRefs) =
+      unzip $
+      [ (ChoiceDef (unChoiceName (chcName chc)) argTy rTy, Set.union argRefs retRefs)
+      | chc <- NM.toList intFixedChoices
+      , let argTy = TypeRef (moduleName mod) (snd (chcArgBinder chc))
+      , let rTy = TypeRef (moduleName mod) (chcReturnType chc)
+      , let argRefs = Set.setOf typeModuleRef (refType argTy)
+      , let retRefs = Set.setOf typeModuleRef (refType rTy)
+      ] ++
+      [ (ChoiceDef (unChoiceName (ifcName chc)) argTy rTy, Set.union argRefs retRefs)
+      | chc <- NM.toList intVirtualChoices
+      , let argTy = TypeRef (moduleName mod) (ifcArgType chc)
+      , let rTy = TypeRef (moduleName mod) (ifcRetType chc)
+      , let argRefs = Set.setOf typeModuleRef (refType argTy)
+      , let retRefs = Set.setOf typeModuleRef (refType rTy)
+      ]
+
 -- | The typescript declarations we produce.
 data TsDecl
     = DeclTemplateDef TemplateDef
@@ -293,6 +326,7 @@ data TsDecl
     | DeclTemplateNamespace TemplateNamespace
     | DeclTemplateRegistration TemplateRegistration
     | DeclNamespace T.Text [TypeDef]
+    | DeclInterface InterfaceDef
     -- ^ Note that we special-case some namespaces, e.g., the template namespace
     -- that always have fixed contents. This constructor is only used for the namespace
     -- for sums of products.
@@ -309,6 +343,7 @@ renderTsDecl = \case
         , [ "  " <> l | d <- decls, l <- T.lines (renderTypeDef d) ]
         , [ "} //namespace " <> t ]
         ])
+    DeclInterface i -> renderInterfaceDef i
 
 
 -- | Namespace containing type synonyms for Key, CreatedEvent, ArchivedEvent and Event
@@ -321,7 +356,7 @@ data TemplateNamespace = TemplateNamespace
 renderTemplateNamespace :: TemplateNamespace -> T.Text
 renderTemplateNamespace TemplateNamespace{..} = T.unlines $ concat
     [ [ "export declare namespace " <> tnsName <> " {" ]
-    , [ "  export type Key = " <> fst (genType keyDef) | Just keyDef <- [tnsMbKeyDef] ]
+    , [ "  export type Key = " <> fst (genType keyDef Nothing) | Just keyDef <- [tnsMbKeyDef] ]
     , [ "  export type CreateEvent = damlLedger.CreateEvent" <> tParams [tnsName, tK, tI]
       , "  export type ArchiveEvent = damlLedger.ArchiveEvent" <> tParams [tnsName, tI]
       , "  export type Event = damlLedger.Event" <> tParams [tnsName, tK, tI]
@@ -350,6 +385,7 @@ data TemplateDef = TemplateDef
   -- ^ Nothing if we do not have a key.
   , tplKeyEncode :: Encode
   , tplChoices' :: [ChoiceDef]
+  , tplImplements' :: [T.Text]
   }
 
 renderTemplateDef :: TemplateDef -> (T.Text, T.Text)
@@ -377,15 +413,10 @@ renderTemplateDef TemplateDef{..} =
           , [ "};" ]
           ]
         tsDecl = T.unlines $ concat
-          [ [ "export declare const " <> tplName <> ":"
-            , "  damlTypes.Template<" <> tplName <> ", " <> keyTy <> ", '" <> templateId <> "'> & {"
+          [ ifaceDefTempl tplName (Just keyTy) tplImplements' tplChoices'
+          , [ "export declare const " <> tplName <> ":"
+            , "  damlTypes.Template<" <> tplName <> ", " <> keyTy <> ", '" <> templateId <> "'> & " <> tplName <> "Interface;"
             ]
-          , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
-              tplName <> ", " <>
-              fst (genType chcArgTy) <> ", " <>
-              fst (genType chcRetTy) <> ", " <>
-              keyTy <> ">;" | ChoiceDef{..} <- tplChoices' ]
-          , [ "};" ]
           ]
     in (jsSource, tsDecl)
   where (keyTy, keyDec) = case tplKeyDecoder of
@@ -395,6 +426,59 @@ renderTemplateDef TemplateDef{..} =
             unPackageId tplPkgId <> ":" <>
             T.intercalate "." (unModuleName tplModule) <> ":" <>
             tplName
+
+data InterfaceDef = InterfaceDef
+  { ifName :: T.Text
+  , ifModule :: ModuleName
+  , ifPkgId :: PackageId
+  , ifChoices :: [ChoiceDef]
+  }
+
+renderInterfaceDef :: InterfaceDef -> (T.Text, T.Text)
+renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule, ifPkgId} = (jsSource, tsDecl)
+  where
+    jsSource = ""
+    tsDecl = T.unlines $ concat
+      [ifaceDefIface ifName Nothing ifChoices
+      , ["export declare const " <> ifName <> ": damlTypes.Template<object, undefined, '" <> ifaceId <> "'> & " <> ifName <> "Interface<object>;"]
+      ]
+    ifaceId =
+        unPackageId ifPkgId <> ":" <>
+        T.intercalate "." (unModuleName ifModule) <> ":" <>
+        ifName
+
+ifaceDefTempl :: T.Text -> Maybe T.Text -> [T.Text] -> [ChoiceDef] -> [T.Text]
+ifaceDefTempl name mbKeyTy impls choices =
+  concat
+  [ ["export declare interface " <> name <> "Interface " <> extension <> "{"]
+  , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
+      name <> ", " <>
+      fst (genType chcArgTy (Just (Set.fromList impls, implTy))) <> ", " <>
+      fst (genType chcRetTy (Just (Set.fromList impls, implTy))) <> ", " <>
+      keyTy <> ">;" | ChoiceDef{..} <- choices ]
+  , [ "}" ]
+  ]
+  where
+    keyTy = fromMaybe "undefined" mbKeyTy
+    extension
+      | null impls = ""
+      | otherwise = "extends " <> implTy'
+    implTy = T.intercalate " & " [impl <> "Interface<" <> name <> ">" | impl <- impls]
+    implTy' = T.intercalate " , " [impl <> "Interface<" <> name <> ">" | impl <- impls]
+
+ifaceDefIface :: T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
+ifaceDefIface name mbKeyTy choices =
+  concat
+  [ ["export declare interface " <> name <> "Interface " <> "<T extends object>{"]
+  , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
+      "T, " <>
+      fst (genType chcArgTy (Just (Set.singleton name, name <> "Interface<T>"))) <> ", " <>
+      fst (genType chcRetTy (Just (Set.singleton name, name <> "Interface<T>"))) <> ", " <>
+      keyTy <> ">;" | ChoiceDef{..} <- choices ]
+  , [ "}" ]
+  ]
+  where
+    keyTy = fromMaybe "undefined" mbKeyTy
 
 data ChoiceDef = ChoiceDef
   { chcName' :: T.Text
@@ -522,7 +606,7 @@ renderDecoder = \case
         T.concat (map (\(name, d) -> name <> ": " <> renderDecoder d <> ", ") fields) <>
         "})"
     DecoderConstant c -> "jtv.constant(" <> renderDecoderConstant c <> ")"
-    DecoderRef t -> snd (genType t) <> ".decoder"
+    DecoderRef t -> snd (genType t Nothing) <> ".decoder"
     DecoderLazy d -> "damlTypes.lazyMemo(function () { return " <> renderDecoder d <> "; })"
 
 data Encode
@@ -534,13 +618,13 @@ data Encode
 
 renderEncode :: Encode -> T.Text
 renderEncode = \case
-    EncodeRef ref -> let (_, companion) = genType ref in
+    EncodeRef ref -> let (_, companion) = genType ref Nothing in
         "function (__typed__) { return " <> companion <> ".encode(__typed__); }"
     EncodeVariant typ alts -> T.unlines $ concat
         [ [ "function (__typed__) {" -- Note: switch uses ===
           , "  switch(__typed__.tag) {" ]
         , [ "    case '" <> name <> "': return {tag: __typed__.tag, value: " <> companion <> ".encode(__typed__.value)};"
-          | (name, tr) <- alts, let (_, companion) = genType tr ]
+          | (name, tr) <- alts, let (_, companion) = genType tr Nothing]
         , [ "    default: throw 'unrecognized type tag: ' + __typed__.tag + ' while serializing a value of type " <> typ <> "';"
           , "  }"
           , "}" ] ]
@@ -549,7 +633,7 @@ renderEncode = \case
         [ [ "function (__typed__) {"
           , "  return {" ]
         , [ "    " <> name <> ": " <> companion <> ".encode(__typed__." <> name <> "),"
-          | (name, tr) <- fields, let (_, companion) = genType tr ]
+          | (name, tr) <- fields, let (_, companion) = genType tr Nothing]
         , [ "  };"
           , "}" ] ]
     EncodeThrow -> "function () { throw 'EncodeError'; }"
@@ -563,12 +647,12 @@ renderTypeDef :: TypeDef -> T.Text
 renderTypeDef = \case
     UnionDef t args bs -> T.unlines $ concat
         [ [ "type " <> ty t args <> " =" ]
-        , [ "  |  { tag: '" <> k <> "'; value: " <> fst (genType t) <> " }" | (k, t) <- bs ]
+        , [ "  |  { tag: '" <> k <> "'; value: " <> fst (genType t Nothing) <> " }" | (k, t) <- bs ]
         , [ ";" ]
         ]
     ObjectDef t args fs -> T.unlines $ concat
         [ [ "type " <> ty t args <> " = {" ]
-        , [ "  " <> k <> ": " <> fst (genType t) <> ";" | (k, t) <- fs ]
+        , [ "  " <> k <> ": " <> fst (genType t Nothing) <> ";" | (k, t) <- fs ]
         , [ "};" ]
         ]
     EnumDef t args fs -> T.unlines $ concat
@@ -624,8 +708,7 @@ genSerializableDef curPkgId conName mod def =
                  , serEncode = EncodeRecord $ zip fieldNames fieldTypes
                  , serNested = []
                  }
-        -- TODO https://github.com/digital-asset/daml/issues/10810
-        DataInterface -> error "interafces are not implemented"
+        DataInterface -> error "interfaces are not serializable"
   where
     paramNames = map (unTypeVarName . fst) (dataParams def)
     genDecBranch (VariantConName cons, t) =
@@ -661,8 +744,7 @@ genTypeDef conName mod def =
                 conName
                 paramNames
                 [ (n, TypeRef (moduleName mod) ty) | (FieldName n, ty) <- fields ]
-        -- TODO https://github.com/digital-asset/daml/issues/10810
-        DataInterface -> error "interafces are not implemented"
+        DataInterface -> error "interfaces are not implemented"
   where
     paramNames = map (unTypeVarName . fst) (dataParams def)
 
@@ -705,6 +787,7 @@ genDefDataType curPkgId conName mod tpls def =
                                 ( Just $ DecoderRef typeRef
                                 , EncodeRef typeRef
                                 , Set.setOf typeModuleRef keyType)
+                        impls = [tycon | impl <- NM.names $ tplImplements tpl, let (tycon, _) = genTypeCon (moduleName mod) impl]
                         dict = TemplateDef
                             { tplName = conName
                             , tplPkgId = curPkgId
@@ -714,6 +797,7 @@ genDefDataType curPkgId conName mod tpls def =
                             , tplKeyDecoder = keyDecoder
                             , tplKeyEncode = keyEncode
                             , tplChoices' = chcs
+                            , tplImplements' = impls
                             }
                         associatedTypes = TemplateNamespace
                           { tnsName = conName
@@ -723,8 +807,7 @@ genDefDataType curPkgId conName mod tpls def =
                         refs = Set.unions (fieldRefs ++ keyRefs : chcRefs)
                     in
                     ([DeclTypeDef typeDesc, DeclTemplateDef dict, DeclTemplateNamespace associatedTypes, DeclTemplateRegistration registrations], refs)
-        -- TODO https://github.com/digital-asset/daml/issues/10810
-        DataInterface -> error "interafces are not implemented"
+        DataInterface -> ([], Set.empty)
 
 infixr 6 <.> -- This is the same fixity as '<>'.
 (<.>) :: T.Text -> T.Text -> T.Text
@@ -732,8 +815,18 @@ infixr 6 <.> -- This is the same fixity as '<>'.
 
 -- | Returns a pair of the type and a reference to the
 -- companion object/function.
-genType :: TypeRef -> (T.Text, T.Text)
-genType (TypeRef curModName t) = go t
+-- If the optional substitution argument `mbSubst = Just (needels, substitution)` is set, type
+-- constructors in `needels` will be replaced with `substitution`.  If it is Nothing, no
+-- susbtitution is performed. Likewise, if `needels` is empty, no substitution is performed.
+--
+-- Substitutions are used in interface choices. Here, a type of `ContractId Token` needs to be
+-- replaced with `ContractId TokenInterface<Token>`. In an implementing template choice of the
+-- template `Asset`, the corresponding type `ContractId Token` needs to be replaced with `ContractId
+-- TokenInterface<Asset>`. If the template implements a second `Other` interface, the type `ContractId
+-- Token` needs to be replaced with `ContractId (TokenInterface<Asset> & OtherInterface<Asset>)` and
+-- `ContractId Other` with `ContractId (TokenInterface<Asset> & OtherInterface<Asset>)`.
+genType :: TypeRef -> Maybe (Set.Set T.Text, T.Text) -> (T.Text, T.Text)
+genType (TypeRef curModName t) mbSubst = go t
   where
     go = \case
         TVar v -> dupe (unTypeVarName v)
@@ -773,7 +866,9 @@ genType (TypeRef curModName t) = go t
             in
             ("damlTypes.ContractId<" <> t' <> ">", "damlTypes.ContractId(" <> ser <> ")")
         TConApp con ts ->
-            let (con', ser) = genTypeCon curModName con
+            let (con', ser)
+                  | Just (impls, subst) <- mbSubst, (fst $ genTypeCon curModName con) `Set.member` impls = (subst, "")
+                  | otherwise = genTypeCon curModName con
                 (ts', sers) = unzip (map go ts)
             in
             if null ts

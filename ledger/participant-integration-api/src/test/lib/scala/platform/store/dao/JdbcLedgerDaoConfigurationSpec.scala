@@ -4,7 +4,7 @@
 package com.daml.platform.store.dao
 
 import akka.stream.scaladsl.Sink
-import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
+import com.daml.platform.store.appendonlydao._
 import com.daml.platform.store.entries.ConfigurationEntry
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -62,16 +62,5 @@ trait JdbcLedgerDaoConfigurationSpec {
           .Rejected(s"config-rejection-$offsetString", "bad config", proposedConfig)
       )
     }
-  }
-
-  it should "fail trying to store configuration with non-incremental offsets" in {
-    recoverToSucceededIf[LedgerEndUpdateError](
-      storeConfigurationEntry(
-        nextOffset(),
-        s"submission-invalid-offsets",
-        defaultConfig,
-        maybePreviousOffset = Some(nextOffset()),
-      )
-    )
   }
 }

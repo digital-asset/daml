@@ -20,11 +20,7 @@ import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandbox.services.{
-  SandboxEnableAppendOnlySchema,
-  SandboxFixture,
-  TestCommands,
-}
+import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.daml.platform.services.time.TimeProviderType
 import com.google.protobuf.duration.{Duration => ProtoDuration}
 import org.scalatest.Inspectors
@@ -134,10 +130,3 @@ sealed trait CommandServiceITBase
 
 // CommandServiceIT on a Postgresql ledger
 final class CommandServicePostgresIT extends CommandServiceITBase with SandboxBackend.Postgresql
-
-// CommandServiceIT on a Postgresql ledger with the append-only schema
-// TODO append-only: remove this class once the append-only schema is the default one
-final class CommandServiceAppendOnlyIT
-    extends CommandServiceITBase
-    with SandboxBackend.Postgresql
-    with SandboxEnableAppendOnlySchema

@@ -13,7 +13,6 @@ import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.appendonlydao.events.QueryNonPruned
 import com.daml.platform.store.backend.CompletionStorageBackend
-import com.daml.platform.store.dao.LedgerDaoCommandCompletionsReader
 
 private[appendonlydao] final class CommandCompletionsReader(
     dispatcher: DbDispatcher,

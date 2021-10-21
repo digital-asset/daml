@@ -19,12 +19,10 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
 import com.daml.platform.store.appendonlydao
-import com.daml.platform.store.appendonlydao.events
+import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, events}
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.getTransactions
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.cache.{BufferSlice, EventsBuffer}
-import com.daml.platform.store.dao.LedgerDaoTransactionsReader
-import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.interfaces.TransactionLogUpdate.{Transaction => TxUpdate}
 
