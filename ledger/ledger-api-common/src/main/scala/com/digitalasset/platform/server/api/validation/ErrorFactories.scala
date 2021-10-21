@@ -8,8 +8,8 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.grpc.GrpcStatuses
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.lf.data.Ref.TransactionId
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories.{
   addDefiniteAnswerDetails,
   definiteAnswers,
@@ -66,14 +66,14 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       v2 = LedgerApiErrors.ReadErrors.PackageNotFound.Reject(packageId = packageId).asGrpcError,
     )
 
-  def internalError(message: String)(implicit
+  def versionServiceInternalError(message: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
       v1 = io.grpc.Status.INTERNAL
         .withDescription(message)
         .asRuntimeException(),
-      v2 = LedgerApiErrors.InternalError.Reject(message).asGrpcError,
+      v2 = LedgerApiErrors.VersionServiceError.InternalError.Reject(message).asGrpcError,
     )
 
   def duplicateCommandException(implicit

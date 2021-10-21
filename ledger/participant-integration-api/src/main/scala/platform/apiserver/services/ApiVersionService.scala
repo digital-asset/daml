@@ -8,12 +8,12 @@ import com.daml.error.{
   DamlContextualizedErrorLogger,
   ErrorCodesVersionSwitcher,
 }
+import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
 import com.daml.ledger.api.v1.version_service.{
   GetLedgerApiVersionRequest,
   GetLedgerApiVersionResponse,
   VersionServiceGrpc,
 }
-import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -54,7 +54,7 @@ private[apiserver] final class ApiVersionService private (
 
   private lazy val internalError: Future[Nothing] =
     Future.failed(
-      errorFactories.internalError(message = "Cannot read Ledger API version")
+      errorFactories.versionServiceInternalError(message = "Cannot read Ledger API version")
     )
 
   private def readVersion(versionFileName: String): Try[String] =

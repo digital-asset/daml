@@ -72,7 +72,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     }
 
     "return the internalError" in {
-      assertVersionedError(_.internalError("message123"))(
+      assertVersionedError(_.versionServiceInternalError("message123"))(
         v1_code = Code.INTERNAL,
         v1_message = "message123",
         v1_details = Seq.empty,
@@ -80,7 +80,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         v2_message =
           s"An error occurred. Please contact the operator and inquire about the request trace-id",
         v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("LEDGER_API_INTERNAL_ERROR"),
+          ErrorDetails.ErrorInfoDetail("VERSION_SERVICE_INTERNAL_ERROR"),
           DefaultTraceIdRequestInfo,
         ),
       )
