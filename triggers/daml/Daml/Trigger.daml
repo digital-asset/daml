@@ -44,6 +44,7 @@ module Daml.Trigger
  , RegisteredTemplates(..)
  , registeredTemplate
  , RelTime(..)
+ , getReadAs
  ) where
 
 import Prelude hiding (any)
@@ -116,20 +117,27 @@ class ActionTriggerAny m where
   -- `emitCommands`.
   queryPendingContracts : m [AnyContractId]
 
+  getReadAs : m [Party]
+
 instance ActionTriggerAny (TriggerA s) where
   implQuery = TriggerA $ pure . getContracts
   queryContractId id = TriggerA $ pure . getContractById id
   queryPendingContracts = TriggerA $ \acs -> pure (getPendingContracts acs)
+  getReadAs = TriggerA $ \_ -> do
+    s <- get
+    pure s.readAs
 
 instance ActionTriggerAny (TriggerUpdateA s) where
-  implQuery = TriggerUpdateA $ pure . getContracts . snd
-  queryContractId id = TriggerUpdateA $ pure . getContractById id . snd
-  queryPendingContracts = TriggerUpdateA $ \(_, acs) -> pure (getPendingContracts acs)
+  implQuery = TriggerUpdateA $ \(_, acs, _) -> pure (getContracts acs)
+  queryContractId id = TriggerUpdateA $ \(_, acs, _) -> pure (getContractById id acs)
+  queryPendingContracts = TriggerUpdateA $ \(_, acs, _) -> pure (getPendingContracts acs)
+  getReadAs = TriggerUpdateA $ \(_, _, readAs) -> pure readAs
 
 instance ActionTriggerAny TriggerInitializeA where
-  implQuery = TriggerInitializeA getContracts
-  queryContractId = TriggerInitializeA . getContractById
-  queryPendingContracts = TriggerInitializeA getPendingContracts
+  implQuery = TriggerInitializeA (\(acs, _) -> getContracts acs)
+  queryContractId id = TriggerInitializeA (\(acs, _) -> getContractById id acs)
+  queryPendingContracts = TriggerInitializeA (\(acs, _) -> getPendingContracts acs)
+  getReadAs = TriggerInitializeA (\(_, readAs) -> readAs)
 
 -- | Features possible in `updateState` and `rule`.
 class ActionTriggerAny m => ActionTriggerUpdate m where
@@ -140,7 +148,7 @@ class ActionTriggerAny m => ActionTriggerUpdate m where
   getCommandsInFlight : m (Map CommandId [Command])
 
 instance ActionTriggerUpdate (TriggerUpdateA s) where
-  getCommandsInFlight = TriggerUpdateA $ \(cif, _) -> pure cif
+  getCommandsInFlight = TriggerUpdateA $ \(cif, _, _) -> pure cif
 
 instance ActionTriggerUpdate (TriggerA s) where
   getCommandsInFlight = liftTriggerRule $ get <&> \s -> s.commandsInFlight
@@ -266,12 +274,12 @@ runTrigger userTrigger = LowLevel.Trigger
   , heartbeat = userTrigger.heartbeat
   }
   where
-    initialState party (ActiveContracts createdEvents) =
+    initialState party readAs (ActiveContracts createdEvents) =
       let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS mempty Map.empty) createdEvents
-          userState = runTriggerInitializeA userTrigger.initialize acs
-          state = TriggerState acs party userState Map.empty
+          userState = runTriggerInitializeA userTrigger.initialize (acs, readAs)
+          state = TriggerState acs party readAs userState Map.empty
       in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
-    utUpdateState commandsInFlight acs msg = execState $ flip runTriggerUpdateA (commandsInFlight, acs) $ userTrigger.updateState msg
+    utUpdateState commandsInFlight acs readAs msg = execState $ flip runTriggerUpdateA (commandsInFlight, acs, readAs) $ userTrigger.updateState msg
     update msg = do
       time <- getTime
       state <- get
@@ -279,7 +287,7 @@ runTrigger userTrigger = LowLevel.Trigger
         MCompletion completion ->
           -- NB: the commands-in-flight and ACS updateState sees are those
           -- prior to updates incurred by the msg
-          let userState = utUpdateState state.commandsInFlight state.acs (MCompletion completion) state.userState
+          let userState = utUpdateState state.commandsInFlight state.acs state.readAs (MCompletion completion) state.userState
           in case completion.status of
             Succeeded {} ->
               -- We delete successful completions when we receive the corresponding transaction
@@ -293,7 +301,7 @@ runTrigger userTrigger = LowLevel.Trigger
         MTransaction transaction -> do
           let acs = applyTransaction transaction state.acs
               -- again, we use the commands-in-flight and ACS before the update below
-              userState = utUpdateState state.commandsInFlight acs (MTransaction transaction) state.userState
+              userState = utUpdateState state.commandsInFlight acs state.readAs (MTransaction transaction) state.userState
               -- See the comment above for why we delete this here instead of when we receive the completion.
               (acs', commandsInFlight) = case transaction.commandId of
                 None -> (acs, state.commandsInFlight)
@@ -301,6 +309,6 @@ runTrigger userTrigger = LowLevel.Trigger
           put $ state { acs = acs', userState, commandsInFlight }
           runRule userTrigger.rule
         MHeartbeat -> do
-          let userState = utUpdateState state.commandsInFlight state.acs MHeartbeat state.userState
+          let userState = utUpdateState state.commandsInFlight state.acs state.readAs MHeartbeat state.userState
           put $ state { userState }
           runRule userTrigger.rule

@@ -6,10 +6,6 @@ import io.grpc.StatusRuntimeException
 
 import scala.concurrent.Future
 
-/** A mechanism to switch between the legacy error codes (v1) and the new self-service error codes (v2).
-  * This class is intended to facilitate transition to self-service error codes.
-  * Once the previous error codes are removed, this class should be dropped as well.
-  */
 final class ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes: Boolean)
     extends ValueSwitch[StatusRuntimeException](enableSelfServiceErrorCodes) {
 

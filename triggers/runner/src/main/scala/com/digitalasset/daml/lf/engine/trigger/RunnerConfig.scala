@@ -19,7 +19,7 @@ case class RunnerConfig(
     triggerIdentifier: String,
     ledgerHost: String,
     ledgerPort: Int,
-    ledgerParty: Party,
+    ledgerParties: TriggerParties,
     maxInboundMessageSize: Int,
     // optional so we can detect if both --static-time and --wall-clock-time are passed.
     timeProviderType: Option[TimeProviderType],
@@ -29,6 +29,13 @@ case class RunnerConfig(
     tlsConfig: TlsConfiguration,
     compilerConfig: Compiler.Config,
 )
+
+case class TriggerParties(
+    actAs: Party,
+    readAs: Set[Party],
+) {
+  lazy val readers: Set[Party] = readAs + actAs
+}
 
 object RunnerConfig {
   private[trigger] val DefaultMaxInboundMessageSize: Int = 4194304
@@ -59,8 +66,19 @@ object RunnerConfig {
       .text("Ledger port")
 
     opt[String]("ledger-party")
-      .action((t, c) => c.copy(ledgerParty = Party(t)))
+      .action((t, c) => c.copy(ledgerParties = c.ledgerParties.copy(actAs = Party(t))))
       .text("Ledger party")
+
+    opt[Seq[String]]("ledger-readas")
+      .action((t, c) =>
+        c.copy(ledgerParties =
+          c.ledgerParties.copy(readAs = c.ledgerParties.readAs ++ t.map(Party(_)))
+        )
+      )
+      .unbounded()
+      .text(
+        "A comma-separated list of parties the trigger can read as. Can be specified multiple-times."
+      )
 
     opt[Int]("max-inbound-message-size")
       .action((x, c) => c.copy(maxInboundMessageSize = x))
@@ -132,7 +150,7 @@ object RunnerConfig {
           failure("Missing option --ledger-host")
         } else if (c.ledgerPort == 0) {
           failure("Missing option --ledger-port")
-        } else if (c.ledgerParty == null) {
+        } else if (c.ledgerParties.actAs == Party("")) {
           failure("Missing option --ledger-party")
         } else {
           success
@@ -162,7 +180,11 @@ object RunnerConfig {
         triggerIdentifier = null,
         ledgerHost = null,
         ledgerPort = 0,
-        ledgerParty = Party(""),
+        ledgerParties = TriggerParties(
+          // Required argument so this will always be replaced.
+          actAs = Party(""),
+          readAs = Set.empty,
+        ),
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         timeProviderType = None,
         commandTtl = Duration.ofSeconds(30L),
