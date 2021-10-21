@@ -50,11 +50,11 @@ main = do
   when (n_errs >= 1) $ do
     hPutStrLn stderr "** Errors while Evidencing Security; exiting with non-zero exit code."
     sequence_ [hPutStrLn stderr $ "** (" ++ show i ++ ") " ++ formatError err | (i,err) <- zip [1::Int ..] errs]
-  print (collateLines lines)
+  putStrLn (ppCollated (collateLines lines))
   exitWith (if n_errs == 0 then ExitSuccess else ExitFailure n_errs)
 
 data Category = Authorization | Privacy | Semantics | Performance
-  deriving (Eq,Ord,Bounded,Enum)
+  deriving (Eq,Ord,Bounded,Enum,Show)
 
 data Description = Description
   { filename:: FilePath
@@ -111,23 +111,23 @@ formatError = \case
   UnknownCategoryInLine s line -> "unknown category '" ++ s ++ "' in line: " ++ line
   NoTestsForCategory cat -> "no tests found for category: " ++ show cat
 
-instance Show Collated where
-  show (Collated m) =
-    unlines (["# Security tests, by category",""] ++
-             [ unlines (("## " ++ show cat ++ ":") : map show (sortOn freeText descs))
-             | (cat,descs) <- sortOn fst (Map.toList m)
-             ])
+ppCollated :: Collated -> String
+ppCollated (Collated m) =
+  unlines (["# Security tests, by category",""] ++
+           [ unlines (("## " ++ ppCategory cat ++ ":") : map ppDescription (sortOn freeText descs))
+           | (cat,descs) <- sortOn fst (Map.toList m)
+           ])
 
-instance Show Description where
-  show Description{filename,lineno,freeText} =
-    "- " ++ freeText ++  ": [" ++ basename filename ++ "](" ++ filename ++ "#L" ++ show lineno ++ ")"
-    where
-      basename :: FilePath -> FilePath
-      basename p = case reverse (splitPath p) of [] -> ""; x:_ -> x
+ppDescription :: Description -> String
+ppDescription Description{filename,lineno,freeText} =
+  "- " ++ freeText ++  ": [" ++ basename filename ++ "](" ++ filename ++ "#L" ++ show lineno ++ ")"
+  where
+    basename :: FilePath -> FilePath
+    basename p = case reverse (splitPath p) of [] -> ""; x:_ -> x
 
-instance Show Category where
-  show = \case
-    Authorization -> "Authorization"
-    Privacy -> "Privacy"
-    Semantics -> "Semantics"
-    Performance -> "Performance"
+ppCategory :: Category -> String
+ppCategory = \case
+  Authorization -> "Authorization"
+  Privacy -> "Privacy"
+  Semantics -> "Semantics"
+  Performance -> "Performance"
