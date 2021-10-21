@@ -6,18 +6,25 @@ package com.daml.platform.server.api.services.grpc
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.DropRepeated
 import com.daml.platform.server.api.services.grpc.GrpcHealthService._
+import com.daml.platform.server.api.validation.ErrorFactories
+import io.grpc.ServerServiceDefinition
 import io.grpc.health.v1.health.{
   HealthAkkaGrpc,
   HealthCheckRequest,
   HealthCheckResponse,
   HealthGrpc,
 }
-import io.grpc.{ServerServiceDefinition, Status, StatusException}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -25,13 +32,21 @@ import scala.util.{Failure, Success, Try}
 
 class GrpcHealthService(
     healthChecks: HealthChecks,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
     maximumWatchFrequency: FiniteDuration = 1.second,
 )(implicit
     protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
     executionContext: ExecutionContext,
+    loggingContext: LoggingContext,
 ) extends HealthAkkaGrpc
     with GrpcApiService {
+
+  private val logger = ContextualizedLogger.get(getClass)
+  private val errorLogger: ContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, loggingContext, None)
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+
   override def bindService(): ServerServiceDefinition =
     HealthGrpc.bindService(this, executionContext)
 
@@ -45,12 +60,19 @@ class GrpcHealthService(
       .via(DropRepeated())
 
   private def matchResponse(componentName: Option[String]): Try[HealthCheckResponse] =
-    if (!componentName.forall(healthChecks.hasComponent))
-      Failure(new StatusException(Status.NOT_FOUND))
-    else if (healthChecks.isHealthy(componentName))
-      Success(servingResponse)
-    else
-      Success(notServingResponse)
+    componentName
+      .collect {
+        case component if !healthChecks.hasComponent(component) =>
+          Failure(
+            errorFactories.invalidArgumentWasNotFound(None)(
+              s"Component $component does not exist."
+            )(errorLogger)
+          )
+      }
+      .getOrElse {
+        if (healthChecks.isHealthy(componentName)) Success(servingResponse)
+        else Success(notServingResponse)
+      }
 }
 
 object GrpcHealthService {

@@ -6,7 +6,7 @@ import io.grpc.StatusRuntimeException
 
 import scala.concurrent.Future
 
-final class ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes: Boolean)
+class ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes: Boolean)
     extends ValueSwitch[StatusRuntimeException](enableSelfServiceErrorCodes) {
 
   def chooseAsFailedFuture[T](
