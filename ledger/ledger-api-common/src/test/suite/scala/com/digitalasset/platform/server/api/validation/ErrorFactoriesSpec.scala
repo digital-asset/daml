@@ -71,6 +71,21 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       )
     }
 
+    "return the internalError" in {
+      assertVersionedError(_.versionServiceInternalError("message123"))(
+        v1_code = Code.INTERNAL,
+        v1_message = "message123",
+        v1_details = Seq.empty,
+        v2_code = Code.INTERNAL,
+        v2_message =
+          s"An error occurred. Please contact the operator and inquire about the request trace-id",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("VERSION_SERVICE_INTERNAL_ERROR"),
+          DefaultTraceIdRequestInfo,
+        ),
+      )
+    }
+
     "return the configurationEntryRejected" in {
       assertVersionedError(_.configurationEntryRejected("message123", None))(
         v1_code = Code.ABORTED,
