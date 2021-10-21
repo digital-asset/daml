@@ -212,17 +212,13 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
     "doesn't cache uncommitted template IDs" in {
       import dbbackend.Queries.DBContract, spray.json.{JsObject, JsNull, JsValue},
       spray.json.DefaultJsonProtocol._
-      import dao.logHandler, dao.jdbcDriver.q.queries,
-      queries.{insertContracts, surrogateTemplateId}
+      import dao.logHandler, dao.jdbcDriver.q.queries
 
       val tpId = TemplateId("pkg", "mod", "UncomCollision")
 
       val simulation = instanceUUIDLogCtx { implicit lc =>
-        def stid = {
-          println(s"s11 starting stid")
-          surrogateTemplateId(tpId.packageId, tpId.moduleName, tpId.entityName)
-            .map { i => println(s"s11 completed stid"); i }
-        }
+        def stid =
+          queries.surrogateTemplateId(tpId.packageId, tpId.moduleName, tpId.entityName)
 
         for {
           _ <- queries.dropAllTablesIfExist
@@ -231,7 +227,7 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
           _ <- stid
           _ <- fconn.rollback // as with when we conflict and retry
           tpid <- stid
-          _ <- insertContracts(
+          _ <- queries.insertContracts(
             List(
               DBContract(
                 contractId = "foo",
