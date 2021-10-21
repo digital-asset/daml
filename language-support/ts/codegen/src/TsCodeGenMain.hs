@@ -453,7 +453,7 @@ ifaceDefTempl name mbKeyTy impls choices =
   [ ["export declare interface " <> name <> "Interface " <> extension <> "{"]
   , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
       name <> ", " <>
-      fst (genType chcArgTy Nothing) <> ", " <>
+      fst (genType chcArgTy (Just (Set.fromList impls, implTy))) <> ", " <>
       fst (genType chcRetTy (Just (Set.fromList impls, implTy))) <> ", " <>
       keyTy <> ">;" | ChoiceDef{..} <- choices ]
   , [ "}" ]
@@ -471,7 +471,7 @@ ifaceDefIface name mbKeyTy choices =
   [ ["export declare interface " <> name <> "Interface " <> "<T extends object>{"]
   , [ "  " <> chcName' <> ": damlTypes.Choice<" <>
       "T, " <>
-      fst (genType chcArgTy Nothing) <> ", " <>
+      fst (genType chcArgTy (Just (Set.singleton name, name <> "Interface<T>"))) <> ", " <>
       fst (genType chcRetTy (Just (Set.singleton name, name <> "Interface<T>"))) <> ", " <>
       keyTy <> ">;" | ChoiceDef{..} <- choices ]
   , [ "}" ]
@@ -814,6 +814,16 @@ infixr 6 <.> -- This is the same fixity as '<>'.
 
 -- | Returns a pair of the type and a reference to the
 -- companion object/function.
+-- If the optional substitution argument `mbSubst = Just (needels, substitution)` is set, type
+-- constructors in `needels` will be replaced with `substitution`.  If it is Nothing, no
+-- susbtitution is performed. Likewise, if `needels` is empty, no substitution is performed.
+--
+-- Substitutions are used in interface choices. Here, a type of `ContractId Token` needs to be
+-- replaced with `ContractId TokenInterface<Token>`. In an implementing template choice of the
+-- template `Asset`, the corresponding type `ContractId Token` needs to be replaced with `ContractId
+-- TokenInterface<Asset>`. If the template implements a second `Other` interface, the type `ContractId
+-- Token` needs to be replaced with `ContractId (TokenInterface<Asset> & OtherInterface<Asset>)` and
+-- `ContractId Other` with `ContractId (TokenInterface<Asset> & OtherInterface<Asset>)`.
 genType :: TypeRef -> Maybe (Set.Set T.Text, T.Text) -> (T.Text, T.Text)
 genType (TypeRef curModName t) mbSubst = go t
   where
