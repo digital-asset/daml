@@ -41,6 +41,7 @@ import           Data.Foldable
 import           Data.Functor
 import           Data.List.Extended
 import Data.Generics.Uniplate.Data (para)
+import qualified Data.Set as S
 import qualified Data.HashSet as HS
 import qualified Data.Map.Strict as Map
 import qualified Data.NameMap as NM
@@ -868,7 +869,7 @@ checkTemplateChoice tpl (TemplateChoice _loc _ _ controllers mbObservers selfBin
   introExprVar selfBinder (TContractId (TCon tpl)) $ introExprVar param paramType $
     checkExpr upd (TUpdate retType)
 
-checkTemplate :: MonadGamma m => Module -> Template -> m ()
+checkTemplate :: forall m. MonadGamma m => Module -> Template -> m ()
 checkTemplate m t@(Template _loc tpl param precond signatories observers text choices mbKey implements) = do
   let tcon = Qualified PRSelf (moduleName m) tpl
   DefDataType _loc _naem _serializable tparams dataCons <- inWorld (lookupDataType tcon)
@@ -882,8 +883,23 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
     for_ choices $ \c -> withPart (TPChoice c) $ checkTemplateChoice tcon c
   whenJust mbKey $ checkTemplateKey param tcon
   forM_ implements $ checkIfaceImplementation tcon
+
+  -- Check template choice and interface fixed choice name collisions.
+  foldM_ checkFixedChoiceCollision (S.fromList (NM.names choices)) implements
+    -- ^ We don't use NM.namesSet here because Data.HashSet is assymptotically
+    -- slower than Data.Set when it comes to unions and checking for disjointness.
+
   where
     withPart p = withContext (ContextTemplate m t p)
+
+    checkFixedChoiceCollision :: S.Set ChoiceName -> TemplateImplements -> m (S.Set ChoiceName)
+    checkFixedChoiceCollision !accum ifaceImpl = do
+      iface <- inWorld $ lookupInterface (tpiInterface ifaceImpl)
+      let newNames = S.fromList (NM.names (intFixedChoices iface))
+      unless (S.disjoint accum newNames) $ do
+        let choiceName = head (S.toList (S.intersection accum newNames))
+        throwWithContext (EDuplicateTemplateChoiceViaInterfaces tpl choiceName)
+      pure (S.union accum newNames)
 
 checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> TemplateImplements -> m ()
 checkIfaceImplementation tplTcon TemplateImplements{..} = do

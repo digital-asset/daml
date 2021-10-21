@@ -1,0 +1,42 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+-- @ERROR Duplicate choice name 'MyArchive' in template T via interfaces.
+module InterfaceChoiceCollision where
+
+interface InterfaceA where
+    getOwnerA : Party
+
+    choice MyArchive : ()
+        controller getOwnerA this
+        do pure ()
+
+interface InterfaceB where
+    getOwnerB : Party
+
+-- Me want InterfaceB to have a fixed choice with the same name as InterfaceA,
+-- but we can't add it via the fixed choice syntax in the same file because that
+-- would result in a duplicate `data` declaration for MyArchive. So instead we
+-- add the fixed choice manually (see InterfaceDesugared for comparison).
+_choice_InterfaceBMyArchive  :
+  ( InterfaceB -> MyArchive -> [DA.Internal.Desugar.Party]
+  , DA.Internal.Desugar.ContractId InterfaceB -> InterfaceB -> MyArchive -> DA.Internal.Desugar.Update ()
+  , DA.Internal.Desugar.Consuming InterfaceB
+  , DA.Internal.Desugar.Optional (InterfaceB -> MyArchive -> [DA.Internal.Desugar.Party])
+  )
+_choice_InterfaceBMyArchive =
+  ( \this _ -> [getOwnerB this]
+  , \_ _ _ -> pure ()
+  , DA.Internal.Desugar.Consuming
+  , DA.Internal.Desugar.None
+  )
+
+template T with
+    owner : Party
+  where
+    signatory owner
+    implements InterfaceA where
+        let getOwnerA = owner
+    implements InterfaceB where
+        let getOwnerB = owner
