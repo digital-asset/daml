@@ -49,7 +49,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
       appId <- requireLedgerString(commands.applicationId, "application_id")
         .map(domain.ApplicationId(_))
       commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
-      submissionId <- requireSubmissionId(commands.submissionId)
+      submissionId <- validateSubmissionId(commands.submissionId)
       submitters <- validateSubmitters(commands)
       commandz <- requireNonEmpty(commands.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz)

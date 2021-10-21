@@ -84,7 +84,7 @@ class SubmitRequestValidatorTest
       workflowId = Some(workflowId),
       applicationId = applicationId,
       commandId = commandId,
-      submissionId = submissionId,
+      submissionId = Some(submissionId),
       actAs = Set(DomainMocks.party),
       readAs = Set.empty,
       submittedAt = Time.Timestamp.assertFromInstant(submittedAt),
@@ -132,18 +132,14 @@ class SubmitRequestValidatorTest
 
   "CommandSubmissionRequestValidator" when {
     "validating command submission requests" should {
-      "reject requests with empty submissionId" in {
+      "tolerate a missing submissionId" in {
         val commandsValidator = new CommandsValidator(ledgerId)
-        requestMustFailWith(
-          commandsValidator.validateCommands(
-            api.commands.withSubmissionId(""),
-            internal.ledgerTime,
-            internal.submittedAt,
-            Some(internal.maxDeduplicationDuration),
-          ),
-          INVALID_ARGUMENT,
-          "Missing field: submission_id",
-        )
+        commandsValidator.validateCommands(
+          api.commands.withSubmissionId(""),
+          internal.ledgerTime,
+          internal.submittedAt,
+          Some(internal.maxDeduplicationDuration),
+        ) shouldEqual Right(internal.emptyCommands.copy(submissionId = None))
       }
 
       "reject requests with empty commands" in {

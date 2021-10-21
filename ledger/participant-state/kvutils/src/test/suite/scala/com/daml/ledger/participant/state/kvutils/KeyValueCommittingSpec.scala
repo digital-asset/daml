@@ -47,7 +47,7 @@ class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
       applicationId = applicationId,
       commandId = commandId,
       deduplicationPeriod = ApiDeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
-      submissionId = Ref.LedgerString.assertFromString("submission"),
+      submissionId = None,
       ledgerConfiguration =
         Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(1)),
     )

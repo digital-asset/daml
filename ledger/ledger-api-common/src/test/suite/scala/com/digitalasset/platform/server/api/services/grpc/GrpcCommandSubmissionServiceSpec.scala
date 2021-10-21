@@ -10,7 +10,6 @@ import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.testing.utils.MockMessages._
 import com.daml.ledger.api.v1.commands.{Command, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
-import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
@@ -42,7 +41,6 @@ class GrpcCommandSubmissionServiceSpec
         currentLedgerTime = () => Instant.EPOCH,
         currentUtcTime = () => Instant.EPOCH,
         maxDeduplicationTime = () => Some(Duration.ZERO),
-        submissionIdGenerator = () => Ref.SubmissionId.assertFromString("submissionId"),
         metrics = new Metrics(new MetricRegistry),
       )
 

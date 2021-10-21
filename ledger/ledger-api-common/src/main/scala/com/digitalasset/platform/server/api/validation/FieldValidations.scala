@@ -93,20 +93,18 @@ class FieldValidations private (errorFactories: ErrorFactories) {
   ): Either[StatusRuntimeException, Ref.LedgerString] =
     Ref.LedgerString.fromString(s).left.map(invalidArgument(definiteAnswer = Some(false)))
 
-  def requireSubmissionId(s: String)(implicit
+  def validateSubmissionId(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, domain.SubmissionId] = {
-    val fieldName = "submission_id"
+  ): Either[StatusRuntimeException, Option[domain.SubmissionId]] =
     if (s.isEmpty) {
-      Left(missingField(fieldName, definiteAnswer = Some(false)))
+      Right(None)
     } else {
       Ref.SubmissionId
         .fromString(s)
-        .map(domain.SubmissionId(_))
+        .map(submissionId => Some(domain.SubmissionId(submissionId)))
         .left
-        .map(invalidField(fieldName, _, definiteAnswer = Some(false)))
+        .map(invalidField("submission_id", _, definiteAnswer = Some(false)))
     }
-  }
 
   def requireContractId(
       s: String,

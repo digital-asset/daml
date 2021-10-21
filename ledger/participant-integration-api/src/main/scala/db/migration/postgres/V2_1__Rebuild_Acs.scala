@@ -485,7 +485,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
           offset,
         ) =>
       // We don't have a submission ID, so we need to generate one.
-      val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
+      val submissionId = Some(Ref.SubmissionId.assertFromString(UUID.randomUUID().toString))
       val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
       offset -> LedgerEntry.Rejection(
         recordTime = Timestamp.assertFromInstant(recordedAt.toInstant),

@@ -716,7 +716,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString(commandId),
       deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(10)),
-      submissionId = Ref.LedgerString.assertFromString("submissionId"),
+      submissionId = None,
       ledgerConfiguration =
         Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(1)),
     )

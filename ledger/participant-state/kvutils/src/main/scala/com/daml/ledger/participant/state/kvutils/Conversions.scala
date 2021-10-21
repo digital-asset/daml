@@ -165,7 +165,7 @@ private[state] object Conversions {
       .addAllSubmitters((subInfo.actAs: List[String]).asJava)
       .setApplicationId(subInfo.applicationId)
       .setCommandId(subInfo.commandId)
-      .setSubmissionId(subInfo.submissionId)
+      .setSubmissionId(subInfo.submissionId.getOrElse(""))
     subInfo.deduplicationPeriod match {
       case DeduplicationPeriod.DeduplicationDuration(duration) =>
         submitterInfoBuilder.setDeduplicationDuration(buildDuration(duration))
