@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
-import java.time.Instant
 import java.util.concurrent.TimeUnit
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
@@ -110,6 +109,6 @@ object LogAppendingReadServiceFactorySpec {
     participantId = Ref.ParticipantId.assertFromString(aParticipantId),
     "correlation ID",
     Raw.Envelope.empty,
-    Instant.EPOCH,
+    Timestamp.Epoch,
   )
 }

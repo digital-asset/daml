@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.error.ValueSwitch
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.grpc.GrpcStatuses
-import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, parseInstant}
+import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
   TimeBounds,
   logEntryToUpdate,
@@ -217,7 +217,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
         case Some(Update.CommandRejected(recordTime, completionInfo, FinalReason(status))) =>
           recordTime shouldBe aRecordTime
           completionInfo shouldBe Conversions.parseCompletionInfo(
-            parseInstant(recordTime),
+            recordTime,
             someSubmitterInfo,
           )
           completionInfo.submissionId shouldBe Some(someSubmitterInfo.getSubmissionId)

@@ -3,8 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import java.time.Instant
-
 import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Err}
 import com.daml.lf.data.Ref
@@ -32,9 +30,9 @@ private[kvutils] case class CommitContext(
     mutable.HashMap.empty[DamlStateKey, DamlStateValue]
   private val accessedInputKeys: mutable.Set[DamlStateKey] = mutable.Set.empty[DamlStateKey]
 
-  var minimumRecordTime: Option[Instant] = None
-  var maximumRecordTime: Option[Instant] = None
-  var deduplicateUntil: Option[Instant] = None
+  var minimumRecordTime: Option[Timestamp] = None
+  var maximumRecordTime: Option[Timestamp] = None
+  var deduplicateUntil: Option[Timestamp] = None
 
   // Rejection log entry used for generating an out-of-time-bounds log entry in case of
   // pre-execution.

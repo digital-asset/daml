@@ -62,7 +62,7 @@ final class LogAppendingCommitStrategySupport(
         .validateAndCommit(
           submissionInfo.submissionEnvelope,
           submissionInfo.correlationId,
-          submissionInfo.recordTimeInstant,
+          submissionInfo.recordTime,
           submissionInfo.participantId,
           ledgerStateReader,
           commitStrategy,

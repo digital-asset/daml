@@ -3,13 +3,12 @@
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction
 
-import java.time.Instant
-
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.participant.state.kvutils.Err
 import com.daml.ledger.participant.state.kvutils.store.DamlStateKey
 import com.daml.lf
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 
 sealed trait Rejection {
   def description: String
@@ -68,8 +67,8 @@ object Rejection {
   }
 
   final case class RecordTimeOutOfRange(
-      minimumRecordTime: Instant,
-      maximumRecordTime: Instant,
+      minimumRecordTime: Timestamp,
+      maximumRecordTime: Timestamp,
   ) extends Rejection {
     override lazy val description: String =
       s"Record time is outside of valid range [$minimumRecordTime, $maximumRecordTime]"

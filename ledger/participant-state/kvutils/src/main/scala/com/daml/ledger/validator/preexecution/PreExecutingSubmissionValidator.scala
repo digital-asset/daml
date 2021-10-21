@@ -80,8 +80,8 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
         )
       } yield {
         PreExecutionOutput(
-          minRecordTime = preExecutionResult.minimumRecordTime.map(_.toInstant),
-          maxRecordTime = preExecutionResult.maximumRecordTime.map(_.toInstant),
+          minRecordTime = preExecutionResult.minimumRecordTime,
+          maxRecordTime = preExecutionResult.maximumRecordTime,
           successWriteSet = generatedWriteSets.successWriteSet,
           outOfTimeBoundsWriteSet = generatedWriteSets.outOfTimeBoundsWriteSet,
           readSet = commitStrategy.generateReadSet(fetchedInputs, preExecutionResult.readSet),
