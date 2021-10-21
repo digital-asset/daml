@@ -292,7 +292,11 @@ private[daml] object ApiServices {
         )
 
         val apiParticipantPruningService =
-          ApiParticipantPruningService.createApiService(indexService, writeService)
+          ApiParticipantPruningService.createApiService(
+            indexService,
+            writeService,
+            errorsVersionsSwitcher,
+          )
 
         List(
           new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),
