@@ -15,7 +15,7 @@ interface InterfaceA where
 interface InterfaceB where
     getOwnerB : Party
 
--- Me want InterfaceB to have a fixed choice with the same name as InterfaceA,
+-- We want InterfaceB to have a fixed choice with the same name as InterfaceA,
 -- but we can't add it via the fixed choice syntax in the same file because that
 -- would result in a duplicate `data` declaration for MyArchive. So instead we
 -- add the fixed choice manually (see InterfaceDesugared for comparison).
