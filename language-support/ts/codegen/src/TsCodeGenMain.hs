@@ -857,7 +857,7 @@ genType (TypeRef curModName t) mbSubst = go t
         TConApp con ts ->
             let (con', ser)
                   | Just (impls, subst) <- mbSubst, (fst $ genTypeCon curModName con) `Set.member` impls = (subst, "")
-                  | _otherwise <- mbSubst = genTypeCon curModName con
+                  | otherwise = genTypeCon curModName con
                 (ts', sers) = unzip (map go ts)
             in
             if null ts
