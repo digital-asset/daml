@@ -96,8 +96,8 @@ final class ScenarioRunner(
           )
           if (mustFail) {
             submitResult match {
-              case Commit(result, _, ptx) =>
-                currentSubmission = Some(CurrentSubmission(location, ptx.finishIncomplete))
+              case Commit(result, _, tx) =>
+                currentSubmission = Some(CurrentSubmission(location, tx))
                 throw scenario.Error.MustFailSucceeded(result.richTransaction.transaction)
               case _: SubmissionError =>
                 ledger = ledger.insertAssertMustFail(committers, Set.empty, location)
@@ -109,8 +109,8 @@ final class ScenarioRunner(
                 currentSubmission = None
                 ledger = result.newLedger
                 callback(value)
-              case SubmissionError(err, ptx) =>
-                currentSubmission = Some(CurrentSubmission(location, ptx.finishIncomplete))
+              case SubmissionError(err, tx) =>
+                currentSubmission = Some(CurrentSubmission(location, tx))
                 throw err
             }
           }
@@ -193,19 +193,15 @@ object ScenarioRunner {
     }
   }
 
-  sealed trait SubmissionResult[+R] {
-    // TODO (MK) Temporary to leak the ptx from the submission machine
-    // to the parent machine.
-    def ptx: PartialTransaction
-  }
+  sealed trait SubmissionResult[+R]
 
   final case class Commit[R](
       result: R,
       value: SValue,
-      ptx: PartialTransaction,
+      tx: IncompleteTransaction,
   ) extends SubmissionResult[R]
 
-  final case class SubmissionError(error: Error, ptx: PartialTransaction)
+  final case class SubmissionError(error: Error, tx: IncompleteTransaction)
       extends SubmissionResult[Nothing]
 
   // The interface we need from a ledger during submission. We allow abstracting over this so we can play
@@ -437,18 +433,18 @@ object ScenarioRunner {
               val tx = if (doEnrichment) enrich(tx0) else tx0
               ledger.commit(committers, readAs, location, tx, locationInfo) match {
                 case Left(err) =>
-                  SubmissionError(err, onLedger.ptxInternal)
+                  SubmissionError(err, onLedger.incompleteTransaction)
                 case Right(r) =>
-                  Commit(r, resultValue, onLedger.ptxInternal)
+                  Commit(r, resultValue, onLedger.incompleteTransaction)
               }
             case PartialTransaction.IncompleteTransaction(ptx) =>
               throw new RuntimeException(s"Unexpected abort: $ptx")
           }
         case SResultError(err) =>
-          SubmissionError(Error.RunnerException(err), onLedger.ptxInternal)
+          SubmissionError(Error.RunnerException(err), onLedger.incompleteTransaction)
         case SResultNeedContract(coid, tid @ _, committers, callback) =>
           ledger.lookupContract(coid, committers, readAs, callback) match {
-            case Left(err) => SubmissionError(err, onLedger.ptxInternal)
+            case Left(err) => SubmissionError(err, onLedger.incompleteTransaction)
             case Right(_) => go()
           }
         case SResultNeedKey(keyWithMaintainers, committers, callback) =>
@@ -459,7 +455,7 @@ object ScenarioRunner {
             readAs,
             callback,
           ) match {
-            case Left(err) => SubmissionError(err, onLedger.ptxInternal)
+            case Left(err) => SubmissionError(err, onLedger.incompleteTransaction)
             case Right(_) => go()
           }
         case SResultNeedTime(callback) =>
