@@ -18,11 +18,8 @@ import org.scalatest.{Assertion, AsyncTestSuite, BeforeAndAfterAll, Inside}
 import org.scalatest.matchers.should.Matchers
 import scalaz.std.list._
 
-import java.util.concurrent.CyclicBarrier
-import java.util.concurrent.TimeUnit.SECONDS
 import scala.collection.compat._
 import scala.concurrent.Future
-import scala.util.Try
 
 abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with BeforeAndAfterAll {
   this: AsyncTestSuite with Matchers with Inside =>
@@ -215,24 +212,28 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
     "doesn't cache uncommitted template IDs" in {
       import dbbackend.Queries.DBContract, spray.json.{JsObject, JsNull, JsValue},
       spray.json.DefaultJsonProtocol._
-      import cats.syntax.apply._
       import dao.logHandler, dao.jdbcDriver.q.queries,
       queries.{insertContracts, surrogateTemplateId}
 
       val tpId = TemplateId("pkg", "mod", "UncomCollision")
-      val barrier = new CyclicBarrier(2)
-      def waitForBarrier() = fconn.async[Int] { k =>
-        k(Try(barrier.await(5, SECONDS)).toEither)
-      }
 
-      def anUpdateThread(cid: String, first: Boolean) = instanceUUIDLogCtx { implicit lc =>
-        def stid = surrogateTemplateId(tpId.packageId, tpId.moduleName, tpId.entityName)
+      val simulation = instanceUUIDLogCtx { implicit lc =>
+        def stid = {
+          println(s"s11 starting stid")
+          surrogateTemplateId(tpId.packageId, tpId.moduleName, tpId.entityName)
+            .map { i => println(s"s11 completed stid"); i }
+        }
+
         for {
-          tpid <- if (first) stid <* waitForBarrier() else waitForBarrier().flatMap(_ => stid)
+          _ <- queries.dropAllTablesIfExist
+          _ <- queries.initDatabase
+          _ <- stid
+          _ <- fconn.rollback // as with when we conflict and retry
+          tpid <- stid
           _ <- insertContracts(
             List(
               DBContract(
-                contractId = cid,
+                contractId = "foo",
                 templateId = tpid,
                 key = JsNull: JsValue,
                 keyHash = None,
@@ -243,21 +244,13 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
               )
             )
           )
-          _ <- if (first) waitForBarrier() *> fconn.commit else fconn.commit <* waitForBarrier()
-        } yield true
+          _ <- fconn.commit
+        } yield succeed
       }
 
-      def actuallyAsync[A](ca: fconn.ConnectionIO[A]) =
-        Future(()).flatMap(_ => dao.transact(ca).unsafeToFuture())
-
       dao
-        .transact(queries.dropAllTablesIfExist.flatMap(_ => queries.initDatabase))
+        .transact(simulation)
         .unsafeToFuture()
-        .flatMap(_ =>
-          actuallyAsync(anUpdateThread("foo", true))
-            zip actuallyAsync(anUpdateThread("bar", false))
-            map (_ shouldBe ((true, true)))
-        )
     }
   }
 
