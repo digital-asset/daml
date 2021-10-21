@@ -6,4 +6,4 @@ TX #0 1970-01-01T00:00:00Z [Test:18] version: 14
     with: { party = 'Alice', value = GenMap(1 -> "c", 2 -> "a", 5 -> "b") }
 
 active contracts:
-   0019f204ef6ba77f8003a1c679c3ca245028d8e82c713ebb267ea3cc3d802d6df3
+   00fc4114f9e0408a3b8587e01e9bc7daaceffd8f1a42e7e17f0ccbd44d5427b8c5

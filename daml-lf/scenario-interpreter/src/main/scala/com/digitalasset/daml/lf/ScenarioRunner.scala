@@ -30,14 +30,14 @@ import scala.util.{Failure, Success, Try}
   *        same result each time given the same argument. Should return values compatible
   *        with [[com.daml.lf.data.Ref.Party]].
   */
-final case class ScenarioRunner(
+final class ScenarioRunner(
     machine: Speedy.Machine,
     initialSeed: crypto.Hash,
     partyNameMangler: (String => String) = identity,
 ) {
   import ScenarioRunner._
 
-  var seed = initialSeed
+  private[this] val nextSeed: () => crypto.Hash = crypto.Hash.secureRandom(initialSeed)
 
   var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
   var currentSubmission: Option[CurrentSubmission] = None
@@ -90,7 +90,7 @@ final case class ScenarioRunner(
             Set.empty,
             SExpr.SEValue(commands),
             location,
-            seed,
+            nextSeed(),
             machine.traceLog,
             machine.warningLog,
           )
@@ -99,14 +99,7 @@ final case class ScenarioRunner(
               case Commit(result, _, ptx) =>
                 currentSubmission = Some(CurrentSubmission(location, ptx.finishIncomplete))
                 throw scenario.Error.MustFailSucceeded(result.richTransaction.transaction)
-              case err: SubmissionError =>
-                currentSubmission = None
-                // TODO (MK) This is gross, we need to unwind the transaction to
-                // get the right root context to derived the seed for the next transaction.
-                val rootCtx = err.ptx.unwind().context
-                seed = nextSeed(
-                  rootCtx.nextActionChildSeed
-                )
+              case _: SubmissionError =>
                 ledger = ledger.insertAssertMustFail(committers, Set.empty, location)
                 callback(SValue.SUnit)
             }
@@ -114,9 +107,6 @@ final case class ScenarioRunner(
             submitResult match {
               case Commit(result, value, _) =>
                 currentSubmission = None
-                seed = nextSeed(
-                  crypto.Hash.deriveNodeSeed(seed, result.richTransaction.transaction.roots.length)
-                )
                 ledger = result.newLedger
                 callback(value)
               case SubmissionError(err, ptx) =>
@@ -171,7 +161,7 @@ object ScenarioRunner {
       engine.compiledPackages(),
       scenarioExpr,
     )
-    ScenarioRunner(speedyMachine, transactionSeed).run() match {
+    new ScenarioRunner(speedyMachine, transactionSeed).run() match {
       case err: ScenarioError =>
         throw new RuntimeException(s"error running scenario $scenarioRef in scenario ${err.error}")
       case success: ScenarioSuccess => success.ledger

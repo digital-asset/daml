@@ -9,7 +9,7 @@ TX #0 1970-01-01T00:00:00Z [Test:42] version: dev
 TX #1 1970-01-01T00:00:00Z [Test:44] version: dev
 #1:0 version: dev
 │   known to (since): a (#1), b (#1)
-└─> b exercises CreateInTry:Test:Tester@XXXXXXXX on 009877e9c7e647b905ba9185add7af1b24e664508899260672b7e21c59ad9168d1
+└─> b exercises CreateInTry:Test:Tester@XXXXXXXX on 003596dec622807ab002c4bd5534e2f12fb2936da75d44b282df6cdf58a007fe1a
     with {  }
     children:
     #1:1 no-version
@@ -23,7 +23,7 @@ TX #1 1970-01-01T00:00:00Z [Test:44] version: dev
 TX #2 1970-01-01T00:00:00Z [Test:47] version: dev
 #2:0 version: dev
 │   known to (since): a (#2), b (#2)
-└─> b exercises CreateInNestedTry:Test:Tester@XXXXXXXX on 009877e9c7e647b905ba9185add7af1b24e664508899260672b7e21c59ad9168d1
+└─> b exercises CreateInNestedTry:Test:Tester@XXXXXXXX on 003596dec622807ab002c4bd5534e2f12fb2936da75d44b282df6cdf58a007fe1a
     with {  }
     children:
     #2:1 no-version
@@ -35,4 +35,4 @@ TX #2 1970-01-01T00:00:00Z [Test:47] version: dev
         with: { ps = ['a', 'b'] }
 
 active contracts:
-   009877e9c7e647b905ba9185add7af1b24e664508899260672b7e21c59ad9168d1
+   003596dec622807ab002c4bd5534e2f12fb2936da75d44b282df6cdf58a007fe1a

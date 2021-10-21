@@ -40,7 +40,10 @@ class IdeLedgerClient(
     traceLog: TraceLog,
     warningLog: WarningLog,
 ) extends ScriptLedgerClient {
-  private var seed = crypto.Hash.hashPrivateKey(s"script-service")
+  private val nextSeed: () => crypto.Hash =
+    // We seeds to secureRandom with a fix seed to get deterministic sequences of seeds
+    // across different runs of IdeLedgerClient.
+    crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey(s"script-service"))
 
   private var _currentSubmission: Option[ScenarioRunner.CurrentSubmission] = None
 
@@ -146,7 +149,7 @@ class IdeLedgerClient(
         readAs,
         translated,
         optLocation,
-        seed,
+        nextSeed(),
         traceLog,
         warningLog,
       )
@@ -166,9 +169,6 @@ class IdeLedgerClient(
       case ScenarioRunner.Commit(result, _, _) =>
         _currentSubmission = None
         _ledger = result.newLedger
-        seed = ScenarioRunner.nextSeed(
-          crypto.Hash.deriveNodeSeed(seed, result.richTransaction.transaction.roots.length)
-        )
         val transaction = result.richTransaction.transaction
         def convRootEvent(id: NodeId): ScriptLedgerClient.CommandResult = {
           val node = transaction.nodes.getOrElse(
@@ -206,12 +206,9 @@ class IdeLedgerClient(
           _currentSubmission =
             Some(ScenarioRunner.CurrentSubmission(optLocation, commit.ptx.finishIncomplete))
           Left(())
-        case error: ScenarioRunner.SubmissionError =>
+        case _: ScenarioRunner.SubmissionError =>
           _currentSubmission = None
           _ledger = ledger.insertAssertMustFail(actAs.toSet, readAs, optLocation)
-          seed = ScenarioRunner.nextSeed(
-            error.ptx.unwind().context.nextActionChildSeed
-          )
           Right(())
       })
   }
@@ -229,9 +226,6 @@ class IdeLedgerClient(
       case ScenarioRunner.Commit(result, _, _) =>
         _currentSubmission = None
         _ledger = result.newLedger
-        seed = ScenarioRunner.nextSeed(
-          crypto.Hash.deriveNodeSeed(seed, result.richTransaction.transaction.roots.length)
-        )
         val transaction = result.richTransaction.transaction
         def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] =
           transaction.nodes(id) match {
