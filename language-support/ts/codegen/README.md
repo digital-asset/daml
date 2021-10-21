@@ -349,7 +349,7 @@ export declare const Asset: damlTypes.Template<object, undefined, 'Asset'> & Ass
 ```
 
 Note that pure methods of the interface are omitted since they are not serializable. The following
-is a template implementing the `Asset` interface.
+is a template implementing the `Asset` interface and a `Other` interface.
 
 ```haskell
 template Iou
@@ -373,13 +373,19 @@ template Iou
         controller owner
         do
           create this with owner = newOwner
+
+    implements Other where
+      choice SomethingElse : ()
+        controller owner
+        do
+          ...
 ```
 
-The implementation is reflected in an extension of the `IouInterface` with the `AssetInterface`.
+The implementation is reflected in an extension of the `IouInterface` with `AssetInterface` and `OtherInterface`.
 
 ```typescript
-export interface IouInterface extends AssetInterface = {
+export interface IouInterface extends AssetInterface<Iou>, OtherInterface<Iou>  = {
   Archive: daml.Choice<Iou, DA_Internal_Template.Archive, {}, Iou.Key>;
-  Transfer: daml.Choice<Iou, Transfer, daml.ContractId<Iou>, Iou.Key>;
+  Transfer: daml.Choice<Iou, Transfer, daml.ContractId<AssetInterface<Iou> & OtherInterface<Iou>>, Iou.Key>;
 }
 ```

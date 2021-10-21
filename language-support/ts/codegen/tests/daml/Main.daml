@@ -175,6 +175,9 @@ interface Token where
     with
       newOwner: Party
 
+interface Other where
+  choice Something : ()
+
 template Asset with
     issuer: Party
     owner: Party
@@ -188,3 +191,7 @@ template Asset with
         do
           cid <- create Asset with issuer = issuer, owner = newOwner
           pure (toTokenContractId cid)
+    implements Other where
+      choice Something: ()
+        controller owner
+        do pure ()

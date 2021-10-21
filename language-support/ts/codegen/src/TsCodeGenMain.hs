@@ -462,8 +462,9 @@ ifaceDefTempl name mbKeyTy impls choices =
     keyTy = fromMaybe "undefined" mbKeyTy
     extension
       | null impls = ""
-      | otherwise = "extends " <> implTy
+      | otherwise = "extends " <> implTy'
     implTy = T.intercalate " & " [impl <> "Interface<" <> name <> ">" | impl <- impls]
+    implTy' = T.intercalate " , " [impl <> "Interface<" <> name <> ">" | impl <- impls]
 
 ifaceDefIface :: T.Text -> Maybe T.Text -> [ChoiceDef] -> [T.Text]
 ifaceDefIface name mbKeyTy choices =
