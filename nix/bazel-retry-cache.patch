@@ -162,7 +162,7 @@ index a2e4abf9d8..93843a91dc 100644
 +  public long offset() { return offset; }
  }
 diff --git a/src/main/java/com/google/devtools/build/lib/remote/http/HttpCacheClient.java b/src/main/java/com/google/devtools/build/lib/remote/http/HttpCacheClient.java
-index 1efecd3bb1..a2366ea596 100644
+index 1efecd3bb1..3f360dda14 100644
 --- a/src/main/java/com/google/devtools/build/lib/remote/http/HttpCacheClient.java
 +++ b/src/main/java/com/google/devtools/build/lib/remote/http/HttpCacheClient.java
 @@ -25,6 +25,7 @@ import com.google.common.util.concurrent.Futures;
@@ -281,7 +281,17 @@ index 1efecd3bb1..a2366ea596 100644
 -                outerF.setException(channelPromise.cause());
 -                return;
 -              }
--
++    return retrier.executeAsync(() -> {
++      DownloadCommand downloadCmd = new DownloadCommand(uri, casDownload, digest, wrappedOut, bytesDownloaded.get());
++      SettableFuture<Void> outerF = SettableFuture.create();
++      acquireDownloadChannel()
++          .addListener(
++              (Future<Channel> channelPromise) -> {
++                if (!channelPromise.isSuccess()) {
++                  outerF.setException(channelPromise.cause());
++                  return;
++                }
+ 
 -              Channel ch = channelPromise.getNow();
 -              ch.writeAndFlush(downloadCmd)
 -                  .addListener(
@@ -303,75 +313,61 @@ index 1efecd3bb1..a2366ea596 100644
 -                                try {
 -                                  refreshCredentials();
 -                                  getAfterCredentialRefresh(downloadCmd, outerF);
--                                  return;
++                Channel ch = channelPromise.getNow();
++                ch.writeAndFlush(downloadCmd)
++                    .addListener(
++                        (f) -> {
++                          try {
++                            if (f.isSuccess()) {
++                              outerF.set(null);
++                            } else {
++                              Throwable cause = f.cause();
++                              // cause can be of type HttpException, because Netty uses
++                              // Unsafe.throwException to
++                              // re-throw a checked exception that hasn't been declared in the method
++                              // signature.
++                              if (cause instanceof HttpException) {
++                                HttpResponse response = ((HttpException) cause).response();
++                                if (!dataWritten.get() && authTokenExpired(response)) {
++                                  // The error is due to an auth token having expired. Let's try
++                                  // again.
++                                  try {
++                                    refreshCredentials();
++                                    getAfterCredentialRefresh(downloadCmd, outerF);
++                                    return;
++                                  } catch (IOException e) {
++                                    cause.addSuppressed(e);
++                                  } catch (RuntimeException e) {
++                                    logger.atWarning().withCause(e).log("Unexpected exception");
++                                    cause.addSuppressed(e);
++                                  }
++                                } else if (cacheMiss(response.status())) {
++                                  outerF.setException(new CacheNotFoundException(digest));
+                                   return;
 -                                } catch (IOException e) {
 -                                  cause.addSuppressed(e);
 -                                } catch (RuntimeException e) {
 -                                  logger.atWarning().withCause(e).log("Unexpected exception");
 -                                  cause.addSuppressed(e);
--                                }
+                                 }
 -                              } else if (cacheMiss(response.status())) {
 -                                outerF.setException(new CacheNotFoundException(digest));
 -                                return;
--                              }
--                            }
+                               }
++                              outerF.setException(cause);
+                             }
 -                            outerF.setException(cause);
--                          }
++                          } finally {
++                            releaseDownloadChannel(ch);
+                           }
 -                        } finally {
 -                          releaseDownloadChannel(ch);
-+    return retrier.executeAsync(() -> {
-+      DownloadCommand downloadCmd = new DownloadCommand(uri, casDownload, digest, wrappedOut, bytesDownloaded.get());
-+      SettableFuture<Void> outerF = SettableFuture.create();
-+      acquireDownloadChannel()
-+              .addListener(
-+                      (Future<Channel> channelPromise) -> {
-+                        if (!channelPromise.isSuccess()) {
-+                          outerF.setException(channelPromise.cause());
-+                          return;
-                         }
-+
-+                        Channel ch = channelPromise.getNow();
-+                        ch.writeAndFlush(downloadCmd)
-+                                .addListener(
-+                                        (f) -> {
-+                                          try {
-+                                            if (f.isSuccess()) {
-+                                              outerF.set(null);
-+                                            } else {
-+                                              Throwable cause = f.cause();
-+                                              // cause can be of type HttpException, because Netty uses
-+                                              // Unsafe.throwException to
-+                                              // re-throw a checked exception that hasn't been declared in the method
-+                                              // signature.
-+                                              if (cause instanceof HttpException) {
-+                                                HttpResponse response = ((HttpException) cause).response();
-+                                                if (!dataWritten.get() && authTokenExpired(response)) {
-+                                                  // The error is due to an auth token having expired. Let's try
-+                                                  // again.
-+                                                  try {
-+                                                    refreshCredentials();
-+                                                    getAfterCredentialRefresh(downloadCmd, outerF);
-+                                                    return;
-+                                                  } catch (IOException e) {
-+                                                    cause.addSuppressed(e);
-+                                                  } catch (RuntimeException e) {
-+                                                    logger.atWarning().withCause(e).log("Unexpected exception");
-+                                                    cause.addSuppressed(e);
-+                                                  }
-+                                                } else if (cacheMiss(response.status())) {
-+                                                  outerF.setException(new CacheNotFoundException(digest));
-+                                                  return;
-+                                                }
-+                                              }
-+                                              outerF.setException(cause);
-+                                            }
-+                                          } finally {
-+                                            releaseDownloadChannel(ch);
-+                                          }
-+                                        });
-                       });
+-                        }
+-                      });
 -            });
 -    return outerF;
++                        });
++              });
 +      return outerF;
 +    });
    }
