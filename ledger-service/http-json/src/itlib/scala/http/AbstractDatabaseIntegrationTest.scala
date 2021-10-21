@@ -227,6 +227,7 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
         for {
           _ <- queries.dropAllTablesIfExist
           _ <- queries.initDatabase
+          _ <- fconn.commit
           _ <- stid
           _ <- fconn.rollback // as with when we conflict and retry
           tpid <- stid
