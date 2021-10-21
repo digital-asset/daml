@@ -3,8 +3,6 @@
 
 package com.daml.ledger.validator.preexecution
 
-import java.time.Instant
-
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataExporter,
@@ -20,6 +18,7 @@ import com.daml.ledger.validator.{
   LedgerStateOperationsReaderAdapter,
 }
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContextWith
 
@@ -58,7 +57,7 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
       submittingParticipantId: Ref.ParticipantId,
       correlationId: String,
       submissionEnvelope: Raw.Envelope,
-      exportRecordTime: Instant,
+      exportRecordTime: Timestamp,
       ledgerStateAccess: LedgerStateAccess[Any],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
     newLoggingContextWith(

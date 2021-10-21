@@ -10,11 +10,10 @@ import java.io.{
   PipedInputStream,
   PipedOutputStream,
 }
-import java.time.Instant
-
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExportSpecBase._
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.google.protobuf.ByteString
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -81,7 +80,7 @@ object LedgerDataExportSpecBase {
     participantId = Ref.ParticipantId.assertFromString("id"),
     correlationId = "parent",
     submissionEnvelope = Raw.Envelope(ByteString.copyFromUtf8("an envelope")),
-    recordTimeInstant = Instant.ofEpochSecond(123456, 123456789),
+    recordTime = Timestamp.assertFromLong(123456123456L),
   )
 
   private def keyValuePairOf(key: String, value: String): (Raw.Key, Raw.Envelope) =

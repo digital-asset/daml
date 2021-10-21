@@ -3,7 +3,7 @@
 
 package com.daml.ledger.configuration
 
-import java.time.{Duration, Instant}
+import java.time.Duration
 import com.daml.ledger.configuration.LedgerTimeModel._
 import com.daml.lf.data.Time.Timestamp
 
@@ -31,36 +31,29 @@ case class LedgerTimeModel private (
     * In particular, checks the skew condition: rt_TX - s_min <= lt_TX <= rt_TX + s_max.
     */
   def checkTime(
-      ledgerTime: Instant,
-      recordTime: Instant,
+      ledgerTime: Timestamp,
+      recordTime: Timestamp,
   ): Either[OutOfRange, Unit] = {
     val lowerBound = minLedgerTime(recordTime)
     val upperBound = maxLedgerTime(recordTime)
-    if (ledgerTime.isBefore(lowerBound) || ledgerTime.isAfter(upperBound)) {
+    if (ledgerTime < lowerBound || ledgerTime > upperBound) {
       Left(OutOfRange(ledgerTime, lowerBound, upperBound))
     } else {
       Right(())
     }
   }
 
-  def checkTime(
-      ledgerTime: Timestamp,
-      recordTime: Timestamp,
-  ): Either[OutOfRange, Unit] = {
-    checkTime(ledgerTime.toInstant, recordTime.toInstant)
-  }
+  private[ledger] def minLedgerTime(recordTime: Timestamp): Timestamp =
+    recordTime.subtract(minSkew)
 
-  private[ledger] def minLedgerTime(recordTime: Instant): Instant =
-    recordTime.minus(minSkew)
+  private[ledger] def maxLedgerTime(recordTime: Timestamp): Timestamp =
+    recordTime.add(maxSkew)
 
-  private[ledger] def maxLedgerTime(recordTime: Instant): Instant =
-    recordTime.plus(maxSkew)
+  private[ledger] def minRecordTime(ledgerTime: Timestamp): Timestamp =
+    ledgerTime.subtract(maxSkew)
 
-  private[ledger] def minRecordTime(ledgerTime: Instant): Instant =
-    ledgerTime.minus(maxSkew)
-
-  private[ledger] def maxRecordTime(ledgerTime: Instant): Instant =
-    ledgerTime.plus(minSkew)
+  private[ledger] def maxRecordTime(ledgerTime: Timestamp): Timestamp =
+    ledgerTime.add(minSkew)
 }
 
 object LedgerTimeModel {
@@ -87,7 +80,7 @@ object LedgerTimeModel {
       new LedgerTimeModel(avgTransactionLatency, minSkew, maxSkew)
     }
 
-  final case class OutOfRange(ledgerTime: Instant, lowerBound: Instant, upperBound: Instant) {
+  final case class OutOfRange(ledgerTime: Timestamp, lowerBound: Timestamp, upperBound: Timestamp) {
     lazy val message: String =
       s"Ledger time $ledgerTime outside of range [$lowerBound, $upperBound]"
   }

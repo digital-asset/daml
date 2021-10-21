@@ -3,8 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction
 
-import java.time.Instant
-
 import com.codahale.metrics.Counter
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.committer.Committer.buildLogEntryWithOptionalRecordTime
@@ -46,8 +44,8 @@ private[transaction] class Rejections(metrics: Metrics) {
 
   def preExecutionOutOfTimeBoundsRejectionEntry(
       transactionEntry: DamlTransactionEntrySummary,
-      minimumRecordTime: Instant,
-      maximumRecordTime: Instant,
+      minimumRecordTime: Timestamp,
+      maximumRecordTime: Timestamp,
   ): DamlTransactionRejectionEntry =
     Conversions
       .encodeTransactionRejectionEntry(

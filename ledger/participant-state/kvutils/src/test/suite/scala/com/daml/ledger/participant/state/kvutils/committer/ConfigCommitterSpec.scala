@@ -78,7 +78,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
 
       instance.checkTtl(context, anEmptyResult)
 
-      context.maximumRecordTime shouldEqual Some(aRecordTime.toInstant)
+      context.maximumRecordTime shouldEqual Some(aRecordTime)
       context.outOfTimeBoundsLogEntry should not be empty
       context.outOfTimeBoundsLogEntry.foreach { actual =>
         actual.hasRecordTime shouldBe false

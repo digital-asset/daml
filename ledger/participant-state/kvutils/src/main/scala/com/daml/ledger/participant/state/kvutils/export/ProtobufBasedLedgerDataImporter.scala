@@ -43,7 +43,7 @@ final class ProtobufBasedLedgerDataImporter(input: InputStream)
       Ref.ParticipantId.assertFromString(entrySubmissionInfo.getParticipantId),
       entrySubmissionInfo.getCorrelationId,
       Raw.Envelope(entrySubmissionInfo.getSubmissionEnvelope),
-      Conversions.parseInstant(entrySubmissionInfo.getRecordTime),
+      Conversions.parseTimestamp(entrySubmissionInfo.getRecordTime),
     )
   }
 

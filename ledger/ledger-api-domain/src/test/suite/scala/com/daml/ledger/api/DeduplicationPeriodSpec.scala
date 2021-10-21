@@ -18,7 +18,7 @@ class DeduplicationPeriodSpec extends AnyWordSpec with Matchers {
         time,
         DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(3)),
       )
-      deduplicateUntil shouldEqual Timestamp.assertFromInstant(time.toInstant.plusSeconds(3))
+      deduplicateUntil shouldEqual time.add(Duration.ofSeconds(3))
     }
 
   }

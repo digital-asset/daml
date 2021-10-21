@@ -3,8 +3,6 @@
 
 package com.daml.ledger.validator.batch
 
-import java.time.Instant
-
 import akka.stream.Materializer
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.Raw
@@ -14,6 +12,7 @@ import com.daml.ledger.validator._
 import com.daml.ledger.validator.caching.{CacheUpdatePolicy, ImmutablesOnlyCacheUpdatePolicy}
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 
@@ -51,7 +50,7 @@ import scala.util.{Failure, Success}
   * @tparam LogResult  type of the offset used for a log entry
   */
 class BatchedValidatingCommitter[LogResult](
-    now: () => Instant,
+    now: () => Timestamp,
     keySerializationStrategy: StateKeySerializationStrategy,
     validator: BatchedSubmissionValidator[LogResult],
     stateValueCache: Cache[DamlStateKey, DamlStateValue],
@@ -102,7 +101,7 @@ class BatchedValidatingCommitter[LogResult](
 }
 
 object BatchedValidatingCommitter {
-  def apply[LogResult](now: () => Instant, validator: BatchedSubmissionValidator[LogResult])(
+  def apply[LogResult](now: () => Timestamp, validator: BatchedSubmissionValidator[LogResult])(
       implicit materializer: Materializer
   ): BatchedValidatingCommitter[LogResult] =
     new BatchedValidatingCommitter[LogResult](
@@ -114,7 +113,7 @@ object BatchedValidatingCommitter {
     )
 
   def apply[LogResult](
-      now: () => Instant,
+      now: () => Timestamp,
       validator: BatchedSubmissionValidator[LogResult],
       stateValueCache: Cache[DamlStateKey, DamlStateValue],
   )(implicit materializer: Materializer): BatchedValidatingCommitter[LogResult] =

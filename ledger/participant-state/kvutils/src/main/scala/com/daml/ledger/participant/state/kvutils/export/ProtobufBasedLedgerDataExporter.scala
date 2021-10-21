@@ -39,7 +39,7 @@ final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
         .setParticipantId(submissionInfo.participantId: String)
         .setCorrelationId(submissionInfo.correlationId)
         .setSubmissionEnvelope(submissionInfo.submissionEnvelope.bytes)
-        .setRecordTime(Conversions.buildTimestamp(submissionInfo.recordTimeInstant))
+        .setRecordTime(Conversions.buildTimestamp(submissionInfo.recordTime))
         .build()
 
     private def buildWriteSet(writeSet: WriteSet): Iterable[LedgerExportEntry.WriteEntry] =

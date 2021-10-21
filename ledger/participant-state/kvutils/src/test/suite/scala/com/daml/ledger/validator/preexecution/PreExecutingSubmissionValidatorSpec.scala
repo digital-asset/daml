@@ -3,8 +3,7 @@
 
 package com.daml.ledger.validator.preexecution
 
-import java.time.Instant
-
+import java.time.Duration
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
@@ -57,8 +56,8 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       val actualInputState = Map(
         allDamlStateKeyTypes.head -> Some(DamlStateValue.getDefaultInstance)
       )
-      val expectedMinRecordTime = Some(recordTime.toInstant.minusSeconds(123))
-      val expectedMaxRecordTime = Some(recordTime.toInstant)
+      val expectedMinRecordTime = Some(recordTime.subtract(Duration.ofSeconds(123)))
+      val expectedMaxRecordTime = Some(recordTime)
       val expectedSuccessWriteSet = TestWriteSet("success")
       val expectedOutOfTimeBoundsWriteSet = TestWriteSet("failure")
       val expectedInvolvedParticipants = Set(TestHelpers.mkParticipantId(0))
@@ -167,8 +166,8 @@ object PreExecutingSubmissionValidatorSpec {
 
   private def createInstance(
       expectedReadSet: Set[DamlStateKey] = Set.empty,
-      expectedMinRecordTime: Option[Instant] = None,
-      expectedMaxRecordTime: Option[Instant] = None,
+      expectedMinRecordTime: Option[Timestamp] = None,
+      expectedMaxRecordTime: Option[Timestamp] = None,
       expectedSuccessWriteSet: TestWriteSet = TestWriteSet(""),
       expectedOutOfTimeBoundsWriteSet: TestWriteSet = TestWriteSet(""),
       expectedInvolvedParticipants: Set[ParticipantId] = Set.empty,
@@ -179,8 +178,8 @@ object PreExecutingSubmissionValidatorSpec {
       aLogEntry,
       Map.empty,
       aLogEntry,
-      expectedMinRecordTime.map(Timestamp.assertFromInstant),
-      expectedMaxRecordTime.map(Timestamp.assertFromInstant),
+      expectedMinRecordTime,
+      expectedMaxRecordTime,
     )
     when(
       mockCommitter.preExecuteSubmission(

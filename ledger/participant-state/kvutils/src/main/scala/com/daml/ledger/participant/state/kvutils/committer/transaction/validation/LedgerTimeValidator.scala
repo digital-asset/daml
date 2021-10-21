@@ -3,8 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction.validation
 
-import java.time.Instant
-
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.kvutils.Conversions.{commandDedupKey, parseTimestamp}
 import com.daml.ledger.participant.state.kvutils.committer.Committer.getCurrentConfiguration
@@ -34,10 +32,10 @@ private[transaction] class LedgerTimeValidator(defaultConfig: Configuration)
 
         commitContext.recordTime match {
           case Some(recordTime) =>
-            val givenLedgerTime = transactionEntry.ledgerEffectiveTime.toInstant
+            val givenLedgerTime = transactionEntry.ledgerEffectiveTime
 
             timeModel
-              .checkTime(ledgerTime = givenLedgerTime, recordTime = recordTime.toInstant)
+              .checkTime(ledgerTime = givenLedgerTime, recordTime = recordTime)
               .fold(
                 outOfRange =>
                   rejections.reject(
@@ -51,14 +49,14 @@ private[transaction] class LedgerTimeValidator(defaultConfig: Configuration)
             val maybeDeduplicateUntil =
               getLedgerDeduplicateUntil(transactionEntry, commitContext)
             val minimumRecordTime = transactionMinRecordTime(
-              transactionEntry.submissionTime.toInstant,
-              transactionEntry.ledgerEffectiveTime.toInstant,
+              transactionEntry.submissionTime,
+              transactionEntry.ledgerEffectiveTime,
               maybeDeduplicateUntil,
               timeModel,
             )
             val maximumRecordTime = transactionMaxRecordTime(
-              transactionEntry.submissionTime.toInstant,
-              transactionEntry.ledgerEffectiveTime.toInstant,
+              transactionEntry.submissionTime,
+              transactionEntry.ledgerEffectiveTime,
               timeModel,
             )
             commitContext.deduplicateUntil = maybeDeduplicateUntil
@@ -81,35 +79,35 @@ private[transaction] class LedgerTimeValidator(defaultConfig: Configuration)
 
   @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
   private def transactionMinRecordTime(
-      submissionTime: Instant,
-      ledgerTime: Instant,
-      maybeDeduplicateUntil: Option[Instant],
+      submissionTime: Timestamp,
+      ledgerTime: Timestamp,
+      maybeDeduplicateUntil: Option[Timestamp],
       timeModel: LedgerTimeModel,
-  ): Instant =
+  ): Timestamp =
     List(
       maybeDeduplicateUntil
         .map(
-          _.plus(Timestamp.Resolution)
+          _.add(Timestamp.Resolution)
         ), // DeduplicateUntil defines a rejection window, endpoints inclusive
       Some(timeModel.minRecordTime(ledgerTime)),
       Some(timeModel.minRecordTime(submissionTime)),
     ).flatten.max
 
   private def transactionMaxRecordTime(
-      submissionTime: Instant,
-      ledgerTime: Instant,
+      submissionTime: Timestamp,
+      ledgerTime: Timestamp,
       timeModel: LedgerTimeModel,
-  ): Instant =
+  ): Timestamp =
     List(timeModel.maxRecordTime(ledgerTime), timeModel.maxRecordTime(submissionTime)).min
 
   private def getLedgerDeduplicateUntil(
       transactionEntry: DamlTransactionEntrySummary,
       commitContext: CommitContext,
-  ): Option[Instant] =
+  ): Option[Timestamp] =
     for {
       dedupEntry <- commitContext.get(commandDedupKey(transactionEntry.submitterInfo))
       dedupTimestamp <- PartialFunction.condOpt(dedupEntry.getCommandDedup.hasDeduplicatedUntil) {
         case true => dedupEntry.getCommandDedup.getDeduplicatedUntil
       }
-    } yield parseTimestamp(dedupTimestamp).toInstant
+    } yield parseTimestamp(dedupTimestamp)
 }
