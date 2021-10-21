@@ -49,7 +49,7 @@ main = do
   let n_errs = length errs
   when (n_errs >= 1) $ do
     hPutStrLn stderr "** Errors while Evidencing Security; exiting with non-zero exit code."
-    sequence_ [hPutStrLn stderr $ "** (" ++ show i ++ ") " ++ show err | (i,err) <- zip [1::Int ..] errs]
+    sequence_ [hPutStrLn stderr $ "** (" ++ show i ++ ") " ++ formatError err | (i,err) <- zip [1::Int ..] errs]
   print (collateLines lines)
   exitWith (if n_errs == 0 then ExitSuccess else ExitFailure n_errs)
 
@@ -104,6 +104,13 @@ collateLines lines =
   | group@(Line{cat}:_) <- groupOn (\Line{cat} -> cat) lines
   ]
 
+formatError :: Err -> String
+formatError = \case
+  FailedToSplitLineOn4colons line -> "failed to parse line (expected 4 colons): " ++ line
+  FailedToParseLinenumFrom s line -> "failed to parse line-number from '" ++ show s ++ "' in line: " ++ line
+  UnknownCategoryInLine s line -> "unknown category '" ++ s ++ "' in line: " ++ line
+  NoTestsForCategory cat -> "no tests found for category: " ++ show cat
+
 instance Show Collated where
   show (Collated m) =
     unlines (["# Security tests, by category",""] ++
@@ -124,10 +131,3 @@ instance Show Category where
     Privacy -> "Privacy"
     Semantics -> "Semantics"
     Performance -> "Performance"
-
-instance Show Err where
-  show = \case
-    FailedToSplitLineOn4colons line -> "failed to parse line (expected 4 colons): " ++ line
-    FailedToParseLinenumFrom s line -> "failed to parse line-number from '" ++ show s ++ "' in line: " ++ line
-    UnknownCategoryInLine s line -> "unknown category '" ++ s ++ "' in line: " ++ line
-    NoTestsForCategory cat -> "no tests found for category: " ++ show cat
