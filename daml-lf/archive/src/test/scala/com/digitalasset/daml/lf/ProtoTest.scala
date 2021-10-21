@@ -6,6 +6,9 @@ package com.daml.lf
 import java.nio.file.{Files, Path, Paths}
 import java.util.zip.ZipFile
 
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.LanguageVersion._
+
 import com.daml.bazeltools.BazelRunfiles._
 import com.google.protobuf.CodedInputStream
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -18,7 +21,22 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
 
   private val darFile = Paths.get(rlocation("daml-lf/archive/DarReaderTest.dar"))
 
-  decodeTest("1_6") { cis =>
+  private val zipFile = new ZipFile(darFile.toFile)
+  private val dalfEntries = zipFile.entries().asScala.filter(_.getName.endsWith(".dalf")).toList.map { entry =>
+    val inputStream = zipFile.getInputStream(entry)
+    try {
+      val cis: CodedInputStream =
+        com.google.protobuf.CodedInputStream.newInstance(inputStream)
+      import com.daml.daml_lf_dev.DamlLf._
+      val version = LanguageVersion.assertFromString(s"1.${ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).getMinor}")
+      (entry, version)
+    } finally {
+      inputStream.close()
+    }
+  }
+
+
+  decodeTest(v1_6) { cis =>
     import com.digitalasset.daml_lf_1_6.DamlLf._
     ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).hasDamlLf1
   }
@@ -43,7 +61,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
     ),
   )
 
-  decodeTest("1_7") { cis =>
+  decodeTest(v1_7) { cis =>
     import com.digitalasset.daml_lf_1_7.DamlLf._
     ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).hasDamlLf1
   }
@@ -66,7 +84,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
     ),
   )
 
-  decodeTest("1_8") { cis =>
+  decodeTest(v1_8) { cis =>
     import com.digitalasset.daml_lf_1_8.DamlLf._
     ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).hasDamlLf1
   }
@@ -90,7 +108,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
     ),
   )
 
-  decodeTest("1_11") { cis =>
+  decodeTest(v1_11) { cis =>
     import com.daml.daml_lf_1_11.DamlLf._
     ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).hasDamlLf1
   }
@@ -110,7 +128,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
     ),
   )
 
-  decodeTest("1_12") { cis =>
+  decodeTest(v1_12) { cis =>
     import com.daml.daml_lf_1_12.DamlLf._
     ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).hasDamlLf1
   }
@@ -130,7 +148,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
     ),
   )
 
-  decodeTest("1_13") { cis =>
+  decodeTest(v1_13) { cis =>
     import com.daml.daml_lf_1_13.DamlLf._
     ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).hasDamlLf1
   }
@@ -150,7 +168,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
     ),
   )
 
-  decodeTest("1_14") { cis =>
+  decodeTest(v1_14) { cis =>
     import com.daml.daml_lf_1_14.DamlLf._
     ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).hasDamlLf1
   }
@@ -170,21 +188,17 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
     ),
   )
 
-  decodeTest("dev") { cis =>
+  decodeTest(v1_dev) { cis =>
     import com.daml.daml_lf_dev.DamlLf._
     ArchivePayload.parseFrom(Archive.parseFrom(cis).getPayload).hasDamlLf1
   }
 
-  private[this] def decodeTest(version: String)(hashPayload: CodedInputStream => Boolean) =
-    s"daml_lf_$version.DamlLf" should {
+  private[this] def decodeTest(decoderVersion: LanguageVersion)(hashPayload: CodedInputStream => Boolean) =
+    s"daml_lf_${decoderVersion.pretty}.DamlLf" should {
       "read dalf" in {
-        val zipFile = new ZipFile(darFile.toFile)
-        val entries = zipFile.entries().asScala.filter(_.getName.endsWith(".dalf")).toList
-
-        assert(entries.size >= 2)
-        assert(entries.exists(_.getName.contains("daml-stdlib")))
-
-        entries.foreach { entry =>
+        dalfEntries.foreach { case (entry, version) =>
+          import scala.Ordering.Implicits.infixOrderingOps
+          if (version <= decoderVersion) {
           val inputStream = zipFile.getInputStream(entry)
           try {
             val cos: CodedInputStream =
@@ -192,6 +206,7 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
             hashPayload(cos) shouldBe true
           } finally {
             inputStream.close()
+          }
           }
         }
       }
