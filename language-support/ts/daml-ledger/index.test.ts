@@ -35,6 +35,8 @@ let mockInstance = undefined as unknown as MockWebSocket;
 
 jest.mock('isomorphic-ws', () => class {
   private eventEmitter: EventEmitter;
+  //to represent readyState constants https://github.com/websockets/ws/blob/master/doc/ws.md#ready-state-constants
+  public readyState: number;
 
   constructor(...args: unknown[]) {
     mockConstructor(...args);
@@ -42,6 +44,7 @@ jest.mock('isomorphic-ws', () => class {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const {EventEmitter} = require('events');
     this.eventEmitter = new EventEmitter();
+    this.readyState = 0; // connecting
   }
 
   addEventListener(event: string, handler: (...args: unknown[]) => void): void {
@@ -53,11 +56,13 @@ jest.mock('isomorphic-ws', () => class {
   }
 
   close(): void {
+    this.readyState = 3; //closed
     mockClose();
   }
 
   serverOpen(): void {
     this.eventEmitter.emit('open');
+    this.readyState = 1; //open
   }
 
   serverSend(message: Message): void {
@@ -66,6 +71,7 @@ jest.mock('isomorphic-ws', () => class {
 
   serverClose(event: {code: number; reason: string}): void {
     this.eventEmitter.emit('close', event);
+    this.readyState = 2; //closing
   }
 });
 
@@ -152,6 +158,7 @@ describe("streamSubmit", () => {
     const stream = ledger.streamQueries(Foo, []);
     stream.on("change", mockChange);
     const restoreConsole = mockConsole();
+    mockInstance.serverOpen();
     mockInstance.serverSend({ warnings: ["oh oh"] });
     expect(console.warn).toHaveBeenCalledWith("Ledger.streamQueries warnings", {"warnings": ["oh oh"]});
     restoreConsole();
@@ -162,6 +169,7 @@ describe("streamSubmit", () => {
     const stream = ledger.streamFetchByKey(Foo, fooKey);
     stream.on("change", mockChange);
     const restoreConsole = mockConsole();
+    mockInstance.serverOpen();
     mockInstance.serverSend({ errors: ["not good!"] });
     expect(console.error).toHaveBeenCalledWith("Ledger.streamFetchByKey errors", { errors: ["not good!"] });
     restoreConsole();
@@ -172,6 +180,7 @@ describe("streamSubmit", () => {
     const stream = ledger.streamQuery(Foo);
     stream.on("live", mockLive);
     stream.on("change", state => mockChange(state));
+    mockInstance.serverOpen();
     mockInstance.serverSend({ events: [], offset: null });
     expect(mockLive).toHaveBeenCalledTimes(1);
     expect(mockLive).toHaveBeenLastCalledWith([]);
