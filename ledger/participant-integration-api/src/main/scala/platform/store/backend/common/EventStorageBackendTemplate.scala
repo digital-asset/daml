@@ -722,9 +722,6 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
         val eventWitnessesClause =
           eventStrategy
             .filteredEventWitnessesClause("flat_event_witnesses", allFilterParties, stringInterning)
-        val submittersArePartiesClause =
-          eventStrategy
-            .submittersArePartiesClause("submitters", allFilterParties, stringInterning)
         val excludePartiesClause = queryStrategy
           .arrayIntersectionNonEmptyClause(
             "create_evs.flat_event_witnesses",
@@ -745,7 +742,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
          SELECT
            #$selectColumnsForACSEvents,
            $eventWitnessesClause as event_witnesses,
-          case when $submittersArePartiesClause then command_id else '' end as command_id
+           '' as command_id
          FROM
            participant_events_create_filter filters
            INNER JOIN
@@ -766,7 +763,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
          ORDER BY
            filters.party_id,
            $templateIdOrderingClause
-           filters.event_sequential_id -- deliver in index order TODO ACS @simon: wildcard party returns non monotonically increasing resultset by event_sequential_id...is that ok?
+           filters.event_sequential_id -- deliver in index order
          ${queryStrategy.limitClause(Some(limit))}
        """
           .asVectorOf(rawFlatEventParser)(connection)

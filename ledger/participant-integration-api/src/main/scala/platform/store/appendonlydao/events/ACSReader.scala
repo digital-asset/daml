@@ -97,7 +97,13 @@ object ACSReader {
       .preMaterialize()(materializer)
     def addTask(task: TASK): Unit = {
       priorityQueue.enqueue(task)
-      assert(signalQueue.offer(()) == QueueOfferResult.Enqueued)
+      signalQueue.offer(()) match {
+        case QueueOfferResult.Enqueued => ()
+        case QueueOfferResult.Dropped =>
+          throw new Exception("Cannot enqueue signal: dropped. Queue bufferSize not big enough?")
+        case QueueOfferResult.Failure(_) => () // stream already failed
+        case QueueOfferResult.QueueClosed => () // stream already closed
+      }
     }
 
     initialTasks.foreach(addTask)
@@ -134,7 +140,7 @@ object ACSReader {
   def buildDisjointFiltersFrom(filterRelation: FilterRelation): Iterable[Filter] = {
     val (allWildCardParties, wildCardPartyFilters) = filterRelation.iterator
       .collect {
-        case (party, tempalteIds) if tempalteIds.isEmpty => party
+        case (party, templateIds) if templateIds.isEmpty => party
       }
       .foldLeft(Set.empty[Ref.Party] -> List.empty[Filter]) {
         case ((seenParties, filtersAcc), party) =>

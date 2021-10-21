@@ -215,7 +215,7 @@ object ParallelIndexerSubscription {
         dbDto.copy(event_sequential_id = eventSeqId)
 
       case dbDto: DbDto.CreateFilter =>
-        // the CreateFilter-s are always following the EventCreate
+        // we do not increase the event_seq_id here, because all the CreateFilter DbDto-s must have the same eventSeqId as the preceding EventCreate
         dbDto.copy(event_sequential_id = eventSeqId)
 
       case unChanged => unChanged
