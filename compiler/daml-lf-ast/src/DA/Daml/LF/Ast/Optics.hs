@@ -26,6 +26,7 @@ import Control.Lens.MonoTraversal
 import Data.Functor.Foldable (cata, embed)
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
+import qualified Data.Set as S
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.TypeLevelNat
@@ -79,8 +80,10 @@ templateExpr f (Template loc tpl param precond signatories observers agreement c
   <*> (NM.traverse . templateImplementsExpr) f implements
 
 templateImplementsExpr :: Traversal' TemplateImplements Expr
-templateImplementsExpr f (TemplateImplements iface methods) =
-  TemplateImplements iface <$> (NM.traverse . templateImplementsMethodExpr) f methods
+templateImplementsExpr f (TemplateImplements iface methods inheritedChoiceNames) =
+  TemplateImplements iface
+    <$> (NM.traverse . templateImplementsMethodExpr) f methods
+    <*> pure inheritedChoiceNames
 
 templateImplementsMethodExpr :: Traversal' TemplateImplementsMethod Expr
 templateImplementsMethodExpr f (TemplateImplementsMethod name body) =
@@ -145,6 +148,7 @@ instance MonoTraversable ModuleRef VariantConName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef Version where monoTraverse _ = pure
 instance MonoTraversable ModuleRef PackageName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef PackageVersion where monoTraverse _ = pure
+instance MonoTraversable ModuleRef (S.Set ChoiceName) where monoTraverse _ = pure
 
 -- NOTE(MH): This is an optimization to avoid running into a dead end.
 instance {-# OVERLAPPING #-} MonoTraversable ModuleRef FilePath where monoTraverse _ = pure
