@@ -53,7 +53,7 @@ class ApiConfigManagementServiceSpec
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  val useSelfServiceErrorCodes = mock[ErrorCodesVersionSwitcher]
+  private val useSelfServiceErrorCodes = mock[ErrorCodesVersionSwitcher]
 
   "ApiConfigManagementService" should {
     "get the time model" in {
@@ -84,13 +84,9 @@ class ApiConfigManagementServiceSpec
         .map { response =>
           response.timeModel should be(Some(expectedTimeModel))
           verifyZeroInteractions(writeService)
+          verifyZeroInteractions(useSelfServiceErrorCodes)
           succeed
         }
-        .map { x =>
-          verifyZeroInteractions(useSelfServiceErrorCodes)
-          x
-        }
-
     }
 
     "return a `NOT_FOUND` error if a time model is not found (V1 error codes)" in {
@@ -158,10 +154,8 @@ class ApiConfigManagementServiceSpec
         .map { response =>
           response.configurationGeneration should be(expectedGeneration)
           currentConfiguration() should be(Some(expectedConfiguration))
-        }
-        .map { x =>
           verifyZeroInteractions(useSelfServiceErrorCodes)
-          x
+          succeed
         }
     }
 
@@ -192,10 +186,8 @@ class ApiConfigManagementServiceSpec
         }
         .map { _ =>
           spanExporter.finishedSpanAttributes should contain(anApplicationIdSpanAttribute)
-        }
-        .map { x =>
           verifyZeroInteractions(useSelfServiceErrorCodes)
-          x
+          succeed
         }
     }
   }
