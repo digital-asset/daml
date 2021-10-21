@@ -311,6 +311,8 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
         grpcError(statusBuilder.build())
       },
+      // TODO error codes: This error group is confusing for this generic error as it can be dispatched
+      //                   from call-sites that do not involve Daml interpreter.
       v2 = LedgerApiErrors.InterpreterErrors.LookupErrors.LedgerConfigurationNotFound
         .Reject()
         .asGrpcError,
