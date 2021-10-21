@@ -334,11 +334,12 @@ An `Asset` interface.
 
 ```haskell
 interface Asset where
+  getAmount : Int
   choice Transfer : ContractId Asset
     with
       newOwner : Party
 
-A Daml interface is translated to a TypeScript interface as follows.
+A Daml interface is translated to a TypeScript interface as follows. 
 
 ```typescript
 export declare interface AssetInterface <T extends object>{
@@ -347,7 +348,8 @@ export declare interface AssetInterface <T extends object>{
 export declare const Asset: damlTypes.Template<object, undefined, 'Asset'> & AssetInterface<object>;
 ```
 
-The following is a template implementing the `Asset` interface.
+Note that pure methods of the interface are omitted since they are not serializable. The following
+is a template implementing the `Asset` interface.
 
 ```haskell
 template Iou
@@ -362,6 +364,9 @@ template Iou
     maintainer key
 
     implements Asset where
+
+      let getAmount = amount
+
       choice Transfer: ContractId Iou
         with
           newOwner: Party
