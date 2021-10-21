@@ -7,8 +7,20 @@ import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger,
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.store.events.PackageUpload.DamlPackageUploadRejectionEntry
-import com.daml.ledger.participant.state.kvutils.store.events.{DamlConfigurationRejectionEntry, DamlPartyAllocationRejectionEntry, DamlSubmitterInfo, DamlTransactionBlindingInfo, DamlTransactionEntry, DamlTransactionRejectionEntry}
-import com.daml.ledger.participant.state.kvutils.store.{DamlLogEntry, DamlLogEntryId, DamlOutOfTimeBoundsEntry, DamlStateKey}
+import com.daml.ledger.participant.state.kvutils.store.events.{
+  DamlConfigurationRejectionEntry,
+  DamlPartyAllocationRejectionEntry,
+  DamlSubmitterInfo,
+  DamlTransactionBlindingInfo,
+  DamlTransactionEntry,
+  DamlTransactionRejectionEntry,
+}
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlLogEntry,
+  DamlLogEntryId,
+  DamlOutOfTimeBoundsEntry,
+  DamlStateKey,
+}
 import com.daml.ledger.participant.state.kvutils.updates.TransactionRejections._
 import com.daml.ledger.participant.state.v2.{DivulgedContract, TransactionMeta, Update}
 import com.daml.lf.data.Ref
@@ -16,6 +28,7 @@ import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status

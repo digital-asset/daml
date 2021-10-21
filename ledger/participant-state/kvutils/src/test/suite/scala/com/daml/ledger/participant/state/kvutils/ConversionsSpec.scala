@@ -193,7 +193,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             (
               Rejection.LedgerTimeOutOfRange(LedgerTimeModel.OutOfRange(now, now, now)),
               Code.ABORTED,
-              Map.empty
+              Map.empty,
             ),
             (
               Rejection.CausalMonotonicityViolated,
@@ -306,7 +306,9 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               ),
             ),
             (
-              Rejection.LedgerTimeOutOfRange(LedgerTimeModel.OutOfRange(Instant.EPOCH, Instant.EPOCH, Instant.EPOCH)),
+              Rejection.LedgerTimeOutOfRange(
+                LedgerTimeModel.OutOfRange(Instant.EPOCH, Instant.EPOCH, Instant.EPOCH)
+              ),
               Code.FAILED_PRECONDITION,
               Map(
                 "ledger_time" -> Instant.EPOCH.toString,
@@ -478,7 +480,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               finalReason.code shouldBe code.value()
               finalReason.definiteAnswer shouldBe false
               val actualDetails = finalReasonToDetails(finalReason)
-              actualDetails should contain allElementsOf (expectedAdditionalDetails)
+              actualDetails should contain allElementsOf expectedAdditionalDetails
             }
           }
         }
