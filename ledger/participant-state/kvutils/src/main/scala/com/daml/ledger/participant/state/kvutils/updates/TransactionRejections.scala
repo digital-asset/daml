@@ -69,7 +69,8 @@ private[kvutils] object TransactionRejections {
       recordTime: Timestamp,
       rejectionEntry: DamlTransactionRejectionEntry,
       errorVersionSwitch: ValueSwitch[Status],
-  )(implicit loggingContext: ContextualizedErrorLogger): Update.CommandRejected =
+  )(implicit loggingContext: ContextualizedErrorLogger): Update.CommandRejected = {
+    val definiteAnswer = rejectionEntry.getDefiniteAnswer
     Update.CommandRejected(
       recordTime = recordTime,
       completionInfo = parseCompletionInfo(
@@ -78,11 +79,12 @@ private[kvutils] object TransactionRejections {
       ),
       reasonTemplate = FinalReason(
         errorVersionSwitch.choose(
-          V1.duplicateCommandsRejectionStatus(rejectionEntry, Code.ALREADY_EXISTS),
-          V2.duplicateCommandsRejectionStatus(),
+          V1.duplicateCommandsRejectionStatus(definiteAnswer, Code.ALREADY_EXISTS),
+          V2.duplicateCommandsRejectionStatus(definiteAnswer),
         )
       ),
     )
+  }
 
   @nowarn("msg=deprecated")
   def rejectionReasonNotSetStatus(
@@ -512,9 +514,10 @@ private[kvutils] object TransactionRejections {
         .asStatus
 
     def duplicateCommandsRejectionStatus(
+        definiteAnswer: Boolean = false
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
       KVCompletionErrors.DuplicateCommand
-        .Reject()
+        .Reject(definiteAnswer)
         .asStatus
 
     def rejectionReasonNotSetStatus(
@@ -652,7 +655,7 @@ private[kvutils] object TransactionRejections {
     )
 
     def duplicateCommandsRejectionStatus(
-        rejectionEntry: DamlTransactionRejectionEntry,
+        definiteAnswer: Boolean,
         errorCode: Code,
     ): Status = Status.of(
       errorCode.value,
@@ -662,7 +665,7 @@ private[kvutils] object TransactionRejections {
           // the definite answer is false, as the rank-based deduplication is not yet implemented
           ErrorInfo(metadata =
             Map(
-              GrpcStatuses.DefiniteAnswerKey -> rejectionEntry.getDefiniteAnswer.toString
+              GrpcStatuses.DefiniteAnswerKey -> definiteAnswer.toString
             )
           )
         )

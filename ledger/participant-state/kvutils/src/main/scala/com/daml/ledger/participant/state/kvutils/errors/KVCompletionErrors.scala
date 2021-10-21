@@ -309,6 +309,7 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateResourceExists, // It may succeed at a later time
       ) {
     case class Reject(
+        override val definiteAnswer: Boolean
     )(implicit loggingContext: ContextualizedErrorLogger)
         extends KVLoggingTransactionErrorImpl(
           cause = "A command with the given submission ID has already been successfully processed"
