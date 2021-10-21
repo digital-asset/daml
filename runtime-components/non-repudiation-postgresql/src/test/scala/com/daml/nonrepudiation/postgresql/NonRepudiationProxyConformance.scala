@@ -114,6 +114,7 @@ final class NonRepudiationProxyConformance
           SigningInterceptor.signCommands(key, certificate)
         ),
         clientTlsConfiguration = config.tlsConfig,
+        timeoutScaleFactor = 2,
       )
 
       runner.runTests.map { summaries =>
