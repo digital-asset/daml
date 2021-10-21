@@ -3,28 +3,14 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.error.ValueSwitch
+import com.daml.error.{DamlContextualizedErrorLogger, ValueSwitch}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
 import com.daml.ledger.participant.state.kvutils.store.DamlStateKey
-import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionBlindingInfo.{
-  DisclosureEntry,
-  DivulgenceEntry,
-}
-import com.daml.ledger.participant.state.kvutils.store.events.{
-  DamlSubmitterInfo,
-  DamlTransactionBlindingInfo,
-  DamlTransactionRejectionEntry,
-  Disputed,
-  Duplicate,
-  Inconsistent,
-  InvalidLedgerTime,
-  PartyNotKnownOnLedger,
-  ResourcesExhausted,
-  SubmitterCannotActViaParticipant,
-}
+import com.daml.ledger.participant.state.kvutils.store.events.DamlTransactionBlindingInfo.{DisclosureEntry, DivulgenceEntry}
+import com.daml.ledger.participant.state.kvutils.store.events.{DamlSubmitterInfo, DamlTransactionBlindingInfo, DamlTransactionRejectionEntry, Disputed, Duplicate, Inconsistent, InvalidLedgerTime, PartyNotKnownOnLedger, ResourcesExhausted, SubmitterCannotActViaParticipant}
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash
@@ -36,6 +22,7 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionOuterClass, TransactionVersion}
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
 import com.daml.lf.value.ValueOuterClass
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.{TextFormat, Timestamp}
 import com.google.rpc.error_details.ErrorInfo
@@ -54,6 +41,11 @@ import scala.jdk.CollectionConverters._
 
 @nowarn("msg=deprecated")
 class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
+  implicit private val testLoggingContext: LoggingContext = LoggingContext.ForTesting
+  private val logger = ContextualizedLogger.get(getClass)
+  implicit private val errorLoggingContext: DamlContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, testLoggingContext, None)
+
   "Conversions" should {
     "correctly and deterministically encode Blindinginfo" in {
       encodeBlindingInfo(
