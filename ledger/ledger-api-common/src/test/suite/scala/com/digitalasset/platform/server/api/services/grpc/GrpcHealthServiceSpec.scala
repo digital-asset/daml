@@ -3,12 +3,15 @@
 
 package com.daml.platform.server.api.services.grpc
 
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.grpc.GrpcException
 import com.daml.grpc.adapter.server.rs.MockServerCallStreamObserver
 import com.daml.ledger.api.health._
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.logging.LoggingContext
 import com.daml.platform.server.api.services.grpc.GrpcHealthService._
 import com.daml.platform.server.api.services.grpc.GrpcHealthServiceSpec._
+import io.grpc.StatusRuntimeException
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Second, Span}
@@ -26,9 +29,11 @@ final class GrpcHealthServiceSpec
   implicit override val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(1, Second)))
 
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   "HealthService" should {
     "report SERVING if there are no health checks" in {
-      val service = new GrpcHealthService(new HealthChecks)
+      val service = new GrpcHealthService(new HealthChecks, errorCodesVersionSwitcherMock)
 
       for {
         response <- service.check(HealthCheckRequest())
@@ -38,7 +43,10 @@ final class GrpcHealthServiceSpec
     }
 
     "report SERVING if there is one healthy check" in {
-      val service = new GrpcHealthService(new HealthChecks("component" -> healthyComponent))
+      val service = new GrpcHealthService(
+        new HealthChecks("component" -> healthyComponent),
+        errorCodesVersionSwitcherMock,
+      )
 
       for {
         response <- service.check(HealthCheckRequest())
@@ -48,7 +56,10 @@ final class GrpcHealthServiceSpec
     }
 
     "report NOT_SERVING if there is one unhealthy check" in {
-      val service = new GrpcHealthService(new HealthChecks("component" -> unhealthyComponent))
+      val service = new GrpcHealthService(
+        new HealthChecks("component" -> unhealthyComponent),
+        errorCodesVersionSwitcherMock,
+      )
 
       for {
         response <- service.check(HealthCheckRequest())
@@ -63,9 +74,11 @@ final class GrpcHealthServiceSpec
           "component A" -> healthyComponent,
           "component B" -> healthyComponent,
           "component C" -> healthyComponent,
-        )
+        ),
+        errorCodesVersionSwitcherMock,
       )
 
+      service.check(HealthCheckRequest())
       for {
         response <- service.check(HealthCheckRequest())
       } yield {
@@ -79,7 +92,8 @@ final class GrpcHealthServiceSpec
           "component A" -> healthyComponent,
           "component B" -> unhealthyComponent,
           "component C" -> healthyComponent,
-        )
+        ),
+        errorCodesVersionSwitcherMock,
       )
 
       for {
@@ -90,7 +104,10 @@ final class GrpcHealthServiceSpec
     }
 
     "report SERVING when querying a single, healthy component" in {
-      val service = new GrpcHealthService(new HealthChecks("component" -> healthyComponent))
+      val service = new GrpcHealthService(
+        new HealthChecks("component" -> healthyComponent),
+        errorCodesVersionSwitcherMock,
+      )
 
       for {
         response <- service.check(HealthCheckRequest("component"))
@@ -100,7 +117,10 @@ final class GrpcHealthServiceSpec
     }
 
     "report NOT_SERVING when querying a single, unhealthy component" in {
-      val service = new GrpcHealthService(new HealthChecks("component" -> unhealthyComponent))
+      val service = new GrpcHealthService(
+        new HealthChecks("component" -> unhealthyComponent),
+        errorCodesVersionSwitcherMock,
+      )
 
       for {
         response <- service.check(HealthCheckRequest("component"))
@@ -115,7 +135,8 @@ final class GrpcHealthServiceSpec
           "component A" -> healthyComponent,
           "component B" -> healthyComponent,
           "component C" -> unhealthyComponent,
-        )
+        ),
+        errorCodesVersionSwitcherMock,
       )
 
       for {
@@ -131,7 +152,8 @@ final class GrpcHealthServiceSpec
           "component A" -> unhealthyComponent,
           "component B" -> healthyComponent,
           "component C" -> healthyComponent,
-        )
+        ),
+        errorCodesVersionSwitcherMock,
       )
 
       for {
@@ -149,10 +171,11 @@ final class GrpcHealthServiceSpec
       var componentCHealth: HealthStatus = Healthy
       val service = new GrpcHealthService(
         new HealthChecks(
-          "component A" -> compnentWithHealthBackedBy(() => componentAHealth),
-          "component B" -> compnentWithHealthBackedBy(() => componentBHealth),
-          "component C" -> compnentWithHealthBackedBy(() => componentCHealth),
+          "component A" -> componentWithHealthBackedBy(() => componentAHealth),
+          "component B" -> componentWithHealthBackedBy(() => componentBHealth),
+          "component C" -> componentWithHealthBackedBy(() => componentCHealth),
         ),
+        errorCodesVersionSwitcherMock,
         maximumWatchFrequency = 1.millisecond,
       )
 
@@ -214,10 +237,11 @@ final class GrpcHealthServiceSpec
       var componentCHealth: HealthStatus = Healthy
       val service = new GrpcHealthService(
         new HealthChecks(
-          "component A" -> compnentWithHealthBackedBy(() => componentAHealth),
-          "component B" -> compnentWithHealthBackedBy(() => componentBHealth),
-          "component C" -> compnentWithHealthBackedBy(() => componentCHealth),
+          "component A" -> componentWithHealthBackedBy(() => componentAHealth),
+          "component B" -> componentWithHealthBackedBy(() => componentBHealth),
+          "component C" -> componentWithHealthBackedBy(() => componentCHealth),
         ),
+        errorCodesVersionSwitcherMock,
         maximumWatchFrequency = 1.millisecond,
       )
 
@@ -269,39 +293,67 @@ final class GrpcHealthServiceSpec
     }
   }
 
-  "fail gracefully when a non-existent component is checked" in {
-    val service = new GrpcHealthService(new HealthChecks("component" -> unhealthyComponent))
+  "fail gracefully when a non-existent component is checked (returns V1 error codes)" in {
+    failOnNonExistentCheckedComponent(usesSelfServiceErrorCodes = false)
+  }
+
+  "fail gracefully when a non-existent component is checked (returns V2 error codes)" in {
+    failOnNonExistentCheckedComponent(usesSelfServiceErrorCodes = true)
+  }
+
+  "fail gracefully when a non-existent component is watched (returns V1 error codes)" in {
+    failOnNonExistentWatchedComponent(usesSelfServiceErrorCodes = false)
+  }
+
+  "fail gracefully when a non-existent component is watched (returns V2 error codes)" in {
+    failOnNonExistentWatchedComponent(usesSelfServiceErrorCodes = true)
+  }
+
+  private def failOnNonExistentCheckedComponent(usesSelfServiceErrorCodes: Boolean) = {
+    val service = new GrpcHealthService(
+      new HealthChecks("component" -> unhealthyComponent),
+      new ErrorCodesVersionSwitcher(usesSelfServiceErrorCodes),
+    )
 
     for {
       throwable <- service.check(HealthCheckRequest("another component")).failed
-    } yield {
-      throwable match {
-        case GrpcException.NOT_FOUND() =>
-          succeed
-        case _ =>
-          fail("Expected a NOT_FOUND error.")
-      }
-    }
+    } yield assertErrorCode(usesSelfServiceErrorCodes, throwable)
   }
 
-  "fail gracefully when a non-existent component is watched" in {
+  private def failOnNonExistentWatchedComponent(usesSelfServiceErrorCodes: Boolean) = {
     val responseObserver = new MockServerCallStreamObserver[HealthCheckResponse]
-    val service = new GrpcHealthService(new HealthChecks("component" -> unhealthyComponent))
+    val service = new GrpcHealthService(
+      new HealthChecks("component" -> unhealthyComponent),
+      new ErrorCodesVersionSwitcher(usesSelfServiceErrorCodes),
+    )
 
     service.watch(HealthCheckRequest("another component"), responseObserver)
     responseObserver.demandResponse()
 
     for {
       throwable <- responseObserver.completionFuture.failed
-    } yield {
-      throwable match {
-        case GrpcException.NOT_FOUND() =>
-          succeed
-        case _ =>
-          fail("Expected a NOT_FOUND error.")
+    } yield assertErrorCode(usesSelfServiceErrorCodes, throwable)
+  }
+
+  private def assertErrorCode(usesSelfServiceErrorCodes: Boolean, throwable: Throwable) =
+    throwable match {
+      case GrpcException.NOT_FOUND() if !usesSelfServiceErrorCodes => succeed
+      case GrpcException.INVALID_ARGUMENT() if usesSelfServiceErrorCodes => succeed
+      case ex => fail(s"Expected a NOT_FOUND error, but got $ex")
+    }
+
+  // On the happy flow, this parameter is not used.
+  // Negative tests returning errors should explicitly instantiate it
+  private def errorCodesVersionSwitcherMock: ErrorCodesVersionSwitcher =
+    new ErrorCodesVersionSwitcher(false) {
+      override def choose(
+          v1: => StatusRuntimeException,
+          v2: => StatusRuntimeException,
+      ): StatusRuntimeException = {
+        val _ = (v1, v2)
+        fail("Should not be called")
       }
     }
-  }
 }
 
 object GrpcHealthServiceSpec {
@@ -309,6 +361,6 @@ object GrpcHealthServiceSpec {
 
   private val unhealthyComponent: ReportsHealth = () => Unhealthy
 
-  private def compnentWithHealthBackedBy(fetchCurrentHealth: () => HealthStatus): ReportsHealth =
+  private def componentWithHealthBackedBy(fetchCurrentHealth: () => HealthStatus): ReportsHealth =
     () => fetchCurrentHealth()
 }

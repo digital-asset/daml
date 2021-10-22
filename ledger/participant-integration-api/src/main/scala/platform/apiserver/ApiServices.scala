@@ -185,7 +185,7 @@ private[daml] object ApiServices {
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 
-      val apiHealthService = new GrpcHealthService(healthChecks)
+      val apiHealthService = new GrpcHealthService(healthChecks, errorsVersionsSwitcher)
 
       apiTimeServiceOpt.toList :::
         writeServiceBackedApiServices :::
