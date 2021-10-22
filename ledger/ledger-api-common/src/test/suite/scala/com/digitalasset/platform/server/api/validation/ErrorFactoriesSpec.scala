@@ -86,6 +86,20 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       )
     }
 
+    "return the configurationEntryRejected" in {
+      assertVersionedError(_.configurationEntryRejected("message123", None))(
+        v1_code = Code.ABORTED,
+        v1_message = "message123",
+        v1_details = Seq.empty,
+        v2_code = Code.FAILED_PRECONDITION,
+        v2_message = s"CONFIGURATION_ENTRY_REJECTED(9,$correlationId): message123",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("CONFIGURATION_ENTRY_REJECTED"),
+          DefaultTraceIdRequestInfo,
+        ),
+      )
+    }
+
     "return a transactionNotFound error" in {
       assertVersionedError(_.transactionNotFound(Ref.TransactionId.assertFromString("tId")))(
         v1_code = Code.NOT_FOUND,

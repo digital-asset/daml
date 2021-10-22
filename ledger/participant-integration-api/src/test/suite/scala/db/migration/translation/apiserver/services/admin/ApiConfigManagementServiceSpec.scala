@@ -3,15 +3,11 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import java.time.Duration
-import java.util.concurrent.CompletableFuture.completedFuture
-import java.util.concurrent.CompletionStage
-import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
-
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -22,7 +18,7 @@ import com.daml.ledger.api.v1.admin.config_management_service.{
 }
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
-import com.daml.ledger.participant.state.v2.{SubmissionResult, WriteConfigService}
+import com.daml.ledger.participant.state.v2.{SubmissionResult, WriteConfigService, WriteService}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref.SubmissionId
 import com.daml.lf.data.{Ref, Time}
@@ -37,9 +33,13 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.time.Duration
+import java.util.concurrent.CompletableFuture.completedFuture
+import java.util.concurrent.CompletionStage
+import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import scala.collection.immutable
-import scala.concurrent.{Await, Future, Promise}
 import scala.concurrent.duration.{Duration => ScalaDuration}
+import scala.concurrent.{Await, Future, Promise}
 import scala.util.{Failure, Success}
 
 class ApiConfigManagementServiceSpec
@@ -52,6 +52,8 @@ class ApiConfigManagementServiceSpec
     with AkkaBeforeAndAfterAll {
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
+  private val useSelfServiceErrorCodes = mock[ErrorCodesVersionSwitcher]
 
   "ApiConfigManagementService" should {
     "get the time model" in {
@@ -74,29 +76,25 @@ class ApiConfigManagementServiceSpec
         ),
         writeService,
         TimeProvider.UTC,
-      )
-
-      apiConfigManagementService.getTimeModel(GetTimeModelRequest.defaultInstance).map { response =>
-        response.timeModel should be(Some(expectedTimeModel))
-        verifyZeroInteractions(writeService)
-        succeed
-      }
-    }
-
-    "return a `NOT_FOUND` error if a time model is not found" in {
-      val writeService = mock[state.WriteConfigService]
-      val apiConfigManagementService = ApiConfigManagementService.createApiService(
-        EmptyIndexConfigManagementService,
-        writeService,
-        TimeProvider.UTC,
+        useSelfServiceErrorCodes,
       )
 
       apiConfigManagementService
         .getTimeModel(GetTimeModelRequest.defaultInstance)
-        .transform(Success.apply)
         .map { response =>
-          response should matchPattern { case Failure(GrpcException(GrpcStatus.NOT_FOUND(), _)) => }
+          response.timeModel should be(Some(expectedTimeModel))
+          verifyZeroInteractions(writeService)
+          verifyZeroInteractions(useSelfServiceErrorCodes)
+          succeed
         }
+    }
+
+    "return a `NOT_FOUND` error if a time model is not found (V1 error codes)" in {
+      testReturnANotFoundErrorIfTimeModelNotFound(false)
+    }
+
+    "return a `NOT_FOUND` error if a time model is not found (V2 self-service error codes)" in {
+      testReturnANotFoundErrorIfTimeModelNotFound(true)
     }
 
     "set a new time model" in {
@@ -135,6 +133,7 @@ class ApiConfigManagementServiceSpec
         indexService,
         writeService,
         timeProvider,
+        useSelfServiceErrorCodes,
       )
 
       apiConfigManagementService
@@ -155,43 +154,17 @@ class ApiConfigManagementServiceSpec
         .map { response =>
           response.configurationGeneration should be(expectedGeneration)
           currentConfiguration() should be(Some(expectedConfiguration))
+          verifyZeroInteractions(useSelfServiceErrorCodes)
+          succeed
         }
     }
 
-    "refuse to set a new time model if none is indexed yet" in {
-      val initialGeneration = 0L
+    "refuse to set a new time model if none is indexed (V1 error codes)" in {
+      testRefuseToSetANewTimeModelIfNoneIsIndexedYet(false)
+    }
 
-      val timeProvider = TimeProvider.UTC
-      val maximumRecordTime = timeProvider.getCurrentTime.plusSeconds(60)
-
-      val writeService = mock[state.WriteService]
-      val apiConfigManagementService = ApiConfigManagementService.createApiService(
-        EmptyIndexConfigManagementService,
-        writeService,
-        timeProvider,
-      )
-
-      apiConfigManagementService
-        .setTimeModel(
-          SetTimeModelRequest.of(
-            "a submission ID",
-            maximumRecordTime = Some(Timestamp.of(maximumRecordTime.getEpochSecond, 0)),
-            configurationGeneration = initialGeneration,
-            newTimeModel = Some(
-              TimeModel(
-                avgTransactionLatency = Some(DurationProto.of(10, 0)),
-                minSkew = Some(DurationProto.of(20, 0)),
-                maxSkew = Some(DurationProto.of(40, 0)),
-              )
-            ),
-          )
-        )
-        .transform(Success.apply)
-        .map { response =>
-          verifyZeroInteractions(writeService)
-          response should matchPattern { case Failure(GrpcException(GrpcStatus.UNAVAILABLE(), _)) =>
-          }
-        }
+    "refuse to set a new time model if none is indexed (V2 self-service error codes)" in {
+      testRefuseToSetANewTimeModelIfNoneIsIndexedYet(true)
     }
 
     "propagate trace context" in {
@@ -199,6 +172,7 @@ class ApiConfigManagementServiceSpec
         new FakeStreamingIndexConfigManagementService(someConfigurationEntries),
         TestWriteConfigService,
         TimeProvider.UTC,
+        useSelfServiceErrorCodes,
         _ => Ref.SubmissionId.assertFromString("aSubmission"),
       )
 
@@ -212,8 +186,72 @@ class ApiConfigManagementServiceSpec
         }
         .map { _ =>
           spanExporter.finishedSpanAttributes should contain(anApplicationIdSpanAttribute)
+          verifyZeroInteractions(useSelfServiceErrorCodes)
+          succeed
         }
     }
+  }
+
+  private def testReturnANotFoundErrorIfTimeModelNotFound(useSelfServiceErrorCodes: Boolean) = {
+    val errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(useSelfServiceErrorCodes)
+    val writeService = mock[WriteConfigService]
+    val apiConfigManagementService = ApiConfigManagementService.createApiService(
+      EmptyIndexConfigManagementService,
+      writeService,
+      TimeProvider.UTC,
+      errorCodesVersionSwitcher,
+    )
+
+    apiConfigManagementService
+      .getTimeModel(GetTimeModelRequest.defaultInstance)
+      .transform(Success.apply)
+      .map { response =>
+        response should matchPattern { case Failure(GrpcException(GrpcStatus.NOT_FOUND(), _)) =>
+        }
+      }
+  }
+
+  private def testRefuseToSetANewTimeModelIfNoneIsIndexedYet(useSelfServiceErrorCodes: Boolean) = {
+    val errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(useSelfServiceErrorCodes)
+    val initialGeneration = 0L
+
+    val timeProvider = TimeProvider.UTC
+    val maximumRecordTime = timeProvider.getCurrentTime.plusSeconds(60)
+
+    val writeService = mock[WriteService]
+    val apiConfigManagementService = ApiConfigManagementService.createApiService(
+      EmptyIndexConfigManagementService,
+      writeService,
+      timeProvider,
+      errorCodesVersionSwitcher,
+    )
+
+    apiConfigManagementService
+      .setTimeModel(
+        SetTimeModelRequest.of(
+          "a submission ID",
+          maximumRecordTime = Some(Timestamp.of(maximumRecordTime.getEpochSecond, 0)),
+          configurationGeneration = initialGeneration,
+          newTimeModel = Some(
+            TimeModel(
+              avgTransactionLatency = Some(DurationProto.of(10, 0)),
+              minSkew = Some(DurationProto.of(20, 0)),
+              maxSkew = Some(DurationProto.of(40, 0)),
+            )
+          ),
+        )
+      )
+      .transform(Success.apply)
+      .map { response =>
+        verifyZeroInteractions(writeService)
+        if (useSelfServiceErrorCodes) {
+          response should matchPattern { case Failure(GrpcException(GrpcStatus.NOT_FOUND(), _)) =>
+          }
+        } else {
+          response should matchPattern { case Failure(GrpcException(GrpcStatus.UNAVAILABLE(), _)) =>
+          }
+        }
+      }
   }
 }
 
