@@ -146,6 +146,41 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       )
     }
 
+    "return a nonHexOffset error" in {
+      assertVersionedError(
+        _.nonHexOffset(None)(
+          fieldName = "fieldName123",
+          offsetValue = "offsetValue123",
+          message = "message123",
+        )
+      )(
+        v1_code = Code.INVALID_ARGUMENT,
+        v1_message = "Invalid argument: message123",
+        v1_details = Seq.empty,
+        v2_code = Code.INVALID_ARGUMENT,
+        v2_message =
+          s"NON_HEXADECIMAL_OFFSET(8,$correlationId): Offset in fieldName123 not specified in hexadecimal: offsetValue123: message123",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("NON_HEXADECIMAL_OFFSET"),
+          DefaultTraceIdRequestInfo,
+        ),
+      )
+    }
+
+    "return a readingOffsetAfterLedgerEnd error" in {
+      assertVersionedError(_.readingOffsetAfterLedgerEnd_was_invalidArgument(None)("message123"))(
+        v1_code = Code.INVALID_ARGUMENT,
+        v1_message = "Invalid argument: message123",
+        v1_details = Seq.empty,
+        v2_code = Code.OUT_OF_RANGE,
+        v2_message = s"REQUESTED_OFFSET_OUT_OF_RANGE(12,$correlationId): message123",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("REQUESTED_OFFSET_OUT_OF_RANGE"),
+          DefaultTraceIdRequestInfo,
+        ),
+      )
+    }
+
     "return an unauthenticatedMissingJwtToken error" in {
       assertVersionedError(_.unauthenticatedMissingJwtToken())(
         v1_code = Code.UNAUTHENTICATED,
