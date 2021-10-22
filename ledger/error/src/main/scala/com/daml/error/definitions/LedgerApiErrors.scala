@@ -46,6 +46,20 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             cause = message
           )
     }
+
+    @Explanation("This rejection is given when a package upload was rejected.")
+    @Resolution("Refer to the detailed message of the received error.")
+    object PackageUploadRejected
+        extends ErrorCode(
+          id = "PACKAGE_UPLOAD_REJECTED",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      case class Reject(message: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = message
+          )
+    }
   }
 
   object ReadErrors extends ErrorGroup() {

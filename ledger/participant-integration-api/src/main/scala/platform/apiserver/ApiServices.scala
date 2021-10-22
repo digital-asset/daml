@@ -283,6 +283,7 @@ private[daml] object ApiServices {
           writeService,
           managementServiceTimeout,
           engine,
+          errorsVersionsSwitcher,
         )
 
         val apiConfigManagementService = ApiConfigManagementService.createApiService(

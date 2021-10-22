@@ -243,6 +243,15 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     grpcError(statusBuilder.build())
   }
 
+  def packageUploadRejected(message: String, definiteAnswer: Option[Boolean])(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = {
+    errorCodesVersionSwitcher.choose(
+      v1 = invalidArgumentV1(definiteAnswer, message),
+      v2 = LedgerApiErrors.WriteErrors.PackageUploadRejected.Reject(message).asGrpcError,
+    )
+  }
+
   def configurationEntryRejected(message: String, definiteAnswer: Option[Boolean])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException = {
@@ -378,6 +387,18 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   def grpcError(status: Status): StatusRuntimeException = new NoStackTraceApiException(
     StatusProto.toStatusRuntimeException(status)
   )
+
+  private def invalidArgumentV1(
+      definiteAnswer: Option[Boolean],
+      message: String,
+  ): StatusRuntimeException = {
+    val statusBuilder = Status
+      .newBuilder()
+      .setCode(Code.INVALID_ARGUMENT.value())
+      .setMessage(s"Invalid argument: $message")
+    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+    grpcError(statusBuilder.build())
+  }
 }
 
 /** Object exposing the legacy error factories.
