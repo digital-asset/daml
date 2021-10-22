@@ -480,22 +480,6 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       }(connection, loggingContext)
     }
 
-    pruneWithLogging(queryDescription = "Create events filter table pruning") {
-      SQL"""
-          -- Create events filter table (only for contracts archived before the specified offset)
-          delete from participant_events_create_filter
-          using participant_events_create delete_events
-          where
-            delete_events.event_offset <= $pruneUpToInclusive and
-            exists (
-              SELECT 1 FROM participant_events_consuming_exercise archive_events
-              WHERE
-                archive_events.event_offset <= $pruneUpToInclusive AND
-                archive_events.contract_id = delete_events.contract_id
-            ) and
-            delete_events.event_sequential_id = participant_events_create_filter.event_sequential_id"""
-    }(connection, loggingContext)
-
     pruneWithLogging(queryDescription = "Create events pruning") {
       SQL"""
           -- Create events (only for contracts archived before the specified offset)
@@ -519,26 +503,6 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
           case None => cSQL""
         }
       }
-
-      pruneWithLogging(queryDescription = "Immediate divulgence events filter_table pruning") {
-        SQL"""
-            -- Immediate divulgence pruning
-            delete from participant_events_create_filter
-            using participant_events_create c
-            where event_offset <= $pruneUpToInclusive
-            -- Only prune create events which did not have a locally hosted party before their creation offset
-            and not exists (
-              select 1
-              from party_entries p
-              where p.typ = 'accept'
-              and p.ledger_offset <= c.event_offset
-              and #${queryStrategy.isTrue("p.is_local")}
-              and #${queryStrategy.arrayContains("c.flat_event_witnesses", "p.party_id")}
-            )
-            $pruneAfterClause and
-            c.event_sequential_id = participant_events_create_filter.event_sequential_id
-         """
-      }(connection, loggingContext)
 
       pruneWithLogging(queryDescription = "Immediate divulgence events pruning") {
         SQL"""

@@ -76,7 +76,7 @@ CREATE TABLE participant_events_divulgence (
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE participant_events_create (
     -- * fixed-size columns first to avoid padding
-    event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
+    event_sequential_id bigint PRIMARY KEY NOT NULL,      -- event identification: same ordering as event_offset
     ledger_effective_time timestamp NOT NULL, -- transaction metadata
     node_index integer NOT NULL,              -- event metadata
 
@@ -229,8 +229,12 @@ CREATE INDEX idx_party_entries_party_id_and_ledger_offset ON party_entries(party
 CREATE TABLE participant_events_create_filter (
     event_sequential_id BIGINT NOT NULL,
     template_id INTEGER NOT NULL,
-    party_id INTEGER NOT NULL
+    party_id INTEGER NOT NULL,
+
+    CONSTRAINT fk_event_sequential_id
+      FOREIGN KEY(event_sequential_id)
+      REFERENCES participant_events_create(event_sequential_id)
+      ON DELETE CASCADE
 );
-CREATE INDEX idx_participant_events_create_filter_event_sequential_id ON participant_events_create_filter(event_sequential_id);
 CREATE INDEX idx_participant_events_create_filter_party_template_seq_id_idx ON participant_events_create_filter(party_id, template_id, event_sequential_id);
 CREATE INDEX idx_participant_events_create_filter_party_seq_id_idx ON participant_events_create_filter(party_id, event_sequential_id);

@@ -25,7 +25,7 @@ CREATE INDEX participant_events_divulgence_template_id_idx ON participant_events
 -- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
 -- Note that Potsgres has trouble using these indices effectively with our paged access.
 -- We might decide to drop them.
-CREATE INDEX participant_events_divulgence_tree_event_witnesses_idx ON participant_events_divulgence USING gin (tree_event_witnesses);
+--CREATE INDEX participant_events_divulgence_tree_event_witnesses_idx ON participant_events_divulgence USING gin (tree_event_witnesses);
 
 -- lookup divulgance events, in order of ingestion
 CREATE INDEX participant_events_divulgence_contract_id_idx ON participant_events_divulgence USING btree (contract_id, event_sequential_id);
@@ -54,8 +54,8 @@ CREATE INDEX participant_events_create_template_id_idx ON participant_events_cre
 -- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
 -- Note that Potsgres has trouble using these indices effectively with our paged access.
 -- We might decide to drop them.
-CREATE INDEX participant_events_create_flat_event_witnesses_idx ON participant_events_create USING gin (flat_event_witnesses);
-CREATE INDEX participant_events_create_tree_event_witnesses_idx ON participant_events_create USING gin (tree_event_witnesses);
+--CREATE INDEX participant_events_create_flat_event_witnesses_idx ON participant_events_create USING gin (flat_event_witnesses);
+--CREATE INDEX participant_events_create_tree_event_witnesses_idx ON participant_events_create USING gin (tree_event_witnesses);
 
 -- lookup by contract id
 CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create USING hash (contract_id);
@@ -87,8 +87,8 @@ CREATE INDEX participant_events_consuming_exercise_template_id_idx ON participan
 -- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
 -- Note that Potsgres has trouble using these indices effectively with our paged access.
 -- We might decide to drop them.
-CREATE INDEX participant_events_consuming_exercise_flat_event_witnesses_idx ON participant_events_consuming_exercise USING gin (flat_event_witnesses);
-CREATE INDEX participant_events_consuming_exercise_tree_event_witnesses_idx ON participant_events_consuming_exercise USING gin (tree_event_witnesses);
+--CREATE INDEX participant_events_consuming_exercise_flat_event_witnesses_idx ON participant_events_consuming_exercise USING gin (flat_event_witnesses);
+--CREATE INDEX participant_events_consuming_exercise_tree_event_witnesses_idx ON participant_events_consuming_exercise USING gin (tree_event_witnesses);
 
 -- lookup by contract id
 CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise USING hash (contract_id);
@@ -118,8 +118,8 @@ CREATE INDEX participant_events_non_consuming_exercise_template_id_idx ON partic
 -- Note that Potsgres has trouble using these indices effectively with our paged access.
 -- We might decide to drop them.
 -- NOTE: index name truncated because the full name exceeds the 63 characters length limit
-CREATE INDEX participant_events_non_consuming_exercise_flat_event_witnes_idx ON participant_events_non_consuming_exercise USING gin (flat_event_witnesses);
-CREATE INDEX participant_events_non_consuming_exercise_tree_event_witnes_idx ON participant_events_non_consuming_exercise USING gin (tree_event_witnesses);
+--CREATE INDEX participant_events_non_consuming_exercise_flat_event_witnes_idx ON participant_events_non_consuming_exercise USING gin (flat_event_witnesses);
+--CREATE INDEX participant_events_non_consuming_exercise_tree_event_witnes_idx ON participant_events_non_consuming_exercise USING gin (tree_event_witnesses);
 
 
 ---------------------------------------------------------------------------------------------------
