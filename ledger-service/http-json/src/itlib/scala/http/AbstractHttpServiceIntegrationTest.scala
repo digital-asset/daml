@@ -1141,7 +1141,7 @@ abstract class AbstractHttpServiceIntegrationTest
           status shouldBe StatusCodes.Conflict
           assertStatus(output, StatusCodes.Conflict)
           expectedOneErrorMessage(output) should include(
-            s"Contract could not be found with id ContractId($contractIdString)"
+            s"Contract could not be found with id $contractIdString"
           )
         }: Future[Assertion]
   }

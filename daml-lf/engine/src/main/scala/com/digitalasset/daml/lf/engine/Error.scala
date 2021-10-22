@@ -153,7 +153,7 @@ object Error {
     final case class DamlException(error: interpretation.Error) extends Error {
       override def message: String = error match {
         case interpretation.Error.ContractNotFound(cid) =>
-          s"Contract could not be found with id $cid"
+          s"Contract could not be found with id ${cid.coid}"
         case interpretation.Error.ContractKeyNotFound(key) =>
           s"dependency error: couldn't find key: $key"
         case _ =>

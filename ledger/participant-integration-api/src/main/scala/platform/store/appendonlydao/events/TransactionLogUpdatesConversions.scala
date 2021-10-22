@@ -77,8 +77,9 @@ private[events] object TransactionLogUpdatesConversions {
           contractIds + event.contractId
         case (contractIds, event: ExercisedEvent) if event.consuming =>
           contractIds - event.contractId
-        case (contractId, _) =>
-          throw new RuntimeException(s"Unexpected non-consuming event for contractId $contractId")
+        case (contractIds, _) =>
+          val prettyCids = contractIds.iterator.map(_.coid).mkString(", ")
+          throw new RuntimeException(s"Unexpected non-consuming event for contractIds $prettyCids")
       }
       aux.filter(ev => permanent(ev.contractId))
     }

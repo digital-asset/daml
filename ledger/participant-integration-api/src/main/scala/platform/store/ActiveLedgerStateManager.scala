@@ -111,7 +111,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
           if (otherContractLet.isAfter(let)) {
             Some(
               InvalidLedgerTime(
-                s"Encountered contract [$cid] with LET [$otherContractLet] greater than the LET of the transaction [$let]"
+                s"Encountered contract [${cid.coid}] with LET [$otherContractLet] greater than the LET of the transaction [$let]"
               )
             )
           } else {
@@ -125,7 +125,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
           None
         case None =>
           // Contract not known
-          Some(Inconsistent(s"Could not lookup contract $cid"))
+          Some(Inconsistent(s"Could not lookup contract ${cid.coid}"))
       }
 
     def handleLeaf(
@@ -160,7 +160,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                 // A contract starts its life without being divulged at all.
                 divulgences = Map.empty,
                 key = nc.versionedKey.map(
-                  _.assertNoCid(coid => s"Contract ID $coid found in contract key")
+                  _.assertNoCid(coid => s"Contract ID ${coid.coid} found in contract key")
                 ),
                 signatories = nc.signatories,
                 observers = nc.stakeholders.diff(nc.signatories),
@@ -196,7 +196,10 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
             case nlkup: N.NodeLookupByKey =>
               // Check that the stored lookup result matches the current result
               val key = nlkup.key.key.ensureNoCid.fold(
-                coid => throw new IllegalStateException(s"Contract ID $coid found in contract key"),
+                coid =>
+                  throw new IllegalStateException(
+                    s"Contract ID ${coid.coid} found in contract key"
+                  ),
                 identity,
               )
               val gk = GlobalKey(nlkup.templateId, key)

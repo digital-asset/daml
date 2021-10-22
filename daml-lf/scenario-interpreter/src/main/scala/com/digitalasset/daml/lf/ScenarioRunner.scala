@@ -265,7 +265,7 @@ object ScenarioRunner {
         case ScenarioLedger.LookupContractNotFound(coid) =>
           // This should never happen, hence we don't have a specific
           // error for this.
-          throw Error.Internal(s"contract $coid not found")
+          throw Error.Internal(s"contract ${coid.coid} not found")
 
         case ScenarioLedger.LookupContractNotEffective(coid, tid, effectiveAt) =>
           throw Error.ContractNotEffective(coid, tid, effectiveAt)

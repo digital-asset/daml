@@ -975,7 +975,10 @@ private[lf] object SBuiltin {
       val chosenValue = onLedger.ptx.normValue(templateId, args.get(0))
       val coid = getSContractId(args, 1)
       val cached =
-        onLedger.cachedContracts.getOrElse(coid, crash(s"Contract $coid is missing from cache"))
+        onLedger.cachedContracts.getOrElse(
+          coid,
+          crash(s"Contract ${coid.coid} is missing from cache"),
+        )
       val sigs = cached.signatories
       val templateObservers = cached.observers
       val ctrls = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
@@ -1024,7 +1027,7 @@ private[lf] object SBuiltin {
           if (cached.templateId != templateId) {
             if (onLedger.ptx.localContracts.contains(coid)) {
               // This should be prevented by the type checker so it’s an internal error.
-              crash(s"contract $coid ($templateId) not found from partial transaction")
+              crash(s"contract ${coid.coid} ($templateId) not found from partial transaction")
             } else {
               // This is a user-error.
               machine.ctrl = SEDamlException(
@@ -1192,7 +1195,10 @@ private[lf] object SBuiltin {
     ): Unit = {
       val coid = getSContractId(args, 0)
       val cached =
-        onLedger.cachedContracts.getOrElse(coid, crash(s"Contract $coid is missing from cache"))
+        onLedger.cachedContracts.getOrElse(
+          coid,
+          crash(s"Contract ${coid.coid} is missing from cache"),
+        )
       val signatories = cached.signatories
       val observers = cached.observers
       val key = cached.key
@@ -1335,7 +1341,7 @@ private[lf] object SBuiltin {
         case Some(PartialTransaction.KeyActive(coid))
             if onLedger.ptx.localContracts.contains(coid) =>
           val cachedContract = onLedger.cachedContracts
-            .getOrElse(coid, crash(s"Local contract $coid not in cachedContracts"))
+            .getOrElse(coid, crash(s"Local contract ${coid.coid} not in cachedContracts"))
           val stakeholders = cachedContract.signatories union cachedContract.observers
           onLedger.visibleToStakeholders(stakeholders) match {
             case SVisibleToStakeholders.Visible =>

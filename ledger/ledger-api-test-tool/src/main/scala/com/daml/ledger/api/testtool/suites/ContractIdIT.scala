@@ -82,7 +82,7 @@ final class ContractIdIT extends LedgerTestSuite {
             .transformWith(Future.successful)
       } yield result match {
         case Failure(GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _))
-            if msg.contains(s"Contract could not be found with id ContractId($testedCid).") =>
+            if msg.contains(s"Contract could not be found with id $testedCid.") =>
           Success(())
         case Success(_) =>
           Failure(new UnknownError("Unexpected Success"))
