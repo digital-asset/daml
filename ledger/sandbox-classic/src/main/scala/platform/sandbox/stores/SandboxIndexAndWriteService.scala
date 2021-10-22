@@ -62,7 +62,6 @@ private[sandbox] object SandboxIndexAndWriteService {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       engine: Engine,
-      enableAppendOnlySchema: Boolean,
       enableCompression: Boolean,
       validatePartyAllocation: Boolean = false,
   )(implicit
@@ -90,14 +89,13 @@ private[sandbox] object SandboxIndexAndWriteService {
       lfValueTranslationCache = lfValueTranslationCache,
       engine = engine,
       validatePartyAllocation = validatePartyAllocation,
-      enableAppendOnlySchema = enableAppendOnlySchema,
       enableCompression = enableCompression,
     ).flatMap(ledger =>
       owner(
         ledger = MeteredLedger(ledger, metrics),
         participantId = participantId,
         timeProvider = timeProvider,
-        enablePruning = enableAppendOnlySchema,
+        enablePruning = true,
       )
     )
 

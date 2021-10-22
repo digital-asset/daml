@@ -8,8 +8,8 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.grpc.GrpcStatuses
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.lf.data.Ref.TransactionId
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories.{
   addDefiniteAnswerDetails,
   definiteAnswers,
@@ -64,6 +64,16 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     errorCodesVersionSwitcher.choose(
       v1 = io.grpc.Status.NOT_FOUND.asRuntimeException(),
       v2 = LedgerApiErrors.ReadErrors.PackageNotFound.Reject(packageId = packageId).asGrpcError,
+    )
+
+  def versionServiceInternalError(message: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = io.grpc.Status.INTERNAL
+        .withDescription(message)
+        .asRuntimeException(),
+      v2 = LedgerApiErrors.VersionServiceError.InternalError.Reject(message).asGrpcError,
     )
 
   def duplicateCommandException(implicit
@@ -259,6 +269,15 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     grpcError(statusBuilder.build())
   }
 
+  def configurationEntryRejected(message: String, definiteAnswer: Option[Boolean])(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = {
+    errorCodesVersionSwitcher.choose(
+      v1 = aborted(message, definiteAnswer),
+      v2 = LedgerApiErrors.WriteErrors.ConfigurationEntryRejected.Reject(message).asGrpcError,
+    )
+  }
+
   // permission denied is intentionally without description to ensure we don't leak security relevant information by accident
   def permissionDenied(cause: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -318,6 +337,8 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
         grpcError(statusBuilder.build())
       },
+      // TODO error codes: This error group is confusing for this generic error as it can be dispatched
+      //                   from call-sites that do not involve Daml interpreter.
       v2 = LedgerApiErrors.InterpreterErrors.LookupErrors.LedgerConfigurationNotFound
         .Reject()
         .asGrpcError,

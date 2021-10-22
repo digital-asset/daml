@@ -12,8 +12,7 @@ import org.scalatest.matchers.should.Matchers
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.platform.indexer.IncrementalOffsetStep
-import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
+import com.daml.platform.store.appendonlydao._
 import com.daml.platform.store.entries.PackageLedgerEntry
 
 private[dao] trait JdbcLedgerDaoPackagesSpec {
@@ -90,19 +89,11 @@ private[dao] trait JdbcLedgerDaoPackagesSpec {
     }
   }
 
-  it should "fail on storing package entry with non-incremental offsets" in {
-    val offset = nextOffset()
-    recoverToSucceededIf[LedgerEndUpdateError](
-      ledgerDao
-        .storePackageEntry(IncrementalOffsetStep(offset, offset), packages, None)
-    )
-  }
-
   private def storePackageEntry(
       offset: Offset,
       packageList: List[(DamlLf.Archive, PackageDetails)],
       optEntry: Option[PackageLedgerEntry] = None,
   ) =
     ledgerDao
-      .storePackageEntry(nextOffsetStep(offset), packageList, optEntry)
+      .storePackageEntry(offset, packageList, optEntry)
 }

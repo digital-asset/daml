@@ -14,8 +14,8 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.PruneBuffersNoOp
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.appendonlydao.LedgerReadDao
 import com.daml.platform.store.cache.TranslationCacheBackedContractStore
-import com.daml.platform.store.dao.LedgerReadDao
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}

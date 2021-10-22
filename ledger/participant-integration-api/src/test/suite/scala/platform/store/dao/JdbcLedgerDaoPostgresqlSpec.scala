@@ -16,12 +16,15 @@ final class JdbcLedgerDaoPostgresqlSpec
     with JdbcLedgerDaoActiveContractsSpec
     with JdbcLedgerDaoCompletionsSpec
     with JdbcLedgerDaoConfigurationSpec
-    with JdbcLedgerDaoConfigurationMutatingSpec
+    with JdbcLedgerDaoConfigurationAppendOnlySpec
     with JdbcLedgerDaoContractsSpec
+    with JdbcLedgerDaoContractsAppendOnlySpec
     with JdbcLedgerDaoDivulgenceSpec
     with JdbcLedgerDaoExceptionSpec
     with JdbcLedgerDaoPartiesSpec
     with JdbcLedgerDaoTransactionsSpec
     with JdbcLedgerDaoTransactionTreesSpec
+    with JdbcLedgerDaoContractEventsStreamSpec
     with JdbcLedgerDaoTransactionsWriterSpec
-    with JdbcAtomicTransactionInsertion
+    with JdbcLedgerDaoTransactionLogUpdatesSpec
+    with JdbcAppendOnlyTransactionInsertion

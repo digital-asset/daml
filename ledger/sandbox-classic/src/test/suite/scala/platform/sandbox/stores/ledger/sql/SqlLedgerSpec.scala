@@ -467,7 +467,6 @@ final class SqlLedgerSpec
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         engine = new Engine(),
         validatePartyAllocation = false,
-        enableAppendOnlySchema = true,
         enableCompression = false,
       ).acquire()(ResourceContext(system.dispatcher))
     createdLedgers += ledger

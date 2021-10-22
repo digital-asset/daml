@@ -84,7 +84,6 @@ final class StandaloneApiServer(
           metrics = metrics,
           lfValueTranslationCache = lfValueTranslationCache,
           enricher = valueEnricher,
-          enableAppendOnlySchema = config.enableAppendOnlySchema,
           maxContractStateCacheSize = config.maxContractStateCacheSize,
           maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
           enableMutableContractStateCache = config.enableMutableContractStateCache,

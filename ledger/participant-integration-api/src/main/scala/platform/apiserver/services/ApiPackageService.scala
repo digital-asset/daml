@@ -83,7 +83,7 @@ private[apiserver] final class ApiPackageService private (
 
   private def withValidatedPackageId[T, R](packageId: String, request: R)(
       block: Ref.PackageId => Future[T]
-  ): Future[T] =
+  )(implicit loggingContext: LoggingContext): Future[T] =
     Ref.PackageId
       .fromString(packageId)
       .fold(

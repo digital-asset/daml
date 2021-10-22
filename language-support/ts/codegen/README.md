@@ -83,7 +83,7 @@ import * as daml from '@daml/types';
 
 See the [SDK docs](https://github.com/digital-asset/daml/tree/main/docs/source/daml2js).
 
-#### Interfaces
+#### Typescript Interfaces
 
 - `Serializable<T>`
   - An object that implements the `Serializable<T>` interface has a field `decoder: () => jtv.Decoder<T>`;
@@ -285,10 +285,13 @@ export type Iou = {
   amount: daml.Numeric;
 }
 
-export const Iou: daml.Template<Iou, Iou.Key, 'Iou:Iou'> & {
+export interface IouInterface = {
   Archive: daml.Choice<Iou, DA_Internal_Template.Archive, {}, Iou.Key>;
   Transfer: daml.Choice<Iou, Transfer, daml.ContractId<Iou>, Iou.Key>;
-} = {
+}
+
+export const Iou: daml.Template<Iou, Iou.Key, 'Iou:Iou'> & IouInterface
+ = {
   templateId: 'Iou:Iou',
   keyDecoder: () => daml.Party.decoder(),
   decoder: () => jtv.object({
@@ -319,7 +322,70 @@ daml.registerTemplate(Iou);
 ```
 
 `daml2js` has produced:
-  - Type definitions corresponding to the `Transfer` choice and the `Iou` template;
+  - Type definitions corresponding to the `Transfer` choice, the `Iou` template and the
+    `IouInterface` consisting of its declared choices;
   - Companion objects for those types;
   - An `Iou` template associated type definition `Key` in the `Iou` namespace;
   - A module scoped function call to `registerTemplate` to add the `Iou` object to a central registry.
+
+#### Daml Interfaces
+
+An `Asset` interface.
+
+```haskell
+interface Asset where
+  getAmount : Int
+  choice Transfer : ContractId Asset
+    with
+      newOwner : Party
+
+A Daml interface is translated to a TypeScript interface as follows. 
+
+```typescript
+export declare interface AssetInterface <T extends object>{
+  Transfer: damlTypes.Choice<T, Transfer, damlTypes.ContractId<AssetInterface<T>>, undefined>;
+}
+export declare const Asset: damlTypes.Template<object, undefined, 'Asset'> & AssetInterface<object>;
+```
+
+Note that pure methods of the interface are omitted since they are not serializable. The following
+is a template implementing the `Asset` interface and a `Other` interface.
+
+```haskell
+template Iou
+  with
+    issuer: Party
+    owner: Party
+    currency: Text
+    amount: Decimal
+  where
+    signatory issuer
+    key owner : Party
+    maintainer key
+
+    implements Asset where
+
+      let getAmount = amount
+
+      choice Transfer: ContractId Iou
+        with
+          newOwner: Party
+        controller owner
+        do
+          create this with owner = newOwner
+
+    implements Other where
+      choice SomethingElse : ()
+        controller owner
+        do
+          ...
+```
+
+The implementation is reflected in an extension of the `IouInterface` with `AssetInterface` and `OtherInterface`.
+
+```typescript
+export interface IouInterface extends AssetInterface<Iou>, OtherInterface<Iou>  = {
+  Archive: daml.Choice<Iou, DA_Internal_Template.Archive, {}, Iou.Key>;
+  Transfer: daml.Choice<Iou, Transfer, daml.ContractId<AssetInterface<Iou> & OtherInterface<Iou>>, Iou.Key>;
+}
+```

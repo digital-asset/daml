@@ -15,7 +15,6 @@ import scala.concurrent.duration.FiniteDuration
   */
 final case class ParticipantIndexerConfig(
     allowExistingSchema: Boolean,
-    databaseConnectionPoolSize: Int = ParticipantIndexerConfig.DefaultDatabaseConnectionPoolSize,
     databaseConnectionTimeout: FiniteDuration =
       ParticipantIndexerConfig.DefaultDatabaseConnectionTimeout,
     maxInputBufferSize: Int = ParticipantIndexerConfig.DefaultMaxInputBufferSize,
@@ -30,7 +29,6 @@ final case class ParticipantIndexerConfig(
 )
 
 object ParticipantIndexerConfig {
-  val DefaultDatabaseConnectionPoolSize: Int = IndexerConfig.DefaultDatabaseConnectionPoolSize
   val DefaultDatabaseConnectionTimeout: FiniteDuration =
     IndexerConfig.DefaultDatabaseConnectionTimeout
   val DefaultMaxInputBufferSize: Int = IndexerConfig.DefaultMaxInputBufferSize
