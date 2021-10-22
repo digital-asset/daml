@@ -972,7 +972,7 @@ convertImplements env tplTypeCon = NM.fromList <$>
                 | (FieldName fieldName, e) <- methodFields
                 , Just methodName <- [T.stripPrefix "m_" fieldName]
                 ]
-        let inheritedChoiceNames = S.empty -- TODO
+        let inheritedChoiceNames = S.empty -- This is filled during LF post-processing (in the LF completer).
         pure (TemplateImplements con methods inheritedChoiceNames)
 
 convertChoices :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
