@@ -258,7 +258,6 @@ da_scala_test_suite(
                 "--contract-id-seeding=testing-weak",
                 "--participant participant-id=conformance-test,port=6865",
                 "--max-deduplication-duration=PT5S",
-                "--index-append-only-schema",
                 "--mutable-contract-state-cache",
             ] + db.get("conformance_test_server_args", []),
             tags = db.get("conformance_test_tags", []),
@@ -279,7 +278,6 @@ da_scala_test_suite(
             server_args = [
                 "--contract-id-seeding=testing-weak",
                 "--participant participant-id=example,port=6865",
-                "--index-append-only-schema",
                 "--mutable-contract-state-cache",
             ] + db.get("conformance_test_server_args", []),
             tags = db.get("benchmark_performance_envelope_tags", []),
@@ -315,7 +313,6 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema",
         "--mutable-contract-state-cache",
         "--max-deduplication-duration=PT5S",
     ],
@@ -342,7 +339,6 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema",
         "--mutable-contract-state-cache",
         "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
         "--max-deduplication-duration=PT5S",
@@ -370,7 +366,6 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema",
         "--mutable-contract-state-cache",
         "--max-deduplication-duration=PT5S",
     ],
@@ -397,7 +392,6 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
-        "--index-append-only-schema",
         "--mutable-contract-state-cache",
         "--buffered-ledger-api-streams-unsafe",
         "--max-deduplication-duration=PT5S",
@@ -419,13 +413,12 @@ conformance_test(
 
 # Feature test: --buffered-ledger-api-streams-unsafe (in-memory fan-out) (Oracle)
 conformance_test(
-    name = "conformance-test-append-only-in-memory-fan-out-oracle",
+    name = "conformance-test-in-memory-fan-out-oracle",
     ports = [6865],
     server = ":conformance-test-oracle-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
-        "--index-append-only-schema",
         "--mutable-contract-state-cache",
         "--buffered-ledger-api-streams-unsafe",
         "--max-deduplication-duration=PT5S",
@@ -455,7 +448,6 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
-        "--index-append-only-schema",
         "--mutable-contract-state-cache",
         "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
     ],

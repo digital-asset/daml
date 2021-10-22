@@ -4,9 +4,7 @@
 package com.daml.platform.store.appendonlydao.events
 
 import java.io.ByteArrayInputStream
-
 import com.daml.platform.store.appendonlydao.events
-import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.backend.StorageBackend.RawContractStateEvent

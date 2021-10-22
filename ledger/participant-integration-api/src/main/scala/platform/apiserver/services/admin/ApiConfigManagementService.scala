@@ -7,7 +7,11 @@ import java.time.{Duration => JDuration}
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.{DurationConversion, TimeProvider, TimestampConversion}
-import com.daml.error.{DamlContextualizedErrorLogger, ContextualizedErrorLogger}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
@@ -36,6 +40,7 @@ private[apiserver] final class ApiConfigManagementService private (
     writeService: state.WriteConfigService,
     timeProvider: TimeProvider,
     submissionIdGenerator: String => Ref.SubmissionId,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -45,6 +50,9 @@ private[apiserver] final class ApiConfigManagementService private (
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
+  private val errorFactories =
+    com.daml.platform.server.api.validation.ErrorFactories(errorCodesVersionSwitcher)
 
   override def close(): Unit = ()
 
@@ -60,7 +68,7 @@ private[apiserver] final class ApiConfigManagementService private (
           Future.successful(configurationToResponse(configuration))
         case None =>
           // TODO error codes: Duplicate of missingLedgerConfig
-          Future.failed(ErrorFactories.missingLedgerConfigUponRequest)
+          Future.failed(errorFactories.missingLedgerConfigUponRequest)
       }
       .andThen(logger.logErrorsOnCall[GetTimeModelResponse])
   }
@@ -106,7 +114,7 @@ private[apiserver] final class ApiConfigManagementService private (
                 logger.warn(
                   "Could not get the current time model. The index does not yet have any ledger configuration."
                 )
-                Future.failed(ErrorFactories.missingLedgerConfig(None))
+                Future.failed(errorFactories.missingLedgerConfig(None))
             }
           (ledgerEndBeforeRequest, currentConfig) = configuration
 
@@ -117,7 +125,7 @@ private[apiserver] final class ApiConfigManagementService private (
               Future.failed(
                 ValidationLogger.logFailureWithContext(
                   request,
-                  ErrorFactories.invalidArgument(None)(
+                  errorFactories.invalidArgument(None)(
                     s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
                   ),
                 )
@@ -139,6 +147,7 @@ private[apiserver] final class ApiConfigManagementService private (
               writeService,
               index,
               ledgerEndBeforeRequest,
+              errorFactories,
             ),
             timeToLive = JDuration.ofMillis(params.timeToLive.toMillis),
           )
@@ -176,7 +185,7 @@ private[apiserver] final class ApiConfigManagementService private (
         minSkew = DurationConversion.fromProto(pMinSkew),
         maxSkew = DurationConversion.fromProto(pMaxSkew),
       ) match {
-        case Failure(err) => Left(ErrorFactories.invalidArgument(None)(err.toString))
+        case Failure(err) => Left(errorFactories.invalidArgument(None)(err.toString))
         case Success(ok) => Right(ok)
       }
       // TODO(JM): The maximum record time should be constrained, probably by the current active time model?
@@ -189,7 +198,7 @@ private[apiserver] final class ApiConfigManagementService private (
       }
       maximumRecordTime <- Time.Timestamp
         .fromInstant(mrtInstant)
-        .fold(err => Left(ErrorFactories.invalidArgument(None)(err)), Right(_))
+        .fold(err => Left(errorFactories.invalidArgument(None)(err)), Right(_))
     } yield SetTimeModelParameters(newTimeModel, maximumRecordTime, timeToLive)
   }
 
@@ -201,6 +210,7 @@ private[apiserver] object ApiConfigManagementService {
       readBackend: IndexConfigManagementService,
       writeBackend: state.WriteConfigService,
       timeProvider: TimeProvider,
+      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
       submissionIdGenerator: String => Ref.SubmissionId = augmentSubmissionId,
   )(implicit
       materializer: Materializer,
@@ -212,13 +222,15 @@ private[apiserver] object ApiConfigManagementService {
       writeBackend,
       timeProvider,
       submissionIdGenerator,
+      errorCodesVersionSwitcher,
     )
 
   private final class SynchronousResponseStrategy(
       writeConfigService: state.WriteConfigService,
       configManagementService: IndexConfigManagementService,
       ledgerEnd: LedgerOffset.Absolute,
-  )(implicit loggingContext: LoggingContext)
+      errorFactories: ErrorFactories,
+  )(implicit loggingContext: LoggingContext, contextualizedErrorLogger: ContextualizedErrorLogger)
       extends SynchronousResponse.Strategy[
         (Time.Timestamp, Configuration),
         ConfigurationEntry,
@@ -252,7 +264,7 @@ private[apiserver] object ApiConfigManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[ConfigurationEntry, StatusRuntimeException] = {
       case domain.ConfigurationEntry.Rejected(`submissionId`, reason, _) =>
-        ErrorFactories.aborted(reason, None)
+        errorFactories.configurationEntryRejected(reason, None)
     }
   }
 

@@ -22,13 +22,22 @@ git remote add da-fork git@github.com:digital-asset/ghc.git
 git fetch da-fork
 ```
 
-3. Checkout the version of interest and update the submodules:
+3. Set git URL rewrite rules
+
+The `ghc` repo uses relative paths for its submodules, so things will break when using the `da-fork` remote. To avoid this, we tell git to use the address of the real submodule repos instead of the non-existent github repos it would get by following the relative paths:
+
+```
+git config --global url."ssh://git@gitlab.haskell.org/ghc/arcanist-external-json-linter.git".insteadOf git@github.com:digital-asset/arcanist-external-json-linter.git
+git config --global url."ssh://git@gitlab.haskell.org/ghc/packages/".insteadOf git@github.com:digital-asset/packages/
+```
+
+4. Checkout the version of interest and update the submodules:
 ```
 git checkout da-master-8.8.1
 git submodule update --init --recursive
 ```
 
-4. Made initial build (takes about 15 mins)
+5. Made initial build (takes about 15 mins)
 ```
 hadrian/build.stack.sh --configure --flavour=quickest -j
 ```
@@ -67,7 +76,7 @@ Once you have the GHC patch you want to incorporate into the Daml repo, here's t
 4. Before merging the PR, the pin command will also have to be run on windows, and those changes committed as well. You will need access to a windows machine for that: `ad-hoc.sh windows create`
 
 
-### Working on an `add-hoc` windows machine
+### Working on an `ad-hoc` windows machine
 
 1. First time, clone the `daml-language-ad-hoc` repo: (On following times, just pull for any updates to the scripts)
 ```

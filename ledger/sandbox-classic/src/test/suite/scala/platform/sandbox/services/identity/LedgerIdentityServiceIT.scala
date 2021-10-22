@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandbox.services.{SandboxEnableAppendOnlySchema, SandboxFixture}
+import com.daml.platform.sandbox.services.SandboxFixture
 import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -50,12 +50,6 @@ final class LedgerIdentityServiceInMemoryGivenIT extends LedgerIdentityServiceIT
 final class LedgerIdentityServicePostgresGivenIT
     extends LedgerIdentityServiceITBaseGiven
     with SandboxBackend.Postgresql
-
-// TODO append-only: remove this class once the append-only schema is the default one
-final class LedgerIdentityServicePostgresAppendOnlyGivenIT
-    extends LedgerIdentityServiceITBaseGiven
-    with SandboxBackend.Postgresql
-    with SandboxEnableAppendOnlySchema
 
 sealed trait LedgerIdentityServiceITBaseDynamic
     extends AnyWordSpec
@@ -130,9 +124,3 @@ final class LedgerIdentityServicePostgresDynamicSharedPostgresIT
     }
   }
 }
-
-// TODO append-only: remove this class once the append-only schema is the default one
-final class LedgerIdentityServicePostgresAppendOnlyDynamicIT
-    extends LedgerIdentityServiceITBaseDynamic
-    with SandboxBackend.Postgresql
-    with SandboxEnableAppendOnlySchema

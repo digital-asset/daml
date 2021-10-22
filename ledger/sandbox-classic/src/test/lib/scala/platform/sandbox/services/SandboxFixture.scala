@@ -19,13 +19,9 @@ import scala.concurrent.duration.DurationInt
 trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(SandboxServer, Channel)] {
   self: Suite =>
 
-  // TODO append-only: remove after the mutating schema is removed
-  protected def enableAppendOnlySchema: Boolean = false
-
   override protected def config: SandboxConfig =
     super.config.copy(
-      delayBeforeSubmittingLedgerConfiguration = Duration.ZERO,
-      enableAppendOnlySchema = enableAppendOnlySchema,
+      delayBeforeSubmittingLedgerConfiguration = Duration.ZERO
     )
 
   protected def server: SandboxServer = suiteResource.value._1

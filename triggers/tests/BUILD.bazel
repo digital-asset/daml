@@ -41,6 +41,7 @@ DAML_LF_VERSIONS = [
       cp -L $(location :daml/TemplateIdFilter.daml) $$TMP_DIR/daml
       cp -L $(location :daml/Time.daml) $$TMP_DIR/daml
       cp -L $(location :daml/Heartbeat.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/ReadAs.daml) $$TMP_DIR/daml
       cp -L $(location //templates:copy-trigger/src/CopyTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger{suffix}.dar) $$TMP_DIR/daml-trigger.dar
       cp -L $(location //daml-script/daml:daml-script{suffix}.dar) $$TMP_DIR/daml-script.dar

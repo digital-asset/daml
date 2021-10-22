@@ -154,7 +154,7 @@ private[daml] object ApiServices {
         ApiLedgerIdentityService.create(() => identityService.getLedgerId(), errorsVersionsSwitcher)
 
       val apiVersionService =
-        ApiVersionService.create()
+        ApiVersionService.create(errorsVersionsSwitcher)
 
       val apiPackageService =
         ApiPackageService.create(ledgerId, packagesService, errorsVersionsSwitcher)
@@ -290,6 +290,7 @@ private[daml] object ApiServices {
           configManagementService,
           writeService,
           timeProvider,
+          errorsVersionsSwitcher,
         )
 
         val apiParticipantPruningService =

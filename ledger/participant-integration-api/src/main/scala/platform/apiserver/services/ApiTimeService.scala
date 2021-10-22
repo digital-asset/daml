@@ -47,12 +47,11 @@ private[apiserver] final class ApiTimeService private (
 
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
   private val fieldValidations = FieldValidations(errorFactories)
+  private val dispatcher = SignalDispatcher[Instant]()
 
   logger.debug(
     s"${getClass.getSimpleName} initialized with ledger ID ${ledgerId.unwrap}, start time ${backend.getCurrentTime}"
   )
-
-  private val dispatcher = SignalDispatcher[Instant]()
 
   override protected def getTimeSource(
       request: GetTimeRequest

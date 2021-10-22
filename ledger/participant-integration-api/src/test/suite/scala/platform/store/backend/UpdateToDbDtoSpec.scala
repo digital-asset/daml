@@ -4,7 +4,6 @@
 package com.daml.platform.store.backend
 
 import java.time.Duration
-
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.api.domain
@@ -20,7 +19,7 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.platform.index.index.StatusDetails
-import com.daml.platform.store.appendonlydao.JdbcLedgerDao
+import com.daml.platform.store.appendonlydao.{DeduplicationKeyMaker, JdbcLedgerDao}
 import com.daml.platform.store.appendonlydao.events.Raw.TreeEvent
 import com.daml.platform.store.appendonlydao.events.{
   CompressionStrategy,
@@ -31,7 +30,6 @@ import com.daml.platform.store.appendonlydao.events.{
   LfValueSerialization,
   Raw,
 }
-import com.daml.platform.store.dao.DeduplicationKeyMaker
 import com.google.protobuf.ByteString
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status

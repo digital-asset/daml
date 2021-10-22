@@ -4,15 +4,13 @@
 package com.daml.platform.index
 
 import java.util.concurrent.atomic.AtomicReference
-
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.stream._
 import akka.{Done, NotUsed}
 import com.daml.ledger.offset.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.index.BuffersUpdater._
-import com.daml.platform.store.appendonlydao.events.{Contract, Key, Party}
-import com.daml.platform.store.dao.events.ContractStateEvent
+import com.daml.platform.store.appendonlydao.events.{Contract, ContractStateEvent, Key, Party}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.scalautil.Statement.discard
 
@@ -22,7 +20,7 @@ import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 /** Creates and manages a subscription to a transaction log updates source
-  * (see [[com.daml.platform.store.dao.LedgerDaoTransactionsReader.getTransactionLogUpdates]]
+  * (see [[LedgerDaoTransactionsReader.getTransactionLogUpdates]]
   * and uses it for updating:
   *    * The transactions buffer used for in-memory Ledger API serving.
   *    * The mutable contract state cache.

@@ -81,7 +81,7 @@ instance HasTime (TriggerA s) where
 -- cannot use `emitCommands` or `getTime`.
 newtype TriggerUpdateA s a =
   -- | HIDE
-  TriggerUpdateA { runTriggerUpdateA : (Map CommandId [Command], ACS) -> State s a }
+  TriggerUpdateA { runTriggerUpdateA : (Map CommandId [Command], ACS, [Party]) -> State s a }
 
 instance Functor (TriggerUpdateA s) where
   fmap f (TriggerUpdateA r) = TriggerUpdateA $ rliftFmap fmap f r
@@ -102,7 +102,7 @@ instance ActionState s (TriggerUpdateA s) where
 -- trigger.  It can query, but not emit commands or update the state.
 newtype TriggerInitializeA a =
   -- | HIDE
-  TriggerInitializeA { runTriggerInitializeA : ACS -> a }
+  TriggerInitializeA { runTriggerInitializeA : (ACS, [Party]) -> a }
   deriving (Functor, Applicative, Action)
 
 -- Internal API
@@ -171,12 +171,13 @@ runRule rule = do
   state <- get
   TriggerRule . zoom zoomIn zoomOut . runTriggerRule . flip runTriggerA state.acs
       $ rule state.party
-  where zoomIn state = TriggerAState state.commandsInFlight state.acs.pendingContracts state.userState
+  where zoomIn state = TriggerAState state.commandsInFlight state.acs.pendingContracts state.userState state.readAs
         zoomOut state aState =
           let commandsInFlight = aState.commandsInFlight
               acs = state.acs { pendingContracts = aState.pendingContracts }
               userState = aState.userState
-          in state { commandsInFlight, acs, userState }
+              readAs = aState.readAs
+          in state { commandsInFlight, acs, userState, readAs }
 
 -- | HIDE
 liftTriggerRule : TriggerRule (TriggerAState s) a -> TriggerA s a
@@ -192,12 +193,15 @@ data TriggerAState s = TriggerAState
   -- zoomed from TriggerState's acs.
   , userState : s
   -- ^ zoomed from TriggerState
+  , readAs : [Party]
+  -- ^ zoomed from TriggerState
   }
 
 -- | HIDE
 data TriggerState s = TriggerState
   { acs : ACS
   , party : Party
+  , readAs : [Party]
   , userState : s
   , commandsInFlight : Map CommandId [Command]
   }

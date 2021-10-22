@@ -3,12 +3,16 @@
 
 package com.daml
 
-import error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
-import ledger.api.domain.LedgerId
-import logging.{ContextualizedLogger, LoggingContext}
-import platform.server.api.validation.ErrorFactories
-import platform.server.api.validation.ErrorFactories._
-
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.lf.data.Ref
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.server.api.validation.ErrorFactories._
 import com.google.protobuf
 import com.google.rpc._
 import io.grpc.Status.Code
@@ -32,7 +36,6 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     ErrorDetails.RequestInfoDetail("trace-id")
 
   "ErrorFactories" should {
-
     "return malformedPackageId" in {
       assertVersionedError(
         _.malformedPackageId(request = "request123", message = "message123")(
@@ -64,6 +67,51 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           ErrorDetails.ErrorInfoDetail("PACKAGE_NOT_FOUND"),
           DefaultTraceIdRequestInfo,
           ErrorDetails.ResourceInfoDetail("PACKAGE", "packageId123"),
+        ),
+      )
+    }
+
+    "return the internalError" in {
+      assertVersionedError(_.versionServiceInternalError("message123"))(
+        v1_code = Code.INTERNAL,
+        v1_message = "message123",
+        v1_details = Seq.empty,
+        v2_code = Code.INTERNAL,
+        v2_message =
+          s"An error occurred. Please contact the operator and inquire about the request trace-id",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("VERSION_SERVICE_INTERNAL_ERROR"),
+          DefaultTraceIdRequestInfo,
+        ),
+      )
+    }
+
+    "return the configurationEntryRejected" in {
+      assertVersionedError(_.configurationEntryRejected("message123", None))(
+        v1_code = Code.ABORTED,
+        v1_message = "message123",
+        v1_details = Seq.empty,
+        v2_code = Code.FAILED_PRECONDITION,
+        v2_message = s"CONFIGURATION_ENTRY_REJECTED(9,$correlationId): message123",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("CONFIGURATION_ENTRY_REJECTED"),
+          DefaultTraceIdRequestInfo,
+        ),
+      )
+    }
+
+    "return a transactionNotFound error" in {
+      assertVersionedError(_.transactionNotFound(Ref.TransactionId.assertFromString("tId")))(
+        v1_code = Code.NOT_FOUND,
+        v1_message = "Transaction not found, or not visible.",
+        v1_details = Seq.empty,
+        v2_code = Code.NOT_FOUND,
+        v2_message =
+          s"TRANSACTION_NOT_FOUND(11,$correlationId): Transaction not found, or not visible.",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("TRANSACTION_NOT_FOUND"),
+          DefaultTraceIdRequestInfo,
+          ErrorDetails.ResourceInfoDetail("TRANSACTION_ID", "tId"),
         ),
       )
     }
@@ -327,6 +375,29 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         assertVersionedError(_.invalidArgument(definiteAnswer)("my message"))(
           v1_code = Code.INVALID_ARGUMENT,
           v1_message = "Invalid argument: my message",
+          v1_details = expectedDetails,
+          v2_code = Code.INVALID_ARGUMENT,
+          v2_message =
+            s"INVALID_ARGUMENT(8,$correlationId): The submitted command has invalid arguments: my message",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("INVALID_ARGUMENT"),
+            DefaultTraceIdRequestInfo,
+          ),
+        )
+      }
+    }
+
+    "return an invalidArgument (with legacy error code as NOT_FOUND) error" in {
+      val testCases = Table(
+        ("definite answer", "expected details"),
+        (None, Seq.empty),
+        (Some(false), Seq(definiteAnswers(false))),
+      )
+
+      forEvery(testCases) { (definiteAnswer, expectedDetails) =>
+        assertVersionedError(_.invalidArgumentWasNotFound(definiteAnswer)("my message"))(
+          v1_code = Code.NOT_FOUND,
+          v1_message = "my message",
           v1_details = expectedDetails,
           v2_code = Code.INVALID_ARGUMENT,
           v2_message =

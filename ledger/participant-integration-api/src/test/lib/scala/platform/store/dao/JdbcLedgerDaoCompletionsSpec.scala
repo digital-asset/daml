@@ -209,7 +209,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
           )
         ),
         recordTime = Instant.now,
-        offsetStep = nextOffsetStep(offset),
+        offset,
         reason = reason,
       )
       .map(_ => offset)
@@ -233,7 +233,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
           )
         ),
         recordTime = Instant.now,
-        offsetStep = nextOffsetStep(offset),
+        offset,
         reason = reason,
       )
       .map(_ => offset)

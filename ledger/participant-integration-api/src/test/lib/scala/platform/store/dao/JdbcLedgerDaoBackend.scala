@@ -13,6 +13,7 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.store.appendonlydao.LedgerDao
 import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParticipantId}
 import com.daml.platform.store.{DbType, FlywayMigrations, LfValueTranslationCache}
 import org.scalatest.AsyncTestSuite
@@ -40,46 +41,27 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
 
   protected def jdbcUrl: String
 
-  protected def enableAppendOnlySchema: Boolean
-
   protected def daoOwner(
       eventsPageSize: Int,
       eventsProcessingParallelism: Int,
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] =
-    if (!enableAppendOnlySchema) {
-      JdbcLedgerDao.writeOwner(
-        serverRole = ServerRole.Testing(getClass),
-        jdbcUrl = jdbcUrl,
-        // this was the previous default.
-        // keeping it hardcoded here to keep tests working as before extracting the parameter
-        connectionPoolSize = 16,
-        connectionTimeout = 250.millis,
-        eventsPageSize = eventsPageSize,
-        servicesExecutionContext = executionContext,
-        metrics = new Metrics(new MetricRegistry),
-        lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-        jdbcAsyncCommitMode = DbType.AsynchronousCommit,
-        enricher = Some(new ValueEnricher(new Engine())),
-      )
-    } else {
-      com.daml.platform.store.appendonlydao.JdbcLedgerDao.writeOwner(
-        serverRole = ServerRole.Testing(getClass),
-        jdbcUrl = jdbcUrl,
-        // this was the previous default.
-        // keeping it hardcoded here to keep tests working as before extracting the parameter
-        connectionPoolSize = 16,
-        connectionTimeout = 250.millis,
-        eventsPageSize = eventsPageSize,
-        eventsProcessingParallelism = eventsProcessingParallelism,
-        servicesExecutionContext = executionContext,
-        metrics = new Metrics(new MetricRegistry),
-        lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-        enricher = Some(new ValueEnricher(new Engine())),
-        participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
-      )
-    }
+    com.daml.platform.store.appendonlydao.JdbcLedgerDao.writeOwner(
+      serverRole = ServerRole.Testing(getClass),
+      jdbcUrl = jdbcUrl,
+      // this was the previous default.
+      // keeping it hardcoded here to keep tests working as before extracting the parameter
+      connectionPoolSize = 16,
+      connectionTimeout = 250.millis,
+      eventsPageSize = eventsPageSize,
+      eventsProcessingParallelism = eventsProcessingParallelism,
+      servicesExecutionContext = executionContext,
+      metrics = new Metrics(new MetricRegistry),
+      lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+      enricher = Some(new ValueEnricher(new Engine())),
+      participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
+    )
 
   protected final var ledgerDao: LedgerDao = _
 
@@ -93,7 +75,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     resource = newLoggingContext { implicit loggingContext =>
       for {
         _ <- Resource.fromFuture(
-          new FlywayMigrations(jdbcUrl, enableAppendOnlySchema = enableAppendOnlySchema).migrate()
+          new FlywayMigrations(jdbcUrl).migrate()
         )
         dao <- daoOwner(100, 4).acquire()
         _ <- Resource.fromFuture(dao.initialize(TestLedgerId, TestParticipantId))

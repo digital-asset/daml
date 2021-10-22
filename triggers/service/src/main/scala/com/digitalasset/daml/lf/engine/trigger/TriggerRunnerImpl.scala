@@ -187,7 +187,11 @@ object TriggerRunnerImpl {
           client,
           config.ledgerConfig.timeProvider,
           config.applicationId,
-          config.party,
+          TriggerParties(
+            actAs = config.party,
+            // TODO (MK) Support multi-party readAs in the trigger service.
+            readAs = Set.empty,
+          ),
         )
         (acs, offset) <- runner.queryACS()
       } yield QueriedACS(runner, acs, offset)
