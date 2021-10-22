@@ -427,7 +427,7 @@ generateSerializedDalfRule options =
                                     let selfPkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps
                                         world = LF.initWorldSelf pkgs selfPkg
                                         completed = LF.completeModule world lfVersion rawDalf
-                                    rawDalf <- pure $ LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion completed
+                                        rawDalf = LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion completed
                                         -- NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
                                         -- across modules when doing incremental builds. The reason is that our Shake rules
                                         -- use ABI changes to determine whether to rebuild the module, so if an implementaion
