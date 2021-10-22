@@ -150,9 +150,7 @@ class ApiCommandServiceSpec
       ).use { stub =>
         val request = SubmitAndWaitRequest.of(Some(commands))
         stub.submitAndWaitForTransactionId(request).failed.map { exception =>
-          Thread.sleep(1000)
-          exception should matchPattern { case GrpcException(GrpcStatus.ABORTED(), _) =>
-          } // TODO!!!
+          exception should matchPattern { case GrpcException(GrpcStatus.ABORTED(), _) => }
           verifyZeroInteractions(errorCodesVersionSwitcher)
           succeed
         }
