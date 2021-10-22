@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.benchtool
 
-import com.daml.ledger.api.benchtool.generating.ContractProducer
+import com.daml.ledger.api.benchtool.submission.CommandSubmitter
 import com.daml.ledger.api.benchtool.services._
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
@@ -49,7 +49,7 @@ object LedgerApiBenchTool {
           Future.successful(
             logger.info("No contract set descriptor file provided. Skipping contracts generation.")
           )
-        case Some(descriptorFile) => ContractProducer(apiServices).create(descriptorFile)
+        case Some(descriptorFile) => CommandSubmitter(apiServices).submitCommands(descriptorFile)
       }
 
       def benchmarkStep(): Future[Unit] = if (config.streams.isEmpty) {
