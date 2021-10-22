@@ -31,7 +31,7 @@ final class LedgerIdentityService(channel: Channel) {
         case Failure(exception) =>
           Future.failed {
             logger.error(
-              s"Error during fetching the ledger id. Details: ${exception.getLocalizedMessage}",
+              s"Error during fetching of the ledger id. Details: ${exception.getLocalizedMessage}",
               exception,
             )
             exception
