@@ -2,8 +2,9 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Completion is an LF postprocessing step. It happens after LF conversion,
--- but before simplification and typechecking. Its purpose is to "fill in"
--- some data that can only be obtained with access to the "world".
+-- but before simplification and typechecking. Its purpose is to propagate
+-- any type-level information that can only be obtained with access to the
+-- LF world.
 module DA.Daml.LF.Completer
     ( completeModule
     ) where
