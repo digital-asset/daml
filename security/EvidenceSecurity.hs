@@ -3,16 +3,20 @@
 
 module Main (main) where
 
-import Control.Monad (when)
-import Data.List (intercalate, (\\), sortOn)
-import Data.List.Extra (trim,groupOn)
-import Data.List.Split (splitOn)
+import Control.Monad (when,void)
+import Data.List ((\\),sortOn)
+import Data.List.Extra (groupOn,foldl')
 import Data.Map (Map)
-import System.Exit (exitWith,ExitCode(ExitSuccess,ExitFailure))
+import Data.Text (Text)
+import Data.Void (Void)
+import System.Exit (exitWith,ExitCode(ExitFailure))
 import System.FilePath (splitPath)
 import System.IO.Extra (hPutStrLn,stderr)
-import Text.Read (readMaybe)
+import Text.Megaparsec (Parsec,runParser,errorBundlePretty,eof,takeWhileP,single,label,satisfy,noneOf,chunk,(<|>),many,some)
+import qualified Data.Char as Char (isSpace,isDigit,digitToInt)
 import qualified Data.Map as Map (fromList,toList)
+import qualified Data.Text as T (pack,unpack)
+import qualified Data.Text.IO as T (getContents)
 
 {-
 Generate _security evidence_ by documenting _security_ test cases.
@@ -40,18 +44,64 @@ git grep --line-number TEST_EVIDENCE\: | bazel run security:evidence-security > 
 
 main :: IO ()
 main = do
-  rawLines <- lines <$> getContents
-  let parsed = map parseLine rawLines
-  let lines = [ line | Right line <- parsed ]
-  let cats = [ cat | Line{cat} <- lines ]
-  let missingCats = [minBound ..maxBound] \\ cats
-  let errs = [ err | Left err <- parsed ] ++ map NoTestsForCategory missingCats
-  let n_errs = length errs
-  when (n_errs >= 1) $ do
-    hPutStrLn stderr "** Errors while Evidencing Security; exiting with non-zero exit code."
-    sequence_ [hPutStrLn stderr $ "** (" ++ show i ++ ") " ++ formatError err | (i,err) <- zip [1::Int ..] errs]
+  text <- T.getContents
+  lines <- parseLines text
+  let missingCats = [minBound..maxBound] \\ [ cat | Line{cat} <- lines ]
+  when (not $ null missingCats) $ do
+    messageAndExitFail ("No tests for categories: " ++ show missingCats)
   putStrLn (ppCollated (collateLines lines))
-  exitWith (if n_errs == 0 then ExitSuccess else ExitFailure n_errs)
+
+type Parser = Parsec Void Text
+
+parseLines :: Text -> IO [Line]
+parseLines text = do
+  case runParser theParser "<stdin>" text of
+    Right xs -> pure xs
+    Left e -> messageAndExitFail $ errorBundlePretty e
+
+messageAndExitFail :: String -> IO a
+messageAndExitFail message = do
+  hPutStrLn stderr "** EvidenceSecurity: generation failed:"
+  hPutStrLn stderr message
+  exitWith $ ExitFailure 1
+
+theParser :: Parser [Line]
+theParser = some line <* eof
+  where
+    line = do
+      filename <- some notColonOrNewline
+      colon
+      lineno <- number
+      colon
+      marker
+      colon
+      optWhiteSpace
+      cat <- parseCategory
+      colon
+      optWhiteSpace
+      freeText <- takeWhileP (Just "freetext") (/= '\n')
+      void $ single '\n'
+      pure Line {cat, desc = Description{filename,lineno,freeText}}
+
+    number = foldl' (\acc d -> 10*acc+d) 0 <$> some digit
+    digit = label "digit" $ Char.digitToInt <$> satisfy Char.isDigit
+
+    marker =
+      (void $ chunk $ T.pack "TEST_EVIDENCE")
+      <|> do void notColonOrNewline; marker
+
+    optWhiteSpace = void $ many $ satisfy Char.isSpace
+
+    parseCategory = do
+      foldl1 (<|>)
+        [ do void $ chunk $ T.pack $ ppCategory cat; pure cat
+        | cat <- [minBound..maxBound]
+        ]
+
+    colon = void $ single ':'
+
+    notColonOrNewline = noneOf [':','\n']
+
 
 data Category = Authorization | Privacy | Semantics | Performance
   deriving (Eq,Ord,Bounded,Enum,Show)
@@ -59,43 +109,12 @@ data Category = Authorization | Privacy | Semantics | Performance
 data Description = Description
   { filename:: FilePath
   , lineno:: Int
-  , freeText:: String
+  , freeText:: Text
   }
 
 data Line = Line { cat :: Category, desc :: Description }
 
 newtype Collated = Collated (Map Category [Description])
-
-data Err
-  = FailedToSplitLineOn4colons String
-  | FailedToParseLinenumFrom String String
-  | UnknownCategoryInLine String String
-  | NoTestsForCategory Category
-
-parseLine :: String -> Either Err Line
-parseLine lineStr = do
-  let sep = ":"
-  case splitOn sep lineStr of
-    filename : linenoString : _magicComment_ : tag : rest@(_:_) -> do
-      case categoryFromTag (trim tag) of
-        Nothing -> Left (UnknownCategoryInLine (trim tag) lineStr)
-        Just cat -> do
-          case readMaybe @Int linenoString of
-            Nothing -> Left (FailedToParseLinenumFrom linenoString lineStr)
-            Just lineno -> do
-              let freeText = trim (intercalate sep rest)
-              let desc = Description {filename,lineno,freeText}
-              Right (Line {cat,desc})
-    _ ->
-      Left (FailedToSplitLineOn4colons lineStr)
-
-categoryFromTag :: String -> Maybe Category
-categoryFromTag = \case
-  "Authorization" -> Just Authorization
-  "Privacy" -> Just Privacy
-  "Semantics" -> Just Semantics
-  "Performance" -> Just Performance
-  _ -> Nothing
 
 collateLines :: [Line] -> Collated
 collateLines lines =
@@ -103,13 +122,6 @@ collateLines lines =
   [ (cat, [ desc | Line{desc} <- group ])
   | group@(Line{cat}:_) <- groupOn (\Line{cat} -> cat) lines
   ]
-
-formatError :: Err -> String
-formatError = \case
-  FailedToSplitLineOn4colons line -> "failed to parse line (expected 4 colons): " ++ line
-  FailedToParseLinenumFrom s line -> "failed to parse line-number from '" ++ show s ++ "' in line: " ++ line
-  UnknownCategoryInLine s line -> "unknown category '" ++ s ++ "' in line: " ++ line
-  NoTestsForCategory cat -> "no tests found for category: " ++ show cat
 
 ppCollated :: Collated -> String
 ppCollated (Collated m) =
@@ -120,7 +132,7 @@ ppCollated (Collated m) =
 
 ppDescription :: Description -> String
 ppDescription Description{filename,lineno,freeText} =
-  "- " ++ freeText ++  ": [" ++ basename filename ++ "](" ++ filename ++ "#L" ++ show lineno ++ ")"
+  "- " ++ T.unpack freeText ++  ": [" ++ basename filename ++ "](" ++ filename ++ "#L" ++ show lineno ++ ")"
   where
     basename :: FilePath -> FilePath
     basename p = case reverse (splitPath p) of [] -> ""; x:_ -> x
