@@ -163,7 +163,7 @@ final class ApiParticipantPruningService private (
         if (pruneUpToString < ledgerEnd.value) Future.successful(())
         else
           Future.failed(
-            errorFactories.readingOffsetAfterLedgerEnd(None)(
+            errorFactories.readingOffsetAfterLedgerEnd_was_invalidArgument(None)(
               s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
             )(contextualizedErrorLogger)
           )

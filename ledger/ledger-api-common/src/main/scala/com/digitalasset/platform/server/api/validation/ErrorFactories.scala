@@ -185,7 +185,9 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     )
 
   // TODO error codes: Reconcile with com.daml.platform.server.api.validation.ErrorFactories.offsetAfterLedgerEnd
-  def readingOffsetAfterLedgerEnd(definiteAnswer: Option[Boolean])(message: String)(implicit
+  def readingOffsetAfterLedgerEnd_was_invalidArgument(
+      definiteAnswer: Option[Boolean]
+  )(message: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
@@ -203,9 +205,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
-      v1 = {
-        invalidArgumentV1(definiteAnswer, message)
-      },
+      v1 = invalidArgumentV1(definiteAnswer, message),
       v2 = LedgerApiErrors.NonHexOffset
         .Error(
           fieldName = fieldName,

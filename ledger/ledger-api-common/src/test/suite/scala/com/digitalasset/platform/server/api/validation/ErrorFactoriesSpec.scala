@@ -168,7 +168,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     }
 
     "return a readingOffsetAfterLedgerEnd error" in {
-      assertVersionedError(_.readingOffsetAfterLedgerEnd(None)("message123"))(
+      assertVersionedError(_.readingOffsetAfterLedgerEnd_was_invalidArgument(None)("message123"))(
         v1_code = Code.INVALID_ARGUMENT,
         v1_message = "Invalid argument: message123",
         v1_details = Seq.empty,
