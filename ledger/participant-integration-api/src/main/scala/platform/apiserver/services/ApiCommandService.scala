@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.daml.api.util.TimeProvider
-import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.{
@@ -59,6 +59,7 @@ import scala.util.Try
 private[apiserver] final class ApiCommandService private[services] (
     transactionServices: TransactionServices,
     submissionTracker: Tracker,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
@@ -66,6 +67,8 @@ private[apiserver] final class ApiCommandService private[services] (
     with AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
+
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
 
   @volatile private var running = true
 
@@ -93,7 +96,7 @@ private[apiserver] final class ApiCommandService private[services] (
         submissionTracker.track(CommandSubmission(commands, timeout))
       } else {
         Future.failed(
-          ErrorFactories.serviceNotRunning(definiteAnswer = Some(false))(contextualizedErrorLogger)
+          errorFactories.serviceNotRunning(definiteAnswer = Some(false))(contextualizedErrorLogger)
         )
       }.andThen(logger.logErrorsOnCall[Completion])
     }
@@ -179,6 +182,7 @@ private[apiserver] object ApiCommandService {
       timeProvider: TimeProvider,
       ledgerConfigurationSubscription: LedgerConfigurationSubscription,
       metrics: Metrics,
+      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -191,7 +195,8 @@ private[apiserver] object ApiCommandService {
       trackerCleanupInterval,
     )
     new GrpcCommandService(
-      service = new ApiCommandService(transactionServices, submissionTracker),
+      service =
+        new ApiCommandService(transactionServices, submissionTracker, errorCodesVersionSwitcher),
       ledgerId = configuration.ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,

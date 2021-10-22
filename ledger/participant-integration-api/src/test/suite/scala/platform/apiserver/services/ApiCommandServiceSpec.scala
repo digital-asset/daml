@@ -3,10 +3,11 @@
 
 package com.daml.platform.apiserver.services
 
+import com.daml.error.ErrorCodesVersionSwitcher
+
 import java.time.{Duration, Instant}
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
@@ -36,7 +37,9 @@ class ApiCommandServiceSpec
   private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  "the command service" should {
+  val errorCodesVersionSwitcher = mock[ErrorCodesVersionSwitcher]
+
+  s"the command service" should {
     val completionSuccess = CompletionResponse.CompletionSuccess(
       Completion(
         commandId = "command ID",
@@ -48,7 +51,10 @@ class ApiCommandServiceSpec
       val commands = someCommands()
       val submissionTracker = mock[Tracker]
       when(
-        submissionTracker.track(any[CommandSubmission])(any[ExecutionContext], any[LoggingContext])
+        submissionTracker.track(any[CommandSubmission])(
+          any[ExecutionContext],
+          any[LoggingContext],
+        )
       ).thenReturn(
         Future.successful(
           Right(completionSuccess)
@@ -56,7 +62,11 @@ class ApiCommandServiceSpec
       )
 
       openChannel(
-        new ApiCommandService(UnimplementedTransactionServices, submissionTracker)
+        new ApiCommandService(
+          UnimplementedTransactionServices,
+          submissionTracker,
+          errorCodesVersionSwitcher,
+        )
       ).use { stub =>
         val request = SubmitAndWaitRequest.of(Some(commands))
         stub.submitAndWaitForTransactionId(request).map { response =>
@@ -64,6 +74,7 @@ class ApiCommandServiceSpec
           verify(submissionTracker).track(
             eqTo(CommandSubmission(commands))
           )(any[ExecutionContext], any[LoggingContext])
+          verifyZeroInteractions(errorCodesVersionSwitcher)
           succeed
         }
       }
@@ -79,7 +90,10 @@ class ApiCommandServiceSpec
       val commands = someCommands()
       val submissionTracker = mock[Tracker]
       when(
-        submissionTracker.track(any[CommandSubmission])(any[ExecutionContext], any[LoggingContext])
+        submissionTracker.track(any[CommandSubmission])(
+          any[ExecutionContext],
+          any[LoggingContext],
+        )
       ).thenReturn(
         Future.successful(
           Right(completionSuccess)
@@ -87,7 +101,11 @@ class ApiCommandServiceSpec
       )
 
       openChannel(
-        new ApiCommandService(UnimplementedTransactionServices, submissionTracker),
+        new ApiCommandService(
+          UnimplementedTransactionServices,
+          submissionTracker,
+          errorCodesVersionSwitcher,
+        ),
         deadlineTicker,
       ).use { stub =>
         val request = SubmitAndWaitRequest.of(Some(commands))
@@ -99,6 +117,7 @@ class ApiCommandServiceSpec
             verify(submissionTracker).track(
               eqTo(CommandSubmission(commands, timeout = Some(Duration.ofSeconds(30))))
             )(any[ExecutionContext], any[LoggingContext])
+            verifyZeroInteractions(errorCodesVersionSwitcher)
             succeed
           }
       }
@@ -108,7 +127,10 @@ class ApiCommandServiceSpec
       val commands = someCommands()
       val submissionTracker = mock[Tracker]
       when(
-        submissionTracker.track(any[CommandSubmission])(any[ExecutionContext], any[LoggingContext])
+        submissionTracker.track(any[CommandSubmission])(
+          any[ExecutionContext],
+          any[LoggingContext],
+        )
       ).thenReturn(
         Future.successful(
           Left(
@@ -119,20 +141,34 @@ class ApiCommandServiceSpec
         )
       )
 
-      openChannel(new ApiCommandService(UnimplementedTransactionServices, submissionTracker)).use {
-        stub =>
-          val request = SubmitAndWaitRequest.of(Some(commands))
-          stub.submitAndWaitForTransactionId(request).failed.map { exception =>
-            exception should matchPattern { case GrpcException(GrpcStatus.ABORTED(), _) => }
-          }
+      openChannel(
+        new ApiCommandService(
+          UnimplementedTransactionServices,
+          submissionTracker,
+          errorCodesVersionSwitcher,
+        )
+      ).use { stub =>
+        val request = SubmitAndWaitRequest.of(Some(commands))
+        stub.submitAndWaitForTransactionId(request).failed.map { exception =>
+          Thread.sleep(1000)
+          exception should matchPattern { case GrpcException(GrpcStatus.ABORTED(), _) =>
+          } // TODO!!!
+          verifyZeroInteractions(errorCodesVersionSwitcher)
+          succeed
+        }
       }
     }
 
     "close the supplied tracker when closed" in {
       val submissionTracker = mock[Tracker]
-      val service = new ApiCommandService(UnimplementedTransactionServices, submissionTracker)
+      val service = new ApiCommandService(
+        UnimplementedTransactionServices,
+        submissionTracker,
+        errorCodesVersionSwitcher,
+      )
 
       verifyZeroInteractions(submissionTracker)
+      verifyZeroInteractions(errorCodesVersionSwitcher)
 
       service.close()
       verify(submissionTracker).close()

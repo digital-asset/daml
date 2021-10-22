@@ -10,7 +10,7 @@ import scala.concurrent.Future
   * This class is intended to facilitate transition to self-service error codes.
   * Once the previous error codes are removed, this class should be dropped as well.
   */
-final class ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes: Boolean)
+class ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes: Boolean)
     extends ValueSwitch[StatusRuntimeException](enableSelfServiceErrorCodes) {
 
   def chooseAsFailedFuture[T](
