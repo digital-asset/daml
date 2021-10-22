@@ -19,6 +19,7 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.validatio
 import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlTransactionRejectionEntry,
   Duplicate,
+  TransactionNode,
 }
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlCommandDedupValue,
@@ -481,10 +482,15 @@ private[kvutils] object TransactionCommitter {
       _.setTransactionEntry(
         transactionEntry.submission.toBuilder
           .setTransactionVersion(transaction.getVersion)
-          .putAllNodeIdToRawTransactionNode(
+          .addAllTransactionNode(
             transaction.getNodesList.asScala
-              .map(node => node.getNodeId -> node.toByteString)
-              .toMap
+              .map(node =>
+                TransactionNode
+                  .newBuilder()
+                  .setNodeId(node.getNodeId)
+                  .setRawTransactionNode(node.toByteString)
+                  .build()
+              )
               .asJava
           )
           .addAllWitnessingParties(

@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlTransactionBlindingInfo,
   DamlTransactionEntry,
   DamlTransactionRejectionEntry,
+  TransactionNode,
 }
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlLogEntry,
@@ -259,7 +260,7 @@ object KeyValueConsumption {
     val transaction = Conversions.decodeTransaction(
       reconstructTransaction(
         txEntry.getTransactionVersion,
-        txEntry.getNodeIdToRawTransactionNodeMap.asScala,
+        txEntry.getTransactionNodeList.asScala.toSeq,
       )
     )
     val hexTxId = parseLedgerString("TransactionId")(
@@ -303,27 +304,21 @@ object KeyValueConsumption {
   // TODO: move to kv-transaction-support
   private def reconstructTransaction(
       txVersion: String,
-      rawNodesWithIds: mutable.Map[String, ByteString],
+      transactionNodes: Seq[TransactionNode],
   ): TransactionOuterClass.Transaction = {
     // Reconstruct roots by considering the transaction nodes in order and
     // marking all child nodes as non-roots and skipping over them.
-    val nonRoots = mutable.HashSet.empty[Int]
-    val txBuilder =
-      TransactionOuterClass.Transaction.newBuilder
-        .setVersion(txVersion)
-    for ((rawNodeId, rawNode) <- rawNodesWithIds) {
-      // FIXME
-      val nodeId = rawNodeId.toInt
-      val node = TransactionOuterClass.Node.parseFrom(rawNode)
+    val nonRoots = mutable.HashSet.empty[String]
+    val txBuilder = TransactionOuterClass.Transaction.newBuilder.setVersion(txVersion)
+    transactionNodes.foreach { transactionNode =>
+      val nodeId = transactionNode.getNodeId
+      val node = TransactionOuterClass.Node.parseFrom(transactionNode.getRawTransactionNode)
       txBuilder.addNodes(node)
       if (!nonRoots.contains(nodeId)) {
-        txBuilder.addRoots(rawNodeId)
+        txBuilder.addRoots(nodeId)
       }
       if (node.hasExercise) {
-        val children =
-          node.getExercise.getChildrenList.asScala
-            .map(_.toInt) // FIXME
-            .toSet
+        val children = node.getExercise.getChildrenList.asScala.toSet
         nonRoots ++= children
       }
     }

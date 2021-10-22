@@ -72,10 +72,14 @@ message DamlTransactionEntry {
 
   string transaction_version = 8;
 
-  map<string, bytes> node_id_to_raw_transaction_node = 9;
+  repeated TransactionNode transaction_node = 9;
 
-  // Keeps the order
   repeated TransactionNodeWitnesses witnessing_parties = 10;
+}
+
+message TransactionNode {
+  string node_id = 1;
+  bytes raw_transaction_node = 2;
 }
 
 message TransactionNodeWitnesses {
