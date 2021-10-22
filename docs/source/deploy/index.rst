@@ -21,6 +21,9 @@ for production use today.
    * - Product
      - Ledger
      - Vendor
+   * - `Daml Driver for VMware Blockchain <https://www.digitalasset.com/daml-for-vmware-blockchain/>`__
+     - `VMware Blockchain <https://www.vmware.com/products/blockchain.html/>`__
+     - `VMware <https://vmware.com/>`__
    * - `Daml on Corda <#>`__
      - `Corda <https://www.corda.net/>`__
      - `Multiple. Contact Digital Asset <https://digitalasset.com/contact/>`__
@@ -76,9 +79,6 @@ The following table lists the ledgers that are implementing support for running 
    * - Ledger
      - Developer
      - More Information
-   * - `VMware Blockchain <https://blogs.vmware.com/blockchain>`__
-     - `VMware <https://www.vmware.com/>`__
-     - `Press release, April 2019 <http://hub.digitalasset.com/press-release/digital-asset-daml-smart-contract-language-now-extended-to-vmware-blockchain>`__
    * - `FISCO BCOS <http://www.fisco-bcos.org/>`__
      - `WeBank <https://fintech.webank.com/en/>`__
      - `Press release, April 2020 <https://hub.digitalasset.com/press-release/topic/fisco-bcos>`__
