@@ -100,14 +100,14 @@ class TransactionServiceRequestValidatorTest
   private val testedValidator = new TransactionServiceRequestValidator(
     domain.LedgerId(expectedLedgerId),
     PartyNameChecker.AllowAllParties,
-    new ErrorFactories(errorCodesVersionSwitcher_mock),
+    ErrorFactories(errorCodesVersionSwitcher_mock),
   )
 
   private val fixture = new Fixture((selfServiceErrorCodesEnabled: Boolean) => {
     new TransactionServiceRequestValidator(
       domain.LedgerId(expectedLedgerId),
       PartyNameChecker.AllowAllParties,
-      new ErrorFactories(new ErrorCodesVersionSwitcher(selfServiceErrorCodesEnabled)),
+      ErrorFactories(new ErrorCodesVersionSwitcher(selfServiceErrorCodesEnabled)),
     )
   })
 
@@ -495,7 +495,7 @@ class TransactionServiceRequestValidatorTest
         new TransactionServiceRequestValidator(
           domain.LedgerId(expectedLedgerId),
           PartyNameChecker.AllowPartySet(Set(party)),
-          new ErrorFactories(new ErrorCodesVersionSwitcher(selfServiceErrorCodesEnabled)),
+          ErrorFactories(new ErrorCodesVersionSwitcher(selfServiceErrorCodesEnabled)),
         )
       })
 

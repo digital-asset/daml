@@ -167,7 +167,7 @@ class ValueValidator(errorFactories: ErrorFactories, fieldValidations: FieldVali
   */
 object NoLoggingValueValidator {
   // TODO error factories: re-check if using legacy error codes here is ok
-  private val errorFactories = new ErrorFactories(new ErrorCodesVersionSwitcher(false))
+  private val errorFactories = ErrorFactories(new ErrorCodesVersionSwitcher(false))
   private val valueValidator = new ValueValidator(
     errorFactories = errorFactories,
     fieldValidations = new FieldValidations(errorFactories),

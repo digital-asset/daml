@@ -133,7 +133,7 @@ private[platform] object ApiPackageService {
       backend = backend,
       errorCodesVersionSwitcher = errorCodesVersionSwitcher,
     )
-    val fieldValidations = new FieldValidations(new ErrorFactories(errorCodesVersionSwitcher))
+    val fieldValidations = new FieldValidations(ErrorFactories(errorCodesVersionSwitcher))
     new PackageServiceValidation(
       service = service,
       ledgerId = ledgerId,

@@ -21,7 +21,7 @@ class CompletionServiceRequestValidator(
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 ) {
 
-  private val errorFactories = new ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
   private val fieldValidations = new FieldValidations(errorFactories)
   private val partyValidator =
     new PartyValidator(partyNameChecker, errorFactories, fieldValidations)

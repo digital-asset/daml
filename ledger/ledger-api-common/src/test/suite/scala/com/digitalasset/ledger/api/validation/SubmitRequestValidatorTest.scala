@@ -167,7 +167,7 @@ class SubmitRequestValidatorTest
   )
   private val valueValidatorFixture = new Fixture(selfServiceErrorCodesEnabled => {
     val errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(selfServiceErrorCodesEnabled)
-    val errorFactories = new ErrorFactories(errorCodesVersionSwitcher)
+    val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
     new ValueValidator(
       errorFactories,
       new FieldValidations(errorFactories),
@@ -177,7 +177,7 @@ class SubmitRequestValidatorTest
   private val testedCommandValidator =
     new CommandsValidator(ledgerId, errorCodesVersionSwitcher_mock)
   private val testedValueValidator = {
-    val errorFactories = new ErrorFactories(errorCodesVersionSwitcher_mock)
+    val errorFactories = ErrorFactories(errorCodesVersionSwitcher_mock)
     new ValueValidator(
       errorFactories,
       new FieldValidations(errorFactories),
