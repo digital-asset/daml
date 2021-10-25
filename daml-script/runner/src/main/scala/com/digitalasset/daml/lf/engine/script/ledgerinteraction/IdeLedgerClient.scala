@@ -188,9 +188,8 @@ class IdeLedgerClient(
           }
         }
         Right(transaction.roots.toSeq.map(convRootEvent(_)))
-      case ScenarioRunner.SubmissionError(err, ptx) =>
-        _currentSubmission =
-          Some(ScenarioRunner.CurrentSubmission(optLocation, ptx.finishIncomplete))
+      case ScenarioRunner.SubmissionError(err, tx) =>
+        _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
         throw err
     }
 
@@ -203,8 +202,7 @@ class IdeLedgerClient(
     unsafeSubmit(actAs, readAs, commands, optLocation)
       .map({
         case commit: ScenarioRunner.Commit[_] =>
-          _currentSubmission =
-            Some(ScenarioRunner.CurrentSubmission(optLocation, commit.ptx.finishIncomplete))
+          _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, commit.tx))
           Left(())
         case _: ScenarioRunner.SubmissionError =>
           _currentSubmission = None
@@ -246,9 +244,8 @@ class IdeLedgerClient(
         ScriptLedgerClient.TransactionTree(
           transaction.roots.collect(Function.unlift(convEvent(_))).toList
         )
-      case ScenarioRunner.SubmissionError(err, ptx) =>
-        _currentSubmission =
-          Some(ScenarioRunner.CurrentSubmission(optLocation, ptx.finishIncomplete))
+      case ScenarioRunner.SubmissionError(err, tx) =>
+        _currentSubmission = Some(ScenarioRunner.CurrentSubmission(optLocation, tx))
         throw new IllegalStateException(err)
     }
   }
