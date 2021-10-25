@@ -94,14 +94,20 @@ trait AbstractTriggerServiceTest
       triggerName: String,
       party: Party,
       applicationId: Option[ApplicationId] = None,
+      readAs: Option[Set[Party]] = None,
   ): Future[HttpResponse] = {
+    import Request.PartyFormat
+    val readAsContent =
+      readAs
+        .map(set => spray.json.DefaultJsonProtocol.listFormat.write(set.toList).toString)
+        .getOrElse("null")
     val req = HttpRequest(
       method = HttpMethods.POST,
       uri = uri.withPath(Uri.Path("/v1/triggers")),
       entity = HttpEntity(
         ContentTypes.`application/json`,
         s"""{"triggerName": "$triggerName", "party": "$party", "applicationId": "${applicationId
-          .getOrElse("null")}"}""",
+          .getOrElse("null")}", "readAs": $readAsContent}""",
       ),
     )
     httpRequestFollow(req)

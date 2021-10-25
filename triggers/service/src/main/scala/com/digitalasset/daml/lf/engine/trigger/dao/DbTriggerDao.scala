@@ -21,6 +21,7 @@ import java.io.{Closeable, IOException}
 
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.doobie.logging.Slf4jLogHandler
+import scalaz.syntax.std.tuple._
 import javax.sql.DataSource
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -108,9 +109,10 @@ abstract class DbTriggerDao protected (
             ApplicationId,
             Option[AccessToken],
             Option[RefreshToken],
-            Set[Party],
+            Option[Set[Party]],
         )
       ]
+      .map(_.mapElements(_7 = it => it.getOrElse(Set.empty)))
       .map(RunningTrigger.tupled)
       .option
   }
@@ -188,9 +190,10 @@ abstract class DbTriggerDao protected (
             ApplicationId,
             Option[AccessToken],
             Option[RefreshToken],
-            Set[Party],
+            Option[Set[Party]],
         )
       ]
+      .map(_.mapElements(_7 = it => it.getOrElse(Set.empty)))
       .map(RunningTrigger.tupled)
       .to[Vector]
   }
