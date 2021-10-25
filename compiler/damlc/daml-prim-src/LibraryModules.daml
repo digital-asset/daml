@@ -10,6 +10,7 @@
 module LibraryModules where
 
 import DA.Internal.Erased
+import DA.Internal.NatSyn
 import DA.Internal.PromotedText
 import Data.String
 import Control.Exception.Base

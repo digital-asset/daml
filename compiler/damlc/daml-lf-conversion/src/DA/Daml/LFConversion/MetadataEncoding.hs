@@ -33,11 +33,18 @@ module DA.Daml.LFConversion.MetadataEncoding
     , QualName (..)
     , encodeExportInfo
     , decodeExportInfo
+    -- * Type Synonyms
+    , encodeTypeSynonym
+    , decodeTypeSynonym
     ) where
 
 import Safe (readMay)
+import Control.Lens ((^.))
+import Control.Lens.Ast (rightSpine)
 import Control.Monad (guard, liftM2)
-import Data.List (sortOn)
+import Data.List (foldl', sortOn)
+import qualified Data.List.Lens as L (stripSuffix)
+import Data.Maybe (isJust)
 import qualified Data.Set as S
 import qualified Data.Text as T
 
@@ -363,6 +370,93 @@ decodeBool = \case
     TEncodedStr "True" -> Just True
     TEncodedStr "False" -> Just False
     _ -> Nothing
+
+-------------------
+-- Type Synonyms --
+-------------------
+
+-- | This encoding is needed since DAML-LF only supports @*@-kinded type synonyms.
+--   @*@-kinded synonyms are unchanged.
+--   @Nat@-kinded synonyms are wrapped in @DA.Internal.NatSyn.NatSyn@, so the DAML-LF
+--   synonym has kind @*@.
+--   For @(->)@-kinded synonyms, the required number of artificial parameters is
+--   added to the LHS and applied to the RHS of the type synonym.
+encodeTypeSynonym ::
+       LF.TypeSynName -- ^ The name of the synonym being defined
+    -> Bool -- ^ Is this a constraint synonym?
+    -> LF.Kind -- ^ The kind of the RHS of the type synonym
+    -> [(LF.TypeVarName, LF.Kind)] -- ^ The declared parameters to the type synonym
+    -> LF.Type -- ^ The RHS of the type synonym
+    -> LF.DefTypeSyn
+encodeTypeSynonym synName isConstraintSynonym tsynKind tsynParams tsynType =
+    let (artificialParamKinds, resKind) = tsynKind ^. rightSpine LF._KArrow
+        artificialParams = zip (artificialTypeVarName <$> [0..]) artificialParamKinds
+        artificialArgs = LF.TVar . fst <$> artificialParams
+        apply tsynType
+            | isConstraintSynonym
+            , LF.TSynApp con args <- tsynType
+                -- The only way this LF type synonym application can be unsaturated is
+                -- if it came from a type class, so it's okay to add more arguments.
+            = LF.TSynApp con (args <> artificialArgs)
+            | otherwise
+            = foldl' LF.TApp tsynType artificialArgs
+        synType = apply $ case resKind of
+            LF.KStar -> tsynType
+            LF.KNat -> LF.TApp (LF.TCon natSynTCon) tsynType
+            LF.KArrow _ _ -> error "'rightSpine _KArrow' returned a KArrow"
+    in LF.DefTypeSyn
+        { synLocation = Nothing
+        , synName
+        , synParams = tsynParams <> artificialParams
+        , synType
+        }
+
+decodeTypeSynonym :: LF.DefTypeSyn -> Maybe (LF.TypeSynName, [(LF.TypeVarName, LF.Kind)], LF.Type)
+decodeTypeSynonym defTypeSyn = do
+    let (params, artificialParams) =
+            break (isJust . unArtificialTypeVarName . fst) (LF.synParams defTypeSyn)
+    synType <- unNatSyn <$>
+        unapply (fst <$> artificialParams) (LF.synType defTypeSyn)
+    pure
+        ( LF.synName defTypeSyn
+        , params
+        , synType
+        )
+    where
+        unapply [] t = pure t
+        unapply params (LF.TSynApp con allArgs)
+            = LF.TSynApp con <$> L.stripSuffix (LF.TVar <$> params) allArgs
+        unapply ps t@LF.TApp {} = unTApps (reverse ps) t
+        unapply _ _ = Nothing
+
+        unTApps [] t = pure t
+        unTApps (p:ps) (LF.TApp x (LF.TVar y))
+            | p == y = unTApps ps x
+        unTApps _ _ = Nothing
+
+        unNatSyn (LF.TApp (LF.TCon c) n)
+            | c == natSynTCon = n
+        unNatSyn t = t
+
+-- | For saturating type synonym definitions in DAML-LF
+artificialTypeVarName :: Integer -> LF.TypeVarName
+artificialTypeVarName i = LF.TypeVarName $ "$$artificial" <> T.pack (show i)
+
+unArtificialTypeVarName :: LF.TypeVarName -> Maybe Integer
+unArtificialTypeVarName (LF.TypeVarName name) = do
+    suffix <- T.stripPrefix "$$artificial" name
+    readMay (T.unpack suffix)
+
+natSynTCon :: LF.Qualified LF.TypeConName
+natSynTCon = LF.Qualified
+    { qualPackage = LF.PRImport (LF.PackageId packageId)
+    , qualModule = LF.ModuleName moduleName
+    , qualObject = LF.TypeConName [tconName]
+    }
+    where
+        packageId = "38e6274601b21d7202bb995bc5ec147decda5a01b68d57dda422425038772af7"
+        moduleName = ["DA", "Internal", "NatSyn"]
+        tconName = "NatSyn"
 
 ---------------------
 -- STUB GENERATION --

@@ -348,6 +348,7 @@ baseImports =
            , "GHC.Types"
            , "DA.Types"
            , "DA.Internal.Erased"
+           , "DA.Internal.NatSyn"
            , "DA.Internal.PromotedText"
            , "DA.Exception.GeneralError"
            , "DA.Exception.ArithmeticError"
