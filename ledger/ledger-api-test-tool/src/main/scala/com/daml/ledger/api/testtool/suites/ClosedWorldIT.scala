@@ -3,8 +3,9 @@
 
 package com.daml.ledger.api.testtool.suites
 
-import java.util.regex.Pattern
+import com.daml.error.definitions.LedgerApiErrors
 
+import java.util.regex.Pattern
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -31,8 +32,10 @@ class ClosedWorldIT extends LedgerTestSuite {
         .mustFail("referencing an unallocated party")
     } yield {
       assertGrpcErrorRegex(
+        alpha,
         failure,
         Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.InterpreterErrors.GenericInterpretationError,
         Some(Pattern.compile("Part(y|ies) not known on ledger")),
         checkDefiniteAnswerMetadata = true,
       )

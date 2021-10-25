@@ -53,7 +53,7 @@ object Assertions {
       expectedCode: Status.Code,
       selfServiceErrorCode: ErrorCode,
       exceptionMessageSubstring: Option[String],
-      checkDefiniteAnswerMetadata: Boolean,
+      checkDefiniteAnswerMetadata: Boolean = false,
   ): Unit =
     if (participant.features.selfServiceErrorCodes)
       t match {
@@ -63,29 +63,15 @@ object Assertions {
       }
     else {
       assertGrpcErrorRegex(
+        participant,
         t,
         expectedCode,
+        selfServiceErrorCode,
         exceptionMessageSubstring
           .map(msgSubstring => Pattern.compile(Pattern.quote(msgSubstring))),
         checkDefiniteAnswerMetadata,
       )
     }
-
-  /** A non-regex alternative to [[assertGrpcErrorRegex]] which just does a substring check.
-    */
-  def assertGrpcError(
-      t: Throwable,
-      expectedCode: Status.Code,
-      exceptionMessageSubstring: Option[String],
-      checkDefiniteAnswerMetadata: Boolean = false,
-  ): Unit =
-    assertGrpcErrorRegex(
-      t,
-      expectedCode,
-      exceptionMessageSubstring
-        .map(msgSubstring => Pattern.compile(Pattern.quote(msgSubstring))),
-      checkDefiniteAnswerMetadata,
-    )
 
   /** Match the given exception against a status code and a regex for the expected message.
     * Succeeds if the exception is a GrpcException with the expected code and
@@ -94,22 +80,33 @@ object Assertions {
     */
   @tailrec
   def assertGrpcErrorRegex(
+      participant: ParticipantTestContext,
       t: Throwable,
       expectedCode: Status.Code,
+      selfServiceErrorCode: ErrorCode,
       optPattern: Option[Pattern],
       checkDefiniteAnswerMetadata: Boolean = false,
   ): Unit =
     (t, optPattern) match {
       case (RetryStrategy.FailedRetryException(cause), _) =>
-        assertGrpcErrorRegex(cause, expectedCode, optPattern, checkDefiniteAnswerMetadata)
+        assertGrpcErrorRegex(
+          participant,
+          cause,
+          expectedCode,
+          selfServiceErrorCode,
+          optPattern,
+          checkDefiniteAnswerMetadata,
+        )
       case (
             exception @ GrpcException(GrpcStatus(`expectedCode`, Some(message)), _),
             Some(pattern),
-          ) =>
+          ) if !participant.features.selfServiceErrorCodes =>
         assertMatches(message, pattern)
         if (checkDefiniteAnswerMetadata) {
           assertDefiniteAnswer(exception)
         }
+      case (exception: StatusRuntimeException, _) if participant.features.selfServiceErrorCodes =>
+        assertSelfServiceErrorCode(exception, selfServiceErrorCode)
       // None both represents pattern that we do not care about as well as
       // exceptions that have no message.
       case (GrpcException(GrpcStatus(`expectedCode`, _), _), None) => ()
@@ -176,14 +173,14 @@ object Assertions {
     val actualRetryabilitySeconds = actualErrorDetails
       .collectFirst { case err: ErrorDetails.RetryInfoDetail => err.retryDelayInSeconds }
 
+    if (!actualErrorId.contains(expectedErrorId))
+      fail(s"Actual error id ($actualErrorId) does not match expected error id ($expectedErrorId}")
+
     Assertions.assertEquals(
       "gRPC error code mismatch",
       actualStatusCode,
       expectedStatusCode,
     )
-
-    if (!actualErrorId.contains(expectedErrorId))
-      fail(s"Actual error id ($actualErrorId) does not match expected error id ($expectedErrorId}")
 
     Assertions.assertEquals(
       s"Error retryability details mismatch",

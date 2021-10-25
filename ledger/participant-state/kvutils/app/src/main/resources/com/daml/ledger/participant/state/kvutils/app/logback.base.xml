@@ -19,7 +19,7 @@
     <logger name="com.daml.platform.store.FlywayMigrations" level="WARN" />
     <logger name="org.flywaydb" level="INFO" />
     <logger name="com.zaxxer.hikari" level="ERROR" />
-    <logger name="com.daml.platform" level="WARN" />
+    <logger name="com.daml.platform" level="INFO" />
 
     <!-- raising the command tracker logging level -->
     <logger name="com.daml.platform.apiserver.services.tracking.TrackerMap" level="WARN" />

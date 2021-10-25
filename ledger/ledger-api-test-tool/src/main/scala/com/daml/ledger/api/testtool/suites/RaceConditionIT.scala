@@ -16,6 +16,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
+// TODO error codes: Revisit
 final class RaceConditionIT extends LedgerTestSuite {
   raceConditionTest(
     "WWDoubleNonTransientCreate",

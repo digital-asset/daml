@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
@@ -90,7 +91,13 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         "Restoring the original time model failed",
       )
 
-      assertGrpcError(expiredMRTFailure, Status.Code.ABORTED, exceptionMessageSubstring = None)
+      assertGrpcError(
+        ledger,
+        expiredMRTFailure,
+        Status.Code.ABORTED,
+        LedgerApiErrors.InterpreterErrors.GenericInterpretationError,
+        exceptionMessageSubstring = None,
+      )
     }
   })
 
@@ -130,7 +137,13 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         )
         .mustFail("setting Time Model with an outdated generation")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, exceptionMessageSubstring = None)
+      assertGrpcError(
+        ledger,
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.InterpreterErrors.GenericInterpretationError,
+        exceptionMessageSubstring = None,
+      )
     }
   })
 

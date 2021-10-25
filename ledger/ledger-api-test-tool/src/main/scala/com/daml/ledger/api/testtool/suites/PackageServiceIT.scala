@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -54,7 +55,13 @@ final class PackageServiceIT extends LedgerTestSuite {
         .getPackage(unknownPackageId)
         .mustFail("getting the contents of an unknown package")
     } yield {
-      assertGrpcError(failure, Status.Code.NOT_FOUND, None)
+      assertGrpcError(
+        ledger,
+        failure,
+        Status.Code.NOT_FOUND,
+        LedgerApiErrors.Package.MissingPackage,
+        None,
+      )
     }
   })
 

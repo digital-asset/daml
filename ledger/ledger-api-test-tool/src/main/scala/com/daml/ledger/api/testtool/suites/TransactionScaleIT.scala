@@ -9,6 +9,7 @@ import com.daml.ledger.api.testtool.infrastructure.Result.Retired
 
 import scala.concurrent.Future
 
+// TODO error codes: Revisit
 // This test suite has been retired (see https://github.com/digital-asset/daml/pull/6651)
 final class TransactionScaleIT extends LedgerTestSuite {
 
