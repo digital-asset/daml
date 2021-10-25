@@ -3,11 +3,7 @@
 
 package com.daml.platform.server.api.services.grpc
 
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
   CommandSubmissionService => ApiCommandSubmissionService
@@ -44,12 +40,6 @@ class GrpcCommandSubmissionService(
     with GrpcApiService {
 
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(
-      logger,
-      loggingContext,
-      None,
-    )
   private val validator = new SubmitRequestValidator(
     new CommandsValidator(ledgerId, errorCodesVersionSwitcher),
     FieldValidations(ErrorFactories(errorCodesVersionSwitcher)),
@@ -64,6 +54,11 @@ class GrpcCommandSubmissionService(
       telemetryContext.setAttribute(SpanAttribute.Submitter, commands.party)
       telemetryContext.setAttribute(SpanAttribute.WorkflowId, commands.workflowId)
     }
+    val errorLogger = new DamlContextualizedErrorLogger(
+      logger = logger,
+      loggingContext = loggingContext,
+      correlationId = request.commands.map(_.submissionId),
+    )
     Timed.timedAndTrackedFuture(
       metrics.daml.commands.submissions,
       metrics.daml.commands.submissionsRunning,
@@ -75,7 +70,7 @@ class GrpcCommandSubmissionService(
             currentLedgerTime(),
             currentUtcTime(),
             maxDeduplicationTime(),
-          ),
+          )(errorLogger),
         )
         .fold(
           t => Future.failed(ValidationLogger.logFailure(request, t)),

@@ -22,6 +22,14 @@ trait ContextualizedErrorLogger {
   def error(message: String, throwable: Throwable): Unit
 }
 
+/** Implementation of [[ContextualizedErrorLogger]] leveraging the //libs-scala/contextualized-logging
+  * as the logging stack.
+  *
+  * @param logger The logger.
+  * @param loggingContext The logging context.
+  * @param correlationId The correlation id, if present. The choice of the correlation id depends on the
+  *                      ledger integration. By default it should be the command submission id.
+  */
 class DamlContextualizedErrorLogger(
     logger: ContextualizedLogger,
     loggingContext: LoggingContext,
