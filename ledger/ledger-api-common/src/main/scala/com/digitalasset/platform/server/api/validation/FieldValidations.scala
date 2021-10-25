@@ -18,7 +18,6 @@ import java.time.Duration
 
 // TODO error codes: Remove default usage of ErrorFactories
 class FieldValidations(errorFactories: ErrorFactories) {
-  // TODO PBATKO
   import errorFactories._
 
   def matchLedgerId(
