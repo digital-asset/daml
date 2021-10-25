@@ -52,8 +52,10 @@ private[platform] class FlywayMigrations(
       .ignoreFutureMigrations(false)
       .load()
     logger.info("Running Flyway migration...")
-    val stepsTaken = flyway.migrate()
-    logger.info(s"Flyway schema migration finished successfully, applying $stepsTaken steps.")
+    val migrationResult = flyway.migrate()
+    logger.info(
+      s"Flyway schema migration finished successfully, applying ${migrationResult.migrationsExecuted} steps."
+    )
   }
 
   def reset(): Future[Unit] = run { configBase =>
@@ -102,9 +104,9 @@ private[platform] class FlywayMigrations(
         logger.info(
           s"Running Flyway migration on empty database with $pendingMigrations migrations pending..."
         )
-        val stepsTaken = flyway.migrate()
+        val migrationResult = flyway.migrate()
         logger.info(
-          s"Flyway schema migration finished successfully, applying $stepsTaken steps on empty database."
+          s"Flyway schema migration finished successfully, applying ${migrationResult.migrationsExecuted} steps on empty database."
         )
 
       case (pendingMigrations, appliedMigrations) =>
