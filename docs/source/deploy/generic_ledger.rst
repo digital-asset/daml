@@ -62,7 +62,7 @@ ledger --help`` to get a list of available ledger commands:
 Connecting via TLS
 ------------------
 
-To connect to the ledger via TLS, you can pass ``--tls`` to the
+To connect to the ledger via TLS, pass ``--tls`` to the
 various commands. If your ledger supports or requires mutual
 authentication you can pass your client key and certificate chain
 files via ``--pem client_key.pem --crt client.crt``. Finally, you can
