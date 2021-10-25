@@ -4,4 +4,3 @@
 -- Add application_id to running trigger table defaulting to trigger_instance
 alter table ${table.prefix}running_triggers add column read_as text;
 update ${table.prefix}running_triggers set read_as = '';
-alter table ${table.prefix}running_triggers alter column read_as set not null;
