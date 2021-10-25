@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils.updates
 
 import java.time.Instant
 
-import com.google.protobuf.ProtocolStringList
 import com.google.protobuf.any.{Any => AnyProto}
 import com.google.rpc.code.Code
 import com.google.rpc.error_details.ErrorInfo
@@ -129,7 +128,7 @@ private[kvutils] object TransactionRejections {
         s"Party not known on ledger: Parties not known on ledger ${parties.asScala.mkString("[", ",", "]")}",
         Map("parties" -> Conversions.objectToJsonString(parties)),
       ),
-      V2.partiesNotKnownOnLedgerStatus(parties),
+      V2.partiesNotKnownOnLedgerStatus(parties.asScala.toSeq),
     )
   }
 
@@ -568,7 +567,7 @@ private[kvutils] object TransactionRejections {
         .asStatus
 
     def partiesNotKnownOnLedgerStatus(
-        parties: ProtocolStringList
+        parties: Seq[String]
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
       KVCompletionErrors.Parties.PartiesNotKnownOnLedger
         .Reject(parties)

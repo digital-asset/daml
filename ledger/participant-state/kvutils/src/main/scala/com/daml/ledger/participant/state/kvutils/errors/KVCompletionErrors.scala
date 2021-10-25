@@ -5,17 +5,18 @@ package com.daml.ledger.participant.state.kvutils.errors
 
 import java.time.Instant
 
-import com.google.protobuf.ProtocolStringList
-
-import com.daml.error.{ContextualizedErrorLogger, ErrorCategory, ErrorCode, ErrorGroup}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  ErrorCategory,
+  ErrorCode,
+  ErrorGroup,
+  ErrorResource,
+}
 import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LedgerApiErrorGroup
-import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
   ExternallyInconsistentTransaction,
   InternallyInconsistentTransaction,
 }
-
-import scala.jdk.CollectionConverters._
 
 object KVCompletionErrors extends LedgerApiErrorGroup {
 
@@ -126,30 +127,33 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
     object SubmittingPartyNotKnownOnLedger
         extends ErrorCode(
           id = "SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may become known at a later time
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing, // It may become known at a later time
         ) {
       case class Reject(
           submitter_party: String
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends KVLoggingTransactionErrorImpl(
             cause = s"Party not known on ledger: Submitting party '$submitter_party' not known"
-          )
+          ) {
+        override def resources: Seq[(ErrorResource, String)] = Seq(
+          ErrorResource.Party -> submitter_party
+        )
+      }
     }
 
     object PartiesNotKnownOnLedger
         extends ErrorCode(
           id = "PARTIES_NOT_KNOWN_ON_LEDGER",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther, // They may become known at a later time
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing, // They may become known at a later time
         ) {
       case class Reject(
-          parties: ProtocolStringList
+          parties: Seq[String]
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends KVLoggingTransactionErrorImpl(
-            cause = s"Party not known on ledger: Parties not known on ledger ${parties.asScala
+            cause = s"Party not known on ledger: Parties not known on ledger ${parties
               .mkString("[", ",", "]")}"
           ) {
-        override def context: Map[String, String] =
-          super.context + ("parties" -> Conversions.objectToJsonString(parties))
+        override def resources: Seq[(ErrorResource, String)] = parties.map((ErrorResource.Party, _))
       }
     }
 
@@ -157,14 +161,16 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
     object PartyNotKnownOnLedger
         extends ErrorCode(
           id = "PARTY_NOT_KNOWN_ON_LEDGER",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may become known at a later time
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing, // It may become known at a later time
         ) {
       case class Reject(
-          details: String
+          party: String
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends KVLoggingTransactionErrorImpl(
-            cause = s"Party not known on ledger: $details"
-          )
+            cause = s"Party not known on ledger: $party"
+          ) {
+        override def resources: Seq[(ErrorResource, String)] = Seq(ErrorResource.Party -> party)
+      }
     }
 
   }
