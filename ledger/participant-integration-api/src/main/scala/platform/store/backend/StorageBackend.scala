@@ -317,6 +317,20 @@ trait EventStorageBackend {
       limit: Int,
       stringInterning: StringInterning,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
+  def activeContractEvents3(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Ref.Party],
+      stringInterning: StringInterning,
+      endInclusive: Long,
+  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
+  def activeContractEventIds(
+      partyFilter: Ref.Party,
+      templateIdFilter: Option[Ref.Identifier],
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+      stringInterning: StringInterning,
+  )(connection: Connection): Vector[Long]
   def flatTransaction(
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,

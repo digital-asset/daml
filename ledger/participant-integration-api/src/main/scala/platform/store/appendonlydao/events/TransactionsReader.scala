@@ -453,7 +453,7 @@ private[appendonlydao] final class TransactionsReader(
     Source
       .futureSource(
         getAcsEventSeqIdRange(activeAt)
-          .map(requestedRange => acsReader.acsStream(filter, requestedRange.endInclusive))
+          .map(requestedRange => acsReader.acsStream2Phase(filter, requestedRange.endInclusive))
       )
       .mapAsync(2) { // TODO ACS wire up
         rawResult =>

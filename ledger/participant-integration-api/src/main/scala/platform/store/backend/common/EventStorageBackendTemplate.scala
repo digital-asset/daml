@@ -6,10 +6,11 @@ package com.daml.platform.store.backend.common
 import java.sql.Connection
 import java.time.Instant
 
-import anorm.SqlParser.{array, byteArray, bool, int, long, str}
+import anorm.SqlParser.{array, bool, byteArray, int, long, str}
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.Conversions.{contractId, eventId, instantFromMicros, offset}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
@@ -732,6 +733,84 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
        """
           .asVectorOf(rawFlatEventParser)(connection)
           .map(_(stringInterning))
+    }
+  }
+
+  override def activeContractEvents3(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Party],
+      stringInterning: StringInterning,
+      endInclusive: Long,
+  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
+    val eventWitnessesClause =
+      eventStrategy
+        .filteredEventWitnessesClause("flat_event_witnesses", allFilterParties, stringInterning)
+    val eventSequentialIdsArray: Array[java.lang.Long] =
+      eventSequentialIds.view.map(Long.box).toArray
+    SQL"""
+      SELECT
+        #$selectColumnsForACSEvents,
+        $eventWitnessesClause as event_witnesses,
+        '' as command_id
+      FROM
+        participant_events_create create_evs
+      WHERE
+        create_evs.event_sequential_id = ANY ($eventSequentialIdsArray)
+        AND NOT EXISTS (  -- check not archived as of snapshot
+          SELECT 1
+          FROM participant_events_consuming_exercise consuming_evs
+          WHERE
+            create_evs.contract_id = consuming_evs.contract_id
+            AND consuming_evs.event_sequential_id <= $endInclusive
+        )
+      ORDER BY
+        create_evs.event_sequential_id -- deliver in index order
+      """
+      .asVectorOf(rawFlatEventParser)(connection)
+      .map(_(stringInterning))
+  }
+
+  override def activeContractEventIds(
+      partyFilter: Party,
+      templateIdFilter: Option[Ref.Identifier],
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+      stringInterning: StringInterning,
+  )(connection: Connection): Vector[Long] = {
+    (
+      stringInterning.party.tryInternalize(partyFilter),
+      templateIdFilter.map(stringInterning.templateId.tryInternalize),
+    ) match {
+      case (None, _) => Vector.empty // partyFilter never seen
+      case (_, Some(None)) => Vector.empty // templateIdFilter never seen
+      case (Some(internedPartyFilter), internedTemplateIdFilterNested) =>
+        val (templateIdFilterClause, templateIdOrderingClause) =
+          internedTemplateIdFilterNested.flatten // flatten works for both None, Some(Some(x)) case, Some(None) excluded before
+          match {
+            case Some(internedTemplateId) =>
+              (
+                cSQL"AND filters.template_id = $internedTemplateId",
+                cSQL"filters.template_id,",
+              )
+            case None => (cSQL"", cSQL"")
+          }
+        SQL"""
+         SELECT filters.event_sequential_id
+         FROM
+           participant_events_create_filter filters
+         WHERE
+           filters.party_id = $internedPartyFilter
+           $templateIdFilterClause
+           AND $startExclusive < event_sequential_id
+           AND event_sequential_id <= $endInclusive
+         ORDER BY
+           filters.party_id,
+           $templateIdOrderingClause
+           filters.event_sequential_id -- deliver in index order
+         ${queryStrategy.limitClause(Some(limit))}
+       """
+          .asVectorOf(long("event_sequential_id"))(connection)
     }
   }
 }
