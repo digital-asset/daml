@@ -58,8 +58,6 @@ object TimestampConversion {
           throw new IllegalArgumentException(
             s"Conversion of $t to microsecond granularity would result in loss of precision."
           )
-        case ConversionMode.Up => t.plusNanos(1000L - fractionNanos)
-        case ConversionMode.Down => t.plusNanos(-fractionNanos)
         case ConversionMode.HalfUp =>
           t.plusNanos(if (fractionNanos >= 500L) 1000L - fractionNanos else -fractionNanos)
       }
@@ -73,12 +71,6 @@ object TimestampConversion {
 
     /** Throw an exception if the input can not be represented in microsecond resolution */
     case object Exact extends ConversionMode
-
-    /** Round up to the nearest microsecond */
-    case object Up extends ConversionMode
-
-    /** Round down to the nearest microsecond */
-    case object Down extends ConversionMode
 
     /** Round to the nearest microsecond */
     case object HalfUp extends ConversionMode

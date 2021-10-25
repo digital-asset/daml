@@ -100,20 +100,6 @@ class TimestampConversionSpec
     }
 
     "given a valid nanosecond timestamp" should {
-      "round down" in forAll(anyTimeInRange) { ts =>
-        val protoTs = fromInstant(ts)
-        val down = toLf(protoTs, ConversionMode.Down)
-        down.toInstant should be <= ts
-        down.toInstant should be > ts.plusNanos(-1000)
-      }
-
-      "round up" in forAll(anyTimeInRange) { ts =>
-        val protoTs = fromInstant(ts)
-        val up = toLf(protoTs, ConversionMode.Up)
-        up.toInstant should be >= ts
-        up.toInstant should be < ts.plusNanos(1000)
-      }
-
       "round half up" in forAll(anyTimeInRange) { ts =>
         val protoTs = fromInstant(ts)
         val halfUp = toLf(protoTs, ConversionMode.HalfUp)
