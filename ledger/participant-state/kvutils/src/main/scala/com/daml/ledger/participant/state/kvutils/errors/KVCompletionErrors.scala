@@ -126,7 +126,7 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
     object SubmittingPartyNotKnownOnLedger
         extends ErrorCode(
           id = "SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may may become known at a later time
+          ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may become known at a later time
         ) {
       case class Reject(
           submitter_party: String
@@ -139,7 +139,7 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
     object PartiesNotKnownOnLedger
         extends ErrorCode(
           id = "PARTIES_NOT_KNOWN_ON_LEDGER",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther, // They may may become known at a later time
+          ErrorCategory.InvalidGivenCurrentSystemStateOther, // They may become known at a later time
         ) {
       case class Reject(
           parties: ProtocolStringList
@@ -157,7 +157,7 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
     object PartyNotKnownOnLedger
         extends ErrorCode(
           id = "PARTY_NOT_KNOWN_ON_LEDGER",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may may become known at a later time
+          ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may become known at a later time
         ) {
       case class Reject(
           details: String
