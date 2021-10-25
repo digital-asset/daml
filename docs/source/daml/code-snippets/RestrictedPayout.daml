@@ -28,15 +28,17 @@ template RestrictedPayout
     qty : Int
   where
     signatory giver
-    controller receiver can
-      Call : ContractId Payout
-        do create Payout with receiver; giver; qty
+    observer receiver
+    choice Call : ContractId Payout
+      controller receiver
+      do create Payout with receiver; giver; qty
 
-      Transfer : ContractId RestrictedPayout
-        with newReceiver : Party
-        do
-          assert (newReceiver /= blacklisted)
-          create RestrictedPayout with receiver = newReceiver; giver; blacklisted; qty
+    choice Transfer : ContractId RestrictedPayout
+      with newReceiver : Party
+      controller receiver
+      do
+        assert (newReceiver /= blacklisted)
+        create RestrictedPayout with receiver = newReceiver; giver; blacklisted; qty
 
 exampleFailureBlacklisted = scenario do
     boe <- getParty "Bank of England"

@@ -3,6 +3,8 @@
 
 -- Check that all syntaxes for defining choices can be parsed.
 
+{-# OPTIONS_GHC -Wno-controller-can #-}
+
 module ChoiceSyntaxes where
 
 template T with
@@ -21,6 +23,7 @@ template T with
       do
         pure ()
 
+    -- deprecated syntax
     controller p can
       C3 : () with
           x : ()

@@ -16,11 +16,11 @@ template CoinMaster
   where
     signatory issuer
 
-    controller issuer can
-      nonconsuming Invite : ContractId CoinIssueProposal
-        with owner: Party
-        do create CoinIssueProposal
-             with coinAgreement = CoinIssueAgreement with issuer; owner
+    nonconsuming choice Invite : ContractId CoinIssueProposal
+      with owner: Party
+      controller issuer
+      do create CoinIssueProposal
+            with coinAgreement = CoinIssueAgreement with issuer; owner
 
 --the initiate/accept pattern moves the workflow forward
 template CoinIssueProposal
@@ -28,11 +28,12 @@ template CoinIssueProposal
     coinAgreement: CoinIssueAgreement
   where
     signatory coinAgreement.issuer
+    observer coinAgreement.owner
 
-    controller coinAgreement.owner can
-      AcceptCoinProposal
-        : ContractId CoinIssueAgreement
-        do create coinAgreement
+    choice AcceptCoinProposal
+      : ContractId CoinIssueAgreement
+      controller coinAgreement.owner
+      do create coinAgreement
 
 --the result contract of Initiate/Accept pattern
 template CoinIssueAgreement
@@ -42,10 +43,10 @@ template CoinIssueAgreement
   where
     signatory issuer, owner
 
-    controller issuer can
-      nonconsuming Issue : ContractId Coin
-        with amount: Decimal
-        do create Coin with issuer; owner; amount; delegates = []
+    nonconsuming choice Issue : ContractId Coin
+      with amount: Decimal
+      controller issuer
+      do create Coin with issuer; owner; amount; delegates = []
 
 
 --the original contract
@@ -59,27 +60,28 @@ template Coin
     signatory issuer, owner
     observer delegates
 
-    controller owner can
+    choice Transfer : ContractId TransferProposal
+      with newOwner: Party
+      controller owner
+      do
+          create TransferProposal
+            with coin=this; newOwner
 
-      Transfer : ContractId TransferProposal
-        with newOwner: Party
-        do   
-            create TransferProposal
-             with coin=this; newOwner
+    choice Lock : ContractId LockedCoin
+      with maturity: Time; locker: Party
+      controller owner
+      do create LockedCoin with coin=this; maturity; locker
 
-      Lock : ContractId LockedCoin
-        with maturity: Time; locker: Party
-        do create LockedCoin with coin=this; maturity; locker
-
-      Disclose : ContractId Coin
-        with p : Party
-        do create this with delegates = p :: delegates
+    choice Disclose : ContractId Coin
+      with p : Party
+      controller owner
+      do create this with delegates = p :: delegates
 
     --a coin can only be archived by the issuer under the condition that the issuer is the owner of the coin. This ensures the issuer cannot archive coins at will.
-    controller issuer can
-      Archives
-        : ()
-        do assert (issuer == owner)
+    choice Archives
+      : ()
+      controller issuer
+      do assert (issuer == owner)
 
 
 --the Coin contract in the locked state
@@ -90,19 +92,20 @@ template LockedCoin
     locker: Party
   where
     signatory coin.issuer, coin.owner
+    observer locker
 
-    controller locker can
-      Unlock
-        : ContractId Coin
-        do create coin
+    choice Unlock
+      : ContractId Coin
+      controller locker
+      do create coin
 
-    controller coin.owner can
-      Clawback
-        : ContractId Coin
-        do   
-          currTime <- getTime
-          assert (currTime >= maturity)
-          create coin
+    choice Clawback
+      : ContractId Coin
+      controller coin.owner
+      do
+        currTime <- getTime
+        assert (currTime >= maturity)
+        create coin
 
 
 --TransferProposal
@@ -112,20 +115,22 @@ template TransferProposal
     newOwner: Party
   where
     signatory coin.owner, coin.issuer
+    observer newOwner
 
-    controller coin.owner can
-      WithdrawProposal
-        : ContractId Coin
-        do create coin
+    choice WithdrawProposal
+      : ContractId Coin
+      controller coin.owner
+      do create coin
 
-    controller newOwner can
-      AcceptTransfer
-        : ContractId Coin
-        do create coin with owner = newOwner
+    choice AcceptTransfer
+      : ContractId Coin
+      controller newOwner
+      do create coin with owner = newOwner
 
-      RejectTransfer
-        : ()
-        do return ()
+    choice RejectTransfer
+      : ()
+      controller newOwner
+      do return ()
 
 createCoin : Party -> Party -> Decimal -> Scenario (ContractId Coin)
 createCoin issuer owner amount =
@@ -137,7 +142,7 @@ createCoin issuer owner amount =
     return coinId
 
 coinIssuance : Scenario (ContractId TransferProposal)  -- test
-coinIssuance = 
+coinIssuance =
   scenario
     do
 

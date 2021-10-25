@@ -10,6 +10,7 @@ template OnlySignatories
   where
     signatory owner
 
+    -- deprecated syntax
     controller owner can
       OnlySignatories_Choice : ()
         do return ()
@@ -21,6 +22,7 @@ template ImplicitObservers
   where
     signatory owner
 
+    -- deprecated syntax
     controller thirdParty can
       ImplicitObservers_Choice : ()
         do return ()
@@ -33,6 +35,7 @@ template ExplicitObservers
     signatory owner
     observer thirdParty
 
+    -- deprecated syntax
     controller owner can
       ExplicitObservers_Choice : ()
         do return ()
@@ -46,6 +49,7 @@ template MixedObservers
     signatory owner
     observer thirdParty1
 
+    -- deprecated syntax
     controller thirdParty2 can
       MixedObservers_Choice : ()
         do return ()

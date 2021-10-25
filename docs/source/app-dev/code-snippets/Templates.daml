@@ -18,11 +18,11 @@ template MySimpleTemplate
         key MySimpleTemplateKey owner: MySimpleTemplateKey
         maintainer key.party
 
-        controller owner can
-            MyChoice
-                : ()
-                with parameter: Int
-                do return ()
+        choice MyChoice
+            : ()
+            with parameter: Int
+            controller owner
+            do return ()
 
 emptyTemplateTest = scenario do
     alice <- getParty "Alice"

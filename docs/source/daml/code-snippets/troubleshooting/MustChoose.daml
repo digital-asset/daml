@@ -42,18 +42,18 @@ template Invoice
       show amount <> "$ for " <> service <>
       " by " <> show timeLimit
 
-    controller payer can
-      Pay : ()
-        do
-          before timeLimit ("Invoice has to be paid before " <> (show timeLimit))
-          return () -- Cash paid here
+    choice Pay : ()
+      controller payer
+      do
+        before timeLimit ("Invoice has to be paid before " <> (show timeLimit))
+        return () -- Cash paid here
 
-    controller payee can
-      ImposePenalty : ContractId Invoice
-        do
-          after timeLimit ("Penalty can only be imposed after " <> (show timeLimit))
-          now <- getTime
-          create Invoice with payer; payee; service; timeLimit = (addRelTime now (days 10)); amount = (amount * 1.03)
+    choice ImposePenalty : ContractId Invoice
+      controller payee
+      do
+        after timeLimit ("Penalty can only be imposed after " <> (show timeLimit))
+        now <- getTime
+        create Invoice with payer; payee; service; timeLimit = (addRelTime now (days 10)); amount = (amount * 1.03)
 
 template RequestPayment
   with
@@ -61,15 +61,16 @@ template RequestPayment
     payee: Party
   where
     signatory payee
+    observer payer
 
-    controller payer can
-      CreateInvoice : ContractId Invoice
-        with
-          service: Text
-          amount: Decimal
-          timeLimit: Time
-        do
-          create Invoice with payer; payee; service; timeLimit; amount
+    choice CreateInvoice : ContractId Invoice
+      with
+        service: Text
+        amount: Decimal
+        timeLimit: Time
+      controller payer
+      do
+        create Invoice with payer; payee; service; timeLimit; amount
 
 testPaid : Scenario ()  -- test
 testPaid =

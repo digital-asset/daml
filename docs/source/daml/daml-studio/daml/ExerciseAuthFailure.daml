@@ -10,14 +10,15 @@ template Example
     friend : Party
   where
     signatory owner
+    observer friend
 
-    controller owner can
-      Consume : ()
-        do return ()
+    choice Consume : ()
+      controller owner
+      do return ()
 
-    controller friend can
-      Hello : ()
-        do return ()
+    choice Hello : ()
+      controller friend
+      do return ()
 
 
 {-

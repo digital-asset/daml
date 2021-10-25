@@ -9,9 +9,9 @@ template Example
   where
     signatory owner
 
-    controller owner can
-      Consume : ()
-        do return ()
+    choice Consume : ()
+      controller owner
+      do return ()
 
 {-
 example = scenario do

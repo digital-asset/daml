@@ -24,27 +24,27 @@ template LockedCoinV2
   where
     signatory locker, coin.owner
 
-    controller locker can
-      UnlockV2
-        : ContractId Coin
-        with coinCid : ContractId Coin
-        do   
-          inputCoin <- fetch coinCid
-          assert (inputCoin.owner == locker)
-          tpCid <- exercise coinCid Transfer with newOwner = coin.owner
-          exercise tpCid AcceptTransfer
+    choice UnlockV2
+      : ContractId Coin
+      with coinCid : ContractId Coin
+      controller locker
+      do
+        inputCoin <- fetch coinCid
+        assert (inputCoin.owner == locker)
+        tpCid <- exercise coinCid Transfer with newOwner = coin.owner
+        exercise tpCid AcceptTransfer
 
-    controller coin.owner can
-      ClawbackV2
-        : ContractId Coin
-        with coinCid : ContractId Coin
-        do   
-          currTime <- getTime
-          assert (currTime >= maturity)
-          inputCoin <- fetch coinCid
-          assert (inputCoin == coin with owner=locker)
-          tpCid <- exercise coinCid Transfer with newOwner = coin.owner
-          exercise tpCid AcceptTransfer
+    choice ClawbackV2
+      : ContractId Coin
+      with coinCid : ContractId Coin
+      controller coin.owner
+      do
+        currTime <- getTime
+        assert (currTime >= maturity)
+        inputCoin <- fetch coinCid
+        assert (inputCoin == coin with owner=locker)
+        tpCid <- exercise coinCid Transfer with newOwner = coin.owner
+        exercise tpCid AcceptTransfer
 
 template LockRequest
   with
@@ -53,17 +53,18 @@ template LockRequest
     coin: Coin
   where
     signatory locker
+    observer coin.owner
 
-    controller coin.owner can
-      Accept : LockResult
-        with coinCid : ContractId Coin
-        do   
-          inputCoin <- fetch coinCid
-          assert (inputCoin == coin)
-          tpCid <- exercise coinCid Transfer with newOwner = locker
-          coinCid <- exercise tpCid AcceptTransfer
-          lockCid <- create LockedCoinV2 with locker; maturity; coin
-          return LockResult {coinCid; lockCid}
+    choice Accept : LockResult
+      with coinCid : ContractId Coin
+      controller coin.owner
+      do
+        inputCoin <- fetch coinCid
+        assert (inputCoin == coin)
+        tpCid <- exercise coinCid Transfer with newOwner = locker
+        coinCid <- exercise tpCid AcceptTransfer
+        lockCid <- create LockedCoinV2 with locker; maturity; coin
+        return LockResult {coinCid; lockCid}
 
 
 locking : Scenario (ContractId Coin)  -- test

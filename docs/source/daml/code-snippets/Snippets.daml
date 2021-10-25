@@ -37,15 +37,14 @@ template FullfillTaskWithinTimeWindow
   where
     signatory party
 
-    controller party can
-      -- A choice using a check on the current time
-      Complete : ()
-
-        do
-          -- bind the ledger effective time to the tchoose variable using getTime
-          tchoose <- getTime
-          -- assert that tchoose is no earlier than the begin time
-          assert (begin <= tchoose && tchoose < addRelTime begin period)
+    -- A choice using a check on the current time
+    choice Complete : ()
+      controller party
+      do
+        -- bind the ledger effective time to the tchoose variable using getTime
+        tchoose <- getTime
+        -- assert that tchoose is no earlier than the begin time
+        assert (begin <= tchoose && tchoose < addRelTime begin period)
 
 -- Lists example.
 twoEquivalentListConstructions =
@@ -95,8 +94,8 @@ template Iou
     -- from any and all of the signatory, consuming, ensure and
     -- agreement expressions and from within any choice do blocks.
 
-    controller owner can
-      Transfer : ContractId Iou
-        with newOwner : Party
-        do
-          updateOwner newOwner
+    choice Transfer : ContractId Iou
+      with newOwner : Party
+      controller owner
+      do
+        updateOwner newOwner
