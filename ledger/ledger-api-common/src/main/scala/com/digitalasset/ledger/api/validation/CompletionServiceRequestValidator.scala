@@ -22,7 +22,7 @@ class CompletionServiceRequestValidator(
 ) {
 
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
-  private val fieldValidations = new FieldValidations(errorFactories)
+  private val fieldValidations = FieldValidations(errorFactories)
   private val partyValidator =
     new PartyValidator(partyNameChecker, errorFactories, fieldValidations)
   private val ledgerOffsetValidator = new LedgerOffsetValidator(errorFactories)

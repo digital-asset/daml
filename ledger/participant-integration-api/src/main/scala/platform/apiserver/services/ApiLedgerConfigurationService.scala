@@ -68,7 +68,7 @@ private[apiserver] object ApiLedgerConfigurationService {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): LedgerConfigurationServiceGrpc.LedgerConfigurationService with GrpcApiService = {
-    val fieldValidations = new FieldValidations(ErrorFactories(errorCodesVersionSwitcher))
+    val fieldValidations = FieldValidations(ErrorFactories(errorCodesVersionSwitcher))
     new LedgerConfigurationServiceValidation(
       service = new ApiLedgerConfigurationService(configurationService),
       ledgerId = ledgerId,

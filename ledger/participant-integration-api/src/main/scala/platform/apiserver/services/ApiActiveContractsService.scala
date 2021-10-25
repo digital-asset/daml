@@ -81,7 +81,7 @@ private[apiserver] object ApiActiveContractsService {
       loggingContext: LoggingContext,
   ): ActiveContractsService with GrpcApiService = {
     val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
-    val field = new FieldValidations(ErrorFactories(errorCodesVersionSwitcher))
+    val field = FieldValidations(ErrorFactories(errorCodesVersionSwitcher))
     val service = new ApiActiveContractsService(
       backend = backend,
       metrics = metrics,

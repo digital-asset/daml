@@ -170,7 +170,7 @@ class SubmitRequestValidatorTest
     val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
     new ValueValidator(
       errorFactories,
-      new FieldValidations(errorFactories),
+      FieldValidations(errorFactories),
     )
   })
 
@@ -180,7 +180,7 @@ class SubmitRequestValidatorTest
     val errorFactories = ErrorFactories(errorCodesVersionSwitcher_mock)
     new ValueValidator(
       errorFactories,
-      new FieldValidations(errorFactories),
+      FieldValidations(errorFactories),
     )
   }
 

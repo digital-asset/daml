@@ -31,7 +31,7 @@ class TransactionServiceRequestValidator(
 
   import TransactionServiceRequestValidator.Result
 
-  private val fieldValidations = new FieldValidations(errorFactories)
+  private val fieldValidations = FieldValidations(errorFactories)
   private val partyValidator =
     new PartyValidator(partyNameChecker, errorFactories, fieldValidations)
   private val ledgerOffsetValidator = new LedgerOffsetValidator(errorFactories)

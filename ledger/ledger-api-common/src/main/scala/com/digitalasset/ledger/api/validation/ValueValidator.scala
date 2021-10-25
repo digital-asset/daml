@@ -170,7 +170,7 @@ object NoLoggingValueValidator {
   private val errorFactories = ErrorFactories(new ErrorCodesVersionSwitcher(false))
   private val valueValidator = new ValueValidator(
     errorFactories = errorFactories,
-    fieldValidations = new FieldValidations(errorFactories),
+    fieldValidations = FieldValidations(errorFactories),
   )
 
   def validateRecord(rec: api.Record): Either[StatusRuntimeException, Lf.ValueRecord] =
