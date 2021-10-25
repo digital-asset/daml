@@ -28,20 +28,23 @@ Initiate contract
 
   .. literalinclude:: daml/CoinIssuance.daml
     :language: daml
-    :lines: 13-23
+    :start-after: -- BEGIN_COIN_ISSUER
+    :end-before: -- END_COIN_ISSUER
 
   The *CoinIssueProposal* contract has *Issuer* as the signatory, and *Owner* as the controller to the *Accept* choice. In its complete form, the *CoinIssueProposal* contract should define all choices available to the owner, i.e. Accept, Reject or Counter (e.g. re-negotiate terms).
 
   .. literalinclude:: daml/CoinIssuance.daml
     :language: daml
-    :lines: 26-35
+    :start-after: -- BEGIN_COIN_ISSUE_PROPOSAL
+    :end-before: -- END_COIN_ISSUE_PROPOSAL
 
 Result contract
   Once the owner exercises the *AcceptCoinProposal* choice on the initiate contract to express their consent, it returns a result contract representing the agreement between the two parties. In this example, the result contract is of type *CoinIssueAgreement*. Note, it has both *issuer* and *owner* as the signatories, implying they both need to consent to the creation of this contract. Both parties could be controller(s) on the result contract, depending on the business case.
 
   .. literalinclude:: daml/CoinIssuance.daml
     :language: daml
-    :lines: 38-48
+    :start-after: -- BEGIN_COIN_ISSUE_AGREEMENT
+    :end-before: -- END_COIN_ISSUE_AGREEMENT
 
 .. figure:: images/initiateaccept.png
 

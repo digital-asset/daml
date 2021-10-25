@@ -4,6 +4,7 @@
 
 module NotVisibleFailure where
 
+-- BEGIN_NOT_VISIBLE_TEMPLATE
 template Example
   with owner: Party
   where
@@ -12,11 +13,14 @@ template Example
     choice Consume : ()
       controller owner
       do return ()
+-- END_NOT_VISIBLE_TEMPLATE
 
 {-
+-- BEGIN_NOT_VISIBLE_SCENARIO
 example = scenario do
   alice <- getParty "Alice"
   bob <- getParty "Bob"
   cid <- submit alice (create Example with owner=alice)
   submit bob do exercise cid Consume
+-- END_NOT_VISIBLE_SCENARIO
 -}

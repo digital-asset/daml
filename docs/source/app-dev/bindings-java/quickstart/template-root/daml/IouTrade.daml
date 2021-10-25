@@ -23,6 +23,7 @@ template IouTrade
     signatory buyer
     observer seller
 
+-- BEGIN_IOU_COMPOSITE_CHOICE
     choice IouTrade_Accept : (IouCid, IouCid)
       with
         quoteIouCid : IouCid
@@ -45,6 +46,7 @@ template IouTrade
           newOwner = seller
         transferredBaseIouCid <- exercise baseIouTransferCid IouTransfer_Accept
         return (transferredQuoteIouCid, transferredBaseIouCid)
+-- END_IOU_COMPOSITE_CHOICE
 
     choice TradeProposal_Reject : ()
       controller seller

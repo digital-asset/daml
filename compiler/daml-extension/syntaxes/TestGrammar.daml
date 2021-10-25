@@ -30,13 +30,13 @@ template FeatureSuggestion
         assert $ elem sponsor founders  -- assert -> source.daml
         create FeatureAssignment with employee, description, sponsor -- create -> source.daml
 
-    -- deprecated syntax
+    -- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
     controller employee can
       nonconsuming DoNothing : ()
         do
           return ()
 
-    -- deprecated syntax
+    -- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
     controller employee can
       Revoke : ()
         do pure ()

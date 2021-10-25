@@ -9,6 +9,7 @@ module LockingByChangingState where
 
 import Utilities
 
+-- BEGIN_LOCKABLE_COIN_TEMPLATE
 template LockableCoin
   with
     owner: Party
@@ -46,6 +47,7 @@ template LockableCoin
       do
         assert (locker /= owner)
         create this with locker = owner
+-- END_LOCKABLE_COIN_TEMPLATE
 
 
 --TransferProposal

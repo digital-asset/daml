@@ -424,7 +424,9 @@ template T_ControllerCanAddsObserver
     p : Party
   where
     signatory p
-    -- deprecated syntax
+    -- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
+    -- This tests that `controller X can` implicitly adds `X` as an observer, so we keep
+    -- it until it is removed.
     controller (error @Party "controllerCanAddsObserver OK") can
       C_ControllerCanAddsObserver: ()
         do pure ()

@@ -8,7 +8,18 @@ The original *Coin* template is shown below. This is the basis on which to imple
 
 .. literalinclude:: ../daml/CoinIssuance.daml
   :language: daml
-  :lines: 52-68,77-82
+  :start-after: -- BEGIN_COIN_TEMPLATE_DATATYPE
+  :end-before: -- END_COIN_TEMPLATE_DATATYPE
+
+.. literalinclude:: ../daml/CoinIssuance.daml
+  :language: daml
+  :start-after: -- BEGIN_COIN_TEMPLATE_TRANSFER
+  :end-before: -- END_COIN_TEMPLATE_TRANSFER
+
+.. literalinclude:: ../daml/CoinIssuance.daml
+  :language: daml
+  :start-after: -- BEGIN_COIN_TEMPLATE_ARCHIVE
+  :end-before: -- END_COIN_TEMPLATE_ARCHIVE
 
 In its original form, all choices are actionable as long as the contract is active. Locking by State requires introducing fields to track state. This allows for the creation of an active contract in two possible states: locked or unlocked. A Daml modeler can selectively make certain choices actionable only if the contract is in unlocked state. This effectively makes the asset lockable.
 
@@ -30,7 +41,8 @@ Here are the changes we made to the original *Coin* contract to make it lockable
 
 .. literalinclude:: ../daml/LockingByChangingState.daml
   :language: daml
-  :lines: 12-46
+  :start-after: -- BEGIN_LOCKABLE_COIN_TEMPLATE
+  :end-before: -- END_LOCKABLE_COIN_TEMPLATE
 
 Locking By State Diagram
 

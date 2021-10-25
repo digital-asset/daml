@@ -10,6 +10,7 @@ module CoinCommitment where
 import CoinIssuance
 
 --owner can commit to lock. Once he commits, the original coin is archived.
+-- BEGIN_COIN_COMMITMENT_TEMPLATE_DATATYPE
 template CoinCommitment
   with
     owner: Party
@@ -18,7 +19,9 @@ template CoinCommitment
    where
     signatory issuer
     observer owner
+-- END_COIN_COMMITMENT_TEMPLATE_DATATYPE
 
+-- BEGIN_COIN_COMMITMENT_TEMPLATE_LOCK_COIN
     nonconsuming choice LockCoin
       : ContractId LockedCoin
       with coinCid: ContractId Coin
@@ -37,4 +40,4 @@ template CoinCommitment
         create LockedCoin with
           coin=inputCoin with owner; issuer; amount
           maturity; locker
-
+-- END_COIN_COMMITMENT_TEMPLATE_LOCK_COIN

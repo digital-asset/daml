@@ -23,7 +23,8 @@ template T with
       do
         pure ()
 
-    -- deprecated syntax
+    -- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
+    -- This file tests the various options for defining choices, so we keep it until it is removed.
     controller p can
       C3 : () with
           x : ()

@@ -16,6 +16,7 @@ data LockResult = LockResult {
   lockCid : ContractId LockedCoinV2
 }
 
+-- BEGIN_LOCKED_COIN_V2_TEMPLATE
 template LockedCoinV2
   with
     coin: Coin
@@ -45,7 +46,9 @@ template LockedCoinV2
         assert (inputCoin == coin with owner=locker)
         tpCid <- exercise coinCid Transfer with newOwner = coin.owner
         exercise tpCid AcceptTransfer
+-- END_LOCKED_COIN_V2_TEMPLATE
 
+-- BEGIN_LOCK_REQUEST_TEMPLATE
 template LockRequest
   with
     locker: Party
@@ -65,6 +68,7 @@ template LockRequest
         coinCid <- exercise tpCid AcceptTransfer
         lockCid <- create LockedCoinV2 with locker; maturity; coin
         return LockResult {coinCid; lockCid}
+-- END_LOCK_REQUEST_TEMPLATE
 
 
 locking : Scenario (ContractId Coin)  -- test

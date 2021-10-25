@@ -4,6 +4,7 @@
 
 module Templates where
 
+-- BEGIN_SIMPLE_TEMPLATE
 data MySimpleTemplateKey =
   MySimpleTemplateKey
     with
@@ -17,6 +18,7 @@ template MySimpleTemplate
 
         key MySimpleTemplateKey owner: MySimpleTemplateKey
         maintainer key.party
+-- END_SIMPLE_TEMPLATE
 
         choice MyChoice
             : ()

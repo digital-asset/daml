@@ -126,6 +126,7 @@ template LastOneOut
 
 -- Argument not serializable
 {-
+-- BEGIN_NOT_SERIALIZABLE_TEMPLATE
 template SupervisedPayout
   with
     supervisor : Party -> Party
@@ -133,8 +134,11 @@ template SupervisedPayout
     giver      : Party
     amount     : Decimal
   where
-    controller (supervisor receiver) can
-      SupervisedPayout_Call
-        returning ContractId Payout
-        to create Payout with giver; receiver; amount
+    signatory giver
+    observer (supervisor receiver)
+    choice SupervisedPayout_Call
+      : ContractId Payout
+      controller supervisor receiver
+      do create Payout with giver; receiver; amount
+-- END_NOT_SERIALIZABLE_TEMPLATE
 -}

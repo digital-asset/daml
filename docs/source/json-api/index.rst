@@ -339,7 +339,8 @@ To create an ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings
 
 .. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
-  :lines: 9-15
+  :start-after: -- BEGIN_IOU_TEMPLATE_DATATYPE
+  :end-before: -- END_IOU_TEMPLATE_DATATYPE
 
 .. _create-request:
 
@@ -446,7 +447,8 @@ The JSON command below, demonstrates how to exercise an ``Iou_Transfer`` choice 
 
 .. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
-  :lines: 23, 52-55
+  :start-after: -- BEGIN_IOU_TEMPLATE_TRANSFER
+  :end-before: -- END_IOU_TEMPLATE_TRANSFER
 
 HTTP Request
 ============

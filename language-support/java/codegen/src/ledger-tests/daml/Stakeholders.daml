@@ -10,7 +10,8 @@ template OnlySignatories
   where
     signatory owner
 
-    -- deprecated syntax
+    -- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
+    -- This file tests the various options for defining choices, so we keep it until it is removed.
     controller owner can
       OnlySignatories_Choice : ()
         do return ()
@@ -22,7 +23,8 @@ template ImplicitObservers
   where
     signatory owner
 
-    -- deprecated syntax
+    -- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
+    -- This file tests the various options for defining choices, so we keep it until it is removed.
     controller thirdParty can
       ImplicitObservers_Choice : ()
         do return ()
@@ -35,7 +37,8 @@ template ExplicitObservers
     signatory owner
     observer thirdParty
 
-    -- deprecated syntax
+    -- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
+    -- This file tests the various options for defining choices, so we keep it until it is removed.
     controller owner can
       ExplicitObservers_Choice : ()
         do return ()
@@ -49,7 +52,8 @@ template MixedObservers
     signatory owner
     observer thirdParty1
 
-    -- deprecated syntax
+    -- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
+    -- This file tests the various options for defining choices, so we keep it until it is removed.
     controller thirdParty2 can
       MixedObservers_Choice : ()
         do return ()

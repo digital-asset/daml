@@ -16,6 +16,7 @@ import Utilities
 -- Before such delegation takes place, Daml obligable computation will make sure party B has agreed to it.
 -- This is to ensure all contracts on the ledger are well-authorized
 
+-- BEGIN_COIN_POA
 template CoinPoA
   with
     attorney: Party
@@ -28,9 +29,11 @@ template CoinPoA
       : ()
       controller principal
       do return ()
+-- END_COIN_POA
 
     -- attorney has the delegated right to Transfer
     -- principal as the signatory on this contract ensures the right to Transfer is delegated voluntarily
+-- BEGIN_COIN_POA_TRANSFER
     nonconsuming choice TransferCoin
       : ContractId TransferProposal
       with
@@ -39,6 +42,7 @@ template CoinPoA
       controller attorney
       do
         exercise coinId Transfer with newOwner
+-- END_COIN_POA_TRANSFER
 
 delegate : Scenario ()  -- test
 delegate =

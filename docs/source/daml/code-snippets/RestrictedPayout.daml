@@ -33,12 +33,14 @@ template RestrictedPayout
       controller receiver
       do create Payout with receiver; giver; qty
 
+-- BEGIN_CHOICE_WITH_ASSERT
     choice Transfer : ContractId RestrictedPayout
       with newReceiver : Party
       controller receiver
       do
         assert (newReceiver /= blacklisted)
         create RestrictedPayout with receiver = newReceiver; giver; blacklisted; qty
+-- END_CHOICE_WITH_ASSERT
 
 exampleFailureBlacklisted = scenario do
     boe <- getParty "Bank of England"

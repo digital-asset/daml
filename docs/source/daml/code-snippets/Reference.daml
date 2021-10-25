@@ -107,8 +107,9 @@ template NameOfTemplate
           do
             return ()
 
+-- deprecated syntax: 'controller ... can' will be removed in a future version of Daml.
+-- We keep it here for documentation purposes until it is removed.
 -- start controller-first controller snippet
-    -- deprecated syntax
     controller exampleParty can
 -- end controller-first controller snippet
 -- start controller-first choice name snippet

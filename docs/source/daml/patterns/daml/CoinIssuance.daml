@@ -10,6 +10,7 @@ module CoinIssuance where
 import DA.Time
 import Utilities
 
+-- BEGIN_COIN_ISSUER
 template CoinMaster
   with
     issuer: Party
@@ -21,8 +22,10 @@ template CoinMaster
       controller issuer
       do create CoinIssueProposal
             with coinAgreement = CoinIssueAgreement with issuer; owner
+-- END_COIN_ISSUER
 
 --the initiate/accept pattern moves the workflow forward
+-- BEGIN_COIN_ISSUE_PROPOSAL
 template CoinIssueProposal
   with
     coinAgreement: CoinIssueAgreement
@@ -34,8 +37,10 @@ template CoinIssueProposal
       : ContractId CoinIssueAgreement
       controller coinAgreement.owner
       do create coinAgreement
+-- END_COIN_ISSUE_PROPOSAL
 
 --the result contract of Initiate/Accept pattern
+-- BEGIN_COIN_ISSUE_AGREEMENT
 template CoinIssueAgreement
   with
     issuer: Party
@@ -47,9 +52,11 @@ template CoinIssueAgreement
       with amount: Decimal
       controller issuer
       do create Coin with issuer; owner; amount; delegates = []
+-- END_COIN_ISSUE_AGREEMENT
 
 
 --the original contract
+-- BEGIN_COIN_TEMPLATE_DATATYPE
 template Coin
   with
     owner: Party
@@ -59,32 +66,41 @@ template Coin
   where
     signatory issuer, owner
     observer delegates
+-- END_COIN_TEMPLATE_DATATYPE
 
+-- BEGIN_COIN_TEMPLATE_TRANSFER
     choice Transfer : ContractId TransferProposal
       with newOwner: Party
       controller owner
       do
           create TransferProposal
             with coin=this; newOwner
+-- END_COIN_TEMPLATE_TRANSFER
 
+-- BEGIN_COIN_TEMPLATE_LOCK
     choice Lock : ContractId LockedCoin
       with maturity: Time; locker: Party
       controller owner
       do create LockedCoin with coin=this; maturity; locker
+-- END_COIN_TEMPLATE_LOCK
 
+-- BEGIN_COIN_TEMPLATE_DISCLOSE
     choice Disclose : ContractId Coin
       with p : Party
       controller owner
       do create this with delegates = p :: delegates
+-- END_COIN_TEMPLATE_DISCLOSE
 
+-- BEGIN_COIN_TEMPLATE_ARCHIVE
     --a coin can only be archived by the issuer under the condition that the issuer is the owner of the coin. This ensures the issuer cannot archive coins at will.
     choice Archives
       : ()
       controller issuer
       do assert (issuer == owner)
-
+-- END_COIN_TEMPLATE_ARCHIVE
 
 --the Coin contract in the locked state
+-- BEGIN_LOCKED_COIN_TEMPLATE_DATATYPE
 template LockedCoin
   with
     coin: Coin
@@ -93,12 +109,16 @@ template LockedCoin
   where
     signatory coin.issuer, coin.owner
     observer locker
+-- END_LOCKED_COIN_TEMPLATE_DATATYPE
 
+-- BEGIN_LOCKED_COIN_TEMPLATE_UNLOCK
     choice Unlock
       : ContractId Coin
       controller locker
       do create coin
+-- END_LOCKED_COIN_TEMPLATE_UNLOCK
 
+-- BEGIN_LOCKED_COIN_TEMPLATE_CLAWBACK
     choice Clawback
       : ContractId Coin
       controller coin.owner
@@ -106,6 +126,7 @@ template LockedCoin
         currTime <- getTime
         assert (currTime >= maturity)
         create coin
+-- END_LOCKED_COIN_TEMPLATE_CLAWBACK
 
 
 --TransferProposal
