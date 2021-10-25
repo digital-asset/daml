@@ -4,6 +4,7 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
+
 import anorm.SqlParser.{flatten, str}
 import anorm.{Macro, RowParser, SQL, SqlParser}
 import com.daml.ledger.offset.Offset

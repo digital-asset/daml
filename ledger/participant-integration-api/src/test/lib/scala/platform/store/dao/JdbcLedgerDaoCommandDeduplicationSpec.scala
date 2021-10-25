@@ -5,6 +5,7 @@ package com.daml.platform.store.dao
 
 import java.time.Instant
 import java.util.UUID
+
 import com.daml.ledger.api.domain.CommandId
 import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,

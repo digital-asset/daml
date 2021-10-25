@@ -8,6 +8,7 @@ package com.daml.platform.db.migration.postgres
 import java.io.InputStream
 import java.sql.Connection
 import java.util.{Date, UUID}
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._

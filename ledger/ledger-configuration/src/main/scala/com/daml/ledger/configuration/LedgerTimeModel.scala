@@ -4,6 +4,7 @@
 package com.daml.ledger.configuration
 
 import java.time.{Duration, Instant}
+
 import com.daml.ledger.configuration.LedgerTimeModel._
 import com.daml.lf.data.Time.Timestamp
 

@@ -4,6 +4,7 @@
 package com.daml.platform.store.dao
 
 import java.util.UUID
+
 import akka.stream.scaladsl.Sink
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers

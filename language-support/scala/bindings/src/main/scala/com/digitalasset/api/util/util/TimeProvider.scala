@@ -4,6 +4,7 @@
 package com.daml.api.util
 
 import java.time.{Clock, Instant}
+
 import com.daml.api.util.TimeProvider.MappedTimeProvider
 import com.daml.lf.data.Time.Timestamp
 

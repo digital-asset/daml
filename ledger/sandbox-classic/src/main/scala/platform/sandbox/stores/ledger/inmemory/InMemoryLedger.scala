@@ -5,6 +5,7 @@ package com.daml.platform.sandbox.stores.ledger.inmemory
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider

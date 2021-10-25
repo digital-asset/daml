@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.v2
 
 import java.util.concurrent.CompletionStage
+
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.health.HealthStatus

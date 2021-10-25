@@ -4,8 +4,10 @@
 package com.daml.api.util
 
 import java.time.Instant
+
 import com.daml.ledger.api.v1.value.Value.{Sum => VSum}
 import TimestampConversion._
+
 import org.scalacheck.Gen
 import org.scalacheck.Prop
 import Prop.exists

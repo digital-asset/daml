@@ -4,6 +4,7 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
+
 import anorm.{RowParser, SQL, ~}
 import anorm.SqlParser.{bool, flatten, str}
 import com.daml.ledger.api.domain.PartyDetails
