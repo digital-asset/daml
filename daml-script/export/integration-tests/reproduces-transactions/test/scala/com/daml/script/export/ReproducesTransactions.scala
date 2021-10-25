@@ -35,9 +35,6 @@ import com.daml.fs.Utils.deleteRecursively
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptTimeMode}
 import scalaz.syntax.tag._
-import scalaz.std.scalaFuture._
-import scalaz.std.list._
-import scalaz.syntax.traverse._
 import spray.json._
 
 import scala.concurrent.Future
@@ -108,7 +105,13 @@ trait ReproducesTransactions
   private def allocateParties(client: LedgerClient, numParties: Int): Future[List[Ref.Party]] =
     List
       .range(0, numParties)
-      .traverse(_ => client.partyManagementClient.allocateParty(None, None).map(_.party))
+      // Allocate parties sequentially to avoid timeouts on CI.
+      .foldLeft[Future[List[Ref.Party]]](Future.successful(Nil)) { case (acc, _) =>
+        for {
+          ps <- acc
+          p <- client.partyManagementClient.allocateParty(None, None).map(_.party)
+        } yield ps :+ p
+      }
 
   private val ledgerBegin = LedgerOffset(
     LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
