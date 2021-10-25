@@ -5,6 +5,8 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v1;
 
+import "com/daml/ledger/api/v1/experimental_features.proto";
+
 option java_outer_classname = "VersionServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
@@ -26,6 +28,25 @@ message GetLedgerApiVersionRequest {
 
 message GetLedgerApiVersionResponse {
 
-  // The version of the ledger API
+  // The version of the ledger API.
   string version = 1;
+
+  // The features supported by this Ledger API endpoint.
+  //
+  // Daml applications CAN use the feature descriptor on top of
+  // version constraints on the Ledger API version to determine
+  // whether a given Ledger API endpoint supports the features
+  // required to run the application.
+  //
+  // See the feature descriptions themselves for the relation between
+  // Ledger API versions and feature presence.
+  FeaturesDescriptor features = 2;
+}
+
+message FeaturesDescriptor {
+  // Features under development or features that are used
+  // for ledger implementation testing purposes only.
+  //
+  // Daml applications SHOULD not depend on these in production.
+  ExperimentalFeatures experimental = 1;
 }
