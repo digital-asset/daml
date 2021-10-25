@@ -11,6 +11,8 @@ import com.daml.error.{
   ErrorCode,
   ErrorGroup,
   ErrorResource,
+  Explanation,
+  Resolution,
 }
 import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LedgerApiErrorGroup
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
@@ -22,6 +24,11 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
 
   object Time extends ErrorGroup() {
 
+    @Explanation("""The record time is not within bounds for reasons other than deduplication, such as
+                   |excessive latency. Excessive clock skew between the participant and the committer
+                   |or a too restrictive time model may also produce this rejection.
+                   |""".stripMargin)
+    @Resolution("Retry the submission or contact the participant operator.")
     object InvalidRecordTime
         extends ErrorCode(
           id = "INVALID_RECORD_TIME",
@@ -37,6 +44,12 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
           extends KVLoggingTransactionErrorImpl(cause)
     }
 
+    @Explanation("""The record time is not within bounds for reasons other than deduplication, such as
+                   |excessive latency. Excessive clock skew between the participant and the committer or a too
+                   |restrictive time model may also produce this rejection.
+                   |""".stripMargin)
+    @Resolution("Retry the transaction submission or contact the participant operator.")
+    @Deprecated // It was used with batching
     object RecordTimeOutOfRange
         extends ErrorCode(
           id = "RECORD_TIME_OUT_OF_RANGE",
@@ -52,6 +65,10 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
           )
     }
 
+    @Explanation(
+      "At least one input contract has a later ledger time than the submitted transaction's."
+    )
+    @Resolution("Retry the transaction submission.")
     object InvalidLedgerTime
         extends ErrorCode(
           id = "INVALID_LEDGER_TIME",
@@ -66,6 +83,10 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
           extends KVLoggingTransactionErrorImpl(cause = s"Invalid ledger time: $details")
     }
 
+    @Explanation(
+      "At least one input contract has a later ledger time than the submitted transaction's."
+    )
+    @Resolution("Retry the transaction submission.")
     object CausalMonotonicityViolated
         extends ErrorCode(
           id = "CAUSAL_MONOTONICITY_VIOLATED",
@@ -82,6 +103,14 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
 
   object SubmissionRaces extends ErrorGroup() {
 
+    @Explanation(
+      "An contract with the same key has already been created by a concurrent transaction submission."
+    )
+    @Resolution(
+      """The correct resolution depends on the business flow, for example using the existing contract
+         |or retrying after it has been archived.
+         |""".stripMargin
+    )
     object ExternallyDuplicateKeys
         extends ErrorCode(
           id = "EXTERNALLY_DUPLICATE_KEYS",
@@ -94,6 +123,10 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
           )
     }
 
+    @Explanation(
+      "An input contract key was re-assigned to a different contract by a concurrent transaction submission."
+    )
+    @Resolution("Retry the transaction submission.")
     object ExternallyInconsistentKeys
         extends ErrorCode(
           id = "EXTERNALLY_INCONSISTENT_KEYS",
@@ -107,6 +140,12 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
           )
     }
 
+    @Explanation("An input contract has been archived by a concurrent transaction submission.")
+    @Resolution(
+      """The correct resolution depends on the business flow, for example it may be possible to
+      |proceed without the archived contract as an input or a different contract could be used.
+      |""".stripMargin
+    )
     object ExternallyInconsistentContracts
         extends ErrorCode(
           id = "EXTERNALLY_INCONSISTENT_CONTRACTS",
@@ -124,6 +163,12 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
 
   object Parties extends ErrorGroup {
 
+    @Explanation("The submitting party has not been allocated.")
+    @Resolution(
+      """Allocate the submitting party, request its allocation or wait for it to be allocated
+        |before retrying the transaction.
+        |""".stripMargin
+    )
     object SubmittingPartyNotKnownOnLedger
         extends ErrorCode(
           id = "SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER",
@@ -141,6 +186,10 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
       }
     }
 
+    @Explanation("One or more informee parties have not been allocated.")
+    @Resolution(
+      "Allocate all the informee parties, request their allocation or wait for them to be allocated."
+    )
     object PartiesNotKnownOnLedger
         extends ErrorCode(
           id = "PARTIES_NOT_KNOWN_ON_LEDGER",
@@ -157,6 +206,10 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
       }
     }
 
+    @Explanation("One or more informee parties have not been allocated.")
+    @Resolution(
+      "Allocate all the informee parties, request their allocation or wait for them to be allocated."
+    )
     @deprecated // For backwards compatibility with rejections generated by participant.state.v1 API
     object PartyNotKnownOnLedger
         extends ErrorCode(
@@ -177,6 +230,11 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
 
   object Resources extends ErrorGroup() {
 
+    @Explanation("A system resource has been exhausted.")
+    @Resolution(
+      """Retry the transaction submission or provide the details to the participant operator
+        |asking for an increase of the resource limits.""".stripMargin
+    )
     object ResourceExhausted
         extends ErrorCode(
           id = "RESOURCE_EXHAUSTED",
@@ -194,6 +252,8 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
 
   object Unauthorized extends ErrorGroup() {
 
+    @Explanation("A submitting party is not authorized to act through the participant.")
+    @Resolution("Contact the participant operator or retry submitting with a different party.")
     object SubmitterCannotActViaParticipant
         extends ErrorCode(
           id = "SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT",
@@ -213,6 +273,8 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
 
   object Internal extends ErrorGroup() {
 
+    @Explanation("A rejection reason has not been set.")
+    @Resolution("Contact support.")
     object RejectionReasonNotSet
         extends ErrorCode(
           id = "REJECTION_REASON_NOT_SET",
@@ -225,6 +287,8 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
           )
     }
 
+    @Explanation("An invalid transaction submission was not detected by the participant.")
+    @Resolution("Contact support.")
     object ValidationFailure
         extends ErrorCode(
           id = "VALIDATION_FAILURE",
@@ -238,6 +302,8 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
           )
     }
 
+    @Explanation("The participant didn't provide a necessary transaction submission input.")
+    @Resolution("Contact support.")
     object MissingInputState
         extends ErrorCode(
           id = "MISSING_INPUT_STATE",
@@ -251,6 +317,10 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
           )
     }
 
+    @Explanation("""The participant didn't detect an attempt by the transaction submission
+        |to use the same key for two active contracts.
+        |""".stripMargin)
+    @Resolution("Contact support.")
     object InternallyDuplicateKeys
         extends ErrorCode(
           id = "INTERNALLY_DUPLICATE_KEYS",
@@ -263,6 +333,10 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
           )
     }
 
+    @Explanation("""The participant didn't detect an attempt by the transaction submission
+        |to use a stale contract key.
+        |""".stripMargin)
+    @Resolution("Contact support.")
     object InternallyInconsistentKeys
         extends ErrorCode(
           id = "INTERNALLY_INCONSISTENT_KEYS",
@@ -275,6 +349,8 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
           )
     }
 
+    @Explanation("An invalid participant state has been detected.")
+    @Resolution("Contact support.")
     object InvalidParticipantState
         extends ErrorCode(
           id = "INVALID_PARTICIPANT_STATE",
@@ -292,6 +368,8 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
       }
     }
 
+    @Explanation("An invalid transaction submission was not detected by the participant.")
+    @Resolution("Contact support.")
     @deprecated // For backwards compatibility with rejections generated by participant.state.v1 API
     object Disputed
         extends ErrorCode(
@@ -308,6 +386,12 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
 
   }
 
+  @Explanation(
+    """A command for the same ledger change has already been successfully processed within the 
+      |current deduplication window.
+      |""".stripMargin
+  )
+  @Resolution("Celebrate, as your command has already been processed.")
   object DuplicateCommand
       extends ErrorCode(
         id = "DUPLICATE_COMMAND",
@@ -321,6 +405,11 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
         )
   }
 
+  @Explanation("At least one input has been altered by a concurrent transaction submission.")
+  @Resolution("""The correct resolution depends on the business flow, for example it may be possible to
+                |proceed without an archived contract as an input or the transaction submission may be
+                |retried to load the up-to-date value of a contract key.
+                |""".stripMargin)
   @deprecated // For backwards compatibility with rejections generated by participant.state.v1 API
   object Inconsistent
       extends ErrorCode(
