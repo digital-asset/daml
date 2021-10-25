@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.api
 
+import java.util.concurrent.Executors
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.HealthStatus
@@ -14,7 +16,10 @@ import com.daml.ledger.participant.state.v2._
 import com.daml.ledger.validator.preexecution.TimeUpdatesProvider
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.Metrics
+
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Adapts a [[LedgerReader]] instance to [[ReadService]].
   * Performs translation between the offsets required by the underlying reader and [[ReadService]]:
@@ -35,6 +40,8 @@ class KeyValueParticipantStateReader private[api] (
 ) extends ReadService {
   import KeyValueParticipantStateReader._
 
+  private val ec = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(8))
+
   override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Source.single(createLedgerInitialConditions())
 
@@ -42,33 +49,38 @@ class KeyValueParticipantStateReader private[api] (
     Source
       .single(beginAfter.map(OffsetBuilder.dropLowestIndex))
       .flatMapConcat(reader.events)
-      .flatMapConcat { case LedgerRecord(offset, entryId, envelope) =>
-        Timed
-          .value(metrics.daml.kvutils.reader.openEnvelope, Envelope.open(envelope))
-          .flatMap {
-            case Envelope.LogEntryMessage(logEntry) =>
-              Timed.value(
-                metrics.daml.kvutils.reader.parseUpdates, {
-                  val logEntryId = DamlLogEntryId.parseFrom(entryId.bytes)
+      .groupedWithin(50, FiniteDuration(10, "millis"))
+      .async
+      .mapAsync(8)(ledgerRecords =>
+        Future(
+          ledgerRecords.flatMap(ledgerRecord =>
+            Envelope
+              .open(ledgerRecord.envelope)
+              .flatMap {
+                case Envelope.LogEntryMessage(logEntry) =>
+                  val logEntryId = DamlLogEntryId.parseFrom(ledgerRecord.entryId.bytes)
                   val updates =
                     logEntryToUpdate(logEntryId, logEntry, timeUpdatesProvider())
                   val updatesWithOffsets =
-                    Source(updates).zipWithIndex.map { case (update, index) =>
-                      offsetForUpdate(offset, index.toInt, updates.size) -> update
+                    updates.zipWithIndex.map { case (update, index) =>
+                      offsetForUpdate(ledgerRecord.offset, index.toInt, updates.size) -> update
                     }
                   Right(updatesWithOffsets)
-                },
+                case _ =>
+                  if (failOnUnexpectedEvent)
+                    Left("Envelope does not contain a log entry")
+                  else
+                    Right(Nil)
+              }
+              .getOrElse(
+                throw new IllegalArgumentException(
+                  s"Invalid log entry received at offset ${ledgerRecord.offset}"
+                )
               )
-            case _ =>
-              if (failOnUnexpectedEvent)
-                Left("Envelope does not contain a log entry")
-              else
-                Right(Source.empty)
-          }
-          .getOrElse(
-            throw new IllegalArgumentException(s"Invalid log entry received at offset $offset")
           )
-      }
+        )(ec)
+      )
+      .flatMapConcat(Source(_))
   }
 
   override def currentHealth(): HealthStatus =

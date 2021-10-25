@@ -87,6 +87,7 @@ object Main {
     keyValueStateReader
       .stateUpdates(None)
       .take(config.updateCount.getOrElse(Long.MaxValue))
+      .filterNot(_._2.isInstanceOf[Update.PublicPackageUpload])
       .zipWithIndex
       .map { case (data, index) =>
         if (index % 1000 == 0) println(s"Generated update $index")

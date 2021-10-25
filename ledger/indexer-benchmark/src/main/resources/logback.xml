@@ -14,4 +14,6 @@
     <root level="INFO">
         <appender-ref ref="STDOUT"/>
     </root>
+
+    <logger name="com.daml.platform" level="WARN" />
 </configuration>
