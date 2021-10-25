@@ -88,7 +88,10 @@ object SupportedJdbcDriver {
       // all oracle class 23 errors yield 23000; if we want to check for *unique*
       // violation specifically we'll have to look at something other than the SQLState.
       // All other class 23 errors indicate a bug, which should exhaust the retry loop anyway
-      retrySqlStates = Set("23000", ContractDao.StaleOffsetException.SqlState),
+      // likewise, class 61 covers a swath of errors for which one transaction was aborted
+      // in favor of continuing another [conflicting] transaction, for which retrying
+      // seems appropriate as well
+      retrySqlStates = Set("23000", "61000", ContractDao.StaleOffsetException.SqlState),
     )
   }
 }
