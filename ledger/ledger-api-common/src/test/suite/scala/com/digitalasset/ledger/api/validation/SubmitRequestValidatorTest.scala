@@ -16,10 +16,11 @@ import com.daml.lf.command.{Commands => LfCommands, CreateCommand => LfCreateCom
 import com.daml.lf.data._
 import com.daml.lf.value.Value.ValueRecord
 import com.daml.lf.value.{Value => Lf}
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code
-import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE, NOT_FOUND}
+import io.grpc.Status.Code.{INVALID_ARGUMENT, NOT_FOUND, UNAVAILABLE}
 import io.grpc.StatusRuntimeException
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion
@@ -131,13 +132,12 @@ class SubmitRequestValidatorTest
       )
     )
 
-  import ValueValidator.validateValue
-
   private def unexpectedError = sys.error("unexpected error")
 
-  class Fixture(testedFactory: Boolean => CommandsValidator) {
+  // TODO error codes: unify fixtures like this among this and other validator tests
+  class Fixture[T](testedFactory: Boolean => T) {
     def testRequestFailure(
-        testedRequest: CommandsValidator => Either[StatusRuntimeException, _],
+        testedRequest: T => Either[StatusRuntimeException, _],
         expectedCodeV1: Code,
         expectedDescriptionV1: String,
         expectedCodeV2: Code,
@@ -155,23 +155,40 @@ class SubmitRequestValidatorTest
       )
     }
 
-    def tested(enabledSelfServiceErrorCodes: Boolean): CommandsValidator = {
+    def tested(enabledSelfServiceErrorCodes: Boolean): T = {
       testedFactory(enabledSelfServiceErrorCodes)
     }
   }
 
   private val errorCodesVersionSwitcher_mock = mock[ErrorCodesVersionSwitcher]
-  val testedValidator = new CommandsValidator(ledgerId, errorCodesVersionSwitcher_mock)
 
-  private val fixture = new Fixture(selfServiceErrorCodesEnabled =>
+  private val commandValidatorFixture = new Fixture(selfServiceErrorCodesEnabled =>
     new CommandsValidator(ledgerId, new ErrorCodesVersionSwitcher(selfServiceErrorCodesEnabled))
   )
+  private val valueValidatorFixture = new Fixture(selfServiceErrorCodesEnabled => {
+    val errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(selfServiceErrorCodesEnabled)
+    val errorFactories = new ErrorFactories(errorCodesVersionSwitcher)
+    new ValueValidator(
+      errorFactories,
+      new FieldValidations(errorFactories),
+    )
+  })
+
+  private val testedCommandValidator =
+    new CommandsValidator(ledgerId, errorCodesVersionSwitcher_mock)
+  private val testedValueValidator = {
+    val errorFactories = new ErrorFactories(errorCodesVersionSwitcher_mock)
+    new ValueValidator(
+      errorFactories,
+      new FieldValidations(errorFactories),
+    )
+  }
 
   "CommandSubmissionRequestValidator" when {
     "validating command submission requests" should {
       "reject requests with empty submissionId" in {
 
-        fixture.testRequestFailure(
+        commandValidatorFixture.testRequestFailure(
           _.validateCommands(
             api.commands.withSubmissionId(""),
             internal.ledgerTime,
@@ -188,7 +205,7 @@ class SubmitRequestValidatorTest
 
       "reject requests with empty commands" in {
 
-        fixture.testRequestFailure(
+        commandValidatorFixture.testRequestFailure(
           _.validateCommands(
             api.commands.withCommands(Seq.empty),
             internal.ledgerTime,
@@ -205,7 +222,7 @@ class SubmitRequestValidatorTest
 
       "not allow missing ledgerId" in {
 
-        fixture.testRequestFailure(
+        commandValidatorFixture.testRequestFailure(
           _.validateCommands(
             api.commands.withLedgerId(""),
             internal.ledgerTime,
@@ -222,7 +239,7 @@ class SubmitRequestValidatorTest
 
       "tolerate a missing workflowId" in {
 
-        testedValidator.validateCommands(
+        testedCommandValidator.validateCommands(
           api.commands.withWorkflowId(""),
           internal.ledgerTime,
           internal.submittedAt,
@@ -237,7 +254,7 @@ class SubmitRequestValidatorTest
 
       "not allow missing applicationId" in {
 
-        fixture.testRequestFailure(
+        commandValidatorFixture.testRequestFailure(
           _.validateCommands(
             api.commands.withApplicationId(""),
             internal.ledgerTime,
@@ -254,7 +271,7 @@ class SubmitRequestValidatorTest
 
       "not allow missing commandId" in {
 
-        fixture.testRequestFailure(
+        commandValidatorFixture.testRequestFailure(
           _.validateCommands(
             api.commands.withCommandId(""),
             internal.ledgerTime,
@@ -271,7 +288,7 @@ class SubmitRequestValidatorTest
 
       "not allow missing submitter" in {
 
-        fixture.testRequestFailure(
+        commandValidatorFixture.testRequestFailure(
           _.validateCommands(
             api.commands.withParty(""),
             internal.ledgerTime,
@@ -288,7 +305,7 @@ class SubmitRequestValidatorTest
 
       "correctly read and deduplicate multiple submitters" in {
 
-        val result = testedValidator
+        val result = testedCommandValidator
           .validateCommands(
             api.commands
               .withParty("alice")
@@ -310,7 +327,7 @@ class SubmitRequestValidatorTest
 
       "tolerate a single submitter specified in the actAs fields" in {
 
-        testedValidator
+        testedCommandValidator
           .validateCommands(
             api.commands.withParty("").addActAs(api.submitter),
             internal.ledgerTime,
@@ -321,7 +338,7 @@ class SubmitRequestValidatorTest
 
       "tolerate a single submitter specified in party, actAs, and readAs fields" in {
 
-        testedValidator
+        testedCommandValidator
           .validateCommands(
             api.commands.withParty(api.submitter).addActAs(api.submitter).addReadAs(api.submitter),
             internal.ledgerTime,
@@ -333,7 +350,7 @@ class SubmitRequestValidatorTest
       "advance ledger time if minLedgerTimeAbs is set" in {
         val minLedgerTimeAbs = internal.ledgerTime.plus(internal.timeDelta)
 
-        testedValidator.validateCommands(
+        testedCommandValidator.validateCommands(
           api.commands.copy(
             minLedgerTimeAbs = Some(TimestampConversion.fromInstant(minLedgerTimeAbs))
           ),
@@ -346,7 +363,7 @@ class SubmitRequestValidatorTest
       "advance ledger time if minLedgerTimeRel is set" in {
         val minLedgerTimeAbs = internal.ledgerTime.plus(internal.timeDelta)
 
-        testedValidator.validateCommands(
+        testedCommandValidator.validateCommands(
           api.commands.copy(
             minLedgerTimeRel = Some(DurationConversion.toProto(internal.timeDelta))
           ),
@@ -376,7 +393,7 @@ class SubmitRequestValidatorTest
                 sentDeduplication: DeduplicationPeriodProto,
                 expectedDeduplication: DeduplicationPeriod,
               ) =>
-            val result = testedValidator.validateCommands(
+            val result = testedCommandValidator.validateCommands(
               api.commands.copy(deduplicationPeriod = sentDeduplication),
               internal.ledgerTime,
               internal.submittedAt,
@@ -396,7 +413,7 @@ class SubmitRequestValidatorTest
             DeduplicationPeriodProto.DeduplicationDuration(Duration.of(-1, 0)),
           )
         ) { deduplication =>
-          fixture.testRequestFailure(
+          commandValidatorFixture.testRequestFailure(
             _.validateCommands(
               api.commands.copy(deduplicationPeriod = deduplication),
               internal.ledgerTime,
@@ -424,7 +441,7 @@ class SubmitRequestValidatorTest
             ),
           )
         ) { deduplication =>
-          fixture.testRequestFailure(
+          commandValidatorFixture.testRequestFailure(
             _.validateCommands(
               api.commands
                 .copy(deduplicationPeriod = deduplication),
@@ -445,7 +462,7 @@ class SubmitRequestValidatorTest
 
       "default to maximum deduplication duration if deduplication is missing" in {
 
-        testedValidator.validateCommands(
+        testedCommandValidator.validateCommands(
           api.commands.copy(deduplicationPeriod = DeduplicationPeriodProto.Empty),
           internal.ledgerTime,
           internal.submittedAt,
@@ -460,7 +477,7 @@ class SubmitRequestValidatorTest
 
       "not allow missing ledger configuration" in {
 
-        fixture.testRequestFailure(
+        commandValidatorFixture.testRequestFailure(
           _.validateCommands(api.commands, internal.ledgerTime, internal.submittedAt, None),
           expectedCodeV1 = UNAVAILABLE,
           expectedDescriptionV1 = "The ledger configuration is not available.",
@@ -479,22 +496,25 @@ class SubmitRequestValidatorTest
         val input = Value(Sum.ContractId(coid))
         val expected = Lf.ValueContractId(Lf.ContractId.V0(coid))
 
-        validateValue(input) shouldEqual Right(expected)
+        testedValueValidator.validateValue(input) shouldEqual Right(expected)
       }
     }
 
     "validating party values" should {
       "convert valid party" in {
-        validateValue(DomainMocks.values.validApiParty) shouldEqual Right(
+        testedValueValidator.validateValue(DomainMocks.values.validApiParty) shouldEqual Right(
           DomainMocks.values.validLfParty
         )
       }
 
       "reject non valid party" in {
-        requestMustFailWith(
-          validateValue(DomainMocks.values.invalidApiParty),
-          INVALID_ARGUMENT,
-          DomainMocks.values.invalidPartyMsg,
+        valueValidatorFixture.testRequestFailure(
+          _.validateValue(DomainMocks.values.invalidApiParty),
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 = DomainMocks.values.invalidPartyMsg,
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            """INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: non expected character 0x40 in Daml-LF Party "p@rty"""",
         )
       }
     }
@@ -524,7 +544,7 @@ class SubmitRequestValidatorTest
                 Numeric
                   .assertFromBigDecimal(Numeric.Scale.assertFromInt(expectedScale), BigDecimal(s))
               )
-            validateValue(input) shouldEqual Right(expected)
+            testedValueValidator.validateValue(input) shouldEqual Right(expected)
           }
         }
 
@@ -544,10 +564,13 @@ class SubmitRequestValidatorTest
           forEvery(absoluteValues) { (absoluteValue, _) =>
             val s = sign + absoluteValue
             val input = Value(Sum.Numeric(s))
-            requestMustFailWith(
-              validateValue(input),
-              INVALID_ARGUMENT,
-              s"""Invalid argument: Could not read Numeric string "$s"""",
+            valueValidatorFixture.testRequestFailure(
+              _.validateValue(input),
+              expectedCodeV1 = INVALID_ARGUMENT,
+              expectedDescriptionV1 = s"""Invalid argument: Could not read Numeric string "$s"""",
+              expectedCodeV2 = INVALID_ARGUMENT,
+              expectedDescriptionV2 =
+                s"""INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Could not read Numeric string "$s"""",
             )
           }
         }
@@ -573,10 +596,13 @@ class SubmitRequestValidatorTest
           forEvery(absoluteValues) { absoluteValue =>
             val s = sign + absoluteValue
             val input = Value(Sum.Numeric(s))
-            requestMustFailWith(
-              validateValue(input),
-              INVALID_ARGUMENT,
-              s"""Invalid argument: Could not read Numeric string "$s"""",
+            valueValidatorFixture.testRequestFailure(
+              _.validateValue(input),
+              expectedCodeV1 = INVALID_ARGUMENT,
+              expectedDescriptionV1 = s"""Invalid argument: Could not read Numeric string "$s"""",
+              expectedCodeV2 = INVALID_ARGUMENT,
+              expectedDescriptionV2 =
+                s"""INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Could not read Numeric string "$s"""",
             )
           }
         }
@@ -592,7 +618,7 @@ class SubmitRequestValidatorTest
         forEvery(strings) { s =>
           val input = Value(Sum.Text(s))
           val expected = Lf.ValueText(s)
-          validateValue(input) shouldEqual Right(expected)
+          testedValueValidator.validateValue(input) shouldEqual Right(expected)
         }
       }
     }
@@ -609,7 +635,7 @@ class SubmitRequestValidatorTest
         forEvery(testCases) { case (long, timestamp) =>
           val input = Value(Sum.Timestamp(long))
           val expected = Lf.ValueTimestamp(timestamp)
-          validateValue(input) shouldEqual Right(expected)
+          testedValueValidator.validateValue(input) shouldEqual Right(expected)
         }
       }
 
@@ -624,10 +650,13 @@ class SubmitRequestValidatorTest
 
         forEvery(testCases) { long =>
           val input = Value(Sum.Timestamp(long))
-          requestMustFailWith(
-            validateValue(input),
-            INVALID_ARGUMENT,
-            s"Invalid argument: out of bound Timestamp $long",
+          valueValidatorFixture.testRequestFailure(
+            _.validateValue(input),
+            expectedCodeV1 = INVALID_ARGUMENT,
+            expectedDescriptionV1 = s"Invalid argument: out of bound Timestamp $long",
+            expectedCodeV2 = INVALID_ARGUMENT,
+            expectedDescriptionV2 =
+              s"INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: out of bound Timestamp $long",
           )
         }
       }
@@ -645,7 +674,7 @@ class SubmitRequestValidatorTest
         forEvery(testCases) { case (int, date) =>
           val input = Value(Sum.Date(int))
           val expected = Lf.ValueDate(date)
-          validateValue(input) shouldEqual Right(expected)
+          testedValueValidator.validateValue(input) shouldEqual Right(expected)
         }
       }
 
@@ -660,10 +689,13 @@ class SubmitRequestValidatorTest
 
         forEvery(testCases) { int =>
           val input = Value(Sum.Date(int))
-          requestMustFailWith(
-            validateValue(input),
-            INVALID_ARGUMENT,
-            s"Invalid argument: out of bound Date $int",
+          valueValidatorFixture.testRequestFailure(
+            _.validateValue(input),
+            expectedCodeV1 = INVALID_ARGUMENT,
+            expectedDescriptionV1 = s"Invalid argument: out of bound Date $int",
+            expectedCodeV2 = INVALID_ARGUMENT,
+            expectedDescriptionV2 =
+              s"INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: out of bound Date $int",
           )
         }
       }
@@ -671,14 +703,14 @@ class SubmitRequestValidatorTest
 
     "validating boolean values" should {
       "accept any of them" in {
-        validateValue(Value(Sum.Bool(true))) shouldEqual Right(Lf.ValueTrue)
-        validateValue(Value(Sum.Bool(false))) shouldEqual Right(Lf.ValueFalse)
+        testedValueValidator.validateValue(Value(Sum.Bool(true))) shouldEqual Right(Lf.ValueTrue)
+        testedValueValidator.validateValue(Value(Sum.Bool(false))) shouldEqual Right(Lf.ValueFalse)
       }
     }
 
     "validating unit values" should {
       "succeed" in {
-        validateValue(Value(Sum.Unit(Empty()))) shouldEqual Right(Lf.ValueUnit)
+        testedValueValidator.validateValue(Value(Sum.Unit(Empty()))) shouldEqual Right(Lf.ValueUnit)
       }
     }
 
@@ -695,7 +727,7 @@ class SubmitRequestValidatorTest
             Some(DomainMocks.identifier),
             ImmArray(Some(DomainMocks.label) -> DomainMocks.values.int64),
           )
-        validateValue(record) shouldEqual Right(expected)
+        testedValueValidator.validateValue(record) shouldEqual Right(expected)
       }
 
       "tolerate missing identifiers in records" in {
@@ -703,7 +735,7 @@ class SubmitRequestValidatorTest
           Value(Sum.Record(Record(None, Seq(RecordField(api.label, Some(Value(api.int64)))))))
         val expected =
           Lf.ValueRecord(None, ImmArray(Some(DomainMocks.label) -> DomainMocks.values.int64))
-        validateValue(record) shouldEqual Right(expected)
+        testedValueValidator.validateValue(record) shouldEqual Right(expected)
       }
 
       "tolerate missing labels in record fields" in {
@@ -711,13 +743,20 @@ class SubmitRequestValidatorTest
           Value(Sum.Record(Record(None, Seq(RecordField("", Some(Value(api.int64)))))))
         val expected =
           ValueRecord(None, ImmArray(None -> DomainMocks.values.int64))
-        validateValue(record) shouldEqual Right(expected)
+        testedValueValidator.validateValue(record) shouldEqual Right(expected)
       }
 
       "not allow missing record values" in {
         val record =
           Value(Sum.Record(Record(Some(api.identifier), Seq(RecordField(api.label, None)))))
-        requestMustFailWith(validateValue(record), INVALID_ARGUMENT, "Missing field: value")
+        valueValidatorFixture.testRequestFailure(
+          _.validateValue(record),
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 = "Missing field: value",
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: value",
+        )
       }
 
     }
@@ -732,7 +771,7 @@ class SubmitRequestValidatorTest
           DomainMocks.values.constructor,
           DomainMocks.values.int64,
         )
-        validateValue(variant) shouldEqual Right(expected)
+        testedValueValidator.validateValue(variant) shouldEqual Right(expected)
       }
 
       "tolerate missing identifiers" in {
@@ -740,17 +779,31 @@ class SubmitRequestValidatorTest
         val expected =
           Lf.ValueVariant(None, DomainMocks.values.constructor, DomainMocks.values.int64)
 
-        validateValue(variant) shouldEqual Right(expected)
+        testedValueValidator.validateValue(variant) shouldEqual Right(expected)
       }
 
       "not allow missing constructor" in {
         val variant = Value(Sum.Variant(Variant(None, "", Some(Value(api.int64)))))
-        requestMustFailWith(validateValue(variant), INVALID_ARGUMENT, "Missing field: constructor")
+        valueValidatorFixture.testRequestFailure(
+          _.validateValue(variant),
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 = "Missing field: constructor",
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: constructor",
+        )
       }
 
       "not allow missing values" in {
         val variant = Value(Sum.Variant(Variant(None, api.constructor, None)))
-        requestMustFailWith(validateValue(variant), INVALID_ARGUMENT, "Missing field: value")
+        valueValidatorFixture.testRequestFailure(
+          _.validateValue(variant),
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 = "Missing field: value",
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: value",
+        )
       }
 
     }
@@ -761,14 +814,14 @@ class SubmitRequestValidatorTest
         val expected =
           Lf.ValueNil
 
-        validateValue(input) shouldEqual Right(expected)
+        testedValueValidator.validateValue(input) shouldEqual Right(expected)
       }
 
       "convert valid lists" in {
         val list = Value(Sum.List(ApiList(Seq(Value(api.int64), Value(api.int64)))))
         val expected =
           Lf.ValueList(FrontStack(DomainMocks.values.int64, DomainMocks.values.int64))
-        validateValue(list) shouldEqual Right(expected)
+        testedValueValidator.validateValue(list) shouldEqual Right(expected)
       }
 
       "reject lists containing invalid values" in {
@@ -777,10 +830,13 @@ class SubmitRequestValidatorTest
             ApiList(Seq(DomainMocks.values.validApiParty, DomainMocks.values.invalidApiParty))
           )
         )
-        requestMustFailWith(
-          validateValue(input),
-          INVALID_ARGUMENT,
-          DomainMocks.values.invalidPartyMsg,
+        valueValidatorFixture.testRequestFailure(
+          _.validateValue(input),
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 = DomainMocks.values.invalidPartyMsg,
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            """INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: non expected character 0x40 in Daml-LF Party "p@rty"""",
         )
       }
     }
@@ -790,21 +846,24 @@ class SubmitRequestValidatorTest
         val input = Value(Sum.Optional(ApiOptional(None)))
         val expected = Lf.ValueNone
 
-        validateValue(input) shouldEqual Right(expected)
+        testedValueValidator.validateValue(input) shouldEqual Right(expected)
       }
 
       "convert valid non-empty optionals" in {
         val list = Value(Sum.Optional(ApiOptional(Some(DomainMocks.values.validApiParty))))
         val expected = Lf.ValueOptional(Some(DomainMocks.values.validLfParty))
-        validateValue(list) shouldEqual Right(expected)
+        testedValueValidator.validateValue(list) shouldEqual Right(expected)
       }
 
       "reject optional containing invalid values" in {
         val input = Value(Sum.Optional(ApiOptional(Some(DomainMocks.values.invalidApiParty))))
-        requestMustFailWith(
-          validateValue(input),
-          INVALID_ARGUMENT,
-          DomainMocks.values.invalidPartyMsg,
+        valueValidatorFixture.testRequestFailure(
+          _.validateValue(input),
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 = DomainMocks.values.invalidPartyMsg,
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            """INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: non expected character 0x40 in Daml-LF Party "p@rty"""",
         )
       }
     }
@@ -813,7 +872,7 @@ class SubmitRequestValidatorTest
       "convert empty maps" in {
         val input = Value(Sum.Map(ApiMap(List.empty)))
         val expected = Lf.ValueTextMap(SortedLookupList.Empty)
-        validateValue(input) shouldEqual Right(expected)
+        testedValueValidator.validateValue(input) shouldEqual Right(expected)
       }
 
       "convert valid maps" in {
@@ -830,7 +889,7 @@ class SubmitRequestValidatorTest
         val expected =
           Lf.ValueTextMap(SortedLookupList.fromImmArray(lfEntries).getOrElse(unexpectedError))
 
-        validateValue(input) shouldEqual Right(expected)
+        testedValueValidator.validateValue(input) shouldEqual Right(expected)
       }
 
       "reject maps with repeated keys" in {
@@ -843,10 +902,14 @@ class SubmitRequestValidatorTest
           ApiMap.Entry(k, Some(Value(Sum.Int64(v))))
         }
         val input = Value(Sum.Map(ApiMap(apiEntries.toSeq)))
-        requestMustFailWith(
-          validateValue(input),
-          INVALID_ARGUMENT,
-          s"Invalid argument: key ${Utf8.sha256("1")} duplicated when trying to build map",
+        valueValidatorFixture.testRequestFailure(
+          _.validateValue(input),
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 =
+            s"Invalid argument: key ${Utf8.sha256("1")} duplicated when trying to build map",
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: key 6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b duplicated when trying to build map",
         )
       }
 
@@ -857,10 +920,13 @@ class SubmitRequestValidatorTest
             ApiMap.Entry("2", Some(DomainMocks.values.invalidApiParty)),
           )
         val input = Value(Sum.Map(ApiMap(apiEntries)))
-        requestMustFailWith(
-          validateValue(input),
-          INVALID_ARGUMENT,
-          DomainMocks.values.invalidPartyMsg,
+        valueValidatorFixture.testRequestFailure(
+          _.validateValue(input),
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 = DomainMocks.values.invalidPartyMsg,
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            """INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: non expected character 0x40 in Daml-LF Party "p@rty"""",
         )
       }
     }

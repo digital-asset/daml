@@ -3,29 +3,37 @@
 
 package com.daml.ledger.api
 
-import com.daml.error.NoLogging
-import com.daml.lf.data.Time
+import com.daml.error.{ErrorCodesVersionSwitcher, NoLogging}
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.{value => api}
 import com.daml.ledger.api.validation.{ValidatorTestUtils, ValueValidator}
+import com.daml.lf.data.Time
 import com.daml.platform.participant.util.LfEngineToApi
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.google.protobuf.empty.Empty
-import org.scalatest.wordspec.AnyWordSpec
+import org.mockito.MockitoSugar
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1}
+import org.scalatest.wordspec.AnyWordSpec
 
 class ValueConversionRoundTripTest
     extends AnyWordSpec
     with ValidatorTestUtils
-    with TableDrivenPropertyChecks {
+    with TableDrivenPropertyChecks
+    with MockitoSugar {
 
   private val recordId =
     api.Identifier(packageId, moduleName = "Mod", entityName = "Record")
 
   private val constructor: String = "constructor"
 
+  private val errorCodesVersionSwitcher = mock[ErrorCodesVersionSwitcher]
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val fieldValidations = FieldValidations(errorFactories)
+  private val valueValidator = new ValueValidator(errorFactories, fieldValidations)
+
   private def roundTrip(v: api.Value): Either[String, api.Value] =
     for {
-      lfValue <- ValueValidator.validateValue(v)(NoLogging).left.map(_.getMessage)
+      lfValue <- valueValidator.validateValue(v)(NoLogging).left.map(_.getMessage)
       apiValue <- LfEngineToApi.lfValueToApiValue(true, lfValue)
     } yield apiValue
 

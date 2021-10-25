@@ -32,13 +32,13 @@ final class CommandsValidator(
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 ) {
 
-  import ValueValidator._
-
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
   private val fieldValidations = FieldValidations(errorFactories)
+  private val valueValidator = new ValueValidator(errorFactories, fieldValidations)
 
   import fieldValidations._
   import errorFactories._
+  import valueValidator._
 
   def validateCommands(
       commands: ProtoCommands,
