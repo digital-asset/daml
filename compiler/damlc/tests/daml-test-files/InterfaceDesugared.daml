@@ -10,6 +10,7 @@
 module InterfaceDesugared where
 
 import DA.Assert ((===))
+import DA.Action (unless)
 
 data Split = Split { splitAmount : Int }
 
@@ -28,6 +29,7 @@ class
   fromToken : Token -> Optional t
   toTokenContractId : ContractId t -> ContractId Token
   fromTokenContractId : ContractId Token -> Update (Optional (ContractId t))
+  tokenTypeRep : t -> DA.Internal.Desugar.TypeRep
   getOwner : t -> Party
   getAmount : t -> Int
   setAmount : t -> Int -> Token
@@ -56,6 +58,7 @@ instance IsToken Token where
   fromToken = GHC.Types.primitive @"EFromInterface"
   toTokenContractId = GHC.Types.primitive @"EToInterfaceContractId"
   fromTokenContractId = GHC.Types.primitive @"UFromInterfaceContractId"
+  tokenTypeRep = GHC.Types.primitive @"$TO_TYPE_REP"
   getOwner = GHC.Types.primitiveInterface @"getOwner"
   getAmount = GHC.Types.primitiveInterface @"getAmount"
   setAmount = GHC.Types.primitiveInterface @"setAmount"
@@ -114,6 +117,7 @@ instance IsToken Asset where
   fromToken = GHC.Types.primitive @"EFromInterface"
   toTokenContractId = GHC.Types.primitive @"EToInterfaceContractId"
   fromTokenContractId = GHC.Types.primitive @"UFromInterfaceContractId"
+  tokenTypeRep = GHC.Types.primitive @"$TO_TYPE_REP"
   getOwner Asset{..} = owner
   getAmount Asset{..} = amount
   setAmount this x = toToken (this with amount = x)
@@ -242,5 +246,6 @@ main = scenario do
       None -> abort "expected Asset"
       Some Asset {amount} ->
         amount === 25
+    unless (tokenTypeRep token3 == tokenTypeRep token4) $ error "Type representations are different."
 
     pure ()
