@@ -1667,9 +1667,17 @@ private[lf] object SBuiltin {
         machine.returnValue = SInt64(42L)
     }
 
+    private object SBExperimentalToTypeRep extends SBuiltinPure(1) {
+      override private[speedy] def executePure(args: util.ArrayList[SValue]): STypeRep = {
+        val id = getSRecord(args, 0).id
+        STypeRep(Ast.TTyCon(id))
+      }
+    }
+
     private val mapping: Map[String, SExpr] =
       List(
         "ANSWER" -> SBExperimentalAnswer,
+        "TO_TYPE_REP" -> SBExperimentalToTypeRep,
         "RESOLVE_VIRTUAL_CREATE" -> new SBResolveVirtual(CreateDefRef),
         "RESOLVE_VIRTUAL_SIGNATORY" -> new SBResolveVirtual(SignatoriesDefRef),
         "RESOLVE_VIRTUAL_OBSERVER" -> new SBResolveVirtual(ObserversDefRef),
