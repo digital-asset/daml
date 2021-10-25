@@ -44,7 +44,7 @@ abstract class DbTriggerDao protected (
     }
 
   implicit val readAsGet: Get[Set[Party]] = implicitly[Get[String]].map {
-    _.split(",").map(_.trim).toSet.filter(_.nonEmpty).map(Tag.apply)
+    _.split(",").map(_.trim).toSet.filter(_.nonEmpty).map(Party.apply)
   }
 
   implicit val partyPut: Put[Party] = Tag.subst(implicitly[Put[String]])
