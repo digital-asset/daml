@@ -276,6 +276,7 @@ private[daml] object ApiServices {
           transactionsService,
           writeService,
           managementServiceTimeout,
+          errorsVersionsSwitcher,
         )
 
         val apiPackageManagementService = ApiPackageManagementService.createApiService(

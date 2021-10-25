@@ -48,8 +48,7 @@ class ApiPackageManagementServiceSpec
   import ApiPackageManagementServiceSpec._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-
-  val errorCodesVersionSwitcher = mock[ErrorCodesVersionSwitcher]
+  private val errorCodesVersionSwitcher: ErrorCodesVersionSwitcher = mock[ErrorCodesVersionSwitcher]
 
   "ApiPackageManagementService $suffix" should {
     "propagate trace context" in {
@@ -71,7 +70,7 @@ class ApiPackageManagementServiceSpec
     }
   }
 
-  def createApiService(): PackageManagementServiceGrpc.PackageManagementService = {
+  private def createApiService(): PackageManagementServiceGrpc.PackageManagementService = {
     val mockDarReader = mock[GenDarReader[Archive]]
     when(mockDarReader.readArchive(any[String], any[ZipInputStream], any[Int]))
       .thenReturn(Right(new Dar[Archive](anArchive, List.empty)))
