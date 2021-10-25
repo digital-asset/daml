@@ -11,32 +11,45 @@ import com.daml.platform.store.backend.{IngestionStorageBackend, ParameterStorag
 private[backend] trait IngestionStorageBackendTemplate[DB_BATCH]
     extends IngestionStorageBackend[DB_BATCH] {
 
-  private val SQL_DELETE_OVERSPILL_ENTRIES: List[SqlQuery] =
+  // List of (table name, name of column that stores the offset at which the row was inserted)
+  private val tables: List[(String, String)] =
     List(
-      SQL("DELETE FROM configuration_entries WHERE ledger_offset > {ledger_offset}"),
-      SQL("DELETE FROM package_entries WHERE ledger_offset > {ledger_offset}"),
-      SQL("DELETE FROM packages WHERE ledger_offset > {ledger_offset}"),
-      SQL("DELETE FROM participant_command_completions WHERE completion_offset > {ledger_offset}"),
-      SQL("DELETE FROM participant_events_divulgence WHERE event_offset > {ledger_offset}"),
-      SQL("DELETE FROM participant_events_create WHERE event_offset > {ledger_offset}"),
-      SQL("DELETE FROM participant_events_consuming_exercise WHERE event_offset > {ledger_offset}"),
-      SQL(
-        "DELETE FROM participant_events_non_consuming_exercise WHERE event_offset > {ledger_offset}"
-      ),
-      SQL("DELETE FROM party_entries WHERE ledger_offset > {ledger_offset}"),
+      "configuration_entries" -> "ledger_offset",
+      "package_entries" -> "ledger_offset",
+      "packages" -> "ledger_offset",
+      "participant_command_completions" -> "completion_offset",
+      "participant_events_divulgence" -> "event_offset",
+      "participant_events_create" -> "event_offset",
+      "participant_events_consuming_exercise" -> "event_offset",
+      "participant_events_non_consuming_exercise" -> "event_offset",
+      "party_entries" -> "ledger_offset",
     )
+
+  private val SQL_DELETE_OVERSPILL_ENTRIES: List[SqlQuery] =
+    tables.map { case (table, column) =>
+      SQL(s"DELETE FROM $table WHERE $column > {ledger_offset}")
+    }
+
+  private val SQL_DELETE_ALL_ENTRIES: List[SqlQuery] =
+    tables.map { case (table, _) => SQL(s"TRUNCATE TABLE $table") }
 
   override def deletePartiallyIngestedData(
       ledgerEnd: Option[ParameterStorageBackend.LedgerEnd]
   )(connection: Connection): Unit = {
-    ledgerEnd.foreach { existingLedgerEnd =>
-      SQL_DELETE_OVERSPILL_ENTRIES.foreach { query =>
-        import com.daml.platform.store.Conversions.OffsetToStatement
-        query
-          .on("ledger_offset" -> existingLedgerEnd.lastOffset)
-          .execute()(connection)
-        ()
-      }
+    ledgerEnd match {
+      case Some(existingLedgerEnd) =>
+        SQL_DELETE_OVERSPILL_ENTRIES.foreach { query =>
+          import com.daml.platform.store.Conversions.OffsetToStatement
+          query
+            .on("ledger_offset" -> existingLedgerEnd.lastOffset)
+            .execute()(connection)
+        }
+      case None =>
+        // There is no ledger end, but there can still be partially ingested data
+        SQL_DELETE_ALL_ENTRIES.foreach { query =>
+          query.execute()(connection)
+        }
     }
+    ()
   }
 }

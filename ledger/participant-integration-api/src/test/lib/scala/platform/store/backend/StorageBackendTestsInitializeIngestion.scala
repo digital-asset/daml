@@ -114,4 +114,66 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       contract92 shouldBe None
     }
   }
+
+  it should "delete overspill entries before first ledger end update" in {
+    val dtos1: Vector[DbDto] = Vector(
+      // 1: config change
+      dtoConfiguration(offset(1), someConfiguration),
+      // 2: party allocation
+      dtoPartyEntry(offset(2), "party1"),
+      // 3: package upload
+      dtoPackage(offset(3)),
+      dtoPackageEntry(offset(3)),
+      // 4: transaction with create node
+      dtoCreate(offset(4), 1L, "#4"),
+      dtoCompletion(offset(4)),
+      // 5: transaction with exercise node and retroactive divulgence
+      dtoExercise(offset(5), 2L, false, "#4"),
+      dtoDivulgence(Some(offset(5)), 3L, "#4"),
+      dtoCompletion(offset(5)),
+    )
+
+    // TODO: make sure it's obvious these are the stakeholders of dtoCreate() nodes created above
+    val readers = Set(Ref.Party.assertFromString("signatory"))
+
+    for {
+      // Initialize
+      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+
+      // Partially insert a batch of updates (indexer crashes before updating ledger end)
+      _ <- executeSql(ingest(dtos1, _))
+
+      // Check the contents
+      parties1 <- executeSql(backend.knownParties)
+      config1 <- executeSql(backend.ledgerConfiguration)
+      packages1 <- executeSql(backend.lfPackages)
+      contract41 <- executeSql(
+        backend.activeContractWithoutArgument(readers, ContractId.V0.assertFromString("#4"))
+      )
+
+      // Restart the indexer
+      _ <- executeSql(backend.deletePartiallyIngestedData(None))
+
+      // Move the ledger end so that any non-deleted data would become visible
+      _ <- executeSql(backend.updateLedgerEnd(ledgerEnd(5, 3L)))
+
+      // Check the contents
+      parties2 <- executeSql(backend.knownParties)
+      config2 <- executeSql(backend.ledgerConfiguration)
+      packages2 <- executeSql(backend.lfPackages)
+      contract42 <- executeSql(
+        backend.activeContractWithoutArgument(readers, ContractId.V0.assertFromString("#4"))
+      )
+    } yield {
+      parties1 should have length 0
+      packages1 should have size 0
+      config1 shouldBe None
+      contract41 shouldBe None
+
+      parties2 should have length 0
+      packages2 should have size 0
+      config2 shouldBe None
+      contract42 shouldBe None
+    }
+  }
 }
