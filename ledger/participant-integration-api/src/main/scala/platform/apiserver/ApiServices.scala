@@ -160,13 +160,23 @@ private[daml] object ApiServices {
         ApiPackageService.create(ledgerId, packagesService, errorsVersionsSwitcher)
 
       val apiConfigurationService =
-        ApiLedgerConfigurationService.create(ledgerId, configurationService)
+        ApiLedgerConfigurationService.create(ledgerId, configurationService, errorsVersionsSwitcher)
 
       val apiCompletionService =
-        ApiCommandCompletionService.create(ledgerId, completionsService, metrics)
+        ApiCommandCompletionService.create(
+          ledgerId,
+          completionsService,
+          metrics,
+          errorsVersionsSwitcher,
+        )
 
       val apiActiveContractsService =
-        ApiActiveContractsService.create(ledgerId, activeContractsService, metrics)
+        ApiActiveContractsService.create(
+          ledgerId,
+          activeContractsService,
+          metrics,
+          errorsVersionsSwitcher,
+        )
 
       val apiTimeServiceOpt =
         optTimeServiceBackend.map(tsb =>

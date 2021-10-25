@@ -13,7 +13,11 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.validation.{ErrorFactories, PackageServiceValidation}
+import com.daml.platform.server.api.validation.{
+  ErrorFactories,
+  FieldValidations,
+  PackageServiceValidation,
+}
 import io.grpc.{BindableService, ServerServiceDefinition}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -129,9 +133,11 @@ private[platform] object ApiPackageService {
       backend = backend,
       errorCodesVersionSwitcher = errorCodesVersionSwitcher,
     )
+    val fieldValidations = new FieldValidations(new ErrorFactories(errorCodesVersionSwitcher))
     new PackageServiceValidation(
       service = service,
       ledgerId = ledgerId,
+      fieldValidations = fieldValidations,
     ) with BindableService {
       override def bindService(): ServerServiceDefinition =
         PackageServiceGrpc.bindService(this, executionContext)

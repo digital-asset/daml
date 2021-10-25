@@ -16,8 +16,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionByIdRequest,
   GetTransactionsRequest,
 }
-import com.daml.platform.server.api.validation.ErrorFactories._
-import com.daml.platform.server.api.validation.FieldValidations._
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import io.grpc.StatusRuntimeException
 
 object TransactionServiceRequestValidator {
@@ -27,11 +26,18 @@ object TransactionServiceRequestValidator {
 class TransactionServiceRequestValidator(
     ledgerId: LedgerId,
     partyNameChecker: PartyNameChecker,
+    errorFactories: ErrorFactories,
 ) {
 
   import TransactionServiceRequestValidator.Result
 
-  private val partyValidator = new PartyValidator(partyNameChecker)
+  private val fieldValidations = new FieldValidations(errorFactories)
+  private val partyValidator =
+    new PartyValidator(partyNameChecker, errorFactories, fieldValidations)
+  private val ledgerOffsetValidator = new LedgerOffsetValidator(errorFactories)
+  private val transactionFilterValidator = new TransactionFilterValidator(errorFactories)
+
+  import fieldValidations._
 
   private def matchId(input: LedgerId)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -52,8 +58,8 @@ class TransactionServiceRequestValidator(
       ledgerId <- matchId(LedgerId(req.ledgerId))
       filter <- requirePresence(req.filter, "filter")
       requiredBegin <- requirePresence(req.begin, "begin")
-      convertedBegin <- LedgerOffsetValidator.validate(requiredBegin, "begin")
-      convertedEnd <- LedgerOffsetValidator.validateOptional(req.end, "end")
+      convertedBegin <- ledgerOffsetValidator.validate(requiredBegin, "begin")
+      convertedEnd <- ledgerOffsetValidator.validateOptional(req.end, "end")
       knownParties <- partyValidator.requireKnownParties(req.getFilter.filtersByParty.keySet)
     } yield PartialValidation(
       ledgerId,
@@ -74,17 +80,17 @@ class TransactionServiceRequestValidator(
 
     for {
       partial <- commonValidations(req)
-      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+      _ <- ledgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "Begin",
         partial.begin,
         ledgerEnd,
       )
-      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+      _ <- ledgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "End",
         partial.end,
         ledgerEnd,
       )
-      convertedFilter <- TransactionFilterValidator.validate(partial.transactionFilter)
+      convertedFilter <- transactionFilterValidator.validate(partial.transactionFilter)
     } yield {
       transaction.GetTransactionsRequest(
         ledgerId,
@@ -105,12 +111,12 @@ class TransactionServiceRequestValidator(
 
     for {
       partial <- commonValidations(req)
-      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+      _ <- ledgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "Begin",
         partial.begin,
         ledgerEnd,
       )
-      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+      _ <- ledgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "End",
         partial.end,
         ledgerEnd,
@@ -181,7 +187,7 @@ class TransactionServiceRequestValidator(
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger) =
     transactionFilter.filtersByParty
       .collectFirst { case (party, Filters(Some(inclusive))) =>
-        invalidArgument(None)(
+        errorFactories.invalidArgument(None)(
           s"$party attempted subscription for templates ${inclusive.templateIds.mkString("[", ", ", "]")}. Template filtration is not supported on GetTransactionTrees RPC. To get filtered data, use the GetTransactions RPC."
         )
       }

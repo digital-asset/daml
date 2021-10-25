@@ -22,7 +22,7 @@ import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, StatusRuntimeException}
 import scalaz.syntax.tag._
 
-class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
+class ErrorFactories(errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
   def transactionNotFound(transactionId: TransactionId)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =

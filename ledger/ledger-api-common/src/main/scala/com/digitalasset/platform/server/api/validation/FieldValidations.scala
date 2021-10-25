@@ -17,7 +17,8 @@ import io.grpc.StatusRuntimeException
 import java.time.Duration
 
 // TODO error codes: Remove default usage of ErrorFactories
-class FieldValidations private (errorFactories: ErrorFactories) {
+class FieldValidations(errorFactories: ErrorFactories) {
+  // TODO PBATKO
   import errorFactories._
 
   def matchLedgerId(

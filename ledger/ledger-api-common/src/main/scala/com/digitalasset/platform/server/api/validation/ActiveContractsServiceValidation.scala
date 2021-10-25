@@ -16,13 +16,13 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
-import FieldValidations._
 
 import scala.concurrent.ExecutionContext
 
 class ActiveContractsServiceValidation(
     protected val service: ActiveContractsService with AutoCloseable,
     val ledgerId: LedgerId,
+    fieldValidations: FieldValidations,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends ActiveContractsService
     with ProxyCloseable
@@ -36,7 +36,8 @@ class ActiveContractsServiceValidation(
       request: GetActiveContractsRequest,
       responseObserver: StreamObserver[GetActiveContractsResponse],
   ): Unit =
-    matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+    fieldValidations
+      .matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .fold(
         t => responseObserver.onError(ValidationLogger.logFailure(request, t)),
         _ => service.getActiveContracts(request, responseObserver),

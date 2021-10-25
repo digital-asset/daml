@@ -4,7 +4,7 @@
 package com.daml.ledger.api.validation
 
 import com.daml.api.util.{DurationConversion, TimestampConversion}
-import com.daml.error.{ContextualizedErrorLogger, NoLogging}
+import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher, NoLogging}
 import com.daml.ledger.api.DomainMocks.{applicationId, commandId, submissionId, workflowId}
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.v1.commands.Commands.{DeduplicationPeriod => DeduplicationPeriodProto}
@@ -18,7 +18,11 @@ import com.daml.lf.value.Value.ValueRecord
 import com.daml.lf.value.{Value => Lf}
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
-import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE}
+import io.grpc.Status.Code
+import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE, NOT_FOUND}
+import io.grpc.StatusRuntimeException
+import org.mockito.MockitoSugar
+import org.scalatest.Assertion
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
@@ -30,7 +34,8 @@ import scala.annotation.nowarn
 class SubmitRequestValidatorTest
     extends AnyWordSpec
     with ValidatorTestUtils
-    with TableDrivenPropertyChecks {
+    with TableDrivenPropertyChecks
+    with MockitoSugar {
   private val ledgerId = LedgerId("ledger-id")
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
 
@@ -130,54 +135,94 @@ class SubmitRequestValidatorTest
 
   private def unexpectedError = sys.error("unexpected error")
 
+  class Fixture(testedFactory: Boolean => CommandsValidator) {
+    def testRequestFailure(
+        testedRequest: CommandsValidator => Either[StatusRuntimeException, _],
+        expectedCodeV1: Code,
+        expectedDescriptionV1: String,
+        expectedCodeV2: Code,
+        expectedDescriptionV2: String,
+    ): Assertion = {
+      requestMustFailWith(
+        request = testedRequest(testedFactory(false)),
+        code = expectedCodeV1,
+        description = expectedDescriptionV1,
+      )
+      requestMustFailWith(
+        request = testedRequest(testedFactory(true)),
+        code = expectedCodeV2,
+        description = expectedDescriptionV2,
+      )
+    }
+
+    def tested(enabledSelfServiceErrorCodes: Boolean): CommandsValidator = {
+      testedFactory(enabledSelfServiceErrorCodes)
+    }
+  }
+
+  private val errorCodesVersionSwitcher_mock = mock[ErrorCodesVersionSwitcher]
+  val testedValidator = new CommandsValidator(ledgerId, errorCodesVersionSwitcher_mock)
+
+  private val fixture = new Fixture(selfServiceErrorCodesEnabled =>
+    new CommandsValidator(ledgerId, new ErrorCodesVersionSwitcher(selfServiceErrorCodesEnabled))
+  )
+
   "CommandSubmissionRequestValidator" when {
     "validating command submission requests" should {
       "reject requests with empty submissionId" in {
-        val commandsValidator = new CommandsValidator(ledgerId)
-        requestMustFailWith(
-          commandsValidator.validateCommands(
+
+        fixture.testRequestFailure(
+          _.validateCommands(
             api.commands.withSubmissionId(""),
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationDuration),
           ),
-          INVALID_ARGUMENT,
-          "Missing field: submission_id",
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 = "Missing field: submission_id",
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: submission_id",
         )
       }
 
       "reject requests with empty commands" in {
-        val commandsValidator = new CommandsValidator(ledgerId)
-        requestMustFailWith(
-          commandsValidator.validateCommands(
+
+        fixture.testRequestFailure(
+          _.validateCommands(
             api.commands.withCommands(Seq.empty),
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationDuration),
           ),
-          INVALID_ARGUMENT,
-          "Missing field: commands",
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 = "Missing field: commands",
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: commands",
         )
       }
 
       "not allow missing ledgerId" in {
-        val commandsValidator = new CommandsValidator(ledgerId)
-        requestMustFailWith(
-          commandsValidator
-            .validateCommands(
-              api.commands.withLedgerId(""),
-              internal.ledgerTime,
-              internal.submittedAt,
-              Some(internal.maxDeduplicationDuration),
-            ),
-          INVALID_ARGUMENT,
-          "Missing field: ledger_id",
+
+        fixture.testRequestFailure(
+          _.validateCommands(
+            api.commands.withLedgerId(""),
+            internal.ledgerTime,
+            internal.submittedAt,
+            Some(internal.maxDeduplicationDuration),
+          ),
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 = "Missing field: ledger_id",
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: ledger_id",
         )
       }
 
       "tolerate a missing workflowId" in {
-        val commandsValidator = new CommandsValidator(ledgerId)
-        commandsValidator.validateCommands(
+
+        testedValidator.validateCommands(
           api.commands.withWorkflowId(""),
           internal.ledgerTime,
           internal.submittedAt,
@@ -191,51 +236,59 @@ class SubmitRequestValidatorTest
       }
 
       "not allow missing applicationId" in {
-        val commandsValidator = new CommandsValidator(ledgerId)
-        requestMustFailWith(
-          commandsValidator.validateCommands(
+
+        fixture.testRequestFailure(
+          _.validateCommands(
             api.commands.withApplicationId(""),
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationDuration),
           ),
-          INVALID_ARGUMENT,
-          "Missing field: application_id",
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 = "Missing field: application_id",
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: application_id",
         )
       }
 
       "not allow missing commandId" in {
-        val commandsValidator = new CommandsValidator(ledgerId)
-        requestMustFailWith(
-          commandsValidator.validateCommands(
+
+        fixture.testRequestFailure(
+          _.validateCommands(
             api.commands.withCommandId(""),
             internal.ledgerTime,
             internal.submittedAt,
             Some(internal.maxDeduplicationDuration),
           ),
-          INVALID_ARGUMENT,
-          "Missing field: command_id",
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 = "Missing field: command_id",
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: command_id",
         )
       }
 
       "not allow missing submitter" in {
-        val commandsValidator = new CommandsValidator(ledgerId)
-        requestMustFailWith(
-          commandsValidator
-            .validateCommands(
-              api.commands.withParty(""),
-              internal.ledgerTime,
-              internal.submittedAt,
-              Some(internal.maxDeduplicationDuration),
-            ),
-          INVALID_ARGUMENT,
-          """Missing field: party or act_as""",
+
+        fixture.testRequestFailure(
+          _.validateCommands(
+            api.commands.withParty(""),
+            internal.ledgerTime,
+            internal.submittedAt,
+            Some(internal.maxDeduplicationDuration),
+          ),
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 = """Missing field: party or act_as""",
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: party or act_as",
         )
       }
 
       "correctly read and deduplicate multiple submitters" in {
-        val commandsValidator = new CommandsValidator(ledgerId)
-        val result = commandsValidator
+
+        val result = testedValidator
           .validateCommands(
             api.commands
               .withParty("alice")
@@ -256,8 +309,8 @@ class SubmitRequestValidatorTest
       }
 
       "tolerate a single submitter specified in the actAs fields" in {
-        val commandsValidator = new CommandsValidator(ledgerId)
-        commandsValidator
+
+        testedValidator
           .validateCommands(
             api.commands.withParty("").addActAs(api.submitter),
             internal.ledgerTime,
@@ -267,8 +320,8 @@ class SubmitRequestValidatorTest
       }
 
       "tolerate a single submitter specified in party, actAs, and readAs fields" in {
-        val commandsValidator = new CommandsValidator(ledgerId)
-        commandsValidator
+
+        testedValidator
           .validateCommands(
             api.commands.withParty(api.submitter).addActAs(api.submitter).addReadAs(api.submitter),
             internal.ledgerTime,
@@ -279,8 +332,8 @@ class SubmitRequestValidatorTest
 
       "advance ledger time if minLedgerTimeAbs is set" in {
         val minLedgerTimeAbs = internal.ledgerTime.plus(internal.timeDelta)
-        val commandsValidator = new CommandsValidator(ledgerId)
-        commandsValidator.validateCommands(
+
+        testedValidator.validateCommands(
           api.commands.copy(
             minLedgerTimeAbs = Some(TimestampConversion.fromInstant(minLedgerTimeAbs))
           ),
@@ -292,8 +345,8 @@ class SubmitRequestValidatorTest
 
       "advance ledger time if minLedgerTimeRel is set" in {
         val minLedgerTimeAbs = internal.ledgerTime.plus(internal.timeDelta)
-        val commandsValidator = new CommandsValidator(ledgerId)
-        commandsValidator.validateCommands(
+
+        testedValidator.validateCommands(
           api.commands.copy(
             minLedgerTimeRel = Some(DurationConversion.toProto(internal.timeDelta))
           ),
@@ -323,8 +376,7 @@ class SubmitRequestValidatorTest
                 sentDeduplication: DeduplicationPeriodProto,
                 expectedDeduplication: DeduplicationPeriod,
               ) =>
-            val commandsValidator = new CommandsValidator(ledgerId)
-            val result = commandsValidator.validateCommands(
+            val result = testedValidator.validateCommands(
               api.commands.copy(deduplicationPeriod = sentDeduplication),
               internal.ledgerTime,
               internal.submittedAt,
@@ -344,16 +396,18 @@ class SubmitRequestValidatorTest
             DeduplicationPeriodProto.DeduplicationDuration(Duration.of(-1, 0)),
           )
         ) { deduplication =>
-          val commandsValidator = new CommandsValidator(ledgerId)
-          requestMustFailWith(
-            commandsValidator.validateCommands(
+          fixture.testRequestFailure(
+            _.validateCommands(
               api.commands.copy(deduplicationPeriod = deduplication),
               internal.ledgerTime,
               internal.submittedAt,
               Some(internal.maxDeduplicationDuration),
             ),
-            INVALID_ARGUMENT,
-            "Invalid field deduplication_period: Duration must be positive",
+            expectedCodeV1 = INVALID_ARGUMENT,
+            expectedDescriptionV1 = "Invalid field deduplication_period: Duration must be positive",
+            expectedCodeV2 = INVALID_ARGUMENT,
+            expectedDescriptionV2 =
+              "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field deduplication_period: Duration must be positive",
           )
         }
       }
@@ -370,25 +424,28 @@ class SubmitRequestValidatorTest
             ),
           )
         ) { deduplication =>
-          val commandsValidator = new CommandsValidator(ledgerId)
-          requestMustFailWith(
-            commandsValidator.validateCommands(
+          fixture.testRequestFailure(
+            _.validateCommands(
               api.commands
                 .copy(deduplicationPeriod = deduplication),
               internal.ledgerTime,
               internal.submittedAt,
               Some(internal.maxDeduplicationDuration),
             ),
-            INVALID_ARGUMENT,
-            s"Invalid field deduplication_period: The given deduplication duration of ${java.time.Duration
-              .ofSeconds(durationSecondsExceedingMax)} exceeds the maximum deduplication time of ${internal.maxDeduplicationDuration}",
+            expectedCodeV1 = INVALID_ARGUMENT,
+            expectedDescriptionV1 =
+              s"Invalid field deduplication_period: The given deduplication duration of ${java.time.Duration
+                .ofSeconds(durationSecondsExceedingMax)} exceeds the maximum deduplication time of ${internal.maxDeduplicationDuration}",
+            expectedCodeV2 = INVALID_ARGUMENT,
+            expectedDescriptionV2 =
+              "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field deduplication_period: The given deduplication duration of PT24H1S exceeds the maximum deduplication time of PT24H",
           )
         }
       }
 
       "default to maximum deduplication duration if deduplication is missing" in {
-        val commandsValidator = new CommandsValidator(ledgerId)
-        commandsValidator.validateCommands(
+
+        testedValidator.validateCommands(
           api.commands.copy(deduplicationPeriod = DeduplicationPeriodProto.Empty),
           internal.ledgerTime,
           internal.submittedAt,
@@ -402,12 +459,14 @@ class SubmitRequestValidatorTest
       }
 
       "not allow missing ledger configuration" in {
-        val commandsValidator = new CommandsValidator(ledgerId)
-        requestMustFailWith(
-          commandsValidator
-            .validateCommands(api.commands, internal.ledgerTime, internal.submittedAt, None),
-          UNAVAILABLE,
-          "The ledger configuration is not available.",
+
+        fixture.testRequestFailure(
+          _.validateCommands(api.commands, internal.ledgerTime, internal.submittedAt, None),
+          expectedCodeV1 = UNAVAILABLE,
+          expectedDescriptionV1 = "The ledger configuration is not available.",
+          expectedCodeV2 = NOT_FOUND,
+          expectedDescriptionV2 =
+            "LEDGER_CONFIGURATION_NOT_FOUND(11,0): The ledger configuration is not available.",
         )
       }
     }

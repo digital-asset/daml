@@ -7,14 +7,17 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.InclusiveFilters
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.server.api.validation.FieldValidations._
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import io.grpc.StatusRuntimeException
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
-object TransactionFilterValidator {
+class TransactionFilterValidator(errorFactories: ErrorFactories) {
+
+  private val fieldValidations = FieldValidations(errorFactories)
+
+  import fieldValidations._
 
   def validate(
       txFilter: TransactionFilter
@@ -22,7 +25,7 @@ object TransactionFilterValidator {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.TransactionFilter] = {
     if (txFilter.filtersByParty.isEmpty) {
-      Left(ErrorFactories.invalidArgument(None)("filtersByParty cannot be empty"))
+      Left(errorFactories.invalidArgument(None)("filtersByParty cannot be empty"))
     } else {
       val convertedFilters =
         txFilter.filtersByParty.toList.traverse { case (k, v) =>

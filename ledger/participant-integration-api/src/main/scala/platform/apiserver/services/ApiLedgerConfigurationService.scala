@@ -7,13 +7,18 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.DurationConversion._
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_configuration_service._
 import com.daml.ledger.participant.state.index.v2.IndexConfigurationService
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.validation.LedgerConfigurationServiceValidation
+import com.daml.platform.server.api.validation.{
+  ErrorFactories,
+  FieldValidations,
+  LedgerConfigurationServiceValidation,
+}
 import io.grpc.{BindableService, ServerServiceDefinition}
 
 import scala.concurrent.ExecutionContext
@@ -53,17 +58,24 @@ private[apiserver] final class ApiLedgerConfigurationService private (
 }
 
 private[apiserver] object ApiLedgerConfigurationService {
-  def create(ledgerId: LedgerId, configurationService: IndexConfigurationService)(implicit
+  def create(
+      ledgerId: LedgerId,
+      configurationService: IndexConfigurationService,
+      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+  )(implicit
       esf: ExecutionSequencerFactory,
       materializer: Materializer,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-  ): LedgerConfigurationServiceGrpc.LedgerConfigurationService with GrpcApiService =
+  ): LedgerConfigurationServiceGrpc.LedgerConfigurationService with GrpcApiService = {
+    val fieldValidations = new FieldValidations(new ErrorFactories(errorCodesVersionSwitcher))
     new LedgerConfigurationServiceValidation(
-      new ApiLedgerConfigurationService(configurationService),
-      ledgerId,
+      service = new ApiLedgerConfigurationService(configurationService),
+      ledgerId = ledgerId,
+      fieldValidations = fieldValidations,
     ) with BindableService {
       override def bindService(): ServerServiceDefinition =
         LedgerConfigurationServiceGrpc.bindService(this, executionContext)
     }
+  }
 }

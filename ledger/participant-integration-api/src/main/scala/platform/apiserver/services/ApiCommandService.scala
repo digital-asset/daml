@@ -198,6 +198,7 @@ private[apiserver] object ApiCommandService {
       service =
         new ApiCommandService(transactionServices, submissionTracker, errorCodesVersionSwitcher),
       ledgerId = configuration.ledgerId,
+      errorCodesVersionSwitcher = errorCodesVersionSwitcher,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () =>

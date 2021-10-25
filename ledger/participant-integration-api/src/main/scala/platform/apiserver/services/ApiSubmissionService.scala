@@ -84,6 +84,7 @@ private[apiserver] object ApiSubmissionService {
         ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
       submissionIdGenerator = SubmissionIdGenerator.Random,
       metrics = metrics,
+      errorCodesVersionSwitcher = errorCodesVersionSwitcher,
     )
 
   final case class Configuration(

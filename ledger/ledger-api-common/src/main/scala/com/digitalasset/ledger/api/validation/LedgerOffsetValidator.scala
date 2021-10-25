@@ -7,19 +7,16 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
-import com.daml.platform.server.api.validation.ErrorFactories.{
-  invalidArgument,
-  missingField,
-  offsetAfterLedgerEnd,
-}
-import com.daml.platform.server.api.validation.FieldValidations.requireLedgerString
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import io.grpc.StatusRuntimeException
 
 import scala.math.Ordered._
 
-object LedgerOffsetValidator {
+class LedgerOffsetValidator(errorFactories: ErrorFactories) {
 
   private val boundary = "boundary"
+
+  private val fieldValidations = FieldValidations(errorFactories)
 
   def validateOptional(
       ledgerOffset: Option[LedgerOffset],
@@ -41,11 +38,11 @@ object LedgerOffsetValidator {
   ): Either[StatusRuntimeException, domain.LedgerOffset] = {
     ledgerOffset.value match {
       case LedgerOffset.Value.Absolute(value) =>
-        requireLedgerString(value, fieldName).map(domain.LedgerOffset.Absolute)
+        fieldValidations.requireLedgerString(value, fieldName).map(domain.LedgerOffset.Absolute)
       case LedgerOffset.Value.Boundary(value) =>
         convertLedgerBoundary(fieldName, value)
       case LedgerOffset.Value.Empty =>
-        Left(missingField(fieldName + ".(" + boundary + "|value)", None))
+        Left(errorFactories.missingField(fieldName + ".(" + boundary + "|value)", None))
     }
   }
 
@@ -59,7 +56,7 @@ object LedgerOffsetValidator {
     ledgerOffset match {
       case abs: domain.LedgerOffset.Absolute if abs > ledgerEnd =>
         Left(
-          offsetAfterLedgerEnd(
+          errorFactories.offsetAfterLedgerEnd(
             s"$offsetType offset ${abs.value} is after ledger end ${ledgerEnd.value}"
           )
         )
@@ -87,7 +84,7 @@ object LedgerOffsetValidator {
     value match {
       case LedgerBoundary.Unrecognized(invalid) =>
         Left(
-          invalidArgument(None)(
+          errorFactories.invalidArgument(None)(
             s"Unknown ledger $boundary value '$invalid' in field $fieldName.$boundary"
           )
         )

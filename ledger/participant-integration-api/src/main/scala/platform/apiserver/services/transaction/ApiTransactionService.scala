@@ -59,6 +59,7 @@ private[apiserver] object ApiTransactionService {
       new ApiTransactionService(transactionsService, metrics, errorsVersionsSwitcher),
       ledgerId,
       PartyNameChecker.AllowAllParties,
+      new ErrorFactories(errorsVersionsSwitcher),
     )
 }
 

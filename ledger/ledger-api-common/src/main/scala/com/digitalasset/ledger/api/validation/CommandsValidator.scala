@@ -4,7 +4,7 @@
 package com.daml.ledger.api.validation
 
 import com.daml.api.util.{DurationConversion, TimestampConversion}
-import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.commands.Command.Command.{
@@ -19,8 +19,7 @@ import com.daml.ledger.api.validation.CommandsValidator.{Submitters, effectiveSu
 import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.value.{Value => Lf}
-import com.daml.platform.server.api.validation.ErrorFactories._
-import com.daml.platform.server.api.validation.FieldValidations.{requirePresence, _}
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._
 
@@ -28,9 +27,18 @@ import java.time.{Duration, Instant}
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable
 
-final class CommandsValidator(ledgerId: LedgerId) {
+final class CommandsValidator(
+    ledgerId: LedgerId,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+) {
 
   import ValueValidator._
+
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val fieldValidations = FieldValidations(errorFactories)
+
+  import fieldValidations._
+  import errorFactories._
 
   def validateCommands(
       commands: ProtoCommands,
