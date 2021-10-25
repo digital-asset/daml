@@ -159,6 +159,40 @@ metadataEncodingTests = testGroup "MetadataEncoding"
             , LF.TSynApp showClass [LF.TVar aVar]
             )
           )
+        , ( "class C a b; type D = C"
+          , let
+              cClass = LF.Qualified LF.PRSelf (LF.ModuleName ["Main"]) (LF.TypeSynName ["C"])
+            in
+            ( LF.TypeSynName ["D"]
+            , True
+            , LF.KStar `LF.KArrow` LF.KStar `LF.KArrow` LF.KStar
+            , []
+            , LF.TSynApp cClass []
+            )
+          )
+        , ( "class C a b; type E = C Int"
+          , let
+              cClass = LF.Qualified LF.PRSelf (LF.ModuleName ["Main"]) (LF.TypeSynName ["C"])
+            in
+            ( LF.TypeSynName ["E"]
+            , True
+            , LF.KStar `LF.KArrow` LF.KStar
+            , []
+            , LF.TSynApp cClass [LF.TBuiltin LF.BTInt64]
+            )
+          )
+        , ( "class C a b; type F a = C a Int"
+          , let
+              aVar = LF.TypeVarName "a"
+              cClass = LF.Qualified LF.PRSelf (LF.ModuleName ["Main"]) (LF.TypeSynName ["C"])
+            in
+            ( LF.TypeSynName ["F"]
+            , True
+            , LF.KStar `LF.KArrow` LF.KStar
+            , [(aVar, LF.KStar)]
+            , LF.TSynApp cClass [LF.TVar aVar, LF.TBuiltin LF.BTInt64]
+            )
+          )
         ]
     ]
 

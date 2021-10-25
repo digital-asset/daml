@@ -296,6 +296,10 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "type MyScale = 5"
               , "type MyConstScale a = 5"
               , "type MyConstUnit a = ()"
+              , "class MyMultiParamClass a b where myMultiParamMethod : (a, b)"
+              , "type MyMultiParamClassSynonym = MyMultiParamClass"
+              , "type MyAppliedMultiParamClassSynonym = MyMultiParamClass Int"
+              , "type MyOtherAppliedMultiParamClassSynonym a = MyMultiParamClass a Int"
               ]
               [ "module Main where"
               , "import DA.Numeric (pi)"
@@ -326,6 +330,12 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
                 -- ^ this tests that MyConstUnit wasn't exported from Foo
               , "myConstUnit : MyConstUnit Int"
               , "myConstUnit = ()"
+              , "myMultiParamMethodSynonym : MyMultiParamClassSynonym a b => (a, b)"
+              , "myMultiParamMethodSynonym = myMultiParamMethod"
+              , "myAppliedMultiParamMethodSynonym : MyAppliedMultiParamClassSynonym b => (Int, b)"
+              , "myAppliedMultiParamMethodSynonym = myMultiParamMethod"
+              , "myOtherAppliedMultiParamMethodSynonym : MyOtherAppliedMultiParamClassSynonym a => (a, Int)"
+              , "myOtherAppliedMultiParamMethodSynonym = myMultiParamMethod"
               ]
 
     , simpleImportTest "RankNTypes"
