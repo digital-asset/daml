@@ -1,4 +1,4 @@
--- @ERROR range=14:1-14:19; contract 0055b33c9fd9928bdf0c2c611194865917b9aaf8b4b94a44abc25ddfea6d866cd1 not effective, but we found its key!
+-- @ERROR range=14:1-14:19; contract 0053db8d12a2aebf02e9d3c2dc653c7b8f61914eeef91b2d6e08b5b066925592a4 not effective, but we found its key!
 module ContractKeyNotEffective where
 
 import DA.Time
