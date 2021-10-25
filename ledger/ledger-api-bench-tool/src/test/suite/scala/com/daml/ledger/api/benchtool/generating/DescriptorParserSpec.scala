@@ -13,10 +13,13 @@ class DescriptorParserSpec extends AnyWordSpec with Matchers {
     "return error when empty yaml" in {
       parseYaml("") shouldBe a[Left[_, _]]
     }
-    "parse number of instances" in {
-      parseYaml("""num_instances: 123""") shouldBe Right(
+    "parse a correct descriptor" in {
+      val yaml = """num_instances: 123
+                   |payload_size_bytes: 111""".stripMargin
+      parseYaml(yaml) shouldBe Right(
         ContractSetDescriptor(
-          numberOfInstances = 123
+          numberOfInstances = 123,
+          payloadSizeBytes = 111,
         )
       )
     }

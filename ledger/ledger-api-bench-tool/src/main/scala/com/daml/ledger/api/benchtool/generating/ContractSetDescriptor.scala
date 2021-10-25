@@ -4,5 +4,6 @@
 package com.daml.ledger.api.benchtool.generating
 
 final case class ContractSetDescriptor(
-    numberOfInstances: Int
+    numberOfInstances: Int,
+    payloadSizeBytes: Int,
 )

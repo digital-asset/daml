@@ -7,6 +7,7 @@ template Foo1
   with
     signatory : Party
     observers : [Party]
+    payload : Text
   where
     signatory signatory
     observer observers
