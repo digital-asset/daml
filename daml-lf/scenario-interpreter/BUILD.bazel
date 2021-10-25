@@ -20,10 +20,12 @@ da_scala_library(
     name = "scenario-interpreter",
     srcs = glob(["src/main/**/*.scala"]),
     main_class = "com.daml.lf.speedy.Main",
-    scala_deps = ["@maven//:org_typelevel_paiges_core"],
+    scala_deps = [
+        "@maven//:org_typelevel_paiges_core",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-scenario-interpreter:__VERSION__"],
-    versioned_scala_deps = {"2.12": ["@maven//:org_scalaz_scalaz_core"]},
     visibility = [
         "//visibility:public",
     ],
@@ -42,9 +44,7 @@ da_scala_test_suite(
     name = "scenario-interpreter_tests",
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
-    ],
+    scala_deps = ["@maven//:org_scalaz_scalaz_core"],
     scalacopts = lf_scalacopts,
     deps = [
         ":scenario-interpreter",
@@ -71,9 +71,7 @@ da_scala_benchmark_jmh(
         ":CollectAuthority.dar",
         ":CollectAuthority.dar.pp",
     ],
-    scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
-    ],
+    scala_deps = ["@maven//:org_scalaz_scalaz_core"],
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
