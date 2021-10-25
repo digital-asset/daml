@@ -135,16 +135,18 @@ class Server(
       name: Identifier,
       party: Party,
       applicationId: ApplicationId,
+      readAs: Set[Party],
   )
 
   private def newTrigger(
       party: Party,
       triggerName: Identifier,
       optApplicationId: Option[ApplicationId],
+      readAs: Set[Party],
   ): TriggerConfig = {
     val newInstance = UUID.randomUUID()
     val applicationId = optApplicationId.getOrElse(Tag(newInstance.toString): ApplicationId)
-    TriggerConfig(newInstance, triggerName, party, applicationId)
+    TriggerConfig(newInstance, triggerName, party, applicationId, readAs)
   }
 
   // Add a new trigger to the database and return the resulting Trigger.
@@ -161,6 +163,7 @@ class Server(
         config.applicationId,
         auth.map(_.accessToken),
         auth.flatMap(_.refreshToken),
+        config.readAs,
       )
     // Validate trigger id before persisting to DB
     Trigger.fromIdentifier(compiledPackages, runningTrigger.triggerName) match {
@@ -298,7 +301,13 @@ class Server(
             // started trigger.
             post {
               entity(as[StartParams]) { params =>
-                val config = newTrigger(params.party, params.triggerName, params.applicationId)
+                val config =
+                  newTrigger(
+                    params.party,
+                    params.triggerName,
+                    params.applicationId,
+                    params.readAs.map(_.toSet).getOrElse(Set.empty),
+                  )
                 val claims =
                   AuthRequest.Claims(
                     actAs = List(params.party),
@@ -582,6 +591,7 @@ object Server {
             trigger,
             ledgerConfig,
             restartConfig,
+            runningTrigger.triggerReadAs,
           ),
           runningTrigger.triggerInstance.toString,
         ),

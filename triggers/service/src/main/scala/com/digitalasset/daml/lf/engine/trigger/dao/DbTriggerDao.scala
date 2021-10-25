@@ -38,6 +38,15 @@ abstract class DbTriggerDao protected (
   protected implicit def uuidPut: Put[UUID]
   protected implicit def uuidGet: Get[UUID]
 
+  implicit val readAsPut: Put[Set[Party]] =
+    implicitly[Put[String]].contramap { (readAs: Set[Party]) =>
+      readAs.map(Tag.unwrap).mkString(",")
+    }
+
+  implicit val readAsGet: Get[Set[Party]] = implicitly[Get[String]].map {
+    _.split(",").map(_.trim).toSet.filter(_.nonEmpty).map(Tag.apply)
+  }
+
   implicit val partyPut: Put[Party] = Tag.subst(implicitly[Put[String]])
 
   implicit val partyGet: Get[Party] = Tag.subst(implicitly[Get[String]])
@@ -77,21 +86,31 @@ abstract class DbTriggerDao protected (
   private def insertRunningTrigger(t: RunningTrigger): ConnectionIO[Unit] = {
     val insert: Fragment =
       sql"""insert into ${Fragment.const(s"${tablePrefix}running_triggers")}
-          (trigger_instance, trigger_party, full_trigger_name, access_token, refresh_token, application_id)
+          (trigger_instance, trigger_party, full_trigger_name, access_token, refresh_token, application_id, read_as)
         values
-          (${t.triggerInstance}, ${t.triggerParty}, ${t.triggerName}, ${t.triggerAccessToken}, ${t.triggerRefreshToken}, ${t.triggerApplicationId})
+          (${t.triggerInstance}, ${t.triggerParty}, ${t.triggerName}, ${t.triggerAccessToken}, ${t.triggerRefreshToken}, ${t.triggerApplicationId}, ${t.triggerReadAs})
       """
     insert.update.run.void
   }
 
   private def queryRunningTrigger(triggerInstance: UUID): ConnectionIO[Option[RunningTrigger]] = {
     val select: Fragment = sql"""
-        select trigger_instance, full_trigger_name, trigger_party, application_id, access_token, refresh_token
+        select trigger_instance, full_trigger_name, trigger_party, application_id, access_token, refresh_token, read_as
         from ${Fragment.const(s"${tablePrefix}running_triggers")}
         where trigger_instance = $triggerInstance
       """
     select
-      .query[(UUID, Identifier, Party, ApplicationId, Option[AccessToken], Option[RefreshToken])]
+      .query[
+        (
+            UUID,
+            Identifier,
+            Party,
+            ApplicationId,
+            Option[AccessToken],
+            Option[RefreshToken],
+            Set[Party],
+        )
+      ]
       .map(RunningTrigger.tupled)
       .option
   }
@@ -156,12 +175,22 @@ abstract class DbTriggerDao protected (
 
   private def selectAllTriggers: ConnectionIO[Vector[RunningTrigger]] = {
     val select: Fragment = sql"""
-      select trigger_instance, full_trigger_name, trigger_party, application_id, access_token, refresh_token
+      select trigger_instance, full_trigger_name, trigger_party, application_id, access_token, refresh_token, read_as
       from ${Fragment.const(s"${tablePrefix}running_triggers")}
       order by trigger_instance
     """
     select
-      .query[(UUID, Identifier, Party, ApplicationId, Option[AccessToken], Option[RefreshToken])]
+      .query[
+        (
+            UUID,
+            Identifier,
+            Party,
+            ApplicationId,
+            Option[AccessToken],
+            Option[RefreshToken],
+            Set[Party],
+        )
+      ]
       .map(RunningTrigger.tupled)
       .to[Vector]
   }
