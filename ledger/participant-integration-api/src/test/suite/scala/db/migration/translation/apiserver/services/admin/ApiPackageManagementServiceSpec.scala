@@ -6,10 +6,10 @@ package com.daml.platform.apiserver.services.admin
 import java.time.{Duration, Instant}
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import java.util.zip.ZipInputStream
-
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.domain.LedgerOffset.Absolute
 import com.daml.ledger.api.domain.PackageEntry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -49,7 +49,9 @@ class ApiPackageManagementServiceSpec
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  "ApiPackageManagementService" should {
+  val errorCodesVersionSwitcher = mock[ErrorCodesVersionSwitcher]
+
+  "ApiPackageManagementService $suffix" should {
     "propagate trace context" in {
       val apiService = createApiService()
 
@@ -63,11 +65,13 @@ class ApiPackageManagementServiceSpec
         }
         .map { _ =>
           spanExporter.finishedSpanAttributes should contain(anApplicationIdSpanAttribute)
+          verifyZeroInteractions(errorCodesVersionSwitcher)
+          succeed
         }
     }
   }
 
-  private def createApiService(): PackageManagementServiceGrpc.PackageManagementService = {
+  def createApiService(): PackageManagementServiceGrpc.PackageManagementService = {
     val mockDarReader = mock[GenDarReader[Archive]]
     when(mockDarReader.readArchive(any[String], any[ZipInputStream], any[Int]))
       .thenReturn(Right(new Dar[Archive](anArchive, List.empty)))
@@ -95,6 +99,7 @@ class ApiPackageManagementServiceSpec
       TestWritePackagesService,
       Duration.ZERO,
       mockEngine,
+      errorCodesVersionSwitcher,
       mockDarReader,
       _ => Ref.SubmissionId.assertFromString("aSubmission"),
     )
