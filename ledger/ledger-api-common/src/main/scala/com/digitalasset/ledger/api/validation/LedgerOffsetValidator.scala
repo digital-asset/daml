@@ -18,6 +18,9 @@ class LedgerOffsetValidator(errorFactories: ErrorFactories) {
 
   private val fieldValidations = FieldValidations(errorFactories)
 
+  import errorFactories.{invalidArgument, missingField, offsetAfterLedgerEnd}
+  import fieldValidations.requireLedgerString
+
   def validateOptional(
       ledgerOffset: Option[LedgerOffset],
       fieldName: String,
@@ -38,11 +41,11 @@ class LedgerOffsetValidator(errorFactories: ErrorFactories) {
   ): Either[StatusRuntimeException, domain.LedgerOffset] = {
     ledgerOffset.value match {
       case LedgerOffset.Value.Absolute(value) =>
-        fieldValidations.requireLedgerString(value, fieldName).map(domain.LedgerOffset.Absolute)
+        requireLedgerString(value, fieldName).map(domain.LedgerOffset.Absolute)
       case LedgerOffset.Value.Boundary(value) =>
         convertLedgerBoundary(fieldName, value)
       case LedgerOffset.Value.Empty =>
-        Left(errorFactories.missingField(fieldName + ".(" + boundary + "|value)", None))
+        Left(missingField(fieldName + ".(" + boundary + "|value)", None))
     }
   }
 
@@ -56,7 +59,7 @@ class LedgerOffsetValidator(errorFactories: ErrorFactories) {
     ledgerOffset match {
       case abs: domain.LedgerOffset.Absolute if abs > ledgerEnd =>
         Left(
-          errorFactories.offsetAfterLedgerEnd(
+          offsetAfterLedgerEnd(
             s"$offsetType offset ${abs.value} is after ledger end ${ledgerEnd.value}"
           )
         )
@@ -84,7 +87,7 @@ class LedgerOffsetValidator(errorFactories: ErrorFactories) {
     value match {
       case LedgerBoundary.Unrecognized(invalid) =>
         Left(
-          errorFactories.invalidArgument(None)(
+          invalidArgument(None)(
             s"Unknown ledger $boundary value '$invalid' in field $fieldName.$boundary"
           )
         )

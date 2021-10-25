@@ -18,6 +18,7 @@ class TransactionFilterValidator(errorFactories: ErrorFactories) {
   private val fieldValidations = FieldValidations(errorFactories)
 
   import fieldValidations._
+  import errorFactories._
 
   def validate(
       txFilter: TransactionFilter
@@ -25,7 +26,7 @@ class TransactionFilterValidator(errorFactories: ErrorFactories) {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.TransactionFilter] = {
     if (txFilter.filtersByParty.isEmpty) {
-      Left(errorFactories.invalidArgument(None)("filtersByParty cannot be empty"))
+      Left(invalidArgument(None)("filtersByParty cannot be empty"))
     } else {
       val convertedFilters =
         txFilter.filtersByParty.toList.traverse { case (k, v) =>

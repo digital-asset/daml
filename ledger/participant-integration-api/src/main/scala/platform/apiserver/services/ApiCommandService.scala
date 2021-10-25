@@ -69,6 +69,7 @@ private[apiserver] final class ApiCommandService private[services] (
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  import errorFactories.serviceNotRunning
 
   @volatile private var running = true
 
@@ -96,7 +97,7 @@ private[apiserver] final class ApiCommandService private[services] (
         submissionTracker.track(CommandSubmission(commands, timeout))
       } else {
         Future.failed(
-          errorFactories.serviceNotRunning(definiteAnswer = Some(false))(contextualizedErrorLogger)
+          serviceNotRunning(definiteAnswer = Some(false))(contextualizedErrorLogger)
         )
       }.andThen(logger.logErrorsOnCall[Completion])
     }

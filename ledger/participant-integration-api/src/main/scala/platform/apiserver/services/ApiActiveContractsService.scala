@@ -44,9 +44,8 @@ private[apiserver] final class ApiActiveContractsService private (
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = {
+  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
-  }
 
   override protected def getActiveContractsSource(
       request: GetActiveContractsRequest

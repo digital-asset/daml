@@ -38,6 +38,7 @@ class TransactionServiceRequestValidator(
   private val transactionFilterValidator = new TransactionFilterValidator(errorFactories)
 
   import fieldValidations._
+  import errorFactories.invalidArgument
 
   private def matchId(input: LedgerId)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -187,7 +188,7 @@ class TransactionServiceRequestValidator(
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger) =
     transactionFilter.filtersByParty
       .collectFirst { case (party, Filters(Some(inclusive))) =>
-        errorFactories.invalidArgument(None)(
+        invalidArgument(None)(
           s"$party attempted subscription for templates ${inclusive.templateIds.mkString("[", ", ", "]")}. Template filtration is not supported on GetTransactionTrees RPC. To get filtered data, use the GetTransactions RPC."
         )
       }

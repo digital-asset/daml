@@ -455,7 +455,7 @@ class SubmitRequestValidatorTest
                 .ofSeconds(durationSecondsExceedingMax)} exceeds the maximum deduplication time of ${internal.maxDeduplicationDuration}",
             expectedCodeV2 = INVALID_ARGUMENT,
             expectedDescriptionV2 =
-              "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field deduplication_period: The given deduplication duration of PT24H1S exceeds the maximum deduplication time of PT24H",
+              s"INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field deduplication_period: The given deduplication duration of PT24H1S exceeds the maximum deduplication time of ${internal.maxDeduplicationDuration}",
           )
         }
       }

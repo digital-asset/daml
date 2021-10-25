@@ -27,6 +27,9 @@ class CompletionServiceRequestValidator(
     new PartyValidator(partyNameChecker, errorFactories, fieldValidations)
   private val ledgerOffsetValidator = new LedgerOffsetValidator(errorFactories)
 
+  import errorFactories._
+  import fieldValidations._
+
   def validateCompletionStreamRequest(
       request: GrpcCompletionStreamRequest,
       ledgerEnd: LedgerOffset.Absolute,
@@ -34,16 +37,16 @@ class CompletionServiceRequestValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, CompletionStreamRequest] =
     for {
-      _ <- fieldValidations.matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
-      nonEmptyAppId <- fieldValidations.requireNonEmptyString(
+      _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+      nonEmptyAppId <- requireNonEmptyString(
         request.applicationId,
         "application_id",
       )
       appId <- Ref.LedgerString
         .fromString(nonEmptyAppId)
         .left
-        .map(errorFactories.invalidField("application_id", _, None))
-      nonEmptyParties <- fieldValidations.requireNonEmpty(request.parties, "parties")
+        .map(invalidField("application_id", _, None))
+      nonEmptyParties <- requireNonEmpty(request.parties, "parties")
       knownParties <- partyValidator.requireKnownParties(nonEmptyParties)
       convertedOffset <- ledgerOffsetValidator.validateOptional(request.offset, "offset")
       _ <- ledgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
@@ -64,7 +67,7 @@ class CompletionServiceRequestValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, completion.CompletionEndRequest] =
     for {
-      ledgerId <- fieldValidations.matchLedgerId(ledgerId)(LedgerId(req.ledgerId))
+      ledgerId <- matchLedgerId(ledgerId)(LedgerId(req.ledgerId))
     } yield completion.CompletionEndRequest(ledgerId)
 
 }
