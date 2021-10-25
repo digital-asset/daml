@@ -443,19 +443,19 @@ private[kvutils] object TransactionRejections {
 
     def externallyDuplicateKeysStatus(
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Race.ExternallyDuplicateKeys
+      KVCompletionErrors.SubmissionRaces.ExternallyDuplicateKeys
         .Reject()
         .asStatus
 
     def externallyInconsistentKeysStatus(
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Race.ExternallyInconsistentKeys
+      KVCompletionErrors.SubmissionRaces.ExternallyInconsistentKeys
         .Reject()
         .asStatus
 
     def externallyInconsistentContractsStatus(
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Race.ExternallyInconsistentContracts
+      KVCompletionErrors.SubmissionRaces.ExternallyInconsistentContracts
         .Reject()
         .asStatus
 

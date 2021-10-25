@@ -80,7 +80,7 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
 
   }
 
-  object Race extends ErrorGroup() {
+  object SubmissionRaces extends ErrorGroup() {
 
     object ExternallyDuplicateKeys
         extends ErrorCode(
