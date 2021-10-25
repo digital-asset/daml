@@ -23,7 +23,7 @@ private[backend] trait StorageBackendTestsDeduplication
   it should "only allow one upsertDeduplicationEntry to insert a new entry" in {
     val key = "deduplication key"
     val submittedAt = Timestamp.assertFromLong(0L)
-    val deduplicateUntil = Timestamp.assertFromLong(1000L)
+    val deduplicateUntil = submittedAt.addMicros(1000L)
     val n = 8
 
     for {
@@ -45,9 +45,10 @@ private[backend] trait StorageBackendTestsDeduplication
   it should "only allow one upsertDeduplicationEntry to update an existing expired entry" in {
     val key = "deduplication key"
     val submittedAt = Timestamp.assertFromLong(0L)
-    val deduplicateUntil = Timestamp.assertFromLong(1000L)
+    val deduplicateUntil = submittedAt.addMicros(1000L)
+    // Second submission is after the deduplication window of the first one
     val submittedAt2 = Timestamp.assertFromLong(2000L)
-    val deduplicateUntil2 = Timestamp.assertFromLong(3000L)
+    val deduplicateUntil2 = submittedAt2.addMicros(1000L)
     val n = 8
 
     for {
@@ -77,9 +78,10 @@ private[backend] trait StorageBackendTestsDeduplication
   it should "not update or insert anything if there is an existing active entry" in {
     val key = "deduplication key"
     val submittedAt = Timestamp.assertFromLong(0L)
-    val deduplicateUntil = Timestamp.assertFromLong(5000L)
+    val deduplicateUntil = submittedAt.addMicros(5000L)
+    // Second submission is within the deduplication window of the first one
     val submittedAt2 = Timestamp.assertFromLong(1000L)
-    val deduplicateUntil2 = Timestamp.assertFromLong(6000L)
+    val deduplicateUntil2 = submittedAt2.addMicros(5000L)
 
     for {
       _ <- executeSql(backend.initializeParameters(someIdentityParams))
