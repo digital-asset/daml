@@ -375,6 +375,23 @@ private[kvutils] object TransactionRejections {
     )
   }
 
+  @nowarn("msg=deprecated")
+  def resourceExhaustedStatus(
+      entry: DamlTransactionRejectionEntry,
+      rejection: ResourcesExhausted,
+      errorVersionSwitch: ValueSwitch[Status],
+  )(implicit loggingContext: ContextualizedErrorLogger): Status = {
+    val details = rejection.getDetails
+    errorVersionSwitch.choose(
+      V1.status(
+        entry,
+        Code.ABORTED,
+        s"Resources exhausted: $details",
+      ),
+      V2.resourceExhaustedStatus(details),
+    )
+  }
+
   @deprecated
   def partyNotKnownOnLedgerStatus(
       entry: DamlTransactionRejectionEntry,
@@ -389,23 +406,6 @@ private[kvutils] object TransactionRejections {
         s"Party not known on ledger: $details",
       ),
       V2.partyNotKnownOnLedgerStatus(details),
-    )
-  }
-
-  @deprecated
-  def resourceExhaustedStatus(
-      entry: DamlTransactionRejectionEntry,
-      rejection: ResourcesExhausted,
-      errorVersionSwitch: ValueSwitch[Status],
-  )(implicit loggingContext: ContextualizedErrorLogger): Status = {
-    val details = rejection.getDetails
-    errorVersionSwitch.choose(
-      V1.status(
-        entry,
-        Code.ABORTED,
-        s"Resources exhausted: $details",
-      ),
-      V2.resourceExhaustedStatus(details),
     )
   }
 
@@ -573,19 +573,18 @@ private[kvutils] object TransactionRejections {
         .Reject(parties)
         .asStatus
 
+    def resourceExhaustedStatus(
+        details: String
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVCompletionErrors.Resources.ResourceExhausted
+        .Reject(details)
+        .asStatus
+
     @deprecated
     def partyNotKnownOnLedgerStatus(
         details: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
       KVCompletionErrors.Parties.PartyNotKnownOnLedger
-        .Reject(details)
-        .asStatus
-
-    @deprecated
-    def resourceExhaustedStatus(
-        details: String
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Resources.ResourceExhausted
         .Reject(details)
         .asStatus
 
