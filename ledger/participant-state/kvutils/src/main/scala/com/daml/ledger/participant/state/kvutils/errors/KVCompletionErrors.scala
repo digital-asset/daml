@@ -26,7 +26,7 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
 
     @Explanation("""The record time is not within bounds for reasons other than deduplication, such as
                    |excessive latency. Excessive clock skew between the participant and the committer
-                   |or a too restrictive time model may also produce this rejection.
+                   |or a time model that is too restrictive may also produce this rejection.
                    |""".stripMargin)
     @Resolution("Retry the submission or contact the participant operator.")
     object InvalidRecordTime
