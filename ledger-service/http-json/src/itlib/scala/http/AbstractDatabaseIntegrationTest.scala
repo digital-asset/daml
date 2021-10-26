@@ -187,11 +187,10 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
   }.unsafeToFuture()
 
   "SurrogateTemplateIdCache" - {
+    import dao.logHandler, dao.jdbcDriver.q.queries
+
     "should be used on template insertion and reads" in {
-      import dao.jdbcDriver.q.queries
-      def getOrElseInsertTemplate(tpid: TemplateId[String])(implicit
-          logHandler: LogHandler = dao.logHandler
-      ) = instanceUUIDLogCtx(implicit lc =>
+      def getOrElseInsertTemplate(tpid: TemplateId[String]) = instanceUUIDLogCtx(implicit lc =>
         dao.transact(
           queries
             .surrogateTemplateId(tpid.packageId, tpid.moduleName, tpid.entityName)
@@ -212,7 +211,6 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
     "doesn't cache uncommitted template IDs" in {
       import dbbackend.Queries.DBContract, spray.json.{JsObject, JsNull, JsValue},
       spray.json.DefaultJsonProtocol._
-      import dao.logHandler, dao.jdbcDriver.q.queries
 
       val tpId = TemplateId("pkg", "mod", "UncomCollision")
 
