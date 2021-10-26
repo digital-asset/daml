@@ -40,13 +40,14 @@ import com.daml.ledger.participant.state.index.v2.{
   PackageDetails,
 }
 import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.engine.{Engine, ValueEnricher, Result, ResultDone}
+import com.daml.lf.engine.{Engine, Result, ResultDone, ValueEnricher}
 import com.daml.lf.language.Ast
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.{
-  GlobalKey,
   CommittedTransaction,
+  GlobalKey,
   SubmittedTransaction,
   TransactionCommitter,
 }
@@ -334,7 +335,7 @@ private[sandbox] final class InMemoryLedger(
 
   override def lookupMaximumLedgerTime(contractIds: Set[ContractId])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Instant]] =
+  ): Future[Option[Timestamp]] =
     if (contractIds.isEmpty) {
       Future.failed(
         new IllegalArgumentException(
@@ -343,15 +344,17 @@ private[sandbox] final class InMemoryLedger(
       )
     } else {
       Future.fromTry(Try(this.synchronized {
-        contractIds.foldLeft[Option[Instant]](Some(Instant.MIN))((acc, id) => {
-          val let = acs.activeContracts
-            .getOrElse(
-              id,
-              sys.error(s"Contract $id not found while looking for maximum ledger time"),
-            )
-            .let
-          acc.map(acc => if (let.isAfter(acc)) let else acc)
-        })
+        contractIds
+          .foldLeft[Option[Instant]](Some(Instant.MIN))((acc, id) => {
+            val let = acs.activeContracts
+              .getOrElse(
+                id,
+                sys.error(s"Contract $id not found while looking for maximum ledger time"),
+              )
+              .let
+            acc.map(acc => if (let.isAfter(acc)) let else acc)
+          })
+          .map(Timestamp.assertFromInstant)
       }))
     }
 
@@ -369,8 +372,8 @@ private[sandbox] final class InMemoryLedger(
 
   // Validates the given ledger time according to the ledger time model
   private def checkTimeModel(
-      ledgerTime: Instant,
-      recordTime: Instant,
+      ledgerTime: Timestamp,
+      recordTime: Timestamp,
   ): Either[Rejection, Unit] =
     ledgerConfiguration
       .toRight(Rejection.NoLedgerConfiguration)
@@ -384,8 +387,8 @@ private[sandbox] final class InMemoryLedger(
       transactionMeta: state.TransactionMeta,
       transaction: SubmittedTransaction,
   )(implicit loggingContext: LoggingContext): Unit = {
-    val ledgerTime = transactionMeta.ledgerEffectiveTime.toInstant
-    val recordTime = timeProvider.getCurrentTime
+    val ledgerTime = transactionMeta.ledgerEffectiveTime
+    val recordTime = timeProvider.getCurrentTimestamp
     checkTimeModel(ledgerTime, recordTime)
       .fold(
         rejection => handleError(submitterInfo, rejection.toDomainRejectionReason),
@@ -423,7 +426,7 @@ private[sandbox] final class InMemoryLedger(
                   Some(submitterInfo.submissionId),
                   submitterInfo.actAs,
                   transactionMeta.workflowId,
-                  transactionMeta.ledgerEffectiveTime.toInstant,
+                  transactionMeta.ledgerEffectiveTime,
                   recordTime,
                   committedTransaction,
                   disclosureForIndex,
@@ -444,7 +447,7 @@ private[sandbox] final class InMemoryLedger(
     entries.publish(
       InMemoryLedgerEntry(
         LedgerEntry.Rejection(
-          timeProvider.getCurrentTime,
+          timeProvider.getCurrentTimestamp,
           submitterInfo.commandId,
           submitterInfo.applicationId,
           submitterInfo.submissionId,
@@ -530,7 +533,7 @@ private[sandbox] final class InMemoryLedger(
           InMemoryPartyEntry(
             PartyLedgerEntry.AllocationRejected(
               submissionId,
-              timeProvider.getCurrentTime,
+              timeProvider.getCurrentTimestamp,
               "Party already exists",
             )
           )
@@ -541,7 +544,7 @@ private[sandbox] final class InMemoryLedger(
           InMemoryPartyEntry(
             PartyLedgerEntry.AllocationAccepted(
               Some(submissionId),
-              timeProvider.getCurrentTime,
+              timeProvider.getCurrentTimestamp,
               PartyDetails(party, displayName, isLocal = true),
             )
           )
@@ -582,7 +585,7 @@ private[sandbox] final class InMemoryLedger(
 
   override def uploadPackages(
       submissionId: Ref.SubmissionId,
-      knownSince: Instant,
+      knownSince: Timestamp,
       sourceDescription: Option[String],
       payload: List[Archive],
   )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] = {
@@ -595,7 +598,7 @@ private[sandbox] final class InMemoryLedger(
           entries.publish(
             InMemoryPackageEntry(
               PackageLedgerEntry
-                .PackageUploadRejected(submissionId, timeProvider.getCurrentTime, err)
+                .PackageUploadRejected(submissionId, timeProvider.getCurrentTimestamp, err)
             )
           )
           Future.successful(state.SubmissionResult.Acknowledged)
@@ -604,7 +607,8 @@ private[sandbox] final class InMemoryLedger(
           if (packageStoreRef.compareAndSet(oldStore, newStore)) {
             entries.publish(
               InMemoryPackageEntry(
-                PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTime)
+                PackageLedgerEntry
+                  .PackageUploadAccepted(submissionId, timeProvider.getCurrentTimestamp)
               )
             )
             Future.successful(state.SubmissionResult.Acknowledged)
@@ -622,8 +626,7 @@ private[sandbox] final class InMemoryLedger(
   )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] =
     Future.successful {
       this.synchronized {
-        val recordTime = timeProvider.getCurrentTime
-        val mrt = maxRecordTime.toInstant
+        val recordTime = timeProvider.getCurrentTimestamp
         ledgerConfiguration match {
           case Some(currentConfig) if config.generation != currentConfig.generation + 1 =>
             entries.publish(
@@ -636,12 +639,12 @@ private[sandbox] final class InMemoryLedger(
               )
             )
 
-          case _ if recordTime.isAfter(mrt) =>
+          case _ if recordTime > maxRecordTime =>
             entries.publish(
               InMemoryConfigEntry(
                 ConfigurationEntry.Rejected(
                   submissionId,
-                  s"Configuration change timed out: $mrt > $recordTime",
+                  s"Configuration change timed out: $maxRecordTime > $recordTime",
                   config,
                 )
               )
@@ -688,8 +691,8 @@ private[sandbox] final class InMemoryLedger(
   override def deduplicateCommand(
       commandId: CommandId,
       submitters: List[Ref.Party],
-      submittedAt: Instant,
-      deduplicateUntil: Instant,
+      submittedAt: Timestamp,
+      deduplicateUntil: Timestamp,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
     Future.successful {
       this.synchronized {
@@ -697,28 +700,28 @@ private[sandbox] final class InMemoryLedger(
         val entry = commands.get(key)
         if (entry.isEmpty) {
           // No previous entry - new command
-          commands += (key -> CommandDeduplicationEntry(key, deduplicateUntil))
+          commands += (key -> CommandDeduplicationEntry(key, deduplicateUntil.toInstant))
           CommandDeduplicationNew
         } else {
           val previousDeduplicateUntil = entry.get.deduplicateUntil
-          if (submittedAt.isAfter(previousDeduplicateUntil)) {
+          if (submittedAt.toInstant.isAfter(previousDeduplicateUntil)) {
             // Previous entry expired - new command
-            commands += (key -> CommandDeduplicationEntry(key, deduplicateUntil))
+            commands += (key -> CommandDeduplicationEntry(key, deduplicateUntil.toInstant))
             CommandDeduplicationNew
           } else {
             // Existing previous entry - deduplicate command
-            CommandDeduplicationDuplicate(previousDeduplicateUntil)
+            CommandDeduplicationDuplicate(Timestamp.assertFromInstant(previousDeduplicateUntil))
           }
         }
       }
     }
 
-  override def removeExpiredDeduplicationData(currentTime: Instant)(implicit
+  override def removeExpiredDeduplicationData(currentTime: Timestamp)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
     Future.successful {
       this.synchronized {
-        commands.retain((_, v) => v.deduplicateUntil.isAfter(currentTime))
+        commands.retain((_, v) => v.deduplicateUntil.isAfter(currentTime.toInstant))
         ()
       }
     }

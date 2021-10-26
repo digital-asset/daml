@@ -3,8 +3,7 @@
 
 package com.daml.platform.apiserver.execution
 
-import java.time.{Duration, Instant}
-
+import java.time.Duration
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.{ApplicationId, CommandId, Commands, LedgerId, SubmissionId}
@@ -63,7 +62,7 @@ class StoreBackedCommandExecutorSpec
         submissionId = SubmissionId(Ref.SubmissionId.assertFromString("submissionId")),
         actAs = Set.empty,
         readAs = Set.empty,
-        submittedAt = Instant.EPOCH,
+        submittedAt = Time.Timestamp.Epoch,
         deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
         commands = LfCommands(
           commands = ImmArray.Empty,

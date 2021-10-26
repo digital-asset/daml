@@ -38,9 +38,9 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
       let2 <- executeSql(withDefaultTimeZone("GMT-1")(backend.maximumLedgerTime(Set(cid))))
       let3 <- executeSql(withDefaultTimeZone("GMT+1")(backend.maximumLedgerTime(Set(cid))))
     } yield {
-      withClue("UTC") { let1 shouldBe Success(Some(let.toInstant)) }
-      withClue("GMT-1") { let2 shouldBe Success(Some(let.toInstant)) }
-      withClue("GMT+1") { let3 shouldBe Success(Some(let.toInstant)) }
+      withClue("UTC") { let1 shouldBe Success(Some(let)) }
+      withClue("GMT-1") { let2 shouldBe Success(Some(let)) }
+      withClue("GMT+1") { let3 shouldBe Success(Some(let)) }
     }
   }
 
@@ -63,9 +63,9 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
       events2 <- executeSql(withDefaultTimeZone("GMT-1")(backend.rawEvents(0L, 1L)))
       events3 <- executeSql(withDefaultTimeZone("GMT+1")(backend.rawEvents(0L, 1L)))
     } yield {
-      withClue("UTC") { events1.head.ledgerEffectiveTime shouldBe Some(let.toInstant) }
-      withClue("GMT-1") { events2.head.ledgerEffectiveTime shouldBe Some(let.toInstant) }
-      withClue("GMT+1") { events3.head.ledgerEffectiveTime shouldBe Some(let.toInstant) }
+      withClue("UTC") { events1.head.ledgerEffectiveTime shouldBe Some(let) }
+      withClue("GMT-1") { events2.head.ledgerEffectiveTime shouldBe Some(let) }
+      withClue("GMT+1") { events3.head.ledgerEffectiveTime shouldBe Some(let) }
     }
   }
 

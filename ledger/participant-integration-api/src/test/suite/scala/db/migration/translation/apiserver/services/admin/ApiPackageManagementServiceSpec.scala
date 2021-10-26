@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import java.time.{Duration, Instant}
+import java.time.Duration
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import java.util.zip.ZipInputStream
 import akka.stream.scaladsl.Source
@@ -23,6 +23,7 @@ import com.daml.lf.archive.testing.Encode
 import com.daml.lf.archive.{Dar, GenDarReader}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast.Expr
 import com.daml.lf.language.{Ast, LanguageVersion}
@@ -88,7 +89,7 @@ class ApiPackageManagementServiceSpec
     when(mockIndexPackagesService.packageEntries(any[Option[Absolute]])(any[LoggingContext]))
       .thenReturn(
         Source.single(
-          PackageEntry.PackageUploadAccepted(aSubmissionId, Instant.EPOCH)
+          PackageEntry.PackageUploadAccepted(aSubmissionId, Timestamp.Epoch)
         )
       )
 

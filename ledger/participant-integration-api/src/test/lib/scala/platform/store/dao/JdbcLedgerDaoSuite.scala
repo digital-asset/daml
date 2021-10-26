@@ -4,7 +4,7 @@
 package com.daml.platform.store.dao
 
 import java.io.File
-import java.time.{Duration, Instant}
+import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import akka.stream.scaladsl.Sink
@@ -17,6 +17,7 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.{Identifier, Party}
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction._
@@ -56,7 +57,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   private[this] val dar =
     DarParser.assertReadArchiveFromFile(new File(rlocation(ModelTestDar.path)))
 
-  private val now = Instant.now()
+  private val now = Timestamp.now()
 
   protected final val packages: List[(DamlLf.Archive, v2.PackageDetails)] =
     dar.all.map(dar => dar -> v2.PackageDetails(dar.getSerializedSize.toLong, now, None))
@@ -282,7 +283,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val eid = txBuilder.add(creation)
     val offset = nextOffset()
     val id = offset.toLong
-    val let = Instant.now
+    val let = Timestamp.now()
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"commandId$id"),
       transactionId = s"trId$id",
@@ -308,7 +309,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   ): (Offset, LedgerEntry.Transaction) = {
     val offset = nextOffset()
     val id = offset.toLong
-    val let = Instant.now
+    val let = Timestamp.now()
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"commandId$id"),
       transactionId = s"trId$id",
@@ -408,8 +409,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       submissionId = Some(s"submissionId${id.coid}"),
       actAs = List(divulgees.head),
       workflowId = None,
-      ledgerEffectiveTime = Instant.now,
-      recordedAt = Instant.now,
+      ledgerEffectiveTime = Timestamp.now(),
+      recordedAt = Timestamp.now(),
       transaction = txBuilder.buildCommitted(),
       explicitDisclosure = Map.empty,
     )
@@ -423,7 +424,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val nid = txBuilder.add(exerciseNode(targetCid, key))
     val offset = nextOffset()
     val id = offset.toLong
-    val let = Instant.now
+    val let = Timestamp.now()
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"commandId$id"),
       transactionId = s"trId$id",
@@ -445,7 +446,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val nid = txBuilder.add(exerciseNode(targetCid))
     val offset = nextOffset()
     val id = offset.toLong
-    val let = Instant.now
+    val let = Timestamp.now()
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"commandId$id"),
       transactionId = s"trId$id",
@@ -467,7 +468,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val nid = txBuilder.add(exerciseNode(targetCid).copy(consuming = false))
     val offset = nextOffset()
     val id = offset.toLong
-    val let = Instant.now
+    val let = Timestamp.now()
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"commandId$id"),
       transactionId = s"trId$id",
@@ -492,7 +493,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val offset = nextOffset()
     val id = offset.toLong
     val txId = s"trId$id"
-    val let = Instant.now
+    val let = Timestamp.now()
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"commandId$id"),
       transactionId = txId,
@@ -514,7 +515,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val cid = txBuilder.newCid
     val createId = txBuilder.add(create(cid))
     val exerciseId = txBuilder.add(exerciseNode(cid))
-    val let = Instant.now
+    val let = Timestamp.now()
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
       transactionId = UUID.randomUUID().toString,
@@ -542,7 +543,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val rootExerciseId = txBuilder.add(exerciseNode(root).copy(actingParties = Set(charlie)))
     val createTransientId = txBuilder.add(create(transient), rootExerciseId)
     val consumeTransientId = txBuilder.add(exerciseNode(transient), rootExerciseId)
-    val let = Instant.now
+    val let = Timestamp.now()
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID.toString),
       transactionId = UUID.randomUUID().toString,
@@ -597,7 +598,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       create(txBuilder.newCid),
       exerciseId,
     )
-    val let = Instant.now
+    val let = Timestamp.now()
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
       transactionId = UUID.randomUUID().toString,
@@ -644,8 +645,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       submissionId = Some(UUID.randomUUID.toString),
       actAs = List(operator),
       workflowId = Some("workflowId"),
-      ledgerEffectiveTime = Instant.now,
-      recordedAt = Instant.now,
+      ledgerEffectiveTime = Timestamp.now(),
+      recordedAt = Timestamp.now(),
       transaction = txBuilder.buildCommitted(),
       explicitDisclosure = disclosure.toMap,
     )
@@ -721,8 +722,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         submissionId = Some(UUID.randomUUID().toString),
         actAs = List(party),
         workflowId = Some(defaultWorkflowId),
-        ledgerEffectiveTime = Instant.now,
-        recordedAt = Instant.now,
+        ledgerEffectiveTime = Timestamp.now(),
+        recordedAt = Timestamp.now(),
         transaction = txBuilder.buildCommitted(),
         explicitDisclosure = Map(createNodeId -> Set(party)),
       )
@@ -760,8 +761,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       submissionId = Some(UUID.randomUUID().toString),
       actAs = List(party),
       workflowId = Some(defaultWorkflowId),
-      ledgerEffectiveTime = Instant.now,
-      recordedAt = Instant.now,
+      ledgerEffectiveTime = Timestamp.now(),
+      recordedAt = Timestamp.now(),
       transaction = txBuilder.buildCommitted(),
       explicitDisclosure = Map(archiveNodeId -> Set(party)),
     )
@@ -789,8 +790,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       submissionId = Some(UUID.randomUUID().toString),
       actAs = List(party),
       workflowId = Some(defaultWorkflowId),
-      ledgerEffectiveTime = Instant.now(),
-      recordedAt = Instant.now(),
+      ledgerEffectiveTime = Timestamp.now(),
+      recordedAt = Timestamp.now(),
       transaction = txBuilder.buildCommitted(),
       explicitDisclosure = Map(lookupByKeyNodeId -> Set(party)),
     )
@@ -820,8 +821,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       submissionId = Some(UUID.randomUUID().toString),
       actAs = List(party),
       workflowId = Some(defaultWorkflowId),
-      ledgerEffectiveTime = Instant.now(),
-      recordedAt = Instant.now(),
+      ledgerEffectiveTime = Timestamp.now(),
+      recordedAt = Timestamp.now(),
       transaction = txBuilder.buildCommitted(),
       explicitDisclosure = Map(fetchNodeId -> Set(party)),
     )
@@ -835,8 +836,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       submissionId = Some(UUID.randomUUID().toString),
       actAs = List(party),
       workflowId = Some(defaultWorkflowId),
-      ledgerEffectiveTime = Instant.now(),
-      recordedAt = Instant.now(),
+      ledgerEffectiveTime = Timestamp.now(),
+      recordedAt = Timestamp.now(),
       transaction = TransactionBuilder.EmptyCommitted,
       explicitDisclosure = Map.empty,
     )
@@ -863,7 +864,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     ledgerDao
       .storeConfigurationEntry(
         offset = offset,
-        Instant.EPOCH,
+        Timestamp.Epoch,
         submissionId,
         lastConfig,
         rejectionReason,

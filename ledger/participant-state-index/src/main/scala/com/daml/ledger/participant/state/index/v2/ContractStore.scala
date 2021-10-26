@@ -3,10 +3,9 @@
 
 package com.daml.ledger.participant.state.index.v2
 
-import java.time.Instant
-
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.LoggingContext
@@ -33,5 +32,5 @@ trait ContractStore {
     */
   def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Instant]]
+  ): Future[Option[Timestamp]]
 }

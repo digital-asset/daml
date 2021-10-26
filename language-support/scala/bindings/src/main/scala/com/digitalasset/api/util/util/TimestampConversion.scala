@@ -7,7 +7,8 @@ import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.api.v1.value.Value
-import com.google.protobuf.timestamp.Timestamp
+import com.google.protobuf.timestamp.{Timestamp => ProtoTimestamp}
+import com.daml.lf.data.Time.{Timestamp => LfTimestamp}
 
 object TimestampConversion {
   val MIN = Instant parse "0001-01-01T00:00:00Z"
@@ -32,11 +33,46 @@ object TimestampConversion {
 
   }
 
-  def toInstant(protoTimestamp: Timestamp): Instant = {
+  def toInstant(protoTimestamp: ProtoTimestamp): Instant = {
     Instant.ofEpochSecond(protoTimestamp.seconds, protoTimestamp.nanos.toLong)
   }
 
-  def fromInstant(instant: Instant): Timestamp = {
-    new Timestamp().withSeconds(instant.getEpochSecond).withNanos(instant.getNano)
+  def fromInstant(instant: Instant): ProtoTimestamp = {
+    new ProtoTimestamp().withSeconds(instant.getEpochSecond).withNanos(instant.getNano)
+  }
+
+  def toLf(protoTimestamp: ProtoTimestamp, mode: ConversionMode): LfTimestamp = {
+    val instant = roundToMicros(toInstant(protoTimestamp), mode)
+    LfTimestamp.assertFromInstant(instant)
+  }
+
+  def fromLf(timestamp: LfTimestamp): ProtoTimestamp = {
+    fromInstant(timestamp.toInstant)
+  }
+
+  private def roundToMicros(t: Instant, mode: ConversionMode): Instant = {
+    val fractionNanos = t.getNano % 1000L
+    if (fractionNanos != 0) {
+      mode match {
+        case ConversionMode.Exact =>
+          throw new IllegalArgumentException(
+            s"Conversion of $t to microsecond granularity would result in loss of precision."
+          )
+        case ConversionMode.HalfUp =>
+          t.plusNanos(if (fractionNanos >= 500L) 1000L - fractionNanos else -fractionNanos)
+      }
+    } else {
+      t
+    }
+  }
+
+  sealed trait ConversionMode
+  object ConversionMode {
+
+    /** Throw an exception if the input can not be represented in microsecond resolution */
+    case object Exact extends ConversionMode
+
+    /** Round to the nearest microsecond */
+    case object HalfUp extends ConversionMode
   }
 }

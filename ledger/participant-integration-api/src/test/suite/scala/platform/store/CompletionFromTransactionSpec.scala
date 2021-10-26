@@ -5,6 +5,7 @@ package com.daml.platform.store
 
 import com.daml.ledger.api.v1.completion.Completion.DeduplicationPeriod
 import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Time
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.status.Status
@@ -57,7 +58,7 @@ class CompletionFromTransactionSpec
             expectedDeduplicationPeriod,
         ) =>
           val completionStream = CompletionFromTransaction.acceptedCompletion(
-            Instant.EPOCH,
+            Time.Timestamp.Epoch,
             Offset.beforeBegin,
             "commandId",
             "transactionId",
@@ -91,7 +92,7 @@ class CompletionFromTransactionSpec
       forEvery(testCases) { (deduplicationDurationSeconds, deduplicationDurationNanos) =>
         an[IllegalArgumentException] shouldBe thrownBy(
           CompletionFromTransaction.acceptedCompletion(
-            Instant.EPOCH,
+            Time.Timestamp.Epoch,
             Offset.beforeBegin,
             "commandId",
             "transactionId",
@@ -108,7 +109,7 @@ class CompletionFromTransactionSpec
     "create a rejected completion" in {
       val status = Status.of(io.grpc.Status.Code.INTERNAL.value(), "message", Seq.empty)
       val completionStream = CompletionFromTransaction.rejectedCompletion(
-        Instant.EPOCH,
+        Time.Timestamp.Epoch,
         Offset.beforeBegin,
         "commandId",
         status,
