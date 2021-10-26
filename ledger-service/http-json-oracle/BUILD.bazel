@@ -42,7 +42,9 @@ da_scala_test(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = hj_scalacopts,
-    tags = [] if oracle_testing else ["manual"],
+    # Exclusive because all tests share the same Oracle database,
+    # which can lead to connection timeouts.
+    tags = ["exclusive"] if oracle_testing else ["manual"],
     runtime_deps = [
         "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
