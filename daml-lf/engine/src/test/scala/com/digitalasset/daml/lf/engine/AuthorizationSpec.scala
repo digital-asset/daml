@@ -17,6 +17,7 @@ import org.scalatest.matchers.should.Matchers
 
 import org.scalatest.Inside
 
+// TEST_EVIDENCE: Authorization: Unit test _authorization_ computations in: `CheckAuthorization`.
 class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside {
 
   // Test the various forms of FailedAuthorization which can be returned from CheckAuthorization

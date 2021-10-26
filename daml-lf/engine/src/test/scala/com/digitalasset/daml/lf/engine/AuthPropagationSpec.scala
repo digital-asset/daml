@@ -36,6 +36,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
+// TEST_EVIDENCE: Authorization: Engine level tests for _authorization_ check.
 class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with BazelRunfiles {
 
   implicit private def toName(s: String): Name = Name.assertFromString(s)
@@ -312,6 +313,8 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
       interpretResult shouldBe a[Right[_, _]]
     }
   }
+
+  // TEST_EVIDENCE: Authorization: Exercise within exercise: No implicit authorization from outer exercise.
 
   "Exercise (within exercise)" - {
 
