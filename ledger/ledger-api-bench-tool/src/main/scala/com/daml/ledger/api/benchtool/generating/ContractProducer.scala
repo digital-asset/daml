@@ -80,8 +80,11 @@ case class ContractProducer(services: LedgerApiServices) {
     } yield ()
   }
 
-  private def randomPayload(sizeBytes: Int, random: Random): String =
-    new String(random.nextBytes(sizeBytes), StandardCharsets.UTF_8)
+  private def randomPayload(sizeBytes: Int, random: Random): String = {
+    val arr = Array.ofDim[Byte](sizeBytes)
+    random.nextBytes(arr)
+    new String(arr, StandardCharsets.UTF_8)
+  }
 
   private def createContract(index: Int, party: Party, payload: String)(implicit
       ec: ExecutionContext
