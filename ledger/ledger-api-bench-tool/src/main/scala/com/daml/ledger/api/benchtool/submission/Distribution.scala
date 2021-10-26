@@ -14,12 +14,7 @@ class Distribution(weights: List[Int]) {
   }
 
   private lazy val totalWeight: Long = weights.map(_.toLong).sum
-  private lazy val distribution: List[Double] = weights.foldLeft(List.empty[Double]) {
-    (sums, weight) =>
-      val relativeWeight: Double = weight.toDouble / totalWeight
-      // O(n^2) but it's not expected to handle long weights lists
-      val sum = sums.lastOption.getOrElse(0.0) + relativeWeight
-      sums :+ sum
-  }
+  private lazy val distribution: List[Double] =
+    weights.scanLeft(0)((sum, weight) => sum + weight).map(_.toDouble / totalWeight).tail
 
 }
