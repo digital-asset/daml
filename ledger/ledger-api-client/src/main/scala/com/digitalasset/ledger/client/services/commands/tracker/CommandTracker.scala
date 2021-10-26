@@ -193,13 +193,13 @@ private[commands] class CommandTracker[Context](
         // even though it hasn't been pulled again in the meantime. Using `emit`
         // instead of `push` when a completion arrives makes akka take care of
         // handling the signaling properly.
-        completionResponse
-          .map(emit(resultOut, _))
-          .getOrElse {
+        completionResponse match {
+          case Some(response) => emit(resultOut, response)
+          case None =>
             if (!hasBeenPulled(commandResultIn)) {
               pull(commandResultIn)
             }
-          }
+        }
       }
 
       private def completeStageIfTerminal(): Unit = {

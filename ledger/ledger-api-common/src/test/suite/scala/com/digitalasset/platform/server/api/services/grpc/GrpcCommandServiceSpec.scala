@@ -51,7 +51,7 @@ class GrpcCommandServiceSpec
         currentLedgerTime = () => Instant.EPOCH,
         currentUtcTime = () => Instant.EPOCH,
         maxDeduplicationTime = () => Some(Duration.ZERO),
-        generateSubmissionId = () => Ref.SubmissionId.assertFromString("aSubmissionId"),
+        generateSubmissionId = () => Ref.SubmissionId.assertFromString(aSubmissionId),
       )
 
       for {
@@ -66,7 +66,7 @@ class GrpcCommandServiceSpec
       } yield {
         val expectedSubmitAndWaitRequest = aSubmitAndWaitRequestWithNoSubmissionId.copy(commands =
           aSubmitAndWaitRequestWithNoSubmissionId.commands
-            .map(_.copy(submissionId = "aSubmissionId"))
+            .map(_.copy(submissionId = aSubmissionId))
         )
         verify(mockCommandService).submitAndWait(expectedSubmitAndWaitRequest)
         verify(mockCommandService).submitAndWaitForTransaction(expectedSubmitAndWaitRequest)
@@ -92,6 +92,8 @@ object GrpcCommandServiceSpec {
       )
     )
   )
+
+  private val aSubmissionId = "aSubmissionId"
 
   private val aSubmitAndWaitRequestWithNoSubmissionId = submitAndWaitRequest.copy(
     commands = Some(commands.copy(commands = Seq(aCommand), submissionId = ""))
