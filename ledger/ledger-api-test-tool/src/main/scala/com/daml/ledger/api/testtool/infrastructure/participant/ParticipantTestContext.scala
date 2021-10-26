@@ -109,6 +109,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     partyAllocation: PartyAllocationConfiguration,
     val ledgerEndpoint: Endpoint,
     val clientTlsConfiguration: Option[TlsConfiguration],
+    val features: Features,
 )(implicit ec: ExecutionContext) {
 
   import ParticipantTestContext._

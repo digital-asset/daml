@@ -8,6 +8,7 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.metrics.MetricsReporter
 
+import java.io.File
 import scala.concurrent.duration._
 
 case class Config(
@@ -16,6 +17,7 @@ case class Config(
     tls: TlsConfiguration,
     streams: List[Config.StreamConfig],
     reportingPeriod: FiniteDuration,
+    contractSetDescriptorFile: Option[File],
     metricsReporter: MetricsReporter,
 )
 
@@ -90,6 +92,7 @@ object Config {
       tls = TlsConfiguration.Empty.copy(enabled = false),
       streams = List.empty[Config.StreamConfig],
       reportingPeriod = 5.seconds,
+      contractSetDescriptorFile = None,
       metricsReporter = MetricsReporter.Console,
     )
 }

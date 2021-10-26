@@ -3,9 +3,9 @@
 
 package com.daml.platform.store.dao
 
-import java.time.Instant
-import java.util.UUID
+import com.daml.lf.data.Time.Timestamp
 
+import java.util.UUID
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.Node.KeyWithMaintainers
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance, ValueText}
@@ -178,7 +178,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       result <- contractsReader.lookupMaximumLedgerTime(nonTransient(tx))
     } yield {
       inside(result) { case Some(time) =>
-        time should be <= Instant.now
+        time should be <= Timestamp.now()
       }
     }
   }

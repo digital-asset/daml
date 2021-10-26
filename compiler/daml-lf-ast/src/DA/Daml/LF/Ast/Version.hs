@@ -171,6 +171,13 @@ featureExceptions = Feature
     , featureCppFlag = Just "DAML_EXCEPTIONS"
     }
 
+featureNatSynonyms :: Feature
+featureNatSynonyms = Feature
+    { featureName = "Nat type synonyms"
+    , featureMinVersion = version1_14
+    , featureCppFlag = Just "DAML_NAT_SYN"
+    }
+
 featureInterfaces :: Feature
 featureInterfaces = Feature
     { featureName = "Daml Interfaces"
@@ -201,6 +208,7 @@ allFeatures =
     , featureTypeInterning
     , featureBigNumeric
     , featureExceptions
+    , featureNatSynonyms
     , featureExperimental
     , featureInterfaces
     ]

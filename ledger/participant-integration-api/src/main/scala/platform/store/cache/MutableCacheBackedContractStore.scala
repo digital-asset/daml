@@ -9,6 +9,7 @@ import akka.{Done, NotUsed}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
@@ -25,7 +26,6 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyState,
 }
 
-import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -72,7 +72,7 @@ private[platform] class MutableCacheBackedContractStore(
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Instant]] =
+  ): Future[Option[Timestamp]] =
     if (ids.isEmpty)
       Future.failed(EmptyContractIds())
     else {
@@ -95,7 +95,7 @@ private[platform] class MutableCacheBackedContractStore(
 
     val cached = cacheQueried.view
       .map(_._2)
-      .foldLeft(Try(Set.empty[Instant])) {
+      .foldLeft(Try(Set.empty[Timestamp])) {
         case (Success(timestamps), Some(active: Active)) =>
           Success(timestamps + active.createLedgerEffectiveTime)
         case (Success(_), Some(Archived(_))) => Failure(ContractNotFound(ids))

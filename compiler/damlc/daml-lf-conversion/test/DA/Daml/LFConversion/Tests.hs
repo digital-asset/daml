@@ -97,6 +97,103 @@ metadataEncodingTests = testGroup "MetadataEncoding"
         , ("\"foo\" Foo.Bar (Qux($sel:getQux:Qux))"
           , mkExportInfoTC (Just "foo") ["Foo", "Bar"] "Qux" [] ["getQux"])
         ]
+    , roundtripTestsBy "type synonyms"
+        (\(synName, _isConstraintSyn, _kind, synParams, synType) ->
+          (== (synName, synParams, synType)))
+        (\(synName, isConstraintSyn, kind, synParams, synType) ->
+          encodeTypeSynonym synName isConstraintSyn kind synParams synType)
+        decodeTypeSynonym
+        [ ( "type Zero = 0"
+          , ( LF.TypeSynName ["Zero"]
+            , False
+            , LF.KNat
+            , []
+            , LF.TNat (LF.typeLevelNat @Int 0)
+            )
+          )
+        , ( "type IsEnabled = Bool"
+          , ( LF.TypeSynName ["IsEnabled"]
+            , False
+            , LF.KStar
+            , []
+            , LF.TBuiltin LF.BTBool
+            )
+          )
+        , ( "type Perhaps = Optional"
+          , ( LF.TypeSynName ["Perhaps"]
+            , False
+            , LF.KStar `LF.KArrow` LF.KStar
+            , []
+            , LF.TBuiltin LF.BTOptional
+            )
+          )
+        , ( "type Possibly a = Optional a"
+          , let aVar = LF.TypeVarName "a"
+            in
+            ( LF.TypeSynName ["Possibly"]
+            , False
+            , LF.KStar
+            , [(aVar, LF.KStar)]
+            , LF.TBuiltin LF.BTOptional `LF.TApp` LF.TVar aVar
+            )
+          )
+        , ( "type Num = Number"
+          , let numberClass = LF.Qualified LF.PRSelf (LF.ModuleName ["GHC", "Num"]) (LF.TypeSynName ["Number"])
+            in
+            ( LF.TypeSynName ["Num"]
+            , True
+            , LF.KStar `LF.KArrow` LF.KStar
+            , []
+            , LF.TSynApp numberClass []
+            )
+          )
+        , ( "type Display a = Show a"
+          , let
+              aVar = LF.TypeVarName "a"
+              showClass = LF.Qualified LF.PRSelf (LF.ModuleName ["GHC", "Show"]) (LF.TypeSynName ["Show"])
+            in
+            ( LF.TypeSynName ["Display"]
+            , True
+            , LF.KStar
+            , [(aVar, LF.KStar)]
+            , LF.TSynApp showClass [LF.TVar aVar]
+            )
+          )
+        , ( "class C a b; type D = C"
+          , let
+              cClass = LF.Qualified LF.PRSelf (LF.ModuleName ["Main"]) (LF.TypeSynName ["C"])
+            in
+            ( LF.TypeSynName ["D"]
+            , True
+            , LF.KStar `LF.KArrow` LF.KStar `LF.KArrow` LF.KStar
+            , []
+            , LF.TSynApp cClass []
+            )
+          )
+        , ( "class C a b; type E = C Int"
+          , let
+              cClass = LF.Qualified LF.PRSelf (LF.ModuleName ["Main"]) (LF.TypeSynName ["C"])
+            in
+            ( LF.TypeSynName ["E"]
+            , True
+            , LF.KStar `LF.KArrow` LF.KStar
+            , []
+            , LF.TSynApp cClass [LF.TBuiltin LF.BTInt64]
+            )
+          )
+        , ( "class C a b; type F a = C a Int"
+          , let
+              aVar = LF.TypeVarName "a"
+              cClass = LF.Qualified LF.PRSelf (LF.ModuleName ["Main"]) (LF.TypeSynName ["C"])
+            in
+            ( LF.TypeSynName ["F"]
+            , True
+            , LF.KStar `LF.KArrow` LF.KStar
+            , [(aVar, LF.KStar)]
+            , LF.TSynApp cClass [LF.TVar aVar, LF.TBuiltin LF.BTInt64]
+            )
+          )
+        ]
     ]
 
 mkImport :: Maybe T.Text -> [T.Text] -> LF.Qualified ()
@@ -130,11 +227,19 @@ mkExportInfoTC mPackage moduleComponents value pieces fields =
     fieldLabels = mkFieldLabel <$> fields
 
 roundtripTests :: (Eq a) => String -> (a -> b) -> (b -> Maybe a) -> [(String, a)] -> TestTree
-roundtripTests groupName encode decode examples =
-    roundtripTestsPartial groupName (Just . encode) decode [] examples
+roundtripTests groupName = roundtripTestsBy groupName (==)
+
+-- | Like 'roundtripTests', but using the supplied equality predicate
+roundtripTestsBy :: String -> (a -> c -> Bool) -> (a -> b) -> (b -> Maybe c) -> [(String, a)] -> TestTree
+roundtripTestsBy groupName eq encode decode examples =
+    roundtripTestsPartialBy groupName eq (Just . encode) decode [] examples
 
 roundtripTestsPartial :: (Eq a) => String -> (a -> Maybe b) -> (b -> Maybe a) -> [(String, a)] -> [(String, a)] -> TestTree
-roundtripTestsPartial groupName encode decode negativeExamples positiveExamples =
+roundtripTestsPartial groupName = roundtripTestsPartialBy groupName (==)
+
+-- | Like 'roundtripTestsPartial', but using the supplied equality predicate
+roundtripTestsPartialBy :: String -> (a -> c -> Bool) -> (a -> Maybe b) -> (b -> Maybe c) -> [(String, a)] -> [(String, a)] -> TestTree
+roundtripTestsPartialBy groupName eq encode decode negativeExamples positiveExamples =
     testGroup groupName $
         [ testCase name $
             assertBool "expected value to not have encoding"
@@ -143,7 +248,7 @@ roundtripTestsPartial groupName encode decode negativeExamples positiveExamples 
         ] ++
         [ testCase name $
             assertBool "expected value to survive roundtrip"
-                (Just value == (encode value >>= decode))
+                (maybe False (eq value) (encode value >>= decode))
         | (name, value) <- positiveExamples
         ]
 

@@ -4,14 +4,13 @@
 package com.daml.platform.store.backend
 
 import java.sql.Connection
-import java.time.Instant
-
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
 import com.daml.platform
@@ -25,8 +24,8 @@ import com.daml.platform.store.backend.postgresql.{PostgresDataSourceConfig, Pos
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.scalautil.NeverEqualsOverride
-import javax.sql.DataSource
 
+import javax.sql.DataSource
 import scala.annotation.unused
 import scala.util.Try
 
@@ -192,13 +191,13 @@ trait PackageStorageBackend {
 }
 
 trait DeduplicationStorageBackend {
-  def deduplicatedUntil(deduplicationKey: String)(connection: Connection): Instant
+  def deduplicatedUntil(deduplicationKey: String)(connection: Connection): Timestamp
   def upsertDeduplicationEntry(
       key: String,
-      submittedAt: Instant,
-      deduplicateUntil: Instant,
+      submittedAt: Timestamp,
+      deduplicateUntil: Timestamp,
   )(connection: Connection)(implicit loggingContext: LoggingContext): Int
-  def removeExpiredDeduplicationData(currentTime: Instant)(connection: Connection): Unit
+  def removeExpiredDeduplicationData(currentTime: Timestamp)(connection: Connection): Unit
   def stopDeduplicatingCommand(deduplicationKey: String)(connection: Connection): Unit
 }
 
@@ -219,7 +218,7 @@ trait CompletionStorageBackend {
 
 trait ContractStorageBackend {
   def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId]
-  def maximumLedgerTime(ids: Set[ContractId])(connection: Connection): Try[Option[Instant]]
+  def maximumLedgerTime(ids: Set[ContractId])(connection: Connection): Try[Option[Timestamp]]
   def keyState(key: Key, validAt: Long)(connection: Connection): KeyState
   def contractState(contractId: ContractId, before: Long)(
       connection: Connection
@@ -359,7 +358,7 @@ object StorageBackend {
       createArgument: Option[Array[Byte]],
       createArgumentCompression: Option[Int],
       eventKind: Int,
-      ledgerEffectiveTime: Option[Instant],
+      ledgerEffectiveTime: Option[Timestamp],
   )
 
   class RawContract(
@@ -372,7 +371,7 @@ object StorageBackend {
       eventKind: Int,
       contractId: ContractId,
       templateId: Option[Ref.Identifier],
-      ledgerEffectiveTime: Option[Instant],
+      ledgerEffectiveTime: Option[Timestamp],
       createKeyValue: Option[Array[Byte]],
       createKeyCompression: Option[Int],
       createArgument: Option[Array[Byte]],
@@ -391,7 +390,7 @@ object StorageBackend {
       eventId: EventId,
       contractId: platform.store.appendonlydao.events.ContractId,
       templateId: Option[platform.store.appendonlydao.events.Identifier],
-      ledgerEffectiveTime: Option[Instant],
+      ledgerEffectiveTime: Option[Timestamp],
       createSignatories: Option[Array[String]],
       createObservers: Option[Array[String]],
       createAgreementText: Option[String],

@@ -87,7 +87,7 @@ class SubmitRequestValidatorTest
       submissionId = submissionId,
       actAs = Set(DomainMocks.party),
       readAs = Set.empty,
-      submittedAt = submittedAt,
+      submittedAt = Time.Timestamp.assertFromInstant(submittedAt),
       deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(deduplicationDuration),
       commands = LfCommands(
         ImmArray(

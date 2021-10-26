@@ -453,7 +453,8 @@ generateSrcFromLf env = noLoc mod
 
     synonymDecls :: [Gen (LHsDecl GhcPs)]
     synonymDecls = do
-        defTypeSyn@LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
+        defTypeSyn <- NM.toList . LF.moduleSynonyms $ envMod env
+        Just (synName, synParams, synType) <- [LFC.decodeTypeSynonym defTypeSyn]
         Nothing <- [getTypeClassFields synType]
         LF.TypeSynName [name] <- [synName]
         guard (shouldExposeDefTypeSyn defTypeSyn)

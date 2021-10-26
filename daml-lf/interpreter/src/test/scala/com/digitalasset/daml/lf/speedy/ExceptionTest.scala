@@ -21,6 +21,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+// TEST_EVIDENCE: Semantics: Exceptions, throw/catch.
 class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   "unhandled throw" should {

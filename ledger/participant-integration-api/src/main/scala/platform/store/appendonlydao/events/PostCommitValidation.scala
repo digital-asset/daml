@@ -4,10 +4,9 @@
 package com.daml.platform.store.appendonlydao.events
 
 import java.sql.Connection
-import java.time.Instant
-
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.{v1, v2}
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.platform.store.appendonlydao.events.PostCommitValidation._
 import com.daml.platform.store.backend.{ContractStorageBackend, PartyStorageBackend}
@@ -31,7 +30,7 @@ private[appendonlydao] sealed trait PostCommitValidation {
 
   def validate(
       transaction: CommittedTransaction,
-      transactionLedgerEffectiveTime: Instant,
+      transactionLedgerEffectiveTime: Timestamp,
       divulged: Set[ContractId],
   )(implicit connection: Connection): Option[Rejection]
 
@@ -47,7 +46,7 @@ private[appendonlydao] object PostCommitValidation {
   object Skip extends PostCommitValidation {
     @inline override def validate(
         committedTransaction: CommittedTransaction,
-        transactionLedgerEffectiveTime: Instant,
+        transactionLedgerEffectiveTime: Timestamp,
         divulged: Set[ContractId],
     )(implicit connection: Connection): Option[Rejection] =
       None
@@ -60,7 +59,7 @@ private[appendonlydao] object PostCommitValidation {
 
     def validate(
         transaction: CommittedTransaction,
-        transactionLedgerEffectiveTime: Instant,
+        transactionLedgerEffectiveTime: Timestamp,
         divulged: Set[ContractId],
     )(implicit connection: Connection): Option[Rejection] = {
 
@@ -84,7 +83,7 @@ private[appendonlydao] object PostCommitValidation {
       */
     private def validateCausalMonotonicity(
         transaction: CommittedTransaction,
-        transactionLedgerEffectiveTime: Instant,
+        transactionLedgerEffectiveTime: Timestamp,
         divulged: Set[ContractId],
     )(implicit connection: Connection): Option[Rejection] = {
       val referredContracts = collectReferredContracts(transaction, divulged)
@@ -99,11 +98,11 @@ private[appendonlydao] object PostCommitValidation {
     }
 
     private def validateCausalMonotonicity(
-        maximumLedgerEffectiveTime: Option[Instant],
-        transactionLedgerEffectiveTime: Instant,
+        maximumLedgerEffectiveTime: Option[Timestamp],
+        transactionLedgerEffectiveTime: Timestamp,
     ): Option[Rejection] =
       maximumLedgerEffectiveTime
-        .filter(_.isAfter(transactionLedgerEffectiveTime))
+        .filter(_ > transactionLedgerEffectiveTime)
         .fold(Option.empty[Rejection])(contractLedgerEffectiveTime => {
           Some(
             Rejection.CausalMonotonicityViolation(
@@ -324,8 +323,8 @@ private[appendonlydao] object PostCommitValidation {
     }
 
     final case class CausalMonotonicityViolation(
-        contractLedgerEffectiveTime: Instant,
-        transactionLedgerEffectiveTime: Instant,
+        contractLedgerEffectiveTime: Timestamp,
+        transactionLedgerEffectiveTime: Timestamp,
     ) extends Rejection {
       override lazy val description: String =
         s"Encountered contract with LET [$contractLedgerEffectiveTime] greater than the LET of the transaction [$transactionLedgerEffectiveTime]"

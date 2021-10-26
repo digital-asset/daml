@@ -784,7 +784,7 @@ bulk_upload() {
 }
 
 patch() {
-  local job map
+  local job map file
   job="$1"
   # Replace shortened Scala test names by their long names.
   # See //bazel_tools:scala.bzl%da_scala_test_short_name_aspect.
@@ -796,7 +796,12 @@ patch() {
     # Generates a sed command to replace short labels by long labels.
     jq_command='to_entries | map("s|\(.key)\\b|\(.value)|g") | join(";")'
     sed_command="$(jq -r "$jq_command" <"$job/$map")"
-    sed -i "$sed_command" "$job"/{build-events,build-profile,test-events,test-profile}.json
+    for f in build-events build-profile test-events test-profile; do
+      file="$job/$f.json"
+      if [ -f "$file" ]; then
+        sed -i "$sed_command" "$file"
+      fi
+    done
   fi
 }
 

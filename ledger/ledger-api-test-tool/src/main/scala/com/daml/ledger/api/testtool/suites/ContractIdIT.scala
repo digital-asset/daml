@@ -3,16 +3,21 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
-import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertGrpcError, fail}
+import com.daml.ledger.api.testtool.infrastructure.Assertions.{
+  assertGrpcError,
+  assertSelfServiceErrorCode,
+  fail,
+}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive.ContractId
 import com.daml.ledger.test.semantic.ContractIdTests._
-import io.grpc.Status
+import io.grpc.{Status, StatusRuntimeException}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -53,8 +58,10 @@ final class ContractIdIT extends LedgerTestSuite {
           case Success(_) if accepted => ()
           case Failure(err: Throwable) if !accepted =>
             assertGrpcError(
+              alpha,
               err,
               Status.Code.INVALID_ARGUMENT,
+              LedgerApiErrors.PreprocessingErrors.PreprocessingFailed,
               Some(s"""Illegal Contract ID "$testedCid""""),
               checkDefiniteAnswerMetadata = true,
             )
@@ -81,13 +88,27 @@ final class ContractIdIT extends LedgerTestSuite {
             )
             .transformWith(Future.successful)
       } yield result match {
+        // Assert V1 error code
         case Failure(GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _))
-            if msg.contains(s"Contract could not be found with id $testedCid.") =>
+            if !alpha.features.selfServiceErrorCodes && msg.contains(
+              s"Contract could not be found with id $testedCid"
+            ) =>
           Success(())
-        case Success(_) =>
-          Failure(new UnknownError("Unexpected Success"))
-        case otherwise =>
-          otherwise.map(_ => ())
+
+        // Assert self-service error code
+        case Failure(exception: StatusRuntimeException)
+            if alpha.features.selfServiceErrorCodes &&
+              Try(
+                assertSelfServiceErrorCode(
+                  statusRuntimeException = exception,
+                  expectedErrorCode =
+                    LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
+                )
+              ).isSuccess =>
+          Success(())
+
+        case Success(_) => Failure(new UnknownError("Unexpected Success"))
+        case otherwise => otherwise.map(_ => ())
       }
     }
 

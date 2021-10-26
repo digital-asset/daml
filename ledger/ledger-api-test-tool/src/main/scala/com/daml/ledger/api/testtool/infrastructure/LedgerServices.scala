@@ -29,6 +29,8 @@ import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
+import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
+import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
 import io.grpc.{Channel, ClientInterceptor}
 import io.grpc.health.v1.health.HealthGrpc
 import io.grpc.health.v1.health.HealthGrpc.Health
@@ -80,4 +82,6 @@ private[infrastructure] final class LedgerServices(
   val time: TimeService =
     TimeServiceGrpc.stub(participant)
 
+  val version: VersionService =
+    VersionServiceGrpc.stub(participant)
 }

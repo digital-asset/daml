@@ -269,6 +269,15 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     grpcError(statusBuilder.build())
   }
 
+  def packageUploadRejected(message: String, definiteAnswer: Option[Boolean])(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = {
+    errorCodesVersionSwitcher.choose(
+      v1 = invalidArgumentV1(definiteAnswer, message),
+      v2 = LedgerApiErrors.WriteErrors.PackageUploadRejected.Reject(message).asGrpcError,
+    )
+  }
+
   def configurationEntryRejected(message: String, definiteAnswer: Option[Boolean])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException = {

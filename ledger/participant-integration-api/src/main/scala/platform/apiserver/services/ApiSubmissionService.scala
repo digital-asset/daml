@@ -110,9 +110,6 @@ private[apiserver] final class ApiSubmissionService private[services] (
     with AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
-
-  // TODO error codes: review conformance mode usages wherever RejectionGenerators is instantiated
-  private val rejectionGenerators = new RejectionGenerators(conformanceMode = true)
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
 
   override def submit(
@@ -335,7 +332,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
 
     errorCodesVersionSwitcher.chooseAsFailedFuture(
       v1 = toStatusExceptionV1(error),
-      v2 = rejectionGenerators
+      v2 = RejectionGenerators
         .commandExecutorError(cause = ErrorCauseExport.fromErrorCause(error)),
     )
   }

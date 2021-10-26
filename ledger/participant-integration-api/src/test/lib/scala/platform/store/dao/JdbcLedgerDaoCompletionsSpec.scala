@@ -3,13 +3,13 @@
 
 package com.daml.platform.store.dao
 
-import java.time.Instant
 import java.util.UUID
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.dao.JdbcLedgerDaoCompletionsSpec._
 import com.google.rpc.status.{Status => RpcStatus}
@@ -208,7 +208,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
             submissionId = Some(submissionId),
           )
         ),
-        recordTime = Instant.now,
+        recordTime = Timestamp.now(),
         offset,
         reason = reason,
       )
@@ -232,7 +232,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
             submissionId = Some(submissionId),
           )
         ),
-        recordTime = Instant.now,
+        recordTime = Timestamp.now(),
         offset,
         reason = reason,
       )

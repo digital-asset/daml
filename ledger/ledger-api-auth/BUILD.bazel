@@ -68,6 +68,7 @@ da_scala_test_suite(
         ":ledger-api-auth",
         "//ledger/error",
         "//ledger/test-common",
+        "//libs-scala/concurrent",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",

@@ -5,8 +5,8 @@ package com.daml.platform.apiserver.services.admin
 
 import java.time.Duration
 import java.util.concurrent.{CompletableFuture, CompletionStage}
-
 import akka.stream.scaladsl.Source
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.domain.LedgerOffset.Absolute
 import com.daml.ledger.api.domain.{PartyDetails, PartyEntry}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -36,6 +36,7 @@ class ApiPartyManagementServiceSpec
     with AkkaBeforeAndAfterAll {
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+  private val errorCodesVersionSwitcher: ErrorCodesVersionSwitcher = mock[ErrorCodesVersionSwitcher]
 
   "ApiPartyManagementService" should {
     "propagate trace context" in {
@@ -44,7 +45,9 @@ class ApiPartyManagementServiceSpec
         .thenReturn(Future.successful(Absolute(Ref.LedgerString.assertFromString("0"))))
 
       val mockIndexPartyManagementService = mock[IndexPartyManagementService]
-      when(mockIndexPartyManagementService.partyEntries(any[Option[Absolute]])(any[LoggingContext]))
+      when(
+        mockIndexPartyManagementService.partyEntries(any[Option[Absolute]])(any[LoggingContext])
+      )
         .thenReturn(
           Source.single(
             PartyEntry.AllocationAccepted(
@@ -59,6 +62,7 @@ class ApiPartyManagementServiceSpec
         mockIndexTransactionsService,
         TestWritePartyService,
         Duration.ZERO,
+        errorCodesVersionSwitcher,
         _ => Ref.SubmissionId.assertFromString("aSubmission"),
       )
 
@@ -72,6 +76,8 @@ class ApiPartyManagementServiceSpec
         }
         .map { _ =>
           spanExporter.finishedSpanAttributes should contain(anApplicationIdSpanAttribute)
+          verifyZeroInteractions(errorCodesVersionSwitcher)
+          succeed
         }
     }
   }

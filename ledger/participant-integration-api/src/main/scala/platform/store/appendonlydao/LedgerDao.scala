@@ -21,6 +21,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.events.{ContractStateEvent, FilterRelation}
@@ -32,7 +33,6 @@ import com.daml.platform.store.entries.{
 }
 import com.daml.platform.store.interfaces.{LedgerDaoContractsReader, TransactionLogUpdate}
 
-import java.time.Instant
 import scala.concurrent.Future
 
 private[platform] trait LedgerDaoTransactionsReader {
@@ -185,8 +185,8 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   def deduplicateCommand(
       commandId: CommandId,
       submitters: List[Ref.Party],
-      submittedAt: Instant,
-      deduplicateUntil: Instant,
+      submittedAt: Timestamp,
+      deduplicateUntil: Timestamp,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult]
 
   /** Remove all expired deduplication entries. This method has to be called
@@ -200,7 +200,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     *         call deduplicateCommand().
     */
   def removeExpiredDeduplicationData(
-      currentTime: Instant
+      currentTime: Timestamp
   )(implicit loggingContext: LoggingContext): Future[Unit]
 
   /** Stops deduplicating the given command. This method should be called after
@@ -251,7 +251,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
 
   def storeRejection(
       completionInfo: Option[state.CompletionInfo],
-      recordTime: Instant,
+      recordTime: Timestamp,
       offset: Offset,
       reason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
@@ -283,7 +283,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
     */
   def storeConfigurationEntry(
       offset: Offset,
-      recordedAt: Instant,
+      recordedAt: Timestamp,
       submissionId: String,
       configuration: Configuration,
       rejectionReason: Option[String],
@@ -307,12 +307,12 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       completionInfo: Option[state.CompletionInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
-      ledgerEffectiveTime: Instant,
+      ledgerEffectiveTime: Timestamp,
       offset: Offset,
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
-      recordTime: Instant,
+      recordTime: Timestamp,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
 }

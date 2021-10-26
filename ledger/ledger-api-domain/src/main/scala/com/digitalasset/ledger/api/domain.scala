@@ -3,13 +3,12 @@
 
 package com.daml.ledger.api
 
-import java.time.Instant
-
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.daml.ledger.configuration.Configuration
 import com.daml.lf.command.{Commands => LfCommands}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString.ordering
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.logging._
 import com.daml.lf.value.{Value => Lf}
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
@@ -131,7 +130,7 @@ object domain {
 
     def workflowId: Option[WorkflowId]
 
-    def effectiveAt: Instant
+    def effectiveAt: Timestamp
 
     def offset: LedgerOffset.Absolute
   }
@@ -140,7 +139,7 @@ object domain {
       transactionId: TransactionId,
       commandId: Option[CommandId],
       workflowId: Option[WorkflowId],
-      effectiveAt: Instant,
+      effectiveAt: Timestamp,
       offset: LedgerOffset.Absolute,
       eventsById: immutable.Map[EventId, CreateOrExerciseEvent],
       rootEventIds: immutable.Seq[EventId],
@@ -150,31 +149,31 @@ object domain {
       transactionId: TransactionId,
       commandId: Option[CommandId],
       workflowId: Option[WorkflowId],
-      effectiveAt: Instant,
+      effectiveAt: Timestamp,
       events: immutable.Seq[CreateOrArchiveEvent],
       offset: LedgerOffset.Absolute,
   ) extends TransactionBase
 
   sealed trait CompletionEvent extends Product with Serializable {
     def offset: LedgerOffset.Absolute
-    def recordTime: Instant
+    def recordTime: Timestamp
   }
 
   object CompletionEvent {
 
-    final case class Checkpoint(offset: LedgerOffset.Absolute, recordTime: Instant)
+    final case class Checkpoint(offset: LedgerOffset.Absolute, recordTime: Timestamp)
         extends CompletionEvent
 
     final case class CommandAccepted(
         offset: LedgerOffset.Absolute,
-        recordTime: Instant,
+        recordTime: Timestamp,
         commandId: CommandId,
         transactionId: TransactionId,
     ) extends CompletionEvent
 
     final case class CommandRejected(
         offset: LedgerOffset.Absolute,
-        recordTime: Instant,
+        recordTime: Timestamp,
         commandId: CommandId,
         reason: RejectionReason,
     ) extends CompletionEvent
@@ -282,7 +281,7 @@ object domain {
       submissionId: SubmissionId,
       actAs: Set[Ref.Party],
       readAs: Set[Ref.Party],
-      submittedAt: Instant,
+      submittedAt: Timestamp,
       deduplicationPeriod: DeduplicationPeriod,
       commands: LfCommands,
   )
@@ -290,6 +289,9 @@ object domain {
   object Commands {
 
     import Logging._
+
+    implicit val `Timestamp to LoggingValue`: ToLoggingValue[Timestamp] =
+      ToLoggingValue.ToStringToLoggingValue
 
     implicit val `Commands to LoggingValue`: ToLoggingValue[Commands] = commands =>
       LoggingValue.Nested.fromEntries(
@@ -347,12 +349,12 @@ object domain {
   object PackageEntry {
     final case class PackageUploadAccepted(
         submissionId: String,
-        recordTime: Instant,
+        recordTime: Timestamp,
     ) extends PackageEntry
 
     final case class PackageUploadRejected(
         submissionId: String,
-        recordTime: Instant,
+        recordTime: Timestamp,
         reason: String,
     ) extends PackageEntry
   }
