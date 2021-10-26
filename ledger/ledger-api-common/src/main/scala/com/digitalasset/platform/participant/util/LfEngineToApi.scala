@@ -44,12 +44,6 @@ object LfEngineToApi {
     Timestamp.apply(instant.getEpochSecond, instant.getNano)
   }
 
-  def lfVersionedValueToApiRecord(
-      verbose: Boolean,
-      recordValue: Lf.VersionedValue,
-  ): Either[String, api.Record] =
-    lfValueToApiRecord(verbose, recordValue.value)
-
   def lfValueToApiRecord(
       verbose: Boolean,
       recordValue: LfValue,
@@ -75,20 +69,13 @@ object LfEngineToApi {
     }
 
   }
-
-  def lfVersionedValueToApiValue(
+  def lfValueToApiValue(
       verbose: Boolean,
-      lf: Option[Lf.VersionedValue],
+      lf: Option[LfValue],
   ): Either[String, Option[api.Value]] =
     lf.fold[Either[String, Option[api.Value]]](Right(None))(
-      lfVersionedValueToApiValue(verbose, _).map(Some(_))
+      lfValueToApiValue(verbose, _).map(Some(_))
     )
-
-  def lfVersionedValueToApiValue(
-      verbose: Boolean,
-      value: Lf.VersionedValue,
-  ): Either[String, api.Value] =
-    lfValueToApiValue(verbose, value.value)
 
   def lfValueToApiValue(
       verbose: Boolean,
@@ -187,13 +174,13 @@ object LfEngineToApi {
 
   def lfContractKeyToApiValue(
       verbose: Boolean,
-      lf: KeyWithMaintainers[Lf.VersionedValue],
+      lf: KeyWithMaintainers[LfValue],
   ): Either[String, api.Value] =
-    lfVersionedValueToApiValue(verbose, lf.key)
+    lfValueToApiValue(verbose, lf.key)
 
   def lfContractKeyToApiValue(
       verbose: Boolean,
-      lf: Option[KeyWithMaintainers[Lf.VersionedValue]],
+      lf: Option[KeyWithMaintainers[LfValue]],
   ): Either[String, Option[api.Value]] =
     lf.fold[Either[String, Option[api.Value]]](Right(None))(
       lfContractKeyToApiValue(verbose, _).map(Some(_))
@@ -207,7 +194,7 @@ object LfEngineToApi {
   ): Either[String, Event] =
     for {
       arg <- lfValueToApiRecord(verbose, node.arg)
-      key <- lfContractKeyToApiValue(verbose, node.versionedKey)
+      key <- lfContractKeyToApiValue(verbose, node.key)
     } yield Event(
       Event.Event.Created(
         CreatedEvent(
@@ -252,7 +239,7 @@ object LfEngineToApi {
   ): Either[String, TreeEvent] =
     for {
       arg <- lfValueToApiRecord(verbose, node.arg)
-      key <- lfContractKeyToApiValue(verbose, node.versionedKey)
+      key <- lfContractKeyToApiValue(verbose, node.key)
     } yield TreeEvent(
       TreeEvent.Kind.Created(
         CreatedEvent(
@@ -278,8 +265,8 @@ object LfEngineToApi {
       filterChildren: NodeId => Boolean,
   ): Either[String, TreeEvent] =
     for {
-      arg <- lfVersionedValueToApiValue(verbose, node.versionedChosenValue)
-      result <- lfVersionedValueToApiValue(verbose, node.versionedExerciseResult)
+      arg <- lfValueToApiValue(verbose, node.chosenValue)
+      result <- lfValueToApiValue(verbose, node.exerciseResult)
     } yield {
       TreeEvent(
         TreeEvent.Kind.Exercised(

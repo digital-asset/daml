@@ -266,18 +266,20 @@ private[sandbox] final class InMemoryLedger(
         .map { contract =>
           val contractInst =
             if (verbose) {
-              consumeEnricherResult(enricher.enrichVersionedContract(contract.contract))
+              consumeEnricherResult(enricher.enrichContract(contract.contract.coinst))
             } else {
-              contract.contract
+              contract.contract.coinst
             }
-          val contractKey =
+          val contractKey = contract.key.map { key =>
+            val unversionedKey = key.map(_.value)
             if (verbose) {
               consumeEnricherResult(
-                enricher.enrichVersionedContractKey(contract.contract.template, contract.key)
+                enricher.enrichContractKey(contract.contract.template, unversionedKey)
               )
             } else {
-              contract.key
+              unversionedKey
             }
+          }
           GetActiveContractsResponse(
             workflowId = contract.workflowId.getOrElse(""),
             activeContracts = List(
