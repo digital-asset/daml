@@ -581,7 +581,7 @@ private[kvutils] object TransactionRejections {
         ledger_time_lower_bound: Instant,
         ledger_time_upper_bound: Instant,
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Time.InvalidLedgerTime
+      KVErrors.Deprecated.Time.InvalidLedgerTime
         .Reject(details, ledger_time, ledger_time_lower_bound, ledger_time_upper_bound)
         .asStatus
 
@@ -589,7 +589,7 @@ private[kvutils] object TransactionRejections {
     def partyNotKnownOnLedgerStatus(
         details: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Parties.PartyNotKnownOnLedger
+      KVErrors.Deprecated.Parties.PartyNotKnownOnLedger
         .Reject(details)
         .asStatus
 
@@ -597,7 +597,7 @@ private[kvutils] object TransactionRejections {
     def inconsistentStatus(
         details: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Inconsistent
+      KVErrors.Deprecated.Inconsistent
         .Reject(details)
         .asStatus
 
@@ -605,7 +605,7 @@ private[kvutils] object TransactionRejections {
     def disputedStatus(
         details: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Internal.Disputed
+      KVErrors.Deprecated.Internal.Disputed
         .Reject(details)
         .asStatus
   }

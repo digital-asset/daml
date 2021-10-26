@@ -64,23 +64,6 @@ object KVErrors extends LedgerApiErrorGroup {
           )
     }
 
-    @deprecated(
-      "It was produced by submissions batching and it's not produced anymore by pre-execution."
-    )
-    object InvalidLedgerTime
-        extends ErrorCode(
-          id = "INVALID_LEDGER_TIME",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
-        ) {
-      case class Reject(
-          details: String,
-          ledger_time: Instant,
-          ledger_time_lower_bound: Instant,
-          ledger_time_upper_bound: Instant,
-      )(implicit loggingContext: ContextualizedErrorLogger)
-          extends KVLoggingTransactionErrorImpl(cause = s"Invalid ledger time: $details")
-    }
-
   }
 
   object SubmissionRaces extends ErrorGroup() {
@@ -157,22 +140,6 @@ object KVErrors extends LedgerApiErrorGroup {
               .mkString("[", ",", "]")}"
           ) {
         override def resources: Seq[(ErrorResource, String)] = parties.map((ErrorResource.Party, _))
-      }
-    }
-
-    @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
-    object PartyNotKnownOnLedger
-        extends ErrorCode(
-          id = "PARTY_NOT_KNOWN_ON_LEDGER",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing, // It may become known at a later time
-        ) {
-      case class Reject(
-          party: String
-      )(implicit loggingContext: ContextualizedErrorLogger)
-          extends KVLoggingTransactionErrorImpl(
-            cause = s"Party not known on ledger: $party"
-          ) {
-        override def resources: Seq[(ErrorResource, String)] = Seq(ErrorResource.Party -> party)
       }
     }
 
@@ -295,20 +262,6 @@ object KVErrors extends LedgerApiErrorGroup {
       }
     }
 
-    @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
-    object Disputed
-        extends ErrorCode(
-          id = "DISPUTED",
-          ErrorCategory.SystemInternalAssumptionViolated, // It should have been caught by the participant
-        ) {
-      case class Reject(
-          details: String
-      )(implicit loggingContext: ContextualizedErrorLogger)
-          extends KVLoggingTransactionErrorImpl(
-            cause = s"Disputed: $details"
-          )
-    }
-
   }
 
   object DuplicateCommand
@@ -324,17 +277,82 @@ object KVErrors extends LedgerApiErrorGroup {
         )
   }
 
-  @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
-  object Inconsistent
-      extends ErrorCode(
-        id = "INCONSISTENT",
-        ErrorCategory.InvalidGivenCurrentSystemStateResourceExists, // It may succeed at a later time
-      ) {
-    case class Reject(
-        details: String
-    )(implicit loggingContext: ContextualizedErrorLogger)
-        extends KVLoggingTransactionErrorImpl(
-          cause = s"Inconsistent: $details"
-        )
+  @deprecated
+  object Deprecated extends ErrorGroup() {
+
+    object Time extends ErrorGroup() {
+
+      @deprecated(
+        "It was produced by submissions batching and it's not produced anymore by pre-execution."
+      )
+      object InvalidLedgerTime
+          extends ErrorCode(
+            id = "INVALID_LEDGER_TIME",
+            ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
+          ) {
+        case class Reject(
+            details: String,
+            ledger_time: Instant,
+            ledger_time_lower_bound: Instant,
+            ledger_time_upper_bound: Instant,
+        )(implicit loggingContext: ContextualizedErrorLogger)
+            extends KVLoggingTransactionErrorImpl(cause = s"Invalid ledger time: $details")
+      }
+
+    }
+
+    object Parties extends ErrorGroup() {
+
+      @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
+      object PartyNotKnownOnLedger
+          extends ErrorCode(
+            id = "PARTY_NOT_KNOWN_ON_LEDGER",
+            ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing, // It may become known at a later time
+          ) {
+        case class Reject(
+            party: String
+        )(implicit loggingContext: ContextualizedErrorLogger)
+            extends KVLoggingTransactionErrorImpl(
+              cause = s"Party not known on ledger: $party"
+            ) {
+          override def resources: Seq[(ErrorResource, String)] = Seq(ErrorResource.Party -> party)
+        }
+      }
+
+    }
+
+    object Internal extends ErrorGroup() {
+
+      @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
+      object Disputed
+          extends ErrorCode(
+            id = "DISPUTED",
+            ErrorCategory.SystemInternalAssumptionViolated, // It should have been caught by the participant
+          ) {
+        case class Reject(
+            details: String
+        )(implicit loggingContext: ContextualizedErrorLogger)
+            extends KVLoggingTransactionErrorImpl(
+              cause = s"Disputed: $details"
+            )
+      }
+
+    }
+
+    @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
+    object Inconsistent
+        extends ErrorCode(
+          id = "INCONSISTENT",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceExists, // It may succeed at a later time
+        ) {
+      case class Reject(
+          details: String
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends KVLoggingTransactionErrorImpl(
+            cause = s"Inconsistent: $details"
+          )
+    }
+
   }
+
 }
