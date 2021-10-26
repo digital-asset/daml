@@ -19,11 +19,8 @@ import com.daml.lf.value.{Value => Lf}
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
-import io.grpc.Status.Code
 import io.grpc.Status.Code.{INVALID_ARGUMENT, NOT_FOUND, UNAVAILABLE}
-import io.grpc.StatusRuntimeException
 import org.mockito.MockitoSugar
-import org.scalatest.Assertion
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
@@ -134,38 +131,12 @@ class SubmitRequestValidatorTest
 
   private def unexpectedError = sys.error("unexpected error")
 
-  // TODO error codes: unify fixtures like this among this and other validator tests
-  class Fixture[T](testedFactory: Boolean => T) {
-    def testRequestFailure(
-        testedRequest: T => Either[StatusRuntimeException, _],
-        expectedCodeV1: Code,
-        expectedDescriptionV1: String,
-        expectedCodeV2: Code,
-        expectedDescriptionV2: String,
-    ): Assertion = {
-      requestMustFailWith(
-        request = testedRequest(testedFactory(false)),
-        code = expectedCodeV1,
-        description = expectedDescriptionV1,
-      )
-      requestMustFailWith(
-        request = testedRequest(testedFactory(true)),
-        code = expectedCodeV2,
-        description = expectedDescriptionV2,
-      )
-    }
-
-    def tested(enabledSelfServiceErrorCodes: Boolean): T = {
-      testedFactory(enabledSelfServiceErrorCodes)
-    }
-  }
-
   private val errorCodesVersionSwitcher_mock = mock[ErrorCodesVersionSwitcher]
 
-  private val commandValidatorFixture = new Fixture(selfServiceErrorCodesEnabled =>
+  private val commandValidatorFixture = new ValidatorFixture(selfServiceErrorCodesEnabled =>
     new CommandsValidator(ledgerId, new ErrorCodesVersionSwitcher(selfServiceErrorCodesEnabled))
   )
-  private val valueValidatorFixture = new Fixture(selfServiceErrorCodesEnabled => {
+  private val valueValidatorFixture = new ValidatorFixture(selfServiceErrorCodesEnabled => {
     val errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(selfServiceErrorCodesEnabled)
     val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
     new ValueValidator(

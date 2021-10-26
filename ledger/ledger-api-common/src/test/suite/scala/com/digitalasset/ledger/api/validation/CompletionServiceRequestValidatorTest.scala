@@ -11,9 +11,7 @@ import com.daml.ledger.api.v1.command_completion_service.{
 }
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
-import io.grpc.Status.Code
 import io.grpc.Status.Code._
-import io.grpc.StatusRuntimeException
 import org.mockito.MockitoSugar
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -38,33 +36,7 @@ class CompletionServiceRequestValidatorTest
     errorCodesVersionSwitcher = errorCodesVersionSwitcher_mock,
   )
 
-  class Fixture(testedFactory: Boolean => CompletionServiceRequestValidator) {
-    def testRequestFailure(
-        testedRequest: CompletionServiceRequestValidator => Either[StatusRuntimeException, _],
-        expectedCodeV1: Code,
-        expectedDescriptionV1: String,
-        expectedCodeV2: Code,
-        expectedDescriptionV2: String,
-    ) = {
-      requestMustFailWith(
-        request = testedRequest(testedFactory(false)),
-        code = expectedCodeV1,
-        description = expectedDescriptionV1,
-      )
-      requestMustFailWith(
-        request = testedRequest(testedFactory(true)),
-        code = expectedCodeV2,
-        description = expectedDescriptionV2,
-      )
-    }
-
-    def tested(enabledSelfServiceErrorCodes: Boolean): CompletionServiceRequestValidator = {
-      testedFactory(enabledSelfServiceErrorCodes)
-    }
-
-  }
-
-  val fixture = new Fixture((selfServiceErrorCodesEnabled: Boolean) => {
+  val fixture = new ValidatorFixture((selfServiceErrorCodesEnabled: Boolean) => {
     new CompletionServiceRequestValidator(
       domain.LedgerId(expectedLedgerId),
       PartyNameChecker.AllowAllParties,
@@ -204,7 +176,7 @@ class CompletionServiceRequestValidatorTest
 
     "applying party name checks" should {
 
-      val knowsPartyOnlyFixture = new Fixture((enabled) => {
+      val knowsPartyOnlyFixture = new ValidatorFixture((enabled) => {
         new CompletionServiceRequestValidator(
           domain.LedgerId(expectedLedgerId),
           PartyNameChecker.AllowPartySet(Set(party)),

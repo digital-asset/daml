@@ -15,8 +15,8 @@ class PartyValidator(
 ) {
   type Result[X] = Either[StatusRuntimeException, X]
 
-  import fieldValidations.requireParties
   import errorFactories.invalidArgument
+  import fieldValidations.requireParties
 
   def requireKnownParties(
       parties: Iterable[String]
@@ -31,11 +31,7 @@ class PartyValidator(
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Result[Set[Party]] = {
     val unknownParties = partiesInRequest.filterNot(partyNameChecker.isKnownParty)
     if (unknownParties.nonEmpty)
-      Left(
-        invalidArgument(None)(
-          s"Unknown parties: ${unknownParties.mkString("[", ", ", "]")}"
-        )
-      )
+      Left(invalidArgument(None)(s"Unknown parties: ${unknownParties.mkString("[", ", ", "]")}"))
     else Right(partiesInRequest)
   }
 }

@@ -4,20 +4,20 @@
 package com.daml.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher, NoLogging}
-import com.daml.lf.data._
-import com.daml.lf.value.Value.{ContractId, ValueUnit}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.{value => api}
+import com.daml.lf.data._
+import com.daml.lf.value.Value.{ContractId, ValueUnit}
 import com.daml.lf.value.{Value => Lf}
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import io.grpc.StatusRuntimeException
-import scalaz.syntax.bifunctor._
 import scalaz.std.either._
+import scalaz.syntax.bifunctor._
 
 class ValueValidator(errorFactories: ErrorFactories, fieldValidations: FieldValidations) {
-  import fieldValidations._
   import errorFactories._
+  import fieldValidations._
 
   private[validation] def validateRecordFields(
       recordFields: Seq[api.RecordField]
@@ -166,7 +166,7 @@ class ValueValidator(errorFactories: ErrorFactories, fieldValidations: FieldVali
   * For places where the ValueValidator is needed without logging(e.g. daml-script, navigator), use this implementation instead.
   */
 object NoLoggingValueValidator {
-  // TODO error factories: re-check if using legacy error codes here is ok
+  // TODO error codes: re-check if using legacy error codes here is ok
   private val errorFactories = ErrorFactories(new ErrorCodesVersionSwitcher(false))
   private val valueValidator = new ValueValidator(
     errorFactories = errorFactories,

@@ -15,6 +15,7 @@ import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitAndWaitRequestValidator}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
@@ -40,7 +41,8 @@ class GrpcCommandService(
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private[this] val validator = new SubmitAndWaitRequestValidator(
-    new CommandsValidator(ledgerId, errorCodesVersionSwitcher)
+    new CommandsValidator(ledgerId, errorCodesVersionSwitcher),
+    FieldValidations(ErrorFactories(errorCodesVersionSwitcher)),
   )
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] = {

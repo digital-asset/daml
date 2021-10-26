@@ -17,7 +17,7 @@ import io.grpc.StatusRuntimeException
 import java.time.Duration
 
 // TODO error codes: Remove default usage of ErrorFactories
-class FieldValidations(errorFactories: ErrorFactories) {
+class FieldValidations private (errorFactories: ErrorFactories) {
   import errorFactories._
 
   def matchLedgerId(
@@ -192,10 +192,7 @@ class FieldValidations(errorFactories: ErrorFactories) {
 
 }
 
-/** Default implementation exposing field validations with the legacy error factories.
-  * TODO error codes: Remove default implementation once all consumers output versioned error codes.
-  */
-object FieldValidations extends FieldValidations(ErrorFactories) {
+object FieldValidations {
   def apply(errorFactories: ErrorFactories): FieldValidations =
     new FieldValidations(errorFactories)
 }

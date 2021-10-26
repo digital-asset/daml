@@ -16,11 +16,8 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.api.v1.value.Identifier
 import com.daml.platform.server.api.validation.ErrorFactories
-import io.grpc.Status.Code
 import io.grpc.Status.Code._
-import io.grpc.StatusRuntimeException
 import org.mockito.MockitoSugar
-import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
 
 class TransactionServiceRequestValidatorTest
@@ -71,31 +68,6 @@ class TransactionServiceRequestValidatorTest
   private val txByIdReq =
     GetTransactionByIdRequest(expectedLedgerId, transactionId, Seq(party))
 
-  class Fixture(testedFactory: Boolean => TransactionServiceRequestValidator) {
-    def testRequestFailure(
-        testedRequest: TransactionServiceRequestValidator => Either[StatusRuntimeException, _],
-        expectedCodeV1: Code,
-        expectedDescriptionV1: String,
-        expectedCodeV2: Code,
-        expectedDescriptionV2: String,
-    ): Assertion = {
-      requestMustFailWith(
-        request = testedRequest(testedFactory(false)),
-        code = expectedCodeV1,
-        description = expectedDescriptionV1,
-      )
-      requestMustFailWith(
-        request = testedRequest(testedFactory(true)),
-        code = expectedCodeV2,
-        description = expectedDescriptionV2,
-      )
-    }
-
-    def tested(enabledSelfServiceErrorCodes: Boolean): TransactionServiceRequestValidator = {
-      testedFactory(enabledSelfServiceErrorCodes)
-    }
-  }
-
   private val errorCodesVersionSwitcher_mock = mock[ErrorCodesVersionSwitcher]
   private val testedValidator = new TransactionServiceRequestValidator(
     domain.LedgerId(expectedLedgerId),
@@ -103,7 +75,7 @@ class TransactionServiceRequestValidatorTest
     ErrorFactories(errorCodesVersionSwitcher_mock),
   )
 
-  private val fixture = new Fixture((selfServiceErrorCodesEnabled: Boolean) => {
+  private val fixture = new ValidatorFixture((selfServiceErrorCodesEnabled: Boolean) => {
     new TransactionServiceRequestValidator(
       domain.LedgerId(expectedLedgerId),
       PartyNameChecker.AllowAllParties,
@@ -491,7 +463,7 @@ class TransactionServiceRequestValidatorTest
 
     "applying party name checks" should {
 
-      val knowsPartyOnlyFixture = new Fixture((selfServiceErrorCodesEnabled: Boolean) => {
+      val knowsPartyOnlyFixture = new ValidatorFixture((selfServiceErrorCodesEnabled: Boolean) => {
         new TransactionServiceRequestValidator(
           domain.LedgerId(expectedLedgerId),
           PartyNameChecker.AllowPartySet(Set(party)),

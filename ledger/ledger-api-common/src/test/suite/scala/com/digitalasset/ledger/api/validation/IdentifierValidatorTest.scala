@@ -3,15 +3,23 @@
 
 package com.daml.ledger.api.validation
 
-import com.daml.error.{ContextualizedErrorLogger, NoLogging}
+import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher, NoLogging}
 import com.daml.ledger.api.DomainMocks
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import io.grpc.Status.Code.INVALID_ARGUMENT
+import org.mockito.MockitoSugar
 import org.scalatest.wordspec.AsyncWordSpec
-import com.daml.platform.server.api.validation.FieldValidations._
 
-class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils {
+class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils with MockitoSugar {
+
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
+
+  private val errorFactories_mock = mock[ErrorFactories]
+  private val fieldValidations = FieldValidations(errorFactories_mock)
+  private val fixture = new ValidatorFixture(enabled =>
+    FieldValidations(ErrorFactories(new ErrorCodesVersionSwitcher(enabled)))
+  )
 
   object api {
     val identifier = Identifier("package", moduleName = "module", entityName = "entity")
@@ -19,22 +27,30 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils {
 
   "validating identifiers" should {
     "convert a valid identifier" in {
-      validateIdentifier(api.identifier) shouldEqual Right(DomainMocks.identifier)
+      fieldValidations.validateIdentifier(api.identifier) shouldEqual Right(DomainMocks.identifier)
+      verifyZeroInteractions(errorFactories_mock)
+      succeed
     }
 
     "not allow missing package ids" in {
-      requestMustFailWith(
-        validateIdentifier(api.identifier.withPackageId("")),
-        INVALID_ARGUMENT,
-        """Missing field: package_id""",
+      fixture.testRequestFailure(
+        _.validateIdentifier(api.identifier.withPackageId("")),
+        expectedCodeV1 = INVALID_ARGUMENT,
+        expectedDescriptionV1 = """Missing field: package_id""",
+        expectedCodeV2 = INVALID_ARGUMENT,
+        expectedDescriptionV2 =
+          "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: package_id",
       )
     }
 
     "not allow missing names" in {
-      requestMustFailWith(
-        validateIdentifier(api.identifier.withModuleName("").withEntityName("")),
-        INVALID_ARGUMENT,
-        "Invalid field module_name: Expected a non-empty string",
+      fixture.testRequestFailure(
+        _.validateIdentifier(api.identifier.withModuleName("").withEntityName("")),
+        expectedCodeV1 = INVALID_ARGUMENT,
+        expectedDescriptionV1 = "Invalid field module_name: Expected a non-empty string",
+        expectedCodeV2 = INVALID_ARGUMENT,
+        expectedDescriptionV2 =
+          "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field module_name: Expected a non-empty string",
       )
     }
   }
