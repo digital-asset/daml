@@ -5,13 +5,12 @@ package com.daml.ledger.api.benchtool.submission
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.benchtool.infrastructure.TestDars
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.benchtool.util.SimpleFileReader
 import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
@@ -27,21 +26,27 @@ case class CommandSubmitter(services: LedgerApiServices) {
   private val identifierSuffix = f"${System.nanoTime}%x"
   private val applicationId = "benchtool"
   private val workflowId = s"$applicationId-$identifierSuffix"
-  private def commandId(index: Int) = s"command-$index-$identifierSuffix"
+  private val signatoryName = s"signatory-$identifierSuffix"
+  private def observerName(index: Int): String = s"Obs-$index-$identifierSuffix"
+  private def commandId(index: Int): String = s"command-$index-$identifierSuffix"
+  private def darId(index: Int) = s"submission-dars-$index-$identifierSuffix"
 
-  def submitCommands(
+  def submit(
       descriptorFile: File
   )(implicit ec: ExecutionContext): Future[Unit] =
     (for {
       _ <- Future.successful(logger.info("Generating contracts..."))
+      _ <- Future.successful(logger.info(s"Identifier suffix: $identifierSuffix"))
       descriptor <- Future.fromTry(parseDescriptor(descriptorFile))
-      party <- allocateParty()
+      signatory <- allocateParty(signatoryName)
+      observers <- allocateParties(descriptor.numberOfObservers, observerName)
       _ <- uploadTestDars()
-      _ <- createContracts(descriptor = descriptor, party = party)
-    } yield logger.info("Contracts produced successfully.")).recoverWith { case NonFatal(ex) =>
-      logger.error(s"Command submission failed. Details: ${ex.getLocalizedMessage}", ex)
-      Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage))
-    }
+      _ <- submitCommands(descriptor, signatory, observers)
+    } yield logger.info("Commands submitted successfully."))
+      .recoverWith { case NonFatal(ex) =>
+        logger.error(s"Command submission failed. Details: ${ex.getLocalizedMessage}", ex)
+        Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage))
+      }
 
   private def parseDescriptor(descriptorFile: File): Try[ContractSetDescriptor] =
     SimpleFileReader.readFile(descriptorFile)(DescriptorParser.parse).flatMap {
@@ -54,10 +59,17 @@ case class CommandSubmitter(services: LedgerApiServices) {
         Success(descriptor)
     }
 
-  private def allocateParty()(implicit ec: ExecutionContext): Future[Primitive.Party] =
-    services.partyManagementService.allocateParty(
-      hint = s"party-0-$identifierSuffix"
-    )
+  private def allocateParty(name: String)(implicit ec: ExecutionContext): Future[Primitive.Party] =
+    services.partyManagementService.allocateParty(name)
+
+  private def allocateParties(number: Int, name: Int => String)(implicit
+      ec: ExecutionContext
+  ): Future[List[Primitive.Party]] =
+    (1 to number).foldLeft(Future.successful(List.empty[Primitive.Party])) { (allocated, i) =>
+      allocated.flatMap { parties =>
+        services.partyManagementService.allocateParty(name(i)).map(party => parties :+ party)
+      }
+    }
 
   private def uploadDar(dar: TestDars.DarFile, submissionId: String)(implicit
       ec: ExecutionContext
@@ -70,12 +82,15 @@ case class CommandSubmitter(services: LedgerApiServices) {
   private def uploadTestDars()(implicit ec: ExecutionContext): Future[Unit] =
     for {
       dars <- Future.fromTry(TestDars.readAll())
-      _ <- Future.sequence(dars.zipWithIndex.map { case (dar, index) =>
-        uploadDar(dar, s"submission-dars-$index-$identifierSuffix")
-      })
+      _ <- Future.sequence {
+        dars.zipWithIndex
+          .map { case (dar, index) =>
+            uploadDar(dar, darId(index))
+          }
+      }
     } yield ()
 
-  private def createContract(id: String, party: Party, createCommand: Command)(implicit
+  private def submitAndWait(id: String, party: Primitive.Party, command: Command)(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
     val commands = new Commands(
@@ -83,45 +98,52 @@ case class CommandSubmitter(services: LedgerApiServices) {
       applicationId = applicationId,
       commandId = id,
       party = party.unwrap,
-      commands = List(createCommand),
+      commands = List(command),
       workflowId = workflowId,
     )
     services.commandService.submitAndWait(commands).map(_ => ())
   }
 
-  private def createContracts(descriptor: ContractSetDescriptor, party: Party)(implicit
+  private def submitCommands(
+      descriptor: ContractSetDescriptor,
+      signatory: Primitive.Party,
+      observers: List[Primitive.Party],
+  )(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
-    def logProgress(index: Int): Unit =
-      if (index % 100 == 0) {
-        logger.info(
-          s"Created contracts: $index out of ${descriptor.numberOfInstances} (${(index.toDouble / descriptor.numberOfInstances) * 100}%)"
-        )
-      }
-
-    val generator = new CommandGenerator(RandomnessProvider.Default, descriptor, party)
-
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
+
+    val progressMeter = CommandSubmitter.ProgressMeter(descriptor.numberOfInstances)
+    val progressLoggingSink =
+      Sink.foreachAsync[Int](1)(index =>
+        Future {
+          if (index % 500 == 0) {
+            logger.info(progressMeter.getProgress(index))
+          }
+        }
+      )
+    val generator = new CommandGenerator(RandomnessProvider.Default, descriptor, observers)
+
     materializerOwner()
       .use { implicit materializer =>
         Source
           .fromIterator(() => (1 to descriptor.numberOfInstances).iterator)
           .mapAsync(100) { index =>
             generator.next() match {
-              case Right(command) =>
-                createContract(
+              case Success(command) =>
+                submitAndWait(
                   id = commandId(index),
-                  party = party,
-                  createCommand = command(party),
+                  party = signatory,
+                  command = command(signatory),
                 ).map(_ => index)
-              case Left(error) =>
+              case Failure(ex) =>
                 Future.failed {
-                  logger.error(s"Command generation failed. Details: $error")
-                  CommandSubmitter.CommandSubmitterError(error)
+                  logger.error(s"Command generation failed. Details: ${ex.getLocalizedMessage}", ex)
+                  CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage)
                 }
             }
           }
-          .runForeach(logProgress)
+          .runWith(progressLoggingSink)
       }
       .map(_ => ())
   }
@@ -136,4 +158,28 @@ case class CommandSubmitter(services: LedgerApiServices) {
 
 object CommandSubmitter {
   case class CommandSubmitterError(msg: String) extends RuntimeException(msg)
+
+  class ProgressMeter(totalItems: Int, startTimeMillis: Long) {
+    def getProgress(index: Int): String =
+      f"Progress: $index/${totalItems} (${percentage(index)}%%). Remaining time: ${remainingSeconds(index)}%1.1f s"
+
+    private def percentage(index: Int): Double = (index.toDouble / totalItems) * 100
+
+    private def remainingSeconds(index: Int): Double = {
+      val remainingItems = totalItems - index
+      if (remainingItems > 0) {
+        val elapsed = System.currentTimeMillis() - startTimeMillis
+        ((remainingItems.toDouble / index.toDouble) * elapsed.toDouble) / math.pow(10, 3)
+      } else {
+        0.0
+      }
+    }
+  }
+
+  object ProgressMeter {
+    def apply(totalItems: Int) = new ProgressMeter(
+      totalItems = totalItems,
+      startTimeMillis = System.currentTimeMillis(),
+    )
+  }
 }

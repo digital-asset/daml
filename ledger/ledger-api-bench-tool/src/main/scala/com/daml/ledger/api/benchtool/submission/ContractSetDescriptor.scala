@@ -5,6 +5,7 @@ package com.daml.ledger.api.benchtool.submission
 
 final case class ContractSetDescriptor(
     numberOfInstances: Int,
+    numberOfObservers: Int,
     instanceDistribution: List[ContractSetDescriptor.ContractDescription],
 )
 
