@@ -6,6 +6,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@com_github_google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
 load("@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl", "nixpkgs_package")
 load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
+load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_tool_home", "dadew_where")
 
 _java_home_runtime_build_template = """
 java_runtime(
@@ -149,6 +150,38 @@ def nixpkgs_java_configure(
         nix_file_content = _java_nix_file_content,
         **kwargs
     )
+
+def _dadew_java_configure_impl(repository_ctx):
+    ps = repository_ctx.which("powershell")
+    dadew = dadew_where(repository_ctx, ps)
+    java_home = dadew_tool_home(dadew, repository_ctx.attr.dadew_path)
+    repository_ctx.file("BUILD.bazel", executable = False, content = """
+load("@rules_java//java:defs.bzl", "java_runtime")
+java_runtime(
+    name = "runtime",
+    java_home = r"{java_home}",
+    visibility = ["//visibility:public"],
+)
+""".format(
+        java_home = java_home.replace("\\", "/"),
+    ))
+
+dadew_java_configure = repository_rule(
+    implementation = _dadew_java_configure_impl,
+    attrs = {
+        "dadew_path": attr.string(
+            mandatory = True,
+            doc = "The installation path of the JDK within dadew.",
+        ),
+    },
+    configure = True,
+    local = True,
+    doc = """\
+Define a Java runtime provided by dadew.
+
+Creates a `java_runtime` that uses the JDK installed by dadew.
+""",
+)
 
 def da_java_library(
         name,

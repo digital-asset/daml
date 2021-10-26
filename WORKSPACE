@@ -594,9 +594,14 @@ load("@rules_haskell//tools:repositories.bzl", "rules_haskell_worker_dependencie
 # Call this after `daml_haskell_deps` to ensure that the right `stack` is used.
 rules_haskell_worker_dependencies()
 
-load("//bazel_tools:java.bzl", "java_home_runtime", "nixpkgs_java_configure")
+load("//bazel_tools:java.bzl", "dadew_java_configure", "java_home_runtime", "nixpkgs_java_configure")
 
 java_home_runtime(name = "java_home")
+
+dadew_java_configure(
+    name = "dadew_java_runtime",
+    dadew_path = "java-openjdk-8u302",
+) if is_windows else None
 
 nixpkgs_java_configure(
     attribute_path = "jdk8.home",
