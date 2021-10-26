@@ -16,6 +16,7 @@ da_scala_library(
         "//ledger/test-common:dar-files",
     ],
     scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:io_spray_spray_json",
@@ -58,6 +59,7 @@ da_scala_library(
 da_scala_test_suite(
     name = "reproduces-transactions",
     srcs = glob(["test-suite/scala/com/daml/script/export/*.scala"]),
+    resources = ["test-suite/resources/logback-test.xml"],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
@@ -66,6 +68,7 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_freespec",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
