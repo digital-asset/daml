@@ -217,8 +217,8 @@ private[backend] object OracleStorageBackend
                SELECT max(event_sequential_id) AS max_esi FROM participant_events_non_consuming_exercise
                WHERE event_offset = (select max(event_offset) from participant_events_non_consuming_exercise where event_offset <= $offset)
            )
-       ) having max(max_esi) is not null"""
-      .as(get[Long](1).singleOpt)(connection)
+       )"""
+      .as(get[Long](1).?.single)(connection)
   }
 
   override def createDataSource(
