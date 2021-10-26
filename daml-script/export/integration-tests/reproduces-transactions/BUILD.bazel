@@ -56,7 +56,7 @@ da_scala_library(
     ],
 )
 
-da_scala_test_suite(
+da_scala_test(
     name = "reproduces-transactions",
     srcs = glob(["test-suite/scala/com/daml/script/export/*.scala"]),
     resources = ["test-suite/resources/logback-test.xml"],
