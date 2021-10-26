@@ -21,6 +21,19 @@ private[sandboxnext] object Cli extends SandboxCli {
         Some(Seeding.Static),
       )
       .parser
+
+    parser
+      .opt[Unit]("eager-package-loading")
+      .hidden()
+      .optional()
+      .text("Deprecated. This flag no longer has any effect.")
+      .action((_, config) => {
+        System.err.println(
+          "WARNING: The `--eager-package-loading` flag no longer has any effect in the Sandbox. Packages are always loaded eagerly."
+        )
+        config
+      })
+
     parser
       .opt[Boolean](name = "implicit-party-allocation")
       .optional()
@@ -29,6 +42,7 @@ private[sandboxnext] object Cli extends SandboxCli {
         s"When referring to a party that doesn't yet exist on the ledger, $Name will implicitly allocate that party."
           + s" You can optionally disable this behavior to bring $Name into line with other ledgers."
       )
+
     parser
       .opt[String]("sql-backend-jdbcurl")
       .optional()

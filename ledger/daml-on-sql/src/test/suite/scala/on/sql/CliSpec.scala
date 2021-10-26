@@ -54,6 +54,10 @@ class CliSpec
       config shouldEqual None
     }
 
+    "parse the eager package loading flag when given" in {
+      checkOption(Array("--eager-package-loading"), _.copy(eagerPackageLoading = true))
+    }
+
     "reject when sql-backend-jdbcurl-env points to a non-existing environment variable" in {
       val config =
         cli.parse(Array("--ledgerid", "test-ledger", "--sql-backend-jdbcurl-env", "JDBC_URL"))

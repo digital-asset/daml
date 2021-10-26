@@ -45,6 +45,7 @@ import com.daml.ledger.participant.state.kvutils.updates.TransactionRejections._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2.{CompletionInfo, SubmitterInfo}
 import com.daml.lf.data.Relation.Relation
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction._
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
@@ -179,7 +180,7 @@ private[state] object Conversions {
 
   @nowarn("msg=deprecated")
   def parseCompletionInfo(
-      recordTime: Instant,
+      recordTime: Timestamp,
       subInfo: DamlSubmitterInfo,
   ): CompletionInfo = {
     val deduplicationPeriod = subInfo.getDeduplicationPeriodCase match {
@@ -198,7 +199,7 @@ private[state] object Conversions {
         // As the deduplicate until timestamp is always relative to record time, we take the duration
         // between record time and the previous timestamp as the deduplication period (duration).
         val until = parseInstant(subInfo.getDeduplicateUntil)
-        val duration = Duration.between(recordTime, until).abs()
+        val duration = Duration.between(recordTime.toInstant, until).abs()
         Some(
           DeduplicationPeriod.DeduplicationDuration(duration)
         )

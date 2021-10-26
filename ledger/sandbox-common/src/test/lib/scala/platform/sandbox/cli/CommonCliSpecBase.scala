@@ -207,10 +207,6 @@ abstract class CommonCliSpecBase(
       )
     }
 
-    "parse the eager package loading flag when given" in {
-      checkOption(Array("--eager-package-loading"), _.copy(eagerPackageLoading = true))
-    }
-
     "parse a console metrics reporter when given" in {
       checkOption(
         Array("--metrics-reporter", "console"),

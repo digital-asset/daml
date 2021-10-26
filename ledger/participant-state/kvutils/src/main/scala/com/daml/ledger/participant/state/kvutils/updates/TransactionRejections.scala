@@ -20,7 +20,6 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
 }
 import com.daml.ledger.participant.state.kvutils.errors.KVErrors
 import com.daml.ledger.participant.state.kvutils.store.events._
-import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
@@ -46,7 +45,7 @@ private[kvutils] object TransactionRejections {
     Update.CommandRejected(
       recordTime = recordTime,
       completionInfo = parseCompletionInfo(
-        Conversions.parseInstant(recordTime),
+        recordTime,
         rejectionEntry.getSubmitterInfo,
       ),
       reasonTemplate = FinalReason(
@@ -77,7 +76,7 @@ private[kvutils] object TransactionRejections {
     Update.CommandRejected(
       recordTime = recordTime,
       completionInfo = parseCompletionInfo(
-        Conversions.parseInstant(recordTime),
+        recordTime,
         rejectionEntry.getSubmitterInfo,
       ),
       reasonTemplate = FinalReason(
