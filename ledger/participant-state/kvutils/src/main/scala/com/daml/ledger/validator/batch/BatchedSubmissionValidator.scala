@@ -3,8 +3,6 @@
 
 package com.daml.ledger.validator.batch
 
-import java.time.Instant
-
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
@@ -26,7 +24,7 @@ import com.daml.ledger.validator.SubmissionValidator.LogEntryAndState
 import com.daml.ledger.validator._
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
@@ -102,15 +100,14 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
   def validateAndCommit(
       submissionEnvelope: Raw.Envelope,
       correlationId: CorrelationId,
-      recordTimeInstant: Instant,
+      recordTime: Timestamp,
       participantId: Ref.ParticipantId,
       ledgerStateReader: DamlLedgerStateReader,
       commitStrategy: CommitStrategy[CommitResult],
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] =
     withCorrelationIdLogged(correlationId) { implicit loggingContext =>
-      val recordTime = Time.Timestamp.assertFromInstant(recordTimeInstant)
       val submissionInfo =
-        SubmissionInfo(participantId, correlationId, submissionEnvelope, recordTimeInstant)
+        SubmissionInfo(participantId, correlationId, submissionEnvelope, recordTime)
       val exporterAggregator = ledgerDataExporter.addSubmission(submissionInfo)
       Timed.future(
         metrics.validateAndCommit, {

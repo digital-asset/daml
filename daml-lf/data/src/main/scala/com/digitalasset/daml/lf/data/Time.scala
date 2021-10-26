@@ -102,6 +102,10 @@ object Time {
     }
 
     @throws[IllegalArgumentException]
+    def subtract(duration: Duration): Timestamp =
+      add(duration.negated())
+
+    @throws[IllegalArgumentException]
     def addMicros(x: Long): Timestamp =
       Timestamp.assertFromLong(micros + x)
   }

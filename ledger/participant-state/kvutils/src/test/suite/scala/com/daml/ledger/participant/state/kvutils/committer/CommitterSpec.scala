@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import java.time.{Duration, Instant}
+import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.codahale.metrics.MetricRegistry
@@ -43,8 +43,8 @@ class CommitterSpec
       val expectedOutputs =
         Map(DamlStateKey.getDefaultInstance -> DamlStateValue.getDefaultInstance)
       when(mockContext.getOutputs).thenReturn(expectedOutputs)
-      val expectedMinRecordTime = Instant.ofEpochSecond(100)
-      val expectedMaxRecordTime = Instant.ofEpochSecond(200)
+      val expectedMinRecordTime = Timestamp.assertFromLong(100 * 1000 * 1000)
+      val expectedMaxRecordTime = Timestamp.assertFromLong(200 * 1000 * 1000)
       when(mockContext.minimumRecordTime).thenReturn(Some(expectedMinRecordTime))
       when(mockContext.maximumRecordTime).thenReturn(Some(expectedMaxRecordTime))
       when(mockContext.deduplicateUntil).thenReturn(None)
@@ -63,8 +63,8 @@ class CommitterSpec
       actual.readSet shouldBe expectedReadSet
       actual.successfulLogEntry shouldBe aLogEntry
       actual.stateUpdates shouldBe expectedOutputs
-      actual.minimumRecordTime shouldBe Some(Timestamp.assertFromInstant(expectedMinRecordTime))
-      actual.maximumRecordTime shouldBe Some(Timestamp.assertFromInstant(expectedMaxRecordTime))
+      actual.minimumRecordTime shouldBe Some(expectedMinRecordTime)
+      actual.maximumRecordTime shouldBe Some(expectedMaxRecordTime)
     }
 
     "set min/max record time to None in case they are not available from context" in {
@@ -88,9 +88,9 @@ class CommitterSpec
       when(mockContext.outOfTimeBoundsLogEntry).thenReturn(Some(aRejectionLogEntry))
       when(mockContext.getOutputs).thenReturn(Iterable.empty)
       when(mockContext.getAccessedInputKeys).thenReturn(Set.empty[DamlStateKey])
-      val expectedMinRecordTime = Instant.ofEpochSecond(100)
-      val expectedMaxRecordTime = Instant.ofEpochSecond(200)
-      val expectedDuplicateUntil = Instant.ofEpochSecond(99)
+      val expectedMinRecordTime = Timestamp.assertFromLong(100 * 1000 * 1000)
+      val expectedMaxRecordTime = Timestamp.assertFromLong(200 * 1000 * 1000)
+      val expectedDuplicateUntil = Timestamp.assertFromLong(99 * 1000 * 1000)
       when(mockContext.minimumRecordTime).thenReturn(Some(expectedMinRecordTime))
       when(mockContext.maximumRecordTime).thenReturn(Some(expectedMaxRecordTime))
       when(mockContext.deduplicateUntil).thenReturn(Some(expectedDuplicateUntil))
@@ -122,12 +122,12 @@ class CommitterSpec
     }
 
     "throw in case out-of-time-bounds log entry is not set but min/max record time is" in {
-      val anInstant = Instant.ofEpochSecond(1234)
+      val aTimestamp = Timestamp.assertFromLong(1234 * 1000 * 1000)
       val combinations = Table(
         "min/max record time",
-        Some(anInstant) -> Some(anInstant),
-        Some(anInstant) -> None,
-        None -> Some(anInstant),
+        Some(aTimestamp) -> Some(aTimestamp),
+        Some(aTimestamp) -> None,
+        None -> Some(aTimestamp),
       )
 
       forAll(combinations) { case (minRecordTimeMaybe, maxRecordTimeMaybe) =>

@@ -77,7 +77,7 @@ class BatchedSubmissionValidatorSpec
         .validateAndCommit(
           anInvalidEnvelope,
           aCorrelationId,
-          newRecordTime().toInstant,
+          newRecordTime(),
           aParticipantId,
           mock[DamlLedgerStateReader],
           mock[CommitStrategy[Unit]],
@@ -98,7 +98,7 @@ class BatchedSubmissionValidatorSpec
         .validateAndCommit(
           notASubmission,
           aCorrelationId,
-          newRecordTime().toInstant,
+          newRecordTime(),
           aParticipantId,
           mock[DamlLedgerStateReader],
           mock[CommitStrategy[Unit]],
@@ -125,7 +125,7 @@ class BatchedSubmissionValidatorSpec
         .validateAndCommit(
           Envelope.enclose(batchSubmission),
           aCorrelationId,
-          newRecordTime().toInstant,
+          newRecordTime(),
           aParticipantId,
           mock[DamlLedgerStateReader],
           mock[CommitStrategy[Unit]],
@@ -165,7 +165,7 @@ class BatchedSubmissionValidatorSpec
         .validateAndCommit(
           Envelope.enclose(partySubmission),
           aCorrelationId,
-          newRecordTime().toInstant,
+          newRecordTime(),
           aParticipantId,
           mockLedgerStateReader,
           mockCommit,
@@ -212,7 +212,7 @@ class BatchedSubmissionValidatorSpec
         .validateAndCommit(
           batchSubmissionBytes,
           "batch-correlationId",
-          newRecordTime().toInstant,
+          newRecordTime(),
           aParticipantId,
           mockLedgerStateReader,
           mockCommit,
@@ -281,7 +281,7 @@ class BatchedSubmissionValidatorSpec
         .validateAndCommit(
           Envelope.enclose(batchSubmission),
           "batch-correlationId",
-          newRecordTime().toInstant,
+          newRecordTime(),
           aParticipantId,
           mockLedgerStateReader,
           mockCommit,
@@ -331,7 +331,7 @@ class BatchedSubmissionValidatorSpec
         .validateAndCommit(
           batchSubmissionBytes,
           "batch-correlationId",
-          newRecordTime().toInstant,
+          newRecordTime(),
           aParticipantId,
           mockLedgerStateReader,
           mockCommit,
