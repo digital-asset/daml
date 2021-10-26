@@ -203,7 +203,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
       )
     }
 
-  final def lastOffset(parties: OneAnd[Set, String], tpid: SurrogateTpId)(implicit
+  final def lastOffset(parties: PartySet, tpid: SurrogateTpId)(implicit
       log: LogHandler
   ): ConnectionIO[Map[String, String]] = {
     import Queries.CompatImplicits.catsReducibleFromFoldable1
@@ -326,7 +326,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   }
 
   private[http] final def selectContracts(
-      parties: OneAnd[Set, String],
+      parties: PartySet,
       tpid: SurrogateTpId,
       predicate: Fragment,
   )(implicit
@@ -339,7 +339,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     * which query or queries produced each contract.
     */
   private[http] def selectContractsMultiTemplate[Mark](
-      parties: OneAnd[Set, String],
+      parties: PartySet,
       queries: ISeq[(SurrogateTpId, Fragment)],
       trackMatchIndices: MatchedQueryMarker[Mark],
   )(implicit
@@ -399,7 +399,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   }
 
   private[http] final def fetchById(
-      parties: OneAnd[Set, String],
+      parties: PartySet,
       tpid: SurrogateTpId,
       contractId: String,
   )(implicit
@@ -408,7 +408,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     selectContracts(parties, tpid, sql"c.contract_id = $contractId").option
 
   private[http] final def fetchByKey(
-      parties: OneAnd[Set, String],
+      parties: PartySet,
       tpid: SurrogateTpId,
       key: Hash,
   )(implicit
@@ -434,6 +434,8 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
 }
 
 object Queries {
+  type PartySet = OneAnd[Set, String]
+
   sealed trait SurrogateTpIdTag
   val SurrogateTpId = Tag.of[SurrogateTpIdTag]
   type SurrogateTpId = Long @@ SurrogateTpIdTag // matches tpid (BIGINT) above
@@ -729,7 +731,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
   }
 
   private[http] override def selectContractsMultiTemplate[Mark](
-      parties: OneAnd[Set, String],
+      parties: PartySet,
       queries: ISeq[(SurrogateTpId, Fragment)],
       trackMatchIndices: MatchedQueryMarker[Mark],
   )(implicit
@@ -898,7 +900,7 @@ private final class OracleQueries(
   }
 
   private[http] override def selectContractsMultiTemplate[Mark](
-      parties: OneAnd[Set, String],
+      parties: PartySet,
       queries: ISeq[(SurrogateTpId, Fragment)],
       trackMatchIndices: MatchedQueryMarker[Mark],
   )(implicit
