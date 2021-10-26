@@ -26,6 +26,8 @@ package object domain {
   type Party = lar.Party
   val Party = lar.Party
 
+  type PartySet = scalaz.OneAnd[Set, Party]
+
   type Offset = String @@ OffsetTag
 
   private[daml] implicit final class `fc domain ErrorOps`[A](private val o: Option[A])

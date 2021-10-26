@@ -16,7 +16,6 @@ import scalaz.OneAnd._
 import scalaz.std.set._
 import scalaz.syntax.tag._
 import scalaz.syntax.foldable._
-import scalaz.OneAnd
 
 private[daml] object AcsTxStreams {
   import util.AkkaStreamsDoobie.{last, max, project2}
@@ -132,7 +131,7 @@ private[daml] object AcsTxStreams {
   }
 
   private[daml] def transactionFilter(
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateIds: List[TemplateId.RequiredPkg],
   ): lav1.transaction_filter.TransactionFilter = {
     import lav1.transaction_filter._
