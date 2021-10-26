@@ -69,7 +69,8 @@ build:darwin --javabase=@nixpkgs_java_runtime//:runtime
 build:darwin --host_javabase=@nixpkgs_java_runtime//:runtime
 build:darwin --java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
 build:darwin --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
-build:windows --host_javabase=@java_home//:javabase
+build:windows --javabase=@dadew_java_runtime//:runtime
+build:windows --host_javabase=@dadew_java_runtime//:runtime
 build:windows --java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
 build:windows --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
 
