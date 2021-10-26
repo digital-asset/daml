@@ -41,7 +41,8 @@ sealed abstract class NonEmptyColl {
   def equiv[F[_], A]: NonEmpty[F[A]] === NonEmptyF[F, A]
 
   /** Check whether `self` is non-empty; if so, return it as the non-empty subtype. */
-  def apply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]]
+  @deprecated("bad apply", since = "1.18.0")
+  final def apply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]] = unapply(self)
 
   /** In pattern matching, think of [[NonEmpty]] as a sub-case-class of every
     * [[imm.Iterable]]; matching `case NonEmpty(ne)` ''adds'' the non-empty type
@@ -53,7 +54,7 @@ sealed abstract class NonEmptyColl {
     * The type-checker will not permit you to apply this to a value that already
     * has the [[NonEmpty]] type, so don't worry about redundant checks here.
     */
-  def unapply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]] = apply(self)
+  def unapply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]]
 }
 
 /** If you ever have to import [[NonEmptyColl]] or anything from it, your Scala
@@ -68,7 +69,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
     override def subtype[A] = Liskov.refl[A]
     override def equiv[F[_], A] = Leibniz.refl
 
-    override def apply[Self](self: Self with imm.Iterable[_]) =
+    override def unapply[Self](self: Self with imm.Iterable[_]) =
       if (self.nonEmpty) Some(self) else None
     private[nonempty] override def unsafeNarrow[Self <: imm.Iterable[Any]](self: Self) = self
   }
