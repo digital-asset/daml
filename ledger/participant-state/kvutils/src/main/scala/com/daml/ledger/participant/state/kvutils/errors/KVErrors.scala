@@ -18,7 +18,7 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
   InternallyInconsistentTransaction,
 }
 
-object KVCompletionErrors extends LedgerApiErrorGroup {
+object KVErrors extends LedgerApiErrorGroup {
 
   object Time extends ErrorGroup() {
 
