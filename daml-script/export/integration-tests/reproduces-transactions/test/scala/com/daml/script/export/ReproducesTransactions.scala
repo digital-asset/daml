@@ -34,6 +34,7 @@ import com.daml.SdkVersion
 import com.daml.fs.Utils.deleteRecursively
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptTimeMode}
+import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.tag._
 import spray.json._
 
@@ -50,7 +51,9 @@ trait ReproducesTransactions
     with BeforeAndAfterEach
     with SuiteResourceManagementAroundAll
     with SandboxNextFixture
+    with StrictLogging
     with TestCommands {
+
   private val appId = domain.ApplicationId("script-export")
   private val clientConfiguration = LedgerClientConfiguration(
     applicationId = appId.unwrap,
@@ -103,15 +106,19 @@ trait ReproducesTransactions
       .runWith(Sink.seq)
 
   private def allocateParties(client: LedgerClient, numParties: Int): Future[List[Ref.Party]] =
-    List
-      .range(0, numParties)
-      // Allocate parties sequentially to avoid timeouts on CI.
-      .foldLeft[Future[List[Ref.Party]]](Future.successful(Nil)) { case (acc, _) =>
-        for {
-          ps <- acc
-          p <- client.partyManagementClient.allocateParty(None, None).map(_.party)
-        } yield ps :+ p
-      }
+    for {
+      _ <- Future { logger.debug("Allocating parties") }
+      ps <- List
+        .range(0, numParties)
+        // Allocate parties sequentially to avoid timeouts on CI.
+        .foldLeft[Future[List[Ref.Party]]](Future.successful(Nil)) { case (acc, _) =>
+          for {
+            ps <- acc
+            p <- client.partyManagementClient.allocateParty(None, None).map(_.party)
+          } yield ps :+ p
+        }
+      _ = logger.debug("Allocated parties")
+    } yield ps
 
   private val ledgerBegin = LedgerOffset(
     LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
@@ -218,6 +225,9 @@ trait ReproducesTransactions
   private def testIou: (LedgerClient, Seq[Ref.Party]) => Future[Unit] = {
     case (client, Seq(p1, p2)) =>
       for {
+        _ <- Future {
+          logger.debug("Starting testIou")
+        }
         t0 <- submit(
           client,
           p1,
