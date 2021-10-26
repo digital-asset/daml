@@ -87,7 +87,7 @@ theParser = some line <* eof
     digit = label "digit" $ Char.digitToInt <$> satisfy Char.isDigit
 
     marker =
-      (void $ chunk $ T.pack "TEST_EVIDENCE")
+      (void $ chunk "TEST_EVIDENCE")
       <|> do void notColonOrNewline; marker
 
     optWhiteSpace = void $ many $ satisfy Char.isSpace
