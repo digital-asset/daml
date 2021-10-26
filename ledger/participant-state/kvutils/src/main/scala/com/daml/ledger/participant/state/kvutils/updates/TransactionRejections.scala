@@ -500,16 +500,6 @@ private[kvutils] object TransactionRejections {
         )
         .asStatus
 
-    def invalidLedgerTimeStatus(
-        details: String,
-        ledger_time: Instant,
-        ledger_time_lower_bound: Instant,
-        ledger_time_upper_bound: Instant,
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Time.InvalidLedgerTime
-        .Reject(details, ledger_time, ledger_time_lower_bound, ledger_time_upper_bound)
-        .asStatus
-
     def causalMonotonicityViolatedStatus(
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
       KVErrors.Time.CausalMonotonicityViolated
@@ -582,6 +572,17 @@ private[kvutils] object TransactionRejections {
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
       KVErrors.Resources.ResourceExhausted
         .Reject(details)
+        .asStatus
+
+    @deprecated
+    def invalidLedgerTimeStatus(
+        details: String,
+        ledger_time: Instant,
+        ledger_time_lower_bound: Instant,
+        ledger_time_upper_bound: Instant,
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVErrors.Time.InvalidLedgerTime
+        .Reject(details, ledger_time, ledger_time_lower_bound, ledger_time_upper_bound)
         .asStatus
 
     @deprecated

@@ -52,6 +52,21 @@ object KVErrors extends LedgerApiErrorGroup {
           )
     }
 
+    object CausalMonotonicityViolated
+        extends ErrorCode(
+          id = "CAUSAL_MONOTONICITY_VIOLATED",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
+        ) {
+      case class Reject(
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends KVLoggingTransactionErrorImpl(
+            cause = s"Invalid ledger time: Causal monotonicity violated"
+          )
+    }
+
+    @deprecated(
+      "It was produced by submissions batching and it's not produced anymore by pre-execution"
+    )
     object InvalidLedgerTime
         extends ErrorCode(
           id = "INVALID_LEDGER_TIME",
@@ -64,18 +79,6 @@ object KVErrors extends LedgerApiErrorGroup {
           ledger_time_upper_bound: Instant,
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends KVLoggingTransactionErrorImpl(cause = s"Invalid ledger time: $details")
-    }
-
-    object CausalMonotonicityViolated
-        extends ErrorCode(
-          id = "CAUSAL_MONOTONICITY_VIOLATED",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
-        ) {
-      case class Reject(
-      )(implicit loggingContext: ContextualizedErrorLogger)
-          extends KVLoggingTransactionErrorImpl(
-            cause = s"Invalid ledger time: Causal monotonicity violated"
-          )
     }
 
   }
