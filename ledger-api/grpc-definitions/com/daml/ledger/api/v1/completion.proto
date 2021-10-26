@@ -45,7 +45,7 @@ message Completion {
 
   // The submission ID this completion refers to, as described in ``commands.proto``.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Optional for historic completions where this data is not available.
+  // Optional
   string submission_id = 6;
 
   reserved "submission_rank"; // For future use.

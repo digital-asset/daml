@@ -366,7 +366,7 @@ private class JdbcLedgerDao(
                   state.Update.CommandRejected(
                     recordTime = recordTime,
                     completionInfo = state
-                      .CompletionInfo(actAs, applicationId, commandId, None, Some(submissionId)),
+                      .CompletionInfo(actAs, applicationId, commandId, None, submissionId),
                     reasonTemplate = reason.toParticipantStateRejectionReason,
                   )
                 ),

@@ -7,7 +7,7 @@ package com.daml.platform.db.migration.postgres
 
 import java.io.InputStream
 import java.sql.Connection
-import java.util.{Date, UUID}
+import java.util.Date
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -484,14 +484,12 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
           Some(rejectionDescription),
           offset,
         ) =>
-      // We don't have a submission ID, so we need to generate one.
-      val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
       val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
       offset -> LedgerEntry.Rejection(
         recordTime = Timestamp.assertFromInstant(recordedAt.toInstant),
         commandId = commandId,
         applicationId = applicationId,
-        submissionId = submissionId,
+        submissionId = None,
         actAs = List(submitter),
         rejectionReason = rejectionReason,
       )

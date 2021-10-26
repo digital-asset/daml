@@ -4,7 +4,6 @@
 package com.daml.platform.server.api.services.grpc
 
 import com.daml.error.{DamlContextualizedErrorLogger, ContextualizedErrorLogger}
-import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
   CommandSubmissionService => ApiCommandSubmissionService
@@ -32,7 +31,6 @@ class GrpcCommandSubmissionService(
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Option[Duration],
-    submissionIdGenerator: SubmissionIdGenerator,
     metrics: Metrics,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends ApiCommandSubmissionService
@@ -57,7 +55,6 @@ class GrpcCommandSubmissionService(
       telemetryContext.setAttribute(SpanAttribute.Submitter, commands.party)
       telemetryContext.setAttribute(SpanAttribute.WorkflowId, commands.workflowId)
     }
-    val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
     Timed.timedAndTrackedFuture(
       metrics.daml.commands.submissions,
       metrics.daml.commands.submissionsRunning,
@@ -65,14 +62,14 @@ class GrpcCommandSubmissionService(
         .value(
           metrics.daml.commands.validation,
           validator.validate(
-            requestWithSubmissionId,
+            request,
             currentLedgerTime(),
             currentUtcTime(),
             maxDeduplicationTime(),
           ),
         )
         .fold(
-          t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
+          t => Future.failed(ValidationLogger.logFailure(request, t)),
           service.submit(_).map(_ => Empty.defaultInstance),
         ),
     )
@@ -80,14 +77,4 @@ class GrpcCommandSubmissionService(
 
   override def bindService(): ServerServiceDefinition =
     CommandSubmissionServiceGrpc.bindService(this, executionContext)
-
-  private def generateSubmissionIdIfEmpty(request: ApiSubmitRequest): ApiSubmitRequest = {
-    if (request.commands.exists(_.submissionId.isEmpty)) {
-      val commandsWithSubmissionId =
-        request.commands.map(_.copy(submissionId = submissionIdGenerator.generate()))
-      request.copy(commands = commandsWithSubmissionId)
-    } else {
-      request
-    }
-  }
 }

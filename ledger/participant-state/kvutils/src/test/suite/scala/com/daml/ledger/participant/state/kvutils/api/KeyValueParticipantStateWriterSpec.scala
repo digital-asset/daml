@@ -171,7 +171,7 @@ object KeyValueParticipantStateWriterSpec {
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString(commandId),
       deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofDays(1)),
-      submissionId = Ref.LedgerString.assertFromString("submission"),
+      submissionId = None,
       ledgerConfiguration =
         Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(1)),
     )

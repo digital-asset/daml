@@ -278,7 +278,7 @@ object domain {
       workflowId: Option[WorkflowId],
       applicationId: ApplicationId,
       commandId: CommandId,
-      submissionId: SubmissionId,
+      submissionId: Option[SubmissionId],
       actAs: Set[Ref.Party],
       readAs: Set[Ref.Party],
       submittedAt: Timestamp,

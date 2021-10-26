@@ -17,7 +17,7 @@ private[platform] object LedgerEntry {
       recordTime: Timestamp,
       commandId: Ref.CommandId,
       applicationId: Ref.ApplicationId,
-      submissionId: Ref.SubmissionId,
+      submissionId: Option[Ref.SubmissionId],
       actAs: List[Ref.Party],
       rejectionReason: RejectionReason,
   ) extends LedgerEntry

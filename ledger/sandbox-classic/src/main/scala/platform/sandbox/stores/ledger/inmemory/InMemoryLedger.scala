@@ -206,7 +206,7 @@ private[sandbox] final class InMemoryLedger(
                 Some(commandId),
                 transactionId,
                 Some(`appId`),
-                _,
+                submissionId,
                 actAs,
                 _,
                 _,
@@ -222,12 +222,13 @@ private[sandbox] final class InMemoryLedger(
           commandId,
           transactionId,
           appId,
+          submissionId,
         )
 
       case (
             offset,
             InMemoryLedgerEntry(
-              LedgerEntry.Rejection(recordTime, commandId, `appId`, _, actAs, reason)
+              LedgerEntry.Rejection(recordTime, commandId, `appId`, submissionId, actAs, reason)
             ),
           ) if actAs.exists(parties) =>
         val status = reason.toParticipantStateRejectionReason.status
@@ -237,6 +238,7 @@ private[sandbox] final class InMemoryLedger(
           commandId,
           status,
           appId,
+          submissionId,
         )
     }
   }
@@ -423,7 +425,7 @@ private[sandbox] final class InMemoryLedger(
                   Some(submitterInfo.commandId),
                   transactionId,
                   Some(submitterInfo.applicationId),
-                  Some(submitterInfo.submissionId),
+                  submitterInfo.submissionId,
                   submitterInfo.actAs,
                   transactionMeta.workflowId,
                   transactionMeta.ledgerEffectiveTime,
