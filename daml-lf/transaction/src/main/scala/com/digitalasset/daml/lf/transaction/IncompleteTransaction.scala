@@ -6,13 +6,7 @@ package transaction
 
 import com.daml.lf.data.Ref.Location
 
-trait IncompleteTransaction {
-
-  type Nid = NodeId
-  type TX = GenTransaction
-  type ExerciseNode = Node.NodeExercises
-
-  def transaction: TX
-
-  def locationInfo: Map[Nid, Location]
-}
+final case class IncompleteTransaction(
+    transaction: GenTransaction,
+    locationInfo: Map[NodeId, Location],
+)

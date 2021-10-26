@@ -37,13 +37,7 @@ private[lf] object PartialTransaction {
   type Node = Node.GenNode
   type LeafNode = Node.LeafOnlyActionNode
 
-  private type TX = GenTransaction
   private type ExerciseNode = Node.NodeExercises
-
-  private final case class IncompleteTxImpl(
-      val transaction: TX,
-      val locationInfo: Map[NodeId, Location],
-  ) extends transaction.IncompleteTransaction
 
   sealed abstract class ContextInfo {
     val actionChildSeed: Int => crypto.Hash
@@ -395,7 +389,7 @@ private[speedy] case class PartialTransaction(
 
     val ptx = unwind()
 
-    IncompleteTxImpl(
+    transaction.IncompleteTransaction(
       GenTransaction(
         ptx.nodes,
         ptx.context.children.toImmArray.toSeq.sortBy(_.index).toImmArray,

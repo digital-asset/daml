@@ -7,7 +7,13 @@ package engine
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.Node.{GenNode, KeyWithMaintainers}
-import com.daml.lf.transaction.{Node, NodeId, VersionedTransaction}
+import com.daml.lf.transaction.{
+  IncompleteTransaction,
+  GenTransaction,
+  Node,
+  NodeId,
+  VersionedTransaction,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.speedy.SValue
@@ -169,7 +175,7 @@ final class ValueEnricher(
         } yield exe.copy(chosenValue = choiceArg, exerciseResult = result, key = key)
     }
 
-  def enrichTransaction(tx: VersionedTransaction): Result[VersionedTransaction] = {
+  def enrichTransaction(tx: GenTransaction): Result[GenTransaction] =
     for {
       normalizedNodes <-
         tx.nodes.foldLeft[Result[Map[NodeId, GenNode]]](ResultDone(Map.empty)) {
@@ -179,11 +185,21 @@ final class ValueEnricher(
               normalizedNode <- enrichNode(node)
             } yield nodes.updated(nid, normalizedNode)
         }
-    } yield VersionedTransaction(
-      version = tx.version,
+    } yield GenTransaction(
       nodes = normalizedNodes,
       roots = tx.roots,
     )
-  }
 
+  def enrichVersionedTransaction(versionedTx: VersionedTransaction): Result[VersionedTransaction] =
+    enrichTransaction(GenTransaction(versionedTx.nodes, versionedTx.roots)).map {
+      case GenTransaction(nodes, roots) =>
+        VersionedTransaction(versionedTx.version, nodes, roots)
+    }
+
+  def enrichIncompleteTransaction(
+      incompleteTx: IncompleteTransaction
+  ): Result[IncompleteTransaction] =
+    enrichTransaction(incompleteTx.transaction).map(transaction =>
+      incompleteTx.copy(transaction = transaction)
+    )
 }

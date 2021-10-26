@@ -275,7 +275,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
           case ResultDone(x) => x
           case x => fail(s"unexpected Result when enriching value: $x")
         }
-      SubmittedTransaction(consume(enricher.enrichTransaction(tx)))
+      SubmittedTransaction(consume(enricher.enrichVersionedTransaction(tx)))
     }
     engine
       .submit(

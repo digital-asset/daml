@@ -374,6 +374,44 @@ object ScenarioRunner {
       }
   }
 
+  private[this] abstract class Enricher {
+    def enrich(tx: SubmittedTransaction): SubmittedTransaction
+    def enrich(tx: IncompleteTransaction): IncompleteTransaction
+  }
+
+  private[this] object NoEnricher extends Enricher {
+    override def enrich(tx: SubmittedTransaction): SubmittedTransaction = tx
+    override def enrich(tx: IncompleteTransaction): IncompleteTransaction = tx
+  }
+
+  private[this] class EnricherImpl(compiledPackages: CompiledPackages) extends Enricher {
+    val config = Engine.DevEngine().config
+    val valueTranslator =
+      new ValueTranslator(
+        interface = compiledPackages.interface,
+        forbidV0ContractId = config.forbidV0ContractId,
+        requireV1ContractIdSuffix = config.requireSuffixedGlobalContractId,
+      )
+    def translateValue(typ: Ast.Type, value: Value): Result[SValue] =
+      valueTranslator.translateValue(typ, value) match {
+        case Left(err) => ResultError(err)
+        case Right(sv) => ResultDone(sv)
+      }
+    def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] = {
+      crash(LookupError.MissingPackage.pretty(pkgId, context))
+    }
+    val enricher = new ValueEnricher(compiledPackages, translateValue, loadPackage)
+    def consume[V](res: Result[V]): V =
+      res match {
+        case ResultDone(x) => x
+        case x => crash(s"unexpected Result when enriching value: $x")
+      }
+    override def enrich(tx: SubmittedTransaction): SubmittedTransaction =
+      SubmittedTransaction(consume(enricher.enrichVersionedTransaction(tx)))
+    override def enrich(tx: IncompleteTransaction): IncompleteTransaction =
+      consume(enricher.enrichIncompleteTransaction(tx))
+  }
+
   def submit[R](
       compiledPackages: CompiledPackages,
       ledger: LedgerApi[R],
@@ -398,53 +436,29 @@ object ScenarioRunner {
       commitLocation = location,
     )
     val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
-
-    def enrich(tx: SubmittedTransaction): SubmittedTransaction = {
-      val config = Engine.DevEngine().config
-      val valueTranslator =
-        new ValueTranslator(
-          interface = compiledPackages.interface,
-          forbidV0ContractId = config.forbidV0ContractId,
-          requireV1ContractIdSuffix = config.requireSuffixedGlobalContractId,
-        )
-      def translateValue(typ: Ast.Type, value: Value): Result[SValue] =
-        valueTranslator.translateValue(typ, value) match {
-          case Left(err) => ResultError(err)
-          case Right(sv) => ResultDone(sv)
-        }
-      def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] = {
-        crash(LookupError.MissingPackage.pretty(pkgId, context))
-      }
-      val enricher = new ValueEnricher(compiledPackages, translateValue, loadPackage)
-      def consume[V](res: Result[V]): V =
-        res match {
-          case ResultDone(x) => x
-          case x => crash(s"unexpected Result when enriching value: $x")
-        }
-      SubmittedTransaction(consume(enricher.enrichTransaction(tx)))
-    }
+    val enricher = if (doEnrichment) new EnricherImpl(compiledPackages) else NoEnricher
+    import enricher._
 
     @tailrec
     def go(): SubmissionResult[R] = {
       ledgerMachine.run() match {
         case SResult.SResultFinalValue(resultValue) =>
           onLedger.ptxInternal.finish match {
-            case PartialTransaction.CompleteTransaction(tx0, locationInfo, _) =>
-              val tx = if (doEnrichment) enrich(tx0) else tx0
-              ledger.commit(committers, readAs, location, tx, locationInfo) match {
+            case PartialTransaction.CompleteTransaction(tx, locationInfo, _) =>
+              ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
                 case Left(err) =>
-                  SubmissionError(err, onLedger.incompleteTransaction)
+                  SubmissionError(err, enrich(onLedger.incompleteTransaction))
                 case Right(r) =>
-                  Commit(r, resultValue, onLedger.incompleteTransaction)
+                  Commit(r, resultValue, enrich(onLedger.incompleteTransaction))
               }
             case PartialTransaction.IncompleteTransaction(ptx) =>
               throw new RuntimeException(s"Unexpected abort: $ptx")
           }
         case SResultError(err) =>
-          SubmissionError(Error.RunnerException(err), onLedger.incompleteTransaction)
+          SubmissionError(Error.RunnerException(err), enrich(onLedger.incompleteTransaction))
         case SResultNeedContract(coid, tid @ _, committers, callback) =>
           ledger.lookupContract(coid, committers, readAs, callback) match {
-            case Left(err) => SubmissionError(err, onLedger.incompleteTransaction)
+            case Left(err) => SubmissionError(err, enrich(onLedger.incompleteTransaction))
             case Right(_) => go()
           }
         case SResultNeedKey(keyWithMaintainers, committers, callback) =>
@@ -455,7 +469,7 @@ object ScenarioRunner {
             readAs,
             callback,
           ) match {
-            case Left(err) => SubmissionError(err, onLedger.incompleteTransaction)
+            case Left(err) => SubmissionError(err, enrich(onLedger.incompleteTransaction))
             case Right(_) => go()
           }
         case SResultNeedTime(callback) =>
