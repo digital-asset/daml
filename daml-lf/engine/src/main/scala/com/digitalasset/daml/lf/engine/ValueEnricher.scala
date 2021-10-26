@@ -43,8 +43,8 @@ final class ValueEnricher(
     } yield versionedValue.copy(value = value)
 
   def enrichContract(
-      contract: Value.ContractInst[Value]
-  ): Result[Value.ContractInst[Value]] =
+      contract: Value.ContractInstance
+  ): Result[Value.ContractInstance] =
     for {
       arg <- enrichContract(contract.template, contract.arg)
     } yield contract.copy(arg = arg)

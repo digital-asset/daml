@@ -54,7 +54,7 @@ class ReinterpretTest
     Map(
       toContractId("ReinterpretTests:MySimple:1") ->
         assertAsVersionedContract(
-          ContractInst(
+          ContractInstance(
             TypeConName(miniTestsPkgId, "ReinterpretTests:MySimple"),
             ValueRecord(
               Some(Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")),
