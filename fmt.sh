@@ -18,6 +18,7 @@ javafmt_args=(--set-exit-if-changed --replace)
 diff_mode=false
 dade_copyright_arg=update
 buildifier_target=//:buildifier-fix
+security_update_args=()
 
 ## Functions ##
 
@@ -72,6 +73,7 @@ USAGE
       javafmt_args=(--set-exit-if-changed --dry-run)
       dade_copyright_arg=check
       buildifier_target=//:buildifier
+      security_update_args+=(--test)
       ;;
     --diff)
       shift
@@ -119,6 +121,9 @@ echo "\
 ──██─────▐█▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█▌
 ──██────▐█▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█▌
 "
+
+# update security evidence
+run security/update.sh ${security_update_args[@]:-}
 
 # Check for correct copyrights
 run dade-copyright-headers "$dade_copyright_arg" .
