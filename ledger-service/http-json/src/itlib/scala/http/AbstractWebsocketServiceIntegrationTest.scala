@@ -292,9 +292,8 @@ abstract class AbstractWebsocketServiceIntegrationTest
           .interpret(
             for {
               evtsWrapper @ ContractDelta(Vector((ctid, _)), Vector(), None) <- readOne
-              _ = (ctid: String) shouldBe (iouCid.unwrap: String)
-
               _ = {
+                (ctid: String) shouldBe (iouCid.unwrap: String)
                 inside(evtsWrapper) { case JsObject(obj) =>
                   inside(obj get "events") {
                     case Some(
