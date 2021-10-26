@@ -420,13 +420,12 @@ object KeyValueConsumption {
   private def contextualizedErrorLogger(
       loggingContext: LoggingContext,
       rejectionEntry: DamlTransactionRejectionEntry,
-  ): DamlContextualizedErrorLogger = {
+  ): DamlContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(
       logger,
       loggingContext,
       Some(correlationId(rejectionEntry.getSubmitterInfo)),
     )
-  }
 
   private def parseTimeBounds(outOfTimeBoundsEntry: DamlOutOfTimeBoundsEntry): TimeBounds = {
     val duplicateUntilMaybe = parseOptionalTimestamp(
