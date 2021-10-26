@@ -86,6 +86,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
   final class Pouring[A](hd: A, tl: A*) {
     import NonEmpty.{unsafeNarrow => un}
     // XXX SC this can be done more efficiently by not supporting 2.12
+    @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
     def into[C <: imm.Iterable[A]](into: Factory[A, C]): NonEmpty[C] = un {
       val bb = into.newBuilder
       bb += hd

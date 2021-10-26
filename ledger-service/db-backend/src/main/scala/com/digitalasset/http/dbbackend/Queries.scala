@@ -209,7 +209,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     import Queries.CompatImplicits.catsReducibleFromFoldable1
     val q = sql"""
       SELECT party, last_offset FROM $ledgerOffsetTableName WHERE tpid = $tpid AND
-    """ ++ Fragments.in(fr"party", parties)
+    """ ++ Fragments.in(fr"party", parties.toF)
     q.query[(String, String)]
       .to[Vector]
       .map(_.toMap)
@@ -434,7 +434,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
 }
 
 object Queries {
-  type PartySet = OneAnd[Set, String]
+  type PartySet = NonEmpty[Set[String]]
 
   sealed trait SurrogateTpIdTag
   val SurrogateTpId = Tag.of[SurrogateTpIdTag]
@@ -737,7 +737,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
   )(implicit
       log: LogHandler
   ): Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]] = {
-    val partyVector = parties.toVector
+    val partyVector: Vector[String] = parties.toVector
     import ipol.{gas, pas}
     queryByCondition(
       queries,
@@ -922,7 +922,7 @@ private final class OracleQueries(
                        signatories, observers, agreement_text ${rownum getOrElse fr""}
                 FROM $contractTableName c
                      JOIN $contractStakeholdersViewName cst ON (c.contract_id = cst.contract_id)
-                WHERE (${Fragments.in(fr"cst.stakeholder", parties)})
+                WHERE (${Fragments.in(fr"cst.stakeholder", parties.toF)})
                       AND ($queriesCondition)"""
         rownum.fold(dupQ)(_ => sql"SELECT $outerSelectList FROM ($dupQ) WHERE rownumber = 1")
       },
