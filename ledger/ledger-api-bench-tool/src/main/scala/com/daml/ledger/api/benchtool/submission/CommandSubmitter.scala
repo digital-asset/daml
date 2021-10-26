@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import java.io.File
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
@@ -107,11 +106,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
       .use { implicit materializer =>
         Source
           .fromIterator(() => (1 to descriptor.numberOfInstances).iterator)
-          .throttle(
-            elements = 100,
-            per = 1.second,
-          )
-          .mapAsync(8) { index =>
+          .mapAsync(100) { index =>
             generator.next() match {
               case Right(command) =>
                 createContract(
