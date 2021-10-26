@@ -100,11 +100,12 @@ private[sandbox] final class InMemoryLedger(
     )
   }
 
-  private def enrichTX(tx: LedgerEntry.Transaction): LedgerEntry.Transaction = {
+  private def enrichTX(tx: LedgerEntry.Transaction): LedgerEntry.Transaction =
     tx.copy(transaction =
-      CommittedTransaction(consumeEnricherResult(enricher.enrichTransaction(tx.transaction)))
+      CommittedTransaction(
+        consumeEnricherResult(enricher.enrichVersionedTransaction(tx.transaction))
+      )
     )
-  }
 
   private val logger = ContextualizedLogger.get(this.getClass)
 

@@ -190,13 +190,15 @@ final class ValueEnricher(
       roots = tx.roots,
     )
 
-  def enrichTransaction(versionedTx: VersionedTransaction): Result[VersionedTransaction] =
+  def enrichVersionedTransaction(versionedTx: VersionedTransaction): Result[VersionedTransaction] =
     enrichTransaction(GenTransaction(versionedTx.nodes, versionedTx.roots)).map {
       case GenTransaction(nodes, roots) =>
         VersionedTransaction(versionedTx.version, nodes, roots)
     }
 
-  def enrichTransaction(incompleteTx: IncompleteTransaction): Result[IncompleteTransaction] =
+  def enrichIncompleteTransaction(
+      incompleteTx: IncompleteTransaction
+  ): Result[IncompleteTransaction] =
     enrichTransaction(incompleteTx.transaction).map(transaction =>
       incompleteTx.copy(transaction = transaction)
     )

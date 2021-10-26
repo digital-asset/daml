@@ -215,8 +215,9 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
         outputRecord,
       )
 
-      enricher.enrichTransaction(inputTransaction) shouldNot be(ResultDone(inputTransaction))
-      enricher.enrichTransaction(inputTransaction) shouldBe ResultDone(outputTransaction)
+      enricher.enrichVersionedTransaction(inputTransaction) shouldNot
+        be(ResultDone(inputTransaction))
+      enricher.enrichVersionedTransaction(inputTransaction) shouldBe ResultDone(outputTransaction)
 
     }
   }
