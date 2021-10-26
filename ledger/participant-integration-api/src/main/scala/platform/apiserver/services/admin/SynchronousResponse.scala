@@ -11,6 +11,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.services.admin.SynchronousResponse.{Accepted, Rejected}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.TelemetryContext
@@ -27,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 class SynchronousResponse[Input, Entry, AcceptedEntry](
     strategy: SynchronousResponse.Strategy[Input, Entry, AcceptedEntry],
     timeToLive: Duration,
-) {
+)(implicit loggingContext: LoggingContext, logger: ContextualizedLogger) {
 
   def submitAndWait(submissionId: Ref.SubmissionId, input: Input)(implicit
       telemetryContext: TelemetryContext,
@@ -36,17 +37,28 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
   ): Future[AcceptedEntry] = {
     import state.SubmissionResult
     for {
+      _ <- Future {
+        logger.info("Querying for ledger end")
+      }
       ledgerEndBeforeRequest <- strategy.currentLedgerEnd()
+      _ = logger.info("Submitting via strategy")
       submissionResult <- strategy.submit(submissionId, input)
+      _ = logger.info(s"submission finished $submissionResult")
       entry <- submissionResult match {
         case SubmissionResult.Acknowledged =>
+          logger.info(s"submission acknowledged")
           val isAccepted = new Accepted(strategy.accept(submissionId))
           val isRejected = new Rejected(strategy.reject(submissionId))
+          logger.info(s"isAccepted $isAccepted, isRejected $isRejected")
           strategy
             .entries(ledgerEndBeforeRequest)
             .collect {
-              case isAccepted(entry) => Future.successful(entry)
-              case isRejected(exception) => Future.failed(exception)
+              case isAccepted(entry) =>
+                logger.info(s"isAccepted entry $entry")
+                Future.successful(entry)
+              case isRejected(exception) =>
+                logger.info(s"isRejected entry $exception")
+                Future.failed(exception)
             }
             .completionTimeout(FiniteDuration(timeToLive.toMillis, TimeUnit.MILLISECONDS))
             .runWith(Sink.head)
@@ -56,7 +68,11 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
               )
             }
             .flatten
+            .andThen { case r =>
+              logger.info(s"Allocation completed $r")
+            }
         case r: SubmissionResult.SynchronousError =>
+          logger.info(s"submission error $r")
           Future.failed(r.exception)
       }
     } yield entry

@@ -9,7 +9,7 @@
     <logger name="io.grpc.netty" level="WARN" />
     <logger name="metrics" level="INFO" />
 
-    <root level="DEBUG">
+    <root level="TRACE">
         <appender-ref ref="STDOUT"/>
     </root>
 </configuration>

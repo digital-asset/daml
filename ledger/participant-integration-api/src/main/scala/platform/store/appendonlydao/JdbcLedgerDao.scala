@@ -256,6 +256,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PartyLedgerEntry), NotUsed] = {
     PaginatingAsyncStream(PageSize) { queryOffset =>
+      logger.info(s"getPartyEntries $startExclusive $endInclusive")
       withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPartyEntries)(
           storageBackend.partyEntries(
