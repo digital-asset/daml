@@ -294,9 +294,7 @@ daml_sdk_head(
     if ver != "0.0.0"
 ]
 
-load("@daml//bazel_tools:java.bzl", "dadew_java_configure", "java_home_runtime", "nixpkgs_java_configure")
-
-java_home_runtime(name = "java_home")
+load("@daml//bazel_tools:java.bzl", "dadew_java_configure", "nixpkgs_java_configure")
 
 dadew_java_configure(
     name = "dadew_java_runtime",
