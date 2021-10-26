@@ -69,7 +69,7 @@ class ContractsService(
 
   def resolveContractReference(
       jwt: Jwt,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       contractLocator: domain.ContractLocator[LfValue],
       ledgerId: LedgerApiDomain.LedgerId,
   )(implicit
@@ -239,7 +239,7 @@ class ContractsService(
   def retrieveAll(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
   ): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
@@ -270,7 +270,7 @@ class ContractsService(
   def search(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateIds: OneAnd[Set, domain.TemplateId.OptionalPkg],
       queryParams: Map[String, JsValue],
   )(implicit
@@ -384,7 +384,7 @@ class ContractsService(
         }
 
         private[this] def searchDbOneTpId_(
-            parties: OneAnd[Set, domain.Party],
+            parties: domain.PartySet,
             templateId: domain.TemplateId.RequiredPkg,
             queryParams: Map[String, JsValue],
         )(implicit
@@ -399,7 +399,7 @@ class ContractsService(
   private[this] def searchInMemory(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateIds: Set[domain.TemplateId.RequiredPkg],
       queryParams: InMemoryQuery,
   )(implicit
@@ -441,7 +441,7 @@ class ContractsService(
   private[this] def searchInMemoryOneTpId(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateId: domain.TemplateId.RequiredPkg,
       queryParams: InMemoryQuery.P,
   )(implicit

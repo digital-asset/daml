@@ -52,7 +52,7 @@ class PartiesService(
 
   def parties(
       jwt: Jwt,
-      identifiers: OneAnd[Set, domain.Party],
+      identifiers: domain.PartySet,
   ): Future[Error \/ (Set[domain.PartyDetails], Set[domain.Party])] = {
     val et: ET[(Set[domain.PartyDetails], Set[domain.Party])] = for {
       apiPartyIds <- either(toLedgerApiPartySet(identifiers)): ET[OneAnd[Set, Ref.Party]]
@@ -68,7 +68,7 @@ class PartiesService(
 
   private def findUnknownParties(
       found: Set[domain.PartyDetails],
-      requested: OneAnd[Set, domain.Party],
+      requested: domain.PartySet,
   ): Set[domain.Party] = {
     import scalaz.std.iterable._
     import scalaz.syntax.foldable._
@@ -89,7 +89,7 @@ object PartiesService {
     Unauthorized(e.message)
 
   def toLedgerApiPartySet(
-      ps: OneAnd[Set, domain.Party]
+      ps: domain.PartySet
   ): InvalidUserInput \/ OneAnd[Set, Ref.Party] = {
     import scalaz.std.list._
     val nel: OneAnd[List, domain.Party] = OneAnd(ps.head, ps.tail.toList)

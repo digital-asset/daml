@@ -39,7 +39,7 @@ import scalaz.syntax.functor._
 import scalaz.syntax.foldable._
 import scalaz.syntax.order._
 import scalaz.syntax.std.option._
-import scalaz.{OneAnd, \/}
+import scalaz.\/
 import spray.json.{JsNull, JsValue}
 
 import scala.concurrent.ExecutionContext
@@ -64,7 +64,7 @@ private class ContractsFetch(
   def fetchAndPersistBracket[A](
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateIds: List[domain.TemplateId.RequiredPkg],
   )(within: BeginBookmark[Terminates.AtAbsolute] => ConnectionIO[A])(implicit
       ec: ExecutionContext,
@@ -119,7 +119,7 @@ private class ContractsFetch(
   def fetchAndPersist(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateIds: List[domain.TemplateId.RequiredPkg],
   )(implicit
       ec: ExecutionContext,
@@ -411,6 +411,6 @@ private[http] object ContractsFetch {
   private final case class FetchContext(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
   )
 }

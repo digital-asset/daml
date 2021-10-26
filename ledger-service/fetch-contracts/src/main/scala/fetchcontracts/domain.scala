@@ -163,6 +163,7 @@ package domain {
     final val ContractId = here.ContractId
     type Party = here.Party
     final val Party = here.Party
+    type PartySet = here.PartySet
     type Offset = here.Offset
     final val Offset = here.Offset
     type ActiveContract[+LfV] = here.ActiveContract[LfV]

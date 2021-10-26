@@ -32,7 +32,7 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
     val applicationId: ApplicationId
     val readAs: List[Party]
     val actAs: List[Party]
-    val parties: OneAnd[Set, Party]
+    val parties: PartySet
   }
 
   // Until we get multi-party submissions, write endpoints require a single party in actAs but we
@@ -44,7 +44,7 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
       readAs: List[Party],
   ) extends JwtPayloadG {
     override val actAs: List[Party] = submitter.toList
-    override val parties: OneAnd[Set, Party] =
+    override val parties: PartySet =
       oneAndSet(actAs.head, actAs.tail.toSet union readAs.toSet)
   }
 
@@ -57,7 +57,7 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
       applicationId: ApplicationId,
       readAs: List[Party],
       actAs: List[Party],
-      parties: OneAnd[Set, Party],
+      parties: PartySet,
   ) extends JwtPayloadG {}
 
   object JwtPayload {

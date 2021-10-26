@@ -22,7 +22,7 @@ import doobie.free.{connection => fconn}
 import doobie.implicits._
 import doobie.util.log
 import org.slf4j.LoggerFactory
-import scalaz.{Equal, NonEmptyList, OneAnd, Order, Semigroup}
+import scalaz.{Equal, NonEmptyList, Order, Semigroup}
 import scalaz.std.set._
 import scalaz.std.vector._
 import scalaz.syntax.tag._
@@ -131,8 +131,7 @@ object ContractDao {
   def initialize(implicit log: LogHandler, sjd: SupportedJdbcDriver.TC): ConnectionIO[Unit] =
     sjd.q.queries.dropAllTablesIfExist *> sjd.q.queries.initDatabase
 
-  def lastOffset(parties: OneAnd[Set, domain.Party], templateId: domain.TemplateId.RequiredPkg)(
-      implicit
+  def lastOffset(parties: domain.PartySet, templateId: domain.TemplateId.RequiredPkg)(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
@@ -269,7 +268,7 @@ object ContractDao {
   }
 
   def updateOffset(
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateId: domain.TemplateId.RequiredPkg,
       newOffset: domain.Offset,
       lastOffsets: Map[domain.Party, domain.Offset],
@@ -303,7 +302,7 @@ object ContractDao {
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def selectContracts(
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateId: domain.TemplateId.RequiredPkg,
       predicate: doobie.Fragment,
   )(implicit
@@ -323,7 +322,7 @@ object ContractDao {
   }
 
   private[http] def selectContractsMultiTemplate[Pos](
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       predicates: Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)],
       trackMatchIndices: MatchedQueryMarker[Pos],
   )(implicit
@@ -377,7 +376,7 @@ object ContractDao {
   }
 
   private[http] def fetchById(
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateId: domain.TemplateId.RequiredPkg,
       contractId: domain.ContractId,
   )(implicit
@@ -397,7 +396,7 @@ object ContractDao {
   }
 
   private[http] def fetchByKey(
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateId: domain.TemplateId.RequiredPkg,
       key: Hash,
   )(implicit
@@ -442,7 +441,7 @@ object ContractDao {
   }
 
   final case class StaleOffsetException(
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateId: domain.TemplateId.RequiredPkg,
       newOffset: domain.Offset,
       lastOffset: Map[domain.Party, domain.Offset],
