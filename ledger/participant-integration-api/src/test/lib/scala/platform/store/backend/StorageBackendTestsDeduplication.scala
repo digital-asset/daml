@@ -3,11 +3,11 @@
 
 package com.daml.platform.store.backend
 
+import com.daml.lf.data.Time.Timestamp
 import org.scalatest.Inside
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.time.Instant
 import scala.concurrent.Future
 
 private[backend] trait StorageBackendTestsDeduplication
@@ -22,8 +22,8 @@ private[backend] trait StorageBackendTestsDeduplication
 
   it should "only allow one upsertDeduplicationEntry to insert a new entry" in {
     val key = "deduplication key"
-    val submittedAt = Instant.EPOCH
-    val deduplicateUntil = submittedAt.plusSeconds(1)
+    val submittedAt = Timestamp.assertFromLong(0L)
+    val deduplicateUntil = submittedAt.addMicros(1000L)
     val n = 8
 
     for {
@@ -44,10 +44,11 @@ private[backend] trait StorageBackendTestsDeduplication
 
   it should "only allow one upsertDeduplicationEntry to update an existing expired entry" in {
     val key = "deduplication key"
-    val submittedAt = Instant.EPOCH
-    val deduplicateUntil = submittedAt.plusSeconds(1)
-    val submittedAt2 = deduplicateUntil.plusSeconds(1)
-    val deduplicateUntil2 = submittedAt2.plusSeconds(1)
+    val submittedAt = Timestamp.assertFromLong(0L)
+    val deduplicateUntil = submittedAt.addMicros(1000L)
+    // Second submission is after the deduplication window of the first one
+    val submittedAt2 = Timestamp.assertFromLong(2000L)
+    val deduplicateUntil2 = submittedAt2.addMicros(1000L)
     val n = 8
 
     for {
@@ -76,10 +77,11 @@ private[backend] trait StorageBackendTestsDeduplication
 
   it should "not update or insert anything if there is an existing active entry" in {
     val key = "deduplication key"
-    val submittedAt = Instant.EPOCH
-    val deduplicateUntil = submittedAt.plusSeconds(10)
-    val submittedAt2 = submittedAt.plusSeconds(1)
-    val deduplicateUntil2 = submittedAt2.plusSeconds(10)
+    val submittedAt = Timestamp.assertFromLong(0L)
+    val deduplicateUntil = submittedAt.addMicros(5000L)
+    // Second submission is within the deduplication window of the first one
+    val submittedAt2 = Timestamp.assertFromLong(1000L)
+    val deduplicateUntil2 = submittedAt2.addMicros(5000L)
 
     for {
       _ <- executeSql(backend.initializeParameters(someIdentityParams))

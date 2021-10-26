@@ -92,6 +92,7 @@ da_scala_binary(
     main_class = "com.daml.ledger.participant.state.kvutils.tools.integritycheck.Main",
     resources = glob(["integrity-check/src/main/resources/*"]),
     scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
     ],

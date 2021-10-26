@@ -3,8 +3,6 @@
 
 package com.daml.platform.index
 
-import java.time.Instant
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
@@ -22,6 +20,7 @@ import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
@@ -108,7 +107,7 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
 
   override def lookupMaximumLedgerTime(
       contractIds: Set[ContractId]
-  )(implicit loggingContext: LoggingContext): Future[Option[Instant]] =
+  )(implicit loggingContext: LoggingContext): Future[Option[Timestamp]] =
     Timed.future(
       metrics.daml.index.lookupMaximumLedgerTime,
       ledger.lookupMaximumLedgerTime(contractIds),
@@ -166,15 +165,15 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
   override def deduplicateCommand(
       commandId: CommandId,
       submitters: List[Ref.Party],
-      submittedAt: Instant,
-      deduplicateUntil: Instant,
+      submittedAt: Timestamp,
+      deduplicateUntil: Timestamp,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
     Timed.future(
       metrics.daml.index.deduplicateCommand,
       ledger.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil),
     )
 
-  override def removeExpiredDeduplicationData(currentTime: Instant)(implicit
+  override def removeExpiredDeduplicationData(currentTime: Timestamp)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
     Timed.future(

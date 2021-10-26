@@ -3,8 +3,6 @@
 
 package com.daml.ledger.validator.batch
 
-import java.time.Instant
-
 import akka.stream.Materializer
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.Raw
@@ -14,6 +12,7 @@ import com.daml.ledger.validator.TestHelper.aParticipantId
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
 import com.daml.ledger.validator.{CommitStrategy, LedgerStateOperations}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.google.rpc.code.Code
 import org.mockito.ArgumentMatchers.{any, anyString}
 import org.mockito.MockitoSugar
@@ -35,7 +34,7 @@ class BatchedValidatingCommitterSpec
       whenValidateAndCommit(mockValidator)
         .thenReturn(Future.unit)
       val instance =
-        BatchedValidatingCommitter[Unit](() => Instant.now(), mockValidator)
+        BatchedValidatingCommitter[Unit](() => Timestamp.now(), mockValidator)
 
       instance
         .commit(
@@ -53,7 +52,7 @@ class BatchedValidatingCommitterSpec
       val mockValidator = mock[BatchedSubmissionValidator[Unit]]
       whenValidateAndCommit(mockValidator)
         .thenReturn(Future.failed(new IllegalArgumentException("Validation failure")))
-      val instance = BatchedValidatingCommitter[Unit](() => Instant.now(), mockValidator)
+      val instance = BatchedValidatingCommitter[Unit](() => Timestamp.now(), mockValidator)
 
       instance
         .commit(
@@ -78,7 +77,7 @@ class BatchedValidatingCommitterSpec
       mockValidator.validateAndCommit(
         any[Raw.Envelope](),
         anyString(),
-        any[Instant](),
+        any[Timestamp](),
         any[Ref.ParticipantId](),
         any[DamlLedgerStateReader](),
         any[CommitStrategy[Unit]](),

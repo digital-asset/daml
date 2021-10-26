@@ -3,7 +3,6 @@
 
 package com.daml.platform.index
 
-import java.time.Instant
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import akka.NotUsed
 import akka.actor.ActorSystem
@@ -12,6 +11,7 @@ import akka.stream.{Materializer, QueueOfferResult}
 import ch.qos.logback.classic.Level
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueText, VersionedValue}
 import com.daml.logging.LoggingContext
@@ -200,7 +200,7 @@ final class BuffersUpdaterSpec
       val createdCid = ContractId.assertFromString("#createdCid")
       val createdOffset = Offset.fromByteArray(BigInt(1337L).toByteArray)
       val createdEventSeqId = 9876L
-      val createdLedgerEffectiveTime = Instant.ofEpochMilli(987654321L)
+      val createdLedgerEffectiveTime = Timestamp.assertFromLong(987654321L)
       val createdTemplateId = Ref.Identifier.assertFromString("create:template:id")
       val createdContractKey =
         VersionedValue(TransactionVersion.VDev, ValueInt64(1337L))
@@ -260,7 +260,7 @@ final class BuffersUpdaterSpec
       val transaction = TransactionLogUpdate.Transaction(
         transactionId = "some-tx-id",
         workflowId = "some-workflow-id",
-        effectiveAt = Instant.EPOCH,
+        effectiveAt = Timestamp.Epoch,
         offset = Offset.beforeBegin,
         events = Vector(
           createdEvent,

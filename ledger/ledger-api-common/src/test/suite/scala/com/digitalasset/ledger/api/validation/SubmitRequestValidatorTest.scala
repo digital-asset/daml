@@ -87,10 +87,10 @@ class SubmitRequestValidatorTest
       workflowId = Some(workflowId),
       applicationId = applicationId,
       commandId = commandId,
-      submissionId = submissionId,
+      submissionId = Some(submissionId),
       actAs = Set(DomainMocks.party),
       readAs = Set.empty,
-      submittedAt = submittedAt,
+      submittedAt = Time.Timestamp.assertFromInstant(submittedAt),
       deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(deduplicationDuration),
       commands = LfCommands(
         ImmArray(
@@ -157,25 +157,17 @@ class SubmitRequestValidatorTest
 
   "CommandSubmissionRequestValidator" when {
     "validating command submission requests" should {
-      "reject requests with empty submissionId" in {
-
-        commandValidatorFixture.testRequestFailure(
-          _.validateCommands(
-            api.commands.withSubmissionId(""),
-            internal.ledgerTime,
-            internal.submittedAt,
-            Some(internal.maxDeduplicationDuration),
-          ),
-          expectedCodeV1 = INVALID_ARGUMENT,
-          expectedDescriptionV1 = "Missing field: submission_id",
-          expectedCodeV2 = INVALID_ARGUMENT,
-          expectedDescriptionV2 =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: submission_id",
-        )
+      "tolerate a missing submissionId" in {
+        val commandsValidator = new CommandsValidator(ledgerId)
+        commandsValidator.validateCommands(
+          api.commands.withSubmissionId(""),
+          internal.ledgerTime,
+          internal.submittedAt,
+          Some(internal.maxDeduplicationDuration),
+        ) shouldEqual Right(internal.emptyCommands.copy(submissionId = None))
       }
 
       "reject requests with empty commands" in {
-
         commandValidatorFixture.testRequestFailure(
           _.validateCommands(
             api.commands.withCommands(Seq.empty),

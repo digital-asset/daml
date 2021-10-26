@@ -237,13 +237,6 @@ class CommonCliBase(name: LedgerName) {
 
       com.daml.cliopts.Logging.logLevelParse(this)((f, c) => c.copy(logLevel = f(c.logLevel)))
 
-      opt[Unit]("eager-package-loading")
-        .optional()
-        .text(
-          "Whether to load all the packages in the .dar files provided eagerly, rather than when needed as the commands come."
-        )
-        .action((_, config) => config.copy(eagerPackageLoading = true))
-
       JwtVerifierConfigurationCli.parse(this)((v, c) =>
         c.copy(authService = Some(AuthServiceJWT(v)))
       )

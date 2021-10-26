@@ -37,7 +37,7 @@ The ``daml deploy`` command will
 
 #. allocate the parties specified in the project's ``daml.yaml`` on the ledger if they are missing.
 
-For more further interactions with the ledger, use the ``daml ledger`` command. Try running ``daml
+For additional interactions with the ledger, use the ``daml ledger`` command. Try running ``daml
 ledger --help`` to get a list of available ledger commands:
 
 .. code-block:: none
@@ -62,7 +62,7 @@ ledger --help`` to get a list of available ledger commands:
 Connecting via TLS
 ------------------
 
-To connect to the ledger via TLS, you can pass ``--tls`` to the
+To connect to the ledger via TLS, pass ``--tls`` to the
 various commands. If your ledger supports or requires mutual
 authentication you can pass your client key and certificate chain
 files via ``--pem client_key.pem --crt client.crt``. Finally, you can

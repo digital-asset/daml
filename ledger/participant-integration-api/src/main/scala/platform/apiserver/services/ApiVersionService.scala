@@ -8,8 +8,13 @@ import com.daml.error.{
   DamlContextualizedErrorLogger,
   ErrorCodesVersionSwitcher,
 }
+import com.daml.ledger.api.v1.experimental_features.{
+  ExperimentalFeatures,
+  ExperimentalSelfServiceErrorCodes,
+}
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
 import com.daml.ledger.api.v1.version_service.{
+  FeaturesDescriptor,
   GetLedgerApiVersionRequest,
   GetLedgerApiVersionResponse,
   VersionServiceGrpc,
@@ -24,16 +29,15 @@ import scala.io.Source
 import scala.util.Try
 import scala.util.control.NonFatal
 
-private[apiserver] final class ApiVersionService private (
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher
-)(implicit
+private[apiserver] final class ApiVersionService private (enableSelfServiceErrorCodes: Boolean)(
+    implicit
     loggingContext: LoggingContext,
     ec: ExecutionContext,
 ) extends VersionService
     with GrpcApiService {
 
+  private val errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes)
   private val logger = ContextualizedLogger.get(this.getClass)
-
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
@@ -46,11 +50,20 @@ private[apiserver] final class ApiVersionService private (
   ): Future[GetLedgerApiVersionResponse] =
     Future
       .fromTry(apiVersion)
-      .map(GetLedgerApiVersionResponse(_))
+      .map(apiVersionResponse)
       .andThen(logger.logErrorsOnCall[GetLedgerApiVersionResponse])
       .recoverWith { case NonFatal(_) =>
         internalError
       }
+
+  private def apiVersionResponse(version: String) =
+    if (enableSelfServiceErrorCodes)
+      GetLedgerApiVersionResponse(version).withFeatures(
+        FeaturesDescriptor().withExperimental(
+          ExperimentalFeatures().withSelfServiceErrorCodes(ExperimentalSelfServiceErrorCodes())
+        )
+      )
+    else GetLedgerApiVersionResponse(version)
 
   private lazy val internalError: Future[Nothing] =
     Future.failed(
@@ -75,7 +88,7 @@ private[apiserver] final class ApiVersionService private (
 
 private[apiserver] object ApiVersionService {
   def create(
-      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher
+      enableSelfServiceErrorCodes: Boolean
   )(implicit loggingContext: LoggingContext, ec: ExecutionContext): ApiVersionService =
-    new ApiVersionService(errorCodesVersionSwitcher)
+    new ApiVersionService(enableSelfServiceErrorCodes)
 }

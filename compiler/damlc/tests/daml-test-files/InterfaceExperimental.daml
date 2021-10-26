@@ -8,6 +8,7 @@
 module InterfaceExperimental where
 
 import DA.Assert ((===))
+import DA.Action (unless)
 import DA.Experimental.Interface
 import GHC.Types (primitive)
 
@@ -62,13 +63,22 @@ template Asset
         do
           pure ()
 
+template NotAsset
+  with
+    p : Party
+  where
+    signatory p
+
 main = scenario do
     alice <- getParty "Alice"
     bob <- getParty "Bob"
     let asset = Asset alice bob 15
+    let notAsset = NotAsset alice
     let token = toToken asset
     submit alice do
       interfaceCreate token
       interfaceSignatory token === [alice]
       interfaceObserver token === [bob, alice]
+      unless (toTypeRep token == toTypeRep asset) $ abort "TypeReps are not equal"
+      unless (toTypeRep token /= toTypeRep notAsset) $ abort "TypeReps are equal"
       pure ()

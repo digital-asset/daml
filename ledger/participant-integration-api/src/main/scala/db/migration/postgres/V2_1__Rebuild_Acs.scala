@@ -7,7 +7,7 @@ package com.daml.platform.db.migration.postgres
 
 import java.io.InputStream
 import java.sql.Connection
-import java.util.{Date, UUID}
+import java.util.Date
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -17,6 +17,7 @@ import com.daml.ledger.api.domain.RejectionReason
 import com.daml.ledger.api.domain.RejectionReason._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Relation.Relation
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
@@ -358,7 +359,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
         // Note: ACS is typed as Unit here, as the ACS is given implicitly by the current database state
         // within the current SQL transaction. All of the given functions perform side effects to update the database.
         val atr = acsManager.addTransaction(
-          ledgerEffectiveTime,
+          ledgerEffectiveTime.toInstant,
           transactionId,
           workflowId,
           tx.actAs,
@@ -462,8 +463,8 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
         submissionId = None,
         actAs = List(submitter),
         workflowId = workflowId,
-        ledgerEffectiveTime = effectiveAt.toInstant,
-        recordedAt = recordedAt.toInstant,
+        ledgerEffectiveTime = Timestamp.assertFromInstant(effectiveAt.toInstant),
+        recordedAt = Timestamp.assertFromInstant(recordedAt.toInstant),
         transaction = transactionSerializer
           .deserializeTransaction(transactionId, transactionStream)
           .getOrElse(sys.error(s"failed to deserialize transaction! trId: $transactionId")),
@@ -483,14 +484,12 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
           Some(rejectionDescription),
           offset,
         ) =>
-      // We don't have a submission ID, so we need to generate one.
-      val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
       val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
       offset -> LedgerEntry.Rejection(
-        recordTime = recordedAt.toInstant,
+        recordTime = Timestamp.assertFromInstant(recordedAt.toInstant),
         commandId = commandId,
         applicationId = applicationId,
-        submissionId = submissionId,
+        submissionId = None,
         actAs = List(submitter),
         rejectionReason = rejectionReason,
       )

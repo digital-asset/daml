@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.services.commands.withoutledgerid
-import com.daml.ledger.client.services.commands._
+
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
@@ -18,25 +18,23 @@ import com.daml.ledger.api.v1.command_completion_service.{
 }
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.ledger.api.v1.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.CommandClientConfiguration
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
-import com.daml.ledger.client.services.commands.tracker.TrackedCommandKey
+import com.daml.ledger.client.services.commands._
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
 }
+import com.daml.ledger.client.services.commands.tracker.TrackedCommandKey
 import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
-import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import org.slf4j.{Logger, LoggerFactory}
 import scalaz.syntax.tag._
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.Try
 
@@ -150,7 +148,9 @@ private[daml] final class CommandClient(
       ledgerEnd <- getCompletionEnd(ledgerIdToUse, token)
     } yield {
       partyFilter(parties.toSet)
-        .via(commandUpdaterFlow[Context](ledgerIdToUse))
+        .via(
+          CommandUpdaterFlow[Context](config, submissionIdGenerator, applicationId, ledgerIdToUse)
+        )
         .viaMat(
           CommandTrackerFlow[Context, NotUsed](
             commandSubmissionFlow = CommandSubmissionFlow[(Context, TrackedCommandKey)](
@@ -193,48 +193,12 @@ private[daml] final class CommandClient(
     )
   }
 
-  @nowarn("msg=deprecated")
-  private def commandUpdaterFlow[Context](ledgerIdToUse: LedgerId) =
-    Flow[Ctx[Context, CommandSubmission]]
-      .map(_.map { case submission @ CommandSubmission(commands, _) =>
-        if (LedgerId(commands.ledgerId) != ledgerIdToUse)
-          throw new IllegalArgumentException(
-            s"Failing fast on submission request of command ${commands.commandId} with invalid ledger ID ${commands.ledgerId} (client expected $ledgerIdToUse)"
-          )
-        if (commands.applicationId != applicationId)
-          throw new IllegalArgumentException(
-            s"Failing fast on submission request of command ${commands.commandId} with invalid application ID ${commands.applicationId} (client expected $applicationId)"
-          )
-        val nonEmptySubmissionId = if (commands.submissionId.isEmpty) {
-          submissionIdGenerator.generate()
-        } else {
-          commands.submissionId
-        }
-        val updatedDeduplicationPeriod = commands.deduplicationPeriod match {
-          case DeduplicationPeriod.Empty =>
-            DeduplicationPeriod.DeduplicationTime(
-              Duration
-                .of(
-                  config.defaultDeduplicationTime.getSeconds,
-                  config.defaultDeduplicationTime.getNano,
-                )
-            )
-          case existing => existing
-        }
-        submission.copy(commands =
-          commands.copy(
-            submissionId = nonEmptySubmissionId,
-            deduplicationPeriod = updatedDeduplicationPeriod,
-          )
-        )
-      })
-
   def submissionFlow[Context](
       ledgerIdToUse: LedgerId,
       token: Option[String] = None,
   ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, Try[Empty]], NotUsed] = {
     Flow[Ctx[Context, CommandSubmission]]
-      .via(commandUpdaterFlow(ledgerIdToUse))
+      .via(CommandUpdaterFlow[Context](config, submissionIdGenerator, applicationId, ledgerIdToUse))
       .via(CommandSubmissionFlow[Context](submit(token), config.maxParallelSubmissions))
   }
 

@@ -3,10 +3,9 @@
 
 package com.daml.platform.sandbox.stores.ledger
 
-import java.time.Instant
-
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.lf.data.Time.Timestamp
 import com.google.protobuf.any.{Any => AnyProto}
 import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.{Status => StatusProto}
@@ -39,9 +38,9 @@ class RejectionSpec extends AnyWordSpec with Matchers {
 
   "Rejection.InvalidLedgerTime" should {
     "convert to a state rejection reason" in {
-      val ledgerTime = Instant.parse("2021-07-20T09:30:00Z")
-      val lowerBound = Instant.parse("2021-07-20T09:00:00Z")
-      val upperBound = Instant.parse("2021-07-20T09:10:00Z")
+      val ledgerTime = Timestamp.assertFromString("2021-07-20T09:30:00Z")
+      val lowerBound = Timestamp.assertFromString("2021-07-20T09:00:00Z")
+      val upperBound = Timestamp.assertFromString("2021-07-20T09:10:00Z")
       val outOfRange = LedgerTimeModel.OutOfRange(ledgerTime, lowerBound, upperBound)
 
       Rejection.InvalidLedgerTime(outOfRange).toStateRejectionReason should be(

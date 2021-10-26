@@ -80,7 +80,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               commands.applicationId.unwrap,
               commands.commandId.unwrap,
               commands.deduplicationPeriod,
-              commands.submissionId.unwrap,
+              commands.submissionId.map(_.unwrap),
               ledgerConfiguration,
             ),
             transactionMeta = state.TransactionMeta(

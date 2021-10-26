@@ -3,10 +3,9 @@
 
 package com.daml.ledger.participant.state.kvutils.export
 
-import java.time.Instant
-
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.google.protobuf.ByteString
 import org.mockito.{Mockito, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
@@ -19,7 +18,7 @@ final class InMemorySubmissionAggregatorSpec extends AnyWordSpec with Matchers w
         Ref.ParticipantId.assertFromString("participant-id"),
         "correlation ID",
         Raw.Envelope(ByteString.copyFromUtf8("the envelope")),
-        Instant.now(),
+        Timestamp.now(),
       )
       val writer = mock[LedgerDataWriter]
       val submission = new InMemorySubmissionAggregator(submissionInfo, writer)

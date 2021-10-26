@@ -11,6 +11,7 @@ import TimestampConversion._
 import org.scalacheck.Gen
 import org.scalacheck.Prop
 import Prop.exists
+import com.daml.lf.data.Time
 import org.scalatestplus.scalacheck.{Checkers, ScalaCheckDrivenPropertyChecks}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -81,6 +82,32 @@ class TimestampConversionSpec
       }
     }
   }
+
+  "fromLf" when {
+    "given a value in specified domain" should {
+      "be retracted by toLf" in forAll(lfTimestampGen) { ts =>
+        toLf(fromLf(ts), ConversionMode.Exact) shouldBe ts
+      }
+    }
+  }
+
+  "toLf" when {
+    "given a valid microsecond timestamp" should {
+      "be retracted by fromLf" in forAll(anyMicroInRange) { ts =>
+        val protoTs = fromInstant(ts)
+        fromLf(toLf(protoTs, ConversionMode.Exact)) shouldBe protoTs
+      }
+    }
+
+    "given a valid nanosecond timestamp" should {
+      "round half up" in forAll(anyTimeInRange) { ts =>
+        val protoTs = fromInstant(ts)
+        val halfUp = toLf(protoTs, ConversionMode.HalfUp)
+        halfUp.toInstant should be > ts.plusNanos(-500)
+        halfUp.toInstant should be <= ts.plusNanos(500)
+      }
+    }
+  }
 }
 
 object TimestampConversionSpec {
@@ -110,4 +137,9 @@ object TimestampConversionSpec {
 
   val anyMicroInRange: Gen[Instant] =
     timeGen(MIN, MAX, microsOnly = true)
+
+  val lfTimestampGen: Gen[Time.Timestamp] = Gen.choose(
+    Time.Timestamp.MinValue.micros,
+    Time.Timestamp.MaxValue.micros,
+  ) map Time.Timestamp.assertFromLong
 }

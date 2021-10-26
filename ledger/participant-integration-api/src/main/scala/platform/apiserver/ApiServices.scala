@@ -154,7 +154,7 @@ private[daml] object ApiServices {
         ApiLedgerIdentityService.create(() => identityService.getLedgerId(), errorsVersionsSwitcher)
 
       val apiVersionService =
-        ApiVersionService.create(errorsVersionsSwitcher)
+        ApiVersionService.create(enableSelfServiceErrorCodes)
 
       val apiPackageService =
         ApiPackageService.create(ledgerId, packagesService, errorsVersionsSwitcher)
@@ -286,6 +286,7 @@ private[daml] object ApiServices {
           transactionsService,
           writeService,
           managementServiceTimeout,
+          errorsVersionsSwitcher,
         )
 
         val apiPackageManagementService = ApiPackageManagementService.createApiService(

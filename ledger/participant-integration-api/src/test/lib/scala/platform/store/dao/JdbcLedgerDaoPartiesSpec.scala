@@ -3,12 +3,12 @@
 
 package com.daml.platform.store.dao
 
-import java.time.Instant
 import java.util.UUID
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.store.appendonlydao.PersistenceResponse
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.entries.PartyLedgerEntry.AllocationAccepted
@@ -54,11 +54,11 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       isLocal = true,
     )
     val acceptedSubmissionId = UUID.randomUUID().toString
-    val acceptedRecordTime = Instant.now()
+    val acceptedRecordTime = Timestamp.now()
     val accepted1 =
       PartyLedgerEntry.AllocationAccepted(Some(acceptedSubmissionId), acceptedRecordTime, accepted)
     val rejectedSubmissionId = UUID.randomUUID().toString
-    val rejectedRecordTime = Instant.now()
+    val rejectedRecordTime = Timestamp.now()
     val rejected1 =
       PartyLedgerEntry.AllocationRejected(rejectedSubmissionId, rejectedRecordTime, rejectionReason)
     val originalOffset = previousOffset.get().get
@@ -239,7 +239,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       partyDetails: PartyDetails,
       offset: Offset,
       submissionIdOpt: Option[Ref.SubmissionId] = Some(UUID.randomUUID().toString),
-      recordTime: Instant = Instant.now(),
+      recordTime: Timestamp = Timestamp.now(),
   ) =
     ledgerDao
       .storePartyEntry(
@@ -255,7 +255,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       reason: String,
       offset: Offset,
       submissionIdOpt: Ref.SubmissionId,
-      recordTime: Instant,
+      recordTime: Timestamp,
   ): Future[PersistenceResponse] =
     ledgerDao
       .storePartyEntry(

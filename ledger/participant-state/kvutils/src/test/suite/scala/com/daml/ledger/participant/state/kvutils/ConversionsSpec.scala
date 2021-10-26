@@ -31,6 +31,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
+import com.daml.lf.data.Time.{Timestamp => LfTimestamp}
 import com.daml.lf.engine.Error
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionOuterClass, TransactionVersion}
@@ -46,7 +47,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.{Table, forAll}
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.time.{Duration, Instant}
+import java.time.Duration
 import scala.annotation.nowarn
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.collection.mutable
@@ -118,7 +119,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
     "encode/decode rejections" should {
 
       val submitterInfo = DamlSubmitterInfo.newBuilder().build()
-      val now = Instant.now
+      val now = LfTimestamp.now()
 
       "convert rejection to proto models and back to expected grpc v1 code" in {
         forAll(
@@ -207,11 +208,11 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               Map("key" -> "party: \"party\"\n"),
             ),
             (
-              Rejection.RecordTimeOutOfRange(Instant.EPOCH, Instant.EPOCH),
+              Rejection.RecordTimeOutOfRange(LfTimestamp.Epoch, LfTimestamp.Epoch),
               Code.ABORTED,
               Map(
-                "minimum_record_time" -> Instant.EPOCH.toString,
-                "maximum_record_time" -> Instant.EPOCH.toString,
+                "minimum_record_time" -> LfTimestamp.Epoch.toString,
+                "maximum_record_time" -> LfTimestamp.Epoch.toString,
               ),
             ),
             (
@@ -327,11 +328,11 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               Map("key" -> "party: \"party\"\n"),
             ),
             (
-              Rejection.RecordTimeOutOfRange(Instant.EPOCH, Instant.EPOCH),
+              Rejection.RecordTimeOutOfRange(LfTimestamp.Epoch, LfTimestamp.Epoch),
               Code.FAILED_PRECONDITION,
               Map(
-                "minimum_record_time" -> Instant.EPOCH.toString,
-                "maximum_record_time" -> Instant.EPOCH.toString,
+                "minimum_record_time" -> LfTimestamp.Epoch.toString,
+                "maximum_record_time" -> LfTimestamp.Epoch.toString,
               ),
             ),
             (
@@ -367,16 +368,16 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
               partyStateKey("party"),
             ),
             (
-              Rejection.RecordTimeOutOfRange(Instant.EPOCH, Instant.EPOCH),
+              Rejection.RecordTimeOutOfRange(LfTimestamp.Epoch, LfTimestamp.Epoch),
               "minimum_record_time",
-              Instant.parse(_),
-              Instant.EPOCH,
+              LfTimestamp.assertFromString,
+              LfTimestamp.Epoch,
             ),
             (
-              Rejection.RecordTimeOutOfRange(Instant.EPOCH, Instant.EPOCH),
+              Rejection.RecordTimeOutOfRange(LfTimestamp.Epoch, LfTimestamp.Epoch),
               "maximum_record_time",
-              Instant.parse(_),
-              Instant.EPOCH,
+              LfTimestamp.assertFromString,
+              LfTimestamp.Epoch,
             ),
             (
               Rejection.PartiesNotKnownOnLedger(Iterable(party0, party1)),
@@ -486,7 +487,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
     }
 
     "decode completion info" should {
-      val recordTime = Instant.now()
+      val recordTime = LfTimestamp.now()
       def submitterInfo = {
         DamlSubmitterInfo.newBuilder().setApplicationId("id").setCommandId("commandId")
       }
@@ -511,7 +512,9 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       "calculate duration for deduplication for backwards compatibility with deduplicate until" in {
         val completionInfo = parseCompletionInfo(
           recordTime,
-          submitterInfo.setDeduplicateUntil(buildTimestamp(recordTime.plusSeconds(30))).build(),
+          submitterInfo
+            .setDeduplicateUntil(buildTimestamp(recordTime.add(Duration.ofSeconds(30))))
+            .build(),
         )
         completionInfo.optDeduplicationPeriod.value shouldBe DeduplicationPeriod
           .DeduplicationDuration(Duration.ofSeconds(30))
@@ -520,7 +523,9 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       "handle deduplication which is the past relative to record time by using absolute values" in {
         val completionInfo = parseCompletionInfo(
           recordTime,
-          submitterInfo.setDeduplicateUntil(buildTimestamp(recordTime.minusSeconds(30))).build(),
+          submitterInfo
+            .setDeduplicateUntil(buildTimestamp(recordTime.add(Duration.ofSeconds(30))))
+            .build(),
         )
         completionInfo.optDeduplicationPeriod.value shouldBe DeduplicationPeriod
           .DeduplicationDuration(Duration.ofSeconds(30))

@@ -13,6 +13,7 @@ import com.daml.ledger.api.testtool.infrastructure.{
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.daml.ledger.api.v1.transaction_service.GetLedgerEndRequest
+import com.daml.ledger.api.v1.version_service.GetLedgerApiVersionRequest
 import com.daml.timer.RetryStrategy
 import io.grpc.ClientInterceptor
 import org.slf4j.LoggerFactory
@@ -31,18 +32,21 @@ private[infrastructure] final class ParticipantSession private (
     // global state of the ledger breaks this assumption, no matter what.
     ledgerId: String,
     ledgerEndpoint: Endpoint,
+    val features: Features,
 )(implicit val executionContext: ExecutionContext) {
 
   private[testtool] def createInitContext(
       applicationId: String,
       identifierSuffix: String,
       clientTlsConfiguration: Option[TlsConfiguration],
+      features: Features,
   ): Future[ParticipantTestContext] =
     createTestContext(
       "init",
       applicationId,
       identifierSuffix,
       clientTlsConfiguration = clientTlsConfiguration,
+      features = features,
     )
 
   private[testtool] def createTestContext(
@@ -50,6 +54,7 @@ private[infrastructure] final class ParticipantSession private (
       applicationId: String,
       identifierSuffix: String,
       clientTlsConfiguration: Option[TlsConfiguration],
+      features: Features,
   ): Future[ParticipantTestContext] =
     for {
       end <- services.transaction.getLedgerEnd(new GetLedgerEndRequest(ledgerId)).map(_.getOffset)
@@ -63,6 +68,7 @@ private[infrastructure] final class ParticipantSession private (
       partyAllocation = partyAllocation,
       ledgerEndpoint = ledgerEndpoint,
       clientTlsConfiguration = clientTlsConfiguration,
+      features = features,
     )
 }
 
@@ -94,12 +100,23 @@ object ParticipantSession {
           .recoverWith { case NonFatal(exception) =>
             Future.failed(new Errors.ParticipantConnectionException(exception))
           }
+        features <-
+          services.version
+            .getLedgerApiVersion(new GetLedgerApiVersionRequest(ledgerId))
+            .map(Features.fromApiVersionResponse)
+            .recover { case failure =>
+              // TODO feature descriptors: Remove once all Ledger API implementations respond successfully on VersionService endpoint
+              logger.warn(
+                s"Failure in retrieving the feature descriptors from the version service: $failure"
+              )
+              Features(Seq.empty)
+            }
       } yield new ParticipantSession(
         partyAllocation = partyAllocation,
         services = services,
         ledgerId = ledgerId,
         ledgerEndpoint = participant.endpoint,
+        features = features,
       )
     }
-
 }

@@ -49,6 +49,7 @@ genrule(
         "daml-prim/GHC-Prim.dalf",
         "daml-prim/GHC-Tuple.dalf",
         "daml-prim/DA-Internal-Erased.dalf",
+        "daml-prim/DA-Internal-NatSyn.dalf",
         "daml-prim/DA-Internal-PromotedText.dalf",
         "daml-prim/DA-Exception-GeneralError.dalf",
         "daml-prim/DA-Exception-ArithmeticError.dalf",
@@ -72,6 +73,7 @@ genrule(
       $(location :generate-stable-package) --module GHC.Prim -o $(location daml-prim/GHC-Prim.dalf)
       $(location :generate-stable-package) --module GHC.Tuple -o $(location daml-prim/GHC-Tuple.dalf)
       $(location :generate-stable-package) --module DA.Internal.Erased -o $(location daml-prim/DA-Internal-Erased.dalf)
+      $(location :generate-stable-package) --module DA.Internal.NatSyn -o $(location daml-prim/DA-Internal-NatSyn.dalf)
       $(location :generate-stable-package) --module DA.Internal.PromotedText -o $(location daml-prim/DA-Internal-PromotedText.dalf)
       $(location :generate-stable-package) --module DA.Exception.GeneralError -o $(location daml-prim/DA-Exception-GeneralError.dalf)
       $(location :generate-stable-package) --module DA.Exception.ArithmeticError -o $(location daml-prim/DA-Exception-ArithmeticError.dalf)
@@ -104,6 +106,7 @@ filegroup(
         "daml-prim/DA-Exception-GeneralError.dalf",
         "daml-prim/DA-Exception-PreconditionFailed.dalf",
         "daml-prim/DA-Internal-Erased.dalf",
+        "daml-prim/DA-Internal-NatSyn.dalf",
         "daml-prim/DA-Internal-PromotedText.dalf",
         "daml-prim/DA-Types.dalf",
         "daml-prim/GHC-Prim.dalf",

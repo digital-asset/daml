@@ -32,7 +32,7 @@ final case class SubmitterInfo(
     applicationId: Ref.ApplicationId,
     commandId: Ref.CommandId,
     deduplicationPeriod: DeduplicationPeriod,
-    submissionId: Ref.SubmissionId,
+    submissionId: Option[Ref.SubmissionId],
     ledgerConfiguration: Configuration,
 ) {
 
@@ -44,7 +44,7 @@ final case class SubmitterInfo(
     applicationId,
     commandId,
     Some(deduplicationPeriod),
-    Some(submissionId),
+    submissionId,
   )
 }
 

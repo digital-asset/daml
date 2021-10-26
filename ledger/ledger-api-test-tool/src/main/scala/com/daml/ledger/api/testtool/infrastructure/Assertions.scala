@@ -3,15 +3,17 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import java.util.regex.Pattern
-
+import com.daml.error.ErrorCode
+import com.daml.error.utils.ErrorDetails
 import com.daml.grpc.{GrpcException, GrpcStatus}
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.timer.RetryStrategy
 import com.google.rpc.ErrorInfo
-import io.grpc.Status
 import io.grpc.protobuf.StatusProto
+import io.grpc.{Status, StatusRuntimeException}
 import munit.{ComparisonFailException, Assertions => MUnit}
 
+import java.util.regex.Pattern
 import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
@@ -43,6 +45,31 @@ object Assertions {
         )
     }
   }
+
+  /** Asserts GRPC error codes depending on the self-service error codes feature in the Ledger API. */
+  def assertGrpcError(
+      participant: ParticipantTestContext,
+      t: Throwable,
+      expectedCode: Status.Code,
+      selfServiceErrorCode: ErrorCode,
+      exceptionMessageSubstring: Option[String],
+      checkDefiniteAnswerMetadata: Boolean,
+  ): Unit =
+    if (participant.features.selfServiceErrorCodes)
+      t match {
+        case statusRuntimeException: StatusRuntimeException =>
+          assertSelfServiceErrorCode(statusRuntimeException, selfServiceErrorCode)
+        case t => fail(s"Throwable $t does not match ErrorCode $selfServiceErrorCode")
+      }
+    else {
+      assertGrpcErrorRegex(
+        t,
+        expectedCode,
+        exceptionMessageSubstring
+          .map(msgSubstring => Pattern.compile(Pattern.quote(msgSubstring))),
+        checkDefiniteAnswerMetadata,
+      )
+    }
 
   /** A non-regex alternative to [[assertGrpcErrorRegex]] which just does a substring check.
     */
@@ -124,4 +151,44 @@ object Assertions {
   /** Allows for assertions with more information in the error messages. */
   implicit def futureAssertions[T](future: Future[T]): FutureAssertions[T] =
     new FutureAssertions[T](future)
+
+  def assertSelfServiceErrorCode(
+      statusRuntimeException: StatusRuntimeException,
+      expectedErrorCode: ErrorCode,
+  ): Unit = {
+    val status = StatusProto.fromThrowable(statusRuntimeException)
+
+    val expectedStatusCode = expectedErrorCode.category.grpcCode
+      .map(_.value())
+      .getOrElse(
+        throw new RuntimeException(
+          s"Errors without grpc code cannot be asserted on the Ledger API. Expected error: $expectedErrorCode"
+        )
+      )
+    val expectedErrorId = expectedErrorCode.id
+    val expectedRetryabilitySeconds = expectedErrorCode.category.retryable.map(_.duration.toSeconds)
+
+    val actualStatusCode = status.getCode
+    val actualErrorDetails = ErrorDetails.from(status.getDetailsList.asScala.toSeq)
+    val actualErrorId = actualErrorDetails
+      .collectFirst { case err: ErrorDetails.ErrorInfoDetail => err.reason }
+      .getOrElse(fail("Actual error id is not defined"))
+    val actualRetryabilitySeconds = actualErrorDetails
+      .collectFirst { case err: ErrorDetails.RetryInfoDetail => err.retryDelayInSeconds }
+
+    Assertions.assertEquals(
+      "gRPC error code mismatch",
+      actualStatusCode,
+      expectedStatusCode,
+    )
+
+    if (!actualErrorId.contains(expectedErrorId))
+      fail(s"Actual error id ($actualErrorId) does not match expected error id ($expectedErrorId}")
+
+    Assertions.assertEquals(
+      s"Error retryability details mismatch",
+      actualRetryabilitySeconds,
+      expectedRetryabilitySeconds,
+    )
+  }
 }

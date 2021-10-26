@@ -57,7 +57,7 @@ final class CommandsValidator(
       appId <- requireLedgerString(commands.applicationId, "application_id")
         .map(domain.ApplicationId(_))
       commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
-      submissionId <- requireSubmissionId(commands.submissionId)
+      submissionId <- validateSubmissionId(commands.submissionId)
       submitters <- validateSubmitters(commands)
       commandz <- requireNonEmpty(commands.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz)
@@ -83,7 +83,7 @@ final class CommandsValidator(
       submissionId = submissionId,
       actAs = submitters.actAs,
       readAs = submitters.readAs,
-      submittedAt = currentUtcTime,
+      submittedAt = Time.Timestamp.assertFromInstant(currentUtcTime),
       deduplicationPeriod = deduplicationPeriod,
       commands = Commands(
         commands = validatedCommands.to(ImmArray),

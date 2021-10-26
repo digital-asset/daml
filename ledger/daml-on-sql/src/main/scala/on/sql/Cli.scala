@@ -21,6 +21,14 @@ private[sql] final class Cli(
         .parser
 
     parser
+      .opt[Unit]("eager-package-loading")
+      .optional()
+      .text(
+        "Whether to load all the packages in the .dar files provided eagerly, rather than when needed as the commands come."
+      )
+      .action((_, config) => config.copy(eagerPackageLoading = true))
+
+    parser
       .opt[String]("sql-backend-jdbcurl-env")
       .optional()
       .text(

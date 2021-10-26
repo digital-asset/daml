@@ -3,7 +3,6 @@
 
 package com.daml.platform.store.dao
 
-import java.time.Instant
 import java.util.UUID
 
 import akka.stream.scaladsl.Sink
@@ -12,6 +11,7 @@ import org.scalatest.matchers.should.Matchers
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.store.appendonlydao._
 import com.daml.platform.store.entries.PackageLedgerEntry
 
@@ -53,7 +53,7 @@ private[dao] trait JdbcLedgerDaoPackagesSpec {
     val offset2 = nextOffset()
     val offset3 = nextOffset()
     val accepted1 =
-      PackageLedgerEntry.PackageUploadAccepted(UUID.randomUUID().toString, Instant.EPOCH)
+      PackageLedgerEntry.PackageUploadAccepted(UUID.randomUUID().toString, Timestamp.Epoch)
     for {
       uploadAcceptedResult <- storePackageEntry(
         offset = offset2,
@@ -64,7 +64,7 @@ private[dao] trait JdbcLedgerDaoPackagesSpec {
       )
       rejected1 = PackageLedgerEntry.PackageUploadRejected(
         UUID.randomUUID().toString,
-        Instant.EPOCH,
+        Timestamp.Epoch,
         "some rejection reason",
       )
       uploadRejectedResult <- storePackageEntry(

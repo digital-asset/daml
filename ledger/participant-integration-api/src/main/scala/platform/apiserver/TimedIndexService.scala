@@ -3,8 +3,6 @@
 
 package com.daml.platform.apiserver
 
-import java.time.Instant
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
@@ -31,6 +29,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
@@ -159,7 +158,7 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
 
   override def lookupMaximumLedgerTime(
       ids: Set[Value.ContractId]
-  )(implicit loggingContext: LoggingContext): Future[Option[Instant]] =
+  )(implicit loggingContext: LoggingContext): Future[Option[Timestamp]] =
     Timed.future(
       metrics.daml.services.index.lookupMaximumLedgerTime,
       delegate.lookupMaximumLedgerTime(ids),
@@ -206,8 +205,8 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
   override def deduplicateCommand(
       commandId: CommandId,
       submitters: List[Ref.Party],
-      submittedAt: Instant,
-      deduplicateUntil: Instant,
+      submittedAt: Timestamp,
+      deduplicateUntil: Timestamp,
   )(implicit loggingContext: LoggingContext): Future[v2.CommandDeduplicationResult] =
     Timed.future(
       metrics.daml.services.index.deduplicateCommand,

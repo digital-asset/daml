@@ -3,10 +3,10 @@
 
 package com.daml.platform.store.dao
 
-import java.time.Instant
 import java.util.UUID
 
 import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises, NodeFetch}
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -142,9 +142,9 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         arg = someContractInstance.arg,
       )
 
-    val t1 = Instant.now()
-    val t2 = t1.plusMillis(1)
-    val t3 = t2.plusMillis(1)
+    val t1 = Timestamp.now()
+    val t2 = t1.addMicros(1000)
+    val t3 = t2.addMicros(1000)
     val appId = UUID.randomUUID().toString
     for {
       _ <- store(

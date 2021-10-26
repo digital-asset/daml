@@ -23,6 +23,10 @@ class CliSpec extends CommonCliSpecBase(Cli) {
       )
     }
 
+    "parse the eager package loading flag when given" in {
+      checkOption(Array("--eager-package-loading"), _.copy(eagerPackageLoading = true))
+    }
+
     "parse the sql-backend-jdbcurl flag when given" in {
       val jdbcUrl = "jdbc:postgresql://localhost:5432/test?user=test"
       checkOption(Array("--sql-backend-jdbcurl", jdbcUrl), _.copy(jdbcUrl = Some(jdbcUrl)))

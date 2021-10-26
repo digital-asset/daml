@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.daml.ledger.api.v1;
 
 import "google/protobuf/duration.proto";
-import "google/protobuf/timestamp.proto";
 import "google/rpc/status.proto";
 
 option java_outer_classname = "CompletionOuterClass";
@@ -46,7 +45,7 @@ message Completion {
 
   // The submission ID this completion refers to, as described in ``commands.proto``.
   // Must be a valid LedgerString (as described in ``value.proto``).
-  // Optional for historic completions where this data is not available.
+  // Optional
   string submission_id = 6;
 
   reserved "submission_rank"; // For future use.

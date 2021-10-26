@@ -20,5 +20,9 @@ final case class CommandClientConfiguration(
 )
 
 object CommandClientConfiguration {
-  def default = CommandClientConfiguration(1, 1, Duration.ofSeconds(30L))
+  def default: CommandClientConfiguration = CommandClientConfiguration(
+    maxCommandsInFlight = 1,
+    maxParallelSubmissions = 1,
+    defaultDeduplicationTime = Duration.ofSeconds(30L),
+  )
 }

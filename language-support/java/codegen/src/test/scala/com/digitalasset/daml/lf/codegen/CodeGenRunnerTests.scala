@@ -47,7 +47,7 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
 
     val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(conf)
 
-    assert(interfaces.length == 24)
+    assert(interfaces.length == 25)
     assert(pkgPrefixes == Map.empty)
   }
 
