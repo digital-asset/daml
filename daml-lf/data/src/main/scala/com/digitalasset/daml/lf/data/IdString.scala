@@ -89,7 +89,7 @@ sealed abstract class IdString {
 
   type ParticipantId <: String
 
-  /** Used to reference to leger objects like legacy contractIds, ledgerIds,
+  /** Used to reference to ledger objects like legacy contractIds, ledgerIds,
     * transactionId, ... We use the same type for those ids, because we
     * construct some by concatenating the others.
     */
