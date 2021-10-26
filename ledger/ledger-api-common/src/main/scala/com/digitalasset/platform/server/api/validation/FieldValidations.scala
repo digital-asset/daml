@@ -192,7 +192,10 @@ class FieldValidations private (errorFactories: ErrorFactories) {
 
 }
 
-object FieldValidations {
+/** Default implementation exposing field validations with the legacy error factories.
+  * TODO error codes: Remove default implementation once all consumers output versioned error codes.
+  */
+object FieldValidations extends FieldValidations(ErrorFactories) {
   def apply(errorFactories: ErrorFactories): FieldValidations =
     new FieldValidations(errorFactories)
 }
