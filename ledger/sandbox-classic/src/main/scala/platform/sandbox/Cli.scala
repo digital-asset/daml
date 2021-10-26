@@ -33,6 +33,13 @@ private[sandbox] object Cli extends SandboxCli {
           s" Also note that instructing $Name to load a scenario will have the side effect of loading _all_ the .dar files provided eagerly (see --eager-package-loading)."
       )
     parser
+      .opt[Unit]("eager-package-loading")
+      .optional()
+      .text(
+        "Whether to load all the packages in the .dar files provided eagerly, rather than when needed as the commands come."
+      )
+      .action((_, config) => config.copy(eagerPackageLoading = true))
+    parser
       .opt[String]("sql-backend-jdbcurl")
       .optional()
       .text(
