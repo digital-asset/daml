@@ -25,8 +25,8 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiConfigManagementService._
 import com.daml.platform.apiserver.services.logging
-import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.server.api.{ValidationLogger, validation}
+import com.daml.platform.server.api.ValidationLogger
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
@@ -52,6 +52,7 @@ private[apiserver] final class ApiConfigManagementService private (
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val fieldValidations = FieldValidations(errorFactories)
 
   import errorFactories._
 
@@ -172,7 +173,7 @@ private[apiserver] final class ApiConfigManagementService private (
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, SetTimeModelParameters] = {
-    import validation.FieldValidations._
+    import fieldValidations._
     for {
       pTimeModel <- requirePresence(request.newTimeModel, "new_time_model")
       pAvgTransactionLatency <- requirePresence(
