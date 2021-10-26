@@ -12,8 +12,9 @@ import Data.Void (Void)
 import System.Exit (exitWith,ExitCode(ExitFailure))
 import System.FilePath (splitPath)
 import System.IO.Extra (hPutStrLn,stderr)
-import Text.Megaparsec (Parsec,runParser,errorBundlePretty,eof,takeWhileP,single,label,satisfy,noneOf,chunk,(<|>),many,some)
-import qualified Data.Char as Char (isSpace,isDigit,digitToInt)
+import Text.Megaparsec (Parsec,runParser,errorBundlePretty,eof,takeWhileP,single,label,satisfy,noneOf,chunk,(<|>),some)
+import qualified Text.Megaparsec.Char (space)
+import qualified Data.Char as Char (isDigit,digitToInt)
 import qualified Data.Map as Map (fromList,toList)
 import qualified Data.Text as T (pack,unpack)
 import qualified Data.Text.IO as T (getContents)
@@ -90,7 +91,7 @@ theParser = some line <* eof
       (void $ chunk "TEST_EVIDENCE")
       <|> do void notColonOrNewline; marker
 
-    optWhiteSpace = void $ many $ satisfy Char.isSpace
+    optWhiteSpace = Text.Megaparsec.Char.space
 
     parseCategory = do
       foldl1 (<|>)
