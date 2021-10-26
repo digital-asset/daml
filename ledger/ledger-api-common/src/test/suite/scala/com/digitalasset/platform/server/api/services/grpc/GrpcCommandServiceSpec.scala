@@ -22,6 +22,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.{Duration, Instant}
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Future
 
 class GrpcCommandServiceSpec
@@ -36,6 +37,8 @@ class GrpcCommandServiceSpec
 
   "GrpcCommandService" should {
     "generate a submission ID if it's empty" in {
+      val submissionCounter = new AtomicInteger
+
       val mockCommandService = mock[CommandService with AutoCloseable]
       when(mockCommandService.submitAndWait(any[SubmitAndWaitRequest]))
         .thenReturn(Future.successful(Empty.defaultInstance))
@@ -45,13 +48,17 @@ class GrpcCommandServiceSpec
         .thenReturn(Future.successful(SubmitAndWaitForTransactionIdResponse.defaultInstance))
       when(mockCommandService.submitAndWaitForTransactionTree(any[SubmitAndWaitRequest]))
         .thenReturn(Future.successful(SubmitAndWaitForTransactionTreeResponse.defaultInstance))
+
       val grpcCommandService = new GrpcCommandService(
         mockCommandService,
         ledgerId = LedgerId(ledgerId),
         currentLedgerTime = () => Instant.EPOCH,
         currentUtcTime = () => Instant.EPOCH,
         maxDeduplicationTime = () => Some(Duration.ZERO),
-        generateSubmissionId = () => Ref.SubmissionId.assertFromString(aSubmissionId),
+        generateSubmissionId = () =>
+          Ref.SubmissionId.assertFromString(
+            s"$submissionIdPrefix${submissionCounter.incrementAndGet()}"
+          ),
       )
 
       for {
@@ -64,14 +71,17 @@ class GrpcCommandServiceSpec
           aSubmitAndWaitRequestWithNoSubmissionId
         )
       } yield {
-        val expectedSubmitAndWaitRequest = aSubmitAndWaitRequestWithNoSubmissionId.copy(commands =
-          aSubmitAndWaitRequestWithNoSubmissionId.commands
-            .map(_.copy(submissionId = aSubmissionId))
+        def expectedSubmitAndWaitRequest(submissionIdSuffix: String) =
+          aSubmitAndWaitRequestWithNoSubmissionId.copy(commands =
+            aSubmitAndWaitRequestWithNoSubmissionId.commands
+              .map(_.copy(submissionId = s"$submissionIdPrefix$submissionIdSuffix"))
+          )
+        verify(mockCommandService).submitAndWait(expectedSubmitAndWaitRequest("1"))
+        verify(mockCommandService).submitAndWaitForTransaction(expectedSubmitAndWaitRequest("2"))
+        verify(mockCommandService).submitAndWaitForTransactionId(expectedSubmitAndWaitRequest("3"))
+        verify(mockCommandService).submitAndWaitForTransactionTree(
+          expectedSubmitAndWaitRequest("4")
         )
-        verify(mockCommandService).submitAndWait(expectedSubmitAndWaitRequest)
-        verify(mockCommandService).submitAndWaitForTransaction(expectedSubmitAndWaitRequest)
-        verify(mockCommandService).submitAndWaitForTransactionId(expectedSubmitAndWaitRequest)
-        verify(mockCommandService).submitAndWaitForTransactionTree(expectedSubmitAndWaitRequest)
         succeed
       }
     }
@@ -93,9 +103,9 @@ object GrpcCommandServiceSpec {
     )
   )
 
-  private val aSubmissionId = "aSubmissionId"
-
   private val aSubmitAndWaitRequestWithNoSubmissionId = submitAndWaitRequest.copy(
     commands = Some(commands.copy(commands = Seq(aCommand), submissionId = ""))
   )
+
+  private val submissionIdPrefix = "submissionId-"
 }
