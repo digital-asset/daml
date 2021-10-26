@@ -16,6 +16,7 @@ import NonEmptyCollCompat._
   * these members.
   */
 sealed abstract class NonEmptyColl {
+  import NonEmptyColl.Pouring
 
   /** Use its alias [[com.daml.scalautil.nonempty.NonEmpty]]. */
   type NonEmpty[+A]
@@ -41,8 +42,16 @@ sealed abstract class NonEmptyColl {
   def equiv[F[_], A]: NonEmpty[F[A]] === NonEmptyF[F, A]
 
   /** Check whether `self` is non-empty; if so, return it as the non-empty subtype. */
-  @deprecated("bad apply", since = "1.18.0")
+  @deprecated("misleading apply, use `case NonEmpty(xs)` instead", since = "1.18.0")
   final def apply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]] = unapply(self)
+
+  /** {{{
+    *  NonEmpty.pour(1, 2, 3) into List : NonEmpty[List[Int]] // with (1, 2, 3) as elements
+    * }}}
+    *
+    * The weird argument order is to support Scala 2.12.
+    */
+  final def pour[A](x: A, xs: A*): Pouring[A] = new Pouring(x, xs: _*)
 
   /** In pattern matching, think of [[NonEmpty]] as a sub-case-class of every
     * [[imm.Iterable]]; matching `case NonEmpty(ne)` ''adds'' the non-empty type
@@ -72,6 +81,17 @@ object NonEmptyColl extends NonEmptyCollInstances {
     override def unapply[Self](self: Self with imm.Iterable[_]) =
       if (self.nonEmpty) Some(self) else None
     private[nonempty] override def unsafeNarrow[Self <: imm.Iterable[Any]](self: Self) = self
+  }
+
+  final class Pouring[A](hd: A, tl: A*) {
+    import NonEmpty.{unsafeNarrow => un}
+    // XXX SC this can be done more efficiently by not supporting 2.12
+    def into[C <: imm.Iterable[A]](into: Factory[A, C]): NonEmpty[C] = un {
+      val bb = into.newBuilder
+      bb += hd
+      bb ++= tl
+      bb.result()
+    }
   }
 
   implicit final class ReshapeOps[F[_], A](private val nfa: NonEmpty[F[A]]) extends AnyVal {
