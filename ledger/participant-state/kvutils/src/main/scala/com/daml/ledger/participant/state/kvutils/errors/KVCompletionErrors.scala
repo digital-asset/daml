@@ -68,7 +68,7 @@ object KVCompletionErrors extends LedgerApiErrorGroup {
     }
 
     @Explanation(
-      "At least one input contract has a later ledger time than the submitted transaction's."
+      "At least one input contract's ledger time is later than that of the submitted transaction."
     )
     @Resolution("Retry the transaction submission.")
     object InvalidLedgerTime
