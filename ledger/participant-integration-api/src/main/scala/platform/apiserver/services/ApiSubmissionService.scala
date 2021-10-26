@@ -175,22 +175,23 @@ private[apiserver] final class ApiSubmissionService private[services] (
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit
       loggingContext: LoggingContext
-  ): Try[Unit] = {
-    import state.SubmissionResult._
-    result match {
-      case Success(Acknowledged) =>
-        logger.debug("Success")
-        Success(())
+  ): Try[Unit] =
+    RejectionGenerators.submissionResult(result).getOrElse {
+      import state.SubmissionResult._
+      result match {
+        case Success(Acknowledged) =>
+          logger.debug("Success")
+          Success(())
 
-      case Success(result: SynchronousError) =>
-        logger.info(s"Rejected: ${result.description}")
-        Failure(result.exception)
+        case Success(result: SynchronousError) =>
+          logger.info(s"Rejected: ${result.description}")
+          Failure(result.exception)
 
-      case Failure(error) =>
-        logger.info(s"Rejected: ${error.getMessage}")
-        Failure(error)
+        case Failure(error) =>
+          logger.info(s"Rejected: ${error.getMessage}")
+          Failure(error)
+      }
     }
-  }
 
   private def handleCommandExecutionResult(
       result: Either[ErrorCause, CommandExecutionResult]
