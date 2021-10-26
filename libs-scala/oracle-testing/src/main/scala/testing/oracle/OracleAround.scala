@@ -68,6 +68,18 @@ trait OracleAround {
         stmt.execute(s"""GRANT EXECUTE ON SYS.DBMS_LOCK TO $name""")
         stmt.execute(s"""GRANT SELECT ON V_$$MYSTAT TO $name""")
         stmt.execute(s"""GRANT SELECT ON V_$$LOCK TO $name""")
+        // for JSON text index
+        stmt.execute(s"""GRANT RESOURCE, CONNECT, CTXAPP TO $name""")
+        stmt.execute(s"""GRANT EXECUTE ON CTXSYS.CTX_CLS TO $name""")
+        stmt.execute(s"""GRANT EXECUTE ON CTXSYS.CTX_DDL TO $name""")
+        stmt.execute(s"""GRANT EXECUTE ON CTXSYS.CTX_DOC TO $name""")
+        stmt.execute(s"""GRANT EXECUTE ON CTXSYS.CTX_OUTPUT TO $name""")
+        stmt.execute(s"""GRANT EXECUTE ON CTXSYS.CTX_QUERY TO $name""")
+        stmt.execute(s"""GRANT EXECUTE ON CTXSYS.CTX_REPORT TO $name""")
+        stmt.execute(s"""GRANT EXECUTE ON CTXSYS.CTX_THES TO $name""")
+        stmt.execute(s"""GRANT EXECUTE ON CTXSYS.CTX_ULEXER TO $name""")
+        stmt.execute(s"""GRANT EXECUTE ON CTXSYS.DRUE TO $name""")
+        stmt.execute(s"""GRANT EXECUTE ON CTXSYS.TEXTINDEXMETHODS TO $name""")
       } else false
     }.get
     User(name, pwd)
