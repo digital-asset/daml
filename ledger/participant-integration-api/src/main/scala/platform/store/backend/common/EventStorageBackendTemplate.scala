@@ -323,7 +323,8 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       stringInterning: StringInterning,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
-    events(
+    val st = System.nanoTime()
+    val r = events(
       columnPrefix = "active_cs",
       joinClause = cSQL"",
       additionalAndClause = cSQL"""
@@ -347,6 +348,9 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       filterParams = filterParams,
       stringInterning = stringInterning,
     )(connection).map(_(stringInterning))
+    println(s"ACS QUERY OF OLD from ${rangeParams.startExclusive} returned ${r.size} took ${(System
+      .nanoTime() - st) / 1000000}")
+    r
   }
 
   override def transactionEvents(
@@ -755,7 +759,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
       FROM
         participant_events_create create_evs
       WHERE
-        create_evs.event_sequential_id = ANY ($eventSequentialIdsArray)
+        create_evs.event_sequential_id = ANY ($eventSequentialIdsArray::bigint[])
         AND NOT EXISTS (  -- check not archived as of snapshot
           SELECT 1
           FROM participant_events_consuming_exercise consuming_evs
@@ -795,7 +799,7 @@ trait EventStorageBackendTemplate extends EventStorageBackend {
               )
             case None => (cSQL"", cSQL"")
           }
-        SQL"""
+        debugSQL"""
          SELECT filters.event_sequential_id
          FROM
            participant_events_create_filter filters

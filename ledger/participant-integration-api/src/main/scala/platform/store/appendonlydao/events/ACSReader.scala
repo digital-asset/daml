@@ -47,6 +47,7 @@ class ACSReader(
         materializer = materializer,
       )(
         work = query => {
+          val st = System.nanoTime()
           logger.debug(s"getActiveContracts query($query)") // TODO ACS more meaningful logging here
           dispatcher
             .executeSql(metrics.daml.index.db.getActiveContracts)(connection =>
@@ -69,7 +70,7 @@ class ACSReader(
             .map { result =>
               // TODO ACS remove
               println(
-                s"ACS QUERY: $query to $activeAt results: ${result.map(_.eventSequentialId).mkString("\n")}"
+                s"ACS QUERY: $query to $activeAt results: ${result.size} took ${(System.nanoTime() - st) / 1000000}"
               )
               val newTasks =
                 if (result.size < pageSize) Nil
@@ -99,6 +100,7 @@ class ACSReader(
         materializer = materializer,
       )(
         work = query => {
+          val st = System.nanoTime()
           logger.debug(
             s"getActiveContractIds query($query)"
           ) // TODO ACS more meaningful logging here
@@ -116,7 +118,8 @@ class ACSReader(
             .map { result =>
               // TODO ACS remove
               println(
-                s"ACS ID QUERY: $query to $activeAt results: $result"
+                s"ACS ID QUERY: $query to $activeAt results: ${result.size} took ${(System
+                  .nanoTime() - st) / 1000000}"
               )
               val newTasks =
                 if (result.size < idPageSize) Nil
@@ -193,13 +196,14 @@ class ACSReader(
           }
           if (missing(query.filter)) refill(query.filter)
           val r = takeMergedIdStream
-          println(s"emitting: $r")
+          println(s"emitting: ${r.size}")
           r
         }
       }
       .async
       .mapAsync(parallelism) { ids =>
         logger.debug(s"getActiveContracts") // TODO ACS more meaningful logging here
+        val st = System.nanoTime()
         dispatcher
           .executeSql(metrics.daml.index.db.getActiveContracts)(connection =>
             queryNonPruned.executeSql( // TODO ACS do we need this?
@@ -210,7 +214,7 @@ class ACSReader(
                   endInclusive = activeAt._2,
                   stringInterning = stringInterning,
                 )(connection)
-                println(s"ACS QUERY ${r.map(_.eventSequentialId)}")
+                println(s"ACS QUERY ${r.size} took ${(System.nanoTime() - st) / 1000000}")
                 r
               },
               activeAt._1,

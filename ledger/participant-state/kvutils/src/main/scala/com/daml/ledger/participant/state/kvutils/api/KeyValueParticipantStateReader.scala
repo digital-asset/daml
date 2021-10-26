@@ -40,6 +40,8 @@ class KeyValueParticipantStateReader private[api] (
 ) extends ReadService {
   import KeyValueParticipantStateReader._
 
+  println(metrics)
+
   private val ec = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(8))
 
   override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =

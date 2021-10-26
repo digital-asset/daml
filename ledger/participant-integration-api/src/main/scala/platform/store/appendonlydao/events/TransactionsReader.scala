@@ -76,7 +76,7 @@ private[appendonlydao] final class TransactionsReader(
     queryNonPruned = queryNonPruned,
     storageBackend: StorageBackend[_],
     pageSize = pageSize,
-    parallelism = 4, // TODO ACS wire up
+    parallelism = 1, // TODO ACS wire up
     metrics = metrics,
     stringInterning = stringInterning,
     materializer = materializer,
@@ -384,12 +384,16 @@ private[appendonlydao] final class TransactionsReader(
       activeAt: Offset,
       filter: FilterRelation,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] =
-    if (false) {
-      getActiveContractsOrignal(activeAt, filter, verbose)
+  )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
+//    val limitedActiveAt: Offset = Offset.fromHexString(Ref.HexString.assertFromString("00000000000493ea")) // 300K
+//    val limitedActiveAt: Offset = Offset.fromHexString(Ref.HexString.assertFromString("000000000007a12e")) // 500K
+    val limitedActiveAt: Offset = Offset.fromHexString(Ref.HexString.assertFromString("00000000000f4258")) // 1000K
+    if (true) {
+      getActiveContractsOrignal(limitedActiveAt, filter, verbose)
     } else {
-      getActiveContractsWithDisjointQueries(activeAt, filter, verbose)
+      getActiveContractsWithDisjointQueries(limitedActiveAt, filter, verbose)
     }
+  }
 
   private def getActiveContractsOrignal(
       activeAt: Offset,
@@ -417,28 +421,30 @@ private[appendonlydao] final class TransactionsReader(
         )
     }
 
-    val events: Source[EventsTable.Entry[Event], NotUsed] =
+    val events: Source[EventsTable.Entry[Raw[Event]], NotUsed] =
       Source
         .futureSource(requestedRangeF.map { requestedRange =>
-          streamEvents(
-            verbose,
+          streamEventsNoSerialization(
             dbMetrics.getActiveContracts,
             query,
-            nextPageRange[Event](requestedRange.endInclusive),
+            nextPageRange[Raw[Event]](requestedRange.endInclusive),
           )(requestedRange)
         })
         .mapMaterializedValue(_ => NotUsed)
 
-    groupContiguous(events)(by = _.transactionId) // TODO ACS this grouping is probably in vain
-      .mapConcat(EventsTable.Entry.toGetActiveContractsResponse)
-      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
-      .wireTap(response => {
-        Spans.addEventToSpan(
-          telemetry.Event("contract", Map((SpanAttribute.Offset, response.offset))),
-          span,
-        )
-      })
+    Source.futureSource(events.run().map(_ => Source.empty))
+      .mapMaterializedValue(_ => NotUsed)
       .watchTermination()(endSpanOnTermination(span))
+//    groupContiguous(events)(by = _.transactionId) // TODO ACS this grouping is probably in vain
+//      .mapConcat(EventsTable.Entry.toGetActiveContractsResponse)
+//      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
+//      .wireTap(response => {
+//        Spans.addEventToSpan(
+//          telemetry.Event("contract", Map((SpanAttribute.Offset, response.offset))),
+//          span,
+//        )
+//      })
+//      .watchTermination()(endSpanOnTermination(span))
   }
 
   private def getActiveContractsWithDisjointQueries(
@@ -450,12 +456,13 @@ private[appendonlydao] final class TransactionsReader(
       Telemetry.Transactions.createSpan(activeAt)(qualifiedNameOfCurrentFunc)
     logger.debug(s"getActiveContracts($activeAt, $filter, $verbose)")
 
+    Source.futureSource(
     Source
       .futureSource(
         getAcsEventSeqIdRange(activeAt)
-          .map(requestedRange => acsReader.acsStream2Phase(filter, requestedRange.endInclusive))
+          .map(requestedRange => acsReader.acsStream(filter, requestedRange.endInclusive))
       )
-      .mapAsync(2) { // TODO ACS wire up
+      .mapAsync(8) { // TODO ACS wire up
         rawResult =>
           Timed.future(
             future = Future.traverse(rawResult)(
@@ -474,6 +481,8 @@ private[appendonlydao] final class TransactionsReader(
       })
       .mapMaterializedValue(_ => NotUsed)
       .watchTermination()(endSpanOnTermination(span))
+      .run().map(_ => Source.empty)
+    ).mapMaterializedValue(_ => NotUsed)
   }
 
   override def getContractStateEvents(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
@@ -551,7 +560,7 @@ private[appendonlydao] final class TransactionsReader(
     dispatcher
       .executeSql(dbMetrics.getAcsEventSeqIdRange)(implicit connection =>
         queryNonPruned.executeSql( // TODO ACS do we need this?
-          ledgerEnd.get(),
+          eventSeqIdReader.readEventSeqIdRange(activeAt)(connection),
           activeAt,
           pruned =>
             s"Active contracts request after ${activeAt.toHexString} precedes pruned offset ${pruned.toHexString}",
@@ -560,7 +569,7 @@ private[appendonlydao] final class TransactionsReader(
       .map(x =>
         EventsRange(
           startExclusive = (Offset.beforeBegin, 0), // TODO ACS constantify
-          endInclusive = x,
+          endInclusive = (activeAt, x.endInclusive),
         )
       )
 
@@ -606,6 +615,21 @@ private[appendonlydao] final class TransactionsReader(
             timer = queryMetric.translationTimer,
           )
         )
+      }
+    }
+
+  private def streamEventsNoSerialization[A: Ordering, E](
+      queryMetric: DatabaseMetrics,
+      query: EventsRange[A] => Connection => Vector[EventsTable.Entry[Raw[E]]],
+      getNextPageRange: EventsTable.Entry[Raw[E]] => EventsRange[A],
+  )(range: EventsRange[A])(implicit
+      loggingContext: LoggingContext
+  ): Source[EventsTable.Entry[Raw[E]], NotUsed] =
+    PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
+      if (EventsRange.isEmpty(range1))
+        Future.successful(Vector.empty)
+      else {
+        dispatcher.executeSql(queryMetric)(query(range1))
       }
     }
 

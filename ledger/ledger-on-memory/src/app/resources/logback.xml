@@ -6,4 +6,5 @@
 
 <configuration>
     <include resource="com/daml/ledger/participant/state/kvutils/app/logback.base.xml"/>
+    <logger name="com.daml.platform.indexer.ha" level="DEBUG" />
 </configuration>
