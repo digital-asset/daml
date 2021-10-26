@@ -77,7 +77,12 @@ private[stores] final class LedgerBackedWriteService(
       "packageHashes" -> payload.view.map(_.getHash),
     ) { implicit loggingContext =>
       FutureConverters.toJava(
-        ledger.uploadPackages(submissionId, timeProvider.getCurrentTime, sourceDescription, payload)
+        ledger.uploadPackages(
+          submissionId,
+          timeProvider.getCurrentTimestamp,
+          sourceDescription,
+          payload,
+        )
       )
     }
 

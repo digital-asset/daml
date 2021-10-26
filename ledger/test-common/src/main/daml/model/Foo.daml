@@ -1,0 +1,13 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Foo where
+
+template Foo1
+  with
+    signatory : Party
+    observers : [Party]
+  where
+    signatory signatory
+    observer observers
+

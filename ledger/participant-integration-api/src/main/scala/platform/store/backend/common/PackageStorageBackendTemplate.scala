@@ -9,8 +9,9 @@ import anorm.SqlParser.{flatten, str}
 import anorm.{Macro, RowParser, SQL, SqlParser}
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.platform.store.Conversions.{instantFromMicros, ledgerString, offset}
+import com.daml.platform.store.Conversions.{ledgerString, offset, timestampFromMicros}
 import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.PackageStorageBackend
@@ -47,7 +48,7 @@ private[backend] trait PackageStorageBackendTemplate extends PackageStorageBacke
       .map(d =>
         PackageId.assertFromString(d.packageId) -> PackageDetails(
           d.size,
-          instantFromMicros(d.knownSince),
+          Timestamp.assertFromLong(d.knownSince),
           d.sourceDescription,
         )
       )
@@ -80,7 +81,7 @@ private[backend] trait PackageStorageBackendTemplate extends PackageStorageBacke
 
   private val packageEntryParser: RowParser[(Offset, PackageLedgerEntry)] =
     (offset("ledger_offset") ~
-      instantFromMicros("recorded_at") ~
+      timestampFromMicros("recorded_at") ~
       ledgerString("submission_id").? ~
       str("typ") ~
       str("rejection_reason").?)

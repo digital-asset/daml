@@ -3,8 +3,6 @@
 package com.daml.platform.store.appendonlydao
 
 import java.sql.Connection
-import java.time.Instant
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
@@ -22,7 +20,8 @@ import com.daml.ledger.participant.state.index.v2.{
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.ArchiveParser
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -30,21 +29,10 @@ import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetStep}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackend, UpdateToDbDto}
-import com.daml.platform.store.dao.{
-  DeduplicationKeyMaker,
-  LedgerDao,
-  LedgerReadDao,
-  MeteredLedgerDao,
-  MeteredLedgerReadDao,
-  PersistenceResponse,
-}
-import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
-import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -157,8 +145,8 @@ private class JdbcLedgerDao(
     }
 
   override def storeConfigurationEntry(
-      offsetStep: OffsetStep,
-      recordedAt: Instant,
+      offset: Offset,
+      recordedAt: Timestamp,
       submissionId: String,
       configuration: Configuration,
       rejectionReason: Option[String],
@@ -191,7 +179,7 @@ private class JdbcLedgerDao(
         val update = finalRejectionReason match {
           case None =>
             state.Update.ConfigurationChanged(
-              recordTime = Time.Timestamp.assertFromInstant(recordedAt),
+              recordTime = recordedAt,
               submissionId = Ref.SubmissionId.assertFromString(submissionId),
               participantId =
                 Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
@@ -200,7 +188,7 @@ private class JdbcLedgerDao(
 
           case Some(reason) =>
             state.Update.ConfigurationChangeRejected(
-              recordTime = Time.Timestamp.assertFromInstant(recordedAt),
+              recordTime = recordedAt,
               submissionId = Ref.SubmissionId.assertFromString(submissionId),
               participantId =
                 Ref.ParticipantId.assertFromString("1"), // not used for DbDto generation
@@ -209,7 +197,6 @@ private class JdbcLedgerDao(
             )
         }
 
-        val offset = validateOffsetStep(offsetStep, conn)
         sequentialIndexer.store(conn, offset, Some(update))
         PersistenceResponse.Ok
       }
@@ -219,12 +206,11 @@ private class JdbcLedgerDao(
     Ref.ParticipantId.assertFromString("RESTRICTED_NON_LOCAL_PARTICIPANT_ID")
 
   override def storePartyEntry(
-      offsetStep: OffsetStep,
+      offset: Offset,
       partyEntry: PartyLedgerEntry,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     logger.info("Storing party entry")
     dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDbMetrics) { implicit conn =>
-      val offset = validateOffsetStep(offsetStep, conn)
       partyEntry match {
         case PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails) =>
           sequentialIndexer.store(
@@ -240,7 +226,7 @@ private class JdbcLedgerDao(
                 //
                 // This will be properly resolved once we move away from the `sandbox-classic` codebase.
                 participantId = if (partyDetails.isLocal) participantId else NonLocalParticipantId,
-                recordTime = Time.Timestamp.assertFromInstant(recordTime),
+                recordTime = recordTime,
                 submissionId = submissionIdOpt,
               )
             ),
@@ -255,7 +241,7 @@ private class JdbcLedgerDao(
               state.Update.PartyAllocationRejected(
                 submissionId = submissionId,
                 participantId = participantId,
-                recordTime = Time.Timestamp.assertFromInstant(recordTime),
+                recordTime = recordTime,
                 rejectionReason = reason,
               )
             ),
@@ -283,61 +269,8 @@ private class JdbcLedgerDao(
     }
   }
 
-  override def prepareTransactionInsert(
-      completionInfo: Option[state.CompletionInfo],
-      workflowId: Option[Ref.WorkflowId],
-      transactionId: Ref.TransactionId,
-      ledgerEffectiveTime: Instant,
-      offset: Offset,
-      transaction: CommittedTransaction,
-      divulgedContracts: Iterable[state.DivulgedContract],
-      blindingInfo: Option[BlindingInfo],
-  ): PreparedInsert =
-    throw new UnsupportedOperationException(
-      "not supported by append-only code"
-    ) // TODO append-only: cleanup
-
-  // TODO append-only: cleanup
-  override def storeTransactionState(
-      preparedInsert: PreparedInsert
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    throw new UnsupportedOperationException(
-      "not supported by append-only code"
-    ) // TODO append-only: cleanup
-
-  override def storeTransactionEvents(
-      preparedInsert: PreparedInsert
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    throw new UnsupportedOperationException(
-      "not supported by append-only code"
-    ) // TODO append-only: cleanup
-
-  override def completeTransaction(
-      completionInfo: Option[state.CompletionInfo],
-      transactionId: Ref.TransactionId,
-      recordTime: Instant,
-      offsetStep: OffsetStep,
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    throw new UnsupportedOperationException(
-      "not supported by append-only code"
-    ) // TODO append-only: cleanup
-
-  override def storeTransaction(
-      preparedInsert: PreparedInsert,
-      completionInfo: Option[state.CompletionInfo],
-      transactionId: Ref.TransactionId,
-      recordTime: Instant,
-      ledgerEffectiveTime: Instant,
-      offsetStep: OffsetStep,
-      transaction: CommittedTransaction,
-      divulged: Iterable[state.DivulgedContract],
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    throw new UnsupportedOperationException(
-      "not supported by append-only code"
-    ) // TODO append-only: cleanup
-
   private def validate(
-      ledgerEffectiveTime: Instant,
+      ledgerEffectiveTime: Timestamp,
       transaction: CommittedTransaction,
       divulged: Iterable[state.DivulgedContract],
   )(implicit connection: Connection): Option[PostCommitValidation.Rejection] =
@@ -352,19 +285,18 @@ private class JdbcLedgerDao(
 
   override def storeRejection(
       completionInfo: Option[state.CompletionInfo],
-      recordTime: Instant,
-      offsetStep: OffsetStep,
+      recordTime: Timestamp,
+      offset: Offset,
       reason: state.Update.CommandRejected.RejectionReasonTemplate,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeRejectionDbMetrics) { implicit conn =>
-        val offset = validateOffsetStep(offsetStep, conn)
         sequentialIndexer.store(
           conn,
           offset,
           completionInfo.map(info =>
             state.Update.CommandRejected(
-              recordTime = Time.Timestamp.assertFromInstant(recordTime),
+              recordTime = recordTime,
               completionInfo = info,
               reasonTemplate = reason,
             )
@@ -403,8 +335,7 @@ private class JdbcLedgerDao(
                   state.Update.TransactionAccepted(
                     optCompletionInfo = completionInfo,
                     transactionMeta = state.TransactionMeta(
-                      ledgerEffectiveTime =
-                        Time.Timestamp.assertFromInstant(tx.ledgerEffectiveTime),
+                      ledgerEffectiveTime = tx.ledgerEffectiveTime,
                       workflowId = tx.workflowId,
                       submissionTime = null, // not used for DbDto generation
                       submissionSeed = null, // not used for DbDto generation
@@ -414,7 +345,7 @@ private class JdbcLedgerDao(
                     ),
                     transaction = tx.transaction,
                     transactionId = tx.transactionId,
-                    recordTime = Time.Timestamp.assertFromInstant(tx.recordedAt),
+                    recordTime = tx.recordedAt,
                     divulgedContracts = Nil,
                     blindingInfo = None,
                   )
@@ -433,7 +364,7 @@ private class JdbcLedgerDao(
                 offset,
                 Some(
                   state.Update.CommandRejected(
-                    recordTime = Time.Timestamp.assertFromInstant(recordTime),
+                    recordTime = recordTime,
                     completionInfo = state
                       .CompletionInfo(actAs, applicationId, commandId, None, Some(submissionId)),
                     reasonTemplate = reason.toParticipantStateRejectionReason,
@@ -479,14 +410,13 @@ private class JdbcLedgerDao(
       )
 
   override def storePackageEntry(
-      offsetStep: OffsetStep,
+      offset: Offset,
       packages: List[(Archive, PackageDetails)],
       optEntry: Option[PackageLedgerEntry],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     logger.info("Storing package entry")
     dbDispatcher.executeSql(metrics.daml.index.db.storePackageEntryDbMetrics) {
       implicit connection =>
-        val offset = validateOffsetStep(offsetStep, connection)
         // Note on knownSince and recordTime:
         // - There are two different time values in the input: PackageDetails.knownSince and PackageUploadAccepted.recordTime
         // - There is only one time value in the intermediate values: PublicPackageUpload.recordTime
@@ -507,13 +437,11 @@ private class JdbcLedgerDao(
               sourceDescription = packages.headOption.flatMap(
                 _._2.sourceDescription
               ),
-              recordTime = Time.Timestamp.assertFromInstant(
-                packages.headOption
-                  .map(
-                    _._2.knownSince
-                  )
-                  .getOrElse(Instant.EPOCH)
-              ),
+              recordTime = packages.headOption
+                .map(
+                  _._2.knownSince
+                )
+                .getOrElse(Timestamp.Epoch),
               submissionId =
                 None, // If the submission ID is missing, this update will not insert a row in the package_entries table
             )
@@ -524,14 +452,14 @@ private class JdbcLedgerDao(
               sourceDescription = packages.headOption.flatMap(
                 _._2.sourceDescription
               ),
-              recordTime = Time.Timestamp.assertFromInstant(recordTime),
+              recordTime = recordTime,
               submissionId = Some(submissionId),
             )
 
           case Some(PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason)) =>
             state.Update.PublicPackageUploadRejected(
               submissionId = submissionId,
-              recordTime = Time.Timestamp.assertFromInstant(recordTime),
+              recordTime = recordTime,
               rejectionReason = reason,
             )
         }
@@ -560,8 +488,8 @@ private class JdbcLedgerDao(
   override def deduplicateCommand(
       commandId: domain.CommandId,
       submitters: List[Ref.Party],
-      submittedAt: Instant,
-      deduplicateUntil: Instant,
+      submittedAt: Timestamp,
+      deduplicateUntil: Timestamp,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
     dbDispatcher.executeSql(metrics.daml.index.db.deduplicateCommandDbMetrics) { conn =>
       val key = DeduplicationKeyMaker.make(commandId, submitters)
@@ -582,7 +510,7 @@ private class JdbcLedgerDao(
     }
 
   override def removeExpiredDeduplicationData(
-      currentTime: Instant
+      currentTime: Timestamp
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.removeExpiredDeduplicationDataDbMetrics)(
       storageBackend.removeExpiredDeduplicationData(currentTime)
@@ -727,26 +655,26 @@ private class JdbcLedgerDao(
       completionInfo: Option[state.CompletionInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
-      ledgerEffectiveTime: Instant,
-      offsetStep: OffsetStep,
+      ledgerEffectiveTime: Timestamp,
+      offset: Offset,
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
-      recordTime: Instant,
+      recordTime: Timestamp,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     logger.info("Storing transaction")
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
         sequentialIndexer.store(
           conn,
-          validateOffsetStep(offsetStep, conn),
+          offset,
           validate(ledgerEffectiveTime, transaction, divulgedContracts) match {
             case None =>
               Some(
                 state.Update.TransactionAccepted(
                   optCompletionInfo = completionInfo,
                   transactionMeta = state.TransactionMeta(
-                    ledgerEffectiveTime = Time.Timestamp.assertFromInstant(ledgerEffectiveTime),
+                    ledgerEffectiveTime = ledgerEffectiveTime,
                     workflowId = workflowId,
                     submissionTime = null, // not used for DbDto generation
                     submissionSeed = null, // not used for DbDto generation
@@ -756,7 +684,7 @@ private class JdbcLedgerDao(
                   ),
                   transaction = transaction,
                   transactionId = transactionId,
-                  recordTime = Time.Timestamp.assertFromInstant(recordTime),
+                  recordTime = recordTime,
                   divulgedContracts = divulgedContracts.toList,
                   blindingInfo = blindingInfo,
                 )
@@ -765,7 +693,7 @@ private class JdbcLedgerDao(
             case Some(reason) =>
               completionInfo.map(info =>
                 state.Update.CommandRejected(
-                  recordTime = Time.Timestamp.assertFromInstant(recordTime),
+                  recordTime = recordTime,
                   completionInfo = info,
                   reasonTemplate = reason.toStateV2RejectionReason,
                 )
@@ -774,20 +702,6 @@ private class JdbcLedgerDao(
         )
         PersistenceResponse.Ok
       }
-  }
-
-  // The old indexer (com.daml.platform.indexer.JdbcIndexer) uses IncrementalOffsetStep,
-  // and we have tests in JdbcLedgerDao*Spec checking that this is handled correctly.
-  // The append-only schema and the parallel ingestion indexer doesn't use this class.
-  // TODO append-only: Remove the OffsetStep trait along with this method and all corresponding tests,
-  // and change all method signatures to use Offset instead of OffsetStep.
-  private[this] def validateOffsetStep(offsetStep: OffsetStep, conn: Connection): Offset = {
-    offsetStep match {
-      case IncrementalOffsetStep(p, o) =>
-        val actualEnd = storageBackend.ledgerEndOrBeforeBegin(conn).lastOffset
-        if (actualEnd.compareTo(p) != 0) throw LedgerEndUpdateError(p) else o
-      case CurrentOffset(o) => o
-    }
   }
 
 }

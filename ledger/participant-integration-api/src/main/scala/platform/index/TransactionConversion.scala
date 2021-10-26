@@ -106,7 +106,7 @@ private[platform] object TransactionConversion {
         transactionId = entry.transactionId,
         commandId = commandId,
         workflowId = entry.workflowId.getOrElse(""),
-        effectiveAt = Some(TimestampConversion.fromInstant(entry.ledgerEffectiveTime)),
+        effectiveAt = Some(TimestampConversion.fromLf(entry.ledgerEffectiveTime)),
         events = filtered,
         offset = offset.value,
       )
@@ -220,7 +220,7 @@ private[platform] object TransactionConversion {
         transactionId = entry.transactionId,
         commandId = maskCommandId(entry.commandId, entry.actAs, requestingParties),
         workflowId = entry.workflowId.getOrElse(""),
-        effectiveAt = Some(TimestampConversion.fromInstant(entry.ledgerEffectiveTime)),
+        effectiveAt = Some(TimestampConversion.fromLf(entry.ledgerEffectiveTime)),
         offset = offset.value,
       )
     )

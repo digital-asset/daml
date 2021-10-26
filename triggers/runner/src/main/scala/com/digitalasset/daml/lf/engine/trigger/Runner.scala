@@ -18,12 +18,15 @@ import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, Tra
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement._
 import com.daml.lf.archive.Dar
+import com.daml.lf.data.FrontStack
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.PackageInterface
+import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -71,6 +74,8 @@ final case class Trigger(
     // TransactionFilter since the latter is
     // party-specific.
     heartbeat: Option[FiniteDuration],
+    // Whether the trigger supports readAs claims (SDK 1.18 and newer) or not.
+    hasReadAs: Boolean,
 ) {
   @nowarn("msg=parameter value label .* is never used") // Proxy only
   private[trigger] final class withLoggingContext[P] private (
@@ -112,6 +117,26 @@ object Machine extends StrictLogging {
 }
 
 object Trigger extends StrictLogging {
+
+  private def detectHasReadAs(
+      interface: PackageInterface,
+      triggerIds: TriggerIds,
+  ): Either[String, Boolean] =
+    for {
+      fieldInfo <- interface
+        .lookupRecordFieldInfo(
+          triggerIds.damlTriggerLowLevel("Trigger"),
+          Name.assertFromString("initialState"),
+        )
+        .left
+        .map(_.pretty)
+      hasReadAs <- fieldInfo.typDef match {
+        case TFun(TParty, TFun(TList(TParty), TFun(_, _))) => Right(true)
+        case TFun(TParty, TFun(_, _)) => Right(false)
+        case t => Left(s"Internal error: Unexpected type for initialState function: $t")
+      }
+    } yield hasReadAs
+
   def fromIdentifier(
       compiledPackages: CompiledPackages,
       triggerId: Identifier,
@@ -154,10 +179,11 @@ object Trigger extends StrictLogging {
         case _ => Left(s"Trigger must points to a value but points to $definition")
       }
       triggerIds = TriggerIds(expr.ty.tycon.packageId)
+      hasReadAs <- detectHasReadAs(compiledPackages.interface, triggerIds)
       converter: Converter = Converter(compiledPackages, triggerIds)
       filter <- getTriggerFilter(compiledPackages, compiler, converter, expr)
       heartbeat <- getTriggerHeartbeat(compiledPackages, compiler, converter, expr)
-    } yield Trigger(expr, triggerId, triggerIds, filter, heartbeat)
+    } yield Trigger(expr, triggerId, triggerIds, filter, heartbeat, hasReadAs)
   }
 
   // Return the heartbeat specified by the user.
@@ -220,7 +246,7 @@ class Runner(
     client: LedgerClient,
     timeProviderType: TimeProviderType,
     applicationId: ApplicationId,
-    party: Party,
+    parties: TriggerParties,
 )(implicit loggingContext: LoggingContextOf[Trigger]) {
   import Runner.{SeenMsgs, alterF}
 
@@ -233,7 +259,7 @@ class Runner(
   // message, or both.
   private[this] var pendingCommandIds: Map[UUID, SeenMsgs] = Map.empty
   private val transactionFilter: TransactionFilter =
-    TransactionFilter(Seq((party.unwrap, trigger.filters)).toMap)
+    TransactionFilter(parties.readers.map(p => (p.unwrap, trigger.filters)).toMap)
 
   private[this] def logger = ContextualizedLogger get getClass
 
@@ -261,7 +287,8 @@ class Runner(
       ledgerId = client.ledgerId.unwrap,
       applicationId = applicationId.unwrap,
       commandId = commandUUID.toString,
-      party = party.unwrap,
+      party = parties.actAs.unwrap,
+      readAs = Party.unsubst(parties.readAs).toList,
       commands = commands,
     )
     logger.debug(
@@ -322,7 +349,7 @@ class Runner(
       client: LedgerClient,
       offset: LedgerOffset,
       heartbeat: Option[FiniteDuration],
-      party: Party,
+      parties: TriggerParties,
       filter: TransactionFilter,
   ): Flow[SingleCommandFailure, TriggerMsg, NotUsed] = {
 
@@ -362,7 +389,8 @@ class Runner(
       submissionFailureQueue
         .merge(
           client.commandClient
-            .completionSource(List(party.unwrap), offset)
+            // Completions only take actAs into account so no need to include readAs.
+            .completionSource(List(parties.actAs.unwrap), offset)
             .mapConcat {
               case CheckpointElement(_) => List()
               case CompletionElement(c) => List(c)
@@ -403,10 +431,17 @@ class Runner(
     // Convert the ACS to a speedy value.
     val createdValue: SValue = converter.fromACS(acs).orConverterException
     // Setup an application expression of initialState on the ACS.
+    val partyArg = SParty(Ref.Party.assertFromString(parties.actAs.unwrap))
+    val initialStateArgs = if (trigger.hasReadAs) {
+      val readAsArg = SList(
+        parties.readAs.map(p => SParty(Ref.Party.assertFromString(p.unwrap))).to(FrontStack)
+      )
+      Array(partyArg, readAsArg, createdValue)
+    } else Array(partyArg, createdValue)
     val initialState: SExpr =
       makeApp(
         getInitialState,
-        Array(SParty(Ref.Party.assertFromString(party.unwrap)), createdValue),
+        initialStateArgs,
       )
     // Prepare a speedy machine for evaluating expressions.
     val machine: Speedy.Machine =
@@ -448,7 +483,8 @@ class Runner(
       name: String,
       acs: Seq[CreatedEvent],
   ): Flow[TriggerMsg, SubmitRequest, Future[SValue]] = {
-    logger.info(s"Trigger ${name} is running as ${party}")
+    logger.info(s"""Trigger ${name} is running as ${parties.actAs} with readAs=[${parties.readAs
+      .mkString(", ")}]""")
 
     val clientTime: Timestamp =
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
@@ -617,7 +653,7 @@ class Runner(
       executionContext: ExecutionContext,
   ): (T, Future[SValue]) = {
     val source =
-      msgSource(client, offset, trigger.heartbeat, party, transactionFilter)
+      msgSource(client, offset, trigger.heartbeat, parties, transactionFilter)
     Flow
       .fromGraph(msgFlow)
       .viaMat(getTriggerEvaluator(name, acs))(Keep.both)
@@ -720,7 +756,7 @@ object Runner extends StrictLogging {
       client: LedgerClient,
       timeProviderType: TimeProviderType,
       applicationId: ApplicationId,
-      party: Party,
+      parties: TriggerParties,
       config: Compiler.Config,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] = {
     val darMap = dar.all.toMap
@@ -734,7 +770,7 @@ object Runner extends StrictLogging {
     }
     val runner =
       trigger.withLoggingContext { implicit lc =>
-        new Runner(compiledPackages, trigger, client, timeProviderType, applicationId, party)
+        new Runner(compiledPackages, trigger, client, timeProviderType, applicationId, parties)
       }
     for {
       (acs, offset) <- runner.queryACS()

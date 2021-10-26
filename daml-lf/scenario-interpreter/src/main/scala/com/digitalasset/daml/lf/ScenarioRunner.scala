@@ -30,14 +30,14 @@ import scala.util.{Failure, Success, Try}
   *        same result each time given the same argument. Should return values compatible
   *        with [[com.daml.lf.data.Ref.Party]].
   */
-final case class ScenarioRunner(
+final class ScenarioRunner(
     machine: Speedy.Machine,
     initialSeed: crypto.Hash,
     partyNameMangler: (String => String) = identity,
 ) {
   import ScenarioRunner._
 
-  var seed = initialSeed
+  private[this] val nextSeed: () => crypto.Hash = crypto.Hash.secureRandom(initialSeed)
 
   var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
   var currentSubmission: Option[CurrentSubmission] = None
@@ -90,23 +90,16 @@ final case class ScenarioRunner(
             Set.empty,
             SExpr.SEValue(commands),
             location,
-            seed,
+            nextSeed(),
             machine.traceLog,
             machine.warningLog,
           )
           if (mustFail) {
             submitResult match {
-              case Commit(result, _, ptx) =>
-                currentSubmission = Some(CurrentSubmission(location, ptx.finishIncomplete))
+              case Commit(result, _, tx) =>
+                currentSubmission = Some(CurrentSubmission(location, tx))
                 throw scenario.Error.MustFailSucceeded(result.richTransaction.transaction)
-              case err: SubmissionError =>
-                currentSubmission = None
-                // TODO (MK) This is gross, we need to unwind the transaction to
-                // get the right root context to derived the seed for the next transaction.
-                val rootCtx = err.ptx.unwind().context
-                seed = nextSeed(
-                  rootCtx.nextActionChildSeed
-                )
+              case _: SubmissionError =>
                 ledger = ledger.insertAssertMustFail(committers, Set.empty, location)
                 callback(SValue.SUnit)
             }
@@ -114,13 +107,10 @@ final case class ScenarioRunner(
             submitResult match {
               case Commit(result, value, _) =>
                 currentSubmission = None
-                seed = nextSeed(
-                  crypto.Hash.deriveNodeSeed(seed, result.richTransaction.transaction.roots.length)
-                )
                 ledger = result.newLedger
                 callback(value)
-              case SubmissionError(err, ptx) =>
-                currentSubmission = Some(CurrentSubmission(location, ptx.finishIncomplete))
+              case SubmissionError(err, tx) =>
+                currentSubmission = Some(CurrentSubmission(location, tx))
                 throw err
             }
           }
@@ -171,7 +161,7 @@ object ScenarioRunner {
       engine.compiledPackages(),
       scenarioExpr,
     )
-    ScenarioRunner(speedyMachine, transactionSeed).run() match {
+    new ScenarioRunner(speedyMachine, transactionSeed).run() match {
       case err: ScenarioError =>
         throw new RuntimeException(s"error running scenario $scenarioRef in scenario ${err.error}")
       case success: ScenarioSuccess => success.ledger
@@ -203,19 +193,15 @@ object ScenarioRunner {
     }
   }
 
-  sealed trait SubmissionResult[+R] {
-    // TODO (MK) Temporary to leak the ptx from the submission machine
-    // to the parent machine.
-    def ptx: PartialTransaction
-  }
+  sealed trait SubmissionResult[+R]
 
   final case class Commit[R](
       result: R,
       value: SValue,
-      ptx: PartialTransaction,
+      tx: IncompleteTransaction,
   ) extends SubmissionResult[R]
 
-  final case class SubmissionError(error: Error, ptx: PartialTransaction)
+  final case class SubmissionError(error: Error, tx: IncompleteTransaction)
       extends SubmissionResult[Nothing]
 
   // The interface we need from a ledger during submission. We allow abstracting over this so we can play
@@ -447,18 +433,18 @@ object ScenarioRunner {
               val tx = if (doEnrichment) enrich(tx0) else tx0
               ledger.commit(committers, readAs, location, tx, locationInfo) match {
                 case Left(err) =>
-                  SubmissionError(err, onLedger.ptxInternal)
+                  SubmissionError(err, onLedger.incompleteTransaction)
                 case Right(r) =>
-                  Commit(r, resultValue, onLedger.ptxInternal)
+                  Commit(r, resultValue, onLedger.incompleteTransaction)
               }
             case PartialTransaction.IncompleteTransaction(ptx) =>
               throw new RuntimeException(s"Unexpected abort: $ptx")
           }
         case SResultError(err) =>
-          SubmissionError(Error.RunnerException(err), onLedger.ptxInternal)
+          SubmissionError(Error.RunnerException(err), onLedger.incompleteTransaction)
         case SResultNeedContract(coid, tid @ _, committers, callback) =>
           ledger.lookupContract(coid, committers, readAs, callback) match {
-            case Left(err) => SubmissionError(err, onLedger.ptxInternal)
+            case Left(err) => SubmissionError(err, onLedger.incompleteTransaction)
             case Right(_) => go()
           }
         case SResultNeedKey(keyWithMaintainers, committers, callback) =>
@@ -469,7 +455,7 @@ object ScenarioRunner {
             readAs,
             callback,
           ) match {
-            case Left(err) => SubmissionError(err, onLedger.ptxInternal)
+            case Left(err) => SubmissionError(err, onLedger.incompleteTransaction)
             case Right(_) => go()
           }
         case SResultNeedTime(callback) =>

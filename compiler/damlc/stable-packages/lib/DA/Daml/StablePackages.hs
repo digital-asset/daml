@@ -34,6 +34,7 @@ allStablePackages =
     , daValidationTypes (encodePackageHash daNonEmptyTypes)
     , daInternalDown
     , daInternalErased
+    , daInternalNatSyn
     , daInternalPromotedText
     , daSetTypes
     , daExceptionGeneralError
@@ -426,6 +427,25 @@ daInternalErased = package version1_6 $ NM.singleton (emptyModule modName)
     erasedTyCon = mkTypeCon ["Erased"]
     types = NM.fromList
       [ DefDataType Nothing erasedTyCon (IsSerializable False) [] $ DataVariant []
+      ]
+
+daInternalNatSyn :: Package
+daInternalNatSyn = Package
+  { packageLfVersion = version1_14
+  , packageModules = NM.singleton (emptyModule modName)
+      { moduleDataTypes = types
+      , moduleValues = NM.empty
+      }
+  , packageMetadata = Just PackageMetadata
+      { packageName = PackageName "daml-prim-DA-Internal-NatSyn"
+      , packageVersion = PackageVersion "1.0.0"
+      }
+  }
+  where
+    modName = mkModName ["DA", "Internal", "NatSyn"]
+    natSynTyCon = mkTypeCon ["NatSyn"]
+    types = NM.fromList
+      [ DefDataType Nothing natSynTyCon (IsSerializable False) [(mkTypeVar "n", KNat)] $ DataVariant []
       ]
 
 daInternalPromotedText :: Package

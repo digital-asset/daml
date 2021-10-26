@@ -5,11 +5,11 @@ package com.daml.error
 
 import ch.qos.logback.classic.Level
 import com.daml.error.ErrorCategory.TransientServerFailure
+import com.daml.error.utils.ErrorDetails
 import com.daml.error.utils.testpackage.SeriousError
 import com.daml.error.utils.testpackage.subpackage.NotSoSeriousError
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.testing.LogCollector
-import com.google.rpc.{ErrorInfo, RequestInfo, RetryInfo}
 import io.grpc.protobuf.StatusProto
 import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpec
@@ -71,21 +71,18 @@ class ErrorCodeSpec extends AnyFlatSpec with Matchers with BeforeAndAfter {
     val actualTrailers = actualGrpcError.getTrailers
     val actualRpcStatus = StatusProto.fromStatusAndTrailers(actualStatus, actualTrailers)
 
-    val Seq(rawErrorInfo, rawRetryInfo, rawRequestInfo, rawResourceInfo) =
-      actualRpcStatus.getDetailsList.asScala.toSeq
-
-    val actualResourceInfo = rawResourceInfo.unpack(classOf[com.google.rpc.ResourceInfo])
-    val actualErrorInfo = rawErrorInfo.unpack(classOf[ErrorInfo])
-    val actualRetryInfo = rawRetryInfo.unpack(classOf[RetryInfo])
-    val actualRequestInfo = rawRequestInfo.unpack(classOf[RequestInfo])
+    val errorDetails =
+      ErrorDetails.from(actualRpcStatus.getDetailsList.asScala.toSeq)
 
     actualStatus.getCode shouldBe NotSoSeriousError.category.grpcCode.get
     actualGrpcError.getMessage shouldBe expectedErrorMessage
-    actualErrorInfo.getReason shouldBe NotSoSeriousError.id
-    actualRetryInfo.getRetryDelay.getSeconds shouldBe TransientServerFailure.retryable.get.duration.toSeconds
-    actualRequestInfo.getRequestId shouldBe correlationId
-    actualResourceInfo.getResourceType shouldBe error.resources.head._1.asString
-    actualResourceInfo.getResourceName shouldBe error.resources.head._2
+
+    errorDetails should contain theSameElementsAs Seq(
+      ErrorDetails.ErrorInfoDetail(NotSoSeriousError.id),
+      ErrorDetails.RetryInfoDetail(TransientServerFailure.retryable.get.duration.toSeconds),
+      ErrorDetails.RequestInfoDetail(correlationId),
+      ErrorDetails.ResourceInfoDetail(error.resources.head._1.asString, error.resources.head._2),
+    )
   }
 
   private def logSeriousError(

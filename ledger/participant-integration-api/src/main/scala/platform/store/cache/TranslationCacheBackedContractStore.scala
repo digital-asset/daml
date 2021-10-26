@@ -3,10 +3,9 @@
 
 package com.daml.platform.store.cache
 
-import java.time.Instant
-
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.resources.Resource
+import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
@@ -44,7 +43,7 @@ class TranslationCacheBackedContractStore(
     */
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Instant]] =
+  ): Future[Option[Timestamp]] =
     contractsReader.lookupMaximumLedgerTime(ids)
 }
 

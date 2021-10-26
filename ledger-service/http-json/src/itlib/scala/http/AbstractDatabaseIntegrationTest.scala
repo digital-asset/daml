@@ -12,9 +12,11 @@ import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
 import doobie.util.log.LogHandler
+import doobie.free.{connection => fconn}
 import org.scalatest.freespec.AsyncFreeSpecLike
 import org.scalatest.{Assertion, AsyncTestSuite, BeforeAndAfterAll, Inside}
 import org.scalatest.matchers.should.Matchers
+import scalaz.std.list._
 
 import scala.collection.compat._
 import scala.concurrent.Future
@@ -184,25 +186,69 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
     } yield succeed
   }.unsafeToFuture()
 
-  "SurrogateTemplateIdCache should be used on template insertion and reads" in {
-    import dao.jdbcDriver.q.queries
-    def getOrElseInsertTemplate(tpid: TemplateId[String])(implicit
-        logHandler: LogHandler = dao.logHandler
-    ) = instanceUUIDLogCtx(implicit lc =>
-      dao.transact(
-        queries
-          .surrogateTemplateId(tpid.packageId, tpid.moduleName, tpid.entityName)
+  "SurrogateTemplateIdCache" - {
+    "should be used on template insertion and reads" in {
+      import dao.jdbcDriver.q.queries
+      def getOrElseInsertTemplate(tpid: TemplateId[String])(implicit
+          logHandler: LogHandler = dao.logHandler
+      ) = instanceUUIDLogCtx(implicit lc =>
+        dao.transact(
+          queries
+            .surrogateTemplateId(tpid.packageId, tpid.moduleName, tpid.entityName)
+        )
       )
-    )
-    val tpId = TemplateId("pkg", "mod", "ent")
-    for {
-      storedStpId <- getOrElseInsertTemplate(tpId) //insert the template id into the cache
-      cachedStpId <- getOrElseInsertTemplate(tpId) // should trigger a read from cache
-    } yield {
-      storedStpId shouldEqual cachedStpId
-      queries.surrogateTpIdCache.getHitCount shouldBe 1
-      queries.surrogateTpIdCache.getMissCount shouldBe 1
+
+      val tpId = TemplateId("pkg", "mod", "ent")
+      for {
+        storedStpId <- getOrElseInsertTemplate(tpId) //insert the template id into the cache
+        cachedStpId <- getOrElseInsertTemplate(tpId) // should trigger a read from cache
+      } yield {
+        storedStpId shouldEqual cachedStpId
+        queries.surrogateTpIdCache.getHitCount shouldBe 1
+        queries.surrogateTpIdCache.getMissCount shouldBe 1
+      }
+    }.unsafeToFuture()
+
+    "doesn't cache uncommitted template IDs" in {
+      import dbbackend.Queries.DBContract, spray.json.{JsObject, JsNull, JsValue},
+      spray.json.DefaultJsonProtocol._
+      import dao.logHandler, dao.jdbcDriver.q.queries
+
+      val tpId = TemplateId("pkg", "mod", "UncomCollision")
+
+      val simulation = instanceUUIDLogCtx { implicit lc =>
+        def stid =
+          queries.surrogateTemplateId(tpId.packageId, tpId.moduleName, tpId.entityName)
+
+        for {
+          _ <- queries.dropAllTablesIfExist
+          _ <- queries.initDatabase
+          _ <- fconn.commit
+          _ <- stid
+          _ <- fconn.rollback // as with when we conflict and retry
+          tpid <- stid
+          _ <- queries.insertContracts(
+            List(
+              DBContract(
+                contractId = "foo",
+                templateId = tpid,
+                key = JsNull: JsValue,
+                keyHash = None,
+                payload = JsObject(): JsValue,
+                signatories = Seq("Alice"),
+                observers = Seq.empty,
+                agreementText = "",
+              )
+            )
+          )
+          _ <- fconn.commit
+        } yield succeed
+      }
+
+      dao
+        .transact(simulation)
+        .unsafeToFuture()
     }
-  }.unsafeToFuture()
+  }
 
 }

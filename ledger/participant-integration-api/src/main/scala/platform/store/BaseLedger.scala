@@ -3,8 +3,6 @@
 
 package com.daml.platform.store
 
-import java.time.Instant
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
@@ -26,6 +24,7 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, ContractStore}
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
@@ -33,7 +32,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.PruneBuffers
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
-import com.daml.platform.store.dao.{LedgerDaoTransactionsReader, LedgerReadDao}
+import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import scalaz.syntax.tag.ToTagOps
 
@@ -132,7 +131,7 @@ private[platform] abstract class BaseLedger(
 
   override def lookupMaximumLedgerTime(
       contractIds: Set[ContractId]
-  )(implicit loggingContext: LoggingContext): Future[Option[Instant]] =
+  )(implicit loggingContext: LoggingContext): Future[Option[Timestamp]] =
     contractStore.lookupMaximumLedgerTime(contractIds)
 
   override def getParties(parties: Seq[Ref.Party])(implicit
@@ -189,12 +188,12 @@ private[platform] abstract class BaseLedger(
   override def deduplicateCommand(
       commandId: CommandId,
       submitters: List[Ref.Party],
-      submittedAt: Instant,
-      deduplicateUntil: Instant,
+      submittedAt: Timestamp,
+      deduplicateUntil: Timestamp,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
     ledgerDao.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil)
 
-  override def removeExpiredDeduplicationData(currentTime: Instant)(implicit
+  override def removeExpiredDeduplicationData(currentTime: Timestamp)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
     ledgerDao.removeExpiredDeduplicationData(currentTime)

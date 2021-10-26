@@ -36,6 +36,11 @@ object StablePackages {
       "76bf0fd12bd945762a01f8fc5bbcdfa4d0ff20f8762af490f8f41d6237c6524f"
     ),
     PackageName.assertFromString(
+      "daml-prim-DA-Internal-NatSyn-38e6274601b21d7202bb995bc5ec147decda5a01b68d57dda422425038772af7"
+    ) -> PackageId.assertFromString(
+      "38e6274601b21d7202bb995bc5ec147decda5a01b68d57dda422425038772af7"
+    ),
+    PackageName.assertFromString(
       "daml-prim-DA-Internal-PromotedText-d58cf9939847921b2aab78eaa7b427dc4c649d25e6bee3c749ace4c3f52f5c97"
     ) -> PackageId.assertFromString(
       "d58cf9939847921b2aab78eaa7b427dc4c649d25e6bee3c749ace4c3f52f5c97"

@@ -12,6 +12,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.TransactionCommitter
@@ -62,7 +63,6 @@ private[sandbox] object SandboxIndexAndWriteService {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       engine: Engine,
-      enableAppendOnlySchema: Boolean,
       enableCompression: Boolean,
       validatePartyAllocation: Boolean = false,
   )(implicit
@@ -90,14 +90,13 @@ private[sandbox] object SandboxIndexAndWriteService {
       lfValueTranslationCache = lfValueTranslationCache,
       engine = engine,
       validatePartyAllocation = validatePartyAllocation,
-      enableAppendOnlySchema = enableAppendOnlySchema,
       enableCompression = enableCompression,
     ).flatMap(ledger =>
       owner(
         ledger = MeteredLedger(ledger, metrics),
         participantId = participantId,
         timeProvider = timeProvider,
-        enablePruning = enableAppendOnlySchema,
+        enablePruning = true,
       )
     )
 
@@ -151,7 +150,7 @@ private[sandbox] object SandboxIndexAndWriteService {
         TimeProvider.UTC,
         10.minutes,
         "deduplication cache maintenance",
-        ledger.removeExpiredDeduplicationData,
+        i => ledger.removeExpiredDeduplicationData(Timestamp.assertFromInstant(i)),
       )
     } yield new IndexAndWriteService {
       override val indexService: IndexService = indexSvc

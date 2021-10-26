@@ -3,10 +3,9 @@
 
 package com.daml.ledger.participant.state.index.v2
 
-import java.time.Instant
-
 import com.daml.ledger.api.domain.CommandId
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future
@@ -18,8 +17,8 @@ trait IndexSubmissionService {
   def deduplicateCommand(
       commandId: CommandId,
       submitters: List[Ref.Party],
-      submittedAt: Instant,
-      deduplicateUntil: Instant,
+      submittedAt: Timestamp,
+      deduplicateUntil: Timestamp,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult]
 
   def stopDeduplicatingCommand(

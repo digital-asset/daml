@@ -3,9 +3,7 @@
 
 package com.daml.platform.sandbox.stores.ledger.sql
 
-import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
-
 import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
@@ -21,6 +19,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{ContractStore, PackageDetails}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.lf.transaction.{SubmittedTransaction, TransactionCommitter}
@@ -31,16 +30,15 @@ import com.daml.platform.PruneBuffersNoOp
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdMode, MismatchException}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.indexer.CurrentOffset
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, Rejection, SandboxOffset}
+import com.daml.platform.store.appendonlydao.{LedgerDao, LedgerWriteDao}
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
 import com.daml.platform.store.cache.TranslationCacheBackedContractStore
-import com.daml.platform.store.dao.{LedgerDao, LedgerWriteDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations, LfValueTranslationCache}
 import com.google.rpc.status.{Status => RpcStatus}
@@ -88,7 +86,6 @@ private[sandbox] object SqlLedger {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       engine: Engine,
       validatePartyAllocation: Boolean,
-      enableAppendOnlySchema: Boolean,
       enableCompression: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[Ledger] {
@@ -98,7 +95,7 @@ private[sandbox] object SqlLedger {
     override def acquire()(implicit context: ResourceContext): Resource[Ledger] =
       for {
         _ <- Resource.fromFuture(
-          new FlywayMigrations(jdbcUrl, enableAppendOnlySchema).migrate()
+          new FlywayMigrations(jdbcUrl).migrate()
         )
         dao <- ledgerDaoOwner(servicesExecutionContext).acquire()
         _ <- startMode match {
@@ -218,7 +215,7 @@ private[sandbox] object SqlLedger {
         _ <- copyPackages(
           packages,
           ledgerDao,
-          timeProvider.getCurrentTime,
+          timeProvider.getCurrentTimestamp,
           SandboxOffset.toOffset(ledgerEnd),
         )
         _ <- ledgerDao.storeInitialState(ledgerEntries, SandboxOffset.toOffset(ledgerEnd))
@@ -228,7 +225,7 @@ private[sandbox] object SqlLedger {
     private def copyPackages(
         store: InMemoryPackageStore,
         ledgerDao: LedgerWriteDao,
-        knownSince: Instant,
+        knownSince: Timestamp,
         newLedgerEnd: Offset,
     ): Future[Unit] = {
       val packageDetails = store.listLfPackagesSync()
@@ -241,7 +238,7 @@ private[sandbox] object SqlLedger {
         })
 
         ledgerDao
-          .storePackageEntry(CurrentOffset(newLedgerEnd), packages, None)
+          .storePackageEntry(newLedgerEnd, packages, None)
           .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(
             DEC
           )
@@ -253,37 +250,23 @@ private[sandbox] object SqlLedger {
     private def ledgerDaoOwner(
         servicesExecutionContext: ExecutionContext
     ): ResourceOwner[LedgerDao] =
-      if (enableAppendOnlySchema)
-        com.daml.platform.store.appendonlydao.JdbcLedgerDao.validatingWriteOwner(
-          serverRole = serverRole,
-          jdbcUrl = jdbcUrl,
-          connectionPoolSize = databaseConnectionPoolSize,
-          connectionTimeout = databaseConnectionTimeout,
-          eventsPageSize = eventsPageSize,
-          eventsProcessingParallelism = eventsProcessingParallelism,
-          servicesExecutionContext = servicesExecutionContext,
-          metrics = metrics,
-          lfValueTranslationCache = lfValueTranslationCache,
-          validatePartyAllocation = validatePartyAllocation,
-          enricher = Some(new ValueEnricher(engine)),
-          participantId = Ref.ParticipantId.assertFromString(participantId.toString),
-          compressionStrategy =
-            if (enableCompression) CompressionStrategy.allGZIP(metrics)
-            else CompressionStrategy.none(metrics),
-        )
-      else
-        com.daml.platform.store.dao.JdbcLedgerDao.validatingWriteOwner(
-          serverRole,
-          jdbcUrl,
-          databaseConnectionPoolSize,
-          databaseConnectionTimeout,
-          eventsPageSize,
-          servicesExecutionContext,
-          metrics,
-          lfValueTranslationCache,
-          validatePartyAllocation,
-          Some(new ValueEnricher(engine)),
-        )
+      com.daml.platform.store.appendonlydao.JdbcLedgerDao.validatingWriteOwner(
+        serverRole = serverRole,
+        jdbcUrl = jdbcUrl,
+        connectionPoolSize = databaseConnectionPoolSize,
+        connectionTimeout = databaseConnectionTimeout,
+        eventsPageSize = eventsPageSize,
+        eventsProcessingParallelism = eventsProcessingParallelism,
+        servicesExecutionContext = servicesExecutionContext,
+        metrics = metrics,
+        lfValueTranslationCache = lfValueTranslationCache,
+        validatePartyAllocation = validatePartyAllocation,
+        enricher = Some(new ValueEnricher(engine)),
+        participantId = Ref.ParticipantId.assertFromString(participantId.toString),
+        compressionStrategy =
+          if (enableCompression) CompressionStrategy.allGZIP(metrics)
+          else CompressionStrategy.none(metrics),
+      )
 
     private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =
       Dispatcher.owner(
@@ -398,8 +381,8 @@ private final class SqlLedger(
 
   // Validates the given ledger time according to the ledger time model
   private def checkTimeModel(
-      ledgerTime: Instant,
-      recordTime: Instant,
+      ledgerTime: Timestamp,
+      recordTime: Timestamp,
   ): Either[Rejection, Unit] =
     currentConfiguration
       .get()
@@ -416,8 +399,8 @@ private final class SqlLedger(
     enqueue { offset =>
       val transactionId = offset.toApiString
 
-      val ledgerTime = transactionMeta.ledgerEffectiveTime.toInstant
-      val recordTime = timeProvider.getCurrentTime
+      val ledgerTime = transactionMeta.ledgerEffectiveTime
+      val recordTime = timeProvider.getCurrentTimestamp
 
       checkTimeModel(ledgerTime, recordTime)
         .fold(
@@ -425,7 +408,7 @@ private final class SqlLedger(
             ledgerDao.storeRejection(
               completionInfo = Some(submitterInfo.toCompletionInfo),
               recordTime = recordTime,
-              offsetStep = CurrentOffset(offset),
+              offset = offset,
               reason = reason.toStateRejectionReason,
             ),
           _ => {
@@ -438,8 +421,8 @@ private final class SqlLedger(
               completionInfo = Some(submitterInfo.toCompletionInfo),
               workflowId = transactionMeta.workflowId,
               transactionId = transactionId,
-              ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
-              offset = CurrentOffset(offset),
+              ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime,
+              offset = offset,
               transaction = transactionCommitter.commitTransaction(transactionId, transaction),
               divulgedContracts = divulgedContracts,
               blindingInfo = blindingInfo,
@@ -489,10 +472,10 @@ private final class SqlLedger(
           case Nil =>
             ledgerDao
               .storePartyEntry(
-                CurrentOffset(offset),
+                offset,
                 PartyLedgerEntry.AllocationAccepted(
                   Some(submissionId),
-                  timeProvider.getCurrentTime,
+                  timeProvider.getCurrentTimestamp,
                   PartyDetails(party, displayName, isLocal = true),
                 ),
               )
@@ -517,7 +500,7 @@ private final class SqlLedger(
 
   override def uploadPackages(
       submissionId: Ref.SubmissionId,
-      knownSince: Instant,
+      knownSince: Timestamp,
       sourceDescription: Option[String],
       payload: List[Archive],
   )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] = {
@@ -527,9 +510,11 @@ private final class SqlLedger(
     enqueue { offset =>
       ledgerDao
         .storePackageEntry(
-          CurrentOffset(offset),
+          offset,
           packages,
-          Some(PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTime)),
+          Some(
+            PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTimestamp)
+          ),
         )
         .map(_ => ())(DEC)
         .recover { case t =>
@@ -546,18 +531,17 @@ private final class SqlLedger(
       config: Configuration,
   )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] =
     enqueue { offset =>
-      val recordTime = timeProvider.getCurrentTime
-      val mrt = maxRecordTime.toInstant
+      val recordTime = timeProvider.getCurrentTimestamp
 
       val storeF =
-        if (recordTime.isAfter(mrt)) {
+        if (recordTime > maxRecordTime) {
           ledgerDao
             .storeConfigurationEntry(
-              CurrentOffset(offset),
+              offset,
               recordTime,
               submissionId,
               config,
-              Some(s"Configuration change timed out: $mrt > $recordTime"),
+              Some(s"Configuration change timed out: $maxRecordTime > $recordTime"),
             )
         } else {
           // NOTE(JM): If the generation in the new configuration is invalid
@@ -569,7 +553,7 @@ private final class SqlLedger(
           implicit val ec: ExecutionContext = DEC
           for {
             response <- ledgerDao.storeConfigurationEntry(
-              CurrentOffset(offset),
+              offset,
               recordTime,
               submissionId,
               config,

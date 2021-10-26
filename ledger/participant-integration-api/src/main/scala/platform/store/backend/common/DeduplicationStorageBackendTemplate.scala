@@ -4,10 +4,9 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
-import java.time.Instant
-
 import anorm.{RowParser, SQL}
-import com.daml.platform.store.Conversions.instantFromMicros
+import com.daml.lf.data.Time.Timestamp
+import com.daml.platform.store.Conversions.timestampFromMicros
 import com.daml.platform.store.backend.DeduplicationStorageBackend
 
 private[backend] trait DeduplicationStorageBackendTemplate extends DeduplicationStorageBackend {
@@ -18,13 +17,13 @@ private[backend] trait DeduplicationStorageBackendTemplate extends Deduplication
                                          |where deduplication_key = {deduplicationKey}
     """.stripMargin)
 
-  private case class ParsedCommandData(deduplicateUntil: Instant)
+  private case class ParsedCommandData(deduplicateUntil: Timestamp)
 
   private val CommandDataParser: RowParser[ParsedCommandData] =
-    instantFromMicros("deduplicate_until")
+    timestampFromMicros("deduplicate_until")
       .map(ParsedCommandData)
 
-  def deduplicatedUntil(deduplicationKey: String)(connection: Connection): Instant =
+  override def deduplicatedUntil(deduplicationKey: String)(connection: Connection): Timestamp =
     SQL_SELECT_COMMAND
       .on("deduplicationKey" -> deduplicationKey)
       .as(CommandDataParser.single)(connection)
@@ -35,9 +34,11 @@ private[backend] trait DeduplicationStorageBackendTemplate extends Deduplication
                                                   |where deduplicate_until < {currentTime}
     """.stripMargin)
 
-  def removeExpiredDeduplicationData(currentTime: Instant)(connection: Connection): Unit = {
+  override def removeExpiredDeduplicationData(
+      currentTime: Timestamp
+  )(connection: Connection): Unit = {
     SQL_DELETE_EXPIRED_COMMANDS
-      .on("currentTime" -> Timestamp.instantToMicros(currentTime))
+      .on("currentTime" -> currentTime.micros)
       .execute()(connection)
     ()
   }
@@ -47,7 +48,7 @@ private[backend] trait DeduplicationStorageBackendTemplate extends Deduplication
                                          |where deduplication_key = {deduplicationKey}
     """.stripMargin)
 
-  def stopDeduplicatingCommand(deduplicationKey: String)(connection: Connection): Unit = {
+  override def stopDeduplicatingCommand(deduplicationKey: String)(connection: Connection): Unit = {
     SQL_DELETE_COMMAND
       .on("deduplicationKey" -> deduplicationKey)
       .execute()(connection)

@@ -154,7 +154,7 @@ private[daml] object ApiServices {
         ApiLedgerIdentityService.create(() => identityService.getLedgerId(), errorsVersionsSwitcher)
 
       val apiVersionService =
-        ApiVersionService.create()
+        ApiVersionService.create(enableSelfServiceErrorCodes)
 
       val apiPackageService =
         ApiPackageService.create(ledgerId, packagesService, errorsVersionsSwitcher)
@@ -185,7 +185,7 @@ private[daml] object ApiServices {
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 
-      val apiHealthService = new GrpcHealthService(healthChecks)
+      val apiHealthService = new GrpcHealthService(healthChecks, errorsVersionsSwitcher)
 
       apiTimeServiceOpt.toList :::
         writeServiceBackedApiServices :::
@@ -268,6 +268,7 @@ private[daml] object ApiServices {
           timeProvider = timeProvider,
           ledgerConfigurationSubscription = ledgerConfigurationSubscription,
           metrics = metrics,
+          errorsVersionsSwitcher,
         )
 
         val apiPartyManagementService = ApiPartyManagementService.createApiService(
@@ -275,6 +276,7 @@ private[daml] object ApiServices {
           transactionsService,
           writeService,
           managementServiceTimeout,
+          errorsVersionsSwitcher,
         )
 
         val apiPackageManagementService = ApiPackageManagementService.createApiService(
@@ -283,16 +285,22 @@ private[daml] object ApiServices {
           writeService,
           managementServiceTimeout,
           engine,
+          errorsVersionsSwitcher,
         )
 
         val apiConfigManagementService = ApiConfigManagementService.createApiService(
           configManagementService,
           writeService,
           timeProvider,
+          errorsVersionsSwitcher,
         )
 
         val apiParticipantPruningService =
-          ApiParticipantPruningService.createApiService(indexService, writeService)
+          ApiParticipantPruningService.createApiService(
+            indexService,
+            writeService,
+            errorsVersionsSwitcher,
+          )
 
         List(
           new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),

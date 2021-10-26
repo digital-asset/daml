@@ -4,18 +4,17 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
-import java.time.Instant
-
 import anorm.SqlParser.{byteArray, int, long, str}
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.index.index.StatusDetails
 import com.daml.platform.store.CompletionFromTransaction
-import com.daml.platform.store.Conversions.{instantFromMicros, offset}
+import com.daml.platform.store.Conversions.{offset, timestampFromMicros}
 import com.daml.platform.store.backend.CompletionStorageBackend
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.google.protobuf.any
@@ -62,15 +61,15 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
       .as(completionParser.*)(connection)
   }
 
-  private val sharedColumns: RowParser[Offset ~ Instant ~ String ~ String ~ Option[String]] =
+  private val sharedColumns: RowParser[Offset ~ Timestamp ~ String ~ String ~ Option[String]] =
     offset("completion_offset") ~
-      instantFromMicros("record_time") ~
+      timestampFromMicros("record_time") ~
       str("command_id") ~
       str("application_id") ~
       str("submission_id").?
 
   private val acceptedCommandSharedColumns
-      : RowParser[Offset ~ Instant ~ String ~ String ~ Option[String] ~ String] =
+      : RowParser[Offset ~ Timestamp ~ String ~ String ~ Option[String] ~ String] =
     sharedColumns ~ str("transaction_id")
 
   private val deduplicationOffsetColumn: RowParser[Option[String]] =
@@ -79,8 +78,8 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
     long("deduplication_duration_seconds").?
   private val deduplicationDurationNanosColumn: RowParser[Option[Int]] =
     int("deduplication_duration_nanos").?
-  private val deduplicationStartColumn: RowParser[Option[Instant]] =
-    instantFromMicros("deduplication_start").?
+  private val deduplicationStartColumn: RowParser[Option[Timestamp]] =
+    timestampFromMicros("deduplication_start").?
 
   private val acceptedCommandParser: RowParser[CompletionStreamResponse] =
     acceptedCommandSharedColumns ~

@@ -4,10 +4,12 @@
 package com.daml.platform.store.dao
 
 import akka.stream.scaladsl.Sink
+import com.daml.platform.store.appendonlydao._
 import com.daml.platform.store.entries.ConfigurationEntry
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+// TODO append-only: merge this class with JdbcLedgerDaoConfigurationSpec
 trait JdbcLedgerDaoConfigurationAppendOnlySpec {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 

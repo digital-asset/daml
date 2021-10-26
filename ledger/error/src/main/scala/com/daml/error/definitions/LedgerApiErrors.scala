@@ -32,6 +32,36 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         )
   }
 
+  object WriteErrors extends ErrorGroup() {
+    @Explanation("This rejection is given when a configuration entry write was rejected.")
+    @Resolution("Fetch newest configuration and/or retry.")
+    object ConfigurationEntryRejected
+        extends ErrorCode(
+          id = "CONFIGURATION_ENTRY_REJECTED",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      case class Reject(message: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = message
+          )
+    }
+
+    @Explanation("This rejection is given when a package upload was rejected.")
+    @Resolution("Refer to the detailed message of the received error.")
+    object PackageUploadRejected
+        extends ErrorCode(
+          id = "PACKAGE_UPLOAD_REJECTED",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      case class Reject(message: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = message
+          )
+    }
+  }
+
   object ReadErrors extends ErrorGroup() {
 
     @Explanation("This rejection is given when a package id is malformed.")
@@ -101,6 +131,26 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       ) extends LoggingTransactionErrorImpl(
             cause = message
           )
+    }
+
+    @Explanation(
+      "The transaction does not exist or the requesting set of parties are not authorized to fetch it."
+    )
+    @Resolution(
+      "Check the transaction id and verify that the requested transaction is visible to the requesting parties."
+    )
+    object TransactionNotFound
+        extends ErrorCode(
+          id = "TRANSACTION_NOT_FOUND",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+
+      case class Reject(transactionId: String)(implicit loggingContext: ContextualizedErrorLogger)
+          extends LoggingTransactionErrorImpl(cause = "Transaction not found, or not visible.") {
+        override def resources: Seq[(ErrorResource, String)] = Seq(
+          (ErrorResource.TransactionId, transactionId)
+        )
+      }
     }
   }
 
@@ -501,7 +551,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
               cause = "The ledger configuration is not available."
             )
       }
-
     }
 
     @Explanation("""This error occurs if the Daml transaction fails due to an authorization error.
@@ -590,4 +639,21 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           cause = s"Offset in ${fieldName} not specified in hexadecimal: ${offsetValue}: ${message}"
         )
   }
+
+  object VersionServiceError extends ErrorGroup {
+    @Explanation("This error occurs if there was an unexpected error within the version service.")
+    @Resolution("Contact support.")
+    object InternalError
+        extends ErrorCode(
+          id = "VERSION_SERVICE_INTERNAL_ERROR",
+          ErrorCategory.SystemInternalAssumptionViolated,
+        ) {
+
+      case class Reject(message: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(cause = message)
+
+    }
+  }
+
 }

@@ -216,6 +216,9 @@ class RejectionGenerators(conformanceMode: Boolean) {
   }
 }
 
+// TODO error codes: Remove with the removal of the compatibility constraint from Canton
+object RejectionGenerators extends RejectionGenerators(conformanceMode = false)
+
 sealed trait ErrorCauseExport
 object ErrorCauseExport {
   final case class DamlLf(error: LfError) extends ErrorCauseExport

@@ -1,0 +1,23 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1;
+
+option java_outer_classname = "ExperimentalFeaturesOuterClass";
+option java_package = "com.daml.ledger.api.v1";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+
+/*
+ IMPORTANT: in contrast to other parts of the Ledger API, only json-wire backwards
+            compatibility guarantees are given for the messages in this file.
+*/
+
+// See the feature message definitions for descriptions.
+message ExperimentalFeatures {
+  ExperimentalSelfServiceErrorCodes self_service_error_codes = 1;
+}
+
+// GRPC self-service error codes are returned by the Ledger API.
+message ExperimentalSelfServiceErrorCodes {}

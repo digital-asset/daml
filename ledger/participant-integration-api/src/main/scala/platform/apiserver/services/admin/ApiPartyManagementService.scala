@@ -7,7 +7,11 @@ import java.time.Duration
 import java.util.UUID
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.error.{DamlContextualizedErrorLogger, ContextualizedErrorLogger}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.ledger.api.domain.{LedgerOffset, PartyEntry}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v1.admin.party_management_service._
@@ -36,6 +40,7 @@ private[apiserver] final class ApiPartyManagementService private (
     transactionService: IndexTransactionsService,
     writeService: state.WritePartyService,
     managementServiceTimeout: Duration,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
     submissionIdGenerator: Option[Ref.Party] => Ref.SubmissionId,
 )(implicit
     materializer: Materializer,
@@ -48,8 +53,14 @@ private[apiserver] final class ApiPartyManagementService private (
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
   private val synchronousResponse = new SynchronousResponse(
-    new SynchronousResponseStrategy(transactionService, writeService, partyManagementService),
+    new SynchronousResponseStrategy(
+      transactionService,
+      writeService,
+      partyManagementService,
+      errorFactories,
+    ),
     timeToLive = managementServiceTimeout,
   )
 
@@ -67,11 +78,6 @@ private[apiserver] final class ApiPartyManagementService private (
       .map(pid => GetParticipantIdResponse(pid.toString))
       .andThen(logger.logErrorsOnCall[GetParticipantIdResponse])
   }
-
-  private[this] def mapPartyDetails(
-      details: com.daml.ledger.api.domain.PartyDetails
-  ): PartyDetails =
-    PartyDetails(details.party, details.displayName.getOrElse(""), details.isLocal)
 
   override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
     withEnrichedLoggingContext(logging.partyStrings(request.parties)) { implicit loggingContext =>
@@ -98,7 +104,7 @@ private[apiserver] final class ApiPartyManagementService private (
         logger.info("Allocating party")
         implicit val telemetryContext: TelemetryContext =
           DefaultTelemetry.contextFromGrpcThreadLocalContext()
-        val validatedPartyIdentifier =
+        val validatedPartyIdHint =
           if (request.partyIdHint.isEmpty) {
             Future.successful(None)
           } else {
@@ -108,17 +114,17 @@ private[apiserver] final class ApiPartyManagementService private (
                 error =>
                   Future.failed(
                     ValidationLogger
-                      .logFailureWithContext(request, ErrorFactories.invalidArgument(None)(error))
+                      .logFailureWithContext(request, errorFactories.invalidArgument(None)(error))
                   ),
                 party => Future.successful(Some(party)),
               )
           }
 
-        validatedPartyIdentifier
-          .flatMap(party => {
+        validatedPartyIdHint
+          .flatMap(partyIdHint => {
             val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
             synchronousResponse
-              .submitAndWait(submissionIdGenerator(party), (party, displayName))
+              .submitAndWait(submissionIdGenerator(partyIdHint), (partyIdHint, displayName))
               .map { case PartyEntry.AllocationAccepted(_, partyDetails) =>
                 AllocatePartyResponse(
                   Some(
@@ -134,6 +140,15 @@ private[apiserver] final class ApiPartyManagementService private (
           .andThen(logger.logErrorsOnCall[AllocatePartyResponse])
     }
 
+  private[this] def mapPartyDetails(
+      details: com.daml.ledger.api.domain.PartyDetails
+  ): PartyDetails =
+    PartyDetails(
+      party = details.party,
+      displayName = details.displayName.getOrElse(""),
+      isLocal = details.isLocal,
+    )
+
 }
 
 private[apiserver] object ApiPartyManagementService {
@@ -143,6 +158,7 @@ private[apiserver] object ApiPartyManagementService {
       transactionsService: IndexTransactionsService,
       writeBackend: state.WritePartyService,
       managementServiceTimeout: Duration,
+      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
       submissionIdGenerator: Option[Ref.Party] => Ref.SubmissionId = CreateSubmissionId.withPrefix,
   )(implicit
       materializer: Materializer,
@@ -154,6 +170,7 @@ private[apiserver] object ApiPartyManagementService {
       transactionsService,
       writeBackend,
       managementServiceTimeout,
+      errorCodesVersionSwitcher,
       submissionIdGenerator,
     )
 
@@ -174,6 +191,7 @@ private[apiserver] object ApiPartyManagementService {
       ledgerEndService: LedgerEndService,
       writeService: state.WritePartyService,
       partyManagementService: IndexPartyManagementService,
+      errorFactories: ErrorFactories,
   )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
       extends SynchronousResponse.Strategy[
         (Option[Ref.Party], Option[String]),
@@ -208,7 +226,7 @@ private[apiserver] object ApiPartyManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[PartyEntry, StatusRuntimeException] = {
       case PartyEntry.AllocationRejected(`submissionId`, reason) =>
-        ErrorFactories.invalidArgument(None)(reason)
+        errorFactories.invalidArgument(None)(reason)
     }
   }
 

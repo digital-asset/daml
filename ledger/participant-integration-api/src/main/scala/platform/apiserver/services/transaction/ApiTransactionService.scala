@@ -6,8 +6,11 @@ package com.daml.platform.apiserver.services.transaction
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.{
   Filters,
@@ -31,10 +34,10 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntries
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.apiserver.services.transaction.ApiTransactionService._
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
+import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc._
 import scalaz.syntax.tag._
 
@@ -57,14 +60,6 @@ private[apiserver] object ApiTransactionService {
       ledgerId,
       PartyNameChecker.AllowAllParties,
     )
-
-  @throws[StatusRuntimeException]
-  private def getOrElseThrowNotFound[A](a: Option[A]): A =
-    a.getOrElse(
-      throw Status.NOT_FOUND
-        .withDescription("Transaction not found, or not visible.")
-        .asRuntimeException()
-    )
 }
 
 private[apiserver] final class ApiTransactionService private (
@@ -75,6 +70,7 @@ private[apiserver] final class ApiTransactionService private (
     extends TransactionService {
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
     transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
@@ -127,31 +123,27 @@ private[apiserver] final class ApiTransactionService private (
   override def getTransactionByEventId(
       request: GetTransactionByEventIdRequest
   ): Future[GetTransactionResponse] = {
-    withEnrichedLoggingContext(
+    // There is no problem in leaking the loggingContext in here, but the construction looks suspicious
+    // TODO error codes: Replace with non-closure-based enriched loggingContext builder here and in other constructions as well
+    implicit val errorLogger: ContextualizedErrorLogger = withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.eventId(request.eventId),
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
       logger.info("Received request for transaction by event ID.")
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
     }
     logger.trace(s"Transaction by event ID request: $request")
+
     LfEventId
       .fromString(request.eventId.unwrap)
       .map { case LfEventId(transactionId, _) =>
         lookUpTreeByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
       .getOrElse {
-        val msg = s"invalid eventId: ${request.eventId}"
-        Future.failed(
-          errorCodesVersionSwitcher.choose(
-            v1 = Status.NOT_FOUND
-              .withDescription(msg)
-              .asRuntimeException(),
-            v2 = LedgerApiErrors.CommandValidation.InvalidArgument
-              .Reject(msg)(new DamlContextualizedErrorLogger(logger, loggingContext, None))
-              .asGrpcError,
-          )
-        )
+        Future.failed {
+          errorFactories.invalidArgumentWasNotFound(None)(s"invalid eventId: ${request.eventId}")
+        }
       }
       .andThen(logger.logErrorsOnCall[GetTransactionResponse])
   }
@@ -159,75 +151,83 @@ private[apiserver] final class ApiTransactionService private (
   override def getTransactionById(
       request: GetTransactionByIdRequest
   ): Future[GetTransactionResponse] = {
-    withEnrichedLoggingContext(
+    val errorLogger: DamlContextualizedErrorLogger = withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.transactionId(request.transactionId),
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
       logger.info("Received request for transaction by ID.")
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
     }
     logger.trace(s"Transaction by ID request: $request")
-    lookUpTreeByTransactionId(request.transactionId, request.requestingParties)
+
+    lookUpTreeByTransactionId(request.transactionId, request.requestingParties)(errorLogger)
       .andThen(logger.logErrorsOnCall[GetTransactionResponse])
   }
 
   override def getFlatTransactionByEventId(
       request: GetTransactionByEventIdRequest
   ): Future[GetFlatTransactionResponse] = {
-    withEnrichedLoggingContext(
+    implicit val errorLogger: DamlContextualizedErrorLogger = withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.eventId(request.eventId),
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
       logger.info("Received request for flat transaction by event ID.")
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
     }
     logger.trace(s"Flat transaction by event ID request: $request")
+
     LfEventId
       .fromString(request.eventId.unwrap)
-      .fold(
-        err =>
-          Future.failed[GetFlatTransactionResponse](
-            Status.NOT_FOUND.withDescription(s"invalid eventId: $err").asRuntimeException()
-          ),
-        eventId =>
-          lookUpFlatByTransactionId(
-            TransactionId(eventId.transactionId),
-            request.requestingParties,
-          ),
-      )
+      .map { case LfEventId(transactionId, _) =>
+        lookUpFlatByTransactionId(TransactionId(transactionId), request.requestingParties)
+      }
+      .getOrElse {
+        val msg = s"eventId: ${request.eventId}"
+        Future.failed(errorFactories.invalidArgumentWasNotFound(None)(msg))
+      }
       .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
   }
 
   override def getFlatTransactionById(
       request: GetTransactionByIdRequest
   ): Future[GetFlatTransactionResponse] = {
-    withEnrichedLoggingContext(
+    val errorLogger = withEnrichedLoggingContext(
       logging.ledgerId(request.ledgerId),
       logging.transactionId(request.transactionId),
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
       logger.info("Received request for flat transaction by ID.")
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
     }
     logger.trace(s"Flat transaction by ID request: $request")
-    lookUpFlatByTransactionId(request.transactionId, request.requestingParties)
+
+    lookUpFlatByTransactionId(request.transactionId, request.requestingParties)(errorLogger)
       .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
   }
 
   private def lookUpTreeByTransactionId(
       transactionId: TransactionId,
       requestingParties: Set[Party],
-  ): Future[GetTransactionResponse] =
+  )(implicit errorLogger: ContextualizedErrorLogger): Future[GetTransactionResponse] =
     transactionsService
       .getTransactionTreeById(transactionId, requestingParties)
-      .map(getOrElseThrowNotFound)
+      .flatMap {
+        case None => Future.failed(errorFactories.transactionNotFound(transactionId.unwrap))
+        case Some(transaction) => Future.successful(transaction)
+      }
 
   private def lookUpFlatByTransactionId(
       transactionId: TransactionId,
       requestingParties: Set[Party],
-  ): Future[GetFlatTransactionResponse] =
+  )(implicit errorLogger: ContextualizedErrorLogger): Future[GetFlatTransactionResponse] =
     transactionsService
       .getTransactionById(transactionId, requestingParties)
-      .map(getOrElseThrowNotFound)
+      .flatMap {
+        case None => Future.failed(errorFactories.transactionNotFound(transactionId.unwrap))
+        case Some(transaction) => Future.successful(transaction)
+      }
 
   private def transactionsLoggable(transactions: GetTransactionsResponse): String =
     s"Responding with transactions: ${transactions.transactions.toList

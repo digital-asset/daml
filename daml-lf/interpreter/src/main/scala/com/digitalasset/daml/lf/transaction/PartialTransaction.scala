@@ -273,7 +273,7 @@ private[lf] object PartialTransaction {
   *  @param actionNodeLocations The optional locations of create/exercise/fetch/lookup nodes in pre-order.
   *   Used by 'locationInfo()', called by 'finish()' and 'finishIncomplete()'
   */
-private[lf] case class PartialTransaction(
+private[speedy] case class PartialTransaction(
     packageToTransactionVersion: Ref.PackageId => TxVersion,
     contractKeyUniqueness: ContractKeyUniquenessMode,
     submissionTime: Time.Timestamp,

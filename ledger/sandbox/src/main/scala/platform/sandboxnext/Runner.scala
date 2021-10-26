@@ -199,14 +199,11 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 config = IndexerConfig(
                   participantId = config.participantId,
                   jdbcUrl = indexJdbcUrl,
-                  // sandbox in-memory mode via H2 only supports a single database connection
-                  databaseConnectionPoolSize = 1,
                   startupMode =
                     if (isReset) IndexerStartupMode.ResetAndStart
                     else IndexerStartupMode.MigrateAndStart,
                   eventsPageSize = config.eventsPageSize,
                   allowExistingSchema = true,
-                  enableAppendOnlySchema = config.enableAppendOnlySchema,
                   enableCompression = config.enableCompression,
                 ),
                 servicesExecutionContext = servicesExecutionContext,
@@ -261,7 +258,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   // TODO append-only: augment the following defaults for enabling the features for sandbox next
                   seeding = config.seeding.get,
                   managementServiceTimeout = config.managementServiceTimeout,
-                  enableAppendOnlySchema = config.enableAppendOnlySchema,
                   maxContractStateCacheSize = 0L,
                   maxContractKeyStateCacheSize = 0L,
                   enableMutableContractStateCache = false,

@@ -3,9 +3,9 @@
 
 package com.daml.ledger.api
 
-import java.time.{Duration, Instant}
-
+import java.time.Duration
 import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 
 /** Specifies the deduplication period for a command submission.
@@ -18,17 +18,17 @@ sealed trait DeduplicationPeriod extends Product with Serializable
 
 object DeduplicationPeriod {
 
-  /** Transforms the [[period]] into an [[Instant]] to be used for deduplication into the future(deduplicateUntil).
+  /** Transforms the [[period]] into a [[Timestamp]] to be used for deduplication into the future(deduplicateUntil).
     * Only used for backwards compatibility
-    * @param time The time to use for calculating the [[Instant]]. It can either be submission time or current time, based on usage
+    * @param time The time to use for calculating the [[Timestamp]]. It can either be submission time or current time, based on usage
     * @param period The deduplication period
     */
   def deduplicateUntil(
-      time: Instant,
+      time: Timestamp,
       period: DeduplicationPeriod,
-  ): Instant = period match {
+  ): Timestamp = period match {
     case DeduplicationDuration(duration) =>
-      time.plus(duration)
+      time.addMicros(duration.toNanos / 1000)
     case DeduplicationOffset(_) =>
       throw new NotImplementedError("Offset deduplication is not supported")
   }
@@ -37,18 +37,18 @@ object DeduplicationPeriod {
     * We measure `deduplicationStart` on the ledger’s clock, and thus
     *    we need to add the minSkew to compensate for the maximal skew that the participant might be behind the ledger’s clock.
     * @param time submission time or current time
-    * @param deduplicationStart the [[Instant]] from where we should start deduplication, must be < than time
+    * @param deduplicationStart the [[Timestamp]] from where we should start deduplication, must be < than time
     * @param minSkew the minimum skew as specified by the current ledger time model
     */
   def deduplicationDurationFromTime(
-      time: Instant,
-      deduplicationStart: Instant,
+      time: Timestamp,
+      deduplicationStart: Timestamp,
       minSkew: Duration,
   ): Duration = {
-    assert(deduplicationStart.isBefore(time), "Deduplication must start in the past")
+    assert(deduplicationStart < time, "Deduplication must start in the past")
     Duration.between(
-      deduplicationStart,
-      time.plus(minSkew),
+      deduplicationStart.toInstant,
+      time.toInstant.plus(minSkew),
     )
   }
 
@@ -62,6 +62,10 @@ object DeduplicationPeriod {
     */
   final case class DeduplicationDuration(duration: Duration) extends DeduplicationPeriod {
     require(!duration.isNegative, s"The deduplication window must not be negative: $duration")
+    require(
+      duration.toNanos % 1000 == 0,
+      s"The deduplication window must not use nanosecond precision: $duration",
+    )
   }
 
   /** The `offset` defines the start of the deduplication period. */

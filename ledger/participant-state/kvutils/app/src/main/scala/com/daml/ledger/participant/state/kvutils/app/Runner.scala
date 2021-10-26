@@ -44,7 +44,7 @@ final class Runner[T <: ReadWriteService, Extra](
 
       config.mode match {
         case Mode.DumpIndexMetadata(jdbcUrls) =>
-          dumpIndexMetadata(jdbcUrls, originalConfig.enableAppendOnlySchema)
+          dumpIndexMetadata(jdbcUrls)
           sys.exit(0)
         case Mode.Run =>
           run(config)
@@ -53,14 +53,13 @@ final class Runner[T <: ReadWriteService, Extra](
   }
 
   private def dumpIndexMetadata(
-      jdbcUrls: Seq[String],
-      enableAppendOnlySchema: Boolean,
+      jdbcUrls: Seq[String]
   )(implicit resourceContext: ResourceContext): Resource[Unit] = {
     val logger = ContextualizedLogger.get(this.getClass)
     import ExecutionContext.Implicits.global
     Resource.sequenceIgnoringValues(for (jdbcUrl <- jdbcUrls) yield {
       newLoggingContext { implicit loggingContext: LoggingContext =>
-        Resource.fromFuture(IndexMetadata.read(jdbcUrl, enableAppendOnlySchema).andThen {
+        Resource.fromFuture(IndexMetadata.read(jdbcUrl).andThen {
           case Failure(exception) =>
             logger.error("Error while retrieving the index metadata", exception)
           case Success(metadata) =>

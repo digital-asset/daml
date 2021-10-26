@@ -156,7 +156,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     buildMachine(
       Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
     ).map { machine =>
-      ScenarioRunner(machine, txSeeding).run()
+      new ScenarioRunner(machine, txSeeding).run()
     }
   }
 

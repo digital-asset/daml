@@ -11,6 +11,7 @@ import com.daml.lf.value.Value.ValueRecord
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
 
+// TEST_EVIDENCE: Privacy: Unit test _blinding_ computation: `Blinding.blind`.
 class BlindingSpec extends AnyFreeSpec with Matchers {
 
   import TransactionBuilder.Implicits._

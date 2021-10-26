@@ -3,11 +3,10 @@
 
 package com.daml.platform.store.interfaces
 
-import java.time.Instant
-
 import com.daml.ledger.offset.Offset
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.lf.data.Ref.IdString
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.appendonlydao.events.{ContractId, Identifier}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
@@ -16,7 +15,7 @@ import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequen
   *
   * Used as data source template for in-memory fan-out buffers for Ledger API streams serving.
   *
-  * @see [[com.daml.platform.store.dao.LedgerDaoTransactionsReader.getTransactionLogUpdates()]]
+  * @see [[LedgerDaoTransactionsReader.getTransactionLogUpdates()]]
   */
 sealed trait TransactionLogUpdate extends Product with Serializable
 
@@ -34,7 +33,7 @@ object TransactionLogUpdate {
   final case class Transaction(
       transactionId: String,
       workflowId: String,
-      effectiveAt: Instant,
+      effectiveAt: Timestamp,
       offset: Offset,
       events: Vector[Event],
   ) extends TransactionLogUpdate {
@@ -43,8 +42,7 @@ object TransactionLogUpdate {
 
   /** A special event which signifies that the ledger end has been reached in a stream.
     *
-    * @see [[com.daml.platform.store.dao.LedgerDaoTransactionsReader.getTransactionLogUpdates()]]
-    *
+    * @see [[LedgerDaoTransactionsReader.getTransactionLogUpdates()]]
     * @param eventOffset The ledger end offset.
     * @param eventSequentialId The ledger end event sequential id.
     */
@@ -59,7 +57,7 @@ object TransactionLogUpdate {
     def eventId: EventId
     def commandId: String
     def workflowId: String
-    def ledgerEffectiveTime: Instant
+    def ledgerEffectiveTime: Timestamp
     def treeEventWitnesses: Set[String]
     def flatEventWitnesses: Set[String]
     def submitters: Set[String]
@@ -74,7 +72,7 @@ object TransactionLogUpdate {
       eventSequentialId: Long,
       eventId: EventId,
       contractId: ContractId,
-      ledgerEffectiveTime: Instant,
+      ledgerEffectiveTime: Timestamp,
       templateId: Identifier,
       commandId: String,
       workflowId: String,
@@ -95,7 +93,7 @@ object TransactionLogUpdate {
       eventSequentialId: Long,
       eventId: EventId,
       contractId: ContractId,
-      ledgerEffectiveTime: Instant,
+      ledgerEffectiveTime: Timestamp,
       templateId: Identifier,
       commandId: String,
       workflowId: String,

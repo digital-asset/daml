@@ -33,13 +33,11 @@ class
   setAmount : t -> Int -> Token
 
 instance HasCreate Token where
-  create x = GHC.Types.primitive @"$RESOLVE_VIRTUAL_CREATE" x x
+  create = GHC.Types.primitive @"UCreateInterface"
 instance HasObserver Token where
-  observer x = GHC.Types.primitive @"$RESOLVE_VIRTUAL_OBSERVERS" x x
--- TODO https://github.com/digital-asset/daml/issues/11198
---   Instance disabled until issue is resolved.
--- instance HasSignatory Token where
---   signatory x = GHC.Types.primitive @"$RESOLVE_VIRTUAL_SIGNATORIES" x x
+  observer = GHC.Types.primitive @"EObserverInterface"
+instance HasSignatory Token where
+  signatory = GHC.Types.primitive @"ESignatoryInterface"
 
 instance HasFetch Token where
   fetch = GHC.Types.primitive @"UFetchInterface"
@@ -103,8 +101,12 @@ _choice_TokenGetRich =
   )
 instance IsToken t => HasExercise t GetRich (ContractId Token) where
   exercise cid = GHC.Types.primitive @"UExerciseInterface" (toTokenContractId cid)
+instance IsToken t => HasToAnyChoice t GetRich (ContractId Token) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance IsToken t => HasFromAnyChoice t GetRich (ContractId Token) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
 
-data Asset = Asset { amount : Int, issuer : Party, owner : Party }
+data GHC.Types.DamlTemplate => Asset = Asset { amount : Int, issuer : Party, owner : Party }
   deriving (Eq, Show)
 
 instance IsToken Asset where

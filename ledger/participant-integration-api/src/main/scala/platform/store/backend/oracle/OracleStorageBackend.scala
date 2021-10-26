@@ -12,17 +12,16 @@ import com.daml.platform.store.backend.common.{
   ConfigurationStorageBackendTemplate,
   ContractStorageBackendTemplate,
   DataSourceStorageBackendTemplate,
-  IntegrityStorageBackendTemplate,
   DeduplicationStorageBackendTemplate,
   EventStorageBackendTemplate,
   EventStrategy,
   IngestionStorageBackendTemplate,
   InitHookDataSourceProxy,
+  IntegrityStorageBackendTemplate,
   PackageStorageBackendTemplate,
   ParameterStorageBackendTemplate,
   PartyStorageBackendTemplate,
   QueryStrategy,
-  Timestamp,
 }
 import com.daml.platform.store.backend.{
   DBLockStorageBackend,
@@ -33,8 +32,8 @@ import com.daml.platform.store.backend.{
 }
 
 import java.sql.Connection
-import java.time.Instant
 import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
@@ -100,8 +99,8 @@ private[backend] object OracleStorageBackend
 
   override def upsertDeduplicationEntry(
       key: String,
-      submittedAt: Instant,
-      deduplicateUntil: Instant,
+      submittedAt: Timestamp,
+      deduplicateUntil: Timestamp,
   )(connection: Connection)(implicit loggingContext: LoggingContext): Int = {
 
     // Under the default READ_COMMITTED isolation level used for the indexdb, when a deduplication
@@ -120,8 +119,8 @@ private[backend] object OracleStorageBackend
       SQL(SQL_INSERT_COMMAND)
         .on(
           "deduplicationKey" -> key,
-          "submittedAt" -> Timestamp.instantToMicros(submittedAt),
-          "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
+          "submittedAt" -> submittedAt.micros,
+          "deduplicateUntil" -> deduplicateUntil.micros,
         )
         .executeUpdate()(connection)
     )

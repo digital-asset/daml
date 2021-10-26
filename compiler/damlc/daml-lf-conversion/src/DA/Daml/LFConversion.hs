@@ -391,6 +391,7 @@ scrapeTemplateBinds binds = MS.filter (isJust . tbTyCon) $ MS.map ($ emptyTempla
         ShowDFunId tpl ->
             Just (tpl, \tb -> tb { tbShow = Just name })
         _ -> Nothing
+    , hasDamlTemplateCtx tpl
     ]
 
 data ExceptionBinds = ExceptionBinds
@@ -673,18 +674,19 @@ convertTypeSynonym env tycon
 
     | envLfVersion env `supports` featureTypeSynonyms
     , Just (params, body) <- synTyConDefn_maybe tycon
-    , isLiftedTypeKind (tyConResKind tycon) -- accepts types and constraints
     , not (isKindTyCon tycon)
     = do
+        let isConstraintSynonym =
+                maybe False (isClassTyCon . fst) (splitTyConApp_maybe body)
+            tsynName = mkTypeSyn [getOccText tycon]
+        tsynKind <- convertKind $ tyConResKind tycon
         (env', tsynParams) <- bindTypeVars env params
         tsynType <- convertType env' body
-        let tsynName = mkTypeSyn [getOccText tycon]
-        case tsynType of
-            TUnit -> pure []
+        case encodeTypeSynonym tsynName isConstraintSynonym tsynKind tsynParams tsynType of
+            DefTypeSyn { synType = TUnit } -> pure []
                 -- We avoid converting TUnit type synonyms because it
                 -- clashes with the conversion of empty typeclasses.
-            _ -> pure [ defTypeSyn tsynName tsynParams tsynType ]
-
+            def -> pure [DTypeSyn def]
     | otherwise
     = pure []
 

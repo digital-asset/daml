@@ -3,9 +3,11 @@
 
 package com.daml.ledger.api.auth
 
+import com.daml.dec.DirectExecutionContext
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.google.rpc.ErrorInfo
+import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, ServerCall, Status}
 import org.mockito.captor.ArgCaptor
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -14,8 +16,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.util.concurrent.CompletableFuture
-import scala.concurrent.ExecutionContext.global
-import io.grpc.protobuf.StatusProto
 
 class AuthorizationInterceptorSpec
     extends AnyFlatSpec
@@ -56,8 +56,11 @@ class AuthorizationInterceptorSpec
     )
 
     val errorCodesStatusSwitcher = new ErrorCodesVersionSwitcher(usesSelfServiceErrorCodes)
-    val authorizationInterceptor =
-      AuthorizationInterceptor(authService, global, errorCodesStatusSwitcher)
+    val authorizationInterceptor = {
+      // Use parasitic execution context to ensure that all expected async calls dispatched by this constructor
+      // finish within the constructor's boundaries.
+      AuthorizationInterceptor(authService, DirectExecutionContext, errorCodesStatusSwitcher)
+    }
 
     val statusCaptor = ArgCaptor[Status]
     val metadataCaptor = ArgCaptor[Metadata]
@@ -65,7 +68,7 @@ class AuthorizationInterceptorSpec
     when(authService.decodeMetadata(any[Metadata])).thenReturn(failedMetadataDecode)
     authorizationInterceptor.interceptCall[Nothing, Nothing](serverCall, new Metadata(), null)
 
-    verify(serverCall, timeout(1000)).close(statusCaptor.capture, metadataCaptor.capture)
+    verify(serverCall).close(statusCaptor.capture, metadataCaptor.capture)
 
     assertRpcStatus(statusCaptor.value, metadataCaptor.value)
   }

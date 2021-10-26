@@ -5,6 +5,7 @@ module DA.Experimental.Interface(
   interfaceCreate,
   interfaceSignatory,
   interfaceObserver,
+  toTypeRep,
 ) where
 
 import GHC.Types (primitive)
@@ -17,3 +18,6 @@ interfaceSignatory payload = primitive @"$RESOLVE_VIRTUAL_SIGNATORY" payload pay
 
 interfaceObserver: t -> [Party]
 interfaceObserver payload = primitive @"$RESOLVE_VIRTUAL_OBSERVER"  payload payload
+
+toTypeRep: t -> TypeRep
+toTypeRep arg = primitive @"$TO_TYPE_REP" arg

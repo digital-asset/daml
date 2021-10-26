@@ -4,13 +4,12 @@
 package com.daml.platform.packages
 
 import java.io.File
-import java.time.Instant
-
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.lf.archive
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf.data.Time.Timestamp
 import org.slf4j.LoggerFactory
 import scalaz.std.either._
 import scalaz.std.list._
@@ -49,14 +48,14 @@ private[platform] case class InMemoryPackageStore(
     packages.get(packageId)
 
   def withPackages(
-      knownSince: Instant,
+      knownSince: Timestamp,
       sourceDescription: Option[String],
       packages: List[DamlLf.Archive],
   ): Either[String, InMemoryPackageStore] =
     addArchives(knownSince, sourceDescription, packages)
 
   def withDarFile(
-      knownSince: Instant,
+      knownSince: Timestamp,
       sourceDescription: Option[String],
       file: File,
   ): Either[String, InMemoryPackageStore] =
@@ -90,7 +89,7 @@ private[platform] case class InMemoryPackageStore(
     }
 
   private def addArchives(
-      knownSince: Instant,
+      knownSince: Timestamp,
       sourceDescription: Option[String],
       archives: List[DamlLf.Archive],
   ): Either[String, InMemoryPackageStore] =

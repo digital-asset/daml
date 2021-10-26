@@ -38,41 +38,28 @@ main = do
     testDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-test.dar")
     multiTestDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-multi-test.dar")
     certDir <- locateRunfiles (mainWorkspace </> "ledger" </> "test-common" </> "test-certificates")
-    defaultMain $
-        testGroup "repl"
-            [ withSandbox defaultSandboxConf
-                  { dars = [testDar]
-                  , mbSharedSecret = Just testSecret
-                  , mbLedgerId = Just testLedgerId
-                  } $ \getSandboxPort ->
-              withTokenFile $ \getTokenFile ->
-                  authTests damlc scriptDar testDar getSandboxPort getTokenFile
-            , withSandbox defaultSandboxConf
-                  { dars = [testDar]
-                  , enableTls = True
-                  , mbClientAuth = Just None
-                  } $ \getSandboxPort ->
-                  tlsTests damlc scriptDar testDar getSandboxPort certDir
-            , withSandbox defaultSandboxConf
+    defaultMain $ withSandbox defaultSandboxConf
                   { dars = [testDar]
                   , mbLedgerId = Just testLedgerId
                   , timeMode = Static
                   } $ \getSandboxPort ->
-              staticTimeTests damlc scriptDar testDar getSandboxPort
-            , withSandbox defaultSandboxConf $ \getSandboxPort ->
-                  noPackageTests damlc scriptDar getSandboxPort
-            , withSandbox defaultSandboxConf
-                  { dars = [testDar]
+        testGroup "repl"
+            [ withSandbox defaultSandboxConf
+                  { mbSharedSecret = Just testSecret
                   , mbLedgerId = Just testLedgerId
                   } $ \getSandboxPort ->
-              importTests damlc scriptDar testDar getSandboxPort
+              withTokenFile $ \getTokenFile ->
+              authTests damlc scriptDar getSandboxPort getTokenFile
+            , withSandbox defaultSandboxConf
+                  { enableTls = True
+                  , mbClientAuth = Just None
+                  } $ \getSandboxPort ->
+              tlsTests damlc scriptDar getSandboxPort certDir
+            , staticTimeTests damlc scriptDar getSandboxPort
+            , inboundMessageSizeTests damlc scriptDar testDar getSandboxPort
+            , noPackageTests damlc scriptDar
+            , importTests damlc scriptDar testDar
             , multiPackageTests damlc scriptDar multiTestDar
-            , noLedgerTests damlc scriptDar
-            , withSandbox defaultSandboxConf
-                  { dars = [testDar]
-                  , mbLedgerId = Just testLedgerId
-                  } $ \getSandboxPort ->
-              inboundMessageSizeTests damlc scriptDar testDar getSandboxPort
             ]
 
 withTokenFile :: (IO FilePath -> TestTree) -> TestTree
@@ -99,19 +86,19 @@ jwtToken = T.unpack $ JWT.encodeSigned (JWT.HMACSecret $ BS.pack testSecret) mem
     }
 
 
-authTests :: FilePath -> FilePath -> FilePath -> IO Int -> IO FilePath -> TestTree
-authTests damlc scriptDar testDar getSandboxPort getTokenFile = testGroup "auth"
+authTests :: FilePath -> FilePath -> IO Int -> IO FilePath -> TestTree
+authTests damlc scriptDar getSandboxPort getTokenFile = testGroup "auth"
     [ testCase "successful connection" $ do
         port <- getSandboxPort
         tokenFile <- getTokenFile
-        testConnection damlc scriptDar testDar port (Just tokenFile) Nothing
+        testConnection damlc scriptDar port (Just tokenFile) Nothing
     ]
 
-tlsTests :: FilePath -> FilePath -> FilePath -> IO Int -> FilePath -> TestTree
-tlsTests damlc scriptDar testDar getSandboxPort certDir = testGroup "tls"
+tlsTests :: FilePath -> FilePath -> IO Int -> FilePath -> TestTree
+tlsTests damlc scriptDar getSandboxPort certDir = testGroup "tls"
     [ testCase "successful connection" $ do
         port <- getSandboxPort
-        testConnection damlc scriptDar testDar port Nothing (Just (certDir </> "ca.crt"))
+        testConnection damlc scriptDar port Nothing (Just (certDir </> "ca.crt"))
     ]
 
 
@@ -120,17 +107,16 @@ tlsTests damlc scriptDar testDar getSandboxPort certDir = testGroup "tls"
 testConnection
     :: FilePath
     -> FilePath
-    -> FilePath
     -> Int
     -> Maybe FilePath
     -> Maybe FilePath
     -> Assertion
-testConnection damlc scriptDar testDar ledgerPort mbTokenFile mbCaCrt = do
+testConnection damlc scriptDar ledgerPort mbTokenFile mbCaCrt = do
     out <- readCreateProcess cp $ unlines
         [ "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"Alice\")"
-        , "debug =<< query @T alice"
+        , "debug alice"
         ]
-    let regexString = "^(Client TLS.*\\.\n)?daml> daml>.*: \\[\\]\ndaml> Goodbye.\n$" :: String
+    let regexString = "^(Client TLS.*\\.\n)?daml> daml>.*: 'Alice'\ndaml> Goodbye.\n$" :: String
     let regex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexString
     unless (matchTest regex out) $
         assertFailure (show out <> " did not match " <> show regexString <> ".")
@@ -141,26 +127,22 @@ testConnection damlc scriptDar testDar ledgerPort mbTokenFile mbCaCrt = do
                      , show ledgerPort
                      , "--script-lib"
                      , scriptDar
-                     , testDar
-                     , "--import"
-                     , "repl-test"
                      ]
                    , [ "--access-token-file=" <> tokenFile | Just tokenFile <- [mbTokenFile] ]
                    , [ "--cacrt=" <> cacrt | Just cacrt <- [mbCaCrt] ]
                    ]
 
-staticTimeTests :: FilePath -> FilePath -> FilePath -> IO Int -> TestTree
-staticTimeTests damlc scriptDar testDar getSandboxPort = testGroup "static-time"
+staticTimeTests :: FilePath -> FilePath -> IO Int -> TestTree
+staticTimeTests damlc scriptDar getSandboxPort = testGroup "static-time"
     [ testCase "setTime" $ do
         port <- getSandboxPort
-        testSetTime damlc scriptDar testDar port
+        testSetTime damlc scriptDar port
     ]
 
-noPackageTests :: FilePath -> FilePath -> IO Int -> TestTree
-noPackageTests damlc scriptDar getSandboxPort = testGroup "static-time"
+noPackageTests :: FilePath -> FilePath -> TestTree
+noPackageTests damlc scriptDar = testGroup "no package"
     [ testCase "no package" $ do
-        port <- getSandboxPort
-        out <- readCreateProcess (cp port) $ unlines
+        out <- readCreateProcess cp $ unlines
             [ "debug (1 + 1)"
             ]
         let regexString = "daml> \\[[^]]+\\]: 2\ndaml> Goodbye.\n$" :: String
@@ -168,44 +150,18 @@ noPackageTests damlc scriptDar getSandboxPort = testGroup "static-time"
         unless (matchTest regex out) $
             assertFailure (show out <> " did not match " <> show regexString <> ".")
     ]
-    where cp port = proc damlc
+    where cp = proc damlc
                    [ "repl"
-                   , "--ledger-host=localhost"
-                   , "--ledger-port"
-                   , show port
                    , "--script-lib"
                    , scriptDar
                    ]
 
-noLedgerTests :: FilePath -> FilePath -> TestTree
-noLedgerTests damlc scriptDar = testGroup "no ledger"
-    [ testCase "no ledger" $ do
-          out <- readCreateProcess cp $ unlines
-              [ "1 + 1"
-              , "listKnownParties"
-              , "2 + 2"
-              ]
-          out @?= unlines
-            [ "daml> 2"
-            , "daml> java.lang.RuntimeException: No default participant"
-            , "daml> 4"
-            , "daml> Goodbye."
-            ]
-    ]
-  where
-    cp = proc damlc
-        [ "repl"
-        , "--script-lib"
-        , scriptDar
-        ]
-
 testSetTime
     :: FilePath
     -> FilePath
-    -> FilePath
     -> Int
     -> Assertion
-testSetTime damlc scriptDar testDar ledgerPort = do
+testSetTime damlc scriptDar ledgerPort = do
     out <- readCreateProcess cp $ unlines
         [ "import DA.Assert"
         , "import DA.Date"
@@ -227,36 +183,29 @@ testSetTime damlc scriptDar testDar ledgerPort = do
                    , show ledgerPort
                    , "--script-lib"
                    , scriptDar
-                   , testDar
-                   , "--import"
-                   , "repl-test"
                    ]
 
 -- | Test the @--import@ flag
-importTests :: FilePath -> FilePath -> FilePath -> IO Int -> TestTree
-importTests damlc scriptDar testDar getSandboxPort = testGroup "import"
-    [ testCase "none" $ do
-        port <- getSandboxPort
-        testImport damlc scriptDar testDar port [] False
-    , testCase "unversioned" $ do
-        port <- getSandboxPort
-        testImport damlc scriptDar testDar port ["repl-test"] True
-    , testCase "versioned" $ do
-        port <- getSandboxPort
-        testImport damlc scriptDar testDar port ["repl-test-0.1.0"] True
+importTests :: FilePath -> FilePath -> FilePath -> TestTree
+importTests damlc scriptDar testDar = testGroup "import"
+    [ testCase "none" $
+      testImport damlc scriptDar testDar [] False
+    , testCase "unversioned" $
+      testImport damlc scriptDar testDar ["repl-test"] True
+    , testCase "versioned" $
+      testImport damlc scriptDar testDar ["repl-test-0.1.0"] True
     ]
 
 testImport
     :: FilePath
     -> FilePath
     -> FilePath
-    -> Int
     -> [String]
     -> Bool
     -> Assertion
-testImport damlc scriptDar testDar ledgerPort imports successful = do
+testImport damlc scriptDar testDar imports successful = do
     out <- readCreateProcess cp $ unlines
-        [ "alice <- allocateParty \"Alice\""
+        [ "let Some alice = partyFromText \"alice\""
         , "debug (T alice alice)"
         ]
     let regexString :: String
@@ -268,9 +217,6 @@ testImport damlc scriptDar testDar ledgerPort imports successful = do
         assertFailure (show out <> " did not match " <> show regexString <> ".")
     where cp = proc damlc $ concat
                    [ [ "repl"
-                     , "--ledger-host=localhost"
-                     , "--ledger-port"
-                     , show ledgerPort
                      , "--script-lib"
                      , scriptDar
                      , testDar

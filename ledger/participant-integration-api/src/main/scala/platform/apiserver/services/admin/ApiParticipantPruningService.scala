@@ -3,7 +3,11 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import com.daml.error.{DamlContextualizedErrorLogger, ContextualizedErrorLogger}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 
 import java.util.UUID
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{
@@ -30,16 +34,18 @@ import scala.concurrent.{ExecutionContext, Future}
 final class ApiParticipantPruningService private (
     readBackend: IndexParticipantPruningService with LedgerEndService,
     writeBackend: state.WriteParticipantPruningService,
-)(implicit executionContext: ExecutionContext, logCtx: LoggingContext)
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends ParticipantPruningServiceGrpc.ParticipantPruningService
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(logger, logCtx, None)
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
 
   override def bindService(): ServerServiceDefinition =
     ParticipantPruningServiceGrpc.bindService(this, executionContext)
+
+  override def close(): Unit = ()
 
   override def prune(request: PruneRequest): Future[PruneResponse] = {
     val submissionIdOrErr = Ref.SubmissionId
@@ -47,13 +53,15 @@ final class ApiParticipantPruningService private (
         if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString
       )
       .left
-      .map(err => ErrorFactories.invalidArgument(None)(s"submission_id $err"))
+      .map(err =>
+        errorFactories.invalidArgument(None)(s"submission_id $err")(contextualizedErrorLogger)
+      )
 
     submissionIdOrErr.fold(
       t => Future.failed(ValidationLogger.logFailure(request, t)),
       submissionId =>
         LoggingContext.withEnrichedLoggingContext(logging.submissionId(submissionId)) {
-          implicit logCtx =>
+          implicit loggingContext =>
             logger.info(s"Pruning up to ${request.pruneUpTo}")
             (for {
 
@@ -75,7 +83,7 @@ final class ApiParticipantPruningService private (
 
   private def validateRequest(
       request: PruneRequest
-  )(implicit logCtx: LoggingContext): Future[Offset] = {
+  )(implicit loggingContext: LoggingContext): Future[Offset] = {
     (for {
       pruneUpToString <- checkOffsetIsSpecified(request.pruneUpTo)
       pruneUpTo <- checkOffsetIsHexadecimal(pruneUpToString)
@@ -91,7 +99,7 @@ final class ApiParticipantPruningService private (
       submissionId: Ref.SubmissionId,
       pruneAllDivulgedContracts: Boolean,
   )(implicit
-      logCtx: LoggingContext
+      loggingContext: LoggingContext
   ): Future[Unit] = {
     import state.PruningResult._
     logger.info(
@@ -110,7 +118,7 @@ final class ApiParticipantPruningService private (
   private def pruneLedgerApiServerIndex(
       pruneUpTo: Offset,
       pruneAllDivulgedContracts: Boolean,
-  )(implicit logCtx: LoggingContext): Future[PruneResponse] = {
+  )(implicit loggingContext: LoggingContext): Future[PruneResponse] = {
     logger.info(s"About to prune ledger api server index to ${pruneUpTo.toApiString} inclusively")
     readBackend
       .prune(pruneUpTo, pruneAllDivulgedContracts)
@@ -120,45 +128,51 @@ final class ApiParticipantPruningService private (
       }
   }
 
-  private def checkOffsetIsSpecified(offset: String): Either[StatusRuntimeException, String] =
+  private def checkOffsetIsSpecified(
+      offset: String
+  )(implicit loggingContext: LoggingContext): Either[StatusRuntimeException, String] =
     Either.cond(
       offset.nonEmpty,
       offset,
-      ErrorFactories.invalidArgument(None)("prune_up_to not specified"),
+      errorFactories.invalidArgument(None)("prune_up_to not specified")(contextualizedErrorLogger),
     )
 
   private def checkOffsetIsHexadecimal(
       pruneUpToString: String
-  ): Either[StatusRuntimeException, Offset] =
+  )(implicit loggingContext: LoggingContext): Either[StatusRuntimeException, Offset] =
     ApiOffset
       .fromString(pruneUpToString)
       .toEither
       .left
       .map(t =>
-        // TODO error codes: Use LedgerApiErrors.NonHexOffset
-        ErrorFactories.invalidArgument(None)(
-          s"prune_up_to needs to be a hexadecimal string and not $pruneUpToString: ${t.getMessage}"
-        )
+        errorFactories.nonHexOffset(None)(
+          fieldName = "prune_up_to",
+          offsetValue = pruneUpToString,
+          message =
+            s"prune_up_to needs to be a hexadecimal string and not $pruneUpToString: ${t.getMessage}",
+        )(contextualizedErrorLogger)
       )
 
   private def checkOffsetIsBeforeLedgerEnd(
       pruneUpToProto: Offset,
       pruneUpToString: String,
-  )(implicit logCtx: LoggingContext): Future[Offset] =
+  )(implicit loggingContext: LoggingContext): Future[Offset] =
     for {
       ledgerEnd <- readBackend.currentLedgerEnd()
       _ <-
         if (pruneUpToString < ledgerEnd.value) Future.successful(())
         else
           Future.failed(
-            // TODO error codes: Use LedgerApiErrors.ReadErrors.requestedOffsetAfterLedgerEnd
-            ErrorFactories.invalidArgument(None)(
+            errorFactories.readingOffsetAfterLedgerEnd_was_invalidArgument(None)(
               s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
-            )
+            )(contextualizedErrorLogger)
           )
     } yield pruneUpToProto
 
-  override def close(): Unit = ()
+  private def contextualizedErrorLogger(implicit
+      loggingContext: LoggingContext
+  ): ContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
 }
 
@@ -166,10 +180,11 @@ object ApiParticipantPruningService {
   def createApiService(
       readBackend: IndexParticipantPruningService with LedgerEndService,
       writeBackend: state.WriteParticipantPruningService,
+      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
   )(implicit
       executionContext: ExecutionContext,
-      logCtx: LoggingContext,
+      loggingContext: LoggingContext,
   ): ParticipantPruningServiceGrpc.ParticipantPruningService with GrpcApiService =
-    new ApiParticipantPruningService(readBackend, writeBackend)
+    new ApiParticipantPruningService(readBackend, writeBackend, errorCodesVersionSwitcher)
 
 }
