@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.updates
 
+import java.io.StringWriter
 import java.time.Instant
 
 import com.google.protobuf.any.{Any => AnyProto}
@@ -23,6 +24,9 @@ import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.protobuf.ProtocolStringList
 
 import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
@@ -126,7 +130,7 @@ private[kvutils] object TransactionRejections {
         entry,
         Code.INVALID_ARGUMENT,
         s"Party not known on ledger: Parties not known on ledger ${parties.asScala.mkString("[", ",", "]")}",
-        Map("parties" -> Conversions.objectToJsonString(parties)),
+        Map("parties" -> toJsonString(parties)),
       ),
       V2.partiesNotKnownOnLedgerStatus(parties.asScala.toSeq),
     )
@@ -686,4 +690,11 @@ private[kvutils] object TransactionRejections {
       case _ =>
         "Record time outside of valid range"
     }
+
+  private def toJsonString(parties: ProtocolStringList): String = {
+    val stringWriter = new StringWriter
+    val objectMapper = new ObjectMapper
+    objectMapper.writeValue(stringWriter, parties)
+    stringWriter.toString
+  }
 }
