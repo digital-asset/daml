@@ -3,13 +3,11 @@
 
 package com.daml.platform.server.api.services.grpc
 
-import com.daml.error.{DamlContextualizedErrorLogger, ContextualizedErrorLogger}
 import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
   ErrorCodesVersionSwitcher,
 }
-import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
   CommandSubmissionService => ApiCommandSubmissionService

@@ -158,8 +158,7 @@ class SubmitRequestValidatorTest
   "CommandSubmissionRequestValidator" when {
     "validating command submission requests" should {
       "tolerate a missing submissionId" in {
-        val commandsValidator = new CommandsValidator(ledgerId)
-        commandsValidator.validateCommands(
+        testedCommandValidator.validateCommands(
           api.commands.withSubmissionId(""),
           internal.ledgerTime,
           internal.submittedAt,
