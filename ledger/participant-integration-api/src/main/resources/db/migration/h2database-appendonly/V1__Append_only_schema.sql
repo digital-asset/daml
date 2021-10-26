@@ -397,7 +397,7 @@ AS
 SELECT
     0::smallint as event_kind,
     event_sequential_id,
-    NULL::VARCHAR as event_offset,
+    event_offset,
     NULL::VARCHAR as transaction_id,
     NULL::bigint as ledger_effective_time,
     command_id,
