@@ -111,9 +111,9 @@ def install_java_deps():
             # Bumping versions of io.grpc:* has a few implications:
             # 1. io.grpc:grpc-protobuf has a dependency on com.google.protobuf:protobuf-java, which in
             #    turn needs to be aligned with the version of protoc we are using (as declared in deps.bzl).
-            #    ScalaPB also depends on a version of protobuf-java, but for the most part we expect here a
-            #    version mismatch between ScalaPBs declared protobuf-java dependency and the version on the
-            #    classpath doesn't matter.
+            #    ScalaPB also depends on a specific version of protobuf-java, but it's not strict.
+            #    As long as the version we use is greater than or equal to the version required by ScalaPB,
+            #    everything should work.
             #
             # 2. To keep TLS for the Ledger API Server working, the following three artifacts need be updated
             # in sync according to https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty
