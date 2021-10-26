@@ -772,7 +772,7 @@ emit_trace_events() {
      '
 }
 
-bulk_upload() {
+upload() {
   local res
   res="$(curl -X POST "http://$ES_IP/_bulk?filter_path=errors,items.*.status" \
               -H 'Content-Type: application/json' \
@@ -781,6 +781,31 @@ bulk_upload() {
               --data-binary @- \
               | jq -r '.items[].index.status' | sort | uniq -c)"
   echo "$res"
+}
+
+bulk_upload() {
+  local tmp chunk chunk_size processed num_lines
+  tmp=$(mktemp)
+  cat - > $tmp
+  chunk=$(mktemp)
+  num_lines=$(wc -l $tmp | awk '{print $1'})
+  processed=0
+  chunk_size=$num_lines
+  # tail -n +N drops the first N-1 lines
+  next_chunk='tail -n +$(( processed + 1)) $tmp | head -n $chunk_size'
+  while (( processed < num_lines )); do
+    eval $next_chunk > $chunk
+    # limit is 500MB, but du reports in KB
+    if (( $(du $chunk | awk '{print $1}') < 450000 )); then
+      cat $chunk | upload
+      processed=$(( processed + chunk_size ))
+    else
+      # divide by two, but keep an even number
+      chunk_size=$(( chunk_size / 4 * 2 ))
+    fi
+  done
+  rm $tmp
+  rm $chunk
 }
 
 patch() {
