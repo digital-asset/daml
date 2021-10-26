@@ -49,7 +49,7 @@ final class AppendOnlyCompletionDeduplicationInfoIT[ServiceRequest](
         .submitRequest(ledger, party, requestWithSubmissionId)
     } yield {
       assertApplicationIdIsPreserved(ledger.applicationId, optNoDeduplicationSubmittedCompletion)
-      service.assertCompletionIsOk(optNoDeduplicationSubmittedCompletion)
+      service.assertCompletion(optNoDeduplicationSubmittedCompletion)
       assertDeduplicationPeriodIsReported(optNoDeduplicationSubmittedCompletion)
       assertSubmissionIdIsPreserved(optSubmissionIdSubmittedCompletion, RandomSubmissionId)
     }
@@ -71,7 +71,7 @@ private[testtool] object AppendOnlyCompletionDeduplicationInfoIT {
         request: ProtoRequestType,
     )(implicit ec: ExecutionContext): Future[Option[Completion]]
 
-    def assertCompletionIsOk(optCompletion: Option[Completion]): Unit
+    def assertCompletion(optCompletion: Option[Completion]): Unit
   }
 
   case object CommandService extends Service[SubmitAndWaitRequest] {
@@ -99,7 +99,7 @@ private[testtool] object AppendOnlyCompletionDeduplicationInfoIT {
         completion <- singleCompletionAfterOffset(ledger, party, offset)
       } yield completion
 
-    override def assertCompletionIsOk(optCompletion: Option[Completion]): Unit = {
+    override def assertCompletion(optCompletion: Option[Completion]): Unit = {
       val completion = assertDefined(optCompletion)
       assert(completion.status.forall(_.code == Status.Code.OK.value()))
       assert(
@@ -134,7 +134,7 @@ private[testtool] object AppendOnlyCompletionDeduplicationInfoIT {
         completion <- singleCompletionAfterOffset(ledger, party, offset)
       } yield completion
 
-    override def assertCompletionIsOk(optCompletion: Option[Completion]): Unit = {
+    override def assertCompletion(optCompletion: Option[Completion]): Unit = {
       val completion = assertDefined(optCompletion)
       assert(completion.status.forall(_.code == Status.Code.OK.value()))
     }
