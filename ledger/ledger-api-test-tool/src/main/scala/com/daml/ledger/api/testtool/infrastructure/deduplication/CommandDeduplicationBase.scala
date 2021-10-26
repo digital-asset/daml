@@ -191,10 +191,9 @@ private[testtool] abstract class CommandDeduplicationBase(
     }
   )
 
-  // appendOnlySchema - without the submission id we cannot assert the received completions for parallel submissions
   // staticTime - we run calls in parallel and with static time we would need to advance the time,
   //              therefore this cannot be run in static time
-  if (deduplicationFeatures.appendOnlySchema && !staticTime)
+  if (!staticTime)
     testGivenAllParticipants(
       s"${testNamingPrefix}SimpleDeduplicationMixedClients",
       "Deduplicate commands within the deduplication time window using the command client and the command submission client",
@@ -414,15 +413,11 @@ private[testtool] abstract class CommandDeduplicationBase(
     val submissionId = UUID.randomUUID().toString
     submitRequest(ledger)(request.update(_.commands.submissionId := submissionId))
       .flatMap(ledgerEnd => {
-        if (deduplicationFeatures.appendOnlySchema)
-          // The [[Completion.submissionId]] is set only for append-only ledgers
-          ledger
-            .findCompletion(ledger.completionStreamRequest(ledgerEnd)(parties: _*))(
-              _.submissionId == submissionId
-            )
-            .map[Seq[Completion]](_.toList)
-        else
-          ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd)(parties: _*))
+        ledger
+          .findCompletion(ledger.completionStreamRequest(ledgerEnd)(parties: _*))(
+            _.submissionId == submissionId
+          )
+          .map[Seq[Completion]](_.toList)
       })
       .map { completions =>
         assertSingleton("Expected only one completion", completions)
@@ -455,11 +450,8 @@ object CommandDeduplicationBase {
   }
 
   /** @param participantDeduplication If participant deduplication is enabled then we will receive synchronous rejections
-    * @param appendOnlySchema          For [[Completion]], the submission id and deduplication period are filled only for append only schemas
-    *                                  Therefore, we need to assert on those fields only if it's an append only schema
     */
   case class DeduplicationFeatures(
-      participantDeduplication: Boolean,
-      appendOnlySchema: Boolean,
+      participantDeduplication: Boolean
   )
 }
