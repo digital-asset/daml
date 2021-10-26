@@ -5,6 +5,7 @@
 {-# LANGUAGE TypeOperators #-}
 module Main (main) where
 
+import Control.Concurrent
 import Control.Applicative.Combinators
 import Control.Lens hiding (List, children)
 import Control.Monad
@@ -64,6 +65,7 @@ main = do
         , includePathTests damlcPath
         , multiPackageTests damlcPath
         , completionTests run runScenarios
+        , raceTests run
         ]
 
 conf :: SessionConfig
@@ -1017,6 +1019,27 @@ multiPackageTests damlc
                         , _xdata = Nothing
                         }
                   ]
+    ]
+
+raceTests
+    :: (forall a. Session a -> IO a)
+    -> TestTree
+raceTests run = testGroup "race tests"
+    [ testCaseSteps "race code lens & hover requests" $ \step -> run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "module Main where"
+              , "single : Scenario ()"
+              , "single = scenario do"
+              , "  assert (True == True)"
+              ]
+          lensId <- sendRequest STextDocumentCodeLens (CodeLensParams Nothing Nothing main')
+          liftIO $ threadDelay (5*1000000)
+          hoverId <- sendRequest STextDocumentHover (HoverParams main' (Position 2 13) Nothing)
+          liftIO $ step "waiting for lens response"
+          _ <- skipManyTill anyMessage (responseForId STextDocumentCodeLens lensId)
+          liftIO $ step "waiting for hover response"
+          _ <- skipManyTill anyMessage (responseForId STextDocumentHover hoverId)
+          closeDoc main'
     ]
 
 linkToLocation :: [LocationLink] -> [Location]
