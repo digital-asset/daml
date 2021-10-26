@@ -594,9 +594,16 @@ load("@rules_haskell//tools:repositories.bzl", "rules_haskell_worker_dependencie
 # Call this after `daml_haskell_deps` to ensure that the right `stack` is used.
 rules_haskell_worker_dependencies()
 
-load("//bazel_tools:java.bzl", "java_home_runtime")
+load("//bazel_tools:java.bzl", "java_home_runtime", "nixpkgs_java_configure")
 
 java_home_runtime(name = "java_home")
+
+nixpkgs_java_configure(
+    attribute_path = "jdk8.home",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+) if not is_windows else None
 
 # rules_go used here to compile a wrapper around the protoc-gen-scala plugin
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")

@@ -4,6 +4,7 @@
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@com_github_google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
+load("@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl", "nixpkgs_package")
 load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
 
 _java_home_runtime_build_template = """
@@ -29,6 +30,125 @@ java_home_runtime = repository_rule(
     doc = "Define a `java_runtime` pointing to the JAVA_HOME environment variable.",
     environ = ["JAVA_HOME"],
 )
+
+_java_nix_file_content = """
+let
+  pkgs = import <nixpkgs> { config = {}; overlays = []; };
+in
+
+{ attrPath
+, attrSet
+, filePath
+}:
+
+let
+  javaHome =
+    if attrSet == null then
+      pkgs.lib.attrByPath (pkgs.lib.splitString "." attrPath) null pkgs
+    else
+      pkgs.lib.attrByPath (pkgs.lib.splitString "." attrPath) null attrSet
+    ;
+  javaHomePath =
+    if filePath == "" then
+      "${javaHome}"
+    else
+      "${javaHome}/${filePath}"
+    ;
+in
+
+assert javaHome != null;
+
+pkgs.runCommand "bazel-nixpkgs-java-runtime"
+  { executable = false;
+    # Pointless to do this on a remote machine.
+    preferLocalBuild = true;
+    allowSubstitutes = false;
+  }
+  ''
+    n=$out/BUILD.bazel
+    mkdir -p "$(dirname "$n")"
+
+    cat >>$n <<EOF
+    load("@rules_java//java:defs.bzl", "java_runtime")
+    java_runtime(
+        name = "runtime",
+        java_home = r"${javaHomePath}",
+        visibility = ["//visibility:public"],
+    )
+    EOF
+  ''
+"""
+
+def nixpkgs_java_configure(
+        name = "nixpkgs_java_runtime",
+        attribute_path = None,
+        java_home_path = "",
+        repository = None,
+        repositories = {},
+        nix_file = None,
+        nix_file_content = "",
+        nix_file_deps = None,
+        nixopts = [],
+        fail_not_supported = True,
+        quiet = False):
+    """Define a Java runtime provided by nixpkgs.
+
+    Creates a `nixpkgs_package` for a `java_runtime` instance.
+
+    Args:
+      name: The name-prefix for the created external repositories.
+      attribute_path: string, The nixpkgs attribute path for `jdk.home`.
+      java_home_path: optional, string, The path to `JAVA_HOME` within the package.
+      repository: See [`nixpkgs_package`](#nixpkgs_package-repository).
+      repositories: See [`nixpkgs_package`](#nixpkgs_package-repositories).
+      nix_file: optional, Label, Obtain the runtime from the Nix expression defined in this file. Specify only one of `nix_file` or `nix_file_content`.
+      nix_file_content: optional, string, Obtain the runtime from the given Nix expression. Specify only one of `nix_file` or `nix_file_content`.
+      nix_file_deps: See [`nixpkgs_package`](#nixpkgs_package-nix_file_deps).
+      nixopts: See [`nixpkgs_package`](#nixpkgs_package-nixopts).
+      fail_not_supported: See [`nixpkgs_package`](#nixpkgs_package-fail_not_supported).
+      quiet: See [`nixpkgs_package`](#nixpkgs_package-quiet).
+    """
+    if attribute_path == None:
+        fail("'attribute_path' is required.", "attribute_path")
+
+    nix_expr = None
+    if nix_file and nix_file_content:
+        fail("Cannot specify both 'nix_file' and 'nix_file_content'.")
+    elif nix_file:
+        nix_expr = "import $(location {}) {{}}".format(nix_file)
+        nix_file_deps = depset(direct = [nix_file] + nix_file_deps).to_list()
+    elif nix_file_content:
+        nix_expr = nix_file_content
+    else:
+        nix_expr = "null"
+
+    nixopts = list(nixopts)
+    nixopts.extend([
+        "--argstr",
+        "attrPath",
+        attribute_path,
+        "--arg",
+        "attrSet",
+        nix_expr,
+        "--argstr",
+        "filePath",
+        java_home_path,
+    ])
+
+    kwargs = dict(
+        repository = repository,
+        repositories = repositories,
+        nix_file_deps = nix_file_deps,
+        nixopts = nixopts,
+        fail_not_supported = fail_not_supported,
+        quiet = quiet,
+    )
+    java_runtime = "@%s//:runtime" % name
+    nixpkgs_package(
+        name = name,
+        nix_file_content = _java_nix_file_content,
+        **kwargs
+    )
 
 def da_java_library(
         name,
