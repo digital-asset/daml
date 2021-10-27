@@ -121,7 +121,7 @@ collateLines :: [Line] -> Collated
 collateLines lines =
   Collated $ Map.fromList
   [ (cat, [ desc | Line{desc} <- group ])
-  | group@(Line{cat}:_) <- groupOn (\Line{cat} -> cat) lines
+  | group@(Line{cat}:_) <- groupOn cat (sortOn cat lines)
   ]
 
 ppCollated :: Collated -> String
