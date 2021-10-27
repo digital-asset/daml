@@ -103,7 +103,7 @@ final class DispatcherImpl[Index: Ordering](
       withOptionalEnd
         .statefulMapConcat(() => new ContinuousRangeEmitter(startExclusive))
         .flatMapConcat { case (previousHead, head) =>
-          logger.info(s"starting subsource $subsource")
+          logger.info(s"starting subsource($previousHead, $head)")
           subsource(previousHead, head)
         }
     }
