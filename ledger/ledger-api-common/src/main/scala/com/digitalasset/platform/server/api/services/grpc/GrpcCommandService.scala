@@ -3,11 +3,7 @@
 
 package com.daml.platform.server.api.services.grpc
 
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
@@ -37,8 +33,6 @@ class GrpcCommandService(
     with ProxyCloseable {
 
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private[this] val validator = new SubmitAndWaitRequestValidator(
     new CommandsValidator(ledgerId, errorCodesVersionSwitcher),
@@ -53,7 +47,7 @@ class GrpcCommandService(
         currentLedgerTime(),
         currentUtcTime(),
         maxDeduplicationTime(),
-      )
+      )(contextualizedErrorLogger(requestWithSubmissionId))
       .fold(
         t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
         _ => service.submitAndWait(requestWithSubmissionId),
@@ -70,7 +64,7 @@ class GrpcCommandService(
         currentLedgerTime(),
         currentUtcTime(),
         maxDeduplicationTime(),
-      )
+      )(contextualizedErrorLogger(requestWithSubmissionId))
       .fold(
         t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
         _ => service.submitAndWaitForTransactionId(requestWithSubmissionId),
@@ -87,7 +81,7 @@ class GrpcCommandService(
         currentLedgerTime(),
         currentUtcTime(),
         maxDeduplicationTime(),
-      )
+      )(contextualizedErrorLogger(requestWithSubmissionId))
       .fold(
         t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
         _ => service.submitAndWaitForTransaction(requestWithSubmissionId),
@@ -104,7 +98,7 @@ class GrpcCommandService(
         currentLedgerTime(),
         currentUtcTime(),
         maxDeduplicationTime(),
-      )
+      )(contextualizedErrorLogger(requestWithSubmissionId))
       .fold(
         t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
         _ => service.submitAndWaitForTransactionTree(requestWithSubmissionId),
@@ -123,4 +117,9 @@ class GrpcCommandService(
       request
     }
   }
+
+  private def contextualizedErrorLogger(request: SubmitAndWaitRequest)(implicit
+      loggingContext: LoggingContext
+  ) =
+    new DamlContextualizedErrorLogger(logger, loggingContext, request.commands.map(_.submissionId))
 }

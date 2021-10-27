@@ -9,11 +9,8 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.ErrorCodesVersionSwitcher
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service._
@@ -60,8 +57,6 @@ private[apiserver] final class ApiPackageManagementService private (
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
 
@@ -128,7 +123,13 @@ private[apiserver] final class ApiPackageManagementService private (
                 ValidationLogger
                   .logFailureWithContext(
                     request,
-                    errorFactories.invalidArgument(None)(err.getMessage),
+                    errorFactories.invalidArgument(None)(err.getMessage)(
+                      new DamlContextualizedErrorLogger(
+                        logger,
+                        loggingContext,
+                        Some(submissionId),
+                      )
+                    ),
                   )
               ),
             Future.successful,
@@ -143,7 +144,6 @@ private[apiserver] final class ApiPackageManagementService private (
 
         response.andThen(logger.logErrorsOnCall[UploadDarFileResponse])
     }
-
 }
 
 private[apiserver] object ApiPackageManagementService {
@@ -185,8 +185,6 @@ private[apiserver] object ApiPackageManagementService {
         PackageEntry.PackageUploadAccepted,
       ] {
     private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-    private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
     override def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]] =
       ledgerEndService.currentLedgerEnd().map(Some(_))
@@ -209,7 +207,9 @@ private[apiserver] object ApiPackageManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[PackageEntry, StatusRuntimeException] = {
       case PackageEntry.PackageUploadRejected(`submissionId`, _, reason) =>
-        errorFactories.packageUploadRejected(reason, definiteAnswer = None)
+        errorFactories.packageUploadRejected(reason, definiteAnswer = None)(
+          new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
+        )
     }
   }
 

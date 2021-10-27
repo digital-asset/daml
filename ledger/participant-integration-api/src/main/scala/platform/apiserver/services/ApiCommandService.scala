@@ -69,7 +69,6 @@ private[apiserver] final class ApiCommandService private[services] (
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
-  import errorFactories.serviceNotRunning
 
   @volatile private var running = true
 
@@ -82,7 +81,6 @@ private[apiserver] final class ApiCommandService private[services] (
   private def submitAndWaitInternal(request: SubmitAndWaitRequest)(implicit
       loggingContext: LoggingContext
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
-    val contextualizedErrorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
     val commands = request.getCommands
     withEnrichedLoggingContext(
       logging.submissionId(commands.submissionId),
@@ -96,10 +94,8 @@ private[apiserver] final class ApiCommandService private[services] (
           .map(deadline => Duration.ofNanos(deadline.timeRemaining(TimeUnit.NANOSECONDS)))
         submissionTracker.track(CommandSubmission(commands, timeout))
       } else {
-        Future.failed(
-          serviceNotRunning(definiteAnswer = Some(false))(contextualizedErrorLogger)
-        )
-      }.andThen(logger.logErrorsOnCall[Completion])
+        handleFailure(request, loggingContext)
+      }
     }
   }
 
@@ -160,6 +156,22 @@ private[apiserver] final class ApiCommandService private[services] (
         },
       )
     }
+
+  private def handleFailure(
+      request: SubmitAndWaitRequest,
+      loggingContext: LoggingContext,
+  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] =
+    Future
+      .failed(
+        errorFactories.serviceNotRunning(definiteAnswer = Some(false))(
+          new DamlContextualizedErrorLogger(
+            logger,
+            loggingContext,
+            request.commands.map(_.submissionId),
+          )
+        )
+      )
+      .andThen(logger.logErrorsOnCall[Completion](loggingContext))
 }
 
 private[apiserver] object ApiCommandService {

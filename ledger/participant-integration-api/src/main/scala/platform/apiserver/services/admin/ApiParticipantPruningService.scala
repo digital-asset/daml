@@ -55,7 +55,11 @@ final class ApiParticipantPruningService private (
         if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString
       )
       .left
-      .map(err => invalidArgument(None)(s"submission_id $err")(contextualizedErrorLogger))
+      .map(err =>
+        invalidArgument(None)(s"submission_id $err")(
+          contextualizedErrorLogger(request.submissionId)
+        )
+      )
 
     submissionIdOrErr.fold(
       t => Future.failed(ValidationLogger.logFailure(request, t)),
@@ -65,7 +69,10 @@ final class ApiParticipantPruningService private (
             logger.info(s"Pruning up to ${request.pruneUpTo}")
             (for {
 
-              pruneUpTo <- validateRequest(request)
+              pruneUpTo <- validateRequest(request)(
+                loggingContext,
+                contextualizedErrorLogger(submissionId),
+              )
 
               // If write service pruning succeeds but ledger api server index pruning fails, the user can bring the
               // systems back in sync by reissuing the prune request at the currently specified or later offset.
@@ -83,7 +90,10 @@ final class ApiParticipantPruningService private (
 
   private def validateRequest(
       request: PruneRequest
-  )(implicit loggingContext: LoggingContext): Future[Offset] = {
+  )(implicit
+      loggingContext: LoggingContext,
+      errorLogger: ContextualizedErrorLogger,
+  ): Future[Offset] = {
     (for {
       pruneUpToString <- checkOffsetIsSpecified(request.pruneUpTo)
       pruneUpTo <- checkOffsetIsHexadecimal(pruneUpToString)
@@ -98,9 +108,7 @@ final class ApiParticipantPruningService private (
       pruneUpTo: Offset,
       submissionId: Ref.SubmissionId,
       pruneAllDivulgedContracts: Boolean,
-  )(implicit
-      loggingContext: LoggingContext
-  ): Future[Unit] = {
+  )(implicit loggingContext: LoggingContext): Future[Unit] = {
     import state.PruningResult._
     logger.info(
       s"About to prune participant ledger up to ${pruneUpTo.toApiString} inclusively starting with the write service"
@@ -130,16 +138,16 @@ final class ApiParticipantPruningService private (
 
   private def checkOffsetIsSpecified(
       offset: String
-  )(implicit loggingContext: LoggingContext): Either[StatusRuntimeException, String] =
+  )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, String] =
     Either.cond(
       offset.nonEmpty,
       offset,
-      invalidArgument(None)("prune_up_to not specified")(contextualizedErrorLogger),
+      invalidArgument(None)("prune_up_to not specified"),
     )
 
   private def checkOffsetIsHexadecimal(
       pruneUpToString: String
-  )(implicit loggingContext: LoggingContext): Either[StatusRuntimeException, Offset] =
+  )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Offset] =
     ApiOffset
       .fromString(pruneUpToString)
       .toEither
@@ -150,13 +158,16 @@ final class ApiParticipantPruningService private (
           offsetValue = pruneUpToString,
           message =
             s"prune_up_to needs to be a hexadecimal string and not $pruneUpToString: ${t.getMessage}",
-        )(contextualizedErrorLogger)
+        )
       )
 
   private def checkOffsetIsBeforeLedgerEnd(
       pruneUpToProto: Offset,
       pruneUpToString: String,
-  )(implicit loggingContext: LoggingContext): Future[Offset] =
+  )(implicit
+      loggingContext: LoggingContext,
+      errorLogger: ContextualizedErrorLogger,
+  ): Future[Offset] =
     for {
       ledgerEnd <- readBackend.currentLedgerEnd()
       _ <-
@@ -165,15 +176,14 @@ final class ApiParticipantPruningService private (
           Future.failed(
             readingOffsetAfterLedgerEnd_was_invalidArgument(None)(
               s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
-            )(contextualizedErrorLogger)
+            )
           )
     } yield pruneUpToProto
 
-  private def contextualizedErrorLogger(implicit
+  private def contextualizedErrorLogger(submissionId: String)(implicit
       loggingContext: LoggingContext
   ): ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(logger, loggingContext, None)
-
+    new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
 }
 
 object ApiParticipantPruningService {
