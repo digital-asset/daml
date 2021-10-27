@@ -19,8 +19,13 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
   InternallyInconsistentTransaction,
 }
 
+@Explanation(
+  "Errors that are specific to ledgers based on the KV architecture." +
+    "Note that this section will soon cover all ledgers due to an ongoing error consolidation effort."
+)
 object KVErrors extends LedgerApiErrorGroup {
 
+  @Explanation("Errors that relate to the Daml concepts of time.")
   object Time extends ErrorGroup() {
 
     @Explanation(
@@ -83,6 +88,9 @@ object KVErrors extends LedgerApiErrorGroup {
 
   }
 
+  @Explanation(
+    "Errors that can arise due to concurrent processing of transaction in the participant."
+  )
   object SubmissionRaces extends ErrorGroup() {
 
     @Explanation(
@@ -141,6 +149,7 @@ object KVErrors extends LedgerApiErrorGroup {
 
   }
 
+  @Explanation("Errors that relate to parties.")
   object Parties extends ErrorGroup {
 
     @Explanation("The submitting party has not been allocated.")
@@ -188,6 +197,7 @@ object KVErrors extends LedgerApiErrorGroup {
 
   }
 
+  @Explanation("Errors that relate to system resources.")
   object Resources extends ErrorGroup() {
 
     @Explanation("A system resource has been exhausted.")
@@ -209,6 +219,7 @@ object KVErrors extends LedgerApiErrorGroup {
 
   }
 
+  @Explanation("Errors that arise due to insufficient authorization.")
   object Unauthorized extends ErrorGroup() {
 
     @Explanation("A submitting party is not authorized to act through the participant.")
@@ -230,6 +241,7 @@ object KVErrors extends LedgerApiErrorGroup {
 
   }
 
+  @Explanation("Errors that arise from an internal system misbehavior.")
   object Internal extends ErrorGroup() {
 
     @Explanation("A rejection reason has not been set.")
@@ -349,6 +361,10 @@ object KVErrors extends LedgerApiErrorGroup {
         )
   }
 
+  @Explanation(
+    "Errors that are not going to be produced anymore but may still be encountered " +
+      "when subscribing to past offsets."
+  )
   @deprecated
   object Deprecated extends ErrorGroup() {
 
