@@ -4,9 +4,20 @@
 package com.daml.ledger.participant.state.kvutils.errors
 
 import java.time.Instant
-import com.daml.error.{ContextualizedErrorLogger, ErrorCategory, ErrorCode, ErrorGroup, ErrorResource, Explanation, Resolution}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  ErrorCategory,
+  ErrorCode,
+  ErrorGroup,
+  ErrorResource,
+  Explanation,
+  Resolution,
+}
 import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LedgerApiErrorGroup
-import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{ExternallyInconsistentTransaction, InternallyInconsistentTransaction}
+import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
+  ExternallyInconsistentTransaction,
+  InternallyInconsistentTransaction,
+}
 
 object KVErrors extends LedgerApiErrorGroup {
 
