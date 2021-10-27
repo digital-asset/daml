@@ -344,7 +344,7 @@ object KVErrors extends LedgerApiErrorGroup {
     object Time extends ErrorGroup() {
 
       @Explanation(
-        "At least one input contract's ledger time is later than that of the submitted transaction."
+        "The ledger time of the submission violated some constraint on the ledger time."
       )
       @Resolution("Retry the transaction submission.")
       @deprecated(
