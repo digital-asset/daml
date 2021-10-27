@@ -3,21 +3,22 @@
 
 package com.daml.platform.store.appendonlydao
 
-import java.sql.Connection
-import java.util.concurrent.{Executor, Executors, TimeUnit}
-
 import com.codahale.metrics.{InstrumentedExecutorService, Timer}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-import javax.sql.DataSource
 
-import scala.concurrent.{ExecutionContext, Future}
+import java.sql.{Connection, SQLNonTransientException, SQLTransientException}
+import java.util.concurrent.{Executor, Executors, TimeUnit}
+import javax.sql.DataSource
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 private[platform] final class DbDispatcher private (
@@ -28,7 +29,6 @@ private[platform] final class DbDispatcher private (
 ) extends ReportsHealth {
 
   private val logger = ContextualizedLogger.get(this.getClass)
-
   private val executionContext = ExecutionContext.fromExecutor(executor)
 
   override def currentHealth(): HealthStatus =
@@ -55,13 +55,7 @@ private[platform] final class DbDispatcher private (
           val result = connectionProvider.runSQL(databaseMetrics)(sql)
           result
         } catch {
-          case NonFatal(e) =>
-            logger.error("Exception while executing SQL query. Rolled back.", e)
-            throw e
-          // fatal errors don't make it for some reason to the setUncaughtExceptionHandler
-          case t: Throwable =>
-            logger.error("Fatal error!", t)
-            throw t
+          case throwable: Throwable => handleError(throwable)
         } finally {
           // decouple metrics updating from sql execution above
           try {
@@ -76,6 +70,31 @@ private[platform] final class DbDispatcher private (
         }
       }(executionContext)
     }
+
+  private def handleError(
+      throwable: Throwable
+  )(implicit loggingContext: LoggingContext): Nothing = {
+    implicit val contextualizedLogger: ContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
+    throwable match {
+      case NonFatal(e: SQLTransientException) =>
+        // TODO error codes: Only log once
+        logger.warn("Exception while executing SQL query. Rolled back.", e)
+        throw ErrorFactories.SelfServiceErrorCodeFactories.sqlTransientException(e)
+      case NonFatal(e: SQLNonTransientException) =>
+        // TODO error codes: Only log once
+        logger.error("Exception while executing SQL query. Rolled back.", e)
+        throw ErrorFactories.SelfServiceErrorCodeFactories.sqlNonTransientException(e)
+      case NonFatal(e) =>
+        logger.error("Exception while executing SQL query. Rolled back.", e)
+        throw e
+      // fatal errors don't make it for some reason to the setUncaughtExceptionHandler
+      case t: Throwable =>
+        logger.error("Fatal error!", t)
+        throw t
+    }
+  }
 }
 
 private[platform] object DbDispatcher {
