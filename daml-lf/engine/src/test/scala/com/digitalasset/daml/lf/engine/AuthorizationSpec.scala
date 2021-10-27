@@ -17,7 +17,6 @@ import org.scalatest.matchers.should.Matchers
 
 import org.scalatest.Inside
 
-// TEST_EVIDENCE: Authorization: Unit test _authorization_ computations in: `CheckAuthorization`.
 class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside {
 
   // Test the various forms of FailedAuthorization which can be returned from CheckAuthorization
@@ -41,12 +40,14 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside {
     )
 
   "create" - {
+    // TEST_EVIDENCE: Authorization: well-authorized `create` is accepted
     "ok" in {
       val createNode = makeCreateNode()
       val auth = Authorize(Set("Alice", "Bob", "Mary"))
       val fails = CheckAuthorization.authorizeCreate(optLocation = None, createNode)(auth)
       fails shouldBe Nil
     }
+    // TEST_EVIDENCE: Authorization: `create` with no signatories is rejected
     "NoSignatories" in {
       val createNode = makeCreateNode(signatories = Nil, maintainers = Nil)
       val auth = Authorize(Set("Alice", "Bob", "Mary"))
@@ -56,6 +57,7 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside {
         }
       }
     }
+    // TEST_EVIDENCE: Authorization: badly-authorized `create` is rejected
     "CreateMissingAuthorization" in {
       val createNode = makeCreateNode()
       val auth = Authorize(Set("Alice"))
@@ -67,6 +69,7 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside {
         }
       }
     }
+    // TEST_EVIDENCE: Authorization: `create` with non-signatory maintainers is rejected
     "MaintainersNotSubsetOfSignatories" in {
       val createNode = makeCreateNode(maintainers = Seq("Alice", "Mary"))
       val auth = Authorize(Set("Alice", "Bob", "Mary"))
@@ -83,11 +86,13 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside {
   "fetch" - {
     val contract = makeCreateNode()
     val fetchNode = builder.fetch(contract)
+    // TEST_EVIDENCE: Authorization: well-authorized `fetch` is accepted
     "ok" in {
       val auth = Authorize(Set("Alice", "Mary", "Nigel"))
       val fails = CheckAuthorization.authorizeFetch(optLocation = None, fetchNode)(auth)
       fails shouldBe Nil
     }
+    // TEST_EVIDENCE: Authorization: badly-authorized `fetch` is rejected
     "FetchMissingAuthorization" in {
       val auth = Authorize(Set("Mary", "Nigel"))
       val fails = CheckAuthorization.authorizeFetch(optLocation = None, fetchNode)(auth)
@@ -103,11 +108,13 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside {
   "lookup-by-key" - {
     val contract = makeCreateNode(maintainers = Seq("Alice", "Bob"))
     val lookupNode = builder.lookupByKey(contract, found = true)
+    // TEST_EVIDENCE: Authorization: well-authorized `lookup` is accepted
     "ok" in {
       val auth = Authorize(Set("Alice", "Bob", "Mary"))
       val fails = CheckAuthorization.authorizeLookupByKey(optLocation = None, lookupNode)(auth)
       fails shouldBe Nil
     }
+    // TEST_EVIDENCE: Authorization: badly-authorized `lookup` is rejected
     "LookupByKeyMissingAuthorization" in {
       val auth = Authorize(Set("Alice", "Mary"))
       val fails = CheckAuthorization.authorizeLookupByKey(optLocation = None, lookupNode)(auth)
@@ -131,12 +138,14 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside {
         argument = ValueRecord(None, ImmArray.empty),
       )
     }
+    // TEST_EVIDENCE: Authorization: well-authorized `exercise` is accepted
     "ok" in {
       val auth = Authorize(Set("Alice", "John", "Mary"))
       val exeNode = makeExeNode()
       val fails = CheckAuthorization.authorizeExercise(optLocation = None, exeNode)(auth)
       fails shouldBe Nil
     }
+    // TEST_EVIDENCE: Authorization: `exercise` with no controllers is rejected
     "NoControllers" in {
       val exeNode = makeExeNode(actingParties = Nil)
       val auth = Authorize(Set("Alice", "John", "Mary"))
@@ -146,6 +155,7 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside {
         }
       }
     }
+    // TEST_EVIDENCE: Authorization: badly-authorized `exercise` is rejected
     "ExerciseMissingAuthorization" in {
       val exeNode = makeExeNode()
       val auth = Authorize(Set("Alice", "John"))
