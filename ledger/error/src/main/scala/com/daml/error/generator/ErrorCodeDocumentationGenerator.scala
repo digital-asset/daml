@@ -118,7 +118,7 @@ case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
         update(state, updatedResolution = Some(parseAnnotationValue(annotation.tree)))
       else
         sys.error(
-          s"Unexpected annotation detected (${annotations.map(_.tree.tpe.toString)} but the only supported ones are $acceptedTypeNames). " +
+          s"Unexpected annotation detected (${annotations.map(annotationTypeName)} but the only supported ones are $acceptedTypeNames). " +
             s"Did you rename the error code annotations `${classOf[Explanation].getTypeName}` or `${classOf[Resolution].getTypeName}`?"
         )
     }
@@ -144,7 +144,10 @@ case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
   }
 
   private def isAnnotation(annotation: ru.Annotation, typeName: String): Boolean =
-    annotation.tree.tpe.toString == typeName
+    annotationTypeName(annotation) == typeName
+
+  private def annotationTypeName(annotation: ru.Annotation) =
+    annotation.tree.tpe.toString
 }
 
 private object ErrorCodeDocumentationGenerator {
