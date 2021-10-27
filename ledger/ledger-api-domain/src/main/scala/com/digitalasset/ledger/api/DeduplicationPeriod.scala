@@ -63,7 +63,7 @@ object DeduplicationPeriod {
   final case class DeduplicationDuration(duration: Duration) extends DeduplicationPeriod {
     require(!duration.isNegative, s"The deduplication window must not be negative: $duration")
     require(
-      duration.toNanos % 1000 == 0,
+      duration.getNano % 1000 == 0,
       s"The deduplication window must not use nanosecond precision: $duration",
     )
   }
