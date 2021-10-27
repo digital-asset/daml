@@ -34,25 +34,18 @@ final class ActiveContractsService(
       ledgerId: String,
       config: Config.StreamConfig.ActiveContractsStreamConfig,
   ) = {
-    val templatesFilter = config.templateIds match {
-      case Some(ids) =>
-        Filters.defaultInstance.withInclusive(
-          InclusiveFilters.defaultInstance.addAllTemplateIds(ids)
+    val filters: Map[String, Filters] = config.filters.map {
+      case (party, Some(templateIds)) =>
+        party -> Filters.defaultInstance.withInclusive(
+          InclusiveFilters.defaultInstance.addAllTemplateIds(templateIds)
         )
-      case None =>
-        Filters.defaultInstance
+      case (party, None) =>
+        party -> Filters.defaultInstance
     }
 
     GetActiveContractsRequest.defaultInstance
       .withLedgerId(ledgerId)
-      .withFilter(
-        TransactionFilter.defaultInstance
-          .withFiltersByParty(
-            Map(
-              config.party -> templatesFilter
-            )
-          )
-      )
+      .withFilter(TransactionFilter.defaultInstance.withFiltersByParty(filters))
   }
 
 }

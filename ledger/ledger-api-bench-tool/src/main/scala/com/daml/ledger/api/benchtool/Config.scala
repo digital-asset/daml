@@ -24,7 +24,6 @@ case class Config(
 object Config {
   trait StreamConfig {
     def name: String
-    def party: String
   }
 
   object StreamConfig {
@@ -48,8 +47,7 @@ object Config {
 
     case class ActiveContractsStreamConfig(
         name: String,
-        party: String,
-        templateIds: Option[List[Identifier]],
+        filters: Map[String, Option[List[Identifier]]],
     ) extends StreamConfig
 
     case class CompletionsStreamConfig(
