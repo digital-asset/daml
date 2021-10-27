@@ -3,11 +3,9 @@
 
 package com.daml.platform.server.api.services.grpc
 
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.ErrorCodesVersionSwitcher
+import com.daml.error.definitions.RejectionGenerators
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
   CommandSubmissionService => ApiCommandSubmissionService
@@ -78,7 +76,11 @@ class GrpcCommandSubmissionService(
           ),
         )
         .fold(
-          t => Future.failed(ValidationLogger.logFailure(request, t)),
+          t =>
+            Future.failed {
+              ValidationLogger.logFailure(request, t)
+              RejectionGenerators.validationFailure(t)
+            },
           service.submit(_).map(_ => Empty.defaultInstance),
         ),
     )
