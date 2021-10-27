@@ -9,6 +9,8 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.NonEmptyList
 
+import scala.collection.compat._
+
 final class DomainSpec extends AnyFreeSpec with Matchers {
   private val ledgerId = LedgerId("myledger")
   private val appId = ApplicationId("myAppId")

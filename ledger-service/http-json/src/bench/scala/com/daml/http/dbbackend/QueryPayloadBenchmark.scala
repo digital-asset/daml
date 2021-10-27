@@ -14,6 +14,8 @@ import com.daml.scalautil.nonempty.NonEmpty
 import org.openjdk.jmh.annotations._
 import spray.json._
 
+import scala.collection.compat._
+
 class QueryPayloadBenchmark extends ContractDaoBenchmark {
   @Param(Array("1", "10", "100"))
   var extraParties: Int = _

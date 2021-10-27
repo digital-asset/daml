@@ -10,6 +10,8 @@ import com.daml.scalautil.nonempty.NonEmpty
 import doobie.implicits._
 import org.openjdk.jmh.annotations._
 
+import scala.collection.compat._
+
 class QueryBenchmark extends ContractDaoBenchmark {
   @Param(Array("1", "5", "9"))
   var extraParties: Int = _
