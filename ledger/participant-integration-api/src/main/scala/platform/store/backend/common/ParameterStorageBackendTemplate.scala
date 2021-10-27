@@ -36,6 +36,12 @@ private[backend] trait ParameterStorageBackendTemplate extends ParameterStorageB
       ledgerEnd: ParameterStorageBackend.LedgerEnd
   )(connection: Connection)(implicit loggingContext: LoggingContext): Unit = {
     logger.info(s"ParameterStorageBackendTemplate.updateLedgerEnd($ledgerEnd)")
+
+    val before = SQL_GET_LEDGER_END.as(LedgerEndParser.singleOpt)(connection).flatten
+    logger.info(
+      s"ParameterStorageBackendTemplate.updateLedgerEnd() sees an old ledger end of $before"
+    )
+
     import com.daml.platform.store.Conversions.OffsetToStatement
     val rowsUpdated = SQL_UPDATE_LEDGER_END
       .on("ledger_end" -> ledgerEnd.lastOffset)
@@ -43,6 +49,11 @@ private[backend] trait ParameterStorageBackendTemplate extends ParameterStorageB
       .executeUpdate()(connection)
     logger.info(
       s"ParameterStorageBackendTemplate.updateLedgerEnd($ledgerEnd) updated $rowsUpdated rows"
+    )
+
+    val after = SQL_GET_LEDGER_END.as(LedgerEndParser.singleOpt)(connection).flatten
+    logger.info(
+      s"ParameterStorageBackendTemplate.updateLedgerEnd() sees a new ledger end of $after"
     )
     ()
   }
