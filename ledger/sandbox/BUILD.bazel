@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test_suite")
-load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
-load("@os_info//:os_info.bzl", "is_windows")
+load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 load("@build_environment//:configuration.bzl", "mvn_version")
+load("@os_info//:os_info.bzl", "is_windows")
 
 alias(
     name = "sandbox",
@@ -257,35 +257,20 @@ reset_service_pattern = "src/test/suite/**/*ResetService*.scala"
     ]
 ]
 
-NEXT_SERVERS = {
-    "memory": {
-        "binary": ":sandbox-binary",
-        "server_args": [
-            "--contract-id-seeding=testing-weak",
-            "--port=6865",
-        ],
-    },
-    "postgresql": {
-        "binary": ":sandbox-ephemeral-postgresql",
-        "server_args": [
-            "--contract-id-seeding=testing-weak",
-            "--port=6865",
-        ],
-    },
-}
-
 # Full conformance test
-server_conformance_test(
-    name = "next-conformance-test",
+conformance_test(
+    name = "conformance-test",
     lf_versions = [
         "default",
         "latest",
         "preview",
     ],
+    server = ":sandbox-binary",
     server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--port=6865",
         "--max-deduplication-duration=PT5S",
     ],
-    servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
         "--additional=AppendOnlyCommandDeduplicationParallelIT",
@@ -299,12 +284,14 @@ server_conformance_test(
 )
 
 # Feature test: --implicit-party-allocation=false (closed world mode)
-server_conformance_test(
-    name = "next-conformance-test-closed-world",
+conformance_test(
+    name = "conformance-test-closed-world",
+    server = ":sandbox-binary",
     server_args = [
+        "--port=6865",
+        "--contract-id-seeding=testing-weak",
         "--implicit-party-allocation=false",
     ],
-    servers = NEXT_SERVERS,
     test_tool_args = [
         "--verbose",
         "--include=ClosedWorldIT",
@@ -312,13 +299,15 @@ server_conformance_test(
 )
 
 # Feature test: --static-time
-server_conformance_test(
-    name = "next-conformance-test-static-time",
+conformance_test(
+    name = "conformance-test-static-time",
+    server = ":sandbox-binary",
     server_args = [
+        "--port=6865",
+        "--contract-id-seeding=testing-weak",
         "--static-time",
         "--max-deduplication-duration=PT5S",
     ],
-    servers = NEXT_SERVERS,
     test_tool_args = [
         "--static-time",
         "--open-world",
