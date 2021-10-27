@@ -83,6 +83,7 @@ private[apiserver] object ApiSubmissionService {
       maxDeduplicationTime = () =>
         ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
       metrics = metrics,
+      errorCodesVersionSwitcher = errorCodesVersionSwitcher,
     )
 
   final case class Configuration(

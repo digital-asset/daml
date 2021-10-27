@@ -49,6 +49,9 @@ private[apiserver] final class ApiTimeService private (
   private val fieldValidations = FieldValidations(errorFactories)
   private val dispatcher = SignalDispatcher[Instant]()
 
+  import fieldValidations._
+  import errorFactories.invalidArgument
+
   logger.debug(
     s"${getClass.getSimpleName} initialized with ledger ID ${ledgerId.unwrap}, start time ${backend.getCurrentTime}"
   )
@@ -57,7 +60,7 @@ private[apiserver] final class ApiTimeService private (
       request: GetTimeRequest
   ): Source[GetTimeResponse, NotUsed] = {
     val validated =
-      fieldValidations.matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+      matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
     validated.fold(
       t => Source.failed(ValidationLogger.logFailureWithContext(request, t)),
       { ledgerId =>
@@ -91,7 +94,7 @@ private[apiserver] final class ApiTimeService private (
           if (success) Right(requestedTime)
           else
             Left(
-              errorFactories.invalidArgument(None)(
+              invalidArgument(None)(
                 s"current_time mismatch. Provided: $expectedTime. Actual: ${backend.getCurrentTime}"
               )
             )
@@ -99,17 +102,17 @@ private[apiserver] final class ApiTimeService private (
     }
 
     val result = for {
-      _ <- fieldValidations.matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+      _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       expectedTime <- fieldValidations
         .requirePresence(request.currentTime, "current_time")
         .map(toInstant)
-      requestedTime <- fieldValidations.requirePresence(request.newTime, "new_time").map(toInstant)
+      requestedTime <- requirePresence(request.newTime, "new_time").map(toInstant)
       _ <- {
         if (!requestedTime.isBefore(expectedTime))
           Right(())
         else
           Left(
-            errorFactories.invalidArgument(None)(
+            invalidArgument(None)(
               s"new_time [$requestedTime] is before current_time [$expectedTime]. Setting time backwards is not allowed."
             )
           )

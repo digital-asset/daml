@@ -6,7 +6,11 @@ package com.daml.platform.apiserver.services
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
@@ -18,7 +22,11 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ValidationLogger
-import com.daml.platform.server.api.validation.ActiveContractsServiceValidation
+import com.daml.platform.server.api.validation.{
+  ActiveContractsServiceValidation,
+  ErrorFactories,
+  FieldValidations,
+}
 import io.grpc.{BindableService, ServerServiceDefinition}
 
 import scala.concurrent.ExecutionContext
@@ -26,6 +34,7 @@ import scala.concurrent.ExecutionContext
 private[apiserver] final class ApiActiveContractsService private (
     backend: ACSBackend,
     metrics: Metrics,
+    transactionFilterValidator: TransactionFilterValidator,
 )(implicit
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -41,7 +50,7 @@ private[apiserver] final class ApiActiveContractsService private (
   override protected def getActiveContractsSource(
       request: GetActiveContractsRequest
   ): Source[GetActiveContractsResponse, NotUsed] =
-    TransactionFilterValidator
+    transactionFilterValidator
       .validate(request.getFilter)
       .fold(
         t => Source.failed(ValidationLogger.logFailureWithContext(request, t)),
@@ -60,15 +69,31 @@ private[apiserver] final class ApiActiveContractsService private (
 
 private[apiserver] object ApiActiveContractsService {
 
-  def create(ledgerId: LedgerId, backend: ACSBackend, metrics: Metrics)(implicit
+  def create(
+      ledgerId: LedgerId,
+      backend: ACSBackend,
+      metrics: Metrics,
+      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+  )(implicit
       mat: Materializer,
       esf: ExecutionSequencerFactory,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-  ): ActiveContractsService with GrpcApiService =
-    new ActiveContractsServiceValidation(new ApiActiveContractsService(backend, metrics), ledgerId)
-      with BindableService {
+  ): ActiveContractsService with GrpcApiService = {
+    val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+    val field = FieldValidations(ErrorFactories(errorCodesVersionSwitcher))
+    val service = new ApiActiveContractsService(
+      backend = backend,
+      metrics = metrics,
+      transactionFilterValidator = new TransactionFilterValidator(errorFactories),
+    )
+    new ActiveContractsServiceValidation(
+      service = service,
+      ledgerId = ledgerId,
+      fieldValidations = field,
+    ) with BindableService {
       override def bindService(): ServerServiceDefinition =
         ActiveContractsServiceGrpc.bindService(this, executionContext)
     }
+  }
 }

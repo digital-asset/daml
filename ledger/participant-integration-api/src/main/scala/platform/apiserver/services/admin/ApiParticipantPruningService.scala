@@ -42,6 +42,8 @@ final class ApiParticipantPruningService private (
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
 
+  import errorFactories._
+
   override def bindService(): ServerServiceDefinition =
     ParticipantPruningServiceGrpc.bindService(this, executionContext)
 
@@ -53,9 +55,7 @@ final class ApiParticipantPruningService private (
         if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString
       )
       .left
-      .map(err =>
-        errorFactories.invalidArgument(None)(s"submission_id $err")(contextualizedErrorLogger)
-      )
+      .map(err => invalidArgument(None)(s"submission_id $err")(contextualizedErrorLogger))
 
     submissionIdOrErr.fold(
       t => Future.failed(ValidationLogger.logFailure(request, t)),
@@ -134,7 +134,7 @@ final class ApiParticipantPruningService private (
     Either.cond(
       offset.nonEmpty,
       offset,
-      errorFactories.invalidArgument(None)("prune_up_to not specified")(contextualizedErrorLogger),
+      invalidArgument(None)("prune_up_to not specified")(contextualizedErrorLogger),
     )
 
   private def checkOffsetIsHexadecimal(
@@ -145,7 +145,7 @@ final class ApiParticipantPruningService private (
       .toEither
       .left
       .map(t =>
-        errorFactories.nonHexOffset(None)(
+        nonHexOffset(None)(
           fieldName = "prune_up_to",
           offsetValue = pruneUpToString,
           message =
@@ -163,7 +163,7 @@ final class ApiParticipantPruningService private (
         if (pruneUpToString < ledgerEnd.value) Future.successful(())
         else
           Future.failed(
-            errorFactories.readingOffsetAfterLedgerEnd_was_invalidArgument(None)(
+            readingOffsetAfterLedgerEnd_was_invalidArgument(None)(
               s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
             )(contextualizedErrorLogger)
           )

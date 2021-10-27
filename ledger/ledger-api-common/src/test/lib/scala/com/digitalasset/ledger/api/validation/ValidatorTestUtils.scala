@@ -28,6 +28,36 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
   protected val transactionId = "42"
   protected val ledgerEnd = domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString("1000"))
 
+  /** Fixture that facilitates testing validators with and without self-service error codes.
+    *
+    * @param testedFactory Creates an instance of a validator to be tested.
+    *                      Accepts a boolean to decide if self-service error codes should be enabled.
+    */
+  class ValidatorFixture[T](testedFactory: Boolean => T) {
+    def testRequestFailure(
+        testedRequest: T => Either[StatusRuntimeException, _],
+        expectedCodeV1: Code,
+        expectedDescriptionV1: String,
+        expectedCodeV2: Code,
+        expectedDescriptionV2: String,
+    ): Assertion = {
+      requestMustFailWith(
+        request = testedRequest(testedFactory(false)),
+        code = expectedCodeV1,
+        description = expectedDescriptionV1,
+      )
+      requestMustFailWith(
+        request = testedRequest(testedFactory(true)),
+        code = expectedCodeV2,
+        description = expectedDescriptionV2,
+      )
+    }
+
+    def tested(enabledSelfServiceErrorCodes: Boolean): T = {
+      testedFactory(enabledSelfServiceErrorCodes)
+    }
+  }
+
   protected def hasExpectedFilters(req: transaction.GetTransactionsRequest) = {
     val filtersByParty = req.filter.filtersByParty
     filtersByParty should have size 1
@@ -73,7 +103,6 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
   ): PartialFunction[Either[StatusRuntimeException, _], Assertion] = { case Left(err) =>
     err.getStatus should have(Symbol("code")(expectedCode))
     err.getStatus should have(Symbol("description")(expectedDescription))
-
   }
 
 }

@@ -3,7 +3,11 @@
 
 package com.daml.platform.server.api.services.grpc
 
-import com.daml.error.{DamlContextualizedErrorLogger, ContextualizedErrorLogger}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
   CommandSubmissionService => ApiCommandSubmissionService
@@ -17,6 +21,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import com.daml.telemetry.{DefaultTelemetry, SpanAttribute, TelemetryContext}
 import com.google.protobuf.empty.Empty
@@ -32,6 +37,7 @@ class GrpcCommandSubmissionService(
     currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Option[Duration],
     metrics: Metrics,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends ApiCommandSubmissionService
     with ProxyCloseable
@@ -44,7 +50,10 @@ class GrpcCommandSubmissionService(
       loggingContext,
       None,
     )
-  private val validator = new SubmitRequestValidator(new CommandsValidator(ledgerId))
+  private val validator = new SubmitRequestValidator(
+    new CommandsValidator(ledgerId, errorCodesVersionSwitcher),
+    FieldValidations(ErrorFactories(errorCodesVersionSwitcher)),
+  )
 
   override def submit(request: ApiSubmitRequest): Future[Empty] = {
     implicit val telemetryContext: TelemetryContext =

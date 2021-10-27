@@ -3,6 +3,7 @@
 
 package com.daml.platform.server.api.services.grpc
 
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.MockMessages._
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
@@ -52,6 +53,7 @@ class GrpcCommandServiceSpec
       val grpcCommandService = new GrpcCommandService(
         mockCommandService,
         ledgerId = LedgerId(ledgerId),
+        errorCodesVersionSwitcher = mock[ErrorCodesVersionSwitcher],
         currentLedgerTime = () => Instant.EPOCH,
         currentUtcTime = () => Instant.EPOCH,
         maxDeduplicationTime = () => Some(Duration.ZERO),

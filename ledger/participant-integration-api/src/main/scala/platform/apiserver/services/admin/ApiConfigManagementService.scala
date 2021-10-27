@@ -51,8 +51,9 @@ private[apiserver] final class ApiConfigManagementService private (
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  private val errorFactories =
-    com.daml.platform.server.api.validation.ErrorFactories(errorCodesVersionSwitcher)
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+
+  import errorFactories._
 
   override def close(): Unit = ()
 
@@ -68,7 +69,7 @@ private[apiserver] final class ApiConfigManagementService private (
           Future.successful(configurationToResponse(configuration))
         case None =>
           // TODO error codes: Duplicate of missingLedgerConfig
-          Future.failed(errorFactories.missingLedgerConfigUponRequest)
+          Future.failed(missingLedgerConfigUponRequest)
       }
       .andThen(logger.logErrorsOnCall[GetTimeModelResponse])
   }
@@ -114,7 +115,7 @@ private[apiserver] final class ApiConfigManagementService private (
                 logger.warn(
                   "Could not get the current time model. The index does not yet have any ledger configuration."
                 )
-                Future.failed(errorFactories.missingLedgerConfig(None))
+                Future.failed(missingLedgerConfig(None))
             }
           (ledgerEndBeforeRequest, currentConfig) = configuration
 
@@ -125,7 +126,7 @@ private[apiserver] final class ApiConfigManagementService private (
               Future.failed(
                 ValidationLogger.logFailureWithContext(
                   request,
-                  errorFactories.invalidArgument(None)(
+                  invalidArgument(None)(
                     s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
                   ),
                 )
@@ -185,7 +186,7 @@ private[apiserver] final class ApiConfigManagementService private (
         minSkew = DurationConversion.fromProto(pMinSkew),
         maxSkew = DurationConversion.fromProto(pMaxSkew),
       ) match {
-        case Failure(err) => Left(errorFactories.invalidArgument(None)(err.toString))
+        case Failure(err) => Left(invalidArgument(None)(err.toString))
         case Success(ok) => Right(ok)
       }
       // TODO(JM): The maximum record time should be constrained, probably by the current active time model?
@@ -198,7 +199,7 @@ private[apiserver] final class ApiConfigManagementService private (
       }
       maximumRecordTime <- Time.Timestamp
         .fromInstant(mrtInstant)
-        .fold(err => Left(errorFactories.invalidArgument(None)(err)), Right(_))
+        .fold(err => Left(invalidArgument(None)(err)), Right(_))
     } yield SetTimeModelParameters(newTimeModel, maximumRecordTime, timeToLive)
   }
 

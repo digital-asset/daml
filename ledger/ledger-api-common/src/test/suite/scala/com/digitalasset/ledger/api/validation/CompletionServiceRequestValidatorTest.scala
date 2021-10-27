@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.validation
 
-import com.daml.error.{ContextualizedErrorLogger, NoLogging}
+import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher, NoLogging}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
@@ -12,9 +12,13 @@ import com.daml.ledger.api.v1.command_completion_service.{
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
 import io.grpc.Status.Code._
+import org.mockito.MockitoSugar
 import org.scalatest.wordspec.AnyWordSpec
 
-class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTestUtils {
+class CompletionServiceRequestValidatorTest
+    extends AnyWordSpec
+    with ValidatorTestUtils
+    with MockitoSugar {
   private implicit val noLogging: ContextualizedErrorLogger = NoLogging
   private val completionReq = CompletionStreamRequest(
     expectedLedgerId,
@@ -25,71 +29,97 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
 
   private val endReq = CompletionEndRequest(expectedLedgerId)
 
-  val validator = new CompletionServiceRequestValidator(
+  private val errorCodesVersionSwitcher_mock = mock[ErrorCodesVersionSwitcher]
+  private val validator = new CompletionServiceRequestValidator(
     domain.LedgerId(expectedLedgerId),
     PartyNameChecker.AllowAllParties,
+    errorCodesVersionSwitcher = errorCodesVersionSwitcher_mock,
   )
+
+  val fixture = new ValidatorFixture((selfServiceErrorCodesEnabled: Boolean) => {
+    new CompletionServiceRequestValidator(
+      domain.LedgerId(expectedLedgerId),
+      PartyNameChecker.AllowAllParties,
+      errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(selfServiceErrorCodesEnabled),
+    )
+  })
 
   "CompletionRequestValidation" when {
 
     "validating regular requests" should {
 
       "reject requests with empty ledger ID" in {
-        requestMustFailWith(
-          validator.validateCompletionStreamRequest(
+        fixture.testRequestFailure(
+          testedRequest = _.validateCompletionStreamRequest(
             completionReq.withLedgerId(""),
             ledgerEnd,
           ),
-          NOT_FOUND,
-          "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
+          expectedCodeV1 = NOT_FOUND,
+          expectedDescriptionV1 = "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
+          expectedCodeV2 = NOT_FOUND,
+          expectedDescriptionV2 =
+            "LEDGER_ID_MISMATCH(11,0): Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
         )
       }
 
       "return the correct error on missing application ID" in {
-        requestMustFailWith(
-          validator.validateCompletionStreamRequest(
+        fixture.testRequestFailure(
+          testedRequest = _.validateCompletionStreamRequest(
             completionReq.withApplicationId(""),
             ledgerEnd,
           ),
-          INVALID_ARGUMENT,
-          "Missing field: application_id",
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 = "Missing field: application_id",
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: application_id",
         )
       }
 
       "return the correct error on missing party" in {
-        requestMustFailWith(
-          validator.validateCompletionStreamRequest(
+        fixture.testRequestFailure(
+          testedRequest = _.validateCompletionStreamRequest(
             completionReq.withParties(Seq()),
             ledgerEnd,
           ),
-          INVALID_ARGUMENT,
-          "Missing field: parties",
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 = "Missing field: parties",
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: parties",
         )
       }
 
       "return the correct error on unknown begin boundary" in {
-        requestMustFailWith(
-          validator.validateCompletionStreamRequest(
+        fixture.testRequestFailure(
+          testedRequest = _.validateCompletionStreamRequest(
             completionReq.withOffset(
               LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.Unrecognized(7)))
             ),
             ledgerEnd,
           ),
-          INVALID_ARGUMENT,
-          "Invalid argument: Unknown ledger boundary value '7' in field offset.boundary",
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 =
+            "Invalid argument: Unknown ledger boundary value '7' in field offset.boundary",
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unknown ledger boundary value '7' in field offset.boundary",
         )
       }
 
       "return the correct error when offset is after ledger end" in {
-        requestMustFailWith(
-          validator.validateCompletionStreamRequest(
+        fixture.testRequestFailure(
+          testedRequest = _.validateCompletionStreamRequest(
             completionReq.withOffset(
               LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))
             ),
             ledgerEnd,
           ),
-          OUT_OF_RANGE,
-          "Begin offset 1001 is after ledger end 1000",
+          expectedCodeV1 = OUT_OF_RANGE,
+          expectedDescriptionV1 = "Begin offset 1001 is after ledger end 1000",
+          expectedCodeV2 = OUT_OF_RANGE,
+          expectedDescriptionV2 =
+            "REQUESTED_OFFSET_OUT_OF_RANGE(12,0): Begin offset 1001 is after ledger end 1000",
         )
       }
 
@@ -104,6 +134,7 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           req.applicationId shouldEqual expectedApplicationId
           req.parties shouldEqual Set(party)
           req.offset shouldEqual None
+          verifyZeroInteractions(errorCodesVersionSwitcher_mock)
         }
       }
 
@@ -115,6 +146,7 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           req.applicationId shouldEqual expectedApplicationId
           req.parties shouldEqual Set(party)
           req.offset shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+          verifyZeroInteractions(errorCodesVersionSwitcher_mock)
         }
       }
     }
@@ -122,10 +154,13 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
     "validating completions end requests" should {
 
       "fail on ledger ID mismatch" in {
-        requestMustFailWith(
-          validator.validateCompletionEndRequest(endReq.withLedgerId("")),
-          NOT_FOUND,
-          "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
+        fixture.testRequestFailure(
+          testedRequest = _.validateCompletionEndRequest(endReq.withLedgerId("")),
+          expectedCodeV1 = NOT_FOUND,
+          expectedDescriptionV1 = "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
+          expectedCodeV2 = NOT_FOUND,
+          expectedDescriptionV2 =
+            "LEDGER_ID_MISMATCH(11,0): Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
         )
       }
 
@@ -134,37 +169,51 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           validator.validateCompletionEndRequest(endReq)
         ) { case Right(out) =>
           out should have(Symbol("ledgerId")(expectedLedgerId))
+          verifyZeroInteractions(errorCodesVersionSwitcher_mock)
         }
       }
     }
 
     "applying party name checks" should {
 
-      val knowsPartyOnly =
+      val knowsPartyOnlyFixture = new ValidatorFixture((enabled) => {
         new CompletionServiceRequestValidator(
           domain.LedgerId(expectedLedgerId),
           PartyNameChecker.AllowPartySet(Set(party)),
+          new ErrorCodesVersionSwitcher(enabled),
         )
+      })
 
       val unknownParties = List("party", "Alice", "Bob")
       val knownParties = List("party")
 
       "reject completion requests for unknown parties" in {
-        requestMustFailWith(
-          knowsPartyOnly.validateCompletionStreamRequest(
+        knowsPartyOnlyFixture.testRequestFailure(
+          testedRequest = _.validateCompletionStreamRequest(
             completionReq.withParties(unknownParties),
             ledgerEnd,
           ),
-          INVALID_ARGUMENT,
-          "Invalid argument: Unknown parties: [Alice, Bob]",
+          expectedCodeV1 = INVALID_ARGUMENT,
+          expectedDescriptionV1 = "Invalid argument: Unknown parties: [Alice, Bob]",
+          expectedCodeV2 = INVALID_ARGUMENT,
+          expectedDescriptionV2 =
+            "INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Unknown parties: [Alice, Bob]",
         )
       }
 
       "accept transaction requests for known parties" in {
-        knowsPartyOnly.validateCompletionStreamRequest(
-          completionReq.withParties(knownParties),
-          ledgerEnd,
-        ) shouldBe a[Right[_, _]]
+        knowsPartyOnlyFixture
+          .tested(enabledSelfServiceErrorCodes = true)
+          .validateCompletionStreamRequest(
+            completionReq.withParties(knownParties),
+            ledgerEnd,
+          ) shouldBe a[Right[_, _]]
+        knowsPartyOnlyFixture
+          .tested(enabledSelfServiceErrorCodes = false)
+          .validateCompletionStreamRequest(
+            completionReq.withParties(knownParties),
+            ledgerEnd,
+          ) shouldBe a[Right[_, _]]
       }
     }
   }
