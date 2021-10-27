@@ -181,27 +181,6 @@ conformance_test(
     ],
 )
 
-# Feature test: --daml-lf-min-version-1.14-unsafe
-# This asserts that you can use the 1.14 packages despite their dependencies on a few stable packages in older LF versions.
-conformance_test(
-    name = "conformance-test-min-1.14",
-    lf_versions = ["1.14"],
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-        "--daml-lf-min-version-1.14-unsafe",
-        "--max-deduplication-duration=PT5S",
-        "--mutable-contract-state-cache",
-    ],
-    test_tool_args = [
-        "--additional=MultiPartySubmissionIT",
-        "--additional=KVCommandDeduplicationIT",
-        "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
-    ],
-)
-
 # Full conformance test (two participant setup)
 conformance_test(
     name = "conformance-test-multi-participant",

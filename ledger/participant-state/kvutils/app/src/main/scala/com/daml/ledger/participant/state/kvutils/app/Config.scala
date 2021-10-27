@@ -554,18 +554,6 @@ object Config {
             "Enable the development version of the Daml-LF language. Highly unstable. Should not be used in production."
           )
 
-        opt[Unit]("daml-lf-min-version-1.14-unsafe")
-          .optional()
-          .hidden()
-          .action((_, c) =>
-            c.copy(allowedLanguageVersions =
-              c.allowedLanguageVersions.copy(min = LanguageVersion.v1_14)
-            )
-          )
-          .text(
-            "Set minimum LF version for unstable packages to 1.14. Should not be used in production."
-          )
-
         // TODO append-only: remove after removing support for the current (mutating) schema
         opt[Unit]("index-append-only-schema")
           .optional()
