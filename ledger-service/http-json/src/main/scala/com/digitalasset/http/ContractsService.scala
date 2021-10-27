@@ -20,7 +20,6 @@ import com.daml.fetchcontracts.util.ContractStreamStep.{Acs, LiveBegin}
 import com.daml.http.util.FutureUtil.toFuture
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.{v1 => api}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
@@ -113,7 +112,7 @@ class ContractsService(
 
   private[this] def findByContractKey(
       jwt: Jwt,
-      parties: OneAnd[Set, lar.Party],
+      parties: domain.PartySet,
       templateId: TemplateId.OptionalPkg,
       ledgerId: LedgerApiDomain.LedgerId,
       contractKey: LfValue,
@@ -133,7 +132,7 @@ class ContractsService(
 
   private[this] def findByContractId(
       jwt: Jwt,
-      parties: OneAnd[Set, lar.Party],
+      parties: domain.PartySet,
       templateId: Option[domain.TemplateId.OptionalPkg],
       ledgerId: LedgerApiDomain.LedgerId,
       contractId: domain.ContractId,
@@ -469,7 +468,7 @@ class ContractsService(
   private[http] def liveAcsAsInsertDeleteStepSource(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, lar.Party],
+      parties: domain.PartySet,
       templateIds: List[domain.TemplateId.RequiredPkg],
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
     val txnFilter = util.Transactions.transactionFilterFor(parties, templateIds)
@@ -486,7 +485,7 @@ class ContractsService(
   private[http] def insertDeleteStepSource(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, lar.Party],
+      parties: domain.PartySet,
       templateIds: List[domain.TemplateId.RequiredPkg],
       startOffset: Option[domain.StartingOffset] = None,
       terminates: Terminates = Terminates.AtLedgerEnd,
@@ -571,7 +570,7 @@ object ContractsService {
 
   final case class SearchContext[Tids[_], Pkgs[_]](
       jwt: Jwt,
-      parties: OneAnd[Set, lar.Party],
+      parties: domain.PartySet,
       templateIds: Tids[domain.TemplateId[Pkgs[String]]],
       ledgerId: LedgerApiDomain.LedgerId,
   )
