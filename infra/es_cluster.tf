@@ -772,41 +772,73 @@ emit_trace_events() {
      '
 }
 
-upload() {
-  local res
-  res="$(curl -X POST "http://$ES_IP/_bulk?filter_path=errors,items.*.status" \
-              -H 'Content-Type: application/json' \
-              --fail \
-              -s \
-              --data-binary @- \
-              | jq -r '.items[].index.status' | sort | uniq -c)"
-  echo "$res"
-}
+bulk_upload() (
 
-bulk_upload() {
-  local tmp chunk chunk_size processed num_lines
+  ## Uploads a bunch of JSON objects, subject to these constraints:
+  ##
+  ## 1. The input file has one JSON object per line. We cannot bbreak lines, as
+  ##    that would result in incomplete JSON objects.
+  ## 2. JSON objects go in pairs: the first line is metadata for how ES should
+  ##    ingest the second line. So we can't split in the middle of a pair
+  ##    either.
+  ## 3. The maximum size for a single upload is 500mb (set in the ES
+  ##    configuration a bit higher in this file), so if a file is larger than
+  ##    that we need to split it, respecting constraints 1 and 2.
+  ##
+  ## Because this function is defined with () rather than the usual {}, it runs
+  ## in a subshell and can define its own scoped inner functions, as well as
+  ## its own traps. Also, all variables are local.
+
   tmp=$(mktemp)
-  cat - > $tmp
   chunk=$(mktemp)
-  num_lines=$(wc -l $tmp | awk '{print $1'})
-  processed=0
-  chunk_size=$num_lines
-  # tail -n +N drops the first N-1 lines
-  next_chunk='tail -n +$(( processed + 1)) $tmp | head -n $chunk_size'
-  while (( processed < num_lines )); do
-    eval $next_chunk > $chunk
-    # limit is 500MB, but du reports in KB
-    if (( $(du $chunk | awk '{print $1}') < 450000 )); then
-      cat $chunk | upload
-      processed=$(( processed + chunk_size ))
+  trap 'rm -f $tmp $chunk' EXIT
+  cat - > $tmp
+  lines_to_process=$(wc -l $tmp | awk '{print $1'})
+  processed_lines=0
+  lines_per_chunk=$lines_to_process
+
+  push_chunk() {
+    curl -X POST "http://$ES_IP/_bulk?filter_path=errors,items.*.status" \
+         -H 'Content-Type: application/json' \
+         --fail \
+         -s \
+         --data-binary @$chunk \
+         | jq -r '.items[].index.status' | sort | uniq -c
+    processed_lines=$(( processed_lines + lines_per_chunk ))
+    lines_per_chunk=$(( lines_per_chunk * 2 ))
+  }
+
+  get_next_chunk() {
+    (
+    # tail -n +N drops the first N-1 lines
+    # tail is expected to fail with 141 (pipe closed) on intermediate
+    # iterations
+    tail -n +$(( processed_lines + 1)) $tmp || (( $? == 141))
+    ) \
+      | head -n $lines_per_chunk \
+      > $chunk
+  }
+
+  all_lines_have_been_processed() (( processed_lines >= lines_to_process ))
+
+  # limit chunk size to 50MB
+  # This will fail dramatically if we ever have a single line over 50MB
+  chunk_is_too_big() (( $(du $chunk | awk '{print $1}') > 50000 ))
+
+  reduce_chunk_size() {
+    # divide by two, but keep an even number
+    lines_per_chunk=$(( lines_per_chunk / 4 * 2))
+  }
+
+  until all_lines_have_been_processed; do
+    get_next_chunk
+    if chunk_is_too_big; then
+      reduce_chunk_size
     else
-      # divide by two, but keep an even number
-      chunk_size=$(( chunk_size / 4 * 2 ))
+      push_chunk
     fi
   done
-  rm $tmp
-  rm $chunk
-}
+)
 
 patch() {
   local job map file
