@@ -69,15 +69,9 @@ class PartiesService(
   private def findUnknownParties(
       found: Set[domain.PartyDetails],
       requested: domain.PartySet,
-  ): Set[domain.Party] = {
-    import scalaz.std.iterable._
-    import scalaz.syntax.foldable._
-
-    val requestedSet: Set[domain.Party] = requested.toSet
-
-    if (found.size == requestedSet.size) Set.empty
-    else requestedSet -- found.map(_.identifier)
-  }
+  ): Set[domain.Party] =
+    if (found.size == requested.size) Set.empty
+    else requested -- found.map(_.identifier)
 }
 
 object PartiesService {

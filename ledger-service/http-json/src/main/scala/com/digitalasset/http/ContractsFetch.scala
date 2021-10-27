@@ -85,7 +85,7 @@ private class ContractsFetch(
       // has desynchronized
       lagging <- (templateIds.toSet, bb.map(_.toDomain)) match {
         case (NonEmpty(tids), AbsoluteBookmark(expectedOff)) =>
-          laggingOffsets(parties.toSet, expectedOff, tids)
+          laggingOffsets(parties, expectedOff, tids)
         case _ => fconn.pure(none[(domain.Offset, Set[domain.TemplateId.RequiredPkg])])
       }
       retriedA <- lagging.cata(
