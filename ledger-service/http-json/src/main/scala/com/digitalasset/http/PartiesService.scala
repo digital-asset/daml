@@ -6,6 +6,7 @@ package com.daml.http
 import com.daml.lf.data.Ref
 import com.daml.http.EndpointsCompanion.{Error, InvalidUserInput, Unauthorized}
 import com.daml.http.util.FutureUtil._
+import com.daml.scalautil.nonempty._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api
 import LedgerClientJwt.Grpc
@@ -86,9 +87,8 @@ object PartiesService {
       ps: domain.PartySet
   ): InvalidUserInput \/ OneAnd[Set, Ref.Party] = {
     import scalaz.std.list._
-    val nel: OneAnd[List, domain.Party] = OneAnd(ps.head, ps.tail.toList)
-    val enel: InvalidUserInput \/ OneAnd[List, Ref.Party] = nel.traverse(toLedgerApi)
-    enel.map(xs => OneAnd(xs.head, xs.tail.toSet))
+    val enel: InvalidUserInput \/ NonEmptyF[List, Ref.Party] = ps.toList.toF traverse toLedgerApi
+    enel.map { case x +-: xs => OneAnd(x, xs.toSet) }
   }
 
   def toLedgerApi(p: domain.Party): InvalidUserInput \/ Ref.Party =

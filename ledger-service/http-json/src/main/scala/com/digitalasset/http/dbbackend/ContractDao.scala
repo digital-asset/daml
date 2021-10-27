@@ -84,7 +84,10 @@ object ContractDao {
   def supportedJdbcDriverNames(available: Set[String]): Set[String] =
     supportedJdbcDrivers.keySet intersect available
 
-  private[this] type NES[A] = NonEmpty[Set[A]]
+  private[this] def queriesPartySet(dps: domain.PartySet): Queries.PartySet = {
+    type NES[A] = NonEmpty[Set[A]]
+    domain.Party.unsubst[NES, String](dps)
+  }
 
   def apply(
       cfg: JdbcConfig,
@@ -142,7 +145,7 @@ object ContractDao {
     for {
       tpId <- surrogateTemplateId(templateId)
       offset <- queries
-        .lastOffset(domain.Party.unsubst[NES, String](parties), tpId)
+        .lastOffset(queriesPartySet(parties), tpId)
     } yield {
       type L[a] = Map[a, domain.Offset]
       domain.Party.subst[L, String](domain.Offset.tag.subst(offset))
@@ -315,7 +318,7 @@ object ContractDao {
       tpId <- surrogateTemplateId(templateId)
 
       dbContracts <- queries
-        .selectContracts(domain.Party.unsubst[NES, String](parties), tpId, predicate)
+        .selectContracts(queriesPartySet(parties), tpId, predicate)
         .to[Vector]
       domainContracts = dbContracts.map(toDomain(templateId))
     } yield domainContracts
@@ -343,7 +346,7 @@ object ContractDao {
             for {
               dbContracts <- sjdQueries
                 .selectContractsMultiTemplate(
-                  domain.Party unsubst [NES, String] parties,
+                  queriesPartySet(parties),
                   queries,
                   Queries.MatchedQueryMarker.ByInt,
                 )
@@ -358,7 +361,7 @@ object ContractDao {
             for {
               dbContracts <- sjdQueries
                 .selectContractsMultiTemplate(
-                  domain.Party unsubst [NES, String] parties,
+                  queriesPartySet(parties),
                   queries,
                   Queries.MatchedQueryMarker.Unused,
                 )
@@ -388,7 +391,7 @@ object ContractDao {
     for {
       tpId <- surrogateTemplateId(templateId)
       dbContracts <- queries.fetchById(
-        domain.Party unsubst [NES, String] parties,
+        queriesPartySet(parties),
         tpId,
         domain.ContractId unwrap contractId,
       )
@@ -407,7 +410,7 @@ object ContractDao {
     import sjd.q._
     for {
       tpId <- surrogateTemplateId(templateId)
-      dbContracts <- queries.fetchByKey(domain.Party unsubst [NES, String] parties, tpId, key)
+      dbContracts <- queries.fetchByKey(queriesPartySet(parties), tpId, key)
     } yield dbContracts.map(toDomain(templateId))
   }
 
