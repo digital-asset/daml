@@ -266,14 +266,14 @@ object KVErrors extends LedgerApiErrorGroup {
 
   object DuplicateCommand
       extends ErrorCode(
-        id = "DUPLICATE_COMMAND",
+        id = "COMMITTER_DETECTED_DUPLICATE_COMMAND",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceExists, // It may succeed at a later time
       ) {
     case class Reject(
         override val definiteAnswer: Boolean
     )(implicit loggingContext: ContextualizedErrorLogger)
         extends KVLoggingTransactionErrorImpl(
-          cause = "A command with the given submission ID has already been successfully processed"
+          cause = "A command with the given submission ID has already been successfully committed"
         )
   }
 
