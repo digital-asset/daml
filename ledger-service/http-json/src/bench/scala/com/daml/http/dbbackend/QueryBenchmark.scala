@@ -6,6 +6,7 @@ package com.daml.http.dbbackend
 import com.daml.http.dbbackend.Queries.SurrogateTpId
 import com.daml.http.domain.{Party, TemplateId}
 import com.daml.http.util.Logging.instanceUUIDLogCtx
+import com.daml.scalautil.Statement.discard
 import com.daml.scalautil.nonempty.NonEmpty
 import doobie.implicits._
 import org.openjdk.jmh.annotations._
@@ -55,4 +56,6 @@ class QueryBenchmark extends ContractDaoBenchmark {
     )
     assert(result.size == batchSize)
   }
+
+  discard(Factory) // only needed for scala 2.12
 }
