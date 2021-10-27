@@ -24,7 +24,7 @@ final class MonotonicRecordTimeIT extends LedgerTestSuite {
       _ <- Future.traverse(1 to Submissions) { _ =>
         ledger.create(party, Dummy(party))
       }
-      checkpoints <- ledger.checkpoints(Submissions, ledger.begin)(party)
+      checkpoints <- ledger.checkpoints(Submissions)(party)
     } yield {
       assertLength(s"At least $Submissions checkpoints available", Submissions, checkpoints)
 
