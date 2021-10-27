@@ -94,7 +94,7 @@ object KVErrors extends LedgerApiErrorGroup {
   object SubmissionRaces extends ErrorGroup() {
 
     @Explanation(
-      "An contract with the same key has already been created by a concurrent transaction submission."
+      "A contract with the same key has already been created by a concurrent transaction submission."
     )
     @Resolution(
       "The correct resolution depends on the business flow, " +
