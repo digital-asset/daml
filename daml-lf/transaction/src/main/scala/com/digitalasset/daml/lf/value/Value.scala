@@ -198,31 +198,17 @@ object Value {
     new `Value Equal instance`
 
   /** A contract instance is a value plus the template that originated it. */
-  final case class ContractInst[+Val](
+  final case class ContractInstance(
       template: Identifier,
-      arg: Val,
+      arg: Value,
       agreementText: String,
   ) {
 
-    def map[Val2](f: Val => Val2): ContractInst[Val2] =
+    def map(f: Value => Value): ContractInstance =
       copy(arg = f(arg))
-  }
 
-  object ContractInst {
-
-    implicit class CidContainerInstance[Val <: value.CidContainer[Val]](inst: ContractInst[Val])
-        extends value.CidContainer[ContractInst[Val]] {
-      override protected def self = inst
-      final override def mapCid(f: ContractId => ContractId): ContractInst[Val] =
-        inst.copy(arg = inst.arg.mapCid(f))
-    }
-
-    implicit def equalInstance[Val: Equal]: Equal[ContractInst[Val]] =
-      ScalazEqual.withNatural(Equal[Val].equalIsNatural) { (a, b) =>
-        import a._
-        val ContractInst(bTemplate, bArg, bAgreementText) = b
-        template == bTemplate && arg === bArg && agreementText == bAgreementText
-      }
+    def mapCid(f: ContractId => ContractId): ContractInstance =
+      copy(arg = arg.mapCid(f))
   }
 
   final case class VersionedContractInstance(
@@ -231,12 +217,12 @@ object Value {
       arg: Value,
       agreementText: String,
   ) {
-    def coinst = ContractInst(template, arg, agreementText)
+    def coinst = ContractInstance(template, arg, agreementText)
     def versionedArg = VersionedValue(version, arg)
   }
 
   object VersionedContractInstance {
-    def apply(version: TransactionVersion, coinst: ContractInst[Value]): VersionedContractInstance =
+    def apply(version: TransactionVersion, coinst: ContractInstance): VersionedContractInstance =
       VersionedContractInstance(version, coinst.template, coinst.arg, coinst.agreementText)
     def apply(
         template: Identifier,

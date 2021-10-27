@@ -785,7 +785,7 @@ object Transaction {
   type Value = Value.VersionedValue
 
   @deprecated("use com.daml.value.Value.VersionedContractInstance", since = "1.8.0")
-  type ContractInst = Value.VersionedContractInstance
+  type ContractInstance = Value.VersionedContractInstance
 
   /** Transaction nodes */
   type Node = Node.GenNode

@@ -77,7 +77,7 @@ object ResultError {
     ResultError(Error.Validation(validationError))
 }
 
-/** Intermediate result indicating that a [[ContractInst]] is required to complete the computation.
+/** Intermediate result indicating that a [[ContractInstance]] is required to complete the computation.
   * To resume the computation, the caller must invoke `resume` with the following argument:
   * <ul>
   * <li>`Some(contractInstance)`, if the caller can dereference `acoid` to `contractInstance`</li>

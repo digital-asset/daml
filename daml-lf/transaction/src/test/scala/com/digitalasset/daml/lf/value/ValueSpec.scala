@@ -33,21 +33,13 @@ class ValueSpec
 
   "VersionedValue" - {
 
-    val pkgId = Ref.PackageId.assertFromString("pkgId")
-    val tmplId = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Mod:Template"))
-
     "does not bump version when" - {
 
       "ensureNoCid is used " in {
         val value = VersionedValue(TransactionVersion.minVersion, ValueUnit)
-        val contract = ContractInst(tmplId, value, "agreed")
         value.ensureNoCid.map(_.version) shouldBe Right(TransactionVersion.minVersion)
-        contract.ensureNoCid.map(_.arg.version) shouldBe Right(TransactionVersion.minVersion)
-
       }
-
     }
-
   }
 
   "ContractID.V1.build" - {

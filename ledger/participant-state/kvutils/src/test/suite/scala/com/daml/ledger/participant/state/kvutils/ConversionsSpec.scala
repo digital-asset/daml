@@ -35,7 +35,7 @@ import com.daml.lf.data.Time.{Timestamp => LfTimestamp}
 import com.daml.lf.engine.Error
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionOuterClass, TransactionVersion}
-import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
+import com.daml.lf.value.Value.{ContractId, ContractInstance, ValueText}
 import com.daml.lf.value.ValueOuterClass
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -676,7 +676,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
 
   private def lfContractInstance(discriminator: String) =
     new TransactionBuilder(_ => txVersion).versionContract(
-      ContractInst(
+      ContractInstance(
         Ref.Identifier.assertFromString("some:template:name"),
         ValueText(discriminator),
         "",
