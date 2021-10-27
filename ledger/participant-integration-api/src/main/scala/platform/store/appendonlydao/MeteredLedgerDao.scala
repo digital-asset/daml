@@ -75,7 +75,7 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       startExclusive: Offset,
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PartyLedgerEntry), NotUsed] = {
-    logger.info("MeteredLedgerDao.getPartyEntries")
+    logger.info(s"MeteredLedgerDao.getPartyEntries($startExclusive, $endInclusive)")
     ledgerDao.getPartyEntries(startExclusive, endInclusive)
   }
 

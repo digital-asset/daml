@@ -214,7 +214,7 @@ private[apiserver] object ApiPartyManagementService {
     }
 
     override def entries(offset: Option[LedgerOffset.Absolute]): Source[PartyEntry, _] = {
-      logger.info("Strategy.entries")
+      logger.info(s"Strategy.entries($offset)")
       partyManagementService.partyEntries(offset)
     }
 

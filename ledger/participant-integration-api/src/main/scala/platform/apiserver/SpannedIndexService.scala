@@ -168,7 +168,7 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
   override def partyEntries(
       startExclusive: Option[LedgerOffset.Absolute]
   )(implicit loggingContext: LoggingContext): Source[domain.PartyEntry, NotUsed] = {
-    logger.info("SpannedIndexService.partyEntries")
+    logger.info(s"SpannedIndexService.partyEntries($startExclusive)")
     delegate.partyEntries(startExclusive)
   }
 

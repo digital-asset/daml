@@ -127,7 +127,7 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
   override def partyEntries(startExclusive: Offset)(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, PartyLedgerEntry), NotUsed] = {
-    logger.info("MeteredReadOnlyLedger.partyEntries")
+    logger.info(s"MeteredReadOnlyLedger.partyEntries($startExclusive)")
     ledger.partyEntries(startExclusive)
   }
 

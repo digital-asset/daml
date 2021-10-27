@@ -62,7 +62,7 @@ final class DispatcherImpl[Index: Ordering](
       subsource: SubSource[Index, T],
       endInclusive: Option[Index] = None,
   ): Source[(Index, T), NotUsed] = {
-    logger.info(s"Dispatcher.startingAt $endInclusive")
+    logger.info(s"Dispatcher.startingAt($endInclusive, ???, $endInclusive)")
     if (indexIsBeforeZero(startExclusive))
       Source.failed(
         new IllegalArgumentException(

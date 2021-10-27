@@ -101,7 +101,9 @@ trait ParameterStorageBackend {
     *
     * @param connection to be used when updating the parameters table
     */
-  def updateLedgerEnd(ledgerEnd: ParameterStorageBackend.LedgerEnd)(connection: Connection): Unit
+  def updateLedgerEnd(ledgerEnd: ParameterStorageBackend.LedgerEnd)(connection: Connection)(implicit
+      loggingContext: LoggingContext
+  ): Unit
 
   /** Query the current ledger end, read from the parameters table.
     * No significant CPU load, mostly blocking JDBC communication with the database backend.
@@ -109,7 +111,9 @@ trait ParameterStorageBackend {
     * @param connection to be used to get the LedgerEnd
     * @return the current LedgerEnd, or None if no ledger end exists
     */
-  def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd]
+  def ledgerEnd(connection: Connection)(implicit
+      loggingContext: LoggingContext
+  ): Option[ParameterStorageBackend.LedgerEnd]
 
   /** Query the current ledger end, returning a value that points to a point before the ledger begin
     * if no ledger end exists.
@@ -118,7 +122,9 @@ trait ParameterStorageBackend {
     * @param connection to be used to get the LedgerEnd
     * @return the current LedgerEnd, or a LedgerEnd that points to before the ledger begin if no ledger end exists
     */
-  final def ledgerEndOrBeforeBegin(connection: Connection): ParameterStorageBackend.LedgerEnd =
+  final def ledgerEndOrBeforeBegin(connection: Connection)(implicit
+      loggingContext: LoggingContext
+  ): ParameterStorageBackend.LedgerEnd =
     ledgerEnd(connection).getOrElse(
       ParameterStorageBackend.LedgerEnd(Offset.beforeBegin, EventSequentialId.beforeBegin)
     )

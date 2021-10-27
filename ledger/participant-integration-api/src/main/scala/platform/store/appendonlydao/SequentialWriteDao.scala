@@ -4,9 +4,9 @@
 package com.daml.platform.store.appendonlydao
 
 import java.sql.Connection
-
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.logging.LoggingContext
 import com.daml.platform.store.backend.{DbDto, IngestionStorageBackend, ParameterStorageBackend}
 
 import scala.util.chaining.scalaUtilChainingOps
@@ -22,6 +22,8 @@ case class SequentialWriteDaoImpl[DB_BATCH](
 
   private var lastEventSeqId: Long = _
   private var lastEventSeqIdInitialized = false
+
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private def lazyInit(connection: Connection): Unit =
     if (!lastEventSeqIdInitialized) {

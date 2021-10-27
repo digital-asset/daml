@@ -148,7 +148,7 @@ private[platform] abstract class BaseLedger(
   override def partyEntries(startExclusive: Offset)(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, PartyLedgerEntry), NotUsed] = {
-    logger.info("BaseLedger.partyEntries")
+    logger.info(s"BaseLedger.partyEntries($startExclusive)")
     dispatcher.startingAt(startExclusive, RangeSource(ledgerDao.getPartyEntries))
   }
 

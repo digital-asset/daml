@@ -34,12 +34,16 @@ private[backend] trait ParameterStorageBackendTemplate extends ParameterStorageB
 
   override def updateLedgerEnd(
       ledgerEnd: ParameterStorageBackend.LedgerEnd
-  )(connection: Connection): Unit = {
+  )(connection: Connection)(implicit loggingContext: LoggingContext): Unit = {
+    logger.info(s"ParameterStorageBackendTemplate.updateLedgerEnd($ledgerEnd)")
     import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL_UPDATE_LEDGER_END
+    val rowsUpdated = SQL_UPDATE_LEDGER_END
       .on("ledger_end" -> ledgerEnd.lastOffset)
       .on("ledger_end_sequential_id" -> ledgerEnd.lastEventSeqId)
-      .execute()(connection)
+      .executeUpdate()(connection)
+    logger.info(
+      s"ParameterStorageBackendTemplate.updateLedgerEnd($ledgerEnd) updated $rowsUpdated rows"
+    )
     ()
   }
 
@@ -54,8 +58,13 @@ private[backend] trait ParameterStorageBackendTemplate extends ParameterStorageB
       |""".stripMargin
   )
 
-  override def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd] =
-    SQL_GET_LEDGER_END.as(LedgerEndParser.singleOpt)(connection).flatten
+  override def ledgerEnd(
+      connection: Connection
+  )(implicit loggingContext: LoggingContext): Option[ParameterStorageBackend.LedgerEnd] = {
+    val result = SQL_GET_LEDGER_END.as(LedgerEndParser.singleOpt)(connection).flatten
+    logger.info(s"ParameterStorageBackendTemplate.ledgerEnd() returns $result")
+    result
+  }
 
   private val TableName: String = "parameters"
   private val LedgerIdColumnName: String = "ledger_id"
@@ -93,6 +102,7 @@ private[backend] trait ParameterStorageBackendTemplate extends ParameterStorageB
   override def initializeParameters(
       params: ParameterStorageBackend.IdentityParams
   )(connection: Connection)(implicit loggingContext: LoggingContext): Unit = {
+    logger.info(s"ParameterStorageBackendTemplate.initializeParameters($params)")
     // Note: this method is the only one that inserts a row into the parameters table
     val previous = ledgerIdentity(connection)
     val ledgerId = params.ledgerId

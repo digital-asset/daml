@@ -87,7 +87,7 @@ private class JdbcLedgerDao(
         storageBackend.ledgerEndOrBeforeBegin(_).lastOffset
       )
       .map { e =>
-        logger.info(s"Looked up ledger end $e")
+        logger.info(s"JdbcLedgerDao.lookupLedgerEnd() returns $e")
         e
       }(servicesExecutionContext)
 
@@ -101,6 +101,12 @@ private class JdbcLedgerDao(
         val end = storageBackend.ledgerEndOrBeforeBegin(connection)
         end.lastOffset -> end.lastEventSeqId
       }
+      .map { e =>
+        logger.info(
+          s"JdbcLedgerDao.lookupLedgerEndOffsetAndSequentialId() returns (${e._1}, ${e._2})"
+        )
+        e
+      }(servicesExecutionContext)
 
   override def lookupInitialLedgerEnd()(implicit
       loggingContext: LoggingContext
@@ -109,11 +115,16 @@ private class JdbcLedgerDao(
       .executeSql(metrics.daml.index.db.getInitialLedgerEnd)(
         storageBackend.ledgerEnd(_).map(_.lastOffset)
       )
+      .map { e =>
+        logger.info(s"JdbcLedgerDao.lookupInitialLedgerEnd() returns $e")
+        e
+      }(servicesExecutionContext)
 
   override def initialize(
       ledgerId: LedgerId,
       participantId: ParticipantId,
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
+  )(implicit loggingContext: LoggingContext): Future[Unit] = {
+    logger.info(s"JdbcLedgerDao.initialize($ledgerId, $participantId)")
     dbDispatcher
       .executeSql(metrics.daml.index.db.initializeLedgerParameters)(
         storageBackend.initializeParameters(
@@ -123,6 +134,7 @@ private class JdbcLedgerDao(
           )
         )
       )
+  }
 
   override def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContext
@@ -259,9 +271,11 @@ private class JdbcLedgerDao(
       startExclusive: Offset,
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PartyLedgerEntry), NotUsed] = {
-    logger.info(s"JdbcLedgerDao.before getPartyEntries $startExclusive $endInclusive")
+    logger.info(s"JdbcLedgerDao.getPartyEntries($startExclusive, $endInclusive)")
     PaginatingAsyncStream(PageSize) { queryOffset =>
-      logger.info(s"JdbcLedgerDao.getPartyEntries $startExclusive $endInclusive")
+      logger.info(
+        s"JdbcLedgerDao.getPartyEntries($startExclusive, $endInclusive) @ queryOffset $queryOffset"
+      )
       withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPartyEntries)(
           storageBackend.partyEntries(

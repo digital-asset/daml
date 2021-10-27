@@ -87,14 +87,16 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
     override def updateLedgerEnd(
         params: ParameterStorageBackend.LedgerEnd
-    )(connection: Connection): Unit =
+    )(connection: Connection)(implicit loggingContext: LoggingContext): Unit =
       synchronized {
         connection shouldBe someConnection
         captured = captured :+ params
       }
 
     private var ledgerEndCalled = false
-    override def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd] =
+    override def ledgerEnd(
+        connection: Connection
+    )(implicit loggingContext: LoggingContext): Option[ParameterStorageBackend.LedgerEnd] =
       synchronized {
         connection shouldBe someConnection
         ledgerEndCalled shouldBe false

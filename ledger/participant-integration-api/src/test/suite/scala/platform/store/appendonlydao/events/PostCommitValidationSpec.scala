@@ -10,6 +10,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
 import com.daml.lf.value.Value.ValueText
+import com.daml.logging.LoggingContext
 import com.daml.platform.store.backend.{ContractStorageBackend, PartyStorageBackend, StorageBackend}
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
@@ -559,7 +560,9 @@ object PostCommitValidationSpec {
         endInclusive: Offset,
         pageSize: Int,
         queryOffset: Long,
-    )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] = notImplemented()
+    )(connection: Connection)(implicit
+        loggingContext: LoggingContext
+    ): Vector[(Offset, PartyLedgerEntry)] = notImplemented()
     override def parties(parties: Seq[Party])(connection: Connection): List[PartyDetails] =
       this.parties.filter { party =>
         parties.contains(party.party)

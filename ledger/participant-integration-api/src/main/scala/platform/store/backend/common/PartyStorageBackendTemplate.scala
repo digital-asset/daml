@@ -87,7 +87,9 @@ trait PartyStorageBackendTemplate extends PartyStorageBackend {
   )(
       connection: Connection
   )(implicit loggingContext: LoggingContext): Vector[(Offset, PartyLedgerEntry)] = {
-    logger.info("PartyStorageBackendTemplate.partyEntries")
+    logger.info(
+      s"PartyStorageBackendTemplate.partyEntries($startExclusive, $endInclusive, $pageSize, $queryOffset)"
+    )
     import com.daml.platform.store.Conversions.OffsetToStatement
     SQL_GET_PARTY_ENTRIES
       .on(

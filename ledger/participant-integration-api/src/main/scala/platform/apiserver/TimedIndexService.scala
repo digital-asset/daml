@@ -186,7 +186,7 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
   override def partyEntries(
       startExclusive: Option[LedgerOffset.Absolute]
   )(implicit loggingContext: LoggingContext): Source[domain.PartyEntry, NotUsed] = {
-    logger.info("TimedIndexService.partyEntries")
+    logger.info(s"TimedIndexService.partyEntries($startExclusive)")
     Timed.source(metrics.daml.services.index.partyEntries, delegate.partyEntries(startExclusive))
   }
 
