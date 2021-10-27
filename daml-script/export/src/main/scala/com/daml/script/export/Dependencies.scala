@@ -133,9 +133,10 @@ object Dependencies {
     Set("daml-stdlib", "daml-prim", "daml-script").map(Ref.PackageName.assertFromString(_))
 
   private def isProvidedLibrary(pkgId: PackageId, pkg: Ast.Package): Boolean = {
-    pkg.metadata.exists(m =>
-      providedLibraries.contains(m.name)
-    ) || com.daml.lf.language.StablePackages.Ids.contains(pkgId)
+    // We use the list of stable packages for the compiler not the engine so we really want to catch
+    // all of them ignoring the version.
+    val stablePackages = com.daml.lf.language.StablePackages.ids(LanguageVersion.DevVersions)
+    pkg.metadata.exists(m => providedLibraries.contains(m.name)) || stablePackages.contains(pkgId)
   }
 
   // Return the package-id appropriate for the --package flag if the package is not builtin.
