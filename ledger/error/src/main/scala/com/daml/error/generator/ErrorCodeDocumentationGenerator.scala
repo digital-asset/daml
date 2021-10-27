@@ -76,7 +76,7 @@ case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
   )
 
   private def getAnnotations(
-      annotations: Seq[ru.Annotation],
+      annotations: Seq[ru.Annotation]
   ): (Explanation, Resolution) = {
 
     def update(
