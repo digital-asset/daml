@@ -319,10 +319,10 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=CommandDeduplicationParallelIT",
+        "--additional=CompletionDeduplicationInfoITCommandService",
+        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=KVCommandDeduplicationIT",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
@@ -346,10 +346,10 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=CommandDeduplicationParallelIT",
+        "--additional=CompletionDeduplicationInfoITCommandService",
+        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=KVCommandDeduplicationIT",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
@@ -372,10 +372,10 @@ conformance_test(
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=CommandDeduplicationParallelIT",
+        "--additional=CompletionDeduplicationInfoITCommandService",
+        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=KVCommandDeduplicationIT",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
@@ -399,10 +399,10 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=CommandDeduplicationParallelIT",
+        "--additional=CompletionDeduplicationInfoITCommandService",
+        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=KVCommandDeduplicationIT",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
@@ -426,10 +426,10 @@ conformance_test(
     tags = [] if oracle_testing else ["manual"],
     test_tool_args = [
         "--verbose",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=CompletionDeduplicationInfoITCommandService",
+        "--additional=CommandDeduplicationParallelIT",
+        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=KVCommandDeduplicationIT",
         "--additional=ParticipantPruningIT",
         "--additional=MultiPartySubmissionIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
