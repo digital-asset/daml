@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import java.io.StringWriter
 import java.time.{Duration, Instant}
 
 import com.daml.error.{ContextualizedErrorLogger, ValueSwitch}
@@ -52,6 +53,7 @@ import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.Empty
 import com.google.rpc.status.Status
 
@@ -527,6 +529,13 @@ private[state] object Conversions {
       case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
         rejectionReasonNotSetStatus(entry, errorVersionSwitch)
     })
+
+  private[kvutils] def objectToJsonString(obj: Object): String = {
+    val stringWriter = new StringWriter
+    val objectMapper = new ObjectMapper
+    objectMapper.writeValue(stringWriter, obj)
+    stringWriter.toString
+  }
 
   private def encodeParties(parties: Set[Ref.Party]): List[String] =
     (parties.toList: List[String]).sorted

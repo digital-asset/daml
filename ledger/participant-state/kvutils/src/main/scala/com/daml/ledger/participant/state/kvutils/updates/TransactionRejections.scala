@@ -6,11 +6,6 @@ package com.daml.ledger.participant.state.kvutils.updates
 import java.io.StringWriter
 import java.time.Instant
 
-import com.google.protobuf.any.{Any => AnyProto}
-import com.google.rpc.code.Code
-import com.google.rpc.error_details.ErrorInfo
-import com.google.rpc.status.Status
-
 import com.daml.error.{ContextualizedErrorLogger, ValueSwitch}
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions.parseCompletionInfo
@@ -26,6 +21,10 @@ import com.daml.lf.data.Time.Timestamp
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ProtocolStringList
+import com.google.protobuf.any.{Any => AnyProto}
+import com.google.rpc.code.Code
+import com.google.rpc.error_details.ErrorInfo
+import com.google.rpc.status.Status
 
 import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
