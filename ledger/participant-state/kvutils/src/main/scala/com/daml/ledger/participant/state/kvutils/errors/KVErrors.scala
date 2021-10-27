@@ -89,7 +89,7 @@ object KVErrors extends LedgerApiErrorGroup {
   }
 
   @Explanation(
-    "Errors that can arise due to concurrent processing of transaction in the participant."
+    "Errors that can arise due to concurrent processing of transactions in the participant."
   )
   object SubmissionRaces extends ErrorGroup() {
 
