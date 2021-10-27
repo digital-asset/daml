@@ -6,12 +6,15 @@ package com.daml.error.generator
 import java.lang.reflect.Modifier
 import com.daml.error.ErrorCode
 import com.daml.error.generator.ErrorCodeDocumentationGenerator.{
+  acceptedTypeNames,
+  deprecatedTypeName,
   explanationTypeName,
   resolutionTypeName,
 }
 import com.daml.error.{Explanation, Resolution}
 import org.reflections.Reflections
 
+import scala.annotation.tailrec
 import scala.reflect.runtime.{universe => ru}
 import scala.jdk.CollectionConverters._
 
@@ -66,25 +69,65 @@ case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
     getAnnotations(annotations)
   }
 
-  private def getAnnotations(annotations: Seq[ru.Annotation]): (Explanation, Resolution) = {
+  @tailrec private def getAnnotations(
+      annotations: Seq[ru.Annotation],
+      state: (Option[Explanation], Option[Resolution]) = (None, None),
+  ): (Explanation, Resolution) = {
+
+    def update(
+        state: (Option[Explanation], Option[Resolution]),
+        updatedExplanation: Option[String] = None,
+        updatedResolution: Option[String] = None,
+    ): (Option[Explanation], Option[Resolution]) = {
+
+      def updateString(
+          existing: Option[String],
+          updated: Option[String],
+          designation: String,
+      ): Option[String] = {
+        updated.fold(ifEmpty = existing) { value: String =>
+          if (existing.isDefined)
+            sys.error(s"Multiple $designation annotations detected")
+          else
+            Some(value)
+        }
+      }
+
+      val existingExplanation = state._1
+      val updatedExplanationString =
+        updateString(existingExplanation.map(_.explanation), updatedExplanation, "explanation")
+      val existingResolution = state._2
+      val updatedResolutionString =
+        updateString(existingResolution.map(_.resolution), updatedResolution, "resolution")
+      (updatedExplanationString.map(Explanation), updatedResolutionString.map(Resolution))
+    }
+
     annotations match {
-      case Nil => (Explanation(""), Resolution(""))
+      case Nil =>
+        val (optionalExplanation, optionalResolution) = state
+        (
+          optionalExplanation.getOrElse(Explanation("")),
+          optionalResolution.getOrElse(Resolution("")),
+        )
 
-      case v :: Nil if isExplanationAnnotation(v) =>
-        (Explanation(parseValueOfAnnotation(v.tree)), Resolution(""))
+      case v :: tail if isAnnotation(v, deprecatedTypeName) =>
+        getAnnotations(tail, state)
 
-      case v :: Nil if isResolutionAnnotation(v) =>
-        (Explanation(""), Resolution(parseValueOfAnnotation(v.tree)))
+      case v :: tail if isAnnotation(v, explanationTypeName) =>
+        getAnnotations(
+          tail,
+          update(state, updatedExplanation = Some(parseValueOfAnnotation(v.tree))),
+        )
 
-      case v :: v2 :: Nil if isExplanationAnnotation(v) && isResolutionAnnotation(v2) =>
-        (Explanation(parseValueOfAnnotation(v.tree)), Resolution(parseValueOfAnnotation(v2.tree)))
-
-      case v :: v2 :: Nil if isResolutionAnnotation(v) && isExplanationAnnotation(v2) =>
-        (Explanation(parseValueOfAnnotation(v2.tree)), Resolution(parseValueOfAnnotation(v.tree)))
+      case v :: tail if isAnnotation(v, resolutionTypeName) =>
+        getAnnotations(
+          tail,
+          update(state, updatedResolution = Some(parseValueOfAnnotation(v.tree))),
+        )
 
       case _ =>
         sys.error(
-          s"Error code has an unexpected amount (${annotations.size}) or type of annotations. " +
+          s"Unexpected annotation detected ($annotations but the only supported ones are $acceptedTypeNames). " +
             s"Did you rename the error code annotations `${classOf[Explanation].getTypeName}` or `${classOf[Resolution].getTypeName}`?"
         )
     }
@@ -107,14 +150,15 @@ case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
     }
   }
 
-  private def isResolutionAnnotation(annotation: ru.Annotation): Boolean =
-    annotation.tree.tpe.toString == resolutionTypeName
-
-  private def isExplanationAnnotation(annotation: ru.Annotation): Boolean =
-    annotation.tree.tpe.toString == explanationTypeName
+  private def isAnnotation(annotation: ru.Annotation, typeName: String): Boolean =
+    annotation.tree.tpe.toString == typeName
 }
 
 private object ErrorCodeDocumentationGenerator {
+
+  private val deprecatedTypeName = classOf[deprecated].getTypeName.replace("scala.", "")
   private val explanationTypeName = classOf[Explanation].getTypeName.replace("$", ".")
   private val resolutionTypeName = classOf[Resolution].getTypeName.replace("$", ".")
+
+  private val acceptedTypeNames = Set(deprecatedTypeName, explanationTypeName, resolutionTypeName)
 }
