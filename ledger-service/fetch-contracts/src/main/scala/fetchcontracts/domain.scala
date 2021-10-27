@@ -8,6 +8,7 @@ import lf.data.Ref
 import util.ClientUtil.boxedRecord
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.scalautil.nonempty.NonEmpty
 import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.string._
@@ -26,7 +27,7 @@ package object domain {
   type Party = lar.Party
   val Party = lar.Party
 
-  type PartySet = scalaz.OneAnd[Set, Party]
+  type PartySet = NonEmpty[Set[Party]]
 
   type Offset = String @@ OffsetTag
 
