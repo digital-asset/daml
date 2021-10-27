@@ -6,15 +6,15 @@ package com.daml.platform.store.appendonlydao
 import java.sql.{Connection, SQLTransientConnectionException}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.{Timer, TimerTask}
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.daml.platform.configuration.ServerRole
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
-import javax.sql.DataSource
 
+import javax.sql.DataSource
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.control.NonFatal
 
@@ -46,6 +46,8 @@ object DataSourceConnectionProvider {
   private val MaxTransientFailureCount: Int = 5
   private val HealthPollingSchedule: FiniteDuration = 1.second
 
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   def owner(dataSource: DataSource): ResourceOwner[JdbcConnectionProvider] =
     for {
       healthPoller <- ResourceOwner.forTimer(() =>
@@ -69,28 +71,40 @@ object DataSourceConnectionProvider {
       healthPoller.schedule(checkHealth, 0, HealthPollingSchedule.toMillis)
 
       new JdbcConnectionProvider {
-        override def runSQL[T](databaseMetrics: DatabaseMetrics)(block: Connection => T): T = {
+        override def runSQL[T](
+            databaseMetrics: DatabaseMetrics
+        )(block: Connection => T)(implicit loggingContext: LoggingContext): T = {
+          logger.info("JdbcConnectionProvider.runSQL(), before getConnection")
           val conn = dataSource.getConnection()
           conn.setAutoCommit(false)
           try {
+            logger.info("JdbcConnectionProvider.runSQL(), before block")
             val res = Timed.value(
               databaseMetrics.queryTimer,
               block(conn),
             )
+            logger.info("JdbcConnectionProvider.runSQL(), before commit")
             Timed.value(
               databaseMetrics.commitTimer,
               conn.commit(),
             )
+            logger.info("JdbcConnectionProvider.runSQL(), after commit")
             res
           } catch {
             case e: SQLTransientConnectionException =>
+              logger.error("Transient error", e)
               transientFailureCount.incrementAndGet()
               throw e
             case NonFatal(t) =>
+              logger.error("Non-fatal error", t)
               // Log the error in the caller with access to more logging context (such as the sql statement description)
               conn.rollback()
               throw t
+            case t: Throwable =>
+              logger.error("Fatal error", t)
+              throw t
           } finally {
+            logger.info("JdbcConnectionProvider.runSQL(), closing connection")
             conn.close()
           }
         }
