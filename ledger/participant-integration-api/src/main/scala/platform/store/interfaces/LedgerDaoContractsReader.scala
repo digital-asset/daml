@@ -3,9 +3,8 @@
 
 package com.daml.platform.store.interfaces
 
-import java.time.Instant
-
 import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
@@ -21,7 +20,7 @@ private[platform] trait LedgerDaoContractsReader {
     */
   def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Instant]]
+  ): Future[Option[Timestamp]]
 
   /** Looks up an active or divulged contract if it is visible for the given party.
     *
@@ -94,7 +93,7 @@ object LedgerDaoContractsReader {
   final case class ActiveContract(
       contract: Contract,
       stakeholders: Set[Party],
-      ledgerEffectiveTime: Instant,
+      ledgerEffectiveTime: Timestamp,
   ) extends ContractState
 
   final case class ArchivedContract(stakeholders: Set[Party]) extends ContractState

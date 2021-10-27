@@ -3,8 +3,6 @@
 
 package com.daml.ledger.on.memory
 
-import java.time.Instant
-
 import com.daml.api.util.TimeProvider
 import com.daml.caching.Cache
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
@@ -28,6 +26,7 @@ import com.daml.ledger.validator.preexecution.{
 import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
 import com.daml.ledger.validator.{SerializingStateReader, StateKeySerializationStrategy}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
@@ -40,7 +39,7 @@ final class InMemoryLedgerWriter private[memory] (
     override val participantId: Ref.ParticipantId,
     dispatcher: Dispatcher[Index],
     offsetBuilder: KVOffsetBuilder,
-    now: () => Instant,
+    now: () => Timestamp,
     state: InMemoryState,
     committer: Committer,
     committerExecutionContext: ExecutionContext,
@@ -91,7 +90,7 @@ object InMemoryLedgerWriter {
       engine: Engine,
       committerExecutionContext: ExecutionContext,
   ) extends ResourceOwner[LedgerWriter] {
-    private val now = () => timeProvider.getCurrentTime
+    private val now = () => timeProvider.getCurrentTimestamp
 
     override def acquire()(implicit context: ResourceContext): Resource[LedgerWriter] =
       for {

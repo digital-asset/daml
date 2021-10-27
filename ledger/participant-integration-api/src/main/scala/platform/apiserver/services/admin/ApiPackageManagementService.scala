@@ -7,8 +7,13 @@ import java.time.Duration
 import java.util.zip.ZipInputStream
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.api.util.TimestampConversion
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.{DamlContextualizedErrorLogger, ContextualizedErrorLogger}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service._
@@ -29,7 +34,6 @@ import com.daml.platform.apiserver.services.logging
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
-import com.google.protobuf.timestamp.Timestamp
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scalaz.std.either._
 import scalaz.std.list._
@@ -47,6 +51,7 @@ private[apiserver] final class ApiPackageManagementService private (
     engine: Engine,
     darReader: GenDarReader[Archive],
     submissionIdGenerator: String => Ref.SubmissionId,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -58,11 +63,14 @@ private[apiserver] final class ApiPackageManagementService private (
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(
       transactionsService,
       packagesIndex,
       packagesWrite,
+      errorFactories,
     ),
     timeToLive = managementServiceTimeout,
   )
@@ -83,7 +91,7 @@ private[apiserver] final class ApiPackageManagementService private (
           PackageDetails(
             pkgId.toString,
             details.size,
-            Some(Timestamp(details.knownSince.getEpochSecond, details.knownSince.getNano)),
+            Some(TimestampConversion.fromLf(details.knownSince)),
             details.sourceDescription.getOrElse(""),
           )
         })
@@ -120,7 +128,7 @@ private[apiserver] final class ApiPackageManagementService private (
                 ValidationLogger
                   .logFailureWithContext(
                     request,
-                    ErrorFactories.invalidArgument(None)(err.getMessage),
+                    errorFactories.invalidArgument(None)(err.getMessage),
                   )
               ),
             Future.successful,
@@ -146,6 +154,7 @@ private[apiserver] object ApiPackageManagementService {
       writeBackend: state.WritePackagesService,
       managementServiceTimeout: Duration,
       engine: Engine,
+      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
       darReader: GenDarReader[Archive] = DarParser,
       submissionIdGenerator: String => Ref.SubmissionId = augmentSubmissionId,
   )(implicit
@@ -161,12 +170,14 @@ private[apiserver] object ApiPackageManagementService {
       engine,
       darReader,
       submissionIdGenerator,
+      errorCodesVersionSwitcher,
     )
 
   private final class SynchronousResponseStrategy(
       ledgerEndService: LedgerEndService,
       packagesIndex: IndexPackagesService,
       packagesWrite: state.WritePackagesService,
+      errorFactories: ErrorFactories,
   )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
       extends SynchronousResponse.Strategy[
         Dar[Archive],
@@ -198,7 +209,7 @@ private[apiserver] object ApiPackageManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[PackageEntry, StatusRuntimeException] = {
       case PackageEntry.PackageUploadRejected(`submissionId`, _, reason) =>
-        ErrorFactories.invalidArgument(None)(reason)
+        errorFactories.packageUploadRejected(reason, definiteAnswer = None)
     }
   }
 

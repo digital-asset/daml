@@ -252,7 +252,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       resp <- ClientAdapter
         .serverStreaming(GetTimeRequest(grpcClient.ledgerId.unwrap), timeService.getTime)
         .runWith(Sink.head)
-    } yield Time.Timestamp.assertFromInstant(TimestampConversion.toInstant(resp.getCurrentTime))
+    } yield TimestampConversion.toLf(resp.getCurrentTime, TimestampConversion.ConversionMode.HalfUp)
   }
 
   override def setStaticTime(time: Time.Timestamp)(implicit

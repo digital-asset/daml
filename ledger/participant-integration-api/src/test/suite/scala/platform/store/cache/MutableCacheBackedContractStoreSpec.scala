@@ -3,7 +3,6 @@
 
 package com.daml.platform.store.cache
 
-import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 import akka.NotUsed
 import akka.actor.ActorSystem
@@ -14,12 +13,14 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractInst, ValueRecord, ValueText}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.store.EventSequentialId
+import com.daml.platform.store.appendonlydao.events.ContractStateEvent
 import com.daml.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
 import com.daml.platform.store.cache.ContractStateValue.{Active, Archived}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.{
@@ -33,7 +34,6 @@ import com.daml.platform.store.cache.MutableCacheBackedContractStoreSpec.{
   contractStore,
   _,
 }
-import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   ContractState,
@@ -376,7 +376,7 @@ class MutableCacheBackedContractStoreSpec
       maybeKey: Option[GlobalKey],
       stakeholders: Set[Party],
       eventSequentialId: EventSequentialId,
-      createLedgerEffectiveTime: Instant,
+      createLedgerEffectiveTime: Timestamp,
   )(implicit queue: BoundedSourceQueue[ContractStateEvent]): Future[ContractStateEvent.Created] = {
     val created = ContractStateEvent.Created(
       contractId = contractId,
@@ -431,7 +431,7 @@ object MutableCacheBackedContractStoreSpec {
     Seq(t1, t2, t3, t4, _, t6, _),
   ) =
     (1 to 7).map { id =>
-      (contractId(id), contract(s"id$id"), Instant.ofEpochSecond(id.toLong))
+      (contractId(id), contract(s"id$id"), Timestamp.assertFromLong(id.toLong * 1000L))
     }.unzip3
 
   private val someKey = globalKey("key1")
@@ -489,7 +489,7 @@ object MutableCacheBackedContractStoreSpec {
 
     override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
         loggingContext: LoggingContext
-    ): Future[Option[Instant]] = ids match {
+    ): Future[Option[Timestamp]] = ids match {
       case setIds if setIds == Set(cId_4) =>
         Future.successful(Some(t4))
       case set if set.isEmpty =>
@@ -535,7 +535,7 @@ object MutableCacheBackedContractStoreSpec {
   private def activeContract(
       contract: Contract,
       parties: Set[Party],
-      ledgerEffectiveTime: Instant,
+      ledgerEffectiveTime: Timestamp,
   ) =
     Future.successful(
       Some(LedgerDaoContractsReader.ActiveContract(contract, parties, ledgerEffectiveTime))

@@ -37,13 +37,7 @@ private[lf] object PartialTransaction {
   type Node = Node.GenNode
   type LeafNode = Node.LeafOnlyActionNode
 
-  private type TX = GenTransaction
   private type ExerciseNode = Node.NodeExercises
-
-  private final case class IncompleteTxImpl(
-      val transaction: TX,
-      val locationInfo: Map[NodeId, Location],
-  ) extends transaction.IncompleteTransaction
 
   sealed abstract class ContextInfo {
     val actionChildSeed: Int => crypto.Hash
@@ -273,7 +267,7 @@ private[lf] object PartialTransaction {
   *  @param actionNodeLocations The optional locations of create/exercise/fetch/lookup nodes in pre-order.
   *   Used by 'locationInfo()', called by 'finish()' and 'finishIncomplete()'
   */
-private[lf] case class PartialTransaction(
+private[speedy] case class PartialTransaction(
     packageToTransactionVersion: Ref.PackageId => TxVersion,
     contractKeyUniqueness: ContractKeyUniquenessMode,
     submissionTime: Time.Timestamp,
@@ -395,7 +389,7 @@ private[lf] case class PartialTransaction(
 
     val ptx = unwind()
 
-    IncompleteTxImpl(
+    transaction.IncompleteTransaction(
       GenTransaction(
         ptx.nodes,
         ptx.context.children.toImmArray.toSeq.sortBy(_.index).toImmArray,

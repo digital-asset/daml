@@ -3,8 +3,7 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import java.time.Instant
-
+import com.daml.api.util.TimestampConversion
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
@@ -19,10 +18,10 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import com.daml.platform.index.TransactionConversion
-import com.google.protobuf.timestamp.Timestamp
 
 // TODO append-only: FIXME: move to the right place
 object EventsTable {
@@ -32,16 +31,13 @@ object EventsTable {
       transactionId: String,
       nodeIndex: Int,
       eventSequentialId: Long,
-      ledgerEffectiveTime: Instant,
+      ledgerEffectiveTime: Timestamp,
       commandId: String,
       workflowId: String,
       event: E,
   )
 
   object Entry {
-
-    private def instantToTimestamp(t: Instant): Timestamp =
-      Timestamp(seconds = t.getEpochSecond, nanos = t.getNano)
 
     private def flatTransaction(events: Vector[Entry[Event]]): Option[ApiTransaction] =
       events.headOption.flatMap { first =>
@@ -55,7 +51,7 @@ object EventsTable {
             ApiTransaction(
               transactionId = first.transactionId,
               commandId = first.commandId,
-              effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
+              effectiveAt = Some(TimestampConversion.fromLf(first.ledgerEffectiveTime)),
               workflowId = first.workflowId,
               offset = ApiOffset.toApiString(first.eventOffset),
               events = flatEvents,
@@ -128,7 +124,7 @@ object EventsTable {
           transactionId = first.transactionId,
           commandId = first.commandId,
           workflowId = first.workflowId,
-          effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
+          effectiveAt = Some(TimestampConversion.fromLf(first.ledgerEffectiveTime)),
           offset = ApiOffset.toApiString(first.eventOffset),
           eventsById = eventsById,
           rootEventIds = rootEventIds,

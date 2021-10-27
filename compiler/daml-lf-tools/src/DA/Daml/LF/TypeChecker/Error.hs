@@ -131,6 +131,7 @@ data Error
   | ENatKindRightOfArrow    !Kind
   | EInterfaceTypeWithParams
   | EMissingInterfaceDefinition !TypeConName
+  | EDuplicateTemplateChoiceViaInterfaces !TypeConName !ChoiceName
   | EDuplicateInterfaceChoiceName !TypeConName !ChoiceName
   | EDuplicateInterfaceMethodName !TypeConName !MethodName
   | EUnknownInterface !TypeConName
@@ -381,6 +382,8 @@ instance Pretty Error where
         ]
     EMissingInterfaceDefinition iface ->
       "Missing interface definition for interface type: " <> pretty iface
+    EDuplicateTemplateChoiceViaInterfaces tpl choice ->
+      "Duplicate choice name '" <> pretty choice <> "' in template " <> pretty tpl <> " via interfaces."
     EDuplicateInterfaceChoiceName iface choice ->
       "Duplicate choice name '" <> pretty choice <> "' in interface definition for " <> pretty iface
     EDuplicateInterfaceMethodName iface method ->

@@ -44,7 +44,7 @@ netty_version = "4.1.67.Final"
 # <tcnative.version>2.0.42.Final</tcnative.version>
 # ```
 netty_tcnative_version = "2.0.40.Final"
-grpc_version = "1.35.0"
+grpc_version = "1.41.0"
 akka_version = "2.6.13"
 
 def install_java_deps():
@@ -139,8 +139,8 @@ def install_java_deps():
             "io.netty:netty-resolver:{}".format(netty_version),
             "io.netty:netty-tcnative-boringssl-static:{}".format(netty_tcnative_version),
             # protobuf
-            "com.google.protobuf:protobuf-java:3.17.1",
-            #scalapb
+            "com.google.protobuf:protobuf-java:3.17.3",
+            # scalapb
             "com.thesamet.scalapb:compilerplugin_{}:{}".format(scala_major_version, scalapb_version),
             "com.thesamet.scalapb:lenses_{}:{}".format(scala_major_version, scalapb_version),
             "com.thesamet.scalapb:protoc-bridge_{}:{}".format(scala_major_version, scalapb_protoc_version),

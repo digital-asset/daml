@@ -21,7 +21,6 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.{
   Indexer,
   IndexerConfig,
@@ -265,7 +264,6 @@ class IntegrityChecker[LogResult](
         .forExecutorService(() => Executors.newWorkStealingPool())
         .map(ExecutionContext.fromExecutorService)
       indexerFactory = new JdbcIndexer.Factory(
-        ServerRole.Indexer,
         config,
         readService,
         servicesExecutionContext,
@@ -275,8 +273,7 @@ class IntegrityChecker[LogResult](
       migrating <- ResourceOwner.forFuture(() =>
         StandaloneIndexerServer
           .migrateOnly(
-            jdbcUrl = config.jdbcUrl,
-            enableAppendOnlySchema = config.enableAppendOnlySchema,
+            jdbcUrl = config.jdbcUrl
           )
           .map(_ => indexerFactory.initialized())(materializer.executionContext)
       )
@@ -340,7 +337,6 @@ object IntegrityChecker {
       participantId = Ref.ParticipantId.assertFromString("IntegrityCheckerParticipant"),
       jdbcUrl = jdbcUrl(config),
       startupMode = IndexerStartupMode.MigrateAndStart,
-      enableAppendOnlySchema = false,
     )
 
   private[integritycheck] def jdbcUrl(config: Config): String =

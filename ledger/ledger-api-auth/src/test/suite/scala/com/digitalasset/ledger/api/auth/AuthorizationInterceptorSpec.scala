@@ -6,19 +6,21 @@ package com.daml.ledger.api.auth
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.google.rpc.ErrorInfo
+import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, ServerCall, Status}
 import org.mockito.captor.ArgCaptor
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
-import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.util.concurrent.CompletableFuture
 import scala.concurrent.ExecutionContext.global
-import io.grpc.protobuf.StatusProto
+import scala.concurrent.Promise
+import scala.util.Success
 
 class AuthorizationInterceptorSpec
-    extends AnyFlatSpec
+    extends AsyncFlatSpec
     with MockitoSugar
     with Matchers
     with ArgumentMatchersSugar {
@@ -55,6 +57,13 @@ class AuthorizationInterceptorSpec
       throw new RuntimeException("some internal failure")
     )
 
+    val promise = Promise[Unit]()
+    // Using a promise to ensure the verify call below happens after the expected call to `serverCall.close`
+    when(serverCall.close(any[Status], any[Metadata])).thenAnswer {
+      promise.complete(Success(()))
+      ()
+    }
+
     val errorCodesStatusSwitcher = new ErrorCodesVersionSwitcher(usesSelfServiceErrorCodes)
     val authorizationInterceptor =
       AuthorizationInterceptor(authService, global, errorCodesStatusSwitcher)
@@ -65,8 +74,9 @@ class AuthorizationInterceptorSpec
     when(authService.decodeMetadata(any[Metadata])).thenReturn(failedMetadataDecode)
     authorizationInterceptor.interceptCall[Nothing, Nothing](serverCall, new Metadata(), null)
 
-    verify(serverCall, timeout(1000)).close(statusCaptor.capture, metadataCaptor.capture)
-
-    assertRpcStatus(statusCaptor.value, metadataCaptor.value)
+    promise.future.map { _ =>
+      verify(serverCall).close(statusCaptor.capture, metadataCaptor.capture)
+      assertRpcStatus(statusCaptor.value, metadataCaptor.value)
+    }
   }
 }

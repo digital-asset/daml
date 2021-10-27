@@ -10,6 +10,7 @@ import com.daml.ledger.api.v1.value.Identifier
 import com.daml.metrics.MetricsReporter
 import scopt.{OptionDef, OptionParser, Read}
 
+import java.io.File
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
@@ -32,7 +33,6 @@ object Cli {
     opt[Config.StreamConfig]("consume-stream")
       .abbr("s")
       .unbounded()
-      .minOccurs(1)
       .text(
         s"Stream configuration."
       )
@@ -41,6 +41,15 @@ object Cli {
       )
       .action { case (streamConfig, config) =>
         config.copy(streams = config.streams :+ streamConfig)
+      }
+
+    opt[File]("contract-set-descriptor")
+      .hidden() // TODO: uncomment when production-ready
+      .abbr("d")
+      .optional()
+      .text("A contract set descriptor file.")
+      .action { case (descriptorFile, config) =>
+        config.copy(contractSetDescriptorFile = Some(descriptorFile))
       }
 
     opt[FiniteDuration]("log-interval")

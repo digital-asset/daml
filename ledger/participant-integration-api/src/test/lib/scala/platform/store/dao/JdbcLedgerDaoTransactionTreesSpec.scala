@@ -5,6 +5,7 @@ package com.daml.platform.store.dao
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
+import com.daml.api.util.TimestampConversion
 import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.api.v1.transaction_service.GetTransactionTreesResponse
 import com.daml.ledger.offset.Offset
@@ -61,8 +62,10 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           tx.transaction.nodes.head
         transaction.commandId shouldBe tx.commandId.get
         transaction.offset shouldBe ApiOffset.toApiString(offset)
-        transaction.effectiveAt.value.seconds shouldBe tx.ledgerEffectiveTime.getEpochSecond
-        transaction.effectiveAt.value.nanos shouldBe tx.ledgerEffectiveTime.getNano
+        TimestampConversion.toLf(
+          transaction.effectiveAt.value,
+          TimestampConversion.ConversionMode.Exact,
+        ) shouldBe tx.ledgerEffectiveTime
         transaction.transactionId shouldBe tx.transactionId
         transaction.workflowId shouldBe tx.workflowId.getOrElse("")
         val created = transaction.eventsById.values.loneElement.getCreated
@@ -93,8 +96,10 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           exercise.transaction.nodes.head
         transaction.commandId shouldBe exercise.commandId.get
         transaction.offset shouldBe ApiOffset.toApiString(offset)
-        transaction.effectiveAt.value.seconds shouldBe exercise.ledgerEffectiveTime.getEpochSecond
-        transaction.effectiveAt.value.nanos shouldBe exercise.ledgerEffectiveTime.getNano
+        TimestampConversion.toLf(
+          transaction.effectiveAt.value,
+          TimestampConversion.ConversionMode.Exact,
+        ) shouldBe exercise.ledgerEffectiveTime
         transaction.transactionId shouldBe exercise.transactionId
         transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
         val exercised = transaction.eventsById.values.loneElement.getExercised
@@ -133,8 +138,10 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         transaction.offset shouldBe ApiOffset.toApiString(offset)
         transaction.transactionId shouldBe tx.transactionId
         transaction.workflowId shouldBe tx.workflowId.getOrElse("")
-        transaction.effectiveAt.value.seconds shouldBe tx.ledgerEffectiveTime.getEpochSecond
-        transaction.effectiveAt.value.nanos shouldBe tx.ledgerEffectiveTime.getNano
+        TimestampConversion.toLf(
+          transaction.effectiveAt.value,
+          TimestampConversion.ConversionMode.Exact,
+        ) shouldBe tx.ledgerEffectiveTime
 
         transaction.rootEventIds should have size 2
         transaction.rootEventIds(0) shouldBe EventId(

@@ -11,6 +11,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
   CommandDeduplicationNew,
 }
+import com.daml.lf.data.Time.Timestamp
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -97,7 +98,7 @@ private[dao] trait JdbcLedgerDaoCommandDeduplicationSpec {
   }
 
   private[this] val t0 = Instant.now()
-  private[this] def t(ms: Long): Instant = {
-    t0.plusMillis(ms)
+  private[this] def t(ms: Long): Timestamp = {
+    Timestamp.assertFromInstant(t0.plusMillis(ms))
   }
 }

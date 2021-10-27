@@ -59,7 +59,6 @@ object IndexerStabilityTestFixture {
       participantId = EndlessReadService.participantId,
       jdbcUrl = jdbcUrl,
       startupMode = IndexerStartupMode.MigrateAndStart,
-      enableAppendOnlySchema = true,
     )
 
     newLoggingContext { implicit loggingContext =>

@@ -4,17 +4,16 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
-import java.time.Instant
-
 import anorm.SqlParser.{byteArray, int, long, str}
 import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.store.Conversions.{
   contractId,
   flatEventWitnessesColumn,
   identifier,
-  instantFromMicros,
   offset,
+  timestampFromMicros,
 }
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
@@ -97,18 +96,20 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
   // TODO append-only: consider pulling up traversal logic to upper layer
   override def maximumLedgerTime(
       ids: Set[ContractId]
-  )(connection: Connection): Try[Option[Instant]] = {
+  )(connection: Connection): Try[Option[Timestamp]] = {
     if (ids.isEmpty) {
       Failure(emptyContractIds)
     } else {
-      def lookup(id: ContractId): Option[Option[Instant]] =
-        maximumLedgerTimeSqlLiteral(id).as(instantFromMicros("ledger_effective_time").?.singleOpt)(
+      def lookup(id: ContractId): Option[Option[Timestamp]] =
+        maximumLedgerTimeSqlLiteral(id).as(
+          timestampFromMicros("ledger_effective_time").?.singleOpt
+        )(
           connection
         )
 
-      val queriedIds: List[(ContractId, Option[Option[Instant]])] = ids.toList
+      val queriedIds: List[(ContractId, Option[Option[Timestamp]])] = ids.toList
         .map(id => id -> lookup(id))
-      val foundLedgerEffectiveTimes: List[Option[Instant]] = queriedIds
+      val foundLedgerEffectiveTimes: List[Option[Timestamp]] = queriedIds
         .collect { case (_, Some(found)) =>
           found
         }
@@ -141,7 +142,8 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
       ~ flatEventWitnessesColumn("flat_event_witnesses")
       ~ byteArray("create_argument").?
       ~ int("create_argument_compression").?
-      ~ int("event_kind") ~ instantFromMicros("ledger_effective_time").?)
+      ~ int("event_kind")
+      ~ timestampFromMicros("ledger_effective_time").?)
       .map(SqlParser.flatten)
       .map(StorageBackend.RawContractState.tupled)
 
@@ -171,7 +173,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
     (int("event_kind") ~
       contractId("contract_id") ~
       identifier("template_id").? ~
-      instantFromMicros("ledger_effective_time").? ~
+      timestampFromMicros("ledger_effective_time").? ~
       byteArray("create_key_value").? ~
       int("create_key_value_compression").? ~
       byteArray("create_argument").? ~

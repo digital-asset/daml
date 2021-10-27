@@ -42,9 +42,7 @@ da_scala_test_suite(
     name = "scenario-interpreter_tests",
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
-    ],
+    scala_deps = ["@maven//:org_scalaz_scalaz_core"],
     scalacopts = lf_scalacopts,
     deps = [
         ":scenario-interpreter",
@@ -71,9 +69,7 @@ da_scala_benchmark_jmh(
         ":CollectAuthority.dar",
         ":CollectAuthority.dar.pp",
     ],
-    scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
-    ],
+    scala_deps = ["@maven//:org_scalaz_scalaz_core"],
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",

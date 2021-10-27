@@ -5,7 +5,7 @@ package com.daml.platform.apiserver.services
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.error.{ErrorCause, ErrorCodesVersionSwitcher}
-import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId, PartyDetails, SubmissionId}
+import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId, PartyDetails}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.{DeduplicationPeriod, DomainMocks}
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
@@ -41,8 +41,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, Inside}
 
-import java.time.{Duration, Instant}
-import java.util.UUID
+import java.time.Duration
 import java.util.concurrent.CompletableFuture.completedFuture
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future}
@@ -248,7 +247,7 @@ class ApiSubmissionServiceSpec
           LfError.Interpretation.DamlException(LfInterpretationError.ContractNotFound("#cid")),
           None,
         )
-      ) -> ((Status.ABORTED, Status.ABORTED)),
+      ) -> ((Status.ABORTED, Status.NOT_FOUND)),
       ErrorCause.DamlLf(
         LfError.Interpretation(
           LfError.Interpretation.DamlException(
@@ -355,7 +354,6 @@ class ApiSubmissionServiceSpec
         writeService,
         partyManagementService,
         implicitPartyAllocation = true,
-        deduplicationEnabled = true,
         mockIndexSubmissionService = indexSubmissionService,
         commandExecutor = mockCommandExecutor,
       )
@@ -367,8 +365,8 @@ class ApiSubmissionServiceSpec
         verify(indexSubmissionService).deduplicateCommand(
           any[CommandId],
           any[List[Ref.Party]],
-          any[Instant],
-          any[Instant],
+          any[Timestamp],
+          any[Timestamp],
         )(any[LoggingContext])
         Success(succeed)
       })
@@ -409,8 +407,8 @@ class ApiSubmissionServiceSpec
         verify(indexSubmissionService, never).deduplicateCommand(
           any[CommandId],
           any[List[Ref.Party]],
-          any[Instant],
-          any[Instant],
+          any[Timestamp],
+          any[Timestamp],
         )(any[LoggingContext])
         Success(succeed)
       })
@@ -433,10 +431,10 @@ object ApiSubmissionServiceSpec {
         commandId = CommandId(
           Ref.CommandId.assertFromString(s"commandId-${commandId.incrementAndGet()}")
         ),
-        submissionId = SubmissionId(Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)),
+        submissionId = None,
         actAs = Set.empty,
         readAs = Set.empty,
-        submittedAt = Instant.MIN,
+        submittedAt = Timestamp.Epoch,
         deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
         commands = LfCommands(ImmArray.Empty, Timestamp.MinValue, ""),
       )
@@ -465,8 +463,8 @@ object ApiSubmissionServiceSpec {
       mockIndexSubmissionService.deduplicateCommand(
         any[CommandId],
         anyList[Ref.Party],
-        any[Instant],
-        any[Instant],
+        any[Timestamp],
+        any[Timestamp],
       )(any[LoggingContext])
     ).thenReturn(Future.successful(CommandDeduplicationNew))
     when(

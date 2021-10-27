@@ -24,6 +24,7 @@ module GHC.Types (
         primitive, primitiveInterface, magic, external,
         DamlEnum,
         DamlInterface,
+        DamlTemplate,
 
 #ifdef DAML_NUMERIC
         Nat, Numeric,
@@ -169,6 +170,11 @@ data Text =
 class DamlEnum
 instance DamlEnum
 
+-- | HIDE Used to tag daml template types in the desugarer.
+class DamlTemplate
+instance DamlTemplate
+
+-- | HIDE Used to tag daml interface types in the desugarer.
 class DamlInterface
 instance DamlInterface
 

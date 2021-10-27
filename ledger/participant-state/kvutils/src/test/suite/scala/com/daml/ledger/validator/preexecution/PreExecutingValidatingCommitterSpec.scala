@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.ledger.validator.preexecution
 
-import java.time.Instant
-
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.`export`.{
   LedgerDataExporter,
@@ -16,6 +14,7 @@ import com.daml.ledger.validator.TestHelper.{FakeStateAccess, aParticipantId}
 import com.daml.ledger.validator.reading.StateReader
 import com.daml.ledger.validator.{LedgerStateOperations, LedgerStateWriteOperations}
 import com.daml.lf.data.Ref.ParticipantId
+import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
@@ -58,7 +57,7 @@ class PreExecutingValidatingCommitterSpec
           aParticipantId,
           "corid",
           Raw.Envelope.empty,
-          Instant.now(),
+          Timestamp.now(),
           new FakeStateAccess(mock[LedgerStateOperations[Unit]]),
         )
         .map { result =>
@@ -89,7 +88,7 @@ class PreExecutingValidatingCommitterSpec
           aParticipantId,
           "corid",
           Raw.Envelope.empty,
-          Instant.now(),
+          Timestamp.now(),
           new FakeStateAccess(mock[LedgerStateOperations[Unit]]),
         )
         .map { result =>

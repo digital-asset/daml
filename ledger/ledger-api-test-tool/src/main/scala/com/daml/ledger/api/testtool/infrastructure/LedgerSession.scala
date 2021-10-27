@@ -28,6 +28,7 @@ private[infrastructure] final class LedgerSession private (
           applicationId,
           identifierSuffix,
           clientTlsConfiguration,
+          session.features,
         )
       }
       .map(new LedgerTestContext(_))

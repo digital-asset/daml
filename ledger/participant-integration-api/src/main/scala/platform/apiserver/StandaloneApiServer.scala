@@ -16,6 +16,7 @@ import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -34,7 +35,7 @@ import io.grpc.{BindableService, ServerInterceptor}
 import scalaz.{-\/, \/-}
 
 import java.io.File
-import java.time.{Clock, Instant}
+import java.time.Clock
 import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
@@ -84,7 +85,6 @@ final class StandaloneApiServer(
           metrics = metrics,
           lfValueTranslationCache = lfValueTranslationCache,
           enricher = valueEnricher,
-          enableAppendOnlySchema = config.enableAppendOnlySchema,
           maxContractStateCacheSize = config.maxContractStateCacheSize,
           maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
           enableMutableContractStateCache = config.enableMutableContractStateCache,
@@ -178,7 +178,7 @@ final class StandaloneApiServer(
     config.archiveFiles
       .foldLeft[Either[(String, File), InMemoryPackageStore]](Right(InMemoryPackageStore.empty)) {
         case (storeE, f) =>
-          storeE.flatMap(_.withDarFile(Instant.now(), None, f).left.map(_ -> f))
+          storeE.flatMap(_.withDarFile(Timestamp.now(), None, f).left.map(_ -> f))
       }
       .fold({ case (err, file) => sys.error(s"Could not load package $file: $err") }, identity)
   }

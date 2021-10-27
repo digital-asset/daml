@@ -237,13 +237,6 @@ class CommonCliBase(name: LedgerName) {
 
       com.daml.cliopts.Logging.logLevelParse(this)((f, c) => c.copy(logLevel = f(c.logLevel)))
 
-      opt[Unit]("eager-package-loading")
-        .optional()
-        .text(
-          "Whether to load all the packages in the .dar files provided eagerly, rather than when needed as the commands come."
-        )
-        .action((_, config) => config.copy(eagerPackageLoading = true))
-
       JwtVerifierConfigurationCli.parse(this)((v, c) =>
         c.copy(authService = Some(AuthServiceJWT(v)))
       )
@@ -325,12 +318,9 @@ class CommonCliBase(name: LedgerName) {
       // TODO append-only: cleanup
       opt[Unit]("enable-append-only-schema")
         .optional()
-        .action((_, config) => config.copy(enableAppendOnlySchema = true))
+        .action((_, config) => config)
         .text(
-          s"Turns on append-only schema support." +
-            " The first time this flag is enabled, the database will migrate to a new schema that allows for significantly higher ingestion performance." +
-            " This migration is irreversible, subsequent starts will have to enable this flag as well." +
-            " In the future, this flag will be removed and this application will automatically migrate to the new schema."
+          "Deprecated parameter. The append-only index database with parallel ingestion is now always enabled."
         )
 
       // TODO append-only: cleanup
@@ -358,14 +348,6 @@ class CommonCliBase(name: LedgerName) {
         .hidden()
         .text("Enable self-service error codes.")
         .action((_, config) => config.copy(enableSelfServiceErrorCodes = true))
-
-      checkConfig(c => {
-        if (c.enableCompression && !c.enableAppendOnlySchema)
-          failure(
-            "Compression (`--enable-compression`) can only be used together with the append-only schema (`--enable-append-only-schema`)."
-          )
-        else success
-      })
 
       com.daml.cliopts.Metrics.metricsReporterParse(this)(
         (setter, config) => config.copy(metricsReporter = setter(config.metricsReporter)),

@@ -255,7 +255,7 @@ object KeyValueConsumption {
     val reason = Conversions.decodeTransactionRejectionEntry(rejEntry, errorVersionSwitch)
     Update.CommandRejected(
       recordTime = recordTime,
-      completionInfo = parseCompletionInfo(parseInstant(recordTime), rejEntry.getSubmitterInfo),
+      completionInfo = parseCompletionInfo(recordTime, rejEntry.getSubmitterInfo),
       reasonTemplate = reason,
     )
   }
@@ -284,7 +284,7 @@ object KeyValueConsumption {
     Update.TransactionAccepted(
       optCompletionInfo =
         if (txEntry.hasSubmitterInfo)
-          Some(parseCompletionInfo(parseInstant(recordTime), txEntry.getSubmitterInfo))
+          Some(parseCompletionInfo(recordTime, txEntry.getSubmitterInfo))
         else None,
       transactionMeta = TransactionMeta(
         ledgerEffectiveTime = parseTimestamp(txEntry.getLedgerEffectiveTime),
@@ -420,13 +420,12 @@ object KeyValueConsumption {
   private def contextualizedErrorLogger(
       loggingContext: LoggingContext,
       rejectionEntry: DamlTransactionRejectionEntry,
-  ): DamlContextualizedErrorLogger = {
+  ): DamlContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(
       logger,
       loggingContext,
       Some(correlationId(rejectionEntry.getSubmitterInfo)),
     )
-  }
 
   private def parseTimeBounds(outOfTimeBoundsEntry: DamlOutOfTimeBoundsEntry): TimeBounds = {
     val duplicateUntilMaybe = parseOptionalTimestamp(

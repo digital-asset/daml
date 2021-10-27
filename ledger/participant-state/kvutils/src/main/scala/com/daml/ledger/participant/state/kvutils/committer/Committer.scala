@@ -112,10 +112,8 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       successfulLogEntry = successfulLogEntry,
       stateUpdates = commitContext.getOutputs.toMap,
       outOfTimeBoundsLogEntry = constructOutOfTimeBoundsLogEntry(commitContext),
-      minimumRecordTime = commitContext.minimumRecordTime
-        .map(Timestamp.assertFromInstant),
-      maximumRecordTime = commitContext.maximumRecordTime
-        .map(Timestamp.assertFromInstant),
+      minimumRecordTime = commitContext.minimumRecordTime,
+      maximumRecordTime = commitContext.maximumRecordTime,
     )
   }
 
@@ -124,14 +122,14 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       .map { rejectionLogEntry =>
         val builder = DamlOutOfTimeBoundsEntry.newBuilder
           .setEntry(rejectionLogEntry)
-        commitContext.minimumRecordTime.foreach { instant =>
-          builder.setTooEarlyUntil(buildTimestamp(instant))
+        commitContext.minimumRecordTime.foreach { timestamp =>
+          builder.setTooEarlyUntil(buildTimestamp(timestamp))
         }
-        commitContext.maximumRecordTime.foreach { instant =>
-          builder.setTooLateFrom(buildTimestamp(instant))
+        commitContext.maximumRecordTime.foreach { timestamp =>
+          builder.setTooLateFrom(buildTimestamp(timestamp))
         }
-        commitContext.deduplicateUntil.foreach { instant =>
-          builder.setDuplicateUntil(buildTimestamp(instant))
+        commitContext.deduplicateUntil.foreach { timestamp =>
+          builder.setDuplicateUntil(buildTimestamp(timestamp))
         }
         DamlLogEntry.newBuilder
           .setOutOfTimeBoundsEntry(builder)

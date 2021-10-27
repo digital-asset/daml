@@ -4,7 +4,6 @@
 package com.daml.platform.store.appendonlydao.events
 
 import java.sql.Connection
-
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
@@ -24,11 +23,13 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics._
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.platform.ApiOffset
-import com.daml.platform.store.appendonlydao.{DbDispatcher, PaginatingAsyncStream}
+import com.daml.platform.store.appendonlydao.{
+  DbDispatcher,
+  LedgerDaoTransactionsReader,
+  PaginatingAsyncStream,
+}
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.StorageBackend
-import com.daml.platform.store.dao.LedgerDaoTransactionsReader
-import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.utils.Telemetry
 import com.daml.telemetry

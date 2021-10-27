@@ -3,26 +3,25 @@
 
 package com.daml.ledger.participant.state.kvutils.updates
 
+import java.io.StringWriter
 import java.time.Instant
-
-import com.google.protobuf.any.{Any => AnyProto}
-import com.google.rpc.code.Code
-import com.google.rpc.error_details.ErrorInfo
-import com.google.rpc.status.Status
 
 import com.daml.error.{ContextualizedErrorLogger, ValueSwitch}
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions.parseCompletionInfo
-import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
-  ExternallyInconsistentTransaction,
-  InternallyInconsistentTransaction,
-}
-import com.daml.ledger.participant.state.kvutils.errors.KVCompletionErrors
+import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{ExternallyInconsistentTransaction, InternallyInconsistentTransaction}
+import com.daml.ledger.participant.state.kvutils.errors.KVErrors
 import com.daml.ledger.participant.state.kvutils.store.events._
-import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.protobuf.ProtocolStringList
+import com.google.protobuf.any.{Any => AnyProto}
+import com.google.rpc.code.Code
+import com.google.rpc.error_details.ErrorInfo
+import com.google.rpc.status.Status
 
 import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
@@ -42,7 +41,7 @@ private[kvutils] object TransactionRejections {
     Update.CommandRejected(
       recordTime = recordTime,
       completionInfo = parseCompletionInfo(
-        Conversions.parseInstant(recordTime),
+        recordTime,
         rejectionEntry.getSubmitterInfo,
       ),
       reasonTemplate = FinalReason(
@@ -73,7 +72,7 @@ private[kvutils] object TransactionRejections {
     Update.CommandRejected(
       recordTime = recordTime,
       completionInfo = parseCompletionInfo(
-        Conversions.parseInstant(recordTime),
+        recordTime,
         rejectionEntry.getSubmitterInfo,
       ),
       reasonTemplate = FinalReason(
@@ -126,7 +125,7 @@ private[kvutils] object TransactionRejections {
         entry,
         Code.INVALID_ARGUMENT,
         s"Party not known on ledger: Parties not known on ledger ${parties.asScala.mkString("[", ",", "]")}",
-        Map("parties" -> Conversions.objectToJsonString(parties)),
+        Map("parties" -> toJsonString(parties)),
       ),
       V2.partiesNotKnownOnLedgerStatus(parties.asScala.toSeq),
     )
@@ -443,19 +442,19 @@ private[kvutils] object TransactionRejections {
 
     def externallyDuplicateKeysStatus(
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.SubmissionRaces.ExternallyDuplicateKeys
+      KVErrors.SubmissionRaces.ExternallyDuplicateKeys
         .Reject()
         .asStatus
 
     def externallyInconsistentKeysStatus(
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.SubmissionRaces.ExternallyInconsistentKeys
+      KVErrors.SubmissionRaces.ExternallyInconsistentKeys
         .Reject()
         .asStatus
 
     def externallyInconsistentContractsStatus(
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.SubmissionRaces.ExternallyInconsistentContracts
+      KVErrors.SubmissionRaces.ExternallyInconsistentContracts
         .Reject()
         .asStatus
 
@@ -464,7 +463,7 @@ private[kvutils] object TransactionRejections {
         submitter: String,
         participantId: String,
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Unauthorized.SubmitterCannotActViaParticipant
+      KVErrors.Unauthorized.SubmitterCannotActViaParticipant
         .Reject(
           details,
           submitter,
@@ -476,7 +475,7 @@ private[kvutils] object TransactionRejections {
         minimumRecordTime: Instant,
         maximumRecordTime: Instant,
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Time.RecordTimeOutOfRange
+      KVErrors.Time.RecordTimeOutOfRange
         .Reject(minimumRecordTime, maximumRecordTime)
         .asStatus
 
@@ -486,7 +485,7 @@ private[kvutils] object TransactionRejections {
         tooEarlyUntil: Option[Timestamp],
         tooLateFrom: Option[Timestamp],
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Time.InvalidRecordTime
+      KVErrors.Time.InvalidRecordTime
         .Reject(
           rejectionEntry.getDefiniteAnswer,
           invalidRecordTimeReason(recordTime, tooEarlyUntil, tooLateFrom),
@@ -496,32 +495,22 @@ private[kvutils] object TransactionRejections {
         )
         .asStatus
 
-    def invalidLedgerTimeStatus(
-        details: String,
-        ledger_time: Instant,
-        ledger_time_lower_bound: Instant,
-        ledger_time_upper_bound: Instant,
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Time.InvalidLedgerTime
-        .Reject(details, ledger_time, ledger_time_lower_bound, ledger_time_upper_bound)
-        .asStatus
-
     def causalMonotonicityViolatedStatus(
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Time.CausalMonotonicityViolated
+      KVErrors.Time.CausalMonotonicityViolated
         .Reject()
         .asStatus
 
     def duplicateCommandsRejectionStatus(
         definiteAnswer: Boolean = false
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.DuplicateCommand
+      KVErrors.DuplicateCommand
         .Reject(definiteAnswer)
         .asStatus
 
     def rejectionReasonNotSetStatus(
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Internal.RejectionReasonNotSet
+      KVErrors.Internal.RejectionReasonNotSet
         .Reject()
         .asStatus
 
@@ -529,62 +518,73 @@ private[kvutils] object TransactionRejections {
         details: String,
         metadata: Map[String, String],
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Internal.InvalidParticipantState
+      KVErrors.Internal.InvalidParticipantState
         .Reject(details, metadata)
         .asStatus
 
     def validationFailureStatus(
         details: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Internal.ValidationFailure
+      KVErrors.Internal.ValidationFailure
         .Reject(details)
         .asStatus
 
     def missingInputStateStatus(
         key: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Internal.MissingInputState
+      KVErrors.Internal.MissingInputState
         .Reject(key)
         .asStatus
 
     def internallyInconsistentKeysStatus(
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Internal.InternallyInconsistentKeys
+      KVErrors.Internal.InternallyInconsistentKeys
         .Reject()
         .asStatus
 
     def internallyDuplicateKeysStatus(
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Internal.InternallyDuplicateKeys
+      KVErrors.Internal.InternallyDuplicateKeys
         .Reject()
         .asStatus
 
     def submittingPartyNotKnownOnLedgerStatus(
         submitter: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Parties.SubmittingPartyNotKnownOnLedger
+      KVErrors.Parties.SubmittingPartyNotKnownOnLedger
         .Reject(submitter)
         .asStatus
 
     def partiesNotKnownOnLedgerStatus(
         parties: Seq[String]
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Parties.PartiesNotKnownOnLedger
+      KVErrors.Parties.PartiesNotKnownOnLedger
         .Reject(parties)
         .asStatus
 
     def resourceExhaustedStatus(
         details: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Resources.ResourceExhausted
+      KVErrors.Resources.ResourceExhausted
         .Reject(details)
+        .asStatus
+
+    @deprecated
+    def invalidLedgerTimeStatus(
+        details: String,
+        ledger_time: Instant,
+        ledger_time_lower_bound: Instant,
+        ledger_time_upper_bound: Instant,
+    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+      KVErrors.Deprecated.Time.InvalidLedgerTime
+        .Reject(details, ledger_time, ledger_time_lower_bound, ledger_time_upper_bound)
         .asStatus
 
     @deprecated
     def partyNotKnownOnLedgerStatus(
         details: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Parties.PartyNotKnownOnLedger
+      KVErrors.Deprecated.Parties.PartyNotKnownOnLedger
         .Reject(details)
         .asStatus
 
@@ -592,7 +592,7 @@ private[kvutils] object TransactionRejections {
     def inconsistentStatus(
         details: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Inconsistent
+      KVErrors.Deprecated.Inconsistent
         .Reject(details)
         .asStatus
 
@@ -600,7 +600,7 @@ private[kvutils] object TransactionRejections {
     def disputedStatus(
         details: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVCompletionErrors.Internal.Disputed
+      KVErrors.Deprecated.Internal.Disputed
         .Reject(details)
         .asStatus
   }
@@ -686,4 +686,11 @@ private[kvutils] object TransactionRejections {
       case _ =>
         "Record time outside of valid range"
     }
+
+  private def toJsonString(parties: ProtocolStringList): String = {
+    val stringWriter = new StringWriter
+    val objectMapper = new ObjectMapper
+    objectMapper.writeValue(stringWriter, parties)
+    stringWriter.toString
+  }
 }

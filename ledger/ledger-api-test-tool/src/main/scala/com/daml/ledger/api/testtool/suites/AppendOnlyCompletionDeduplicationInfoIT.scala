@@ -49,7 +49,7 @@ final class AppendOnlyCompletionDeduplicationInfoIT[ServiceRequest](
         .submitRequest(ledger, party, requestWithSubmissionId)
     } yield {
       assertApplicationIdIsPreserved(ledger.applicationId, optNoDeduplicationSubmittedCompletion)
-      assertSubmissionIdIsGenerated(optNoDeduplicationSubmittedCompletion)
+      service.assertCompletion(optNoDeduplicationSubmittedCompletion)
       assertDeduplicationPeriodIsReported(optNoDeduplicationSubmittedCompletion)
       assertSubmissionIdIsPreserved(optSubmissionIdSubmittedCompletion, RandomSubmissionId)
     }
@@ -70,6 +70,8 @@ private[testtool] object AppendOnlyCompletionDeduplicationInfoIT {
         party: Primitive.Party,
         request: ProtoRequestType,
     )(implicit ec: ExecutionContext): Future[Option[Completion]]
+
+    def assertCompletion(optCompletion: Option[Completion]): Unit
   }
 
   case object CommandService extends Service[SubmitAndWaitRequest] {
@@ -96,6 +98,15 @@ private[testtool] object AppendOnlyCompletionDeduplicationInfoIT {
         _ <- ledger.submitAndWait(request)
         completion <- singleCompletionAfterOffset(ledger, party, offset)
       } yield completion
+
+    override def assertCompletion(optCompletion: Option[Completion]): Unit = {
+      val completion = assertDefined(optCompletion)
+      assert(completion.status.forall(_.code == Status.Code.OK.value()))
+      assert(
+        Ref.SubmissionId.fromString(completion.submissionId).isRight,
+        "Missing or invalid submission ID in completion",
+      )
+    }
   }
 
   case object CommandSubmissionService extends Service[SubmitRequest] {
@@ -122,6 +133,11 @@ private[testtool] object AppendOnlyCompletionDeduplicationInfoIT {
         _ <- ledger.submit(request)
         completion <- singleCompletionAfterOffset(ledger, party, offset)
       } yield completion
+
+    override def assertCompletion(optCompletion: Option[Completion]): Unit = {
+      val completion = assertDefined(optCompletion)
+      assert(completion.status.forall(_.code == Status.Code.OK.value()))
+    }
   }
 
   private def singleCompletionAfterOffset(
@@ -153,15 +169,6 @@ private[testtool] object AppendOnlyCompletionDeduplicationInfoIT {
     val completion = assertDefined(optCompletion)
     assert(completion.status.forall(_.code == Status.Code.OK.value()))
     assert(completion.deduplicationPeriod.isDefined, "The deduplication period was not reported")
-  }
-
-  private def assertSubmissionIdIsGenerated(optCompletion: Option[Completion]): Unit = {
-    val completion = assertDefined(optCompletion)
-    assert(completion.status.forall(_.code == Status.Code.OK.value()))
-    assert(
-      Ref.SubmissionId.fromString(completion.submissionId).isRight,
-      "Missing or invalid submission ID in completion",
-    )
   }
 
   private def assertApplicationIdIsPreserved(

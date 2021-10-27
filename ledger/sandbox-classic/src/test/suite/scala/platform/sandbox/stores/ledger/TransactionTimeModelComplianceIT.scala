@@ -88,7 +88,6 @@ class TransactionTimeModelComplianceIT
       ledger: Ledger,
       ledgerTime: Instant,
       commandId: String,
-      submissionId: String = UUID.randomUUID().toString,
       configuration: Configuration,
   ) = {
     val dummyTransaction = TransactionBuilder.EmptySubmitted
@@ -98,7 +97,7 @@ class TransactionTimeModelComplianceIT
       applicationId = Ref.ApplicationId.assertFromString("appId"),
       commandId = Ref.CommandId.assertFromString(commandId + UUID.randomUUID().toString),
       deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(JDuration.ZERO),
-      submissionId = Ref.SubmissionId.assertFromString(submissionId),
+      submissionId = None,
       ledgerConfiguration = configuration,
     )
     val transactionMeta = state.TransactionMeta(

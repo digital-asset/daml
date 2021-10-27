@@ -11,5 +11,5 @@ final class ResetServiceOnPostgresqlIT
     extends ResetServiceITBase
     with SandboxNextFixture
     with SandboxBackend.Postgresql {
-  override def spanScaleFactor: Double = super.spanScaleFactor * 4
+  override def spanScaleFactor: Double = super.spanScaleFactor * 8
 }

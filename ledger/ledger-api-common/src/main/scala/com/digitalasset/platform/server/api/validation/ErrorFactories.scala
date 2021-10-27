@@ -8,6 +8,7 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.grpc.GrpcStatuses
+import com.daml.lf.data.Ref.TransactionId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories.{
   addDefiniteAnswerDetails,
@@ -22,6 +23,21 @@ import io.grpc.{Metadata, StatusRuntimeException}
 import scalaz.syntax.tag._
 
 class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
+  def transactionNotFound(transactionId: TransactionId)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = grpcError(
+        Status
+          .newBuilder()
+          .setCode(Code.NOT_FOUND.value())
+          .setMessage("Transaction not found, or not visible.")
+          .build()
+      ),
+      v2 = LedgerApiErrors.ReadErrors.TransactionNotFound
+        .Reject(transactionId)
+        .asGrpcError,
+    )
 
   def malformedPackageId[Request](request: Request, message: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger,
@@ -48,6 +64,16 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     errorCodesVersionSwitcher.choose(
       v1 = io.grpc.Status.NOT_FOUND.asRuntimeException(),
       v2 = LedgerApiErrors.ReadErrors.PackageNotFound.Reject(packageId = packageId).asGrpcError,
+    )
+
+  def versionServiceInternalError(message: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = io.grpc.Status.INTERNAL
+        .withDescription(message)
+        .asRuntimeException(),
+      v2 = LedgerApiErrors.VersionServiceError.InternalError.Reject(message).asGrpcError,
     )
 
   def duplicateCommandException(implicit
@@ -129,15 +155,63 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
       v1 = {
+        invalidArgumentV1(definiteAnswer, message)
+      },
+      // TODO error codes: This error group is confusing for this generic error as it can be dispatched
+      //                   from call-sites that do not involve command validation (e.g. ApiTransactionService).
+      v2 = LedgerApiErrors.CommandValidation.InvalidArgument
+        .Reject(message)
+        .asGrpcError,
+    )
+
+  // This error builder covers cases where existing logic handling invalid arguments returned NOT_FOUND.
+  def invalidArgumentWasNotFound(definiteAnswer: Option[Boolean])(message: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = {
         val statusBuilder = Status
           .newBuilder()
-          .setCode(Code.INVALID_ARGUMENT.value())
-          .setMessage(s"Invalid argument: $message")
+          .setCode(Code.NOT_FOUND.value())
+          .setMessage(message)
         addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
         grpcError(statusBuilder.build())
       },
+      // TODO error codes: Revisit this error: This error group is confusing for this generic error as it can be dispatched
+      //                   from call-sites that do not involve command validation (e.g. ApiTransactionService, GrpcHealthService).
       v2 = LedgerApiErrors.CommandValidation.InvalidArgument
         .Reject(message)
+        .asGrpcError,
+    )
+
+  // TODO error codes: Reconcile with com.daml.platform.server.api.validation.ErrorFactories.offsetAfterLedgerEnd
+  def readingOffsetAfterLedgerEnd_was_invalidArgument(
+      definiteAnswer: Option[Boolean]
+  )(message: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = {
+        invalidArgumentV1(definiteAnswer, message)
+      },
+      v2 = LedgerApiErrors.ReadErrors.RequestedOffsetAfterLedgerEnd
+        .Reject(message)
+        .asGrpcError,
+    )
+
+  def nonHexOffset(
+      definiteAnswer: Option[Boolean]
+  )(fieldName: String, offsetValue: String, message: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = invalidArgumentV1(definiteAnswer, message),
+      v2 = LedgerApiErrors.NonHexOffset
+        .Error(
+          fieldName = fieldName,
+          offsetValue = offsetValue,
+          message = message,
+        )
         .asGrpcError,
     )
 
@@ -193,6 +267,24 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       .setMessage(message)
     addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
     grpcError(statusBuilder.build())
+  }
+
+  def packageUploadRejected(message: String, definiteAnswer: Option[Boolean])(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = {
+    errorCodesVersionSwitcher.choose(
+      v1 = invalidArgumentV1(definiteAnswer, message),
+      v2 = LedgerApiErrors.WriteErrors.PackageUploadRejected.Reject(message).asGrpcError,
+    )
+  }
+
+  def configurationEntryRejected(message: String, definiteAnswer: Option[Boolean])(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = {
+    errorCodesVersionSwitcher.choose(
+      v1 = aborted(message, definiteAnswer),
+      v2 = LedgerApiErrors.WriteErrors.ConfigurationEntryRejected.Reject(message).asGrpcError,
+    )
   }
 
   // permission denied is intentionally without description to ensure we don't leak security relevant information by accident
@@ -254,6 +346,8 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
         grpcError(statusBuilder.build())
       },
+      // TODO error codes: This error group is confusing for this generic error as it can be dispatched
+      //                   from call-sites that do not involve Daml interpreter.
       v2 = LedgerApiErrors.InterpreterErrors.LookupErrors.LedgerConfigurationNotFound
         .Reject()
         .asGrpcError,
@@ -319,6 +413,18 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   def grpcError(status: Status): StatusRuntimeException = new NoStackTraceApiException(
     StatusProto.toStatusRuntimeException(status)
   )
+
+  private def invalidArgumentV1(
+      definiteAnswer: Option[Boolean],
+      message: String,
+  ): StatusRuntimeException = {
+    val statusBuilder = Status
+      .newBuilder()
+      .setCode(Code.INVALID_ARGUMENT.value())
+      .setMessage(s"Invalid argument: $message")
+    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+    grpcError(statusBuilder.build())
+  }
 }
 
 /** Object exposing the legacy error factories.

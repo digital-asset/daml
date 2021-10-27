@@ -3,6 +3,9 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import java.io.StringWriter
+import java.time.{Duration, Instant}
+
 import com.daml.error.{ContextualizedErrorLogger, ValueSwitch}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.offset.Offset
@@ -43,17 +46,17 @@ import com.daml.ledger.participant.state.kvutils.updates.TransactionRejections._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.ledger.participant.state.v2.{CompletionInfo, SubmitterInfo}
 import com.daml.lf.data.Relation.Relation
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction._
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}
+
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.Empty
 import com.google.rpc.status.Status
 
-import java.io.StringWriter
-import java.time.{Duration, Instant}
 import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
@@ -167,7 +170,7 @@ private[state] object Conversions {
       .addAllSubmitters((subInfo.actAs: List[String]).asJava)
       .setApplicationId(subInfo.applicationId)
       .setCommandId(subInfo.commandId)
-      .setSubmissionId(subInfo.submissionId)
+      .setSubmissionId(subInfo.submissionId.getOrElse(""))
     subInfo.deduplicationPeriod match {
       case DeduplicationPeriod.DeduplicationDuration(duration) =>
         submitterInfoBuilder.setDeduplicationDuration(buildDuration(duration))
@@ -179,7 +182,7 @@ private[state] object Conversions {
 
   @nowarn("msg=deprecated")
   def parseCompletionInfo(
-      recordTime: Instant,
+      recordTime: Timestamp,
       subInfo: DamlSubmitterInfo,
   ): CompletionInfo = {
     val deduplicationPeriod = subInfo.getDeduplicationPeriodCase match {
@@ -198,7 +201,7 @@ private[state] object Conversions {
         // As the deduplicate until timestamp is always relative to record time, we take the duration
         // between record time and the previous timestamp as the deduplication period (duration).
         val until = parseInstant(subInfo.getDeduplicateUntil)
-        val duration = Duration.between(recordTime, until).abs()
+        val duration = Duration.between(recordTime.toInstant, until).abs()
         Some(
           DeduplicationPeriod.DeduplicationDuration(duration)
         )

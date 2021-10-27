@@ -16,12 +16,12 @@ TX #1 1970-01-01T00:00:00Z [Test:17] version: 14
 TX #2 1970-01-01T00:00:00Z [Test:20] version: 14
 #2:0 version: 14
 │   known to (since): AlicesBank (#2), Bob (#2)
-└─> AlicesBank exercises Divulge:Test:DivulgeIouByExercise@XXXXXXXX on 00999d35e67dc49f91772eaffd08179f431661a382cd68edc7d25ee2c2508fb6a3
-    with { ref = 00a21310a64aec150c16589881ebebc4780fc8e476489ef939a1ebfbfeb1aa3835 }
+└─> AlicesBank exercises Divulge:Test:DivulgeIouByExercise@XXXXXXXX on 00df288b1eefaa504409b5b6ab8918fa53f308cba0e9be76b16c2dd61e432048aa
+    with { ref = 008d786470605293774dad75f6bc0df268eb612271f1547003669c7b8517d2d5ac }
     children:
     #2:1 version: 14
     │   known to (since): AlicesBank (#2), Bob (#2)
-    └─> ensure active 00a21310a64aec150c16589881ebebc4780fc8e476489ef939a1ebfbfeb1aa3835
+    └─> ensure active 008d786470605293774dad75f6bc0df268eb612271f1547003669c7b8517d2d5ac
 
 active contracts:
-   00999d35e67dc49f91772eaffd08179f431661a382cd68edc7d25ee2c2508fb6a3, 00a21310a64aec150c16589881ebebc4780fc8e476489ef939a1ebfbfeb1aa3835
+   008d786470605293774dad75f6bc0df268eb612271f1547003669c7b8517d2d5ac, 00df288b1eefaa504409b5b6ab8918fa53f308cba0e9be76b16c2dd61e432048aa

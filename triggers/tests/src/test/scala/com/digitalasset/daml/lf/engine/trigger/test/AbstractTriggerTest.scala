@@ -24,6 +24,8 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.lf.archive.DarDecoder
 import com.daml.lf.data.Ref._
+import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.SValue._
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import org.scalatest._
 import scalaz.syntax.tag._
@@ -34,6 +36,18 @@ import scala.util.Try
 
 trait AbstractTriggerTest extends SandboxFixture with TestCommands {
   self: Suite =>
+
+  protected def toHighLevelResult(s: SValue) = s match {
+    case SRecord(_, _, values) if values.size == 5 =>
+      AbstractTriggerTest.HighLevelResult(
+        values.get(0),
+        values.get(1),
+        values.get(2),
+        values.get(3),
+        values.get(4),
+      )
+    case _ => throw new IllegalArgumentException(s"Expected record with 5 fields but got $s")
+  }
 
   protected val applicationId = RunnerConfig.DefaultApplicationId
 
@@ -66,7 +80,12 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
   protected val compiledPackages =
     PureCompiledPackages.assertBuild(dar.all.toMap, speedy.Compiler.Config.Dev)
 
-  protected def getRunner(client: LedgerClient, name: QualifiedName, party: String): Runner = {
+  protected def getRunner(
+      client: LedgerClient,
+      name: QualifiedName,
+      party: String,
+      readAs: Set[String] = Set.empty,
+  ): Runner = {
     val triggerId = Identifier(packageId, name)
     val trigger = Trigger.fromIdentifier(compiledPackages, triggerId).toOption.get
     trigger.withLoggingContext { implicit lc =>
@@ -76,7 +95,10 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
         client,
         config.timeProviderType.get,
         applicationId,
-        Party(party),
+        TriggerParties(
+          actAs = Party(party),
+          readAs = Party.subst(readAs),
+        ),
       )
     }
   }
@@ -154,4 +176,14 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
     )
   }
 
+}
+
+object AbstractTriggerTest {
+  final case class HighLevelResult(
+      acs: SValue,
+      party: SValue,
+      readAs: SValue,
+      state: SValue,
+      commandsInFlight: SValue,
+  )
 }

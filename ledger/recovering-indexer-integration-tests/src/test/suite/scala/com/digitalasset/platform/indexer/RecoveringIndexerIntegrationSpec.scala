@@ -7,7 +7,6 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit.SECONDS
 import java.util.UUID
 import java.util.concurrent.Executors
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -27,8 +26,8 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
-import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
-import com.daml.platform.store.{DbType, LfValueTranslationCache}
+import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerDao}
+import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.testing.LogCollector
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.timer.RetryStrategy
@@ -212,7 +211,6 @@ class RecoveringIndexerIntegrationSpec
           jdbcUrl = jdbcUrl,
           startupMode = IndexerStartupMode.MigrateAndStart,
           restartDelay = restartDelay,
-          enableAppendOnlySchema = false,
         ),
         servicesExecutionContext = servicesExecutionContext,
         metrics = new Metrics(new MetricRegistry),
@@ -230,11 +228,12 @@ class RecoveringIndexerIntegrationSpec
       connectionPoolSize = 16,
       connectionTimeout = 250.millis,
       eventsPageSize = 100,
+      eventsProcessingParallelism = 8,
       servicesExecutionContext = executionContext,
       metrics = new Metrics(new MetricRegistry),
       lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-      jdbcAsyncCommitMode = DbType.AsynchronousCommit,
       enricher = None,
+      participantId = Ref.ParticipantId.assertFromString("RecoveringIndexerIntegrationSpec"),
     )
   }
 }

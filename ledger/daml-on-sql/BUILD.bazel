@@ -109,7 +109,6 @@ conformance_test(
         "--ledgerid=conformance-test",
         "--port=6865",
         "--eager-package-loading",
-        "--enable-append-only-schema",
     ],
     test_tool_args = [
         "--verbose",

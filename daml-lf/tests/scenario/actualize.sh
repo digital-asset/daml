@@ -24,5 +24,5 @@ bazel build //compiler/damlc:damlc
 ../../../bazel-bin/compiler/damlc/damlc package --debug $TESTMAIN main -o $TESTDAR
 
 bazel build //daml-lf/repl:repl
-../../../bazel-bin/daml-lf/repl/repl test Test:run $TESTDAR | sed '1d' | sed -E "$REGEX_HIDE_HASHES" | tee ${TESTDIR}/EXPECTED.ledger.new
+../../../bazel-bin/daml-lf/repl/repl --dev test Test:run $TESTDAR | sed -E "$REGEX_HIDE_HASHES" | tee ${TESTDIR}/EXPECTED.ledger.new
 

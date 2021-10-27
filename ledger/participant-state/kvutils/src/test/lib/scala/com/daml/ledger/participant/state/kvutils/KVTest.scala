@@ -275,7 +275,6 @@ object KVTest {
       submitter,
       commandId,
       deduplicationDuration,
-      randomLedgerString,
     )
     testState.keyValueSubmission.transactionToSubmission(
       submitterInfo = submitterInfo,
@@ -444,14 +443,13 @@ object KVTest {
       submitter: Ref.Party,
       commandId: Ref.CommandId,
       deduplicationDuration: Duration,
-      submissionId: Ref.SubmissionId,
   ): SubmitterInfo = {
     SubmitterInfo(
       actAs = List(submitter),
       applicationId = Ref.LedgerString.assertFromString("test"),
       commandId = commandId,
       deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(deduplicationDuration),
-      submissionId = submissionId,
+      submissionId = None,
       ledgerConfiguration =
         Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(1)),
     )

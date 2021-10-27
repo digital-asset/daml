@@ -86,10 +86,14 @@ class LedgerTimeValidatorSpec extends AnyWordSpec with Matchers {
         )
 
         context.minimumRecordTime shouldEqual Some(
-          Instant.ofEpochSecond(2).minus(theDefaultConfig.timeModel.minSkew)
+          Timestamp.assertFromInstant(
+            Instant.ofEpochSecond(2).minus(theDefaultConfig.timeModel.minSkew)
+          )
         )
         context.maximumRecordTime shouldEqual Some(
-          Instant.ofEpochSecond(1).plus(theDefaultConfig.timeModel.maxSkew)
+          Timestamp.assertFromInstant(
+            Instant.ofEpochSecond(1).plus(theDefaultConfig.timeModel.maxSkew)
+          )
         )
         context.deduplicateUntil shouldBe empty
         context.outOfTimeBoundsLogEntry should not be empty
@@ -108,13 +112,15 @@ class LedgerTimeValidatorSpec extends AnyWordSpec with Matchers {
         )
 
         context.minimumRecordTime shouldEqual Some(
-          Instant.ofEpochSecond(3).plus(Timestamp.Resolution)
+          Timestamp.assertFromInstant(Instant.ofEpochSecond(3).plus(Timestamp.Resolution))
         )
         context.maximumRecordTime shouldEqual Some(
-          Instant.ofEpochSecond(1).plus(theDefaultConfig.timeModel.maxSkew)
+          Timestamp.assertFromInstant(
+            Instant.ofEpochSecond(1).plus(theDefaultConfig.timeModel.maxSkew)
+          )
         )
         context.deduplicateUntil shouldEqual Some(
-          Instant.ofEpochSecond(aDeduplicateUntil.getSeconds)
+          Timestamp.assertFromInstant(Instant.ofEpochSecond(aDeduplicateUntil.getSeconds))
         )
         context.outOfTimeBoundsLogEntry should not be empty
         context.outOfTimeBoundsLogEntry.foreach { actualOutOfTimeBoundsLogEntry =>

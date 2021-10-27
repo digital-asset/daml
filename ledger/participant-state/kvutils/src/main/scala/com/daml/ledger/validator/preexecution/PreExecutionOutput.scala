@@ -3,13 +3,12 @@
 
 package com.daml.ledger.validator.preexecution
 
-import java.time.Instant
-
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 
 sealed case class PreExecutionOutput[+ReadSet, +WriteSet](
-    minRecordTime: Option[Instant],
-    maxRecordTime: Option[Instant],
+    minRecordTime: Option[Timestamp],
+    maxRecordTime: Option[Timestamp],
     successWriteSet: WriteSet,
     outOfTimeBoundsWriteSet: WriteSet,
     readSet: ReadSet,

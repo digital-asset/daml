@@ -3,8 +3,6 @@
 
 package com.daml.ledger.on.memory
 
-import java.time.Instant
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.api.CommitMetadata
@@ -12,6 +10,7 @@ import com.daml.ledger.participant.state.kvutils.{KVOffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v2.SubmissionResult
 import com.daml.ledger.validator.LedgerStateAccess
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
@@ -42,7 +41,7 @@ class InMemoryLedgerWriterSpec
           any[Ref.ParticipantId],
           any[String],
           any[Raw.Envelope],
-          any[Instant],
+          any[Timestamp],
           any[LedgerStateAccess[Any]],
         )(any[ExecutionContext])
       )
@@ -53,7 +52,7 @@ class InMemoryLedgerWriterSpec
         participantId = Ref.ParticipantId.assertFromString("participant ID"),
         dispatcher = mockDispatcher,
         offsetBuilder = new KVOffsetBuilder(0),
-        now = () => Instant.EPOCH,
+        now = () => Timestamp.Epoch,
         state = InMemoryState.empty,
         committer = mockCommitter,
         committerExecutionContext = executionContext,

@@ -7585,43 +7585,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(vm-browserify 1.1.2)
-
-Comment: browserified source
-
-Files: *
-Copyright: 2017 James Halliday <mail@substack.net> (http://substack.net)
-License: Expat
-
-Files: debian/*
-Copyright: 2017 Pirate Praveen <praveen@debian.org>
-License: Expat
-
-License: Expat
-
-Permission is hereby granted, free of charge, to any person
- obtaining a copy of this software and associated documentation files
- (the "Software"), to deal in the Software without restriction,
- including without limitation the rights to use, copy, modify, merge,
- publish, distribute, sublicense, and/or sell copies of the Software,
- and to permit persons to whom the Software is furnished to do so,
- subject to the following conditions:
- .
- The above copyright notice and this permission notice shall be
- included in all copies or substantial portions of the Software.
- .
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- SOFTWARE
-
----
-
-MIT License
 (ForbesLindesay/umd 3.0.3)
 
 Comment: compiled js will be regerated at compile time
@@ -10591,21 +10554,6 @@ SOFTWARE
 ---
 
 MIT License
-(is-binary-path v2.1.0)
-
-MIT License
-
-Copyright (c) 2019 Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com), Paul Miller (https://paulmillr.com)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
-
----
-
-MIT License
 (available-typed-arrays 1.0.2)
 
 MIT License
@@ -10766,6 +10714,30 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE
+
+---
+
+MIT License
+(vm-browserify 1.1.2)
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 
 ---
 
@@ -12748,7 +12720,7 @@ THE SOFTWARE
 ---
 
 MIT License
-(global-modules 1.0.0, global-prefix 1.0.2)
+(global-modules 1.0.0, global-prefix 1.0.2, is-unc-path 1.0.0)
 
 The MIT License (MIT)
 
@@ -13343,7 +13315,7 @@ THE SOFTWARE
 ---
 
 MIT License
-(dargs 4.1.0, Decamelize 1.2.0, escape-string-regexp 1.0.5, figures 1.7.0, is-wsl 1.1.0, maxmin 2.1.0, number-is-nan 1.0.1, object-assign 3.0.0, os-homedir 1.0.2, path-is-absolute 1.0.1, pretty-bytes 3.0.1)
+(dargs 4.1.0, Decamelize 1.2.0, escape-string-regexp 1.0.5, figures 1.7.0, is-wsl 1.1.0, maxmin 2.1.0, number-is-nan 1.0.1, object-assign 3.0.0, os-homedir 1.0.2, os-tmpdir 1.0.2, path-is-absolute 1.0.1, pretty-bytes 3.0.1)
 
 The MIT License (MIT)
 
@@ -14176,44 +14148,6 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(is-unc-path 1.0.0)
-
-Upstream-Contact: https://github.com/jonschlinkert/is-unc-path/issues
-Source: https://github.com/jonschlinkert/is-unc-path
-
-Files: *
-Copyright: 2016 Jon Schlinkert (https://github.com/jonschlinkert)
-License: Expat
-
-Files: debian/*
-Copyright: 2016 Sruthi Chandran <srud@disroot.org>
-License: Expat
-
-License: Expat
-
-Permission is hereby granted, free of charge, to any person
- obtaining a copy of this software and associated documentation files
- (the "Software"), to deal in the Software without restriction,
- including without limitation the rights to use, copy, modify, merge,
- publish, distribute, sublicense, and/or sell copies of the Software,
- and to permit persons to whom the Software is furnished to do so,
- subject to the following conditions:
- .
- The above copyright notice and this permission notice shall be
- included in all copies or substantial portions of the Software.
- .
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- SOFTWARE
-
----
-
-MIT License
 (normalize-path 3.0.0)
 
 Upstream-Contact: https://github.com/jonschlinkert/normalize-path/issues
@@ -14680,17 +14614,17 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(object-assign 4.1.1)
+(is-binary-path v2.1.0)
 
-Upstream-Contact: https://github.com/sindresorhus/object-assign/issues
-Source: https://github.com/sindresorhus/object-assign#readme
+Upstream-Contact: https://github.com/sindresorhus/is-binary-path/issues
+Source: https://github.com/sindresorhus/is-binary-path#readme
 
 Files: *
-Copyright: Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
+Copyright: 2017 Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
 License: Expat
 
 Files: debian/*
-Copyright: 2016, Sruthi Chandran <srud@disroot.org>
+Copyright: 2017 Pirate Praveen <praveen@debian.org>
 License: Expat
 
 License: Expat
@@ -14718,17 +14652,17 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(os-tmpdir 1.0.2)
+(object-assign 4.1.1)
 
-Upstream-Contact: https://github.com/sindresorhus/os-tmpdir/issues
-Source: https://github.com/sindresorhus/os-tmpdir
+Upstream-Contact: https://github.com/sindresorhus/object-assign/issues
+Source: https://github.com/sindresorhus/object-assign#readme
 
 Files: *
-Copyright: 2015 Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
+Copyright: Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
 License: Expat
 
 Files: debian/*
-Copyright: 2015 Ross Gammon <rossgammon@mail.dk>
+Copyright: 2016, Sruthi Chandran <srud@disroot.org>
 License: Expat
 
 License: Expat

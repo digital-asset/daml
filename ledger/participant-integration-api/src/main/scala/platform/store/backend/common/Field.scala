@@ -5,8 +5,6 @@ package com.daml.platform.store.backend.common
 
 import java.lang
 import java.sql.PreparedStatement
-import java.time.Instant
-import java.util.concurrent.TimeUnit
 
 import scala.reflect.ClassTag
 
@@ -90,11 +88,6 @@ private[backend] case class BooleanField[FROM](extract: FROM => Boolean)
 private[backend] case class BooleanOptional[FROM](extract: FROM => Option[Boolean])
     extends Field[FROM, Option[Boolean], java.lang.Boolean] {
   override def convert: Option[Boolean] => lang.Boolean = _.map(Boolean.box).orNull
-}
-
-private[backend] object Timestamp {
-  def instantToMicros(i: Instant): Long =
-    TimeUnit.SECONDS.toMicros(i.getEpochSecond) + TimeUnit.NANOSECONDS.toMicros(i.getNano.toLong)
 }
 
 private[backend] case class StringArray[FROM](extract: FROM => Iterable[String])

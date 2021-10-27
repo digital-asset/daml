@@ -4,7 +4,6 @@
 package com.daml.platform.store.backend
 
 import java.util.UUID
-
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.api.domain
 import com.daml.ledger.configuration.Configuration
@@ -15,9 +14,8 @@ import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.platform.index.index.StatusDetails
-import com.daml.platform.store.appendonlydao.JdbcLedgerDao
+import com.daml.platform.store.appendonlydao.{DeduplicationKeyMaker, JdbcLedgerDao}
 import com.daml.platform.store.appendonlydao.events._
-import com.daml.platform.store.dao.DeduplicationKeyMaker
 
 object UpdateToDbDto {
 

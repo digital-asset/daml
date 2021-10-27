@@ -12,17 +12,16 @@ import com.daml.platform.store.backend.common.{
   ConfigurationStorageBackendTemplate,
   ContractStorageBackendTemplate,
   DataSourceStorageBackendTemplate,
-  IntegrityStorageBackendTemplate,
   DeduplicationStorageBackendTemplate,
   EventStorageBackendTemplate,
   EventStrategy,
   IngestionStorageBackendTemplate,
   InitHookDataSourceProxy,
+  IntegrityStorageBackendTemplate,
   PackageStorageBackendTemplate,
   ParameterStorageBackendTemplate,
   PartyStorageBackendTemplate,
   QueryStrategy,
-  Timestamp,
 }
 import com.daml.platform.store.backend.{
   DBLockStorageBackend,
@@ -33,8 +32,8 @@ import com.daml.platform.store.backend.{
 }
 
 import java.sql.Connection
-import java.time.Instant
 import com.daml.ledger.offset.Offset
+import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
@@ -100,8 +99,8 @@ private[backend] object OracleStorageBackend
 
   override def upsertDeduplicationEntry(
       key: String,
-      submittedAt: Instant,
-      deduplicateUntil: Instant,
+      submittedAt: Timestamp,
+      deduplicateUntil: Timestamp,
   )(connection: Connection)(implicit loggingContext: LoggingContext): Int = {
 
     // Under the default READ_COMMITTED isolation level used for the indexdb, when a deduplication
@@ -120,8 +119,8 @@ private[backend] object OracleStorageBackend
       SQL(SQL_INSERT_COMMAND)
         .on(
           "deduplicationKey" -> key,
-          "submittedAt" -> Timestamp.instantToMicros(submittedAt),
-          "deduplicateUntil" -> Timestamp.instantToMicros(deduplicateUntil),
+          "submittedAt" -> submittedAt.micros,
+          "deduplicateUntil" -> deduplicateUntil.micros,
         )
         .executeUpdate()(connection)
     )
@@ -202,17 +201,23 @@ private[backend] object OracleStorageBackend
 
   override def eventStrategy: common.EventStrategy = OracleEventStrategy
 
-  // TODO FIXME: Use tables directly instead of the participant_events view.
   def maxEventSequentialIdOfAnObservableEvent(
       offset: Offset
   )(connection: Connection): Option[Long] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
-    // This query could be: "select max(event_sequential_id) from participant_events where event_offset <= ${range.endInclusive}"
-    // however tests using PostgreSQL 12 with tens of millions of events have shown that the index
-    // on `event_offset` is not used unless we _hint_ at it by specifying `order by event_offset`
-    val limitClause = OracleQueryStrategy.limitClause(Some(1))
-    SQL"select max(event_sequential_id) from participant_events where event_offset <= $offset group by event_offset order by event_offset desc $limitClause"
-      .as(get[Long](1).singleOpt)(connection)
+    SQL"""SELECT max(max_esi) FROM (
+           (
+               SELECT max(event_sequential_id) AS max_esi FROM participant_events_consuming_exercise
+               WHERE event_offset = (select max(event_offset) from participant_events_consuming_exercise where event_offset <= $offset)
+           ) UNION ALL (
+               SELECT max(event_sequential_id) AS max_esi FROM participant_events_create
+               WHERE event_offset = (select max(event_offset) from participant_events_create where event_offset <= $offset)
+           ) UNION ALL (
+               SELECT max(event_sequential_id) AS max_esi FROM participant_events_non_consuming_exercise
+               WHERE event_offset = (select max(event_offset) from participant_events_non_consuming_exercise where event_offset <= $offset)
+           )
+       )"""
+      .as(get[Long](1).?.single)(connection)
   }
 
   override def createDataSource(

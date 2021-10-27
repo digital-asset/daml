@@ -11,9 +11,9 @@ import com.daml.error.{
   ErrorCodesVersionSwitcher,
 }
 import com.daml.error.definitions.{ErrorCauseExport, RejectionGenerators}
+import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
-import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v2 => state}
@@ -82,7 +82,6 @@ private[apiserver] object ApiSubmissionService {
       currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () =>
         ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
-      submissionIdGenerator = SubmissionIdGenerator.Random,
       metrics = metrics,
     )
 
@@ -110,9 +109,6 @@ private[apiserver] final class ApiSubmissionService private[services] (
     with AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
-
-  // TODO error codes: review conformance mode usages wherever RejectionGenerators is instantiated
-  private val rejectionGenerators = new RejectionGenerators(conformanceMode = true)
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
 
   override def submit(
@@ -335,7 +331,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
 
     errorCodesVersionSwitcher.chooseAsFailedFuture(
       v1 = toStatusExceptionV1(error),
-      v2 = rejectionGenerators
+      v2 = RejectionGenerators
         .commandExecutorError(cause = ErrorCauseExport.fromErrorCause(error)),
     )
   }
