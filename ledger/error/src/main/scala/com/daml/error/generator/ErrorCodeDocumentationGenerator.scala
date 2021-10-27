@@ -4,6 +4,7 @@
 package com.daml.error.generator
 
 import java.lang.reflect.Modifier
+
 import com.daml.error.ErrorCode
 import com.daml.error.generator.ErrorCodeDocumentationGenerator.{
   acceptedTypeNames,
@@ -12,9 +13,9 @@ import com.daml.error.generator.ErrorCodeDocumentationGenerator.{
   resolutionTypeName,
 }
 import com.daml.error.{Explanation, Resolution}
+
 import org.reflections.Reflections
 
-import scala.annotation.tailrec
 import scala.reflect.runtime.{universe => ru}
 import scala.jdk.CollectionConverters._
 
@@ -69,16 +70,20 @@ case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
     getAnnotations(annotations)
   }
 
-  @tailrec private def getAnnotations(
+  private case class GetAnnotationsState(
+      explanation: Option[Explanation],
+      resolution: Option[Resolution],
+  )
+
+  private def getAnnotations(
       annotations: Seq[ru.Annotation],
-      state: (Option[Explanation], Option[Resolution]) = (None, None),
   ): (Explanation, Resolution) = {
 
     def update(
-        state: (Option[Explanation], Option[Resolution]),
+        state: GetAnnotationsState,
         updatedExplanation: Option[String] = None,
         updatedResolution: Option[String] = None,
-    ): (Option[Explanation], Option[Resolution]) = {
+    ): GetAnnotationsState = {
 
       def updateString(
           existing: Option[String],
@@ -92,48 +97,37 @@ case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
             Some(value)
         }
 
-      val existingExplanation = state._1
+      val existingExplanation = state.explanation
       val updatedExplanationString =
         updateString(existingExplanation.map(_.explanation), updatedExplanation, "explanation")
-      val existingResolution = state._2
+      val existingResolution = state.resolution
       val updatedResolutionString =
         updateString(existingResolution.map(_.resolution), updatedResolution, "resolution")
-      (updatedExplanationString.map(Explanation), updatedResolutionString.map(Resolution))
+      GetAnnotationsState(
+        updatedExplanationString.map(Explanation),
+        updatedResolutionString.map(Resolution),
+      )
     }
 
-    annotations match {
-      case Nil =>
-        val (optionalExplanation, optionalResolution) = state
-        (
-          optionalExplanation.getOrElse(Explanation("")),
-          optionalResolution.getOrElse(Resolution("")),
-        )
-
-      case v :: tail if isAnnotation(v, deprecatedTypeName) =>
-        getAnnotations(tail, state)
-
-      case v :: tail if isAnnotation(v, explanationTypeName) =>
-        getAnnotations(
-          tail,
-          update(state, updatedExplanation = Some(parseValueOfAnnotation(v.tree))),
-        )
-
-      case v :: tail if isAnnotation(v, resolutionTypeName) =>
-        getAnnotations(
-          tail,
-          update(state, updatedResolution = Some(parseValueOfAnnotation(v.tree))),
-        )
-
-      case _ =>
+    val doc = annotations.foldLeft(GetAnnotationsState(None, None)) { case (state, annotation) =>
+      if (isAnnotation(annotation, deprecatedTypeName))
+        state
+      else if (isAnnotation(annotation, explanationTypeName))
+        update(state, updatedExplanation = Some(parseAnnotationValue(annotation.tree)))
+      else if (isAnnotation(annotation, resolutionTypeName))
+        update(state, updatedResolution = Some(parseAnnotationValue(annotation.tree)))
+      else
         sys.error(
           s"Unexpected annotation detected (${annotations.map(_.tree.tpe.toString)} but the only supported ones are $acceptedTypeNames). " +
             s"Did you rename the error code annotations `${classOf[Explanation].getTypeName}` or `${classOf[Resolution].getTypeName}`?"
         )
     }
+
+    (doc.explanation.getOrElse(Explanation("")), doc.resolution.getOrElse(Resolution("")))
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  private def parseValueOfAnnotation(tree: ru.Tree): String = {
+  private def parseAnnotationValue(tree: ru.Tree): String = {
     try {
       // get second (index starts at 0) child of tree as it contains the first value of the annotation
       Seq(1).map(tree.children(_).asInstanceOf[ru.Literal].value.value.asInstanceOf[String]) match {
