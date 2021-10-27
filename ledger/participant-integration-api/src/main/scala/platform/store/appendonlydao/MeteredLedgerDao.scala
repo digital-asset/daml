@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
@@ -29,6 +29,7 @@ import scala.concurrent.Future
 
 private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: Metrics)
     extends LedgerReadDao {
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
@@ -73,8 +74,10 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
   override def getPartyEntries(
       startExclusive: Offset,
       endInclusive: Offset,
-  )(implicit loggingContext: LoggingContext): Source[(Offset, PartyLedgerEntry), NotUsed] =
+  )(implicit loggingContext: LoggingContext): Source[(Offset, PartyLedgerEntry), NotUsed] = {
+    logger.info("MeteredLedgerDao.getPartyEntries")
     ledgerDao.getPartyEntries(startExclusive, endInclusive)
+  }
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext

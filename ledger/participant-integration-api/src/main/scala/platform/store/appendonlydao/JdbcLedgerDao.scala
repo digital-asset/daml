@@ -86,6 +86,10 @@ private class JdbcLedgerDao(
       .executeSql(metrics.daml.index.db.getLedgerEnd)(
         storageBackend.ledgerEndOrBeforeBegin(_).lastOffset
       )
+      .map { e =>
+        logger.info(s"Looked up ledger end $e")
+        e
+      }(servicesExecutionContext)
 
   case class InvalidLedgerEnd(msg: String) extends RuntimeException(msg)
 
@@ -255,8 +259,9 @@ private class JdbcLedgerDao(
       startExclusive: Offset,
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PartyLedgerEntry), NotUsed] = {
+    logger.info(s"JdbcLedgerDao.before getPartyEntries $startExclusive $endInclusive")
     PaginatingAsyncStream(PageSize) { queryOffset =>
-      logger.info(s"getPartyEntries $startExclusive $endInclusive")
+      logger.info(s"JdbcLedgerDao.getPartyEntries $startExclusive $endInclusive")
       withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPartyEntries)(
           storageBackend.partyEntries(

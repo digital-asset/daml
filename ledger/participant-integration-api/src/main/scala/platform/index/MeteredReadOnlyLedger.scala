@@ -24,7 +24,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.ReadOnlyLedger
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
@@ -33,6 +33,7 @@ import scala.concurrent.Future
 
 private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: Metrics)
     extends ReadOnlyLedger {
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def ledgerId: LedgerId = ledger.ledgerId
 
@@ -125,8 +126,10 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
 
   override def partyEntries(startExclusive: Offset)(implicit
       loggingContext: LoggingContext
-  ): Source[(Offset, PartyLedgerEntry), NotUsed] =
+  ): Source[(Offset, PartyLedgerEntry), NotUsed] = {
+    logger.info("MeteredReadOnlyLedger.partyEntries")
     ledger.partyEntries(startExclusive)
+  }
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext

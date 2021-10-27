@@ -33,12 +33,13 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.telemetry.{Event, Spans}
 
 import scala.concurrent.Future
 
 private[daml] final class SpannedIndexService(delegate: IndexService) extends IndexService {
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
@@ -166,8 +167,10 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
 
   override def partyEntries(
       startExclusive: Option[LedgerOffset.Absolute]
-  )(implicit loggingContext: LoggingContext): Source[domain.PartyEntry, NotUsed] =
+  )(implicit loggingContext: LoggingContext): Source[domain.PartyEntry, NotUsed] = {
+    logger.info("SpannedIndexService.partyEntries")
     delegate.partyEntries(startExclusive)
+  }
 
   override def lookupConfiguration()(implicit
       loggingContext: LoggingContext

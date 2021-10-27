@@ -16,8 +16,10 @@ import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectTy
 import com.daml.platform.store.backend.PartyStorageBackend
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.entries.PartyLedgerEntry
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 trait PartyStorageBackendTemplate extends PartyStorageBackend {
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   def queryStrategy: QueryStrategy
 
@@ -82,7 +84,10 @@ trait PartyStorageBackendTemplate extends PartyStorageBackend {
       endInclusive: Offset,
       pageSize: Int,
       queryOffset: Long,
-  )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] = {
+  )(
+      connection: Connection
+  )(implicit loggingContext: LoggingContext): Vector[(Offset, PartyLedgerEntry)] = {
+    logger.info("PartyStorageBackendTemplate.partyEntries")
     import com.daml.platform.store.Conversions.OffsetToStatement
     SQL_GET_PARTY_ENTRIES
       .on(

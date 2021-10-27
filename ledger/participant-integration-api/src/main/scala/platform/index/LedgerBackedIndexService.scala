@@ -248,6 +248,7 @@ private[platform] final class LedgerBackedIndexService(
   override def partyEntries(
       startExclusive: Option[LedgerOffset.Absolute]
   )(implicit loggingContext: LoggingContext): Source[PartyEntry, NotUsed] = {
+    logger.info("LedgerBackedIndexService")
     Source
       .future(concreteOffset(startExclusive))
       .flatMapConcat(ledger.partyEntries)

@@ -213,8 +213,10 @@ private[apiserver] object ApiPartyManagementService {
       writeService.allocateParty(party, displayName, submissionId).toScala
     }
 
-    override def entries(offset: Option[LedgerOffset.Absolute]): Source[PartyEntry, _] =
+    override def entries(offset: Option[LedgerOffset.Absolute]): Source[PartyEntry, _] = {
+      logger.info("Strategy.entries")
       partyManagementService.partyEntries(offset)
+    }
 
     override def accept(
         submissionId: Ref.SubmissionId

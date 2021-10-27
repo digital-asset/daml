@@ -61,7 +61,8 @@ final class DispatcherImpl[Index: Ordering](
       startExclusive: Index,
       subsource: SubSource[Index, T],
       endInclusive: Option[Index] = None,
-  ): Source[(Index, T), NotUsed] =
+  ): Source[(Index, T), NotUsed] = {
+    logger.info(s"Dispatcher.startingAt $endInclusive")
     if (indexIsBeforeZero(startExclusive))
       Source.failed(
         new IllegalArgumentException(
@@ -75,11 +76,13 @@ final class DispatcherImpl[Index: Ordering](
         )
       )
     else {
+      logger.info("acquiring subscription")
       val subscription = state.get.getSignalDispatcher.fold(Source.failed[Index](closedError))(
         _.subscribe(signalOnSubscribe = true)
         // This needs to call getHead directly, otherwise this subscription might miss a Signal being emitted
           .map(_ => getHead())
       )
+      logger.info("acquiring optional end")
 
       val withOptionalEnd =
         endInclusive.fold(subscription)(maxLedgerEnd =>
@@ -95,12 +98,16 @@ final class DispatcherImpl[Index: Ordering](
             .map(Ordering[Index].min(_, maxLedgerEnd))
         )
 
+      logger.info("final result")
+
       withOptionalEnd
         .statefulMapConcat(() => new ContinuousRangeEmitter(startExclusive))
         .flatMapConcat { case (previousHead, head) =>
+          logger.info(s"starting subsource $subsource")
           subsource(previousHead, head)
         }
     }
+  }
 
   private class ContinuousRangeEmitter(
       private var max: Index
@@ -110,12 +117,14 @@ final class DispatcherImpl[Index: Ordering](
     /** @return if param  > [[max]] : a list with a single pair representing a ([max, param[) range, and also stores param in [[max]].
       *         Nil otherwise.
       */
-    override def apply(newHead: Index): immutable.Iterable[(Index, Index)] =
+    override def apply(newHead: Index): immutable.Iterable[(Index, Index)] = {
+      logger.info(s"ContinuousRangeEmitter: newHead $newHead, max $max")
       if (Ordering[Index].gt(newHead, max)) {
         val intervalBegin = max
         max = newHead
         List(intervalBegin -> newHead)
       } else Nil
+    }
   }
 
   private def indexIsBeforeZero(checkedIndex: Index): Boolean =

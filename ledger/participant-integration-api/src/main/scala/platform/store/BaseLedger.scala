@@ -28,7 +28,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.PruneBuffers
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
@@ -47,6 +47,7 @@ private[platform] abstract class BaseLedger(
     pruneBuffers: PruneBuffers,
     dispatcher: Dispatcher[Offset],
 ) extends ReadOnlyLedger {
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   implicit private val DEC: ExecutionContext = DirectExecutionContext
 
@@ -146,8 +147,10 @@ private[platform] abstract class BaseLedger(
 
   override def partyEntries(startExclusive: Offset)(implicit
       loggingContext: LoggingContext
-  ): Source[(Offset, PartyLedgerEntry), NotUsed] =
+  ): Source[(Offset, PartyLedgerEntry), NotUsed] = {
+    logger.info("BaseLedger.partyEntries")
     dispatcher.startingAt(startExclusive, RangeSource(ledgerDao.getPartyEntries))
+  }
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext

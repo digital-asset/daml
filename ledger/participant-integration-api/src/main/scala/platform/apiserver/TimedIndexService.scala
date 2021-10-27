@@ -33,13 +33,14 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 
 import scala.concurrent.Future
 
 private[daml] final class TimedIndexService(delegate: IndexService, metrics: Metrics)
     extends IndexService {
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def listLfPackages()(implicit
       loggingContext: LoggingContext
@@ -184,8 +185,10 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
 
   override def partyEntries(
       startExclusive: Option[LedgerOffset.Absolute]
-  )(implicit loggingContext: LoggingContext): Source[domain.PartyEntry, NotUsed] =
+  )(implicit loggingContext: LoggingContext): Source[domain.PartyEntry, NotUsed] = {
+    logger.info("TimedIndexService.partyEntries")
     Timed.source(metrics.daml.services.index.partyEntries, delegate.partyEntries(startExclusive))
+  }
 
   override def lookupConfiguration()(implicit
       loggingContext: LoggingContext

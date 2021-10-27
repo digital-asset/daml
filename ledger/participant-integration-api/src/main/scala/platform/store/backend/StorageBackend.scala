@@ -172,7 +172,9 @@ trait PartyStorageBackend {
       endInclusive: Offset,
       pageSize: Int,
       queryOffset: Long,
-  )(connection: Connection): Vector[(Offset, PartyLedgerEntry)]
+  )(connection: Connection)(implicit
+      loggingContext: LoggingContext
+  ): Vector[(Offset, PartyLedgerEntry)]
   def parties(parties: Seq[Ref.Party])(connection: Connection): List[PartyDetails]
   def knownParties(connection: Connection): List[PartyDetails]
 }
