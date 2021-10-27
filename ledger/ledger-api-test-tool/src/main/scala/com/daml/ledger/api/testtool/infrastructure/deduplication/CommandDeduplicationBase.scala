@@ -220,7 +220,10 @@ private[testtool] abstract class CommandDeduplicationBase(
                     )
                   val submitRequest = ledger
                     .submitRequest(party, Dummy(party).create.command)
-                    .update(_.commands.commandId := submitAndWaitRequest.getCommands.commandId)
+                    .update(
+                      _.commands.commandId := submitAndWaitRequest.getCommands.commandId,
+                      _.commands.deduplicationTime := deduplicationDuration.asProtobuf,
+                    )
 
                   def submitAndAssertAccepted(submitAndWait: Boolean) = {
                     if (submitAndWait) ledger.submitAndWait(submitAndWaitRequest)
