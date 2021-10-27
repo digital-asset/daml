@@ -16,6 +16,7 @@ module DA.Internal.Desugar (
     Party, ContractId, Update, Any,
     NonConsuming(..), PreConsuming(..), PostConsuming(..), Consuming(..),
     Implements(..),
+    TypeRep,
 ) where
 
 import DA.Internal.Prelude

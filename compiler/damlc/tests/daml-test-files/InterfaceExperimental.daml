@@ -69,6 +69,30 @@ template NotAsset
   where
     signatory p
 
+    implements Token where
+      let getAmount = error "getAmount"
+
+      choice Split : (ContractId Token, ContractId Token)
+        with
+          splitAmount : Int
+        controller p
+        do
+          error "Split"
+
+      choice Transfer : ContractId Token
+        with
+          newOwner : Party
+        controller p
+        do
+          error "Transfer"
+
+      nonconsuming choice Noop : ()
+        with
+          nothing : ()
+        controller p
+        do
+          error "Noop"
+
 main = scenario do
     alice <- getParty "Alice"
     bob <- getParty "Bob"
@@ -79,6 +103,6 @@ main = scenario do
       interfaceCreate token
       interfaceSignatory token === [alice]
       interfaceObserver token === [bob, alice]
-      unless (toTypeRep token == toTypeRep asset) $ abort "TypeReps are not equal"
-      unless (toTypeRep token /= toTypeRep notAsset) $ abort "TypeReps are equal"
+      unless (tokenTypeRep token == tokenTypeRep asset) $ abort "TypeReps are not equal"
+      unless (tokenTypeRep token /= tokenTypeRep notAsset) $ abort "TypeReps are equal"
       pure ()
