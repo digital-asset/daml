@@ -17,6 +17,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.services.domain.TransactionService
+import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -25,6 +26,7 @@ final class GrpcTransactionService(
     protected val service: TransactionService,
     val ledgerId: LedgerId,
     partyNameChecker: PartyNameChecker,
+    errorFactories: ErrorFactories,
 )(implicit
     protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
@@ -38,7 +40,7 @@ final class GrpcTransactionService(
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val validator =
-    new TransactionServiceRequestValidator(ledgerId, partyNameChecker)
+    new TransactionServiceRequestValidator(ledgerId, partyNameChecker, errorFactories)
 
   override protected def getTransactionsSource(
       request: GetTransactionsRequest

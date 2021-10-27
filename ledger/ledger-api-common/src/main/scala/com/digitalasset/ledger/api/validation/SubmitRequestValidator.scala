@@ -4,16 +4,18 @@
 package com.daml.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
+import com.daml.ledger.api.messages.command.submission
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.platform.server.api.validation.FieldValidations
+import io.grpc.StatusRuntimeException
 
 import java.time.{Duration, Instant}
 
-import com.daml.ledger.api.messages.command.submission
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.platform.server.api.validation.FieldValidations.requirePresence
-import io.grpc.StatusRuntimeException
-
-class SubmitRequestValidator(commandsValidator: CommandsValidator) {
-
+class SubmitRequestValidator(
+    commandsValidator: CommandsValidator,
+    fieldValidations: FieldValidations,
+) {
+  import fieldValidations.requirePresence
   def validate(
       req: SubmitRequest,
       currentLedgerTime: Instant,

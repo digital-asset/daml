@@ -115,7 +115,7 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
   )
 
   final case class SearchForeverRequest(
-      queries: NonEmptyList[SearchForeverQuery]
+      queriesWithPos: NonEmptyList[(SearchForeverQuery, Int)]
   )
 
   final case class PartyDetails(identifier: Party, displayName: Option[String], isLocal: Boolean)

@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.validation
 
-import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.lf.data.Ref
 import com.daml.ledger.api.domain.{ApplicationId, LedgerId, LedgerOffset}
 import com.daml.ledger.api.messages.command.completion
@@ -12,13 +12,23 @@ import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
   CompletionStreamRequest => GrpcCompletionStreamRequest,
 }
-import com.daml.platform.server.api.validation.FieldValidations._
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import io.grpc.StatusRuntimeException
-import com.daml.platform.server.api.validation.ErrorFactories._
 
-class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: PartyNameChecker) {
+class CompletionServiceRequestValidator(
+    ledgerId: LedgerId,
+    partyNameChecker: PartyNameChecker,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+) {
 
-  private val partyValidator = new PartyValidator(partyNameChecker)
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+  private val fieldValidations = FieldValidations(errorFactories)
+  private val partyValidator =
+    new PartyValidator(partyNameChecker, errorFactories, fieldValidations)
+  private val ledgerOffsetValidator = new LedgerOffsetValidator(errorFactories)
+
+  import errorFactories._
+  import fieldValidations._
 
   def validateCompletionStreamRequest(
       request: GrpcCompletionStreamRequest,
@@ -28,15 +38,18 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
   ): Either[StatusRuntimeException, CompletionStreamRequest] =
     for {
       _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
-      nonEmptyAppId <- requireNonEmptyString(request.applicationId, "application_id")
+      nonEmptyAppId <- requireNonEmptyString(
+        request.applicationId,
+        "application_id",
+      )
       appId <- Ref.LedgerString
         .fromString(nonEmptyAppId)
         .left
         .map(invalidField("application_id", _, None))
       nonEmptyParties <- requireNonEmpty(request.parties, "parties")
       knownParties <- partyValidator.requireKnownParties(nonEmptyParties)
-      convertedOffset <- LedgerOffsetValidator.validateOptional(request.offset, "offset")
-      _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+      convertedOffset <- ledgerOffsetValidator.validateOptional(request.offset, "offset")
+      _ <- ledgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "Begin",
         convertedOffset,
         ledgerEnd,

@@ -288,9 +288,10 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
 
   implicit val SearchForeverRequestFormat: RootJsonReader[domain.SearchForeverRequest] = {
     case multi @ JsArray(_) =>
-      domain.SearchForeverRequest(multi.convertTo[NonEmptyList[domain.SearchForeverQuery]])
+      val queriesWithPos = multi.convertTo[NonEmptyList[domain.SearchForeverQuery]].zipWithIndex
+      domain.SearchForeverRequest(queriesWithPos)
     case single =>
-      domain.SearchForeverRequest(NonEmptyList(single.convertTo[domain.SearchForeverQuery]))
+      domain.SearchForeverRequest(NonEmptyList((single.convertTo[domain.SearchForeverQuery], 0)))
   }
 
   implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat1(

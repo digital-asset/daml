@@ -152,10 +152,8 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           Assertions(update =>
             inside(update) { case Some(CommandRejected(_, _, FinalReason(status))) =>
               status.code shouldBe Code.ALREADY_EXISTS.value
-              status.details shouldBe Seq(
-                AnyProto.pack[ErrorInfo](
-                  ErrorInfo(metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "false"))
-                )
+              unpackErrorInfo(status.details) should contain allElementsOf Map(
+                GrpcStatuses.DefiniteAnswerKey -> "false"
               )
               ()
             }
@@ -203,10 +201,8 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
         val actual = outOfTimeBoundsEntryToUpdate(aRecordTime, inputEntry, errorSwitch)
         inside(actual) { case Some(CommandRejected(_, _, FinalReason(status))) =>
           status.code shouldBe Code.ALREADY_EXISTS.value
-          status.details shouldBe Seq(
-            AnyProto.pack[ErrorInfo](
-              ErrorInfo(metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "true"))
-            )
+          unpackErrorInfo(status.details) should contain allElementsOf Map(
+            GrpcStatuses.DefiniteAnswerKey -> "true"
           )
         }
       }
@@ -221,10 +217,8 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
             someSubmitterInfo,
           )
           completionInfo.submissionId shouldBe Some(someSubmitterInfo.getSubmissionId)
-          status.details shouldBe Seq(
-            AnyProto.pack[ErrorInfo](
-              ErrorInfo(metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "false"))
-            )
+          unpackErrorInfo(status.details) should contain allElementsOf Map(
+            GrpcStatuses.DefiniteAnswerKey -> "false"
           )
           ()
         case _ => fail()
@@ -569,6 +563,14 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
     }
     builder.build
   }
+
+  private def unpackErrorInfo(details: Seq[AnyProto]): Seq[(String, String)] =
+    details.flatMap { anyProto =>
+      if (anyProto.is[ErrorInfo])
+        anyProto.unpack[ErrorInfo].metadata
+      else
+        Map.empty[String, String]
+    }
 
   private lazy val v1ErrorSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes = false) {
     override def toString: String = "1"

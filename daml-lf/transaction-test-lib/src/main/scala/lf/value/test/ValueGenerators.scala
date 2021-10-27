@@ -267,12 +267,12 @@ object ValueGenerators {
 
   val genNonEmptyParties: Gen[Set[Party]] = ^(party, genMaybeEmptyParties)((hd, tl) => tl + hd)
 
-  val contractInstanceGen: Gen[ContractInst[Value]] = {
+  val contractInstanceGen: Gen[ContractInstance] = {
     for {
       template <- idGen
       arg <- valueGen
       agreement <- Arbitrary.arbitrary[String]
-    } yield ContractInst(template, arg, agreement)
+    } yield ContractInstance(template, arg, agreement)
   }
 
   val versionedContractInstanceGen: Gen[Value.VersionedContractInstance] =

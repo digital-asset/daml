@@ -12,7 +12,7 @@ import com.daml.error.{
 }
 import com.daml.error.definitions.{ErrorCauseExport, RejectionGenerators}
 import com.daml.ledger.api.DeduplicationPeriod
-import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
+import com.daml.ledger.api.domain.{LedgerId, SubmissionId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2._
@@ -83,6 +83,7 @@ private[apiserver] object ApiSubmissionService {
       maxDeduplicationTime = () =>
         ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
       metrics = metrics,
+      errorCodesVersionSwitcher = errorCodesVersionSwitcher,
     )
 
   final case class Configuration(
@@ -117,6 +118,14 @@ private[apiserver] final class ApiSubmissionService private[services] (
     withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
       logger.info("Submitting transaction")
       logger.trace(s"Commands: ${request.commands.commands.commands}")
+
+      implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+        new DamlContextualizedErrorLogger(
+          logger,
+          loggingContext,
+          request.commands.submissionId.map(SubmissionId.unwrap),
+        )
+
       val evaluatedCommand = ledgerConfigurationSubscription
         .latestConfiguration() match {
         case Some(ledgerConfiguration) =>
@@ -132,9 +141,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
           }
         case None =>
           Future.failed(
-            errorFactories.missingLedgerConfig(definiteAnswer = Some(false))(
-              new DamlContextualizedErrorLogger(logger, loggingContext, None)
-            )
+            errorFactories.missingLedgerConfig(definiteAnswer = Some(false))
           )
       }
       evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])
@@ -144,7 +151,11 @@ private[apiserver] final class ApiSubmissionService private[services] (
       seed: crypto.Hash,
       commands: ApiCommands,
       ledgerConfig: Configuration,
-  )(implicit loggingContext: LoggingContext, telemetryContext: TelemetryContext): Future[Unit] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+      contextualizedErrorLogger: ContextualizedErrorLogger,
+  ): Future[Unit] =
     submissionService
       .deduplicateCommand(
         commands.commandId,
@@ -167,9 +178,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
         case _: CommandDeduplicationDuplicate =>
           metrics.daml.commands.deduplicatedCommands.mark()
           Future.failed(
-            errorFactories.duplicateCommandException(
-              new DamlContextualizedErrorLogger(logger, loggingContext, None)
-            )
+            errorFactories.duplicateCommandException
           )
       }
 
@@ -194,7 +203,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
 
   private def handleCommandExecutionResult(
       result: Either[ErrorCause, CommandExecutionResult]
-  ): Future[CommandExecutionResult] =
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Future[CommandExecutionResult] =
     result.fold(
       error => {
         metrics.daml.commands.failedCommandInterpretations.mark()
@@ -210,6 +219,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
   )(implicit
       loggingContext: LoggingContext,
       telemetryContext: TelemetryContext,
+      contextualizedErrorLogger: ContextualizedErrorLogger,
   ): Future[state.SubmissionResult] =
     for {
       result <- commandExecutor.execute(commands, submissionSeed, ledgerConfig)
@@ -325,16 +335,12 @@ private[apiserver] final class ApiSubmissionService private[services] (
 
   private def failedOnCommandExecution(
       error: ErrorCause
-  )(implicit loggingContext: LoggingContext): Future[CommandExecutionResult] = {
-    implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
-
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Future[CommandExecutionResult] =
     errorCodesVersionSwitcher.chooseAsFailedFuture(
       v1 = toStatusExceptionV1(error),
       v2 = RejectionGenerators
         .commandExecutorError(cause = ErrorCauseExport.fromErrorCause(error)),
     )
-  }
 
   override def close(): Unit = ()
 

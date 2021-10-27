@@ -86,8 +86,8 @@ object Node {
 
     def versionedArg: VersionedValue = versionValue(arg)
 
-    def coinst: Value.ContractInst[Value] =
-      Value.ContractInst(templateId, arg, agreementText)
+    def coinst: Value.ContractInstance =
+      Value.ContractInstance(templateId, arg, agreementText)
 
     def versionedCoinst: Value.VersionedContractInstance =
       Value.VersionedContractInstance(version, templateId, arg, agreementText)

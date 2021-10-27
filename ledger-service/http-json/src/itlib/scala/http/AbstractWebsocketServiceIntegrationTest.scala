@@ -268,6 +268,81 @@ abstract class AbstractWebsocketServiceIntegrationTest
     ).toJson
   }
 
+  "matchedQueries should be correct for multiqueries with per-query offsets" in withHttpService {
+    (uri, _, _, _) =>
+      import spray.json._
+
+      val (party, headers) = getUniquePartyAndAuthHeaders("Alice")
+      val initialCreate = initialIouCreate(uri, party, headers)
+
+      //initial query without offset
+      val query =
+        """[
+          {"templateIds": ["Iou:Iou"], "query": {"currency": "USD"}}
+        ]"""
+
+      @nowarn("msg=pattern var evtsWrapper .* is never used")
+      def resp(
+          iouCid: domain.ContractId,
+          kill: UniqueKillSwitch,
+      ): Sink[JsValue, Future[domain.Offset]] = {
+        val dslSyntax = Consume.syntax[JsValue]
+        import dslSyntax._
+        Consume
+          .interpret(
+            for {
+              evtsWrapper @ ContractDelta(Vector((ctid, _)), Vector(), None) <- readOne
+              _ = {
+                (ctid: String) shouldBe (iouCid.unwrap: String)
+                inside(evtsWrapper) { case JsObject(obj) =>
+                  inside(obj get "events") {
+                    case Some(
+                          JsArray(
+                            Vector(
+                              Created(IouAmount(amt), MatchedQueries(NumList(ix), _))
+                            )
+                          )
+                        ) =>
+                      //matchedQuery should be 0 for the initial query supplied
+                      Set((amt, ix)) should ===(Set((BigDecimal("999.99"), Vector(BigDecimal(0)))))
+                  }
+                }
+              }
+              ContractDelta(Vector(), _, Some(offset)) <- readOne
+
+              _ = kill.shutdown()
+              _ <- drain
+
+            } yield offset
+          )
+      }
+
+      for {
+        creation <- initialCreate
+        _ = creation._1 shouldBe a[StatusCodes.Success]
+        iouCid = getContractId(getResult(creation._2))
+        jwt = jwtForParties(List(party.unwrap), List(), testId)
+        (kill, source) = singleClientQueryStream(jwt, uri, query)
+          .viaMat(KillSwitches.single)(Keep.right)
+          .preMaterialize()
+        lastSeen <- source via parseResp runWith resp(iouCid, kill)
+
+        //construct a new multiquery with one of them having an offset while the other doesn't
+        multiquery = s"""[
+          {"templateIds": ["Iou:Iou"], "query": {"currency": "USD"}, "offset": "${lastSeen.unwrap}"},
+          {"templateIds": ["Iou:Iou"]}
+        ]"""
+
+        clientMsg <- singleClientQueryStream(jwt, uri, multiquery)
+          .take(1)
+          .runWith(collectResultsAsTextMessageSkipOffsetTicks)
+      } yield inside(clientMsg) { case Vector(result) =>
+        //we should expect to have matchedQueries [1] to indicate a match for the new template query only.
+        result should include(s"""$iouCid""")
+        result should include(""""matchedQueries":[1]""")
+      }
+  }
+
   "query should receive deltas as contracts are archived/created" in withHttpService {
     (uri, _, _, _) =>
       import spray.json._

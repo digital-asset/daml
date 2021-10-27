@@ -284,13 +284,9 @@ private[lf] object Pretty {
   def prettyEventId(n: EventId): Doc =
     text(n.toLedgerString)
 
-  def prettyContractInst(coinst: ContractInst[Value]): Doc =
+  def prettyContractInst(coinst: ContractInstance): Doc =
     (prettyIdentifier(coinst.template) / text("with:") &
       prettyValue(false)(coinst.arg)).nested(4)
-
-  def prettyVersionedContractInst(coinst: ContractInst[Tx.Value]): Doc =
-    (prettyIdentifier(coinst.template) / text("with:") &
-      prettyValue(false)(coinst.arg.value)).nested(4)
 
   def prettyTypeConName(tycon: TypeConName): Doc =
     text(tycon.qualifiedName.toString) + char('@') + prettyPackageId(tycon.packageId)

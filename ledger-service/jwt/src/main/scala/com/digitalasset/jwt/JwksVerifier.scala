@@ -16,7 +16,7 @@ import scalaz.syntax.show._
 /** A JWK verifier, where the public keys are automatically fetched from the given JWKS URL.
   *
   * In JWKS, each key ID uniquely identifies a public key.
-  * The keys are kept in cache, in order to prevent having to do a remove network access for each token validation.
+  * The keys are kept in cache, in order to prevent having to do a remote network access for each token validation.
   *
   * The cache is limited both in size and time.
   * A size limit protects against infinitely growing memory consumption.

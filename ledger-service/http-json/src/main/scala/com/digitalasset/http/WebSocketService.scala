@@ -269,7 +269,7 @@ object WebSocketService {
         import util.Collections._
 
         val indexedOffsets: Vector[Option[domain.Offset]] =
-          request.queries.map(_.offset).toVector
+          request.queriesWithPos.map { case (q, _) => q.offset }.toVector
 
         def matchesOffset(queryIndex: Int, maybeEventOffset: Option[domain.Offset]): Boolean = {
           import domain.Offset.`Offset ordering`
@@ -283,23 +283,23 @@ object WebSocketService {
         }
 
         def fn(
-            q: Map[RequiredPkg, NonEmptyList[((ValuePredicate, LfV => Boolean), Int)]]
+            q: Map[RequiredPkg, NonEmptyList[((ValuePredicate, LfV => Boolean), (Int, Int))]]
         )(a: domain.ActiveContract[LfV], o: Option[domain.Offset]): Option[Positive] = {
           q.get(a.templateId).flatMap { preds =>
-            preds.collect(Function unlift { case ((_, p), ix) =>
+            preds.collect(Function unlift { case ((_, p), (ix, pos)) =>
               val matchesPredicate = p(a.payload)
-              (matchesPredicate && matchesOffset(ix, o)).option(ix)
+              (matchesPredicate && matchesOffset(ix, o)).option(pos)
             })
           }
         }
 
         def dbQueriesPlan(
-            q: Map[RequiredPkg, NonEmptyList[((ValuePredicate, LfV => Boolean), Int)]]
+            q: Map[RequiredPkg, NonEmptyList[((ValuePredicate, LfV => Boolean), (Int, Int))]]
         )(implicit
             sjd: dbbackend.SupportedJdbcDriver.TC
         ): (Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)], Map[Int, Int]) = {
           val annotated = q.toSeq.flatMap { case (tpid, nel) =>
-            nel.toVector.map { case ((vp, _), pos) => (tpid, vp.toSqlWhereClause, pos) }
+            nel.toVector.map { case ((vp, _), (_, pos)) => (tpid, vp.toSqlWhereClause, pos) }
           }
           val posMap = annotated.iterator.zipWithIndex.map { case ((_, _, pos), ix) =>
             (ix, pos)
@@ -307,7 +307,7 @@ object WebSocketService {
           (annotated map { case (tpid, sql, _) => (tpid, sql) }, posMap)
         }
 
-        val query = (gacr: domain.SearchForeverQuery, ix: Int) =>
+        val query = (gacr: domain.SearchForeverQuery, pos: Int, ix: Int) =>
           for {
             res <-
               gacr.templateIds.toList
@@ -322,10 +322,11 @@ object WebSocketService {
                 )
             (resolved, unresolved) = res
             q = prepareFilters(resolved, gacr.query, lookupType): CompiledQueries
-          } yield (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
+          } yield (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, (ix, pos)))))
         for {
           res <-
-            request.queries.zipWithIndex
+            request.queriesWithPos.zipWithIndex //index is used to ensure matchesOffset works properly
+              .map { case ((q, pos), ix) => (q, pos, ix) }
               .foldMapM(query.tupled)
           (resolved, unresolved, q) = res
         } yield StreamPredicate(
@@ -363,8 +364,8 @@ object WebSocketService {
           request: SearchForeverRequest,
       ): Option[SearchForeverRequest] = {
         import scalaz.std.list
-        val withoutOffset = request.queries.toList.filter(_.offset.isEmpty)
-        list.toNel(withoutOffset).map(SearchForeverRequest(_))
+        val withoutOffset = request.queriesWithPos.toList.filter { case (q, _) => q.offset.isEmpty }
+        list.toNel(withoutOffset).map(SearchForeverRequest)
       }
 
       override def adjustRequest(
@@ -373,9 +374,9 @@ object WebSocketService {
       ): SearchForeverRequest =
         prefix.fold(request)(prefix =>
           request.copy(
-            queries = request.queries.map(query =>
-              query.copy(offset = query.offset.orElse(Some(prefix.offset)))
-            )
+            queriesWithPos = request.queriesWithPos.map {
+              _ leftMap (q => q.copy(offset = q.offset.orElse(Some(prefix.offset))))
+            }
           )
         )
 
@@ -388,8 +389,8 @@ object WebSocketService {
           prefix: Option[domain.StartingOffset],
           request: SearchForeverRequest,
       ): Option[domain.StartingOffset] =
-        request.queries
-          .map(_.offset)
+        request.queriesWithPos
+          .map { case (q, _) => q.offset }
           .minimumBy1(identity)
           .map(domain.StartingOffset(_))
 

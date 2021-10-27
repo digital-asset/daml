@@ -75,7 +75,7 @@ class EngineTest
   val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
   val withKeyContractInst: VersionedContractInstance =
     assertAsVersionedContract(
-      ContractInst(
+      ContractInstance(
         TypeConName(basicTestsPkgId, withKeyTemplate),
         ValueRecord(
           Some(BasicTests_WithKey),
@@ -92,7 +92,7 @@ class EngineTest
     Map(
       toContractId("BasicTests:Simple:1") ->
         assertAsVersionedContract(
-          ContractInst(
+          ContractInstance(
             TypeConName(basicTestsPkgId, "BasicTests:Simple"),
             ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
@@ -103,7 +103,7 @@ class EngineTest
         ),
       toContractId("BasicTests:CallablePayout:1") ->
         assertAsVersionedContract(
-          ContractInst(
+          ContractInstance(
             TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
             ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
@@ -1171,7 +1171,7 @@ class EngineTest
         targs: ImmArray[(Option[Name], Value)],
     ) =
       assertAsVersionedContract(
-        ContractInst(
+        ContractInstance(
           TypeConName(basicTestsPkgId, tid),
           ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs),
           "",
@@ -1289,7 +1289,7 @@ class EngineTest
 
     val fetchedContract =
       assertAsVersionedContract(
-        ContractInst(
+        ContractInstance(
           TypeConName(basicTestsPkgId, fetchedStrTid),
           ValueRecord(
             Some(Identifier(basicTestsPkgId, fetchedStrTid)),
@@ -1346,7 +1346,7 @@ class EngineTest
     val lookerUpCid = toContractId("2")
     val lookerUpInst =
       assertAsVersionedContract(
-        ContractInst(
+        ContractInstance(
           TypeConName(basicTestsPkgId, lookerUpTemplate),
           ValueRecord(Some(lookerUpTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
           "",
@@ -1594,7 +1594,7 @@ class EngineTest
       val fetcherTemplateId = Identifier(basicTestsPkgId, fetcherTemplate)
       val fetcherCid = toContractId("2")
       val fetcherInst = assertAsVersionedContract(
-        ContractInst(
+        ContractInstance(
           TypeConName(basicTestsPkgId, fetcherTemplate),
           ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
           "",
@@ -1671,7 +1671,7 @@ class EngineTest
     val cid = toContractId("BasicTests:WithKey:1")
     val fetcherCid = toContractId("42")
     val fetcherInst = assertAsVersionedContract(
-      ContractInst(
+      ContractInstance(
         fetcherId,
         ValueRecord(
           None,
@@ -1959,7 +1959,7 @@ class EngineTest
       val cid1 = toContractId("1")
       val cid2 = toContractId("2")
       val keyedInst = assertAsVersionedContract(
-        ContractInst(
+        ContractInstance(
           TypeConName(multiKeysPkgId, "MultiKeys:Keyed"),
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
           "",
@@ -2085,7 +2085,7 @@ class EngineTest
       val cid = toContractId("1")
       val contracts = Map(
         cid -> assertAsVersionedContract(
-          ContractInst(
+          ContractInstance(
             TypeConName(exceptionsPkgId, "Exceptions:K"),
             ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
             "",
@@ -2195,7 +2195,7 @@ class EngineTest
       val cid = toContractId("1")
       val contracts = Map(
         cid -> assertAsVersionedContract(
-          ContractInst(
+          ContractInstance(
             TypeConName(exceptionsPkgId, "Exceptions:K"),
             ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
             "",
@@ -2272,7 +2272,7 @@ class EngineTest
       val cid = toContractId("1")
       val contracts = Map(
         cid -> assertAsVersionedContract(
-          ContractInst(
+          ContractInstance(
             TypeConName(exceptionsPkgId, "Exceptions:K"),
             ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
             "",

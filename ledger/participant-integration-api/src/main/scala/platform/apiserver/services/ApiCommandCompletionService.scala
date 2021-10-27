@@ -4,10 +4,10 @@
 package com.daml.platform.apiserver.services
 
 import java.util.concurrent.atomic.AtomicLong
-
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, LedgerOffset}
@@ -71,8 +71,12 @@ private[apiserver] final class ApiCommandCompletionService private (
 
 private[apiserver] object ApiCommandCompletionService {
 
-  def create(ledgerId: LedgerId, completionsService: IndexCompletionsService, metrics: Metrics)(
-      implicit
+  def create(
+      ledgerId: LedgerId,
+      completionsService: IndexCompletionsService,
+      metrics: Metrics,
+      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+  )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
       executionContext: ExecutionContext,
@@ -81,8 +85,12 @@ private[apiserver] object ApiCommandCompletionService {
     val impl: CommandCompletionService =
       new ApiCommandCompletionService(completionsService, metrics)
 
-    new GrpcCommandCompletionService(ledgerId, impl, PartyNameChecker.AllowAllParties)
-      with GrpcApiService {
+    new GrpcCommandCompletionService(
+      ledgerId,
+      impl,
+      PartyNameChecker.AllowAllParties,
+      errorCodesVersionSwitcher,
+    ) with GrpcApiService {
       override def bindService(): ServerServiceDefinition =
         CommandCompletionServiceGrpc.bindService(this, executionContext)
     }

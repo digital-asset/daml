@@ -13,7 +13,6 @@ import com.daml.ledger.api.v1.ledger_configuration_service.{
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.validation.FieldValidations.matchLedgerId
 import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
@@ -23,6 +22,7 @@ import scala.concurrent.ExecutionContext
 class LedgerConfigurationServiceValidation(
     protected val service: LedgerConfigurationService with GrpcApiService,
     protected val ledgerId: LedgerId,
+    fieldValidations: FieldValidations,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends LedgerConfigurationService
     with ProxyCloseable
@@ -36,10 +36,12 @@ class LedgerConfigurationServiceValidation(
       request: GetLedgerConfigurationRequest,
       responseObserver: StreamObserver[GetLedgerConfigurationResponse],
   ): Unit =
-    matchLedgerId(ledgerId)(LedgerId(request.ledgerId)).fold(
-      t => responseObserver.onError(ValidationLogger.logFailure(request, t)),
-      _ => service.getLedgerConfiguration(request, responseObserver),
-    )
+    fieldValidations
+      .matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+      .fold(
+        t => responseObserver.onError(ValidationLogger.logFailure(request, t)),
+        _ => service.getLedgerConfiguration(request, responseObserver),
+      )
 
   override def bindService(): ServerServiceDefinition =
     LedgerConfigurationServiceGrpc.bindService(this, executionContext)

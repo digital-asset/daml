@@ -9,7 +9,6 @@ import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.validation.FieldValidations.matchLedgerId
 import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import io.grpc.ServerServiceDefinition
 
@@ -19,6 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class PackageServiceValidation(
     protected val service: PackageService with AutoCloseable,
     val ledgerId: LedgerId,
+    fieldValidations: FieldValidations,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends PackageService
     with ProxyCloseable
@@ -29,7 +29,8 @@ class PackageServiceValidation(
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] =
-    matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+    fieldValidations
+      .matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .map(const(request))
       .fold(
         t => Future.failed(ValidationLogger.logFailure(request, t)),
@@ -37,7 +38,8 @@ class PackageServiceValidation(
       )
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
-    matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+    fieldValidations
+      .matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .map(const(request))
       .fold(
         t => Future.failed(ValidationLogger.logFailure(request, t)),
@@ -47,7 +49,8 @@ class PackageServiceValidation(
   override def getPackageStatus(
       request: GetPackageStatusRequest
   ): Future[GetPackageStatusResponse] =
-    matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+    fieldValidations
+      .matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .map(const(request))
       .fold(
         t => Future.failed(ValidationLogger.logFailure(request, t)),

@@ -59,6 +59,7 @@ private[apiserver] object ApiTransactionService {
       new ApiTransactionService(transactionsService, metrics, errorsVersionsSwitcher),
       ledgerId,
       PartyNameChecker.AllowAllParties,
+      ErrorFactories(errorsVersionsSwitcher),
     )
 }
 
@@ -71,6 +72,9 @@ private[apiserver] final class ApiTransactionService private (
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+
+  import errorFactories.transactionNotFound
+  import errorFactories.invalidArgumentWasNotFound
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
     transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
@@ -142,7 +146,7 @@ private[apiserver] final class ApiTransactionService private (
       }
       .getOrElse {
         Future.failed {
-          errorFactories.invalidArgumentWasNotFound(None)(s"invalid eventId: ${request.eventId}")
+          invalidArgumentWasNotFound(None)(s"invalid eventId: ${request.eventId}")
         }
       }
       .andThen(logger.logErrorsOnCall[GetTransactionResponse])
@@ -185,7 +189,7 @@ private[apiserver] final class ApiTransactionService private (
       }
       .getOrElse {
         val msg = s"eventId: ${request.eventId}"
-        Future.failed(errorFactories.invalidArgumentWasNotFound(None)(msg))
+        Future.failed(invalidArgumentWasNotFound(None)(msg))
       }
       .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
   }
@@ -214,7 +218,7 @@ private[apiserver] final class ApiTransactionService private (
     transactionsService
       .getTransactionTreeById(transactionId, requestingParties)
       .flatMap {
-        case None => Future.failed(errorFactories.transactionNotFound(transactionId.unwrap))
+        case None => Future.failed(transactionNotFound(transactionId.unwrap))
         case Some(transaction) => Future.successful(transaction)
       }
 
@@ -225,7 +229,7 @@ private[apiserver] final class ApiTransactionService private (
     transactionsService
       .getTransactionById(transactionId, requestingParties)
       .flatMap {
-        case None => Future.failed(errorFactories.transactionNotFound(transactionId.unwrap))
+        case None => Future.failed(transactionNotFound(transactionId.unwrap))
         case Some(transaction) => Future.successful(transaction)
       }
 

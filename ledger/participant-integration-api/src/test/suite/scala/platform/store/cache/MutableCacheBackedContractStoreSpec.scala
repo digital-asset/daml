@@ -16,7 +16,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.value.Value.{ContractInst, ValueRecord, ValueText}
+import com.daml.lf.value.Value.{ContractInstance, ValueRecord, ValueText}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.store.EventSequentialId
@@ -552,7 +552,7 @@ object MutableCacheBackedContractStoreSpec {
       Some(templateId),
       ImmArray.Empty,
     )
-    val contractInstance = ContractInst(
+    val contractInstance = ContractInstance(
       templateId,
       contractArgument,
       "some agreement",

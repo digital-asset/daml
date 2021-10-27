@@ -5,7 +5,7 @@ package com.daml.platform.server.api.services.grpc
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
@@ -40,6 +40,7 @@ class GrpcCommandCompletionService(
     ledgerId: LedgerId,
     service: CommandCompletionService,
     partyNameChecker: PartyNameChecker,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -47,7 +48,8 @@ class GrpcCommandCompletionService(
     loggingContext: LoggingContext,
 ) extends CommandCompletionServiceAkkaGrpc {
 
-  private val validator = new CompletionServiceRequestValidator(ledgerId, partyNameChecker)
+  private val validator =
+    new CompletionServiceRequestValidator(ledgerId, partyNameChecker, errorCodesVersionSwitcher)
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)

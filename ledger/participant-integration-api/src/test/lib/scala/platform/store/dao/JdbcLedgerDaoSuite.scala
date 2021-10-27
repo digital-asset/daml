@@ -22,7 +22,7 @@ import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText, VersionedContractInstance}
+import com.daml.lf.value.Value.{ContractId, ContractInstance, ValueText, VersionedContractInstance}
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.PersistenceResponse
@@ -149,7 +149,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   private[this] val txVersion = TransactionVersion.StableVersions.min
   private[this] def newBuilder() = new TransactionBuilder(_ => txVersion)
 
-  protected final val someContractInstance = ContractInst(
+  protected final val someContractInstance = ContractInstance(
     someTemplateId,
     someContractArgument,
     someAgreement,

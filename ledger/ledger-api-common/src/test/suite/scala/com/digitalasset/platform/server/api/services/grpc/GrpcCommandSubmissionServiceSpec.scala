@@ -5,6 +5,7 @@ package com.daml.platform.server.api.services.grpc
 
 import java.time.{Duration, Instant}
 import com.codahale.metrics.MetricRegistry
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.testing.utils.MockMessages._
@@ -30,6 +31,8 @@ class GrpcCommandSubmissionServiceSpec
 
   import GrpcCommandSubmissionServiceSpec._
 
+  private val errorCodesVersionSwitcher_mock = mock[ErrorCodesVersionSwitcher]
+
   "GrpcCommandSubmissionService" should {
     "propagate trace context" in {
       val mockCommandSubmissionService = mock[CommandSubmissionService with AutoCloseable]
@@ -42,6 +45,7 @@ class GrpcCommandSubmissionServiceSpec
         currentUtcTime = () => Instant.EPOCH,
         maxDeduplicationTime = () => Some(Duration.ZERO),
         metrics = new Metrics(new MetricRegistry),
+        errorCodesVersionSwitcher = errorCodesVersionSwitcher_mock,
       )
 
       val span = anEmptySpan()

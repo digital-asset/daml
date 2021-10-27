@@ -3,7 +3,10 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.error.ValueSwitch
+import java.io.StringWriter
+import java.time.{Duration, Instant}
+
+import com.daml.error.{ContextualizedErrorLogger, ValueSwitch}
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
@@ -49,10 +52,11 @@ import com.daml.lf.transaction._
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}
+
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.Empty
 import com.google.rpc.status.Status
 
-import java.time.{Duration, Instant}
 import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
@@ -470,7 +474,7 @@ private[state] object Conversions {
   def decodeTransactionRejectionEntry(
       entry: DamlTransactionRejectionEntry,
       errorVersionSwitch: ValueSwitch[Status],
-  ): FinalReason =
+  )(implicit loggingContext: ContextualizedErrorLogger): FinalReason =
     FinalReason(entry.getReasonCase match {
       case DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME =>
         val rejection = entry.getInvalidLedgerTime
@@ -480,15 +484,15 @@ private[state] object Conversions {
         disputedStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT =>
         val rejection = entry.getSubmitterCannotActViaParticipant
-        submitterCannotActViaParticipantStatus(entry, rejection)
+        submitterCannotActViaParticipantStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT =>
         val rejection = entry.getInconsistent
         inconsistentStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.RESOURCES_EXHAUSTED =>
         val rejection = entry.getResourcesExhausted
-        resourceExhaustedStatus(entry, rejection)
+        resourceExhaustedStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>
-        duplicateCommandStatus(entry)
+        duplicateCommandStatus(entry, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER =>
         val rejection = entry.getPartyNotKnownOnLedger
         partyNotKnownOnLedgerStatus(entry, rejection, errorVersionSwitch)
@@ -523,8 +527,15 @@ private[state] object Conversions {
         val rejection = entry.getInvalidParticipantState
         invalidParticipantStateStatus(entry, rejection, errorVersionSwitch)
       case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
-        reasonNotSetStatus(entry, errorVersionSwitch)
+        rejectionReasonNotSetStatus(entry, errorVersionSwitch)
     })
+
+  private[kvutils] def objectToJsonString(obj: Object): String = {
+    val stringWriter = new StringWriter
+    val objectMapper = new ObjectMapper
+    objectMapper.writeValue(stringWriter, obj)
+    stringWriter.toString
+  }
 
   private def encodeParties(parties: Set[Ref.Party]): List[String] =
     (parties.toList: List[String]).sorted

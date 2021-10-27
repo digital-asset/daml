@@ -81,7 +81,6 @@ private[apiserver] final class ApiCommandService private[services] (
   private def submitAndWaitInternal(request: SubmitAndWaitRequest)(implicit
       loggingContext: LoggingContext
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
-    val contextualizedErrorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
     val commands = request.getCommands
     withEnrichedLoggingContext(
       logging.submissionId(commands.submissionId),
@@ -95,10 +94,8 @@ private[apiserver] final class ApiCommandService private[services] (
           .map(deadline => Duration.ofNanos(deadline.timeRemaining(TimeUnit.NANOSECONDS)))
         submissionTracker.track(CommandSubmission(commands, timeout))
       } else {
-        Future.failed(
-          errorFactories.serviceNotRunning(definiteAnswer = Some(false))(contextualizedErrorLogger)
-        )
-      }.andThen(logger.logErrorsOnCall[Completion])
+        handleFailure(request, loggingContext)
+      }
     }
   }
 
@@ -159,6 +156,22 @@ private[apiserver] final class ApiCommandService private[services] (
         },
       )
     }
+
+  private def handleFailure(
+      request: SubmitAndWaitRequest,
+      loggingContext: LoggingContext,
+  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] =
+    Future
+      .failed(
+        errorFactories.serviceNotRunning(definiteAnswer = Some(false))(
+          new DamlContextualizedErrorLogger(
+            logger,
+            loggingContext,
+            request.commands.map(_.submissionId),
+          )
+        )
+      )
+      .andThen(logger.logErrorsOnCall[Completion](loggingContext))
 }
 
 private[apiserver] object ApiCommandService {
@@ -198,6 +211,7 @@ private[apiserver] object ApiCommandService {
       service =
         new ApiCommandService(transactionServices, submissionTracker, errorCodesVersionSwitcher),
       ledgerId = configuration.ledgerId,
+      errorCodesVersionSwitcher = errorCodesVersionSwitcher,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () =>

@@ -7,19 +7,19 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
-import com.daml.platform.server.api.validation.ErrorFactories.{
-  invalidArgument,
-  missingField,
-  offsetAfterLedgerEnd,
-}
-import com.daml.platform.server.api.validation.FieldValidations.requireLedgerString
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import io.grpc.StatusRuntimeException
 
 import scala.math.Ordered._
 
-object LedgerOffsetValidator {
+class LedgerOffsetValidator(errorFactories: ErrorFactories) {
 
   private val boundary = "boundary"
+
+  private val fieldValidations = FieldValidations(errorFactories)
+
+  import errorFactories.{invalidArgument, missingField, offsetAfterLedgerEnd}
+  import fieldValidations.requireLedgerString
 
   def validateOptional(
       ledgerOffset: Option[LedgerOffset],
