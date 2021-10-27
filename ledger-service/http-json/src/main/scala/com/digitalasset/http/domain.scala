@@ -7,6 +7,8 @@ import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import com.daml.lf.iface
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
+import com.daml.scalautil.nonempty.NonEmpty
+import com.daml.scalautil.nonempty.NonEmptyReturningOps._
 import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
 import scalaz.std.option._
@@ -21,9 +23,6 @@ import scala.annotation.tailrec
 object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   import com.daml.fetchcontracts.domain.`fc domain ErrorOps`
-
-  private def oneAndSet[A](p: A, sp: Set[A]) =
-    OneAnd(p, sp - p)
 
   trait JwtPayloadTag
 
@@ -45,7 +44,7 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
   ) extends JwtPayloadG {
     override val actAs: List[Party] = submitter.toList
     override val parties: PartySet =
-      oneAndSet(actAs.head, actAs.tail.toSet union readAs.toSet)
+      actAs.tail.toSet union readAs.toSet incl1 actAs.head
   }
 
   final case class JwtPayloadLedgerIdOnly(ledgerId: LedgerId)
@@ -68,11 +67,11 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
         actAs: List[Party],
     ): Option[JwtPayload] = {
       (readAs ++ actAs) match {
-        case Nil => None
-        case p :: ps =>
+        case NonEmpty(ps) =>
           Some(
-            new JwtPayload(ledgerId, applicationId, readAs, actAs, oneAndSet(p, ps.toSet)) {}
+            new JwtPayload(ledgerId, applicationId, readAs, actAs, ps.toSet) {}
           )
+        case _ => None
       }
     }
   }

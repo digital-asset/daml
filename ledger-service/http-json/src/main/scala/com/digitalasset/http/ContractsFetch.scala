@@ -28,8 +28,6 @@ import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
-import scalaz.OneAnd._
-import scalaz.std.set._
 import scalaz.std.vector._
 import scalaz.std.list._
 import scalaz.std.option.none
