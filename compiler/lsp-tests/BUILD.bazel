@@ -12,8 +12,6 @@ da_haskell_test(
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
     ],
-    # See https://github.com/digital-asset/daml/issues/4904.
-    flaky = is_windows,
     hackage_deps = [
         "aeson",
         "base",
