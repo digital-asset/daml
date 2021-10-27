@@ -84,14 +84,13 @@ case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
           existing: Option[String],
           updated: Option[String],
           designation: String,
-      ): Option[String] = {
+      ): Option[String] =
         updated.fold(ifEmpty = existing) { value: String =>
           if (existing.isDefined)
             sys.error(s"Multiple $designation annotations detected")
           else
             Some(value)
         }
-      }
 
       val existingExplanation = state._1
       val updatedExplanationString =
@@ -127,7 +126,7 @@ case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
 
       case _ =>
         sys.error(
-          s"Unexpected annotation detected ($annotations but the only supported ones are $acceptedTypeNames). " +
+          s"Unexpected annotation detected (${annotations.map(_.tree.tpe.toString)} but the only supported ones are $acceptedTypeNames). " +
             s"Did you rename the error code annotations `${classOf[Explanation].getTypeName}` or `${classOf[Resolution].getTypeName}`?"
         )
     }
