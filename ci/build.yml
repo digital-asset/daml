@@ -309,8 +309,11 @@ jobs:
           sleep 1
         done
         # Actually run some tests
+        # Note: Oracle tests all run sequentially because they all access the same Oracle instance,
+        # and we sometimes observe transient connection issues when running tests in parallel.
         bazel test \
           --config=oracle \
+          --test_strategy=exclusive \
           //ledger-service/http-json-oracle/... \
           //triggers/service:test-oracle \
           //ledger/participant-integration-api:participant-integration-api-tests-oracle \
