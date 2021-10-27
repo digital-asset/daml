@@ -104,7 +104,7 @@ theParser = some line <* eof
     notColonOrNewline = noneOf [':','\n']
 
 
-data Category = Authorization | Privacy | Semantics | Performance
+data Category = Authorization | Privacy | Semantics | Performance | InputValidation
   deriving (Eq,Ord,Bounded,Enum,Show)
 
 data Description = Description
@@ -144,3 +144,4 @@ ppCategory = \case
   Privacy -> "Privacy"
   Semantics -> "Semantics"
   Performance -> "Performance"
+  InputValidation -> "Input Validation"
