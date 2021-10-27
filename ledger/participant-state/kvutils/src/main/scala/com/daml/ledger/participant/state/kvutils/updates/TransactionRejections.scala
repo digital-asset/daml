@@ -9,7 +9,10 @@ import java.time.Instant
 import com.daml.error.{ContextualizedErrorLogger, ValueSwitch}
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions.parseCompletionInfo
-import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{ExternallyInconsistentTransaction, InternallyInconsistentTransaction}
+import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
+  ExternallyInconsistentTransaction,
+  InternallyInconsistentTransaction,
+}
 import com.daml.ledger.participant.state.kvutils.errors.KVErrors
 import com.daml.ledger.participant.state.kvutils.store.events._
 import com.daml.ledger.participant.state.v2.Update
