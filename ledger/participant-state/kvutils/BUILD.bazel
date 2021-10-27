@@ -46,7 +46,6 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
-        "//daml-lf/kv-transaction-support",
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",

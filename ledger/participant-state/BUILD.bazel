@@ -27,7 +27,6 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//daml-lf/transaction:transaction_proto_java",
         "//language-support/scala/bindings",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/ledger-api-domain",

@@ -5,10 +5,9 @@ package com.daml.platform.store.dao.events
 
 import java.sql.Connection
 import java.time.Instant
+
 import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.participant.state.{v2 => state}
-import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
-import com.daml.lf.value.ValueCoder
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.dao.events.ContractsTable.Executable
 import com.daml.platform.store.serialization.Compression
@@ -69,14 +68,11 @@ object ContractsTableH2 extends ContractsTable {
       )
     val divulgedInserts =
       for {
-        state.DivulgedContract(contractId, rawContractInstance) <- info.divulgedContracts.iterator
+        state.DivulgedContract(contractId, contractInst) <- info.divulgedContracts.iterator
       } yield {
-        val contractInstance = decodeContractInstance(
-          TransactionOuterClass.ContractInstance.parseFrom(rawContractInstance)
-        )
         insertContract(
           contractId = contractId,
-          templateId = contractInstance.template,
+          templateId = contractInst.template,
           createArgument = serialized.createArguments(contractId),
           ledgerEffectiveTime = None,
           stakeholders = Set.empty,
@@ -87,15 +83,6 @@ object ContractsTableH2 extends ContractsTable {
     val inserts = localInserts.toVector ++ divulgedInserts.toVector
     new InsertContractsExecutable(batch(insertContractQuery, inserts))
   }
-
-  // FIXME, deduplicate
-  private def decodeContractInstance(
-      coinst: TransactionOuterClass.ContractInstance
-  ): com.daml.lf.value.Value.VersionedContractInstance =
-    assertDecode(TransactionCoder.decodeVersionedContractInstance(ValueCoder.CidDecoder, coinst))
-
-  private def assertDecode[X](x: Either[ValueCoder.DecodeError, X]): X =
-    x.fold(err => throw new IllegalStateException(err.errorMessage), identity)
 
   private class InsertContractsExecutable(inserts: Option[BatchSql]) extends Executable {
     override def execute()(implicit connection: Connection): Unit = inserts.foreach(_.execute())

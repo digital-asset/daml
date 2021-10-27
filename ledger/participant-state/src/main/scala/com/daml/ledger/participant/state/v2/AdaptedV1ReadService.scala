@@ -3,8 +3,6 @@
 
 package com.daml.ledger.participant.state.v2
 
-import java.util.UUID
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.HealthStatus
@@ -15,8 +13,8 @@ import com.daml.ledger.participant.state.v2.AdaptedV1ReadService._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.RejectionReasonTemplate
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
-import com.daml.lf.value.{Value, ValueCoder}
+
+import java.util.UUID
 
 /** Adapts a [[com.daml.ledger.participant.state.v1.ReadService]] implementation to the
   * [[com.daml.ledger.participant.state.v2.ReadService]] API.
@@ -158,16 +156,6 @@ private[v2] object AdaptedV1ReadService {
   private def adaptDivulgedContract(divulgedContract: v1.DivulgedContract): DivulgedContract =
     DivulgedContract(
       contractId = divulgedContract.contractId,
-      rawContractInstance = encodeContractInstance(divulgedContract.contractInst).toByteString,
+      contractInst = divulgedContract.contractInst,
     )
-
-  // from kvutils.Conversions
-  // FIXME
-  private def encodeContractInstance(
-      coinst: Value.VersionedContractInstance
-  ): TransactionOuterClass.ContractInstance =
-    TransactionCoder
-      .encodeContractInstance(ValueCoder.CidEncoder, coinst)
-      .fold(err => throw new IllegalArgumentException(err.errorMessage), identity)
-
 }

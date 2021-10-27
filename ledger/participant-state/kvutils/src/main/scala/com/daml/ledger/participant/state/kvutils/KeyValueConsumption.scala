@@ -13,7 +13,6 @@ import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlTransactionBlindingInfo,
   DamlTransactionEntry,
   DamlTransactionRejectionEntry,
-  TransactionNode,
 }
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlLogEntry,
@@ -26,7 +25,9 @@ import com.daml.ledger.participant.state.v2.{DivulgedContract, TransactionMeta, 
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.transaction.{CommittedTransaction, TransactionOuterClass}
+import com.daml.lf.value.Value
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import com.google.protobuf.any.{Any => AnyProto}
@@ -35,7 +36,6 @@ import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status
 import org.slf4j.LoggerFactory
 
-import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 /** Utilities for producing [[Update]] events from [[DamlLogEntry]]'s committed to a
@@ -257,12 +257,7 @@ object KeyValueConsumption {
       txEntry: DamlTransactionEntry,
       recordTime: Timestamp,
   ): Update.TransactionAccepted = {
-    val transaction = Conversions.decodeTransaction(
-      reconstructTransaction(
-        txEntry.getTransactionVersion,
-        txEntry.getTransactionNodeList.asScala.toSeq,
-      )
-    )
+    val transaction = decodeRawTransaction(txEntry.getRawTransaction)
     val hexTxId = parseLedgerString("TransactionId")(
       BaseEncoding.base16.encode(entryId.toByteArray)
     )
@@ -302,27 +297,10 @@ object KeyValueConsumption {
   }
 
   // TODO: move to kv-transaction-support
-  private def reconstructTransaction(
-      txVersion: String,
-      transactionNodes: Seq[TransactionNode],
-  ): TransactionOuterClass.Transaction = {
-    // Reconstruct roots by considering the transaction nodes in order and
-    // marking all child nodes as non-roots and skipping over them.
-    val nonRoots = mutable.HashSet.empty[String]
-    val txBuilder = TransactionOuterClass.Transaction.newBuilder.setVersion(txVersion)
-    transactionNodes.foreach { transactionNode =>
-      val nodeId = transactionNode.getNodeId
-      val node = TransactionOuterClass.Node.parseFrom(transactionNode.getRawTransactionNode)
-      txBuilder.addNodes(node)
-      if (!nonRoots.contains(nodeId)) {
-        txBuilder.addRoots(nodeId)
-      }
-      if (node.hasExercise) {
-        val children = node.getExercise.getChildrenList.asScala.toSet
-        nonRoots ++= children
-      }
-    }
-    txBuilder.build
+  private def decodeRawTransaction(rawTransaction: ByteString): Transaction = {
+    Conversions.decodeTransaction(
+      TransactionOuterClass.Transaction.parseFrom(rawTransaction)
+    )
   }
 
   /** Extracts divulgence entries and checks that they have an associated contract instance.
@@ -341,7 +319,10 @@ object KeyValueConsumption {
       Conversions.extractDivulgedContracts(damlTransactionBlindingInfo) match {
         case Right(divulgedContractsIndex) =>
           divulgedContractsIndex.view.map { case (contractId, contractInstance) =>
-            DivulgedContract(contractId, contractInstance)
+            DivulgedContract(
+              contractId,
+              decodeRawContractInstace(contractInstance),
+            )
           }.toList
         case Left(missingContractIds) =>
           logger.warn(
@@ -353,6 +334,15 @@ object KeyValueConsumption {
     } else {
       List.empty
     }
+
+  // TODO: move to kv-transaction-support
+  private def decodeRawContractInstace(
+      rawContractInstance: ByteString
+  ): Value.VersionedContractInstance = {
+    Conversions.decodeContractInstance(
+      TransactionOuterClass.ContractInstance.parseFrom(rawContractInstance)
+    )
+  }
 
   private[kvutils] case class TimeBounds(
       tooEarlyUntil: Option[Timestamp] = None,

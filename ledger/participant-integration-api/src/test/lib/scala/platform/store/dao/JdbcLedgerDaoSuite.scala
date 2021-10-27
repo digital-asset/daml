@@ -7,6 +7,7 @@ import java.io.File
 import java.time.{Duration, Instant}
 import java.util.UUID
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
+
 import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
@@ -28,7 +29,6 @@ import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetSt
 import com.daml.platform.store.dao.JdbcLedgerDaoSuite._
 import com.daml.platform.store.dao.events.TransactionsWriter
 import com.daml.platform.store.entries.LedgerEntry
-import com.google.protobuf.ByteString
 import org.scalatest.AsyncTestSuite
 
 import scala.concurrent.Future
@@ -690,14 +690,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val (offsetStep, entry) = offsetStepAndTx
     val info = completionInfoFrom(entry)
     val divulged =
-      divulgedContracts.keysIterator
-        .map(c =>
-          state.DivulgedContract(
-            c._1,
-            ByteString.EMPTY, // FIXME
-          )
-        )
-        .toList
+      divulgedContracts.keysIterator.map(c => state.DivulgedContract(c._1, c._2)).toList
 
     store(info, entry, offsetStep, divulged, blindingInfo)
   }

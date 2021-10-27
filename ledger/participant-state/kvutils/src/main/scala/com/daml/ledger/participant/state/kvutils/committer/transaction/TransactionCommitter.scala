@@ -6,7 +6,6 @@
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction
 
-import java.time.Instant
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
@@ -19,7 +18,6 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.validatio
 import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlTransactionRejectionEntry,
   Duplicate,
-  TransactionNode,
 }
 import com.daml.ledger.participant.state.kvutils.store.{
   DamlCommandDedupValue,
@@ -33,7 +31,6 @@ import com.daml.ledger.participant.state.kvutils.wire.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.engine.{Blinding, Engine}
-import com.daml.lf.kv.TransactionConverter
 import com.daml.lf.transaction.{BlindingInfo, TransactionOuterClass}
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.entries.LoggingEntries
@@ -41,6 +38,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.google.protobuf.{ByteString, Timestamp => ProtoTimestamp}
 
+import java.time.Instant
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 
@@ -474,33 +472,9 @@ private[kvutils] object TransactionCommitter {
         .build
       commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
     }
-    // TODO: move to kv-transaction-support
-    val transaction =
-      TransactionOuterClass.Transaction.parseFrom(transactionEntry.submission.getRawTransaction)
     buildLogEntryWithOptionalRecordTime(
       commitContext.recordTime,
-      _.setTransactionEntry(
-        transactionEntry.submission.toBuilder
-          .setTransactionVersion(transaction.getVersion)
-          .addAllTransactionNode(
-            transaction.getNodesList.asScala
-              .map(node =>
-                TransactionNode
-                  .newBuilder()
-                  .setNodeId(node.getNodeId)
-                  .setRawTransactionNode(node.toByteString)
-                  .build()
-              )
-              .asJava
-          )
-          .addAllWitnessingParties(
-            TransactionConverter
-              .transactionToWitnesses(
-                transaction
-              )
-              .asJava
-          )
-      ),
+      _.setTransactionEntry(transactionEntry.submission),
     )
   }
 

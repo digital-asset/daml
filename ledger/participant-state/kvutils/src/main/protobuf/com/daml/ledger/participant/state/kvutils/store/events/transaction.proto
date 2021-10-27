@@ -69,22 +69,6 @@ message DamlTransactionEntry {
 
   // The pre-computed transaction blinding information.
   DamlTransactionBlindingInfo blinding_info = 7;
-
-  string transaction_version = 8;
-
-  repeated TransactionNode transaction_node = 9;
-
-  repeated TransactionNodeWitnesses witnessing_parties = 10;
-}
-
-message TransactionNode {
-  string node_id = 1;
-  bytes raw_transaction_node = 2;
-}
-
-message TransactionNodeWitnesses {
-  string node_id = 1;
-  repeated string party = 2;
 }
 
 // A transaction's blinding information, consisting of disclosure and
