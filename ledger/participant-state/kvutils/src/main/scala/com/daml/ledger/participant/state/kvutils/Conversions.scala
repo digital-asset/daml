@@ -366,7 +366,7 @@ private[state] object Conversions {
       divulgences
         .foldLeft(resultAccumulator) {
           case (Right(contractInstanceIndex), divulgenceEntry) =>
-            if (divulgenceEntry.getRawContractInstance != ByteString.EMPTY) { // TODO: come up with sth better
+            if (!divulgenceEntry.getRawContractInstance.isEmpty) {
               val contractId = decodeContractId(divulgenceEntry.getContractId)
               Right(contractInstanceIndex += (contractId -> divulgenceEntry.getRawContractInstance))
             } else {
@@ -375,7 +375,7 @@ private[state] object Conversions {
           case (Left(missingContracts), divulgenceEntry) =>
             // If populated by an older version of the KV WriteService, the contract instances will be missing.
             // Hence, we assume that, if one is missing, all are and return the list of missing ids.
-            if (divulgenceEntry.getRawContractInstance != ByteString.EMPTY) { // TODO: come up with sth better
+            if (!divulgenceEntry.getRawContractInstance.isEmpty) {
               Left(missingContracts)
             } else {
               Left(missingContracts :+ divulgenceEntry.getContractId)

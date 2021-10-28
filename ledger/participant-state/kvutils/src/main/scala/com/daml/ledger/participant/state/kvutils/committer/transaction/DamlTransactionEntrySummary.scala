@@ -45,7 +45,6 @@ private[transaction] object DamlTransactionEntrySummary {
     new DamlTransactionEntrySummary(
       submission,
       Conversions.decodeTransaction(
-        // FIXME?
         TransactionOuterClass.Transaction.parseFrom(submission.getRawTransaction)
       ),
     )

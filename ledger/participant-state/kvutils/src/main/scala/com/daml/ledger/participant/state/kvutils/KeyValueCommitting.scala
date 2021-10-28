@@ -217,7 +217,7 @@ object KeyValueCommitting {
       transactionEntry: DamlTransactionEntry
   ): Set[DamlStateKey] = {
     val outputs = Set.newBuilder[DamlStateKey]
-    // TODO: move to kv-transaction-support
+    // TODO(KVL-1168): move to kv-transaction-support
     val transaction =
       TransactionOuterClass.Transaction.parseFrom(transactionEntry.getRawTransaction)
     val txVersion =

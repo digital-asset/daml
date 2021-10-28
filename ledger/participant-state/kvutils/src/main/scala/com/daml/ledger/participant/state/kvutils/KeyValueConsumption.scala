@@ -296,7 +296,7 @@ object KeyValueConsumption {
     )
   }
 
-  // TODO: move to kv-transaction-support
+  // TODO(KVL-1168): move to kv-transaction-support
   private def decodeRawTransaction(rawTransaction: ByteString): Transaction = {
     Conversions.decodeTransaction(
       TransactionOuterClass.Transaction.parseFrom(rawTransaction)
@@ -335,7 +335,7 @@ object KeyValueConsumption {
       List.empty
     }
 
-  // TODO: move to kv-transaction-support
+  // TODO(KVL-1168): move to kv-transaction-support
   private def decodeRawContractInstace(
       rawContractInstance: ByteString
   ): Value.VersionedContractInstance = {

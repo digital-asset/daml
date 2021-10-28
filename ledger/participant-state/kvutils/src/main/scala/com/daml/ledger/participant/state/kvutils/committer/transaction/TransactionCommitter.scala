@@ -237,7 +237,7 @@ private[kvutils] class TransactionCommitter(
         commitContext: CommitContext,
         transactionEntry: DamlTransactionEntrySummary,
     )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
-      // TODO: move to kv-transaction-support
+      // TODO(KVL-1168): move to kv-transaction-support
       val rawTransaction = transactionEntry.submission.getRawTransaction
       val transaction = TransactionOuterClass.Transaction.parseFrom(rawTransaction)
       val nodes = transaction.getNodesList.asScala

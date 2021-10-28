@@ -4,6 +4,7 @@
 package com.daml.platform.store.backend
 
 import java.util.UUID
+
 import com.daml.ledger.api.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.daml.ledger.api.domain
 import com.daml.ledger.configuration.Configuration
