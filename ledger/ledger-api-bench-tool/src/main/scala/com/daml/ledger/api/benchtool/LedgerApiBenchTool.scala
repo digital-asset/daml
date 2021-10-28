@@ -49,7 +49,8 @@ object LedgerApiBenchTool {
           Future.successful(
             logger.info("No contract set descriptor file provided. Skipping contracts generation.")
           )
-        case Some(descriptorFile) => CommandSubmitter(apiServices).submit(descriptorFile)
+        case Some(descriptorFile) =>
+          CommandSubmitter(apiServices).submit(descriptorFile, config.maxInFlightCommands)
       }
 
       def benchmarkStep(): Future[Unit] = if (config.streams.isEmpty) {
