@@ -33,6 +33,12 @@ case class IndexerConfig(
     schemaMigrationAttempts: Int = DefaultSchemaMigrationAttempts,
     schemaMigrationAttemptBackoff: FiniteDuration = DefaultSchemaMigrationAttemptBackoff,
     haConfig: HaConfig = HaConfig(),
+    // PostgresSQL specific configurations
+    // Setting aggressive keep-alive defaults to aid prompt release of the locks on the server side.
+    // For reference https://www.postgresql.org/docs/13/runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS
+    postgresTcpKeepalivesIdle: Option[Int] = Some(10),
+    postgresTcpKeepalivesInterval: Option[Int] = Some(1),
+    postgresTcpKeepalivesCount: Option[Int] = Some(5),
 )
 
 object IndexerConfig {

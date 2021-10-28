@@ -238,6 +238,12 @@ private[backend] object PostgresStorageBackend
     val hookFunctions = List(
       dataSourceConfig.postgresConfig.synchronousCommit.toList
         .map(synchCommitValue => exe(s"SET synchronous_commit TO ${synchCommitValue.pgSqlName}")),
+      dataSourceConfig.postgresConfig.tcpKeepalivesIdle.toList
+        .map(i => exe(s"SET tcp_keepalives_idle TO $i")),
+      dataSourceConfig.postgresConfig.tcpKeepalivesInterval.toList
+        .map(i => exe(s"SET tcp_keepalives_interval TO $i")),
+      dataSourceConfig.postgresConfig.tcpKeepalivesCount.toList
+        .map(i => exe(s"SET tcp_keepalives_count TO $i")),
       connectionInitHook.toList,
     ).flatten
     InitHookDataSourceProxy(pgSimpleDataSource, hookFunctions)

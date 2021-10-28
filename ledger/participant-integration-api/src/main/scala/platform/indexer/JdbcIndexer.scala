@@ -50,7 +50,10 @@ object JdbcIndexer {
               case AsynchronousCommit => PostgresDataSourceConfig.SynchronousCommitValue.Off
               case LocalSynchronousCommit =>
                 PostgresDataSourceConfig.SynchronousCommitValue.Local
-            })
+            }),
+            tcpKeepalivesIdle = config.postgresTcpKeepalivesIdle,
+            tcpKeepalivesInterval = config.postgresTcpKeepalivesInterval,
+            tcpKeepalivesCount = config.postgresTcpKeepalivesCount,
           )
         ),
         haConfig = config.haConfig,
