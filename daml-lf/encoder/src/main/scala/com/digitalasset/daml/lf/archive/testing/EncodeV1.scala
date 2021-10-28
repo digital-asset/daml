@@ -728,6 +728,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       builder.accumulateLeft(interface.virtualChoices.sortByKey)(_ addChoices _)
       builder.accumulateLeft(interface.fixedChoices.sortByKey)(_ addFixedChoices _)
       builder.accumulateLeft(interface.methods.sortByKey)(_ addMethods _)
+      builder.setPrecond(interface.precond)
       builder.build()
     }
 
