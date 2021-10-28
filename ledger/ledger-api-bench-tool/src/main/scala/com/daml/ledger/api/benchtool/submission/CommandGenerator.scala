@@ -16,12 +16,12 @@ final class CommandGenerator(
     descriptor: ContractSetDescriptor,
     observers: List[Primitive.Party],
 ) {
-  private lazy val distribution = new Distribution(descriptor.instanceDistribution.map(_.weight))
-  private lazy val descriptionMapping: Map[Int, ContractSetDescriptor.ContractDescription] =
+  private val distribution = new Distribution(descriptor.instanceDistribution.map(_.weight))
+  private val descriptionMapping: Map[Int, ContractSetDescriptor.ContractDescription] =
     descriptor.instanceDistribution.zipWithIndex
       .map(_.swap)
       .toMap
-  private lazy val observersWithIndices: List[(Primitive.Party, Int)] = observers.zipWithIndex
+  private val observersWithIndices: List[(Primitive.Party, Int)] = observers.zipWithIndex
 
   def next(): Try[Primitive.Party => Command] =
     (for {
