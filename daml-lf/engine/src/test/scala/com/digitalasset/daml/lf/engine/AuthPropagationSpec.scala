@@ -36,7 +36,6 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
-// TEST_EVIDENCE: Authorization: Engine level tests for _authorization_ check.
 class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with BazelRunfiles {
 
   implicit private def toName(s: String): Name = Name.assertFromString(s)
@@ -209,6 +208,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
 
   "Exercise(Choice1 of T1 to create T2)" - {
 
+    // TEST_EVIDENCE: Authorization: well-authorized exercise/create is accepted
     "ok (Alice signed contract; Bob exercised Choice)" in {
       val command: ApiCommand =
         ExerciseCommand(
@@ -230,6 +230,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
       interpretResult shouldBe a[Right[_, _]]
     }
 
+    // TEST_EVIDENCE: Authorization: badly-authorized exercise/create (exercise is unauthorized) is rejected
     "fail: ExerciseMissingAuthorization" in {
       val command: ApiCommand =
         ExerciseCommand(
@@ -261,6 +262,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
       }
     }
 
+    // TEST_EVIDENCE: Authorization: badly-authorized exercise/create (create is unauthorized) is rejected
     "fail: CreateMissingAuthorization" in {
       val command: ApiCommand =
         ExerciseCommand(
@@ -314,13 +316,12 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     }
   }
 
-  // TEST_EVIDENCE: Authorization: Exercise within exercise: No implicit authorization from outer exercise.
-
   "Exercise (within exercise)" - {
 
     // Test that an inner exercise has only the authorization of the signatories and
     // controllers; with no implicit authorization of signatories of the outer exercise.
 
+    // TEST_EVIDENCE: Authorization: badly-authorized exercise/exercise (no implicit authority from outer exercise) is rejected
     "fail (no implicit authority from outer exercise's contract's signatories)" in {
       val command: ApiCommand =
         ExerciseCommand(
@@ -363,6 +364,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
       }
     }
 
+    // TEST_EVIDENCE: Authorization: well-authorized exercise/exercise is accepted
     "ok" in {
       val command: ApiCommand =
         ExerciseCommand(

@@ -21,5 +21,34 @@ class DeduplicationPeriodSpec extends AnyWordSpec with Matchers {
       deduplicateUntil shouldEqual time.add(Duration.ofSeconds(3))
     }
 
+    "accept long durations" in {
+      noException should be thrownBy DeduplicationPeriod.DeduplicationDuration(
+        Duration.ofDays(365 * 10000)
+      )
+    }
+
+    "accept zero durations" in {
+      noException should be thrownBy DeduplicationPeriod.DeduplicationDuration(
+        Duration.ZERO
+      )
+    }
+
+    "not accept negative durations" in {
+      an[IllegalArgumentException] should be thrownBy DeduplicationPeriod.DeduplicationDuration(
+        Duration.ofSeconds(-1)
+      )
+    }
+
+    "accept microsecond durations" in {
+      noException should be thrownBy DeduplicationPeriod.DeduplicationDuration(
+        Duration.ofNanos(1000)
+      )
+    }
+
+    "not accept nanosecond durations" in {
+      an[IllegalArgumentException] should be thrownBy DeduplicationPeriod.DeduplicationDuration(
+        Duration.ofNanos(1001)
+      )
+    }
   }
 }

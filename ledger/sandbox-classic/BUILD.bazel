@@ -350,9 +350,9 @@ server_conformance_test(
         "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
         "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=CommandDeduplicationParallelIT",
+        "--additional=CompletionDeduplicationInfoITCommandService",
+        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=ContractIdIT:Accept",
         "--additional=ParticipantPruningIT",
         # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
@@ -373,9 +373,9 @@ server_conformance_test(
         "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
         "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=CommandDeduplicationParallelIT",
+        "--additional=CompletionDeduplicationInfoITCommandService",
+        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
     ],
 )
@@ -392,9 +392,9 @@ server_conformance_test(
         "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
         "--timeout-scale-factor=2",  # sandbox classic is slow in general
         "--open-world",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=CommandDeduplicationParallelIT",
+        "--additional=CompletionDeduplicationInfoITCommandService",
+        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=ClosedWorldIT",
     ],
 )
