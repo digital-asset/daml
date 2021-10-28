@@ -930,6 +930,7 @@ data DefInterface = DefInterface
   , intVirtualChoices :: !(NM.NameMap InterfaceChoice)
   , intFixedChoices :: !(NM.NameMap TemplateChoice)
   , intMethods :: !(NM.NameMap InterfaceMethod)
+  , intPrecondition :: !Expr
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
