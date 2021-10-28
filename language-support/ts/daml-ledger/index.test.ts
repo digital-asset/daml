@@ -44,7 +44,10 @@ jest.mock('isomorphic-ws', () => class {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const {EventEmitter} = require('events');
     this.eventEmitter = new EventEmitter();
-    this.readyState = 0; // connecting
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const {WsState} = require('./index');
+    this.readyState = WsState.Connecting;
   }
 
   addEventListener(event: string, handler: (...args: unknown[]) => void): void {
@@ -56,13 +59,17 @@ jest.mock('isomorphic-ws', () => class {
   }
 
   close(): void {
-    this.readyState = 3; //closed
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const {WsState} = require('./index');
+    this.readyState = WsState.Closed;
     mockClose();
   }
 
   serverOpen(): void {
     this.eventEmitter.emit('open');
-    this.readyState = 1; //open
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const {WsState} = require('./index');
+    this.readyState = WsState.Open;
   }
 
   serverSend(message: Message): void {
@@ -71,9 +78,12 @@ jest.mock('isomorphic-ws', () => class {
 
   serverClose(event: {code: number; reason: string}): void {
     this.eventEmitter.emit('close', event);
-    this.readyState = 2; //closing
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const {WsState} = require('./index');
+    this.readyState = WsState.Closing;
   }
 });
+
 
 
 

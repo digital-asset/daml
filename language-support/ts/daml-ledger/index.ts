@@ -337,6 +337,12 @@ type LedgerOptions = {
    * reconnect, else not.
    */
   reconnectThreshold?: number;
+
+  /**
+   * Optional to enable/disable feature of all streaming request to the query endpoint being multiplexed
+   * through a single web socket, is enabled by default.
+   */
+  multiplexQueryStreams?: boolean;
 }
 
 class StreamEventEmitter<T extends object, K, I extends string, State> extends EventEmitter implements Stream<T, K, I, State> {
@@ -396,6 +402,13 @@ function append<K, V>(map: Map<K, V[]>, key: K, value: V): void {
  */
 function materialize<A>(iterator: IterableIterator<A>): Array<A> {
   return Array.from(iterator);
+}
+
+export enum WsState {
+    Connecting = 0,
+    Open = 1,
+    Closing = 2,
+    Closed = 3
 }
 
 /**
@@ -481,8 +494,7 @@ class QueryStreamsManager {
             const ws = new WebSocket(manager.url, manager.protocols);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const onWsMessage = ({data}: {data: any}): void => {
-                // readyState 1 represents an OPEN websocket
-                if(ws.readyState === 1) {
+                if(ws.readyState === WsState.Open) {
                     const json: unknown = JSON.parse(data.toString());
                     if (isRecordWith('events', json)) {
                         const events: Event<object>[] = jtv.Result.withException(jtv.array(decodeEventUnknown).run(json.events));
@@ -551,8 +563,6 @@ class QueryStreamsManager {
                             console.error(`${query.caller} unknown message`, json);
                         }
                     }
-                } else {
-                    console.warn(`Received message on a closing web socket : ${data.toString()}`)
                 }
             }
 
@@ -657,8 +667,7 @@ class QueryStreamsManager {
         manager.handleQueriesChange();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const on = (type: string, listener: any): void => {
-            // readyState 0 & 1 represent CONNECTING & OPEN for the websocket
-            if (manager.ws?.readyState === 1 || manager.ws?.readyState === 0) {
+            if (manager.ws?.readyState === WsState.Open || manager.ws?.readyState === WsState.Connecting) {
                 query.stream.on(type, listener);
             } else {
                 console.error("Trying to add a listener to a closed stream.");
@@ -666,8 +675,7 @@ class QueryStreamsManager {
         };
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const off = (type: string, listener: any): void => {
-            // readyState 0 & 1 represent CONNECTING & OPEN for the websocket
-            if (manager.ws?.readyState === 1 || manager.ws?.readyState === 0)  {
+            if (manager.ws?.readyState === WsState.Open || manager.ws?.readyState === WsState.Connecting) {
                 query.stream.off(type, listener);
             } else {
                 console.error("Trying to remove a listener from a closed stream.");
@@ -689,12 +697,13 @@ class Ledger {
   private readonly httpBaseUrl: string;
   private readonly wsBaseUrl: string;
   private readonly reconnectThreshold: number;
+  private readonly multiplexQueryStreams: boolean;
   private readonly queryStreamsManager: QueryStreamsManager;
 
   /**
    * Construct a new `Ledger` object. See [[LedgerOptions]] for the constructor arguments.
    */
-  constructor({token, httpBaseUrl, wsBaseUrl, reconnectThreshold = 30000}: LedgerOptions) {
+  constructor({token, httpBaseUrl, wsBaseUrl, reconnectThreshold = 30000, multiplexQueryStreams = true}: LedgerOptions) {
     if (!httpBaseUrl) {
       httpBaseUrl = `${window.location.protocol}//${window.location.host}/`;
     }
@@ -718,6 +727,7 @@ class Ledger {
     this.httpBaseUrl = httpBaseUrl;
     this.wsBaseUrl = wsBaseUrl;
     this.reconnectThreshold = reconnectThreshold;
+    this.multiplexQueryStreams = multiplexQueryStreams;
     this.queryStreamsManager = new QueryStreamsManager({token, wsBaseUrl, reconnectThreshold});
   }
 
@@ -1146,7 +1156,29 @@ class Ledger {
     queries: Query<T>[],
     name: string,
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
-    return this.queryStreamsManager.streamSubmit(template, queries, name);
+    if(this.multiplexQueryStreams){
+        return this.queryStreamsManager.streamSubmit(template, queries, name);
+    } else {
+        const request = queries.length == 0 ?
+            [{templateIds: [template.templateId]}]
+            : queries.map(q => ({templateIds: [template.templateId], query: encodeQuery(template, q)}));
+        const reconnectRequest = (): object[] => request;
+        const change = (contracts: readonly CreateEvent<T, K, I>[], events: readonly Event<T, K, I>[]): CreateEvent<T, K, I>[] => {
+            const archiveEvents: Set<ContractId<T>> = new Set();
+            const createEvents: CreateEvent<T, K, I>[] = [];
+            for (const event of events) {
+                if ('created' in event) {
+                    createEvents.push(event.created);
+                } else if ('archived' in event) {
+                    archiveEvents.add(event.archived.contractId);
+                }
+            }
+            return contracts
+                .concat(createEvents)
+                .filter(contract => !archiveEvents.has(contract.contractId));
+        };
+        return this.streamSubmit(name, template, 'v1/stream/query', request, reconnectRequest, [], change);
+    }
   }
 
   /**
