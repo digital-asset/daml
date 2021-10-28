@@ -51,24 +51,26 @@ private[platform] final class DbDispatcher private (
         overallWaitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
         val startExec = System.nanoTime()
         try {
-          // Actual execution
-          val result = connectionProvider.runSQL(databaseMetrics)(sql)
-          result
+          connectionProvider.runSQL(databaseMetrics)(sql)
         } catch {
           case throwable: Throwable => handleError(throwable)
         } finally {
-          // decouple metrics updating from sql execution above
-          try {
-            val execNanos = System.nanoTime() - startExec
-            logger.trace(s"Executed query in ${(execNanos / 1e6).toLong} ms")
-            databaseMetrics.executionTimer.update(execNanos, TimeUnit.NANOSECONDS)
-            overallExecutionTimer.update(execNanos, TimeUnit.NANOSECONDS)
-          } catch {
-            case NonFatal(e) =>
-              logger.error("Got an exception while updating timer metrics. Ignoring.", e)
-          }
+          updateMetrics(databaseMetrics, startExec)
         }
       }(executionContext)
+    }
+
+  private def updateMetrics(databaseMetrics: DatabaseMetrics, startExec: Long)(implicit
+      loggingContext: LoggingContext
+  ): Unit =
+    try {
+      val execNanos = System.nanoTime() - startExec
+      logger.trace(s"Executed query in ${(execNanos / 1e6).toLong} ms")
+      databaseMetrics.executionTimer.update(execNanos, TimeUnit.NANOSECONDS)
+      overallExecutionTimer.update(execNanos, TimeUnit.NANOSECONDS)
+    } catch {
+      case NonFatal(e) =>
+        logger.error("Got an exception while updating timer metrics. Ignoring.", e)
     }
 
   private def handleError(
@@ -79,15 +81,11 @@ private[platform] final class DbDispatcher private (
 
     throwable match {
       case NonFatal(e: SQLTransientException) =>
-        // TODO error codes: Only log once
-        logger.warn("Exception while executing SQL query. Rolled back.", e)
         throw ErrorFactories.SelfServiceErrorCodeFactories.sqlTransientException(e)
       case NonFatal(e: SQLNonTransientException) =>
-        // TODO error codes: Only log once
-        logger.error("Exception while executing SQL query. Rolled back.", e)
         throw ErrorFactories.SelfServiceErrorCodeFactories.sqlNonTransientException(e)
       case NonFatal(e) =>
-        logger.error("Exception while executing SQL query. Rolled back.", e)
+        logger.error("Exception while executing SQL query.", e)
         throw e
       // fatal errors don't make it for some reason to the setUncaughtExceptionHandler
       case t: Throwable =>
