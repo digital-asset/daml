@@ -208,7 +208,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
 
   "Exercise(Choice1 of T1 to create T2)" - {
 
-    // TEST_EVIDENCE: Authorization: well-authorized `exercise`/`create` is accepted
+    // TEST_EVIDENCE: Authorization: well-authorized exercise/create is accepted
     "ok (Alice signed contract; Bob exercised Choice)" in {
       val command: ApiCommand =
         ExerciseCommand(
@@ -230,7 +230,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
       interpretResult shouldBe a[Right[_, _]]
     }
 
-    // TEST_EVIDENCE: Authorization: badly-authorized `exercise`/`create` (`exercise` is unauthorized) is rejected
+    // TEST_EVIDENCE: Authorization: badly-authorized exercise/create (exercise is unauthorized) is rejected
     "fail: ExerciseMissingAuthorization" in {
       val command: ApiCommand =
         ExerciseCommand(
@@ -262,7 +262,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
       }
     }
 
-    // TEST_EVIDENCE: Authorization: badly-authorized `exercise`/`create` (`create` is unauthorized) is rejected
+    // TEST_EVIDENCE: Authorization: badly-authorized exercise/create (create is unauthorized) is rejected
     "fail: CreateMissingAuthorization" in {
       val command: ApiCommand =
         ExerciseCommand(
@@ -321,7 +321,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     // Test that an inner exercise has only the authorization of the signatories and
     // controllers; with no implicit authorization of signatories of the outer exercise.
 
-    // TEST_EVIDENCE: Authorization: badly-authorized `exercise`/`exercise` (no implicit authority from outer `exercise`) is rejected
+    // TEST_EVIDENCE: Authorization: badly-authorized exercise/exercise (no implicit authority from outer exercise) is rejected
     "fail (no implicit authority from outer exercise's contract's signatories)" in {
       val command: ApiCommand =
         ExerciseCommand(
@@ -364,7 +364,7 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
       }
     }
 
-    // TEST_EVIDENCE: Authorization: well-authorized `exercise`/`exercise` is accepted
+    // TEST_EVIDENCE: Authorization: well-authorized exercise/exercise is accepted
     "ok" in {
       val command: ApiCommand =
         ExerciseCommand(
