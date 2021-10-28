@@ -143,6 +143,8 @@ private[lf] final class Compiler(
 
   import Compiler._
 
+  private[this] val stablePackageIds = StablePackages.ids(config.allowedLanguageVersions)
+
   private[this] def handleLookup[X](location: String, x: Either[LookupError, X]) =
     x match {
       case Right(value) => value
@@ -399,7 +401,7 @@ private[lf] final class Compiler(
 
     interface.lookupPackage(pkgId) match {
       case Right(pkg)
-          if !StablePackages.Ids.contains(pkgId) && !config.allowedLanguageVersions
+          if !stablePackageIds.contains(pkgId) && !config.allowedLanguageVersions
             .contains(pkg.languageVersion) =>
         throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
       case _ =>

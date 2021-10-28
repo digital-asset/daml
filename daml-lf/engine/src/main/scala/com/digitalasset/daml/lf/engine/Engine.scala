@@ -55,6 +55,8 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
 
   private[this] val compiledPackages = ConcurrentCompiledPackages(config.getCompilerConfig)
 
+  private[this] val stablePackageIds = StablePackages.ids(config.allowedLanguageVersions)
+
   private[engine] val preprocessor =
     new preprocessing.Preprocessor(
       compiledPackages = compiledPackages,
@@ -441,7 +443,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
       _ <- pkgs
         .collectFirst {
           case (pkgId, pkg)
-              if !StablePackages.Ids.contains(pkgId) && !config.allowedLanguageVersions
+              if !stablePackageIds.contains(pkgId) && !config.allowedLanguageVersions
                 .contains(pkg.languageVersion) =>
             Error.Package.AllowedLanguageVersion(
               pkgId,
