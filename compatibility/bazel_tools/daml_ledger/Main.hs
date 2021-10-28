@@ -4,7 +4,6 @@
 module Main (main) where
 
 import Control.Applicative
-import Control.Exception
 import DA.Test.Process
 import Data.Either.Extra
 import Data.Function ((&))
@@ -13,14 +12,11 @@ import Data.Proxy (Proxy (..))
 import Data.SemVer (Version)
 import qualified Data.SemVer as SemVer
 import Data.Tagged (Tagged (..))
-import qualified Data.UUID.V4 as UUID
 import System.Directory.Extra (withCurrentDirectory)
 import System.Environment (lookupEnv)
 import System.Environment.Blank (setEnv)
-import System.Exit
 import System.FilePath ((</>), takeBaseName)
 import System.IO.Extra (withTempDir,writeFileUTF8)
-import System.Process
 import Test.Tasty (TestTree,askOption,defaultMainWithIngredients,defaultIngredients,includingOptions,testGroup,withResource)
 import Test.Tasty.Options (IsOption(..), OptionDescription(..), mkOptionCLParser)
 import Test.Tasty.HUnit
@@ -29,7 +25,6 @@ import qualified Data.Aeson as Aeson
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import DA.Test.Util
 import qualified Web.JWT as JWT
 
 import Sandbox
@@ -185,29 +180,9 @@ makeSignedJwt sharedSecret = do
 unauthenticatedTests :: SdkVersion -> IO Tools -> TestTree
 unauthenticatedTests sdkVersion getTools = do
     withSandbox (sandboxConfig <$> getTools) $ \getSandboxPort ->
-        testGroup "unauthenticated" $
+        testGroup "unauthenticated"
             [ fetchTest sdkVersion getTools getSandboxPort
-            ] <>
-            [ timeoutTest getTools getSandboxPort | supportsTimeout sdkVersion ]
-
-timeoutTest :: IO Tools -> IO Int -> TestTree
-timeoutTest getTools getSandboxPort = do
-    testCase "timeout" $ do
-        port <- getSandboxPort
-        Tools{..} <- getTools
-        party <- show <$> UUID.nextRandom
-        (exit, stdout, stderr) <- readProcessWithExitCode daml
-            [ "ledger", "allocate-party", party
-            , "--host", "localhost"
-            , "--port", show port
-            , "--timeout", "0"
             ]
-            ""
-        -- Not quite sure when we get which error message but both are fine.
-        assertInfixOf "GRPCIOTimeout" stderr `catch`
-            \(_ :: HUnitFailure) -> assertInfixOf "StatusDeadlineExceeded" stderr
-        assertInfixOf "Checking party allocation" stdout
-        exit @?= ExitFailure 1
 
 -- | Test `daml ledger fetch-dar`
 fetchTest :: SdkVersion -> IO Tools -> IO Int -> TestTree
