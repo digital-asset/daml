@@ -336,16 +336,19 @@ generateSrcFromLf env = noLoc mod
             mkLIE = fmap noLoc . \case
                 LFC.ExportInfoVal name ->
                     IEVar NoExt
-                        <$> mkWrappedRdrName name
+                        <$> mkWrappedRdrName IEName name
                 LFC.ExportInfoTC name pieces fields ->
                     IEThingWith NoExt
-                        <$> mkWrappedRdrName name
+                        <$> mkWrappedRdrName IEType name
                         <*> pure NoIEWildcard
-                        <*> mapM mkWrappedRdrName pieces
+                        <*> mapM (mkWrappedRdrName IEName) pieces
                         <*> mapM mkFieldLblRdrName fields
 
-            mkWrappedRdrName :: LFC.QualName -> Gen (LIEWrappedName RdrName)
-            mkWrappedRdrName = fmap (noLoc . IEName . noLoc) . mkRdrName
+            mkWrappedRdrName ::
+                   (Located RdrName -> IEWrappedName RdrName)
+                -> LFC.QualName
+                -> Gen (LIEWrappedName RdrName)
+            mkWrappedRdrName f = fmap (noLoc . f . noLoc) . mkRdrName
 
             mkRdrName :: LFC.QualName -> Gen RdrName
             mkRdrName (LFC.QualName q) = do
