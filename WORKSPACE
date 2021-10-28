@@ -598,11 +598,11 @@ load("//bazel_tools:java.bzl", "dadew_java_configure", "nixpkgs_java_configure")
 
 dadew_java_configure(
     name = "dadew_java_runtime",
-    dadew_path = "java-openjdk-8u302",
+    dadew_path = "ojdkbuild11",
 ) if is_windows else None
 
 nixpkgs_java_configure(
-    attribute_path = "jdk8.home",
+    attribute_path = "jdk11.home",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
