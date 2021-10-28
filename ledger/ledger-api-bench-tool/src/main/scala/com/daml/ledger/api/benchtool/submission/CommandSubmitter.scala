@@ -166,8 +166,9 @@ object CommandSubmitter {
     private def remainingSeconds(index: Int): Double = {
       val remainingItems = totalItems - index
       if (remainingItems > 0) {
-        val elapsed = System.currentTimeMillis() - startTimeMillis
-        ((remainingItems.toDouble / index.toDouble) * elapsed.toDouble) / math.pow(10, 3)
+        val elapsedSeconds: Double = (System.currentTimeMillis() - startTimeMillis).toDouble / 1000
+        val timePerItem: Double = elapsedSeconds / index
+        remainingItems * timePerItem
       } else {
         0.0
       }
