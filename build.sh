@@ -35,7 +35,7 @@ bazel build //... \
   --experimental_profile_include_target_label \
   --build_event_json_file build-events.json \
   --build_event_publish_all_actions \
-  --execution_log_json_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.json"
+  --experimental_execution_log_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.log"
 
 # Set up a shared PostgreSQL instance.
 export POSTGRESQL_ROOT_DIR="${TMPDIR:-/tmp}/daml/postgresql"
@@ -79,7 +79,7 @@ bazel test //... \
   --experimental_profile_include_target_label \
   --build_event_json_file test-events.json \
   --build_event_publish_all_actions \
-  --execution_log_json_file "$ARTIFACT_DIRS/logs/test_execution${execution_log_postfix}.json"
+  --experimental_execution_log_file "$ARTIFACT_DIRS/logs/test_execution${execution_log_postfix}.log"
 
 # Make sure that Bazel query works.
 bazel query 'deps(//...)' >/dev/null
