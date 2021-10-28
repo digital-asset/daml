@@ -4,6 +4,7 @@
 package com.daml.lf.data
 
 import com.daml.lf.data.Ref.{Identifier, LedgerString, Party}
+import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.entries.{LoggingKey, LoggingValue, ToLoggingKey, ToLoggingValue}
 
 package object logging {
@@ -31,5 +32,8 @@ package object logging {
           case Some(length) => LoggingValue.OfString(party).truncated(length)
         }
     }
+
+  implicit val `Timestamp to LoggingValue`: ToLoggingValue[Timestamp] =
+    ToLoggingValue.ToStringToLoggingValue
 
 }
