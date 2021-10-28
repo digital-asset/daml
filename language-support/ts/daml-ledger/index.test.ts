@@ -193,7 +193,7 @@ describe("streamSubmit", () => {
     const stream = ledger.streamQuery(Foo, {"key": "1"});
     stream.on("live", mockLive);
     stream.on("close", mockClose);
-    mockInstance.serverOpen()
+    mockInstance.serverOpen();
     mockInstance.serverSend({events: [], offset: "4"});
     await new Promise(resolve => setTimeout(resolve, reconnectThreshold * 2));
     mockConstructor.mockClear();
