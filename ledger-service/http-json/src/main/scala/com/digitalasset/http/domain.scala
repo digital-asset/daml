@@ -123,7 +123,9 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
   final case class AllocatePartyRequest(identifierHint: Option[Party], displayName: Option[String])
 
   final case class CommandMeta(
-      commandId: Option[CommandId]
+      commandId: Option[CommandId],
+      actAs: Option[NonEmptyList[Party]],
+      readAs: Option[List[Party]],
   )
 
   final case class CreateCommand[+LfV, TmplId](

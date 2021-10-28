@@ -13,7 +13,7 @@ import scalaz.syntax.std.option._
 import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
 import spray.json._
 
-object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
+object JsonProtocol extends JsonProtocolLow {
 
   implicit val LedgerIdFormat: JsonFormat[lar.LedgerId] = taggedJsonFormat[String, lar.LedgerIdTag]
 
@@ -45,14 +45,14 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
   implicit val OffsetFormat: JsonFormat[domain.Offset] =
     taggedJsonFormat
 
-  implicit def NonEmptyListReader[A: JsonReader]: JsonReader[NonEmptyList[A]] = {
-    case JsArray(hd +: tl) =>
-      NonEmptyList(hd.convertTo[A], tl map (_.convertTo[A]): _*)
-    case _ => deserializationError("must be a JSON array with at least 1 element")
-  }
+  implicit def NonEmptyListFormat[A: JsonReader: JsonWriter]: JsonFormat[NonEmptyList[A]] =
+    jsonFormatIsSilly(NonEmptyListReader, NonEmptyListWriter)
 
-  implicit def NonEmptyListWriter[A: JsonWriter]: JsonWriter[NonEmptyList[A]] =
-    nela => JsArray(nela.map(_.toJson).list.toVector)
+  private[this] def jsonFormatIsSilly[A: JsonReader: JsonWriter]: JsonFormat[A] =
+    new JsonFormat[A] {
+      override def read(json: JsValue) = json.convertTo[A]
+      override def write(obj: A) = obj.toJson
+    }
 
   /** This intuitively pointless extra type is here to give it specificity so
     *  this instance will beat CollectionFormats#listFormat. You would normally
@@ -294,7 +294,7 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
       domain.SearchForeverRequest(NonEmptyList((single.convertTo[domain.SearchForeverQuery], 0)))
   }
 
-  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat1(
+  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat3(
     domain.CommandMeta
   )
 
@@ -414,4 +414,15 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
         case _ => deserializationError(errorMsg)
       }
     }
+}
+
+sealed abstract class JsonProtocolLow extends DefaultJsonProtocol with ExtraFormats {
+  implicit def NonEmptyListReader[A: JsonReader]: JsonReader[NonEmptyList[A]] = {
+    case JsArray(hd +: tl) =>
+      NonEmptyList(hd.convertTo[A], tl map (_.convertTo[A]): _*)
+    case _ => deserializationError("must be a JSON array with at least 1 element")
+  }
+
+  implicit def NonEmptyListWriter[A: JsonWriter]: JsonWriter[NonEmptyList[A]] =
+    nela => JsArray(nela.map(_.toJson).list.toVector)
 }
