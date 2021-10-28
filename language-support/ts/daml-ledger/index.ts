@@ -1131,7 +1131,7 @@ class Ledger {
     query?: Query<T>,
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
     if (query === undefined) {
-      return this.streamQueryCommon(template, [], 'Ledger.streamQuery');
+      return this.streamQueryCommon(template, [], "Ledger.streamQuery");
     } else {
       return this.streamQueryCommon(template, [query], "Ledger.streamQuery");
     }
