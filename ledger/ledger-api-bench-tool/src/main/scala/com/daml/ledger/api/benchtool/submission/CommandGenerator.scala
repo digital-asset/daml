@@ -46,12 +46,10 @@ final class CommandGenerator(
 
   private def pickObservers(): List[Primitive.Party] =
     observersWithIndices
-      .filter { case (_, index) =>
-        draw(index)
-      }
+      .filter { case (_, index) => isObserverUsed(index) }
       .map(_._1)
 
-  private def draw(i: Int): Boolean =
+  private def isObserverUsed(i: Int): Boolean =
     randomnessProvider.randomNatural(math.pow(10.0, i.toDouble).toInt) == 0
 
   private def createContractCommand(
