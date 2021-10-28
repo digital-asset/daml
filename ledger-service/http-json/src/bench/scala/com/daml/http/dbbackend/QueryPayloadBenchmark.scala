@@ -81,5 +81,5 @@ class QueryPayloadBenchmark extends ContractDaoBenchmark {
     assert(result.size == batchSize)
   }
 
-  discard(Factory) // only needed for scala 2.12
+  discard(IterableOnce) // only needed for scala 2.12
 }
