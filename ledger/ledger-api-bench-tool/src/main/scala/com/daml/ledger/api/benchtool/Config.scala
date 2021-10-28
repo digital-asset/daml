@@ -18,6 +18,7 @@ case class Config(
     streams: List[Config.StreamConfig],
     reportingPeriod: FiniteDuration,
     contractSetDescriptorFile: Option[File],
+    maxInFlightCommands: Int,
     metricsReporter: MetricsReporter,
 )
 
@@ -93,6 +94,7 @@ object Config {
       streams = List.empty[Config.StreamConfig],
       reportingPeriod = 5.seconds,
       contractSetDescriptorFile = None,
+      maxInFlightCommands = 100,
       metricsReporter = MetricsReporter.Console,
     )
 }

@@ -32,7 +32,8 @@ case class CommandSubmitter(services: LedgerApiServices) {
   private def darId(index: Int) = s"submission-dars-$index-$identifierSuffix"
 
   def submit(
-      descriptorFile: File
+      descriptorFile: File,
+      maxInFlightCommands: Int,
   )(implicit ec: ExecutionContext): Future[Unit] =
     (for {
       _ <- Future.successful(logger.info("Generating contracts..."))
@@ -41,7 +42,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
       signatory <- allocateParty(signatoryName)
       observers <- allocateParties(descriptor.numberOfObservers, observerName)
       _ <- uploadTestDars()
-      _ <- submitCommands(descriptor, signatory, observers)
+      _ <- submitCommands(descriptor, signatory, observers, maxInFlightCommands)
     } yield logger.info("Commands submitted successfully."))
       .recoverWith { case NonFatal(ex) =>
         logger.error(s"Command submission failed. Details: ${ex.getLocalizedMessage}", ex)
@@ -108,25 +109,29 @@ case class CommandSubmitter(services: LedgerApiServices) {
       descriptor: ContractSetDescriptor,
       signatory: Primitive.Party,
       observers: List[Primitive.Party],
+      maxInFlightCommands: Int,
   )(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
     val progressMeter = CommandSubmitter.ProgressMeter(descriptor.numberOfInstances)
+    // Output a log line roughly once per 10% progress, or once every 500 submissions (whichever comes first)
+    val progressLogInterval = math.min(descriptor.numberOfInstances / 10 + 1, 500)
     val progressLoggingSink =
       Sink.foreach[Int](index =>
-        if (index % 500 == 0) {
+        if (index % progressLogInterval == 0) {
           logger.info(progressMeter.getProgress(index))
         }
       )
     val generator = new CommandGenerator(RandomnessProvider.Default, descriptor, observers)
 
+    logger.info("Submitting commands...")
     materializerOwner()
       .use { implicit materializer =>
         Source
           .fromIterator(() => (1 to descriptor.numberOfInstances).iterator)
-          .mapAsync(100) { index =>
+          .mapAsync(maxInFlightCommands) { index =>
             generator.next() match {
               case Success(command) =>
                 submitAndWait(
