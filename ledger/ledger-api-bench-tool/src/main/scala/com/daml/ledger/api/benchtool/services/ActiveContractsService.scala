@@ -6,7 +6,6 @@ package com.daml.ledger.api.benchtool.services
 import com.daml.ledger.api.benchtool.Config
 import com.daml.ledger.api.benchtool.util.ObserverWithResult
 import com.daml.ledger.api.v1.active_contracts_service._
-import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import io.grpc.Channel
 import org.slf4j.LoggerFactory
 
@@ -33,19 +32,9 @@ final class ActiveContractsService(
   private def getActiveContractsRequest(
       ledgerId: String,
       config: Config.StreamConfig.ActiveContractsStreamConfig,
-  ) = {
-    val filters: Map[String, Filters] = config.filters.map {
-      case (party, Some(templateIds)) =>
-        party -> Filters.defaultInstance.withInclusive(
-          InclusiveFilters.defaultInstance.addAllTemplateIds(templateIds)
-        )
-      case (party, None) =>
-        party -> Filters.defaultInstance
-    }
-
+  ): GetActiveContractsRequest =
     GetActiveContractsRequest.defaultInstance
       .withLedgerId(ledgerId)
-      .withFilter(TransactionFilter.defaultInstance.withFiltersByParty(filters))
-  }
+      .withFilter(StreamFilters.transactionFilters(config.filters))
 
 }
