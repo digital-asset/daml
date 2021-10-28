@@ -273,7 +273,7 @@ object KVErrors extends LedgerApiErrorGroup {
         override val definiteAnswer: Boolean
     )(implicit loggingContext: ContextualizedErrorLogger)
         extends KVLoggingTransactionErrorImpl(
-          cause = "A command with the given submission ID has already been successfully committed"
+          cause = "A command with the given submission ID has already resulted in a ledger entry"
         )
   }
 
