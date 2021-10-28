@@ -4,7 +4,9 @@
 package com.daml.error.definitions
 
 import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.IndexErrorGroup
-import com.daml.error.{ContextualizedErrorLogger, ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.daml.error.utils.ErrorDetails
+import com.daml.error._
+import io.grpc.StatusRuntimeException
 
 import java.sql.{SQLNonTransientException, SQLTransientException}
 
@@ -18,7 +20,8 @@ object IndexErrors extends IndexErrorGroup {
         extends ErrorCode(
           id = "INDEX_DB_SQL_TRANSIENT_ERROR",
           ErrorCategory.TransientServerFailure,
-        ) {
+        )
+        with HasUnapply {
       case class Reject(exception: SQLTransientException)(implicit
           val loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
@@ -36,7 +39,8 @@ object IndexErrors extends IndexErrorGroup {
         extends ErrorCode(
           id = "INDEX_DB_SQL_NON_TRANSIENT_ERROR",
           ErrorCategory.SystemInternalAssumptionViolated,
-        ) {
+        )
+        with HasUnapply {
       case class Reject(exception: SQLNonTransientException)(implicit
           val loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
@@ -45,5 +49,13 @@ object IndexErrors extends IndexErrorGroup {
             throwableO = Some(exception),
           )
     }
+  }
+
+  trait HasUnapply {
+    this: ErrorCode =>
+    // TODO error codes: Create a generic unapply for ErrorCode that returns the ErrorCode instance
+    //                   and match against that one.
+    def unapply(exception: StatusRuntimeException): Option[Unit] =
+      Some(this).filter(ErrorDetails.isErrorCode(exception)).map(_ => ())
   }
 }

@@ -3,11 +3,11 @@
 
 package com.daml.platform.index
 
-import java.sql.SQLException
 import akka.Done
 import akka.actor.Cancellable
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink, Source}
+import com.daml.error.definitions.IndexErrors
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.offset.Offset
@@ -31,6 +31,7 @@ import com.daml.platform.store.{BaseLedger, LfValueTranslationCache}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 
+import java.sql.SQLException
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -98,6 +99,11 @@ private[platform] object ReadOnlySqlLedger {
         // If the index database is not yet fully initialized,
         // querying for the ledger ID will throw different errors,
         // depending on the database, and how far the initialization is.
+        case IndexErrors.DatabaseErrors.SqlTransientError(_) => true
+        case IndexErrors.DatabaseErrors.SqlNonTransientError(_) =>
+          // This error, as treated here, is recoverable but is not signalled as such when logged (logged as INTERNAL)
+          // TODO error codes: Fix this inconsistency
+          true
         case _: SQLException => true
         case _: LedgerIdNotFoundException => true
         case _: MismatchException.LedgerId => false
