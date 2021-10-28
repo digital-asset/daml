@@ -59,6 +59,8 @@ da_scala_library(
 da_scala_test_suite(
     name = "reproduces-transactions",
     srcs = glob(["test-suite/scala/com/daml/script/export/*.scala"]),
+    # See DPP-695 for why this is flaky.
+    flaky = True,
     resources = ["test-suite/resources/logback-test.xml"],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
