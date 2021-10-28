@@ -677,8 +677,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         methods = lfInterface.getMethodsList.asScala.view
           .map(decodeInterfaceMethod)
           .map(method => method.name -> method),
-        precond =
-          if (lfInterface.hasPrecond) decodeExpr(lfInterface.getPrecond, s"$id:ensure") else ETrue,
+        precond = decodeExpr(lfInterface.getPrecond, s"$id:ensure")
       )
 
     private[this] def decodeInterfaceChoice(
