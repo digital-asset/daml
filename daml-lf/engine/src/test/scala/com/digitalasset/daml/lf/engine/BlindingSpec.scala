@@ -91,7 +91,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       divulgence = Map.empty,
     )
   }
-  // TEST_EVIDENCE: Privacy: ensure correct privacy for lookup node (found)
+  // TEST_EVIDENCE: Privacy: ensure correct privacy for lookup-by-key node (found)
   "lookupByKey found" in {
     val builder = TransactionBuilder()
     val cid = builder.newCid
@@ -112,7 +112,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       divulgence = Map.empty,
     )
   }
-  // TEST_EVIDENCE: Privacy: ensure correct privacy for lookup node (not-found)
+  // TEST_EVIDENCE: Privacy: ensure correct privacy for lookup-by-key node (not-found)
   "lookupByKey not found" in {
     val builder = TransactionBuilder()
     val cid = builder.newCid
