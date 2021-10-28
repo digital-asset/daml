@@ -115,11 +115,9 @@ case class CommandSubmitter(services: LedgerApiServices) {
 
     val progressMeter = CommandSubmitter.ProgressMeter(descriptor.numberOfInstances)
     val progressLoggingSink =
-      Sink.foreachAsync[Int](1)(index =>
-        Future {
-          if (index % 500 == 0) {
-            logger.info(progressMeter.getProgress(index))
-          }
+      Sink.foreach[Int](index =>
+        if (index % 500 == 0) {
+          logger.info(progressMeter.getProgress(index))
         }
       )
     val generator = new CommandGenerator(RandomnessProvider.Default, descriptor, observers)
