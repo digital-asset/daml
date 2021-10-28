@@ -46,7 +46,7 @@ object ErrorDetails {
     ErrorDetails
       .from(rpcStatus.getDetailsList.asScala.toSeq)
       .exists {
-        case ErrorInfoDetail(reason) => reason.contains(errorCode.id)
+        case ErrorInfoDetail(reason) => reason == errorCode.id
         case _ => false
       }
   }

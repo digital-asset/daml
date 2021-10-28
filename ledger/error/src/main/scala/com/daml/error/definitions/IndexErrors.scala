@@ -56,6 +56,6 @@ object IndexErrors extends IndexErrorGroup {
     // TODO error codes: Create a generic unapply for ErrorCode that returns the ErrorCode instance
     //                   and match against that one.
     def unapply(exception: StatusRuntimeException): Option[Unit] =
-      Some(this).filter(ErrorDetails.isErrorCode(exception)).map(_ => ())
+      if (ErrorDetails.isErrorCode(exception)(errorCode = this)) Some(()) else None
   }
 }

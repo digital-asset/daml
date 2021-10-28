@@ -95,7 +95,7 @@ private[platform] object ReadOnlySqlLedger {
         executionContext: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[LedgerId] = {
-      val predicate: PartialFunction[Throwable, Boolean] = {
+      val isRetryable: PartialFunction[Throwable, Boolean] = {
         // If the index database is not yet fully initialized,
         // querying for the ledger ID will throw different errors,
         // depending on the database, and how far the initialization is.
@@ -111,7 +111,7 @@ private[platform] object ReadOnlySqlLedger {
       }
       val retryDelay = 100.millis
       val maxAttempts = 3000 // give up after 5min
-      RetryStrategy.constant(attempts = Some(maxAttempts), waitTime = retryDelay)(predicate) {
+      RetryStrategy.constant(attempts = Some(maxAttempts), waitTime = retryDelay)(isRetryable) {
         (attempt, _) =>
           ledgerDao
             .lookupLedgerId()
