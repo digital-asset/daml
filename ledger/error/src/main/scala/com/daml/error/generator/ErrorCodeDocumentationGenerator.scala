@@ -39,7 +39,7 @@ case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
     errorCodes.map(convertToDocItem).sortBy(_.code)
   }
 
-  private def getErrorCodeInstances =
+  private def getErrorCodeInstances: Seq[ErrorCode] =
     new Reflections(prefix)
       .getSubTypesOf(classOf[ErrorCode])
       .asScala
@@ -51,19 +51,26 @@ case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
       .toSeq
 
   private def convertToDocItem(error: ErrorCode): DocItem = {
-    val (expl, res) = getErrorNameAndAnnotations(error)
+    val ErrorDocumentationAnnotations(explanation, resolution) =
+      getErrorDocumentationAnnotations(error)
+
     DocItem(
       className = error.getClass.getName,
       category = error.category.getClass.getSimpleName.replace("$", ""),
       hierarchicalGrouping = error.parent.docNames.filter(_ != ""),
       conveyance = error.errorConveyanceDocString.getOrElse(""),
       code = error.id,
-      explanation = expl,
-      resolution = res,
+      explanation = explanation.getOrElse(Explanation("")),
+      resolution = resolution.getOrElse(Resolution("")),
     )
   }
 
-  private def getErrorNameAndAnnotations(error: ErrorCode): (Explanation, Resolution) = {
+  private case class ErrorDocumentationAnnotations(
+      explanation: Option[Explanation],
+      resolution: Option[Resolution],
+  )
+
+  private def getErrorDocumentationAnnotations(error: ErrorCode): ErrorDocumentationAnnotations = {
     val mirror = ru.runtimeMirror(getClass.getClassLoader)
     val mirroredType = mirror.reflect(error)
     val annotations: Seq[ru.Annotation] = mirroredType.symbol.annotations
@@ -77,7 +84,7 @@ case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
 
   private def getAnnotations(
       annotations: Seq[ru.Annotation]
-  ): (Explanation, Resolution) = {
+  ): ErrorDocumentationAnnotations = {
 
     def update(
         state: GetAnnotationsState,
@@ -123,7 +130,7 @@ case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
         )
     }
 
-    (doc.explanation.getOrElse(Explanation("")), doc.resolution.getOrElse(Resolution("")))
+    ErrorDocumentationAnnotations(doc.explanation, doc.resolution)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
