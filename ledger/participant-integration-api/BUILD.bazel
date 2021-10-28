@@ -354,6 +354,7 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_mockito_mockito_scala",
     ],
     tags = [] if oracle_testing else ["manual"],
     runtime_deps = [
