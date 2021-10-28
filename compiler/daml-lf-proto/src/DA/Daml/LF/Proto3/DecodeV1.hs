@@ -241,6 +241,7 @@ decodeDefInterface LF1.DefInterface {..} = do
     throwError $ ParseError $ unwords
       [ "Interface", T.unpack (T.intercalate "." (unTypeConName intName))
       , "has collision between fixed choice and virtual choice." ]
+  intPrecondition <- mayDecode "defInterfacePrecond" defInterfacePrecond decodeExpr
   pure DefInterface {..}
 
 decodeInterfaceChoice :: LF1.InterfaceChoice -> Decode InterfaceChoice
