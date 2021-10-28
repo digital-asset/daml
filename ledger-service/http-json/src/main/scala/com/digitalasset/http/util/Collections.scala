@@ -3,7 +3,9 @@
 
 package com.daml.http.util
 
-import scalaz.{NonEmptyList, OneAnd}
+import com.daml.scalautil.nonempty.NonEmpty
+import com.daml.scalautil.nonempty.NonEmptyReturningOps._
+import scalaz.NonEmptyList
 
 object Collections {
 
@@ -12,8 +14,8 @@ object Collections {
       self.list.collect(f).toNel
   }
 
-  def toNonEmptySet[A](as: NonEmptyList[A]): OneAnd[Set, A] = {
+  def toNonEmptySet[A](as: NonEmptyList[A]): NonEmpty[Set[A]] = {
     import scalaz.syntax.foldable._
-    OneAnd(as.head, as.tail.toSet - as.head)
+    as.tail.toSet incl1 as.head
   }
 }
