@@ -288,10 +288,10 @@ server_conformance_test(
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--open-world",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=CommandDeduplicationParallelIT",
+        "--additional=CompletionDeduplicationInfoITCommandService",
+        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=KVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--additional=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
         "--exclude=ClosedWorldIT",
@@ -322,10 +322,10 @@ server_conformance_test(
     test_tool_args = [
         "--static-time",
         "--open-world",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
-        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=CommandDeduplicationParallelIT",
+        "--additional=CompletionDeduplicationInfoITCommandService",
+        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=KVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ClosedWorldIT",
     ],
