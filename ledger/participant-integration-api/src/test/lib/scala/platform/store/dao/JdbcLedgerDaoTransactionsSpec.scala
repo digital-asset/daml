@@ -21,7 +21,6 @@ import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao._
 import com.daml.platform.store.entries.LedgerEntry
-import org.mockito.MockitoSugar
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -29,11 +28,7 @@ import org.scalatest.{Inside, LoneElement, OptionValues}
 
 import scala.concurrent.Future
 
-private[dao] trait JdbcLedgerDaoTransactionsSpec
-    extends OptionValues
-    with Inside
-    with LoneElement
-    with MockitoSugar {
+private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Inside with LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
   import JdbcLedgerDaoTransactionsSpec._
