@@ -41,6 +41,7 @@ import com.daml.http.util.{ProtobufByteStrings, toLedgerId}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
+import com.daml.scalautil.nonempty.NonEmptyReturningOps._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
@@ -315,7 +316,7 @@ class Endpoints(
           ]
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
         resolvedRef <- eitherT(
-          resolveReference(jwt, jwtPayload, cmd.reference)
+          resolveReference(jwt, jwtPayload, cmd.meta, cmd.reference)
         ): ET[domain.ResolvedContractRef[ApiValue]]
 
         apiArg <- either(lfValueToApiValue(cmd.argument)): ET[ApiValue]
@@ -693,16 +694,31 @@ class Endpoints(
       case _ => false
     }
 
+  private[this] def resolveRefParties(
+      meta: Option[domain.CommandMeta],
+      jwtPayload: JwtWritePayload,
+  ): domain.PartySet = {
+    val NonEmptyList(actAsH, actAsT) = meta.flatMap(_.actAs) getOrElse jwtPayload.submitter
+    val readAs = meta.flatMap(_.readAs) getOrElse jwtPayload.readAs
+    (actAsT.toSet incl1 actAsH) ++ readAs
+  }
+
   private def resolveReference(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
+      meta: Option[domain.CommandMeta],
       reference: domain.ContractLocator[LfValue],
   )(implicit
       lc: LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID],
       metrics: Metrics,
   ): Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
     contractsService
-      .resolveContractReference(jwt, jwtPayload.parties, reference, toLedgerId(jwtPayload.ledgerId))
+      .resolveContractReference(
+        jwt,
+        resolveRefParties(meta, jwtPayload),
+        reference,
+        toLedgerId(jwtPayload.ledgerId),
+      )
       .map { o: Option[domain.ResolvedContractRef[LfValue]] =>
         val a: Error \/ domain.ResolvedContractRef[LfValue] =
           o.toRightDisjunction(InvalidUserInput(ErrorMessages.cannotResolveTemplateId(reference)))
