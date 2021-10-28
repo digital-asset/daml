@@ -39,7 +39,7 @@ message DamlSubmitterInfo {
 // with submitter information and metadata (see Ledger API `commands.proto` for
 // their source).
 message DamlTransactionEntry {
-  // The original submitted transaction.
+  // The original submitted transaction (com.daml.lf.transaction.Transaction) stored as bytes
   bytes raw_transaction = 1;
 
   // The submitting party and metadata about the submitted command.
@@ -86,6 +86,7 @@ message DamlTransactionBlindingInfo {
   message DivulgenceEntry {
     string contract_id = 1;
     repeated string divulged_to_local_parties = 2;
+    // Stores com.daml.lf.transaction.ContractInstance as bytes
     bytes raw_contract_instance = 3;
   }
 
