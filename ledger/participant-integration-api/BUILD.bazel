@@ -67,7 +67,7 @@ compile_deps = [
     "//libs-scala/scala-utils",
     "//libs-scala/timer-utils",
     "//libs-scala/nameof",
-    "@maven//:com_google_api_grpc_proto_google_common_protos",
+    #    "@maven//:com_google_api_grpc_proto_google_common_protos",
     "@maven//:com_google_guava_guava",
     "@maven//:com_zaxxer_HikariCP",
     "@maven//:io_dropwizard_metrics_metrics_core",
@@ -162,6 +162,7 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_flatspec",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_mockito_mockito_scala",
     ],
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_slf4j",
@@ -185,6 +186,7 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/sample-service",
         "//ledger-api/testing-utils",
+        #        "//ledger/error",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
@@ -212,6 +214,7 @@ da_scala_library(
         "@maven//:io_netty_netty_handler",
         "@maven//:io_netty_netty_transport",
         "@maven//:org_scalatest_scalatest_compatible",
+        "@maven//:org_mockito_mockito_core",
     ],
 )
 

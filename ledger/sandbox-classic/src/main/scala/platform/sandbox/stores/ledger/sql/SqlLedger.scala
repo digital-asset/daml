@@ -36,8 +36,9 @@ import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, Rejection, SandboxOffset}
-import com.daml.platform.store.appendonlydao.{LedgerDao, LedgerWriteDao}
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
+import com.daml.platform.store.appendonlydao.{LedgerDao, LedgerWriteDao}
 import com.daml.platform.store.cache.TranslationCacheBackedContractStore
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations, LfValueTranslationCache}
@@ -87,6 +88,7 @@ private[sandbox] object SqlLedger {
       engine: Engine,
       validatePartyAllocation: Boolean,
       enableCompression: Boolean,
+      errorFactories: ErrorFactories,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[Ledger] {
 
@@ -97,7 +99,7 @@ private[sandbox] object SqlLedger {
         _ <- Resource.fromFuture(
           new FlywayMigrations(jdbcUrl).migrate()
         )
-        dao <- ledgerDaoOwner(servicesExecutionContext).acquire()
+        dao <- ledgerDaoOwner(servicesExecutionContext, errorFactories).acquire()
         _ <- startMode match {
           case SqlStartMode.ResetAndStart =>
             Resource.fromFuture(dao.reset())
@@ -248,8 +250,12 @@ private[sandbox] object SqlLedger {
     }
 
     private def ledgerDaoOwner(
-        servicesExecutionContext: ExecutionContext
-    ): ResourceOwner[LedgerDao] =
+        servicesExecutionContext: ExecutionContext,
+        errorFactories: ErrorFactories,
+    ): ResourceOwner[LedgerDao] = {
+      val compressionStrategy =
+        if (enableCompression) CompressionStrategy.allGZIP(metrics)
+        else CompressionStrategy.none(metrics)
       com.daml.platform.store.appendonlydao.JdbcLedgerDao.validatingWriteOwner(
         serverRole = serverRole,
         jdbcUrl = jdbcUrl,
@@ -263,10 +269,10 @@ private[sandbox] object SqlLedger {
         validatePartyAllocation = validatePartyAllocation,
         enricher = Some(new ValueEnricher(engine)),
         participantId = Ref.ParticipantId.assertFromString(participantId.toString),
-        compressionStrategy =
-          if (enableCompression) CompressionStrategy.allGZIP(metrics)
-          else CompressionStrategy.none(metrics),
+        compressionStrategy = compressionStrategy,
+        errorFactories = errorFactories,
       )
+    }
 
     private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =
       Dispatcher.owner(

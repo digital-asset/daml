@@ -16,7 +16,10 @@ trait QueryNonPruned {
   ): T
 }
 
-case class QueryNonPrunedImpl(storageBackend: ParameterStorageBackend) extends QueryNonPruned {
+case class QueryNonPrunedImpl(
+    storageBackend: ParameterStorageBackend,
+    errorFactories: ErrorFactories,
+) extends QueryNonPruned {
 
   /** Runs a query and throws an error if the query accesses pruned offsets.
     *
@@ -48,7 +51,7 @@ case class QueryNonPrunedImpl(storageBackend: ParameterStorageBackend) extends Q
       case Some(pruningOffsetUpToInclusive) =>
         // TODO error codes: Do not throw
         // TODO error codes: Enable logging
-        throw ErrorFactories.participantPrunedDataAccessed(error(pruningOffsetUpToInclusive))(
+        throw errorFactories.participantPrunedDataAccessed(error(pruningOffsetUpToInclusive))(
           NoLogging
         )
     }

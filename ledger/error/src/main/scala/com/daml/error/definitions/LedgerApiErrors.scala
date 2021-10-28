@@ -579,6 +579,13 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
 
+    // TODO error codes: This is an internal error not related to the interpreter
+    case class CommandTrackerInternalError(
+        message: String
+    )(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends LoggingTransactionErrorImpl(cause = message)
+
     case class PackageSelfConsistency(
         err: LfError.Package.SelfConsistency
     )(implicit

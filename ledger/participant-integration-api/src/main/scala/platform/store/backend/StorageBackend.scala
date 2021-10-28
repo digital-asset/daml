@@ -245,11 +245,11 @@ trait EventStorageBackend {
       connection: Connection,
       loggingContext: LoggingContext,
   ): Unit
-  def validatePruningOffsetAgainstMigration(
+  def isPruningOffsetValidAgainstMigration(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
       connection: Connection,
-  ): Unit
+  ): Boolean
   def transactionEvents(
       rangeParams: RangeParams,
       filterParams: FilterParams,

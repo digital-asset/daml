@@ -6,12 +6,10 @@ package com.daml.platform.store.backend.postgresql
 import java.sql.Connection
 import anorm.SQL
 import anorm.SqlParser.{get, int}
-import com.daml.error.NoLogging
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events.Party
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
@@ -123,14 +121,14 @@ private[backend] object PostgresStorageBackend
   }
 
   /** If `pruneAllDivulgedContracts` is set, validate that the pruning offset is after
-    * the last ingested event offset (if exists) before the migration to append-only schema
+    * the last event offset that was ingested before the migration to append-only schema (if such event offset exists).
     * (see [[com.daml.platform.store.appendonlydao.JdbcLedgerDao.prune]])
     */
-  def validatePruningOffsetAgainstMigration(
+  def isPruningOffsetValidAgainstMigration(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
       connection: Connection,
-  ): Unit =
+  ): Boolean =
     if (pruneAllDivulgedContracts) {
       import com.daml.platform.store.Conversions.OffsetToStatement
       SQL"""
@@ -144,12 +142,9 @@ private[backend] object PostgresStorageBackend
        where max_event_offset >= $pruneUpToInclusive
        """
         .as(int("result").singleOpt)(connection)
-        .foreach(_ =>
-          // TODO error codes: Use specialized error and enable logging
-          throw ErrorFactories.invalidArgument(None)(
-            "Pruning offset for all divulged contracts needs to be after the migration offset"
-          )(NoLogging)
-        )
+        .isEmpty
+    } else {
+      true
     }
 
   object PostgresQueryStrategy extends QueryStrategy {

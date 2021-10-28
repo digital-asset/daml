@@ -18,13 +18,18 @@ import com.google.rpc._
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
+import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.jdk.CollectionConverters._
 
-class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class ErrorFactoriesSpec
+    extends AnyWordSpec
+    with Matchers
+    with TableDrivenPropertyChecks
+    with MockitoSugar {
   private val correlationId = "trace-id"
   private val logger = ContextualizedLogger.get(getClass)
   private val loggingContext = LoggingContext.ForTesting
@@ -34,6 +39,8 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
 
   private val DefaultTraceIdRequestInfo: ErrorDetails.RequestInfoDetail =
     ErrorDetails.RequestInfoDetail("trace-id")
+
+  val tested = ErrorFactories(mock[ErrorCodesVersionSwitcher])
 
   "ErrorFactories" should {
     "return malformedPackageId" in {
@@ -246,7 +253,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       )
 
       forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        val exception = aborted("my message", definiteAnswer)
+        val exception = tested.aborted("my message", definiteAnswer)
         val status = StatusProto.fromThrowable(exception)
         status.getCode shouldBe Code.ABORTED.value()
         status.getMessage shouldBe "my message"
@@ -303,7 +310,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     }
 
     "fail on creating a ledgerIdMismatch error due to a wrong definite answer" in {
-      an[IllegalArgumentException] should be thrownBy ledgerIdMismatch(
+      an[IllegalArgumentException] should be thrownBy tested.ledgerIdMismatch(
         LedgerId("expected"),
         LedgerId("received"),
         definiteAnswer = Some(true),
@@ -319,6 +326,21 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         v2_message = s"PARTICIPANT_PRUNED_DATA_ACCESSED(12,$correlationId): my message",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("PARTICIPANT_PRUNED_DATA_ACCESSED"),
+          DefaultTraceIdRequestInfo,
+        ),
+      )
+    }
+
+    "return a trackerFailure error" in {
+      assertVersionedError(_.trackerFailure("message123"))(
+        v1_code = Code.INTERNAL,
+        v1_message = "message123",
+        v1_details = Seq.empty,
+        v2_code = Code.INTERNAL,
+        v2_message =
+          s"An error occurred. Please contact the operator and inquire about the request trace-id",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("LEDGER_API_INTERNAL_ERROR"),
           DefaultTraceIdRequestInfo,
         ),
       )
@@ -447,7 +469,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
 
     "should create an ApiException without the stack trace" in {
       val status = Status.newBuilder().setCode(Code.INTERNAL.value()).build()
-      val exception = grpcError(status)
+      val exception = tested.grpcError(status)
       exception.getStackTrace shouldBe Array.empty
     }
   }

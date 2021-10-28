@@ -12,9 +12,10 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerDao}
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
+import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerDao}
 import org.scalatest.LoneElement
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -24,7 +25,11 @@ import scala.concurrent.duration.DurationInt
 private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
-  override protected def daoOwner(eventsPageSize: Int, eventsProcessingParallelism: Int)(implicit
+  override protected def daoOwner(
+      eventsPageSize: Int,
+      eventsProcessingParallelism: Int,
+      errorFactories: ErrorFactories,
+  )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] = {
     val metrics = new Metrics(new MetricRegistry)
@@ -42,6 +47,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
         enricher = None,
         participantId = Ref.ParticipantId.assertFromString("JdbcLedgerDaoPostCommitValidationSpec"),
         compressionStrategy = CompressionStrategy.none(metrics),
+        errorFactories = errorFactories,
       )
   }
 

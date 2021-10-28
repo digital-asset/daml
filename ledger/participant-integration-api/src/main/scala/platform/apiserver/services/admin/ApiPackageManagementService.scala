@@ -64,7 +64,6 @@ private[apiserver] final class ApiPackageManagementService private (
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
-
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(
       transactionsService,
@@ -73,6 +72,7 @@ private[apiserver] final class ApiPackageManagementService private (
       errorFactories,
     ),
     timeToLive = managementServiceTimeout,
+    errorFactories = errorFactories,
   )
 
   override def close(): Unit = ()

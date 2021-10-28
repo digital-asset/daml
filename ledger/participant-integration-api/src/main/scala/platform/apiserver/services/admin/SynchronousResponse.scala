@@ -27,6 +27,7 @@ import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 class SynchronousResponse[Input, Entry, AcceptedEntry](
     strategy: SynchronousResponse.Strategy[Input, Entry, AcceptedEntry],
     timeToLive: Duration,
+    errorFactories: ErrorFactories,
 ) {
 
   def submitAndWait(submissionId: Ref.SubmissionId, input: Input)(implicit
@@ -52,7 +53,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
             .runWith(Sink.head)
             .recoverWith { case _: TimeoutException =>
               Future.failed(
-                ErrorFactories.aborted("Request timed out", definiteAnswer = Some(false))
+                errorFactories.aborted("Request timed out", definiteAnswer = Some(false))
               )
             }
             .flatten

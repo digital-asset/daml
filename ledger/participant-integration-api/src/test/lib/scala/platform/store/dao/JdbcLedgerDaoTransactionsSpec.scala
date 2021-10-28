@@ -18,8 +18,10 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.participant.util.LfEngineToApi
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao._
 import com.daml.platform.store.entries.LedgerEntry
+import org.mockito.MockitoSugar
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -27,7 +29,11 @@ import org.scalatest.{Inside, LoneElement, OptionValues}
 
 import scala.concurrent.Future
 
-private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Inside with LoneElement {
+private[dao] trait JdbcLedgerDaoTransactionsSpec
+    extends OptionValues
+    with Inside
+    with LoneElement
+    with MockitoSugar {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
   import JdbcLedgerDaoTransactionsSpec._
@@ -636,6 +642,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       daoOwner(
         eventsPageSize = pageSize,
         eventsProcessingParallelism = eventsProcessingParallelism,
+        mock[ErrorFactories],
       ).acquire()(ResourceContext(executionContext))
     }.asFuture
 

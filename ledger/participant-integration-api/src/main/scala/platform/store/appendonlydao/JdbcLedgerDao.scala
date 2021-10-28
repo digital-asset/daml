@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.platform.store.appendonlydao
 
-import java.sql.Connection
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.error.NoLogging
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
@@ -20,8 +20,8 @@ import com.daml.ledger.participant.state.index.v2.{
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.ArchiveParser
-import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -29,6 +29,7 @@ import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.events._
@@ -40,6 +41,7 @@ import com.daml.platform.store.entries.{
   PartyLedgerEntry,
 }
 
+import java.sql.Connection
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -57,6 +59,7 @@ private class JdbcLedgerDao(
     sequentialIndexer: SequentialWriteDao,
     participantId: Ref.ParticipantId,
     storageBackend: StorageBackend[_],
+    errorFactories: ErrorFactories,
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -575,11 +578,18 @@ private class JdbcLedgerDao(
 
     dbDispatcher
       .executeSql(metrics.daml.index.db.pruneDbMetrics) { conn =>
-        storageBackend.validatePruningOffsetAgainstMigration(
-          pruneUpToInclusive,
-          pruneAllDivulgedContracts,
-          conn,
-        )
+        if (
+          !storageBackend.isPruningOffsetValidAgainstMigration(
+            pruneUpToInclusive,
+            pruneAllDivulgedContracts,
+            conn,
+          )
+        ) {
+          // TODO error codes: Use specialized error and enable logging
+          throw errorFactories.invalidArgument(None)(
+            "Pruning offset for all divulged contracts needs to be after the migration offset"
+          )(NoLogging)
+        }
 
         storageBackend.pruneEvents(pruneUpToInclusive, pruneAllDivulgedContracts)(
           conn,
@@ -614,7 +624,7 @@ private class JdbcLedgerDao(
       loadPackage = (packageId, loggingContext) => this.getLfArchive(packageId)(loggingContext),
     )
 
-  private val queryNonPruned = QueryNonPrunedImpl(storageBackend)
+  private val queryNonPruned = QueryNonPrunedImpl(storageBackend, errorFactories)
 
   override val transactionsReader: TransactionsReader =
     new TransactionsReader(
@@ -728,6 +738,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
+      errorFactories: ErrorFactories,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerReadDao] = {
     owner(
       serverRole,
@@ -743,6 +754,7 @@ private[platform] object JdbcLedgerDao {
       enricher = enricher,
       participantId = participantId,
       compressionStrategy = CompressionStrategy.none(metrics), // not needed
+      errorFactories = errorFactories,
     ).map(new MeteredLedgerReadDao(_, metrics))
   }
 
@@ -758,6 +770,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
+      errorFactories: ErrorFactories,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     owner(
@@ -774,6 +787,7 @@ private[platform] object JdbcLedgerDao {
       enricher = enricher,
       participantId = participantId,
       compressionStrategy = CompressionStrategy.none(metrics), // not needed
+      errorFactories = errorFactories,
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -791,6 +805,7 @@ private[platform] object JdbcLedgerDao {
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
       compressionStrategy: CompressionStrategy,
+      errorFactories: ErrorFactories,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     owner(
@@ -808,6 +823,7 @@ private[platform] object JdbcLedgerDao {
       enricher = enricher,
       participantId = participantId,
       compressionStrategy = compressionStrategy,
+      errorFactories = errorFactories,
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -847,6 +863,7 @@ private[platform] object JdbcLedgerDao {
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
       compressionStrategy: CompressionStrategy,
+      errorFactories: ErrorFactories,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val storageBackend = StorageBackend.of(dbType)
@@ -877,6 +894,7 @@ private[platform] object JdbcLedgerDao {
       ),
       participantId,
       storageBackend,
+      errorFactories,
     )
   }
 

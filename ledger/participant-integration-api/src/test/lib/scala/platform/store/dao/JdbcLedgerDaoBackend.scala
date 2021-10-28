@@ -13,9 +13,11 @@ import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.LedgerDao
 import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParticipantId}
 import com.daml.platform.store.{DbType, FlywayMigrations, LfValueTranslationCache}
+import org.mockito.MockitoSugar
 import org.scalatest.AsyncTestSuite
 
 import scala.concurrent.Await
@@ -34,7 +36,7 @@ object JdbcLedgerDaoBackend {
 
 }
 
-private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
+private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll with MockitoSugar {
   this: AsyncTestSuite =>
 
   protected def dbType: DbType
@@ -44,6 +46,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
   protected def daoOwner(
       eventsPageSize: Int,
       eventsProcessingParallelism: Int,
+      errorFactories: ErrorFactories,
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] =
@@ -61,12 +64,14 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
       lfValueTranslationCache = LfValueTranslationCache.Cache.none,
       enricher = Some(new ValueEnricher(new Engine())),
       participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
+      errorFactories = errorFactories,
     )
 
   protected final var ledgerDao: LedgerDao = _
 
   // `dbDispatcher` and `ledgerDao` depend on the `postgresFixture` which is in turn initialized `beforeAll`
   private var resource: Resource[LedgerDao] = _
+  private val errorFactories_mock = mock[ErrorFactories]
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -77,7 +82,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
         _ <- Resource.fromFuture(
           new FlywayMigrations(jdbcUrl).migrate()
         )
-        dao <- daoOwner(100, 4).acquire()
+        dao <- daoOwner(100, 4, errorFactories_mock).acquire()
         _ <- Resource.fromFuture(dao.initialize(TestLedgerId, TestParticipantId))
       } yield dao
     }
@@ -86,6 +91,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
 
   override protected def afterAll(): Unit = {
     Await.result(resource.release(), 10.seconds)
+    verifyZeroInteractions(errorFactories_mock)
     super.afterAll()
   }
 }

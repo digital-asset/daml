@@ -29,6 +29,8 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//language-support/scala/bindings",
+        "//ledger/error",
+        "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/ledger-configuration",
         "//ledger/ledger-offset",

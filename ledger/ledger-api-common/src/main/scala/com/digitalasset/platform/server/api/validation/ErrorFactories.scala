@@ -402,6 +402,20 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       v2 = LedgerApiErrors.ServiceNotRunning.Reject().asGrpcError,
     )
 
+  def trackerFailure(msg: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = {
+        val builder = Status
+          .newBuilder()
+          .setCode(Code.INTERNAL.value())
+          .setMessage(msg)
+        grpcError(builder.build())
+      },
+      v2 = LedgerApiErrors.InternalError.CommandTrackerInternalError(msg).asGrpcError,
+    )
+
   /** Transforms Protobuf [[Status]] objects, possibly including metadata packed as [[ErrorInfo]] objects,
     * into exceptions with metadata in the trailers.
     *
@@ -427,11 +441,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   }
 }
 
-/** Object exposing the legacy error factories.
-  * TODO error codes: Remove default implementation once all Ledger API services
-  *                   output versioned error codes.
-  */
-object ErrorFactories extends ErrorFactories(new ErrorCodesVersionSwitcher(false)) {
+object ErrorFactories {
   def apply(errorCodesVersionSwitcher: ErrorCodesVersionSwitcher): ErrorFactories =
     new ErrorFactories(errorCodesVersionSwitcher)
 
