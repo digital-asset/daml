@@ -31,12 +31,12 @@ test:oracle --repo_env DAML_ORACLE_TESTING=true --test_env ORACLE_USERNAME --tes
 # This will become the default in a future Bazel release.
 build --experimental_strict_action_env
 
-# Drop the heap size of Bazel to 3 GB and force TLS 1.2.
+# Drop the heap size of Bazel to 4 GB and force TLS 1.2.
 # With TLS 1.3, we run into the following error on Darwin.
 # > No subject alternative DNS name matching github-releases.githubusercontent.com found.
 # It looks like this is a result of SNI being broken on TLS 1.3 which results
 # in us getting a certificate for githubassets.com instead.
-startup --host_jvm_args=-Xms3g --host_jvm_args=-Xmx3g --host_jvm_args=-Djdk.tls.client.protocols=TLSv1.2
+startup --host_jvm_args=-Xms4g --host_jvm_args=-Xmx4g --host_jvm_args=-Djdk.tls.client.protocols=TLSv1.2
 
 # Enable sandboxing and caching for exclusive tests
 build --incompatible_exclusive_test_sandboxed
