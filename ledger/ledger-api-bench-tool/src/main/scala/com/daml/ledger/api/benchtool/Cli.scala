@@ -144,19 +144,14 @@ object Cli {
 
         def transactionsConfig: Either[String, StreamConfig.TransactionsStreamConfig] = for {
           name <- stringField("name")
-          party <- stringField("party")
-          templateIds <- optionalStringField("template-ids").flatMap {
-            case Some(ids) => listOfTemplateIds(ids).map(Some(_))
-            case None => Right(None)
-          }
+          filters <- stringField("filters").flatMap(filters)
           beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
           endOffset <- optionalStringField("end-offset").map(_.map(offset))
           maxDelaySeconds <- optionalLongField("max-delay")
           minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
         } yield Config.StreamConfig.TransactionsStreamConfig(
           name = name,
-          party = party,
-          templateIds = templateIds,
+          filters = filters,
           beginOffset = beginOffset,
           endOffset = endOffset,
           objectives = Config.StreamConfig.Objectives(
@@ -168,19 +163,14 @@ object Cli {
         def transactionTreesConfig: Either[String, StreamConfig.TransactionTreesStreamConfig] =
           for {
             name <- stringField("name")
-            party <- stringField("party")
-            templateIds <- optionalStringField("template-ids").flatMap {
-              case Some(ids) => listOfTemplateIds(ids).map(Some(_))
-              case None => Right(None)
-            }
+            filters <- stringField("filters").flatMap(filters)
             beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
             endOffset <- optionalStringField("end-offset").map(_.map(offset))
             maxDelaySeconds <- optionalLongField("max-delay")
             minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
           } yield Config.StreamConfig.TransactionTreesStreamConfig(
             name = name,
-            party = party,
-            templateIds = templateIds,
+            filters = filters,
             beginOffset = beginOffset,
             endOffset = endOffset,
             objectives = Config.StreamConfig.Objectives(
@@ -255,19 +245,6 @@ object Cli {
             .map(party -> _)
         case _ => Left("Filter cannot be empty")
       }
-
-    private def listOfTemplateIds(listOfIds: String): Either[String, List[Identifier]] =
-      listOfIds
-        .split('|')
-        .toList
-        .map(templateIdFromString)
-        .foldLeft[Either[String, List[Identifier]]](Right(List.empty[Identifier])) {
-          case (acc, next) =>
-            for {
-              ids <- acc
-              id <- next
-            } yield id :: ids
-        }
 
     private def templateIdFromString(fullyQualifiedTemplateId: String): Either[String, Identifier] =
       fullyQualifiedTemplateId

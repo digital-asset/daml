@@ -29,8 +29,7 @@ object Config {
   object StreamConfig {
     case class TransactionsStreamConfig(
         name: String,
-        party: String,
-        templateIds: Option[List[Identifier]],
+        filters: Map[String, Option[List[Identifier]]],
         beginOffset: Option[LedgerOffset],
         endOffset: Option[LedgerOffset],
         objectives: StreamConfig.Objectives,
@@ -38,8 +37,7 @@ object Config {
 
     case class TransactionTreesStreamConfig(
         name: String,
-        party: String,
-        templateIds: Option[List[Identifier]],
+        filters: Map[String, Option[List[Identifier]]],
         beginOffset: Option[LedgerOffset],
         endOffset: Option[LedgerOffset],
         objectives: StreamConfig.Objectives,
