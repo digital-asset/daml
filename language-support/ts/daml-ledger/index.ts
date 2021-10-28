@@ -1133,7 +1133,7 @@ class Ledger {
     if (query === undefined) {
       return this.streamQueryCommon(template, [], 'Ledger.streamQuery');
     } else {
-      return this.streamQueryCommon(template, [query], 'Ledger.streamQuery');
+      return this.streamQueryCommon(template, [query], "Ledger.streamQuery");
     }
   }
 
