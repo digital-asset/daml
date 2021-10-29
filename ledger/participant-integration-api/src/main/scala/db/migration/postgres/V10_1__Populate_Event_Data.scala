@@ -10,7 +10,7 @@ import java.sql.Connection
 import anorm.{BatchSql, NamedParameter}
 import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.Node.NodeCreate
+import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.VersionedTransaction
 import com.daml.platform.db.migration.translation.TransactionSerializer
 import com.daml.platform.store.Conversions._
@@ -51,8 +51,9 @@ private[migration] class V10_1__Populate_Event_Data extends BaseJavaMigration {
 
     val txs = loadTransactions(conn)
     val data = txs.flatMap { case (txId, tx) =>
-      tx.nodes.collect { case (nodeId, NodeCreate(cid, _, _, _, signatories, stakeholders, _, _)) =>
-        (cid, EventId(txId, nodeId), signatories, stakeholders -- signatories)
+      tx.nodes.collect {
+        case (nodeId, Node.Create(cid, _, _, _, signatories, stakeholders, _, _)) =>
+          (cid, EventId(txId, nodeId), signatories, stakeholders -- signatories)
       }
     }
 

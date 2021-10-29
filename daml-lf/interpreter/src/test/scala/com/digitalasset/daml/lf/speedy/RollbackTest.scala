@@ -10,11 +10,11 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.language.Ast.{Package, Expr, PrimLit, PLParty, EPrimLit, EApp}
 import com.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.daml.lf.speedy.Compiler.FullStackTrace
-import com.daml.lf.speedy.PartialTransaction.{CompleteTransaction, IncompleteTransaction, LeafNode}
+import com.daml.lf.speedy.PartialTransaction.{CompleteTransaction, IncompleteTransaction}
 import com.daml.lf.speedy.SResult.SResultFinalValue
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeRollback}
+import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.NodeId
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.validation.Validation
@@ -262,18 +262,18 @@ object ExceptionTest {
   private def shapeOfTransaction(tx: SubmittedTransaction): List[Tree] = {
     def trees(nid: NodeId): List[Tree] = {
       tx.nodes(nid) match {
-        case create: NodeCreate =>
+        case create: Node.Create =>
           create.arg match {
             case ValueRecord(_, ImmArray(_, (None, ValueInt64(n)))) =>
               List(C(n))
             case _ =>
               sys.error(s"unexpected create.arg: ${create.arg}")
           }
-        case _: LeafNode =>
+        case _: Node.LeafOnlyAction =>
           Nil
-        case node: NodeExercises =>
+        case node: Node.Exercise =>
           List(X(node.children.toList.flatMap(nid => trees(nid))))
-        case node: NodeRollback =>
+        case node: Node.Rollback =>
           List(R(node.children.toList.flatMap(nid => trees(nid))))
       }
     }

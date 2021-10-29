@@ -7,7 +7,6 @@ package transaction
 
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{Identifier, Party}
-import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.{TransactionOuterClass => proto}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
@@ -50,7 +49,7 @@ class TransactionCoderSpec
       )
     }
 
-    "do NodeCreate" in {
+    "do Node.Create" in {
       forAll(malformedCreateNodeGen, versionInIncreasingOrder()) {
         case (createNode, (nodeVersion, txVersion)) =>
           val versionedNode = createNode.updateVersion(nodeVersion)
@@ -77,7 +76,7 @@ class TransactionCoderSpec
       }
     }
 
-    "do NodeFetch" in {
+    "do Node.Fetch" in {
       forAll(fetchNodeGen, versionInIncreasingOrder()) {
         case (fetchNode, (nodeVersion, txVersion)) =>
           val versionedNode = fetchNode.updateVersion(nodeVersion)
@@ -106,7 +105,7 @@ class TransactionCoderSpec
       }
     }
 
-    "do NodeExercises" in {
+    "do Node.Exercise" in {
       forAll(danglingRefExerciseNodeGen, versionInIncreasingOrder()) {
         case (exerciseNode, (nodeVersion, txVersion)) =>
           val normalizedNode = normalizeExe(exerciseNode.updateVersion(nodeVersion))
@@ -134,7 +133,7 @@ class TransactionCoderSpec
       }
     }
 
-    "do NodeRollback" in {
+    "do Node.Rollback" in {
       forAll(danglingRefRollbackNodeGen) { node =>
         forEvery(transactionVersions) { txVersion =>
           if (txVersion >= minExceptions) {
@@ -223,7 +222,7 @@ class TransactionCoderSpec
 
     "do tx with a lot of root nodes" in {
       val node =
-        NodeCreate(
+        Node.Create(
           coid = absCid("#test-cid"),
           templateId = Identifier.assertFromString("pkg-id:Test:Name"),
           arg = Value.ValueParty(Party.assertFromString("francesco")),
@@ -271,7 +270,7 @@ class TransactionCoderSpec
         val shouldFail = node.choiceObservers.nonEmpty
 
         val normalized = normalizeNode(node) match {
-          case exe: NodeExercises =>
+          case exe: Node.Exercise =>
             exe.copy(
               choiceObservers = node.choiceObservers,
               exerciseResult = Some(Value.ValueText("not-missing")),
@@ -836,33 +835,33 @@ class TransactionCoderSpec
     }
   }
 
-  def withoutExerciseResult(gn: GenNode): GenNode =
+  def withoutExerciseResult(gn: Node): Node =
     gn match {
-      case ne: NodeExercises => ne copy (exerciseResult = None)
+      case ne: Node.Exercise => ne copy (exerciseResult = None)
       case _ => gn
     }
-  def withoutContractKeyInExercise(gn: GenNode): GenNode =
+  def withoutContractKeyInExercise(gn: Node): Node =
     gn match {
-      case ne: NodeExercises => ne copy (key = None)
+      case ne: Node.Exercise => ne copy (key = None)
       case _ => gn
     }
-  def withoutMaintainersInExercise(gn: GenNode): GenNode =
+  def withoutMaintainersInExercise(gn: Node): Node =
     gn match {
-      case ne: NodeExercises =>
+      case ne: Node.Exercise =>
         ne copy (key = ne.key.map(_.copy(maintainers = Set.empty)))
       case _ => gn
     }
 
-  def withoutChoiceObservers(gn: GenNode): GenNode =
+  def withoutChoiceObservers(gn: Node): Node =
     gn match {
-      case ne: NodeExercises =>
+      case ne: Node.Exercise =>
         ne.copy(choiceObservers = Set.empty)
       case _ => gn
     }
 
   def hasChoiceObserves(tx: GenTransaction): Boolean =
     tx.nodes.values.exists {
-      case ne: NodeExercises => ne.choiceObservers.nonEmpty
+      case ne: Node.Exercise => ne.choiceObservers.nonEmpty
       case _ => false
     }
 
@@ -871,8 +870,8 @@ class TransactionCoderSpec
 
   def versionNodes(
       version: TransactionVersion,
-      nodes: Map[NodeId, GenNode],
-  ): Map[NodeId, GenNode] =
+      nodes: Map[NodeId, Node],
+  ): Map[NodeId, Node] =
     nodes.view.mapValues(updateVersion(_, version)).toMap
 
   private def versionInIncreasingOrder(
@@ -891,25 +890,25 @@ class TransactionCoderSpec
       v2 <- Gen.oneOf(versions.filter(_ > v1))
     } yield (v1, v2)
 
-  private[this] def normalizeNode(node: Node.GenNode) =
+  private[this] def normalizeNode(node: Node) =
     node match {
-      case rb: NodeRollback => rb //nothing to normalize
-      case exe: NodeExercises => normalizeExe(exe)
-      case fetch: NodeFetch => normalizeFetch(fetch)
-      case create: NodeCreate => normalizeCreate(create)
-      case lookup: NodeLookupByKey => lookup
+      case rb: Node.Rollback => rb //nothing to normalize
+      case exe: Node.Exercise => normalizeExe(exe)
+      case fetch: Node.Fetch => normalizeFetch(fetch)
+      case create: Node.Create => normalizeCreate(create)
+      case lookup: Node.LookupByKey => lookup
     }
 
   private[this] def normalizeCreate(
-      create: Node.NodeCreate
-  ): Node.NodeCreate = {
+      create: Node.Create
+  ): Node.Create = {
     create.copy(
       arg = normalize(create.arg, create.version),
       key = create.key.map(normalizeKey(_, create.version)),
     )
   }
 
-  private[this] def normalizeFetch(fetch: Node.NodeFetch) =
+  private[this] def normalizeFetch(fetch: Node.Fetch) =
     fetch.copy(
       key = fetch.key.map(normalizeKey(_, fetch.version)),
       byKey =
@@ -918,7 +917,7 @@ class TransactionCoderSpec
         else false,
     )
 
-  private[this] def normalizeExe(exe: Node.NodeExercises) =
+  private[this] def normalizeExe(exe: Node.Exercise) =
     exe.copy(
       chosenValue = normalize(exe.chosenValue, exe.version),
       exerciseResult = exe.exerciseResult match {
@@ -941,7 +940,7 @@ class TransactionCoderSpec
     )
 
   private[this] def normalizeKey(
-      key: KeyWithMaintainers[Value],
+      key: Node.KeyWithMaintainers[Value],
       version: TransactionVersion,
   ) = {
     key.copy(key = normalize(key.key, version))
@@ -956,11 +955,11 @@ class TransactionCoderSpec
   ): Value = Util.assertNormalizeValue(value0, version)
 
   private def updateVersion(
-      node: GenNode,
+      node: Node,
       version: TransactionVersion,
-  ): GenNode = node match {
-    case node: GenActionNode => node.updateVersion(version)
-    case node: Node.NodeRollback => node
+  ): Node = node match {
+    case node: Node.Action => node.updateVersion(version)
+    case node: Node.Rollback => node
   }
 
 }

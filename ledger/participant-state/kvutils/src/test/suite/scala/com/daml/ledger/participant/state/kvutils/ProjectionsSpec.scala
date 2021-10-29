@@ -15,7 +15,7 @@ import org.scalatest.wordspec.AnyWordSpec
 class ProjectionsSpec extends AnyWordSpec with Matchers {
 
   def makeCreateNode(cid: ContractId, signatories: Set[Party], stakeholders: Set[Party]) =
-    Node.NodeCreate(
+    Node.Create(
       coid = cid,
       templateId = Identifier.assertFromString("some-package:Foo:Bar"),
       arg = ValueText("foo"),
@@ -32,7 +32,7 @@ class ProjectionsSpec extends AnyWordSpec with Matchers {
       signatories: Set[Party],
       stakeholders: Set[Party],
   ) =
-    Node.NodeExercises(
+    Node.Exercise(
       targetCoid = target,
       templateId = Identifier(
         PackageId.assertFromString("some-package"),

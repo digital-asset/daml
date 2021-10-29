@@ -12,8 +12,7 @@ import com.daml.lf.data.LawlessTraversals._
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.{Numeric, Ref}
 import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}
-import com.daml.lf.transaction.NodeId
+import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.lf.value.{Value => Lf}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
@@ -174,13 +173,13 @@ object LfEngineToApi {
 
   def lfContractKeyToApiValue(
       verbose: Boolean,
-      lf: KeyWithMaintainers[LfValue],
+      lf: Node.KeyWithMaintainers[LfValue],
   ): Either[String, api.Value] =
     lfValueToApiValue(verbose, lf.key)
 
   def lfContractKeyToApiValue(
       verbose: Boolean,
-      lf: Option[KeyWithMaintainers[LfValue]],
+      lf: Option[Node.KeyWithMaintainers[LfValue]],
   ): Either[String, Option[api.Value]] =
     lf.fold[Either[String, Option[api.Value]]](Right(None))(
       lfContractKeyToApiValue(verbose, _).map(Some(_))
@@ -190,7 +189,7 @@ object LfEngineToApi {
       verbose: Boolean,
       trId: Ref.LedgerString,
       nodeId: NodeId,
-      node: NodeCreate,
+      node: Node.Create,
   ): Either[String, Event] =
     for {
       arg <- lfValueToApiRecord(verbose, node.arg)
@@ -214,7 +213,7 @@ object LfEngineToApi {
   def lfNodeExercisesToEvent(
       trId: Ref.LedgerString,
       nodeId: NodeId,
-      node: NodeExercises,
+      node: Node.Exercise,
   ): Either[String, Event] =
     Either.cond(
       node.consuming,
@@ -235,7 +234,7 @@ object LfEngineToApi {
       verbose: Boolean,
       eventId: EventId,
       witnessParties: Set[Ref.Party],
-      node: NodeCreate,
+      node: Node.Create,
   ): Either[String, TreeEvent] =
     for {
       arg <- lfValueToApiRecord(verbose, node.arg)
@@ -261,7 +260,7 @@ object LfEngineToApi {
       trId: Ref.LedgerString,
       eventId: EventId,
       witnessParties: Set[Ref.Party],
-      node: NodeExercises,
+      node: Node.Exercise,
       filterChildren: NodeId => Boolean,
   ): Either[String, TreeEvent] =
     for {

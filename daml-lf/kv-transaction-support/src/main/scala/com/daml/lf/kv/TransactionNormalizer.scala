@@ -20,9 +20,9 @@ object TransactionNormalizer {
         (acc, _, _) => (acc, false),
         (acc, nid, node) =>
           node match {
-            case _: Node.NodeCreate => acc + nid
-            case _: Node.NodeFetch => acc
-            case _: Node.NodeLookupByKey => acc
+            case _: Node.Create => acc + nid
+            case _: Node.Fetch => acc
+            case _: Node.LookupByKey => acc
           },
         (acc, _, _) => acc,
         (acc, _, _) => acc,
@@ -31,9 +31,9 @@ object TransactionNormalizer {
       tx.nodes
         .filter { case (nid, _) => keepNids.contains(nid) }
         .transform {
-          case (_, node: Node.NodeExercises) =>
+          case (_, node: Node.Exercise) =>
             node.copy(children = node.children.filter(keepNids.contains))
-          case (_, node: Node.NodeRollback) =>
+          case (_, node: Node.Rollback) =>
             node.copy(children = node.children.filter(keepNids.contains))
           case (_, keep) =>
             keep

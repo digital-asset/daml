@@ -28,7 +28,7 @@ import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.test.TransactionBuilder.{Create, Exercise}
+import com.daml.lf.transaction.Node
 import com.daml.lf.value.Value.{ContractId, ValueRecord, ValueText}
 import com.daml.lf.value.{Value, ValueOuterClass}
 import com.daml.logging.LoggingContext
@@ -423,7 +423,7 @@ class TransactionCommitterSpec
       signatories: Set[Ref.Party] = Set(aKeyMaintainer),
       argument: Value = aDummyValue,
       keyAndMaintainer: Option[(String, String)] = Some(aKey -> aKeyMaintainer),
-  ): TransactionBuilder.Create =
+  ): Node.Create =
     txBuilder.create(
       id = contractId,
       templateId = "DummyModule:DummyTemplate",
@@ -433,7 +433,7 @@ class TransactionCommitterSpec
       key = keyAndMaintainer.map { case (key, maintainer) => lfTuple(maintainer, key) },
     )
 
-  def archive(create: Create, actingParties: Set[String]): Exercise =
+  def archive(create: Node.Create, actingParties: Set[String]): Node.Exercise =
     txBuilder.exercise(
       create,
       choice = "Archive",
@@ -443,7 +443,7 @@ class TransactionCommitterSpec
       result = Some(Value.ValueUnit),
     )
 
-  def archive(contractId: String, actingParties: Set[String]): Exercise =
+  def archive(contractId: String, actingParties: Set[String]): Node.Exercise =
     archive(create(contractId), actingParties)
 }
 

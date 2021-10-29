@@ -8,7 +8,7 @@ import com.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.scenario.api.{v1 => proto}
 import com.daml.lf.speedy.{SError, SValue, TraceLog, Warning, WarningLog}
-import com.daml.lf.transaction.{GlobalKey, IncompleteTransaction, Node => N, NodeId}
+import com.daml.lf.transaction.{GlobalKey, IncompleteTransaction, Node, NodeId}
 import com.daml.lf.ledger._
 import com.daml.lf.value.{Value => V}
 
@@ -34,7 +34,7 @@ final class Conversions(
   private val ptxCoidToNodeId = incomplete
     .map(_.transaction.nodes)
     .getOrElse(Map.empty)
-    .collect { case (nodeId, node: N.NodeCreate) =>
+    .collect { case (nodeId, node: Node.Create) =>
       node.coid -> ledger.ptxEventId(nodeId)
     }
 
@@ -480,13 +480,13 @@ final class Conversions(
       .map(eventId => builder.setParent(convertEventId(eventId)))
 
     nodeInfo.node match {
-      case rollback: N.NodeRollback =>
+      case rollback: Node.Rollback =>
         val rollbackBuilder = proto.Node.Rollback.newBuilder
           .addAllChildren(
             rollback.children.map(convertNodeId(eventId.transactionId, _)).toSeq.asJava
           )
         builder.setRollback(rollbackBuilder.build)
-      case create: N.NodeCreate =>
+      case create: Node.Create =>
         val createBuilder =
           proto.Node.Create.newBuilder
             .setContractInstance(
@@ -500,7 +500,7 @@ final class Conversions(
 
         nodeInfo.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
-      case fetch: N.NodeFetch =>
+      case fetch: Node.Fetch =>
         builder.setFetch(
           proto.Node.Fetch.newBuilder
             .setContractId(coidToEventId(fetch.coid).toLedgerString)
@@ -509,7 +509,7 @@ final class Conversions(
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
             .build
         )
-      case ex: N.NodeExercises =>
+      case ex: Node.Exercise =>
         nodeInfo.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         val exerciseBuilder =
           proto.Node.Exercise.newBuilder
@@ -534,7 +534,7 @@ final class Conversions(
 
         builder.setExercise(exerciseBuilder.build)
 
-      case lbk: N.NodeLookupByKey =>
+      case lbk: Node.LookupByKey =>
         nodeInfo.optLocation.foreach(loc => builder.setLocation(convertLocation(loc)))
         val lbkBuilder = proto.Node.LookupByKey.newBuilder
           .setTemplateId(convertIdentifier(lbk.templateId))
@@ -547,7 +547,7 @@ final class Conversions(
   }
 
   def convertKeyWithMaintainers(
-      key: N.KeyWithMaintainers[V.VersionedValue]
+      key: Node.KeyWithMaintainers[V.VersionedValue]
   ): proto.KeyWithMaintainers = {
     proto.KeyWithMaintainers
       .newBuilder()
@@ -558,7 +558,7 @@ final class Conversions(
 
   def convertIncompleteTransactionNode(
       locationInfo: Map[NodeId, Ref.Location]
-  )(nodeWithId: (NodeId, N.GenNode)): proto.Node = {
+  )(nodeWithId: (NodeId, Node)): proto.Node = {
     val (nodeId, node) = nodeWithId
     val optLocation = locationInfo.get(nodeId)
     val builder = proto.Node.newBuilder
@@ -566,7 +566,7 @@ final class Conversions(
       .setNodeId(proto.NodeId.newBuilder.setId(nodeId.index.toString).build)
     // FIXME(JM): consumedBy, parent, ...
     node match {
-      case rollback: N.NodeRollback =>
+      case rollback: Node.Rollback =>
         val rollbackBuilder =
           proto.Node.Rollback.newBuilder
             .addAllChildren(
@@ -576,7 +576,7 @@ final class Conversions(
                 .asJava
             )
         builder.setRollback(rollbackBuilder.build)
-      case create: N.NodeCreate =>
+      case create: Node.Create =>
         val createBuilder =
           proto.Node.Create.newBuilder
             .setContractInstance(
@@ -592,7 +592,7 @@ final class Conversions(
         )
         optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
-      case fetch: N.NodeFetch =>
+      case fetch: Node.Fetch =>
         builder.setFetch(
           proto.Node.Fetch.newBuilder
             .setContractId(coidToEventId(fetch.coid).toLedgerString)
@@ -601,7 +601,7 @@ final class Conversions(
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
             .build
         )
-      case ex: N.NodeExercises =>
+      case ex: Node.Exercise =>
         optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setExercise(
           proto.Node.Exercise.newBuilder
@@ -622,7 +622,7 @@ final class Conversions(
             .build
         )
 
-      case lookup: N.NodeLookupByKey =>
+      case lookup: Node.LookupByKey =>
         optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setLookupByKey({
           val builder = proto.Node.LookupByKey.newBuilder
