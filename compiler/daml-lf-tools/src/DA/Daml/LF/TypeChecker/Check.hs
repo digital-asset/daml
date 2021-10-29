@@ -810,7 +810,7 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
 
 -- | Check that an interface definition is well defined.
 checkIface :: MonadGamma m => Module -> DefInterface -> m ()
-checkIface m DefInterface{intName, intParam, intVirtualChoices, intFixedChoices, intMethods} = do
+checkIface m DefInterface{intName, intParam, intVirtualChoices, intFixedChoices, intMethods, intPrecondition} = do
   checkUnique (EDuplicateInterfaceChoiceName intName) $ NM.names intVirtualChoices `union` NM.names intFixedChoices
   checkUnique (EDuplicateInterfaceMethodName intName) $ NM.names intMethods
   forM_ intVirtualChoices checkIfaceChoice
@@ -819,6 +819,7 @@ checkIface m DefInterface{intName, intParam, intVirtualChoices, intFixedChoices,
   let tcon = Qualified PRSelf (moduleName m) intName
   introExprVar intParam (TCon tcon) $ do
     forM_ intFixedChoices (checkTemplateChoice tcon)
+    checkExpr intPrecondition TBool
 
 checkIfaceChoice :: MonadGamma m => InterfaceChoice -> m ()
 checkIfaceChoice InterfaceChoice{ifcArgType,ifcRetType} = do
