@@ -37,11 +37,9 @@ da_scala_library(
 
 da_scala_test(
     name = "test",
-    size = "large",
     srcs = glob(["src/test/scala/**/*.scala"]),
     resources = [
         "src/test/resources/logback-test.xml",
-        "//ledger/test-common:dar-files-default",
     ],
     scala_deps = [
         "@maven//:org_scala_lang_modules_scala_collection_compat",
@@ -51,33 +49,17 @@ da_scala_test(
     ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:org_postgresql_postgresql",
     ],
     deps = [
         ":non-repudiation-postgresql",
-        "//daml-lf/data",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-        "//ledger/caching",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-test-tool:ledger-api-test-tool-default-lib",
-        "//ledger/ledger-api-test-tool:ledger-api-test-tool-default-test-suites",
-        "//ledger/ledger-api-test-tool:ledger-api-test-tool-default-tests",
-        "//ledger/ledger-configuration",
-        "//ledger/ledger-resources",
-        "//ledger/participant-integration-api",
-        "//ledger/sandbox",
-        "//ledger/sandbox-common",
         "//libs-scala/doobie-slf4j",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
-        "//libs-scala/resources-akka",
-        "//libs-scala/resources-grpc",
         "//runtime-components/non-repudiation",
-        "//runtime-components/non-repudiation-client",
         "//runtime-components/non-repudiation-testing",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_core",
-        "@maven//:io_grpc_grpc_netty",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
