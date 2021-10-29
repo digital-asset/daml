@@ -14,7 +14,6 @@ import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.FlywayMigrations
 import com.daml.platform.store.appendonlydao.DbDispatcher
-import org.mockito.MockitoSugar
 import org.scalatest.{AsyncTestSuite, BeforeAndAfterEach}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -23,8 +22,7 @@ import scala.concurrent.{Await, Future}
 private[backend] trait StorageBackendSpec
     extends AkkaBeforeAndAfterAll
     with BeforeAndAfterEach
-    with StorageBackendProvider
-    with MockitoSugar { this: AsyncTestSuite =>
+    with StorageBackendProvider { this: AsyncTestSuite =>
 
   protected val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   implicit protected val loggingContext: LoggingContext = LoggingContext.ForTesting

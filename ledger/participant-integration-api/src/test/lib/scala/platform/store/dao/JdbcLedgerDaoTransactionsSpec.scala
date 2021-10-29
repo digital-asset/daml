@@ -21,6 +21,7 @@ import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao._
 import com.daml.platform.store.entries.LedgerEntry
+import org.mockito.MockitoSugar
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -637,7 +638,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       daoOwner(
         eventsPageSize = pageSize,
         eventsProcessingParallelism = eventsProcessingParallelism,
-        mock[ErrorFactories],
+        MockitoSugar.mock[ErrorFactories],
       ).acquire()(ResourceContext(executionContext))
     }.asFuture
 

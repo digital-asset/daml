@@ -36,7 +36,7 @@ object JdbcLedgerDaoBackend {
 
 }
 
-private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll with MockitoSugar {
+private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
   this: AsyncTestSuite =>
 
   protected def dbType: DbType
@@ -71,7 +71,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll with Mocki
 
   // `dbDispatcher` and `ledgerDao` depend on the `postgresFixture` which is in turn initialized `beforeAll`
   private var resource: Resource[LedgerDao] = _
-  private val errorFactories_mock = mock[ErrorFactories]
+  private val errorFactories_mock = MockitoSugar.mock[ErrorFactories]
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -91,7 +91,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll with Mocki
 
   override protected def afterAll(): Unit = {
     Await.result(resource.release(), 10.seconds)
-    verifyZeroInteractions(errorFactories_mock)
+    MockitoSugar.verifyZeroInteractions(errorFactories_mock)
     super.afterAll()
   }
 }
