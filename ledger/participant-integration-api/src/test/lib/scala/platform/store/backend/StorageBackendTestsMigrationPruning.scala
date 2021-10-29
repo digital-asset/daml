@@ -46,7 +46,7 @@ private[backend] trait StorageBackendTestsMigrationPruning
             pruneAllDivulgedContracts = true,
             _,
           )
-        ).map(_ shouldBe true)
+        ).map(_ shouldBe false)
       // Validation passes the pruning offset for all divulged contracts is after the migration
       _ <- executeSql(
         backend.isPruningOffsetValidAgainstMigration(
