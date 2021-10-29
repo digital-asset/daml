@@ -1409,6 +1409,29 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             ]
         ]
 
+    , simpleImportTest "Constraint synonym context on instance"
+        [ "{-# LANGUAGE UndecidableInstances #-}"
+        , "module Lib where"
+
+        , "class C a where c : a"
+        , "instance C () where c = ()"
+
+        , "class D a where d : a"
+        , "instance D () where d = ()"
+
+        , "type CD a = (C a, D a)"
+
+        , "class E a where e : (a, a)"
+        , "instance (CD a) => E a where e = (c, d)"
+        ]
+        [ "{-# LANGUAGE TypeOperators #-}"
+        , "module Main where"
+        , "import Lib"
+
+        , "x : ((), ())"
+        , "x = e"
+        ]
+
     , testCaseSteps "User-defined exceptions" $ \step -> withTempDir $ \tmpDir -> do
         step "building project to be imported via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "lib")
