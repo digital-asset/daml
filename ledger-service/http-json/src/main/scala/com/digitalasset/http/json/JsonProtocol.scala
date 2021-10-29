@@ -274,10 +274,13 @@ object JsonProtocol extends JsonProtocolLow {
     }
   }
 
-  implicit val GetActiveContractsRequestFormat: RootJsonReader[domain.GetActiveContractsRequest] =
-    requestJsonReader(validExtraFields = Set.empty)((tids, query, _) =>
-      domain.GetActiveContractsRequest(tids, query)
-    )
+  implicit val GetActiveContractsRequestFormat: RootJsonReader[domain.GetActiveContractsRequest] = {
+    val ReadAsKey = "readAs"
+    requestJsonReader(validExtraFields = Set(ReadAsKey)) { (tids, query, extra) =>
+      val readAs = extra get ReadAsKey map (_.convertTo[NonEmptyList[domain.Party]])
+      domain.GetActiveContractsRequest(tids, query, readAs)
+    }
+  }
 
   implicit val SearchForeverQueryFormat: RootJsonReader[domain.SearchForeverQuery] = {
     val OffsetKey = "offset"

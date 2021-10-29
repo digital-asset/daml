@@ -107,6 +107,7 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
   final case class GetActiveContractsRequest(
       templateIds: OneAnd[Set, TemplateId.OptionalPkg],
       query: Map[String, JsValue],
+      readAs: Option[NonEmptyList[Party]],
   )
 
   final case class SearchForeverQuery(
