@@ -886,7 +886,12 @@ private[lf] object SBuiltin {
     */
   final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SUnit.type = {
-      if (!getSBool(args, 1))
+      if (
+        !(getSList(args, 1).iterator.forall(_ match {
+          case SBool(b) => b
+          case otherwise => crash(s"type mismatch SBCheckPrecond: expected SBool, got $otherwise")
+        }))
+      )
         throw SErrorDamlException(
           IE.TemplatePreconditionViolated(
             templateId = templateId,

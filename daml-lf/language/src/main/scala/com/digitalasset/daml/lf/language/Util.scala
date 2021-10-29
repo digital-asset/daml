@@ -227,6 +227,7 @@ object Util {
           name,
           methods.transform((_, v) => toSignature(v)),
           inheritedChoices,
+          ()
         )
     }
 
