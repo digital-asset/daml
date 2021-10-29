@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.Time
 import com.daml.lf.ledger.EventId
 import com.daml.lf.speedy.SError.SError
-import com.daml.lf.transaction.{GlobalKey, Transaction}
+import com.daml.lf.transaction.{GlobalKey, VersionedTransaction}
 import com.daml.lf.value.Value.ContractId
 
 import scala.util.control.NoStackTrace
@@ -67,7 +67,7 @@ object Error {
   final case class CommitError(commitError: ScenarioLedger.CommitError) extends Error
 
   /** The transaction produced by the update expression in a 'mustFailAt' succeeded. */
-  final case class MustFailSucceeded(tx: Transaction.Transaction) extends Error
+  final case class MustFailSucceeded(tx: VersionedTransaction) extends Error
 
   /** Invalid party name supplied to 'getParty'. */
   final case class InvalidPartyName(name: String, msg: String) extends Error

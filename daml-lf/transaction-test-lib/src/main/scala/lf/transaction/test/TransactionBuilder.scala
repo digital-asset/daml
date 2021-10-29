@@ -7,7 +7,6 @@ package test
 
 import com.daml.lf.data._
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance, VersionedContractInstance}
 
@@ -51,7 +50,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
     nodeId
   }
 
-  def build(): Tx.Transaction = ids.synchronized {
+  def build(): VersionedTransaction = ids.synchronized {
     import TransactionVersion.Ordering
     val finalNodes = nodes.transform {
       case (nid, rb: TxRollBack) =>
@@ -226,7 +225,7 @@ object TransactionBuilder {
 
   def newCid: ContractId = newV1Cid
 
-  def just(node: Node, nodes: Node*): Tx.Transaction = {
+  def just(node: Node, nodes: Node*): VersionedTransaction = {
     val builder = TransactionBuilder()
     val _ = builder.add(node)
     for (node <- nodes) {
@@ -242,7 +241,7 @@ object TransactionBuilder {
     CommittedTransaction(just(node, nodes: _*))
 
   // not valid transactions.
-  val Empty: Tx.Transaction =
+  val Empty: VersionedTransaction =
     VersionedTransaction(
       TransactionVersion.minVersion, // A normalized empty tx is V10
       HashMap.empty,

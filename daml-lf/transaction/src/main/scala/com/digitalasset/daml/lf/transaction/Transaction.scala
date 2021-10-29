@@ -792,14 +792,9 @@ object Transaction {
   type ActionNode = Node.GenActionNode
   type LeafNode = Node.LeafOnlyActionNode
 
-  /** (Complete) transactions, which are the result of interpreting a
-    * ledger-update. These transactions are consumed by either the
-    * scenario-interpreter or the Daml-engine code. Both of these
-    * code-paths share the computations for segregating the
-    * transaction into party-specific ledgers and for computing
-    * divulgence of contracts.
-    */
+  @deprecated("use com.daml.transaction.VersionedTransaction", since = "1.8.0")
   type Transaction = VersionedTransaction
+  @deprecated("use com.daml.transaction.VersionedTransaction", since = "1.8.0")
   val Transaction: VersionedTransaction.type = VersionedTransaction
 
   /** Transaction meta data
