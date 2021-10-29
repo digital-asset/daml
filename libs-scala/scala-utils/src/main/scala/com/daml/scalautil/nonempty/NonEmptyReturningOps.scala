@@ -4,6 +4,7 @@
 package com.daml.scalautil.nonempty
 
 import scala.collection.{immutable => imm}, imm.Map, imm.Set
+import scalaz.Foldable1
 import NonEmptyCollCompat._
 
 /** Functions where ''the receiver'' is non-empty can be found implicitly with
@@ -24,5 +25,10 @@ object NonEmptyReturningOps {
   implicit final class `NE Set Ops`[A](private val self: Set[A]) extends AnyVal {
     import NonEmpty.{unsafeNarrow => un}
     def incl1(elem: A): NonEmpty[Set[A]] = un(self + elem)
+  }
+
+  implicit final class `NE Foldable1 Ops`[F[_], A](self: F[A])(implicit F: Foldable1[F]) {
+    import NonEmpty.{unsafeNarrow => un}
+    def toSet1: NonEmpty[Set[A]] = un(F toSet self)
   }
 }

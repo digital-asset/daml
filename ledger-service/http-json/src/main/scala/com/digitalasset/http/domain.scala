@@ -45,7 +45,7 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
   ) extends JwtPayloadG {
     override val actAs: List[Party] = submitter.toList
     override val parties: PartySet =
-      actAs.tail.toSet union readAs.toSet incl1 actAs.head
+      submitter.toSet1 ++ readAs
   }
 
   final case class JwtPayloadLedgerIdOnly(ledgerId: LedgerId)

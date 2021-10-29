@@ -698,9 +698,9 @@ class Endpoints(
       meta: Option[domain.CommandMeta],
       jwtPayload: JwtWritePayload,
   ): domain.PartySet = {
-    val NonEmptyList(actAsH, actAsT) = meta.flatMap(_.actAs) getOrElse jwtPayload.submitter
+    val actAs = meta.flatMap(_.actAs) getOrElse jwtPayload.submitter
     val readAs = meta.flatMap(_.readAs) getOrElse jwtPayload.readAs
-    (actAsT.toSet incl1 actAsH) ++ readAs
+    actAs.toSet1 ++ readAs
   }
 
   private def resolveReference(
