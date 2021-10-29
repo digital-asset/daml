@@ -40,7 +40,9 @@ case class CommandSubmitter(services: LedgerApiServices) {
     (for {
       _ <- Future.successful(logger.info("Generating contracts..."))
       _ <- Future.successful(logger.info(s"Identifier suffix: $identifierSuffix"))
-      descriptor <- Future.fromTry(parseDescriptor(descriptorFile))
+      // KTODO: move this up
+      workflowDescriptor <- Future.fromTry(parseDescriptor(descriptorFile))
+      descriptor = workflowDescriptor.submission
       signatory <- allocateParty(signatoryName)
       observers <- allocateParties(descriptor.numberOfObservers, observerName)
       _ <- uploadTestDars()
@@ -57,10 +59,10 @@ case class CommandSubmitter(services: LedgerApiServices) {
         Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage))
       }
 
-  private def parseDescriptor(descriptorFile: File): Try[ContractSetDescriptor] =
-    SimpleFileReader.readFile(descriptorFile)(DescriptorParser.parse).flatMap {
-      case Left(err: DescriptorParser.DescriptorParserError) =>
-        val message = s"Descriptor parsing error. Details: ${err.details}"
+  private def parseDescriptor(descriptorFile: File): Try[WorkflowDescriptor] =
+    SimpleFileReader.readFile(descriptorFile)(WorkflowParser.parse).flatMap {
+      case Left(err: WorkflowParser.ParserError) =>
+        val message = s"Workflow parsing error. Details: ${err.details}"
         logger.error(message)
         Failure(CommandSubmitter.CommandSubmitterError(message))
       case Right(descriptor) =>
@@ -114,7 +116,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
   }
 
   private def submitCommands(
-      descriptor: ContractSetDescriptor,
+      descriptor: SubmissionDescriptor,
       signatory: Primitive.Party,
       observers: List[Primitive.Party],
       maxInFlightCommands: Int,

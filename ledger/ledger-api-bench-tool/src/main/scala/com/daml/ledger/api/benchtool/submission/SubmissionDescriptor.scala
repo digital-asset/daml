@@ -3,13 +3,17 @@
 
 package com.daml.ledger.api.benchtool.submission
 
-final case class ContractSetDescriptor(
-    numberOfInstances: Int,
-    numberOfObservers: Int,
-    instanceDistribution: List[ContractSetDescriptor.ContractDescription],
+final case class WorkflowDescriptor(
+    submission: SubmissionDescriptor
 )
 
-object ContractSetDescriptor {
+final case class SubmissionDescriptor(
+    numberOfInstances: Int,
+    numberOfObservers: Int,
+    instanceDistribution: List[SubmissionDescriptor.ContractDescription],
+)
+
+object SubmissionDescriptor {
   final case class ContractDescription(
       template: String,
       weight: Int,
