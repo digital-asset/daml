@@ -52,9 +52,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ports.Port
-import org.scalatest.Tag
-
-object SkipScala212 extends Tag("skip_scala_2_12")
 
 object AbstractHttpServiceIntegrationTestFuns {
   private[http] val dar1 = requiredResource(ModelTestDar.path)
@@ -143,30 +140,34 @@ trait AbstractHttpServiceIntegrationTestFuns
 
   protected def withHttpServiceAndClient[A](
       testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient, LedgerId) => Future[A]
-  ): Future[A] = usingLedger[A](testId) { case (ledgerPort, _, ledgerId) =>
-    HttpServiceTestFixture.withHttpService[A](
-      testId,
-      ledgerPort,
-      jdbcConfig,
-      staticContentConfig,
-      useTls = useTls,
-      wsConfig = wsConfig,
-    )(testFn(_, _, _, _, ledgerId))
-  }
+  ): Future[A] =
+    HttpServiceTestFixture.withLedger[A](List(dar1, dar2, userDar), testId, None, useTls) {
+      case (ledgerPort, _, ledgerId) =>
+        HttpServiceTestFixture.withHttpService[A](
+          testId,
+          ledgerPort,
+          jdbcConfig,
+          staticContentConfig,
+          useTls = useTls,
+          wsConfig = wsConfig,
+        )(testFn(_, _, _, _, ledgerId))
+    }
 
   protected def withHttpServiceAndClient[A](maxInboundMessageSize: Int)(
       testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient, LedgerId) => Future[A]
-  ): Future[A] = usingLedger[A](testId) { case (ledgerPort, _, ledgerId) =>
-    HttpServiceTestFixture.withHttpService[A](
-      testId,
-      ledgerPort,
-      jdbcConfig,
-      staticContentConfig,
-      useTls = useTls,
-      wsConfig = wsConfig,
-      maxInboundMessageSize = maxInboundMessageSize,
-    )(testFn(_, _, _, _, ledgerId))
-  }
+  ): Future[A] =
+    HttpServiceTestFixture.withLedger[A](List(dar1, dar2, userDar), testId, None, useTls) {
+      case (ledgerPort, _, ledgerId) =>
+        HttpServiceTestFixture.withHttpService[A](
+          testId,
+          ledgerPort,
+          jdbcConfig,
+          staticContentConfig,
+          useTls = useTls,
+          wsConfig = wsConfig,
+          maxInboundMessageSize = maxInboundMessageSize,
+        )(testFn(_, _, _, _, ledgerId))
+    }
 
   protected def withHttpService[A](
       f: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerId) => Future[A]
@@ -186,12 +187,12 @@ trait AbstractHttpServiceIntegrationTestFuns
     )((uri, encoder, decoder, _) => f(uri, encoder, decoder))
 
   protected def withLedger[A](testFn: (DamlLedgerClient, LedgerId) => Future[A]): Future[A] =
-    usingLedger[A](testId) { case (_, client, ledgerId) =>
-      testFn(client, ledgerId)
+    HttpServiceTestFixture.withLedger[A](List(dar1, dar2, userDar), testId, None, useTls) {
+      case (_, client, ledgerId) => testFn(client, ledgerId)
     }
 
   protected def withLedger2[A](testFn: (Port, DamlLedgerClient, LedgerId) => Future[A]): Future[A] =
-    usingLedger[A](testId)(testFn)
+    HttpServiceTestFixture.withLedger[A](List(dar1, dar2, userDar), testId, None, useTls)(testFn)
 
   protected val headersWithAuth = authorizationHeader(jwt)
 
@@ -1742,12 +1743,12 @@ abstract class AbstractHttpServiceIntegrationTest
       } yield succeed
   }
 
-  "archiving a large number of contracts should succeed" taggedAs (SkipScala212) in withHttpServiceAndClient(
+  "archiving a large number of contracts should succeed" in withHttpServiceAndClient(
     StartSettings.DefaultMaxInboundMessageSize * 10
   ) { (uri, encoder, _, _, _) =>
     val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
     //The numContracts size should test for https://github.com/digital-asset/daml/issues/10339
-    val numContracts: Long = 2000
+    val numContracts: Long = 10000
     val helperId = domain.TemplateId(None, "Account", "Helper")
     val payload = v.Record(
       fields = List(v.RecordField("owner", Some(v.Value(v.Value.Sum.Party(alice.unwrap)))))
