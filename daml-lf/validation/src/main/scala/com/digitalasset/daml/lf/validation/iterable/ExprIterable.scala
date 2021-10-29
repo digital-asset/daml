@@ -206,8 +206,9 @@ private[validation] object ExprIterable {
             virtualChoices @ _,
             fixedChoices,
             methods @ _,
+            precond,
           ) =>
-        fixedChoices.values.iterator.flatMap(iterator(_))
+        Iterator(precond) ++ fixedChoices.values.iterator.flatMap(iterator(_))
     }
 
   def apply(expr: Expr): Iterable[Expr] =

@@ -642,6 +642,7 @@ object Ast {
       virtualChoices: Map[ChoiceName, InterfaceChoice],
       fixedChoices: Map[ChoiceName, GenTemplateChoice[E]],
       methods: Map[MethodName, InterfaceMethod],
+      precond: E, // Interface creation precondition.
   ) {
     virtualChoices.keys.foreach(name =>
       if (fixedChoices.isDefinedAt(name))
@@ -655,6 +656,7 @@ object Ast {
         virtualChoices: Iterable[(ChoiceName, InterfaceChoice)],
         fixedChoices: Iterable[(ChoiceName, GenTemplateChoice[E])],
         methods: Iterable[(MethodName, InterfaceMethod)],
+        precond: E,
     ): GenDefInterface[E] = {
       val virtualChoiceMap = toMapWithoutDuplicate(
         virtualChoices,
@@ -668,7 +670,7 @@ object Ast {
         methods,
         (name: MethodName) => throw PackageError(s"collision on interface method name $name"),
       )
-      GenDefInterface(param, virtualChoiceMap, fixedChoiceMap, methodMap)
+      GenDefInterface(param, virtualChoiceMap, fixedChoiceMap, methodMap, precond)
     }
     def unapply(arg: GenDefInterface[E]): Some[
       (
@@ -676,9 +678,10 @@ object Ast {
           Map[ChoiceName, InterfaceChoice],
           Map[ChoiceName, GenTemplateChoice[E]],
           Map[MethodName, InterfaceMethod],
+          E,
       )
     ] =
-      Some((arg.param, arg.virtualChoices, arg.fixedChoices, arg.methods))
+      Some((arg.param, arg.virtualChoices, arg.fixedChoices, arg.methods, arg.precond))
   }
 
   type DefInterface = GenDefInterface[Expr]

@@ -444,7 +444,7 @@ convertInterfaces env tyThings = interfaceClasses
             intVirtualChoices <- NM.fromList <$> mapM convertVirtualChoice
                 (MS.findWithDefault [] intName (envInterfaceChoiceData env))
             intFixedChoices <- convertChoices env intName emptyTemplateBinds
-            let intPrecondition = EUnit -- TODO (drsk) #11397 Implement interface preconditions
+            let intPrecondition = ETrue -- TODO (drsk) #11397 Implement interface preconditions
             pure DefInterface {..}
 
     convertVirtualChoice :: ChoiceData -> ConvertM InterfaceChoice
