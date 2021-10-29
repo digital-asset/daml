@@ -416,7 +416,6 @@ private[lf] object Pretty {
 
     def prettySExpr(index: Int)(e: SExpr): Doc =
       e match {
-        case SEVar(i) => char('@') + str(index - i)
         case SEVal(defId) =>
           str(defId)
         case SEValue(lit) =>
@@ -426,8 +425,7 @@ private[lf] object Pretty {
             case other => str(other)
           }
 
-        case SECaseAtomic(scrut, alts) => prettySExpr(index)(SECase(scrut, alts))
-        case SECase(scrut, alts) =>
+        case SECaseAtomic(scrut, alts) =>
           (text("case") & prettySExpr(index)(scrut) & text("of") +
             line +
             intercalate(line, alts.map(prettyAlt(index)))).nested(2)
@@ -477,11 +475,6 @@ private[lf] object Pretty {
           val prefix = prettySExpr(index)(SEBuiltin(builtin)) + text("@B(")
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
             .tightBracketBy(prefix, char(')'))
-        case SEAbs(n, body) =>
-          val prefix = text("(\\") +
-            intercalate(space, (index to n + index - 1).map((v: Int) => str(v))) &
-            text("-> ")
-          prettySExpr(index + n)(body).tightBracketBy(prefix, char(')'))
 
         case SELocation(loc @ _, body) =>
           prettySExpr(index)(body)
@@ -495,8 +488,8 @@ private[lf] object Pretty {
 
         case loc: SELoc => prettySELoc(loc)
 
-        case SELet(bounds, body) =>
-          // let [a, b, c] in X
+        case SELet1General(rhs, body) =>
+          val bounds = List(rhs)
           intercalate(
             comma + lineOrSpace,
             (bounds.zipWithIndex.map { case (x, n) =>
@@ -504,8 +497,7 @@ private[lf] object Pretty {
             }),
           ).tightBracketBy(text("let ["), char(']')) +
             lineOrSpace + text("in") & prettySExpr(index + bounds.length)(body)
-        case SELet1General(rhs, body) =>
-          prettySExpr(index)(SELet(List(rhs), body))
+
         case SELet1Builtin(builtin, args, body) =>
           prettySExpr(index)(SELet1General(SEAppAtomicSaturatedBuiltin(builtin, args), body))
         case SELet1BuiltinArithmetic(builtin, args, body) =>
