@@ -324,9 +324,7 @@ private[sandbox] final class InMemoryLedger(
       acs.activeContracts
         .get(contractId)
         .filter(ac => acs.isVisibleForDivulgees(ac.id, forParties))
-        .map { x0 =>
-          consumeEnricherResult(enricher.enrichVersionedContract(x0.contract))
-        }
+        .map(_.contract)
     })
 
   override def lookupKey(key: GlobalKey, forParties: Set[Ref.Party])(implicit
