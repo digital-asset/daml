@@ -18,6 +18,9 @@ import com.daml.ledger.api.validation.{CompletionServiceRequestValidator, PartyN
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.services.domain.CommandCompletionService
+import com.daml.ledger.api.v1.command_completion_service.{
+  CommandCompletionService => CommandCompletionServiceAkkaGrpc
+}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -54,7 +57,7 @@ class GrpcCommandCompletionService(
   private implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-  override def completionStreamSource(
+  override def completionStream(
       request: CompletionStreamRequest
   ): Source[CompletionStreamResponse, akka.NotUsed] = {
     Source.future(service.getLedgerEnd(LedgerId(request.ledgerId))).flatMapConcat { ledgerEnd =>

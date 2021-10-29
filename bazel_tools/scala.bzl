@@ -129,7 +129,7 @@ plugin_scalacopts = [
     # "EitherProjectionPartial",
     "Enumeration",
     # "Equals",
-    "ExplicitImplicitTypes",
+    # "ExplicitImplicitTypes",
     # "FinalCaseClass",
     # "FinalVal",
     # "ImplicitConversion",

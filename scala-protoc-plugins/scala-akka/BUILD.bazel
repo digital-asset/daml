@@ -6,8 +6,9 @@ load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library")
 da_scala_binary(
     name = "compiler_plugin",
     srcs = glob(["*.scala"]),
-    main_class = "com.daml.protoc.plugins.akka.AkkaStreamCompilerPlugin",
+    main_class = "akka.grpc.gen.Main",
     scala_deps = [
+        "@maven//:com_lightbend_akka_grpc_akka_grpc_codegen",
         "@maven//:com_thesamet_scalapb_compilerplugin",
         "@maven//:com_thesamet_scalapb_protoc_bridge",
         "@maven//:com_thesamet_scalapb_protoc_gen",

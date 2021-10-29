@@ -40,6 +40,7 @@ private[apiserver] object GrpcServer {
       services: Iterable[BindableService],
   ): ResourceOwner[Server] = {
     val host = address.map(InetAddress.getByName).getOrElse(InetAddress.getLoopbackAddress)
+    // TODO: replace Netty with Akka HTTP and use generated Handlers?
     val builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort.value))
     builder.sslContext(sslContext.orNull)
     builder.permitKeepAliveTime(10, SECONDS)

@@ -32,7 +32,7 @@ message DamlSubmitterInfo {
     google.protobuf.Duration deduplication_duration = 6;
     string deduplication_offset = 7;
   }
-  optional string submission_id = 9;
+  string submission_id = 9;
 }
 
 // Daml transaction entry, used in both `DamlSubmission` and `DamlLogEntry`.

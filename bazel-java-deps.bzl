@@ -66,6 +66,8 @@ def install_java_deps():
             "com.google.code.gson:gson:2.8.2",
             "com.google.guava:guava:29.0-jre",
             "com.h2database:h2:1.4.200",
+            "com.lightbend.akka.grpc:akka-grpc-codegen_{}:1.1.1".format(scala_major_version),
+            "com.lightbend.akka.grpc:akka-grpc-runtime_{}:1.1.1".format(scala_major_version),
             "com.lihaoyi:pprint_{}:0.6.0".format(scala_major_version),
             "com.lihaoyi:sjsonnet_{}:0.3.0".format(scala_major_version),
             "commons-io:commons-io:2.5",

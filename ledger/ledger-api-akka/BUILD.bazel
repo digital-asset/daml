@@ -12,13 +12,18 @@ proto_gen(
     ],
     plugin_exec = "//scala-protoc-plugins/scala-akka:protoc-gen-scala-akka",
     plugin_name = "scala-akka",
+    plugin_options = [
+        "language=scala",
+    ],
 )
 
 da_scala_library(
     name = "ledger-api-akka",
     srcs = [":ledger-api-akka-srcs"],
     scala_deps = [
+        "@maven//:com_lightbend_akka_grpc_akka_grpc_runtime",
         "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_http_core",
         "@maven//:com_typesafe_akka_akka_stream",
     ],
     tags = ["maven_coordinates=com.daml:ledger-api-akka:__VERSION__"],
@@ -27,8 +32,5 @@ da_scala_library(
     ],
     deps = [
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-        "//ledger-api/rs-grpc-akka",
-        "//ledger-api/rs-grpc-bridge",
-        "@maven//:io_grpc_grpc_stub",
     ],
 )
