@@ -424,28 +424,37 @@ class Endpoints(
       it <- EitherT.eitherT(inputAndJwtPayload[JwtPayload](req))
       (jwt, jwtPayload, reqBody) = it
       res <- withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
-        val res =
-          SprayJson
+        val res = for {
+          cmd <- SprayJson
             .decode[domain.GetActiveContractsRequest](reqBody)
             .liftErr[Error](InvalidUserInput)
-            .map { cmd =>
-              withEnrichedLoggingContext(
-                LoggingContextOf.label[domain.GetActiveContractsRequest],
-                "cmd" -> cmd.toString,
-              ).run { implicit lc =>
-                logger.debug("Processing a query request")
-                contractsService
-                  .search(jwt, jwtPayload, cmd)
-                  .map(
-                    domain.SyncResponse.covariant.map(_)(
-                      _.via(handleSourceFailure)
-                        .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
-                    )
-                  )
-              }
+          _ <- {
+            // security check for readAs; we delegate the remainder to
+            // the participant's check that the JWT itself is valid
+            val disallowedParties: Set[domain.Party] =
+              cmd.readAs.cata((_.toSet.filter(jwtPayload.parties)), Set.empty)
+            if (disallowedParties.isEmpty) \/-(())
+            else {
+              val err =
+                s"Queried parties not allowed by given JWT token: ${disallowedParties mkString ", "}"
+              -\/(Unauthorized(err))
             }
-            .sequence
-        eitherT(res)
+          }
+        } yield withEnrichedLoggingContext(
+          LoggingContextOf.label[domain.GetActiveContractsRequest],
+          "cmd" -> cmd.toString,
+        ).run { implicit lc =>
+          logger.debug("Processing a query request")
+          contractsService
+            .search(jwt, jwtPayload, cmd)
+            .map(
+              domain.SyncResponse.covariant.map(_)(
+                _.via(handleSourceFailure)
+                  .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
+              )
+            )
+        }
+        eitherT(res.sequence)
       }
     } yield res
   }.run
