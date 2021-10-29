@@ -67,7 +67,7 @@ object ParallelIndexerFactory {
             timer <- ResourceOwner.forTimer(() => new Timer)
             // this DataSource will be used to spawn the main connection where we keep the Indexer Main Lock
             // The life-cycle of such connections matches the life-cycle of a protectedExecution
-            dataSource = storageBackend.createDataSource(jdbcUrl)
+            dataSource = storageBackend.createDataSource(jdbcUrl, dataSourceConfig)
           } yield HaCoordinator.databaseLockBasedHaCoordinator(
             connectionFactory = () => dataSource.getConnection,
             storageBackend = storageBackend,
