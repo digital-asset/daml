@@ -91,7 +91,7 @@ final class ContractIdIT extends LedgerTestSuite {
         // Assert V1 error code
         case Failure(GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _))
             if !alpha.features.selfServiceErrorCodes && msg.contains(
-              s"Contract could not be found with id ContractId($testedCid)"
+              s"Contract could not be found with id $testedCid"
             ) =>
           Success(())
 

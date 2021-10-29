@@ -163,7 +163,7 @@ private[platform] class MutableCacheBackedContractStore(
         // (the contract might have been divulged to the readers)
         // OR the contract was not found in the index
         //
-        logger.debug(s"Checking divulgence for contractId=$contractId and readers=$readers")
+        logger.debug(s"Checking divulgence for contractId=${contractId.coid} and readers=$readers")
         resolveDivulgenceLookup(contractStateValue, contractId, readers)
     }
 
@@ -281,7 +281,7 @@ private[platform] class MutableCacheBackedContractStore(
             eventSequentialId,
           ) =>
         logger.debug(
-          s"State events update: Created(contractId=$contractId, globalKey=$globalKey, offset=$eventOffset, eventSequentialId=$eventSequentialId)"
+          s"State events update: Created(contractId=${contractId.coid}, globalKey=$globalKey, offset=$eventOffset, eventSequentialId=$eventSequentialId)"
         )
       case ContractStateEvent.Archived(
             contractId,
@@ -291,7 +291,7 @@ private[platform] class MutableCacheBackedContractStore(
             eventSequentialId,
           ) =>
         logger.debug(
-          s"State events update: Archived(contractId=$contractId, globalKey=$globalKey, offset=$eventOffset, eventSequentialId=$eventSequentialId)"
+          s"State events update: Archived(contractId=${contractId.coid}, globalKey=$globalKey, offset=$eventOffset, eventSequentialId=$eventSequentialId)"
         )
       case LedgerEndMarker(eventOffset, eventSequentialId) =>
         logger.debug(
@@ -390,7 +390,7 @@ private[platform] object MutableCacheBackedContractStore {
 
   final case class ContractReadThroughNotFound(contractId: ContractId) extends NoStackTrace {
     override def getMessage: String =
-      s"Contract not found for contract id $contractId. Hint: this could be due racing with a concurrent archival."
+      s"Contract not found for contract id ${contractId.coid}. Hint: this could be due racing with a concurrent archival."
   }
 
   private[cache] class CacheIndex(initValue: (Offset, Long)) {
