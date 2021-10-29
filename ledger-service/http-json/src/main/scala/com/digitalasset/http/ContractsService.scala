@@ -25,6 +25,7 @@ import com.daml.ledger.api.{v1 => api}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.scalautil.ExceptionOps._
+import com.daml.scalautil.nonempty.NonEmptyReturningOps._
 import scalaz.Id.Id
 import scalaz.std.option._
 import scalaz.syntax.show._
@@ -261,7 +262,7 @@ class ContractsService(
     search(
       jwt,
       toLedgerId(jwtPayload.ledgerId),
-      jwtPayload.parties,
+      request.readAs.cata((_.toSet1), jwtPayload.parties),
       request.templateIds,
       request.query,
     )
