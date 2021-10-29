@@ -3,12 +3,10 @@
 
 package com.daml.error.definitions
 
+import com.daml.error._
 import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.IndexErrorGroup
 import com.daml.error.utils.ErrorDetails
-import com.daml.error._
 import io.grpc.StatusRuntimeException
-
-import java.sql.{SQLNonTransientException, SQLTransientException}
 
 object IndexErrors extends IndexErrorGroup {
   object DatabaseErrors extends DatabaseErrorGroup {
@@ -22,12 +20,12 @@ object IndexErrors extends IndexErrorGroup {
           ErrorCategory.TransientServerFailure,
         )
         with HasUnapply {
-      case class Reject(exception: SQLTransientException)(implicit
+      case class Reject(throwable: Throwable)(implicit
           val loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
             cause =
-              s"Processing the request failed due to a transient database error: ${exception.getMessage}",
-            throwableO = Some(exception),
+              s"Processing the request failed due to a transient database error: ${throwable.getMessage}",
+            throwableO = Some(throwable),
           )
     }
 
@@ -41,12 +39,12 @@ object IndexErrors extends IndexErrorGroup {
           ErrorCategory.SystemInternalAssumptionViolated,
         )
         with HasUnapply {
-      case class Reject(exception: SQLNonTransientException)(implicit
+      case class Reject(throwable: Throwable)(implicit
           val loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
             cause =
-              s"Processing the request failed due to a non-transient database error: ${exception.getMessage}",
-            throwableO = Some(exception),
+              s"Processing the request failed due to a non-transient database error: ${throwable.getMessage}",
+            throwableO = Some(throwable),
           )
     }
   }

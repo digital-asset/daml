@@ -11,10 +11,9 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
-import java.sql.{Connection, SQLNonTransientException, SQLTransientException}
+import java.sql.Connection
 import java.util.concurrent.{Executor, Executors, TimeUnit}
 import javax.sql.DataSource
 import scala.concurrent.duration.FiniteDuration
@@ -70,7 +69,7 @@ private[platform] final class DbDispatcher private (
       overallExecutionTimer.update(execNanos, TimeUnit.NANOSECONDS)
     } catch {
       case NonFatal(e) =>
-        logger.error("Got an exception while updating timer metrics. Ignoring.", e)
+        logger.info("Got an exception while updating timer metrics. Ignoring.", e)
     }
 
   private def handleError(
@@ -80,13 +79,7 @@ private[platform] final class DbDispatcher private (
       new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
     throwable match {
-      case NonFatal(e: SQLTransientException) =>
-        throw ErrorFactories.SelfServiceErrorCodeFactories.sqlTransientException(e)
-      case NonFatal(e: SQLNonTransientException) =>
-        throw ErrorFactories.SelfServiceErrorCodeFactories.sqlNonTransientException(e)
-      case NonFatal(e) =>
-        logger.error("Exception while executing SQL query.", e)
-        throw e
+      case NonFatal(e) => throw DatabaseSelfServiceError(e)
       // fatal errors don't make it for some reason to the setUncaughtExceptionHandler
       case t: Throwable =>
         logger.error("Fatal error!", t)
