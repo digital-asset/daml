@@ -181,7 +181,7 @@ Here's an example of a choice that uses a check on the current time:
 
 .. literalinclude:: ../code-snippets/Snippets.daml
    :language: daml
-   :lines: 42-46
+   :lines: 40-48
 
 .. _daml-ref-return:
 
