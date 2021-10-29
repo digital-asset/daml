@@ -34,8 +34,9 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
     val parties: PartySet
   }
 
-  // Until we get multi-party submissions, write endpoints require a single party in actAs but we
-  // can have multiple parties in readAs.
+  // write endpoints require at least one party in actAs
+  // (only the first one is used for pre-multiparty ledgers)
+  // but we can have multiple parties in readAs.
   final case class JwtWritePayload(
       ledgerId: LedgerId,
       applicationId: ApplicationId,
@@ -49,8 +50,8 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   final case class JwtPayloadLedgerIdOnly(ledgerId: LedgerId)
 
-  // JWT payload that preserves readAs and actAs and supports multiple parties. This is currently only used for
-  // read endpoints but once we get multi-party submissions, this can also be used for write endpoints.
+  // As with JwtWritePayload, but supports empty `actAs`.  At least one of
+  // `actAs` or `readAs` must be non-empty.
   sealed abstract case class JwtPayload private (
       ledgerId: LedgerId,
       applicationId: ApplicationId,
