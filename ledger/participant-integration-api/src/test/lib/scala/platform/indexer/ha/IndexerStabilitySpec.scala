@@ -8,7 +8,6 @@ import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.DbType
 import com.daml.platform.store.backend.StorageBackend
-import org.mockito.MockitoSugar
 import org.scalatest.Assertion
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -22,8 +21,7 @@ trait IndexerStabilitySpec
     extends AsyncFlatSpec
     with Matchers
     with AkkaBeforeAndAfterAll
-    with Eventually
-    with MockitoSugar {
+    with Eventually {
 
   import IndexerStabilitySpec._
 
