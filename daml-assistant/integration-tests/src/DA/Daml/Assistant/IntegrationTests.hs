@@ -87,13 +87,8 @@ data DamlStartResource = DamlStartResource
     , jsonApiPort :: PortNumber
     }
 
-data StartCwd
-    = ProjDir
-    | EnvRelativeDir
-    | EnvAbsoluteDir
-
-damlStart :: StartCwd -> FilePath -> IO DamlStartResource
-damlStart startCwd tmpDir = do
+damlStart :: FilePath -> IO DamlStartResource
+damlStart tmpDir = do
     let projDir = tmpDir </> "assistant-integration-tests"
     createDirectoryIfMissing True (projDir </> "daml")
     writeFileUTF8 (projDir </> "daml.yaml") $
@@ -140,14 +135,7 @@ damlStart startCwd tmpDir = do
             ]
     sandboxPort <- getFreePort
     jsonApiPort <- getFreePort
-    let cwd
-          | ProjDir <- startCwd = projDir
-          | otherwise = tmpDir
-    let envChanges
-          | ProjDir <- startCwd = []
-          | EnvRelativeDir <- startCwd = [("DAML_PROJECT", "assistant-integration-tests")]
-          | EnvAbsoluteDir <- startCwd = [("DAML_PROJECT", projDir)]
-    env <- subprocessEnv envChanges
+    env <- subprocessEnv []
     let startProc =
             (shell $
              unwords
@@ -160,7 +148,7 @@ damlStart startCwd tmpDir = do
                  , "--json-api-port"
                  , show jsonApiPort
                  ])
-                {std_in = CreatePipe, std_out = CreatePipe, cwd = Just cwd, create_group = True, env = Just env}
+                {std_in = CreatePipe, std_out = CreatePipe, cwd = Just projDir, create_group = True, env = Just env}
     (Just startStdin, Just startStdout, _, startPh) <- createProcess startProc
     outChan <- newBroadcastTChanIO
     outReader <- forkIO $ forever $ do
@@ -232,7 +220,7 @@ tests tmpDir =
                 callCommandSilentIn tmpDir "daml new --list"
             , packagingTests tmpDir
             , damlToolTests
-            , withResource (damlStart ProjDir tmpDir) stop damlStartTests
+            , withResource (damlStart tmpDir) stop damlStartTests
             , withResource (quickSandbox quickstartDir) (interruptProcessGroupOf . quickSandboxPh) $
               quickstartTests quickstartDir mvnDir
             , cleanTests cleanDir
@@ -625,14 +613,6 @@ damlStartTests getDamlStart =
                         queryResponse <- httpLbs queryRequest manager
                         responseBody queryResponse @?=
                             "{\"result\":{\"identifier\":\"Alice\",\"isLocal\":true},\"status\":200}"
-        subtest "daml start with relative project dir" $
-            withTempDir $ \tmpDir -> do
-                DamlStartResource{stop} <- damlStart EnvRelativeDir tmpDir
-                stop
-        subtest "daml start absolute path" $
-            withTempDir $ \tmpDir -> do
-                DamlStartResource{stop} <- damlStart EnvAbsoluteDir tmpDir
-                stop
         subtest "run a daml deploy without project parties" $ do
             DamlStartResource {projDir, sandboxPort} <- getDamlStart
             copyFile (projDir </> "daml.yaml") (projDir </> "daml.yaml.back")
