@@ -842,7 +842,7 @@ convType env reexported =
             HsTyVar noExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
 
         ty1 LF.:-> ty2 -> do
-            ty1' <- convTypeLiftingConstraintTuples ty1
+            ty1' <- convTypeLiftingConstraintTuples env reexported ty1
             ty2' <- convType env reexported ty2
             pure $ if isConstraint ty1
                 then HsParTy noExt (noLoc $ HsQualTy noExt (noLoc [noLoc ty1']) (noLoc ty2'))
@@ -888,7 +888,7 @@ convType env reexported =
 
         ty@(LF.TStruct fls)
             | isConstraint ty -> do
-                fieldTys <- mapM (convTypeLiftingConstraintTuples . snd) fls
+                fieldTys <- mapM (convTypeLiftingConstraintTuples env reexported . snd) fls
                 pure $ HsTupleTy noExt HsConstraintTuple (map noLoc fieldTys)
 
             | otherwise ->
@@ -897,15 +897,22 @@ convType env reexported =
         LF.TNat n -> pure $
             HsTyLit noExt (HsNumTy NoSourceText (LF.fromTypeLevelNat n))
   where
-    convTypeLiftingConstraintTuples :: LF.Type -> Gen (HsType GhcPs)
-    convTypeLiftingConstraintTuples = \case
+    mkTuple :: Int -> Gen (HsType GhcPs)
+    mkTuple i =
+        pure $ HsTyVar noExt NotPromoted $
+        noLoc $ mkRdrUnqual $ occName $ tupleTyConName BoxedTuple i
+
+-- | We need to lift constraint tuples up to type synonyms
+-- when they occur in a function domain or in an instance context,
+-- otherwise GHC will expand them out as regular constraints.
+-- See issues https://github.com/digital-asset/daml/issues/9663,
+--            https://github.com/digital-asset/daml/issues/11455
+convTypeLiftingConstraintTuples :: Env -> MS.Map LF.TypeSynName LF.PackageId -> LF.Type -> Gen (HsType GhcPs)
+convTypeLiftingConstraintTuples env reexported = go where
+    go = \case
         ty@(LF.TStruct fls) | isConstraint ty -> do
-            -- A constraint tuple. We need to lift it up to a type synonym
-            -- when it occurs in a function domain, otherwise GHC will
-            -- expand it out as a regular constraint.
-            -- See issue https://github.com/digital-asset/daml/issues/9663
             let freeVars = map LF.unTypeVarName . Set.toList $ LF.freeVars ty
-            fieldTys <- mapM (convTypeLiftingConstraintTuples . snd) fls
+            fieldTys <- mapM (go . snd) fls
             tupleTyName <- freshTypeName env
             emitHsDecl . noLoc . TyClD noExt $ SynDecl
                 { tcdSExt = noExt
@@ -925,11 +932,6 @@ convType env reexported =
 
         ty ->
             convType env reexported ty
-
-    mkTuple :: Int -> Gen (HsType GhcPs)
-    mkTuple i =
-        pure $ HsTyVar noExt NotPromoted $
-        noLoc $ mkRdrUnqual $ occName $ tupleTyConName BoxedTuple i
 
 convBuiltInTy :: Env -> LF.BuiltinType -> Gen (HsType GhcPs)
 convBuiltInTy env =
@@ -1361,7 +1363,7 @@ isDFunName (LF.ExprValName t) = any (`T.isPrefixOf` t) ["$f", "$d"]
 convDFunSig :: Env -> MS.Map LF.TypeSynName LF.PackageId -> DFunSig -> Gen (HsType GhcPs)
 convDFunSig env reexported DFunSig{..} = do
     binders <- mapM (convTyVarBinder env) dfsBinders
-    context <- mapM (convType env reexported) dfsContext
+    context <- mapM (convTypeLiftingConstraintTuples env reexported) dfsContext
     let headName = rewriteClassReexport env reexported (dfhName dfsHead)
     ghcMod <- genModule env (LF.qualPackage headName) (LF.qualModule headName)
     let cls = case LF.unTypeSynName (LF.qualObject headName) of
