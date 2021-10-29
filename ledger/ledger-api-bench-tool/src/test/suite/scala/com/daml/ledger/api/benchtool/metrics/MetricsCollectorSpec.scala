@@ -41,6 +41,8 @@ class MetricsCollectorSpec
 
       manualTime.timePasses(logInterval - 1.milli)
 
+      // This test can be flaky due to Akka ManualTime limitations.
+      // The issue is known but not yet resolved. See: https://github.com/akka/akka/pull/24243#discussion_r160985493
       LoggingTestKit
         .info(s"$first-$second")
         .withOccurrences(1)
