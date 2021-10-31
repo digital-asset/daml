@@ -71,15 +71,15 @@ class DescriptorParserSpec extends AnyWordSpec with Matchers with TableDrivenPro
           |  - template: Foo1
           |    weight: 50
           |    payload_size_bytes: 100
-          |    archive_chance: 0.9
+          |    archive_probability: 0.9
           |  - template: Foo2
           |    weight: 25
           |    payload_size_bytes: 150
-          |    archive_chance: 0.8
+          |    archive_probability: 0.8
           |  - template: Foo3
           |    weight: 25
           |    payload_size_bytes: 30
-          |    archive_chance: 0.7""".stripMargin
+          |    archive_probability: 0.7""".stripMargin
       parseYaml(yaml) shouldBe Right(
         ContractSetDescriptor(
           numberOfInstances = 123,

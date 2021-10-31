@@ -26,7 +26,7 @@ object DescriptorParser {
         "template",
         "weight",
         "payload_size_bytes",
-        "archive_chance",
+        "archive_probability",
       )(ContractSetDescriptor.ContractDescription.apply)
 
     implicit val descriptorDecoder: Decoder[ContractSetDescriptor] =
