@@ -14,6 +14,7 @@ import scala.util.{Failure, Success, Try}
 final class CommandGenerator(
     randomnessProvider: RandomnessProvider,
     descriptor: ContractSetDescriptor,
+    signatory: Primitive.Party,
     observers: List[Primitive.Party],
 ) {
   private val distribution = new Distribution(descriptor.instanceDistribution.map(_.weight))
@@ -27,10 +28,12 @@ final class CommandGenerator(
     (for {
       (description, observers) <- Try((pickDescription(), pickObservers()))
       payload <- Try(randomPayload(description.payloadSizeBytes))
+      archive <- Try(pickArchive(description))
       command <- createContractCommand(
         template = description.template,
         observers = observers,
         payload = payload,
+        archive = archive,
       )
     } yield command).recoverWith { case NonFatal(ex) =>
       Failure(
@@ -49,6 +52,9 @@ final class CommandGenerator(
       .filter { case (_, index) => isObserverUsed(index) }
       .map(_._1)
 
+  private def pickArchive(description: ContractSetDescriptor.ContractDescription): Boolean =
+    randomnessProvider.randomDouble() < description.archiveChance
+
   private def isObserverUsed(i: Int): Boolean =
     randomnessProvider.randomNatural(math.pow(10.0, i.toDouble).toInt) == 0
 
@@ -56,11 +62,18 @@ final class CommandGenerator(
       template: String,
       observers: List[Primitive.Party],
       payload: String,
+      archive: Boolean,
   ): Try[Primitive.Party => Command] =
-    template match {
-      case "Foo1" => Success(Foo1(_, observers, payload).create.command)
-      case "Foo2" => Success(Foo2(_, observers, payload).create.command)
-      case "Foo3" => Success(Foo3(_, observers, payload).create.command)
+    (template, archive) match {
+      case ("Foo1", false) => Success(Foo1(_, observers, payload).create.command)
+      case ("Foo2", false) => Success(Foo2(_, observers, payload).create.command)
+      case ("Foo3", false) => Success(Foo3(_, observers, payload).create.command)
+      case ("Foo1", true) =>
+        Success(Foo1(_, observers, payload).createAnd.exerciseArchive(signatory).command)
+      case ("Foo2", true) =>
+        Success(Foo2(_, observers, payload).createAnd.exerciseArchive(signatory).command)
+      case ("Foo3", true) =>
+        Success(Foo3(_, observers, payload).createAnd.exerciseArchive(signatory).command)
       case invalid => Failure(new RuntimeException(s"Invalid template: $invalid"))
     }
 

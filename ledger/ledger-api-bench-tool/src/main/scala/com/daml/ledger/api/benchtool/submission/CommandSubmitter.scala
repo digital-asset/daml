@@ -124,7 +124,8 @@ case class CommandSubmitter(services: LedgerApiServices) {
           logger.info(progressMeter.getProgress(index))
         }
       )
-    val generator = new CommandGenerator(RandomnessProvider.Default, descriptor, observers)
+    val generator =
+      new CommandGenerator(RandomnessProvider.Default, descriptor, signatory, observers)
 
     logger.info("Submitting commands...")
     materializerOwner()

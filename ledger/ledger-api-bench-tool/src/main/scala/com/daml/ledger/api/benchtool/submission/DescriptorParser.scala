@@ -22,10 +22,11 @@ object DescriptorParser {
 
   object Decoders {
     implicit val contractDescriptionDecoder: Decoder[ContractSetDescriptor.ContractDescription] =
-      Decoder.forProduct3(
+      Decoder.forProduct4(
         "template",
         "weight",
         "payload_size_bytes",
+        "archive_chance",
       )(ContractSetDescriptor.ContractDescription.apply)
 
     implicit val descriptorDecoder: Decoder[ContractSetDescriptor] =
