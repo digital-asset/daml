@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
@@ -94,8 +95,10 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
               .mustFail("exercising with missing authorizers")
           } yield {
             assertGrpcError(
+              beta,
               failure,
               Status.Code.INVALID_ARGUMENT,
+              LedgerApiErrors.InterpreterErrors.AuthorizationError,
               Some("requires authorizers"),
               checkDefiniteAnswerMetadata = true,
             )
@@ -132,8 +135,10 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
               .mustFail("exercising with failing assertion")
           } yield {
             assertGrpcError(
+              beta,
               failure,
               Status.Code.INVALID_ARGUMENT,
+              LedgerApiErrors.InterpreterErrors.GenericInterpretationError,
               Some("Assertion failed"),
               checkDefiniteAnswerMetadata = true,
             )

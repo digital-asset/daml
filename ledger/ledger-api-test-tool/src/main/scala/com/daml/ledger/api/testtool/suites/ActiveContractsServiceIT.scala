@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -41,7 +42,13 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     for {
       failure <- ledger.activeContracts(invalidRequest).mustFail("retrieving active contracts")
     } yield {
-      assertGrpcError(failure, Status.Code.NOT_FOUND, Some("not found. Actual Ledger ID"))
+      assertGrpcError(
+        ledger,
+        failure,
+        Status.Code.NOT_FOUND,
+        LedgerApiErrors.CommandValidation.LedgerIdMismatch,
+        Some("not found. Actual Ledger ID"),
+      )
     }
   })
 

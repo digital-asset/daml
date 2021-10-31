@@ -3,8 +3,10 @@
 
 package com.daml.ledger.api.testtool.infrastructure.deduplication
 
-import java.util.UUID
+import com.daml.error.ErrorCode
+import com.daml.error.definitions.LedgerApiErrors
 
+import java.util.UUID
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -108,10 +110,18 @@ private[testtool] abstract class CommandDeduplicationBase(
 
     for {
       // Submit an invalid command (should fail with INVALID_ARGUMENT)
-      _ <- submitRequestAndAssertSyncFailure(ledger)(requestA, Code.INVALID_ARGUMENT)
+      _ <- submitRequestAndAssertSyncFailure(ledger)(
+        requestA,
+        Code.INVALID_ARGUMENT,
+        LedgerApiErrors.InterpreterErrors.AuthorizationError,
+      )
 
       // Re-submit the invalid command (should again fail with INVALID_ARGUMENT and not with ALREADY_EXISTS)
-      _ <- submitRequestAndAssertSyncFailure(ledger)(requestA, Code.INVALID_ARGUMENT)
+      _ <- submitRequestAndAssertSyncFailure(ledger)(
+        requestA,
+        Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandValidation.InvalidArgument,
+      )
     } yield {}
   })
 
@@ -355,18 +365,25 @@ private[testtool] abstract class CommandDeduplicationBase(
       ledger: ParticipantTestContext,
       request: SubmitRequest,
   )(implicit ec: ExecutionContext): Future[Unit] =
-    submitRequestAndAssertSyncFailure(ledger)(request, Code.ALREADY_EXISTS)
+    submitRequestAndAssertSyncFailure(ledger)(
+      request,
+      Code.ALREADY_EXISTS,
+      LedgerApiErrors.CommandPreparation.DuplicateCommand,
+    )
 
   private def submitRequestAndAssertSyncFailure(ledger: ParticipantTestContext)(
       request: SubmitRequest,
       code: Code,
+      selfServiceErrorCode: ErrorCode,
   )(implicit ec: ExecutionContext) = ledger
     .submit(request)
     .mustFail(s"Request expected to fail with code $code")
     .map(
       assertGrpcError(
+        ledger,
         _,
         code,
+        selfServiceErrorCode,
         exceptionMessageSubstring = None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -380,8 +397,10 @@ private[testtool] abstract class CommandDeduplicationBase(
       .mustFail("Request was accepted but we were expecting it to fail with a duplicate error")
       .map(
         assertGrpcError(
+          ledger,
           _,
           expectedCode = Code.ALREADY_EXISTS,
+          selfServiceErrorCode = LedgerApiErrors.CommandPreparation.DuplicateCommand,
           exceptionMessageSubstring = None,
           checkDefiniteAnswerMetadata = true,
         )
