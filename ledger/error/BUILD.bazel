@@ -16,6 +16,7 @@ da_scala_binary(
     deps = [
         "//ledger/error",
         "//ledger/participant-integration-api",
+        "//ledger/participant-state/kvutils",
     ],
 )
 
