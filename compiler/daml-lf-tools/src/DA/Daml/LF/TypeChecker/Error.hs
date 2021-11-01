@@ -135,6 +135,7 @@ data Error
   | EDuplicateInterfaceChoiceName !TypeConName !ChoiceName
   | EDuplicateInterfaceMethodName !TypeConName !MethodName
   | EUnknownInterface !TypeConName
+  | EBadInheritedChoices { ebicInterface :: !(Qualified TypeConName), ebicExpected :: ![ChoiceName], ebicGot :: ![ChoiceName] }
   | EMissingInterfaceChoice !ChoiceName
   | EBadInterfaceChoiceImplConsuming !ChoiceName !Bool !Bool
   | EBadInterfaceChoiceImplArgType !ChoiceName !Type !Type
@@ -389,6 +390,12 @@ instance Pretty Error where
     EDuplicateInterfaceMethodName iface method ->
       "Duplicate method name '" <> pretty method <> "' in interface definition for " <> pretty iface
     EUnknownInterface tcon -> "Unknown interface: " <> pretty tcon
+    EBadInheritedChoices {ebicInterface, ebicExpected, ebicGot} ->
+      vcat
+      [ "List of inherited choices does not match interface definition for " <> pretty ebicInterface
+      , "Expected: " <> pretty ebicExpected
+      , "But got: " <> pretty ebicGot
+      ]
     EMissingInterfaceChoice ch -> "Missing interface choice implementation for " <> pretty ch
     EBadInterfaceChoiceImplConsuming ch ifaceConsuming tplConsuming ->
       vcat

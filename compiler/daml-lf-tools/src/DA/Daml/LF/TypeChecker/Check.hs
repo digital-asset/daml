@@ -885,27 +885,18 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
   whenJust mbKey $ checkTemplateKey param tcon
   forM_ implements $ checkIfaceImplementation tcon
 
-  -- Check template choice and interface fixed choice name collisions.
-  foldM_ checkFixedChoiceCollision (S.fromList (NM.names choices)) implements
-    -- ^ We don't use NM.namesSet here because Data.HashSet is assymptotically
-    -- slower than Data.Set when it comes to unions and checking for disjointness.
-
   where
     withPart p = withContext (ContextTemplate m t p)
-
-    checkFixedChoiceCollision :: S.Set ChoiceName -> TemplateImplements -> m (S.Set ChoiceName)
-    checkFixedChoiceCollision !accum ifaceImpl = do
-      iface <- inWorld $ lookupInterface (tpiInterface ifaceImpl)
-      let newNames = S.fromList (NM.names (intFixedChoices iface))
-      unless (S.disjoint accum newNames) $ do
-        let choiceName = head (S.toList (S.intersection accum newNames))
-        throwWithContext (EDuplicateTemplateChoiceViaInterfaces tpl choiceName)
-      pure (S.union accum newNames)
 
 checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> TemplateImplements -> m ()
 checkIfaceImplementation tplTcon TemplateImplements{..} = do
   let tplName = qualObject tplTcon
-  DefInterface {intVirtualChoices, intMethods} <- inWorld $ lookupInterface tpiInterface
+  DefInterface {intFixedChoices, intVirtualChoices, intMethods} <- inWorld $ lookupInterface tpiInterface
+
+  -- check fixed choices
+  let inheritedChoices = S.fromList (NM.names intFixedChoices)
+  unless (inheritedChoices == tpiInheritedChoiceNames) $
+    throwWithContext $ EBadInheritedChoices tpiInterface (S.toList inheritedChoices) (S.toList tpiInheritedChoiceNames)
 
   -- check virtual choices
   forM_ intVirtualChoices $ \InterfaceChoice {ifcName, ifcConsuming, ifcArgType, ifcRetType} -> do
@@ -928,6 +919,7 @@ checkIfaceImplementation tplTcon TemplateImplements{..} = do
       Nothing -> throwWithContext (EUnknownInterfaceMethod tplName tpiInterface tpiMethodName)
       Just InterfaceMethod{ifmType} ->
         checkExpr tpiMethodExpr (TCon tplTcon :-> ifmType)
+
 
 _checkFeature :: MonadGamma m => Feature -> m ()
 _checkFeature feature = do
