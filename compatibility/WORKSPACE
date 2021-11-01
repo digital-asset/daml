@@ -294,9 +294,19 @@ daml_sdk_head(
     if ver != "0.0.0"
 ]
 
-load("@daml//bazel_tools:java.bzl", "java_home_runtime")
+load("@daml//bazel_tools:java.bzl", "dadew_java_configure", "nixpkgs_java_configure")
 
-java_home_runtime(name = "java_home")
+dadew_java_configure(
+    name = "dadew_java_runtime",
+    dadew_path = "java-openjdk-8u302",
+) if is_windows else None
+
+nixpkgs_java_configure(
+    attribute_path = "jdk8.home",
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+) if not is_windows else None
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
 

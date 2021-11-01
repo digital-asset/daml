@@ -7,6 +7,8 @@ import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import com.daml.lf.iface
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
+import com.daml.scalautil.nonempty.NonEmpty
+import com.daml.scalautil.nonempty.NonEmptyReturningOps._
 import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
 import scalaz.std.option._
@@ -22,9 +24,6 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   import com.daml.fetchcontracts.domain.`fc domain ErrorOps`
 
-  private def oneAndSet[A](p: A, sp: Set[A]) =
-    OneAnd(p, sp - p)
-
   trait JwtPayloadTag
 
   trait JwtPayloadG {
@@ -32,7 +31,7 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
     val applicationId: ApplicationId
     val readAs: List[Party]
     val actAs: List[Party]
-    val parties: OneAnd[Set, Party]
+    val parties: PartySet
   }
 
   // Until we get multi-party submissions, write endpoints require a single party in actAs but we
@@ -44,8 +43,8 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
       readAs: List[Party],
   ) extends JwtPayloadG {
     override val actAs: List[Party] = submitter.toList
-    override val parties: OneAnd[Set, Party] =
-      oneAndSet(actAs.head, actAs.tail.toSet union readAs.toSet)
+    override val parties: PartySet =
+      actAs.tail.toSet union readAs.toSet incl1 actAs.head
   }
 
   final case class JwtPayloadLedgerIdOnly(ledgerId: LedgerId)
@@ -57,7 +56,7 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
       applicationId: ApplicationId,
       readAs: List[Party],
       actAs: List[Party],
-      parties: OneAnd[Set, Party],
+      parties: PartySet,
   ) extends JwtPayloadG {}
 
   object JwtPayload {
@@ -68,11 +67,11 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
         actAs: List[Party],
     ): Option[JwtPayload] = {
       (readAs ++ actAs) match {
-        case Nil => None
-        case p :: ps =>
+        case NonEmpty(ps) =>
           Some(
-            new JwtPayload(ledgerId, applicationId, readAs, actAs, oneAndSet(p, ps.toSet)) {}
+            new JwtPayload(ledgerId, applicationId, readAs, actAs, ps.toSet) {}
           )
+        case _ => None
       }
     }
   }

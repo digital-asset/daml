@@ -34,7 +34,6 @@ final class CommandDeduplicationIT(
 
   override def deduplicationFeatures: CommandDeduplicationBase.DeduplicationFeatures =
     DeduplicationFeatures(
-      participantDeduplication = true,
-      appendOnlySchema = false,
+      participantDeduplication = true
     )
 }

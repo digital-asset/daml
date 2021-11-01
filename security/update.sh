@@ -2,6 +2,8 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+set -euo pipefail
+
 is_test=
 
 while [[ $# -gt 0 ]]; do
@@ -22,8 +24,6 @@ done
 
 if [[ $is_test = 1 ]]; then
   git grep --line-number TEST_EVIDENCE\: | bazel run security:evidence-security | diff security-evidence.md -
-  exit $?
 else
   git grep --line-number TEST_EVIDENCE\: | bazel run security:evidence-security > security-evidence.md
-  exit 0
 fi

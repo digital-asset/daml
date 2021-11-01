@@ -1381,6 +1381,57 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             ]
         ]
 
+    , dataDependenciesTest "Using reexported type operators"
+        -- This test checks that we reconstruct reexported type operators properly.
+        [
+            (,) "Base.daml"
+            [ "{-# LANGUAGE TypeOperators #-}"
+            , "module Base (type (&) (..), type (+)) where"
+            , "data a & b = X ()"
+            , "type a + b = a & b"
+            ]
+        ,   (,) "Wrapper.daml"
+            [ "module Wrapper (module Base) where"
+            , "import Base"
+            ]
+        ]
+        [   (,) "Main.daml"
+            [ "{-# LANGUAGE TypeOperators #-}"
+            , "module Main where"
+            , "import Wrapper"
+            , "ampersand: Bool & Int"
+            , "ampersand = X ()"
+            , "plus: Int + Bool"
+            , "plus = X ()"
+            -- If reexported type operators were not imported correctly,
+            -- we'd get "missing type" or "expecting type constructor
+            -- but found a variable" errors from GHC.
+            ]
+        ]
+
+    , simpleImportTest "Constraint synonym context on instance"
+        [ "{-# LANGUAGE UndecidableInstances #-}"
+        , "module Lib where"
+
+        , "class C a where c : a"
+        , "instance C () where c = ()"
+
+        , "class D a where d : a"
+        , "instance D () where d = ()"
+
+        , "type CD a = (C a, D a)"
+
+        , "class E a where e : (a, a)"
+        , "instance (CD a) => E a where e = (c, d)"
+        ]
+        [ "{-# LANGUAGE TypeOperators #-}"
+        , "module Main where"
+        , "import Lib"
+
+        , "x : ((), ())"
+        , "x = e"
+        ]
+
     , testCaseSteps "User-defined exceptions" $ \step -> withTempDir $ \tmpDir -> do
         step "building project to be imported via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "lib")

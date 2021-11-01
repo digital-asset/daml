@@ -3,10 +3,8 @@
 
 package com.daml.platform.store.appendonlydao
 
-import java.sql.Connection
-import java.util.concurrent.{Executor, Executors, TimeUnit}
-
 import com.codahale.metrics.{InstrumentedExecutorService, Timer}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -14,10 +12,12 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-import javax.sql.DataSource
 
-import scala.concurrent.{ExecutionContext, Future}
+import java.sql.Connection
+import java.util.concurrent.{Executor, Executors, TimeUnit}
+import javax.sql.DataSource
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 private[platform] final class DbDispatcher private (
@@ -28,7 +28,6 @@ private[platform] final class DbDispatcher private (
 ) extends ReportsHealth {
 
   private val logger = ContextualizedLogger.get(this.getClass)
-
   private val executionContext = ExecutionContext.fromExecutor(executor)
 
   override def currentHealth(): HealthStatus =
@@ -51,31 +50,42 @@ private[platform] final class DbDispatcher private (
         overallWaitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
         val startExec = System.nanoTime()
         try {
-          // Actual execution
-          val result = connectionProvider.runSQL(databaseMetrics)(sql)
-          result
+          connectionProvider.runSQL(databaseMetrics)(sql)
         } catch {
-          case NonFatal(e) =>
-            logger.error("Exception while executing SQL query. Rolled back.", e)
-            throw e
-          // fatal errors don't make it for some reason to the setUncaughtExceptionHandler
-          case t: Throwable =>
-            logger.error("Fatal error!", t)
-            throw t
+          case throwable: Throwable => handleError(throwable)
         } finally {
-          // decouple metrics updating from sql execution above
-          try {
-            val execNanos = System.nanoTime() - startExec
-            logger.trace(s"Executed query in ${(execNanos / 1e6).toLong} ms")
-            databaseMetrics.executionTimer.update(execNanos, TimeUnit.NANOSECONDS)
-            overallExecutionTimer.update(execNanos, TimeUnit.NANOSECONDS)
-          } catch {
-            case NonFatal(e) =>
-              logger.error("Got an exception while updating timer metrics. Ignoring.", e)
-          }
+          updateMetrics(databaseMetrics, startExec)
         }
       }(executionContext)
     }
+
+  private def updateMetrics(databaseMetrics: DatabaseMetrics, startExec: Long)(implicit
+      loggingContext: LoggingContext
+  ): Unit =
+    try {
+      val execNanos = System.nanoTime() - startExec
+      logger.trace(s"Executed query in ${(execNanos / 1e6).toLong} ms")
+      databaseMetrics.executionTimer.update(execNanos, TimeUnit.NANOSECONDS)
+      overallExecutionTimer.update(execNanos, TimeUnit.NANOSECONDS)
+    } catch {
+      case NonFatal(e) =>
+        logger.info("Got an exception while updating timer metrics. Ignoring.", e)
+    }
+
+  private def handleError(
+      throwable: Throwable
+  )(implicit loggingContext: LoggingContext): Nothing = {
+    implicit val contextualizedLogger: ContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
+    throwable match {
+      case NonFatal(e) => throw DatabaseSelfServiceError(e)
+      // fatal errors don't make it for some reason to the setUncaughtExceptionHandler
+      case t: Throwable =>
+        logger.error("Fatal error!", t)
+        throw t
+    }
+  }
 }
 
 private[platform] object DbDispatcher {

@@ -28,8 +28,6 @@ import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
-import scalaz.OneAnd._
-import scalaz.std.set._
 import scalaz.std.vector._
 import scalaz.std.list._
 import scalaz.std.option.none
@@ -39,7 +37,7 @@ import scalaz.syntax.functor._
 import scalaz.syntax.foldable._
 import scalaz.syntax.order._
 import scalaz.syntax.std.option._
-import scalaz.{OneAnd, \/}
+import scalaz.\/
 import spray.json.{JsNull, JsValue}
 
 import scala.concurrent.ExecutionContext
@@ -64,7 +62,7 @@ private class ContractsFetch(
   def fetchAndPersistBracket[A](
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateIds: List[domain.TemplateId.RequiredPkg],
   )(within: BeginBookmark[Terminates.AtAbsolute] => ConnectionIO[A])(implicit
       ec: ExecutionContext,
@@ -87,7 +85,7 @@ private class ContractsFetch(
       // has desynchronized
       lagging <- (templateIds.toSet, bb.map(_.toDomain)) match {
         case (NonEmpty(tids), AbsoluteBookmark(expectedOff)) =>
-          laggingOffsets(parties.toSet, expectedOff, tids)
+          laggingOffsets(parties, expectedOff, tids)
         case _ => fconn.pure(none[(domain.Offset, Set[domain.TemplateId.RequiredPkg])])
       }
       retriedA <- lagging.cata(
@@ -119,7 +117,7 @@ private class ContractsFetch(
   def fetchAndPersist(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateIds: List[domain.TemplateId.RequiredPkg],
   )(implicit
       ec: ExecutionContext,
@@ -411,6 +409,6 @@ private[http] object ContractsFetch {
   private final case class FetchContext(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
   )
 }

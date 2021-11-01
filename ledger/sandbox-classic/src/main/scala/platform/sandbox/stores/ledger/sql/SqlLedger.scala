@@ -4,6 +4,7 @@
 package com.daml.platform.sandbox.stores.ledger.sql
 
 import java.util.concurrent.atomic.AtomicReference
+
 import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
@@ -38,6 +39,7 @@ import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, Rejection, SandboxOffset}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
+import com.daml.platform.store.cache.{MutableLedgerEndCache, TranslationCacheBackedContractStore}
 import com.daml.platform.store.appendonlydao.{LedgerDao, LedgerWriteDao}
 import com.daml.platform.store.cache.TranslationCacheBackedContractStore
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
@@ -99,7 +101,8 @@ private[sandbox] object SqlLedger {
         _ <- Resource.fromFuture(
           new FlywayMigrations(jdbcUrl).migrate()
         )
-        dao <- ledgerDaoOwner(servicesExecutionContext, errorFactories).acquire()
+        ledgerEndCache = MutableLedgerEndCache()
+        dao <- ledgerDaoOwner(ledgerEndCache, servicesExecutionContext, errorFactories).acquire()
         _ <- startMode match {
           case SqlStartMode.ResetAndStart =>
             Resource.fromFuture(dao.reset())
@@ -109,9 +112,10 @@ private[sandbox] object SqlLedger {
         existingLedgerId <- Resource.fromFuture(dao.lookupLedgerId())
         existingParticipantId <- Resource.fromFuture(dao.lookupParticipantId())
         ledgerId <- Resource.fromFuture(initialize(dao, existingLedgerId, existingParticipantId))
-        ledgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())
+        ledgerEnd <- Resource.fromFuture(dao.lookupLedgerEndOffsetAndSequentialId())
+        _ = ledgerEndCache.set(ledgerEnd)
         ledgerConfig <- Resource.fromFuture(dao.lookupLedgerConfiguration())
-        dispatcher <- dispatcherOwner(ledgerEnd).acquire()
+        dispatcher <- dispatcherOwner(ledgerEnd._1).acquire()
         persistenceQueue <- new PersistenceQueueOwner(dispatcher).acquire()
         // Close the dispatcher before the persistence queue.
         _ <- Resource(Future.unit)(_ => Future.successful(dispatcher.close()))
@@ -250,12 +254,13 @@ private[sandbox] object SqlLedger {
     }
 
     private def ledgerDaoOwner(
+        ledgerEndCache: MutableLedgerEndCache,
         servicesExecutionContext: ExecutionContext,
         errorFactories: ErrorFactories,
     ): ResourceOwner[LedgerDao] = {
-      val compressionStrategy =
-        if (enableCompression) CompressionStrategy.allGZIP(metrics)
-        else CompressionStrategy.none(metrics)
+    val compressionStrategy =
+      if (enableCompression) CompressionStrategy.allGZIP(metrics)
+      else CompressionStrategy.none(metrics)
       com.daml.platform.store.appendonlydao.JdbcLedgerDao.validatingWriteOwner(
         serverRole = serverRole,
         jdbcUrl = jdbcUrl,
@@ -270,6 +275,7 @@ private[sandbox] object SqlLedger {
         enricher = Some(new ValueEnricher(engine)),
         participantId = Ref.ParticipantId.assertFromString(participantId.toString),
         compressionStrategy = compressionStrategy,
+        ledgerEndCache = ledgerEndCache,
         errorFactories = errorFactories,
       )
     }

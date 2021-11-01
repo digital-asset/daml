@@ -269,18 +269,20 @@ private[sandbox] final class InMemoryLedger(
         .map { contract =>
           val contractInst =
             if (verbose) {
-              consumeEnricherResult(enricher.enrichVersionedContract(contract.contract))
+              consumeEnricherResult(enricher.enrichContract(contract.contract.coinst))
             } else {
-              contract.contract
+              contract.contract.coinst
             }
-          val contractKey =
+          val contractKey = contract.key.map { key =>
+            val unversionedKey = key.map(_.value)
             if (verbose) {
               consumeEnricherResult(
-                enricher.enrichVersionedContractKey(contract.contract.template, contract.key)
+                enricher.enrichContractKey(contract.contract.template, unversionedKey)
               )
             } else {
-              contract.key
+              unversionedKey
             }
+          }
           GetActiveContractsResponse(
             workflowId = contract.workflowId.getOrElse(""),
             activeContracts = List(
@@ -324,9 +326,7 @@ private[sandbox] final class InMemoryLedger(
       acs.activeContracts
         .get(contractId)
         .filter(ac => acs.isVisibleForDivulgees(ac.id, forParties))
-        .map { x0 =>
-          consumeEnricherResult(enricher.enrichVersionedContract(x0.contract))
-        }
+        .map(_.contract)
     })
 
   override def lookupKey(key: GlobalKey, forParties: Set[Ref.Party])(implicit

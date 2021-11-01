@@ -4,6 +4,7 @@
 package com.daml.platform.store.dao
 
 import java.util.UUID
+
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
@@ -16,6 +17,7 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
 import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerDao}
+import com.daml.platform.store.cache.MutableLedgerEndCache
 import org.scalatest.LoneElement
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -33,6 +35,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] = {
     val metrics = new Metrics(new MetricRegistry)
+    val ledgerEndCache = MutableLedgerEndCache()
     JdbcLedgerDao
       .validatingWriteOwner(
         serverRole = ServerRole.Testing(getClass),
@@ -47,6 +50,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
         enricher = None,
         participantId = Ref.ParticipantId.assertFromString("JdbcLedgerDaoPostCommitValidationSpec"),
         compressionStrategy = CompressionStrategy.none(metrics),
+        ledgerEndCache = ledgerEndCache,
         errorFactories = errorFactories,
       )
   }

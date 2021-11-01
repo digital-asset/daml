@@ -44,6 +44,7 @@ da_scala_test_suite(
         ],
         exclude = [
             "src/test/**/LargeTransactionTest.scala",
+            "src/test/**/MinVersionTest.scala",
         ],
     ),
     data = [
@@ -111,5 +112,42 @@ da_scala_test(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_test(
+    name = "test-min-version",
+    srcs = glob([
+        "src/test/**/MinVersionTest.scala",
+    ]),
+    data = [
+        "//ledger/test-common:dar-files-1.14",
+    ],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/caching",
+        "//ledger/ledger-api-client",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-on-memory",
+        "//ledger/ledger-on-memory:ledger-on-memory-app",
+        "//ledger/ledger-resources",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-state/kvutils/app",
+        "//ledger/test-common:dar-files-1.14-lib",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_netty_netty_handler",
     ],
 )

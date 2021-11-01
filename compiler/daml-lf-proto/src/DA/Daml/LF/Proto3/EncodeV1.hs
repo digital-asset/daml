@@ -19,6 +19,7 @@ import           Data.Either
 import           Data.Functor.Identity
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.List as L
+import qualified Data.Set as S
 import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromMaybe)
 import qualified Data.NameMap as NM
@@ -217,6 +218,9 @@ encodeList encodeElem = fmap V.fromList . mapM encodeElem
 
 encodeNameMap :: NM.Named a => (a -> Encode b) -> NM.NameMap a -> Encode (V.Vector b)
 encodeNameMap encodeElem = fmap V.fromList . mapM encodeElem . NM.toList
+
+encodeSet :: (a -> Encode b) -> S.Set a -> Encode (V.Vector b)
+encodeSet encodeElem = fmap V.fromList . mapM encodeElem . S.toList
 
 encodeQualTypeSynName' :: Qualified TypeSynName -> Encode P.TypeSynName
 encodeQualTypeSynName' (Qualified pref mname syn) = do
@@ -929,6 +933,7 @@ encodeTemplateImplements :: TemplateImplements -> Encode P.DefTemplate_Implement
 encodeTemplateImplements TemplateImplements{..} = do
     defTemplate_ImplementsInterface <- encodeQualTypeConName tpiInterface
     defTemplate_ImplementsMethods <- encodeNameMap encodeTemplateImplementsMethod tpiMethods
+    defTemplate_ImplementsInheritedChoiceInternedNames <- encodeSet (encodeNameId unChoiceName) tpiInheritedChoiceNames
     pure P.DefTemplate_Implements {..}
 
 encodeTemplateImplementsMethod :: TemplateImplementsMethod -> Encode P.DefTemplate_ImplementsMethod
@@ -1002,6 +1007,7 @@ encodeDefInterface DefInterface{..} = do
     defInterfaceChoices <- encodeNameMap encodeInterfaceChoice intVirtualChoices
     defInterfaceFixedChoices <- encodeNameMap encodeTemplateChoice intFixedChoices
     defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
+    defInterfacePrecond <- encodeExpr intPrecondition
     pure $ P.DefInterface{..}
 
 encodeInterfaceChoice :: InterfaceChoice -> Encode P.InterfaceChoice

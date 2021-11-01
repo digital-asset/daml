@@ -8,6 +8,7 @@ import lf.data.Ref
 import util.ClientUtil.boxedRecord
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.scalautil.nonempty.NonEmpty
 import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.string._
@@ -25,6 +26,8 @@ package object domain {
   type PartyTag = lar.PartyTag
   type Party = lar.Party
   val Party = lar.Party
+
+  type PartySet = NonEmpty[Set[Party]]
 
   type Offset = String @@ OffsetTag
 
@@ -161,6 +164,7 @@ package domain {
     final val ContractId = here.ContractId
     type Party = here.Party
     final val Party = here.Party
+    type PartySet = here.PartySet
     type Offset = here.Offset
     final val Offset = here.Offset
     type ActiveContract[+LfV] = here.ActiveContract[LfV]

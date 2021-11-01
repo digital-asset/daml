@@ -12,13 +12,13 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.platform.services.time.TimeProviderType
+import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.traverse._
 
 import com.daml.lf.engine.trigger.TriggerMsg
-import com.daml.lf.engine.trigger.RunnerConfig
 
 import java.util.UUID
 
@@ -314,21 +314,23 @@ abstract class AbstractFuncTests
     "MaxMessageSizeTests" should {
       val triggerId =
         QualifiedName.assertFromString("MaxInboundMessageTest:maxInboundMessageSizeTrigger")
-      val tId = LedgerApi.Identifier(packageId, "MaxInboundMessageTest", "MessageSize")
       "fail" in {
         for {
           client <- ledgerClient(
-            maxInboundMessageSize = 5 * RunnerConfig.DefaultMaxInboundMessageSize
+            // Sufficiently low that the transaction is larger than the max inbound message size
+            maxInboundMessageSize = 300
           )
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
           (acs, offset) <- runner.queryACS()
           // 1 for create and exercise
           // 1 for completion
-          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
-          acs <- queryACS(client, party)
+          // 1 for the transaction
+          ex <- recoverToExceptionIf[StatusRuntimeException](
+            runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(3))._2
+          )
         } yield {
-          assert(acs(tId).length == 50001)
+          ex.getStatus.getCode() shouldBe Status.Code.RESOURCE_EXHAUSTED
         }
       }
     }
@@ -440,15 +442,12 @@ abstract class AbstractFuncTests
             QualifiedName.assertFromString("TemplateIdFilter:testOne"),
             party,
           )
-          (acs, offset) <- runner.queryACS()
-          // 2 for the creates from the test
-          // 2 for the completions from the test
-          // 1 for the create in the trigger
-          // 1 for the completion from the trigger
-          finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(6))._2
           _ <- create(client, party, one(party))
           _ <- create(client, party, two(party))
-          _ <- finalStateF
+          (acs, offset) <- runner.queryACS()
+          // 1 for the create in the trigger
+          // 1 for the completion from the trigger
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
           acs <- queryACS(client, party)
         } yield {
           assert(acs(doneOneId).length == 1)
@@ -464,15 +463,12 @@ abstract class AbstractFuncTests
             QualifiedName.assertFromString("TemplateIdFilter:testTwo"),
             party,
           )
-          (acs, offset) <- runner.queryACS()
-          // 2 for the creates from the test
-          // 2 for the completions from the test
-          // 1 for the create in the trigger
-          // 1 for the completion from the trigger
-          finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(6))._2
           _ <- create(client, party, one(party))
           _ <- create(client, party, two(party))
-          _ <- finalStateF
+          (acs, offset) <- runner.queryACS()
+          // 1 for the create in the trigger
+          // 1 for the completion from the trigger
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
           acs <- queryACS(client, party)
         } yield {
           assert(!acs.contains(doneOneId))

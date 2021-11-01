@@ -1457,6 +1457,8 @@ message DefTemplate {
   message Implements {
     TypeConName interface = 1;
     repeated ImplementsMethod methods = 2;
+    repeated int32 inherited_choice_interned_names = 3;
+      // ^ inherited fixed choice names as interned strings
   }
 
   // The type constructor for the template, acting as both
@@ -1532,6 +1534,7 @@ message DefInterface {
   // Binder for interface value ("this") in fixed choices.
   int32 param_interned_str = 5;
   repeated TemplateChoice fixed_choices = 6;
+  Expr precond = 7;
 }
 
 // Exception definition

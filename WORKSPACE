@@ -594,9 +594,19 @@ load("@rules_haskell//tools:repositories.bzl", "rules_haskell_worker_dependencie
 # Call this after `daml_haskell_deps` to ensure that the right `stack` is used.
 rules_haskell_worker_dependencies()
 
-load("//bazel_tools:java.bzl", "java_home_runtime")
+load("//bazel_tools:java.bzl", "dadew_java_configure", "nixpkgs_java_configure")
 
-java_home_runtime(name = "java_home")
+dadew_java_configure(
+    name = "dadew_java_runtime",
+    dadew_path = "java-openjdk-8u302",
+) if is_windows else None
+
+nixpkgs_java_configure(
+    attribute_path = "jdk8.home",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+) if not is_windows else None
 
 # rules_go used here to compile a wrapper around the protoc-gen-scala plugin
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
@@ -698,7 +708,7 @@ proto_library(
     visibility = ["//visibility:public"],
 )
 """,
-    sha256 = "a5395d89ad804e2bec21ed3b61e5ccd44dc48d69a660f62244c6b15d095b5ca0",
+    sha256 = "e2dc7ad98f2bc1a78442a3e20eeef0381be008c18bf22f0dcb56283981977e01",
     strip_prefix = "ScalaPB-{}".format(scalapb_version),
     urls = ["https://github.com/scalapb/ScalaPB/archive/refs/tags/v{}.zip".format(scalapb_version)],
 )

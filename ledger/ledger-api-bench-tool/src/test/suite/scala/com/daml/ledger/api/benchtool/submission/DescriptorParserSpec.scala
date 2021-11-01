@@ -19,6 +19,7 @@ class DescriptorParserSpec extends AnyWordSpec with Matchers with TableDrivenPro
         ("", "empty yaml"),
         (
           """instance_distribution:
+           |num_observers: 3
            |  - template: Foo1
            |    weight: 50
            |    payload_size_bytes: 100""".stripMargin,
@@ -27,6 +28,7 @@ class DescriptorParserSpec extends AnyWordSpec with Matchers with TableDrivenPro
         ("""num_instances: 123""", "missing instance distribution"),
         (
           """num_instances: 123
+           |num_observers: 3
            |instance_distribution:
            |  - template: Foo1
            |    payload_size_bytes: 100""".stripMargin,
@@ -34,6 +36,7 @@ class DescriptorParserSpec extends AnyWordSpec with Matchers with TableDrivenPro
         ),
         (
           """num_instances: 123
+           |num_observers: 3
            |instance_distribution:
            |  - template: Foo1
            |    payload_size_bytes: 100""".stripMargin,
@@ -41,10 +44,18 @@ class DescriptorParserSpec extends AnyWordSpec with Matchers with TableDrivenPro
         ),
         (
           """num_instances: 123
+           |num_observers: 3
            |instance_distribution:
            |  - weight: 50
            |    payload_size_bytes: 100""".stripMargin,
           "missing template name",
+        ),
+        (
+          """num_instances: 123
+            |instance_distribution:
+            |  - weight: 50
+            |    payload_size_bytes: 100""".stripMargin,
+          "missing number of observers",
         ),
       )
       forAll(cases) { case (yaml, _) =>
@@ -55,6 +66,7 @@ class DescriptorParserSpec extends AnyWordSpec with Matchers with TableDrivenPro
     "parse descriptor" in {
       val yaml =
         """num_instances: 123
+          |num_observers: 5
           |instance_distribution:
           |  - template: Foo1
           |    weight: 50
@@ -68,6 +80,7 @@ class DescriptorParserSpec extends AnyWordSpec with Matchers with TableDrivenPro
       parseYaml(yaml) shouldBe Right(
         ContractSetDescriptor(
           numberOfInstances = 123,
+          numberOfObservers = 5,
           instanceDistribution = List(
             ContractDescription(
               template = "Foo1",

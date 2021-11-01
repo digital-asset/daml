@@ -7,6 +7,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit.SECONDS
 import java.util.UUID
 import java.util.concurrent.Executors
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -27,8 +28,8 @@ import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.LfValueTranslationCache
-import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.testing.LogCollector
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.timer.RetryStrategy
@@ -221,11 +222,11 @@ class RecoveringIndexerIntegrationSpec
     } yield participantState
   }
 
-  private def index(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
+  private def index(implicit loggingContext: LoggingContext): ResourceOwner[LedgerReadDao] = {
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase}-$testId;db_close_delay=-1;db_close_on_exit=false"
     val errorFactories: ErrorFactories = mock[ErrorFactories]
-    JdbcLedgerDao.writeOwner(
+    JdbcLedgerDao.readOwner(
       serverRole = ServerRole.Testing(getClass),
       jdbcUrl = jdbcUrl,
       connectionPoolSize = 16,

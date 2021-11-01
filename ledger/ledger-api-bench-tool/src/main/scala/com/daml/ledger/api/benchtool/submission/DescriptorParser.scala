@@ -29,8 +29,9 @@ object DescriptorParser {
       )(ContractSetDescriptor.ContractDescription.apply)
 
     implicit val descriptorDecoder: Decoder[ContractSetDescriptor] =
-      Decoder.forProduct2(
+      Decoder.forProduct3(
         "num_instances",
+        "num_observers",
         "instance_distribution",
       )(ContractSetDescriptor.apply)
   }

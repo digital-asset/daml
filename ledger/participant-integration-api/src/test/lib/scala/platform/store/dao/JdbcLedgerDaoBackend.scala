@@ -15,6 +15,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.LedgerDao
+import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParticipantId}
 import com.daml.platform.store.{DbType, FlywayMigrations, LfValueTranslationCache}
 import org.mockito.MockitoSugar
@@ -49,7 +50,8 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
       errorFactories: ErrorFactories,
   )(implicit
       loggingContext: LoggingContext
-  ): ResourceOwner[LedgerDao] =
+  ): ResourceOwner[LedgerDao] = {
+    val ledgerEndCache = MutableLedgerEndCache()
     com.daml.platform.store.appendonlydao.JdbcLedgerDao.writeOwner(
       serverRole = ServerRole.Testing(getClass),
       jdbcUrl = jdbcUrl,
@@ -64,8 +66,10 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
       lfValueTranslationCache = LfValueTranslationCache.Cache.none,
       enricher = Some(new ValueEnricher(new Engine())),
       participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
+      ledgerEndCache = ledgerEndCache,
       errorFactories = errorFactories,
     )
+  }
 
   protected final var ledgerDao: LedgerDao = _
 

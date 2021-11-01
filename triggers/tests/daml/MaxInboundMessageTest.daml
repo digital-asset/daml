@@ -17,22 +17,11 @@ maxInboundMessageSizeTrigger = Trigger
   }
 
 maxInboundMessageSizeRule : Party -> TriggerA () ()
-maxInboundMessageSizeRule party = query @MessageSize >>= \case
-  [] ->
-      void $ emitCommands [createAndExerciseCmd (MessageSize { p = party }) (CreateN {n = 50000})] []
-  _ -> pure ()
+maxInboundMessageSizeRule party = do
+  void $ emitCommands [createCmd (T party)] []
 
-template MessageSize
+template T
   with
     p : Party
   where
     signatory p
-    nonconsuming choice CreateN : ()
-      with
-        n : Int
-      controller p
-      do
-        res <- forA [1..n] (\_ -> do
-              create this
-          )
-        return()

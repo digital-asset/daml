@@ -67,7 +67,7 @@ object WebSocketService {
       resolved: Set[domain.TemplateId.RequiredPkg],
       unresolved: Set[domain.TemplateId.OptionalPkg],
       fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive],
-      dbQuery: (OneAnd[Set, domain.Party], dbbackend.ContractDao) => ConnectionIO[
+      dbQuery: (domain.PartySet, dbbackend.ContractDao) => ConnectionIO[
         _ <: Vector[(domain.ActiveContract[JsValue], Positive)]
       ],
   )
@@ -721,7 +721,7 @@ class WebSocketService(
       predicate: StreamPredicate[Positive],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
   ): Future[Source[StepAndErrors[Positive, JsValue], NotUsed]] =
@@ -758,7 +758,7 @@ class WebSocketService(
   private def getTransactionSourceForParty[A: StreamQuery](
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       offPrefix: Option[domain.StartingOffset],
       rawRequest: A,
   )(implicit

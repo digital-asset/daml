@@ -52,6 +52,14 @@ object Cli {
         config.copy(contractSetDescriptorFile = Some(descriptorFile))
       }
 
+    opt[Int]("max-in-flight-commands")
+      .hidden() // TODO: uncomment when production-ready
+      .text("Maximum in-flight commands for command submissions.")
+      .optional()
+      .action { case (size, config) =>
+        config.copy(maxInFlightCommands = size)
+      }
+
     opt[FiniteDuration]("log-interval")
       .abbr("r")
       .text("Stream metrics log interval.")

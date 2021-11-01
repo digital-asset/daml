@@ -30,13 +30,10 @@ import io.grpc.Status.Code
 import scala.collection.compat._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Random, Success}
 import scala.util.control.NonFatal
+import scala.util.{Failure, Random, Success}
 
-/** Should be enabled for ledgers that fill the submission ID in the completions,
-  * as we need to use the submission id to find completions for parallel submissions
-  */
-class AppendOnlyCommandDeduplicationParallelIT extends LedgerTestSuite {
+class CommandDeduplicationParallelIT extends LedgerTestSuite {
 
   private val deduplicationDuration = 3.seconds
   private val numberOfParallelRequests = 10

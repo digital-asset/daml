@@ -6,6 +6,7 @@ package com.daml.http
 import com.daml.lf.data.Ref
 import com.daml.http.EndpointsCompanion.{Error, InvalidUserInput, Unauthorized}
 import com.daml.http.util.FutureUtil._
+import com.daml.scalautil.nonempty._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api
 import LedgerClientJwt.Grpc
@@ -52,7 +53,7 @@ class PartiesService(
 
   def parties(
       jwt: Jwt,
-      identifiers: OneAnd[Set, domain.Party],
+      identifiers: domain.PartySet,
   ): Future[Error \/ (Set[domain.PartyDetails], Set[domain.Party])] = {
     val et: ET[(Set[domain.PartyDetails], Set[domain.Party])] = for {
       apiPartyIds <- either(toLedgerApiPartySet(identifiers)): ET[OneAnd[Set, Ref.Party]]
@@ -68,16 +69,10 @@ class PartiesService(
 
   private def findUnknownParties(
       found: Set[domain.PartyDetails],
-      requested: OneAnd[Set, domain.Party],
-  ): Set[domain.Party] = {
-    import scalaz.std.iterable._
-    import scalaz.syntax.foldable._
-
-    val requestedSet: Set[domain.Party] = requested.toSet
-
-    if (found.size == requestedSet.size) Set.empty
-    else requestedSet -- found.map(_.identifier)
-  }
+      requested: domain.PartySet,
+  ): Set[domain.Party] =
+    if (found.size == requested.size) Set.empty
+    else requested -- found.map(_.identifier)
 }
 
 object PartiesService {
@@ -89,12 +84,11 @@ object PartiesService {
     Unauthorized(e.message)
 
   def toLedgerApiPartySet(
-      ps: OneAnd[Set, domain.Party]
+      ps: domain.PartySet
   ): InvalidUserInput \/ OneAnd[Set, Ref.Party] = {
     import scalaz.std.list._
-    val nel: OneAnd[List, domain.Party] = OneAnd(ps.head, ps.tail.toList)
-    val enel: InvalidUserInput \/ OneAnd[List, Ref.Party] = nel.traverse(toLedgerApi)
-    enel.map(xs => OneAnd(xs.head, xs.tail.toSet))
+    val enel: InvalidUserInput \/ NonEmptyF[List, Ref.Party] = ps.toList.toF traverse toLedgerApi
+    enel.map { case x +-: xs => OneAnd(x, xs.toSet) }
   }
 
   def toLedgerApi(p: domain.Party): InvalidUserInput \/ Ref.Party =

@@ -455,12 +455,14 @@ private[validation] object Typing {
 
     def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
-        case DefInterface(param, virtualChoices, fixedChoices, methods) =>
+        case DefInterface(param, virtualChoices, fixedChoices, methods, precond) =>
           fixedChoices.values.foreach(
             introExprVar(param, TTyCon(ifaceName)).checkChoice(ifaceName, _)
           )
           virtualChoices.values.foreach(checkIfaceChoice)
           methods.values.foreach(checkIfaceMethod)
+          val env = introExprVar(param, TTyCon(ifaceName))
+          env.checkExpr(precond, TBool)
       }
 
     def checkIfaceChoice(choice: InterfaceChoice): Unit = {
@@ -477,7 +479,7 @@ private[validation] object Typing {
         AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
 
     def checkIfaceImplementation(tplTcon: TypeConName, impl: TemplateImplements): Unit = {
-      val DefInterfaceSignature(_, virtualChoices, _, methods) =
+      val DefInterfaceSignature(_, virtualChoices, _, methods, _) =
         handleLookup(ctx, interface.lookupInterface(impl.interface))
       virtualChoices.values.foreach { case InterfaceChoice(name, consuming, argType, returnType) =>
         val tplChoice = handleLookup(ctx, interface.lookupChoice(tplTcon, name))

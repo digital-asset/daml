@@ -3,11 +3,11 @@
 
 package com.daml.platform.index
 
-import java.sql.SQLException
 import akka.Done
 import akka.actor.Cancellable
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink, Source}
+import com.daml.error.definitions.IndexErrors
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.offset.Offset
@@ -28,6 +28,7 @@ import com.daml.platform.store.appendonlydao.{
   LedgerDaoTransactionsReader,
   LedgerReadDao,
 }
+import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.{BaseLedger, LfValueTranslationCache}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
@@ -62,17 +63,24 @@ private[platform] object ReadOnlySqlLedger {
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlySqlLedger] {
 
-    override def acquire()(implicit context: ResourceContext): Resource[ReadOnlySqlLedger] =
+    override def acquire()(implicit context: ResourceContext): Resource[ReadOnlySqlLedger] = {
+      val ledgerEndCache = MutableLedgerEndCache()
       for {
         ledgerDao <- ledgerDaoOwner(servicesExecutionContext, errorFactories).acquire()
         ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao, initialLedgerId))
-        ledger <- ledgerOwner(ledgerDao, ledgerId).acquire()
+        ledger <- ledgerOwner(ledgerDao, ledgerId, ledgerEndCache).acquire()
       } yield ledger
+    }
 
-    private def ledgerOwner(ledgerDao: LedgerReadDao, ledgerId: LedgerId) =
+    private def ledgerOwner(
+        ledgerDao: LedgerReadDao,
+        ledgerId: LedgerId,
+        ledgerEndCache: MutableLedgerEndCache,
+    ) =
       if (enableMutableContractStateCache) {
         new ReadOnlySqlLedgerWithMutableCache.Owner(
           ledgerDao,
+          ledgerEndCache,
           enricher,
           ledgerId,
           metrics,
@@ -85,6 +93,7 @@ private[platform] object ReadOnlySqlLedger {
       } else
         new ReadOnlySqlLedgerWithTranslationCache.Owner(
           ledgerDao,
+          ledgerEndCache,
           ledgerId,
           lfValueTranslationCache,
         )
@@ -96,18 +105,19 @@ private[platform] object ReadOnlySqlLedger {
         executionContext: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[LedgerId] = {
-      val predicate: PartialFunction[Throwable, Boolean] = {
+      val isRetryable: PartialFunction[Throwable, Boolean] = {
         // If the index database is not yet fully initialized,
         // querying for the ledger ID will throw different errors,
         // depending on the database, and how far the initialization is.
-        case _: SQLException => true
+        case IndexErrors.DatabaseErrors.SqlTransientError(_) => true
+        case IndexErrors.DatabaseErrors.SqlNonTransientError(_) => true
         case _: LedgerIdNotFoundException => true
         case _: MismatchException.LedgerId => false
         case _ => false
       }
       val retryDelay = 100.millis
       val maxAttempts = 3000 // give up after 5min
-      RetryStrategy.constant(attempts = Some(maxAttempts), waitTime = retryDelay)(predicate) {
+      RetryStrategy.constant(attempts = Some(maxAttempts), waitTime = retryDelay)(isRetryable) {
         (attempt, _) =>
           ledgerDao
             .lookupLedgerId()

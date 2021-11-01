@@ -97,11 +97,11 @@ private[lf] object Pretty {
       case NonComparableValues =>
         text("functions are not comparable")
       case ContractIdComparability(globalCid) =>
-        text(s"The global contract ID $globalCid conflicts with a local contract ID")
+        text(s"The global contract ID") & prettyContractId(globalCid) &
+          text("conflicts with a local contract ID")
       case ContractIdInContractKey(key) =>
-        text(
-          s"Contract IDs are not supported in contract keys: ${key.ensureNoCid.left.toOption.get}"
-        )
+        text("Contract IDs are not supported in contract keys:") &
+          prettyContractId(key.ensureNoCid.left.toOption.get)
       case ValueExceedsMaxNesting =>
         text(s"Value exceeds maximum nesting value of 100")
     }

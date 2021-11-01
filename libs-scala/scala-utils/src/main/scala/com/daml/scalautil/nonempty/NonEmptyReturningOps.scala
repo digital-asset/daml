@@ -3,7 +3,7 @@
 
 package com.daml.scalautil.nonempty
 
-import scala.collection.{immutable => imm}, imm.Map
+import scala.collection.{immutable => imm}, imm.Map, imm.Set
 import NonEmptyCollCompat._
 
 /** Functions where ''the receiver'' is non-empty can be found implicitly with
@@ -19,5 +19,10 @@ object NonEmptyReturningOps {
       NonEmpty.subst[Lambda[f[_] => Map[K, f[C]]]](self groupBy f)
 
     // ideas for extension: +-: and :-+ operators
+  }
+
+  implicit final class `NE Set Ops`[A](private val self: Set[A]) extends AnyVal {
+    import NonEmpty.{unsafeNarrow => un}
+    def incl1(elem: A): NonEmpty[Set[A]] = un(self + elem)
   }
 }

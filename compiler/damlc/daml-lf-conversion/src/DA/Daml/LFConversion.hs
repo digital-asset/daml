@@ -444,6 +444,7 @@ convertInterfaces env tyThings = interfaceClasses
             intVirtualChoices <- NM.fromList <$> mapM convertVirtualChoice
                 (MS.findWithDefault [] intName (envInterfaceChoiceData env))
             intFixedChoices <- convertChoices env intName emptyTemplateBinds
+            let intPrecondition = ETrue -- TODO (drsk) #11397 Implement interface preconditions
             pure DefInterface {..}
 
     convertVirtualChoice :: ChoiceData -> ConvertM InterfaceChoice
@@ -971,7 +972,8 @@ convertImplements env tplTypeCon = NM.fromList <$>
                 | (FieldName fieldName, e) <- methodFields
                 , Just methodName <- [T.stripPrefix "m_" fieldName]
                 ]
-        pure (TemplateImplements con methods)
+        let inheritedChoiceNames = S.empty -- This is filled during LF post-processing (in the LF completer).
+        pure (TemplateImplements con methods inheritedChoiceNames)
 
 convertChoices :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
 convertChoices env tplTypeCon tbinds =

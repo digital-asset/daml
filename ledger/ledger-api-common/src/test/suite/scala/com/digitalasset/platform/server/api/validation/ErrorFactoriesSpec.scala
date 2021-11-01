@@ -23,6 +23,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.sql.{SQLNonTransientException, SQLTransientException}
 import scala.jdk.CollectionConverters._
 
 class ErrorFactoriesSpec
@@ -43,6 +44,40 @@ class ErrorFactoriesSpec
   val tested = ErrorFactories(mock[ErrorCodesVersionSwitcher])
 
   "ErrorFactories" should {
+    "return sqlTransientException" in {
+      val failureReason = "some db transient failure"
+      val someSqlTransientException = new SQLTransientException(failureReason)
+      assertV2Error(
+        SelfServiceErrorCodeFactories
+          .sqlTransientException(someSqlTransientException)
+      )(
+        expectedCode = Code.UNAVAILABLE,
+        expectedMessage =
+          s"INDEX_DB_SQL_TRANSIENT_ERROR(1,$correlationId): Processing the request failed due to a transient database error: $failureReason",
+        expectedDetails = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("INDEX_DB_SQL_TRANSIENT_ERROR"),
+          DefaultTraceIdRequestInfo,
+          ErrorDetails.RetryInfoDetail(1),
+        ),
+      )
+    }
+
+    "return sqlNonTransientException" in {
+      val failureReason = "some db non-transient failure"
+      assertV2Error(
+        SelfServiceErrorCodeFactories
+          .sqlNonTransientException(new SQLNonTransientException(failureReason))
+      )(
+        expectedCode = Code.INTERNAL,
+        expectedMessage =
+          s"An error occurred. Please contact the operator and inquire about the request $correlationId",
+        expectedDetails = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("INDEX_DB_SQL_NON_TRANSIENT_ERROR"),
+          DefaultTraceIdRequestInfo,
+        ),
+      )
+    }
+
     "return malformedPackageId" in {
       assertVersionedError(
         _.malformedPackageId(request = "request123", message = "message123")(

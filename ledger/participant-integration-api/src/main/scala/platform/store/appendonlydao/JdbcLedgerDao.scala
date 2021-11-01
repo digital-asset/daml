@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.platform.store.appendonlydao
 
+import java.sql.Connection
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
@@ -34,6 +36,7 @@ import com.daml.platform.store.Conversions._
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackend, UpdateToDbDto}
+import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -739,6 +742,8 @@ private[platform] object JdbcLedgerDao {
       participantId: Ref.ParticipantId,
       errorFactories: ErrorFactories,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerReadDao] = {
+    val dbType = DbType.jdbcType(jdbcUrl)
+    val storageBackend = StorageBackend.of(dbType)
     owner(
       serverRole,
       jdbcUrl,
@@ -752,7 +757,8 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       enricher = enricher,
       participantId = participantId,
-      compressionStrategy = CompressionStrategy.none(metrics), // not needed
+      sequentialWriteDao = NoopSequentialWriteDao,
+      storageBackend = storageBackend,
       errorFactories = errorFactories,
     ).map(new MeteredLedgerReadDao(_, metrics))
   }
@@ -769,9 +775,11 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
+      ledgerEndCache: MutableLedgerEndCache,
       errorFactories: ErrorFactories,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
+    val storageBackend = StorageBackend.of(dbType)
     owner(
       serverRole,
       jdbcUrl,
@@ -785,7 +793,15 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       enricher = enricher,
       participantId = participantId,
-      compressionStrategy = CompressionStrategy.none(metrics), // not needed
+      sequentialWriteDao = sequentialWriteDao(
+        participantId,
+        lfValueTranslationCache,
+        metrics,
+        CompressionStrategy.none(metrics),
+        storageBackend,
+        ledgerEndCache,
+      ),
+      storageBackend = storageBackend,
       errorFactories = errorFactories,
     ).map(new MeteredLedgerDao(_, metrics))
   }
@@ -804,9 +820,11 @@ private[platform] object JdbcLedgerDao {
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
       compressionStrategy: CompressionStrategy,
+      ledgerEndCache: MutableLedgerEndCache,
       errorFactories: ErrorFactories,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
+    val storageBackend = StorageBackend.of(dbType)
     owner(
       serverRole,
       jdbcUrl,
@@ -821,7 +839,15 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation,
       enricher = enricher,
       participantId = participantId,
-      compressionStrategy = compressionStrategy,
+      sequentialWriteDao = sequentialWriteDao(
+        participantId,
+        lfValueTranslationCache,
+        metrics,
+        compressionStrategy,
+        storageBackend,
+        ledgerEndCache,
+      ),
+      storageBackend = storageBackend,
       errorFactories = errorFactories,
     ).map(new MeteredLedgerDao(_, metrics))
   }
@@ -832,6 +858,7 @@ private[platform] object JdbcLedgerDao {
       metrics: Metrics,
       compressionStrategy: CompressionStrategy,
       storageBackend: StorageBackend[_],
+      ledgerEndCache: MutableLedgerEndCache,
   ): SequentialWriteDao =
     SequentialWriteDaoImpl(
       storageBackend = storageBackend,
@@ -845,6 +872,7 @@ private[platform] object JdbcLedgerDao {
         ),
         compressionStrategy = compressionStrategy,
       ),
+      ledgerEndCache = ledgerEndCache,
     )
 
   private def owner(
@@ -861,11 +889,10 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation: Boolean = false,
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
-      compressionStrategy: CompressionStrategy,
+      sequentialWriteDao: SequentialWriteDao,
+      storageBackend: StorageBackend[_],
       errorFactories: ErrorFactories,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
-    val dbType = DbType.jdbcType(jdbcUrl)
-    val storageBackend = StorageBackend.of(dbType)
     for {
       dbDispatcher <- DbDispatcher.owner(
         storageBackend.createDataSource(jdbcUrl),
@@ -884,13 +911,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       validatePartyAllocation,
       enricher,
-      sequentialWriteDao(
-        participantId,
-        lfValueTranslationCache,
-        metrics,
-        compressionStrategy,
-        storageBackend,
-      ),
+      sequentialWriteDao,
       participantId,
       storageBackend,
       errorFactories,

@@ -12,10 +12,12 @@ da_scala_binary(
     name = "export-error-codes-json-app",
     srcs = [],
     main_class = "com.daml.error.generator.Main",
+    resources = glob(["src/main/resources/**/*"]),
     visibility = ["//visibility:public"],
     deps = [
         "//ledger/error",
         "//ledger/participant-integration-api",
+        "//ledger/participant-state/kvutils",
     ],
 )
 

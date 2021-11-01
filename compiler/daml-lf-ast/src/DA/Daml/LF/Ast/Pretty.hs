@@ -11,7 +11,8 @@ import qualified Data.Ratio                 as Ratio
 import           Control.Lens
 import           Control.Lens.Ast   (rightSpine)
 import qualified Data.NameMap as NM
-import qualified Data.Text          as T
+import qualified Data.Text as T
+import qualified Data.Set as S
 import qualified Data.Time.Clock.POSIX      as Clock.Posix
 import qualified Data.Time.Format           as Time.Format
 import           Data.Foldable (toList)
@@ -632,10 +633,11 @@ pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observe
       implementsDoc = map (pPrintTemplateImplements lvl) (NM.toList implements)
 
 pPrintTemplateImplements :: PrettyLevel -> TemplateImplements -> Doc ann
-pPrintTemplateImplements lvl (TemplateImplements name methods)
+pPrintTemplateImplements lvl (TemplateImplements name methods inheritedChoices)
   | NM.null methods = keyword_ "implements" <-> pPrintPrec lvl 0 name
   | otherwise = vcat
       $ (keyword_ "implements" <-> pPrintPrec lvl 0 name <-> keyword_ "where")
+      : nest 2 (keyword_ "inherits" <-> pPrintPrec lvl 0 (S.toList inheritedChoices))
       : map (nest 2 . pPrintTemplateImplementsMethod lvl) (NM.toList methods)
 
 pPrintTemplateImplementsMethod :: PrettyLevel -> TemplateImplementsMethod -> Doc ann
