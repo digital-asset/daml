@@ -4,7 +4,7 @@
 package com.daml.platform.server.api.validation
 
 import com.daml.error.ErrorCode.ApiException
-import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
+import com.daml.error.definitions.{LedgerApiErrors, LoggingTransactionErrorImpl, IndexErrors}
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.grpc.GrpcStatuses
@@ -236,20 +236,36 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       fieldName: String,
       message: String,
       definiteAnswer: Option[Boolean],
+      rejectionBuilder: (
+          String,
+          String,
+      ) => ContextualizedErrorLogger => LoggingTransactionErrorImpl = (fieldName, message) =>
+        logger => ledgerCommandValidationInvalidField(fieldName, message)(logger),
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
-      v1 = {
-        val statusBuilder = Status
-          .newBuilder()
-          .setCode(Code.INVALID_ARGUMENT.value())
-          .setMessage(s"Invalid field $fieldName: $message")
-        addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
-        grpcError(statusBuilder.build())
-      },
-      v2 = LedgerApiErrors.CommandValidation.InvalidField
-        .Reject(s"Invalid field $fieldName: $message")
-        .asGrpcError,
+      v1 = legacyInvalidField(fieldName, message, definiteAnswer),
+      v2 = rejectionBuilder(fieldName, message)(contextualizedErrorLogger).asGrpcError,
     )
+
+  private def ledgerCommandValidationInvalidField(fieldName: String, message: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): LedgerApiErrors.CommandValidation.InvalidField.Reject = {
+    LedgerApiErrors.CommandValidation.InvalidField
+      .Reject(s"Invalid field $fieldName: $message")
+  }
+
+  private def legacyInvalidField(
+      fieldName: String,
+      message: String,
+      definiteAnswer: Option[Boolean],
+  ): StatusRuntimeException = {
+    val statusBuilder = Status
+      .newBuilder()
+      .setCode(Code.INVALID_ARGUMENT.value())
+      .setMessage(s"Invalid field $fieldName: $message")
+    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+    grpcError(statusBuilder.build())
+  }
 
   def offsetAfterLedgerEnd(description: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

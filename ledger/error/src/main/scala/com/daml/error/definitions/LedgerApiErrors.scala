@@ -266,6 +266,24 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           )
     }
 
+    @Explanation(
+      """This error is emitted, when a submitted ledger Api command contained a deduplication period which exceeds the maximum bounds specified by the operator"""
+    )
+    @Resolution(
+      "Adjust the value of the deduplication period or ask the participant operator to increase the maximum bounds."
+    )
+    object InvalidDeduplicationPeriodField
+        extends ErrorCode(
+          id = "INVALID_DEDUPLICATION_PERIOD",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      case class Reject(_reason: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = s"The submitted command had an invalid deduplication period: ${_reason}"
+          )
+    }
+
   }
 
   object CommandPreparation extends ErrorGroup {
