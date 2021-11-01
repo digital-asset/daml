@@ -1,6 +1,8 @@
 .. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _auth0:
+
 Setting Up Auth0
 ================
 
@@ -10,7 +12,7 @@ Connect system using Auth0 as its authentication provider.
 .. note::
 
    These instructions include detailed steps to be performed through the Auth0
-   UI, which we do not control. They have been tested on 2021-09-14. It is
+   UI, which we do not control. They have been tested on 2021-11-02. It is
    possible Auth0 has updated their UI since then in ways that invalidate parts
    of the instructions here; if you notice any discrepancy, please report it on
    `the forum <https://discuss.daml.com>`_.
@@ -135,10 +137,10 @@ the text on the button, this does not (yet) deploy it anywhere.
 
 In order to actually deploy it, we need to make that Action part of a Flow. In
 the menu on the left, navigate through Actions > Flows, then choose Machine to
-Machine. Drag the "ADMIN_TOKEN_ACTION" box on the right in-between the "Start"
-and "Complete" black circles in the middle. Click Apply. Now your Action is
-"deployed" and, should you modify it, clicking on the Deploy button *would*
-directly affect your live setup.
+Machine. Drag the "ADMIN_TOKEN_ACTION" (in the "Custom" tab) box on the right
+in-between the "Start" and "Complete" black circles in the middle. Click Apply.
+Now your Action is "deployed" and, should you modify it, clicking on the Deploy
+button *would* directly affect your live setup.
 
 At this point you should be able to verify, using the curl command from the
 "Quick Start" tab of the M2M application, that you get a token. You should also
@@ -373,99 +375,30 @@ and there is no further action needed.
 Running Your App
 ----------------
 
-For simplicity, we assume that all of the Daml components will run on a single
-machine (they can find each other on ``localhost``) and that this machine has
-either a public IP or a public DNS that Auth0 can reach. Furthermore, we assume
-that IP/DNS is what you've configured as the callback URL above.
+Preparing Your Application
+**************************
 
-Finally, we assume that you can SSH into that machine and run ``daml`` and
-``docker`` commands on it.
-
-The rest of this section happens on that remote server.
-
-First, if you don't have an app already, you can just create a new one:
+You may have an application already. In that case, use that. For the purposes
+of illustration, here we're going to work with a modified version of
+``create-daml-app``.
 
 .. code-block:: bash
 
     daml new --template=gsg-trigger my-project
 
-If you have an app already, you should be able to follow along. However, if
-your app was based on the ``create-daml-app`` template using a Daml SDK version
-prior to 1.17.0, you may need to adapt your ``ui/src/config.ts`` and
+If your app was based on the ``create-daml-app`` template using a Daml SDK
+version prior to 1.17.0, you may need to adapt your ``ui/src/config.ts`` and
 ``ui/src/components/LoginScreen.tsx`` files. See
 `this commit <https://github.com/digital-asset/daml/commit/79080839c1ca299972038ba515b98e6176668783>`_
 for guidance.
 
-Next, we need to start the Daml driver. For this example we'll use the sandbox,
-but with ``--implicit-party-allocation false`` it should behave like a
-production ledger (minus persistence).
+The next step is to build the Daml code:
 
 .. code-block:: bash
 
     cd my-project
     daml build
     daml codegen js .daml/dist/my-project-0.1.0.dar -o ui/daml.js
-    daml sandbox --ledgerid %%LEDGER_ID%% \
-                 --auth-jwt-rs256-jwks https://%%AUTH0_DOMAIN%%/.well-known/jwks.json \
-                 --implicit-party-allocation false \
-                 .daml/dist/my-project-0.1.0.dar
-
-As before, you need to replace ``%%LEDGER_ID%%`` with a value of your choosing
-(the same one you used when configuring Auth0), and ``%%AUTH0_DOMAIN%%`` with
-your Auth0 domain, which you can find as the Domain field at the top of the
-Settings tab for any app in the tenant.
-
-Next, you need to start a JSON API instance.
-
-.. code-block:: bash
-
-    cd my-project
-    daml json-api --ledger-port 6865 \
-                  --ledger-host localhost \
-                  --http-port 4000
-
-If you are using a Daml SDK version prior to 1.17.0, you'll need to find a way
-to supply the JSON API with a valid, refreshing token file. We recommend
-upgrading to 1.17.0 or later.
-
-Then, we want to start the Trigger Service and OAuth2 middleware, which we will
-put respectively under ``/trigger`` and ``/auth``. First, the middleware:
-
-.. code-block:: bash
-
-    DAML_CLIENT_ID=%%OAUTH_APP_ID%% \
-    DAML_CLIENT_SECRET=%%OAUTH_APP_SECRET%% \
-    daml oauth2-middleware \
-      --address localhost \
-      --http-port 5000 \
-      --oauth-auth "https://%%AUTH0_DOMAIN%%/authorize" \
-      --oauth-token "https://%%AUTH0_DOMAIN%%/oauth/token" \
-      --auth-jwt-rs256-jwks "https://%%AUTH0_DOMAIN%%/.well-known/jwks.json" \
-      --callback %%ORIGIN%%/auth/cb
-
-where, as before, you need to replace:
-
-- ``%%OAUTH_APP_ID%%`` with the Client ID value you can find at the top of the
-  settings tab for the OAUTH_APP we just created.
-- ``%%OAUTH_APP_SECRET%%`` with the Client Secret value you can find at the top
-  of the settings tab for the OAUTH_APP we just created.
-- ``%%AUTH0_DOMAIN%%`` with your tenant domain.
-- ``%%ORIGIN%%`` with the full domain-name-or-ip & port, including scheme,
-  under which you expose your server.
-
-Now, the trigger service:
-
-.. code-block:: bash
-
-    daml trigger-service \
-      --address localhost \
-      --http-port 6000 \
-      --ledger-host localhost \
-      --ledger-port 6865 \
-      --auth-internal http://localhost:5000 \
-      --auth-external %%ORIGIN%%/auth \
-      --auth-callback %%ORIGIN%%/trigger/cb \
-      --dar .daml/dist/my-project-0.1.0.dar
 
 Next, we'll build our frontend code, but first we're going to make a small
 change to let us demonstrate interactions with the Trigger Service.
@@ -546,7 +479,7 @@ Now, build your frontend with (starting at the root):
 
 As before, ``%%AUTH0_DOMAIN%%`` and ``%%LOGIN_ID%%`` need to be replaced.
 
-Now, we need to expose the JSON API and our static files. We'll use ``docker``
+Now, we need to expose the JSON API and our static files. We'll use nginx
 for that, but you can use any HTTP server you (and your security team) are
 comfortable with, as long as it can serve static files and proxy some paths.
 
@@ -649,7 +582,7 @@ Next, create a file ``nginx/Dockerfile`` with this content:
     RUN chmod +x /app/nginx.conf.sh
     CMD /app/nginx.conf.sh && exec nginx -g 'daemon off;'
 
-Finally, we can build and run the Docker container with the following, starting
+Finally, we can build the Docker container with the following, starting
 in the folder that contains both ``nginx`` and ``my-project``:
 
 .. code-block:: bash
@@ -657,11 +590,181 @@ in the folder that contains both ``nginx`` and ``my-project``:
     cp -r my-project/ui/build nginx/build
     cd nginx
     docker build -t frontend .
-    docker run -e JSON_IP=localhost:4000 -e AUTH_IP=localhost:5000 -e TRIGGER_IP=localhost:6000 -e FRONTEND_IP=%%DOMAIN%% --network=host frontend
 
-Where ``%%DOMAIN%%`` is the domain the Docker container will generate a
-self-signed certificate for. In our simple case of running everything on the
-same server, this is just the IP address of that server.
+And that's it for building the application. We now have a DAR file that is
+ready to be deployed to a ledger, as well as a Docker container ready to serve
+our frontend. All we need now is to get a Daml Connect system up and running.
+We document two paths forward here: one that relies on the Helm chart included
+in Daml Connect Entreprise Edition, and a manual setup using only the Community
+Edition SDK.
+
+Using the Connect Helm Chart
+****************************
+
+For simplicity, we assume that you have access to a server with a public IP
+address that both you and Auth0 can reach. Furthermore, we assume that you have
+access to Entreprise Edition credentials to download the Docker images.  We
+also assume you can create a local cluster with ``minikube`` on the remote
+machine. Finally, we assume that you have downloaded the Helm chart in a folder
+called ``daml-connect``.
+
+First, start a new cluster::
+
+  minikube start
+
+Next, load up your credentials as explained in the :ref:`connect-helm-chart`
+section. We assume they are loaded under the secret named
+``daml-docker-credentials``.
+
+Create a file called ``values.yaml`` with the following content:
+
+.. code-block:: yaml
+
+   imagePullSecret: daml-docker-credentials
+   authUrl: "https://%%AUTH0_DOMAIN%%/.well-known/jwks.json"
+   oauthMiddleware:
+     create: true
+     oauthAuth: "https://%%AUTH0_DOMAIN%%/authorize"
+     oauthToken: "https://%%AUTH0_DOMAIN%%/oauth/token"
+     callback: "https://%%DOMAIN%%/auth/cb"
+     clientId: "%%OAUTH_ID%%"
+     clientSecret: "%%OAUTH_SECRET%%"
+   triggerService:
+     create: true
+     authExternal: "https://%%DOMAIN%%/auth"
+     authCallback: "https://%%DOMAIN%%/trigger/cb"
+
+where, as before:
+
+- ``%%AUTH0_DOMAIN%%`` is the domain of your Auth0 tenant, displayed as the
+  "Domain" property of any app within the tenant.
+- ``%%DOMAIN%%`` is the domain on which your frontend will be exposed, and in
+  particular here the domain to which Auth0 needs to redirect after the OAuth
+  handshake.
+- ``%%OAUTH_ID%%`` is, as before, the OAUTH_APP application's Client ID.
+- ``%%OAUTH_SECRET`` is the same application's Client Secret.
+
+Assuming that you have your Artifactory credentials in the environment
+variables ``ARTIFACTORY_USERNAME`` (user name) and ``ARTIFACTORY_PASSWORD``
+(API key), you can add the Helm repository with::
+
+  helm repo add daml \
+    https://digitalasset.jfrog.io/artifactory/connect-helm-chart \
+    --username $ARTIFACTORY_USERNAME \
+    --password $ARTIFACTORY_PASSWORD
+
+And now, you can deploy your cluster::
+
+  helm install dm daml/daml-connect --devel --values values.yaml
+
+which will start the demo, non-production mode of the Helm chart. You can now
+start your application with::
+
+  PROXY="$(minikube ip):$(kubectl get svc dm-daml-connect-reverse-proxy --output=json | jq '.spec.ports[0].nodePort')"
+  docker run -e JSON_IP=$PROXY \
+             -e AUTH_IP=$PROXY/auth \
+             -e TRIGGER_IP=$PROXY/trigger \
+             -e FRONTEND_IP=$DOMAIN \
+             --network=host \
+             frontend
+
+where ``$DOMAIN`` is assumed to be an environment variable set to the public
+domain on which your server is exposed. And voilà! Your application is up and
+running. You should be able to log in with Auth0, exchange messages, and set up
+an auto-reply trigger, all by connecting your browser to ``https://$DOMAIN/``.
+
+Manually Setting Up The Connect Components
+******************************************
+
+For simplicity, we assume that all of the Daml components will run on a single
+machine (they can find each other on ``localhost``) and that this machine has
+either a public IP or a public DNS that Auth0 can reach (hereafter assumed to
+be set as the ``DOMAIN`` env var). Furthermore, we assume that IP/DNS is what
+you've configured as the callback URL in the Auth0 configuration above.
+
+Finally, we assume that you can SSH into that machine and run ``daml`` and
+``docker`` commands on it.
+
+The rest of this section happens on that remote server.
+
+First, we need to start the Daml driver. For this example we'll use the
+sandbox, but with ``--implicit-party-allocation false`` it should behave like a
+production ledger (minus persistence).
+
+.. code-block:: bash
+
+    daml sandbox --ledgerid %%LEDGER_ID%% \
+                 --auth-jwt-rs256-jwks https://%%AUTH0_DOMAIN%%/.well-known/jwks.json \
+                 --implicit-party-allocation false \
+                 .daml/dist/my-project-0.1.0.dar
+
+As before, you need to replace ``%%LEDGER_ID%%`` with a value of your choosing
+(the same one you used when configuring Auth0), and ``%%AUTH0_DOMAIN%%`` with
+your Auth0 domain, which you can find as the Domain field at the top of the
+Settings tab for any app in the tenant.
+
+Next, you need to start a JSON API instance.
+
+.. code-block:: bash
+
+    cd my-project
+    daml json-api --ledger-port 6865 \
+                  --ledger-host localhost \
+                  --http-port 4000
+
+If you are using a Daml SDK version prior to 1.17.0, you'll need to find a way
+to supply the JSON API with a valid, refreshing token file. We recommend
+upgrading to 1.17.0 or later.
+
+Then, we want to start the Trigger Service and OAuth2 middleware, which we will
+put respectively under ``/trigger`` and ``/auth``. First, the middleware:
+
+.. code-block:: bash
+
+    DAML_CLIENT_ID=%%OAUTH_APP_ID%% \
+    DAML_CLIENT_SECRET=%%OAUTH_APP_SECRET%% \
+    daml oauth2-middleware \
+      --address localhost \
+      --http-port 5000 \
+      --oauth-auth "https://%%AUTH0_DOMAIN%%/authorize" \
+      --oauth-token "https://%%AUTH0_DOMAIN%%/oauth/token" \
+      --auth-jwt-rs256-jwks "https://%%AUTH0_DOMAIN%%/.well-known/jwks.json" \
+      --callback %%ORIGIN%%/auth/cb
+
+where, as before, you need to replace:
+
+- ``%%OAUTH_APP_ID%%`` with the Client ID value you can find at the top of the
+  settings tab for the OAUTH_APP we just created.
+- ``%%OAUTH_APP_SECRET%%`` with the Client Secret value you can find at the top
+  of the settings tab for the OAUTH_APP we just created.
+- ``%%AUTH0_DOMAIN%%`` with your tenant domain.
+- ``%%ORIGIN%%`` with the full domain-name-or-ip & port, including scheme,
+  under which you expose your server.
+
+Now, the trigger service:
+
+.. code-block:: bash
+
+    daml trigger-service \
+      --address localhost \
+      --http-port 6000 \
+      --ledger-host localhost \
+      --ledger-port 6865 \
+      --auth-internal http://localhost:5000 \
+      --auth-external %%ORIGIN%%/auth \
+      --auth-callback %%ORIGIN%%/trigger/cb \
+      --dar .daml/dist/my-project-0.1.0.dar
+
+where ``%%ORIGIN%%`` is, as per the Auth0 configuration, ``https://$DOMAIN``.
+
+And that's all the Daml components. You can now start your frontend application
+with::
+
+    docker run -e JSON_IP=localhost:4000 \
+               -e AUTH_IP=localhost:5000 \
+               -e TRIGGER_IP=localhost:6000 \
+               -e FRONTEND_IP=$DOMAIN \
+               --network=host frontend
 
 This runs a "production build" of your frontend code. If instead you want to
 develop frontend code against the rest of this setup, you can uncomment the
