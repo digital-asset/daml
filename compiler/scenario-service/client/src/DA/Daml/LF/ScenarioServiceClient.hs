@@ -56,6 +56,7 @@ data Options = Options
   , optScenarioServiceConfig :: ScenarioServiceConfig
   , optMaxConcurrency :: Int
   -- This controls the number of parallel gRPC requests
+  , optLogDebug :: String -> IO ()
   , optLogInfo :: String -> IO ()
   , optLogError :: String -> IO ()
   }
@@ -108,6 +109,7 @@ withScenarioService ver loggerH scenarioConfig f = do
                 { optMaxConcurrency = 5
                 , optServerJar = serverJar
                 , optScenarioServiceConfig = scenarioConfig
+                , optLogDebug = wrapLog Logger.logDebug
                 , optLogInfo = wrapLog Logger.logInfo
                 , optLogError = wrapLog Logger.logError
                 }
