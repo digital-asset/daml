@@ -13,6 +13,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.SequentialWriteDaoSpec._
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{DbDto, IngestionStorageBackend, ParameterStorageBackend}
+import com.daml.platform.store.cache.MutableLedgerEndCache
 import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -23,14 +24,20 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
   it should "store correctly in a happy path case" in {
     val storageBackendCaptor = new StorageBackendCaptor(Some(LedgerEnd(Offset.beforeBegin, 5)))
+    val ledgerEndCache = MutableLedgerEndCache()
     val testee = SequentialWriteDaoImpl(
       storageBackend = storageBackendCaptor,
       updateToDbDtos = updateToDbDtoFixture,
+      ledgerEndCache = ledgerEndCache,
     )
     testee.store(someConnection, offset("01"), singlePartyFixture)
+    ledgerEndCache() shouldBe (offset("01") -> 5)
     testee.store(someConnection, offset("02"), allEventsFixture)
+    ledgerEndCache() shouldBe (offset("02") -> 8)
     testee.store(someConnection, offset("03"), None)
+    ledgerEndCache() shouldBe (offset("03") -> 8)
     testee.store(someConnection, offset("04"), partyAndCreateFixture)
+    ledgerEndCache() shouldBe (offset("04") -> 9)
 
     storageBackendCaptor.captured(0) shouldBe someParty
     storageBackendCaptor.captured(1) shouldBe LedgerEnd(offset("01"), 5)
@@ -53,12 +60,16 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
   it should "start event_seq_id from 1" in {
     val storageBackendCaptor = new StorageBackendCaptor(None)
+    val ledgerEndCache = MutableLedgerEndCache()
     val testee = SequentialWriteDaoImpl(
       storageBackend = storageBackendCaptor,
       updateToDbDtos = updateToDbDtoFixture,
+      ledgerEndCache = ledgerEndCache,
     )
     testee.store(someConnection, offset("03"), None)
+    ledgerEndCache() shouldBe (offset("03") -> 0)
     testee.store(someConnection, offset("04"), partyAndCreateFixture)
+    ledgerEndCache() shouldBe (offset("04") -> 1)
 
     storageBackendCaptor.captured(0) shouldBe LedgerEnd(offset("03"), 0)
     storageBackendCaptor.captured(1) shouldBe someParty

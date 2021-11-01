@@ -6,8 +6,10 @@ package com.daml.platform.store.appendonlydao
 import java.sql.Connection
 
 import com.daml.ledger.offset.Offset
+import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.platform.store.backend.{DbDto, IngestionStorageBackend, ParameterStorageBackend}
+import com.daml.platform.store.cache.MutableLedgerEndCache
 
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -15,9 +17,15 @@ trait SequentialWriteDao {
   def store(connection: Connection, offset: Offset, update: Option[state.Update]): Unit
 }
 
+object NoopSequentialWriteDao extends SequentialWriteDao {
+  override def store(connection: Connection, offset: Offset, update: Option[Update]): Unit =
+    throw new UnsupportedOperationException
+}
+
 case class SequentialWriteDaoImpl[DB_BATCH](
     storageBackend: IngestionStorageBackend[DB_BATCH] with ParameterStorageBackend,
     updateToDbDtos: Offset => state.Update => Iterator[DbDto],
+    ledgerEndCache: MutableLedgerEndCache,
 ) extends SequentialWriteDao {
 
   private var lastEventSeqId: Long = _
@@ -61,5 +69,7 @@ case class SequentialWriteDaoImpl[DB_BATCH](
           lastEventSeqId = lastEventSeqId,
         )
       )(connection)
+
+      ledgerEndCache.set(offset -> lastEventSeqId)
     }
 }
