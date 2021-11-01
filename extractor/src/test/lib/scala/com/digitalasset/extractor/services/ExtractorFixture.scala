@@ -10,7 +10,7 @@ import com.daml.extractor.targets.PostgreSQLTarget
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.lf.data.Ref.Party
-import com.daml.platform.sandbox.services.SandboxFixture
+import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.daml.ports.Port
 import com.daml.testing.postgresql.{PostgresAround, PostgresAroundSuite}
 import doobie._
@@ -22,7 +22,7 @@ import scalaz.OneAnd
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 
-trait ExtractorFixture extends SandboxFixture with PostgresAroundSuite with Types {
+trait ExtractorFixture extends SandboxNextFixture with PostgresAroundSuite with Types {
   self: Suite =>
 
   import Types._
