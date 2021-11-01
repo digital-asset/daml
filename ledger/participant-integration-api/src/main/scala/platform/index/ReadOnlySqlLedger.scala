@@ -27,6 +27,7 @@ import com.daml.platform.store.appendonlydao.{
   LedgerDaoTransactionsReader,
   LedgerReadDao,
 }
+import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.{BaseLedger, LfValueTranslationCache}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
@@ -60,17 +61,24 @@ private[platform] object ReadOnlySqlLedger {
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlySqlLedger] {
 
-    override def acquire()(implicit context: ResourceContext): Resource[ReadOnlySqlLedger] =
+    override def acquire()(implicit context: ResourceContext): Resource[ReadOnlySqlLedger] = {
+      val ledgerEndCache = MutableLedgerEndCache()
       for {
         ledgerDao <- ledgerDaoOwner(servicesExecutionContext).acquire()
         ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao, initialLedgerId))
-        ledger <- ledgerOwner(ledgerDao, ledgerId).acquire()
+        ledger <- ledgerOwner(ledgerDao, ledgerId, ledgerEndCache).acquire()
       } yield ledger
+    }
 
-    private def ledgerOwner(ledgerDao: LedgerReadDao, ledgerId: LedgerId) =
+    private def ledgerOwner(
+        ledgerDao: LedgerReadDao,
+        ledgerId: LedgerId,
+        ledgerEndCache: MutableLedgerEndCache,
+    ) =
       if (enableMutableContractStateCache) {
         new ReadOnlySqlLedgerWithMutableCache.Owner(
           ledgerDao,
+          ledgerEndCache,
           enricher,
           ledgerId,
           metrics,
@@ -83,6 +91,7 @@ private[platform] object ReadOnlySqlLedger {
       } else
         new ReadOnlySqlLedgerWithTranslationCache.Owner(
           ledgerDao,
+          ledgerEndCache,
           ledgerId,
           lfValueTranslationCache,
         )
