@@ -792,9 +792,9 @@ object Transaction {
   type ActionNode = Node.GenActionNode
   type LeafNode = Node.LeafOnlyActionNode
 
-  @deprecated("use com.daml.transaction.VersionedTransaction", since = "1.8.0")
+  @deprecated("use com.daml.transaction.VersionedTransaction", since = "1.18.0")
   type Transaction = VersionedTransaction
-  @deprecated("use com.daml.transaction.VersionedTransaction", since = "1.8.0")
+  @deprecated("use com.daml.transaction.VersionedTransaction", since = "1.18.0")
   val Transaction: VersionedTransaction.type = VersionedTransaction
 
   /** Transaction meta data
