@@ -380,11 +380,13 @@ class ContractKeySpec
         "RollbackFetchByKeyNonRollbackCreate",
       )
 
+      // TEST_EVIDENCE: Semantics: contract key behaviour (non-unique mode)
       "non-uck mode" in {
         forEvery(allCases) { case (name, arg) =>
           run(nonUckEngine, name, arg) shouldBe a[Right[_, _]]
         }
       }
+      // TEST_EVIDENCE: Semantics: contract key behaviour (unique mode)
       "uck mode" in {
         forEvery(allCases) { case (name, arg) =>
           if (uckFailures.contains(name)) {
