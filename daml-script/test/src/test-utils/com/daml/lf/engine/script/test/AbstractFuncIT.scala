@@ -6,9 +6,10 @@ package com.daml.lf.engine.script.test
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
-import com.daml.lf.engine.script.{RunnerConfig, ScriptF, StackTrace}
+import com.daml.lf.engine.script.{ScriptF, StackTrace}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
+import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -218,15 +219,20 @@ abstract class AbstractFuncIT
       "succeed despite large message" in {
         for {
           clients <- participantClients(
-            maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize * 10
+            // Reduce maxInboundMessageSize until we get an error
+            maxInboundMessageSize = 500
           )
-          v <- run(
-            clients,
-            QualifiedName.assertFromString("ScriptTest:testMaxInboundMessageSize"),
-            dar = stableDar,
+          ex <- recoverToExceptionIf[ScriptF.FailedCmd](
+            run(
+              clients,
+              QualifiedName.assertFromString("ScriptTest:testMaxInboundMessageSize"),
+              dar = stableDar,
+            )
           )
         } yield {
-          assert(v == SUnit)
+          inside(ex.cause) { case e: StatusRuntimeException =>
+            e.getStatus.getCode() shouldBe Status.Code.RESOURCE_EXHAUSTED
+          }
         }
       }
     }
