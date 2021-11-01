@@ -317,6 +317,7 @@ abstract class AbstractFuncTests
       "fail" in {
         for {
           client <- ledgerClient(
+            // Sufficiently low that the transaction is larger than the max inbound message size
             maxInboundMessageSize = 300
           )
           party <- allocateParty(client)
