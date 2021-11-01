@@ -1155,9 +1155,6 @@ private[lf] object SBuiltin {
 
   final case object SBResolveVirtualFetch extends SBResolveVirtual(FetchDefRef)
 
-  final case class SBResolveVirtualChoice(choiceName: ChoiceName)
-      extends SBResolveVirtual(ChoiceDefRef(_, choiceName))
-
   // Convert an interface to a given template type if possible. Since interfaces have the
   // same representation as the underlying template, we only need to perform a check
   // that the record type matches the template type.

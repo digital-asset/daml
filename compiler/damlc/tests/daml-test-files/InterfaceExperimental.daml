@@ -15,17 +15,33 @@ import GHC.Types (primitive)
 interface Token where
   getAmount : Int
 
+  getOwner : Party
+
+  splitImpl : Int -> Update (ContractId Token, ContractId Token)
+  transferImpl : Party -> Update (ContractId Token)
+  noopImpl : () -> Update ()
+
   choice Split : (ContractId Token, ContractId Token)
     with
       splitAmount : Int
+    controller getOwner this
+    do
+      splitImpl this splitAmount
 
   choice Transfer : ContractId Token
     with
       newOwner : Party
+    controller getOwner this, newOwner
+    do
+      transferImpl this newOwner
 
   nonconsuming choice Noop : ()
     with
       nothing : ()
+    controller getOwner this
+    do
+      noopImpl this nothing
+
 
 template Asset
   with
@@ -37,31 +53,20 @@ template Asset
     observer issuer, owner
     implements Token where
       let getAmount = amount
+      let getOwner = owner
 
-      choice Split : (ContractId Token, ContractId Token)
-        with
-          splitAmount : Int
-        controller owner
-        do
-          assert (splitAmount < amount)
-          cid1 <- create this with amount = splitAmount
-          cid2 <- create this with amount = amount - splitAmount
-          pure (toTokenContractId cid1, toTokenContractId cid2)
+      let splitImpl = \splitAmount -> do
+            assert (splitAmount < amount)
+            cid1 <- create this with amount = splitAmount
+            cid2 <- create this with amount = amount - splitAmount
+            pure (toTokenContractId cid1, toTokenContractId cid2)
 
-      choice Transfer : ContractId Token
-        with
-          newOwner : Party
-        controller owner, newOwner
-        do
-          cid <- create this with owner = newOwner
-          pure (toTokenContractId cid)
+      let transferImpl = \newOwner -> do
+            cid <- create this with owner = newOwner
+            pure (toTokenContractId cid)
 
-      nonconsuming choice Noop : ()
-        with
-          nothing : ()
-        controller owner
-        do
-          pure ()
+      let noopImpl = \nothing -> do
+            pure ()
 
 template NotAsset
   with
@@ -72,26 +77,17 @@ template NotAsset
     implements Token where
       let getAmount = error "getAmount"
 
-      choice Split : (ContractId Token, ContractId Token)
-        with
-          splitAmount : Int
-        controller p
-        do
-          error "Split"
+      let getOwner = p
 
-      choice Transfer : ContractId Token
-        with
-          newOwner : Party
-        controller p
-        do
-          error "Transfer"
+      let splitImpl = \splitAmount -> do
+            error "Split"
 
-      nonconsuming choice Noop : ()
-        with
-          nothing : ()
-        controller p
-        do
-          error "Noop"
+
+      let transferImpl = \newOwner -> do
+            error "Transfer"
+
+      let noopImpl = \nothing -> do
+            error "Noop"
 
 main = scenario do
     alice <- getParty "Alice"

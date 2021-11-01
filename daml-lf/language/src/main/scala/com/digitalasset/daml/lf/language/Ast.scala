@@ -639,29 +639,18 @@ object Ast {
 
   final case class GenDefInterface[E](
       param: ExprVarName, // Binder for template argument.
-      virtualChoices: Map[ChoiceName, InterfaceChoice],
       fixedChoices: Map[ChoiceName, GenTemplateChoice[E]],
       methods: Map[MethodName, InterfaceMethod],
       precond: E, // Interface creation precondition.
-  ) {
-    virtualChoices.keys.foreach(name =>
-      if (fixedChoices.isDefinedAt(name))
-        throw PackageError(s"collision on interface choice name $name")
-    )
-  }
+  )
 
   final class GenDefInterfaceCompanion[E] {
     def apply(
         param: ExprVarName, // Binder for template argument.
-        virtualChoices: Iterable[(ChoiceName, InterfaceChoice)],
         fixedChoices: Iterable[(ChoiceName, GenTemplateChoice[E])],
         methods: Iterable[(MethodName, InterfaceMethod)],
         precond: E,
     ): GenDefInterface[E] = {
-      val virtualChoiceMap = toMapWithoutDuplicate(
-        virtualChoices,
-        (name: ChoiceName) => throw PackageError(s"collision on interface choice name $name"),
-      )
       val fixedChoiceMap = toMapWithoutDuplicate(
         fixedChoices,
         (name: ChoiceName) => throw PackageError(s"collision on interface choice name $name"),
@@ -670,18 +659,17 @@ object Ast {
         methods,
         (name: MethodName) => throw PackageError(s"collision on interface method name $name"),
       )
-      GenDefInterface(param, virtualChoiceMap, fixedChoiceMap, methodMap, precond)
+      GenDefInterface(param, fixedChoiceMap, methodMap, precond)
     }
     def unapply(arg: GenDefInterface[E]): Some[
       (
           ExprVarName,
-          Map[ChoiceName, InterfaceChoice],
           Map[ChoiceName, GenTemplateChoice[E]],
           Map[MethodName, InterfaceMethod],
           E,
       )
     ] =
-      Some((arg.param, arg.virtualChoices, arg.fixedChoices, arg.methods, arg.precond))
+      Some((arg.param, arg.fixedChoices, arg.methods, arg.precond))
   }
 
   type DefInterface = GenDefInterface[Expr]

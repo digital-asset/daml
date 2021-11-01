@@ -373,9 +373,6 @@ private[lf] final class Compiler(
       iface.fixedChoices.values.foreach(
         builder += compileFixedChoice(identifier, iface.param, _)
       )
-      iface.virtualChoices.values.foreach(
-        builder += compileVirtualChoice(identifier, _)
-      )
     }
 
     builder.result()
@@ -1079,23 +1076,6 @@ private[lf] final class Compiler(
       ) { (_, _env) =>
         val env = _env.bindExprVar(choice.selfBinder, cidPos)
         SEScopeExercise(app(compile(env, choice.update), env.toSEVar(tokenPos)))
-      }
-    }
-
-  // TODO https://github.com/digital-asset/daml/issues/10810:
-  //  Here we fetch twice, once by interface Id once by template Id. Try to bypass the second fetch.
-  private[this] def compileVirtualChoice(
-      ifaceId: TypeConName,
-      choice: InterfaceChoice,
-  ): (SDefinitionRef, SDefinition) =
-    topLevelFunction3(ChoiceDefRef(ifaceId, choice.name)) { (cidPos, choiceArgPos, tokenPos, env) =>
-      let(env, SBUFetchInterface(ifaceId)(env.toSEVar(cidPos))) { (payloadPos, env) =>
-        SBResolveVirtualChoice(choice.name)(
-          env.toSEVar(payloadPos),
-          env.toSEVar(cidPos),
-          env.toSEVar(choiceArgPos),
-          env.toSEVar(tokenPos),
-        )
       }
     }
 

@@ -223,23 +223,18 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
       ifaceName: TypeConName,
       chName: ChoiceName,
       context: => Reference,
-  ): Either[LookupError, Either[InterfaceChoice, TemplateChoiceSignature]] =
+  ): Either[LookupError, TemplateChoiceSignature] =
     lookupInterface(ifaceName, context).flatMap(iface =>
-      iface.virtualChoices.get(chName) match {
-        case Some(choice) =>
-          Right(Left(choice))
-        case None =>
-          iface.fixedChoices.get(chName) match {
-            case Some(choice) => Right(Right(choice))
-            case None => Left(LookupError(Reference.Choice(ifaceName, chName), context))
-          }
+      iface.fixedChoices.get(chName) match {
+        case Some(choice) => Right(choice)
+        case None => Left(LookupError(Reference.Choice(ifaceName, chName), context))
       }
     )
 
   def lookupInterfaceChoice(
       ifaceName: TypeConName,
       chName: ChoiceName,
-  ): Either[LookupError, Either[InterfaceChoice, TemplateChoiceSignature]] =
+  ): Either[LookupError, TemplateChoiceSignature] =
     lookupInterfaceChoice(ifaceName, chName, Reference.Choice(ifaceName, chName))
 
   private[this] def lookupInterfaceMethod(
