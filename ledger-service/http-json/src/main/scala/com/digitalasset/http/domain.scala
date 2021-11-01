@@ -15,7 +15,7 @@ import scalaz.std.option._
 import scalaz.std.vector._
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Applicative, Bitraverse, NonEmptyList, OneAnd, Traverse, \/, \/-}
+import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, OneAnd, Traverse, \/, \/-}
 import spray.json.JsValue
 
 import scala.annotation.tailrec
@@ -86,6 +86,15 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
     (TemplateId.RequiredPkg, LfV) \/ (TemplateId.RequiredPkg, ContractId)
 
   case class ArchivedContract(contractId: ContractId, templateId: TemplateId.RequiredPkg)
+
+  final case class FetchRequest[+LfV](
+      locator: ContractLocator[LfV],
+      readAs: Option[NonEmptyList[Party]],
+  ) {
+    private[http] def traverseLocator[F[_]: Functor, OV](
+        f: ContractLocator[LfV] => F[ContractLocator[OV]]
+    ): F[FetchRequest[OV]] = f(locator) map (l => copy(locator = l))
+  }
 
   sealed abstract class ContractLocator[+LfV] extends Product with Serializable
 

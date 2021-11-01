@@ -13,9 +13,10 @@ import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.LoggingContextOf
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
+import scalaz.syntax.applicative.{ToFunctorOps => _, _}
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{EitherT, Traverse, \/, \/-}
+import scalaz.{EitherT, Traverse, \/}
 import scalaz.EitherT.{either, eitherT}
 import spray.json.{JsValue, JsonReader}
 
@@ -121,9 +122,9 @@ class DomainJsonDecoder(
         .decode[domain.ContractLocator[JsValue]](a)
         .liftErrS("DomainJsonDecoder_decodeContractLocator")(JsonError)
     )
-      .flatMap(decodeContractLocatorUnderlyingValue(_, jwt, ledgerId))
+      .flatMap(decodeContractLocatorKey(_, jwt, ledgerId))
 
-  private def decodeContractLocatorUnderlyingValue(
+  private[http] def decodeContractLocatorKey(
       a: domain.ContractLocator[JsValue],
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
@@ -135,7 +136,7 @@ class DomainJsonDecoder(
       case k: domain.EnrichedContractKey[JsValue] =>
         decodeUnderlyingValuesToLf[domain.EnrichedContractKey](k, jwt, ledgerId).map(_.widen)
       case c: domain.EnrichedContractId =>
-        either[Future, JsonError, domain.ContractLocator[domain.LfValue]](\/-(c))
+        (c: domain.ContractLocator[domain.LfValue]).pure[ET]
     }
 
   def decodeExerciseCommand(a: JsValue, jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(implicit
@@ -160,7 +161,7 @@ class DomainJsonDecoder(
       cmd1 <-
         cmd0.bitraverse(
           arg => either(jsValueToLfValue(lfType, arg)),
-          ref => decodeContractLocatorUnderlyingValue(ref, jwt, ledgerId),
+          ref => decodeContractLocatorKey(ref, jwt, ledgerId),
         ): ET[domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[
           domain.LfValue
         ]]]

@@ -188,6 +188,26 @@ object JsonProtocol extends JsonProtocolLow {
     domain.ContractKeyStreamRequest(domain.ContractId.subst[OO, String](off), ekey)
   }
 
+  implicit val FetchRequestFormat: RootJsonReader[domain.FetchRequest[JsValue]] =
+    new RootJsonFormat[domain.FetchRequest[JsValue]] {
+      private[this] val ReadAs = "readAs"
+      override def write(obj: domain.FetchRequest[JsValue]): JsValue = {
+        val domain.FetchRequest(locator, readAs) = obj
+        val lj = locator.toJson
+        readAs.cata(rl => JsObject(lj.asJsObject.fields.updated(ReadAs, rl.toJson)), lj)
+      }
+
+      override def read(json: JsValue): domain.FetchRequest[JsValue] = {
+        val jo = json.asJsObject("fetch request must be a JSON object").fields
+        val rj = jo.get(ReadAs)
+        domain.FetchRequest(
+          (if (rj.isEmpty) json else JsObject(jo - ReadAs))
+            .convertTo[domain.ContractLocator[JsValue]],
+          rj.flatMap(_.convertTo[Option[NonEmptyList[domain.Party]]]),
+        )
+      }
+    }
+
   implicit val ContractLocatorFormat: RootJsonFormat[domain.ContractLocator[JsValue]] =
     new RootJsonFormat[domain.ContractLocator[JsValue]] {
       override def write(obj: domain.ContractLocator[JsValue]): JsValue = obj match {
