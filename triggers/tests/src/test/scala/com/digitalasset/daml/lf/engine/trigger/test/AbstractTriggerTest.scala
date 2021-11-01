@@ -26,7 +26,8 @@ import com.daml.lf.archive.DarDecoder
 import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
-import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
+import com.daml.platform.sandboxnext.SandboxNextFixture
+import com.daml.platform.sandbox.services.TestCommands
 import org.scalatest._
 import scalaz.syntax.tag._
 
@@ -34,7 +35,7 @@ import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-trait AbstractTriggerTest extends SandboxFixture with TestCommands {
+trait AbstractTriggerTest extends SandboxNextFixture with TestCommands {
   self: Suite =>
 
   protected def toHighLevelResult(s: SValue) = s match {
