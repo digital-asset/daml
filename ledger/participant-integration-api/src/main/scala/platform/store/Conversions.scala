@@ -81,7 +81,7 @@ private[platform] object JdbcArrayConversions {
     implicit object IntOptionArrayArrayToStatement extends ToStatement[Array[Option[Int]]] {
       override def set(s: PreparedStatement, index: Int, intOpts: Array[Option[Int]]): Unit = {
         val conn = s.getConnection
-        val intOrNullsArray = intOpts.map(_.map(new Integer(_)).orNull)
+        val intOrNullsArray = intOpts.map(_.map(Integer.valueOf(_)).orNull)
         val ts = conn.createArrayOf("SMALLINT", intOrNullsArray.asInstanceOf[Array[AnyRef]])
         s.setArray(index, ts)
       }
