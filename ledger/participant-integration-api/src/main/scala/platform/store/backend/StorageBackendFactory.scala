@@ -22,6 +22,7 @@ trait StorageBackendFactory {
   def createDBLockStorageBackend: DBLockStorageBackend
   def createIntegrityStorageBackend: IntegrityStorageBackend
   def createResetStorageBackend: ResetStorageBackend
+  def createStringInterningStorageBackend: StringInterningStorageBackend
 }
 
 object StorageBackendFactory {

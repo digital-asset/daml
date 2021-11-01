@@ -12,6 +12,7 @@ import com.daml.platform.store.backend.common.{
   PackageStorageBackendTemplate,
   ParameterStorageBackendTemplate,
   PartyStorageBackendTemplate,
+  StringInterningStorageBackendTemplate,
 }
 import com.daml.platform.store.backend.{
   CompletionStorageBackend,
@@ -28,6 +29,7 @@ import com.daml.platform.store.backend.{
   PartyStorageBackend,
   ResetStorageBackend,
   StorageBackendFactory,
+  StringInterningStorageBackend,
 }
 
 object OracleStorageBackendFactory extends StorageBackendFactory {
@@ -69,4 +71,7 @@ object OracleStorageBackendFactory extends StorageBackendFactory {
 
   override val createResetStorageBackend: ResetStorageBackend =
     OracleResetStorageBackend
+
+  override val createStringInterningStorageBackend: StringInterningStorageBackend =
+    StringInterningStorageBackendTemplate
 }

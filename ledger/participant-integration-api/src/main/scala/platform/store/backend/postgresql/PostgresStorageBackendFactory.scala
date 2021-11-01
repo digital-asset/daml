@@ -12,6 +12,7 @@ import com.daml.platform.store.backend.common.{
   PackageStorageBackendTemplate,
   ParameterStorageBackendTemplate,
   PartyStorageBackendTemplate,
+  StringInterningStorageBackendTemplate,
 }
 import com.daml.platform.store.backend.{
   CompletionStorageBackend,
@@ -28,6 +29,7 @@ import com.daml.platform.store.backend.{
   PartyStorageBackend,
   ResetStorageBackend,
   StorageBackendFactory,
+  StringInterningStorageBackend,
 }
 
 object PostgresStorageBackendFactory extends StorageBackendFactory {
@@ -69,4 +71,7 @@ object PostgresStorageBackendFactory extends StorageBackendFactory {
 
   override val createResetStorageBackend: ResetStorageBackend =
     PostgresResetStorageBackend
+
+  override val createStringInterningStorageBackend: StringInterningStorageBackend =
+    StringInterningStorageBackendTemplate
 }
