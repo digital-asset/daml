@@ -41,7 +41,6 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
 import com.daml.platform.store.cache.{MutableLedgerEndCache, TranslationCacheBackedContractStore}
 import com.daml.platform.store.appendonlydao.{LedgerDao, LedgerWriteDao}
-import com.daml.platform.store.cache.TranslationCacheBackedContractStore
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations, LfValueTranslationCache}
 import com.google.rpc.status.{Status => RpcStatus}
@@ -258,9 +257,9 @@ private[sandbox] object SqlLedger {
         servicesExecutionContext: ExecutionContext,
         errorFactories: ErrorFactories,
     ): ResourceOwner[LedgerDao] = {
-    val compressionStrategy =
-      if (enableCompression) CompressionStrategy.allGZIP(metrics)
-      else CompressionStrategy.none(metrics)
+      val compressionStrategy =
+        if (enableCompression) CompressionStrategy.allGZIP(metrics)
+        else CompressionStrategy.none(metrics)
       com.daml.platform.store.appendonlydao.JdbcLedgerDao.validatingWriteOwner(
         serverRole = serverRole,
         jdbcUrl = jdbcUrl,

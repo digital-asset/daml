@@ -44,7 +44,6 @@ import com.daml.platform.store.entries.{
   PartyLedgerEntry,
 }
 
-import java.sql.Connection
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
