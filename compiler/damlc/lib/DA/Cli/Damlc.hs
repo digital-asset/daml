@@ -453,7 +453,7 @@ execIde telemetry (Debug debug) enableScenarioService options =
                   then Logger.Debug
                   -- info is used pretty extensively for debug messages in our code base so
                   -- I've set the no debug threshold at warning
-                  else Logger.Warning
+                  else Logger.Info
           loggerH <- Logger.IO.newIOLogger
             stderr
             (Just 5000)
@@ -612,10 +612,10 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
   where effect = withProjectRoot' projectOpts $ \relativize -> do
             installDepsAndInitPackageDb opts initPkgDb
             withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
-                putStrLn $ "Compiling " <> T.unpack (LF.unPackageName pName) <> " to a DAR."
+                loggerH <- getLogger opts "build"
+                Logger.logInfo loggerH $ "Compiling " <> LF.unPackageName pName <> " to a DAR."
                 let warnings = checkPkgConfig pkgConfig
                 unless (null warnings) $ putStrLn $ unlines warnings
-                loggerH <- getLogger opts "package"
                 withDamlIdeState
                     opts
                       { optMbPackageName = Just pName
@@ -632,7 +632,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
                             (FromDalf False)
                     dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
                     fp <- targetFilePath relativize $ unitIdString (pkgNameVersion pName pVersion)
-                    createDarFile fp dar
+                    createDarFile loggerH fp dar
             where
                 targetFilePath rel name =
                   case mbOutFile of
@@ -751,7 +751,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
             Nothing -> do
                 hPutStrLn stderr "ERROR: Creation of DAR file failed."
                 exitFailure
-            Just dar -> createDarFile targetFilePath dar
+            Just dar -> createDarFile loggerH targetFilePath dar
     -- This is somewhat ugly but our CLI parser guarantees that this will always be present.
     -- We could parametrize CliOptions by whether the package name is optional
     -- but I don’t think that is worth the complexity of carrying around a type parameter.

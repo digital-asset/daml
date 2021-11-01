@@ -18,4 +18,4 @@ getLogger :: Options -> T.Text -> IO (Logger.Handle IO)
 getLogger Options {optDebug} name =
     if optDebug
         then Logger.IO.newStderrLogger Logger.Debug name
-        else Logger.IO.newStderrLogger Logger.Warning name
+        else Logger.IO.newStderrLogger Logger.Info name
