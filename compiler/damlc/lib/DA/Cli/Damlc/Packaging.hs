@@ -233,10 +233,10 @@ generateAndInstallIfaceFiles ::
 generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase pkgIdStr pkgName mbPkgVersion deps dependencies exposedModules = do
     let pkgContext = T.pack (unitIdString (pkgNameVersion pkgName mbPkgVersion)) <> " (" <> LF.unPackageId pkgIdStr <> ")"
     loggerH <- getLogger opts $ "data-dependencies " <> pkgContext
-    Logger.logDebug loggerH $ "Writing out dummy source files"
+    Logger.logDebug loggerH "Writing out dummy source files"
     let src' = [ (toNormalizedFilePath' $ workDir </> fromNormalizedFilePath nfp, str) | (nfp, str) <- src]
     mapM_ writeSrc src'
-    Logger.logDebug loggerH $ "Compiling dummy interface files"
+    Logger.logDebug loggerH "Compiling dummy interface files"
     -- We expose dependencies under a Pkg_$pkgId prefix so we can unambiguously refer to them
     -- while avoiding name collisions in package imports. Note that we can only do this
     -- for exposed modules. GHC gets very unhappy if you try to remap modules that are not
