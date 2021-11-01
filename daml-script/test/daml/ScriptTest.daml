@@ -277,7 +277,7 @@ template MessageSize
 testMaxInboundMessageSize : Script () = do
   p <- allocateParty "p"
   b <- submit p do createCmd (MessageSize p)
-  submit p do exerciseCmd b CreateN with n = 50000
+  submit p do exerciseCmd b CreateN with n = 1
   return ()
 
 testSetTime : Script (Time, Time) = do

@@ -47,7 +47,8 @@ import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.TestCommands
-import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxServer}
+import com.daml.platform.sandbox.AbstractSandboxFixture
+import com.daml.platform.sandboxnext
 import com.daml.ports.Port
 import io.grpc.Channel
 import org.scalatest._
@@ -64,16 +65,14 @@ import com.codahale.metrics.MetricRegistry
 
 trait JsonApiFixture
     extends AbstractSandboxFixture
-    with SuiteResource[(SandboxServer, Channel, ServerBinding)] {
+    with SuiteResource[(Port, Channel, ServerBinding)] {
   self: Suite =>
 
   override protected def darFile = new File(rlocation("daml-script/test/script-test.dar"))
 
   protected val darFileNoLedger = new File(rlocation("daml-script/test/script-test-no-ledger.dar"))
 
-  protected def server: SandboxServer = suiteResource.value._1
-
-  override protected def serverPort: Port = server.port
+  override protected def serverPort: Port = suiteResource.value._1
   override protected def channel: Channel = suiteResource.value._2
   override protected def config: SandboxConfig =
     super.config
@@ -121,17 +120,16 @@ trait JsonApiFixture
     }
   }
 
-  override protected lazy val suiteResource
-      : TestResource[(SandboxServer, Channel, ServerBinding)] = {
+  override protected lazy val suiteResource: TestResource[(Port, Channel, ServerBinding)] = {
     implicit val context: ResourceContext = ResourceContext(system.dispatcher)
-    new OwnedResource[ResourceContext, (SandboxServer, Channel, ServerBinding)](
+    new OwnedResource[ResourceContext, (Port, Channel, ServerBinding)](
       for {
         jdbcUrl <- database
           .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(
             _.map(info => Some(info.jdbcUrl))
           )
-        server <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
-        channel <- GrpcClientResource.owner(server.port)
+        serverPort <- new sandboxnext.Runner(config.copy(jdbcUrl = jdbcUrl))
+        channel <- GrpcClientResource.owner(serverPort)
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
             implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx(
@@ -140,7 +138,7 @@ trait JsonApiFixture
             Resource[ServerBinding] {
               val config = new StartSettings.Default {
                 override val ledgerHost = "localhost"
-                override val ledgerPort = server.port.value
+                override val ledgerPort = serverPort.value
                 override val address = "localhost"
                 override val httpPort = 0
                 override val portFile = None
@@ -169,7 +167,9 @@ trait JsonApiFixture
             }((binding: ServerBinding) => binding.unbind().map(_ => ()))
           }
         }
-      } yield (server, channel, httpService)
+      } yield (serverPort, channel, httpService),
+      acquisitionTimeout = 1.minute,
+      releaseTimeout = 1.minute,
     )
   }
 }
