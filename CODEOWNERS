@@ -85,7 +85,7 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /navigator/backend/src/main/scala/com/digitalasset/navigator/json/    @S11001001
 
 # Misc
-/docs/              @cocreature @stefanobaghino-da 
+/docs/              @cocreature @stefanobaghino-da
 /libs-scala/        @stefanobaghino-da @SamirTalwar-DA
 /libs-scala/contextualized-logging/    @S11001001
 /libs-scala/scala-utils/    @S11001001
