@@ -920,7 +920,6 @@ checkIfaceImplementation tplTcon TemplateImplements{..} = do
       Just InterfaceMethod{ifmType} ->
         checkExpr tpiMethodExpr (TCon tplTcon :-> ifmType)
 
-
 _checkFeature :: MonadGamma m => Feature -> m ()
 _checkFeature feature = do
     version <- getLfVersion
