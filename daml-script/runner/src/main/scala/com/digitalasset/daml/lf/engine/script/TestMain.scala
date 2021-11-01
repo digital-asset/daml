@@ -17,7 +17,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.language.Ast.Package
-import com.daml.platform.sandbox.SandboxServer
+import com.daml.platform.sandboxnext
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
@@ -81,9 +81,9 @@ object TestMain extends StrictLogging {
                 port = Port.Dynamic,
                 timeProviderType = Some(timeProviderType),
               )
-              val sandboxResource = SandboxServer.owner(sandboxConfig).acquire()
+              val sandboxResource = new sandboxnext.Runner(sandboxConfig).acquire()
               val sandboxPort =
-                Await.result(sandboxResource.asFuture.flatMap(_.portF).map(_.value), Duration.Inf)
+                Await.result(sandboxResource.asFuture.map(_.value), Duration.Inf)
               (ApiParameters("localhost", sandboxPort, None, None), () => sandboxResource.release())
             } else {
               (
