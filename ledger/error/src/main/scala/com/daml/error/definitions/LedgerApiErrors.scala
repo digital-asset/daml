@@ -121,7 +121,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       "This rejection is given when a read request uses an offset beyond the current ledger end."
     )
     @Resolution("Use an offset that is before the ledger end.")
-    object RequestedOffsetAfterLedgerEnd
+    object RequestedOffsetOutOfRange
         extends ErrorCode(
           id = "REQUESTED_OFFSET_OUT_OF_RANGE",
           ErrorCategory.InvalidGivenCurrentSystemStateSeekAfterEnd,

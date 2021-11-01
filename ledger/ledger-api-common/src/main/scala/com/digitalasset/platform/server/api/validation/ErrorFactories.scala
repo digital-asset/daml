@@ -184,8 +184,8 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         .asGrpcError,
     )
 
-  // TODO error codes: Reconcile with com.daml.platform.server.api.validation.ErrorFactories.offsetAfterLedgerEnd
-  def readingOffsetAfterLedgerEnd_was_invalidArgument(
+  // TODO error codes: Reconcile with com.daml.platform.server.api.validation.ErrorFactories.offsetOutOfRange
+  def offsetOutOfRange_was_invalidArgument(
       definiteAnswer: Option[Boolean]
   )(message: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -194,7 +194,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       v1 = {
         invalidArgumentV1(definiteAnswer, message)
       },
-      v2 = LedgerApiErrors.ReadErrors.RequestedOffsetAfterLedgerEnd
+      v2 = LedgerApiErrors.ReadErrors.RequestedOffsetOutOfRange
         .Reject(message)
         .asGrpcError,
     )
@@ -239,7 +239,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         .asGrpcError,
     )
 
-  def offsetAfterLedgerEnd(description: String)(implicit
+  def offsetOutOfRange(description: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     // TODO error codes: Pass the offsets as arguments to this method and build the description here
@@ -251,7 +251,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           .setMessage(description)
           .build()
       ),
-      v2 = LedgerApiErrors.ReadErrors.RequestedOffsetAfterLedgerEnd.Reject(description).asGrpcError,
+      v2 = LedgerApiErrors.ReadErrors.RequestedOffsetOutOfRange.Reject(description).asGrpcError,
     )
 
   /** @param message A status' message.

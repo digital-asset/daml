@@ -5,7 +5,7 @@ package com.daml.platform.store.appendonlydao
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.NoLogging
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
@@ -585,10 +585,9 @@ private class JdbcLedgerDao(
             conn,
           )
         ) {
-          // TODO error codes: Use specialized error and enable logging
-          throw errorFactories.invalidArgument(None)(
+          throw errorFactories.offsetOutOfRange_was_invalidArgument(None)(
             "Pruning offset for all divulged contracts needs to be after the migration offset"
-          )(NoLogging)
+          )(new DamlContextualizedErrorLogger(logger, loggingContext, None))
         }
 
         storageBackend.pruneEvents(pruneUpToInclusive, pruneAllDivulgedContracts)(

@@ -174,8 +174,8 @@ class ErrorFactoriesSpec
       )
     }
 
-    "return a readingOffsetAfterLedgerEnd error" in {
-      assertVersionedError(_.readingOffsetAfterLedgerEnd_was_invalidArgument(None)("message123"))(
+    "return a offsetOutOfRange_was_invalidArgument error" in {
+      assertVersionedError(_.offsetOutOfRange_was_invalidArgument(None)("message123"))(
         v1_code = Code.INVALID_ARGUMENT,
         v1_message = "Invalid argument: message123",
         v1_details = Seq.empty,
@@ -346,8 +346,8 @@ class ErrorFactoriesSpec
       )
     }
 
-    "return an offsetAfterLedgerEnd error" in {
-      assertVersionedError(_.offsetAfterLedgerEnd("my message"))(
+    "return an offsetOutOfRange error" in {
+      assertVersionedError(_.offsetOutOfRange("my message"))(
         v1_code = Code.OUT_OF_RANGE,
         v1_message = "my message",
         v1_details = Seq.empty,
