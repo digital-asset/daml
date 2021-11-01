@@ -160,7 +160,7 @@ object Assertions {
     val actualRetryabilitySeconds = actualErrorDetails
       .collectFirst { case err: ErrorDetails.RetryInfoDetail => err.retryDelayInSeconds }
 
-    if (!actualErrorId.contains(expectedErrorId))
+    if (actualErrorId != expectedErrorId)
       fail(s"Actual error id ($actualErrorId) does not match expected error id ($expectedErrorId}")
 
     Assertions.assertEquals(
