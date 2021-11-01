@@ -54,9 +54,9 @@ jobs:
                          $(for p in $(patches); do echo -n "--patch $p "; done) \
                          --gen-flavor=$(flavor) \
             | tee log"
-      export NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/cc855b133100a956d4587079e27c5704cbc8342b.tar.gz
+      export NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/509d236edf0056d05547c776140fe7cfcf2305bd.tar.gz
       # We need GHC 8.10.4 for running ghc-lib-gen and GHC 8.6.5 to build GHC.
-      nix-shell -p stack -p gmp -p autoconf269 -p automake -p coreutils -p perl -p m4 -p 'haskell.packages.ghc8104.ghcWithPackages(_: [])' 'haskell.packages.ghc865Binary.ghcWithPackages(_: [])' --command "$STACK_CMD"
+      nix-shell -p stack -p gmp -p autoconf269 -p automake -p coreutils -p perl -p m4 -p 'haskell.packages.ghc8107.ghcWithPackages(_: [])' 'haskell.packages.ghc865Binary.ghcWithPackages(_: [])' --command "$STACK_CMD"
       VERSION=$(cat log | tail -1)
 
       GCS_KEY=$(mktemp)
