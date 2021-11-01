@@ -12,7 +12,7 @@ import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.trigger.TriggerMsg
 import com.daml.platform.sandbox.SandboxRequiringAuthorization
-import com.daml.platform.sandbox.services.SandboxFixture
+import com.daml.platform.sandboxnext.SandboxNextFixture
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -20,7 +20,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 class Jwt
     extends AsyncWordSpec
     with AbstractTriggerTest
-    with SandboxFixture
+    with SandboxNextFixture
     with SandboxRequiringAuthorization
     with Matchers
     with SuiteResourceManagementAroundAll
