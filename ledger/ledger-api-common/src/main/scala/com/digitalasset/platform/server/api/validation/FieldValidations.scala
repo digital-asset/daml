@@ -162,6 +162,7 @@ class FieldValidations private (errorFactories: ErrorFactories) {
               fieldName,
               exceedsMaxDurationMessage,
               definiteAnswer = Some(false),
+              maxDeduplicationTime,
             )
           )
         else Right(duration)
