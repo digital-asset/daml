@@ -5,7 +5,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
-    "da_scala_test",
+    "da_scala_test_suite",
     "silencer_plugin",
 )
 load("@build_environment//:configuration.bzl", "sdk_version")
@@ -122,10 +122,8 @@ da_scala_library(
     ],
 )
 
-# For now turning this into a scala_test_suite has too much overhead and ends up making
-# things slower rather than faster. Once we have more tests, we might want to reconsider.
 [
-    da_scala_test(
+    da_scala_test_suite(
         name = "trigger-integration-tests" + suffix,
         srcs = [
             "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/%s.scala" % f
