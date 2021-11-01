@@ -447,8 +447,7 @@ abstract class AbstractFuncTests
           (acs, offset) <- runner.queryACS()
           // 1 for the create in the trigger
           // 1 for the completion from the trigger
-          finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
-          _ <- finalStateF
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
           acs <- queryACS(client, party)
         } yield {
           assert(acs(doneOneId).length == 1)
@@ -469,8 +468,7 @@ abstract class AbstractFuncTests
           (acs, offset) <- runner.queryACS()
           // 1 for the create in the trigger
           // 1 for the completion from the trigger
-          finalStateF = runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
-          _ <- finalStateF
+          _ <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(2))._2
           acs <- queryACS(client, party)
         } yield {
           assert(!acs.contains(doneOneId))
