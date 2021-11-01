@@ -15,6 +15,7 @@ import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.client.binding.Value.encode
+import com.daml.ledger.participant.state.kvutils.errors.KVErrors
 import com.daml.ledger.test.model.Test.CallablePayout._
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test.DummyFactory._
@@ -160,7 +161,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ALREADY_EXISTS,
-        LedgerApiErrors.CommandPreparation.DuplicateCommand,
+        KVErrors.DuplicateCommand,
         None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -183,7 +184,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ALREADY_EXISTS,
-        LedgerApiErrors.CommandPreparation.DuplicateCommand,
+        KVErrors.DuplicateCommand,
         None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -206,7 +207,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ALREADY_EXISTS,
-        LedgerApiErrors.CommandPreparation.DuplicateCommand,
+        KVErrors.DuplicateCommand,
         None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -229,7 +230,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ALREADY_EXISTS,
-        LedgerApiErrors.CommandPreparation.DuplicateCommand,
+        KVErrors.DuplicateCommand,
         None,
         checkDefiniteAnswerMetadata = true,
       )
