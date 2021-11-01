@@ -85,6 +85,7 @@ object DataSourceConnectionProvider {
           } catch {
             case e: SQLTransientConnectionException =>
               transientFailureCount.incrementAndGet()
+              conn.rollback()
               throw e
             case NonFatal(t) =>
               // Log the error in the caller with access to more logging context (such as the sql statement description)
