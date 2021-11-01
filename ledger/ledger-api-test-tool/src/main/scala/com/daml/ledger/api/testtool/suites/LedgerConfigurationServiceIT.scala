@@ -3,11 +3,14 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.test.model.Test.Dummy
 import io.grpc.Status
+
+import java.util.regex.Pattern
 
 class LedgerConfigurationServiceIT extends LedgerTestSuite {
   test("ConfigSucceeds", "Return a valid configuration for a valid request", allocate(NoParties))(
@@ -32,8 +35,10 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
           .mustFail("retrieving ledger configuration with an invalid ledger ID")
       } yield {
         assertGrpcError(
+          ledger,
           failure,
           Status.Code.NOT_FOUND,
+          LedgerApiErrors.CommandValidation.LedgerIdMismatch,
           Some(s"Ledger ID '$invalidLedgerId' not found."),
         )
       }
@@ -75,7 +80,17 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
         )
         .mustFail("submitting a command with a deduplication time that is too big")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, exceptionMessageSubstring = None)
+      assertGrpcErrorRegex(
+        ledger,
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandValidation.InvalidField,
+        Some(
+          Pattern.compile(
+            "The given deduplication duration .+ exceeds the maximum deduplication time of .+"
+          )
+        ),
+      )
     }
   })
 }
