@@ -5,7 +5,6 @@ package com.daml
 
 import java.io.File
 import java.time.{Duration, Instant}
-import java.util.Arrays.asList
 import java.util.concurrent.TimeUnit
 import java.util.stream.{Collectors, StreamSupport}
 import java.util.{Optional, UUID}
@@ -19,55 +18,63 @@ import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data._
 import com.daml.ledger.resources.ResourceContext
 import com.daml.platform.apiserver.SeedService.Seeding
-import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox
-import com.daml.platform.sandbox.SandboxServer
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.google.protobuf.Empty
 import io.grpc.Channel
-import org.scalatest.Assertion
+import org.scalatest.{Assertion, Suite}
 
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
 
-object TestUtil {
+trait SandboxFixture extends SandboxNextFixture {
+  self: Suite =>
 
-  def testDalf =
+  protected val damlPackages: List[File] = List(
     new File(BazelRunfiles.rlocation("language-support/java/codegen/ledger-tests-model.dar"))
-
-  val LedgerID = "ledger-test"
+  )
+  protected val ledgerIdMode: LedgerIdMode =
+    LedgerIdMode.Static(LedgerId(TestUtil.LedgerID))
+  protected override def config: SandboxConfig = SandboxConfig.defaultConfig.copy(
+    port = Port.Dynamic,
+    ledgerIdMode = ledgerIdMode,
+    damlPackages = damlPackages,
+    timeProviderType = Some(TimeProviderType.Static),
+    engineMode = SandboxConfig.EngineMode.Dev,
+    seeding = Some(Seeding.Weak),
+  )
 
   def withClient(
       testCode: Channel => Assertion
   )(implicit resourceContext: ResourceContext): Future[Assertion] = {
-    val config = sandbox.DefaultConfig.copy(
-      seeding = Some(Seeding.Weak),
-      port = Port.Dynamic,
-      damlPackages = List(testDalf),
-      ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),
-      timeProviderType = Some(TimeProviderType.WallClock),
-    )
-
-    val channelOwner = for {
-      server <- SandboxServer.owner(config)
-      channel <- GrpcClientResource.owner(server.port)
-    } yield channel
-    channelOwner.use(channel => Future(testCode(channel))(resourceContext.executionContext))
+    Future(testCode(channel))(resourceContext.executionContext)
   }
+}
+
+object TestUtil {
+
+  val LedgerID = "ledger-test"
 
   // unfortunately this is needed to help with passing functions to rxjava methods like Flowable#map
   implicit def func2rxfunc[A, B](f: A => B): io.reactivex.functions.Function[A, B] = f(_)
   private def randomId = UUID.randomUUID().toString
 
+  def uniqueId(): String = UUID.randomUUID.toString
+
+  protected[daml] def getUniqueParty(name: String): String = s"${name}_${uniqueId()}"
+
   val Alice = "Alice"
   val Bob = "Bob"
   val Charlie = "Charlie"
-  val allTemplates = new FiltersByParty(Map[String, Filter](Alice -> NoFilter.instance).asJava)
+  def allTemplates(partyName: String) = new FiltersByParty(
+    Map[String, Filter](partyName -> NoFilter.instance).asJava
+  )
 
-  def sendCmd(channel: Channel, cmds: Command*): Empty = {
+  def sendCmd(channel: Channel, partyName: String, cmds: Command*): Empty = {
     CommandServiceGrpc
       .newBlockingStub(channel)
       .withDeadlineAfter(40, TimeUnit.SECONDS)
@@ -80,7 +87,7 @@ object TestUtil {
               randomId,
               randomId,
               randomId,
-              Alice,
+              partyName,
               Optional.empty[Instant],
               Optional.empty[Duration],
               Optional.empty[Duration],
@@ -121,11 +128,9 @@ object TestUtil {
       )
   }
 
-  def sendCmd(channel: Channel, party: String, cmds: Command*): Empty =
-    sendCmd(channel, asList(party), asList[String](), cmds: _*)
-
   def readActiveContracts[C <: Contract](fromCreatedEvent: CreatedEvent => C)(
-      channel: Channel
+      channel: Channel,
+      partyName: String,
   ): List[C] = {
     // Relies on ordering of ACS endpoint. This isn’t documented but currently
     // the ledger guarantees this.
@@ -133,7 +138,7 @@ object TestUtil {
     val txs = txService.getActiveContracts(
       new GetActiveContractsRequest(
         LedgerID,
-        allTemplates,
+        allTemplates(partyName),
         true,
       ).toProto
     )
