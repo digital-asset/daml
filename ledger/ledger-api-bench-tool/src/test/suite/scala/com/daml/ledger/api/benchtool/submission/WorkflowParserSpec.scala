@@ -30,30 +30,82 @@ class WorkflowParserSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           |    - template: Foo3
           |      weight: 25
           |      payload_size_bytes: 30
-          |      archive_probability: 0.7""".stripMargin
+          |      archive_probability: 0.7
+          |streams: []""".stripMargin
       parseYaml(yaml) shouldBe Right(
         WorkflowDescriptor(
-          submission = SubmissionDescriptor(
-            numberOfInstances = 123,
-            numberOfObservers = 5,
-            instanceDistribution = List(
-              ContractDescription(
-                template = "Foo1",
-                weight = 50,
-                payloadSizeBytes = 100,
-                archiveChance = 0.9,
+          submission = Some(
+            SubmissionDescriptor(
+              numberOfInstances = 123,
+              numberOfObservers = 5,
+              instanceDistribution = List(
+                ContractDescription(
+                  template = "Foo1",
+                  weight = 50,
+                  payloadSizeBytes = 100,
+                  archiveChance = 0.9,
+                ),
+                ContractDescription(
+                  template = "Foo2",
+                  weight = 25,
+                  payloadSizeBytes = 150,
+                  archiveChance = 0.8,
+                ),
+                ContractDescription(
+                  template = "Foo3",
+                  weight = 25,
+                  payloadSizeBytes = 30,
+                  archiveChance = 0.7,
+                ),
               ),
-              ContractDescription(
-                template = "Foo2",
-                weight = 25,
-                payloadSizeBytes = 150,
-                archiveChance = 0.8,
+            )
+          )
+        )
+      )
+    }
+
+    "parse streams description" in {
+      val yaml =
+        """streams:
+          |  - type: "active-contracts"
+          |    name: "stream-1"
+          |    filters:
+          |      - party: Obs_0
+          |        templates:
+          |          - Foo1
+          |          - Foo2
+          |      - party: Obs_1
+          |        templates: []
+          |      - party: Obs_2
+          |        templates:
+          |          - Foo3
+          |  - type: "transactions"
+          |    name: "stream-2"
+          |    filters:
+          |      - party: Obs_1
+          |        templates:
+          |          - Foo1
+          |          - Foo2
+          |      - party: Obs_2
+          |        templates: []""".stripMargin
+      parseYaml(yaml) shouldBe Right(
+        WorkflowDescriptor(
+          streams = List(
+            StreamDescriptor(
+              streamType = StreamDescriptor.StreamType.ActiveContracts,
+              name = "stream-1",
+              filters = List(
+                StreamDescriptor.PartyFilter("Obs_0", List("Foo1", "Foo2")),
+                StreamDescriptor.PartyFilter("Obs_1", List()),
+                StreamDescriptor.PartyFilter("Obs_2", List("Foo3")),
               ),
-              ContractDescription(
-                template = "Foo3",
-                weight = 25,
-                payloadSizeBytes = 30,
-                archiveChance = 0.7,
+            ),
+            StreamDescriptor(
+              streamType = StreamDescriptor.StreamType.Transactions,
+              name = "stream-2",
+              filters = List(
+                StreamDescriptor.PartyFilter("Obs_1", List("Foo1", "Foo2")),
+                StreamDescriptor.PartyFilter("Obs_2", List()),
               ),
             ),
           )

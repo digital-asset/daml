@@ -4,7 +4,8 @@
 package com.daml.ledger.api.benchtool.submission
 
 final case class WorkflowDescriptor(
-    submission: SubmissionDescriptor
+    submission: Option[SubmissionDescriptor] = None,
+    streams: List[StreamDescriptor] = List.empty,
 )
 
 final case class SubmissionDescriptor(
@@ -20,4 +21,21 @@ object SubmissionDescriptor {
       payloadSizeBytes: Int,
       archiveChance: Double,
   )
+}
+
+final case class StreamDescriptor(
+    streamType: StreamDescriptor.StreamType,
+    name: String,
+    filters: List[StreamDescriptor.PartyFilter],
+)
+
+object StreamDescriptor {
+  sealed trait StreamType
+  object StreamType {
+    case object Transactions extends StreamType
+    case object TransactionTrees extends StreamType
+    case object ActiveContracts extends StreamType
+  }
+
+  final case class PartyFilter(party: String, templates: List[String])
 }

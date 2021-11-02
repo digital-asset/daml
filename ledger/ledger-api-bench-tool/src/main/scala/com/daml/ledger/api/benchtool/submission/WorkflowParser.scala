@@ -36,9 +36,30 @@ object WorkflowParser {
         "instance_distribution",
       )(SubmissionDescriptor.apply)
 
+    implicit val streamTypeDecoder: Decoder[StreamDescriptor.StreamType] = Decoder[String].emap {
+      case "active-contracts" => Right(StreamDescriptor.StreamType.ActiveContracts)
+      case "transactions" => Right(StreamDescriptor.StreamType.Transactions)
+      case "transaction-trees" => Right(StreamDescriptor.StreamType.TransactionTrees)
+      case invalid => Left(s"Invalid stream type: $invalid")
+    }
+
+    implicit val filtersDecoder: Decoder[StreamDescriptor.PartyFilter] =
+      Decoder.forProduct2(
+        "party",
+        "templates",
+      )(StreamDescriptor.PartyFilter.apply)
+
+    implicit val streamDescriptorDecoder: Decoder[StreamDescriptor] =
+      Decoder.forProduct3(
+        "type",
+        "name",
+        "filters",
+      )(StreamDescriptor.apply)
+
     implicit val workflowDescriptorDecoder: Decoder[WorkflowDescriptor] =
-      Decoder.forProduct1(
-        "submission"
+      Decoder.forProduct2(
+        "submission",
+        "streams",
       )(WorkflowDescriptor.apply)
   }
 

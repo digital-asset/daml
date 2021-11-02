@@ -42,7 +42,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
       _ <- Future.successful(logger.info(s"Identifier suffix: $identifierSuffix"))
       // KTODO: move this up
       workflowDescriptor <- Future.fromTry(parseDescriptor(descriptorFile))
-      descriptor = workflowDescriptor.submission
+      descriptor = workflowDescriptor.submission.get
       signatory <- allocateParty(signatoryName)
       observers <- allocateParties(descriptor.numberOfObservers, observerName)
       _ <- uploadTestDars()
