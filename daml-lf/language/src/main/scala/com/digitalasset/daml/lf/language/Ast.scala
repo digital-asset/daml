@@ -882,7 +882,7 @@ object Ast {
 
     def unapply(
         arg: GenTemplateImplements[E]
-    ): Some[(TypeConName, Map[MethodName, GenTemplateImplementsMethod[E]], Set[ChoiceName])] =
+    ): Some[(TypeConName, Map[MethodName, GenTemplateImplementsMethod[E]], Set[ChoiceName], E)] =
       Some((arg.interface, arg.methods, arg.inheritedChoices, arg.precond))
   }
 
