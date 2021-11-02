@@ -201,20 +201,6 @@ def daml_deps():
             patch_args = ["-p1"],
         )
 
-    if "upb" not in native.existing_rules():
-        # upb is a dependency of com_github_grpc_grpc.
-        # It is usually pulled in automatically by grpc_deps(), but depend on it explicitly to patch it.
-        # This http_archive can be removed when we no longer need to patch upb.
-        http_archive(
-            name = "upb",
-            sha256 = "c0b97bf91dfea7e8d7579c24e2ecdd02d10b00f3c5defc3dce23d95100d0e664",
-            strip_prefix = "upb-60607da72e89ba0c84c84054d2e562d8b6b61177",
-            urls = [
-                "https://storage.googleapis.com/grpc-bazel-mirror/github.com/protocolbuffers/upb/archive/60607da72e89ba0c84c84054d2e562d8b6b61177.tar.gz",
-                "https://github.com/protocolbuffers/upb/archive/60607da72e89ba0c84c84054d2e562d8b6b61177.tar.gz",
-            ],
-        )
-
     if "com_github_grpc_grpc" not in native.existing_rules():
         # This should be kept in sync with the grpc version we get from Nix.
         http_archive(
