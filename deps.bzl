@@ -41,6 +41,7 @@ rules_haskell_patches = [
     # This should be made configurable in rules_haskell.
     # Remove this patch once that's available.
     "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
+    "@com_github_digital_asset_daml//bazel_tools:haskell-ghc-8.10.7-bindist.patch",
 ]
 rules_nixpkgs_version = "c40b35f73e5ab1c0096d95abf63027a3b8054061"
 rules_nixpkgs_sha256 = "47fffc870a25d82deedb887c32481a43a12f56b51e5002773046f81fbe3ea9df"
@@ -200,27 +201,13 @@ def daml_deps():
             patch_args = ["-p1"],
         )
 
-    if "upb" not in native.existing_rules():
-        # upb is a dependency of com_github_grpc_grpc.
-        # It is usually pulled in automatically by grpc_deps(), but depend on it explicitly to patch it.
-        # This http_archive can be removed when we no longer need to patch upb.
-        http_archive(
-            name = "upb",
-            sha256 = "c0b97bf91dfea7e8d7579c24e2ecdd02d10b00f3c5defc3dce23d95100d0e664",
-            strip_prefix = "upb-60607da72e89ba0c84c84054d2e562d8b6b61177",
-            urls = [
-                "https://storage.googleapis.com/grpc-bazel-mirror/github.com/protocolbuffers/upb/archive/60607da72e89ba0c84c84054d2e562d8b6b61177.tar.gz",
-                "https://github.com/protocolbuffers/upb/archive/60607da72e89ba0c84c84054d2e562d8b6b61177.tar.gz",
-            ],
-        )
-
     if "com_github_grpc_grpc" not in native.existing_rules():
         # This should be kept in sync with the grpc version we get from Nix.
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.39.0",
-            urls = ["https://github.com/grpc/grpc/archive/v1.39.0.tar.gz"],
-            sha256 = "b16992aa1c949c10d5d5ce2a62f9d99fa7de77da2943e643fb66dcaf075826d6",
+            strip_prefix = "grpc-1.41.0",
+            urls = ["https://github.com/grpc/grpc/archive/v1.41.0.tar.gz"],
+            sha256 = "e5fb30aae1fa1cffa4ce00aa0bbfab908c0b899fcf0bbc30e268367d660d8656",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
             ],

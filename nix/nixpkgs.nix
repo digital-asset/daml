@@ -35,8 +35,8 @@ let
    haskell = pkgs.haskell // {
      packages = pkgs.haskell.packages // {
        integer-simple = pkgs.haskell.packages.integer-simple // {
-        ghc8104 = pkgs.haskell.packages.integer-simple.ghc8104.override {
-          ghc = pkgs.haskell.compiler.integer-simple.ghc8104.overrideAttrs (old: {
+        ghc8107 = pkgs.haskell.packages.integer-simple.ghc8107.override {
+          ghc = pkgs.haskell.compiler.integer-simple.ghc8107.overrideAttrs (old: {
             # We need to include darwin.cctools in PATH to make sure GHC finds
             # otool.
             postInstall = ''

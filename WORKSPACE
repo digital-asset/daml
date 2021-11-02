@@ -435,13 +435,13 @@ haskell_register_ghc_nixpkgs(
         "-Wwarn",
     ],
     repositories = dev_env_nix_repos,
-    version = "8.10.4",
+    version = "8.10.7",
 )
 
 # Used by Windows
 haskell_register_ghc_bindists(
     compiler_flags = common_ghc_flags,
-    version = "8.10.4",
+    version = "8.10.7",
 ) if is_windows else None
 
 nixpkgs_package(
@@ -836,7 +836,7 @@ nixpkgs_package(
 load("@os_info//:os_info.bzl", "is_linux")
 cc_library(
   name = "grpc_lib",
-  srcs = [":lib/libgrpc.so", ":lib/libgrpc.so.18", ":lib/libgrpc.so.18.0.0", ":lib/libgpr.so", ":lib/libgpr.so.18", ":lib/libgpr.so.18.0.0"] if is_linux else [":lib/libgrpc.dylib", ":lib/libgpr.dylib"],
+  srcs = [":lib/libgrpc.so", ":lib/libgrpc.so.19", ":lib/libgrpc.so.19.0.0", ":lib/libgpr.so", ":lib/libgpr.so.19", ":lib/libgpr.so.19.0.0"] if is_linux else [":lib/libgrpc.dylib", ":lib/libgpr.dylib"],
   visibility = ["//visibility:public"],
   hdrs = [":include"],
   includes = ["include"],
