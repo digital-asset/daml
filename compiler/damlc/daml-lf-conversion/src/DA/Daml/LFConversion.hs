@@ -973,7 +973,7 @@ convertImplements env tplTypeCon = NM.fromList <$>
                 , Just methodName <- [T.stripPrefix "m_" fieldName]
                 ]
         let inheritedChoiceNames = S.empty -- This is filled during LF post-processing (in the LF completer).
-        let precond = ETrue -- TODO (drsk) #11397 Implement interface preconditions
+        let precond = ETrue -- This is filled during LF post-processing (in the LF completer).
         pure (TemplateImplements con methods inheritedChoiceNames precond)
 
 convertChoices :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
