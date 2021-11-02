@@ -12,6 +12,9 @@ object ErrorGroups {
   abstract class ProtoDeserializationErrorGroup extends ErrorGroup
 
   object ParticipantErrorGroup extends ErrorGroup() {
+    abstract class IndexErrorGroup extends ErrorGroup() {
+      abstract class DatabaseErrorGroup extends ErrorGroup()
+    }
     abstract class PackageServiceErrorGroup extends ErrorGroup()
     abstract class PruningServiceErrorGroup extends ErrorGroup()
     object TransactionErrorGroup extends ErrorGroup() {

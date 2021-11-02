@@ -4,6 +4,7 @@
 package com.daml.platform.store.cache
 
 import java.util.concurrent.atomic.AtomicReference
+
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.QueueOfferResult.Enqueued
@@ -27,6 +28,7 @@ import com.daml.platform.store.cache.MutableCacheBackedContractStore.{
   ContractNotFound,
   EmptyContractIds,
   EventSequentialId,
+  SignalNewLedgerHead,
   SubscribeToContractStateEvents,
 }
 import com.daml.platform.store.cache.MutableCacheBackedContractStoreSpec.{
@@ -76,8 +78,10 @@ class MutableCacheBackedContractStoreSpec
   "event stream consumption" should {
     "populate the caches from the contract state event stream" in {
 
-      val lastLedgerHead = new AtomicReference[Offset](Offset.beforeBegin)
-      val capture_signalLedgerHead = lastLedgerHead.set _
+      val lastLedgerHead =
+        new AtomicReference[(Offset, Long)]((Offset.beforeBegin, EventSequentialId.beforeBegin))
+      val capture_signalLedgerHead: SignalNewLedgerHead =
+        (offset, seqId) => lastLedgerHead.set((offset, seqId))
 
       implicit val (
         queue: BoundedSourceQueue[ContractStateEvent],
@@ -111,7 +115,7 @@ class MutableCacheBackedContractStoreSpec
         _ <- ledgerEnd(someOffset, 3L)
         _ <- eventually {
           store.cacheIndex.getEventSequentialId shouldBe 3L
-          lastLedgerHead.get() shouldBe someOffset
+          lastLedgerHead.get() shouldBe (someOffset -> 3L)
         }
       } yield succeed
     }
@@ -169,7 +173,7 @@ class MutableCacheBackedContractStoreSpec
         store <- contractStore(
           cachesSize = 2L,
           ContractsReaderFixture(),
-          _ => (),
+          (_, _) => (),
           sourceSubscriptionFixture,
         ).asFuture
         _ <- eventually {
@@ -439,7 +443,7 @@ object MutableCacheBackedContractStoreSpec {
   private def contractStore(
       cachesSize: Long,
       readerFixture: LedgerDaoContractsReader = ContractsReaderFixture(),
-      signalNewLedgerHead: Offset => Unit = _ => (),
+      signalNewLedgerHead: (Offset, Long) => Unit = (_, _) => (),
       sourceSubscriber: SubscribeToContractStateEvents = _ => Source.empty,
       startIndexExclusive: (Offset, EventSequentialId) =
         Offset.beforeBegin -> EventSequentialId.beforeBegin,

@@ -4,7 +4,7 @@
 package com.daml.platform.server.api.validation
 
 import com.daml.error.ErrorCode.ApiException
-import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.grpc.GrpcStatuses
@@ -22,7 +22,19 @@ import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, StatusRuntimeException}
 import scalaz.syntax.tag._
 
+import java.sql.{SQLNonTransientException, SQLTransientException}
+
 class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
+  def sqlTransientException(exception: SQLTransientException)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    IndexErrors.DatabaseErrors.SqlTransientError.Reject(exception).asGrpcError
+
+  def sqlNonTransientException(exception: SQLNonTransientException)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    IndexErrors.DatabaseErrors.SqlNonTransientError.Reject(exception).asGrpcError
+
   def transactionNotFound(transactionId: TransactionId)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
@@ -432,6 +444,10 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   *                   output versioned error codes.
   */
 object ErrorFactories extends ErrorFactories(new ErrorCodesVersionSwitcher(false)) {
+  val SelfServiceErrorCodeFactories: ErrorFactories = ErrorFactories(
+    new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true)
+  )
+
   def apply(errorCodesVersionSwitcher: ErrorCodesVersionSwitcher): ErrorFactories =
     new ErrorFactories(errorCodesVersionSwitcher)
 

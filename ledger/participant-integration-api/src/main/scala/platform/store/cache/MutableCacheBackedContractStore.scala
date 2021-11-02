@@ -228,7 +228,8 @@ private[platform] class MutableCacheBackedContractStore(
     metrics.daml.execution.cache.indexSequentialId
       .updateValue(event.eventSequentialId)
     event match {
-      case LedgerEndMarker(eventOffset, _) => signalNewLedgerHead(eventOffset)
+      case LedgerEndMarker(eventOffset, eventSequentialId) =>
+        signalNewLedgerHead(eventOffset, eventSequentialId)
       case _ => ()
     }
   }
@@ -303,7 +304,7 @@ private[platform] class MutableCacheBackedContractStore(
 private[platform] object MutableCacheBackedContractStore {
   type EventSequentialId = Long
   // Signal externally that the cache has caught up until the provided ledger head offset
-  type SignalNewLedgerHead = Offset => Unit
+  type SignalNewLedgerHead = (Offset, Long) => Unit
   // Subscribe to the contract state events stream starting at a specific event_offset and event_sequential_id
   type SubscribeToContractStateEvents =
     ((Offset, EventSequentialId)) => Source[ContractStateEvent, NotUsed]
@@ -393,6 +394,7 @@ private[platform] object MutableCacheBackedContractStore {
       s"Contract not found for contract id ${contractId.coid}. Hint: this could be due racing with a concurrent archival."
   }
 
+  // TODO ACS: this cache can be unified with the LedgerEndCache
   private[cache] class CacheIndex(initValue: (Offset, Long)) {
     private val offsetRef: AtomicReference[(Offset, EventSequentialId)] =
       new AtomicReference(initValue)

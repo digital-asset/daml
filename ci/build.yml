@@ -318,6 +318,14 @@ jobs:
           //triggers/service:test-oracle \
           //ledger/participant-integration-api:participant-integration-api-tests-oracle \
           //ledger/ledger-on-sql:conformance-test-oracle
+
+        oracle_logs=$(Build.StagingDirectory)/oracle-logs
+        mkdir $oracle_logs
+        for path in $(docker exec oracle bash -c 'find /opt/oracle/diag/rdbms/ -type f'); do
+          # $path starts with a slash
+          mkdir -p $(dirname ${oracle_logs}${path})
+          docker exec oracle bash -c "cat $path" > ${oracle_logs}${path}
+        done
       env:
         DOCKER_LOGIN: $(DOCKER_LOGIN)
         DOCKER_PASSWORD: $(DOCKER_PASSWORD)
@@ -330,6 +338,13 @@ jobs:
       inputs:
         pathtoPublish: 'bazel-testlogs/'
         artifactName: 'Test logs Oracle'
+
+    - task: PublishBuildArtifacts@1
+      condition: failed()
+      displayName: 'Publish Oracle image logs'
+      inputs:
+        pathtoPublish: '$(Build.StagingDirectory)/oracle-logs'
+        artifactName: 'Oracle image logs'
 
     - template: tell-slack-failed.yml
       parameters:

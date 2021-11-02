@@ -128,6 +128,8 @@ def daml_deps():
             sha256 = rules_scala_sha256,
             patches = [
                 "@daml//bazel_tools:scala-escape-jvmflags.patch",
+                # Remove once https://github.com/bazelbuild/rules_scala/pull/1313 is merged
+                "@daml//bazel_tools:rules_scala_java_bin_path.patch",
             ],
             patch_args = ["-p1"],
         )

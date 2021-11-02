@@ -26,6 +26,7 @@ import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
 import qualified Data.NameMap as NM
 import qualified Data.HashSet as HS
 import qualified Data.Text as T
+import qualified Data.Set as S
 import qualified Data.Text.Lazy as TL
 import qualified Data.Vector.Extended as V
 import qualified Proto3.Suite as Proto
@@ -342,6 +343,7 @@ decodeDefTemplateImplements :: LF1.DefTemplate_Implements -> Decode TemplateImpl
 decodeDefTemplateImplements LF1.DefTemplate_Implements{..} = TemplateImplements
   <$> mayDecode "defTemplate_ImplementsInterface" defTemplate_ImplementsInterface decodeTypeConName
   <*> decodeNM DuplicateMethod decodeDefTemplateImplementsMethod defTemplate_ImplementsMethods
+  <*> decodeSet DuplicateChoice (decodeNameId ChoiceName) defTemplate_ImplementsInheritedChoiceInternedNames
 
 decodeDefTemplateImplementsMethod :: LF1.DefTemplate_ImplementsMethod -> Decode TemplateImplementsMethod
 decodeDefTemplateImplementsMethod LF1.DefTemplate_ImplementsMethod{..} = TemplateImplementsMethod
@@ -970,3 +972,13 @@ decodeNM
 decodeNM mkDuplicateError decode1 xs = do
   ys <- traverse decode1 (V.toList xs)
   either (throwError . mkDuplicateError) pure $ NM.fromListEither ys
+
+decodeSet :: Ord b => (b -> Error) -> (a -> Decode b) -> V.Vector a -> Decode (S.Set b)
+decodeSet mkDuplicateError decode1 xs = do
+    ys <- traverse decode1 (V.toList xs)
+    foldM insertAndCheck S.empty ys
+  where
+      insertAndCheck !accum item =
+        if S.member item accum
+          then throwError (mkDuplicateError item)
+          else pure (S.insert item accum)

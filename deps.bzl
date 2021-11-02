@@ -149,6 +149,8 @@ def daml_deps():
                 "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
                 # Remove once https://github.com/bazelbuild/rules_scala/pull/1261 is merged
                 "@com_github_digital_asset_daml//bazel_tools:rules_scala_suite_tags.patch",
+                # Remove once https://github.com/bazelbuild/rules_scala/pull/1313 is merged
+                "@com_github_digital_asset_daml//bazel_tools:rules_scala_java_bin_path.patch",
             ],
             patch_args = ["-p1"],
         )

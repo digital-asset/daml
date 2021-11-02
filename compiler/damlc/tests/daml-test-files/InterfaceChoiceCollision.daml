@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_INTERFACE
--- @ERROR Duplicate choice name 'MyArchive' in template T via interfaces.
+-- @ERROR name collision between choice InterfaceChoiceCollision:T.MyArchive (via interface InterfaceChoiceCollision:InterfaceA) and choice InterfaceChoiceCollision:T.MyArchive (via interface InterfaceChoiceCollision:InterfaceB)
 module InterfaceChoiceCollision where
 
 interface InterfaceA where

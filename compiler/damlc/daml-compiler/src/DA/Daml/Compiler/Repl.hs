@@ -28,6 +28,7 @@ import Control.Monad.Trans.Maybe
 import DA.Daml.Compiler.Output (printDiagnostics)
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.InferSerializability as Serializability
+import qualified DA.Daml.LF.Completer as LF
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
@@ -503,7 +504,8 @@ runRepl importPkgs opts replClient logger ideState = do
                 Right v -> do
                    pkgs <- lift $ getExternalPackages file
                    let world = LF.initWorldSelf pkgs (buildPackage (optMbPackageName opts) (optMbPackageVersion opts) lfVersion [])
-                   let simplified = LF.simplifyModule world lfVersion v
+                   let completed = LF.completeModule world lfVersion v
+                   let simplified = LF.simplifyModule world lfVersion completed
                    case Serializability.inferModule world lfVersion simplified of
                        Left err -> handleIdeResult ([ideErrorPretty file err], Nothing)
                        Right dalf -> do

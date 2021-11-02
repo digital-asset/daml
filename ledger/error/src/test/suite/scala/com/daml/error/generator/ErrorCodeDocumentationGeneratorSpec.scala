@@ -3,12 +3,15 @@
 
 package com.daml.error.generator
 
-import com.daml.error.utils.testpackage.SeriousError
+import com.daml.error.utils.testpackage.{DeprecatedError, SeriousError}
 import com.daml.error.utils.testpackage.subpackage.NotSoSeriousError
 import com.daml.error.{Explanation, Resolution}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
+
+@nowarn("msg=deprecated")
 class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
   private val className = ErrorCodeDocumentationGenerator.getClass.getSimpleName
 
@@ -26,6 +29,16 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
         conveyance =
           "This error is logged with log-level ERROR on the server side.\nThis error is exposed on the API with grpc-status INTERNAL without any details due to security reasons",
         code = "BLUE_SCREEN",
+        explanation = Explanation("Things happen."),
+        resolution = Resolution("Turn it off and on again."),
+      ),
+      DocItem(
+        className = DeprecatedError.getClass.getTypeName,
+        category = "SystemInternalAssumptionViolated",
+        hierarchicalGrouping = Nil,
+        conveyance =
+          "This error is logged with log-level ERROR on the server side.\nThis error is exposed on the API with grpc-status INTERNAL without any details due to security reasons",
+        code = "DEPRECATED_ERROR",
         explanation = Explanation("Things happen."),
         resolution = Resolution("Turn it off and on again."),
       ),
