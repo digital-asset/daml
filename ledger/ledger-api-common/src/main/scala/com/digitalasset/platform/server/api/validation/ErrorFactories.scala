@@ -231,14 +231,13 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       fieldName: String,
       message: String,
       definiteAnswer: Option[Boolean],
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException = {
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
       legacyInvalidField(fieldName, message, definiteAnswer),
       LedgerApiErrors.CommandValidation.InvalidDeduplicationPeriodField
         .Reject(message)
         .asGrpcError,
     )
-  }
 
   /** @param fieldName An invalid field's name.
     * @param message A status' message.
