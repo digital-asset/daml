@@ -258,13 +258,13 @@ private[state] object Conversions {
   private def assertEncode[X](context: => String, x: Either[ValueCoder.EncodeError, X]): X =
     x.fold(err => throw Err.EncodeError(context, err.errorMessage), identity)
 
-  def encodeTransaction(tx: Transaction.Transaction): TransactionOuterClass.Transaction =
+  def encodeTransaction(tx: VersionedTransaction): TransactionOuterClass.Transaction =
     assertEncode(
       "Transaction",
       TransactionCoder.encodeTransaction(TransactionCoder.NidEncoder, ValueCoder.CidEncoder, tx),
     )
 
-  def decodeTransaction(tx: TransactionOuterClass.Transaction): Transaction.Transaction =
+  def decodeTransaction(tx: TransactionOuterClass.Transaction): VersionedTransaction =
     assertDecode(
       "Transaction",
       TransactionCoder

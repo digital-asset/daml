@@ -12,9 +12,12 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.scenario.ScenarioLedger
-import com.daml.lf.transaction.SubmittedTransaction
-import com.daml.lf.transaction.Transaction.Transaction
-import com.daml.lf.transaction.{Node => N, Transaction => Tx}
+import com.daml.lf.transaction.{
+  Node => N,
+  SubmittedTransaction,
+  VersionedTransaction,
+  Transaction => Tx,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 import com.daml.lf.command._
@@ -41,7 +44,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         submitter: Party,
         effectiveAt: Time.Timestamp,
         tx: SubmittedTransaction,
-    ): Transaction =
+    ): VersionedTransaction =
       ScenarioLedger
         .commitTransaction(
           actAs = Set(submitter),
@@ -170,7 +173,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     val ledger = new MutableLedger()
     val rangeOfIntsTemplateId = Identifier(largeTx._1, qn("LargeTransaction:RangeOfInts"))
     val createCmd = rangeOfIntsCreateCmd(rangeOfIntsTemplateId, 0, 1, num)
-    val createCmdTx: Transaction =
+    val createCmdTx: VersionedTransaction =
       submitCommand(ledger, engine)(
         submitter = party,
         cmd = createCmd,
@@ -201,7 +204,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     val ledger = new MutableLedger()
     val listUtilTemplateId = Identifier(largeTx._1, qn("LargeTransaction:ListUtil"))
     val createCmd = listUtilCreateCmd(listUtilTemplateId)
-    val createCmdTx: Transaction =
+    val createCmdTx: VersionedTransaction =
       submitCommand(ledger, engine)(
         submitter = party,
         cmd = createCmd,
@@ -229,7 +232,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   private def qn(str: String): QualifiedName = QualifiedName.assertFromString(str)
 
   private def assertOneContractWithManyInts(
-      exerciseCmdTx: Transaction,
+      exerciseCmdTx: VersionedTransaction,
       expected: List[Long],
   ): Assertion = {
 
@@ -245,7 +248,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   }
 
   private def assertManyContractsOneIntPerContract(
-      exerciseCmdTx: Transaction,
+      exerciseCmdTx: VersionedTransaction,
       expectedNumberOfContracts: Int,
   ): Assertion = {
 
@@ -266,7 +269,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       cmd: ApiCommand,
       cmdReference: String,
       seed: crypto.Hash,
-  ): Transaction = {
+  ): VersionedTransaction = {
     val effectiveAt = Time.Timestamp.now()
     def enrich(tx: SubmittedTransaction): SubmittedTransaction = {
       val enricher = new ValueEnricher(engine)
@@ -348,7 +351,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   }
 
   private def assertSizeExerciseTransaction(
-      exerciseCmdTx: Transaction,
+      exerciseCmdTx: VersionedTransaction,
       expected: Long,
   ): Assertion = {
 
@@ -364,7 +367,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   }
 
   private def extractResultFieldFromExerciseTransaction(
-      exerciseCmdTx: Transaction,
+      exerciseCmdTx: VersionedTransaction,
       fieldName: String,
   ): Value = {
 
@@ -388,7 +391,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   }
 
   private def extractResultFromExerciseTransaction(
-      exerciseCmdTx: Transaction
+      exerciseCmdTx: VersionedTransaction
   ): Value = {
 
     exerciseCmdTx.roots.length shouldBe 1
@@ -405,7 +408,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     }
   }
 
-  private def firstRootNode(tx: Tx.Transaction): Tx.Node = tx.nodes(tx.roots.head)
+  private def firstRootNode(tx: VersionedTransaction): Tx.Node = tx.nodes(tx.roots.head)
 
   private def measureWithResult[R](body: => R): (R, Quantity[Double]) = {
     lazy val result: R = body
