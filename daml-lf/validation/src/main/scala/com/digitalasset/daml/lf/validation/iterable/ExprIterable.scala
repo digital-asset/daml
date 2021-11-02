@@ -178,6 +178,7 @@ private[validation] object ExprIterable {
       case TemplateImplements(
             interface @ _,
             methods,
+            inheritedChoices @ _,
           ) =>
         methods.values.iterator.flatMap(iterator(_))
     }
