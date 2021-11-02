@@ -3,8 +3,10 @@
 
 package com.daml.platform.server.api.validation
 
+import java.sql.{SQLNonTransientException, SQLTransientException}
+
 import com.daml.error.ErrorCode.ApiException
-import com.daml.error.definitions.{LedgerApiErrors, LoggingTransactionErrorImpl, IndexErrors}
+import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.grpc.GrpcStatuses
@@ -21,8 +23,6 @@ import io.grpc.Status.Code
 import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, StatusRuntimeException}
 import scalaz.syntax.tag._
-
-import java.sql.{SQLNonTransientException, SQLTransientException}
 
 class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
   def sqlTransientException(exception: SQLTransientException)(implicit
@@ -227,10 +227,18 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         .asGrpcError,
     )
 
-  private type RejectionBuilder = (
-      String,
-      String,
-  ) => ContextualizedErrorLogger => LoggingTransactionErrorImpl
+  def invalidDeduplicationDuration(
+      fieldName: String,
+      message: String,
+      definiteAnswer: Option[Boolean],
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException = {
+    errorCodesVersionSwitcher.choose(
+      legacyInvalidField(fieldName, message, definiteAnswer),
+      LedgerApiErrors.CommandValidation.InvalidDeduplicationPeriodField
+        .Reject(message)
+        .asGrpcError,
+    )
+  }
 
   /** @param fieldName An invalid field's name.
     * @param message A status' message.
@@ -241,12 +249,10 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       fieldName: String,
       message: String,
       definiteAnswer: Option[Boolean],
-      rejectionBuilder: RejectionBuilder = (fieldName, message) =>
-        logger => ledgerCommandValidationInvalidField(fieldName, message)(logger),
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
       v1 = legacyInvalidField(fieldName, message, definiteAnswer),
-      v2 = rejectionBuilder(fieldName, message)(contextualizedErrorLogger).asGrpcError,
+      v2 = ledgerCommandValidationInvalidField(fieldName, message).asGrpcError,
     )
 
   private def ledgerCommandValidationInvalidField(fieldName: String, message: String)(implicit

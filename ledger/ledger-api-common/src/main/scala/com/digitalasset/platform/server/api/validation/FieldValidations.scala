@@ -7,7 +7,6 @@ import java.time.Duration
 
 import com.daml.api.util.DurationConversion
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.commands.Commands.{DeduplicationPeriod => DeduplicationPeriodProto}
 import com.daml.ledger.api.v1.value.Identifier
@@ -159,14 +158,10 @@ class FieldValidations private (errorFactories: ErrorFactories) {
           Left(invalidField(fieldName, "Duration must be positive", definiteAnswer = Some(false)))
         else if (duration.compareTo(maxDeduplicationTime) > 0)
           Left(
-            invalidField(
+            invalidDeduplicationDuration(
               fieldName,
               exceedsMaxDurationMessage,
               definiteAnswer = Some(false),
-              (_, _) =>
-                logger =>
-                  LedgerApiErrors.CommandValidation.InvalidDeduplicationPeriodField
-                    .Reject(exceedsMaxDurationMessage)(logger),
             )
           )
         else Right(duration)
