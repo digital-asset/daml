@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -38,9 +39,11 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
       failure <- ledger.uploadDarFile(ByteString.EMPTY).mustFail("uploading an empty package")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        Some("Invalid argument: Invalid DAR: package-upload"),
+        LedgerApiErrors.CommandValidation.InvalidArgument,
+        Some("Invalid DAR: package-upload"),
       )
     }
   })

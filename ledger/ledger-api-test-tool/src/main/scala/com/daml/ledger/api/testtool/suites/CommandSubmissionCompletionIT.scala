@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -69,7 +70,13 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
         .firstCompletions(invalidRequest)
         .mustFail("subscribing to completions past the ledger end")
     } yield {
-      assertGrpcError(failure, Status.Code.OUT_OF_RANGE, Some("is after ledger end"))
+      assertGrpcError(
+        ledger,
+        failure,
+        Status.Code.OUT_OF_RANGE,
+        LedgerApiErrors.ReadErrors.RequestedOffsetAfterLedgerEnd,
+        Some("is after ledger end"),
+      )
     }
   })
 
@@ -102,8 +109,10 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       failure <- ledger.submit(wrongRequest).mustFail("submitting an invalid choice")
     } yield {
       assertGrpcErrorRegex(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.PreprocessingErrors.PreprocessingFailed,
         Some(
           Pattern.compile(
             "(unknown|Couldn't find requested) choice " + badChoice
@@ -126,8 +135,10 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
     for {
       failure <- ledger.submit(request).mustFail("submitting with an invalid ledger ID")
     } yield assertGrpcError(
+      ledger,
       failure,
       Status.Code.NOT_FOUND,
+      LedgerApiErrors.CommandValidation.LedgerIdMismatch,
       Some(s"Ledger ID '$invalidLedgerId' not found."),
       checkDefiniteAnswerMetadata = true,
     )
@@ -143,9 +154,11 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       failure <- ledger.submit(emptyRequest).mustFail("submitting an empty command")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        Some("Missing field: commands"),
+        LedgerApiErrors.CommandValidation.MissingField,
+        Some("commands"),
         checkDefiniteAnswerMetadata = true,
       )
     }

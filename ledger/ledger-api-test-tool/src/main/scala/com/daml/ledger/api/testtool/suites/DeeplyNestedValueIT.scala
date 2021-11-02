@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
@@ -70,8 +71,10 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
           case Right(_) if accepted => ()
           case Left(err: Throwable) if !accepted =>
             assertGrpcError(
+              alpha,
               err,
               Status.Code.INVALID_ARGUMENT,
+              LedgerApiErrors.PreprocessingErrors.PreprocessingFailed,
               None,
               checkDefiniteAnswerMetadata = true,
             )

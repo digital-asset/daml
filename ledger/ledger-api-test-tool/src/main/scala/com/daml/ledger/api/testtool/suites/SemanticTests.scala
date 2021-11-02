@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
@@ -59,8 +60,10 @@ final class SemanticTests extends LedgerTestSuite {
           .mustFail("consuming a contract twice")
       } yield {
         assertGrpcError(
+          alpha,
           failure,
           Status.Code.ABORTED,
+          LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -125,8 +128,10 @@ final class SemanticTests extends LedgerTestSuite {
         failure <- alpha.submitAndWait(doubleSpend).mustFail("consuming a contract twice")
       } yield {
         assertGrpcError(
+          alpha,
           failure,
           Status.Code.INVALID_ARGUMENT,
+          LedgerApiErrors.InterpreterErrors.ContractNotActive,
           Some("Update failed due to fetch of an inactive contract"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -148,8 +153,10 @@ final class SemanticTests extends LedgerTestSuite {
           .mustFail("consuming a contract twice")
       } yield {
         assertGrpcError(
+          beta,
           failure,
           Status.Code.ABORTED,
+          LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -241,8 +248,10 @@ final class SemanticTests extends LedgerTestSuite {
         .mustFail("creating a contract on behalf of two parties")
     } yield {
       assertGrpcError(
+        alpha,
         failure,
         Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.InterpreterErrors.AuthorizationError,
         Some("requires authorizers"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -263,8 +272,10 @@ final class SemanticTests extends LedgerTestSuite {
           .mustFail("exercising a choice without consent")
       } yield {
         assertGrpcError(
+          beta,
           failure,
           Status.Code.INVALID_ARGUMENT,
+          LedgerApiErrors.InterpreterErrors.AuthorizationError,
           Some("requires authorizers"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -329,26 +340,34 @@ final class SemanticTests extends LedgerTestSuite {
 
       } yield {
         assertGrpcError(
+          beta,
           iouFetchFailure,
           Status.Code.ABORTED,
+          LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
         assertGrpcError(
+          alpha,
           paintOfferFetchFailure,
           Status.Code.ABORTED,
+          LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
         assertGrpcError(
+          alpha,
           paintAgreeFetchFailure,
           Status.Code.ABORTED,
+          LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
         assertGrpcError(
+          alpha,
           secondIouFetchFailure,
           Status.Code.INVALID_ARGUMENT,
+          LedgerApiErrors.InterpreterErrors.AuthorizationError,
           Some("requires one of the stakeholders"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -413,8 +432,10 @@ final class SemanticTests extends LedgerTestSuite {
           }
         } yield {
           assertGrpcError(
+            beta,
             failure,
             Status.Code.ABORTED,
+            LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
             Some("Contract could not be found"),
             checkDefiniteAnswerMetadata = true,
           )

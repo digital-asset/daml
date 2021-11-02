@@ -12,7 +12,7 @@ import com.daml.lf.transaction.Node.{
   NodeFetch,
   NodeLookupByKey,
 }
-import com.daml.lf.transaction.{BlindingInfo, GenTransaction, NodeId, Transaction}
+import com.daml.lf.transaction.{BlindingInfo, GenTransaction, NodeId, VersionedTransaction}
 import com.daml.lf.ledger._
 import com.daml.lf.data.Relation.Relation
 
@@ -29,7 +29,7 @@ object Blinding {
     *
     *  @param tx transaction to be blinded
     */
-  def blind(tx: Transaction.Transaction): BlindingInfo =
+  def blind(tx: VersionedTransaction): BlindingInfo =
     BlindingTransaction.calculateBlindingInfo(tx)
 
   /** Returns the part of the transaction which has to be divulged to the given party.

@@ -2202,7 +2202,7 @@ object EngineTest {
     Validation.isReplayedBy(Normalization.normalizeTx(recorded), replayed)
   }
 
-  private def suffix(tx: Tx.Transaction) =
+  private def suffix(tx: VersionedTransaction) =
     data.assertRight(tx.suffixCid(_ => dummySuffix))
 
   private[this] case class ReinterpretState(
@@ -2246,13 +2246,13 @@ object EngineTest {
       engine: Engine,
       submitters: Set[Party],
       nodes: ImmArray[NodeId],
-      tx: Tx.Transaction,
+      tx: VersionedTransaction,
       txMeta: Tx.Metadata,
       ledgerEffectiveTime: Time.Timestamp,
       lookupPackages: PackageId => Option[Package],
       contracts: Map[ContractId, VersionedContractInstance] = Map.empty,
       keys: Map[GlobalKey, ContractId] = Map.empty,
-  ): Either[Error, (Tx.Transaction, Tx.Metadata)] = {
+  ): Either[Error, (VersionedTransaction, Tx.Metadata)] = {
 
     val nodeSeedMap = txMeta.nodeSeeds.toSeq.toMap
 
