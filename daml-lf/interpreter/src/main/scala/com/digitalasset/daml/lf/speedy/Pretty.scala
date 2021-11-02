@@ -100,7 +100,7 @@ private[lf] object Pretty {
           text("conflicts with a local contract ID")
       case ContractIdInContractKey(key) =>
         text("Contract IDs are not supported in contract keys:") &
-          prettyContractId(key.ensureNoCid.left.toOption.get)
+          prettyContractId(key.cids.head)
       case ValueExceedsMaxNesting =>
         text(s"Value exceeds maximum nesting value of 100")
     }
