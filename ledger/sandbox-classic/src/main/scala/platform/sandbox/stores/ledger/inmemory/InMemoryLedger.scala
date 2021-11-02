@@ -744,6 +744,7 @@ private[sandbox] final class InMemoryLedger(
       loggingContext: LoggingContext
   ): Future[Unit] =
     // sandbox-classic in-memory ledger does not support pruning
+  // TODO error codes: Adapt V2 ?
     Future.failed(Status.UNIMPLEMENTED.asRuntimeException())
 }
 

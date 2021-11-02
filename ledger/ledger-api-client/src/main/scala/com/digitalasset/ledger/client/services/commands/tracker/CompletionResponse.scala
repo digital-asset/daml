@@ -85,6 +85,7 @@ object CompletionResponse {
     }
 
   private[daml] def toException(response: TrackedCompletionFailure): StatusException =
+  // TODO error codes: Adapt V2 ?
     response match {
       case QueueCompletionFailure(failure) =>
         val metadata = extractMetadata(failure)
@@ -115,6 +116,7 @@ object CompletionResponse {
 
   private def buildException(metadata: Map[String, String], status: StatusJavaProto.Builder) = {
     val details = mergeDetails(metadata, status)
+    // TODO error codes: Adapt V2 ?
     protobuf.StatusProto.toStatusException(
       status
         .clearDetails()

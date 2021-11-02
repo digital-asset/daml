@@ -439,6 +439,7 @@ class JsonLedgerClient(
         // TODO (MK) Using a grpc exception here doesn’t make that much sense.
         // We should refactor this to provide something more general.
         Future.successful(
+          // TODO error codes: Adapt V2 ?
           Left(new StatusRuntimeException(Status.UNKNOWN.withDescription(errors.toString)))
         )
       case ErrorResponse(errors, status) =>

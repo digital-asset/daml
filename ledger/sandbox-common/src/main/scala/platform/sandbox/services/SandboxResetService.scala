@@ -44,6 +44,7 @@ class SandboxResetService(
       serverCallHandler: ServerCallHandler[ReqT, RespT],
   ): Listener[ReqT] = {
     if (resetInitialized.get) {
+      // TODO error codes: Adapt V2 ?
       throw new StatusRuntimeException(
         Status.UNAVAILABLE.withDescription("Sandbox server is currently being reset")
       )
@@ -71,6 +72,7 @@ class SandboxResetService(
     logger.info("Initiating server reset.")
 
     if (!resetInitialized.compareAndSet(false, true))
+    // TODO error codes: Adapt V2 ?
       throw new StatusRuntimeException(
         Status.FAILED_PRECONDITION.withDescription("Sandbox server is currently being reset")
       )

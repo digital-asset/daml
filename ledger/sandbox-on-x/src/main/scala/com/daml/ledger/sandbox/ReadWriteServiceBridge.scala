@@ -261,6 +261,7 @@ object ReadWriteServiceBridge {
           )
         case QueueOfferResult.Failure(throwable) =>
           logger.error("Error enqueueing new submission.", throwable)
+          // TODO error codes: Adapt V2 ?
           SubmissionResult.SynchronousError(
             Status(
               Code.INTERNAL.value,
@@ -269,6 +270,7 @@ object ReadWriteServiceBridge {
           )
         case QueueOfferResult.QueueClosed =>
           logger.error("Error enqueueing new submission: queue is closed.")
+          // TODO error codes: Adapt V2 ?
           SubmissionResult.SynchronousError(
             Status(
               Code.INTERNAL.value,

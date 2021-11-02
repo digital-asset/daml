@@ -72,6 +72,7 @@ object ScenarioServiceMain extends App {
 
 object ScenarioService {
   private def notFoundContextError(id: Long): StatusRuntimeException =
+  // TODO error codes: Adapt V2 ?
     Status.NOT_FOUND.withDescription(s" context $id not found!").asRuntimeException
 }
 
@@ -292,8 +293,10 @@ class ScenarioService(implicit
 
         } catch {
           case e: archive.Error =>
+            // TODO error codes: Adapt V2 ?
             respObs.onError(Status.INVALID_ARGUMENT.withDescription(e.msg).asRuntimeException())
           case NonFatal(e) =>
+            // TODO error codes: Adapt V2 ?
             respObs.onError(Status.INTERNAL.withDescription(e.toString).asRuntimeException())
         }
     }

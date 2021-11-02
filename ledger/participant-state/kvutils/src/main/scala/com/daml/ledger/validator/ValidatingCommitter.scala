@@ -65,6 +65,7 @@ class ValidatingCommitter[LogResult](
             postCommit(value)
             SubmissionResult.Acknowledged
           case Left(MissingInputState(keys)) =>
+            // TODO error codes: Adapt V2 ?
             SubmissionResult.SynchronousError(
               Status(
                 Code.INTERNAL.value,
@@ -72,6 +73,7 @@ class ValidatingCommitter[LogResult](
               )
             )
           case Left(ValidationError(reason)) =>
+            // TODO error codes: Adapt V2 ?
             SubmissionResult.SynchronousError(
               Status(
                 Code.INTERNAL.value,

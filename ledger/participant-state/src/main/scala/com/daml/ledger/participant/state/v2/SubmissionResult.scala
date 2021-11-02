@@ -28,6 +28,7 @@ object SubmissionResult {
     override val description: String = s"Submission failed with error ${status.message}"
 
     def exception: StatusRuntimeException =
+      // TODO error codes: Adapt V2 ?
       protobuf.StatusProto.toStatusRuntimeException(GrpcStatus.toJavaProto(status))
   }
 

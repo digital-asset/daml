@@ -78,6 +78,7 @@ class BatchedValidatingCommitter[LogResult](
           Future.successful(SubmissionResult.Acknowledged)
         case Failure(exception) =>
           Future.successful(
+            // TODO error codes: Adapt V2 ?
             SubmissionResult
               .SynchronousError(Status(Code.INTERNAL.value, exception.getLocalizedMessage))
           )

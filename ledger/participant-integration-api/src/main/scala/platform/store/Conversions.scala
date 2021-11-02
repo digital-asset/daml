@@ -332,6 +332,7 @@ private[platform] object Conversions {
     import RejectionReasonOps._
 
     def toParticipantStateRejectionReason: state.Update.CommandRejected.RejectionReasonTemplate =
+    // TODO error codes: Adapt V2 ?
       rejectionReason match {
         case domain.RejectionReason.Inconsistent(reason) =>
           newRejectionReason(Status.Code.ABORTED, s"Inconsistent: $reason")

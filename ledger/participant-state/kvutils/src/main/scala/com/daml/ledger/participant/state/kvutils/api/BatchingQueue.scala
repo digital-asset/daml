@@ -121,6 +121,7 @@ case class DefaultBatchingQueue(
                 )
               )
             case f: QueueOfferResult.Failure =>
+              // TODO error codes: Adapt V2 ?
               SubmissionResult.SynchronousError(
                 Status(
                   Code.INTERNAL.value,
@@ -128,6 +129,7 @@ case class DefaultBatchingQueue(
                 )
               )
             case QueueOfferResult.QueueClosed =>
+              // TODO error codes: Adapt V2 ?
               SubmissionResult.SynchronousError(
                 Status(
                   Code.INTERNAL.value,

@@ -55,6 +55,7 @@ final class TransactionsServiceImpl(ledgerContent: Observable[LedgerItem])
         Metadata.Key.of("cause", Metadata.ASCII_STRING_MARSHALLER),
         s"BEGIN should be strictly smaller than END. Found BEGIN '${request.getBegin}' and END '${request.getEnd}'",
       )
+      // TODO error codes: Adapt V2 ?
       responseObserver.onError(Status.INVALID_ARGUMENT.asRuntimeException(metadata))
     } else {
       ledgerContent.subscribe(new Observer[LedgerItem] {

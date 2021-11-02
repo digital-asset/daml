@@ -28,6 +28,7 @@ object Rejection {
       domain.RejectionReason.InvalidLedgerTime(description)
 
     override lazy val toStateRejectionReason: state.Update.CommandRejected.RejectionReasonTemplate =
+      // TODO error codes: Adapt V2 ?
       state.Update.CommandRejected.FinalReason(
         RpcStatus.of(
           code = Status.Code.ABORTED.value(),

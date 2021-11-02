@@ -37,6 +37,10 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     ErrorDetails.RequestInfoDetail("trace-id")
 
   "ErrorFactories" should {
+    "do it" in {
+      Code.values().foreach(println)
+      fail()
+    }
     "return sqlTransientException" in {
       val failureReason = "some db transient failure"
       val someSqlTransientException = new SQLTransientException(failureReason)

@@ -49,6 +49,7 @@ private[services] final class QueueBackedTracker(
             _.left.map(completionFailure => QueueCompletionFailure(completionFailure))
           )
         case QueueOfferResult.Failure(t) =>
+          // TODO error codes: Adapt V2 ?
           failedQueueSubmission(
             GrpcStatus.ABORTED
               .withDescription(s"Failed to enqueue: ${t.getClass.getSimpleName}: ${t.getMessage}")
