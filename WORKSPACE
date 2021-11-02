@@ -435,13 +435,13 @@ haskell_register_ghc_nixpkgs(
         "-Wwarn",
     ],
     repositories = dev_env_nix_repos,
-    version = "8.10.4",
+    version = "8.10.7",
 )
 
 # Used by Windows
 haskell_register_ghc_bindists(
     compiler_flags = common_ghc_flags,
-    version = "8.10.4",
+    version = "8.10.7",
 ) if is_windows else None
 
 nixpkgs_package(
