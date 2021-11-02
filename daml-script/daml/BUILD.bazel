@@ -35,6 +35,7 @@ EOF
             build_options = str([
                 "--ghc-option",
                 "-Werror",
+                "--log-level=WARNING",
             ] + [
                 "--target",
                 lf_version,

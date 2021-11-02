@@ -24,8 +24,7 @@ def _daml_configure_impl(ctx):
     project_version = ctx.attr.project_version
     daml_yaml = ctx.outputs.daml_yaml
     target = ctx.attr.target
-    ghc_opts = ctx.attr.ghc_options
-    opts = ghc_opts + ["--target={}".format(target)] if target else ghc_opts
+    opts = ["--target={}".format(target)] if target else []
     ctx.actions.write(
         output = daml_yaml,
         content = """
@@ -60,10 +59,6 @@ _daml_configure = rule(
         ),
         "target": attr.string(
             doc = "DAML-LF version to output.",
-        ),
-        "ghc_options": attr.string_list(
-            doc = "Options passed to GHC.",
-            default = ["--ghc-option=-Werror"],
         ),
     },
 )
@@ -152,7 +147,7 @@ _daml_build = rule(
         ),
         "ghc_options": attr.string_list(
             doc = "Options passed to GHC.",
-            default = ["--ghc-option=-Werror"],
+            default = ["--ghc-option=-Werror", "--ghc-option=-Wwarn", "--log-level=WARNING"],
         ),
         "_damlc": _damlc,
     },
@@ -172,7 +167,7 @@ def _extract_main_dalf_impl(ctx):
         outputs = [output_dalf],
         progress_message = "Extract DALF from DAR (%s)" % project_name,
         command = """
-set -eoux pipefail
+set -eou pipefail
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
 # While zipper has a -d option, it insists on it
@@ -252,12 +247,15 @@ def _inspect_dar(base):
 
 _default_project_version = "1.0.0"
 
+default_damlc_opts = ["--ghc-option=-Werror", "--ghc-option=-Wwarn", "--log-level=WARNING"]
+
 def daml_compile(
         name,
         srcs,
         version = _default_project_version,
         target = None,
         project_name = None,
+        ghc_options = default_damlc_opts,
         **kwargs):
     "Build a DAML project, with a generated daml.yaml."
     if len(srcs) == 0:
@@ -277,6 +275,7 @@ def daml_compile(
         srcs = srcs,
         dar_dict = {},
         dar = name + ".dar",
+        ghc_options = ghc_options,
         **kwargs
     )
     _inspect_dar(
@@ -308,6 +307,7 @@ def daml_build_test(
         daml_subdir_basename = "daml",
         daml_yaml = None,
         dar_dict = {},
+        ghc_options = default_damlc_opts,
         **kwargs):
     "Build a DAML project and validate the resulting .dar file."
     if not daml_yaml:
@@ -319,6 +319,7 @@ def daml_build_test(
         srcs = srcs,
         dar_dict = dar_dict,
         dar = name + ".dar",
+        ghc_options = ghc_options,
         **kwargs
     )
     _daml_validate_test(
@@ -338,7 +339,7 @@ def daml_test(
         name = name,
         data = [damlc] + srcs + deps + data_deps,
         cmd = """\
-set -eoux pipefail
+set -eou pipefail
 tmpdir=$$(mktemp -d)
 trap "rm -rf $$tmpdir" EXIT
 DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
