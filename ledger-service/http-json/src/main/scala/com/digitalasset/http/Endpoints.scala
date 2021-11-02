@@ -38,6 +38,7 @@ import com.daml.http.util.Collections.toNonEmptySet
 import com.daml.http.util.FutureUtil.{either, eitherT}
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.http.util.{ProtobufByteStrings, toLedgerId}
+import util.JwtParties._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
@@ -702,31 +703,6 @@ class Endpoints(
       case _ => false
     }
 
-  // security check for readAs; we delegate the remainder to
-  // the participant's check that the JWT itself is valid
-  private[this] def ensureReadAsAllowedByJwt(
-      readAs: Option[NonEmptyList[domain.Party]],
-      jwtPayload: JwtPayload,
-  ): Error \/ Unit = {
-    val disallowedParties: Set[domain.Party] =
-      readAs.cata((_.toSet.filter(jwtPayload.parties)), Set.empty)
-    if (disallowedParties.isEmpty) \/-(())
-    else {
-      val err =
-        s"Queried parties not allowed by given JWT token: ${disallowedParties mkString ", "}"
-      -\/(Unauthorized(err))
-    }
-  }
-
-  private[this] def resolveRefParties(
-      meta: Option[domain.CommandMeta],
-      jwtPayload: JwtWritePayload,
-  ): domain.PartySet = {
-    val actAs = meta.flatMap(_.actAs) getOrElse jwtPayload.submitter
-    val readAs = meta.flatMap(_.readAs) getOrElse jwtPayload.readAs
-    actAs.toSet1 ++ readAs
-  }
-
   private def resolveReference(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
@@ -824,7 +800,7 @@ object Endpoints {
     } yield c
   }
 
-  private[http] val nonHttpsErrorMessage =
+  private val nonHttpsErrorMessage =
     "missing HTTPS reverse-proxy request headers; for development launch with --allow-insecure-tokens"
 
   private def partiesResponse(
