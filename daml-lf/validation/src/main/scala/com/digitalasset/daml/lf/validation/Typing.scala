@@ -479,8 +479,20 @@ private[validation] object Typing {
         AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
 
     def checkIfaceImplementation(tplTcon: TypeConName, impl: TemplateImplements): Unit = {
-      val DefInterfaceSignature(_, virtualChoices, _, methods, _) =
+      val DefInterfaceSignature(_, virtualChoices, fixedChoices, methods, _) =
         handleLookup(ctx, interface.lookupInterface(impl.interface))
+
+      val fixedChoiceSet = fixedChoices.keys.toSet
+      if (impl.inheritedChoices != fixedChoiceSet) {
+        throw EBadInheritedChoices(
+          ctx,
+          impl.interface,
+          tplTcon,
+          fixedChoiceSet,
+          impl.inheritedChoices,
+        )
+      }
+
       virtualChoices.values.foreach { case InterfaceChoice(name, consuming, argType, returnType) =>
         val tplChoice = handleLookup(ctx, interface.lookupChoice(tplTcon, name))
         if (tplChoice.consuming != consuming)

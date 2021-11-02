@@ -853,31 +853,34 @@ object Ast {
   final case class GenTemplateImplements[E](
       interface: TypeConName,
       methods: Map[MethodName, GenTemplateImplementsMethod[E]],
+      inheritedChoices: Set[ChoiceName],
   )
 
   final class GenTemplateImplementsCompanion[E] private[Ast] {
     def apply(
         interface: TypeConName,
         methods: Iterable[(MethodName, GenTemplateImplementsMethod[E])],
+        inheritedChoices: Iterable[ChoiceName],
     ): GenTemplateImplements[E] = {
       val methodMap = toMapWithoutDuplicate(
         methods,
         (methodName: MethodName) =>
           throw PackageError(s"repeated method implementation $methodName"),
       )
-      new GenTemplateImplements[E](interface, methodMap)
+      new GenTemplateImplements[E](interface, methodMap, inheritedChoices.toSet)
     }
 
     def apply(
         interface: TypeConName,
         methods: Map[MethodName, GenTemplateImplementsMethod[E]],
+        inheritedChoices: Set[ChoiceName],
     ): GenTemplateImplements[E] =
-      GenTemplateImplements[E](interface, methods)
+      GenTemplateImplements[E](interface, methods, inheritedChoices)
 
     def unapply(
         arg: GenTemplateImplements[E]
-    ): Some[(TypeConName, Map[MethodName, GenTemplateImplementsMethod[E]])] =
-      Some((arg.interface, arg.methods))
+    ): Some[(TypeConName, Map[MethodName, GenTemplateImplementsMethod[E]], Set[ChoiceName])] =
+      Some((arg.interface, arg.methods, arg.inheritedChoices))
   }
 
   type TemplateImplements = GenTemplateImplements[Expr]
