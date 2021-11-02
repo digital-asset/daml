@@ -41,6 +41,7 @@ rules_haskell_patches = [
     # This should be made configurable in rules_haskell.
     # Remove this patch once that's available.
     "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
+    "@com_github_digital_asset_daml//bazel_tools:haskell-ghc-8.10.7-bindist.patch",
 ]
 rules_nixpkgs_version = "c40b35f73e5ab1c0096d95abf63027a3b8054061"
 rules_nixpkgs_sha256 = "47fffc870a25d82deedb887c32481a43a12f56b51e5002773046f81fbe3ea9df"
