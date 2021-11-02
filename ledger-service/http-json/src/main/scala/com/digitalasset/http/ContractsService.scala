@@ -91,19 +91,20 @@ class ContractsService(
   def lookup(
       jwt: Jwt,
       jwtPayload: JwtPayload,
-      contractLocator: domain.ContractLocator[LfValue],
+      req: domain.FetchRequest[LfValue],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: Metrics,
   ): Future[Option[domain.ActiveContract[JsValue]]] = {
     val ledgerId = toLedgerId(jwtPayload.ledgerId)
-    contractLocator match {
+    val readAs = req.readAs.cata(_.toSet1, jwtPayload.parties)
+    req.locator match {
       case domain.EnrichedContractKey(templateId, contractKey) =>
-        findByContractKey(jwt, jwtPayload.parties, templateId, ledgerId, contractKey)
+        findByContractKey(jwt, readAs, templateId, ledgerId, contractKey)
       case domain.EnrichedContractId(templateId, contractId) =>
         findByContractId(
           jwt,
-          jwtPayload.parties,
+          readAs,
           templateId,
           ledgerId,
           contractId,

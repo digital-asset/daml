@@ -374,15 +374,25 @@ class Endpoints(
       jsVal <- withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
         logger.debug(s"/v1/fetch reqBody: $reqBody")
         for {
-          cl <-
-            decoder
-              .decodeContractLocator(reqBody, jwt, toLedgerId(jwtPayload.ledgerId))
-              .liftErr(InvalidUserInput): ET[domain.ContractLocator[LfValue]]
+          fr <-
+            either(
+              SprayJson
+                .decode[domain.FetchRequest[JsValue]](reqBody)
+                .liftErr[Error](InvalidUserInput)
+            )
+              .flatMap(
+                _.traverseLocator(
+                  decoder
+                    .decodeContractLocatorKey(_, jwt, toLedgerId(jwtPayload.ledgerId))
+                    .liftErr(InvalidUserInput)
+                )
+              ): ET[domain.FetchRequest[LfValue]]
           _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
-          _ = logger.debug(s"/v1/fetch cl: $cl")
+          _ = logger.debug(s"/v1/fetch fr: $fr")
 
+          // TODO SC security check readAs
           ac <- eitherT(
-            handleFutureFailure(contractsService.lookup(jwt, jwtPayload, cl))
+            handleFutureFailure(contractsService.lookup(jwt, jwtPayload, fr))
           ): ET[Option[domain.ActiveContract[JsValue]]]
 
           jsVal <- either(

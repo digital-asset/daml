@@ -112,18 +112,6 @@ class DomainJsonDecoder(
       )
     } yield lfType
 
-  def decodeContractLocator(a: JsValue, jwt: Jwt, ledgerId: LedgerApiDomain.LedgerId)(implicit
-      ev: JsonReader[domain.ContractLocator[JsValue]],
-      ec: ExecutionContext,
-      lc: LoggingContextOf[InstanceUUID],
-  ): ET[domain.ContractLocator[domain.LfValue]] =
-    either(
-      SprayJson
-        .decode[domain.ContractLocator[JsValue]](a)
-        .liftErrS("DomainJsonDecoder_decodeContractLocator")(JsonError)
-    )
-      .flatMap(decodeContractLocatorKey(_, jwt, ledgerId))
-
   private[http] def decodeContractLocatorKey(
       a: domain.ContractLocator[JsValue],
       jwt: Jwt,
