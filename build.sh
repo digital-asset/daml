@@ -32,6 +32,7 @@ CCTOOLCHAIN=$(nix-build nix/bazel.nix --no-out-link -A bazel-cc-toolchain)
 echo $CCTOOLCHAIN
 ls -l $CCTOOLCHAIN/bin
 ls
-bazel build @com_github_madler_zlib//...
+bazel clean --expunge
+bazel build -s @com_github_madler_zlib//...
 cat bazel-out/darwin-opt/bin/external/com_github_madler_zlib/libz.pic.a-2.params
 $CCTOOLCHAIN/bin/ar @bazel-out/darwin-opt/bin/external/com_github_madler_zlib/libz.pic.a-2.params
