@@ -451,8 +451,6 @@ execIde telemetry (Debug debug) enableScenarioService options =
           let threshold =
                   if debug
                   then Logger.Debug
-                  -- info is used pretty extensively for debug messages in our code base so
-                  -- I've set the no debug threshold at warning
                   else Logger.Info
           loggerH <- Logger.IO.newIOLogger
             stderr
