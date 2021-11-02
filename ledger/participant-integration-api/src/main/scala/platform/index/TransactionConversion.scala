@@ -7,8 +7,7 @@ import com.daml.api.util.TimestampConversion
 import com.daml.lf.data.{BackStack, FrontStack, FrontStackCons, Ref}
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.engine.Blinding
-import com.daml.lf.transaction.{CommittedTransaction, NodeId, Transaction => Tx}
-import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
+import com.daml.lf.transaction.{CommittedTransaction, NodeId, Node}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
@@ -32,9 +31,6 @@ import scala.annotation.tailrec
 private[platform] object TransactionConversion {
 
   private type Transaction = CommittedTransaction
-  private type Node = Tx.Node
-  private type Create = NodeCreate
-  private type Exercise = NodeExercises
 
   private def collect[A](tx: Transaction)(pf: PartialFunction[(NodeId, Node), A]): Seq[A] = {
     def handle(acc: Vector[A], nodeId: NodeId, node: Node): Vector[A] =
@@ -62,12 +58,12 @@ private[platform] object TransactionConversion {
       trId: Ref.TransactionId,
       verbose: Boolean,
   ): PartialFunction[(NodeId, Node), Event] = {
-    case (nodeId, node: Create) =>
+    case (nodeId, node: Node.Create) =>
       assertOrRuntimeEx(
         failureContext = "converting a create node to a created event",
         lfNodeCreateToEvent(verbose, trId, nodeId, node),
       )
-    case (nodeId, node: Exercise) if node.consuming =>
+    case (nodeId, node: Node.Exercise) if node.consuming =>
       assertOrRuntimeEx(
         failureContext = "converting a consuming exercise node to an archived event",
         lfNodeExercisesToEvent(trId, nodeId, node),
@@ -130,8 +126,8 @@ private[platform] object TransactionConversion {
 
   private def isCreateOrExercise(n: Node): Boolean = {
     n match {
-      case _: Exercise => true
-      case _: Create => true
+      case _: Node.Exercise => true
+      case _: Node.Create => true
       case _ => false
     }
   }
@@ -141,13 +137,13 @@ private[platform] object TransactionConversion {
       disclosure: Relation[NodeId, Ref.Party],
       nodes: Map[NodeId, Node],
   ): PartialFunction[(NodeId, Node), (String, TreeEvent)] = {
-    case (nodeId, node: Create) if disclosure.contains(nodeId) =>
+    case (nodeId, node: Node.Create) if disclosure.contains(nodeId) =>
       val eventId = EventId(trId, nodeId)
       eventId.toLedgerString -> assertOrRuntimeEx(
         failureContext = "converting a create node to a created event",
         lfNodeCreateToTreeEvent(verbose, eventId, disclosure(nodeId), node),
       )
-    case (nodeId, node: Exercise) if disclosure.contains(nodeId) =>
+    case (nodeId, node: Node.Exercise) if disclosure.contains(nodeId) =>
       val eventId = EventId(trId, nodeId)
       eventId.toLedgerString -> assertOrRuntimeEx(
         failureContext = "converting an exercise node to an exercise event",
@@ -172,9 +168,9 @@ private[platform] object TransactionConversion {
       toProcess match {
         case FrontStackCons(head, tail) =>
           tx.nodes(head) match {
-            case _: Create | _: Exercise if disclosed(head) =>
+            case _: Node.Create | _: Node.Exercise if disclosed(head) =>
               go(tail, acc :+ head)
-            case exe: Exercise =>
+            case exe: Node.Exercise =>
               go(exe.children ++: tail, acc)
             case _ =>
               go(tail, acc)

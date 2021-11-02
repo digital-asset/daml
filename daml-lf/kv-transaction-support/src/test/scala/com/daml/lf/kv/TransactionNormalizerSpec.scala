@@ -4,7 +4,6 @@
 package com.daml.lf.kv
 
 import com.daml.lf.transaction._
-import com.daml.lf.transaction.Node._
 import org.scalatest.wordspec.AnyWordSpec
 import com.daml.lf.value.test.ValueGenerators._
 import org.scalatest.matchers.should.Matchers
@@ -82,24 +81,24 @@ class TransactionNormalizerSpec
     }
   }
 
-  def isCreateOrExercise(node: GenNode): Boolean = {
+  def isCreateOrExercise(node: Node): Boolean = {
     node match {
-      case _: NodeExercises => true
-      case _: NodeCreate => true
+      case _: Node.Exercise => true
+      case _: Node.Create => true
       case _ => false
     }
   }
 
-  def nodeSansChildren(node: GenNode): GenNode = {
+  def nodeSansChildren(node: Node): Node = {
     node match {
-      case exe: NodeExercises => exe.copy(children = ImmArray.Empty)
+      case exe: Node.Exercise => exe.copy(children = ImmArray.Empty)
       case _ => node
     }
   }
 
-  def nodeChildren(node: GenNode): List[NodeId] = {
+  def nodeChildren(node: Node): List[NodeId] = {
     node match {
-      case exe: NodeExercises => exe.children.toList
+      case exe: Node.Exercise => exe.children.toList
       case _ => List()
     }
   }

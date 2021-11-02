@@ -3,25 +3,25 @@
 
 package com.daml.platform.common
 
-import com.daml.lf.transaction.{Node => N}
+import com.daml.lf.transaction.Node
 import com.daml.lf.{engine => E}
 import com.daml.lf.data.Ref
 
 object PlatformTypes {
 
-  type GenNode = N.GenNode
+  type GenNode = Node
 
-  type NodeCreate = N.NodeCreate
-  val NodeCreate: N.NodeCreate.type = N.NodeCreate
+  type NodeCreate = Node.Create
+  val NodeCreate: Node.Create.type = Node.Create
 
-  type NodeLookupByKey = N.NodeLookupByKey
-  val NodeLookupByKey: N.NodeLookupByKey.type = N.NodeLookupByKey
+  type NodeLookupByKey = Node.LookupByKey
+  val NodeLookupByKey: Node.LookupByKey.type = Node.LookupByKey
 
-  type NodeFetch = N.NodeFetch
-  val NodeFetch: N.NodeFetch.type = N.NodeFetch
+  type NodeFetch = Node.Fetch
+  val NodeFetch: Node.Fetch.type = Node.Fetch
 
-  type NodeExercises = N.NodeExercises
-  val NodeExercises: N.NodeExercises.type = N.NodeExercises
+  type NodeExercises = Node.Exercise
+  val NodeExercises: Node.Exercise.type = Node.Exercise
 
   type Event = E.Event
 

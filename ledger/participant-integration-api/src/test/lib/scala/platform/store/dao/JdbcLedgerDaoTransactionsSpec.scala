@@ -13,7 +13,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
+import com.daml.lf.transaction.Node
 import com.daml.logging.LoggingContext
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.EventOps
@@ -70,7 +70,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         transaction.transactionId shouldBe tx.transactionId
         transaction.workflowId shouldBe tx.workflowId.getOrElse("")
         inside(transaction.events.loneElement.event.created) { case Some(created) =>
-          val (nodeId, createNode: NodeCreate) =
+          val (nodeId, createNode: Node.Create) =
             tx.transaction.nodes.head
           created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
           created.witnessParties should contain only (tx.actAs: _*)
@@ -104,7 +104,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         ) shouldBe exercise.ledgerEffectiveTime
         transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
         inside(transaction.events.loneElement.event.archived) { case Some(archived) =>
-          val (nodeId, exerciseNode: NodeExercises) =
+          val (nodeId, exerciseNode: Node.Exercise) =
             exercise.transaction.nodes.head
           archived.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
           archived.witnessParties should contain only (exercise.actAs: _*)

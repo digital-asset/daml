@@ -15,8 +15,8 @@ package object v25_backfill_participant_events {
   import com.daml.lf.{transaction => lftx}
   private[migration] type NodeId = lftx.NodeId
   private[migration] type Transaction = lftx.VersionedTransaction
-  private[migration] type Create = lftx.Node.NodeCreate
-  private[migration] type Exercise = lftx.Node.NodeExercises
+  private[migration] type Create = lftx.Node.Create
+  private[migration] type Exercise = lftx.Node.Exercise
 
   import com.daml.lf.{data => lfdata}
   private[migration] type Party = lfdata.Ref.Party

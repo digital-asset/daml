@@ -5,13 +5,7 @@ package com.daml.lf.engine
 
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.transaction.Node.{
-  NodeRollback,
-  NodeCreate,
-  NodeExercises,
-  NodeFetch,
-  NodeLookupByKey,
-}
+import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.{BlindingInfo, GenTransaction, NodeId, VersionedTransaction}
 import com.daml.lf.ledger._
 import com.daml.lf.data.Relation.Relation
@@ -69,11 +63,11 @@ object Blinding {
             go(filteredRoots :+ root, remainingRoots)
           } else {
             tx.nodes(root) match {
-              case nr: NodeRollback =>
+              case nr: Node.Rollback =>
                 go(filteredRoots, nr.children ++: remainingRoots)
-              case _: NodeFetch | _: NodeCreate | _: NodeLookupByKey =>
+              case _: Node.Fetch | _: Node.Create | _: Node.LookupByKey =>
                 go(filteredRoots, remainingRoots)
-              case ne: NodeExercises =>
+              case ne: Node.Exercise =>
                 go(filteredRoots, ne.children ++: remainingRoots)
             }
           }

@@ -33,11 +33,7 @@ private[lf] object PartialTransaction {
     final case object Duplicate extends KeyConflict
   }
 
-  type NodeIdx = Value.NodeIdx
-  type Node = Node.GenNode
-  type LeafNode = Node.LeafOnlyActionNode
-
-  private type ExerciseNode = Node.NodeExercises
+  import Value.NodeIdx
 
   sealed abstract class ContextInfo {
     val actionChildSeed: Int => crypto.Hash
@@ -272,7 +268,7 @@ private[speedy] case class PartialTransaction(
     contractKeyUniqueness: ContractKeyUniquenessMode,
     submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
-    nodes: HashMap[NodeId, PartialTransaction.Node],
+    nodes: HashMap[NodeId, Node],
     actionNodeSeeds: BackStack[crypto.Hash],
     consumedBy: Map[Value.ContractId, NodeId],
     context: PartialTransaction.Context,
@@ -319,9 +315,9 @@ private[speedy] case class PartialTransaction(
       // so we need to compute them.
       val rootNodes = {
         val allChildNodeIds: Set[NodeId] = nodes.values.iterator.flatMap {
-          case rb: Node.NodeRollback => rb.children.toSeq
-          case _: Node.LeafOnlyActionNode => Nil
-          case ex: Node.NodeExercises => ex.children.toSeq
+          case rb: Node.Rollback => rb.children.toSeq
+          case _: Node.LeafOnlyAction => Nil
+          case ex: Node.Exercise => ex.children.toSeq
         }.toSet
 
         nodes.keySet diff allChildNodeIds
@@ -416,7 +412,7 @@ private[speedy] case class PartialTransaction(
       crypto.Hash.deriveContractDiscriminator(actionNodeSeed, submissionTime, stakeholders)
     val cid = Value.ContractId.V1(discriminator)
     val version = packageToTransactionVersion(templateId.packageId)
-    val createNode = Node.NodeCreate(
+    val createNode = Node.Create(
       cid,
       templateId,
       arg,
@@ -505,7 +501,7 @@ private[speedy] case class PartialTransaction(
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
     val version = packageToTransactionVersion(templateId.packageId)
-    val node = Node.NodeFetch(
+    val node = Node.Fetch(
       coid,
       templateId,
       actingParties,
@@ -531,7 +527,7 @@ private[speedy] case class PartialTransaction(
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
     val version = packageToTransactionVersion(templateId.packageId)
-    val node = Node.NodeLookupByKey(
+    val node = Node.LookupByKey(
       templateId,
       key,
       result,
@@ -651,9 +647,9 @@ private[speedy] case class PartialTransaction(
         )
     }
 
-  private[this] def makeExNode(ec: ExercisesContextInfo): ExerciseNode = {
+  private[this] def makeExNode(ec: ExercisesContextInfo): Node.Exercise = {
     val version = packageToTransactionVersion(ec.templateId.packageId)
-    Node.NodeExercises(
+    Node.Exercise(
       targetCoid = ec.targetId,
       templateId = ec.templateId,
       choiceId = ec.choiceId,
@@ -723,7 +719,7 @@ private[speedy] case class PartialTransaction(
       case info: TryContextInfo =>
         // In the case of there being no children we could drop the entire rollback node.
         // But we do that in a later normalization phase, not here.
-        val rollbackNode = Node.NodeRollback(context.children.toImmArray)
+        val rollbackNode = Node.Rollback(context.children.toImmArray)
         copy(
           context = info.parent
             .addRollbackChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
@@ -772,7 +768,7 @@ private[speedy] case class PartialTransaction(
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
   def insertLeafNode(
-      node: LeafNode,
+      node: Node.LeafOnlyAction,
       version: TxVersion,
       optLocation: Option[Location],
   ): PartialTransaction = {

@@ -12,12 +12,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.scenario.ScenarioLedger
-import com.daml.lf.transaction.{
-  Node => N,
-  SubmittedTransaction,
-  VersionedTransaction,
-  Transaction => Tx,
-}
+import com.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 import com.daml.lf.command._
@@ -150,8 +145,8 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         seed = hash("testLargeTransactionOneContract:create", txSize),
       )
     val contractId = firstRootNode(createCmdTx) match {
-      case create: N.NodeCreate => create.coid
-      case n => fail(s"Expected NodeCreate, but got: $n")
+      case create: Node.Create => create.coid
+      case n => fail(s"Expected Node.Create, but got: $n")
     }
     val exerciseCmd = toListContainerExerciseCmd(rangeOfIntsTemplateId, contractId)
     val (exerciseCmdTx, quanity) = measureWithResult(
@@ -181,8 +176,8 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         seed = hash("testLargeTransactionManySmallContracts:create", num),
       )
     val contractId = firstRootNode(createCmdTx) match {
-      case create: N.NodeCreate => create.coid
-      case n @ _ => fail(s"Expected NodeCreate, but got: $n")
+      case create: Node.Create => create.coid
+      case n @ _ => fail(s"Expected Node.Create, but got: $n")
     }
     val exerciseCmd = toListOfIntContainers(rangeOfIntsTemplateId, contractId)
     val (exerciseCmdTx, quanity) = measureWithResult(
@@ -212,8 +207,8 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         seed = hash("testLargeChoiceArgument:create", size),
       )
     val contractId = firstRootNode(createCmdTx) match {
-      case create: N.NodeCreate => create.coid
-      case n @ _ => fail(s"Expected NodeCreate, but got: $n")
+      case create: Node.Create => create.coid
+      case n @ _ => fail(s"Expected Node.Create, but got: $n")
     }
     val exerciseCmd = sizeExerciseCmd(listUtilTemplateId, contractId)(size)
     val (exerciseCmdTx, quantity) = measureWithResult(
@@ -252,14 +247,14 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       expectedNumberOfContracts: Int,
   ): Assertion = {
 
-    val newContracts: List[N.GenNode] =
+    val newContracts: List[Node] =
       firstRootNode(exerciseCmdTx) match {
-        case ne: N.NodeExercises => ne.children.toList.map(nid => exerciseCmdTx.nodes(nid))
+        case ne: Node.Exercise => ne.children.toList.map(nid => exerciseCmdTx.nodes(nid))
         case n @ _ => fail(s"Unexpected match: $n")
       }
 
     newContracts.count {
-      case _: N.NodeCreate => true
+      case _: Node.Create => true
       case n @ _ => fail(s"Unexpected match: $n")
     } shouldBe expectedNumberOfContracts
   }
@@ -397,18 +392,18 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     exerciseCmdTx.roots.length shouldBe 1
     exerciseCmdTx.nodes.size shouldBe 2
 
-    val createNode: N.GenNode = firstRootNode(exerciseCmdTx) match {
-      case ne: N.NodeExercises => exerciseCmdTx.nodes(ne.children.head)
+    val createNode: Node = firstRootNode(exerciseCmdTx) match {
+      case ne: Node.Exercise => exerciseCmdTx.nodes(ne.children.head)
       case n @ _ => fail(s"Unexpected match: $n")
     }
 
     createNode match {
-      case create: N.NodeCreate => create.arg
+      case create: Node.Create => create.arg
       case n @ _ => fail(s"Unexpected match: $n")
     }
   }
 
-  private def firstRootNode(tx: VersionedTransaction): Tx.Node = tx.nodes(tx.roots.head)
+  private def firstRootNode(tx: VersionedTransaction): Node = tx.nodes(tx.roots.head)
 
   private def measureWithResult[R](body: => R): (R, Quantity[Double]) = {
     lazy val result: R = body

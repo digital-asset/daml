@@ -5,24 +5,13 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.transaction.{NodeId, GenTransaction}
-import com.daml.lf.transaction.Node.{
-  GenNode,
-  NodeCreate,
-  NodeFetch,
-  NodeRollback,
-  NodeExercises,
-  NodeLookupByKey,
-  LeafOnlyActionNode,
-}
+import com.daml.lf.transaction.Node
 import com.daml.lf.data.{BackStack, ImmArray}
 import com.daml.lf.data.Trampoline.{Bounce, Land, Trampoline}
 
 private[lf] object NormalizeRollbacks {
 
   private[this] type TX = GenTransaction
-  private[this] type Node = GenNode
-  private[this] type LeafNode = LeafOnlyActionNode
-  private[this] type ExeNode = NodeExercises
 
   // Normalize a transaction so rollback nodes satisfy the normalization rules.
   // see `makeRoll` below
@@ -64,17 +53,17 @@ private[lf] object NormalizeRollbacks {
           Bounce { () =>
             node match {
 
-              case NodeRollback(children) =>
+              case Node.Rollback(children) =>
                 traverseNodeIds(children.toList) { norms =>
                   makeRoll(norms)(k)
                 }
 
-              case exe: NodeExercises =>
+              case exe: Node.Exercise =>
                 traverseNodeIds(exe.children.toList) { norms =>
                   k(Vector(Norm.Exe(exe, norms.toList)))
                 }
 
-              case leaf: LeafOnlyActionNode =>
+              case leaf: Node.LeafOnlyAction =>
                 k(Vector(Norm.Leaf(leaf)))
             }
           }
@@ -177,11 +166,11 @@ private[lf] object NormalizeRollbacks {
         x match {
           case Norm.Leaf(node) =>
             node match {
-              case _: NodeCreate =>
+              case _: Node.Create =>
                 s.pushSeedId(me) { s =>
                   s.push(me, node)(k)
                 }
-              case _: NodeFetch | _: NodeLookupByKey =>
+              case _: Node.Fetch | _: Node.LookupByKey =>
                 s.push(me, node)(k)
             }
           case Norm.Exe(exe, subs) =>
@@ -203,7 +192,7 @@ private[lf] object NormalizeRollbacks {
       x match {
         case Norm.Roll1(act) =>
           pushAct(s, act) { (s, child) =>
-            val node = NodeRollback(children = ImmArray(child))
+            val node = Node.Rollback(children = ImmArray(child))
             s.push(me, node)(k)
           }
         case Norm.Roll2(h, m, t) =>
@@ -211,7 +200,7 @@ private[lf] object NormalizeRollbacks {
             pushNorms(s, m.toList) { (s, mm) =>
               pushAct(s, t) { (s, tt) =>
                 val children = List(hh) ++ mm ++ List(tt)
-                val node = NodeRollback(children = children.to(ImmArray))
+                val node = Node.Rollback(children = children.to(ImmArray))
                 s.push(me, node)(k)
               }
             }
@@ -254,8 +243,8 @@ private[lf] object NormalizeRollbacks {
 
       // A non-rollback tx/node
       sealed trait Act extends Norm
-      final case class Leaf(node: LeafNode) extends Act
-      final case class Exe(node: ExeNode, children: List[Norm]) extends Act
+      final case class Leaf(node: Node.LeafOnlyAction) extends Act
+      final case class Exe(node: Node.Exercise, children: List[Norm]) extends Act
 
       // A *normalized* rollback tx/node. 2 cases:
       // - rollback containing a single non-rollback tx/node.

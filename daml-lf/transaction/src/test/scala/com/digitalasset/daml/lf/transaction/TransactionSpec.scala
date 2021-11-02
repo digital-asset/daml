@@ -11,7 +11,6 @@ import com.daml.lf.transaction.GenTransaction.{
   NotWellFormedError,
   OrphanedNode,
 }
-import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeRollback}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.test.ValueGenerators.danglingRefGenNode
@@ -171,26 +170,26 @@ class TransactionSpec
    */
 
   "isReplayedBy" - {
-    def genTrans(node: GenNode) = {
+    def genTrans(node: Node) = {
       val nid = NodeId(1)
       val version = node.optVersion.getOrElse(TransactionVersion.minExceptions)
       VersionedTransaction(version, HashMap(nid -> node), ImmArray(nid))
     }
 
     def isReplayedBy(
-        n1: GenNode,
-        n2: GenNode,
+        n1: Node,
+        n2: Node,
     ) = Validation.isReplayedBy(genTrans(n1), genTrans(n2))
 
     // the whole-transaction-relevant parts are handled by equalForest testing
-    val genEmptyNode: Gen[GenNode] =
+    val genEmptyNode: Gen[Node] =
       for {
         entry <- danglingRefGenNode
         node = entry match {
-          case (_, nr: Node.NodeRollback) =>
+          case (_, nr: Node.Rollback) =>
             nr.copy(children = ImmArray.Empty)
-          case (_, n: Node.LeafOnlyActionNode) => n
-          case (_, ne: Node.NodeExercises) =>
+          case (_, n: Node.LeafOnlyAction) => n
+          case (_, ne: Node.Exercise) =>
             ne.copy(children = ImmArray.Empty)
         }
       } yield node
@@ -211,8 +210,8 @@ class TransactionSpec
       forAll(genEmptyNode, minSuccessful(10)) { n =>
         val version = n.optVersion.getOrElse(TransactionVersion.minExceptions)
         n match {
-          case _: NodeRollback => ()
-          case n: Node.GenActionNode =>
+          case _: Node.Rollback => ()
+          case n: Node.Action =>
             val m = n.updateVersion(diffVersion(version))
             isReplayedBy(n, m) shouldBe Symbol("left")
         }
@@ -331,7 +330,7 @@ class TransactionSpec
       builder.add(fetch("FetchByKey", true), exeId)
       builder.add(lookup("SuccessfulLookup", true), exeId)
       builder.add(lookup("UnsuccessfulLookup", true), exeId)
-      val rollbackId = builder.add(Node.NodeRollback(ImmArray.Empty))
+      val rollbackId = builder.add(Node.Rollback(ImmArray.Empty))
       builder.add(create("RolledBackCreate"))
       builder.add(exe("RolledBackNonConsumingExerciseById", false, false), rollbackId)
       builder.add(exe("RolledBackConsumingExerciseById", true, false), rollbackId)
@@ -573,7 +572,7 @@ class TransactionSpec
   }
   def exercise(
       builder: TransactionBuilder,
-      create: Node.NodeCreate,
+      create: Node.Create,
       parties: Set[Ref.Party],
       consuming: Boolean,
   ) =
@@ -650,14 +649,14 @@ object TransactionSpec {
 
   type Transaction = GenTransaction
   def mkTransaction(
-      nodes: HashMap[NodeId, GenNode],
+      nodes: HashMap[NodeId, Node],
       roots: ImmArray[NodeId],
   ): Transaction = GenTransaction(nodes, roots)
 
   def dummyRollbackNode(
       children: ImmArray[NodeId]
-  ): NodeRollback =
-    NodeRollback(
+  ): Node.Rollback =
+    Node.Rollback(
       children = children
     )
 
@@ -665,8 +664,8 @@ object TransactionSpec {
       cid: V.ContractId,
       children: ImmArray[NodeId],
       hasExerciseResult: Boolean = true,
-  ): NodeExercises =
-    NodeExercises(
+  ): Node.Exercise =
+    Node.Exercise(
       targetCoid = cid,
       templateId = "DummyModule:dummyName",
       choiceId = "dummyChoice",
@@ -683,8 +682,8 @@ object TransactionSpec {
       version = TransactionVersion.minVersion,
     )
 
-  def dummyCreateNode(cid: V.ContractId): NodeCreate =
-    NodeCreate(
+  def dummyCreateNode(cid: V.ContractId): Node.Create =
+    Node.Create(
       coid = cid,
       templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),
       arg = V.ValueContractId("#dummyCid"),

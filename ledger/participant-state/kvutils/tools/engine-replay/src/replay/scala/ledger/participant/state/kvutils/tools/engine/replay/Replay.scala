@@ -177,9 +177,9 @@ private[replay] object Replay {
       val transactions = importer.read().map(_._1).flatMap(decodeSubmissionInfo)
       if (transactions.isEmpty) sys.error("no transaction find")
 
-      val createsNodes: Seq[Node.NodeCreate] =
+      val createsNodes: Seq[Node.Create] =
         transactions.flatMap(entry =>
-          entry.tx.nodes.values.collect { case create: Node.NodeCreate =>
+          entry.tx.nodes.values.collect { case create: Node.Create =>
             create
           }
         )
@@ -193,7 +193,7 @@ private[replay] object Replay {
 
       val benchmarks = transactions.flatMap { entry =>
         entry.tx.roots.map(entry.tx.nodes) match {
-          case ImmArray(exe: Node.NodeExercises) =>
+          case ImmArray(exe: Node.Exercise) =>
             val inputContracts = entry.tx.inputContracts
             List(
               BenchmarkState(

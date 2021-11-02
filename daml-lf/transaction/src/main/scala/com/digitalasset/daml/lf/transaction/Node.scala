@@ -14,27 +14,30 @@ import scalaz.syntax.equal._
 /** Generic transaction node type for both update transactions and the
   * transaction graph.
   */
-object Node {
+sealed abstract class Node extends Product with Serializable with CidContainer[Node] {
 
-  sealed abstract class GenNode extends Product with Serializable with CidContainer[GenNode] {
-
-    def optVersion: Option[TransactionVersion] = this match {
-      case node: GenActionNode => Some(node.version)
-      case _: NodeRollback => None
-    }
-
-    def mapNodeId(f: NodeId => NodeId): GenNode
+  def optVersion: Option[TransactionVersion] = this match {
+    case node: Node.Action => Some(node.version)
+    case _: Node.Rollback => None
   }
 
+  def mapNodeId(f: NodeId => NodeId): Node
+}
+
+object Node {
+
+  @deprecated("use Node", since = "1.18.0")
+  type GenNode = Node
+
+  @deprecated("use Node.Action", since = "1.18.0")
+  type GenAction = Action
+
   /** action nodes parametrized over identifier type */
-  sealed abstract class GenActionNode
-      extends GenNode
-      with ActionNodeInfo
-      with CidContainer[GenActionNode] {
+  sealed abstract class Action extends Node with ActionNodeInfo with CidContainer[Action] {
 
     def version: TransactionVersion
 
-    private[lf] def updateVersion(version: TransactionVersion): GenNode
+    private[lf] def updateVersion(version: TransactionVersion): Node
 
     def templateId: TypeConName
 
@@ -57,13 +60,21 @@ object Node {
       VersionedValue(version, v)
   }
 
+  @deprecated("use Node.LeafOnlyAction", since = "1.18.0")
+  type LeafOnlyActionNode = LeafOnlyAction
+
   /** A transaction node with no children */
-  sealed trait LeafOnlyActionNode extends GenActionNode {
-    override def mapNodeId(f: NodeId => NodeId): GenNode = this
+  sealed trait LeafOnlyAction extends Action {
+    override def mapNodeId(f: NodeId => NodeId): Node = this
   }
 
+  @deprecated("use Node.Create", since = "1.18.0")
+  type NodeCreate = Create
+  @deprecated("use Node.Create", since = "1.18.0")
+  val NodeCreate: Create.type = Create
+
   /** Denotes the creation of a contract instance. */
-  final case class NodeCreate(
+  final case class Create(
       coid: ContractId,
       override val templateId: TypeConName,
       arg: Value,
@@ -73,15 +84,15 @@ object Node {
       key: Option[KeyWithMaintainers[Value]],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends LeafOnlyActionNode
+  ) extends LeafOnlyAction
       with ActionNodeInfo.Create {
 
     override def byKey: Boolean = false
 
-    override private[lf] def updateVersion(version: TransactionVersion): NodeCreate =
+    override private[lf] def updateVersion(version: TransactionVersion): Node.Create =
       copy(version = version)
 
-    override def mapCid(f: ContractId => ContractId): NodeCreate =
+    override def mapCid(f: ContractId => ContractId): Node.Create =
       copy(coid = f(coid), arg = arg.mapCid(f), key = key.map(_.mapCid(f)))
 
     def versionedArg: VersionedValue = versionValue(arg)
@@ -96,8 +107,13 @@ object Node {
       key.map(_.map(versionValue))
   }
 
+  @deprecated("use Node.Fetch", since = "1.18.0")
+  type NodeFetch = Fetch
+  @deprecated("use Node.Fetch", since = "1.18.0")
+  val NodeFetch: Fetch.type = Fetch
+
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
-  final case class NodeFetch(
+  final case class Fetch(
       coid: ContractId,
       override val templateId: TypeConName,
       actingParties: Set[Party],
@@ -107,25 +123,30 @@ object Node {
       override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends LeafOnlyActionNode
+  ) extends LeafOnlyAction
       with ActionNodeInfo.Fetch {
 
-    override private[lf] def updateVersion(version: TransactionVersion): NodeFetch =
+    override private[lf] def updateVersion(version: TransactionVersion): Node.Fetch =
       copy(version = version)
 
-    final override def mapCid(f: ContractId => ContractId): NodeFetch =
+    override def mapCid(f: ContractId => ContractId): Node.Fetch =
       copy(coid = f(coid), key = key.map(_.mapCid(f)))
 
     def versionedKey: Option[KeyWithMaintainers[Value.VersionedValue]] =
       key.map(_.map(versionValue))
   }
 
+  @deprecated("use Node.Exercise", since = "1.18.0")
+  type NodeExercises = Exercise
+  @deprecated("use Node.Exercise", since = "1.18.0")
+  val NodeExercises: Exercise.type = Exercise
+
   /** Denotes a transaction node for an exercise.
     * We remember the `children` of this `NodeExercises`
     * to allow segregating the graph afterwards into party-specific
     * ledgers.
     */
-  final case class NodeExercises(
+  final case class Exercise(
       targetCoid: ContractId,
       override val templateId: TypeConName,
       choiceId: ChoiceName,
@@ -141,22 +162,22 @@ object Node {
       override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends GenActionNode
+  ) extends Action
       with ActionNodeInfo.Exercise {
 
     override private[lf] def updateVersion(
         version: TransactionVersion
-    ): NodeExercises =
+    ): Node.Exercise =
       copy(version = version)
 
-    final override def mapCid(f: ContractId => ContractId): NodeExercises = copy(
+    override def mapCid(f: ContractId => ContractId): Node.Exercise = copy(
       targetCoid = f(targetCoid),
       chosenValue = chosenValue.mapCid(f),
       exerciseResult = exerciseResult.map(_.mapCid(f)),
       key = key.map(_.mapCid(f)),
     )
 
-    override def mapNodeId(f: NodeId => NodeId): NodeExercises =
+    override def mapNodeId(f: NodeId => NodeId): Node.Exercise =
       copy(children = children.map(f))
 
     def versionedChosenValue: Value.VersionedValue =
@@ -169,23 +190,28 @@ object Node {
       key.map(_.map(versionValue))
   }
 
-  final case class NodeLookupByKey(
+  @deprecated("use Node.LookupByKey", since = "1.18.0")
+  type NodeLookupByKey = LookupByKey
+  @deprecated("use Node.LookupByKey", since = "1.18.0")
+  val NodeLookupByKey: LookupByKey.type = LookupByKey
+
+  final case class LookupByKey(
       override val templateId: TypeConName,
       key: KeyWithMaintainers[Value],
       result: Option[ContractId],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends LeafOnlyActionNode
+  ) extends LeafOnlyAction
       with ActionNodeInfo.LookupByKey {
 
-    final override def mapCid(f: ContractId => ContractId): NodeLookupByKey =
+    override def mapCid(f: ContractId => ContractId): Node.LookupByKey =
       copy(key = key.mapCid(f), result = result.map(f))
 
     override def keyMaintainers: Set[Party] = key.maintainers
     override def hasResult: Boolean = result.isDefined
     override def byKey: Boolean = true
 
-    override private[lf] def updateVersion(version: TransactionVersion): NodeLookupByKey =
+    override private[lf] def updateVersion(version: TransactionVersion): Node.LookupByKey =
       copy(version = version)
 
     def versionedKey: KeyWithMaintainers[Value.VersionedValue] =
@@ -214,15 +240,20 @@ object Node {
       }
   }
 
-  final case class NodeRollback(
-      children: ImmArray[NodeId]
-  ) extends GenNode {
+  @deprecated("use Node.Rollback", since = "1.18.0")
+  type NodeRollback = Rollback
+  @deprecated("use Node.Rollback", since = "1.18.0")
+  val NodeRollback: Rollback.type = Rollback
 
-    final override def mapCid(f: ContractId => ContractId): NodeRollback = this
-    override def mapNodeId(f: NodeId => NodeId): NodeRollback =
+  final case class Rollback(
+      children: ImmArray[NodeId]
+  ) extends Node {
+
+    override def mapCid(f: ContractId => ContractId): Node.Rollback = this
+    override def mapNodeId(f: NodeId => NodeId): Node.Rollback =
       copy(children.map(f))
 
-    override protected def self: GenNode = this
+    override protected def self: Node = this
   }
 
 }

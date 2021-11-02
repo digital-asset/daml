@@ -6,14 +6,7 @@ package com.daml.ledger.participant.state.kvutils.tools.engine.replay
 import com.daml.lf.data._
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
-import com.daml.lf.transaction.{
-  GlobalKey,
-  Node,
-  NodeId,
-  SubmittedTransaction,
-  Transaction => Tx,
-  VersionedTransaction,
-}
+import com.daml.lf.transaction.{GlobalKey, Node, NodeId, SubmittedTransaction, VersionedTransaction}
 import com.daml.lf.value.Value
 
 import scala.collection.mutable
@@ -32,17 +25,17 @@ private[replay] final class Adapter(
     ).buildSubmitted()
 
   // drop value version and children
-  private[this] def adapt(node: Tx.Node): Node.GenNode =
+  private[this] def adapt(node: Node): Node =
     node match {
-      case rollback: Node.NodeRollback =>
+      case rollback: Node.Rollback =>
         rollback.copy(children = ImmArray.Empty)
-      case create: Node.NodeCreate =>
+      case create: Node.Create =>
         create.copy(
           templateId = adapt(create.templateId),
           arg = adapt(create.arg),
           key = create.key.map(adapt),
         )
-      case exe: Node.NodeExercises =>
+      case exe: Node.Exercise =>
         exe.copy(
           templateId = adapt(exe.templateId),
           chosenValue = adapt(exe.chosenValue),
@@ -50,12 +43,12 @@ private[replay] final class Adapter(
           exerciseResult = exe.exerciseResult.map(adapt),
           key = exe.key.map(adapt),
         )
-      case fetch: Node.NodeFetch =>
+      case fetch: Node.Fetch =>
         fetch.copy(
           templateId = adapt(fetch.templateId),
           key = fetch.key.map(adapt),
         )
-      case lookup: Node.NodeLookupByKey =>
+      case lookup: Node.LookupByKey =>
         lookup
           .copy(
             templateId = adapt(lookup.templateId),

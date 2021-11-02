@@ -11,7 +11,6 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node
-import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}
 import com.daml.lf.value.Value
 import com.daml.platform.store.entries.LedgerEntry
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -56,7 +55,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
       (offset3, t3) <- store(
         singleExercise(
           nonTransient(t2).loneElement,
-          Some(KeyWithMaintainers(someContractKey(alice, "some-key"), Set(alice))),
+          Some(Node.KeyWithMaintainers(someContractKey(alice, "some-key"), Set(alice))),
         )
       )
       (offset4, t4) <- store(fullyTransient())
@@ -84,7 +83,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
       ) = result.splitAt(6)
 
       val contractKey =
-        t2.transaction.nodes.head._2.asInstanceOf[NodeCreate].key.get.key
+        t2.transaction.nodes.head._2.asInstanceOf[Node.Create].key.get.key
       val exercisedContractKey = Map(offset2 -> contractKey, offset3 -> contractKey)
 
       val eventSequentialIdGen = new AtomicLong(from._2 + 1L)
@@ -119,7 +118,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
 
     expected.transaction.nodes.toVector.sortBy(_._1.index).foreach { case (nodeId, value) =>
       value match {
-        case nodeCreate: NodeCreate =>
+        case nodeCreate: Node.Create =>
           val expectedEventId = EventId(expected.transactionId, nodeId)
           val Some(actualCreated: TransactionLogUpdate.CreatedEvent) =
             actualEventsById.get(expectedEventId)
@@ -137,7 +136,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
           actualCreated.createAgreementText.value shouldBe nodeCreate.agreementText
           actualCreated.nodeIndex shouldBe nodeId.index
           actualCreated.eventSequentialId shouldBe eventSequentialIdRef.getAndIncrement()
-        case nodeExercises: NodeExercises =>
+        case nodeExercises: Node.Exercise =>
           val expectedEventId = EventId(expected.transactionId, nodeId)
           val Some(actualExercised: TransactionLogUpdate.ExercisedEvent) =
             actualEventsById.get(expectedEventId)
@@ -168,7 +167,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
             actual.offset
           )
           actualExercised.eventSequentialId shouldBe eventSequentialIdRef.getAndIncrement()
-        case Node.NodeRollback(_) => ()
+        case Node.Rollback(_) => ()
         case _ => ()
       }
     }

@@ -17,10 +17,8 @@ import scala.language.implicitConversions
 
 final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion) {
 
-  import TransactionBuilder._
-
   private[this] val ids: Iterator[NodeId] = Iterator.from(0).map(NodeId(_))
-  private[this] var nodes: Map[NodeId, TxNode] = HashMap.empty
+  private[this] var nodes: Map[NodeId, Node] = HashMap.empty
   private[this] var children: Map[NodeId, BackStack[NodeId]] =
     HashMap.empty.withDefaultValue(BackStack.empty)
   private[this] var roots: BackStack[NodeId] = BackStack.empty
@@ -40,7 +38,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def add(node: Node, parentId: NodeId): NodeId = ids.synchronized {
     lazy val nodeId = newNode(node) // lazy to avoid getting the next id if the method later throws
     nodes(parentId) match {
-      case _: TxExercise | _: TxRollback =>
+      case _: Node.Exercise | _: Node.Rollback =>
         children += parentId -> (children(parentId) :+ nodeId)
       case _ =>
         throw new IllegalArgumentException(
@@ -53,11 +51,11 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def build(): VersionedTransaction = ids.synchronized {
     import TransactionVersion.Ordering
     val finalNodes = nodes.transform {
-      case (nid, rb: TxRollBack) =>
+      case (nid, rb: Node.Rollback) =>
         rb.copy(children = children(nid).toImmArray)
-      case (nid, exe: TxExercise) =>
+      case (nid, exe: Node.Exercise) =>
         exe.copy(children = children(nid).toImmArray)
-      case (_, node: Node.LeafOnlyActionNode) =>
+      case (_, node: Node.LeafOnlyAction) =>
         node
     }
     val finalRoots = roots.toImmArray
@@ -86,7 +84,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       signatories: Set[Ref.Party],
       observers: Set[Ref.Party],
       key: Option[Value] = None,
-  ): Create =
+  ): Node.Create =
     create(id, templateId, argument, signatories, observers, key, signatories)
 
   def create(
@@ -97,21 +95,21 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       observers: Set[Ref.Party],
       key: Option[Value],
       maintainers: Set[Ref.Party],
-  ): Create = {
-    Create(
+  ): Node.Create = {
+    Node.Create(
       coid = id,
       templateId = templateId,
       arg = argument,
       agreementText = "",
       signatories = signatories,
       stakeholders = signatories | observers,
-      key = key.map(KeyWithMaintainers(_, maintainers)),
+      key = key.map(Node.KeyWithMaintainers(_, maintainers)),
       version = pkgTxVersion(templateId.packageId),
     )
   }
 
   def exercise(
-      contract: Create,
+      contract: Node.Create,
       choice: Ref.Name,
       consuming: Boolean,
       actingParties: Set[Ref.Party],
@@ -119,8 +117,8 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       result: Option[Value] = None,
       choiceObservers: Set[Ref.Party] = Set.empty,
       byKey: Boolean = true,
-  ): Exercise =
-    Exercise(
+  ): Node.Exercise =
+    Node.Exercise(
       choiceObservers = choiceObservers,
       targetCoid = contract.coid,
       templateId = contract.templateId,
@@ -138,16 +136,16 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
     )
 
   def exerciseByKey(
-      contract: Create,
+      contract: Node.Create,
       choice: Ref.Name,
       consuming: Boolean,
       actingParties: Set[Ref.Party],
       argument: Value,
-  ): Exercise =
+  ): Node.Exercise =
     exercise(contract, choice, consuming, actingParties, argument, byKey = true)
 
-  def fetch(contract: Create, byKey: Boolean = false): Fetch =
-    Fetch(
+  def fetch(contract: Node.Create, byKey: Boolean = false): Node.Fetch =
+    Node.Fetch(
       coid = contract.coid,
       templateId = contract.templateId,
       actingParties = contract.signatories.map(Ref.Party.assertFromString),
@@ -158,19 +156,19 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       version = pkgTxVersion(contract.templateId.packageId),
     )
 
-  def fetchByKey(contract: Create): Fetch =
+  def fetchByKey(contract: Node.Create): Node.Fetch =
     fetch(contract, byKey = true)
 
-  def lookupByKey(contract: Create, found: Boolean): LookupByKey =
-    LookupByKey(
+  def lookupByKey(contract: Node.Create, found: Boolean): Node.LookupByKey =
+    Node.LookupByKey(
       templateId = contract.templateId,
       key = contract.key.get,
       result = if (found) Some(contract.coid) else None,
       version = pkgTxVersion(contract.templateId.packageId),
     )
 
-  def rollback(): Rollback =
-    Rollback(
+  def rollback(): Node.Rollback =
+    Node.Rollback(
       children = ImmArray.Empty
     )
 }
@@ -178,27 +176,9 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
 object TransactionBuilder {
 
   type TxValue = value.Value.VersionedValue
-  type Node = Node.GenNode
-  type TxNode = Node.GenNode
 
-  type Create = Node.NodeCreate
-  type Exercise = Node.NodeExercises
-  type Fetch = Node.NodeFetch
-  type LookupByKey = Node.NodeLookupByKey
-  type Rollback = Node.NodeRollback
   type KeyWithMaintainers = Node.KeyWithMaintainers[Value]
-
-  type TxExercise = Node.NodeExercises
-  type TxRollback = Node.NodeRollback
   type TxKeyWithMaintainers = Node.KeyWithMaintainers[TxValue]
-  type TxRollBack = Node.NodeRollback
-
-  val Create = Node.NodeCreate
-  val Exercise = Node.NodeExercises
-  val Fetch = Node.NodeFetch
-  val LookupByKey = Node.NodeLookupByKey
-  val Rollback = Node.NodeRollback
-  val KeyWithMaintainers = Node.KeyWithMaintainers
 
   def apply(
       pkgLangVersion: Ref.PackageId => LanguageVersion = _ => LanguageVersion.StableVersions.max

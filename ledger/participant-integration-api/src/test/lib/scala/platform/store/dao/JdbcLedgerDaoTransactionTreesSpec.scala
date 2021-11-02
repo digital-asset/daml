@@ -11,8 +11,7 @@ import com.daml.ledger.api.v1.transaction_service.GetTransactionTreesResponse
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
-import com.daml.lf.transaction.NodeId
+import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
 import com.daml.platform.store.entries.LedgerEntry
@@ -58,7 +57,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         .lookupTransactionTreeById(tx.transactionId, tx.actAs.toSet)
     } yield {
       inside(result.value.transaction) { case Some(transaction) =>
-        val (nodeId, createNode: NodeCreate) =
+        val (nodeId, createNode: Node.Create) =
           tx.transaction.nodes.head
         transaction.commandId shouldBe tx.commandId.get
         transaction.offset shouldBe ApiOffset.toApiString(offset)
@@ -92,7 +91,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         .lookupTransactionTreeById(exercise.transactionId, exercise.actAs.toSet)
     } yield {
       inside(result.value.transaction) { case Some(transaction) =>
-        val (nodeId, exerciseNode: NodeExercises) =
+        val (nodeId, exerciseNode: Node.Exercise) =
           exercise.transaction.nodes.head
         transaction.commandId shouldBe exercise.commandId.get
         transaction.offset shouldBe ApiOffset.toApiString(offset)
@@ -126,11 +125,11 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     } yield {
       inside(result.value.transaction) { case Some(transaction) =>
         val (createNodeId, createNode) =
-          tx.transaction.nodes.collectFirst { case (nodeId, node: NodeCreate) =>
+          tx.transaction.nodes.collectFirst { case (nodeId, node: Node.Create) =>
             nodeId -> node
           }.get
         val (exerciseNodeId, exerciseNode) =
-          tx.transaction.nodes.collectFirst { case (nodeId, node: NodeExercises) =>
+          tx.transaction.nodes.collectFirst { case (nodeId, node: Node.Exercise) =>
             nodeId -> node
           }.get
 
