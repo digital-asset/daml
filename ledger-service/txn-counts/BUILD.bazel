@@ -1,0 +1,78 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
+    "lf_scalacopts",
+    "silencer_plugin",
+)
+load("//rules_daml:daml.bzl", "daml_compile")
+load("@os_info//:os_info.bzl", "is_windows")
+load("@scala_version//:index.bzl", "scala_version_suffix")
+
+hj_scalacopts = lf_scalacopts + [
+    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
+]
+
+scala_deps = [
+    "@maven//:com_github_scopt_scopt",
+    "@maven//:io_spray_spray_json",
+    "@maven//:org_scala_lang_modules_scala_collection_compat",
+    "@maven//:org_scalaz_scalaz_core",
+]
+
+hj_deps = [
+    "//daml-lf/data",
+    "//daml-lf/interface",
+    "//daml-lf/transaction",
+    "//language-support/scala/bindings-akka",
+    "//ledger-api/rs-grpc-bridge",
+    "//ledger-service/cli-opts",
+    "//ledger-service/jwt",
+    "//ledger-service/utils",
+    "//ledger/ledger-api-auth",
+    "//ledger/ledger-api-common",
+    "//ledger/ledger-resources",
+    "//libs-scala/concurrent",
+    "//libs-scala/contextualized-logging",
+    "//libs-scala/db-utils",
+    "//libs-scala/logging-entries",
+    "//libs-scala/ports",
+    "//libs-scala/resources",
+    "//libs-scala/scala-utils",
+]
+
+da_scala_library(
+    name = "txn-counts",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        silencer_plugin,
+    ],
+    scala_deps = scala_deps,
+    scalacopts = hj_scalacopts,
+    tags = ["maven_coordinates=com.daml:txn-counts:__VERSION__"],
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:org_codehaus_janino_janino",
+    ],
+    deps = hj_deps,
+)
+
+da_scala_binary(
+    name = "txn-counts-binary",
+    main_class = "com.daml.txncounts.Main",
+    scala_deps = scala_deps,
+    scalacopts = hj_scalacopts,
+    tags = [
+        "maven_coordinates=com.daml:txn-counts-binary:__VERSION__",
+        "no_scala_version_suffix",
+    ],
+    visibility = ["//visibility:public"],
+    deps = hj_deps,
+)
