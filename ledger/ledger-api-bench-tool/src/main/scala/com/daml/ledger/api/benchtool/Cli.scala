@@ -60,6 +60,14 @@ object Cli {
         config.copy(maxInFlightCommands = size)
       }
 
+    opt[Int]("submission-batch-size")
+      .hidden() // TODO: uncomment when production-ready
+      .text("Number of contracts created per command submission.")
+      .optional()
+      .action { case (size, config) =>
+        config.copy(submissionBatchSize = size)
+      }
+
     opt[FiniteDuration]("log-interval")
       .abbr("r")
       .text("Stream metrics log interval.")

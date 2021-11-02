@@ -4,7 +4,7 @@
 package com.daml.ledger.api.benchtool.submission
 
 import akka.actor.ActorSystem
-import akka.stream.Materializer
+import akka.stream.{Materializer, OverflowStrategy}
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.benchtool.infrastructure.TestDars
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
@@ -34,6 +34,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
   def submit(
       descriptorFile: File,
       maxInFlightCommands: Int,
+      submissionBatchSize: Int,
   )(implicit ec: ExecutionContext): Future[Unit] =
     (for {
       _ <- Future.successful(logger.info("Generating contracts..."))
@@ -42,7 +43,13 @@ case class CommandSubmitter(services: LedgerApiServices) {
       signatory <- allocateParty(signatoryName)
       observers <- allocateParties(descriptor.numberOfObservers, observerName)
       _ <- uploadTestDars()
-      _ <- submitCommands(descriptor, signatory, observers, maxInFlightCommands)
+      _ <- submitCommands(
+        descriptor,
+        signatory,
+        observers,
+        maxInFlightCommands,
+        submissionBatchSize,
+      )
     } yield logger.info("Commands submitted successfully."))
       .recoverWith { case NonFatal(ex) =>
         logger.error(s"Command submission failed. Details: ${ex.getLocalizedMessage}", ex)
@@ -105,16 +112,32 @@ case class CommandSubmitter(services: LedgerApiServices) {
     services.commandService.submitAndWait(commands).map(_ => ())
   }
 
+  private def submitAndWaitForCid(id: String, party: Primitive.Party, command: Command)(implicit
+      ec: ExecutionContext
+  ): Future[String] = {
+    val commands = new Commands(
+      ledgerId = services.ledgerId,
+      applicationId = applicationId,
+      commandId = id,
+      party = party.unwrap,
+      commands = List(command),
+      workflowId = workflowId,
+    )
+    services.commandService.submitAndWaitForCid(commands)
+  }
+
   private def submitCommands(
       descriptor: ContractSetDescriptor,
       signatory: Primitive.Party,
       observers: List[Primitive.Party],
       maxInFlightCommands: Int,
+      submissionBatchSize: Int,
   )(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
+    val numBatches: Int = descriptor.numberOfInstances / submissionBatchSize
     val progressMeter = CommandSubmitter.ProgressMeter(descriptor.numberOfInstances)
     // Output a log line roughly once per 10% progress, or once every 500 submissions (whichever comes first)
     val progressLogInterval = math.min(descriptor.numberOfInstances / 10 + 1, 500)
@@ -124,32 +147,54 @@ case class CommandSubmitter(services: LedgerApiServices) {
           logger.info(progressMeter.getProgress(index))
         }
       )
-    val generator =
-      new CommandGenerator(RandomnessProvider.Default, descriptor, signatory, observers)
 
-    logger.info("Submitting commands...")
+    val generator = new CommandGenerator(
+      randomnessProvider = RandomnessProvider.Default,
+      signatory = signatory,
+      descriptor = descriptor,
+      observers = observers,
+    )
+
+    logger.info(
+      s"Submitting commands ($numBatches commands, $submissionBatchSize contracts per command)..."
+    )
     materializerOwner()
       .use { implicit materializer =>
-        Source
-          .fromIterator(() => (1 to descriptor.numberOfInstances).iterator)
-          .mapAsync(maxInFlightCommands) { index =>
-            generator.next() match {
-              case Success(command) =>
-                submitAndWait(
-                  id = commandId(index),
-                  party = signatory,
-                  command = command(signatory),
-                ).map(_ => index)
-              case Failure(ex) =>
-                Future.failed {
-                  logger.error(s"Command generation failed. Details: ${ex.getLocalizedMessage}", ex)
-                  CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage)
+        for {
+          factoryCid <- submitAndWaitForCid(
+            s"command-factory-$identifierSuffix",
+            signatory,
+            CommandGenerator.createFactoryCommand(signatory),
+          )
+          _ = progressMeter.start()
+          _ <- Source
+            .fromIterator(() => (1 to numBatches).iterator)
+            .mapAsync(32)(index =>
+              Future.fromTry(
+                generator.nextBatch(factoryCid, submissionBatchSize).map(cmd => index -> cmd)
+              )
+            )
+            .buffer(maxInFlightCommands, OverflowStrategy.backpressure)
+            .mapAsync(maxInFlightCommands) { case (index, command) =>
+              submitAndWait(
+                id = commandId(index),
+                party = signatory,
+                command = command,
+              )
+                .map(_ => index * submissionBatchSize)
+                .recoverWith { case ex =>
+                  Future.failed {
+                    logger.error(
+                      s"Command submission failed. Details: ${ex.getLocalizedMessage}",
+                      ex,
+                    )
+                    CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage)
+                  }
                 }
             }
-          }
-          .runWith(progressLoggingSink)
+            .runWith(progressLoggingSink)
+        } yield ()
       }
-      .map(_ => ())
   }
 
   private def materializerOwner(): ResourceOwner[Materializer] = {
@@ -163,9 +208,15 @@ case class CommandSubmitter(services: LedgerApiServices) {
 object CommandSubmitter {
   case class CommandSubmitterError(msg: String) extends RuntimeException(msg)
 
-  class ProgressMeter(totalItems: Int, startTimeMillis: Long) {
+  class ProgressMeter(totalItems: Int) {
+    var startTimeMillis: Long = System.currentTimeMillis()
+
+    def start(): Unit = {
+      startTimeMillis = System.currentTimeMillis()
+    }
+
     def getProgress(index: Int): String =
-      f"Progress: $index/${totalItems} (${percentage(index)}%%). Remaining time: ${remainingSeconds(index)}%1.1f s"
+      f"Progress: $index/${totalItems} (${percentage(index)}%1.1f%%). Remaining time: ${remainingSeconds(index)}%1.1f s"
 
     private def percentage(index: Int): Double = (index.toDouble / totalItems) * 100
 
@@ -183,8 +234,7 @@ object CommandSubmitter {
 
   object ProgressMeter {
     def apply(totalItems: Int) = new ProgressMeter(
-      totalItems = totalItems,
-      startTimeMillis = System.currentTimeMillis(),
+      totalItems = totalItems
     )
   }
 }

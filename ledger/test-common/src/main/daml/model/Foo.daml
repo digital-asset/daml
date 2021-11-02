@@ -3,6 +3,9 @@
 
 module Foo where
 
+import DA.Action
+import DA.Foldable
+
 template Foo1
   with
     signatory : Party
@@ -29,3 +32,52 @@ template Foo3
   where
     signatory signatory
     observer observers
+
+
+data ContractDefinition = ContractDefinition
+  with
+    templateId : Int
+    observerUsed : [Bool]
+    archive: Bool
+    payload : Text
+  deriving (Eq, Show)
+
+-- Given a list of boolean flags and another list of equal length,
+-- returns those elements from the second list where the flag is True at the same index
+takeIf : [Bool] -> [a] -> [a]
+takeIf (True :: as) (b :: bs) = b :: takeIf as bs
+takeIf (False :: as) (b :: bs) = takeIf as bs
+takeIf [] [] = []
+takeIf _ _ = error("Unbalanced input")
+
+createContract : Party -> [Party] -> ContractDefinition -> Update ()
+createContract signatory observers definition =
+  do
+    case definition.templateId of
+      1 -> do
+        cid <- create Foo1 with signatory=signatory, observers=(takeIf definition.observerUsed observers), payload=definition.payload
+        when definition.archive $ exercise cid Archive
+      2 -> do
+        cid <- create Foo2 with signatory=signatory, observers=(takeIf definition.observerUsed observers), payload=definition.payload
+        when definition.archive $ exercise cid Archive
+      3 -> do
+        cid <- create Foo3 with signatory=signatory, observers=(takeIf definition.observerUsed observers), payload=definition.payload
+        when definition.archive $ exercise cid Archive
+      _ -> do
+        abort "Unknown template id"
+    return ()
+
+template Factory
+  with
+    signatory : Party
+  where
+    signatory signatory
+
+    nonconsuming choice Create :
+          ()
+        with
+          observers : [Party] -- party identifiers are interned to reduce choice argument size
+          contracts : [ContractDefinition]
+      controller signatory
+        do
+          forA_ contracts (createContract signatory observers)

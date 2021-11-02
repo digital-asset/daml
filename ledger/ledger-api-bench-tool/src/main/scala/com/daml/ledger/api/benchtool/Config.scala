@@ -19,6 +19,7 @@ case class Config(
     reportingPeriod: FiniteDuration,
     contractSetDescriptorFile: Option[File],
     maxInFlightCommands: Int,
+    submissionBatchSize: Int,
     metricsReporter: MetricsReporter,
 )
 
@@ -95,6 +96,7 @@ object Config {
       reportingPeriod = 5.seconds,
       contractSetDescriptorFile = None,
       maxInFlightCommands = 100,
+      submissionBatchSize = 100,
       metricsReporter = MetricsReporter.Console,
     )
 }
