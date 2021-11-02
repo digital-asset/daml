@@ -15,7 +15,8 @@ class DistributionSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
   "Distribution" should {
     val MaxValue = 1000000
     val smallInt = Gen.choose(1, MaxValue)
-    val zeroToOneDouble: Gen[Double] = Gen.choose(1, Int.MaxValue).map(_.toDouble / Int.MaxValue)
+    val zeroToOneDouble: Gen[Double] =
+      Gen.choose(0, Int.MaxValue - 1).map(_.toDouble / Int.MaxValue)
     val listOfWeights: Gen[List[Int]] = Gen.choose(1, 50).flatMap(Gen.listOfN(_, smallInt))
 
     "handle single-element list" in {
@@ -42,8 +43,8 @@ class DistributionSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
         val index = distribution.index(d)
 
         val totalWeight = weights.map(_.toLong).sum
-        weights.take(index).map(_.toDouble / totalWeight).sum should be < d
-        weights.take(index + 1).map(_.toDouble / totalWeight).sum should be >= d
+        weights.take(index).map(_.toDouble / totalWeight).sum should be <= d
+        weights.take(index + 1).map(_.toDouble / totalWeight).sum should be > d
       }
     }
   }
