@@ -19,7 +19,7 @@ hj_scalacopts = lf_scalacopts + [
 ]
 
 scala_deps = [
-    # "@maven//:com_github_scopt_scopt",
+    "@maven//:com_github_scopt_scopt",
     "@maven//:io_spray_spray_json",
     # "@maven//:org_scala_lang_modules_scala_collection_compat",
     "@maven//:org_scalaz_scalaz_core",
@@ -31,11 +31,11 @@ hj_deps = [
     # "//daml-lf/transaction",
     "//language-support/scala/bindings-akka",
     "//ledger-api/rs-grpc-bridge",
-    # "//ledger-service/cli-opts",
+    "//ledger-service/cli-opts",
     "//ledger-service/jwt",
     # "//ledger-service/utils",
     "//ledger/ledger-api-auth",
-    # "//ledger/ledger-api-common",
+    "//ledger/ledger-api-common",
     # "//ledger/ledger-resources",
     # "//libs-scala/concurrent",
     # "//libs-scala/contextualized-logging",

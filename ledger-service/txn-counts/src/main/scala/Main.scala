@@ -20,6 +20,7 @@ import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import com.daml.ledger.api.v1.transaction_filter.Filters
 import scalaz.\/-
 import scalaz.syntax.std.option._
@@ -29,19 +30,10 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext => EC}
 
 object Main extends App {
-  private val (host, port, rawJwt, startOffset) = args match {
-    case Array(host, port, jwt, rest @ _*) =>
-      (
-        host,
-        port.toInt,
-        jwt,
-        rest match {
-          case Seq(startOffset) => Some(startOffset)
-          case Seq() => None
-        },
-      )
-    case _ => sys.error("Usage: LEDGER_HOST LEDGER_PORT JWT [START_OFFSET]")
-  }
+  private val cmdlineConfig =
+    CliParams.optionParser.parse(args, CliParams.Empty).getOrElse(sys.exit(1))
+  import cmdlineConfig.{host, port, rawJwt, startOffset}
+
   private val asys = ActorSystem()
   private implicit val amat: Materializer = Materializer(asys)
   private implicit val aesf: AkkaExecutionSequencerPool = new AkkaExecutionSequencerPool(
@@ -68,7 +60,7 @@ object Main extends App {
     applicationId = jwtPayload.applicationId getOrElse sys.error("application ID required"),
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
+    sslContext = cmdlineConfig.tlsConfiguration.client(),
     token = Some(rawJwt),
   )
 
@@ -135,6 +127,46 @@ object Main extends App {
   }
 
   shutdown()
+}
+
+final case class CliParams(
+    host: String,
+    port: Int,
+    rawJwt: String,
+    startOffset: Option[String],
+    tlsConfiguration: TlsConfiguration,
+)
+
+object CliParams {
+  val Empty = CliParams("", 0, "", None, TlsConfiguration.Empty.copy(enabled = false))
+
+  val optionParser = new scopt.OptionParser[CliParams]("txn-counts") {
+    override val showUsageOnError: Option[Boolean] = Some(true)
+
+    opt[String]("ledger-host")
+      .action((x, c) => c.copy(host = x))
+      .required()
+      .text("Ledger host name or IP address")
+
+    opt[Int]("ledger-port")
+      .action((x, c) => c.copy(port = x))
+      .required()
+      .text("Ledger port number")
+
+    opt[String]("jwt")
+      .action((x, c) => c.copy(rawJwt = x))
+      .required()
+      .text("encoded JWT")
+
+    opt[String]("start-offset")
+      .action((x, c) => c.copy(startOffset = Some(x)))
+      .optional()
+      .text("offset to start reading transactions at, if provided")
+
+    TlsConfigurationCli.parse(this, "    ") { (f, cp) =>
+      cp copy (tlsConfiguration = f(cp.tlsConfiguration))
+    }
+  }
 }
 
 final case class Counts(creates: Map[Identifier, Int], archives: Map[Identifier, Int])
