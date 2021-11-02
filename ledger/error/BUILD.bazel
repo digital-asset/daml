@@ -12,7 +12,6 @@ da_scala_library(
     name = "error",
     srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [
-        "@maven//:org_typelevel_cats_core",
         "@maven//:io_spray_spray_json",
     ],
     tags = ["maven_coordinates=com.daml:error:__VERSION__"],
@@ -21,6 +20,7 @@ da_scala_library(
     },
     visibility = ["//visibility:public"],
     deps = [
+        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/language",
