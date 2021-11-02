@@ -178,7 +178,7 @@ genrule(
   CBITS=$$(echo $(locations :cbits) | cut -f 3 -d ' ')
   OLD_RPATH=$$($(location @patchelf_nix//:bin/patchelf) --print-rpath $$CBITS)
   GRPC_RPATH=$$(dirname $$(readlink -f $$(echo $(locations @grpc_nix//:grpc_file) | cut -f 1 -d ' ')))
-  $(location @patchelf_nix//:bin/patchelf) $$CBITS --add-needed libgrpc.so.18 --output $(location libneeded-cbits.so)
+  $(location @patchelf_nix//:bin/patchelf) $$CBITS --add-needed libgrpc.so.19 --output $(location libneeded-cbits.so)
   $(location @patchelf_nix//:bin/patchelf) $(location libneeded-cbits.so) --set-rpath "$$OLD_RPATH:$$GRPC_RPATH"
   '''
 )
