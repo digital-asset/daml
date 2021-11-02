@@ -34,5 +34,5 @@ ls -l $CCTOOLCHAIN/bin
 ls
 bazel build @com_github_madler_zlib//...
 ls bazel-out/
-ls bazel-out/*/bin/external/com_github_madler_zlib/
-$CCTOOLCHAIN/bin/ar
+cat bazel-out/darwin-opt/bin/external/com_github_madler_zlib/libz.pic.a-2.params
+$CCTOOLCHAIN/bin/ar @bazel-out/darwin-opt/bin/external/com_github_madler_zlib/libz.pic.a-2.params
