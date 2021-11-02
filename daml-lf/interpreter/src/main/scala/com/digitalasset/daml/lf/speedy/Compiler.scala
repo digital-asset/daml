@@ -1552,7 +1552,7 @@ private[lf] final class Compiler(
       tmpl: Template,
   ): (SDefinitionRef, SDefinition) = {
     val precondsArray =
-      (Iterator(tmpl.precond) ++ (tmpl.implements.map(impl => impl._2.precond))).to(ImmArray)
+      (Iterator(tmpl.precond) ++ (tmpl.implements.iterator.map(impl => impl._2.precond))).to(ImmArray)
     val preconds = ECons(TBuiltin(BTBool), precondsArray, ENil(TBuiltin(BTBool)))
     // Translates 'create Foo with <params>' into:
     // CreateDefRef(tmplId) = \ <tmplArg> <token> ->
