@@ -267,10 +267,10 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
 
     @Explanation(
-      "This error is emitted, when a submitted ledger API command specifies a deduplication period exceeding the maximum."
+      "This error is emitted when a submitted ledger API command specifies an invalid deduplication period."
     )
     @Resolution(
-      "Adjust the value of the deduplication period or ask the participant operator to increase the maximum."
+      "Inspect the error message, adjust the value of the deduplication period or ask the participant operator to increase the maximum."
     )
     object InvalidDeduplicationPeriodField
         extends ErrorCode(
