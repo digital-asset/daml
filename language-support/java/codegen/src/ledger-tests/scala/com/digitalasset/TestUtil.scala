@@ -8,15 +8,19 @@ import java.time.{Duration, Instant}
 import java.util.concurrent.TimeUnit
 import java.util.stream.{Collectors, StreamSupport}
 import java.util.{Optional, UUID}
-
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ActiveContractsServiceOuterClass.GetActiveContractsResponse
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.{ActiveContractsServiceGrpc, CommandServiceGrpc}
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement,
+}
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data._
-import com.daml.ledger.resources.ResourceContext
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -27,7 +31,7 @@ import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.{Assertion, Suite}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
 
@@ -48,11 +52,24 @@ trait SandboxFixture extends SandboxNextFixture {
     seeding = Some(Seeding.Weak),
   )
 
-  def withClient(
-      testCode: Channel => Assertion
-  )(implicit resourceContext: ResourceContext): Future[Assertion] = {
-    Future(testCode(channel))(resourceContext.executionContext)
+  protected val ClientConfiguration = LedgerClientConfiguration(
+    applicationId = TestUtil.LedgerID,
+    ledgerIdRequirement = LedgerIdRequirement.none,
+    commandClient = CommandClientConfiguration.default,
+    sslContext = None,
+    token = None,
+  )
+
+  protected def allocateParty: Future[String] = {
+    implicit val ec: ExecutionContextExecutor = system.dispatcher
+    for {
+      client <- LedgerClient(channel, ClientConfiguration)
+      allocatedParty <- client.partyManagementClient
+        .allocateParty(hint = None, displayName = None)
+    } yield allocatedParty.party
   }
+
+  def withClient(testCode: Channel => Future[Assertion]): Future[Assertion] = testCode(channel)
 }
 
 object TestUtil {
@@ -63,13 +80,6 @@ object TestUtil {
   implicit def func2rxfunc[A, B](f: A => B): io.reactivex.functions.Function[A, B] = f(_)
   private def randomId = UUID.randomUUID().toString
 
-  def uniqueId(): String = UUID.randomUUID.toString
-
-  protected[daml] def getUniqueParty(name: String): String = s"${name}_${uniqueId()}"
-
-  val Alice = "Alice"
-  val Bob = "Bob"
-  val Charlie = "Charlie"
   def allTemplates(partyName: String) = new FiltersByParty(
     Map[String, Filter](partyName -> NoFilter.instance).asJava
   )

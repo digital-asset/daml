@@ -4,7 +4,7 @@
 package com.daml
 
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.ledger.resources.{ResourceContext, TestResourceContext}
+import com.daml.ledger.resources.TestResourceContext
 import io.grpc.Channel
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -31,15 +31,17 @@ class StakeholdersTest
           MixedObservers,
           Channel,
       ) => Assertion
-  )(implicit resourceContext: ResourceContext): Future[Assertion] = {
-    val List(alice, bob, charlie) = List(Alice, Bob, Charlie).map(getUniqueParty)
-    val onlySignatories = new OnlySignatories(alice)
-    val implicitObservers = new ImplicitObservers(alice, bob)
-    val explicitObservers = new ExplicitObservers(alice, bob)
-    val mixedObservers = new MixedObservers(alice, bob, charlie)
-    withClient(
-      testCode(alice, onlySignatories, implicitObservers, explicitObservers, mixedObservers, _)
-    )
+  ): Future[Assertion] = {
+    for {
+      List(alice, bob, charlie) <- Future.sequence(List.fill(3)(allocateParty))
+      onlySignatories = new OnlySignatories(alice)
+      implicitObservers = new ImplicitObservers(alice, bob)
+      explicitObservers = new ExplicitObservers(alice, bob)
+      mixedObservers = new MixedObservers(alice, bob, charlie)
+      result <- withClient(
+        testCode(alice, onlySignatories, implicitObservers, explicitObservers, mixedObservers, _)
+      )
+    } yield result
   }
 
   behavior of "Stakeholders"

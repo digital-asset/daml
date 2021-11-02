@@ -6,9 +6,8 @@ package com.daml
 import java.math.BigDecimal
 import java.time.temporal.ChronoField
 import java.time.{Instant, LocalDate, ZoneOffset}
-
 import com.daml.ledger.javaapi.data.{Unit => DamlUnit}
-import com.daml.ledger.resources.{ResourceContext, TestResourceContext}
+import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.Numeric
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -21,7 +20,6 @@ import org.scalatest.Assertion
 
 import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
-
 import java.util.Arrays.asList
 
 class CodegenLedgerTest
@@ -35,9 +33,9 @@ class CodegenLedgerTest
 
   def withUniqueParty(
       testCode: (String, Wolpertinger, Wolpertinger, Channel) => Assertion
-  )(implicit resourceContext: ResourceContext): Future[Assertion] = {
-    val alice = getUniqueParty(Alice)
-    val glookofly = new Wolpertinger(
+  ): Future[Assertion] = for {
+    alice <- allocateParty
+    glookofly = new Wolpertinger(
       alice,
       3L,
       new BigDecimal("17.4200000000"),
@@ -48,7 +46,7 @@ class CodegenLedgerTest
       List[Wolpertinger.ContractId]().asJava,
       List[Color](new Grey(DamlUnit.getInstance())).asJava,
     )
-    val sruquito = new Wolpertinger(
+    sruquito = new Wolpertinger(
       alice,
       1L,
       new BigDecimal("8.2000000000"),
@@ -59,9 +57,8 @@ class CodegenLedgerTest
       List[Wolpertinger.ContractId]().asJava,
       List[Color](new Grey(DamlUnit.getInstance())).asJava,
     )
-    val fn = testCode(alice, glookofly, sruquito, _)
-    withClient(fn)
-  }
+    result <- withClient(testCode(alice, glookofly, sruquito, _))
+  } yield result
 
   behavior of "Generated Java code"
 
@@ -191,28 +188,39 @@ class CodegenLedgerTest
   }
 
   it should "be able to create multi-party templates" in withClient { client =>
-    val List(alice, bob) = List(Alice, Bob).map(getUniqueParty)
-    val multi = new MultiParty(alice, bob)
-    sendCmd(client, asList(alice, bob), asList[String](), multi.create());
-
-    val read = readActiveContracts(MultiParty.Contract.fromCreatedEvent)(client, alice).head
-
-    read.data.p1 shouldBe alice
-    read.data.p2 shouldBe bob
+    for {
+      List(alice, bob) <- Future.sequence(List.fill(2)(allocateParty))
+      read = {
+        val multi = new MultiParty(alice, bob)
+        sendCmd(client, asList(alice, bob), asList[String](), multi.create())
+        readActiveContracts(MultiParty.Contract.fromCreatedEvent)(client, alice).head
+      }
+      res = {
+        read.data.p1 shouldBe alice
+        read.data.p2 shouldBe bob
+      }
+    } yield res
   }
 
   it should "be able to read as other parties" in withClient { client =>
-    val List(alice, bob, charlie) = List(Alice, Bob, Charlie).map(getUniqueParty)
-    sendCmd(client, asList(charlie, bob), asList[String](), new MultiParty(charlie, bob).create())
-    sendCmd(client, asList(alice, bob), asList[String](), new MultiParty(alice, bob).create())
-    sendCmd(
-      client,
-      asList(alice),
-      asList(charlie),
-      MultiParty.exerciseByKeyMPFetchOtherByKey(new da.types.Tuple2(alice, bob), charlie, bob),
-    )
-
-    succeed
+    for {
+      List(alice, bob, charlie) <- Future.sequence(List.fill(3)(allocateParty))
+      _ = {
+        sendCmd(
+          client,
+          asList(charlie, bob),
+          asList[String](),
+          new MultiParty(charlie, bob).create(),
+        )
+        sendCmd(client, asList(alice, bob), asList[String](), new MultiParty(alice, bob).create())
+        sendCmd(
+          client,
+          asList(alice),
+          asList(charlie),
+          MultiParty.exerciseByKeyMPFetchOtherByKey(new da.types.Tuple2(alice, bob), charlie, bob),
+        )
+      }
+    } yield succeed
   }
 
 }
