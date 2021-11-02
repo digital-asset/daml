@@ -30,5 +30,5 @@ fi
 
 CCTOOLCHAIN=$(nix-build nix/bazel.nix --no-out-link -A bazel-cc-toolchain)
 echo $CCTOOLCHAIN
-ls -l $$CCTOOLCHAIN/bin
-$$CCTOOLCHAIN/bin/ar
+ls -l $CCTOOLCHAIN/bin
+$CCTOOLCHAIN/bin/ar
