@@ -188,6 +188,23 @@ class ErrorFactoriesSpec
       )
     }
 
+    "return a isTimeoutUnknown_wasAborted error" in {
+      assertVersionedError(
+        _.isTimeoutUnknown_wasAborted("message123", definiteAnswer = Some(false))
+      )(
+        v1_code = Code.ABORTED,
+        v1_message = "message123",
+        v1_details = Seq(definiteAnswers(false)),
+        v2_code = Code.DEADLINE_EXCEEDED,
+        v2_message = s"REQUEST_TIME_OUT(3,trace-id): message123",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("REQUEST_TIME_OUT"),
+          DefaultTraceIdRequestInfo,
+          ErrorDetails.RetryInfoDetail(1),
+        ),
+      )
+    }
+
     "return a nonHexOffset error" in {
       assertVersionedError(
         _.nonHexOffset(None)(

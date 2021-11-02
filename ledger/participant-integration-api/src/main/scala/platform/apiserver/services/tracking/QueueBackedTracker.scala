@@ -145,19 +145,17 @@ private[services] object QueueBackedTracker {
           throw t // FIXME(mthvedt): we should shut down the server on internal errors.
       }
 
-      mat.trackingMat.onComplete(
+      mat.trackingMat.onComplete((aTry: Try[Map[_, Promise[_]]]) => {
         // no error expected here -- if there is one, we're at a total loss.
         // FIXME(mthvedt): we should shut down everything in this case.
-        (aTry: Try[Map[_, Promise[_]]]) => {
-          val promises: Iterable[Promise[_]] = aTry.get.values
-          val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
-          promises.foreach(p =>
-            p.failure(
-              errorFactories.trackerFailure(msg = promiseCancellationDescription)(errorLogger)
-            )
+        val promises: Iterable[Promise[_]] = aTry.get.values
+        val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
+        promises.foreach(p =>
+          p.failure(
+            errorFactories.trackerFailure(msg = promiseCancellationDescription)(errorLogger)
           )
-        }
-      )(DirectExecutionContext)
+        )
+      })(DirectExecutionContext)
 
     }(DirectExecutionContext)
 

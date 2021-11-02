@@ -281,6 +281,21 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     grpcError(statusBuilder.build())
   }
 
+  def isTimeoutUnknown_wasAborted(message: String, definiteAnswer: Option[Boolean])(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = {
+    errorCodesVersionSwitcher.choose(
+      v1 = aborted(message, definiteAnswer),
+      v2 = LedgerApiErrors.WriteErrors.RequestTimeOut
+        .Reject(
+          message,
+          // TODO error codes: How to handle None definiteAnswer?
+          definiteAnswer.getOrElse(false),
+        )
+        .asGrpcError,
+    )
+  }
+
   def packageUploadRejected(message: String, definiteAnswer: Option[Boolean])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException = {

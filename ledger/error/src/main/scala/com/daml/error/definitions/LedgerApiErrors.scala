@@ -60,6 +60,24 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             cause = message
           )
     }
+
+    @Explanation(
+      "This rejection is given when a request might not been processed and a time-out was reached."
+    )
+    @Resolution(
+      "Retry for transient problems. If non-transient contact the operator as the time-out limit might be to short."
+    )
+    object RequestTimeOut
+        extends ErrorCode(
+          id = "REQUEST_TIME_OUT",
+          ErrorCategory.DeadlineExceededRequestStateUnknown,
+        ) {
+      case class Reject(message: String, override val definiteAnswer: Boolean)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = message
+          )
+    }
   }
 
   object ReadErrors extends ErrorGroup() {

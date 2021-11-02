@@ -27,7 +27,7 @@ case class QueryNonPrunedImpl(
     errorFactories: ErrorFactories,
 ) extends QueryNonPruned {
 
-  private val logger = ContextualizedLogger.get(classOf[QueryNonPrunedImpl])
+  private val logger = ContextualizedLogger.get(getClass)
 
   /** Runs a query and throws an error if the query accesses pruned offsets.
     *
