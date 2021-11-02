@@ -1,3 +1,9 @@
+# Table of Contents
+
+1. [Contributing to Daml](#contributing-to-daml)
+1. [Problems](#problems)
+1. [IntelliJ Setup](#intellij-setup)
+
 # Contributing to Daml
 
 Welcome! This page gives a high-level overview of how to contribute to the development of Daml.
@@ -176,6 +182,23 @@ You can also participate in the discussions at the following link: [discuss.daml
    If the dialog doesn't appear for you, you've probably already excercised one of these two choices.  
    To check your Firewall settings go to: `System Preferences` -> `Security & Privacy` -> `Firewall` -> `Firewall Options...` (checked on macOS Big Sur 11.5.2).  
   
+# IntelliJ Setup
+
+## Organize imports settings
+
+Go to `Menu -> Editor -> Code Style -> Scala` and then:
+1. Go `Imports` tab and in the `Import Layout` section make sure you have the folowing layout:
+    ```
+    base package imports
+    java
+    javax
+    _______ blank line _______
+    all other imports
+    _______ blank line _______
+    scala
+    
+    ```
+1. Set `Formatter` to `Scalafmt` and select `Configuration` file: `.scalafmt.conf`.
 
 # Thank you!
 
