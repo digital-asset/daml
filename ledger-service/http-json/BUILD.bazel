@@ -317,6 +317,7 @@ alias(
             "//runtime-components/non-repudiation",
             "//runtime-components/non-repudiation-postgresql",
             "//runtime-components/non-repudiation-testing",
+            "@maven//:com_google_guava_guava",
             "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:org_scalatest_scalatest_compatible",
         ],
