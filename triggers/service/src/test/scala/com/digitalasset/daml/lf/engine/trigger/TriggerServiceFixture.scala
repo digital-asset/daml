@@ -266,7 +266,6 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
     timeProviderType = Some(TimeProviderType.Static),
     delayBeforeSubmittingLedgerConfiguration = JDuration.ZERO,
     authService = authService,
-    engineMode = SandboxConfig.EngineMode.Dev,
     seeding = Some(Seeding.Weak),
   )
 
