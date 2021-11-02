@@ -16,7 +16,9 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
   private val className = ErrorCodeDocumentationGenerator.getClass.getSimpleName
 
   // Scan errors from the utils test package
-  private val generator = ErrorCodeDocumentationGenerator("com.daml.error.utils.testpackage")
+  private val generator = new ErrorCodeDocumentationGenerator(
+    Array("com.daml.error.utils.testpackage")
+  )
 
   s"$className.getDocItems" should "return the correct doc items from the error classes" in {
     val actualDocItems = generator.getDocItems

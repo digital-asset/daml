@@ -9,8 +9,6 @@ object ErrorGroups {
 
   private implicit val errorClass: ErrorClass = ErrorClass.root()
 
-  abstract class ProtoDeserializationErrorGroup extends ErrorGroup
-
   object ParticipantErrorGroup extends ErrorGroup() {
     abstract class IndexErrorGroup extends ErrorGroup() {
       abstract class DatabaseErrorGroup extends ErrorGroup()
