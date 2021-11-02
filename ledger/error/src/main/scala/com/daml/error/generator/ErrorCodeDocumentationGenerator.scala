@@ -23,7 +23,7 @@ import scala.jdk.CollectionConverters._
   *
   * @param prefix The classpath prefix that should be scanned for finding subtypes of [[ErrorCode]].
   */
-case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
+class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml")) {
 
   def getDocItems: Seq[DocItem] = {
     val errorCodes = getErrorCodeInstances
@@ -40,7 +40,7 @@ case class ErrorCodeDocumentationGenerator(prefix: String = "com.daml") {
   }
 
   private def getErrorCodeInstances: Seq[ErrorCode] =
-    new Reflections(prefix)
+    new Reflections(prefixes)
       .getSubTypesOf(classOf[ErrorCode])
       .asScala
       .view
