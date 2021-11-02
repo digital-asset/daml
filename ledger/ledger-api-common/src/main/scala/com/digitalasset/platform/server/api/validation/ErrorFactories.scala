@@ -227,6 +227,11 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         .asGrpcError,
     )
 
+  private type RejectionBuilder = (
+      String,
+      String,
+  ) => ContextualizedErrorLogger => LoggingTransactionErrorImpl
+
   /** @param fieldName An invalid field's name.
     * @param message A status' message.
     * @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
@@ -236,10 +241,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       fieldName: String,
       message: String,
       definiteAnswer: Option[Boolean],
-      rejectionBuilder: (
-          String,
-          String,
-      ) => ContextualizedErrorLogger => LoggingTransactionErrorImpl = (fieldName, message) =>
+      rejectionBuilder: RejectionBuilder = (fieldName, message) =>
         logger => ledgerCommandValidationInvalidField(fieldName, message)(logger),
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
