@@ -3,12 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction.validation
 
-import java.time.Instant
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.participant.state.kvutils.Conversions
-import com.daml.ledger.participant.state.kvutils.Conversions.configurationStateKey
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{
   createCommitContext,
   createEmptyTransactionEntry,
@@ -19,8 +15,12 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   Rejections,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepStop}
-import com.daml.ledger.participant.state.kvutils.store.events.DamlConfigurationEntry
-import com.daml.ledger.participant.state.kvutils.store.{DamlCommandDedupValue, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.store.DamlStateValue
+import com.daml.ledger.participant.state.kvutils.store.events.{
+  DamlConfigurationEntry,
+  DamlTransactionEntry,
+}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -35,67 +35,24 @@ class LedgerTimeValidatorSpec extends AnyWordSpec with Matchers {
   private val rejections = new Rejections(metrics)
   private val ledgerTimeValidationStep =
     new LedgerTimeValidator(theDefaultConfig).createValidationStep(rejections)
-
-  private val aDamlTransactionEntry = createEmptyTransactionEntry(List("aSubmitter"))
+  private val aDamlTransactionEntry: DamlTransactionEntry = createEmptyTransactionEntry(
+    List("aSubmitter")
+  )
   private val aTransactionEntrySummary = DamlTransactionEntrySummary(aDamlTransactionEntry)
-  private val aSubmissionTime = createProtobufTimestamp(seconds = 1)
-  private val aLedgerEffectiveTime = createProtobufTimestamp(seconds = 2)
-  private val aDamlTransactionEntryWithSubmissionAndLedgerEffectiveTimes =
-    aDamlTransactionEntry.toBuilder
-      .setSubmissionTime(aSubmissionTime)
-      .setLedgerEffectiveTime(aLedgerEffectiveTime)
-      .build()
-  private val aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes =
-    DamlTransactionEntrySummary(aDamlTransactionEntryWithSubmissionAndLedgerEffectiveTimes)
-  private val emptyConfigurationStateValue =
+  val emptyConfigurationStateValue: DamlStateValue =
     defaultConfigurationStateValueBuilder().build
-  private val aDedupKey = Conversions
-    .commandDedupKey(aTransactionEntrySummary.submitterInfo)
-  private val inputWithTimeModelAndEmptyCommandDeduplication =
-    Map(Conversions.configurationStateKey -> Some(emptyConfigurationStateValue), aDedupKey -> None)
-  private val aDeduplicateUntil = createProtobufTimestamp(seconds = 3)
-  private val aDedupValue = DamlStateValue.newBuilder
-    .setCommandDedup(DamlCommandDedupValue.newBuilder.setDeduplicatedUntil(aDeduplicateUntil))
-    .build()
-  private val inputWithTimeModelAndCommandDeduplication =
-    Map(
-      Conversions.configurationStateKey -> Some(emptyConfigurationStateValue),
-      aDedupKey -> Some(aDedupValue),
-    )
 
   "LedgerTimeValidator" can {
     "when the record time is not available" should {
-      "continue" in {
-        val result = ledgerTimeValidationStep.apply(
-          contextWithTimeModelAndEmptyCommandDeduplication(),
+      "compute and correctly out-of-time-bounds log entry with min/max record time available in the committer context" in {
+        val context = createCommitContext(recordTime = None)
+        context.minimumRecordTime = Some(Timestamp.now())
+        context.maximumRecordTime = Some(Timestamp.now())
+        ledgerTimeValidationStep.apply(
+          context,
           aTransactionEntrySummary,
         )
 
-        result match {
-          case StepContinue(_) => succeed
-          case StepStop(_) => fail()
-        }
-      }
-
-      "compute and correctly set the min/max ledger time and out-of-time-bounds log entry without deduplicateUntil" in {
-        val context = contextWithTimeModelAndEmptyCommandDeduplication()
-
-        ledgerTimeValidationStep.apply(
-          context,
-          aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes,
-        )
-
-        context.minimumRecordTime shouldEqual Some(
-          Timestamp.assertFromInstant(
-            Instant.ofEpochSecond(2).minus(theDefaultConfig.timeModel.minSkew)
-          )
-        )
-        context.maximumRecordTime shouldEqual Some(
-          Timestamp.assertFromInstant(
-            Instant.ofEpochSecond(1).plus(theDefaultConfig.timeModel.maxSkew)
-          )
-        )
-        context.deduplicateUntil shouldBe empty
         context.outOfTimeBoundsLogEntry should not be empty
         context.outOfTimeBoundsLogEntry.foreach { actualOutOfTimeBoundsLogEntry =>
           actualOutOfTimeBoundsLogEntry.hasTransactionRejectionEntry shouldBe true
@@ -103,30 +60,26 @@ class LedgerTimeValidatorSpec extends AnyWordSpec with Matchers {
         }
       }
 
-      "compute and correctly set the min/max ledger time and out-of-time-bounds log entry with deduplicateUntil" in {
-        val context = contextWithTimeModelAndCommandDeduplication()
-
-        ledgerTimeValidationStep.apply(
-          context,
-          aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes,
-        )
-
-        context.minimumRecordTime shouldEqual Some(
-          Timestamp.assertFromInstant(Instant.ofEpochSecond(3).plus(Timestamp.Resolution))
-        )
-        context.maximumRecordTime shouldEqual Some(
-          Timestamp.assertFromInstant(
-            Instant.ofEpochSecond(1).plus(theDefaultConfig.timeModel.maxSkew)
+      "fail if minimum record time is not set" in {
+        val context = createCommitContext(recordTime = None)
+        context.maximumRecordTime = Some(Timestamp.now())
+        an[Err.InternalError] shouldBe thrownBy(
+          ledgerTimeValidationStep.apply(
+            context,
+            aTransactionEntrySummary,
           )
         )
-        context.deduplicateUntil shouldEqual Some(
-          Timestamp.assertFromInstant(Instant.ofEpochSecond(aDeduplicateUntil.getSeconds))
+      }
+
+      "fail if maximum record time is not set" in {
+        val context = createCommitContext(recordTime = None)
+        context.minimumRecordTime = Some(Timestamp.now())
+        an[Err.InternalError] shouldBe thrownBy(
+          ledgerTimeValidationStep.apply(
+            context,
+            aTransactionEntrySummary,
+          )
         )
-        context.outOfTimeBoundsLogEntry should not be empty
-        context.outOfTimeBoundsLogEntry.foreach { actualOutOfTimeBoundsLogEntry =>
-          actualOutOfTimeBoundsLogEntry.hasTransactionRejectionEntry shouldBe true
-          actualOutOfTimeBoundsLogEntry.getTransactionRejectionEntry.hasRecordTimeOutOfRange shouldBe true
-        }
       }
     }
 
@@ -164,24 +117,7 @@ class LedgerTimeValidatorSpec extends AnyWordSpec with Matchers {
       }
     }
 
-    "mark config key as accessed in context" in {
-      val commitContext =
-        createCommitContext(recordTime = None, inputWithTimeModelAndCommandDeduplication)
-
-      ledgerTimeValidationStep.apply(commitContext, aTransactionEntrySummary)
-
-      commitContext.getAccessedInputKeys should contain(configurationStateKey)
-    }
   }
-
-  private def createProtobufTimestamp(seconds: Long) =
-    Conversions.buildTimestamp(Timestamp.assertFromInstant(Instant.ofEpochSecond(seconds)))
-
-  private def contextWithTimeModelAndEmptyCommandDeduplication() =
-    createCommitContext(recordTime = None, inputs = inputWithTimeModelAndEmptyCommandDeduplication)
-
-  private def contextWithTimeModelAndCommandDeduplication() =
-    createCommitContext(recordTime = None, inputs = inputWithTimeModelAndCommandDeduplication)
 
   private def defaultConfigurationStateValueBuilder(): DamlStateValue.Builder =
     DamlStateValue.newBuilder

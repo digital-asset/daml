@@ -77,6 +77,7 @@ private[kvutils] class TransactionCommitter(
     "check_informee_parties_allocation" -> checkInformeePartiesAllocation,
     "overwrite_deduplication_period" -> overwriteDeduplicationPeriodWithMaxDuration,
     "deduplicate" -> deduplicateCommand,
+    "set_time_bounds" -> TimeBoundBindingStep.timeBoundsBindingStep(defaultConfig),
     "validate_ledger_time" -> ledgerTimeValidator.createValidationStep(rejections),
     "validate_model_conformance" -> modelConformanceValidator.createValidationStep(rejections),
     "validate_consistency" -> TransactionConsistencyValidator.createValidationStep(rejections),
