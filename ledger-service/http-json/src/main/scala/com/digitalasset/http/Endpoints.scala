@@ -390,7 +390,7 @@ class Endpoints(
           _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
           _ = logger.debug(s"/v1/fetch fr: $fr")
 
-          // TODO SC security check readAs
+          _ <- either(ensureReadAsAllowedByJwt(fr.readAs, jwtPayload))
           ac <- eitherT(
             handleFutureFailure(contractsService.lookup(jwt, jwtPayload, fr))
           ): ET[Option[domain.ActiveContract[JsValue]]]
@@ -438,18 +438,7 @@ class Endpoints(
           cmd <- SprayJson
             .decode[domain.GetActiveContractsRequest](reqBody)
             .liftErr[Error](InvalidUserInput)
-          _ <- {
-            // security check for readAs; we delegate the remainder to
-            // the participant's check that the JWT itself is valid
-            val disallowedParties: Set[domain.Party] =
-              cmd.readAs.cata((_.toSet.filter(jwtPayload.parties)), Set.empty)
-            if (disallowedParties.isEmpty) \/-(())
-            else {
-              val err =
-                s"Queried parties not allowed by given JWT token: ${disallowedParties mkString ", "}"
-              -\/(Unauthorized(err))
-            }
-          }
+          _ <- ensureReadAsAllowedByJwt(cmd.readAs, jwtPayload)
         } yield withEnrichedLoggingContext(
           LoggingContextOf.label[domain.GetActiveContractsRequest],
           "cmd" -> cmd.toString,
@@ -712,6 +701,22 @@ class Endpoints(
       case Forwarded(value) => Forwarded(value).proto contains "https"
       case _ => false
     }
+
+  // security check for readAs; we delegate the remainder to
+  // the participant's check that the JWT itself is valid
+  private[this] def ensureReadAsAllowedByJwt(
+      readAs: Option[NonEmptyList[domain.Party]],
+      jwtPayload: JwtPayload,
+  ): Error \/ Unit = {
+    val disallowedParties: Set[domain.Party] =
+      readAs.cata((_.toSet.filter(jwtPayload.parties)), Set.empty)
+    if (disallowedParties.isEmpty) \/-(())
+    else {
+      val err =
+        s"Queried parties not allowed by given JWT token: ${disallowedParties mkString ", "}"
+      -\/(Unauthorized(err))
+    }
+  }
 
   private[this] def resolveRefParties(
       meta: Option[domain.CommandMeta],
