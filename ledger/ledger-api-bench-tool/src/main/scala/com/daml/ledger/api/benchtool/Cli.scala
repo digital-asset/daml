@@ -101,7 +101,11 @@ object Cli {
     note(1, "Active contract sets:")
     note(2, "stream-type=active-contracts", "(required)")
     note(2, "name=<stream-name>", "Stream name used to identify results (required)")
-    note(2, "filters=party1|template1|template2&party2", "(required)")
+    note(
+      2,
+      "filters=party1@template1@template2+party2",
+      "List of per-party filters separated by the plus symbol (required)",
+    )
     note(1, "Command completions:")
     note(2, "stream-type=completions", "(required)")
     note(2, "name=<stream-name>", "Stream name used to identify results (required)")
@@ -211,7 +215,7 @@ object Cli {
 
     private def filters(listOfIds: String): Either[String, Map[String, Option[List[Identifier]]]] =
       listOfIds
-        .split('&')
+        .split('+')
         .toList
         .map(filter)
         .foldLeft[Either[String, Map[String, List[Identifier]]]](Right(Map.empty)) {
@@ -229,7 +233,7 @@ object Cli {
 
     private def filter(filterString: String): Either[String, (String, List[Identifier])] =
       filterString
-        .split('|')
+        .split('@')
         .toList match {
         case party :: templates =>
           templates
