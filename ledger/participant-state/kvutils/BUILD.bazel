@@ -33,7 +33,6 @@ da_scala_library(
         "@maven//:org_scala_lang_modules_scala_java8_compat",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
-        "@maven//:org_typelevel_cats_core",
     ],
     tags = ["maven_coordinates=com.daml:participant-state-kvutils:__VERSION__"],
     visibility = [
