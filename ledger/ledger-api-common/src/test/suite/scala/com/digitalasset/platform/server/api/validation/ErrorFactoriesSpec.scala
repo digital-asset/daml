@@ -14,6 +14,7 @@ import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.server.api.validation.ErrorFactories._
+import com.google.protobuf
 import com.google.rpc._
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
@@ -565,7 +566,7 @@ class ErrorFactoriesSpec
   private def assertV1Error(
       statusRuntimeException: StatusRuntimeException
   )(expectedCode: Code, expectedMessage: String, expectedDetails: Seq[Any]): Unit = {
-    val status = StatusProto.fromThrowable(statusRuntimeException)
+    val status: Status = StatusProto.fromThrowable(statusRuntimeException)
     status.getCode shouldBe expectedCode.value()
     status.getMessage shouldBe expectedMessage
     val _ = status.getDetailsList.asScala shouldBe expectedDetails
@@ -581,7 +582,7 @@ class ErrorFactoriesSpec
     val status = StatusProto.fromThrowable(statusRuntimeException)
     status.getCode shouldBe expectedCode.value()
     status.getMessage shouldBe expectedMessage
-    val details = status.getDetailsList.asScala.toSeq
+    val details: Seq[protobuf.Any] = status.getDetailsList.asScala.toSeq
     val _ = ErrorDetails.from(details) should contain theSameElementsAs expectedDetails
     // TODO error codes: Assert logging
   }

@@ -4,8 +4,6 @@
 package com.daml.ledger.api.testtool.suites
 
 import com.daml.error.definitions.LedgerApiErrors
-
-import java.util.regex.Pattern
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -15,7 +13,6 @@ import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.client.binding.Value.encode
-import com.daml.ledger.participant.state.kvutils.errors.KVErrors
 import com.daml.ledger.test.model.Test.CallablePayout._
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test.DummyFactory._
@@ -23,6 +20,8 @@ import com.daml.ledger.test.model.Test.WithObservers._
 import com.daml.ledger.test.model.Test._
 import io.grpc.Status
 import scalaz.syntax.tag._
+
+import java.util.regex.Pattern
 
 final class CommandServiceIT extends LedgerTestSuite {
   test(
@@ -161,7 +160,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ALREADY_EXISTS,
-        KVErrors.DuplicateCommand,
+        LedgerApiErrors.CommandPreparation.DuplicateCommand,
         None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -184,7 +183,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ALREADY_EXISTS,
-        KVErrors.DuplicateCommand,
+        LedgerApiErrors.CommandPreparation.DuplicateCommand,
         None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -207,7 +206,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ALREADY_EXISTS,
-        KVErrors.DuplicateCommand,
+        LedgerApiErrors.CommandPreparation.DuplicateCommand,
         None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -230,7 +229,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ALREADY_EXISTS,
-        KVErrors.DuplicateCommand,
+        LedgerApiErrors.CommandPreparation.DuplicateCommand,
         None,
         checkDefiniteAnswerMetadata = true,
       )

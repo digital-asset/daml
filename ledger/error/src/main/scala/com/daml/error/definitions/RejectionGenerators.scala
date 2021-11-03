@@ -4,15 +4,12 @@
 package com.daml.error.definitions
 
 import com.daml.error.{BaseError, ContextualizedErrorLogger, ErrorCause, ErrorCode}
-import com.daml.ledger.participant.state
 import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
-
-import scala.util.{Failure, Success, Try}
 
 class RejectionGenerators(conformanceMode: Boolean) {
   private val adjustErrors = Map(
@@ -48,11 +45,6 @@ class RejectionGenerators(conformanceMode: Boolean) {
       errorLoggingContext: ContextualizedErrorLogger
   ): StatusRuntimeException =
     enforceConformance(reject.asGrpcErrorFromContext)
-
-  def duplicateCommand(implicit
-      errorLoggingContext: ContextualizedErrorLogger
-  ): StatusRuntimeException =
-    toGrpc(LedgerApiErrors.CommandPreparation.DuplicateCommand.Reject())
 
   def commandExecutorError(cause: ErrorCauseExport)(implicit
       errorLoggingContext: ContextualizedErrorLogger
@@ -105,7 +97,8 @@ class RejectionGenerators(conformanceMode: Boolean) {
         case _: LfInterpretationError.LocalContractKeyNotVisible =>
           LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(renderedMessage)
         case LfInterpretationError.DuplicateContractKey(key) =>
-          LedgerApiErrors.InterpreterErrors.DuplicateContractKey.Reject(renderedMessage, key)
+          LedgerApiErrors.CommandRejections.DuplicateContractKey
+            .SandboxClassicReject(renderedMessage, key)
         case _: LfInterpretationError.UnhandledException =>
           LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(
             renderedMessage + detailMessage.fold("")(x => ". Details: " + x)
@@ -176,15 +169,6 @@ class RejectionGenerators(conformanceMode: Boolean) {
       case ErrorCauseExport.DamlLf(error) => processLfError(error)
       case x: ErrorCauseExport.LedgerTime =>
         toGrpc(LedgerApiErrors.CommandPreparation.FailedToDetermineLedgerTime.Reject(x.explain))
-    }
-  }
-
-  def submissionResult(result: Try[state.v2.SubmissionResult]): Option[Try[Unit]] = {
-    result match {
-      case Success(state.v2.SubmissionResult.Acknowledged) => None
-      case Success(grpcError @ state.v2.SubmissionResult.SynchronousError(_)) =>
-        Some(Failure(grpcError.exception))
-      case Failure(_) => None
     }
   }
 

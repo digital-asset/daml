@@ -58,7 +58,7 @@ class TransactionTimeModelComplianceIT
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     fixtureId match {
       case BackendType.InMemory =>
-        LedgerResource.inMemory(ledgerId, timeProvider)
+        LedgerResource.inMemory(ledgerId, timeProvider, mock[ErrorFactories])
       case BackendType.Postgres =>
         LedgerResource.postgres(getClass, ledgerId, timeProvider, metrics, mock[ErrorFactories])
     }

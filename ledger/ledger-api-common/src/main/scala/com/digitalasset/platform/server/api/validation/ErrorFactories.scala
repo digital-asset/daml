@@ -3,7 +3,6 @@
 
 package com.daml.platform.server.api.validation
 
-import java.sql.{SQLNonTransientException, SQLTransientException}
 import java.time.Duration
 
 import com.daml.error.ErrorCode.ApiException
@@ -12,6 +11,8 @@ import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.lf.data.Ref.TransactionId
+import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.value.Value
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories.{
   addDefiniteAnswerDetails,
@@ -19,11 +20,14 @@ import com.daml.platform.server.api.validation.ErrorFactories.{
 }
 import com.daml.platform.server.api.{ValidationLogger, ApiException => NoStackTraceApiException}
 import com.google.protobuf.{Any => AnyProto}
+import com.google.rpc.status.{Status => RpcStatus}
 import com.google.rpc.{ErrorInfo, Status}
 import io.grpc.Status.Code
 import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, StatusRuntimeException}
 import scalaz.syntax.tag._
+
+import java.sql.{SQLNonTransientException, SQLTransientException}
 
 class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
   def sqlTransientException(exception: SQLTransientException)(implicit
@@ -490,6 +494,124 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       .setMessage(s"Invalid argument: $message")
     addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
     grpcError(statusBuilder.build())
+  }
+
+  object SandboxClassicRejectionStatus {
+    object Deprecated {
+      def inconsistent(reason: String)(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): com.google.rpc.status.Status =
+        errorCodesVersionSwitcher.choose(
+          v1 = RpcStatus.of(Code.ABORTED.value(), s"Inconsistent: $reason", Seq.empty),
+          v2 = LedgerApiErrors.CommandRejections.Inconsistent.Reject(reason).rpcStatus(None),
+        )
+
+      def disputed(reason: String)(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): com.google.rpc.status.Status =
+        errorCodesVersionSwitcher.choose(
+          v1 = RpcStatus.of(Code.INVALID_ARGUMENT.value(), s"Disputed: $reason", Seq.empty),
+          v2 = LedgerApiErrors.CommandRejections.Disputed.Reject(reason).rpcStatus(None),
+        )
+
+      def outOfQuota(reason: String)(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): com.google.rpc.status.Status =
+        errorCodesVersionSwitcher.choose(
+          v1 = RpcStatus.of(Code.ABORTED.value(), s"Resources exhausted: $reason", Seq.empty),
+          v2 = LedgerApiErrors.CommandRejections.OutOfQuota.Reject(reason).rpcStatus(None),
+        )
+
+      def partyNotKnownOnLedger(reason: String)(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): com.google.rpc.status.Status =
+        errorCodesVersionSwitcher.choose(
+          v1 = RpcStatus
+            .of(Code.INVALID_ARGUMENT.value(), s"Parties not known on ledger: $reason", Seq.empty),
+          v2 = LedgerApiErrors.CommandRejections.PartyNotKnownOnLedger
+            .Reject(reason)
+            .rpcStatus(None),
+        )
+    }
+
+    def contractsNotFound(missingContractIds: Set[String])(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): com.google.rpc.status.Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = RpcStatus.of(
+          Code.ABORTED.value(),
+          s"Inconsistent: Could not lookup contracts: ${missingContractIds.mkString("[", ", ", "]")}",
+          Seq.empty,
+        ),
+        v2 = LedgerApiErrors.CommandRejections.ContractsNotFound
+          .MultipleContractsNotFound(missingContractIds)
+          .rpcStatus(None),
+      )
+
+    def inconsistentContractKeys(
+        lookupResult: Option[Value.ContractId],
+        currentResult: Option[Value.ContractId],
+    )(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): com.google.rpc.status.Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = RpcStatus.of(
+          Code.ABORTED.value(),
+          s"Inconsistent: Contract key lookup with different results: expected [$lookupResult], actual [$currentResult]",
+          Seq.empty,
+        ),
+        v2 = LedgerApiErrors.CommandRejections.InconsistentContractKey
+          .Reject(
+            s"Contract key lookup with different results: expected [$lookupResult], actual [$currentResult]"
+          )
+          .rpcStatus(None),
+      )
+
+    def duplicateContractKey(reason: String, key: GlobalKey)(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): com.google.rpc.status.Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = RpcStatus.of(Code.ABORTED.value(), s"Inconsistent: $reason", Seq.empty),
+        v2 = LedgerApiErrors.CommandRejections.DuplicateContractKey
+          .SandboxClassicReject(reason, key)
+          .rpcStatus(None),
+      )
+
+    def partiesKnownToLedger(parties: Set[String])(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): com.google.rpc.status.Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = RpcStatus
+          .of(
+            Code.INVALID_ARGUMENT.value(),
+            s"Parties not known on ledger: ${parties.mkString("[", ", ", "]")}",
+            Seq.empty,
+          ),
+        v2 = LedgerApiErrors.CommandRejections.PartyNotKnownOnLedger.Reject(parties).rpcStatus(None),
+      )
+
+    def submitterCannotActViaParticipant(reason: String)(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): com.google.rpc.status.Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = RpcStatus.of(
+          Code.PERMISSION_DENIED.value(),
+          s"Submitted cannot act via participant: $reason",
+          Seq.empty,
+        ),
+        v2 = LedgerApiErrors.CommandRejections.SubmitterCannotActViaParticipant
+          .Reject(reason)
+          .rpcStatus(None),
+      )
+
+    def invalidLedgerTime(reason: String)(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): com.google.rpc.status.Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = RpcStatus.of(Code.ABORTED.value(), s"Invalid ledger time: $reason", Seq.empty),
+        v2 =
+          LedgerApiErrors.CommandRejections.InvalidLedgerTime.RejectSimple(reason).rpcStatus(None),
+      )
   }
 }
 

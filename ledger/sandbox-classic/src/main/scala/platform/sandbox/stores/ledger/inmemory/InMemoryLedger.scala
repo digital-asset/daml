@@ -5,11 +5,11 @@ package com.daml.platform.sandbox.stores.ledger.inmemory
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain.{
   ApplicationId,
   CommandId,
@@ -61,6 +61,7 @@ import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, Rejection}
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.store.Conversions.RejectionReasonOps
@@ -87,6 +88,7 @@ private[sandbox] final class InMemoryLedger(
     packageStoreInit: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryOrBump],
     engine: Engine,
+    errorFactories: ErrorFactories,
 ) extends Ledger {
 
   private val enricher = new ValueEnricher(engine)
@@ -233,7 +235,11 @@ private[sandbox] final class InMemoryLedger(
               LedgerEntry.Rejection(recordTime, commandId, `appId`, submissionId, actAs, reason)
             ),
           ) if actAs.exists(parties) =>
-        val status = reason.toParticipantStateRejectionReason.status
+        val status = reason
+          .toParticipantStateRejectionReason(errorFactories)(
+            new DamlContextualizedErrorLogger(logger, loggingContext, None)
+          )
+          .status
         offset -> CompletionFromTransaction.rejectedCompletion(
           recordTime,
           offset,
@@ -410,6 +416,7 @@ private[sandbox] final class InMemoryLedger(
             case Left(err) =>
               handleError(
                 submitterInfo,
+                // TODO error codes: Multiple rejections
                 RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"),
               )
             case Right(newAcs) =>

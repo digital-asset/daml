@@ -3,12 +3,9 @@
 
 package com.daml.platform.store
 
-import java.io.BufferedReader
-import java.sql.{PreparedStatement, Types}
-import java.util.stream.Collectors
-
 import anorm.Column.nonNull
 import anorm._
+import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
@@ -17,10 +14,13 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
+import com.daml.platform.server.api.validation.ErrorFactories
 import spray.json.DefaultJsonProtocol._
-import com.google.rpc.status.{Status => RpcStatus}
-import io.grpc.Status
 import spray.json._
+
+import java.io.BufferedReader
+import java.sql.{PreparedStatement, Types}
+import java.util.stream.Collectors
 
 // TODO append-only: split this file on cleanup, and move anorm/db conversion related stuff to the right place
 
@@ -328,34 +328,54 @@ private[platform] object Conversions {
   }
 
   implicit class RejectionReasonOps(rejectionReason: domain.RejectionReason) {
-
-    import RejectionReasonOps._
-
-    def toParticipantStateRejectionReason: state.Update.CommandRejected.RejectionReasonTemplate =
+    def toParticipantStateRejectionReason(
+        errorFactories: ErrorFactories
+    )(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): state.Update.CommandRejected.RejectionReasonTemplate =
       rejectionReason match {
+        case domain.RejectionReason.ContractsNotFound(missingContractIds) =>
+          CommandRejected.FinalReason(
+            errorFactories.SandboxClassicRejectionStatus.contractsNotFound(missingContractIds)
+          )
         case domain.RejectionReason.Inconsistent(reason) =>
-          newRejectionReason(Status.Code.ABORTED, s"Inconsistent: $reason")
+          CommandRejected.FinalReason(
+            errorFactories.SandboxClassicRejectionStatus.Deprecated.inconsistent(reason)
+          )
+        case domain.RejectionReason.InconsistentContractKeys(lookupResult, currentResult) =>
+          CommandRejected.FinalReason(
+            errorFactories.SandboxClassicRejectionStatus
+              .inconsistentContractKeys(lookupResult, currentResult)
+          )
+        case rejection @ domain.RejectionReason.DuplicateContractKey(key) =>
+          CommandRejected.FinalReason(
+            errorFactories.SandboxClassicRejectionStatus
+              .duplicateContractKey(rejection.description, key)
+          )
         case domain.RejectionReason.Disputed(reason) =>
-          newRejectionReason(Status.Code.INVALID_ARGUMENT, s"Disputed: $reason")
+          CommandRejected.FinalReason(
+            errorFactories.SandboxClassicRejectionStatus.Deprecated.disputed(reason)
+          )
         case domain.RejectionReason.OutOfQuota(reason) =>
-          newRejectionReason(Status.Code.ABORTED, s"Resources exhausted: $reason")
-        case domain.RejectionReason.PartyNotKnownOnLedger(reason) =>
-          newRejectionReason(Status.Code.INVALID_ARGUMENT, s"Party not known on ledger: $reason")
+          CommandRejected.FinalReason(
+            errorFactories.SandboxClassicRejectionStatus.Deprecated.outOfQuota(reason)
+          )
+        case domain.RejectionReason.PartiesNotKnownOnLedger(parties) =>
+          CommandRejected.FinalReason(
+            errorFactories.SandboxClassicRejectionStatus.partiesKnownToLedger(parties)
+          )
+        case domain.RejectionReason.PartyNotKnownOnLedger(parties) =>
+          CommandRejected.FinalReason(
+            errorFactories.SandboxClassicRejectionStatus.Deprecated.partyNotKnownOnLedger(parties)
+          )
         case domain.RejectionReason.SubmitterCannotActViaParticipant(reason) =>
-          newRejectionReason(
-            Status.Code.PERMISSION_DENIED,
-            s"Submitted cannot act via participant: $reason",
+          CommandRejected.FinalReason(
+            errorFactories.SandboxClassicRejectionStatus.submitterCannotActViaParticipant(reason)
           )
         case domain.RejectionReason.InvalidLedgerTime(reason) =>
-          newRejectionReason(Status.Code.ABORTED, s"Invalid ledger time: $reason")
+          CommandRejected.FinalReason(
+            errorFactories.SandboxClassicRejectionStatus.invalidLedgerTime(reason)
+          )
       }
-  }
-
-  object RejectionReasonOps {
-    private def newRejectionReason(
-        code: Status.Code,
-        message: String,
-    ): state.Update.CommandRejected.RejectionReasonTemplate =
-      new CommandRejected.FinalReason(RpcStatus.of(code.value(), message, Seq.empty))
   }
 }

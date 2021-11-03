@@ -3,11 +3,10 @@
 package com.daml.platform.store.appendonlydao
 
 import java.sql.Connection
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
@@ -285,7 +284,10 @@ private class JdbcLedgerDao(
       ledgerEffectiveTime: Timestamp,
       transaction: CommittedTransaction,
       divulged: Iterable[state.DivulgedContract],
-  )(implicit connection: Connection): Option[PostCommitValidation.Rejection] =
+  )(implicit
+      connection: Connection,
+      contextualizedErrorLogger: ContextualizedErrorLogger,
+  ): Option[PostCommitValidation.Rejection] =
     Timed.value(
       metrics.daml.index.db.storeTransactionDbMetrics.commitValidation,
       postCommitValidation.validate(
@@ -379,7 +381,9 @@ private class JdbcLedgerDao(
                     recordTime = recordTime,
                     completionInfo = state
                       .CompletionInfo(actAs, applicationId, commandId, None, submissionId),
-                    reasonTemplate = reason.toParticipantStateRejectionReason,
+                    reasonTemplate = reason.toParticipantStateRejectionReason(errorFactories)(
+                      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+                    ),
                   )
                 ),
               )
@@ -683,6 +687,7 @@ private class JdbcLedgerDao(
         readStorageBackend.partyStorageBackend,
         readStorageBackend.contractStorageBackend,
         validatePartyAllocation,
+        errorFactories,
       )
     else
       PostCommitValidation.Skip
@@ -702,6 +707,9 @@ private class JdbcLedgerDao(
       recordTime: Timestamp,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     logger.info("Storing transaction")
+    implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
         sequentialIndexer.store(
