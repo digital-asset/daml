@@ -293,7 +293,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
             (map (GHC.mkModuleName . T.unpack) $ LF.packageModuleNames dalf)
             pkgIdStr
     BS.writeFile (dbPath </> "package.conf.d" </> cfPath) cfBs
-    Logger.logDebug loggerH $ "Reaching package db for " <> pkgContext
+    Logger.logDebug loggerH $ "Recaching package db for " <> pkgContext
     recachePkgDb dbPath
 
 -- | Fake settings, we need those to make ghc-pkg happy.
