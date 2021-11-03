@@ -9,6 +9,11 @@ import org.scalatest.matchers.should.Matchers
 private[backend] trait StorageBackendTestsIntegrity extends Matchers with StorageBackendSpec {
   this: AsyncFlatSpec =>
 
+  private val parameterStorageBackend: ParameterStorageBackend =
+    backendFactory.createParameterStorageBackend
+  private val integrityStorageBackend: IntegrityStorageBackend =
+    backendFactory.createIntegrityStorageBackend
+
   import StorageBackendTestValues._
 
   behavior of "IntegrityStorageBackend"
@@ -20,10 +25,12 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(updates, _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(7), 7L)))
-      failure <- executeSql(backend.verifyIntegrity()).failed
+      _ <- executeSql(
+        parameterStorageBackend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(7), 7L))
+      )
+      failure <- executeSql(integrityStorageBackend.verifyIntegrity()).failed
     } yield {
       // Error message should contain the duplicate event sequential id
       failure.getMessage should include("7")
@@ -37,10 +44,12 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(updates, _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 3L)))
-      failure <- executeSql(backend.verifyIntegrity()).failed
+      _ <- executeSql(
+        parameterStorageBackend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 3L))
+      )
+      failure <- executeSql(integrityStorageBackend.verifyIntegrity()).failed
     } yield {
       failure.getMessage should include("consecutive")
     }
@@ -56,10 +65,12 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(updates, _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 2L)))
-      _ <- executeSql(backend.verifyIntegrity())
+      _ <- executeSql(
+        parameterStorageBackend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 2L))
+      )
+      _ <- executeSql(integrityStorageBackend.verifyIntegrity())
     } yield {
       succeed
     }

@@ -13,6 +13,14 @@ private[backend] trait StorageBackendTestsIngestion
     with StorageBackendSpec {
   this: AsyncFlatSpec =>
 
+  private val parameterStorageBackend: ParameterStorageBackend =
+    backendFactory.createParameterStorageBackend
+  private val configurationStorageBackend: ConfigurationStorageBackend =
+    backendFactory.createConfigurationStorageBackend
+  private val partyStorageBackend: PartyStorageBackend = backendFactory.createPartyStorageBackend
+  private val packageStorageBackend: PackageStorageBackend =
+    backendFactory.createPackageStorageBackend
+
   behavior of "StorageBackend (ingestion)"
 
   import StorageBackendTestValues._
@@ -24,11 +32,13 @@ private[backend] trait StorageBackendTestsIngestion
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
-      configBeforeLedgerEndUpdate <- executeSql(backend.ledgerConfiguration)
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0)))
-      configAfterLedgerEndUpdate <- executeSql(backend.ledgerConfiguration)
+      configBeforeLedgerEndUpdate <- executeSql(configurationStorageBackend.ledgerConfiguration)
+      _ <- executeSql(
+        parameterStorageBackend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0))
+      )
+      configAfterLedgerEndUpdate <- executeSql(configurationStorageBackend.ledgerConfiguration)
     } yield {
       // The first query is executed before the ledger end is updated.
       // It should not see the already ingested configuration change.
@@ -51,11 +61,13 @@ private[backend] trait StorageBackendTestsIngestion
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
-      packagesBeforeLedgerEndUpdate <- executeSql(backend.lfPackages)
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0)))
-      packagesAfterLedgerEndUpdate <- executeSql(backend.lfPackages)
+      packagesBeforeLedgerEndUpdate <- executeSql(packageStorageBackend.lfPackages)
+      _ <- executeSql(
+        parameterStorageBackend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0))
+      )
+      packagesAfterLedgerEndUpdate <- executeSql(packageStorageBackend.lfPackages)
     } yield {
       // The first query is executed before the ledger end is updated.
       // It should not see the already ingested package upload.
@@ -73,11 +85,13 @@ private[backend] trait StorageBackendTestsIngestion
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
-      partiesBeforeLedgerEndUpdate <- executeSql(backend.knownParties)
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0)))
-      partiesAfterLedgerEndUpdate <- executeSql(backend.knownParties)
+      partiesBeforeLedgerEndUpdate <- executeSql(partyStorageBackend.knownParties)
+      _ <- executeSql(
+        parameterStorageBackend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0))
+      )
+      partiesAfterLedgerEndUpdate <- executeSql(partyStorageBackend.knownParties)
     } yield {
       // The first query is executed before the ledger end is updated.
       // It should not see the already ingested party allocation.

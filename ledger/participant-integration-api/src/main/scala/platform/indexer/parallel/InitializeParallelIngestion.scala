@@ -20,7 +20,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[platform] case class InitializeParallelIngestion(
     providedParticipantId: Ref.ParticipantId,
-    storageBackend: IngestionStorageBackend[_] with ParameterStorageBackend,
+    ingestionStorageBackend: IngestionStorageBackend[_],
+    parameterStorageBackend: ParameterStorageBackend,
     metrics: Metrics,
 ) {
 
@@ -40,7 +41,7 @@ private[platform] case class InitializeParallelIngestion(
         s"Attempting to initialize with ledger ID $providedLedgerId and participant ID $providedParticipantId"
       )
       _ <- dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters)(
-        storageBackend.initializeParameters(
+        parameterStorageBackend.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = providedLedgerId,
             participantId = domain.ParticipantId(providedParticipantId),
@@ -48,10 +49,10 @@ private[platform] case class InitializeParallelIngestion(
         )
       )
       ledgerEnd <- dbDispatcher.executeSql(metrics.daml.index.db.getLedgerEnd)(
-        storageBackend.ledgerEnd
+        parameterStorageBackend.ledgerEnd
       )
       _ <- dbDispatcher.executeSql(metrics.daml.parallelIndexer.initialization)(
-        storageBackend.deletePartiallyIngestedData(ledgerEnd)
+        ingestionStorageBackend.deletePartiallyIngestedData(ledgerEnd)
       )
     } yield InitializeParallelIngestion.Initialized(
       initialEventSeqId = ledgerEnd.map(_.lastEventSeqId).getOrElse(EventSequentialId.beforeBegin),

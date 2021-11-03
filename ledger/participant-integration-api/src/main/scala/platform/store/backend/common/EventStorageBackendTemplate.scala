@@ -26,18 +26,16 @@ import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, Sql
 
 import scala.collection.compat.immutable.ArraySeq
 
-trait EventStorageBackendTemplate extends EventStorageBackend {
+abstract class EventStorageBackendTemplate(
+    eventStrategy: EventStrategy,
+    queryStrategy: QueryStrategy,
+    // TODO Refactoring: This method is needed in pruneEvents, but belongs to [[ParameterStorageBackend]].
+    //                   Remove with the break-out of pruneEvents.
+    participantAllDivulgedContractsPrunedUpToInclusive: Connection => Option[Offset],
+) extends EventStorageBackend {
   import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-
-  def eventStrategy: EventStrategy
-  def queryStrategy: QueryStrategy
-  // TODO Refactoring: This method is needed in pruneEvents, but belongs to [[ParameterStorageBackend]].
-  //                   Remove with the break-out of pruneEvents.
-  def participantAllDivulgedContractsPrunedUpToInclusive(
-      connection: Connection
-  ): Option[Offset]
 
   private val selectColumnsForFlatTransactions =
     Seq(

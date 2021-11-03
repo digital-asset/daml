@@ -23,19 +23,20 @@ object VerifiedDataSource {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[DataSource] = {
-    val storageBackend = StorageBackend.of(DbType.jdbcType(jdbcUrl))
+    val dataSourceStorageBackend =
+      StorageBackendFactory.of(DbType.jdbcType(jdbcUrl)).createDataSourceStorageBackend
     for {
       dataSource <- RetryStrategy.constant(
         attempts = MaxInitialConnectRetryAttempts,
         waitTime = 1.second,
       ) { (i, _) =>
         Future {
-          val createdDatasource = storageBackend.createDataSource(jdbcUrl)
+          val createdDatasource = dataSourceStorageBackend.createDataSource(jdbcUrl)
           logger.info(
             s"Attempting to connect to the database (attempt $i/$MaxInitialConnectRetryAttempts)"
           )
           Using.resource(createdDatasource.getConnection)(
-            storageBackend.checkDatabaseAvailable
+            dataSourceStorageBackend.checkDatabaseAvailable
           )
           createdDatasource
         }.andThen { case Failure(exception) =>
@@ -44,7 +45,7 @@ object VerifiedDataSource {
       }
       _ <- Future {
         Using.resource(dataSource.getConnection)(
-          storageBackend.checkCompatibility
+          dataSourceStorageBackend.checkCompatibility
         )
       }
     } yield dataSource

@@ -27,9 +27,7 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
 
 import scala.util.{Failure, Success, Try}
 
-trait ContractStorageBackendTemplate extends ContractStorageBackend {
-
-  def queryStrategy: QueryStrategy
+class ContractStorageBackendTemplate(queryStrategy: QueryStrategy) extends ContractStorageBackend {
 
   override def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId] =
     contractKey(

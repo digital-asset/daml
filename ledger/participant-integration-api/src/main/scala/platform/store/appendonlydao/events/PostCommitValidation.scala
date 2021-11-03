@@ -53,7 +53,8 @@ private[appendonlydao] object PostCommitValidation {
   }
 
   final class BackedBy(
-      dao: PartyStorageBackend with ContractStorageBackend,
+      partyStorageBackend: PartyStorageBackend,
+      contractStorageBackend: ContractStorageBackend,
       validatePartyAllocation: Boolean,
   ) extends PostCommitValidation {
 
@@ -90,7 +91,7 @@ private[appendonlydao] object PostCommitValidation {
       if (referredContracts.isEmpty) {
         None
       } else {
-        dao
+        contractStorageBackend
           .maximumLedgerTime(referredContracts)(connection)
           .map(validateCausalMonotonicity(_, transactionLedgerEffectiveTime))
           .getOrElse(Some(Rejection.UnknownContract))
@@ -116,7 +117,7 @@ private[appendonlydao] object PostCommitValidation {
         transaction: CommittedTransaction
     )(implicit connection: Connection): Option[Rejection] = {
       val informees = transaction.informees
-      val allocatedInformees = dao.parties(informees.toSeq)(connection).map(_.party)
+      val allocatedInformees = partyStorageBackend.parties(informees.toSeq)(connection).map(_.party)
       if (allocatedInformees.toSet == informees)
         None
       else
@@ -134,7 +135,7 @@ private[appendonlydao] object PostCommitValidation {
         transaction: CommittedTransaction
     )(implicit connection: Connection): Option[Rejection] =
       transaction
-        .foldInExecutionOrder[Result](Right(State.empty(dao)))(
+        .foldInExecutionOrder[Result](Right(State.empty(contractStorageBackend)))(
           exerciseBegin = (acc, _, exe) => {
             val newAcc = acc.flatMap(validateKeyUsages(exe, _))
             (newAcc, true)
@@ -206,13 +207,13 @@ private[appendonlydao] object PostCommitValidation {
     * @param rollbackStack Stack of states at the beginning of rollback nodes so we can
     *  restore the state at the end of the rollback. The most recent rollback
     *  comes first.
-    * @param dao Dao about committed contracts for post-commit validation purposes.
+    * @param contractStorageBackend For getting committed contracts for post-commit validation purposes.
     *  This is never changed during the traversal of the transaction.
     */
   private final case class State(
       private val currentState: ActiveState,
       private val rollbackStack: List[ActiveState],
-      private val dao: PartyStorageBackend with ContractStorageBackend,
+      private val contractStorageBackend: ContractStorageBackend,
   ) {
 
     def validateCreate(
@@ -264,14 +265,16 @@ private[appendonlydao] object PostCommitValidation {
     private def lookup(key: Key)(implicit connection: Connection): Option[ContractId] =
       currentState.contracts.get(key.hash).orElse {
         if (currentState.removed(key.hash)) None
-        else dao.contractKeyGlobally(key)(connection)
+        else contractStorageBackend.contractKeyGlobally(key)(connection)
       }
 
   }
 
   private object State {
-    def empty(dao: PartyStorageBackend with ContractStorageBackend): State =
-      State(ActiveState(Map.empty, Set.empty), Nil, dao)
+    def empty(
+        contractStorageBackend: ContractStorageBackend
+    ): State =
+      State(ActiveState(Map.empty, Set.empty), Nil, contractStorageBackend)
   }
 
   sealed trait Rejection {

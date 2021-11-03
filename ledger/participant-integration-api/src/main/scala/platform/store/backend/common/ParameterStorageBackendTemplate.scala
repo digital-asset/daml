@@ -18,7 +18,7 @@ import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpola
 import com.daml.scalautil.Statement.discard
 import scalaz.syntax.tag._
 
-private[backend] trait ParameterStorageBackendTemplate extends ParameterStorageBackend {
+private[backend] object ParameterStorageBackendTemplate extends ParameterStorageBackend {
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
