@@ -34,5 +34,6 @@ ls -l $CCTOOLCHAIN/bin
 ls
 bazel clean --expunge
 bazel build -s @com_github_madler_zlib//...
+bazel query --output build @local_config_cc//...
 cat bazel-out/darwin-opt/bin/external/com_github_madler_zlib/libz.pic.a-2.params
 $CCTOOLCHAIN/bin/ar @bazel-out/darwin-opt/bin/external/com_github_madler_zlib/libz.pic.a-2.params
