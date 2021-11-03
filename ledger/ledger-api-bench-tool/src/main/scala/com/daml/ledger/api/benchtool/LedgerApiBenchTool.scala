@@ -61,43 +61,41 @@ object LedgerApiBenchTool {
           )
         }
 
-      def benchmarkFromDescriptorStep(
-          streams: List[StreamDescriptor],
+      def toConfig(
+          descriptor: StreamDescriptor,
           submissionSummary: CommandSubmitter.SubmissionSummary,
-      ): Future[Unit] = {
-        def toConfig(descriptor: StreamDescriptor): StreamConfig = {
-          import scalaz.syntax.tag._
-          def templateStringToId(template: String) = template match {
-            case "Foo1" => Foo1.id.unwrap
-            case "Foo2" => Foo2.id.unwrap
-            case "Foo3" => Foo3.id.unwrap
-            case invalid => throw new RuntimeException(s"Invalid template: $invalid")
-          }
-          def partyFromObservers(party: String): String =
-            submissionSummary.observers
-              .map(_.unwrap)
-              .find(_.contains(party))
-              .getOrElse(throw new RuntimeException(s"Observer not found: $party"))
-
-          val filters = descriptor.filters.map { filter =>
-            partyFromObservers(filter.party) -> Some(filter.templates.map(templateStringToId))
-          }.toMap
-
-          descriptor.streamType match {
-            case StreamDescriptor.StreamType.ActiveContracts =>
-              Config.StreamConfig.ActiveContractsStreamConfig(
-                name = descriptor.name,
-                filters = filters,
-              )
-            case invalid =>
-              throw new RuntimeException(s"Invalid stream type: $invalid")
-          }
+      ): StreamConfig = {
+        import scalaz.syntax.tag._
+        def templateStringToId(template: String) = template match {
+          case "Foo1" => Foo1.id.unwrap
+          case "Foo2" => Foo2.id.unwrap
+          case "Foo3" => Foo3.id.unwrap
+          case invalid => throw new RuntimeException(s"Invalid template: $invalid")
         }
-        benchmarkStep(streams.map(toConfig))
+        def partyFromObservers(party: String): String =
+          submissionSummary.observers
+            .map(_.unwrap)
+            .find(_.contains(party))
+            .getOrElse(throw new RuntimeException(s"Observer not found: $party"))
+
+        val filters = descriptor.filters.map { filter =>
+          partyFromObservers(filter.party) -> Some(filter.templates.map(templateStringToId))
+        }.toMap
+
+        descriptor.streamType match {
+          case StreamDescriptor.StreamType.ActiveContracts =>
+            Config.StreamConfig.ActiveContractsStreamConfig(
+              name = descriptor.name,
+              filters = filters,
+            )
+          case invalid =>
+            throw new RuntimeException(s"Invalid stream type: $invalid")
+        }
       }
 
       config.contractSetDescriptorFile match {
-        case None => benchmarkStep(config.streams)
+        case None =>
+          benchmarkStep(config.streams)
         case Some(descriptorFile) =>
           for {
             descriptor <- Future.fromTry(parseDescriptor(descriptorFile))
@@ -107,7 +105,8 @@ object LedgerApiBenchTool {
               config.maxInFlightCommands,
               config.submissionBatchSize,
             )
-            _ <- benchmarkFromDescriptorStep(descriptor.streams, summary)
+            streams = descriptor.streams.map(toConfig(_, summary))
+            _ <- benchmarkStep(streams)
           } yield ()
       }
     }
