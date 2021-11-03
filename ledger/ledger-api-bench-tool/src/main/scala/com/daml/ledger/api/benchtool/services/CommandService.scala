@@ -27,22 +27,6 @@ class CommandService(channel: Channel) {
           ex
         }
       }
-
-  def submitAndWaitForCid(commands: Commands)(implicit ec: ExecutionContext): Future[String] =
-    service
-      .submitAndWaitForTransactionTree(new SubmitAndWaitRequest(Some(commands)))
-      .map(res => {
-        val transaction = res.transaction.get
-        val rootEventId = transaction.rootEventIds.head
-        val rootEvent = transaction.eventsById(rootEventId)
-        rootEvent.getCreated.contractId
-      })
-      .recoverWith { case NonFatal(ex) =>
-        Future.failed {
-          logger.error(s"Command submission error. Details: ${ex.getLocalizedMessage}", ex)
-          ex
-        }
-      }
 }
 
 object CommandService {

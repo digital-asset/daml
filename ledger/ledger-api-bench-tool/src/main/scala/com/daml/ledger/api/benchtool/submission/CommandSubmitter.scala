@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import java.io.File
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
@@ -98,32 +99,18 @@ case class CommandSubmitter(services: LedgerApiServices) {
       }
     } yield ()
 
-  private def submitAndWait(id: String, party: Primitive.Party, command: Command)(implicit
+  private def submitAndWait(id: String, party: Primitive.Party, commands: List[Command])(implicit
       ec: ExecutionContext
   ): Future[Unit] = {
-    val commands = new Commands(
+    val result = new Commands(
       ledgerId = services.ledgerId,
       applicationId = applicationId,
       commandId = id,
       party = party.unwrap,
-      commands = List(command),
+      commands = commands,
       workflowId = workflowId,
     )
-    services.commandService.submitAndWait(commands).map(_ => ())
-  }
-
-  private def submitAndWaitForCid(id: String, party: Primitive.Party, command: Command)(implicit
-      ec: ExecutionContext
-  ): Future[String] = {
-    val commands = new Commands(
-      ledgerId = services.ledgerId,
-      applicationId = applicationId,
-      commandId = id,
-      party = party.unwrap,
-      commands = List(command),
-      workflowId = workflowId,
-    )
-    services.commandService.submitAndWaitForCid(commands)
+    services.commandService.submitAndWait(result).map(_ => ())
   }
 
   private def submitCommands(
@@ -141,12 +128,16 @@ case class CommandSubmitter(services: LedgerApiServices) {
     val progressMeter = CommandSubmitter.ProgressMeter(descriptor.numberOfInstances)
     // Output a log line roughly once per 10% progress, or once every 500 submissions (whichever comes first)
     val progressLogInterval = math.min(descriptor.numberOfInstances / 10 + 1, 500)
-    val progressLoggingSink =
+    val progressLoggingSink = {
+      var lastInterval = 0
       Sink.foreach[Int](index =>
-        if (index % progressLogInterval == 0) {
+        if (index / progressLogInterval != lastInterval) {
+          lastInterval = index / progressLogInterval
           logger.info(progressMeter.getProgress(index))
         }
       )
+
+    }
 
     val generator = new CommandGenerator(
       randomnessProvider = RandomnessProvider.Default,
@@ -160,28 +151,26 @@ case class CommandSubmitter(services: LedgerApiServices) {
     )
     materializerOwner()
       .use { implicit materializer =>
+        progressMeter.start()
         for {
-          factoryCid <- submitAndWaitForCid(
-            s"command-factory-$identifierSuffix",
-            signatory,
-            CommandGenerator.createFactoryCommand(signatory),
-          )
-          _ = progressMeter.start()
           _ <- Source
-            .fromIterator(() => (1 to numBatches).iterator)
+            .fromIterator(() => (1 to descriptor.numberOfInstances).iterator)
+            .wireTap(i => if (i == 1) progressMeter.start())
             .mapAsync(32)(index =>
               Future.fromTry(
-                generator.nextBatch(factoryCid, submissionBatchSize).map(cmd => index -> cmd)
+                generator.next().map(cmd => index -> cmd)
               )
             )
+            .groupedWithin(submissionBatchSize, 1.minute)
+            .map(cmds => cmds.head._1 -> cmds.map(e => e._2).toList)
             .buffer(maxInFlightCommands, OverflowStrategy.backpressure)
-            .mapAsync(maxInFlightCommands) { case (index, command) =>
+            .mapAsync(maxInFlightCommands) { case (index, commands) =>
               submitAndWait(
                 id = commandId(index),
                 party = signatory,
-                command = command,
+                commands = commands,
               )
-                .map(_ => index * submissionBatchSize)
+                .map(_ => index + commands.length - 1)
                 .recoverWith { case ex =>
                   Future.failed {
                     logger.error(
