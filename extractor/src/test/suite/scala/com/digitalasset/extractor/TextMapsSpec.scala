@@ -25,9 +25,11 @@ class TextMapsSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File(rlocation("extractor/PrimitiveTypes.dar"))
+  override protected def darFile = new File(rlocation("extractor/test.dar"))
 
-  override def scenario: Option[String] = Some("PrimitiveTypes:textMaps")
+  override protected val initScript: String = "PrimitiveTypes:textMaps"
+
+  override protected val party: String = "TextMaps"
 
   "TextMaps" should "be extracted" in {
     val contracts = getContracts
@@ -39,15 +41,15 @@ class TextMapsSpec
     val contractsJson = getContracts.map(_.create_arguments)
 
     val expected = List(
-      """
+      s"""
         {
           "reference" : "Empty maps",
           "map" : {},
           "deep_map" : {},
-          "party" : "Bob"
+          "party" : "$party"
         }
       """,
-      """
+      s"""
         {
          "reference" : "Non-empty maps",
          "map" : { "1" : 1 ,
@@ -56,7 +58,7 @@ class TextMapsSpec
                    "4" : 4 ,
                    "5" : 5 },
          "deep_map" : {},
-         "party" : "Bob"
+         "party" : "$party"
         }
       """,
     ).traverse(parse)
