@@ -3,11 +3,13 @@
 
 package com.daml.ledger.api.benchtool
 
+import com.daml.ledger.api.benchtool.Config.StreamConfig
 import com.daml.ledger.api.benchtool.submission.CommandSubmitter
 import com.daml.ledger.api.benchtool.services._
 import com.daml.ledger.api.benchtool.util.SimpleFileReader
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.ledger.test.model.Foo.{Foo1, Foo2, Foo3}
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.{Logger, LoggerFactory}
@@ -47,20 +49,6 @@ object LedgerApiBenchTool {
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
     apiServicesOwner(config).use { apiServices =>
-      def testContractsGenerationStep(descriptor: Option[SubmissionDescriptor]): Future[Unit] =
-        descriptor match {
-          case None =>
-            Future.successful(
-              logger.info("No submission descriptor. Skipping contracts generation.")
-            )
-          case Some(d) =>
-            CommandSubmitter(apiServices).submit(
-              descriptor = d,
-              maxInFlightCommands = config.maxInFlightCommands,
-              submissionBatchSize = config.submissionBatchSize,
-            )
-        }
-
       def benchmarkStep(): Future[Unit] =
         if (config.streams.isEmpty) {
           Future.successful(logger.info(s"No streams defined. Skipping the benchmark step."))
@@ -73,13 +61,57 @@ object LedgerApiBenchTool {
           )
         }
 
+      def benchmarkFromDescriptorStep(
+          streams: List[StreamDescriptor],
+          submissionSummary: CommandSubmitter.SubmissionSummary,
+      ): Future[Unit] = {
+        def toConfig(descriptor: StreamDescriptor): StreamConfig = {
+          import scalaz.syntax.tag._
+          def templateStringToId(template: String) = template match {
+            case "Foo1" => Foo1.id.unwrap
+            case "Foo2" => Foo2.id.unwrap
+            case "Foo3" => Foo3.id.unwrap
+            case invalid => throw new RuntimeException(s"Invalid template: $invalid")
+          }
+          def partyFromObservers(party: String): String =
+            submissionSummary.observers
+              .map(_.unwrap)
+              .find(_.contains(party))
+              .getOrElse(throw new RuntimeException(s"Observer not found: $party"))
+
+          val filters = descriptor.filters.map { filter =>
+            partyFromObservers(filter.party) -> Some(filter.templates.map(templateStringToId))
+          }.toMap
+
+          descriptor.streamType match {
+            case StreamDescriptor.StreamType.ActiveContracts =>
+              Config.StreamConfig.ActiveContractsStreamConfig(
+                name = descriptor.name,
+                filters = filters,
+              )
+            case invalid =>
+              throw new RuntimeException(s"Invalid stream type: $invalid")
+          }
+        }
+        Benchmark.run(
+          streams = streams.map(toConfig),
+          reportingPeriod = config.reportingPeriod,
+          apiServices = apiServices,
+          metricsReporter = config.metricsReporter,
+        )
+      }
+
       config.contractSetDescriptorFile match {
         case None => benchmarkStep()
         case Some(descriptorFile) =>
           for {
             descriptor <- Future.fromTry(parseDescriptor(descriptorFile))
-            _ <- testContractsGenerationStep(descriptor.submission)
-            _ <- Future.successful(logger.warn("TODO: IMPLEMENT BENCHMARK STEP")) //KTODO
+            summary <- CommandSubmitter(apiServices).submit(
+              descriptor.submission,
+              config.maxInFlightCommands,
+              config.submissionBatchSize,
+            )
+            _ <- benchmarkFromDescriptorStep(descriptor.streams, summary)
           } yield ()
       }
     }

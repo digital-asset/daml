@@ -40,31 +40,29 @@ class WorkflowParserSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           |streams: []""".stripMargin
       parseYaml(yaml) shouldBe Right(
         WorkflowDescriptor(
-          submission = Some(
-            SubmissionDescriptor(
-              numberOfInstances = 123,
-              numberOfObservers = 5,
-              instanceDistribution = List(
-                ContractDescription(
-                  template = "Foo1",
-                  weight = 50,
-                  payloadSizeBytes = 100,
-                  archiveChance = 0.9,
-                ),
-                ContractDescription(
-                  template = "Foo2",
-                  weight = 25,
-                  payloadSizeBytes = 150,
-                  archiveChance = 0.8,
-                ),
-                ContractDescription(
-                  template = "Foo3",
-                  weight = 25,
-                  payloadSizeBytes = 30,
-                  archiveChance = 0.7,
-                ),
+          submission = SubmissionDescriptor(
+            numberOfInstances = 123,
+            numberOfObservers = 5,
+            instanceDistribution = List(
+              ContractDescription(
+                template = "Foo1",
+                weight = 50,
+                payloadSizeBytes = 100,
+                archiveChance = 0.9,
               ),
-            )
+              ContractDescription(
+                template = "Foo2",
+                weight = 25,
+                payloadSizeBytes = 150,
+                archiveChance = 0.8,
+              ),
+              ContractDescription(
+                template = "Foo3",
+                weight = 25,
+                payloadSizeBytes = 30,
+                archiveChance = 0.7,
+              ),
+            ),
           )
         )
       )
@@ -72,7 +70,11 @@ class WorkflowParserSpec extends AnyWordSpec with Matchers with TableDrivenPrope
 
     "parse streams description" in {
       val yaml =
-        """streams:
+        """submission:
+          |  num_instances: 1
+          |  num_observers: 1
+          |  instance_distribution: []
+          |streams:
           |  - type: "active-contracts"
           |    name: "stream-1"
           |    filters:
@@ -96,6 +98,11 @@ class WorkflowParserSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           |        templates: []""".stripMargin
       parseYaml(yaml) shouldBe Right(
         WorkflowDescriptor(
+          submission = SubmissionDescriptor(
+            numberOfInstances = 1,
+            numberOfObservers = 1,
+            instanceDistribution = Nil,
+          ),
           streams = List(
             StreamDescriptor(
               streamType = StreamDescriptor.StreamType.ActiveContracts,
@@ -114,7 +121,7 @@ class WorkflowParserSpec extends AnyWordSpec with Matchers with TableDrivenPrope
                 StreamDescriptor.PartyFilter("Obs_2", List()),
               ),
             ),
-          )
+          ),
         )
       )
     }

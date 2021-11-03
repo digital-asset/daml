@@ -34,7 +34,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
       descriptor: SubmissionDescriptor,
       maxInFlightCommands: Int,
       submissionBatchSize: Int,
-  )(implicit ec: ExecutionContext): Future[Unit] =
+  )(implicit ec: ExecutionContext): Future[CommandSubmitter.SubmissionSummary] =
     (for {
       _ <- Future.successful(logger.info("Generating contracts..."))
       _ <- Future.successful(logger.info(s"Identifier suffix: $identifierSuffix"))
@@ -48,7 +48,12 @@ case class CommandSubmitter(services: LedgerApiServices) {
         maxInFlightCommands,
         submissionBatchSize,
       )
-    } yield logger.info("Commands submitted successfully."))
+    } yield {
+      logger.info("Commands submitted successfully.")
+      CommandSubmitter.SubmissionSummary(
+        observers = observers
+      )
+    })
       .recoverWith { case NonFatal(ex) =>
         logger.error(s"Command submission failed. Details: ${ex.getLocalizedMessage}", ex)
         Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage))
@@ -181,6 +186,8 @@ case class CommandSubmitter(services: LedgerApiServices) {
 
 object CommandSubmitter {
   case class CommandSubmitterError(msg: String) extends RuntimeException(msg)
+
+  case class SubmissionSummary(observers: List[Primitive.Party])
 
   class ProgressMeter(totalItems: Int) {
     var startTimeMillis: Long = System.currentTimeMillis()

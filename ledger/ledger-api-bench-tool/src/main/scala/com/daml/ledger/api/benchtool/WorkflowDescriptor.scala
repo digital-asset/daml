@@ -4,7 +4,7 @@
 package com.daml.ledger.api.benchtool
 
 final case class WorkflowDescriptor(
-    submission: Option[SubmissionDescriptor] = None,
+    submission: SubmissionDescriptor,
     streams: List[StreamDescriptor] = List.empty,
 )
 
