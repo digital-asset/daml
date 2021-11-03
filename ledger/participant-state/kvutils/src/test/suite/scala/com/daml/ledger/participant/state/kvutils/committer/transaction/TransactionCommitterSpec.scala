@@ -237,9 +237,9 @@ class TransactionCommitterSpec
     "setting dedup context" should {
       val deduplicateUntil = protobuf.Timestamp.newBuilder().setSeconds(30).build()
       val submissionTime = protobuf.Timestamp.newBuilder().setSeconds(60).build()
+      val deduplicationDuration = time.Duration.ofSeconds(3)
 
       "calculate deduplicate until based on deduplication duration" in {
-        val deduplicationDuration = time.Duration.ofSeconds(3)
         val (context, transactionEntrySummary) =
           buildContextAndTransaction(
             submissionTime,
@@ -255,6 +255,21 @@ class TransactionCommitterSpec
             submissionTime.getSeconds + deduplicationDuration.getSeconds + theDefaultConfig.timeModel.minSkew.getSeconds
           )
           .build()
+      }
+
+      "set the submission time in the committer context" in {
+        val (context, transactionEntrySummary) =
+          buildContextAndTransaction(
+            submissionTime,
+            _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration)),
+          )
+        transactionCommitter.setDedupEntry(context, transactionEntrySummary)
+        context
+          .get(Conversions.commandDedupKey(transactionEntrySummary.submitterInfo))
+          .map(
+            _.getCommandDedup.getSubmissionTime
+          )
+          .value shouldBe submissionTime
       }
 
       "throw an error for unsupported deduplication periods" in {
