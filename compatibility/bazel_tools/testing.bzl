@@ -453,6 +453,7 @@ excluded_test_tool_tests = [
                     "SemanticTests:SemanticDoubleSpendSameTx",
                     "SemanticTests:SemanticPartialSignatories",
                     "SemanticTests:SemanticAcceptOnBehalf",
+                    "DeeplyNestedValueIT",
                 ],
             },
         ],
