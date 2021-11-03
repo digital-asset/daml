@@ -16,7 +16,7 @@ sealed trait NamedEntity extends Product with Serializable {
 object NamedEntity {
 
   final case class NModDef(
-      name: ModuleName,
+      name: ModuleName
   ) extends NamedEntity {
 
     def modName: ModuleName = name
@@ -153,31 +153,35 @@ object NamedEntity {
     def pretty: String = s"interface $modName:$name"
   }
 
-  final case class NChoice (
-    module: NModDef,
-    tplName: DottedName,
-    choiceName: ChoiceName,
+  final case class NChoice(
+      module: NModDef,
+      tplName: DottedName,
+      choiceName: ChoiceName,
   ) extends NamedEntity {
     def modName = module.modName
 
     val fullyResolvedName: DottedName =
-      module.fullyResolvedName ++ tplName.toUpperCase + Name.assertFromString(choiceName.toUpperCase)
+      module.fullyResolvedName ++ tplName.toUpperCase + Name.assertFromString(
+        choiceName.toUpperCase
+      )
 
     override def toString: String = s"NChoice($modName:$tplName.$choiceName)"
 
     def pretty: String = s"template choice $modName:$tplName.$choiceName"
   }
 
-  final case class NChoiceViaInterface (
-    module: NModDef,
-    tplName: DottedName,
-    choiceName: ChoiceName,
-    iface: TypeConName,
+  final case class NChoiceViaInterface(
+      module: NModDef,
+      tplName: DottedName,
+      choiceName: ChoiceName,
+      iface: TypeConName,
   ) extends NamedEntity {
     def modName = module.modName
 
     val fullyResolvedName: DottedName =
-      module.fullyResolvedName ++ tplName.toUpperCase + Name.assertFromString(choiceName.toUpperCase)
+      module.fullyResolvedName ++ tplName.toUpperCase + Name.assertFromString(
+        choiceName.toUpperCase
+      )
 
     override def toString: String = s"NChoiceViaInterface($modName:$tplName.$choiceName, $iface)"
 

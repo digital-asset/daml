@@ -46,8 +46,12 @@ private[validation] object Collision {
       module: NModDef,
       astModule: Ast.Module,
   ): List[NamedEntity] =
-    astModule.definitions.toList.flatMap { case (defName, defn) => namedEntitiesFromDef(module, defName, defn) }
-    ++ astModule.templates.toList.flatMap { case (tplName, tpl) => namedEntitiesFromTemplate(module, tplName, tpl) }
+    (astModule.definitions.toList.flatMap { case (defName, defn) =>
+      namedEntitiesFromDef(module, defName, defn)
+    } ++
+      astModule.templates.toList.flatMap { case (tplName, tpl) =>
+        namedEntitiesFromTemplate(module, tplName, tpl)
+      })
 
   private def namedEntitiesFromDef(
       module: NModDef,
@@ -80,9 +84,8 @@ private[validation] object Collision {
       tplName: DottedName,
       tpl: Ast.Template,
   ): List[NamedEntity] =
-    (  tpl.choices.keys.map( NChoice(module, tplName, _) )
-    ++ tpl.implements.iterator.flatMap { case (iface, impl) =>
-          impl.inheritedChoices.iterator.map( NChoiceViaInterface(module, tplName, _, iface) )
-       }
-    ).toList
+    (tpl.choices.keys.map(NChoice(module, tplName, _)) ++
+      tpl.implements.iterator.flatMap { case (iface, impl) =>
+        impl.inheritedChoices.iterator.map(NChoiceViaInterface(module, tplName, _, iface))
+      }).toList
 }
