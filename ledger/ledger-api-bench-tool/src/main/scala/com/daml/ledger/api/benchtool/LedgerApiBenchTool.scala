@@ -49,12 +49,12 @@ object LedgerApiBenchTool {
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
     apiServicesOwner(config).use { apiServices =>
-      def benchmarkStep(): Future[Unit] =
-        if (config.streams.isEmpty) {
+      def benchmarkStep(streams: List[Config.StreamConfig]): Future[Unit] =
+        if (streams.isEmpty) {
           Future.successful(logger.info(s"No streams defined. Skipping the benchmark step."))
         } else {
           Benchmark.run(
-            streams = config.streams,
+            streams = streams,
             reportingPeriod = config.reportingPeriod,
             apiServices = apiServices,
             metricsReporter = config.metricsReporter,
@@ -93,16 +93,11 @@ object LedgerApiBenchTool {
               throw new RuntimeException(s"Invalid stream type: $invalid")
           }
         }
-        Benchmark.run(
-          streams = streams.map(toConfig),
-          reportingPeriod = config.reportingPeriod,
-          apiServices = apiServices,
-          metricsReporter = config.metricsReporter,
-        )
+        benchmarkStep(streams.map(toConfig))
       }
 
       config.contractSetDescriptorFile match {
-        case None => benchmarkStep()
+        case None => benchmarkStep(config.streams)
         case Some(descriptorFile) =>
           for {
             descriptor <- Future.fromTry(parseDescriptor(descriptorFile))
@@ -121,7 +116,9 @@ object LedgerApiBenchTool {
   private def parseDescriptor(descriptorFile: File): Try[WorkflowDescriptor] =
     SimpleFileReader.readFile(descriptorFile)(WorkflowParser.parse).flatMap {
       case Left(err: WorkflowParser.ParserError) =>
-        Failure(CommandSubmitter.CommandSubmitterError(s"Workflow parsing error. Details: ${err.details}"))
+        Failure(
+          CommandSubmitter.CommandSubmitterError(s"Workflow parsing error. Details: ${err.details}")
+        )
       case Right(descriptor) =>
         Success(descriptor)
     }
