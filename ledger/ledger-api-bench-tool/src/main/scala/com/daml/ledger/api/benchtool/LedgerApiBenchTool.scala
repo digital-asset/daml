@@ -106,6 +106,7 @@ object LedgerApiBenchTool {
         case Some(descriptorFile) =>
           for {
             descriptor <- Future.fromTry(parseDescriptor(descriptorFile))
+            _ = logger.info(printer(descriptor).toString())
             summary <- CommandSubmitter(apiServices).submit(
               descriptor.submission,
               config.maxInFlightCommands,
@@ -120,11 +121,8 @@ object LedgerApiBenchTool {
   private def parseDescriptor(descriptorFile: File): Try[WorkflowDescriptor] =
     SimpleFileReader.readFile(descriptorFile)(WorkflowParser.parse).flatMap {
       case Left(err: WorkflowParser.ParserError) =>
-        val message = s"Workflow parsing error. Details: ${err.details}"
-        logger.error(message)
-        Failure(CommandSubmitter.CommandSubmitterError(message))
+        Failure(CommandSubmitter.CommandSubmitterError(s"Workflow parsing error. Details: ${err.details}"))
       case Right(descriptor) =>
-        logger.info(s"Descriptor parsed: $descriptor")
         Success(descriptor)
     }
 
