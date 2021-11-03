@@ -3,6 +3,8 @@
 
 package com.daml.platform.server.api.validation
 
+import java.sql.{SQLNonTransientException, SQLTransientException}
+
 import com.daml.error.ErrorCode.ApiException
 import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
@@ -21,8 +23,6 @@ import io.grpc.Status.Code
 import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, StatusRuntimeException}
 import scalaz.syntax.tag._
-
-import java.sql.{SQLNonTransientException, SQLTransientException}
 
 class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
   def sqlTransientException(exception: SQLTransientException)(implicit
@@ -227,6 +227,18 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         .asGrpcError,
     )
 
+  def invalidDeduplicationDuration(
+      fieldName: String,
+      message: String,
+      definiteAnswer: Option[Boolean],
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      legacyInvalidField(fieldName, message, definiteAnswer),
+      LedgerApiErrors.CommandValidation.InvalidDeduplicationPeriodField
+        .Reject(message)
+        .asGrpcError,
+    )
+
   /** @param fieldName An invalid field's name.
     * @param message A status' message.
     * @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
@@ -238,18 +250,29 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       definiteAnswer: Option[Boolean],
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
-      v1 = {
-        val statusBuilder = Status
-          .newBuilder()
-          .setCode(Code.INVALID_ARGUMENT.value())
-          .setMessage(s"Invalid field $fieldName: $message")
-        addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
-        grpcError(statusBuilder.build())
-      },
-      v2 = LedgerApiErrors.CommandValidation.InvalidField
-        .Reject(s"Invalid field $fieldName: $message")
-        .asGrpcError,
+      v1 = legacyInvalidField(fieldName, message, definiteAnswer),
+      v2 = ledgerCommandValidationInvalidField(fieldName, message).asGrpcError,
     )
+
+  private def ledgerCommandValidationInvalidField(fieldName: String, message: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): LedgerApiErrors.CommandValidation.InvalidField.Reject = {
+    LedgerApiErrors.CommandValidation.InvalidField
+      .Reject(s"Invalid field $fieldName: $message")
+  }
+
+  private def legacyInvalidField(
+      fieldName: String,
+      message: String,
+      definiteAnswer: Option[Boolean],
+  ): StatusRuntimeException = {
+    val statusBuilder = Status
+      .newBuilder()
+      .setCode(Code.INVALID_ARGUMENT.value())
+      .setMessage(s"Invalid field $fieldName: $message")
+    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+    grpcError(statusBuilder.build())
+  }
 
   def offsetOutOfRange(description: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
