@@ -60,7 +60,7 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
 
     val expectedGroupDocItems = Seq(
       GroupDocItem(
-        className = MildErrors.getClass.getSimpleName.replace("$", ""),
+        className = MildErrors.getClass.getName,
         explanation = Explanation("Groups mild errors together"),
       )
     )
