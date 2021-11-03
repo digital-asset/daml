@@ -5,7 +5,7 @@ package com.daml.ledger.api.benchtool.submission
 
 import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.client.binding.Primitive
-import com.daml.ledger.test.model.Foo.{Foo1, Foo2, Foo3}
+import com.daml.ledger.test.model.Foo._
 
 import java.nio.charset.StandardCharsets
 import scala.util.control.NonFatal
@@ -25,19 +25,8 @@ final class CommandGenerator(
   private val observersWithIndices: List[(Primitive.Party, Int)] = observers.zipWithIndex
 
   def next(): Try[Command] =
-    nextCommand().recoverWith { case NonFatal(ex) =>
-      Failure(
-        CommandGenerator.CommandGeneratorError(
-          msg = s"Command generation failed. Details: ${ex.getLocalizedMessage}",
-          cause = ex,
-        )
-      )
-    }
-
-  private def nextCommand(): Try[Command] =
-    for {
-      description <- Try(pickDescription())
-      observers <- Try(pickObservers())
+    (for {
+      (description, observers) <- Try((pickDescription(), pickObservers()))
       payload <- Try(randomPayload(description.payloadSizeBytes))
       archive <- Try(pickArchive(description))
       command <- createContractCommand(
@@ -46,7 +35,28 @@ final class CommandGenerator(
         payload = payload,
         archive = archive,
       )
-    } yield command(signatory)
+    } yield command(signatory)).recoverWith { case NonFatal(ex) =>
+      Failure(
+        CommandGenerator.CommandGeneratorError(
+          msg = s"Command generation failed. Details: ${ex.getLocalizedMessage}",
+          cause = ex,
+        )
+      )
+    }
+
+  private def pickDescription(): ContractSetDescriptor.ContractDescription =
+    descriptionMapping(distribution.index(randomnessProvider.randomDouble()))
+
+  private def pickObservers(): List[Primitive.Party] =
+    observersWithIndices
+      .filter { case (_, index) => isObserverUsed(index) }
+      .map(_._1)
+
+  private def pickArchive(description: ContractSetDescriptor.ContractDescription): Boolean =
+    randomnessProvider.randomDouble() < description.archiveChance
+
+  private def isObserverUsed(i: Int): Boolean =
+    randomnessProvider.randomNatural(math.pow(10.0, i.toDouble).toInt) == 0
 
   private def createContractCommand(
       template: String,
@@ -67,22 +77,9 @@ final class CommandGenerator(
       case invalid => Failure(new RuntimeException(s"Invalid template: $invalid"))
     }
 
-  private def pickDescription(): ContractSetDescriptor.ContractDescription =
-    descriptionMapping(distribution.index(randomnessProvider.randomDouble()))
-
-  private def pickObservers(): List[Primitive.Party] =
-    observersWithIndices
-      .filter { case (_, index) => isObserverUsed(index) }
-      .map(_._1)
-
-  private def isObserverUsed(i: Int): Boolean =
-    randomnessProvider.randomNatural(math.pow(10.0, i.toDouble).toInt) == 0
-
   private def randomPayload(sizeBytes: Int): String =
     new String(randomnessProvider.randomBytes(sizeBytes), StandardCharsets.UTF_8)
 
-  private def pickArchive(description: ContractSetDescriptor.ContractDescription): Boolean =
-    randomnessProvider.randomDouble() < description.archiveChance
 }
 
 object CommandGenerator {

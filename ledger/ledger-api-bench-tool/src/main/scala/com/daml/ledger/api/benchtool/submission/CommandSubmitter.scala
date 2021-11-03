@@ -151,7 +151,6 @@ case class CommandSubmitter(services: LedgerApiServices) {
     )
     materializerOwner()
       .use { implicit materializer =>
-        progressMeter.start()
         for {
           _ <- Source
             .fromIterator(() => (1 to descriptor.numberOfInstances).iterator)
