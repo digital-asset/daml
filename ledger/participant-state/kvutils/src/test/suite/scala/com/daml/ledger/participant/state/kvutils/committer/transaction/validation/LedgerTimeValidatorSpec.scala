@@ -39,12 +39,12 @@ class LedgerTimeValidatorSpec extends AnyWordSpec with Matchers {
     List("aSubmitter")
   )
   private val aTransactionEntrySummary = DamlTransactionEntrySummary(aDamlTransactionEntry)
-  val emptyConfigurationStateValue: DamlStateValue =
+  private val emptyConfigurationStateValue: DamlStateValue =
     defaultConfigurationStateValueBuilder().build
 
   "LedgerTimeValidator" can {
     "when the record time is not available" should {
-      "compute and correctly out-of-time-bounds log entry with min/max record time available in the committer context" in {
+      "compute and correctly set out-of-time-bounds log entry with min/max record time available in the committer context" in {
         val context = createCommitContext(recordTime = None)
         context.minimumRecordTime = Some(Timestamp.now())
         context.maximumRecordTime = Some(Timestamp.now())
