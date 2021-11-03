@@ -28,6 +28,7 @@ import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.daml.platform.sandbox.services.TestCommands
+import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest._
 import scalaz.syntax.tag._
 
@@ -35,7 +36,7 @@ import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-trait AbstractTriggerTest extends SandboxNextFixture with TestCommands {
+trait AbstractTriggerTest extends SandboxNextFixture with PostgresAroundAll with TestCommands {
   self: Suite =>
 
   protected def toHighLevelResult(s: SValue) = s match {
@@ -76,6 +77,10 @@ trait AbstractTriggerTest extends SandboxNextFixture with TestCommands {
   override protected def darFile =
     Try(BazelRunfiles.requiredResource("triggers/tests/acs.dar"))
       .getOrElse(BazelRunfiles.requiredResource("triggers/tests/acs-1.dev.dar"))
+
+  override protected def config = super.config.copy(
+    jdbcUrl = Some(postgresDatabase.url)
+  )
 
   protected val dar = DarDecoder.assertReadArchiveFromFile(darFile)
   protected val compiledPackages =
