@@ -41,8 +41,8 @@ private[migration] class V26_1__Fill_create_argument extends BaseJavaMigration {
           ContractSerializer
             .deserializeContractInstance(contractBytes)
             .getOrElse(sys.error(s"failed to deserialize contract $contractId"))
-        val createArgument = contract.versionedArg
-        val templateId = contract.template
+        val createArgument = contract.map(_.arg)
+        val templateId = contract.unversioned.template
         val createArgumentBytes =
           new ByteArrayInputStream(
             ValueSerializer.serializeValue(

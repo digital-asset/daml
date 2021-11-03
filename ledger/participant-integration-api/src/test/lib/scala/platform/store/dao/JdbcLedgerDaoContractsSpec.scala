@@ -30,7 +30,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
     } yield {
       // The agreement text is always empty when retrieved from the contract store
-      result shouldEqual Some(someVersionedContractInstance.copy(agreementText = ""))
+      result shouldEqual Some(someVersionedContractInstance.map(_.copy(agreementText = "")))
     }
   }
 
@@ -45,7 +45,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       result <- contractsReader.lookupActiveContractAndLoadArgument(Set(charlie), create)
     } yield {
       // The agreement text is always empty when retrieved from the contract store
-      result shouldEqual Some(someVersionedContractInstance.copy(agreementText = ""))
+      result shouldEqual Some(someVersionedContractInstance.map(_.copy(agreementText = "")))
     }
   }
 

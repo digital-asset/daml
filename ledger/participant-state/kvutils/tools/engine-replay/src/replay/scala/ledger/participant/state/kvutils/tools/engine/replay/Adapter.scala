@@ -63,7 +63,9 @@ private[replay] final class Adapter(
     k.copy(adapt(k.key))
 
   def adapt(coinst: Value.VersionedContractInstance): Value.VersionedContractInstance =
-    coinst.copy(template = adapt(coinst.template), arg = adapt(coinst.arg))
+    coinst.map(unversioned =>
+      unversioned.copy(template = adapt(unversioned.template), arg = adapt(unversioned.arg))
+    )
 
   def adapt(gkey: GlobalKey): GlobalKey =
     GlobalKey.assertBuild(adapt(gkey.templateId), adapt(gkey.key))

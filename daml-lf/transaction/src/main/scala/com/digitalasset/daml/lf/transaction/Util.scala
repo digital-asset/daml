@@ -79,13 +79,13 @@ object Util {
   def normalizeVersionedValue(
       value: VersionedValue
   ): Either[String, VersionedValue] =
-    normalizeValue(value.value, value.version).map(normalized => value.copy(value = normalized))
+    normalizeValue(value.unversioned, value.version).map(normalized => value.map(_ => normalized))
 
   def normalizeContract(
       contract: VersionedContractInstance
   ): Either[String, VersionedContractInstance] =
-    normalizeValue(contract.arg, contract.version)
-      .map(normalized => contract.copy(arg = normalized))
+    normalizeValue(contract.unversioned.arg, contract.version)
+      .map(normalized => contract.map(_.copy(arg = normalized)))
 
   def normalizeKey(
       key: Node.KeyWithMaintainers[Value],

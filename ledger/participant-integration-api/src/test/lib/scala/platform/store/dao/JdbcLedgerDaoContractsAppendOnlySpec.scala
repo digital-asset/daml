@@ -37,7 +37,7 @@ private[dao] trait JdbcLedgerDaoContractsAppendOnlySpec extends LoneElement with
     } yield {
       queryAfterCreate.value match {
         case LedgerDaoContractsReader.ActiveContract(contract, stakeholders, _) =>
-          contract shouldBe someVersionedContractInstance.copy(agreementText = "")
+          contract shouldBe someVersionedContractInstance.map(_.copy(agreementText = ""))
           stakeholders should contain theSameElementsAs Set(alice)
         case LedgerDaoContractsReader.ArchivedContract(_) =>
           fail("Contract should appear as active")

@@ -60,7 +60,7 @@ private[migration] class V3__Recompute_Key_Hash extends BaseJavaMigration {
         val key = ValueSerializer.deserializeValue(rows.getBinaryStream("contract_key"))
 
         hasNext = rows.next()
-        contractId -> GlobalKey(templateId, key.value)
+        contractId -> GlobalKey(templateId, key.unversioned)
       }
     }
 

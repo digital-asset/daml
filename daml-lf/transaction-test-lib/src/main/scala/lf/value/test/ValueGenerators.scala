@@ -7,7 +7,14 @@ package test
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import com.daml.lf.transaction.{Transaction, Node, NodeId, TransactionVersion, VersionedTransaction}
+import com.daml.lf.transaction.{
+  Transaction,
+  Node,
+  NodeId,
+  TransactionVersion,
+  Versioned,
+  VersionedTransaction,
+}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
@@ -246,7 +253,7 @@ object ValueGenerators {
       value <- valueGen
       minVersion = TransactionBuilder.assertAssignVersion(value)
       version <- transactionVersionGen(minVersion)
-    } yield VersionedValue(version, value)
+    } yield Versioned(version, value)
 
   private[lf] val genMaybeEmptyParties: Gen[Set[Party]] = Gen.listOf(party).map(_.toSet)
 
@@ -265,7 +272,7 @@ object ValueGenerators {
       template <- idGen
       arg <- versionedValueGen
       agreement <- Arbitrary.arbitrary[String]
-    } yield Value.VersionedContractInstance(arg.version, template, arg.value, agreement)
+    } yield arg.map(Value.ContractInstance(template, _, agreement))
 
   val keyWithMaintainersGen: Gen[Node.KeyWithMaintainers[Value]] = {
     for {

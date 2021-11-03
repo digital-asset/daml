@@ -6,7 +6,7 @@ package value
 
 import com.daml.lf.EitherAssertions
 import com.daml.lf.data._
-import com.daml.lf.transaction.TransactionVersion
+import com.daml.lf.transaction.{TransactionVersion, Versioned}
 import com.daml.lf.value.{ValueOuterClass => proto}
 import org.scalacheck.{Arbitrary, Shrink}
 import org.scalatest.Assertion
@@ -182,14 +182,13 @@ class ValueCoderSpec
     val normalizedValue = transaction.Util.assertNormalizeValue(value0, version)
     val encoded: proto.VersionedValue = assertRight(
       ValueCoder
-        .encodeVersionedValue(ValueCoder.CidEncoder, VersionedValue(version, value0))
+        .encodeVersionedValue(ValueCoder.CidEncoder, Versioned(version, value0))
     )
     val decoded: VersionedValue = assertRight(
       ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, encoded)
     )
 
-    decoded.value shouldEqual normalizedValue
-    decoded.version shouldEqual version
+    decoded shouldEqual Versioned(version, normalizedValue)
 
     // emulate passing encoded proto message over wire
 
@@ -199,7 +198,6 @@ class ValueCoderSpec
       ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, encodedSentOverWire)
     )
 
-    decodedSentOverWire.value shouldEqual normalizedValue
-    decodedSentOverWire.version shouldEqual version
+    decodedSentOverWire shouldEqual Versioned(version, normalizedValue)
   }
 }

@@ -115,13 +115,13 @@ object TransactionCoder {
       coinst: Value.VersionedContractInstance,
   ): Either[EncodeError, TransactionOuterClass.ContractInstance] =
     ValueCoder
-      .encodeVersionedValue(encodeCid, coinst.version, coinst.arg)
+      .encodeVersionedValue(encodeCid, coinst.version, coinst.unversioned.arg)
       .map(
         TransactionOuterClass.ContractInstance
           .newBuilder()
-          .setTemplateId(ValueCoder.encodeIdentifier(coinst.template))
+          .setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.template))
           .setArgVersioned(_)
-          .setAgreement(coinst.agreementText)
+          .setAgreement(coinst.unversioned.agreementText)
           .build()
       )
 
@@ -173,11 +173,12 @@ object TransactionCoder {
     for {
       id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
       value <- ValueCoder.decodeVersionedValue(decodeCid, protoCoinst.getArgVersioned)
-    } yield Value.VersionedContractInstance(
-      value.version,
-      id,
-      value.value,
-      protoCoinst.getAgreement,
+    } yield value.map(
+      Value.ContractInstance(
+        id,
+        _,
+        protoCoinst.getAgreement,
+      )
     )
 
   private[this] def encodeKeyWithMaintainers(

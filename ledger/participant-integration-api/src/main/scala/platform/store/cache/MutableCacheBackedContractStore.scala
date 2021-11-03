@@ -187,7 +187,7 @@ private[platform] class MutableCacheBackedContractStore(
         contractsReader.lookupActiveContractWithCachedArgument(
           forParties,
           contractId,
-          contract.versionedArg,
+          contract.map(_.arg),
         )
       case _: Archived | NotFound =>
         // We need to fetch the contract here since the contract creation or archival

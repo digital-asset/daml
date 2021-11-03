@@ -132,7 +132,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
           actualCreated.flatEventWitnesses shouldBe nodeCreate.stakeholders
           actualCreated.createSignatories shouldBe nodeCreate.signatories
           actualCreated.createObservers shouldBe (nodeCreate.stakeholders diff nodeCreate.signatories)
-          actualCreated.createArgument.value shouldBe nodeCreate.arg
+          actualCreated.createArgument.unversioned shouldBe nodeCreate.arg
           actualCreated.createAgreementText.value shouldBe nodeCreate.agreementText
           actualCreated.nodeIndex shouldBe nodeId.index
           actualCreated.eventSequentialId shouldBe eventSequentialIdRef.getAndIncrement()
@@ -154,8 +154,8 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
           else
             actualExercised.flatEventWitnesses shouldBe empty
           actualExercised.treeEventWitnesses shouldBe nodeExercises.informeesOfNode
-          actualExercised.exerciseArgument.value shouldBe nodeExercises.chosenValue
-          actualExercised.exerciseResult.map(_.value) shouldBe nodeExercises.exerciseResult
+          actualExercised.exerciseArgument.unversioned shouldBe nodeExercises.chosenValue
+          actualExercised.exerciseResult.map(_.unversioned) shouldBe nodeExercises.exerciseResult
           actualExercised.consuming shouldBe nodeExercises.consuming
           actualExercised.choice shouldBe nodeExercises.choiceId
           actualExercised.children should contain theSameElementsAs nodeExercises.children
@@ -163,7 +163,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
             .toIndexedSeq
           actualExercised.actingParties shouldBe nodeExercises.actingParties
           actualExercised.nodeIndex shouldBe nodeId.index
-          actualExercised.contractKey.map(_.value) shouldBe exercisedContractKey.get(
+          actualExercised.contractKey.map(_.unversioned) shouldBe exercisedContractKey.get(
             actual.offset
           )
           actualExercised.eventSequentialId shouldBe eventSequentialIdRef.getAndIncrement()

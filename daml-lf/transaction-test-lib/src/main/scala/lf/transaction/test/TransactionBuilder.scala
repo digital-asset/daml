@@ -75,7 +75,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def newCid: ContractId = TransactionBuilder.newV1Cid
 
   def versionContract(contract: Value.ContractInstance): value.Value.VersionedContractInstance =
-    VersionedContractInstance(pkgTxVersion(contract.template.packageId), contract)
+    Versioned(pkgTxVersion(contract.template.packageId), contract)
 
   def create(
       id: ContractId,
@@ -299,7 +299,7 @@ object TransactionBuilder {
       value: Value,
       supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
   ): Either[String, TxValue] =
-    assignVersion(value, supportedVersions).map(Value.VersionedValue(_, value))
+    assignVersion(value, supportedVersions).map(Versioned(_, value))
 
   @throws[IllegalArgumentException]
   def assertAsVersionedValue(
@@ -313,7 +313,7 @@ object TransactionBuilder {
       supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
   ): Either[String, VersionedContractInstance] =
     assignVersion(contract.arg, supportedVersions)
-      .map(VersionedContractInstance(_, contract))
+      .map(Versioned(_, contract))
 
   def assertAsVersionedContract(
       contract: ContractInstance,

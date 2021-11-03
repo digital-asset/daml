@@ -95,7 +95,7 @@ object ContractStateEventsReader {
         maybeCreateKeyValueCompression
       )
       keyValue = decompressAndDeserialize(createKeyValueCompression, createKeyValue)
-    } yield Key.assertBuild(templateId, keyValue.value)
+    } yield Key.assertBuild(templateId, keyValue.unversioned)
 
   private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: Array[Byte]) =
     ValueSerializer.deserializeValue(algorithm.decompress(new ByteArrayInputStream(value)))
