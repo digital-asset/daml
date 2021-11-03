@@ -59,6 +59,7 @@ message DamlCommandDedupValue {
   google.protobuf.Timestamp deduplicated_until = 2;
   // The submission time of the initial command.
   // We use submission time because record time is not available during pre-execution.
+  google.protobuf.Timestamp submission_time = 3;
 }
 
 message DamlSubmissionDedupKey {
