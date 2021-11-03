@@ -196,8 +196,8 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         .asGrpcError,
     )
 
-  // TODO error codes: Reconcile with com.daml.platform.server.api.validation.ErrorFactories.offsetAfterLedgerEnd
-  def readingOffsetAfterLedgerEnd_was_invalidArgument(
+  // TODO error codes: Reconcile with com.daml.platform.server.api.validation.ErrorFactories.offsetOutOfRange
+  def offsetOutOfRange_was_invalidArgument(
       definiteAnswer: Option[Boolean]
   )(message: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -206,7 +206,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       v1 = {
         invalidArgumentV1(definiteAnswer, message)
       },
-      v2 = LedgerApiErrors.ReadErrors.RequestedOffsetAfterLedgerEnd
+      v2 = LedgerApiErrors.ReadErrors.RequestedOffsetOutOfRange
         .Reject(message)
         .asGrpcError,
     )
@@ -251,7 +251,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         .asGrpcError,
     )
 
-  def offsetAfterLedgerEnd(description: String)(implicit
+  def offsetOutOfRange(description: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     // TODO error codes: Pass the offsets as arguments to this method and build the description here
@@ -263,7 +263,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           .setMessage(description)
           .build()
       ),
-      v2 = LedgerApiErrors.ReadErrors.RequestedOffsetAfterLedgerEnd.Reject(description).asGrpcError,
+      v2 = LedgerApiErrors.ReadErrors.RequestedOffsetOutOfRange.Reject(description).asGrpcError,
     )
 
   /** @param message A status' message.
@@ -279,6 +279,21 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       .setMessage(message)
     addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
     grpcError(statusBuilder.build())
+  }
+
+  def isTimeoutUnknown_wasAborted(message: String, definiteAnswer: Option[Boolean])(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = {
+    errorCodesVersionSwitcher.choose(
+      v1 = aborted(message, definiteAnswer),
+      v2 = LedgerApiErrors.WriteErrors.RequestTimeOut
+        .Reject(
+          message,
+          // TODO error codes: How to handle None definiteAnswer?
+          definiteAnswer.getOrElse(false),
+        )
+        .asGrpcError,
+    )
   }
 
   def packageUploadRejected(message: String, definiteAnswer: Option[Boolean])(implicit
@@ -414,6 +429,20 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       v2 = LedgerApiErrors.ServiceNotRunning.Reject().asGrpcError,
     )
 
+  def trackerFailure(msg: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = {
+        val builder = Status
+          .newBuilder()
+          .setCode(Code.INTERNAL.value())
+          .setMessage(msg)
+        grpcError(builder.build())
+      },
+      v2 = LedgerApiErrors.InternalError.CommandTrackerInternalError(msg).asGrpcError,
+    )
+
   /** Transforms Protobuf [[Status]] objects, possibly including metadata packed as [[ErrorInfo]] objects,
     * into exceptions with metadata in the trailers.
     *
@@ -439,11 +468,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   }
 }
 
-/** Object exposing the legacy error factories.
-  * TODO error codes: Remove default implementation once all Ledger API services
-  *                   output versioned error codes.
-  */
-object ErrorFactories extends ErrorFactories(new ErrorCodesVersionSwitcher(false)) {
+object ErrorFactories {
   val SelfServiceErrorCodeFactories: ErrorFactories = ErrorFactories(
     new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true)
   )

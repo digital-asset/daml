@@ -54,7 +54,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.ReadErrors.RequestedOffsetAfterLedgerEnd,
+        LedgerApiErrors.ReadErrors.RequestedOffsetOutOfRange,
         Some("is before Begin offset"),
       )
     }

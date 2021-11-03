@@ -59,7 +59,6 @@ private[apiserver] final class ApiPackageManagementService private (
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
-
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(
       transactionsService,
@@ -68,6 +67,7 @@ private[apiserver] final class ApiPackageManagementService private (
       errorFactories,
     ),
     timeToLive = managementServiceTimeout,
+    errorFactories = errorFactories,
   )
 
   override def close(): Unit = ()

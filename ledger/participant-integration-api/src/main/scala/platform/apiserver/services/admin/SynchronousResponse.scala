@@ -5,12 +5,13 @@ package com.daml.platform.apiserver.services.admin
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
-
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.services.admin.SynchronousResponse.{Accepted, Rejected}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.TelemetryContext
@@ -27,12 +28,16 @@ import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 class SynchronousResponse[Input, Entry, AcceptedEntry](
     strategy: SynchronousResponse.Strategy[Input, Entry, AcceptedEntry],
     timeToLive: Duration,
+    errorFactories: ErrorFactories,
 ) {
+
+  private val logger = ContextualizedLogger.get(getClass)
 
   def submitAndWait(submissionId: Ref.SubmissionId, input: Input)(implicit
       telemetryContext: TelemetryContext,
       executionContext: ExecutionContext,
       materializer: Materializer,
+      loggingContext: LoggingContext,
   ): Future[AcceptedEntry] = {
     import state.SubmissionResult
     for {
@@ -52,7 +57,10 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
             .runWith(Sink.head)
             .recoverWith { case _: TimeoutException =>
               Future.failed(
-                ErrorFactories.aborted("Request timed out", definiteAnswer = Some(false))
+                errorFactories
+                  .isTimeoutUnknown_wasAborted("Request timed out", definiteAnswer = Some(false))(
+                    new DamlContextualizedErrorLogger(logger, loggingContext, None)
+                  )
               )
             }
             .flatten

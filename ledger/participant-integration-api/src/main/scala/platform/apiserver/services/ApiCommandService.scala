@@ -204,7 +204,13 @@ private[apiserver] object ApiCommandService {
     val submissionTracker = new TrackerMap.SelfCleaning(
       configuration.trackerRetentionPeriod,
       Tracking.getTrackerKey,
-      Tracking.newTracker(configuration, submissionFlow, completionServices, metrics),
+      Tracking.newTracker(
+        configuration,
+        submissionFlow,
+        completionServices,
+        metrics,
+        ErrorFactories(errorCodesVersionSwitcher),
+      ),
       trackerCleanupInterval,
     )
     new GrpcCommandService(
@@ -250,6 +256,7 @@ private[apiserver] object ApiCommandService {
         submissionFlow: SubmissionFlow,
         completionServices: CompletionServices,
         metrics: Metrics,
+        errorFactories: ErrorFactories,
     )(
         key: Tracking.Key
     )(implicit
@@ -297,6 +304,7 @@ private[apiserver] object ApiCommandService {
           capacityCounter = metrics.daml.commands.inputBufferCapacity,
           lengthCounter = metrics.daml.commands.inputBufferLength,
           delayTimer = metrics.daml.commands.inputBufferDelay,
+          errorFactories = errorFactories,
         )
       }
     }

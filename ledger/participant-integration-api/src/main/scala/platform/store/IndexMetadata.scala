@@ -13,6 +13,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.server.api.validation.ErrorFactories
 import scalaz.Tag
 
 import scala.concurrent.duration._
@@ -21,13 +22,14 @@ import scala.concurrent.{ExecutionContext, Future}
 object IndexMetadata {
 
   def read(
-      jdbcUrl: String
+      jdbcUrl: String,
+      errorFactories: ErrorFactories,
   )(implicit
       resourceContext: ResourceContext,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[IndexMetadata] =
-    ownDao(jdbcUrl).use { dao =>
+    ownDao(jdbcUrl, errorFactories).use { dao =>
       for {
         ledgerId <- dao.lookupLedgerId()
         participantId <- dao.lookupParticipantId()
@@ -36,7 +38,8 @@ object IndexMetadata {
     }
 
   private def ownDao(
-      jdbcUrl: String
+      jdbcUrl: String,
+      errorFactories: ErrorFactories,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -55,6 +58,7 @@ object IndexMetadata {
       // No participant ID is available for the dump index meta path,
       // and this property is not needed for the used ReadDao.
       participantId = Ref.ParticipantId.assertFromString("1"),
+      errorFactories = errorFactories,
     )
 
   private val Empty = "<empty>"

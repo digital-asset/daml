@@ -22,6 +22,7 @@ import com.daml.platform.PruneBuffers
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.{
   JdbcLedgerDao,
   LedgerDaoTransactionsReader,
@@ -58,13 +59,14 @@ private[platform] object ReadOnlySqlLedger {
       maxTransactionsInMemoryFanOutBufferSize: Long,
       enableInMemoryFanOutForLedgerApi: Boolean,
       participantId: Ref.ParticipantId,
+      errorFactories: ErrorFactories,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlySqlLedger] {
 
     override def acquire()(implicit context: ResourceContext): Resource[ReadOnlySqlLedger] = {
       val ledgerEndCache = MutableLedgerEndCache()
       for {
-        ledgerDao <- ledgerDaoOwner(servicesExecutionContext).acquire()
+        ledgerDao <- ledgerDaoOwner(servicesExecutionContext, errorFactories).acquire()
         ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao, initialLedgerId))
         ledger <- ledgerOwner(ledgerDao, ledgerId, ledgerEndCache).acquire()
       } yield ledger
@@ -138,7 +140,8 @@ private[platform] object ReadOnlySqlLedger {
     }
 
     private def ledgerDaoOwner(
-        servicesExecutionContext: ExecutionContext
+        servicesExecutionContext: ExecutionContext,
+        errorFactories: ErrorFactories,
     ): ResourceOwner[LedgerReadDao] =
       JdbcLedgerDao.readOwner(
         serverRole,
@@ -152,6 +155,7 @@ private[platform] object ReadOnlySqlLedger {
         lfValueTranslationCache,
         Some(enricher),
         participantId,
+        errorFactories,
       )
   }
 

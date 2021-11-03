@@ -18,7 +18,7 @@ class LedgerOffsetValidator(errorFactories: ErrorFactories) {
 
   private val fieldValidations = FieldValidations(errorFactories)
 
-  import errorFactories.{invalidArgument, missingField, offsetAfterLedgerEnd}
+  import errorFactories.{invalidArgument, missingField, offsetOutOfRange}
   import fieldValidations.requireLedgerString
 
   def validateOptional(
@@ -59,7 +59,7 @@ class LedgerOffsetValidator(errorFactories: ErrorFactories) {
     ledgerOffset match {
       case abs: domain.LedgerOffset.Absolute if abs > ledgerEnd =>
         Left(
-          offsetAfterLedgerEnd(
+          offsetOutOfRange(
             s"$offsetType offset ${abs.value} is after ledger end ${ledgerEnd.value}"
           )
         )
