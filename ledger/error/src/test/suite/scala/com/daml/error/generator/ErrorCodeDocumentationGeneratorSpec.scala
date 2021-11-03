@@ -3,9 +3,9 @@
 
 package com.daml.error.generator
 
-import com.daml.error.utils.testpackage.{DeprecatedError, SeriousError}
 import com.daml.error.utils.testpackage.subpackage.NotSoSeriousError
-import com.daml.error.{Explanation, Resolution}
+import com.daml.error.utils.testpackage.{DeprecatedError, SeriousError}
+import com.daml.error.{Deprecation, Explanation, Resolution}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -31,6 +31,7 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
         conveyance =
           "This error is logged with log-level ERROR on the server side.\nThis error is exposed on the API with grpc-status INTERNAL without any details due to security reasons",
         code = "BLUE_SCREEN",
+        deprecation = Deprecation(""),
         explanation = Explanation("Things happen."),
         resolution = Resolution("Turn it off and on again."),
       ),
@@ -41,6 +42,7 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
         conveyance =
           "This error is logged with log-level ERROR on the server side.\nThis error is exposed on the API with grpc-status INTERNAL without any details due to security reasons",
         code = "DEPRECATED_ERROR",
+        deprecation = Deprecation("deprecated."),
         explanation = Explanation("Things happen."),
         resolution = Resolution("Turn it off and on again."),
       ),
@@ -51,6 +53,7 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
         conveyance =
           "This error is logged with log-level INFO on the server side.\nThis error is exposed on the API with grpc-status UNAVAILABLE including a detailed error message",
         code = "TEST_ROUTINE_FAILURE_PLEASE_IGNORE",
+        deprecation = Deprecation(""),
         explanation = Explanation("Test: Things like this always happen."),
         resolution = Resolution("Test: Why not ignore?"),
       ),

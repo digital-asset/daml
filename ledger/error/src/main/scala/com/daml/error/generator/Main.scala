@@ -15,12 +15,13 @@ object Main {
   case class Output(errorCodes: Seq[DocItem])
 
   implicit val errorCodeEncode: Encoder[DocItem] =
-    Encoder.forProduct7(
+    Encoder.forProduct8(
       "className",
       "category",
       "hierarchicalGrouping",
       "conveyance",
       "code",
+      "deprecation",
       "explanation",
       "resolution",
     )(i =>
@@ -30,6 +31,7 @@ object Main {
         i.hierarchicalGrouping,
         i.conveyance,
         i.code,
+        i.deprecation.deprecation,
         i.explanation.explanation,
         i.resolution.resolution,
       )
