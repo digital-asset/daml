@@ -42,7 +42,6 @@ import util.JwtParties._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
-import com.daml.scalautil.nonempty.NonEmptyReturningOps._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
