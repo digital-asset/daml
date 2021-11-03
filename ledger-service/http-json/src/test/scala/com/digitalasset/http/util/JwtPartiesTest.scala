@@ -55,16 +55,33 @@ class JwtPartiesTest
 
     // ensures compatibility with old behavior
     "use Jwt if explicit spec is absent" in forAll { jwp: JwtWritePayload =>
-      discard(resolveRefParties(None, jwp) should ===(jwp.parties))
-      resolveRefParties(Some(domain.CommandMeta(None, None, None)), jwp) should ===(jwp.parties)
+      discard(resolveRefParties(None, jwp) should ===(\/-(jwp.parties)))
+      resolveRefParties(Some(domain.CommandMeta(None, None, None)), jwp) should ===(
+        \/-(jwp.parties)
+      )
     }
 
-    "ignore Jwt if full explicit spec is present" in forAll {
+    "ignore Jwt if full explicit [subset] spec is present" in forAll {
       (actAs: NonEmptyList[domain.Party], readAs: List[domain.Party], jwp: JwtWritePayload) =>
         resolveRefParties(
           Some(domain.CommandMeta(None, actAs = Some(actAs), readAs = Some(readAs))),
-          jwp,
-        ) should ===(actAs.toSet1 ++ readAs)
+          jwp.copy(submitter = jwp.submitter :::> actAs.toIList, readAs = jwp.readAs ++ readAs),
+        ) should ===(\/-(actAs.toSet1 ++ readAs))
+    }
+
+    // mostly, commands' security is handled by the ledger server, so we can ignore
+    // bad specs. However, for exercises we resolve contracts locally by DB sometimes
+    "reject explicit spec if not in jwt" in forAll {
+      (actAs: domain.Party, readAs: domain.Party, jwp: JwtWritePayload) =>
+        whenever(!jwp.parties.contains(actAs) || !jwp.parties.contains(readAs)) {
+          resolveRefParties(
+            Some(
+              domain
+                .CommandMeta(None, actAs = Some(NonEmptyList(actAs)), readAs = Some(List(readAs)))
+            ),
+            jwp,
+          ) shouldBe a[-\/[_]]
+        }
     }
   }
 }

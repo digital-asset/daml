@@ -711,16 +711,21 @@ class Endpoints(
       lc: LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID],
       metrics: Metrics,
   ): Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
-    contractsService
-      .resolveContractReference(
-        jwt,
-        resolveRefParties(meta, jwtPayload),
-        reference,
-        toLedgerId(jwtPayload.ledgerId),
+    resolveRefParties(meta, jwtPayload)
+      .traverse(
+        contractsService
+          .resolveContractReference(
+            jwt,
+            _,
+            reference,
+            toLedgerId(jwtPayload.ledgerId),
+          )
       )
-      .map { o: Option[domain.ResolvedContractRef[LfValue]] =>
+      .map { o: Error \/ Option[domain.ResolvedContractRef[LfValue]] =>
         val a: Error \/ domain.ResolvedContractRef[LfValue] =
-          o.toRightDisjunction(InvalidUserInput(ErrorMessages.cannotResolveTemplateId(reference)))
+          o.flatMap(
+            _.toRightDisjunction(InvalidUserInput(ErrorMessages.cannotResolveTemplateId(reference)))
+          )
         a.flatMap {
           case -\/((tpId, key)) => lfValueToApiValue(key).map(k => -\/((tpId, k)))
           case a @ \/-((_, _)) => \/-(a)
