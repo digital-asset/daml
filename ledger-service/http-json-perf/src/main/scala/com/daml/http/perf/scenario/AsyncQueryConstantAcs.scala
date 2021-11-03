@@ -49,12 +49,12 @@ class AsyncQueryConstantAcs
       pause(1.second)
     }
     .exec(
-      1.to(numberOfRuns).map(runId => exec(query(runId)))
+      1.to(numberOfRuns / defaultNumUsers).map(runId => exec(query(runId)))
     )
 
   setUp(
-    fillAcsScenario(wantedAcsSize, silent = true).inject(atOnceUsers(1)),
-    asyncQueryScenario.inject(atOnceUsers(1)),
+    fillAcsScenario(wantedAcsSize, silent = true).inject(atOnceUsers(defaultNumUsers)),
+    asyncQueryScenario.inject(atOnceUsers(defaultNumUsers)),
   ).protocols(httpProtocol)
 
 }

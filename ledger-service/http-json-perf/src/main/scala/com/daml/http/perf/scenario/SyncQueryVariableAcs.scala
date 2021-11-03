@@ -25,7 +25,7 @@ class SyncQueryVariableAcs
       .doWhile(_ => acsSize() < wantedAcsSize) {
         pause(1.second)
       }
-      .repeat(numberOfRuns) {
+      .repeat(numberOfRuns / defaultNumUsers) {
         feed(
           Iterator.continually(
             Map[String, String](
@@ -43,7 +43,7 @@ class SyncQueryVariableAcs
       }
 
   setUp(
-    fillAcsScenario(wantedAcsSize, silent = true).inject(atOnceUsers(1)),
-    syncQueryScenario.inject(atOnceUsers(1)),
+    fillAcsScenario(wantedAcsSize, silent = true).inject(atOnceUsers(defaultNumUsers)),
+    syncQueryScenario.inject(atOnceUsers(defaultNumUsers)),
   ).protocols(httpProtocol)
 }

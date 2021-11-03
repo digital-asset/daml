@@ -12,7 +12,7 @@ import io.gatling.http.check.HttpCheck
 import io.gatling.http.request.builder.HttpRequestBuilder
 
 private[scenario] trait HasCreateRequest {
-  this: HasRandomAmount =>
+  this: HasRandomAmount with SimulationConfig =>
 
   private lazy val acsQueue: BlockingQueue[String] = new LinkedBlockingQueue[String]()
 
@@ -45,7 +45,12 @@ private[scenario] trait HasCreateRequest {
           .group("FillAcsGroup") {
             val create =
               if (silent) randomAmountCreateRequest.silent else randomAmountCreateRequest.notSilent
-            exec(create.check(status.is(200)).check(captureContractId)).exitHereIfFailed
+            exec(
+              1.to(size / defaultNumUsers)
+                .map(_ =>
+                  exec(create.check(status.is(200)).check(captureContractId)).exitHereIfFailed
+                )
+            )
           }
       }
 }

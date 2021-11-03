@@ -23,15 +23,16 @@ class CreateAndExerciseCommand extends Simulation with SimulationConfig {
   }
 }"""
 
+  private val numberOfRuns = 2000
   private val request = http("CreateAndExerciseCommand")
     .post("/v1/create-and-exercise")
     .body(StringBody(jsonCommand))
 
   private val scn = scenario("CreateAndExerciseCommandScenario")
-    .repeat(2000)(exec(request.silent)) // server warmup
-    .repeat(2000)(exec(request))
+    .repeat(numberOfRuns / defaultNumUsers)(exec(request.silent)) // server warmup
+    .repeat(numberOfRuns / defaultNumUsers)(exec(request))
 
   setUp(
-    scn.inject(atOnceUsers(1))
+    scn.inject(atOnceUsers(defaultNumUsers))
   ).protocols(httpProtocol)
 }

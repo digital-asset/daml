@@ -21,7 +21,7 @@ class SyncQueryNewAcs
 
   private val syncQueryNewAcs =
     scenario(s"SyncQueryNewAcs, numberOfRuns: $numberOfRuns, ACS size: $wantedAcsSize")
-      .repeat(numberOfRuns) {
+      .repeat(numberOfRuns / defaultNumUsers) {
         group("Populate ACS") {
           doWhile(_ => acsSize() < wantedAcsSize) {
             feed(Iterator.continually(Map("amount" -> String.valueOf(randomAmount()))))
@@ -39,6 +39,6 @@ class SyncQueryNewAcs
       }
 
   setUp(
-    syncQueryNewAcs.inject(atOnceUsers(1))
+    syncQueryNewAcs.inject(atOnceUsers(defaultNumUsers))
   ).protocols(httpProtocol)
 }
