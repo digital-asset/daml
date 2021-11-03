@@ -16,11 +16,11 @@ import System.FilePath
 import DA.Daml.LF.Reader
 
 data ExtractedDar = ExtractedDar
-    { edSdkVersions :: String
-    , edMain :: ZipArchive.Entry
-    , edConfFiles :: [ZipArchive.Entry]
-    , edDalfs :: [ZipArchive.Entry]
-    , edSrcs :: [ZipArchive.Entry]
+    { edSdkVersions :: !String
+    , edMain :: !ZipArchive.Entry
+    , edConfFiles :: ![ZipArchive.Entry]
+    , edDalfs :: ![ZipArchive.Entry]
+    , edSrcs :: ![ZipArchive.Entry]
     }
 
 -- | Extract a dar archive

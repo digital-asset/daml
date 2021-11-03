@@ -1,0 +1,42 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_binary")
+
+da_haskell_binary(
+    name = "data-deps",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "cryptonite",
+        "directory",
+        "either",
+        "extra",
+        "filepath",
+        "ghc-lib-parser",
+        "lens",
+        "lsp",
+        "lsp-types",
+        "memory",
+        "mtl",
+        "proto3-suite",
+        "scientific",
+        "template-haskell",
+        "text",
+        "transformers",
+        "unordered-containers",
+        "vector",
+        "zip-archive",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/damlc/daml-compiler",
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-reader",
+        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
+        "//libs-haskell/da-hs-base",
+    ],
+)

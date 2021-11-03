@@ -23,8 +23,8 @@ import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified DA.Pretty
 
 data DecodedDar = DecodedDar
-    { mainDalf :: DecodedDalf
-    , dalfs :: [DecodedDalf]
+    { mainDalf :: !DecodedDalf
+    , dalfs :: ![DecodedDalf]
     -- ^ Like in the MANIFEST.MF definition, this includes
     -- the main dalf.
     }
@@ -50,8 +50,8 @@ decodeDar dependenciesInPkgDb ExtractedDar{..} = do
             (BSL.toStrict $ ZipArchive.fromEntry entry)
 
 data DecodedDalf = DecodedDalf
-    { decodedDalfPkg :: LF.DalfPackage
-    , decodedUnitId :: UnitId
+    { decodedDalfPkg :: !LF.DalfPackage
+    , decodedUnitId :: !UnitId
     }
 
 decodeDalf :: Set LF.PackageId -> FilePath -> BS.ByteString -> Either String DecodedDalf

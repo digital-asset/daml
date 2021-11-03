@@ -58,8 +58,8 @@ getWorldImported world = map (uncurry ExternalPackage) $ HMS.toList (_worldImpor
 -- | A package where all references to `PRSelf` have been rewritten
 -- to `PRImport`.
 data ExternalPackage = ExternalPackage
-  { extPackageId :: PackageId
-  , extPackagePkg :: Package
+  { extPackageId :: !PackageId
+  , extPackagePkg :: !Package
   } deriving (Show, Eq, Generic)
 
 instance NFData ExternalPackage
@@ -67,9 +67,9 @@ instance NFData ExternalPackage
 makeLensesFor [("_worldSelf","worldSelf")] ''World
 
 data DalfPackage = DalfPackage
-    { dalfPackageId :: PackageId
-    , dalfPackagePkg :: ExternalPackage
-    , dalfPackageBytes :: BS.ByteString
+    { dalfPackageId :: !PackageId
+    , dalfPackagePkg :: !ExternalPackage
+    , dalfPackageBytes :: !BS.ByteString
     } deriving (Show, Eq, Generic)
 
 instance NFData DalfPackage
