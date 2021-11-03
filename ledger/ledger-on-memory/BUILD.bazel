@@ -153,10 +153,10 @@ conformance_test(
         "--additional=CompletionDeduplicationInfoITCommandService",
         "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
-        "--additional=KVCommandDeduplicationIT",
         "--additional=MonotonicRecordTimeIT",
         "--additional=MultiPartySubmissionIT",
         "--additional=ParticipantPruningIT",
+        "--additional=KVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         # Disable tests targeting only multi-participant setups
         "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
