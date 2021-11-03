@@ -3,16 +3,15 @@
 
 package com.daml.ledger.api.benchtool
 
-import com.daml.ledger.api.benchtool.Config.StreamConfig
 import com.daml.ledger.api.benchtool.submission.CommandSubmitter
 import com.daml.ledger.api.benchtool.services._
 import com.daml.ledger.api.benchtool.util.SimpleFileReader
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.ledger.test.model.Foo.{Foo1, Foo2, Foo3}
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.{Logger, LoggerFactory}
+import pprint.PPrinter
 
 import java.io.File
 import java.util.concurrent.{
@@ -43,8 +42,7 @@ object LedgerApiBenchTool {
   }
 
   private def run(config: Config)(implicit ec: ExecutionContext): Future[Unit] = {
-    val printer = pprint.PPrinter(200, 1000)
-    logger.info(s"Starting benchmark with configuration:\n${printer(config).toString()}")
+    logger.info(s"Starting benchmark with configuration:\n${prettyPrint(config)}")
 
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
@@ -61,37 +59,14 @@ object LedgerApiBenchTool {
           )
         }
 
-      def toConfig(
-          descriptor: StreamDescriptor,
-          submissionSummary: CommandSubmitter.SubmissionSummary,
-      ): StreamConfig = {
-        import scalaz.syntax.tag._
-        def templateStringToId(template: String) = template match {
-          case "Foo1" => Foo1.id.unwrap
-          case "Foo2" => Foo2.id.unwrap
-          case "Foo3" => Foo3.id.unwrap
-          case invalid => throw new RuntimeException(s"Invalid template: $invalid")
-        }
-        def partyFromObservers(party: String): String =
-          submissionSummary.observers
-            .map(_.unwrap)
-            .find(_.contains(party))
-            .getOrElse(throw new RuntimeException(s"Observer not found: $party"))
-
-        val filters = descriptor.filters.map { filter =>
-          partyFromObservers(filter.party) -> Some(filter.templates.map(templateStringToId))
-        }.toMap
-
-        descriptor.streamType match {
-          case StreamDescriptor.StreamType.ActiveContracts =>
-            Config.StreamConfig.ActiveContractsStreamConfig(
-              name = descriptor.name,
-              filters = filters,
-            )
-          case invalid =>
-            throw new RuntimeException(s"Invalid stream type: $invalid")
-        }
-      }
+      def submissionStep(
+          submissionDescriptor: SubmissionDescriptor
+      ): Future[CommandSubmitter.SubmissionSummary] =
+        CommandSubmitter(apiServices).submit(
+          descriptor = submissionDescriptor,
+          maxInFlightCommands = config.maxInFlightCommands,
+          submissionBatchSize = config.submissionBatchSize,
+        )
 
       config.contractSetDescriptorFile match {
         case None =>
@@ -99,13 +74,12 @@ object LedgerApiBenchTool {
         case Some(descriptorFile) =>
           for {
             descriptor <- Future.fromTry(parseDescriptor(descriptorFile))
-            _ = logger.info(printer(descriptor).toString())
-            summary <- CommandSubmitter(apiServices).submit(
-              descriptor.submission,
-              config.maxInFlightCommands,
-              config.submissionBatchSize,
+            _ = logger.info(prettyPrint(descriptor))
+            summary <- submissionStep(descriptor.submission)
+            streams = descriptor.streams.map(
+              DescriptorConverter.streamDescriptorToConfig(_, summary)
             )
-            streams = descriptor.streams.map(toConfig(_, summary))
+            _ = logger.info(s"Converted stream configs: ${prettyPrint(streams)}")
             _ <- benchmarkStep(streams)
           } yield ()
       }
@@ -176,4 +150,6 @@ object LedgerApiBenchTool {
     )
 
   private val logger: Logger = LoggerFactory.getLogger(getClass)
+  private val printer: PPrinter = pprint.PPrinter(200, 1000)
+  private def prettyPrint(x: Any): String = printer(x).toString()
 }
