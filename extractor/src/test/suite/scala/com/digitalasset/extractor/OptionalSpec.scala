@@ -25,9 +25,11 @@ class OptionalSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File(rlocation("extractor/PrimitiveTypes.dar"))
+  override protected def darFile = new File(rlocation("extractor/test.dar"))
 
-  override def scenario: Option[String] = Some("PrimitiveTypes:optionals")
+  override protected val initScript: String = "PrimitiveTypes:optionals"
+
+  override protected val party: String = "Optionals"
 
   "Optionals" should "be extracted" in {
     val contracts = getContracts
@@ -39,28 +41,28 @@ class OptionalSpec
     val contractsJson = getContracts.map(_.create_arguments)
 
     val expected = List(
-      """
+      s"""
         {
           "reference" : "Nones",
           "optional" : null,
           "deep_optional" : null,
-          "party" : "Bob"
+          "party" : "$party"
         }
       """,
-      """
+      s"""
         {
           "reference" : "Somes",
           "optional" : "foo",
           "deep_optional" : ["foo"],
-          "party" : "Bob"
+          "party" : "$party"
         }
       """,
-      """
+      s"""
         {
           "reference" : "Some None",
           "optional" : "foo",
           "deep_optional" : [],
-          "party" : "Bob"
+          "party" : "$party"
         }
       """,
     ).traverse(parse)
