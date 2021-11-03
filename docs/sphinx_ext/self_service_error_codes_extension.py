@@ -108,7 +108,7 @@ def process_error_code_nodes(app, doctree, fromDocName):
         for error_data in data:
             current = root
             for group in error_data["hierarchicalGrouping"]:
-                current = current[group]
+                current = current[group["docName"]]
             if 'error-codes' in current:
                 current['error-codes'].append(error_data)
             else:
