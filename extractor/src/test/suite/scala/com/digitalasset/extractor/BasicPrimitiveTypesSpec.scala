@@ -25,9 +25,11 @@ class BasicPrimitiveTypesSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File(rlocation("extractor/PrimitiveTypes.dar"))
+  override protected def darFile = new File(rlocation("extractor/test.dar"))
 
-  override def scenario: Option[String] = Some("PrimitiveTypes:primitives")
+  override protected val initScript: String = "PrimitiveTypes:primitives"
+
+  override protected val party: String = "Primitives"
 
   "Contracts" should "be extracted" in {
     val contracts = getContracts
@@ -39,7 +41,7 @@ class BasicPrimitiveTypesSpec
     val contractsJson = getContracts.map(_.create_arguments)
 
     val expected = List(
-      """
+      s"""
         {
           "reference" : "Simple values",
           "int_field" : 5,
@@ -48,12 +50,12 @@ class BasicPrimitiveTypesSpec
           "numeric37_field" : "0.25",
           "text_field" : "Hey",
           "bool_field" : true,
-          "party_field" : "Bob",
+          "party_field" : "$party",
           "date_field" : "2020-02-22",
           "time_field" : "2020-02-22T12:13:14Z"
         }
       """,
-      """
+      s"""
         {
           "reference" : "Positive extremes",
           "int_field" : 9223372036854775807,
@@ -62,12 +64,12 @@ class BasicPrimitiveTypesSpec
           "numeric37_field" : "9.9999999999999999999999999999999999999",
           "text_field" : "Hey",
           "bool_field" : true,
-          "party_field" : "Bob",
+          "party_field" : "$party",
           "date_field" : "9999-12-31",
           "time_field" : "9999-12-31T23:59:59Z"
         }
       """,
-      """
+      s"""
         {
           "reference" : "Negative extremes",
           "int_field" : -9223372036854775808,
@@ -76,7 +78,7 @@ class BasicPrimitiveTypesSpec
           "numeric37_field" : "-9.9999999999999999999999999999999999999",
           "text_field" : "Hey",
           "bool_field" : true,
-          "party_field" : "Bob",
+          "party_field" : "$party",
           "date_field" : "0001-01-01",
           "time_field" : "0001-01-01T00:00:00Z"
         }
