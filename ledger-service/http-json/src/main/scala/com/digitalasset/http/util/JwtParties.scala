@@ -20,14 +20,16 @@ private[http] object JwtParties {
       jwtPayload: JwtPayload,
   ): Error \/ Unit = {
     val disallowedParties: Set[domain.Party] =
-      readAs.cata((_.toSet.filter(jwtPayload.parties)), Set.empty)
+      readAs.cata((_.toSet.filterNot(jwtPayload.parties)), Set.empty)
     if (disallowedParties.isEmpty) \/-(())
     else {
       val err =
-        s"Queried parties not allowed by given JWT token: ${disallowedParties mkString ", "}"
+        s"$EnsureReadAsDisallowedError: ${disallowedParties mkString ", "}"
       -\/(Unauthorized(err))
     }
   }
+
+  private[util] val EnsureReadAsDisallowedError = "Queried parties not allowed by given JWT token"
 
   def resolveRefParties(
       meta: Option[domain.CommandMeta],
