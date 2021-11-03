@@ -4,6 +4,7 @@
 package com.daml.platform.index
 
 import java.util.concurrent.TimeUnit
+
 import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
@@ -22,7 +23,11 @@ import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, Ledge
 import com.daml.platform.store.{EventSequentialId, LfValueTranslationCache}
 import com.daml.platform.store.appendonlydao.events.{BufferedTransactionsReader, LfValueTranslation}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.SignalNewLedgerHead
-import com.daml.platform.store.cache.{EventsBuffer, MutableCacheBackedContractStore}
+import com.daml.platform.store.cache.{
+  EventsBuffer,
+  MutableCacheBackedContractStore,
+  MutableLedgerEndCache,
+}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.scalautil.Statement.discard
 
@@ -33,6 +38,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 private[index] object ReadOnlySqlLedgerWithMutableCache {
   final class Owner(
       ledgerDao: LedgerReadDao,
+      ledgerEndCache: MutableLedgerEndCache,
       enricher: ValueEnricher,
       ledgerId: LedgerId,
       metrics: Metrics,
@@ -52,13 +58,20 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         (ledgerEndOffset, ledgerEndSequentialId) <- Resource.fromFuture(
           ledgerDao.lookupLedgerEndOffsetAndSequentialId()
         )
+        _ = ledgerEndCache.set((ledgerEndOffset, ledgerEndSequentialId))
         prefetchingDispatcher <- dispatcherOffsetSeqIdOwner(
           ledgerEndOffset,
           ledgerEndSequentialId,
         ).acquire()
         generalDispatcher <- dispatcherOwner(ledgerEndOffset).acquire()
         dispatcherLagMeter <- Resource.successful(
-          new DispatcherLagMeter(generalDispatcher.signalNewHead)(
+          new DispatcherLagMeter((offset, eventSeqId) => {
+            ledgerEndCache.set((offset, eventSeqId))
+            // the order here is very important: first we need to make data available for point-wise lookups
+            // and SQL queries, and only then we can make it available on the streams.
+            // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
+            generalDispatcher.signalNewHead(offset)
+          })(
             metrics.daml.execution.cache.dispatcherLag
           )
         )
@@ -231,8 +244,8 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
   ) extends SignalNewLedgerHead {
     private val ledgerHeads = mutable.Map.empty[Offset, Long]
 
-    override def apply(offset: Offset): Unit = {
-      delegate(offset)
+    override def apply(offset: Offset, sequentialEventId: Long): Unit = {
+      delegate(offset, sequentialEventId)
       ledgerHeads.synchronized {
         ledgerHeads.remove(offset).foreach { startNanos =>
           val endNanos = System.nanoTime()

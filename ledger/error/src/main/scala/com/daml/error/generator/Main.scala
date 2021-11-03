@@ -39,7 +39,7 @@ object Main {
     Encoder.forProduct1("errorCodes")(i => (i.errorCodes))
 
   def main(args: Array[String]): Unit = {
-    val errorCodes = ErrorCodeDocumentationGenerator().getDocItems
+    val errorCodes = new ErrorCodeDocumentationGenerator().getDocItems
     val outputFile = Paths.get(args(0))
     val output = Output(errorCodes)
     val outputText: String = output.asJson.spaces2

@@ -28,6 +28,7 @@ import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
 import DA.Daml.Options (expandSdkPackages)
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
+import qualified DA.Service.Logger as Logger
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
@@ -61,11 +62,11 @@ import qualified Module as Ghc
 import HscTypes
 
 -- | Create a DAR file by running a ZipArchive action.
-createDarFile :: FilePath -> Zip.ZipArchive () -> IO ()
-createDarFile fp dar = do
+createDarFile :: Logger.Handle IO -> FilePath -> Zip.ZipArchive () -> IO ()
+createDarFile loggerH fp dar = do
     createDirectoryIfMissing True $ takeDirectory fp
     Zip.createArchive fp dar
-    putStrLn $ "Created " <> fp
+    Logger.logInfo loggerH $ "Created " <> T.pack fp
 
 ------------------------------------------------------------------------------
 {- | Builds a dar file.

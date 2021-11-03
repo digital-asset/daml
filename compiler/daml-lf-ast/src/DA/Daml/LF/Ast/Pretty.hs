@@ -633,12 +633,13 @@ pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observe
       implementsDoc = map (pPrintTemplateImplements lvl) (NM.toList implements)
 
 pPrintTemplateImplements :: PrettyLevel -> TemplateImplements -> Doc ann
-pPrintTemplateImplements lvl (TemplateImplements name methods inheritedChoices)
+pPrintTemplateImplements lvl (TemplateImplements name methods inheritedChoices precond)
   | NM.null methods = keyword_ "implements" <-> pPrintPrec lvl 0 name
-  | otherwise = vcat
-      $ (keyword_ "implements" <-> pPrintPrec lvl 0 name <-> keyword_ "where")
-      : nest 2 (keyword_ "inherits" <-> pPrintPrec lvl 0 (S.toList inheritedChoices))
-      : map (nest 2 . pPrintTemplateImplementsMethod lvl) (NM.toList methods)
+  | otherwise = vcat $
+      [ keyword_ "implements" <-> pPrintPrec lvl 0 name <-> keyword_ "where"
+      , nest 2 (keyword_ "ensure" <-> pPrintPrec lvl 0 precond)
+      , nest 2 (keyword_ "inherits" <-> pPrintPrec lvl 0 (S.toList inheritedChoices))
+      ] ++ map (nest 2 . pPrintTemplateImplementsMethod lvl) (NM.toList methods)
 
 pPrintTemplateImplementsMethod :: PrettyLevel -> TemplateImplementsMethod -> Doc ann
 pPrintTemplateImplementsMethod lvl (TemplateImplementsMethod name expr) =

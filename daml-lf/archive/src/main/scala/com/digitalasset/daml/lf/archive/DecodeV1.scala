@@ -607,6 +607,10 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         methods = lfImpl.getMethodsList.asScala
           .map(decodeTemplateImplementsMethod)
           .map(method => (method.name, method)),
+        inheritedChoices = lfImpl.getInheritedChoiceInternedNamesList.asScala
+          .map(getInternedName(_, "TemplateImplements.inheritedChoices"))
+          .toSet,
+        precond = decodeExpr(lfImpl.getPrecond, "TemplateImplements.precond"),
       )
 
     private[this] def decodeTemplateImplementsMethod(

@@ -61,9 +61,6 @@ in rec {
     # for the upstream issue.
     cc = bazel_dependencies.bazel-cc-toolchain;
 
-    # TLA+ with the command-line model checker TLC
-    tlc2            = pkgs.tlaplus;
-
     mvn = bazel_dependencies.mvn;
 
     zinc = pkgs.callPackage ./tools/zinc {};

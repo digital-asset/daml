@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -24,7 +25,13 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         .flatTransactions(requestWithEmptyFilter)
         .mustFail("subscribing with an empty filter")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, Some("filtersByParty cannot be empty"))
+      assertGrpcError(
+        ledger,
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandValidation.InvalidArgument,
+        Some("filtersByParty cannot be empty"),
+      )
     }
   })
 
@@ -43,7 +50,13 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         .flatTransactions(invalidRequest)
         .mustFail("subscribing with the end before the begin")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, Some("is before Begin offset"))
+      assertGrpcError(
+        ledger,
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.ReadErrors.RequestedOffsetAfterLedgerEnd,
+        Some("is before Begin offset"),
+      )
     }
   })
 
@@ -62,8 +75,10 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         .mustFail("subscribing with the wrong ledger ID")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.NOT_FOUND,
+        LedgerApiErrors.CommandValidation.LedgerIdMismatch,
         Some(s"Ledger ID '$invalidLedgerId' not found."),
       )
     }
@@ -84,8 +99,10 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         .mustFail("subscribing with the wrong ledger ID")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.NOT_FOUND,
+        LedgerApiErrors.CommandValidation.LedgerIdMismatch,
         Some(s"Ledger ID '$invalidLedgerId' not found."),
       )
     }
@@ -106,8 +123,10 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         .mustFail("subscribing with the wrong ledger ID")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.NOT_FOUND,
+        LedgerApiErrors.CommandValidation.LedgerIdMismatch,
         Some(s"Ledger ID '$invalidLedgerId' not found."),
       )
     }
@@ -128,8 +147,10 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         .mustFail("subscribing with the wrong ledger ID")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.NOT_FOUND,
+        LedgerApiErrors.CommandValidation.LedgerIdMismatch,
         Some(s"Ledger ID '$invalidLedgerId' not found."),
       )
     }
@@ -150,8 +171,10 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         .mustFail("subscribing with the wrong ledger ID")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.NOT_FOUND,
+        LedgerApiErrors.CommandValidation.LedgerIdMismatch,
         Some(s"Ledger ID '$invalidLedgerId' not found."),
       )
     }
@@ -172,8 +195,10 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         .mustFail("subscribing with the wrong ledger ID")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.NOT_FOUND,
+        LedgerApiErrors.CommandValidation.LedgerIdMismatch,
         Some(s"Ledger ID '$invalidLedgerId' not found."),
       )
     }
@@ -191,8 +216,10 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         .mustFail("requesting with the wrong ledger ID")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.NOT_FOUND,
+        LedgerApiErrors.CommandValidation.LedgerIdMismatch,
         Some(s"Ledger ID '$invalidLedgerId' not found."),
       )
     }
@@ -209,9 +236,11 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         .mustFail("looking up a transaction tree without specifying a party")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        Some("Missing field: requesting_parties"),
+        LedgerApiErrors.CommandValidation.MissingField,
+        Some("requesting_parties"),
       )
     }
   })
@@ -227,9 +256,11 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         .mustFail("looking up a flat transaction without specifying a party")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        Some("Missing field: requesting_parties"),
+        LedgerApiErrors.CommandValidation.MissingField,
+        Some("requesting_parties"),
       )
     }
   })
@@ -244,7 +275,13 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         .transactionTreeByEventId("dont' worry, be happy", party)
         .mustFail("looking up an transaction tree using an invalid event ID")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, Some("Invalid field event_id"))
+      assertGrpcError(
+        ledger,
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandValidation.InvalidField,
+        Some("Invalid field event_id"),
+      )
     }
   })
 
@@ -259,9 +296,11 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         .mustFail("looking up a transaction tree without specifying a party")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        Some("Missing field: requesting_parties"),
+        LedgerApiErrors.CommandValidation.MissingField,
+        Some("requesting_parties"),
       )
     }
   })
@@ -276,7 +315,13 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         .flatTransactionByEventId("dont' worry, be happy", party)
         .mustFail("looking up a flat transaction using an invalid event ID")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, Some("Invalid field event_id"))
+      assertGrpcError(
+        ledger,
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandValidation.InvalidField,
+        Some("Invalid field event_id"),
+      )
     }
   })
 
@@ -291,9 +336,11 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         .mustFail("looking up a flat transaction without specifying a party")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        Some("Missing field: requesting_parties"),
+        LedgerApiErrors.CommandValidation.MissingField,
+        Some("requesting_parties"),
       )
     }
   })

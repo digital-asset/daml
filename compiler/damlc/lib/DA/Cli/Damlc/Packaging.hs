@@ -50,6 +50,7 @@ import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
 import DA.Cli.Damlc.DependencyDb
 import qualified DA.Pretty
+import qualified DA.Service.Logger as Logger
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.RuleTypes.Daml
 import SdkVersion
@@ -85,7 +86,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       -- TODO Enforce this with useful error messages
       registerDepsInPkgDb depsDir dbPath
 
-      loggerH <- getLogger opts "generate package maps"
+      loggerH <- getLogger opts "dependencies"
       mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
           (,) <$> useNoFileE GenerateStablePackages
               <*> (fst <$> useE GeneratePackageMap projectRoot)
@@ -126,6 +127,8 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       -- to avoid blowing up GHC when setting up the GHC session.
       exposedModules <- getExposedModules opts projectRoot
 
+      Logger.logDebug loggerH "Building dependency package graph"
+
       let (depGraph, vertexToNode) = buildLfPackageGraph dalfsFromDataDependencies stablePkgs dependenciesInPkgDb
 
 
@@ -135,6 +138,9 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       -- We do a topological sort on the transposed graph which ensures that
       -- the packages with no dependencies come first and we
       -- never process a package without first having processed its dependencies.
+
+      Logger.logDebug loggerH "Registering dependency graph"
+
       forM_ (topSort $ transposeG depGraph) $ \vertex ->
         let (pkgNode, pkgId) = vertexToNode vertex in
         -- stable packages are mapped to the current version of daml-prim/daml-stdlib
@@ -225,9 +231,12 @@ generateAndInstallIfaceFiles ::
     -> MS.Map UnitId (UniqSet GHC.ModuleName)
     -> IO ()
 generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase pkgIdStr pkgName mbPkgVersion deps dependencies exposedModules = do
-    loggerH <- getLogger opts "generate interface files"
+    let pkgContext = T.pack (unitIdString (pkgNameVersion pkgName mbPkgVersion)) <> " (" <> LF.unPackageId pkgIdStr <> ")"
+    loggerH <- getLogger opts $ "data-dependencies " <> pkgContext
+    Logger.logDebug loggerH "Writing out dummy source files"
     let src' = [ (toNormalizedFilePath' $ workDir </> fromNormalizedFilePath nfp, str) | (nfp, str) <- src]
     mapM_ writeSrc src'
+    Logger.logDebug loggerH "Compiling dummy interface files"
     -- We expose dependencies under a Pkg_$pkgId prefix so we can unambiguously refer to them
     -- while avoiding name collisions in package imports. Note that we can only do this
     -- for exposed modules. GHC gets very unhappy if you try to remap modules that are not
@@ -284,6 +293,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
             (map (GHC.mkModuleName . T.unpack) $ LF.packageModuleNames dalf)
             pkgIdStr
     BS.writeFile (dbPath </> "package.conf.d" </> cfPath) cfBs
+    Logger.logDebug loggerH $ "Reaching package db for " <> pkgContext
     recachePkgDb dbPath
 
 -- | Fake settings, we need those to make ghc-pkg happy.
@@ -407,7 +417,7 @@ getGhcPkgPath :: IO FilePath
 getGhcPkgPath =
     if isWindows
         then locateRunfiles "rules_haskell_ghc_windows_amd64/bin"
-        else locateRunfiles "ghc_nix/lib/ghc-8.10.4/bin"
+        else locateRunfiles "ghc_nix/lib/ghc-8.10.7/bin"
 
 -- | Fail with an exit failure and errror message when Nothing is returned.
 mbErr :: String -> Maybe a -> IO a

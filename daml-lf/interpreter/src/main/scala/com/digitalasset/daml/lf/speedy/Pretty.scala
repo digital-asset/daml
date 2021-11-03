@@ -9,12 +9,11 @@ import org.typelevel.paiges.Doc._
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
 import Value._
-import com.daml.lf.transaction.Node._
 import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
 import com.daml.lf.scenario.ScenarioLedger.TransactionId
 import com.daml.lf.scenario._
-import com.daml.lf.transaction.{NodeId, TransactionVersion => TxVersion, Transaction => Tx}
+import com.daml.lf.transaction.{Node, NodeId, TransactionVersion => TxVersion, Transaction => Tx}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltin._
@@ -108,20 +107,20 @@ private[lf] object Pretty {
   }
 
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
-  def prettyPartialTransactionNode(node: PartialTransaction.Node): Doc =
+  def prettyPartialTransactionNode(node: Node): Doc =
     node match {
-      case NodeRollback(_) =>
+      case Node.Rollback(_) =>
         text("rollback")
-      case create: NodeCreate =>
+      case create: Node.Create =>
         "create" &: prettyContractInst(create.coinst)
-      case fetch: NodeFetch =>
+      case fetch: Node.Fetch =>
         "fetch" &: prettyContractId(fetch.coid)
-      case ex: NodeExercises =>
+      case ex: Node.Exercise =>
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
           text("with") & prettyValue(false)(ex.chosenValue)
-      case lbk: NodeLookupByKey =>
+      case lbk: Node.LookupByKey =>
         text("lookup by key") & prettyIdentifier(lbk.templateId) /
           text("key") & prettyKeyWithMaintainers(lbk.key) /
           (lbk.result match {
@@ -190,11 +189,11 @@ private[lf] object Pretty {
           prettyLoc(amf.optLocation)
     }
 
-  def prettyKeyWithMaintainers(key: KeyWithMaintainers[Value]): Doc =
+  def prettyKeyWithMaintainers(key: Node.KeyWithMaintainers[Value]): Doc =
     // the maintainers are induced from the key -- so don't clutter
     prettyValue(false)(key.key)
 
-  def prettyVersionedKeyWithMaintainers(key: KeyWithMaintainers[Tx.Value]): Doc =
+  def prettyVersionedKeyWithMaintainers(key: Node.KeyWithMaintainers[Tx.Value]): Doc =
     // the maintainers are induced from the key -- so don't clutter
     prettyValue(false)(key.key.value)
 
@@ -204,17 +203,17 @@ private[lf] object Pretty {
     val eventId = EventId(txId.id, nodeId)
     val ni = l.ledgerData.nodeInfos(eventId)
     val ppNode = ni.node match {
-      case NodeRollback(children) =>
+      case Node.Rollback(children) =>
         text("rollback:") / stack(children.toList.map(prettyEventInfo(l, txId)))
-      case create: NodeCreate =>
+      case create: Node.Create =>
         val d = "create" &: prettyContractInst(create.coinst)
         create.versionedKey match {
           case None => d
           case Some(key) => d / text("key") & prettyVersionedKeyWithMaintainers(key)
         }
-      case ea: NodeFetch =>
+      case ea: Node.Fetch =>
         "ensure active" &: prettyContractId(ea.coid)
-      case ex: NodeExercises =>
+      case ex: Node.Exercise =>
         val children =
           if (ex.children.nonEmpty)
             text("children:") / stack(ex.children.toList.map(prettyEventInfo(l, txId)))
@@ -225,7 +224,7 @@ private[lf] object Pretty {
           text("on") & prettyContractId(ex.targetCoid) /
           (text("    ") + text("with") & prettyValue(false)(ex.chosenValue) / children)
             .nested(4)
-      case lbk: NodeLookupByKey =>
+      case lbk: Node.LookupByKey =>
         text("lookup by key") & prettyIdentifier(lbk.templateId) /
           text("key") & prettyVersionedKeyWithMaintainers(lbk.versionedKey) /
           (lbk.result match {

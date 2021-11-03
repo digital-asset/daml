@@ -38,6 +38,7 @@ data Name
     | NEnumCon ModuleName TypeConName VariantConName
     | NField ModuleName TypeConName FieldName
     | NChoice ModuleName TypeConName ChoiceName
+    | NChoiceViaInterface ModuleName TypeConName ChoiceName (Qualified TypeConName)
     | NInterface ModuleName TypeConName
 
 -- | Helper method so we can turn collisions with virtual modules into warnings
@@ -69,6 +70,8 @@ displayName = \case
         T.concat ["field ", dot m, ":", dot t, ".", f]
     NChoice (ModuleName m) (TypeConName t) (ChoiceName c) ->
         T.concat ["choice ", dot m, ":", dot t, ".", c]
+    NChoiceViaInterface (ModuleName m) (TypeConName t) (ChoiceName c) (Qualified _ (ModuleName imod) (TypeConName ityp)) ->
+        T.concat ["choice ", dot m, ":", dot t, ".", c, " (via interface ", dot imod, ":", dot ityp, ")"]
     NInterface (ModuleName m) (TypeConName t) ->
         T.concat ["interface ", dot m, ":", dot t]
   where
@@ -124,6 +127,8 @@ fullyResolve = FRName . map T.toLower . \case
     NField (ModuleName m) (TypeConName t) (FieldName f) ->
         m ++ t ++ [f]
     NChoice (ModuleName m) (TypeConName t) (ChoiceName c) ->
+        m ++ t ++ [c]
+    NChoiceViaInterface (ModuleName m) (TypeConName t) (ChoiceName c) _ ->
         m ++ t ++ [c]
     NInterface (ModuleName m) (TypeConName t) ->
         m ++ t
@@ -199,6 +204,9 @@ checkTemplate :: ModuleName -> Template -> NCMonad ()
 checkTemplate moduleName Template{..} = do
     forM_ tplChoices $ \TemplateChoice{..} ->
         checkName (NChoice moduleName tplTypeCon chcName)
+    forM_ tplImplements $ \TemplateImplements{..} ->
+        forM_ tpiInheritedChoiceNames $ \choiceName ->
+            checkName (NChoiceViaInterface moduleName tplTypeCon choiceName tpiInterface)
 
 checkSynonym :: ModuleName -> DefTypeSyn -> NCMonad ()
 checkSynonym moduleName DefTypeSyn{..} =

@@ -202,7 +202,9 @@ object Value {
       template: Identifier,
       arg: Value,
       agreementText: String,
-  ) {
+  ) extends CidContainer[ContractInstance] {
+
+    override protected def self: this.type = this
 
     def map(f: Value => Value): ContractInstance =
       copy(arg = f(arg))

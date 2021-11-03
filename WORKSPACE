@@ -435,13 +435,13 @@ haskell_register_ghc_nixpkgs(
         "-Wwarn",
     ],
     repositories = dev_env_nix_repos,
-    version = "8.10.4",
+    version = "8.10.7",
 )
 
 # Used by Windows
 haskell_register_ghc_bindists(
     compiler_flags = common_ghc_flags,
-    version = "8.10.4",
+    version = "8.10.7",
 ) if is_windows else None
 
 nixpkgs_package(
@@ -594,9 +594,19 @@ load("@rules_haskell//tools:repositories.bzl", "rules_haskell_worker_dependencie
 # Call this after `daml_haskell_deps` to ensure that the right `stack` is used.
 rules_haskell_worker_dependencies()
 
-load("//bazel_tools:java.bzl", "java_home_runtime")
+load("//bazel_tools:java.bzl", "dadew_java_configure", "nixpkgs_java_configure")
 
-java_home_runtime(name = "java_home")
+dadew_java_configure(
+    name = "dadew_java_runtime",
+    dadew_path = "java-openjdk-8u302",
+) if is_windows else None
+
+nixpkgs_java_configure(
+    attribute_path = "jdk8.home",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+) if not is_windows else None
 
 # rules_go used here to compile a wrapper around the protoc-gen-scala plugin
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
@@ -826,7 +836,7 @@ nixpkgs_package(
 load("@os_info//:os_info.bzl", "is_linux")
 cc_library(
   name = "grpc_lib",
-  srcs = [":lib/libgrpc.so", ":lib/libgrpc.so.18", ":lib/libgrpc.so.18.0.0", ":lib/libgpr.so", ":lib/libgpr.so.18", ":lib/libgpr.so.18.0.0"] if is_linux else [":lib/libgrpc.dylib", ":lib/libgpr.dylib"],
+  srcs = [":lib/libgrpc.so", ":lib/libgrpc.so.19", ":lib/libgrpc.so.19.0.0", ":lib/libgpr.so", ":lib/libgpr.so.19", ":lib/libgpr.so.19.0.0"] if is_linux else [":lib/libgrpc.dylib", ":lib/libgpr.dylib"],
   visibility = ["//visibility:public"],
   hdrs = [":include"],
   includes = ["include"],

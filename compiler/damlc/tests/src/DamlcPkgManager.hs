@@ -69,8 +69,7 @@ testsForRemoteDataDependencies damlc dar =
                             , "  signatory p"
                             ]
                     setEnv "DAML_PROJECT" projDir True
-                    (exitCode, _stdout, stderr) <- readProcessWithExitCode damlc ["build"] ""
-                    stderr @?= ""
+                    (exitCode, _stdout, _stderr) <- readProcessWithExitCode damlc ["build"] ""
                     exitCode @?= ExitSuccess
               , testCase "package name:version data-dependency" $
                 withTempDir $ \projDir -> do
@@ -98,8 +97,7 @@ testsForRemoteDataDependencies damlc dar =
                             , "  signatory p"
                             ]
                     setEnv "DAML_PROJECT" projDir True
-                    (exitCode, _stdout, stderr) <- readProcessWithExitCode damlc ["build"] ""
-                    stderr @?= ""
+                    (exitCode, _stdout, _stderr) <- readProcessWithExitCode damlc ["build"] ""
                     exitCode @?= ExitSuccess
                   -- check that a lock file is written
                     let lockFp = projDir </> "daml.lock"
@@ -115,8 +113,7 @@ testsForRemoteDataDependencies damlc dar =
                             , "  version: 0.0.1"
                             ]
                     removeDirectoryRecursive $ projDir </> ".daml"
-                    (exitCode, _stdout, stderr) <- readProcessWithExitCode damlc ["build"] ""
-                    stderr @?= ""
+                    (exitCode, _stdout, _stderr) <- readProcessWithExitCode damlc ["build"] ""
                     exitCode @?= ExitSuccess
                     lock <- readFile lockFp
                     lines lock @?=
@@ -139,8 +136,7 @@ testsForRemoteDataDependencies damlc dar =
                             , "  host: localhost"
                             , "  port: " <> show (sandboxPort + 1)
                             ]
-                    (exitCode, _stdout, stderr) <- readProcessWithExitCode damlc ["build"] ""
-                    stderr @?= ""
+                    (exitCode, _stdout, _stderr) <- readProcessWithExitCode damlc ["build"] ""
                     exitCode @?= ExitSuccess
               , testCase "Caching" $ do
                     InspectInfo {mainPackageId, packages} <- getDarInfo dar
@@ -194,8 +190,7 @@ testsForRemoteDataDependencies damlc dar =
                             , "  signatory p"
                             ]
                     setEnv "DAML_PROJECT" projDir True
-                    (exitCode, _stdout, stderr) <- readProcessWithExitCode damlc ["build"] ""
-                    stderr @?= ""
+                    (exitCode, _stdout, _stderr) <- readProcessWithExitCode damlc ["build"] ""
                     exitCode @?= ExitSuccess
               ]
     ]

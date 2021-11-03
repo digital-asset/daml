@@ -1459,6 +1459,7 @@ message DefTemplate {
     repeated ImplementsMethod methods = 2;
     repeated int32 inherited_choice_interned_names = 3;
       // ^ inherited fixed choice names as interned strings
+    Expr precond = 4;
   }
 
   // The type constructor for the template, acting as both

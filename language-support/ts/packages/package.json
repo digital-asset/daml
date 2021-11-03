@@ -6,8 +6,8 @@
     "events": "^3.1.0",
     "isomorphic-ws": "^4.0.1",
     "jwt-simple": "^0.5.6",
-    "react": "^16.12.0",
-    "react-test-renderer": "^16.12.0",
+    "react": "^16.12.0 || ^17.0.0",
+    "react-test-renderer": "^16.12.0 || ^17.0.0",
     "typescript": "~3.9.7",
     "ws": "^7.4.6"
   },
@@ -16,7 +16,7 @@
     "@bazel/typescript": "^4.4.0",
     "@types/jest": "^26.0.23",
     "@types/lodash": "4.14.161",
-    "@types/react": "^16.9.20",
+    "@types/react": "^16.9.20 || ^17.0.0",
     "@types/ws": "^7.2.1",
     "@typescript-eslint/eslint-plugin": "^2.16.0",
     "@typescript-eslint/parser": "^2.16.0",
@@ -30,7 +30,7 @@
   "resolutions": {
     "marked": "^2.0.0",
     "**/y18n": "^4.0.1",
-    "**/@types/react-test-renderer": "^16.9.3",
+    "**/@types/react-test-renderer": "^16.9.3 || ^17.0.0",
     "**/hosted-git-info": "^4.0.2",
     "**/string-width": "^4.2.3",
     "**/strip-ansi": "^6.0.1",

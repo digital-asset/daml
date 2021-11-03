@@ -51,12 +51,11 @@ import com.daml.lf.speedy.Compiler
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox
-import com.daml.platform.sandbox.SandboxServer
+import com.daml.platform.sandbox.SandboxBackend
+import com.daml.platform.sandboxnext.{Runner => SandboxRunner}
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, Port}
-import com.daml.resources.FutureResourceOwner
 import com.daml.scalautil.Statement.discard
 import com.daml.testing.oracle.OracleAroundAll
 import com.daml.testing.postgresql.PostgresAroundAll
@@ -260,7 +259,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
   protected val damlPackages: List[File] = List()
   protected val ledgerIdMode: LedgerIdMode =
     LedgerIdMode.Static(LedgerId(this.getClass.getSimpleName))
-  private def sandboxConfig: SandboxConfig = sandbox.DefaultConfig.copy(
+  private def sandboxConfig: SandboxConfig = SandboxConfig.defaultConfig.copy(
     port = Port.Dynamic,
     ledgerIdMode = ledgerIdMode,
     damlPackages = damlPackages,
@@ -270,8 +269,8 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
     seeding = Some(Seeding.Weak),
   )
 
-  protected lazy val sandboxServer: SandboxServer = resource.value._1
-  protected lazy val sandboxPort: Port = sandboxServer.port
+  protected lazy val sandboxPort: Port = resource.value._1
+  protected lazy val channel: Channel = resource.value._2
   protected def sandboxClient(
       applicationId: ApplicationId,
       admin: Boolean = false,
@@ -279,7 +278,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
       readAs: List[ApiTypes.Party] = List(),
   )(implicit executionContext: ExecutionContext): Future[LedgerClient] =
     LedgerClient(
-      resource.value._2,
+      channel,
       LedgerClientConfiguration(
         applicationId = ApplicationId.unwrap(applicationId),
         ledgerIdRequirement = LedgerIdRequirement.none,
@@ -299,7 +298,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
       ),
     )
 
-  private var resource: OwnedResource[ResourceContext, (SandboxServer, Channel)] = _
+  private var resource: OwnedResource[ResourceContext, (Port, Channel)] = _
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -308,12 +307,15 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
     // The owner spins up its own actor system which avoids deadlocks
     // during shutdown.
     resource = new OwnedResource(for {
-      sandbox <- SandboxServer.owner(sandboxConfig)
-      port <- new FutureResourceOwner[ResourceContext, Port](() =>
-        sandbox.portF(context.executionContext)
-      )
+      // We must provide a random database if none is provided.
+      // The default is to always use the same index database URL, which means that tests can
+      // share an index. As you can imagine, this causes all manner of issues, the most important
+      // of which is that the ledger and index databases will be out of sync.
+      jdbcUrl <- SandboxBackend.H2Database.owner
+        .map(info => Some(info.jdbcUrl))
+      port <- new SandboxRunner(sandboxConfig.copy(jdbcUrl = jdbcUrl))
       channel <- GrpcClientResource.owner(port)
-    } yield (sandbox, channel))
+    } yield (port, channel))
     resource.setup()
   }
 
