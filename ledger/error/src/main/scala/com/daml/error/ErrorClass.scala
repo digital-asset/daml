@@ -3,14 +3,19 @@
 
 package com.daml.error
 
+case class Grouping(
+    docName: String,
+    group: Option[ErrorGroup],
+)
+
 /** The classes [[ErrorClass]] and [[ErrorGroup]] are used to hierarchically structure error codes (their
   * hierarchical structure affects how they are displayed on the website)
   */
-case class ErrorClass(docNames: List[String]) {
-  def extend(docName: String = ""): ErrorClass = {
-    ErrorClass(docNames :+ docName)
-  }
+case class ErrorClass(groupings: List[Grouping]) {
+  def extend(grouping: Grouping): ErrorClass =
+    ErrorClass(groupings :+ grouping)
 }
+
 object ErrorClass {
   def root(): ErrorClass = ErrorClass(Nil)
 }
