@@ -40,10 +40,10 @@ import System.Process (callProcess)
 import "ghc-lib-parser" UniqSet
 
 import DA.Bazel.Runfiles
-import DA.Cli.Damlc.Base
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.DataDependencies as DataDeps
 import DA.Daml.Compiler.DecodeDar (DecodedDalf(..), decodeDalf)
+import DA.Daml.Compiler.Output
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
 import DA.Daml.Options.Packaging.Metadata
@@ -73,7 +73,9 @@ createProjectPackageDb :: NormalizedFilePath -> Options -> MS.Map UnitId GHC.Mod
 createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefixes
   = do
     (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization projectRoot depsDir
+    loggerH <- getLogger opts "package-db"
     when needsReinitalization $ do
+      Logger.logDebug loggerH "package db is not up2date, reinitializing"
       clearPackageDb
 
 
@@ -86,7 +88,6 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       -- TODO Enforce this with useful error messages
       registerDepsInPkgDb depsDir dbPath
 
-      loggerH <- getLogger opts "dependencies"
       mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
           (,) <$> useNoFileE GenerateStablePackages
               <*> (fst <$> useE GeneratePackageMap projectRoot)

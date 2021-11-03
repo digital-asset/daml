@@ -16,7 +16,7 @@ import Control.Monad.Except
 import Control.Monad.Extra (whenM, whenJust)
 import DA.Bazel.Runfiles
 import qualified DA.Cli.Args as ParseArgs
-import DA.Cli.Damlc.Base
+import DA.Cli.Options
 import DA.Cli.Damlc.BuildInfo
 import qualified DA.Cli.Damlc.InspectDar as InspectDar
 import qualified DA.Cli.Damlc.Command.Damldoc as Damldoc
@@ -24,6 +24,7 @@ import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.DependencyDb
 import DA.Cli.Damlc.Test
 import DA.Daml.Compiler.Dar
+import DA.Daml.Compiler.Output
 import qualified DA.Daml.Compiler.Repl as Repl
 import DA.Daml.Compiler.DocTest
 import DA.Daml.LF.ScenarioServiceClient (readScenarioServiceConfig, withScenarioService')
