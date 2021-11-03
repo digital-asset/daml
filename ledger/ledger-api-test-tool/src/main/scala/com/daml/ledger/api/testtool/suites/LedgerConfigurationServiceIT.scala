@@ -80,14 +80,18 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
         )
         .mustFail("submitting a command with a deduplication time that is too big")
     } yield {
+      val expectedCode =
+        if (ledger.features.selfServiceErrorCodes) Status.Code.FAILED_PRECONDITION
+        else Status.Code.INVALID_ARGUMENT
+      val expectedError =
+        if (ledger.features.selfServiceErrorCodes)
+          LedgerApiErrors.CommandValidation.InvalidDeduplicationPeriodField
+        else LedgerApiErrors.CommandValidation.InvalidField
       assertGrpcErrorRegex(
         ledger,
         failure,
-        if (ledger.features.selfServiceErrorCodes) Status.Code.FAILED_PRECONDITION
-        else Status.Code.INVALID_ARGUMENT,
-        if (ledger.features.selfServiceErrorCodes)
-          LedgerApiErrors.CommandValidation.InvalidDeduplicationPeriodField
-        else LedgerApiErrors.CommandValidation.InvalidField,
+        expectedCode,
+        expectedError,
         Some(
           Pattern.compile(
             "The given deduplication duration .+ exceeds the maximum deduplication time of .+"
