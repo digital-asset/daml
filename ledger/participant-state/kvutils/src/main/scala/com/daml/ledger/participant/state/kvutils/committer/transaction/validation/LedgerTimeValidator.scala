@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction.validation
 
-import cats.syntax.contravariantSemigroupal._
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Err
 import com.daml.ledger.participant.state.kvutils.committer.Committer.getCurrentConfiguration
@@ -46,8 +45,8 @@ private[transaction] class LedgerTimeValidator(defaultConfig: Configuration)
                 _ => StepContinue(transactionEntry),
               )
           case None => // Pre-execution: propagate the time bounds and defer the checks to post-execution.
-            (commitContext.minimumRecordTime, commitContext.maximumRecordTime)
-              .mapN((minimumRecordTime, maximumRecordTime) => {
+            (commitContext.minimumRecordTime, commitContext.maximumRecordTime) match {
+              case (Some(minimumRecordTime), Some(maximumRecordTime)) =>
                 val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
                   .setTransactionRejectionEntry(
                     rejections.preExecutionOutOfTimeBoundsRejectionEntry(
@@ -59,12 +58,11 @@ private[transaction] class LedgerTimeValidator(defaultConfig: Configuration)
                   .build
                 commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
                 StepContinue(transactionEntry)
-              })
-              .getOrElse(
+              case _ =>
                 throw Err.InternalError(
                   "Minimum and maximum record times were not set in the committer context"
                 )
-              )
+            }
         }
       }
     }
