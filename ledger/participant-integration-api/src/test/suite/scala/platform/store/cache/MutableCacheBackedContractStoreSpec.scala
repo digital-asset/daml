@@ -493,17 +493,11 @@ object MutableCacheBackedContractStoreSpec {
 
     override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
         loggingContext: LoggingContext
-    ): Future[Option[Timestamp]] = ids match {
+    ): Future[Either[Set[ContractId], Option[Timestamp]]] = ids match {
       case setIds if setIds == Set(cId_4) =>
-        Future.successful(Some(t4))
-      case set if set.isEmpty =>
-        Future.failed(EmptyContractIds())
+        Future.successful(Right(Some(t4)))
       case _ =>
-        Future.failed(
-          new IllegalArgumentException(
-            s"The following contracts have not been found: ${ids.map(_.coid).mkString(", ")}"
-          )
-        )
+        Future.successful(Left(ids))
     }
 
     override def lookupActiveContractAndLoadArgument(

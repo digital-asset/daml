@@ -32,5 +32,5 @@ trait ContractStore {
     */
   def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Timestamp]]
+  ): Future[Either[Set[ContractId], Option[Timestamp]]]
 }

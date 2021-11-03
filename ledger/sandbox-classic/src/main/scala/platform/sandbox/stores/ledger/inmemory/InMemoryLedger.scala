@@ -338,28 +338,18 @@ private[sandbox] final class InMemoryLedger(
 
   override def lookupMaximumLedgerTime(contractIds: Set[ContractId])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Timestamp]] =
-    if (contractIds.isEmpty) {
-      Future.failed(
-        new IllegalArgumentException(
-          "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
-        )
-      )
-    } else {
-      Future.fromTry(Try(this.synchronized {
-        contractIds
-          .foldLeft[Option[Instant]](Some(Instant.MIN))((acc, id) => {
-            val let = acs.activeContracts
-              .getOrElse(
-                id,
-                sys.error(s"Contract $id not found while looking for maximum ledger time"),
-              )
-              .let
-            acc.map(acc => if (let.isAfter(acc)) let else acc)
-          })
-          .map(Timestamp.assertFromInstant)
-      }))
-    }
+  ): Future[Either[Set[ContractId], Option[Timestamp]]] =
+    Future.fromTry(Try(this.synchronized {
+      contractIds
+        .foldLeft[Either[Set[ContractId], Option[Instant]]](Right(Some(Instant.MIN)))((acc, id) => {
+          val letE = acs.activeContracts.get(id).map(c => Right(c.let)).getOrElse(Left(Set(id)))
+          for {
+            let <- letE
+            acc <- acc
+          } yield acc.map(acc => if (let.isAfter(acc)) let else acc)
+        })
+        .map(_.map(Timestamp.assertFromInstant))
+    }))
 
   override def publishTransaction(
       submitterInfo: state.SubmitterInfo,

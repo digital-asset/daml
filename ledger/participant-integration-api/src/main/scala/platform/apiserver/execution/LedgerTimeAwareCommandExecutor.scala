@@ -47,7 +47,19 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-  ): Future[Either[ErrorCause, CommandExecutionResult]] =
+  ): Future[Either[ErrorCause, CommandExecutionResult]] = {
+    def retryOrError(newCommands: Commands) = {
+      if (retriesLeft > 0) {
+        metrics.daml.execution.retry.mark()
+        logger.info(s"Restarting the computation")
+        loop(newCommands, submissionSeed, ledgerConfiguration, retriesLeft - 1)
+      } else {
+        logger.info(
+          s"Did not find a suitable ledger time after ${maxRetries - retriesLeft} retries. Giving up."
+        )
+        Future.successful(Left(ErrorCause.LedgerTime(maxRetries)))
+      }
+    }
     delegate
       .execute(commands, submissionSeed, ledgerConfiguration)
       .flatMap {
@@ -66,26 +78,31 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
           else
             contractStore
               .lookupMaximumLedgerTime(usedContractIds)
-              .flatMap { maxUsedTime =>
-                if (maxUsedTime.forall(_ <= commands.commands.ledgerEffectiveTime)) {
-                  Future.successful(Right(cer))
-                } else if (!cer.dependsOnLedgerTime) {
-                  logger.debug(
-                    s"Advancing ledger effective time for the output from ${commands.commands.ledgerEffectiveTime} to $maxUsedTime"
+              .flatMap {
+                case Left(missingContracts) =>
+                  logger.info(
+                    s"Did not find the ledger time for some contracts. This can happen if there is contention on contracts used by the transaction. Missing contracts: ${missingContracts
+                      .mkString(", ")}."
                   )
-                  Future.successful(Right(advanceOutputTime(cer, maxUsedTime)))
-                } else if (retriesLeft > 0) {
-                  metrics.daml.execution.retry.mark()
-                  logger.debug(
-                    s"Restarting the computation with new ledger effective time $maxUsedTime"
-                  )
-                  val advancedCommands = advanceInputTime(commands, maxUsedTime)
-                  loop(advancedCommands, submissionSeed, ledgerConfiguration, retriesLeft - 1)
-                } else {
-                  Future.successful(Left(ErrorCause.LedgerTime(maxRetries)))
-                }
+                  retryOrError(commands)
+
+                case Right(maxUsedTime) =>
+                  if (maxUsedTime.forall(_ <= commands.commands.ledgerEffectiveTime)) {
+                    Future.successful(Right(cer))
+                  } else if (!cer.dependsOnLedgerTime) {
+                    logger.debug(
+                      s"Advancing ledger effective time for the output from ${commands.commands.ledgerEffectiveTime} to $maxUsedTime"
+                    )
+                    Future.successful(Right(advanceOutputTime(cer, maxUsedTime)))
+                  } else {
+                    logger.info(
+                      s"Ledger time was used in the Daml code, but a different ledger effective time $maxUsedTime was determined afterwards. The transaction needs to be rerun with the new ledger effective time."
+                    )
+                    val advancedCommands = advanceInputTime(commands, maxUsedTime)
+                    retryOrError(advancedCommands)
+                  }
               }
-              .recover {
+              .recoverWith {
                 // An error while looking up the maximum ledger time for the used contracts
                 // most likely means that one of the contracts is already not active anymore,
                 // which can happen under contention.
@@ -93,12 +110,13 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
                 // Direct references to archived contracts will result in the same error.
                 case error =>
                   logger.info(
-                    s"Lookup of maximum ledger time failed. This can happen if there is contention on contracts used by the transaction. Used contracts: ${usedContractIds
+                    s"Lookup of maximum ledger time failed after ${maxRetries - retriesLeft}. Used contracts: ${usedContractIds
                       .mkString(", ")}. Details: $error"
                   )
-                  Left(ErrorCause.LedgerTime(maxRetries - retriesLeft))
+                  Future.successful(Left(ErrorCause.LedgerTime(maxRetries - retriesLeft)))
               }
       }
+  }
 
   // Does nothing if `newTime` is empty. This happens if the transaction only regarded divulged contracts.
   private[this] def advanceOutputTime(

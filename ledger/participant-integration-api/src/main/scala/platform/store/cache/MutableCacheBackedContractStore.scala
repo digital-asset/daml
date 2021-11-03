@@ -72,21 +72,17 @@ private[platform] class MutableCacheBackedContractStore(
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Timestamp]] =
-    if (ids.isEmpty)
-      Future.failed(EmptyContractIds())
-    else {
-      Future
-        .fromTry(partitionCached(ids))
-        .flatMap {
-          case (cached, toBeFetched) if toBeFetched.isEmpty =>
-            Future.successful(Some(cached.max))
-          case (cached, toBeFetched) =>
-            contractsReader
-              .lookupMaximumLedgerTime(toBeFetched)
-              .map(_.map(m => (cached + m).max))
-        }
-    }
+  ): Future[Either[Set[ContractId], Option[Timestamp]]] =
+    Future
+      .fromTry(partitionCached(ids))
+      .flatMap {
+        case (cached, toBeFetched) if toBeFetched.isEmpty =>
+          Future.successful(Right(Some(cached.max)))
+        case (cached, toBeFetched) =>
+          contractsReader
+            .lookupMaximumLedgerTime(toBeFetched)
+            .map(_.map(_.map(m => (cached + m).max)))
+      }
 
   private def partitionCached(
       ids: Set[ContractId]

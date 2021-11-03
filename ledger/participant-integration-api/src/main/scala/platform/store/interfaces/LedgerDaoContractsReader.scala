@@ -20,7 +20,7 @@ private[platform] trait LedgerDaoContractsReader {
     */
   def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
-  ): Future[Option[Timestamp]]
+  ): Future[Either[Set[ContractId], Option[Timestamp]]]
 
   /** Looks up an active or divulged contract if it is visible for the given party.
     *

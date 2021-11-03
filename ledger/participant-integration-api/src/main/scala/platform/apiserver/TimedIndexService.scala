@@ -158,7 +158,9 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
 
   override def lookupMaximumLedgerTime(
       ids: Set[Value.ContractId]
-  )(implicit loggingContext: LoggingContext): Future[Option[Timestamp]] =
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Either[Set[Value.ContractId], Option[Timestamp]]] =
     Timed.future(
       metrics.daml.services.index.lookupMaximumLedgerTime,
       delegate.lookupMaximumLedgerTime(ids),

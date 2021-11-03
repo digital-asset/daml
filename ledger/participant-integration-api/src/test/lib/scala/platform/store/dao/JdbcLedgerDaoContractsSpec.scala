@@ -165,10 +165,9 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   it should "prevent retrieving the maximum ledger time if some contracts are not found" in {
     val randomContractId = ContractId.assertFromString(s"#random-${UUID.randomUUID}")
     for {
-      failure <- contractsReader.lookupMaximumLedgerTime(Set(randomContractId)).failed
+      result <- contractsReader.lookupMaximumLedgerTime(Set(randomContractId))
     } yield {
-      failure shouldBe an[IllegalArgumentException]
-      assertIsLedgerTimeLookupError(failure.getMessage)
+      result shouldBe Left(Set(randomContractId))
     }
   }
 
@@ -177,7 +176,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       (_, tx) <- store(singleCreate)
       result <- contractsReader.lookupMaximumLedgerTime(nonTransient(tx))
     } yield {
-      inside(result) { case Some(time) =>
+      inside(result) { case Right(Some(time)) =>
         time should be <= Timestamp.now()
       }
     }
@@ -196,7 +195,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       contractIds = nonTransient(tx) + divulgedContractId
       result <- contractsReader.lookupMaximumLedgerTime(contractIds)
     } yield {
-      inside(result) { case Some(tx.ledgerEffectiveTime) =>
+      inside(result) { case Right(Some(tx.ledgerEffectiveTime)) =>
         succeed
       }
     }
@@ -214,7 +213,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
       result <- contractsReader.lookupMaximumLedgerTime(Set(contractId))
     } yield {
-      inside(result) { case Some(tx.ledgerEffectiveTime) =>
+      inside(result) { case Right(Some(tx.ledgerEffectiveTime)) =>
         succeed
       }
     }
@@ -230,7 +229,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
       result <- contractsReader.lookupMaximumLedgerTime(Set(divulgedContractId))
     } yield {
-      result shouldBe None
+      result shouldBe Right(None)
     }
   }
 
@@ -246,19 +245,13 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
       // Consuming exercise node witnessed by some party on this participant
       _ <- store(singleExercise(divulgedContractId))
-      failure <- contractsReader.lookupMaximumLedgerTime(Set(divulgedContractId)).failed
+      result <- contractsReader.lookupMaximumLedgerTime(Set(divulgedContractId))
     } yield {
-      failure shouldBe an[IllegalArgumentException]
-      assertIsLedgerTimeLookupError(failure.getMessage)
+      result shouldBe Left(Set(divulgedContractId))
     }
   }
 
   it should "store contracts with a transient contract in the global divulgence" in {
     store(fullyTransientWithChildren).flatMap(_ => succeed)
-  }
-
-  private[this] def assertIsLedgerTimeLookupError(actualErrorString: String) = {
-    val errorString = "The following contracts have not been found"
-    actualErrorString should startWith(errorString)
   }
 }

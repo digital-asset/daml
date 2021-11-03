@@ -27,13 +27,10 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyUnassigned,
 }
 
-import scala.util.{Failure, Success, Try}
-
 class ContractStorageBackendTemplate(
-    queryStrategy: QueryStrategy,
-    ledgerEndCache: LedgerEndCache,
-) extends ContractStorageBackend {
-
+                                      queryStrategy: QueryStrategy,
+                                      ledgerEndCache: LedgerEndCache,
+                                    ) extends ContractStorageBackend {
   override def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId] =
     contractKey(
       resultColumns = List("contract_id"),
@@ -43,16 +40,6 @@ class ContractStorageBackendTemplate(
       key = key,
       validAt = ledgerEndCache()._2,
     )(connection)
-
-  private def emptyContractIds: Throwable =
-    new IllegalArgumentException(
-      "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
-    )
-
-  private def notFound(missingContractIds: Set[ContractId]): Throwable =
-    new IllegalArgumentException(
-      s"The following contracts have not been found: ${missingContractIds.map(_.coid).mkString(", ")}"
-    )
 
   protected def maximumLedgerTimeSqlLiteral(
       id: ContractId,
@@ -102,31 +89,28 @@ class ContractStorageBackendTemplate(
   // TODO append-only: consider pulling up traversal logic to upper layer
   override def maximumLedgerTime(
       ids: Set[ContractId]
-  )(connection: Connection): Try[Option[Timestamp]] = {
+  )(connection: Connection): Either[Set[ContractId], Option[Timestamp]] = {
     val lastEventSequentialId = ledgerEndCache()._2
-    if (ids.isEmpty) {
-      Failure(emptyContractIds)
-    } else {
-      def lookup(id: ContractId): Option[Option[Timestamp]] =
+    def lookup(id: ContractId): Option[Option[Timestamp]] =
         maximumLedgerTimeSqlLiteral(id, lastEventSequentialId).as(
-          timestampFromMicros("ledger_effective_time").?.singleOpt
-        )(
-          connection
-        )
+        timestampFromMicros("ledger_effective_time").?.singleOpt
+      )(
+        connection
+      )
 
-      val queriedIds: List[(ContractId, Option[Option[Timestamp]])] = ids.toList
-        .map(id => id -> lookup(id))
-      val foundLedgerEffectiveTimes: List[Option[Timestamp]] = queriedIds
-        .collect { case (_, Some(found)) =>
-          found
-        }
-      if (foundLedgerEffectiveTimes.size != ids.size) {
-        val missingIds = queriedIds.collect { case (missingId, None) =>
-          missingId
-        }
-        Failure(notFound(missingIds.toSet))
-      } else Success(foundLedgerEffectiveTimes.max)
-    }
+    val queriedIds: List[(ContractId, Option[Option[Timestamp]])] = ids.toList
+      .map(id => id -> lookup(id))
+    val foundLedgerEffectiveTimes: List[Option[Timestamp]] = queriedIds
+      .collect { case (_, Some(found)) =>
+        found
+      }
+    if (foundLedgerEffectiveTimes.size != ids.size) {
+      val missingIds = queriedIds.collect { case (missingId, None) =>
+        missingId
+      }
+      Left(missingIds.toSet)
+    } else Right(foundLedgerEffectiveTimes.max)
+
   }
 
   override def keyState(key: Key, validAt: Long)(connection: Connection): KeyState =
