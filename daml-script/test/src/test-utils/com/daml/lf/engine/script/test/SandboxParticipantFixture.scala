@@ -13,12 +13,14 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
+import com.daml.testing.postgresql.PostgresAroundAll
 
 import scala.concurrent.ExecutionContext
 
 trait SandboxParticipantFixture
     extends AbstractScriptTest
     with SandboxNextFixture
+    with PostgresAroundAll
     with AkkaBeforeAndAfterAll {
   self: Suite =>
   private implicit val ec: ExecutionContext = system.dispatcher
@@ -46,7 +48,10 @@ trait SandboxParticipantFixture
     timeProviderType = Some(timeMode match {
       case ScriptTimeMode.Static => TimeProviderType.Static
       case ScriptTimeMode.WallClock => TimeProviderType.WallClock
-    })
+    }),
+    jdbcUrl = Some(
+      postgresDatabase.url
+    ),
   )
 
   protected def stableDarFile = new File(rlocation("daml-script/test/script-test.dar"))

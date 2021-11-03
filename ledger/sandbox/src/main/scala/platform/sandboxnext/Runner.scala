@@ -44,6 +44,7 @@ import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
 import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandboxnext.Runner._
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.ports.Port
@@ -236,6 +237,9 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     apiServerServicesClosed.future
                   },
                   authorizer,
+                  errorFactories = ErrorFactories(
+                    new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
+                  ),
                 )
               }
               apiServer <- new StandaloneApiServer(

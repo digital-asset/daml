@@ -84,7 +84,7 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.OUT_OF_RANGE,
-        LedgerApiErrors.ReadErrors.RequestedOffsetAfterLedgerEnd,
+        LedgerApiErrors.ReadErrors.RequestedOffsetOutOfRange,
         Some("is after ledger end"),
       )
     }
@@ -106,7 +106,7 @@ class TransactionServiceStreamsIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.OUT_OF_RANGE,
-        LedgerApiErrors.ReadErrors.RequestedOffsetAfterLedgerEnd,
+        LedgerApiErrors.ReadErrors.RequestedOffsetOutOfRange,
         Some("is after ledger end"),
       )
     }

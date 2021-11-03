@@ -37,14 +37,14 @@ private[appendonlydao] final class CommandCompletionsReader(
         dispatcher
           .executeSql(metrics.daml.index.db.getCompletions) { implicit connection =>
             queryNonPruned.executeSql[List[CompletionStreamResponse]](
-              storageBackend.commandCompletions(
+              query = storageBackend.commandCompletions(
                 startExclusive = startExclusive,
                 endInclusive = endInclusive,
                 applicationId = applicationId,
                 parties = parties,
               )(connection),
-              startExclusive,
-              pruned =>
+              minOffsetExclusive = startExclusive,
+              error = pruned =>
                 s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} overlaps with pruned offset ${pruned.toHexString}",
             )
           }

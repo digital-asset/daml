@@ -153,6 +153,7 @@ private[apiserver] final class ApiConfigManagementService private (
               errorFactories,
             ),
             timeToLive = JDuration.ofMillis(params.timeToLive.toMillis),
+            errorFactories = errorFactories,
           )
           entry <- synchronousResponse.submitAndWait(
             augmentedSubmissionId,

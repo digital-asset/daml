@@ -18,6 +18,7 @@ import com.google.rpc._
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
+import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
@@ -25,7 +26,11 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.sql.{SQLNonTransientException, SQLTransientException}
 import scala.jdk.CollectionConverters._
 
-class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class ErrorFactoriesSpec
+    extends AnyWordSpec
+    with Matchers
+    with TableDrivenPropertyChecks
+    with MockitoSugar {
   private val correlationId = "trace-id"
   private val logger = ContextualizedLogger.get(getClass)
   private val loggingContext = LoggingContext.ForTesting
@@ -35,6 +40,8 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
 
   private val DefaultTraceIdRequestInfo: ErrorDetails.RequestInfoDetail =
     ErrorDetails.RequestInfoDetail("trace-id")
+
+  val tested = ErrorFactories(mock[ErrorCodesVersionSwitcher])
 
   "ErrorFactories" should {
     "return sqlTransientException" in {
@@ -181,6 +188,23 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       )
     }
 
+    "return a isTimeoutUnknown_wasAborted error" in {
+      assertVersionedError(
+        _.isTimeoutUnknown_wasAborted("message123", definiteAnswer = Some(false))
+      )(
+        v1_code = Code.ABORTED,
+        v1_message = "message123",
+        v1_details = Seq(definiteAnswers(false)),
+        v2_code = Code.DEADLINE_EXCEEDED,
+        v2_message = s"REQUEST_TIME_OUT(3,trace-id): message123",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("REQUEST_TIME_OUT"),
+          DefaultTraceIdRequestInfo,
+          ErrorDetails.RetryInfoDetail(1),
+        ),
+      )
+    }
+
     "return a nonHexOffset error" in {
       assertVersionedError(
         _.nonHexOffset(None)(
@@ -202,8 +226,8 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       )
     }
 
-    "return a readingOffsetAfterLedgerEnd error" in {
-      assertVersionedError(_.readingOffsetAfterLedgerEnd_was_invalidArgument(None)("message123"))(
+    "return a offsetOutOfRange_was_invalidArgument error" in {
+      assertVersionedError(_.offsetOutOfRange_was_invalidArgument(None)("message123"))(
         v1_code = Code.INVALID_ARGUMENT,
         v1_message = "Invalid argument: message123",
         v1_details = Seq.empty,
@@ -281,7 +305,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       )
 
       forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        val exception = aborted("my message", definiteAnswer)
+        val exception = tested.aborted("my message", definiteAnswer)
         val status = StatusProto.fromThrowable(exception)
         status.getCode shouldBe Code.ABORTED.value()
         status.getMessage shouldBe "my message"
@@ -355,7 +379,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
     }
 
     "fail on creating a ledgerIdMismatch error due to a wrong definite answer" in {
-      an[IllegalArgumentException] should be thrownBy ledgerIdMismatch(
+      an[IllegalArgumentException] should be thrownBy tested.ledgerIdMismatch(
         LedgerId("expected"),
         LedgerId("received"),
         definiteAnswer = Some(true),
@@ -376,8 +400,23 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       )
     }
 
-    "return an offsetAfterLedgerEnd error" in {
-      assertVersionedError(_.offsetAfterLedgerEnd("my message"))(
+    "return a trackerFailure error" in {
+      assertVersionedError(_.trackerFailure("message123"))(
+        v1_code = Code.INTERNAL,
+        v1_message = "message123",
+        v1_details = Seq.empty,
+        v2_code = Code.INTERNAL,
+        v2_message =
+          s"An error occurred. Please contact the operator and inquire about the request trace-id",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("LEDGER_API_INTERNAL_ERROR"),
+          DefaultTraceIdRequestInfo,
+        ),
+      )
+    }
+
+    "return an offsetOutOfRange error" in {
+      assertVersionedError(_.offsetOutOfRange("my message"))(
         v1_code = Code.OUT_OF_RANGE,
         v1_message = "my message",
         v1_details = Seq.empty,
@@ -499,7 +538,7 @@ class ErrorFactoriesSpec extends AnyWordSpec with Matchers with TableDrivenPrope
 
     "should create an ApiException without the stack trace" in {
       val status = Status.newBuilder().setCode(Code.INTERNAL.value()).build()
-      val exception = grpcError(status)
+      val exception = tested.grpcError(status)
       exception.getStackTrace shouldBe Array.empty
     }
   }

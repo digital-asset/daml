@@ -271,11 +271,11 @@ FETCH NEXT 1 ROW ONLY;
   override def dbLockSupported: Boolean = false
 
   // Migration from mutable schema is not supported for H2
-  override def validatePruningOffsetAgainstMigration(
+  override def isPruningOffsetValidAgainstMigration(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
       connection: Connection,
-  ): Unit = ()
+  ): Boolean = true
 
   override def maximumLedgerTimeSqlLiteral(id: ContractId): SimpleSql[Row] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement

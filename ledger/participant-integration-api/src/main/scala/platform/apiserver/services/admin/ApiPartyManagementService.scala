@@ -62,6 +62,7 @@ private[apiserver] final class ApiPartyManagementService private (
       errorFactories,
     ),
     timeToLive = managementServiceTimeout,
+    errorFactories = errorFactories,
   )
 
   override def close(): Unit = ()

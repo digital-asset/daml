@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import java.io.PrintWriter
 import java.util.concurrent.{Executors, TimeUnit}
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}

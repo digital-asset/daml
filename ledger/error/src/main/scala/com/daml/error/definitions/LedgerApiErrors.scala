@@ -60,6 +60,24 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             cause = message
           )
     }
+
+    @Explanation(
+      "This rejection is given when a request might not been processed and a time-out was reached."
+    )
+    @Resolution(
+      "Retry for transient problems. If non-transient contact the operator as the time-out limit might be to short."
+    )
+    object RequestTimeOut
+        extends ErrorCode(
+          id = "REQUEST_TIME_OUT",
+          ErrorCategory.DeadlineExceededRequestStateUnknown,
+        ) {
+      case class Reject(message: String, override val definiteAnswer: Boolean)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = message
+          )
+    }
   }
 
   object ReadErrors extends ErrorGroup() {
@@ -121,7 +139,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       "This rejection is given when a read request uses an offset beyond the current ledger end."
     )
     @Resolution("Use an offset that is before the ledger end.")
-    object RequestedOffsetAfterLedgerEnd
+    object RequestedOffsetOutOfRange
         extends ErrorCode(
           id = "REQUESTED_OFFSET_OUT_OF_RANGE",
           ErrorCategory.InvalidGivenCurrentSystemStateSeekAfterEnd,
@@ -596,6 +614,13 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         id = "LEDGER_API_INTERNAL_ERROR",
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
+
+    // TODO error codes: This is an internal error not related to the interpreter
+    case class CommandTrackerInternalError(
+        message: String
+    )(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends LoggingTransactionErrorImpl(cause = message)
 
     case class PackageSelfConsistency(
         err: LfError.Package.SelfConsistency

@@ -25,6 +25,8 @@ import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.platform.sandbox.stores.ledger.TransactionTimeModelComplianceIT._
 import com.daml.platform.sandbox.{LedgerResource, MetricsAround}
+import com.daml.platform.server.api.validation.ErrorFactories
+import org.mockito.MockitoSugar
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.Span
@@ -43,7 +45,8 @@ class TransactionTimeModelComplianceIT
     with ScalaFutures
     with Matchers
     with OptionValues
-    with MetricsAround {
+    with MetricsAround
+    with MockitoSugar {
 
   override def timeLimit: Span = scaled(60.seconds)
 
@@ -57,7 +60,7 @@ class TransactionTimeModelComplianceIT
       case BackendType.InMemory =>
         LedgerResource.inMemory(ledgerId, timeProvider)
       case BackendType.Postgres =>
-        LedgerResource.postgres(getClass, ledgerId, timeProvider, metrics)
+        LedgerResource.postgres(getClass, ledgerId, timeProvider, metrics, mock[ErrorFactories])
     }
   }
 

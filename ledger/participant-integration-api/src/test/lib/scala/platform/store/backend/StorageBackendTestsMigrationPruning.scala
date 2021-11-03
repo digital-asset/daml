@@ -6,7 +6,6 @@ package com.daml.platform.store.backend
 import java.sql.Connection
 
 import com.daml.lf.data.Ref
-import com.daml.platform.server.api.ApiException
 import com.daml.platform.store.appendonlydao.events.ContractId
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -41,23 +40,21 @@ private[backend] trait StorageBackendTestsMigrationPruning
       _ <- Future.successful(beforePruning should not be empty)
       // Trying to prune all divulged contracts before the migration should fail
       _ <-
-        recoverToSucceededIf[ApiException](
-          executeSql(
-            backend.validatePruningOffsetAgainstMigration(
-              offset(1),
-              pruneAllDivulgedContracts = true,
-              _,
-            )
+        executeSql(
+          backend.isPruningOffsetValidAgainstMigration(
+            offset(1),
+            pruneAllDivulgedContracts = true,
+            _,
           )
-        )
+        ).map(_ shouldBe false)
       // Validation passes the pruning offset for all divulged contracts is after the migration
       _ <- executeSql(
-        backend.validatePruningOffsetAgainstMigration(
+        backend.isPruningOffsetValidAgainstMigration(
           offset(2),
           pruneAllDivulgedContracts = true,
           _,
         )
-      )
+      ).map(_ shouldBe true)
       _ <- executeSql(
         backend.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(_, loggingContext)
       )

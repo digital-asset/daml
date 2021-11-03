@@ -4,7 +4,6 @@
 package com.daml.platform.store.backend
 
 import java.sql.Connection
-
 import com.daml.platform.store.backend.h2.H2StorageBackend
 import com.daml.platform.store.backend.oracle.OracleStorageBackend
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackend

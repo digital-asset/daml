@@ -90,6 +90,7 @@ final class StandaloneApiServer(
           enableMutableContractStateCache = config.enableMutableContractStateCache,
           maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
           enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
+          enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
         )
         .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
       errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(

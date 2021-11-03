@@ -12,12 +12,12 @@ import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.FlywayMigrations
+import com.daml.platform.store.appendonlydao.DbDispatcher
 import org.scalatest.{AsyncTestSuite, BeforeAndAfterEach}
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{Await, Future}
 
 private[backend] trait StorageBackendSpec
     extends AkkaBeforeAndAfterAll
