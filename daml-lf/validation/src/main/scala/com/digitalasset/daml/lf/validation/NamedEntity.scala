@@ -165,9 +165,9 @@ object NamedEntity {
         choiceName.toUpperCase
       )
 
-    override def toString: String = s"NChoice($modName:$tplName.$choiceName)"
+    override def toString: String = s"NChoice($modName:$tplName:$choiceName)"
 
-    def pretty: String = s"template choice $modName:$tplName.$choiceName"
+    def pretty: String = s"template choice $modName:$tplName:$choiceName"
   }
 
   final case class NChoiceViaInterface(
@@ -183,8 +183,8 @@ object NamedEntity {
         choiceName.toUpperCase
       )
 
-    override def toString: String = s"NChoiceViaInterface($modName:$tplName.$choiceName, $iface)"
+    override def toString: String = s"NChoiceViaInterface($modName:$tplName:$choiceName, $iface)"
 
-    def pretty: String = s"template choice $modName:$tplName.$choiceName (via interface $iface)"
+    def pretty: String = s"template choice $modName:$tplName:$choiceName (via interface $iface)"
   }
 }
