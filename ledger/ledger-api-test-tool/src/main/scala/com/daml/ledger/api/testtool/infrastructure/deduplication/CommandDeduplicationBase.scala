@@ -41,8 +41,6 @@ private[testtool] abstract class CommandDeduplicationBase(
 
   def deduplicationFeatures: DeduplicationFeatures
 
-  protected def expectedDuplicateCommandErrorCode: ErrorCode
-
   protected def runWithDeduplicationDelay(
       participants: Seq[ParticipantTestContext]
   )(
@@ -371,7 +369,7 @@ private[testtool] abstract class CommandDeduplicationBase(
     submitRequestAndAssertSyncFailure(ledger)(
       request,
       Code.ALREADY_EXISTS,
-      expectedDuplicateCommandErrorCode,
+      LedgerApiErrors.CommandPreparation.DuplicateCommand,
     )
 
   private def submitRequestAndAssertSyncFailure(ledger: ParticipantTestContext)(
@@ -403,7 +401,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           ledger,
           _,
           expectedCode = Code.ALREADY_EXISTS,
-          selfServiceErrorCode = expectedDuplicateCommandErrorCode,
+          selfServiceErrorCode = LedgerApiErrors.CommandPreparation.DuplicateCommand,
           exceptionMessageSubstring = None,
           checkDefiniteAnswerMetadata = true,
         )

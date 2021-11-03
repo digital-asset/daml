@@ -128,7 +128,6 @@ da_scala_binary(
                 "//ledger/error",
                 "//ledger/ledger-api-common",
                 "//ledger/ledger-resources",
-                "//ledger/participant-state/kvutils",
                 "//libs-scala/resources",
                 "//libs-scala/resources-akka",
                 "//libs-scala/resources-grpc",

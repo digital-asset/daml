@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils.errors
 import java.time.Instant
 import com.daml.error.{
   ContextualizedErrorLogger,
-  DeprecatedDocs,
   ErrorCategory,
   ErrorCode,
   ErrorGroup,
@@ -93,43 +92,6 @@ object KVErrors extends LedgerApiErrorGroup {
     "Errors that can arise due to concurrent processing of transactions in the participant."
   )
   object SubmissionRaces extends ErrorGroup() {
-
-    @Explanation(
-      "A contract with the same key has already been created by a concurrent transaction submission."
-    )
-    @Resolution(
-      "The correct resolution depends on the business flow, " +
-        "for example using the existing contract or retrying after it has been archived."
-    )
-    object ExternallyDuplicateKeys
-        extends ErrorCode(
-          id = "EXTERNALLY_DUPLICATE_KEYS",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
-        ) {
-      case class Reject(
-      )(implicit loggingContext: ContextualizedErrorLogger)
-          extends KVLoggingTransactionErrorImpl(
-            cause = s"Inconsistent: ${ExternallyInconsistentTransaction.DuplicateKeys.description}"
-          )
-    }
-
-    @Explanation(
-      "An input contract key was re-assigned to a different contract by a concurrent transaction submission."
-    )
-    @Resolution("Retry the transaction submission.")
-    object ExternallyInconsistentKeys
-        extends ErrorCode(
-          id = "EXTERNALLY_INCONSISTENT_KEYS",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
-        ) {
-      case class Reject(
-      )(implicit loggingContext: ContextualizedErrorLogger)
-          extends KVLoggingTransactionErrorImpl(
-            cause =
-              s"Inconsistent: ${ExternallyInconsistentTransaction.InconsistentKeys.description}"
-          )
-    }
-
     @Explanation("An input contract has been archived by a concurrent transaction submission.")
     @Resolution(
       "The correct resolution depends on the business flow, for example it may be possible to " +
@@ -174,33 +136,10 @@ object KVErrors extends LedgerApiErrorGroup {
         )
       }
     }
-
-    @Explanation("One or more informee parties have not been allocated.")
-    @Resolution(
-      "Check that all the informee party identifiers are correct, allocate all the informee parties, " +
-        "request their allocation or wait for them to be allocated before retrying the transactiomn submission."
-    )
-    object PartiesNotKnownOnLedger
-        extends ErrorCode(
-          id = "PARTIES_NOT_KNOWN_ON_LEDGER",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing, // They may become known at a later time
-        ) {
-      case class Reject(
-          parties: Seq[String]
-      )(implicit loggingContext: ContextualizedErrorLogger)
-          extends KVLoggingTransactionErrorImpl(
-            cause = s"Party not known on ledger: Parties not known on ledger ${parties
-              .mkString("[", ",", "]")}"
-          ) {
-        override def resources: Seq[(ErrorResource, String)] = parties.map((ErrorResource.Party, _))
-      }
-    }
-
   }
 
   @Explanation("Errors that relate to system resources.")
   object Resources extends ErrorGroup() {
-
     @Explanation("A system resource has been exhausted.")
     @Resolution(
       "Retry the transaction submission or provide the details to the participant operator."
@@ -217,29 +156,6 @@ object KVErrors extends LedgerApiErrorGroup {
             cause = s"Resources exhausted: $details"
           )
     }
-
-  }
-
-  @Explanation("Errors that arise due to insufficient authorization.")
-  object Unauthorized extends ErrorGroup() {
-
-    @Explanation("A submitting party is not authorized to act through the participant.")
-    @Resolution("Contact the participant operator or re-submit with an authorized party.")
-    object SubmitterCannotActViaParticipant
-        extends ErrorCode(
-          id = "SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT",
-          ErrorCategory.InsufficientPermission,
-        ) {
-      case class Reject(
-          details: String,
-          submitter: String,
-          participantId: String,
-      )(implicit loggingContext: ContextualizedErrorLogger)
-          extends KVLoggingTransactionErrorImpl(
-            cause = s"Inconsistent: $details"
-          )
-    }
-
   }
 
   @Explanation("Errors that arise from an internal system misbehavior.")
@@ -341,136 +257,5 @@ object KVErrors extends LedgerApiErrorGroup {
           super.context ++ metadata // Only in logs as the category is security sensitive
       }
     }
-
   }
-
-  @Explanation(
-    "A command for the same ledger change has already been successfully processed " +
-      "within the current deduplication window."
-  )
-  @Resolution("Celebrate, as your command has already been processed.")
-  object DuplicateCommand
-      extends ErrorCode(
-        id = "COMMITTER_DETECTED_DUPLICATE_COMMAND",
-        ErrorCategory.InvalidGivenCurrentSystemStateResourceExists, // It may succeed at a later time
-      ) {
-    case class Reject(
-        override val definiteAnswer: Boolean
-    )(implicit loggingContext: ContextualizedErrorLogger)
-        extends KVLoggingTransactionErrorImpl(
-          cause = "A command with the given submission ID has already resulted in a ledger entry"
-        )
-  }
-
-  @Explanation(
-    "Errors that are not going to be produced anymore but may still be encountered " +
-      "when subscribing to past offsets."
-  )
-  @deprecated
-  object Deprecated extends ErrorGroup() {
-
-    object Time extends ErrorGroup() {
-
-      @Explanation(
-        "The ledger time of the submission violated some constraint on the ledger time."
-      )
-      @Resolution("Retry the transaction submission.")
-      @DeprecatedDocs(
-        "It was produced by submissions batching and it's not produced anymore by pre-execution."
-      )
-      @deprecated(
-        "It was produced by submissions batching and it's not produced anymore by pre-execution."
-      )
-      object InvalidLedgerTime
-          extends ErrorCode(
-            id = "INVALID_LEDGER_TIME",
-            ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
-          ) {
-        case class Reject(
-            details: String,
-            ledger_time: Instant,
-            ledger_time_lower_bound: Instant,
-            ledger_time_upper_bound: Instant,
-        )(implicit loggingContext: ContextualizedErrorLogger)
-            extends KVLoggingTransactionErrorImpl(cause = s"Invalid ledger time: $details")
-      }
-
-    }
-
-    object Parties extends ErrorGroup() {
-
-      @Explanation("One or more informee parties have not been allocated.")
-      @Resolution(
-        "Check that all the informee party identifiers are correct, allocate all the informee parties, " +
-          "request their allocation or wait for them to be allocated before retrying the transactiomn submission."
-      )
-      @DeprecatedDocs(
-        "Corresponds to transaction submission rejections that are not produced anymore."
-      )
-      @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
-      object PartyNotKnownOnLedger
-          extends ErrorCode(
-            id = "PARTY_NOT_KNOWN_ON_LEDGER",
-            ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing, // It may become known at a later time
-          ) {
-        case class Reject(
-            party: String
-        )(implicit loggingContext: ContextualizedErrorLogger)
-            extends KVLoggingTransactionErrorImpl(
-              cause = s"Party not known on ledger: $party"
-            ) {
-          override def resources: Seq[(ErrorResource, String)] = Seq(ErrorResource.Party -> party)
-        }
-      }
-
-    }
-
-    object Internal extends ErrorGroup() {
-
-      @Explanation("An invalid transaction submission was not detected by the participant.")
-      @Resolution("Contact support.")
-      @DeprecatedDocs(
-        "Corresponds to transaction submission rejections that are not produced anymore."
-      )
-      @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
-      object Disputed
-          extends ErrorCode(
-            id = "DISPUTED",
-            ErrorCategory.SystemInternalAssumptionViolated, // It should have been caught by the participant
-          ) {
-        case class Reject(
-            details: String
-        )(implicit loggingContext: ContextualizedErrorLogger)
-            extends KVLoggingTransactionErrorImpl(
-              cause = s"Disputed: $details"
-            )
-      }
-
-    }
-
-    @Explanation("At least one input has been altered by a concurrent transaction submission.")
-    @Resolution(
-      "The correct resolution depends on the business flow, for example it may be possible to proceed " +
-        "without an archived contract as an input, or the transaction submission may be retried " +
-        "to load the up-to-date value of a contract key."
-    )
-    @DeprecatedDocs(
-      "Corresponds to transaction submission rejections that are not produced anymore."
-    )
-    @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
-    object Inconsistent
-        extends ErrorCode(
-          id = "INCONSISTENT",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceExists, // It may succeed at a later time
-        ) {
-      case class Reject(
-          details: String
-      )(implicit loggingContext: ContextualizedErrorLogger)
-          extends KVLoggingTransactionErrorImpl(
-            cause = s"Inconsistent: $details"
-          )
-    }
-
-  }
-
 }

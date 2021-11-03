@@ -12,12 +12,13 @@ import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive.ContractId
-import com.daml.ledger.participant.state.kvutils.errors.KVErrors
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test
 import com.daml.ledger.test.model.Test.CallablePayout
 import io.grpc.Status
 import scalaz.Tag
+
+import java.util.regex.Pattern
 
 final class ContractKeysIT extends LedgerTestSuite {
   test(
@@ -79,12 +80,12 @@ final class ContractKeysIT extends LedgerTestSuite {
         LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound,
         Some("couldn't find key"),
       )
-      assertGrpcError(
+      assertGrpcErrorRegex(
         beta,
         lookupByKeyFailure,
         Status.Code.ABORTED,
-        KVErrors.SubmissionRaces.ExternallyInconsistentKeys,
-        Some("Inconsistent"),
+        LedgerApiErrors.CommandRejections.InconsistentContractKey,
+        Some(Pattern.compile("Inconsistent|Contract key lookup with different results")),
         checkDefiniteAnswerMetadata = true,
       )
     }
@@ -138,12 +139,12 @@ final class ContractKeysIT extends LedgerTestSuite {
         LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound,
         Some("couldn't find key"),
       )
-      assertGrpcError(
+      assertGrpcErrorRegex(
         beta,
         lookupByKeyFailure,
         Status.Code.ABORTED,
-        KVErrors.SubmissionRaces.ExternallyInconsistentKeys,
-        Some("Inconsistent"),
+        LedgerApiErrors.CommandRejections.InconsistentContractKey,
+        Some(Pattern.compile("Inconsistent|Contract key lookup with different results")),
         checkDefiniteAnswerMetadata = true,
       )
     }
@@ -213,12 +214,12 @@ final class ContractKeysIT extends LedgerTestSuite {
         .create(alice, MaintainerNotSignatory(alice, bob))
         .mustFail("creating a contract where a maintainer is not a signatory")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
         alpha,
         duplicateKeyFailure,
         Status.Code.ABORTED,
-        KVErrors.SubmissionRaces.ExternallyDuplicateKeys,
-        Some("Inconsistent"),
+        LedgerApiErrors.CommandRejections.DuplicateContractKey,
+        Some(Pattern.compile("Inconsistent|contract key is not unique")),
         checkDefiniteAnswerMetadata = true,
       )
       assertGrpcError(

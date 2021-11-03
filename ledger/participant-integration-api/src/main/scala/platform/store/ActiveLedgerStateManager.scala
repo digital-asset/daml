@@ -3,15 +3,15 @@
 
 package com.daml.platform.store
 
-import java.time.Instant
-
 import com.daml.ledger.api.domain.RejectionReason
-import com.daml.ledger.api.domain.RejectionReason.{Inconsistent, InvalidLedgerTime}
+import com.daml.ledger.api.domain.RejectionReason.{ContractsNotFound, InvalidLedgerTime}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Relation.Relation
-import com.daml.lf.transaction.{CommittedTransaction, GlobalKey, NodeId, Node}
+import com.daml.lf.transaction.{CommittedTransaction, GlobalKey, Node, NodeId}
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Contract.ActiveContract
+
+import java.time.Instant
 
 /** A helper for updating an [[ActiveLedgerState]] with new transactions:
   * - Validates the transaction against the [[ActiveLedgerState]].
@@ -123,9 +123,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
         case None if divulgedContracts.exists(_._1 == cid) =>
           // Contract is going to be divulged in this transaction
           None
-        case None =>
-          // Contract not known
-          Some(Inconsistent(s"Could not lookup contract ${cid.coid}"))
+        case None => Some(ContractsNotFound(Set(cid.coid)))
       }
 
     def handleLeaf(
@@ -180,7 +178,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                       currentState = state.currentState.copy(
                         als = None
                       ),
-                      errs = state.errs + Inconsistent("DuplicateKey: contract key is not unique"),
+                      errs = state.errs + RejectionReason.DuplicateContractKey(gk),
                       parties = state.parties.union(nodeParties),
                     )
                   } else {
@@ -208,8 +206,9 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                   )
                 } else {
                   state.copy(
-                    errs = state.errs + Inconsistent(
-                      s"Contract key lookup with different results: expected [${nlkup.result}], actual [$currentResult]"
+                    errs = state.errs + RejectionReason.InconsistentContractKeys(
+                      nlkup.result,
+                      currentResult,
                     )
                   )
                 }
