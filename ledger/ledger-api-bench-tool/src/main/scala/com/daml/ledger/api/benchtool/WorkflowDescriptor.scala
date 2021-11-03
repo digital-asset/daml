@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.benchtool.submission
+package com.daml.ledger.api.benchtool
 
 final case class WorkflowDescriptor(
     submission: Option[SubmissionDescriptor] = None,

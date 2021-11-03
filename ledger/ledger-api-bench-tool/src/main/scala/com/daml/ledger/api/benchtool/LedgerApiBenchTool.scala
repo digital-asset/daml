@@ -5,12 +5,14 @@ package com.daml.ledger.api.benchtool
 
 import com.daml.ledger.api.benchtool.submission.CommandSubmitter
 import com.daml.ledger.api.benchtool.services._
+import com.daml.ledger.api.benchtool.util.SimpleFileReader
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.{Logger, LoggerFactory}
 
+import java.io.File
 import java.util.concurrent.{
   ArrayBlockingQueue,
   Executor,
@@ -20,6 +22,7 @@ import java.util.concurrent.{
 }
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 object LedgerApiBenchTool {
   def main(args: Array[String]): Unit = {
@@ -44,36 +47,54 @@ object LedgerApiBenchTool {
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
     apiServicesOwner(config).use { apiServices =>
-      def testContractsGenerationStep(): Future[Unit] = config.contractSetDescriptorFile match {
-        case None =>
-          Future.successful(
-            logger.info("No contract set descriptor file provided. Skipping contracts generation.")
+      def testContractsGenerationStep(descriptor: Option[SubmissionDescriptor]): Future[Unit] =
+        descriptor match {
+          case None =>
+            Future.successful(
+              logger.info("No submission descriptor. Skipping contracts generation.")
+            )
+          case Some(d) =>
+            CommandSubmitter(apiServices).submit(
+              descriptor = d,
+              maxInFlightCommands = config.maxInFlightCommands,
+              submissionBatchSize = config.submissionBatchSize,
+            )
+        }
+
+      def benchmarkStep(): Future[Unit] =
+        if (config.streams.isEmpty) {
+          Future.successful(logger.info(s"No streams defined. Skipping the benchmark step."))
+        } else {
+          Benchmark.run(
+            streams = config.streams,
+            reportingPeriod = config.reportingPeriod,
+            apiServices = apiServices,
+            metricsReporter = config.metricsReporter,
           )
+        }
+
+      config.contractSetDescriptorFile match {
+        case None => benchmarkStep()
         case Some(descriptorFile) =>
-          CommandSubmitter(apiServices).submit(
-            descriptorFile,
-            config.maxInFlightCommands,
-            config.submissionBatchSize,
-          )
+          for {
+            descriptor <- Future.fromTry(parseDescriptor(descriptorFile))
+            _ <- testContractsGenerationStep(descriptor.submission)
+            _ <- Future.successful(logger.warn("TODO: IMPLEMENT BENCHMARK STEP")) //KTODO
+          } yield ()
       }
-
-      def benchmarkStep(): Future[Unit] = if (config.streams.isEmpty) {
-        Future.successful(logger.info(s"No streams defined. Skipping the benchmark step."))
-      } else {
-        Benchmark.run(
-          streams = config.streams,
-          reportingPeriod = config.reportingPeriod,
-          apiServices = apiServices,
-          metricsReporter = config.metricsReporter,
-        )
-      }
-
-      for {
-        _ <- testContractsGenerationStep()
-        _ <- benchmarkStep()
-      } yield ()
     }
   }
+
+  private def parseDescriptor(descriptorFile: File): Try[WorkflowDescriptor] =
+    SimpleFileReader.readFile(descriptorFile)(WorkflowParser.parse).flatMap {
+      case Left(err: WorkflowParser.ParserError) =>
+        val message = s"Workflow parsing error. Details: ${err.details}"
+        logger.error(message)
+        Failure(CommandSubmitter.CommandSubmitterError(message))
+      case Right(descriptor) =>
+        logger.info(s"Descriptor parsed: $descriptor")
+        Success(descriptor)
+    }
 
   private def apiServicesOwner(
       config: Config

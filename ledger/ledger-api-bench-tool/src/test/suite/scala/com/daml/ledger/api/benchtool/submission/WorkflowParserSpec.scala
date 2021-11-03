@@ -3,6 +3,12 @@
 
 package com.daml.ledger.api.benchtool.submission
 
+import com.daml.ledger.api.benchtool.{
+  StreamDescriptor,
+  SubmissionDescriptor,
+  WorkflowDescriptor,
+  WorkflowParser,
+}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
@@ -10,7 +16,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.io.StringReader
 
 class WorkflowParserSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
-  import SubmissionDescriptor._
+  import com.daml.ledger.api.benchtool.SubmissionDescriptor._
 
   "DescriptorParser" should {
     "parse submission description" in {

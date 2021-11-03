@@ -6,20 +6,18 @@ package com.daml.ledger.api.benchtool.submission
 import akka.actor.ActorSystem
 import akka.stream.{Materializer, OverflowStrategy}
 import akka.stream.scaladsl.{Sink, Source}
+import com.daml.ledger.api.benchtool.SubmissionDescriptor
 import com.daml.ledger.api.benchtool.infrastructure.TestDars
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
-import com.daml.ledger.api.benchtool.util.SimpleFileReader
 import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
-import java.io.File
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success, Try}
 
 case class CommandSubmitter(services: LedgerApiServices) {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -33,16 +31,13 @@ case class CommandSubmitter(services: LedgerApiServices) {
   private def darId(index: Int) = s"submission-dars-$index-$identifierSuffix"
 
   def submit(
-      descriptorFile: File,
+      descriptor: SubmissionDescriptor,
       maxInFlightCommands: Int,
       submissionBatchSize: Int,
   )(implicit ec: ExecutionContext): Future[Unit] =
     (for {
       _ <- Future.successful(logger.info("Generating contracts..."))
       _ <- Future.successful(logger.info(s"Identifier suffix: $identifierSuffix"))
-      // KTODO: move this up
-      workflowDescriptor <- Future.fromTry(parseDescriptor(descriptorFile))
-      descriptor = workflowDescriptor.submission.get
       signatory <- allocateParty(signatoryName)
       observers <- allocateParties(descriptor.numberOfObservers, observerName)
       _ <- uploadTestDars()
@@ -58,17 +53,6 @@ case class CommandSubmitter(services: LedgerApiServices) {
         logger.error(s"Command submission failed. Details: ${ex.getLocalizedMessage}", ex)
         Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage))
       }
-
-  private def parseDescriptor(descriptorFile: File): Try[WorkflowDescriptor] =
-    SimpleFileReader.readFile(descriptorFile)(WorkflowParser.parse).flatMap {
-      case Left(err: WorkflowParser.ParserError) =>
-        val message = s"Workflow parsing error. Details: ${err.details}"
-        logger.error(message)
-        Failure(CommandSubmitter.CommandSubmitterError(message))
-      case Right(descriptor) =>
-        logger.info(s"Descriptor parsed: $descriptor")
-        Success(descriptor)
-    }
 
   private def allocateParty(name: String)(implicit ec: ExecutionContext): Future[Primitive.Party] =
     services.partyManagementService.allocateParty(name)
