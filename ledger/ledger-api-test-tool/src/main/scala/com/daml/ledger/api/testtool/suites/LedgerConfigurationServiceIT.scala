@@ -63,7 +63,7 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
 
   test(
     "CSLSuccessIfMaxDeduplicationTimeExceeded",
-    "Submission returns INVALID_ARGUMENT if deduplication time is too big",
+    "Submission returns FAILED_PRECONDITION if deduplication time is too big",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger.submitRequest(party, Dummy(party).create.command)
@@ -83,8 +83,8 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
       assertGrpcErrorRegex(
         ledger,
         failure,
-        Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.CommandValidation.InvalidField,
+        Status.Code.FAILED_PRECONDITION,
+        LedgerApiErrors.CommandValidation.InvalidDeduplicationPeriodField,
         Some(
           Pattern.compile(
             "The given deduplication duration .+ exceeds the maximum deduplication time of .+"
