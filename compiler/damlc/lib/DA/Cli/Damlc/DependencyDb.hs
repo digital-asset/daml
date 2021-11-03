@@ -15,7 +15,6 @@ import Control.Exception.Safe (tryAny)
 import Control.Lens (toListOf)
 import Control.Monad.Extra
 import DA.Daml.Compiler.Dar
-import DA.Daml.Compiler.DecodeDar (DecodedDalf(..), decodeDalf)
 import DA.Daml.Compiler.ExtractDar (ExtractedDar(..), extractDar)
 import DA.Daml.Helper.Ledger
 import qualified DA.Daml.LF.Ast as LF
@@ -226,9 +225,8 @@ dalfFileNameFromEntry entry =
 
 dalfFileName :: BS.ByteString -> FilePath -> IO FilePath
 dalfFileName bs fp = do
-    DecodedDalf {decodedDalfPkg} <- either fail pure $ decodeDalf Set.empty fp bs
-    let pkgId = T.unpack $ LF.unPackageId $ LF.dalfPackageId decodedDalfPkg
-    pure $ pkgId </> takeFileName fp
+    pkgId <- either (fail . DA.Pretty.renderPretty) pure $ Archive.decodeArchivePackageId bs
+    pure $ T.unpack (LF.unPackageId pkgId) </> takeFileName fp
 
 installDataDepDalf :: Bool -> FilePath -> FilePath -> BS.ByteString -> IO ()
 installDataDepDalf isMain = installDalf ([dataDepMarker] ++ [mainMarker | isMain])
