@@ -20,7 +20,7 @@ import scala.reflect.runtime.universe.typeOf
 
 /** Utility that indexes all error code implementations.
   *
-  * @param prefix The classpath prefix that should be scanned for finding subtypes of [[ErrorCode]].
+  * @param prefixes The classpath prefixes that should be scanned for finding subtypes of [[ErrorCode]].
   */
 class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml")) {
 
@@ -91,8 +91,7 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
   )
 
   private def getErrorDocumentationAnnotations(error: ErrorCode): ErrorDocumentationAnnotations = {
-    val mirror = runtimeMirror
-    val mirroredType = mirror.reflect(error)
+    val mirroredType = runtimeMirror.reflect(error)
     val annotations: Seq[ru.Annotation] = mirroredType.symbol.annotations
     getErrorAnnotations(annotations)
   }
@@ -102,8 +101,7 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
   )
 
   private def getGroupDocumentationAnnotations(group: ErrorGroup): GroupDocumentationAnnotations = {
-    val mirror = runtimeMirror
-    val mirroredType = mirror.reflect(group)
+    val mirroredType = runtimeMirror.reflect(group)
     GroupDocumentationAnnotations(
       mirroredType.symbol.annotations
         .find { annotation =>

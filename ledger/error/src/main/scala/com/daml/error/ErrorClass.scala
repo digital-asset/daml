@@ -3,6 +3,11 @@
 
 package com.daml.error
 
+/** A grouping of errors.
+  *
+  * @param docName The name that will appear in the generated documentation for the grouping.
+  * @param group   If the grouping is defined by an [[ErrorGroup]], the associated instance.
+  */
 case class Grouping(
     docName: String,
     group: Option[ErrorGroup],

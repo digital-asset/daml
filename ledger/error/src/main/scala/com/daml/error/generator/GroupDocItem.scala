@@ -7,7 +7,7 @@ import com.daml.error.Explanation
 
 /** Contains error presentation data to be used for documentation rendering on the website.
   *
-  * @param className The group simple class name (see [[com.daml.error.ErrorGroup]]).
+  * @param className The group class name (see [[com.daml.error.ErrorGroup]]).
   * @param explanation The detailed error explanation.
   */
 case class GroupDocItem(
