@@ -7,6 +7,7 @@ import java.io.InputStream
 
 import com.daml.lf.data.{Bytes, Ref}
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
+import com.google.protobuf.ByteString
 
 /** Offsets into streams with hierarchical addressing.
   *
@@ -25,6 +26,8 @@ final case class Offset(bytes: Bytes) extends Ordered[Offset] {
   override def compare(that: Offset): Int =
     Bytes.ordering.compare(this.bytes, that.bytes)
 
+  def toByteString: ByteString = bytes.toByteString
+
   def toByteArray: Array[Byte] = bytes.toByteArray
 
   def toInputStream: InputStream = bytes.toInputStream
@@ -33,7 +36,9 @@ final case class Offset(bytes: Bytes) extends Ordered[Offset] {
 }
 
 object Offset {
-  val beforeBegin: Offset = Offset.fromByteArray(Array.empty[Byte])
+  val beforeBegin: Offset = new Offset(Bytes.Empty)
+
+  def fromByteString(bytes: ByteString) = new Offset(Bytes.fromByteString(bytes))
 
   def fromByteArray(bytes: Array[Byte]) = new Offset(Bytes.fromByteArray(bytes))
 
