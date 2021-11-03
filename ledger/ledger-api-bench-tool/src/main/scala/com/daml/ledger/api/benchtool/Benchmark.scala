@@ -3,7 +3,12 @@
 
 package com.daml.ledger.api.benchtool
 
-import com.daml.ledger.api.benchtool.metrics.{MetricRegistryOwner, MetricsCollector, MetricsSet, StreamMetrics}
+import com.daml.ledger.api.benchtool.metrics.{
+  MetricRegistryOwner,
+  MetricsCollector,
+  MetricsSet,
+  StreamMetrics,
+}
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
 import com.daml.ledger.resources.ResourceContext

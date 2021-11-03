@@ -60,7 +60,12 @@ object LedgerApiBenchTool {
       def benchmarkStep(): Future[Unit] = if (config.streams.isEmpty) {
         Future.successful(logger.info(s"No streams defined. Skipping the benchmark step."))
       } else {
-        Benchmark.run(config, apiServices)
+        Benchmark.run(
+          streams = config.streams,
+          reportingPeriod = config.reportingPeriod,
+          apiServices = apiServices,
+          metricsReporter = config.metricsReporter,
+        )
       }
 
       for {
