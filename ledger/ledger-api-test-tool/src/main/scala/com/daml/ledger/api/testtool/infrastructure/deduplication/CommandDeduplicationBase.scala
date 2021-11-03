@@ -34,13 +34,14 @@ private[testtool] abstract class CommandDeduplicationBase(
     ledgerTimeInterval: FiniteDuration,
     staticTime: Boolean,
 ) extends LedgerTestSuite {
-
   val deduplicationDuration: FiniteDuration = scaledDuration(3.seconds)
 
   val ledgerWaitInterval: FiniteDuration = ledgerTimeInterval * 2
   val defaultDeduplicationWindowWait: FiniteDuration = deduplicationDuration + ledgerWaitInterval
 
   def deduplicationFeatures: DeduplicationFeatures
+
+  protected def expectedDuplicateCommandErrorCode: ErrorCode
 
   protected def runWithDeduplicationDelay(
       participants: Seq[ParticipantTestContext]
@@ -120,7 +121,7 @@ private[testtool] abstract class CommandDeduplicationBase(
       _ <- submitRequestAndAssertSyncFailure(ledger)(
         requestA,
         Code.INVALID_ARGUMENT,
-        LedgerApiErrors.CommandValidation.InvalidArgument,
+        LedgerApiErrors.InterpreterErrors.AuthorizationError,
       )
     } yield {}
   })
@@ -370,7 +371,7 @@ private[testtool] abstract class CommandDeduplicationBase(
     submitRequestAndAssertSyncFailure(ledger)(
       request,
       Code.ALREADY_EXISTS,
-      LedgerApiErrors.CommandPreparation.DuplicateCommand,
+      expectedDuplicateCommandErrorCode,
     )
 
   private def submitRequestAndAssertSyncFailure(ledger: ParticipantTestContext)(
@@ -402,7 +403,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           ledger,
           _,
           expectedCode = Code.ALREADY_EXISTS,
-          selfServiceErrorCode = LedgerApiErrors.CommandPreparation.DuplicateCommand,
+          selfServiceErrorCode = expectedDuplicateCommandErrorCode,
           exceptionMessageSubstring = None,
           checkDefiniteAnswerMetadata = true,
         )

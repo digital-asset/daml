@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.ErrorCode
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.{
@@ -11,6 +12,7 @@ import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplic
 }
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
+import com.daml.ledger.participant.state.kvutils.errors.KVErrors
 import com.daml.timer.Delayed
 import org.slf4j.LoggerFactory
 
@@ -37,6 +39,8 @@ class KVCommandDeduplicationIT(
     DeduplicationFeatures(
       participantDeduplication = false
     )
+
+  override protected def expectedDuplicateCommandErrorCode: ErrorCode = KVErrors.DuplicateCommand
 
   protected override def runWithDeduplicationDelay(
       participants: Seq[ParticipantTestContext]
