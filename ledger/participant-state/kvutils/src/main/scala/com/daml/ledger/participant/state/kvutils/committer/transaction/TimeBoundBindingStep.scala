@@ -12,7 +12,7 @@ import com.daml.logging.LoggingContext
 
 object TimeBoundBindingStep {
 
-  def timeBoundsBindingStep(defaultConfig: Configuration): Step = new Step {
+  def setTimeBoundsInContextStep(defaultConfig: Configuration): Step = new Step {
     override def apply(commitContext: CommitContext, transactionEntry: DamlTransactionEntrySummary)(
         implicit loggingContext: LoggingContext
     ): StepResult[DamlTransactionEntrySummary] = {

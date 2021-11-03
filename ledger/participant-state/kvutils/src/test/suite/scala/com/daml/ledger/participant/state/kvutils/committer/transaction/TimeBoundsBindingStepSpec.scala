@@ -33,7 +33,7 @@ import scala.concurrent.duration._
 class TimeBoundsBindingStepSpec extends AnyWordSpec with Matchers {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  private val step = TimeBoundBindingStep.timeBoundsBindingStep(TestHelpers.theDefaultConfig)
+  private val step = TimeBoundBindingStep.setTimeBoundsInContextStep(TestHelpers.theDefaultConfig)
   private val aDamlTransactionEntry = createEmptyTransactionEntry(List("aSubmitter"))
   private val aTransactionEntrySummary = DamlTransactionEntrySummary(aDamlTransactionEntry)
   private val aSubmissionTime = createProtobufTimestamp(seconds = 1)
