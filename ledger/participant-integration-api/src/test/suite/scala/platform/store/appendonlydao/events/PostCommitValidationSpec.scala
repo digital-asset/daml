@@ -27,8 +27,10 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
   "PostCommitValidation" when {
     "run without prior history" should {
+      val fixture = noCommittedContract(parties = List.empty)
       val store = new PostCommitValidation.BackedBy(
-        noCommittedContract(parties = List.empty),
+        fixture,
+        fixture,
         validatePartyAllocation = false,
       )
 
@@ -257,17 +259,19 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
       val committedContractLedgerEffectiveTime =
         Timestamp.assertFromInstant(Instant.ofEpochMilli(1000))
 
-      val store = new PostCommitValidation.BackedBy(
-        committedContracts(
-          parties = List.empty,
-          contractFixture = committed(
-            id = committedContract.coid.coid,
-            ledgerEffectiveTime = committedContractLedgerEffectiveTime,
-            key = committedContract.key.map(x =>
-              GlobalKey.assertBuild(committedContract.templateId, x.key)
-            ),
+      val fixture = committedContracts(
+        parties = List.empty,
+        contractFixture = committed(
+          id = committedContract.coid.coid,
+          ledgerEffectiveTime = committedContractLedgerEffectiveTime,
+          key = committedContract.key.map(x =>
+            GlobalKey.assertBuild(committedContract.templateId, x.key)
           ),
         ),
+      )
+      val store = new PostCommitValidation.BackedBy(
+        fixture,
+        fixture,
         validatePartyAllocation = false,
       )
 
@@ -422,11 +426,13 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
       val divulgedContract = genTestCreate()
       val exerciseOnDivulgedContract = genTestExercise(divulgedContract)
 
+      val fixture = committedContracts(
+        parties = List.empty,
+        contractFixture = divulged(divulgedContract.coid.coid),
+      )
       val store = new PostCommitValidation.BackedBy(
-        committedContracts(
-          parties = List.empty,
-          contractFixture = divulged(divulgedContract.coid.coid),
-        ),
+        fixture,
+        fixture,
         validatePartyAllocation = false,
       )
 
@@ -453,6 +459,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
     "run with unallocated parties" should {
       val store = new PostCommitValidation.BackedBy(
+        noCommittedContract(List.empty),
         noCommittedContract(List.empty),
         validatePartyAllocation = true,
       )

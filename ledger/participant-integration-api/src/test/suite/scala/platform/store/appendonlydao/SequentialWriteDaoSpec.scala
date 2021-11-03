@@ -26,7 +26,8 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     val storageBackendCaptor = new StorageBackendCaptor(Some(LedgerEnd(Offset.beforeBegin, 5)))
     val ledgerEndCache = MutableLedgerEndCache()
     val testee = SequentialWriteDaoImpl(
-      storageBackend = storageBackendCaptor,
+      parameterStorageBackend = storageBackendCaptor,
+      ingestionStorageBackend = storageBackendCaptor,
       updateToDbDtos = updateToDbDtoFixture,
       ledgerEndCache = ledgerEndCache,
     )
@@ -62,7 +63,8 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     val storageBackendCaptor = new StorageBackendCaptor(None)
     val ledgerEndCache = MutableLedgerEndCache()
     val testee = SequentialWriteDaoImpl(
-      storageBackend = storageBackendCaptor,
+      parameterStorageBackend = storageBackendCaptor,
+      ingestionStorageBackend = storageBackendCaptor,
       updateToDbDtos = updateToDbDtoFixture,
       ledgerEndCache = ledgerEndCache,
     )

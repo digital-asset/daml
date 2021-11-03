@@ -15,7 +15,7 @@ import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectTy
 import com.daml.platform.store.backend.ConfigurationStorageBackend
 import com.daml.platform.store.entries.ConfigurationEntry
 
-private[backend] trait ConfigurationStorageBackendTemplate extends ConfigurationStorageBackend {
+private[backend] object ConfigurationStorageBackendTemplate extends ConfigurationStorageBackend {
 
   private val SQL_GET_CONFIGURATION_ENTRIES = SQL(
     """select

@@ -17,7 +17,7 @@ import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectTy
 import com.daml.platform.store.backend.PackageStorageBackend
 import com.daml.platform.store.entries.PackageLedgerEntry
 
-private[backend] trait PackageStorageBackendTemplate extends PackageStorageBackend {
+private[backend] object PackageStorageBackendTemplate extends PackageStorageBackend {
 
   private val SQL_SELECT_PACKAGES =
     SQL(

@@ -6,21 +6,15 @@ package com.daml.platform.store.backend.common
 import java.sql.Connection
 
 import anorm.SqlParser.get
-import com.daml.platform.store.backend.DataSourceStorageBackend
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 
-private[backend] trait DataSourceStorageBackendTemplate extends DataSourceStorageBackend {
+private[backend] object DataSourceStorageBackendTemplate {
 
-  protected def exe(statement: String): Connection => Unit = { connection =>
-    val stmnt = connection.createStatement()
-    try {
-      stmnt.execute(statement)
-      ()
-    } finally {
-      stmnt.close()
-    }
+  def exe(statement: String): Connection => Unit = { implicit connection =>
+    SQL"#$statement".execute()
+    ()
   }
 
-  override def checkDatabaseAvailable(connection: Connection): Unit =
+  def checkDatabaseAvailable(connection: Connection): Unit =
     assert(SQL"SELECT 1".as(get[Int](1).single)(connection) == 1)
 }

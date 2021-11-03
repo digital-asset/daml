@@ -20,11 +20,10 @@ import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpola
 import com.google.protobuf.any
 import com.google.rpc.status.{Status => StatusProto}
 
-trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
+class CompletionStorageBackendTemplate(queryStrategy: QueryStrategy)
+    extends CompletionStorageBackend {
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-
-  def queryStrategy: QueryStrategy
 
   override def commandCompletions(
       startExclusive: Offset,
@@ -154,7 +153,7 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
       .map(_.details)
       .getOrElse(Seq.empty)
 
-  def pruneCompletions(
+  override def pruneCompletions(
       pruneUpToInclusive: Offset
   )(connection: Connection, loggingContext: LoggingContext): Unit = {
     pruneWithLogging(queryDescription = "Command completions pruning") {

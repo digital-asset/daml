@@ -12,6 +12,9 @@ import org.scalatest.matchers.should.Matchers
 private[backend] trait StorageBackendTestsInitialization extends Matchers with StorageBackendSpec {
   this: AsyncFlatSpec =>
 
+  private val parameterStorageBackend: ParameterStorageBackend =
+    backendFactory.createParameterStorageBackend
+
   behavior of "StorageBackend (initialization)"
 
   it should "correctly handle repeated initialization" in {
@@ -22,7 +25,7 @@ private[backend] trait StorageBackendTestsInitialization extends Matchers with S
 
     for {
       _ <- executeSql(
-        backend.initializeParameters(
+        parameterStorageBackend.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = ledgerId,
             participantId = participantId,
@@ -30,7 +33,7 @@ private[backend] trait StorageBackendTestsInitialization extends Matchers with S
         )
       )
       error1 <- executeSql(
-        backend.initializeParameters(
+        parameterStorageBackend.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = otherLedgerId,
             participantId = participantId,
@@ -38,7 +41,7 @@ private[backend] trait StorageBackendTestsInitialization extends Matchers with S
         )
       ).failed
       error2 <- executeSql(
-        backend.initializeParameters(
+        parameterStorageBackend.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = ledgerId,
             participantId = otherParticipantId,
@@ -46,7 +49,7 @@ private[backend] trait StorageBackendTestsInitialization extends Matchers with S
         )
       ).failed
       error3 <- executeSql(
-        backend.initializeParameters(
+        parameterStorageBackend.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = otherLedgerId,
             participantId = otherParticipantId,
@@ -54,7 +57,7 @@ private[backend] trait StorageBackendTestsInitialization extends Matchers with S
         )
       ).failed
       _ <- executeSql(
-        backend.initializeParameters(
+        parameterStorageBackend.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = ledgerId,
             participantId = participantId,
