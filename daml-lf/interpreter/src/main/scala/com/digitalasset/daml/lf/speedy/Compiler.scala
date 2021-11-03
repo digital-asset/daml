@@ -1550,17 +1550,21 @@ private[lf] final class Compiler(
   private[this] def compileCreate(
       tmplId: Identifier,
       tmpl: Template,
-  ): (SDefinitionRef, SDefinition) =
+  ): (SDefinitionRef, SDefinition) = {
+    val precondsArray =
+      (Iterator(tmpl.precond) ++ (tmpl.implements.iterator.map(impl => impl._2.precond)))
+        .to(ImmArray)
+    val preconds = ECons(TBuiltin(BTBool), precondsArray, ENil(TBuiltin(BTBool)))
     // Translates 'create Foo with <params>' into:
     // CreateDefRef(tmplId) = \ <tmplArg> <token> ->
-    //   let _ = $checkPreconf(tmplId)(<tmplArg> [tmpl.precond]
+    //   let _ = $checkPrecond(tmplId)(<tmplArg> [tmpl.precond ++ [precond | precond <- tmpl.implements]]
     //   in $create <tmplArg> [tmpl.agreementText] [tmpl.signatories] [tmpl.observers] [tmpl.key]
     topLevelFunction2(CreateDefRef(tmplId)) { (tmplArgPos, _, _env) =>
       val env = _env.bindExprVar(tmpl.param, tmplArgPos)
       // We check precondition in a separated builtin to prevent
       // further evaluation of agreement, signatories, observers and key
       // in case of failed precondition.
-      let(env, SBCheckPrecond(tmplId)(env.toSEVar(tmplArgPos), compile(env, tmpl.precond))) {
+      let(env, SBCheckPrecond(tmplId)(env.toSEVar(tmplArgPos), compile(env, preconds))) {
         (_, env) =>
           SBUCreate(tmplId)(
             env.toSEVar(tmplArgPos),
@@ -1571,6 +1575,7 @@ private[lf] final class Compiler(
           )
       }
     }
+  }
 
   private[this] def compileCreateAndExercise(
       tmplId: Identifier,

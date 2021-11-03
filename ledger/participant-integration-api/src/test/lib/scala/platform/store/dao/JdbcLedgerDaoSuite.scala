@@ -19,7 +19,6 @@ import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
-import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractId, ContractInstance, ValueText, VersionedContractInstance}
@@ -189,18 +188,18 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       signatories: Set[Party] = Set(alice, bob),
       templateId: Identifier = someTemplateId,
       contractArgument: LfValue = someContractArgument,
-  ): NodeCreate =
+  ): Node.Create =
     createNode(absCid, signatories, signatories, None, templateId, contractArgument)
 
   protected final def createNode(
       absCid: ContractId,
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[KeyWithMaintainers[LfValue]] = None,
+      key: Option[Node.KeyWithMaintainers[LfValue]] = None,
       templateId: Identifier = someTemplateId,
       contractArgument: LfValue = someContractArgument,
-  ): NodeCreate =
-    NodeCreate(
+  ): Node.Create =
+    Node.Create(
       coid = absCid,
       templateId = templateId,
       arg = contractArgument,
@@ -213,9 +212,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected final def exerciseNode(
       targetCid: ContractId,
-      key: Option[KeyWithMaintainers[LfValue]] = None,
-  ): NodeExercises =
-    NodeExercises(
+      key: Option[Node.KeyWithMaintainers[LfValue]] = None,
+  ): Node.Exercise =
+    Node.Exercise(
       targetCoid = targetCid,
       templateId = someTemplateId,
       choiceId = someChoiceName,
@@ -235,8 +234,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected final def fetchNode(
       contractId: ContractId,
       party: Party = alice,
-  ): NodeFetch =
-    NodeFetch(
+  ): Node.Fetch =
+    Node.Fetch(
       coid = contractId,
       templateId = someTemplateId,
       actingParties = Set(party),
@@ -250,7 +249,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   // Ids of all contracts created in a transaction - both transient and non-transient
   protected def created(tx: LedgerEntry.Transaction): Set[ContractId] =
     tx.transaction.fold(Set.empty[ContractId]) {
-      case (set, (_, create: NodeCreate)) =>
+      case (set, (_, create: Node.Create)) =>
         set + create.coid
       case (set, _) =>
         set
@@ -259,9 +258,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   // All non-transient contracts created in a transaction
   protected def nonTransient(tx: LedgerEntry.Transaction): Set[ContractId] =
     tx.transaction.fold(Set.empty[ContractId]) {
-      case (set, (_, create: NodeCreate)) =>
+      case (set, (_, create: Node.Create)) =>
         set + create.coid
-      case (set, (_, exercise: Node.NodeExercises)) if exercise.consuming =>
+      case (set, (_, exercise: Node.Exercise)) if exercise.consuming =>
         set - exercise.targetCoid
       case (set, _) =>
         set
@@ -274,7 +273,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     singleCreate(create(_, Set(alice, bob)), List(alice, bob))
 
   protected final def singleCreate(
-      create: ContractId => NodeCreate,
+      create: ContractId => Node.Create,
       actAs: List[Party] = List(alice),
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
@@ -326,9 +325,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected final def createTestKey(
       maintainers: Set[Party]
-  ): (KeyWithMaintainers[ValueText], GlobalKey) = {
+  ): (Node.KeyWithMaintainers[ValueText], GlobalKey) = {
     val aTextValue = ValueText(scala.util.Random.nextString(10))
-    val keyWithMaintainers = KeyWithMaintainers(aTextValue, maintainers)
+    val keyWithMaintainers = Node.KeyWithMaintainers(aTextValue, maintainers)
     val globalKey = GlobalKey.assertBuild(someTemplateId, aTextValue)
     (keyWithMaintainers, globalKey)
   }
@@ -337,7 +336,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       submittingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[KeyWithMaintainers[LfValue]],
+      key: Option[Node.KeyWithMaintainers[LfValue]],
       contractArgument: LfValue = someContractArgument,
   ): Future[(Offset, LedgerEntry.Transaction)] =
     store(
@@ -371,7 +370,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
     val exerciseId = txBuilder.add(
-      NodeExercises(
+      Node.Exercise(
         targetCoid = id,
         templateId = someTemplateId,
         choiceId = someChoiceName,
@@ -389,7 +388,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       )
     )
     txBuilder.add(
-      NodeFetch(
+      Node.Fetch(
         coid = id,
         templateId = someTemplateId,
         actingParties = divulgees,
@@ -418,7 +417,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected def singleExercise(
       targetCid: ContractId,
-      key: Option[KeyWithMaintainers[LfValue]] = None,
+      key: Option[Node.KeyWithMaintainers[LfValue]] = None,
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
     val nid = txBuilder.add(exerciseNode(targetCid, key))
@@ -509,7 +508,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   }
 
   protected def fullyTransient(
-      create: ContractId => NodeCreate = create(_)
+      create: ContractId => Node.Create = create(_)
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
     val cid = txBuilder.newCid
@@ -703,14 +702,14 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
     val createNodeId = txBuilder.add(
-      NodeCreate(
+      Node.Create(
         coid = txBuilder.newCid,
         templateId = someTemplateId,
         arg = someContractArgument,
         agreementText = someAgreement,
         signatories = Set(party),
         stakeholders = Set(party),
-        key = Some(KeyWithMaintainers(someContractKey(party, key), Set(party))),
+        key = Some(Node.KeyWithMaintainers(someContractKey(party, key), Set(party))),
         version = txVersion,
       )
     )
@@ -737,7 +736,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val (contractId, maybeKey) = contract
     val txBuilder = newBuilder()
     val archiveNodeId = txBuilder.add(
-      NodeExercises(
+      Node.Exercise(
         targetCoid = contractId,
         templateId = someTemplateId,
         choiceId = Ref.ChoiceName.assertFromString("Archive"),
@@ -749,7 +748,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         choiceObservers = Set.empty,
         children = ImmArray.Empty,
         exerciseResult = Some(LfValue.ValueUnit),
-        key = maybeKey.map(k => KeyWithMaintainers(someContractKey(party, k), Set(party))),
+        key = maybeKey.map(k => Node.KeyWithMaintainers(someContractKey(party, k), Set(party))),
         byKey = false,
         version = txVersion,
       )
@@ -776,9 +775,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
     val lookupByKeyNodeId = txBuilder.add(
-      NodeLookupByKey(
+      Node.LookupByKey(
         someTemplateId,
-        KeyWithMaintainers(someContractKey(party, key), Set(party)),
+        Node.KeyWithMaintainers(someContractKey(party, key), Set(party)),
         result,
         version = txVersion,
       )
@@ -803,7 +802,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
     val fetchNodeId = txBuilder.add(
-      NodeFetch(
+      Node.Fetch(
         coid = contractId,
         templateId = someTemplateId,
         actingParties = Set(party),

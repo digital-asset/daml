@@ -495,7 +495,7 @@ object PostCommitValidationSpec {
 
   private val txBuilder = TxBuilder()
 
-  private def genTestCreate(): TxBuilder.Create =
+  private def genTestCreate(): Create =
     txBuilder.create(
       id = s"#${UUID.randomUUID}",
       templateId = "bar:baz",
@@ -505,7 +505,7 @@ object PostCommitValidationSpec {
       key = Some(ValueText("key")),
     )
 
-  private def genTestExercise(create: TxBuilder.Create): TxBuilder.Exercise =
+  private def genTestExercise(create: Create): Exercise =
     txBuilder.exercise(
       contract = create,
       choice = "SomeChoice",

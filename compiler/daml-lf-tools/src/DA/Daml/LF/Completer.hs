@@ -32,5 +32,6 @@ completeTemplateImplements :: LF.World -> LF.TemplateImplements -> LF.TemplateIm
 completeTemplateImplements world tpi@TemplateImplements{..} =
     case lookupInterface tpiInterface world of
         Left _ -> error ("Could not find interface " <> T.unpack (T.intercalate "." (unTypeConName (qualObject tpiInterface))))
-        Right DefInterface { intFixedChoices } ->
-            tpi { tpiInheritedChoiceNames = S.fromList (NM.names intFixedChoices) }
+        Right DefInterface { intFixedChoices, intPrecondition } ->
+            tpi { tpiInheritedChoiceNames = S.fromList (NM.names intFixedChoices)
+                , tpiPrecond = intPrecondition}

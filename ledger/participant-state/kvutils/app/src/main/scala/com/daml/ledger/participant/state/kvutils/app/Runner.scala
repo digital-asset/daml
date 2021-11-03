@@ -10,6 +10,7 @@ import java.util.concurrent.{Executors, TimeUnit}
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.InstrumentedExecutorService
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v2.WritePackagesService
 import com.daml.ledger.participant.state.v2.metrics.{TimedReadService, TimedWriteService}
@@ -22,6 +23,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.StandaloneApiServer
 import com.daml.platform.indexer.StandaloneIndexerServer
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
 import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
@@ -41,10 +43,13 @@ final class Runner[T <: ReadWriteService, Extra](
   def owner(originalConfig: Config[Extra]): ResourceOwner[Unit] = new ResourceOwner[Unit] {
     override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
       val config = factory.manipulateConfig(originalConfig)
+      val errorFactories = ErrorFactories(
+        new ErrorCodesVersionSwitcher(originalConfig.enableSelfServiceErrorCodes)
+      )
 
       config.mode match {
         case Mode.DumpIndexMetadata(jdbcUrls) =>
-          dumpIndexMetadata(jdbcUrls)
+          dumpIndexMetadata(jdbcUrls, errorFactories)
           sys.exit(0)
         case Mode.Run =>
           run(config)
@@ -53,13 +58,14 @@ final class Runner[T <: ReadWriteService, Extra](
   }
 
   private def dumpIndexMetadata(
-      jdbcUrls: Seq[String]
+      jdbcUrls: Seq[String],
+      errorFactories: ErrorFactories,
   )(implicit resourceContext: ResourceContext): Resource[Unit] = {
     val logger = ContextualizedLogger.get(this.getClass)
     import ExecutionContext.Implicits.global
     Resource.sequenceIgnoringValues(for (jdbcUrl <- jdbcUrls) yield {
       newLoggingContext { implicit loggingContext: LoggingContext =>
-        Resource.fromFuture(IndexMetadata.read(jdbcUrl).andThen {
+        Resource.fromFuture(IndexMetadata.read(jdbcUrl, errorFactories).andThen {
           case Failure(exception) =>
             logger.error("Error while retrieving the index metadata", exception)
           case Success(metadata) =>

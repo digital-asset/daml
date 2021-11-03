@@ -30,7 +30,6 @@ import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.engine.Error.Interpretation
-import com.daml.lf.transaction.Node.{GenActionNode, GenNode}
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -565,7 +564,7 @@ class EngineTest
     }
 
     "mark all the exercise nodes as performed byKey" in {
-      val expectedNodes = tx.nodes.collect { case (id, _: Node.NodeExercises) =>
+      val expectedNodes = tx.nodes.collect { case (id, _: Node.Exercise) =>
         id
       }
       val actualNodes = byKeyNodes(tx)
@@ -791,8 +790,8 @@ class EngineTest
       tx.roots should have length 2
       tx.nodes.keySet.toList should have length 2
       val ImmArray(create, exercise) = tx.roots.map(tx.nodes)
-      create shouldBe a[Node.NodeCreate]
-      exercise shouldBe a[Node.NodeExercises]
+      create shouldBe a[Node.Create]
+      exercise shouldBe a[Node.Exercise]
     }
 
     "reinterpret to the same result" in {
@@ -1090,7 +1089,7 @@ class EngineTest
       val bobView = Blinding.divulgedTransaction(blindingInfo.disclosure, bob, tx.transaction)
       bobView.nodes.size shouldBe 2
       findNodeByIdx(bobView.nodes, 0).getOrElse(fail("node not found")) match {
-        case Node.NodeExercises(
+        case Node.Exercise(
               coid,
               _,
               choice,
@@ -1115,7 +1114,7 @@ class EngineTest
       }
 
       findNodeByIdx(bobView.nodes, 1).getOrElse(fail("node not found")) match {
-        case create: Node.NodeCreate =>
+        case create: Node.Create =>
           create.templateId shouldBe templateId
           create.stakeholders shouldBe Set(alice, clara)
         case _ => fail("create event is expected")
@@ -1127,7 +1126,7 @@ class EngineTest
 
       claraView.nodes.size shouldBe 1
       findNodeByIdx(claraView.nodes, 1).getOrElse(fail("node not found")) match {
-        case create: Node.NodeCreate =>
+        case create: Node.Create =>
           create.templateId shouldBe templateId
           create.stakeholders shouldBe Set(alice, clara)
         case _ => fail("create event is expected")
@@ -1189,9 +1188,9 @@ class EngineTest
     val let = Time.Timestamp.now()
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
 
-    def actFetchActors(n: Node.GenNode): Set[Party] = {
+    def actFetchActors(n: Node): Set[Party] = {
       n match {
-        case Node.NodeFetch(_, _, actingParties, _, _, _, _, _) => actingParties
+        case Node.Fetch(_, _, actingParties, _, _, _, _, _) => actingParties
         case _ => Set()
       }
     }
@@ -1250,7 +1249,7 @@ class EngineTest
 
     "be retained when reinterpreting single fetch nodes" in {
       val Right((tx, txMeta)) = runExample(fetcher1Cid, clara)
-      val fetchNodes = tx.nodes.iterator.collect { case (nid, fetch: Node.NodeFetch) =>
+      val fetchNodes = tx.nodes.iterator.collect { case (nid, fetch: Node.Fetch) =>
         nid -> fetch
       }
 
@@ -1371,8 +1370,8 @@ class EngineTest
 
     def firstLookupNode(
         tx: GenTx
-    ): Option[(NodeId, Node.NodeLookupByKey)] =
-      tx.nodes.collectFirst { case (nid, nl @ Node.NodeLookupByKey(_, _, _, _)) =>
+    ): Option[(NodeId, Node.LookupByKey)] =
+      tx.nodes.collectFirst { case (nid, nl @ Node.LookupByKey(_, _, _, _)) =>
         nid -> nl
       }
 
@@ -1395,7 +1394,7 @@ class EngineTest
           lookupKey,
         )
 
-      val expectedByKeyNodes = tx.transaction.nodes.collect { case (id, _: Node.NodeLookupByKey) =>
+      val expectedByKeyNodes = tx.transaction.nodes.collect { case (id, _: Node.LookupByKey) =>
         id
       }
       val actualByKeyNodes = byKeyNodes(tx)
@@ -1577,7 +1576,7 @@ class EngineTest
         )
 
       tx.transaction.nodes.values.headOption match {
-        case Some(Node.NodeFetch(_, _, _, _, _, key, _, _)) =>
+        case Some(Node.Fetch(_, _, _, _, _, key, _, _)) =>
           key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
             case Some(Node.KeyWithMaintainers(_, maintainers)) =>
@@ -1650,7 +1649,7 @@ class EngineTest
         )
 
       tx.transaction.nodes
-        .collectFirst { case (id, nf: Node.NodeFetch) =>
+        .collectFirst { case (id, nf: Node.Fetch) =>
           nf.key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
             case Some(Node.KeyWithMaintainers(_, maintainers)) =>
@@ -1801,7 +1800,7 @@ class EngineTest
       val stx = suffix(tx)
 
       val ImmArray(_, exeNode1) = tx.transaction.roots
-      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, children, _, _, _, _) =
+      val Node.Exercise(_, _, _, _, _, _, _, _, _, children, _, _, _, _) =
         tx.transaction.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 
@@ -1991,15 +1990,15 @@ class EngineTest
       )
       inside(run(command)) { case Right((tx, meta)) =>
         tx.nodes.size shouldBe 9
-        tx.nodes(NodeId(0)) shouldBe a[Node.NodeCreate]
-        tx.nodes(NodeId(1)) shouldBe a[Node.NodeExercises]
-        tx.nodes(NodeId(2)) shouldBe a[Node.NodeFetch]
-        tx.nodes(NodeId(3)) shouldBe a[Node.NodeLookupByKey]
-        tx.nodes(NodeId(4)) shouldBe a[Node.NodeCreate]
-        tx.nodes(NodeId(5)) shouldBe a[Node.NodeRollback]
-        tx.nodes(NodeId(6)) shouldBe a[Node.NodeFetch]
-        tx.nodes(NodeId(7)) shouldBe a[Node.NodeLookupByKey]
-        tx.nodes(NodeId(8)) shouldBe a[Node.NodeCreate]
+        tx.nodes(NodeId(0)) shouldBe a[Node.Create]
+        tx.nodes(NodeId(1)) shouldBe a[Node.Exercise]
+        tx.nodes(NodeId(2)) shouldBe a[Node.Fetch]
+        tx.nodes(NodeId(3)) shouldBe a[Node.LookupByKey]
+        tx.nodes(NodeId(4)) shouldBe a[Node.Create]
+        tx.nodes(NodeId(5)) shouldBe a[Node.Rollback]
+        tx.nodes(NodeId(6)) shouldBe a[Node.Fetch]
+        tx.nodes(NodeId(7)) shouldBe a[Node.LookupByKey]
+        tx.nodes(NodeId(8)) shouldBe a[Node.Create]
         meta.nodeSeeds.map(_._1.index) shouldBe ImmArray(0, 1, 4, 8)
       }
     }
@@ -2151,7 +2150,7 @@ object EngineTest {
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
   private def participant = Ref.ParticipantId.assertFromString("participant")
   private def byKeyNodes(tx: VersionedTransaction) =
-    tx.nodes.collect { case (nodeId, node: GenActionNode) if node.byKey => nodeId }.toSet
+    tx.nodes.collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }.toSet
 
   private val party = Party.assertFromString("Party")
   private val alice = Party.assertFromString("Alice")
@@ -2184,7 +2183,7 @@ object EngineTest {
     a
   }
 
-  private def findNodeByIdx[Cid](nodes: Map[NodeId, Node.GenNode], idx: Int) =
+  private def findNodeByIdx[Cid](nodes: Map[NodeId, Node], idx: Int) =
     nodes.collectFirst { case (nodeId, node) if nodeId.index == idx => node }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -2202,22 +2201,22 @@ object EngineTest {
     Validation.isReplayedBy(Normalization.normalizeTx(recorded), replayed)
   }
 
-  private def suffix(tx: Tx.Transaction) =
+  private def suffix(tx: VersionedTransaction) =
     data.assertRight(tx.suffixCid(_ => dummySuffix))
 
   private[this] case class ReinterpretState(
       contracts: Map[ContractId, VersionedContractInstance],
       keys: Map[GlobalKey, ContractId],
-      nodes: HashMap[NodeId, GenNode] = HashMap.empty,
+      nodes: HashMap[NodeId, Node] = HashMap.empty,
       roots: BackStack[NodeId] = BackStack.empty,
       dependsOnTime: Boolean = false,
       nodeSeeds: BackStack[(NodeId, crypto.Hash)] = BackStack.empty,
   ) {
     def commit(tr: GenTx, meta: Tx.Metadata) = {
       val (newContracts, newKeys) = tr.fold((contracts, keys)) {
-        case ((contracts, keys), (_, exe: Node.NodeExercises)) =>
+        case ((contracts, keys), (_, exe: Node.Exercise)) =>
           (contracts - exe.targetCoid, keys)
-        case ((contracts, keys), (_, create: Node.NodeCreate)) =>
+        case ((contracts, keys), (_, create: Node.Create)) =>
           (
             contracts.updated(
               create.coid,
@@ -2246,13 +2245,13 @@ object EngineTest {
       engine: Engine,
       submitters: Set[Party],
       nodes: ImmArray[NodeId],
-      tx: Tx.Transaction,
+      tx: VersionedTransaction,
       txMeta: Tx.Metadata,
       ledgerEffectiveTime: Time.Timestamp,
       lookupPackages: PackageId => Option[Package],
       contracts: Map[ContractId, VersionedContractInstance] = Map.empty,
       keys: Map[GlobalKey, ContractId] = Map.empty,
-  ): Either[Error, (Tx.Transaction, Tx.Metadata)] = {
+  ): Either[Error, (VersionedTransaction, Tx.Metadata)] = {
 
     val nodeSeedMap = txMeta.nodeSeeds.toSeq.toMap
 
@@ -2262,21 +2261,21 @@ object EngineTest {
           for {
             state <- acc
             cmd = tx.transaction.nodes(nodeId) match {
-              case create: Node.NodeCreate =>
+              case create: Node.Create =>
                 CreateCommand(create.templateId, create.arg)
-              case fetch: Node.NodeFetch if fetch.byKey =>
+              case fetch: Node.Fetch if fetch.byKey =>
                 val key = fetch.key.getOrElse(sys.error("unexpected empty contract key")).key
                 FetchByKeyCommand(fetch.templateId, key)
-              case fetch: Node.NodeFetch =>
+              case fetch: Node.Fetch =>
                 FetchCommand(fetch.templateId, fetch.coid)
-              case lookup: Node.NodeLookupByKey =>
+              case lookup: Node.LookupByKey =>
                 LookupByKeyCommand(lookup.templateId, lookup.key.key)
-              case exe: Node.NodeExercises if exe.byKey =>
+              case exe: Node.Exercise if exe.byKey =>
                 val key = exe.key.getOrElse(sys.error("unexpected empty contract key")).key
                 ExerciseByKeyCommand(exe.templateId, key, exe.choiceId, exe.chosenValue)
-              case exe: Node.NodeExercises =>
+              case exe: Node.Exercise =>
                 ExerciseCommand(exe.templateId, exe.targetCoid, exe.choiceId, exe.chosenValue)
-              case _: Node.NodeRollback =>
+              case _: Node.Rollback =>
                 sys.error("unexpected rollback node")
             }
             currentStep <- engine

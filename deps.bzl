@@ -41,9 +41,10 @@ rules_haskell_patches = [
     # This should be made configurable in rules_haskell.
     # Remove this patch once that's available.
     "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
+    "@com_github_digital_asset_daml//bazel_tools:haskell-ghc-8.10.7-bindist.patch",
 ]
-rules_nixpkgs_version = "c40b35f73e5ab1c0096d95abf63027a3b8054061"
-rules_nixpkgs_sha256 = "47fffc870a25d82deedb887c32481a43a12f56b51e5002773046f81fbe3ea9df"
+rules_nixpkgs_version = "81f61c4b5afcf50665b7073f7fce4c1755b4b9a3"
+rules_nixpkgs_sha256 = "33fd540d0283cf9956d0a5a640acb1430c81539a84069114beaf9640c96d221a"
 rules_nixpkgs_patches = [
     # On CI and locally we observe occasional segmantation faults
     # of nix. A known issue since Nix 2.2.2 is that HTTP2 support
@@ -58,8 +59,8 @@ buildifier_version = "4.0.0"
 buildifier_sha256 = "0d3ca4ed434958dda241fb129f77bd5ef0ce246250feed2d5a5470c6f29a77fa"
 zlib_version = "1.2.11"
 zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
-rules_nodejs_version = "4.4.1"
-rules_nodejs_sha256 = "4501158976b9da216295ac65d872b1be51e3eeb805273e68c516d2eb36ae1fbb"
+rules_nodejs_version = "4.4.2"
+rules_nodejs_sha256 = "3aa6296f453ddc784e1377e0811a59e1e6807da364f44b27856e34f5042043fe"
 rules_jvm_external_version = "3.3"
 rules_jvm_external_sha256 = "d85951a92c0908c80bd8551002d66cb23c3434409c814179c0ff026b53544dab"
 rules_go_version = "0.23.6"
@@ -200,27 +201,13 @@ def daml_deps():
             patch_args = ["-p1"],
         )
 
-    if "upb" not in native.existing_rules():
-        # upb is a dependency of com_github_grpc_grpc.
-        # It is usually pulled in automatically by grpc_deps(), but depend on it explicitly to patch it.
-        # This http_archive can be removed when we no longer need to patch upb.
-        http_archive(
-            name = "upb",
-            sha256 = "c0b97bf91dfea7e8d7579c24e2ecdd02d10b00f3c5defc3dce23d95100d0e664",
-            strip_prefix = "upb-60607da72e89ba0c84c84054d2e562d8b6b61177",
-            urls = [
-                "https://storage.googleapis.com/grpc-bazel-mirror/github.com/protocolbuffers/upb/archive/60607da72e89ba0c84c84054d2e562d8b6b61177.tar.gz",
-                "https://github.com/protocolbuffers/upb/archive/60607da72e89ba0c84c84054d2e562d8b6b61177.tar.gz",
-            ],
-        )
-
     if "com_github_grpc_grpc" not in native.existing_rules():
         # This should be kept in sync with the grpc version we get from Nix.
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.39.0",
-            urls = ["https://github.com/grpc/grpc/archive/v1.39.0.tar.gz"],
-            sha256 = "b16992aa1c949c10d5d5ce2a62f9d99fa7de77da2943e643fb66dcaf075826d6",
+            strip_prefix = "grpc-1.41.0",
+            urls = ["https://github.com/grpc/grpc/archive/v1.41.0.tar.gz"],
+            sha256 = "e5fb30aae1fa1cffa4ce00aa0bbfab908c0b899fcf0bbc30e268367d660d8656",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
             ],

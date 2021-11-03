@@ -3,6 +3,8 @@
 
 package com.daml.platform.server.api.validation
 
+import java.sql.{SQLNonTransientException, SQLTransientException}
+
 import com.daml.error.ErrorCode.ApiException
 import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
@@ -21,8 +23,6 @@ import io.grpc.Status.Code
 import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, StatusRuntimeException}
 import scalaz.syntax.tag._
-
-import java.sql.{SQLNonTransientException, SQLTransientException}
 
 class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
   def sqlTransientException(exception: SQLTransientException)(implicit
@@ -196,8 +196,8 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         .asGrpcError,
     )
 
-  // TODO error codes: Reconcile with com.daml.platform.server.api.validation.ErrorFactories.offsetAfterLedgerEnd
-  def readingOffsetAfterLedgerEnd_was_invalidArgument(
+  // TODO error codes: Reconcile with com.daml.platform.server.api.validation.ErrorFactories.offsetOutOfRange
+  def offsetOutOfRange_was_invalidArgument(
       definiteAnswer: Option[Boolean]
   )(message: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -206,7 +206,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       v1 = {
         invalidArgumentV1(definiteAnswer, message)
       },
-      v2 = LedgerApiErrors.ReadErrors.RequestedOffsetAfterLedgerEnd
+      v2 = LedgerApiErrors.ReadErrors.RequestedOffsetOutOfRange
         .Reject(message)
         .asGrpcError,
     )
@@ -227,6 +227,18 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         .asGrpcError,
     )
 
+  def invalidDeduplicationDuration(
+      fieldName: String,
+      message: String,
+      definiteAnswer: Option[Boolean],
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      legacyInvalidField(fieldName, message, definiteAnswer),
+      LedgerApiErrors.CommandValidation.InvalidDeduplicationPeriodField
+        .Reject(message)
+        .asGrpcError,
+    )
+
   /** @param fieldName An invalid field's name.
     * @param message A status' message.
     * @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
@@ -238,20 +250,31 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       definiteAnswer: Option[Boolean],
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
-      v1 = {
-        val statusBuilder = Status
-          .newBuilder()
-          .setCode(Code.INVALID_ARGUMENT.value())
-          .setMessage(s"Invalid field $fieldName: $message")
-        addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
-        grpcError(statusBuilder.build())
-      },
-      v2 = LedgerApiErrors.CommandValidation.InvalidField
-        .Reject(s"Invalid field $fieldName: $message")
-        .asGrpcError,
+      v1 = legacyInvalidField(fieldName, message, definiteAnswer),
+      v2 = ledgerCommandValidationInvalidField(fieldName, message).asGrpcError,
     )
 
-  def offsetAfterLedgerEnd(description: String)(implicit
+  private def ledgerCommandValidationInvalidField(fieldName: String, message: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): LedgerApiErrors.CommandValidation.InvalidField.Reject = {
+    LedgerApiErrors.CommandValidation.InvalidField
+      .Reject(s"Invalid field $fieldName: $message")
+  }
+
+  private def legacyInvalidField(
+      fieldName: String,
+      message: String,
+      definiteAnswer: Option[Boolean],
+  ): StatusRuntimeException = {
+    val statusBuilder = Status
+      .newBuilder()
+      .setCode(Code.INVALID_ARGUMENT.value())
+      .setMessage(s"Invalid field $fieldName: $message")
+    addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
+    grpcError(statusBuilder.build())
+  }
+
+  def offsetOutOfRange(description: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     // TODO error codes: Pass the offsets as arguments to this method and build the description here
@@ -263,7 +286,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           .setMessage(description)
           .build()
       ),
-      v2 = LedgerApiErrors.ReadErrors.RequestedOffsetAfterLedgerEnd.Reject(description).asGrpcError,
+      v2 = LedgerApiErrors.ReadErrors.RequestedOffsetOutOfRange.Reject(description).asGrpcError,
     )
 
   /** @param message A status' message.
@@ -279,6 +302,21 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       .setMessage(message)
     addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
     grpcError(statusBuilder.build())
+  }
+
+  def isTimeoutUnknown_wasAborted(message: String, definiteAnswer: Option[Boolean])(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = {
+    errorCodesVersionSwitcher.choose(
+      v1 = aborted(message, definiteAnswer),
+      v2 = LedgerApiErrors.WriteErrors.RequestTimeOut
+        .Reject(
+          message,
+          // TODO error codes: How to handle None definiteAnswer?
+          definiteAnswer.getOrElse(false),
+        )
+        .asGrpcError,
+    )
   }
 
   def packageUploadRejected(message: String, definiteAnswer: Option[Boolean])(implicit
@@ -414,6 +452,20 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       v2 = LedgerApiErrors.ServiceNotRunning.Reject().asGrpcError,
     )
 
+  def trackerFailure(msg: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException =
+    errorCodesVersionSwitcher.choose(
+      v1 = {
+        val builder = Status
+          .newBuilder()
+          .setCode(Code.INTERNAL.value())
+          .setMessage(msg)
+        grpcError(builder.build())
+      },
+      v2 = LedgerApiErrors.InternalError.CommandTrackerInternalError(msg).asGrpcError,
+    )
+
   /** Transforms Protobuf [[Status]] objects, possibly including metadata packed as [[ErrorInfo]] objects,
     * into exceptions with metadata in the trailers.
     *
@@ -439,11 +491,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   }
 }
 
-/** Object exposing the legacy error factories.
-  * TODO error codes: Remove default implementation once all Ledger API services
-  *                   output versioned error codes.
-  */
-object ErrorFactories extends ErrorFactories(new ErrorCodesVersionSwitcher(false)) {
+object ErrorFactories {
   val SelfServiceErrorCodeFactories: ErrorFactories = ErrorFactories(
     new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true)
   )

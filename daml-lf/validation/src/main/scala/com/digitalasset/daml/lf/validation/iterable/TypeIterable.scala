@@ -225,8 +225,9 @@ private[validation] object TypeIterable {
 
   private[validation] def iterator(impl: TemplateImplements): Iterator[Type] =
     impl match {
-      case TemplateImplements(interface, methods) =>
+      case TemplateImplements(interface, methods, inheritedChoices @ _, precond) =>
         Iterator(TTyCon(interface)) ++
+          iterator(precond) ++
           methods.values.flatMap(iterator(_))
     }
 

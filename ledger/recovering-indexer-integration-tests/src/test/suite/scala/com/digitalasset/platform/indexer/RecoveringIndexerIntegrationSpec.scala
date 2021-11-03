@@ -27,12 +27,13 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.testing.LogCollector
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.timer.RetryStrategy
-import org.mockito.ArgumentMatchers
+import org.mockito.{ArgumentMatchers, MockitoSugar}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
@@ -47,7 +48,8 @@ class RecoveringIndexerIntegrationSpec
     extends AsyncWordSpec
     with Matchers
     with TestResourceContext
-    with BeforeAndAfterEach {
+    with BeforeAndAfterEach
+    with MockitoSugar {
   private[this] var testId: UUID = _
 
   private implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
@@ -223,6 +225,7 @@ class RecoveringIndexerIntegrationSpec
   private def index(implicit loggingContext: LoggingContext): ResourceOwner[LedgerReadDao] = {
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase}-$testId;db_close_delay=-1;db_close_on_exit=false"
+    val errorFactories: ErrorFactories = mock[ErrorFactories]
     JdbcLedgerDao.readOwner(
       serverRole = ServerRole.Testing(getClass),
       jdbcUrl = jdbcUrl,
@@ -235,6 +238,7 @@ class RecoveringIndexerIntegrationSpec
       lfValueTranslationCache = LfValueTranslationCache.Cache.none,
       enricher = None,
       participantId = Ref.ParticipantId.assertFromString("RecoveringIndexerIntegrationSpec"),
+      errorFactories = errorFactories,
     )
   }
 }

@@ -21,6 +21,7 @@ class SandboxResetService(
     ledgerId: LedgerId,
     resetAndRestartServer: () => Future[Unit],
     authorizer: Authorizer,
+    errorFactories: ErrorFactories,
 )(implicit loggingContext: LoggingContext)
     extends ResetServiceGrpc.ResetService
     with BindableService
@@ -63,7 +64,7 @@ class SandboxResetService(
       .cond(
         ledgerId == LedgerId(request.ledgerId),
         request.ledgerId,
-        ErrorFactories.ledgerIdMismatch(ledgerId, LedgerId(request.ledgerId), None),
+        errorFactories.ledgerIdMismatch(ledgerId, LedgerId(request.ledgerId), None),
       )
       .fold(Future.failed[Empty], _ => actuallyReset().map(_ => Empty())(DE))
 

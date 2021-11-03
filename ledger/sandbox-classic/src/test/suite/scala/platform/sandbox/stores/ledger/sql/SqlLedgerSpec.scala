@@ -36,6 +36,7 @@ import com.daml.platform.sandbox.MetricsAround
 import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
@@ -43,6 +44,7 @@ import com.daml.timer.RetryStrategy
 import com.google.protobuf.any.{Any => AnyProto}
 import com.google.rpc.error_details.ErrorInfo
 import io.grpc.Status
+import org.mockito.MockitoSugar
 import org.scalatest.Inside
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
 import org.scalatest.matchers.should.Matchers
@@ -63,7 +65,8 @@ final class SqlLedgerSpec
     with TestResourceContext
     with AkkaBeforeAndAfterAll
     with PostgresAroundEach
-    with MetricsAround {
+    with MetricsAround
+    with MockitoSugar {
 
   import TestIdentifiers._
 
@@ -131,7 +134,7 @@ final class SqlLedgerSpec
       val participantId = makeParticipantId("TheOnlyParticipant")
       for {
         _ <- createSqlLedgerWithParticipantId(participantId)
-        metadata <- IndexMetadata.read(postgresDatabase.url)
+        metadata <- IndexMetadata.read(postgresDatabase.url, mock[ErrorFactories])
       } yield {
         metadata.participantId shouldEqual participantId
       }
@@ -142,7 +145,7 @@ final class SqlLedgerSpec
       for {
         _ <- createSqlLedgerWithParticipantId(participantId)
         _ <- createSqlLedgerWithParticipantId(participantId)
-        metadata <- IndexMetadata.read(postgresDatabase.url)
+        metadata <- IndexMetadata.read(postgresDatabase.url, mock[ErrorFactories])
       } yield {
         metadata.participantId shouldEqual participantId
       }
@@ -469,6 +472,7 @@ final class SqlLedgerSpec
         engine = new Engine(),
         validatePartyAllocation = false,
         enableCompression = false,
+        errorFactories = mock[ErrorFactories],
       ).acquire()(ResourceContext(system.dispatcher))
     createdLedgers += ledger
     ledger.asFuture

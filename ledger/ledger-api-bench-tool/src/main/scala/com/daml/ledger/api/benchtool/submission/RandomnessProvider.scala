@@ -4,7 +4,7 @@
 package com.daml.ledger.api.benchtool.submission
 
 trait RandomnessProvider {
-  def randomDouble(): Double // 0.0 <= randomDouble() <= 1.0
+  def randomDouble(): Double // 0.0 <= randomDouble() < 1.0
   def randomBytes(n: Int): Array[Byte]
   def randomNatural(n: Int): Int // 0 <= randomNatural(n) < n
 }

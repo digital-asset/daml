@@ -35,7 +35,7 @@ import com.daml.ledger.validator.TestHelper.{makeContractIdStateKey, makeContrac
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.test.TransactionBuilder.{Create, Exercise}
+import com.daml.lf.transaction.Node
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -279,7 +279,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
     builder.buildSubmitted()
   }
 
-  private def newCreateNodeWithFixedKey(contractId: String): Create =
+  private def newCreateNodeWithFixedKey(contractId: String): Node.Create =
     create(contractId, signatories = Set("Alice"), keyAndMaintainer = Some(aKey -> "Alice"))
 
   private def create(
@@ -287,7 +287,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       signatories: Set[Ref.Party] = Set(aKeyMaintainer),
       argument: Value = aDummyValue,
       keyAndMaintainer: Option[(String, String)] = Some(aKey -> aKeyMaintainer),
-  ): TransactionBuilder.Create =
+  ): Node.Create =
     txBuilder.create(
       id = contractId,
       templateId = "DummyModule:DummyTemplate",
@@ -297,7 +297,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       key = keyAndMaintainer.map { case (key, maintainer) => lfTuple(maintainer, key) },
     )
 
-  private def archive(create: Create, actingParties: Set[Ref.Party]): Exercise =
+  private def archive(create: Node.Create, actingParties: Set[Ref.Party]): Node.Exercise =
     txBuilder.exercise(
       create,
       choice = "Archive",
@@ -307,7 +307,7 @@ class TransactionConsistencyValidatorSpec extends AnyWordSpec with Matchers {
       result = Some(Value.ValueUnit),
     )
 
-  private def archive(contractId: Value.ContractId, actingParties: Set[Ref.Party]): Exercise =
+  private def archive(contractId: Value.ContractId, actingParties: Set[Ref.Party]): Node.Exercise =
     archive(create(contractId), actingParties)
 
   private def validate(

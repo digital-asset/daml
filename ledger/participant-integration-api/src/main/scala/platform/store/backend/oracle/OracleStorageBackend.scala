@@ -294,9 +294,9 @@ private[backend] object OracleStorageBackend
   override def dbLockSupported: Boolean = true
 
   // Migration from mutable schema is not supported for Oracle
-  override def validatePruningOffsetAgainstMigration(
+  override def isPruningOffsetValidAgainstMigration(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
       connection: Connection,
-  ): Unit = ()
+  ): Boolean = true
 }

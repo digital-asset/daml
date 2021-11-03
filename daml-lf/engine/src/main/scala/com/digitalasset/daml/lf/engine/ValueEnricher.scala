@@ -6,7 +6,6 @@ package engine
 
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId}
 import com.daml.lf.language.{Ast, LookupError}
-import com.daml.lf.transaction.Node.{GenNode, KeyWithMaintainers}
 import com.daml.lf.transaction.{
   IncompleteTransaction,
   GenTransaction,
@@ -113,14 +112,14 @@ final class ValueEnricher(
 
   def enrichContractKey(
       tyCon: Identifier,
-      key: KeyWithMaintainers[Value],
-  ): Result[KeyWithMaintainers[Value]] =
+      key: Node.KeyWithMaintainers[Value],
+  ): Result[Node.KeyWithMaintainers[Value]] =
     enrichContractKey(tyCon, key.key).map(normalizedKey => key.copy(key = normalizedKey))
 
   def enrichContractKey(
       tyCon: Identifier,
-      key: Option[KeyWithMaintainers[Value]],
-  ): Result[Option[KeyWithMaintainers[Value]]] =
+      key: Option[Node.KeyWithMaintainers[Value]],
+  ): Result[Option[Node.KeyWithMaintainers[Value]]] =
     key match {
       case Some(k) =>
         enrichContractKey(tyCon, k).map(Some(_))
@@ -130,14 +129,14 @@ final class ValueEnricher(
 
   def enrichVersionedContractKey(
       tyCon: Identifier,
-      key: KeyWithMaintainers[VersionedValue],
-  ): Result[KeyWithMaintainers[VersionedValue]] =
+      key: Node.KeyWithMaintainers[VersionedValue],
+  ): Result[Node.KeyWithMaintainers[VersionedValue]] =
     enrichVersionedContractKey(tyCon, key.key).map(normalizedKey => key.copy(key = normalizedKey))
 
   def enrichVersionedContractKey(
       tyCon: Identifier,
-      key: Option[KeyWithMaintainers[VersionedValue]],
-  ): Result[Option[KeyWithMaintainers[VersionedValue]]] =
+      key: Option[Node.KeyWithMaintainers[VersionedValue]],
+  ): Result[Option[Node.KeyWithMaintainers[VersionedValue]]] =
     key match {
       case Some(k) =>
         enrichVersionedContractKey(tyCon, k).map(Some(_))
@@ -145,24 +144,24 @@ final class ValueEnricher(
         ResultNone
     }
 
-  def enrichNode(node: GenNode): Result[GenNode] =
+  def enrichNode(node: Node): Result[Node] =
     node match {
-      case rb @ Node.NodeRollback(_) =>
+      case rb @ Node.Rollback(_) =>
         ResultDone(rb)
-      case create: Node.NodeCreate =>
+      case create: Node.Create =>
         for {
           arg <- enrichValue(Ast.TTyCon(create.templateId), create.arg)
           key <- enrichContractKey(create.templateId, create.key)
         } yield create.copy(arg = arg, key = key)
-      case fetch: Node.NodeFetch =>
+      case fetch: Node.Fetch =>
         for {
           key <- enrichContractKey(fetch.templateId, fetch.key)
         } yield fetch.copy(key = key)
-      case lookup: Node.NodeLookupByKey =>
+      case lookup: Node.LookupByKey =>
         for {
           key <- enrichContractKey(lookup.templateId, lookup.key)
         } yield lookup.copy(key = key)
-      case exe: Node.NodeExercises =>
+      case exe: Node.Exercise =>
         for {
           choiceArg <- enrichChoiceArgument(exe.templateId, exe.choiceId, exe.chosenValue)
           result <- exe.exerciseResult match {
@@ -178,7 +177,7 @@ final class ValueEnricher(
   def enrichTransaction(tx: GenTransaction): Result[GenTransaction] =
     for {
       normalizedNodes <-
-        tx.nodes.foldLeft[Result[Map[NodeId, GenNode]]](ResultDone(Map.empty)) {
+        tx.nodes.foldLeft[Result[Map[NodeId, Node]]](ResultDone(Map.empty)) {
           case (acc, (nid, node)) =>
             for {
               nodes <- acc

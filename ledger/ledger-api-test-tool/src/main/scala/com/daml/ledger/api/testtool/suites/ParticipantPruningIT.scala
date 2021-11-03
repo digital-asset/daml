@@ -85,7 +85,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         participant,
         cannotPruneOffsetBeyondEnd,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.ReadErrors.RequestedOffsetAfterLedgerEnd,
+        LedgerApiErrors.ReadErrors.RequestedOffsetOutOfRange,
         Some("prune_up_to needs to be before ledger end"),
       )
     }

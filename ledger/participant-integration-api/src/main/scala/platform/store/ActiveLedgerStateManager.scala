@@ -9,7 +9,7 @@ import com.daml.ledger.api.domain.RejectionReason
 import com.daml.ledger.api.domain.RejectionReason.{Inconsistent, InvalidLedgerTime}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Relation.Relation
-import com.daml.lf.transaction.{CommittedTransaction, GlobalKey, NodeId, Node => N}
+import com.daml.lf.transaction.{CommittedTransaction, GlobalKey, NodeId, Node}
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Contract.ActiveContract
 
@@ -131,13 +131,13 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
     def handleLeaf(
         state: AddTransactionState,
         nodeId: NodeId,
-        node: N.LeafOnlyActionNode,
+        node: Node.LeafOnlyAction,
     ): AddTransactionState =
       state.currentState.als match {
         case None => state
         case Some(als) =>
           node match {
-            case nf: N.NodeFetch =>
+            case nf: Node.Fetch =>
               val nodeParties = nf.signatories
                 .union(nf.stakeholders)
                 .union(nf.actingParties)
@@ -145,7 +145,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                 errs = contractCheck(als, nf.coid).fold(state.errs)(state.errs + _),
                 parties = state.parties.union(nodeParties),
               )
-            case nc: N.NodeCreate =>
+            case nc: Node.Create =>
               val nodeParties = nc.signatories
                 .union(nc.stakeholders)
                 .union(nc.key.map(_.maintainers).getOrElse(Set.empty))
@@ -193,7 +193,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                     )
                   }
               }
-            case nlkup: N.NodeLookupByKey =>
+            case nlkup: Node.LookupByKey =>
               // Check that the stored lookup result matches the current result
               val key = nlkup.key.key.ensureNoCid.fold(
                 coid =>

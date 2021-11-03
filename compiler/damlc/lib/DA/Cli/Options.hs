@@ -5,7 +5,7 @@ module DA.Cli.Options
   ( module DA.Cli.Options
   ) where
 
-import Data.List.Extra     (trim, splitOn)
+import Data.List.Extra     (lower, splitOn, trim)
 import Options.Applicative.Extended
 import Safe (lastMay)
 import Data.List
@@ -16,6 +16,7 @@ import DA.Daml.LF.Ast.Util (splitUnitId)
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
+import qualified DA.Service.Logger as Logger
 import qualified Module as GHC
 import qualified Text.ParserCombinators.ReadP as R
 
@@ -238,8 +239,20 @@ dlintUsageOpt = fmap (fromMaybe DlintDisabled . lastMay) $
   many (dlintEnabledOpt <|> dlintDisabledOpt)
 
 
-optDebugLog :: Parser Bool
-optDebugLog = switch $ help "Enable debug output" <> long "debug"
+cliOptLogLevel :: Parser Logger.Priority
+cliOptLogLevel =
+    flag' Logger.Debug (long "debug" <> help "Set log level to DEBUG") <|>
+    option readLogLevel (long "log-level" <> help "Set log level. Possible values are DEBUG, INFO, WARNING, ERROR" <> value Logger.Info)
+  where
+    readLogLevel = maybeReader $ \s -> case lower s of
+        -- we support telemetry log-level for debugging purposes.
+        "telemetry" -> Just Logger.Telemetry
+        "debug" -> Just Logger.Debug
+        "info" -> Just Logger.Info
+        "warning" -> Just Logger.Warning
+        "error" -> Just Logger.Error
+        _ -> Nothing
+
 
 optPackageName :: Parser (Maybe GHC.UnitId)
 optPackageName = optional $ fmap GHC.stringToUnitId $ strOption $
@@ -266,7 +279,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     optShakeProfiling <- shakeProfilingOpt
     optThreads <- optShakeThreads
     optDamlLfVersion <- lfVersionOpt
-    optDebug <- optDebugLog
+    optLogLevel <- cliOptLogLevel
     optGhcCustomOpts <- optGhcCustomOptions
     let optScenarioService = enableScenarioService
     let optSkipScenarioValidation = SkipScenarioValidation False
