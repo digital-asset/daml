@@ -18,7 +18,7 @@ import com.daml.platform.store.Conversions.{
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
-import com.daml.platform.store.backend.{ContractStorageBackend, StorageBackend}
+import com.daml.platform.store.backend.ContractStorageBackend
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyAssigned,
   KeyState,
@@ -135,7 +135,7 @@ class ContractStorageBackendTemplate(queryStrategy: QueryStrategy) extends Contr
       validAt = Some(validAt),
     )(connection).getOrElse(KeyUnassigned)
 
-  private val fullDetailsContractRowParser: RowParser[StorageBackend.RawContractState] =
+  private val fullDetailsContractRowParser: RowParser[ContractStorageBackend.RawContractState] =
     (str("template_id").?
       ~ flatEventWitnessesColumn("flat_event_witnesses")
       ~ byteArray("create_argument").?
@@ -143,11 +143,11 @@ class ContractStorageBackendTemplate(queryStrategy: QueryStrategy) extends Contr
       ~ int("event_kind")
       ~ timestampFromMicros("ledger_effective_time").?)
       .map(SqlParser.flatten)
-      .map(StorageBackend.RawContractState.tupled)
+      .map(ContractStorageBackend.RawContractState.tupled)
 
   override def contractState(contractId: ContractId, before: Long)(
       connection: Connection
-  ): Option[StorageBackend.RawContractState] = {
+  ): Option[ContractStorageBackend.RawContractState] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
     SQL"""
            SELECT
@@ -167,7 +167,7 @@ class ContractStorageBackendTemplate(queryStrategy: QueryStrategy) extends Contr
       .as(fullDetailsContractRowParser.singleOpt)(connection)
   }
 
-  private val contractStateRowParser: RowParser[StorageBackend.RawContractStateEvent] =
+  private val contractStateRowParser: RowParser[ContractStorageBackend.RawContractStateEvent] =
     (int("event_kind") ~
       contractId("contract_id") ~
       identifier("template_id").? ~
@@ -180,7 +180,7 @@ class ContractStorageBackendTemplate(queryStrategy: QueryStrategy) extends Contr
       flatEventWitnessesColumn("flat_event_witnesses") ~
       offset("event_offset")).map {
       case eventKind ~ contractId ~ templateId ~ ledgerEffectiveTime ~ createKeyValue ~ createKeyCompression ~ createArgument ~ createArgumentCompression ~ eventSequentialId ~ flatEventWitnesses ~ offset =>
-        StorageBackend.RawContractStateEvent(
+        ContractStorageBackend.RawContractStateEvent(
           eventKind,
           contractId,
           templateId,
@@ -197,7 +197,7 @@ class ContractStorageBackendTemplate(queryStrategy: QueryStrategy) extends Contr
 
   override def contractStateEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
-  ): Vector[StorageBackend.RawContractStateEvent] =
+  ): Vector[ContractStorageBackend.RawContractStateEvent] =
     SQL"""
            SELECT
                event_kind,
@@ -220,13 +220,17 @@ class ContractStorageBackendTemplate(queryStrategy: QueryStrategy) extends Contr
            ORDER BY event_sequential_id ASC"""
       .asVectorOf(contractStateRowParser)(connection)
 
-  private val contractRowParser: RowParser[StorageBackend.RawContract] =
+  private val contractRowParser: RowParser[ContractStorageBackend.RawContract] =
     (str("template_id")
       ~ byteArray("create_argument")
       ~ int("create_argument_compression").?)
       .map(SqlParser.flatten)
       .map { case (templateId, createArgument, createArgumentCompression) =>
-        new StorageBackend.RawContract(templateId, createArgument, createArgumentCompression)
+        new ContractStorageBackend.RawContract(
+          templateId,
+          createArgument,
+          createArgumentCompression,
+        )
       }
 
   protected def activeContractSqlLiteral(
@@ -320,7 +324,7 @@ class ContractStorageBackendTemplate(queryStrategy: QueryStrategy) extends Contr
   override def activeContractWithArgument(
       readers: Set[Ref.Party],
       contractId: ContractId,
-  )(connection: Connection): Option[StorageBackend.RawContract] = {
+  )(connection: Connection): Option[ContractStorageBackend.RawContract] = {
     activeContract(
       resultSetParser = contractRowParser.singleOpt,
       resultColumns = List("template_id", "create_argument", "create_argument_compression"),

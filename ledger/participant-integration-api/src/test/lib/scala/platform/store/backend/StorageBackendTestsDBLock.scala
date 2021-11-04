@@ -172,10 +172,10 @@ trait StorageBackendTestsDBLockForSuite
     with StorageBackendProvider {
   this: AsyncFlatSpec =>
 
-  override val dbLock: DBLockStorageBackend = backendFactory.createDBLockStorageBackend
+  override val dbLock: DBLockStorageBackend = backend.dbLock
 
   override def getConnection: Connection =
-    backendFactory.createDataSourceStorageBackend
+    backend.dataSource
       .createDataSource(jdbcUrl)(LoggingContext.ForTesting)
       .getConnection
 }

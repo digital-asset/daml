@@ -15,18 +15,6 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     with StorageBackendSpec {
   this: AsyncFlatSpec =>
 
-  private val parameterStorageBackend: ParameterStorageBackend =
-    backendFactory.createParameterStorageBackend
-  private val configurationStorageBackend: ConfigurationStorageBackend =
-    backendFactory.createConfigurationStorageBackend
-  private val partyStorageBackend: PartyStorageBackend = backendFactory.createPartyStorageBackend
-  private val packageStorageBackend: PackageStorageBackend =
-    backendFactory.createPackageStorageBackend
-  private val ingestionStorageBackend: IngestionStorageBackend[_] =
-    backendFactory.createIngestionStorageBackend
-  private val contractStorageBackend: ContractStorageBackend =
-    backendFactory.createContractStorageBackend
-
   behavior of "StorageBackend (initializeIngestion)"
 
   import StorageBackendTestValues._
@@ -71,55 +59,55 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
     for {
       // Initialize
-      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
       // Start the indexer (a no-op in this case)
-      end1 <- executeSql(parameterStorageBackend.ledgerEnd)
-      _ <- executeSql(ingestionStorageBackend.deletePartiallyIngestedData(end1))
+      end1 <- executeSql(backend.parameter.ledgerEnd)
+      _ <- executeSql(backend.ingestion.deletePartiallyIngestedData(end1))
 
       // Fully insert first batch of updates
       _ <- executeSql(ingest(dtos1, _))
-      _ <- executeSql(parameterStorageBackend.updateLedgerEnd(ledgerEnd(5, 3L)))
+      _ <- executeSql(updateLedgerEnd(ledgerEnd(5, 3L)))
 
       // Partially insert second batch of updates (indexer crashes before updating ledger end)
       _ <- executeSql(ingest(dtos2, _))
 
       // Check the contents
-      parties1 <- executeSql(partyStorageBackend.knownParties)
-      config1 <- executeSql(configurationStorageBackend.ledgerConfiguration)
-      packages1 <- executeSql(packageStorageBackend.lfPackages)
+      parties1 <- executeSql(backend.party.knownParties)
+      config1 <- executeSql(backend.configuration.ledgerConfiguration)
+      packages1 <- executeSql(backend.packageBackend.lfPackages)
       contract41 <- executeSql(
-        contractStorageBackend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           readers,
           ContractId.V0.assertFromString("#4"),
         )
       )
       contract91 <- executeSql(
-        contractStorageBackend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           readers,
           ContractId.V0.assertFromString("#9"),
         )
       )
 
       // Restart the indexer - should delete data from the partial insert above
-      end2 <- executeSql(parameterStorageBackend.ledgerEnd)
-      _ <- executeSql(ingestionStorageBackend.deletePartiallyIngestedData(end2))
+      end2 <- executeSql(backend.parameter.ledgerEnd)
+      _ <- executeSql(backend.ingestion.deletePartiallyIngestedData(end2))
 
       // Move the ledger end so that any non-deleted data would become visible
-      _ <- executeSql(parameterStorageBackend.updateLedgerEnd(ledgerEnd(10, 6L)))
+      _ <- executeSql(updateLedgerEnd(ledgerEnd(10, 6L)))
 
       // Check the contents
-      parties2 <- executeSql(partyStorageBackend.knownParties)
-      config2 <- executeSql(configurationStorageBackend.ledgerConfiguration)
-      packages2 <- executeSql(packageStorageBackend.lfPackages)
+      parties2 <- executeSql(backend.party.knownParties)
+      config2 <- executeSql(backend.configuration.ledgerConfiguration)
+      packages2 <- executeSql(backend.packageBackend.lfPackages)
       contract42 <- executeSql(
-        contractStorageBackend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           readers,
           ContractId.V0.assertFromString("#4"),
         )
       )
       contract92 <- executeSql(
-        contractStorageBackend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           readers,
           ContractId.V0.assertFromString("#9"),
         )

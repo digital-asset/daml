@@ -14,6 +14,7 @@ import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.store.cache.MutableLedgerEndCache
 import scalaz.Tag
 
 import scala.concurrent.duration._
@@ -59,6 +60,7 @@ object IndexMetadata {
       // and this property is not needed for the used ReadDao.
       participantId = Ref.ParticipantId.assertFromString("1"),
       errorFactories = errorFactories,
+      ledgerEndCache = MutableLedgerEndCache(), // not used
     )
 
   private val Empty = "<empty>"

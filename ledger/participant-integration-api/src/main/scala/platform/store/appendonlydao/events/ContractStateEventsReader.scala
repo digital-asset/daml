@@ -7,7 +7,7 @@ import java.io.ByteArrayInputStream
 import com.daml.platform.store.appendonlydao.events
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 import com.daml.platform.store.LfValueTranslationCache
-import com.daml.platform.store.backend.StorageBackend.RawContractStateEvent
+import com.daml.platform.store.backend.ContractStorageBackend.RawContractStateEvent
 
 import scala.util.control.NoStackTrace
 
