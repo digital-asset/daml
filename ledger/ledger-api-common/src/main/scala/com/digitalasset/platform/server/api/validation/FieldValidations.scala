@@ -144,25 +144,25 @@ class FieldValidations private (errorFactories: ErrorFactories) {
     */
   def validateDeduplicationPeriod(
       deduplicationPeriod: DeduplicationPeriodProto,
-      optMaxDeduplicationTime: Option[Duration],
+      optMaxDeduplicationDuration: Option[Duration],
       fieldName: String,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, DeduplicationPeriod] = {
 
-    optMaxDeduplicationTime.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
+    optMaxDeduplicationDuration.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
       Left(missingLedgerConfig(definiteAnswer = Some(false)))
-    )(maxDeduplicationTime => {
+    )(maxDeduplicationDuration => {
       def validateDuration(duration: Duration, exceedsMaxDurationMessage: String) = {
         if (duration.isNegative)
           Left(invalidField(fieldName, "Duration must be positive", definiteAnswer = Some(false)))
-        else if (duration.compareTo(maxDeduplicationTime) > 0)
+        else if (duration.compareTo(maxDeduplicationDuration) > 0)
           Left(
             invalidDeduplicationDuration(
               fieldName,
               exceedsMaxDurationMessage,
               definiteAnswer = Some(false),
-              maxDeduplicationTime,
+              maxDeduplicationDuration,
             )
           )
         else Right(duration)
@@ -172,13 +172,13 @@ class FieldValidations private (errorFactories: ErrorFactories) {
         val result = DurationConversion.fromProto(duration)
         validateDuration(
           result,
-          s"The given deduplication duration of $result exceeds the maximum deduplication time of $maxDeduplicationTime",
+          s"The given deduplication duration of $result exceeds the maximum deduplication time of $maxDeduplicationDuration",
         ).map(DeduplicationPeriod.DeduplicationDuration)
       }
 
       deduplicationPeriod match {
         case DeduplicationPeriodProto.Empty =>
-          Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationTime))
+          Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
         case DeduplicationPeriodProto.DeduplicationTime(duration) =>
           protoDurationToDurationPeriod(duration)
         case DeduplicationPeriodProto.DeduplicationDuration(duration) =>
