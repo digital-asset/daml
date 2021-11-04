@@ -21,6 +21,7 @@ object OracleResetStorageBackend extends ResetStorageBackend {
       "truncate table participant_events_consuming_exercise cascade",
       "truncate table participant_events_non_consuming_exercise cascade",
       "truncate table party_entries cascade",
+      "truncate table string_interning cascade",
     ).map(SQL(_)).foreach(_.execute()(connection))
 
   override def resetAll(connection: Connection): Unit =
@@ -36,5 +37,6 @@ object OracleResetStorageBackend extends ResetStorageBackend {
       "truncate table participant_events_consuming_exercise cascade",
       "truncate table participant_events_non_consuming_exercise cascade",
       "truncate table party_entries cascade",
+      "truncate table string_interning cascade",
     ).map(SQL(_)).foreach(_.execute()(connection))
 }

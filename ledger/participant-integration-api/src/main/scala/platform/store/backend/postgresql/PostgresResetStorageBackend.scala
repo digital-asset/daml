@@ -20,6 +20,7 @@ object PostgresResetStorageBackend extends ResetStorageBackend {
           |truncate table participant_events_consuming_exercise cascade;
           |truncate table participant_events_non_consuming_exercise cascade;
           |truncate table party_entries cascade;
+          |truncate table string_interning cascade;
           |""".stripMargin)
       .execute()(connection)
     ()
@@ -37,6 +38,7 @@ object PostgresResetStorageBackend extends ResetStorageBackend {
           |truncate table participant_events_consuming_exercise cascade;
           |truncate table participant_events_non_consuming_exercise cascade;
           |truncate table party_entries cascade;
+          |truncate table string_interning cascade;
           |""".stripMargin)
       .execute()(connection)
     ()

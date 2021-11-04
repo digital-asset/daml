@@ -48,6 +48,7 @@ trait StorageBackend[DB_BATCH]
     with DBLockStorageBackend
     with IntegrityStorageBackend
     with ResetStorageBackend
+    with StringInterningStorageBackend
 
 trait ResetStorageBackend {
 
@@ -350,6 +351,12 @@ trait IntegrityStorageBackend {
     * It is not expected that it is used during regular index/indexer operation.
     */
   def verifyIntegrity()(connection: Connection): Unit
+}
+
+trait StringInterningStorageBackend {
+  def loadStringInterningEntries(fromIdExclusive: Int, untilIdInclusive: Int)(
+      connection: Connection
+  ): Iterable[(Int, String)]
 }
 
 object StorageBackend {

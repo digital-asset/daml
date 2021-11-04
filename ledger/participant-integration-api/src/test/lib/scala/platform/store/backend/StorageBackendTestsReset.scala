@@ -20,6 +20,8 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
     backendFactory.createPackageStorageBackend
   private val contractStorageBackend: ContractStorageBackend =
     backendFactory.createContractStorageBackend
+  private val stringInterningStorageBackend: StringInterningStorageBackend =
+    backendFactory.createStringInterningStorageBackend
   private val resetStorageBackend: ResetStorageBackend = backendFactory.createResetStorageBackend
 
   behavior of "StorageBackend (reset)"
@@ -34,6 +36,9 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       config <- executeSql(configurationStorageBackend.ledgerConfiguration)
       packages <- executeSql(packageStorageBackend.lfPackages)
       events <- executeSql(contractStorageBackend.contractStateEvents(0, Long.MaxValue))
+      stringInterningEntries <- executeSql(
+        stringInterningStorageBackend.loadStringInterningEntries(0, 1000)
+      )
     } yield {
       identity shouldBe None
       end shouldBe None
@@ -41,6 +46,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       packages shouldBe empty
       events shouldBe empty
       config shouldBe None
+      stringInterningEntries shouldBe empty
     }
   }
 
@@ -73,6 +79,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       dtoExercise(offset(5), 2L, true, "#4"),
       dtoDivulgence(Some(offset(5)), 3L, "#4"),
       dtoCompletion(offset(5)),
+      DbDto.StringInterningDto(2, "2"),
     )
 
     for {
@@ -94,6 +101,9 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       parties <- executeSql(partyStorageBackend.knownParties)
       config <- executeSql(configurationStorageBackend.ledgerConfiguration)
       packages <- executeSql(packageStorageBackend.lfPackages)
+      stringInterningEntries <- executeSql(
+        stringInterningStorageBackend.loadStringInterningEntries(0, 1000)
+      )
     } yield {
       identity shouldBe None
       end shouldBe None
@@ -101,6 +111,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       packages should not be empty // Note: reset() does not delete packages
       events shouldBe empty
       config shouldBe None
+      stringInterningEntries shouldBe empty
     }
   }
 
@@ -141,6 +152,9 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       parties <- executeSql(partyStorageBackend.knownParties)
       config <- executeSql(configurationStorageBackend.ledgerConfiguration)
       packages <- executeSql(packageStorageBackend.lfPackages)
+      stringInterningEntries <- executeSql(
+        stringInterningStorageBackend.loadStringInterningEntries(0, 1000)
+      )
     } yield {
       identity shouldBe None
       end shouldBe None
@@ -148,6 +162,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       packages shouldBe empty // Note: resetAll() does delete packages
       events shouldBe empty
       config shouldBe None
+      stringInterningEntries shouldBe empty
     }
   }
 

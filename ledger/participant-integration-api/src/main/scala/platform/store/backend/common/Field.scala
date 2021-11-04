@@ -65,9 +65,11 @@ private[backend] case class Bytea[FROM](extract: FROM => Array[Byte])
 private[backend] case class ByteaOptional[FROM](extract: FROM => Option[Array[Byte]])
     extends TrivialOptionalField[FROM, Array[Byte]]
 
+private[backend] case class Integer[FROM](extract: FROM => Int) extends TrivialField[FROM, Int]
+
 private[backend] case class IntOptional[FROM](extract: FROM => Option[Int])
     extends Field[FROM, Option[Int], java.lang.Integer] {
-  override def convert: Option[Int] => Integer = _.map(Int.box).orNull
+  override def convert: Option[Int] => java.lang.Integer = _.map(Int.box).orNull
 }
 
 private[backend] case class Bigint[FROM](extract: FROM => Long) extends TrivialField[FROM, Long]
@@ -79,7 +81,7 @@ private[backend] case class BigintOptional[FROM](extract: FROM => Option[Long])
 
 private[backend] case class SmallintOptional[FROM](extract: FROM => Option[Int])
     extends Field[FROM, Option[Int], java.lang.Integer] {
-  override def convert: Option[Int] => Integer = _.map(Int.box).orNull
+  override def convert: Option[Int] => java.lang.Integer = _.map(Int.box).orNull
 }
 
 private[backend] case class BooleanField[FROM](extract: FROM => Boolean)
