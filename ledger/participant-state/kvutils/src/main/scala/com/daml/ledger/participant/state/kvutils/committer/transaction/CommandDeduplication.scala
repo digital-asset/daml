@@ -99,6 +99,7 @@ private[transaction] object CommandDeduplication {
         StepContinue(transactionEntry)
       }
     }
+
   // Checks that the submission time of the command is after the
   // deduplicationTime represented by stateValue
   private def isAfterDeduplicationTime(
