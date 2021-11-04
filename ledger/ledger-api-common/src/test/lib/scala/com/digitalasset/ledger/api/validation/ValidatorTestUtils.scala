@@ -48,7 +48,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
         request = testedRequest(testedFactory(false)),
         code = expectedCodeV1,
         description = expectedDescriptionV1,
-        metadata = Map.empty,
+        metadata = Map.empty[String, String],
       )
       requestMustFailWith(
         request = testedRequest(testedFactory(true)),
