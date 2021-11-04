@@ -112,7 +112,7 @@ curl -sSfL https://nixos.org/nix/install | sh
 . /home/hoogle/.nix-profile/etc/profile.d/nix.sh
 # Feel free to bump the commit, this was the latest
 # # at the time of creation.
-NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/c50e680b03adecae01fdd1ea4e44c82e641de0cf.tar.gz
+export NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/c50e680b03adecae01fdd1ea4e44c82e641de0cf.tar.gz
 cat << EOF > /home/hoogle/hoogle_overlay.nix
 super:
 {
