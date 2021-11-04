@@ -195,7 +195,7 @@ genrule(
             "@sphinx_nix//:bin/sphinx-build",
             "@imagemagick_nix//:bin/convert",
         ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
-) if not is_windows else None
+) if scala_major_version == "2.13" and not is_windows else None
 
 genrule(
     name = "docs-no-pdf",
@@ -384,7 +384,7 @@ genrule(
     stamp = 1,
     tags = ["pdfdocs"],
     tools = ["//bazel_tools/sh:mktgz"],
-) if not is_windows else None
+) if scala_major_version == "2.13" and not is_windows else None
 
 filegroup(
     name = "daml-assistant-iou-setup",
