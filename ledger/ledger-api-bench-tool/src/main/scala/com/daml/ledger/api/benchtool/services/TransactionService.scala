@@ -6,7 +6,6 @@ package com.daml.ledger.api.benchtool.services
 import com.daml.ledger.api.benchtool.Config
 import com.daml.ledger.api.benchtool.util.ObserverWithResult
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsRequest,
@@ -33,8 +32,7 @@ final class TransactionService(
   ): Future[Result] = {
     val request = getTransactionsRequest(
       ledgerId = ledgerId,
-      party = config.party,
-      templateIds = config.templateIds,
+      filters = config.filters,
       beginOffset = config.beginOffset,
       endOffset = config.endOffset,
     )
@@ -52,8 +50,7 @@ final class TransactionService(
   ): Future[Result] = {
     val request = getTransactionsRequest(
       ledgerId = ledgerId,
-      party = config.party,
-      templateIds = config.templateIds,
+      filters = config.filters,
       beginOffset = config.beginOffset,
       endOffset = config.endOffset,
     )
@@ -64,36 +61,19 @@ final class TransactionService(
 
   private def getTransactionsRequest(
       ledgerId: String,
-      party: String,
-      templateIds: Option[List[Identifier]],
+      filters: Map[String, Option[List[Identifier]]],
       beginOffset: Option[LedgerOffset],
       endOffset: Option[LedgerOffset],
   ): GetTransactionsRequest = {
     val getTransactionsRequest = GetTransactionsRequest.defaultInstance
       .withLedgerId(ledgerId)
       .withBegin(beginOffset.getOrElse(ledgerBeginOffset))
-      .withFilter(partyFilter(party, templateIds))
+      .withFilter(StreamFilters.transactionFilters(filters))
 
     endOffset match {
       case Some(end) => getTransactionsRequest.withEnd(end)
       case None => getTransactionsRequest
     }
-  }
-
-  private def partyFilter(
-      party: String,
-      templateIds: Option[List[Identifier]],
-  ): TransactionFilter = {
-    val templatesFilter = templateIds match {
-      case Some(ids) =>
-        Filters.defaultInstance.withInclusive(
-          InclusiveFilters.defaultInstance.addAllTemplateIds(ids)
-        )
-      case None =>
-        Filters.defaultInstance
-    }
-    TransactionFilter()
-      .withFiltersByParty(Map(party -> templatesFilter))
   }
 
   private def ledgerBeginOffset: LedgerOffset =
