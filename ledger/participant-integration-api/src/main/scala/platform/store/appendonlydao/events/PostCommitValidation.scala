@@ -4,8 +4,9 @@
 package com.daml.platform.store.appendonlydao.events
 
 import java.sql.Connection
+
 import com.daml.ledger.api.domain
-import com.daml.ledger.participant.state.{v1, v2}
+import com.daml.ledger.participant.state.v2
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.platform.store.appendonlydao.events.PostCommitValidation._
@@ -280,8 +281,6 @@ private[appendonlydao] object PostCommitValidation {
   sealed trait Rejection {
     def description: String
 
-    def toStateV1RejectionReason: v1.RejectionReason
-
     def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate
   }
 
@@ -293,9 +292,6 @@ private[appendonlydao] object PostCommitValidation {
       override val description =
         "Unknown contract"
 
-      override def toStateV1RejectionReason: v1.RejectionReason =
-        v1.RejectionReasonV0.Inconsistent(description)
-
       override def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
         domain.RejectionReason.Inconsistent(description).toParticipantStateRejectionReason
     }
@@ -303,9 +299,6 @@ private[appendonlydao] object PostCommitValidation {
     object DuplicateKey extends Rejection {
       override val description =
         "DuplicateKey: contract key is not unique"
-
-      override def toStateV1RejectionReason: v1.RejectionReason =
-        v1.RejectionReasonV0.Inconsistent(description)
 
       override def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
         domain.RejectionReason.Inconsistent(description).toParticipantStateRejectionReason
@@ -318,9 +311,6 @@ private[appendonlydao] object PostCommitValidation {
       override lazy val description: String =
         s"Contract key lookup with different results: expected [$expectation], actual [$result]"
 
-      override def toStateV1RejectionReason: v1.RejectionReason =
-        v1.RejectionReasonV0.Inconsistent(description)
-
       override def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
         domain.RejectionReason.Inconsistent(description).toParticipantStateRejectionReason
     }
@@ -332,9 +322,6 @@ private[appendonlydao] object PostCommitValidation {
       override lazy val description: String =
         s"Encountered contract with LET [$contractLedgerEffectiveTime] greater than the LET of the transaction [$transactionLedgerEffectiveTime]"
 
-      override def toStateV1RejectionReason: v1.RejectionReason =
-        v1.RejectionReasonV0.InvalidLedgerTime(description)
-
       override def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
         domain.RejectionReason.InvalidLedgerTime(description).toParticipantStateRejectionReason
     }
@@ -342,9 +329,6 @@ private[appendonlydao] object PostCommitValidation {
     object UnallocatedParties extends Rejection {
       override def description: String =
         "Some parties are unallocated"
-
-      override def toStateV1RejectionReason: v1.RejectionReason =
-        v1.RejectionReasonV0.PartyNotKnownOnLedger(description)
 
       override def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
         domain.RejectionReason.PartyNotKnownOnLedger(description).toParticipantStateRejectionReason
