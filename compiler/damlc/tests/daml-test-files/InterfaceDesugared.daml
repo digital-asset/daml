@@ -190,7 +190,7 @@ instance HasSignatory Asset where
   signatory Asset{..} = [issuer, owner]
 
 instance HasEnsure Asset where
-  ensure _ = True
+  ensure this = getAmount this >= 0
 
 instance HasAgreement Asset where
   agreement _ = ""
