@@ -1,0 +1,33 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Port of daml-lf/encoder/src/test/lf/Enum_all_.lf
+
+module EnumMod where
+
+import Daml.Script
+
+data Color = Red | Green | Blue deriving (Show, Eq)
+
+template Box
+  with
+    x: Color
+    party: Party
+  where
+    signatory party
+
+createContracts =
+  script do
+    party <- allocatePartyWithHint "EnumMod" (PartyIdHint "EnumMod")
+    submit party do
+      createCmd Box with
+        x = Red
+        party = party
+    submit party do
+      createCmd Box with
+        x = Green
+        party = party
+    submit party do
+      createCmd Box with
+        x = Blue
+        party = party

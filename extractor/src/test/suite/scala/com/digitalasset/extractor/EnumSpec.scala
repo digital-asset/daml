@@ -13,6 +13,7 @@ import io.circe.parser._
 import org.scalatest.{Inside, Suite}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import scalaz.NonEmptyList
 import scalaz.Scalaz._
 
 class EnumSpec
@@ -25,9 +26,13 @@ class EnumSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File(rlocation(com.daml.lf.archive.testing.TestDar.fileName))
+  override protected def darFile = new File(rlocation("extractor/test.dar"))
 
-  override def scenario: Option[String] = Some("EnumMod:createContracts")
+  override protected val initScript: Option[String] = Some("EnumMod:createContracts")
+
+  override protected val parties: NonEmptyList[String] = NonEmptyList("EnumMod")
+
+  private val party = parties.head
 
   "Enum" should "be extracted" in {
     getContracts should have length 3
@@ -38,17 +43,17 @@ class EnumSpec
     val contractsJson = getContracts.map(_.create_arguments)
 
     val expected = List(
-      """{
+      s"""{
       "x" : "Red",
-      "party" : "Bob"
+      "party" : "$party"
       }""",
-      """{
+      s"""{
       "x" : "Green",
-      "party" : "Bob"
+      "party" : "$party"
       }""",
-      """{
+      s"""{
       "x" : "Blue",
-      "party" : "Bob"
+      "party" : "$party"
       }""",
     ).traverse(parse)
 
