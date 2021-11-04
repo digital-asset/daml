@@ -712,7 +712,12 @@ object Ast {
       observers: E, // Observers of the contract.
       key: Option[GenTemplateKey[E]],
       implements: Map[TypeConName, GenTemplateImplements[E]],
-  )
+  ) {
+    lazy val inheritedChoices: Map[ChoiceName, TypeConName] =
+      implements.flatMap { case (iface, impl) =>
+        impl.inheritedChoices.view.map(chName => (chName, iface))
+      }
+  }
 
   final class GenTemplateCompanion[E] private[Ast] {
 

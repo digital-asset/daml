@@ -6,7 +6,6 @@ package language
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
-import scalaz._, std.list._, std.either._, syntax.traverse._
 
 private[lf] class PackageInterface(signatures: PartialFunction[PackageId, PackageSignature]) {
 
@@ -202,14 +201,15 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
       template.choices.get(chName) match {
         case Some(choice) => Right(choice)
         case None =>
-          // TODO https://github.com/digital-asset/daml/issues/10810
-          //  Improve lookup for fixed choices
-          for {
-            ifaces <- template.implements.keys.toList.traverse(lookupInterface(_, context))
-            choices = ifaces.flatMap(_.fixedChoices.get(chName).toList)
-            choice <-
-              choices.headOption.toRight(LookupError(Reference.Choice(tmpName, chName), context))
-          } yield choice
+          template.inheritedChoices.get(chName) match {
+            case None => Left(LookupError(Reference.Choice(tmpName, chName), context))
+            case Some(ifaceName) =>
+              lookupInterface(ifaceName, context).flatMap(iface =>
+                iface.fixedChoices
+                  .get(chName)
+                  .toRight(LookupError(Reference.Choice(ifaceName, chName), context))
+              )
+          }
       }
     )
 
