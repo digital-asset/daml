@@ -1,0 +1,113 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_INTERFACE
+
+module InterfacePrecondition where
+
+interface Token1 where
+  getOwner : Party
+  getAmount : Int
+
+  ensure (getAmount this >= 0 && getAmount this <= 7)
+
+  choice Split : (ContractId Token1, ContractId Token1)
+    with
+      splitAmount : Int
+
+  choice Transfer : ContractId Token1
+    with
+      newOwner : Party
+
+
+interface Token2 where
+  getOwner2 : Party
+  getAmount2 : Int
+
+  ensure (getAmount2 this >= 3 && getAmount2 this <= 10)
+
+  nonconsuming choice Noop : ()
+    with
+      nothing : ()
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory issuer, owner
+
+    ensure (amount >= 5 && amount <= 6)
+
+    implements Token1 where
+      let getOwner = owner
+      let getAmount = amount
+
+      choice Split : (ContractId Token1, ContractId Token1)
+        with
+          splitAmount : Int
+        controller owner
+        do
+          assert (splitAmount < amount)
+          cid1 <- create this with amount = splitAmount
+          cid2 <- create this with amount = amount - splitAmount
+          pure (toToken1ContractId cid1, toToken1ContractId cid2)
+
+      choice Transfer : ContractId Token1
+        with
+          newOwner : Party
+        controller owner, newOwner
+        do
+          cid <- create this with owner = newOwner
+          pure (toToken1ContractId cid)
+
+    implements Token2 where
+      let getOwner2 = owner
+      let getAmount2 = amount
+
+      nonconsuming choice Noop : ()
+        with
+          nothing : ()
+        controller owner
+        do
+          pure ()
+
+main = scenario do
+  p <- getParty "Alice"
+  p `submitMustFail` do
+    create Asset with
+      issuer = p
+      owner = p
+      amount = -1 -- violates ensure of Token1 & Token2 & Asset
+
+  p `submitMustFail` do
+    create Asset with
+      issuer = p
+      owner = p
+      amount = 1 -- violates ensure of Token2 && Asset
+
+  p `submitMustFail` do
+    create Asset with
+      issuer = p
+      owner = p
+      amount = 3 -- violates ensure of Asset
+
+  p `submitMustFail` do
+    create Asset with
+      issuer = p
+      owner = p
+      amount = 7 -- violates ensure of Asset
+
+  p `submitMustFail` do
+    create Asset with
+      issuer = p
+      owner = p
+      amount = 8 -- violates ensure of Asset & Token2
+
+  p `submit` do
+    create Asset with
+      issuer = p
+      owner = p
+      amount = 5 -- works for Token1 & Token2 & Asset
+  pure ()
