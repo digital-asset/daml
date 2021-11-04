@@ -13,6 +13,7 @@ import io.circe.parser._
 import org.scalatest._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import scalaz.NonEmptyList
 import scalaz.Scalaz._
 
 class OptionalSpec
@@ -27,9 +28,11 @@ class OptionalSpec
 
   override protected def darFile = new File(rlocation("extractor/test.dar"))
 
-  override protected val initScript: String = "PrimitiveTypes:optionals"
+  override protected val initScript = Some("PrimitiveTypes:optionals")
 
-  override protected val party: String = "Optionals"
+  override protected val parties = NonEmptyList("Optionals")
+
+  private val party: String = parties.head
 
   "Optionals" should "be extracted" in {
     val contracts = getContracts

@@ -17,6 +17,7 @@ import io.circe.syntax._
 import org.scalatest._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import scalaz.NonEmptyList
 
 import scala.concurrent.duration._
 
@@ -33,9 +34,11 @@ class TransactionMultiTableSpec
 
   import services.Types._
 
-  override protected def darFile = new File(rlocation("extractor/TransactionExample.dar"))
+  override protected def darFile = new File(rlocation("extractor/test.dar"))
 
-  override def scenario: Option[String] = Some("TransactionExample:example")
+  override protected val initScript = Some("TransactionExample:example")
+
+  override protected def parties: NonEmptyList[String] = NonEmptyList("Example1")
 
   override protected def outputFormat: String = "multi-table"
 
@@ -49,14 +52,13 @@ class TransactionMultiTableSpec
         case TransactionResult(
               transaction_id,
               seq,
-              workflow_id,
+              _, // Daml Script leaves the workflow identifier empty
               effective_at,
               extracted_at,
               ledger_offset,
             ) =>
           transaction_id should not be empty
           seq should be >= 1
-          workflow_id should not be empty
           effective_at should be(new Timestamp(0L))
           extracted_at should beWithin(30.seconds)(Timestamp.from(Instant.now()))
           ledger_offset should not be empty
@@ -68,7 +70,6 @@ class TransactionMultiTableSpec
     val transactions = getTransactions
 
     transactions.map(_.transaction_id).toSet should have size 3
-    transactions.map(_.workflow_id).toSet should have size 3
     transactions.map(_.seq).toSet should have size 3
     transactions.map(_.ledger_offset).toSet should have size 3
   }
@@ -77,7 +78,7 @@ class TransactionMultiTableSpec
     getExercises should have length 2
   }
 
-  "All the data" should "represent what went down in the scenario" in {
+  "All the data" should "represent what went down in the script" in {
     // `transaction1` created `contract1`, then
     // `transaction2` created `exercise`, which archived `contract1` and resulted `contract2`
 

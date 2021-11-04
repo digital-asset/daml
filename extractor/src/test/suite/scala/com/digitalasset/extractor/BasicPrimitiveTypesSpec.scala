@@ -13,6 +13,7 @@ import io.circe.parser._
 import org.scalatest._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import scalaz.NonEmptyList
 import scalaz.Scalaz._
 
 class BasicPrimitiveTypesSpec
@@ -27,9 +28,11 @@ class BasicPrimitiveTypesSpec
 
   override protected def darFile = new File(rlocation("extractor/test.dar"))
 
-  override protected val initScript: String = "PrimitiveTypes:primitives"
+  override protected val initScript = Some("PrimitiveTypes:primitives")
 
-  override protected val party: String = "Primitives"
+  override protected val parties = NonEmptyList("Primitives")
+
+  private val party: String = parties.head
 
   "Contracts" should "be extracted" in {
     val contracts = getContracts

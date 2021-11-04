@@ -16,6 +16,7 @@ import io.circe.syntax._
 import org.scalatest._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import scalaz.NonEmptyList
 
 import scala.concurrent.duration._
 
@@ -32,9 +33,11 @@ class TransactionSingleTableSpec
 
   import services.Types._
 
-  override protected def darFile = new File(rlocation("extractor/TransactionExample.dar"))
+  override protected def darFile = new File(rlocation("extractor/test.dar"))
 
-  override def scenario: Option[String] = Some("TransactionExample:example")
+  override protected val initScript = Some("TransactionExample:example")
+
+  override protected val parties = NonEmptyList(1, 2).map(n => s"Example$n")
 
   "Transactions" should "be extracted" in {
     getTransactions should have length 3

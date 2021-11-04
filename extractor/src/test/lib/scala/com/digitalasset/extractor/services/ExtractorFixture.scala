@@ -22,7 +22,7 @@ import doobie._
 import doobie.implicits._
 import doobie.util.transactor.Transactor.Aux
 import org.scalatest._
-import scalaz.OneAnd
+import scalaz.{NonEmptyList, OneAnd}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
@@ -34,9 +34,9 @@ trait ExtractorFixture extends SandboxParticipantFixture with PostgresAroundSuit
 
   implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
 
-  protected def initScript: String = ???
+  protected def initScript: Option[String] = None
 
-  protected def party: String = ???
+  protected def parties: NonEmptyList[String] = NonEmptyList("IRRELEVANT")
 
   override protected val timeMode: ScriptTimeMode = ScriptTimeMode.Static
 
@@ -46,7 +46,7 @@ trait ExtractorFixture extends SandboxParticipantFixture with PostgresAroundSuit
     ledgerInboundMessageSizeMax = 50 * 1024 * 1024,
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
     SnapshotEndSetting.Head,
-    OneAnd(Party.assertFromString(party), Nil),
+    OneAnd.oneAndNelIso.to(parties.map(Party.assertFromString)),
     Set.empty,
     TlsConfiguration(
       enabled = false,
@@ -114,15 +114,18 @@ trait ExtractorFixture extends SandboxParticipantFixture with PostgresAroundSuit
   protected var extractor: Extractor[PostgreSQLTarget] = _
 
   protected def run(): Unit = {
-    val ec = ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
-    try {
-      val (dar, _) = readDar(darFile)
-      val init = QualifiedName.assertFromString(initScript)
-      val result = participantClients().flatMap(run(_, init, dar = dar)(ec))(ec)
-      val _ = Await.result(result, atMost = 30.seconds)
-    } finally {
-      ec.shutdown()
-    }
+    initScript
+      .map(QualifiedName.assertFromString)
+      .foreach(init => {
+        val ec = ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
+        try {
+          val (dar, _) = readDar(darFile)
+          val result = participantClients().flatMap(run(_, init, dar = dar)(ec))(ec)
+          val _ = Await.result(result, atMost = 30.seconds)
+        } finally {
+          ec.shutdown()
+        }
+      })
     val config: ExtractorConfig = configureExtractor(baseConfig.copy(ledgerPort = serverPort))
 
     extractor = new Extractor(config, target)()

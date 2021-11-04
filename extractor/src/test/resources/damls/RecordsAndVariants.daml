@@ -3,6 +3,8 @@
 
 module RecordsAndVariants where
 
+import Daml.Script
+
 data EitherM a b = LeftM a | RightM b deriving (Eq, Show)
 
 data Maybe a = Nope | Just a deriving (Eq, Show)
@@ -37,12 +39,12 @@ template RecordsAndVariants
       "whatevs"
 
 suite =
-  scenario do
-    bob <- getParty "Bob"
-    submit bob do
-      create RecordsAndVariants with
+  script do
+    party <- allocatePartyWithHint "Suite" (PartyIdHint "Suite")
+    submit party do
+      createCmd RecordsAndVariants with
         reference = "All-in-one"
-        party = bob
+        party = party
         simpleRecord = SimpleRecord with foo = True
         recordTextInt = RecordAB with foo = "Foo", baz = 6
         eitherVariant = RightM 7
@@ -69,16 +71,15 @@ template Duo
     signatory party
     observer other
 
-multiParty = scenario do
-  bob <- getParty "Bob"
-  alice <- getParty "Alice"
-  quux <- getParty "Quux"
-  -- visible to Bob,Alice: 1, 2, 4, 5, 7
-  submit bob do create (Solo bob 1)
-  submit alice do create (Solo alice 2)
-  submit quux do create (Solo quux 3)
-  submit bob do create (Duo bob quux 4)
-  submit quux do
-    create (Duo quux alice 5)
-    create (Duo quux quux 6)
-  submit bob do create (Duo bob alice 7) -- ensure not seen twice
+multiParty = script do
+  p1 <- allocatePartyWithHint "MultiParty1" (PartyIdHint "MultiParty1")
+  p2 <- allocatePartyWithHint "MultiParty2" (PartyIdHint "MultiParty2")
+  p3 <- allocatePartyWithHint "MultiParty3" (PartyIdHint "MultiParty3")
+  -- visible to MultiParty1, MultiParty2: 1, 2, 4, 5, 7
+  submit p1 do createCmd (Solo p1 1)
+  submit p2 do createCmd (Solo p2 2)
+  submit p3 do createCmd (Solo p3 3)
+  submit p1 do createCmd (Duo p1 p3 4)
+  submit p3 do createCmd (Duo p3 p2 5)
+  submit p3 do createCmd (Duo p3 p3 6)
+  submit p1 do createCmd (Duo p1 p2 7) -- ensure not seen twice
