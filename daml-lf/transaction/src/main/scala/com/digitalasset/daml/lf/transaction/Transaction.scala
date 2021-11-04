@@ -733,6 +733,7 @@ sealed abstract class HasTxNodes {
 
 object GenTransaction {
 
+  @deprecated("use com.daml.transaction.GenTransaction directly", since = "1.18.0")
   type WithTxValue = GenTransaction
 
   private[this] val Empty = GenTransaction(HashMap.empty, ImmArray.Empty)
@@ -781,13 +782,15 @@ object GenTransaction {
 
 object Transaction {
 
+  @deprecated("use com.daml.value.Value.VersionedValue directly", since = "1.18.0")
   type Value = Value.VersionedValue
 
   @deprecated("use com.daml.value.Value.VersionedContractInstance", since = "1.18.0")
   type ContractInstance = Value.VersionedContractInstance
 
-  /** Transaction nodes */
+  @deprecated("use com.daml.transaction.Node.Action directly", since = "1.18.0")
   type ActionNode = Node.Action
+  @deprecated("use com.daml.transaction.Node.LeafOnlyAction directly", since = "1.18.0")
   type LeafNode = Node.LeafOnlyAction
 
   @deprecated("use com.daml.transaction.VersionedTransaction", since = "1.18.0")

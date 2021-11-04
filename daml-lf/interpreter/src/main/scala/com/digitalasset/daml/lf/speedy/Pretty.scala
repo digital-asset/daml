@@ -13,7 +13,7 @@ import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
 import com.daml.lf.scenario.ScenarioLedger.TransactionId
 import com.daml.lf.scenario._
-import com.daml.lf.transaction.{Node, NodeId, TransactionVersion => TxVersion, Transaction => Tx}
+import com.daml.lf.transaction.{Node, NodeId, TransactionVersion => TxVersion}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltin._
@@ -193,7 +193,7 @@ private[lf] object Pretty {
     // the maintainers are induced from the key -- so don't clutter
     prettyValue(false)(key.key)
 
-  def prettyVersionedKeyWithMaintainers(key: Node.KeyWithMaintainers[Tx.Value]): Doc =
+  def prettyVersionedKeyWithMaintainers(key: Node.KeyWithMaintainers[VersionedValue]): Doc =
     // the maintainers are induced from the key -- so don't clutter
     prettyValue(false)(key.key.value)
 
@@ -307,7 +307,7 @@ private[lf] object Pretty {
   def prettyIdentifier(id: Identifier): Doc =
     text(id.qualifiedName.toString) + char('@') + prettyPackageId(id.packageId)
 
-  def prettyVersionedValue(verbose: Boolean)(v: Tx.Value): Doc =
+  def prettyVersionedValue(verbose: Boolean)(v: VersionedValue): Doc =
     prettyValue(verbose)(v.value)
 
   // Pretty print a value. If verbose then the top-level value is printed with type constructor
