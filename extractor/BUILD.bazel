@@ -27,6 +27,7 @@ genrule(
     srcs = [
         "//daml-script/daml:daml-script.dar",
         ":src/test/resources/damls/EnumMod.daml",
+        ":src/test/resources/damls/GenMapMod.daml",
         ":src/test/resources/damls/PrimitiveTypes.daml",
         ":src/test/resources/damls/RecordsAndVariants.daml",
         ":src/test/resources/damls/TransactionExample.daml",
@@ -37,6 +38,7 @@ genrule(
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :src/test/resources/damls/EnumMod.daml) $$TMP_DIR/daml
+      cp -L $(location :src/test/resources/damls/GenMapMod.daml) $$TMP_DIR/daml
       cp -L $(location :src/test/resources/damls/RecordsAndVariants.daml) $$TMP_DIR/daml
       cp -L $(location :src/test/resources/damls/PrimitiveTypes.daml) $$TMP_DIR/daml
       cp -L $(location :src/test/resources/damls/TransactionExample.daml) $$TMP_DIR/daml
