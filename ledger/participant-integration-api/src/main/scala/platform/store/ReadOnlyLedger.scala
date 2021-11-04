@@ -34,6 +34,8 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
 
   def ledgerId: LedgerId
 
+  // TransactionService:
+  //  - getTransactions
   def flatTransactions(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
@@ -41,6 +43,8 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed]
 
+  // TransactionService:
+  // - getTransactionTrees
   def transactionTrees(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
@@ -50,6 +54,8 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
 
   def ledgerEnd()(implicit loggingContext: LoggingContext): Offset
 
+  // CommandCompletionService
+  //  - completionStreamSource
   def completions(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],

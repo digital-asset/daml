@@ -16,6 +16,9 @@ class SubmitRequestValidator(
     fieldValidations: FieldValidations,
 ) {
   import fieldValidations.requirePresence
+
+  // CommandSubmissionService:
+  //  - submit
   def validate(
       req: SubmitRequest,
       currentLedgerTime: Instant,

@@ -162,6 +162,34 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     * @param message A status' message.
     * @return An exception with the [[Code.INVALID_ARGUMENT]] status code.
     */
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
+  // CommandCompletionService:
+  //  - completionStreamSource
+  // TransactionService:
+  //  - getTransactionTreesSource
+  //  - getTransactionsSource
+  //  - getTransactionById
+  //  - getFlatTransactionById
+  //  - getFlatTransactionByEventId
+  //  - getTransactionByEventId
+  // ActiveContractsService:
+  //  - getActiveContractsSource
+  // ConfigManagementService:
+  //  - setTimeModel
+  // PackageManagementService:
+  //  - uploadDarFile
+  // ParticipantPruningService:
+  //  - prune
+  // PartyManagementService:
+  //  - allocateParty
+  // TimeService:
+  //  - setTime
   def invalidArgument(definiteAnswer: Option[Boolean])(message: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
@@ -244,6 +272,23 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     * @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
     * @return An exception with the [[Code.INVALID_ARGUMENT]] status code.
     */
+  //  CommandCompletionService:
+  //   - completionStreamSource
+  //   - submit
+  //  CommandService:
+  //   - submitAndWaitForTransactionTree
+  //   - submitAndWaitForTransaction
+  //   - submitAndWaitForTransactionId
+  //   - submitAndWait
+  //  ActiveContractsService:
+  //   - getActiveContractsSource
+  //  TransactionService:
+  //   - getTransactionsSource
+  //   - getFlatTransactionByEventId
+  //   - getTransactionByEventId
+  //   - getTransactionTreesSource
+  //  CommandSubmissionService:
+  //   - submit
   def invalidField(
       fieldName: String,
       message: String,
@@ -274,6 +319,12 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     grpcError(statusBuilder.build())
   }
 
+
+  // CommandCompletionService:
+  //  - completionStreamSource
+  // TransactionService:
+  //  - getTransactionsSource
+  //  - getTransactionTreesSource
   def offsetOutOfRange(description: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
@@ -338,6 +389,18 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   }
 
   // permission denied is intentionally without description to ensure we don't leak security relevant information by accident
+  //
+  // LedgerConfigurationService:
+  //  - getLedgerConfiguration
+  // TimeService:
+  //  - getTime
+  // ActiveContractsService:
+  //  - getActiveContracts
+  // TransactionService:
+  //  - getTransactions
+  //  - getTransactionTrees
+  // CommandCompletionService:
+  //  - completionStream
   def permissionDenied(cause: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException = errorCodesVersionSwitcher.choose(
@@ -436,6 +499,13 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   /** @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
     * @return An exception with the [[Code.UNAVAILABLE]] status code.
     */
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
+  // LedgerIdentityService:
+  //  - getLedgerIdentity
   def serviceNotRunning(definiteAnswer: Option[Boolean])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
@@ -452,6 +522,11 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       v2 = LedgerApiErrors.ServiceNotRunning.Reject().asGrpcError,
     )
 
+  //   CommandService:
+  //    - submitAndWaitForTransactionTree
+  //    - submitAndWaitForTransaction
+  //    - submitAndWaitForTransactionId
+  //    - submitAndWait
   def trackerFailure(msg: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =

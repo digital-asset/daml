@@ -36,6 +36,8 @@ import com.daml.platform.store.interfaces.{LedgerDaoContractsReader, Transaction
 import scala.concurrent.Future
 
 private[platform] trait LedgerDaoTransactionsReader {
+  // TransactionService:
+  //  - getTransactions
   def getFlatTransactions(
       startExclusive: Offset,
       endInclusive: Offset,
@@ -48,6 +50,8 @@ private[platform] trait LedgerDaoTransactionsReader {
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]]
 
+  // TransactionService:
+  // - getTransactionTrees
   def getTransactionTrees(
       startExclusive: Offset,
       endInclusive: Offset,
@@ -98,6 +102,8 @@ private[platform] trait LedgerDaoTransactionsReader {
 }
 
 private[platform] trait LedgerDaoCommandCompletionsReader {
+  // CommandCompletionService
+  //  - completionStreamSource
   def getCommandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,

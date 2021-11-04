@@ -17,6 +17,11 @@ class SubmitAndWaitRequestValidator(
 ) {
   import fieldValidations.requirePresence
 
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
   def validate(
       req: SubmitAndWaitRequest,
       currentLedgerTime: Instant,

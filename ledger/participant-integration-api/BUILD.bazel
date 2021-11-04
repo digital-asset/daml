@@ -81,6 +81,8 @@ compile_deps = [
     "@maven//:com_h2database_h2",
     "@maven//:org_postgresql_postgresql",
     "@maven//:com_oracle_database_jdbc_ojdbc8",
+
+    "@maven//:commons_io_commons_io",
 ]
 
 scala_compile_deps = [
@@ -93,6 +95,10 @@ scala_compile_deps = [
     "@maven//:org_scala_lang_modules_scala_java8_compat",
     "@maven//:org_scalaz_scalaz_core",
     "@maven//:io_spray_spray_json",
+
+#    "@maven//:io_circe_circe_core",
+    "@maven//:io_circe_circe_yaml",
+    "@maven//:io_circe_circe_core",
 ]
 
 runtime_deps = [
@@ -424,4 +430,16 @@ filegroup(
     name = "sources",
     srcs = glob(["src/main/scala/**/*.scala"]),
     visibility = ["//visibility:public"],
+)
+
+
+da_scala_binary(
+    name = "pbatko-yml",
+    main_class = "com.daml.platform.PbatkoErrorsYml",
+    resources = ["src/main/resources/pbatko/errors_pbatko.yml"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":participant-integration-api",
+#        "@maven//:commons_io_commons_io",
+    ],
 )

@@ -21,6 +21,8 @@ import scala.concurrent.Future
   * [[com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService]]
   */
 trait IndexTransactionsService extends LedgerEndService {
+  // TransactionService:
+  //  - getTransactions
   def transactions(
       begin: LedgerOffset,
       endAt: Option[LedgerOffset],
@@ -28,6 +30,8 @@ trait IndexTransactionsService extends LedgerEndService {
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed]
 
+  // TransactionService:
+  // - getTransactionTrees
   def transactionTrees(
       begin: LedgerOffset,
       endAt: Option[LedgerOffset],
@@ -35,11 +39,15 @@ trait IndexTransactionsService extends LedgerEndService {
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed]
 
+  // TransactionService:
+  // - lookUpFlatByTransactionId
   def getTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]]
 
+  // TransactionService:
+  // - lookUpTreeByTransactionId
   def getTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party],

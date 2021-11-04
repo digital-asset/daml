@@ -54,36 +54,85 @@ class RejectionGenerators(conformanceMode: Boolean) {
   ): StatusRuntimeException =
     toGrpc(LedgerApiErrors.CommandPreparation.DuplicateCommand.Reject())
 
+  // # DamlLf:
+  //
+  // ## Package errors:
+  //    INTERNAL on Internal
+  //    UNKNOWN on PackageValidationFailed
+  //    NOT_FOUND on MissingPackage
+  //    INVALID_ARGUMENT on AllowedLanguageVersion
+  //    INTERNAL on Internal, SelfConsistency
+  //
+  // ## Preprocessing errors:
+  //    INTERNAL on Internal
+  //    INVALID_ARGUMENT otherwise
+  //
+  // ## Interpretation:
+  //    INTERNAL on Internal
+  //    NOT_FOUND on ContractNotFound, ContractKeyNotFound, ContractNotActive
+  //    INVALID_ARGUMENT on FailedAuthorization
+  //    ALREADY_EXISTS on DuplicateContractKey
+  //    FAILED_PRECONDITION on LocalContractKeyNotVisible, UnhandledException, UserError, TemplatePreconditionViolated, CreateEmptyContractKeyMaintainers, FetchEmptyContractKeyMaintainers, WronglyTypedContract, NonComparableValues, ContractIdInContractKey, ValueExceedsMaxNesting, ContractIdComparability
+  //
+  // ## Validation:
+  //     INTERNAL on ReplayMismatch
+  //
+  // ## otherwise:
+  //    INVALID_ARGUMENT otherwise as long as message contains "requires authorizers"
+  //
+  //
+  // # LedgerTime
+  //    ABORTED on LedgerTime
   def commandExecutorError(cause: ErrorCauseExport)(implicit
       errorLoggingContext: ContextualizedErrorLogger
   ): StatusRuntimeException = {
 
+
+    // Package errors:
+    // INTERNAL on Internal
+    // UNKNOWN on PackageValidationFailed
+    // NOT_FOUND on MissingPackage
+    // INVALID_ARGUMENT on AllowedLanguageVersion
+    // INTERNAL on Internal, SelfConsistency
     def processPackageError(err: LfError.Package.Error): BaseError = err match {
-      case e: Package.Internal => LedgerApiErrors.InternalError.PackageInternal(e)
+      case e: Package.Internal => LedgerApiErrors.InternalError.PackageInternal(e) // INTERNAL
       case Package.Validation(validationError) =>
-        LedgerApiErrors.Package.PackageValidationFailed.Reject(validationError.pretty)
+        LedgerApiErrors.Package.PackageValidationFailed.Reject(validationError.pretty) // UNKNOWN
       case Package.MissingPackage(packageId, context) =>
-        LedgerApiErrors.Package.MissingPackage.Reject(packageId, context)
+        LedgerApiErrors.Package.MissingPackage.Reject(packageId, context) // NOT_FOUND
       case Package.AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions) =>
         LedgerApiErrors.Package.AllowedLanguageVersions.Error(
           packageId,
           languageVersion,
           allowedLanguageVersions,
-        )
+        ) // INVALID_ARGUMENT
       case e: Package.SelfConsistency =>
-        LedgerApiErrors.InternalError.PackageSelfConsistency(e)
+        LedgerApiErrors.InternalError.PackageSelfConsistency(e) // INTERNAL
     }
 
+
+    // Preprocessing errors:
+    // INTERNAL on Internal
+    // INVALID_ARGUMENT otherwise
     def processPreprocessingError(err: LfError.Preprocessing.Error): BaseError = err match {
       case e: Preprocessing.Internal => LedgerApiErrors.InternalError.Preprocessing(e)
       case e => LedgerApiErrors.PreprocessingErrors.PreprocessingFailed.Reject(e)
     }
 
+    // Validation:
+    // INTERNAL on ReplayMismatch
     def processValidationError(err: LfError.Validation.Error): BaseError = err match {
       // we shouldn't see such errors during submission
-      case e: Validation.ReplayMismatch => LedgerApiErrors.InternalError.Validation(e)
+      case e: Validation.ReplayMismatch =>
+        // Validation:
+        // INTERNAL on ReplayMismatch
+        LedgerApiErrors.InternalError.Validation(e)
     }
 
+    // NOT_FOUND on ContractNotFound, ContractKeyNotFound, ContractNotActive
+    // INVALID_ARGUMENT on FailedAuthorization
+    // ALREADY_EXISTS on DuplicateContractKey
+    // FAILED_PRECONDITION on LocalContractKeyNotVisible, UnhandledException, UserError, TemplatePreconditionViolated, CreateEmptyContractKeyMaintainers, FetchEmptyContractKeyMaintainers, WronglyTypedContract, NonComparableValues, ContractIdInContractKey, ValueExceedsMaxNesting, ContractIdComparability
     def processDamlException(
         err: com.daml.lf.interpretation.Error,
         renderedMessage: String,
@@ -93,58 +142,80 @@ class RejectionGenerators(conformanceMode: Boolean) {
 
       err match {
         case LfInterpretationError.ContractNotFound(cid) =>
+          // NOT_FOUND
           LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound
             .Reject(renderedMessage, cid)
         case LfInterpretationError.ContractKeyNotFound(key) =>
+          // NOT_FOUND
           LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound
             .Reject(renderedMessage, key)
         case _: LfInterpretationError.FailedAuthorization =>
+          // INVALID_ARGUMENT
           LedgerApiErrors.InterpreterErrors.AuthorizationError.Reject(renderedMessage)
         case e: LfInterpretationError.ContractNotActive =>
+          // NOT_FOUND
           LedgerApiErrors.InterpreterErrors.ContractNotActive.Reject(renderedMessage, e)
         case _: LfInterpretationError.LocalContractKeyNotVisible =>
+          // FAILED_PRECONDITION
           LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(renderedMessage)
         case LfInterpretationError.DuplicateContractKey(key) =>
+          // ALREADY_EXISTS
           LedgerApiErrors.InterpreterErrors.DuplicateContractKey.Reject(renderedMessage, key)
         case _: LfInterpretationError.UnhandledException =>
+          // FAILED_PRECONDITION
           LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(
             renderedMessage + detailMessage.fold("")(x => ". Details: " + x)
           )
         case _: LfInterpretationError.UserError =>
+          // FAILED_PRECONDITION
           LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(renderedMessage)
         case _: LfInterpretationError.TemplatePreconditionViolated =>
+          // FAILED_PRECONDITION
           LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(renderedMessage)
         case _: LfInterpretationError.CreateEmptyContractKeyMaintainers =>
+          // INVALID_ARGUMENT
           LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
             renderedMessage
           )
         case _: LfInterpretationError.FetchEmptyContractKeyMaintainers =>
+          // INVALID_ARGUMENT
           LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
             renderedMessage
           )
         case _: LfInterpretationError.WronglyTypedContract =>
+          // INVALID_ARGUMENT
           LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
             renderedMessage
           )
         case LfInterpretationError.NonComparableValues =>
+          // INVALID_ARGUMENT
           LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
             renderedMessage
           )
         case _: LfInterpretationError.ContractIdInContractKey =>
+          // INVALID_ARGUMENT
           LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
             renderedMessage
           )
         case LfInterpretationError.ValueExceedsMaxNesting =>
+          // INVALID_ARGUMENT
           LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
             renderedMessage
           )
         case _: LfInterpretationError.ContractIdComparability =>
+          // INVALID_ARGUMENT
           LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
             renderedMessage
           )
       }
     }
 
+    // Interpretation:
+    // INTERNAL on Internal
+    // NOT_FOUND on ContractNotFound, ContractKeyNotFound, ContractNotActive
+    // INVALID_ARGUMENT on FailedAuthorization
+    // ALREADY_EXISTS on DuplicateContractKey
+    // FAILED_PRECONDITION on LocalContractKeyNotVisible, UnhandledException, UserError, TemplatePreconditionViolated, CreateEmptyContractKeyMaintainers, FetchEmptyContractKeyMaintainers, WronglyTypedContract, NonComparableValues, ContractIdInContractKey, ValueExceedsMaxNesting, ContractIdComparability
     def processInterpretationError(
         err: LfError.Interpretation.Error,
         detailMessage: Option[String],
@@ -153,28 +224,105 @@ class RejectionGenerators(conformanceMode: Boolean) {
         case Interpretation.Internal(location, message) =>
           LedgerApiErrors.InternalError.Interpretation(location, message, detailMessage)
         case m @ Interpretation.DamlException(error) =>
+          // NOT_FOUND on ContractNotFound, ContractKeyNotFound, ContractNotActive
+          // INVALID_ARGUMENT on FailedAuthorization
+          // ALREADY_EXISTS on DuplicateContractKey
+          // FAILED_PRECONDITION on LocalContractKeyNotVisible, UnhandledException, UserError, TemplatePreconditionViolated, CreateEmptyContractKeyMaintainers, FetchEmptyContractKeyMaintainers, WronglyTypedContract, NonComparableValues, ContractIdInContractKey, ValueExceedsMaxNesting, ContractIdComparability
           processDamlException(error, m.message, detailMessage)
       }
 
+
+    // ## Package errors:
+    //    INTERNAL on Internal
+    //    UNKNOWN on PackageValidationFailed
+    //    NOT_FOUND on MissingPackage
+    //    INVALID_ARGUMENT on AllowedLanguageVersion
+    //    INTERNAL on Internal, SelfConsistency
+    //
+    // ## Preprocessing errors:
+    //    INTERNAL on Internal
+    //    INVALID_ARGUMENT otherwise
+    //
+    // ## Interpretation:
+    //    INTERNAL on Internal
+    //    NOT_FOUND on ContractNotFound, ContractKeyNotFound, ContractNotActive
+    //    INVALID_ARGUMENT on FailedAuthorization
+    //    ALREADY_EXISTS on DuplicateContractKey
+    //    FAILED_PRECONDITION on LocalContractKeyNotVisible, UnhandledException, UserError, TemplatePreconditionViolated, CreateEmptyContractKeyMaintainers, FetchEmptyContractKeyMaintainers, WronglyTypedContract, NonComparableValues, ContractIdInContractKey, ValueExceedsMaxNesting, ContractIdComparability
+    //
+    // ## Validation:
+    //     INTERNAL on ReplayMismatch
+    //
+    // ## otherwise:
+    //    INVALID_ARGUMENT otherwise as long as message contains "requires authorizers"
     def processLfError(error: LfError) = {
       val transformed = error match {
-        case LfError.Package(packageError) => processPackageError(packageError)
-        case LfError.Preprocessing(processingError) => processPreprocessingError(processingError)
+
+        case LfError.Package(packageError) =>
+          // Package errors:
+          // INTERNAL on Internal
+          // UNKNOWN on PackageValidationFailed
+          // NOT_FOUND on MissingPackage
+          // INVALID_ARGUMENT on AllowedLanguageVersion
+          // INTERNAL on Internal, SelfConsistency
+          processPackageError(packageError)
+
+        case LfError.Preprocessing(processingError) =>
+          // Preprocessing errors:
+          // INTERNAL on Internal
+          // INVALID_ARGUMENT otherwise
+          processPreprocessingError(processingError)
         case LfError.Interpretation(interpretationError, detailMessage) =>
+          // Interpretation:
+          // INTERNAL on Internal
+          // NOT_FOUND on ContractNotFound, ContractKeyNotFound, ContractNotActive
+          // INVALID_ARGUMENT on FailedAuthorization
+          // ALREADY_EXISTS on DuplicateContractKey
+          // FAILED_PRECONDITION on LocalContractKeyNotVisible, UnhandledException, UserError, TemplatePreconditionViolated, CreateEmptyContractKeyMaintainers, FetchEmptyContractKeyMaintainers, WronglyTypedContract, NonComparableValues, ContractIdInContractKey, ValueExceedsMaxNesting, ContractIdComparability
           processInterpretationError(interpretationError, detailMessage)
-        case LfError.Validation(validationError) => processValidationError(validationError)
+        case LfError.Validation(validationError) =>
+          // Validation:
+          // INTERNAL on ReplayMismatch
+          processValidationError(validationError)
         case e
-            if e.message.contains(
-              "requires authorizers"
-            ) => // Keeping this around as a string match as daml is not yet generating LfError.InterpreterErrors.Validation
+            if e.message.contains("requires authorizers") => // Keeping this around as a string match as daml is not yet generating LfError.InterpreterErrors.Validation
+          // INVALID_ARGUMENT otherwise as long as message contains "requires authorizers"
           LedgerApiErrors.InterpreterErrors.AuthorizationError.Reject(e.message)
       }
       toGrpc(transformed)
     }
 
     cause match {
-      case ErrorCauseExport.DamlLf(error) => processLfError(error)
+      case ErrorCauseExport.DamlLf(error) =>
+        // # DamlLf:
+        //
+        // ## Package errors:
+        //    INTERNAL on Internal
+        //    UNKNOWN on PackageValidationFailed
+        //    NOT_FOUND on MissingPackage
+        //    INVALID_ARGUMENT on AllowedLanguageVersion
+        //    INTERNAL on Internal, SelfConsistency
+        //
+        // ## Preprocessing errors:
+        //    INTERNAL on Internal
+        //    INVALID_ARGUMENT otherwise
+        //
+        // ## Interpretation:
+        //    INTERNAL on Internal
+        //    NOT_FOUND on ContractNotFound, ContractKeyNotFound, ContractNotActive
+        //    INVALID_ARGUMENT on FailedAuthorization
+        //    ALREADY_EXISTS on DuplicateContractKey
+        //    FAILED_PRECONDITION on LocalContractKeyNotVisible, UnhandledException, UserError, TemplatePreconditionViolated, CreateEmptyContractKeyMaintainers, FetchEmptyContractKeyMaintainers, WronglyTypedContract, NonComparableValues, ContractIdInContractKey, ValueExceedsMaxNesting, ContractIdComparability
+        //
+        // ## Validation:
+        //     INTERNAL on ReplayMismatch
+        //
+        // ## otherwise:
+        //    INVALID_ARGUMENT otherwise as long as message contains "requires authorizers"
+        processLfError(error)
       case x: ErrorCauseExport.LedgerTime =>
+        // # LedgerTime
+        //    ABORTED on LedgerTime
         toGrpc(LedgerApiErrors.CommandPreparation.FailedToDetermineLedgerTime.Reject(x.explain))
     }
   }

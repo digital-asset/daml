@@ -170,6 +170,8 @@ private[apiserver] final class ApiConfigManagementService private (
       timeToLive: FiniteDuration,
   )
 
+  // ConfigManagementService:
+  //  - setTimeModel
   private def validateParameters(
       request: SetTimeModelRequest
   )(implicit

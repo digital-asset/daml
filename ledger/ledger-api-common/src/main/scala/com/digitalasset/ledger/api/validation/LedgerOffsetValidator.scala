@@ -21,6 +21,11 @@ class LedgerOffsetValidator(errorFactories: ErrorFactories) {
   import errorFactories.{invalidArgument, missingField, offsetOutOfRange}
   import fieldValidations.requireLedgerString
 
+  // CommandCompletionService:
+  // - completionStreamSource
+  // TransactionService:
+  //  - getTransactionTreesSource
+  //  - getTransactionsSource
   def validateOptional(
       ledgerOffset: Option[LedgerOffset],
       fieldName: String,
@@ -33,6 +38,11 @@ class LedgerOffsetValidator(errorFactories: ErrorFactories) {
         _.map(Some(_))
       )
 
+  // TransactionService:
+  //  - getTransactionTreesSource
+  //  - getTransactionsSource
+  // CommandCompletionService:
+  //  - completionStreamSource
   def validate(
       ledgerOffset: LedgerOffset,
       fieldName: String,
@@ -49,6 +59,11 @@ class LedgerOffsetValidator(errorFactories: ErrorFactories) {
     }
   }
 
+  // CommandCompletionService:
+  //  - completionStreamSource
+  // TransactionService:
+  //  - getTransactionsSource
+  //  - getTransactionTreesSource
   def offsetIsBeforeEndIfAbsolute(
       offsetType: String,
       ledgerOffset: domain.LedgerOffset,
@@ -67,6 +82,12 @@ class LedgerOffsetValidator(errorFactories: ErrorFactories) {
     }
 
   // Same as above, but with an optional offset.
+  //
+  // CommandCompletionService:
+  //  - completionStreamSource
+  // TransactionService:
+  //  - getTransactionsSource
+  //  - getTransactionTreesSource
   def offsetIsBeforeEndIfAbsolute(
       offsetType: String,
       ledgerOffset: Option[domain.LedgerOffset],
@@ -78,6 +99,11 @@ class LedgerOffsetValidator(errorFactories: ErrorFactories) {
       offsetIsBeforeEndIfAbsolute(offsetType, _, ledgerEnd)
     )
 
+  // TransactionService:
+  //  - getTransactionTreesSource
+  //  - getTransactionsSource
+  // CommandCompletionService:
+  //  - completionStreamSource
   private def convertLedgerBoundary(
       fieldName: String,
       value: LedgerBoundary,

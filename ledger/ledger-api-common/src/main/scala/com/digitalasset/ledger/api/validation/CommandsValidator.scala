@@ -40,6 +40,13 @@ final class CommandsValidator(
   import errorFactories._
   import valueValidator._
 
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
   def validateCommands(
       commands: ProtoCommands,
       currentLedgerTime: Instant,
@@ -92,6 +99,13 @@ final class CommandsValidator(
       ),
     )
 
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
   private def validateLedgerTime(
       currentTime: Instant,
       commands: ProtoCommands,
@@ -129,6 +143,20 @@ final class CommandsValidator(
       } yield validatedInnerCommands :+ validatedInnerCommand
     })
 
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
   private def validateInnerCommand(
       command: ProtoCommand.Command
   )(implicit
@@ -198,6 +226,13 @@ final class CommandsValidator(
         Left(missingField("command", definiteAnswer = Some(false)))
     }
 
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
   private def validateSubmitters(
       commands: ProtoCommands
   )(implicit

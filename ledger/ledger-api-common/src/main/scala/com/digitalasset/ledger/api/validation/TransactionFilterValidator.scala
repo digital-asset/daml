@@ -20,6 +20,10 @@ class TransactionFilterValidator(errorFactories: ErrorFactories) {
   import fieldValidations._
   import errorFactories._
 
+  // ActiveContractsService:
+  //  - getActiveContractsSource
+  // TransactionService:
+  //  - getTransactionsSource
   def validate(
       txFilter: TransactionFilter
   )(implicit
@@ -39,6 +43,10 @@ class TransactionFilterValidator(errorFactories: ErrorFactories) {
     }
   }
 
+  // ActiveContractsService:
+  //  - getActiveContractsSource
+  // TransactionService:
+  //  - getTransactionsSource
   def validateFilters(filters: Filters)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.Filters] = {

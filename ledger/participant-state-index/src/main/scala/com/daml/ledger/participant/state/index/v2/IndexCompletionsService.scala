@@ -14,6 +14,9 @@ import com.daml.logging.LoggingContext
   * [[com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService]]
   */
 trait IndexCompletionsService extends LedgerEndService {
+
+  // CommandCompletionService
+  //  - completionStreamSource
   def getCompletions(
       begin: LedgerOffset,
       applicationId: ApplicationId,

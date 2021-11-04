@@ -52,6 +52,9 @@ class TransactionServiceRequestValidator(
       knownParties: Set[Ref.Party],
   )
 
+  // TransactionService:
+  //  - getTransactionTreesSource
+  //  - getTransactionsSource
   private def commonValidations(
       req: GetTransactionsRequest
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Result[PartialValidation] = {
@@ -72,6 +75,8 @@ class TransactionServiceRequestValidator(
 
   }
 
+  // TransactionService:
+  //  - getTransactionsSource
   def validate(
       req: GetTransactionsRequest,
       ledgerEnd: LedgerOffset.Absolute,
@@ -103,6 +108,8 @@ class TransactionServiceRequestValidator(
     }
   }
 
+  // TransactionService:
+  //  - getTransactionTreesSource
   def validateTree(
       req: GetTransactionsRequest,
       ledgerEnd: LedgerOffset.Absolute,
@@ -134,6 +141,8 @@ class TransactionServiceRequestValidator(
     }
   }
 
+  // called from
+  // getLedgerEnd
   def validateLedgerEnd(req: GetLedgerEndRequest)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Result[transaction.GetLedgerEndRequest] = {
@@ -144,6 +153,9 @@ class TransactionServiceRequestValidator(
     }
   }
 
+  // TransactionService:
+  // - getTransactionById
+  // - getFlatTransactionById
   def validateTransactionById(
       req: GetTransactionByIdRequest
   )(implicit
@@ -164,6 +176,9 @@ class TransactionServiceRequestValidator(
     }
   }
 
+  // TransactionService:
+  //  - getFlatTransactionByEventId
+  //  - getTransactionByEventId
   def validateTransactionByEventId(
       req: GetTransactionByEventIdRequest
   )(implicit
@@ -183,6 +198,8 @@ class TransactionServiceRequestValidator(
     }
   }
 
+  // TransactionService:
+  //  - getTransactionTreesSource
   private def transactionFilterToPartySet(
       transactionFilter: TransactionFilter
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger) =

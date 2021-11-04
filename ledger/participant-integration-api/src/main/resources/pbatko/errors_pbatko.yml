@@ -1,0 +1,302 @@
+---
+transactionNotFound:
+  change:
+    - NOT_FOUND
+    - NOT_FOUND
+  ApiTransactionService:
+    - getTransactionByEventId
+    - getTransactionById
+
+malformedPackageId:
+  change:
+   - INVALID_ARGUMENT
+   - INVALID_ARGUMENT
+  ApiPackageService:
+   - getPackage
+   - getPackageStatus
+
+packageNotFound:
+  change:
+   - NOT_FOUND
+   - NOT_FOUND
+  ApiPackageService:
+   - getPackage
+
+versionServiceInternalError:
+  change:
+   - INTERNAL
+   - INTERNAL
+  ApiVersionService:
+    - getLedgerApiVersion
+
+duplicateCommandException:
+  change:
+   - ALREADY_EXISTS
+   - ALREADY_EXISTS
+  ApiSubmissionService:
+   - submit
+
+ledgerIdMismatch:
+  change:
+   - NOT_FOUND
+   - NOT_FOUND
+  SandboxResetService:
+   - reset
+  ApiTimeService:
+   - getTimeSource
+   - setTime
+  CommandSubmissionService:
+   - submit
+  CommandService:
+   - submitAndWaitForTransactionTree
+   - submitAndWaitForTransaction
+   - submitAndWaitForTransactionId
+   - submitAndWait
+  CommandCompletionService:
+   - completionStreamSource
+   - completionEnd
+  LedgerConfigurationService:
+    - getLedgerConfiguration
+  PackageService:
+    - listPackages
+    - getPackage
+    - getPackageStatus
+  TransactionService:
+    - getTransactionsSource
+    - getTransactionTreesSource
+    - getLedgerEnd
+    - getTransactionById
+    - getFlatTransactionById
+    - getFlatTransactionByEventId
+    - getTransactionByEventId
+  ActiveContractsService:
+    - getActiveContracts
+
+missingField:
+  change:
+   - INVALID_ARGUMENT
+   - INVALID_ARGUMENT
+  CommandSubmissionService:
+   -  submit
+  CommandService:
+   - submitAndWaitForTransactionTree
+   - submitAndWaitForTransaction
+   - submitAndWaitForTransactionId
+   - submitAndWait
+  CommandCompletionService:
+   - completionStreamSource
+  TransactionService:
+    - getFlatTransactionById
+    - getFlatTransactionByEventId
+    - getTransactionById
+    - getTransactionsSource
+    - getTransactionByEventId
+    - getTransactionTreesSource
+    - getTransactionsSource
+  ActiveContractsService:
+    - getActiveContractsSource
+  ConfigManagementService:
+    - setTimeModel
+  TimeService:
+    - setTime
+
+invalidArgument:
+  change:
+   - INVALID_ARGUMENT
+   - INVALID_ARGUMENT
+  CommandSubmissionService:
+   - submit
+  CommandService:
+   - submitAndWaitForTransactionTree
+   - submitAndWaitForTransaction
+   - submitAndWaitForTransactionId
+   - submitAndWait
+  ApiConfigManagementService:
+   - setTimeModel
+  ApiPackageManagementService:
+   - uploadDarFile
+  CommandCompletionService:
+   - completionStreamSource
+  TransactionService:
+   - getTransactionTreesSource
+   - getTransactionsSource
+   - getTransactionById
+   - getFlatTransactionById
+   - getFlatTransactionByEventId
+   - getTransactionByEventId
+  ActiveContractsService:
+   - getActiveContractsSource
+  ConfigManagementService:
+   - setTimeModel
+  PackageManagementService:
+   - uploadDarFile
+  ParticipantPruningService:
+   - prune
+  PartyManagementService:
+   - allocateParty
+  TimeService:
+   - setTime
+
+invalidArgumentWasNotFound:
+  change:
+    - NOT_FOUND
+    - INVALID_ARGUMENT
+  ApiTransactionService:
+   - getTransactionByEventId
+   - getFlatTransactionByEventId
+  GrpcHealthService:
+   - check
+   - watchSource
+
+offsetOutOfRange_was_invalidArgument:
+  change:
+   - INVALID_ARGUMENT
+   - OUT_OF_RANGE
+  ApiParticipantPruningService:
+   - prune
+  LedgerBackedIndexService:
+   - transactionTrees
+   - transactions
+
+nonHexOffset:
+  change:
+   - INVALID_ARGUMENT
+   - INVALID_ARGUMENT
+  ParticipantPruningService:
+   - prune
+
+invalidField:
+  change:
+   - INVALID_ARGUMENT
+   - INVALID_ARGUMENT
+  CommandCompletionService:
+   - completionStreamSource
+   - submit
+  CommandService:
+   - submitAndWaitForTransactionTree
+   - submitAndWaitForTransaction
+   - submitAndWaitForTransactionId
+   - submitAndWait
+  ActiveContractsService:
+   - getActiveContractsSource
+  TransactionService:
+   - getTransactionsSource
+   - getFlatTransactionByEventId
+   - getTransactionByEventId
+   - getTransactionTreesSource
+  CommandSubmissionService:
+   - submit
+
+offsetOutOfRange:
+  change:
+   - OUT_OF_RANGE
+   - OUT_OF_RANGE
+  CommandCompletionService:
+    - completionStreamSource
+  TransactionService:
+    - getTransactionsSource
+    - getTransactionTreesSource
+
+isTimeoutUnknown_wasAborted:
+  change:
+   - ABORTED
+   - DEADLINE_EXCEEDED
+  ConfigManagementService:
+    - setTimeModel
+  PackageManagementService:
+    - uploadDarFile
+  PartyManagementService:
+    - allocateParty
+
+packageUploadRejected:
+  change:
+   - INVALID_ARGUMENT
+   - FAILED_PRECONDITION
+  ApiPackageManagementService:
+   - uploadDarFile
+
+configurationEntryRejected:
+  change:
+   - ABORTED
+   - FAILED_PRECONDITION
+  ApiConfigManagementService:
+   - setTimeModel
+
+permissionDenied:
+  change:
+   - PERMISSION_DENIED
+   - PERMISSION_DENIED
+  ALL:
+   - Assuming it for all endpoints
+
+unauthenticatedMissingJwtToken:
+  change:
+   - UNAUTHENTICATED
+   - UNAUTHENTICATED
+  ALL:
+    - Assuming it for all endpoints
+
+internalAuthenticationError:
+  change:
+   - INTERNAL
+   - INTERNAL
+  ALL:
+    - Assuming it for all endpoints
+
+missingLedgerConfig:
+  change:
+   - UNAVAILABLE
+   - NOT_FOUND
+  ApiConfigManagementService:
+   - setTimeModel
+  ApiSubmissionService:
+   - submit
+  CommandSubmissionService:
+    - submit
+  CommandService:
+    - submitAndWaitForTransactionTree
+    - submitAndWaitForTransaction
+    - submitAndWaitForTransactionId
+    - submitAndWait
+
+missingLedgerConfigUponRequest:
+  change:
+   - NOT_FOUND
+   - NOT_FOUND
+  ConfigManagmentService:
+   - getTimeModel
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+participantPrunedDataAccessed:
+  change:
+   - NOT_FOUND
+   - OUT_OF_RANGE
+  TODO:
+   - com.daml.platform.store.appendonlydao.events.QueryNonPrunedImpl.executeSql
+
+
+serviceNotRunning:
+  change:
+   - UNAVAILABLE
+   - UNAVAILABLE
+  CommandService:
+   - submitAndWaitForTransactionTree
+   - submitAndWaitForTransaction
+   - submitAndWaitForTransactionId
+   - submitAndWait
+  LedgerIdentityService:
+   - getLedgerIdentity
+
+trackerFailure:
+  change:
+   - INTERNAL
+   - INTERNAL
+  CommandService:
+   - submitAndWaitForTransactionTree
+   - submitAndWaitForTransaction
+   - submitAndWaitForTransactionId
+   - submitAndWait

@@ -78,6 +78,11 @@ private[apiserver] final class ApiCommandService private[services] (
     submissionTracker.close()
   }
 
+  //   CommandService:
+  //    - submitAndWaitForTransactionTree
+  //    - submitAndWaitForTransaction
+  //    - submitAndWaitForTransactionId
+  //    - submitAndWait
   private def submitAndWaitInternal(request: SubmitAndWaitRequest)(implicit
       loggingContext: LoggingContext
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
@@ -157,6 +162,11 @@ private[apiserver] final class ApiCommandService private[services] (
       )
     }
 
+  //   CommandService:
+  //    - submitAndWaitForTransactionTree
+  //    - submitAndWaitForTransaction
+  //    - submitAndWaitForTransactionId
+  //    - submitAndWait
   private def handleFailure(
       request: SubmitAndWaitRequest,
       loggingContext: LoggingContext,

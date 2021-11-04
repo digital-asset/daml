@@ -18,6 +18,16 @@ class PartyValidator(
   import errorFactories.invalidArgument
   import fieldValidations.requireParties
 
+  // CommandCompletionService:
+  //  - completionStreamSource
+  // TransactionService:
+  //  - getTransactionTreesSource
+  //  - getTransactionsSource
+  //  - getTransactionById
+  //  - getFlatTransactionById
+  //  - getFlatTransactionByEventId
+  //  - getTransactionByEventId
+  //  - getTransactionTreesSource
   def requireKnownParties(
       parties: Iterable[String]
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Result[Set[Party]] =
@@ -26,6 +36,16 @@ class PartyValidator(
       knownParties <- requireKnownParties(ps)
     } yield knownParties
 
+  // CommandCompletionService:
+  //  - completionStreamSource
+  // TransactionService:
+  //  - getTransactionTreesSource
+  //  - getTransactionsSource
+  //  - getTransactionById
+  //  - getFlatTransactionById
+  //  - getFlatTransactionByEventId
+  //  - getTransactionByEventId
+  //  - getTransactionTreesSource
   private def requireKnownParties(
       partiesInRequest: Set[Party]
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Result[Set[Party]] = {

@@ -25,6 +25,13 @@ import scala.concurrent.{ExecutionContext, Future, TimeoutException}
   * The strategy governs how the request is submitted, how to open a stream, and how to filter for
   * the appropriate entry.
   */
+//
+// ConfigManagementService:
+//  - setTimeModel
+// PackageManagementService:
+//  - uploadDarFile
+// PartyManagementService:
+//  - allocateParty
 class SynchronousResponse[Input, Entry, AcceptedEntry](
     strategy: SynchronousResponse.Strategy[Input, Entry, AcceptedEntry],
     timeToLive: Duration,

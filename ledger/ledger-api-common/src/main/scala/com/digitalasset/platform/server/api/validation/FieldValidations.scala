@@ -29,16 +29,35 @@ class FieldValidations private (errorFactories: ErrorFactories) {
     if (ledgerId == received) Right(received)
     else Left(ledgerIdMismatch(ledgerId, received, definiteAnswer = Some(false)))
 
+  //  CommandCompletionService:
+  //   - completionStreamSource
+  //  TransactionService:
+  //   - getTransactionById
+  //   - getFlatTransactionById
   def requireNonEmptyString(s: String, fieldName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, String] =
     Either.cond(s.nonEmpty, s, missingField(fieldName, definiteAnswer = Some(false)))
 
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
   def requireIdentifier(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.Name] =
     Ref.Name.fromString(s).left.map(invalidArgument(definiteAnswer = Some(false)))
 
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
   def requireName(
       s: String,
       fieldName: String,
@@ -50,6 +69,17 @@ class FieldValidations private (errorFactories: ErrorFactories) {
     else
       Ref.Name.fromString(s).left.map(invalidField(fieldName, _, definiteAnswer = Some(false)))
 
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
+  // ActiveContractsService:
+  //  - getActiveContractsSource
+  // TransactionService:
+  //  - getTransactionsSource
   def requirePackageId(
       s: String,
       fieldName: String,
@@ -60,11 +90,48 @@ class FieldValidations private (errorFactories: ErrorFactories) {
     else
       Ref.PackageId.fromString(s).left.map(invalidField(fieldName, _, definiteAnswer = Some(false)))
 
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
+  // CommandCompletionService:
+  //  - completionStreamSource
+  // TransactionService:
+  //  - getTransactionTreesSource
+  //  - getTransactionsSource
+  //  - getTransactionById
+  //  - getFlatTransactionById
+  //  - getFlatTransactionByEventId
+  //  - getTransactionByEventId
+  // ActiveContractsService:
+  //  - getActiveContractsSource
+  // TransactionService:
+  //  - getTransactionsSource
   def requireParty(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.Party] =
     Ref.Party.fromString(s).left.map(invalidArgument(definiteAnswer = Some(false)))
 
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
+  // CommandCompletionService:
+  //  - completionStreamSource
+  // TransactionService:
+  //  - getTransactionTreesSource
+  //  - getTransactionsSource
+  //  - getTransactionById
+  //  - getFlatTransactionById
+  //  - getFlatTransactionByEventId
+  //  - getTransactionByEventId
+  //  - getTransactionTreesSource
   def requireParties(parties: Set[String])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Set[Party]] =
@@ -76,6 +143,20 @@ class FieldValidations private (errorFactories: ErrorFactories) {
         } yield parties + party
     }
 
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
+  // TransactionService:
+  //  - getFlatTransactionByEventId
+  //  - getTransactionByEventId
+  //  - getTransactionTreesSource
+  //  - getTransactionsSource
+  // CommandCompletionService:
+  //  - completionStreamSource
   def requireLedgerString(
       s: String,
       fieldName: String,
@@ -89,6 +170,13 @@ class FieldValidations private (errorFactories: ErrorFactories) {
         .left
         .map(invalidField(fieldName, _, definiteAnswer = Some(false)))
 
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
   def requireLedgerString(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.LedgerString] =
@@ -107,6 +195,13 @@ class FieldValidations private (errorFactories: ErrorFactories) {
         .map(invalidField("submission_id", _, definiteAnswer = Some(false)))
     }
 
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
   def requireContractId(
       s: String,
       fieldName: String,
@@ -116,6 +211,17 @@ class FieldValidations private (errorFactories: ErrorFactories) {
     if (s.isEmpty) Left(missingField(fieldName, definiteAnswer = Some(false)))
     else ContractId.fromString(s).left.map(invalidField(fieldName, _, definiteAnswer = Some(false)))
 
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
+  // ActiveContractsService:
+  //  - getActiveContractsSource
+  // TransactionService:
+  //  - getTransactionsSource
   def requireDottedName(
       s: String,
       fieldName: String,
@@ -124,6 +230,20 @@ class FieldValidations private (errorFactories: ErrorFactories) {
   ): Either[StatusRuntimeException, Ref.DottedName] =
     Ref.DottedName.fromString(s).left.map(invalidField(fieldName, _, definiteAnswer = Some(false)))
 
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
+  // CommandCompletionService:
+  //  - completionStreamSource
+  // TransactionService:
+  //  - getTransactionById
+  //  - getFlatTransactionById
+  //  - getFlatTransactionByEventId
+  //  - getTransactionByEventId
   def requireNonEmpty[M[_] <: Iterable[_], T](
       s: M[T],
       fieldName: String,
@@ -133,6 +253,20 @@ class FieldValidations private (errorFactories: ErrorFactories) {
     if (s.nonEmpty) Right(s)
     else Left(missingField(fieldName, definiteAnswer = Some(false)))
 
+  // ConfigManagementService:
+  //  - setTimeModel
+  // TimeService:
+  //  - setTime
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
+  // CommandSubmissionService:
+  //  - submit
+  // TransactionService:
+  //  - getTransactionTreesSource
+  //  - getTransactionsSource
   def requirePresence[T](option: Option[T], fieldName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, T] =
@@ -142,6 +276,13 @@ class FieldValidations private (errorFactories: ErrorFactories) {
 
   /** We validate only using current time because we set the currentTime as submitTime so no need to check both
     */
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
   def validateDeduplicationPeriod(
       deduplicationPeriod: DeduplicationPeriodProto,
       optMaxDeduplicationTime: Option[Duration],
@@ -186,6 +327,17 @@ class FieldValidations private (errorFactories: ErrorFactories) {
     })
   }
 
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
+  // ActiveContractsService:
+  //  - getActiveContractsSource
+  // TransactionService:
+  //  - getTransactionsSource
   def validateIdentifier(identifier: Identifier)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.Identifier] =

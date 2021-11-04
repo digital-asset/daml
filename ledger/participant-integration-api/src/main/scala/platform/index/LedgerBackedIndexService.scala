@@ -183,6 +183,8 @@ private[platform] final class LedgerBackedIndexService(
   def toAbsolute(offset: Offset): LedgerOffset.Absolute =
     LedgerOffset.Absolute(offset.toApiString)
 
+  // CommandCompletionService
+  //  - completionStreamSource
   override def getCompletions(
       startExclusive: LedgerOffset,
       applicationId: ApplicationId,

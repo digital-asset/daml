@@ -30,6 +30,8 @@ class CompletionServiceRequestValidator(
   import errorFactories._
   import fieldValidations._
 
+  // CommandCompletionService:
+  //  - completionStreamSource
   def validateCompletionStreamRequest(
       request: GrpcCompletionStreamRequest,
       ledgerEnd: LedgerOffset.Absolute,

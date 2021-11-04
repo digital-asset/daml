@@ -19,6 +19,13 @@ class ValueValidator(errorFactories: ErrorFactories, fieldValidations: FieldVali
   import errorFactories._
   import fieldValidations._
 
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
   private[validation] def validateRecordFields(
       recordFields: Seq[api.RecordField]
   )(implicit
@@ -37,6 +44,14 @@ class ValueValidator(errorFactories: ErrorFactories, fieldValidations: FieldVali
       })
       .map(_.toImmArray)
 
+
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
   def validateRecord(rec: api.Record)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Lf.ValueRecord] =
@@ -48,6 +63,13 @@ class ValueValidator(errorFactories: ErrorFactories, fieldValidations: FieldVali
   private val validNumericString =
     """[+-]?\d{1,38}(\.\d{0,37})?""".r.pattern
 
+  // CommandSubmissionService:
+  //  - submit
+  // CommandService:
+  //  - submitAndWaitForTransactionTree
+  //  - submitAndWaitForTransaction
+  //  - submitAndWaitForTransactionId
+  //  - submitAndWait
   def validateValue(v0: api.Value)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.Value] = v0.sum match {

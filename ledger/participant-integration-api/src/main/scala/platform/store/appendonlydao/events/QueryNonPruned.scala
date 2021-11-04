@@ -12,6 +12,11 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.backend.ParameterStorageBackend
 
 trait QueryNonPruned {
+  // CommandCompletionService
+  //  - completionStreamSource
+  // TransactionService:
+  //  - getTransactions
+  // - getTransactionTrees
   def executeSql[T](
       query: => T,
       minOffsetExclusive: Offset,

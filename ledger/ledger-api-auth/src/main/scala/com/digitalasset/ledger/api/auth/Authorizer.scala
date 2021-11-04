@@ -45,6 +45,10 @@ final class Authorizer(
       ()
     }
 
+  // LedgerConfigurationService:
+  //  - getLedgerConfiguration
+  // TimeService:
+  //  - getTime
   def requirePublicClaimsOnStream[Req, Res](
       call: (Req, StreamObserver[Res]) => Unit
   ): (Req, StreamObserver[Res]) => Unit =
@@ -89,6 +93,13 @@ final class Authorizer(
   /** Wraps a streaming call to verify whether some Claims authorize to read as all parties
     * of the given set. Authorization is always granted for an empty collection of parties.
     */
+  // ActiveContractsService:
+  //  - getActiveContracts
+  // TransactionService:
+  //  - getTransactions
+  //  - getTransactionTrees
+  // CommandCompletionService:
+  //  - completionStream
   def requireReadClaimsForAllPartiesOnStream[Req, Res](
       parties: Iterable[String],
       applicationId: Option[String],
@@ -160,6 +171,11 @@ final class Authorizer(
     }
 
   /** Checks whether the current Claims authorize to read data for all parties mentioned in the given transaction filter */
+  // ActiveContractsService:
+  //  - getActiveContracts
+  // TransactionService:
+  //  - getTransactions
+  //  - getTransactionTrees
   def requireReadClaimsForTransactionFilterOnStream[Req, Res](
       filter: Option[TransactionFilter],
       call: (Req, StreamObserver[Res]) => Unit,
@@ -180,6 +196,17 @@ final class Authorizer(
         )
     }
 
+  // LedgerConfigurationService:
+  //  - getLedgerConfiguration
+  // TimeService:
+  //  - getTime
+  // ActiveContractsService:
+  //  - getActiveContracts
+  // TransactionService:
+  //  - getTransactions
+  //  - getTransactionTrees
+  // CommandCompletionService:
+  //  - completionStream
   private def ongoingAuthorization[Res](
       scso: ServerCallStreamObserver[Res],
       claims: ClaimSet.Claims,
@@ -201,6 +228,17 @@ final class Authorizer(
         case claims: ClaimSet.Claims => Success(claims)
       }
 
+  // LedgerConfigurationService:
+  //  - getLedgerConfiguration
+  // TimeService:
+  //  - getTime
+  // ActiveContractsService:
+  //  - getActiveContracts
+  // TransactionService:
+  //  - getTransactions
+  //  - getTransactionTrees
+  // CommandCompletionService:
+  //  - completionStream
   private def authorize[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
       authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
   ): (Req, StreamObserver[Res]) => Unit = (request, observer) => {
