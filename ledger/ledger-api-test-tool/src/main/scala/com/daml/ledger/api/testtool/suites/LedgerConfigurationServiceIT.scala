@@ -94,7 +94,7 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
         expectedError,
         Some(
           Pattern.compile(
-            "The given deduplication duration .+ exceeds the maximum deduplication time of .+"
+            "The given deduplication .+ exceeds the maximum deduplication .+"
           )
         ),
       )
