@@ -7,6 +7,7 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
 )
+load("@scala_version//:index.bzl", "scala_major_version")
 
 da_scala_binary(
     name = "export-error-codes-json-app",
@@ -19,7 +20,7 @@ da_scala_binary(
         "//ledger/participant-integration-api",
         "//ledger/participant-state/kvutils",
     ],
-)
+) if scala_major_version == "2.13" else None
 
 da_scala_library(
     name = "error",
