@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref.{Identifier, Name, PackageId}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.{
   IncompleteTransaction,
-  GenTransaction,
+  Transaction,
   Node,
   NodeId,
   VersionedTransaction,
@@ -174,7 +174,7 @@ final class ValueEnricher(
         } yield exe.copy(chosenValue = choiceArg, exerciseResult = result, key = key)
     }
 
-  def enrichTransaction(tx: GenTransaction): Result[GenTransaction] =
+  def enrichTransaction(tx: Transaction): Result[Transaction] =
     for {
       normalizedNodes <-
         tx.nodes.foldLeft[Result[Map[NodeId, Node]]](ResultDone(Map.empty)) {
@@ -184,14 +184,14 @@ final class ValueEnricher(
               normalizedNode <- enrichNode(node)
             } yield nodes.updated(nid, normalizedNode)
         }
-    } yield GenTransaction(
+    } yield Transaction(
       nodes = normalizedNodes,
       roots = tx.roots,
     )
 
   def enrichVersionedTransaction(versionedTx: VersionedTransaction): Result[VersionedTransaction] =
-    enrichTransaction(GenTransaction(versionedTx.nodes, versionedTx.roots)).map {
-      case GenTransaction(nodes, roots) =>
+    enrichTransaction(Transaction(versionedTx.nodes, versionedTx.roots)).map {
+      case Transaction(nodes, roots) =>
         VersionedTransaction(versionedTx.version, nodes, roots)
     }
 

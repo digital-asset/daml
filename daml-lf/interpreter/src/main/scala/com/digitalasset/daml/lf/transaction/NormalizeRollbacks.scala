@@ -4,14 +4,14 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.transaction.{NodeId, GenTransaction}
+import com.daml.lf.transaction.{NodeId, Transaction}
 import com.daml.lf.transaction.Node
 import com.daml.lf.data.{BackStack, ImmArray}
 import com.daml.lf.data.Trampoline.{Bounce, Land, Trampoline}
 
 private[lf] object NormalizeRollbacks {
 
-  private[this] type TX = GenTransaction
+  private[this] type TX = Transaction
 
   // Normalize a transaction so rollback nodes satisfy the normalization rules.
   // see `makeRoll` below
@@ -30,7 +30,7 @@ private[lf] object NormalizeRollbacks {
     // (1) drop nodes; (2) combine nodes (3) lift nodes from a lower level to a higher level.
 
     txOriginal match {
-      case GenTransaction(nodesOriginal, rootsOriginal) =>
+      case Transaction(nodesOriginal, rootsOriginal) =>
         def traverseNodeIds[R](
             xs: List[NodeId]
         )(k: Vector[Norm] => Trampoline[R]): Trampoline[R] = {
@@ -74,7 +74,7 @@ private[lf] object NormalizeRollbacks {
           pushNorms(initialState, norms.toList) { (finalState, roots) =>
             Land(
               (
-                GenTransaction(finalState.nodeMap, roots.to(ImmArray)),
+                Transaction(finalState.nodeMap, roots.to(ImmArray)),
                 finalState.seedIds.toImmArray,
               )
             )

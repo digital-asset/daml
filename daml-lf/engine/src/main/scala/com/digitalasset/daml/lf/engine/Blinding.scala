@@ -6,7 +6,7 @@ package com.daml.lf.engine
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.Node
-import com.daml.lf.transaction.{BlindingInfo, GenTransaction, NodeId, VersionedTransaction}
+import com.daml.lf.transaction.{BlindingInfo, Transaction, NodeId, VersionedTransaction}
 import com.daml.lf.ledger._
 import com.daml.lf.data.Relation.Relation
 
@@ -43,8 +43,8 @@ object Blinding {
   def divulgedTransaction(
       divulgences: Relation[NodeId, Party],
       party: Party,
-      tx: GenTransaction,
-  ): GenTransaction = {
+      tx: Transaction,
+  ): Transaction = {
     val partyDivulgences = Relation.invert(divulgences)(party)
     // Note that this relies on the local divulgence to be well-formed:
     // if an exercise node is divulged to A but some of its descendants
@@ -74,7 +74,7 @@ object Blinding {
       }
     }
 
-    GenTransaction(
+    Transaction(
       roots = go(BackStack.empty, tx.roots.toFrontStack),
       nodes = filteredNodes,
     )

@@ -860,7 +860,7 @@ class TransactionCoderSpec
       case _ => gn
     }
 
-  def hasChoiceObserves(tx: GenTransaction): Boolean =
+  def hasChoiceObserves(tx: Transaction): Boolean =
     tx.nodes.values.exists {
       case ne: Node.Exercise => ne.choiceObservers.nonEmpty
       case _ => false

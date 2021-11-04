@@ -9,7 +9,7 @@ import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
 import com.daml.lf.ledger.{Authorize, FailedAuthorization}
 import com.daml.lf.transaction.{
   ContractKeyUniquenessMode,
-  GenTransaction,
+  Transaction,
   GlobalKey,
   Node,
   NodeId,
@@ -325,7 +325,7 @@ private[speedy] case class PartialTransaction(
 
         nodes.keySet diff allChildNodeIds
       }
-      val tx = GenTransaction(nodes, rootNodes.to(ImmArray))
+      val tx = Transaction(nodes, rootNodes.to(ImmArray))
 
       tx.foreach { (nid, node) =>
         val rootPrefix = if (rootNodes.contains(nid)) "root " else ""
@@ -370,7 +370,7 @@ private[speedy] case class PartialTransaction(
     context.info match {
       case _: RootContextInfo if aborted.isEmpty =>
         val roots = context.children.toImmArray
-        val tx0 = GenTransaction(nodes, roots)
+        val tx0 = Transaction(nodes, roots)
         val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
         CompleteTransaction(
           SubmittedTransaction(
@@ -389,7 +389,7 @@ private[speedy] case class PartialTransaction(
     val ptx = unwind()
 
     transaction.IncompleteTransaction(
-      GenTransaction(
+      Transaction(
         ptx.nodes,
         ptx.context.children.toImmArray.toSeq.sortBy(_.index).toImmArray,
       ),

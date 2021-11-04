@@ -19,7 +19,7 @@ import com.daml.lf.transaction.{
   NodeId,
   SubmittedTransaction,
   VersionedTransaction,
-  GenTransaction => GenTx,
+  Transaction => GenTx,
   Transaction => Tx,
   TransactionVersion => TxVersions,
 }

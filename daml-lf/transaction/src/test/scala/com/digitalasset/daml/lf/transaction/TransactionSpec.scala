@@ -5,7 +5,7 @@ package com.daml.lf
 package transaction
 
 import com.daml.lf.data.{Bytes, ImmArray, Ref}
-import com.daml.lf.transaction.GenTransaction.{
+import com.daml.lf.transaction.Transaction.{
   AliasedNode,
   DanglingNodeId,
   NotWellFormedError,
@@ -647,11 +647,11 @@ object TransactionSpec {
 
   import TransactionBuilder.Implicits._
 
-  type Transaction = GenTransaction
+  type Transaction = Transaction
   def mkTransaction(
       nodes: HashMap[NodeId, Node],
       roots: ImmArray[NodeId],
-  ): Transaction = GenTransaction(nodes, roots)
+  ): Transaction = Transaction(nodes, roots)
 
   def dummyRollbackNode(
       children: ImmArray[NodeId]
