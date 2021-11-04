@@ -7,30 +7,35 @@ import anorm.{Row, SimpleSql}
 import com.daml.platform.store.appendonlydao.events.ContractId
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.ContractStorageBackendTemplate
+import com.daml.platform.store.cache.LedgerEndCache
 
-object H2ContractStorageBackend extends ContractStorageBackendTemplate(H2QueryStrategy) {
-  override def maximumLedgerTimeSqlLiteral(id: ContractId): SimpleSql[Row] = {
+class H2ContractStorageBackend(ledgerEndCache: LedgerEndCache)
+    extends ContractStorageBackendTemplate(H2QueryStrategy, ledgerEndCache) {
+  override def maximumLedgerTimeSqlLiteral(
+      id: ContractId,
+      lastEventSequentialId: Long,
+  ): SimpleSql[Row] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
     SQL"""
   WITH archival_event AS (
          SELECT 1
-           FROM participant_events_consuming_exercise, parameters
+           FROM participant_events_consuming_exercise
           WHERE contract_id = $id
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND event_sequential_id <= $lastEventSequentialId
           FETCH NEXT 1 ROW ONLY
        ),
        create_event AS (
          SELECT ledger_effective_time
-           FROM participant_events_create, parameters
+           FROM participant_events_create
           WHERE contract_id = $id
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND event_sequential_id <= $lastEventSequentialId
           FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
        ),
        divulged_contract AS (
          SELECT NULL::BIGINT
-           FROM participant_events_divulgence, parameters
+           FROM participant_events_divulgence
           WHERE contract_id = $id
-            AND event_sequential_id <= parameters.ledger_end_sequential_id
+            AND event_sequential_id <= $lastEventSequentialId
           ORDER BY event_sequential_id
             -- prudent engineering: make results more stable by preferring earlier divulgence events
             -- Results might still change due to pruning.
@@ -54,28 +59,29 @@ object H2ContractStorageBackend extends ContractStorageBackendTemplate(H2QuerySt
       coalescedColumns: String,
   ): SimpleSql[Row] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
+    val lastEventSequentialId = ledgerEndCache()._2
     SQL"""  WITH archival_event AS (
                SELECT 1
-                 FROM participant_events_consuming_exercise, parameters
+                 FROM participant_events_consuming_exercise
                 WHERE contract_id = $contractId
-                  AND event_sequential_id <= parameters.ledger_end_sequential_id
+                  AND event_sequential_id <= $lastEventSequentialId
                   AND $treeEventWitnessesClause  -- only use visible archivals
                 FETCH NEXT 1 ROW ONLY
              ),
              create_event AS (
                SELECT contract_id, #${resultColumns.mkString(", ")}
-                 FROM participant_events_create, parameters
+                 FROM participant_events_create
                 WHERE contract_id = $contractId
-                  AND event_sequential_id <= parameters.ledger_end_sequential_id
+                  AND event_sequential_id <= $lastEventSequentialId
                   AND $treeEventWitnessesClause
                 FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
              ),
              -- no visibility check, as it is used to backfill missing template_id and create_arguments for divulged contracts
              create_event_unrestricted AS (
                SELECT contract_id, #${resultColumns.mkString(", ")}
-                 FROM participant_events_create, parameters
+                 FROM participant_events_create
                 WHERE contract_id = $contractId
-                  AND event_sequential_id <= parameters.ledger_end_sequential_id
+                  AND event_sequential_id <= $lastEventSequentialId
                 FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
              ),
              divulged_contract AS (
@@ -86,10 +92,9 @@ object H2ContractStorageBackend extends ContractStorageBackendTemplate(H2QuerySt
                       -- therefore only communicates the change in visibility to the IndexDB, but
                       -- does not include a full divulgence event.
                       #$coalescedColumns
-                 FROM participant_events_divulgence divulgence_events LEFT OUTER JOIN create_event_unrestricted ON (divulgence_events.contract_id = create_event_unrestricted.contract_id),
-                      parameters
+                 FROM participant_events_divulgence divulgence_events LEFT OUTER JOIN create_event_unrestricted ON (divulgence_events.contract_id = create_event_unrestricted.contract_id)
                 WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
-                  AND divulgence_events.event_sequential_id <= parameters.ledger_end_sequential_id
+                  AND divulgence_events.event_sequential_id <= $lastEventSequentialId
                   AND $treeEventWitnessesClause
                 ORDER BY divulgence_events.event_sequential_id
                   -- prudent engineering: make results more stable by preferring earlier divulgence events

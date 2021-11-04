@@ -30,7 +30,7 @@ object OracleStorageBackendFactory extends StorageBackendFactory with CommonStor
     new IngestionStorageBackendTemplate(OracleSchema.schema)
 
   override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
-    new PartyStorageBackendTemplate(OracleQueryStrategy)
+    new PartyStorageBackendTemplate(OracleQueryStrategy, ledgerEndCache)
 
   override val createDeduplicationStorageBackend: DeduplicationStorageBackend =
     OracleDeduplicationStorageBackend
@@ -41,10 +41,10 @@ object OracleStorageBackendFactory extends StorageBackendFactory with CommonStor
   override def createContractStorageBackend(
       ledgerEndCache: LedgerEndCache
   ): ContractStorageBackend =
-    new ContractStorageBackendTemplate(OracleQueryStrategy)
+    new ContractStorageBackendTemplate(OracleQueryStrategy, ledgerEndCache)
 
   override def createEventStorageBackend(ledgerEndCache: LedgerEndCache): EventStorageBackend =
-    OracleEventStorageBackend
+    new OracleEventStorageBackend(ledgerEndCache)
 
   override val createDataSourceStorageBackend: DataSourceStorageBackend =
     OracleDataSourceStorageBackend

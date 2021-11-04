@@ -51,7 +51,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] = {
-    val ledgerEndCache = MutableLedgerEndCache()
     com.daml.platform.store.appendonlydao.JdbcLedgerDao.writeOwner(
       serverRole = ServerRole.Testing(getClass),
       jdbcUrl = jdbcUrl,
@@ -72,6 +71,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
   }
 
   protected final var ledgerDao: LedgerDao = _
+  protected var ledgerEndCache: MutableLedgerEndCache = _
 
   // `dbDispatcher` and `ledgerDao` depend on the `postgresFixture` which is in turn initialized `beforeAll`
   private var resource: Resource[LedgerDao] = _
@@ -81,6 +81,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     super.beforeAll()
     // We use the dispatcher here because the default Scalatest execution context is too slow.
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
+    ledgerEndCache = MutableLedgerEndCache()
     resource = newLoggingContext { implicit loggingContext =>
       for {
         _ <- Resource.fromFuture(
@@ -88,6 +89,8 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
         )
         dao <- daoOwner(100, 4, errorFactories_mock).acquire()
         _ <- Resource.fromFuture(dao.initialize(TestLedgerId, TestParticipantId))
+        initialLedgerEnd <- Resource.fromFuture(dao.lookupLedgerEndOffsetAndSequentialId())
+        _ = ledgerEndCache.set(initialLedgerEnd)
       } yield dao
     }
     ledgerDao = Await.result(resource.asFuture, 30.seconds)

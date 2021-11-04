@@ -29,7 +29,7 @@ object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageB
     new IngestionStorageBackendTemplate(H2Schema.schema)
 
   override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
-    new PartyStorageBackendTemplate(H2QueryStrategy)
+    new PartyStorageBackendTemplate(H2QueryStrategy, ledgerEndCache)
 
   override val createDeduplicationStorageBackend: DeduplicationStorageBackend =
     H2DeduplicationStorageBackend
@@ -40,10 +40,10 @@ object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageB
   override def createContractStorageBackend(
       ledgerEndCache: LedgerEndCache
   ): ContractStorageBackend =
-    H2ContractStorageBackend
+    new H2ContractStorageBackend(ledgerEndCache)
 
   override def createEventStorageBackend(ledgerEndCache: LedgerEndCache): EventStorageBackend =
-    H2EventStorageBackend
+    new H2EventStorageBackend(ledgerEndCache)
 
   override val createDataSourceStorageBackend: DataSourceStorageBackend =
     H2DataSourceStorageBackend

@@ -4,6 +4,7 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
+
 import anorm.SqlParser.{array, bool, byteArray, int, long, str}
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.offset.Offset
@@ -23,12 +24,14 @@ import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.EventStorageBackend.RawTransactionEvent
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
+import com.daml.platform.store.cache.LedgerEndCache
 
 import scala.collection.compat.immutable.ArraySeq
 
 abstract class EventStorageBackendTemplate(
     eventStrategy: EventStrategy,
     queryStrategy: QueryStrategy,
+    ledgerEndCache: LedgerEndCache,
     // TODO Refactoring: This method is needed in pruneEvents, but belongs to [[ParameterStorageBackend]].
     //                   Remove with the break-out of pruneEvents.
     participantAllDivulgedContractsPrunedUpToInclusive: Connection => Option[Offset],
@@ -255,7 +258,7 @@ abstract class EventStorageBackendTemplate(
 
   private def events[T](
       columnPrefix: String,
-      joinClause: String,
+      joinClause: CompositeSql,
       additionalAndClause: CompositeSql,
       rowParser: RowParser[T],
       selectColumns: String,
@@ -273,7 +276,7 @@ abstract class EventStorageBackendTemplate(
           case when ${eventStrategy
       .submittersArePartiesClause("submitters", parties)} then command_id else '' end as command_id
         FROM
-          participant_events #$columnPrefix #$joinClause
+          participant_events #$columnPrefix $joinClause
         WHERE
         $additionalAndClause
           ${eventStrategy.witnessesWhereClause(witnessesColumn, filterParams)}
@@ -291,7 +294,7 @@ abstract class EventStorageBackendTemplate(
     import com.daml.platform.store.Conversions.OffsetToStatement
     events(
       columnPrefix = "active_cs",
-      joinClause = "",
+      joinClause = cSQL"",
       additionalAndClause = cSQL"""
             event_sequential_id > ${rangeParams.startExclusive} AND
             event_sequential_id <= ${rangeParams.endInclusive} AND
@@ -320,7 +323,7 @@ abstract class EventStorageBackendTemplate(
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     events(
       columnPrefix = "",
-      joinClause = "",
+      joinClause = cSQL"",
       additionalAndClause = cSQL"""
             event_sequential_id > ${rangeParams.startExclusive} AND
             event_sequential_id <= ${rangeParams.endInclusive} AND""",
@@ -341,9 +344,9 @@ abstract class EventStorageBackendTemplate(
     import com.daml.platform.store.Conversions.ledgerStringToStatement
     events(
       columnPrefix = "",
-      joinClause = """JOIN parameters ON
-          |  (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
-          |  AND event_offset <= ledger_end""".stripMargin,
+      joinClause = cSQL"""JOIN parameters ON
+            (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
+            AND event_offset <= ${ledgerEndCache()._1.toHexString.toString}""",
       additionalAndClause = cSQL"""
             transaction_id = $transactionId AND
             event_kind != 0 AND -- we do not want to fetch divulgence events""",
@@ -363,7 +366,7 @@ abstract class EventStorageBackendTemplate(
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     events(
       columnPrefix = "",
-      joinClause = "",
+      joinClause = cSQL"",
       additionalAndClause = cSQL"""
             event_sequential_id > ${rangeParams.startExclusive} AND
             event_sequential_id <= ${rangeParams.endInclusive} AND
@@ -386,9 +389,9 @@ abstract class EventStorageBackendTemplate(
     import com.daml.platform.store.Conversions.ledgerStringToStatement
     events(
       columnPrefix = "",
-      joinClause = """JOIN parameters ON
-          |  (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
-          |  AND event_offset <= ledger_end""".stripMargin,
+      joinClause = cSQL"""JOIN parameters ON
+            (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
+            AND event_offset <= ${ledgerEndCache()._1.toHexString.toString}""",
       additionalAndClause = cSQL"""
             transaction_id = $transactionId AND
             event_kind != 0 AND -- we do not want to fetch divulgence events""",

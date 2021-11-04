@@ -12,11 +12,13 @@ import com.daml.platform.store.backend.common.{
   EventStorageBackendTemplate,
   ParameterStorageBackendTemplate,
 }
+import com.daml.platform.store.cache.LedgerEndCache
 
-object PostgresEventStorageBackend
+class PostgresEventStorageBackend(ledgerEndCache: LedgerEndCache)
     extends EventStorageBackendTemplate(
       eventStrategy = PostgresEventStrategy,
       queryStrategy = PostgresQueryStrategy,
+      ledgerEndCache = ledgerEndCache,
       participantAllDivulgedContractsPrunedUpToInclusive =
         ParameterStorageBackendTemplate.participantAllDivulgedContractsPrunedUpToInclusive,
     ) {
