@@ -155,13 +155,13 @@ case class CommandSubmitter(services: LedgerApiServices) {
           _ <- Source
             .fromIterator(() => (1 to descriptor.numberOfInstances).iterator)
             .wireTap(i => if (i == 1) progressMeter.start())
-            .mapAsync(32)(index =>
+            .mapAsync(8)(index =>
               Future.fromTry(
                 generator.next().map(cmd => index -> cmd)
               )
             )
             .groupedWithin(submissionBatchSize, 1.minute)
-            .map(cmds => cmds.head._1 -> cmds.map(e => e._2).toList)
+            .map(cmds => cmds.head._1 -> cmds.map(_._2).toList)
             .buffer(maxInFlightCommands, OverflowStrategy.backpressure)
             .mapAsync(maxInFlightCommands) { case (index, commands) =>
               submitAndWait(
