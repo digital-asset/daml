@@ -32,7 +32,7 @@ object PostgresStorageBackendFactory
     new IngestionStorageBackendTemplate(PGSchema.schema)
 
   override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
-    new PartyStorageBackendTemplate(PostgresQueryStrategy)
+    new PartyStorageBackendTemplate(PostgresQueryStrategy, ledgerEndCache)
 
   override val createDeduplicationStorageBackend: DeduplicationStorageBackend =
     PostgresDeduplicationStorageBackend
@@ -43,10 +43,10 @@ object PostgresStorageBackendFactory
   override def createContractStorageBackend(
       ledgerEndCache: LedgerEndCache
   ): ContractStorageBackend =
-    new ContractStorageBackendTemplate(PostgresQueryStrategy)
+    new ContractStorageBackendTemplate(PostgresQueryStrategy, ledgerEndCache)
 
   override def createEventStorageBackend(ledgerEndCache: LedgerEndCache): EventStorageBackend =
-    PostgresEventStorageBackend
+    new PostgresEventStorageBackend(ledgerEndCache)
 
   override val createDataSourceStorageBackend: DataSourceStorageBackend =
     PostgresDataSourceStorageBackend

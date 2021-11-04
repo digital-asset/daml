@@ -12,11 +12,13 @@ import com.daml.platform.store.backend.common.{
   EventStorageBackendTemplate,
   ParameterStorageBackendTemplate,
 }
+import com.daml.platform.store.cache.LedgerEndCache
 
-object OracleEventStorageBackend
+class OracleEventStorageBackend(ledgerEndCache: LedgerEndCache)
     extends EventStorageBackendTemplate(
       eventStrategy = OracleEventStrategy,
       queryStrategy = OracleQueryStrategy,
+      ledgerEndCache = ledgerEndCache,
       participantAllDivulgedContractsPrunedUpToInclusive =
         ParameterStorageBackendTemplate.participantAllDivulgedContractsPrunedUpToInclusive,
     ) {

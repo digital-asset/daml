@@ -15,15 +15,17 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.PackageStorageBackend
+import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.entries.PackageLedgerEntry
 
-private[backend] object PackageStorageBackendTemplate extends PackageStorageBackend {
+private[backend] class PackageStorageBackendTemplate(ledgerEndCache: LedgerEndCache)
+    extends PackageStorageBackend {
 
   private val SQL_SELECT_PACKAGES =
     SQL(
       """select packages.package_id, packages.source_description, packages.known_since, packages.package_size
         |from packages, parameters
-        |where packages.ledger_offset <= parameters.ledger_end
+        |where packages.ledger_offset <= {ledgerEndOffset}
         |""".stripMargin
     )
 
@@ -44,6 +46,7 @@ private[backend] object PackageStorageBackendTemplate extends PackageStorageBack
 
   def lfPackages(connection: Connection): Map[PackageId, PackageDetails] =
     SQL_SELECT_PACKAGES
+      .on("ledgerEndOffset" -> ledgerEndCache()._1.toHexString.toString)
       .as(PackageDataParser.*)(connection)
       .map(d =>
         PackageId.assertFromString(d.packageId) -> PackageDetails(
@@ -58,14 +61,15 @@ private[backend] object PackageStorageBackendTemplate extends PackageStorageBack
     SQL("""select packages.package
           |from packages, parameters
           |where package_id = {package_id}
-          |and packages.ledger_offset <= parameters.ledger_end
+          |and packages.ledger_offset <= {ledgerEndOffset}
           |""".stripMargin)
 
   def lfArchive(packageId: PackageId)(connection: Connection): Option[Array[Byte]] = {
     import com.daml.platform.store.Conversions.packageIdToStatement
     SQL_SELECT_PACKAGE
       .on(
-        "package_id" -> packageId
+        "package_id" -> packageId,
+        "ledgerEndOffset" -> ledgerEndCache()._1.toHexString.toString,
       )
       .as[Option[Array[Byte]]](SqlParser.byteArray("package").singleOpt)(connection)
   }
