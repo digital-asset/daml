@@ -715,7 +715,7 @@ object Ast {
   ) {
     lazy val inheritedChoices: Map[ChoiceName, TypeConName] =
       implements.iterator.flatMap { case (iface, impl) =>
-        impl.inheritedChoices.iterator.map ( chName => (chName, iface) )
+        impl.inheritedChoices.iterator.map(chName => (chName, iface))
       }.toMap
   }
 

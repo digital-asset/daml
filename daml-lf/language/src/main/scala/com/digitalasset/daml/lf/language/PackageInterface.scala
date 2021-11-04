@@ -204,9 +204,11 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
           template.inheritedChoices.get(chName) match {
             case None => Left(LookupError(Reference.Choice(tmpName, chName), context))
             case Some(ifaceName) =>
-                lookupInterface(ifaceName, context).flatMap(iface =>
-                  iface.fixedChoices.get(chName).toRight(LookupError(Reference.Choice(ifaceName, chName), context))
-                )
+              lookupInterface(ifaceName, context).flatMap(iface =>
+                iface.fixedChoices
+                  .get(chName)
+                  .toRight(LookupError(Reference.Choice(ifaceName, chName), context))
+              )
           }
       }
     )
