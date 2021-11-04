@@ -714,9 +714,9 @@ object Ast {
       implements: Map[TypeConName, GenTemplateImplements[E]],
   ) {
     lazy val inheritedChoices: Map[ChoiceName, TypeConName] =
-      implements.iterator.flatMap { case (iface, impl) =>
-        impl.inheritedChoices.iterator.map(chName => (chName, iface))
-      }.toMap
+      implements.flatMap { case (iface, impl) =>
+        impl.inheritedChoices.view.map(chName => (chName, iface))
+      }
   }
 
   final class GenTemplateCompanion[E] private[Ast] {
