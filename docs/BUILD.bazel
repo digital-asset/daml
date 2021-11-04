@@ -661,8 +661,8 @@ genrule(
     name = "generate-error-codes-json",
     srcs = [],
     outs = ["error_codes_export.json"],
-    cmd = "$(location //ledger/error:export-error-codes-json-app) $(location error_codes_export.json)",
-    tools = ["//ledger/error:export-error-codes-json-app"],
+    cmd = "$(location //ledger/error/generator:export-error-codes-json-app) $(location error_codes_export.json)",
+    tools = ["//ledger/error/generator:export-error-codes-json-app"],
     visibility = ["//visibility:public"],
 ) if scala_major_version == "2.13" else None
 
