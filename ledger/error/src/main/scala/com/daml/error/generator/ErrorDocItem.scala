@@ -3,7 +3,7 @@
 
 package com.daml.error.generator
 
-import com.daml.error.{Explanation, Resolution}
+import com.daml.error.{Explanation, Grouping, Resolution}
 
 /** Contains error presentation data to be used for documentation rendering on the website.
   *
@@ -16,10 +16,10 @@ import com.daml.error.{Explanation, Resolution}
   * @param explanation The detailed error explanation.
   * @param resolution The suggested error resolution.
   */
-case class DocItem(
+case class ErrorDocItem(
     className: String, // TODO error codes: Rename to `errorCodeName` or `errorCodeClassName` to prevent confusion
     category: String,
-    hierarchicalGrouping: List[String],
+    hierarchicalGrouping: List[Grouping],
     conveyance: String,
     code: String,
     explanation: Explanation,

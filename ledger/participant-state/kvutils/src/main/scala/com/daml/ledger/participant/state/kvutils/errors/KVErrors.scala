@@ -20,7 +20,7 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection
 }
 
 @Explanation(
-  "Errors that are specific to ledgers based on the KV architecture." +
+  "Errors that are specific to ledgers based on the KV architecture. " +
     "Note that this section will soon cover all ledgers due to an ongoing error consolidation effort."
 )
 object KVErrors extends LedgerApiErrorGroup {
