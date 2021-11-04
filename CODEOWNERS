@@ -30,10 +30,10 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 
 # Runtime
 /daml-lf/ @remyhaemmerle-da @cocreature
-/daml-lf/data-scalacheck/ @S11001001
-/daml-lf/governance.rst @sofiafaro-da
-/daml-lf/kv-transaction-support/ @digital-asset/kv-committer
-/daml-lf/transaction-test-lib/ @S11001001
+/daml-lf/data-scalacheck/ @S11001001 @remyhaemmerle-da @cocreature
+/daml-lf/governance.rst @sofiafaro-da @remyhaemmerle-da @cocreature
+/daml-lf/kv-transaction-support/ @digital-asset/kv-committer @remyhaemmerle-da @cocreature
+/daml-lf/transaction-test-lib/ @S11001001 @remyhaemmerle-da @cocreature
 
 /ledger-service/    @S11001001 @stefanobaghino-da
 
