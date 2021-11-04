@@ -6,7 +6,7 @@ package com.daml.platform.store.appendonlydao.events
 import java.io.ByteArrayInputStream
 
 import com.daml.lf.data.Ref
-import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
+import com.daml.platform.store.backend.EventStorageBackend.RawTransactionEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 

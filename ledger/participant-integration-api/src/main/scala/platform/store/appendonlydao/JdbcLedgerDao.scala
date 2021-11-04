@@ -43,7 +43,7 @@ import com.daml.platform.store.backend.{
   StorageBackendFactory,
   UpdateToDbDto,
 }
-import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.store.cache.{LedgerEndCache, MutableLedgerEndCache}
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -772,6 +772,7 @@ private[platform] object JdbcLedgerDao {
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
       errorFactories: ErrorFactories,
+      ledgerEndCache: LedgerEndCache,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerReadDao] =
     owner(
       serverRole,
@@ -788,6 +789,7 @@ private[platform] object JdbcLedgerDao {
       participantId = participantId,
       sequentialWriteDao = NoopSequentialWriteDao,
       errorFactories = errorFactories,
+      ledgerEndCache = ledgerEndCache,
     ).map(new MeteredLedgerReadDao(_, metrics))
 
   def writeOwner(
@@ -828,6 +830,7 @@ private[platform] object JdbcLedgerDao {
         ledgerEndCache,
       ),
       errorFactories = errorFactories,
+      ledgerEndCache = ledgerEndCache,
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -872,6 +875,7 @@ private[platform] object JdbcLedgerDao {
         ledgerEndCache,
       ),
       errorFactories = errorFactories,
+      ledgerEndCache = ledgerEndCache,
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -917,6 +921,7 @@ private[platform] object JdbcLedgerDao {
       participantId: Ref.ParticipantId,
       sequentialWriteDao: SequentialWriteDao,
       errorFactories: ErrorFactories,
+      ledgerEndCache: LedgerEndCache,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val factory = StorageBackendFactory.of(dbType)
@@ -940,7 +945,7 @@ private[platform] object JdbcLedgerDao {
       enricher,
       sequentialWriteDao,
       participantId,
-      StorageBackendFactory.readStorageBackendFor(dbType),
+      StorageBackendFactory.readStorageBackendFor(dbType, ledgerEndCache),
       factory.createParameterStorageBackend,
       factory.createDeduplicationStorageBackend,
       factory.createResetStorageBackend,

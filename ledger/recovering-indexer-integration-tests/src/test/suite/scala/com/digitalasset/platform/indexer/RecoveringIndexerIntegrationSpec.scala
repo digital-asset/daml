@@ -30,6 +30,7 @@ import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerReadDao}
 import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.testing.LogCollector
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.timer.RetryStrategy
@@ -74,14 +75,7 @@ class RecoveringIndexerIntegrationSpec
                 submissionId = randomSubmissionId(),
               )
               .toScala
-            _ <- index.use { ledgerDao =>
-              eventually { (_, _) =>
-                ledgerDao
-                  .listKnownParties()
-                  .map(parties => parties.map(_.displayName))
-                  .map(_ shouldBe Seq(Some("Alice")))
-              }
-            }
+            _ <- eventuallyPartiesShouldBe("Alice")
           } yield ()
         }
         .map { _ =>
@@ -121,14 +115,7 @@ class RecoveringIndexerIntegrationSpec
                   submissionId = randomSubmissionId(),
                 )
                 .toScala
-              _ <- index.use { ledgerDao =>
-                eventually { (_, _) =>
-                  ledgerDao
-                    .listKnownParties()
-                    .map(parties => parties.map(_.displayName))
-                    .map(_ shouldBe Seq(Some("Alice"), Some("Bob"), Some("Carol")))
-                }
-              }
+              _ <- eventuallyPartiesShouldBe("Alice", "Bob", "Carol")
             } yield ()
           }
           .map { _ =>
@@ -222,24 +209,46 @@ class RecoveringIndexerIntegrationSpec
     } yield participantState
   }
 
-  private def index(implicit loggingContext: LoggingContext): ResourceOwner[LedgerReadDao] = {
+  private def eventuallyPartiesShouldBe(partyNames: String*)(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit] =
+    dao.use { case (ledgerDao, ledgerEndCache) =>
+      eventually { (_, _) =>
+        for {
+          ledgerEnd <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
+          _ = ledgerEndCache.set(ledgerEnd)
+          knownParties <- ledgerDao.listKnownParties()
+        } yield {
+          knownParties.map(_.displayName) shouldBe partyNames.map(Some(_))
+          ()
+        }
+      }
+    }
+
+  private def dao(implicit
+      loggingContext: LoggingContext
+  ): ResourceOwner[(LedgerReadDao, MutableLedgerEndCache)] = {
+    val mutableLedgerEndCache = MutableLedgerEndCache()
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase}-$testId;db_close_delay=-1;db_close_on_exit=false"
     val errorFactories: ErrorFactories = mock[ErrorFactories]
-    JdbcLedgerDao.readOwner(
-      serverRole = ServerRole.Testing(getClass),
-      jdbcUrl = jdbcUrl,
-      connectionPoolSize = 16,
-      connectionTimeout = 250.millis,
-      eventsPageSize = 100,
-      eventsProcessingParallelism = 8,
-      servicesExecutionContext = executionContext,
-      metrics = new Metrics(new MetricRegistry),
-      lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-      enricher = None,
-      participantId = Ref.ParticipantId.assertFromString("RecoveringIndexerIntegrationSpec"),
-      errorFactories = errorFactories,
-    )
+    JdbcLedgerDao
+      .readOwner(
+        serverRole = ServerRole.Testing(getClass),
+        jdbcUrl = jdbcUrl,
+        connectionPoolSize = 16,
+        connectionTimeout = 250.millis,
+        eventsPageSize = 100,
+        eventsProcessingParallelism = 8,
+        servicesExecutionContext = executionContext,
+        metrics = new Metrics(new MetricRegistry),
+        lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+        enricher = None,
+        participantId = Ref.ParticipantId.assertFromString("RecoveringIndexerIntegrationSpec"),
+        errorFactories = errorFactories,
+        ledgerEndCache = mutableLedgerEndCache,
+      )
+      .map(_ -> mutableLedgerEndCache)
   }
 }
 

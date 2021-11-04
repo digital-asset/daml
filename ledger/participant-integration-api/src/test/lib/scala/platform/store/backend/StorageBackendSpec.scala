@@ -49,7 +49,7 @@ private[backend] trait StorageBackendSpec
       )
       dispatcher <- DbDispatcher
         .owner(
-          dataSource = backendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl),
+          dataSource = backend.dataSource.createDataSource(jdbcUrl),
           serverRole = ServerRole.Testing(this.getClass),
           connectionPoolSize = connectionPoolSize,
           connectionTimeout = FiniteDuration(250, "millis"),
@@ -81,7 +81,13 @@ private[backend] trait StorageBackendSpec
       runningTests.incrementAndGet() == 1,
       "StorageBackendSpec tests must not run in parallel, as they all run against the same database.",
     )
-    Await.result(executeSql(backendFactory.createResetStorageBackend.resetAll), 60.seconds)
+    Await.result(
+      executeSql { c =>
+        backend.reset.resetAll(c)
+        updateLedgerEndCache(c)
+      },
+      60.seconds,
+    )
   }
 
   override protected def afterEach(): Unit = {

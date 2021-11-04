@@ -4,60 +4,46 @@
 package com.daml.platform.store.backend.oracle
 
 import com.daml.platform.store.backend.common.{
+  CommonStorageBackendFactory,
   CompletionStorageBackendTemplate,
-  ConfigurationStorageBackendTemplate,
   ContractStorageBackendTemplate,
   IngestionStorageBackendTemplate,
-  IntegrityStorageBackendTemplate,
-  PackageStorageBackendTemplate,
-  ParameterStorageBackendTemplate,
   PartyStorageBackendTemplate,
-  StringInterningStorageBackendTemplate,
 }
 import com.daml.platform.store.backend.{
   CompletionStorageBackend,
-  ConfigurationStorageBackend,
   ContractStorageBackend,
   DBLockStorageBackend,
   DataSourceStorageBackend,
   DeduplicationStorageBackend,
   EventStorageBackend,
   IngestionStorageBackend,
-  IntegrityStorageBackend,
-  PackageStorageBackend,
-  ParameterStorageBackend,
   PartyStorageBackend,
   ResetStorageBackend,
   StorageBackendFactory,
-  StringInterningStorageBackend,
 }
+import com.daml.platform.store.cache.LedgerEndCache
 
-object OracleStorageBackendFactory extends StorageBackendFactory {
+object OracleStorageBackendFactory extends StorageBackendFactory with CommonStorageBackendFactory {
+
   override val createIngestionStorageBackend: IngestionStorageBackend[_] =
     new IngestionStorageBackendTemplate(OracleSchema.schema)
 
-  override val createParameterStorageBackend: ParameterStorageBackend =
-    ParameterStorageBackendTemplate
-
-  override val createConfigurationStorageBackend: ConfigurationStorageBackend =
-    ConfigurationStorageBackendTemplate
-
-  override val createPartyStorageBackend: PartyStorageBackend =
+  override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
     new PartyStorageBackendTemplate(OracleQueryStrategy)
-
-  override val createPackageStorageBackend: PackageStorageBackend =
-    PackageStorageBackendTemplate
 
   override val createDeduplicationStorageBackend: DeduplicationStorageBackend =
     OracleDeduplicationStorageBackend
 
-  override val createCompletionStorageBackend: CompletionStorageBackend =
+  override def createCompletionStorageBackend: CompletionStorageBackend =
     new CompletionStorageBackendTemplate(OracleQueryStrategy)
 
-  override val createContractStorageBackend: ContractStorageBackend =
+  override def createContractStorageBackend(
+      ledgerEndCache: LedgerEndCache
+  ): ContractStorageBackend =
     new ContractStorageBackendTemplate(OracleQueryStrategy)
 
-  override val createEventStorageBackend: EventStorageBackend =
+  override def createEventStorageBackend(ledgerEndCache: LedgerEndCache): EventStorageBackend =
     OracleEventStorageBackend
 
   override val createDataSourceStorageBackend: DataSourceStorageBackend =
@@ -66,12 +52,6 @@ object OracleStorageBackendFactory extends StorageBackendFactory {
   override val createDBLockStorageBackend: DBLockStorageBackend =
     OracleDBLockStorageBackend
 
-  override val createIntegrityStorageBackend: IntegrityStorageBackend =
-    IntegrityStorageBackendTemplate
-
   override val createResetStorageBackend: ResetStorageBackend =
     OracleResetStorageBackend
-
-  override val createStringInterningStorageBackend: StringInterningStorageBackend =
-    StringInterningStorageBackendTemplate
 }

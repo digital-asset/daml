@@ -7,17 +7,18 @@ import com.daml.platform.store.DbType
 import com.daml.platform.store.backend.h2.H2StorageBackendFactory
 import com.daml.platform.store.backend.oracle.OracleStorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackendFactory
+import com.daml.platform.store.cache.LedgerEndCache
 
 trait StorageBackendFactory {
   def createIngestionStorageBackend: IngestionStorageBackend[_]
   def createParameterStorageBackend: ParameterStorageBackend
-  def createConfigurationStorageBackend: ConfigurationStorageBackend
-  def createPartyStorageBackend: PartyStorageBackend
-  def createPackageStorageBackend: PackageStorageBackend
+  def createConfigurationStorageBackend(ledgerEndCache: LedgerEndCache): ConfigurationStorageBackend
+  def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend
+  def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend
   def createDeduplicationStorageBackend: DeduplicationStorageBackend
   def createCompletionStorageBackend: CompletionStorageBackend
-  def createContractStorageBackend: ContractStorageBackend
-  def createEventStorageBackend: EventStorageBackend
+  def createContractStorageBackend(ledgerEndCache: LedgerEndCache): ContractStorageBackend
+  def createEventStorageBackend(ledgerEndCache: LedgerEndCache): EventStorageBackend
   def createDataSourceStorageBackend: DataSourceStorageBackend
   def createDBLockStorageBackend: DBLockStorageBackend
   def createIntegrityStorageBackend: IntegrityStorageBackend
@@ -33,15 +34,18 @@ object StorageBackendFactory {
       case DbType.Oracle => OracleStorageBackendFactory
     }
 
-  def readStorageBackendFor(dbType: DbType): ReadStorageBackend = {
+  def readStorageBackendFor(
+      dbType: DbType,
+      ledgerEndCache: LedgerEndCache,
+  ): ReadStorageBackend = {
     val factory = of(dbType)
     ReadStorageBackend(
-      configurationStorageBackend = factory.createConfigurationStorageBackend,
-      partyStorageBackend = factory.createPartyStorageBackend,
-      packageStorageBackend = factory.createPackageStorageBackend,
+      configurationStorageBackend = factory.createConfigurationStorageBackend(ledgerEndCache),
+      partyStorageBackend = factory.createPartyStorageBackend(ledgerEndCache),
+      packageStorageBackend = factory.createPackageStorageBackend(ledgerEndCache),
       completionStorageBackend = factory.createCompletionStorageBackend,
-      contractStorageBackend = factory.createContractStorageBackend,
-      eventStorageBackend = factory.createEventStorageBackend,
+      contractStorageBackend = factory.createContractStorageBackend(ledgerEndCache),
+      eventStorageBackend = factory.createEventStorageBackend(ledgerEndCache),
     )
   }
 }

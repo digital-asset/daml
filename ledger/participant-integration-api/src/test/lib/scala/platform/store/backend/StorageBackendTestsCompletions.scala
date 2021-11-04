@@ -15,11 +15,6 @@ private[backend] trait StorageBackendTestsCompletions
     with StorageBackendSpec {
   this: AsyncFlatSpec =>
 
-  private val parameterStorageBackend: ParameterStorageBackend =
-    backendFactory.createParameterStorageBackend
-  private val completionStorageBackend: CompletionStorageBackend =
-    backendFactory.createCompletionStorageBackend
-
   behavior of "StorageBackend (completions)"
 
   import StorageBackendTestValues._
@@ -36,13 +31,13 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     for {
-      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
       _ <- executeSql(
-        parameterStorageBackend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(4), 3L))
+        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(4), 3L))
       )
       completions0to3 <- executeSql(
-        completionStorageBackend.commandCompletions(
+        backend.completion.commandCompletions(
           Offset.beforeBegin,
           offset(3),
           applicationId,
@@ -50,13 +45,13 @@ private[backend] trait StorageBackendTestsCompletions
         )
       )
       completions1to3 <- executeSql(
-        completionStorageBackend.commandCompletions(offset(1), offset(3), applicationId, Set(party))
+        backend.completion.commandCompletions(offset(1), offset(3), applicationId, Set(party))
       )
       completions2to3 <- executeSql(
-        completionStorageBackend.commandCompletions(offset(2), offset(3), applicationId, Set(party))
+        backend.completion.commandCompletions(offset(2), offset(3), applicationId, Set(party))
       )
       completions1to9 <- executeSql(
-        completionStorageBackend.commandCompletions(offset(1), offset(9), applicationId, Set(party))
+        backend.completion.commandCompletions(offset(1), offset(9), applicationId, Set(party))
       )
     } yield {
       completions0to3 should have length 2
@@ -76,13 +71,13 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     for {
-      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
       _ <- executeSql(
-        parameterStorageBackend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 1L))
+        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 1L))
       )
       completions <- executeSql(
-        completionStorageBackend.commandCompletions(offset(1), offset(2), applicationId, Set(party))
+        backend.completion.commandCompletions(offset(1), offset(2), applicationId, Set(party))
       )
     } yield {
       completions should have length 1
@@ -102,13 +97,13 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     for {
-      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
       _ <- executeSql(
-        parameterStorageBackend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 2L))
+        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 2L))
       )
       completions <- executeSql(
-        completionStorageBackend.commandCompletions(
+        backend.completion.commandCompletions(
           offset(1),
           offset(3),
           someApplicationId,
@@ -140,13 +135,13 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     for {
-      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
       _ <- executeSql(
-        parameterStorageBackend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 2L))
+        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 2L))
       )
       completions <- executeSql(
-        completionStorageBackend.commandCompletions(
+        backend.completion.commandCompletions(
           offset(1),
           offset(3),
           someApplicationId,
@@ -189,13 +184,13 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     for {
-      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
       _ <- executeSql(
-        parameterStorageBackend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 2L))
+        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 2L))
       )
       completions <- executeSql(
-        completionStorageBackend.commandCompletions(
+        backend.completion.commandCompletions(
           offset(1),
           offset(3),
           someApplicationId,
@@ -235,13 +230,13 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     for {
-      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos1, _))
       _ <- executeSql(
-        parameterStorageBackend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 1L))
+        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 1L))
       )
       result <- executeSql(
-        completionStorageBackend.commandCompletions(
+        backend.completion.commandCompletions(
           offset(1),
           offset(2),
           someApplicationId,
@@ -265,10 +260,10 @@ private[backend] trait StorageBackendTestsCompletions
     for {
       _ <- executeSql(ingest(dtos2, _))
       _ <- executeSql(
-        parameterStorageBackend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 2L))
+        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 2L))
       )
       result <- executeSql(
-        completionStorageBackend.commandCompletions(
+        backend.completion.commandCompletions(
           offset(2),
           offset(3),
           someApplicationId,

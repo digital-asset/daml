@@ -10,15 +10,15 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
 import com.daml.lf.value.Value.ValueText
-import com.daml.platform.store.backend.{ContractStorageBackend, PartyStorageBackend, StorageBackend}
+import com.daml.platform.store.backend.{ContractStorageBackend, PartyStorageBackend}
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-
 import java.sql.Connection
 import java.time.Instant
 import java.util.UUID
+
 import scala.util.{Failure, Success, Try}
 
 final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
@@ -547,10 +547,10 @@ object PostCommitValidationSpec {
       notImplemented()
     override def contractState(contractId: ContractId, before: Long)(
         connection: Connection
-    ): Option[StorageBackend.RawContractState] = notImplemented()
+    ): Option[ContractStorageBackend.RawContractState] = notImplemented()
     override def activeContractWithArgument(readers: Set[Ref.Party], contractId: ContractId)(
         connection: Connection
-    ): Option[StorageBackend.RawContract] = notImplemented()
+    ): Option[ContractStorageBackend.RawContract] = notImplemented()
     override def activeContractWithoutArgument(readers: Set[Ref.Party], contractId: ContractId)(
         connection: Connection
     ): Option[String] = notImplemented()
@@ -559,7 +559,7 @@ object PostCommitValidationSpec {
     ): Option[ContractId] = notImplemented()
     override def contractStateEvents(startExclusive: Long, endInclusive: Long)(
         connection: Connection
-    ): Vector[StorageBackend.RawContractStateEvent] = notImplemented()
+    ): Vector[ContractStorageBackend.RawContractStateEvent] = notImplemented()
 
     override def partyEntries(
         startExclusive: Offset,

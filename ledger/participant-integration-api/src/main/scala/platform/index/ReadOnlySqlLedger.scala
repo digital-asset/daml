@@ -28,7 +28,7 @@ import com.daml.platform.store.appendonlydao.{
   LedgerDaoTransactionsReader,
   LedgerReadDao,
 }
-import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.store.cache.{LedgerEndCache, MutableLedgerEndCache}
 import com.daml.platform.store.{BaseLedger, LfValueTranslationCache}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
@@ -66,7 +66,8 @@ private[platform] object ReadOnlySqlLedger {
     override def acquire()(implicit context: ResourceContext): Resource[ReadOnlySqlLedger] = {
       val ledgerEndCache = MutableLedgerEndCache()
       for {
-        ledgerDao <- ledgerDaoOwner(servicesExecutionContext, errorFactories).acquire()
+        ledgerDao <- ledgerDaoOwner(servicesExecutionContext, errorFactories, ledgerEndCache)
+          .acquire()
         ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao, initialLedgerId))
         ledger <- ledgerOwner(ledgerDao, ledgerId, ledgerEndCache).acquire()
       } yield ledger
@@ -142,6 +143,7 @@ private[platform] object ReadOnlySqlLedger {
     private def ledgerDaoOwner(
         servicesExecutionContext: ExecutionContext,
         errorFactories: ErrorFactories,
+        ledgerEndCache: LedgerEndCache,
     ): ResourceOwner[LedgerReadDao] =
       JdbcLedgerDao.readOwner(
         serverRole,
@@ -156,6 +158,7 @@ private[platform] object ReadOnlySqlLedger {
         Some(enricher),
         participantId,
         errorFactories,
+        ledgerEndCache,
       )
   }
 

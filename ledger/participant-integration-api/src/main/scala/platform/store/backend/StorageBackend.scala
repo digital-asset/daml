@@ -17,7 +17,6 @@ import com.daml.platform
 import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Raw}
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
-import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
@@ -31,24 +30,7 @@ import scala.util.Try
   * Naming convention for the interface methods, which requiring Connection:
   *  - read operations are represented as nouns (plural, singular form indicates cardinality)
   *  - write operations are represented as verbs
-  *
-  * @tparam DB_BATCH Since parallel ingestion comes also with batching, this implementation specific type allows separation of the CPU intensive batching operation from the pure IO intensive insertBatch operation.
   */
-trait StorageBackend[DB_BATCH]
-    extends IngestionStorageBackend[DB_BATCH]
-    with ParameterStorageBackend
-    with ConfigurationStorageBackend
-    with PartyStorageBackend
-    with PackageStorageBackend
-    with DeduplicationStorageBackend
-    with CompletionStorageBackend
-    with ContractStorageBackend
-    with EventStorageBackend
-    with DataSourceStorageBackend
-    with DBLockStorageBackend
-    with IntegrityStorageBackend
-    with ResetStorageBackend
-    with StringInterningStorageBackend
 
 trait ResetStorageBackend {
 
@@ -224,10 +206,10 @@ trait ContractStorageBackend {
   def keyState(key: Key, validAt: Long)(connection: Connection): KeyState
   def contractState(contractId: ContractId, before: Long)(
       connection: Connection
-  ): Option[StorageBackend.RawContractState]
+  ): Option[ContractStorageBackend.RawContractState]
   def activeContractWithArgument(readers: Set[Ref.Party], contractId: ContractId)(
       connection: Connection
-  ): Option[StorageBackend.RawContract]
+  ): Option[ContractStorageBackend.RawContract]
   def activeContractWithoutArgument(readers: Set[Ref.Party], contractId: ContractId)(
       connection: Connection
   ): Option[String]
@@ -236,7 +218,38 @@ trait ContractStorageBackend {
   ): Option[ContractId]
   def contractStateEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
-  ): Vector[StorageBackend.RawContractStateEvent]
+  ): Vector[ContractStorageBackend.RawContractStateEvent]
+}
+
+object ContractStorageBackend {
+  case class RawContractState(
+      templateId: Option[String],
+      flatEventWitnesses: Set[Ref.Party],
+      createArgument: Option[Array[Byte]],
+      createArgumentCompression: Option[Int],
+      eventKind: Int,
+      ledgerEffectiveTime: Option[Timestamp],
+  )
+
+  class RawContract(
+      val templateId: String,
+      val createArgument: Array[Byte],
+      val createArgumentCompression: Option[Int],
+  )
+
+  case class RawContractStateEvent(
+      eventKind: Int,
+      contractId: ContractId,
+      templateId: Option[Ref.Identifier],
+      ledgerEffectiveTime: Option[Timestamp],
+      createKeyValue: Option[Array[Byte]],
+      createKeyCompression: Option[Int],
+      createArgument: Option[Array[Byte]],
+      createArgumentCompression: Option[Int],
+      flatEventWitnesses: Set[Ref.Party],
+      eventSequentialId: Long,
+      offset: Offset,
+  )
 }
 
 trait EventStorageBackend {
@@ -278,7 +291,7 @@ trait EventStorageBackend {
   def maxEventSequentialIdOfAnObservableEvent(offset: Offset)(connection: Connection): Option[Long]
   def rawEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
-  ): Vector[RawTransactionEvent]
+  ): Vector[EventStorageBackend.RawTransactionEvent]
 }
 
 object EventStorageBackend {
@@ -293,6 +306,37 @@ object EventStorageBackend {
       wildCardParties: Set[Ref.Party],
       partiesAndTemplates: Set[(Set[Ref.Party], Set[Ref.Identifier])],
   )
+
+  case class RawTransactionEvent(
+      eventKind: Int,
+      transactionId: String,
+      nodeIndex: Int,
+      commandId: Option[String],
+      workflowId: Option[String],
+      eventId: EventId,
+      contractId: platform.store.appendonlydao.events.ContractId,
+      templateId: Option[platform.store.appendonlydao.events.Identifier],
+      ledgerEffectiveTime: Option[Timestamp],
+      createSignatories: Option[Array[String]],
+      createObservers: Option[Array[String]],
+      createAgreementText: Option[String],
+      createKeyValue: Option[Array[Byte]],
+      createKeyCompression: Option[Int],
+      createArgument: Option[Array[Byte]],
+      createArgumentCompression: Option[Int],
+      treeEventWitnesses: Set[String],
+      flatEventWitnesses: Set[String],
+      submitters: Set[String],
+      exerciseChoice: Option[String],
+      exerciseArgument: Option[Array[Byte]],
+      exerciseArgumentCompression: Option[Int],
+      exerciseResult: Option[Array[Byte]],
+      exerciseResultCompression: Option[Int],
+      exerciseActors: Option[Array[String]],
+      exerciseChildEventIds: Option[Array[String]],
+      eventSequentialId: Long,
+      offset: Offset,
+  ) extends NeverEqualsOverride
 }
 
 trait DataSourceStorageBackend {
@@ -357,66 +401,4 @@ trait StringInterningStorageBackend {
   def loadStringInterningEntries(fromIdExclusive: Int, untilIdInclusive: Int)(
       connection: Connection
   ): Iterable[(Int, String)]
-}
-
-object StorageBackend {
-  case class RawContractState(
-      templateId: Option[String],
-      flatEventWitnesses: Set[Ref.Party],
-      createArgument: Option[Array[Byte]],
-      createArgumentCompression: Option[Int],
-      eventKind: Int,
-      ledgerEffectiveTime: Option[Timestamp],
-  )
-
-  class RawContract(
-      val templateId: String,
-      val createArgument: Array[Byte],
-      val createArgumentCompression: Option[Int],
-  )
-
-  case class RawContractStateEvent(
-      eventKind: Int,
-      contractId: ContractId,
-      templateId: Option[Ref.Identifier],
-      ledgerEffectiveTime: Option[Timestamp],
-      createKeyValue: Option[Array[Byte]],
-      createKeyCompression: Option[Int],
-      createArgument: Option[Array[Byte]],
-      createArgumentCompression: Option[Int],
-      flatEventWitnesses: Set[Ref.Party],
-      eventSequentialId: Long,
-      offset: Offset,
-  )
-
-  case class RawTransactionEvent(
-      eventKind: Int,
-      transactionId: String,
-      nodeIndex: Int,
-      commandId: Option[String],
-      workflowId: Option[String],
-      eventId: EventId,
-      contractId: platform.store.appendonlydao.events.ContractId,
-      templateId: Option[platform.store.appendonlydao.events.Identifier],
-      ledgerEffectiveTime: Option[Timestamp],
-      createSignatories: Option[Array[String]],
-      createObservers: Option[Array[String]],
-      createAgreementText: Option[String],
-      createKeyValue: Option[Array[Byte]],
-      createKeyCompression: Option[Int],
-      createArgument: Option[Array[Byte]],
-      createArgumentCompression: Option[Int],
-      treeEventWitnesses: Set[String],
-      flatEventWitnesses: Set[String],
-      submitters: Set[String],
-      exerciseChoice: Option[String],
-      exerciseArgument: Option[Array[Byte]],
-      exerciseArgumentCompression: Option[Int],
-      exerciseResult: Option[Array[Byte]],
-      exerciseResultCompression: Option[Int],
-      exerciseActors: Option[Array[String]],
-      exerciseChildEventIds: Option[Array[String]],
-      eventSequentialId: Long,
-      offset: Offset,
-  ) extends NeverEqualsOverride
 }
