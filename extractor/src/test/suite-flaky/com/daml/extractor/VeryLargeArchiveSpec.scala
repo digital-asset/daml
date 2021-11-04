@@ -6,10 +6,10 @@ package com.daml.extractor
 import java.io.File
 
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.extractor.services.ExtractorFixture
+import com.daml.extractor.services.ExtractorFixtureAroundAll
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.testing.postgresql.PostgresAroundEach
+import com.daml.testing.postgresql.PostgresAroundAll
 import com.daml.timer.RetryStrategy
 import io.grpc.Status
 import org.scalatest._
@@ -21,9 +21,9 @@ import scala.concurrent.Future
 class VeryLargeArchiveSpec
     extends AsyncFlatSpec
     with Suite
-    with PostgresAroundEach
+    with PostgresAroundAll
     with SuiteResourceManagementAroundAll
-    with ExtractorFixture
+    with ExtractorFixtureAroundAll
     with Matchers
     with Inside {
   override protected def darFile = new File(rlocation("extractor/VeryLargeArchive.dar"))
