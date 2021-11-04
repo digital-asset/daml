@@ -25,8 +25,6 @@ import com.daml.platform.store.appendonlydao.events.ContractStateEvent
 import com.daml.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
 import com.daml.platform.store.cache.ContractStateValue.{Active, Archived}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.{
-  ContractNotFound,
-  EmptyContractIds,
   EventSequentialId,
   SignalNewLedgerHead,
   SubscribeToContractStateEvents,
@@ -340,7 +338,7 @@ class MutableCacheBackedContractStoreSpec
         _ <- store.lookupActiveContract(Set(bob), cId_3)
         maxLedgerTime <- store.lookupMaximumLedgerTime(Set(cId_2, cId_3, cId_4))
       } yield {
-        maxLedgerTime shouldBe Some(t4)
+        maxLedgerTime shouldBe Right(Some(t4))
       }
     }
 
@@ -350,27 +348,16 @@ class MutableCacheBackedContractStoreSpec
         _ = store.cacheIndex.set(unusedOffset, 2L)
         // populate the cache
         _ <- store.lookupActiveContract(Set(bob), cId_5)
-        assertion <- recoverToSucceededIf[ContractNotFound](
-          store.lookupMaximumLedgerTime(Set(cId_1, cId_5))
-        )
-      } yield assertion
+        letLookup <- store.lookupMaximumLedgerTime(Set(cId_1, cId_5))
+      } yield letLookup shouldBe Left(Set(cId_1))
     }
 
     "fail if one of the fetched contract ids doesn't have an associated active contract" in {
       for {
         store <- contractStore(cachesSize = 0L).asFuture
         _ = store.cacheIndex.set(unusedOffset, 2L)
-        assertion <- recoverToSucceededIf[IllegalArgumentException](
-          store.lookupMaximumLedgerTime(Set(cId_1, cId_5))
-        )
-      } yield assertion
-    }
-
-    "fail if the requested contract id set is empty" in {
-      for {
-        store <- contractStore(cachesSize = 0L).asFuture
-        _ <- recoverToSucceededIf[EmptyContractIds](store.lookupMaximumLedgerTime(Set.empty))
-      } yield succeed
+        letLookup <- store.lookupMaximumLedgerTime(Set(cId_1, cId_5))
+      } yield letLookup shouldBe Left(Set(cId_1, cId_5))
     }
   }
 
