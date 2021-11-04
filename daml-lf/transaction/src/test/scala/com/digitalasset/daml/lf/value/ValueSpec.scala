@@ -7,7 +7,6 @@ package value
 import data.{Bytes, ImmArray, Ref}
 import Value._
 import Ref.{Identifier, Name}
-import com.daml.lf.transaction.TransactionVersion
 import test.ValueGenerators.{cidV0Gen, coidGen, idGen, nameGen}
 import test.TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
 import org.scalacheck.{Arbitrary, Gen}
@@ -30,17 +29,6 @@ class ValueSpec
     with Checkers
     with ScalaCheckPropertyChecks {
   import ValueSpec._
-
-  "VersionedValue" - {
-
-    "does not bump version when" - {
-
-      "ensureNoCid is used " in {
-        val value = VersionedValue(TransactionVersion.minVersion, ValueUnit)
-        value.ensureNoCid.map(_.version) shouldBe Right(TransactionVersion.minVersion)
-      }
-    }
-  }
 
   "ContractID.V1.build" - {
 

@@ -9,7 +9,6 @@ import com.daml.lf.data.Ref.{Identifier, Name}
 import com.daml.lf.data._
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.TransactionVersion
-import com.daml.scalautil.Statement.discard
 import data.ScalazEqual._
 
 import scalaz.{@@, Equal, Order, Tag}
@@ -75,12 +74,6 @@ sealed abstract class Value extends CidContainer[Value] with Product with Serial
     go
   }
 
-  def cids[Cid2 >: ContractId] = {
-    val cids = Set.newBuilder[Cid2]
-    foreach1(x => discard(cids += x))(this)
-    cids.result()
-  }
-
 }
 
 object Value {
@@ -100,13 +93,8 @@ object Value {
 
     override protected def self: this.type = this
 
-    final override def mapCid(f: ContractId => ContractId): VersionedValue =
+    override def mapCid(f: ContractId => ContractId): VersionedValue =
       copy(value = value.mapCid(f))
-
-    def foreach1(f: ContractId => Unit) =
-      value.foreach1(f)
-
-    def cids[Cid2 >: ContractId]: Set[Cid2] = value.cids
   }
 
   object VersionedValue {
