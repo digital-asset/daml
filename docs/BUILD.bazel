@@ -6,6 +6,7 @@ load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_test")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@build_environment//:configuration.bzl", "mvn_version", "sdk_version")
+load("@scala_version//:index.bzl", "scala_major_version")
 
 exports_files(
     [
@@ -316,7 +317,7 @@ genrule(
         "//bazel_tools/sh:mktgz",
         "//docs:generate-error-codes-json",
     ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
-) if not is_windows else None
+) if scala_major_version == "2.13" and not is_windows else None
 
 genrule(
     name = "redirects",
@@ -663,7 +664,7 @@ genrule(
     cmd = "$(location //ledger/error:export-error-codes-json-app) $(location error_codes_export.json)",
     tools = ["//ledger/error:export-error-codes-json-app"],
     visibility = ["//visibility:public"],
-)
+) if scala_major_version == "2.13" else None
 
 exports_files([
     "source/daml-script/template-root/src/ScriptExample.daml",
