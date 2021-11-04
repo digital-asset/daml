@@ -6,10 +6,10 @@ package com.daml.extractor
 import java.io.File
 
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.extractor.services.ExtractorFixture
+import com.daml.extractor.services.ExtractorFixtureAroundAll
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.testing.postgresql.PostgresAroundEach
+import com.daml.testing.postgresql.PostgresAroundAll
 import com.daml.timer.RetryStrategy
 import io.grpc.Status
 import org.scalatest._
@@ -21,9 +21,9 @@ import scala.concurrent.Future
 class VeryLargeArchiveSpec
     extends AsyncFlatSpec
     with Suite
-    with PostgresAroundEach
+    with PostgresAroundAll
     with SuiteResourceManagementAroundAll
-    with ExtractorFixture
+    with ExtractorFixtureAroundAll
     with Matchers
     with Inside {
   override protected def darFile = new File(rlocation("extractor/VeryLargeArchive.dar"))
@@ -50,11 +50,11 @@ class VeryLargeArchiveSpec
   // future editors of this test should not feel obliged to synthesize a failure
   // if the system design has really changed so failures of this nature cannot
   // happen.
-  val failMB = 1
-  val successMB = 10
+  val failBytes = 1024 // 1 KB
+  val successBytes = 10 * 1024 * 1024 // 10 MB
 
-  s"${failMB}MiB" should "fail" in {
-    runWithInboundLimit(failMB * 1024 * 1024) {
+  s"running with a limit of ${failBytes}B" should "fail" in {
+    runWithInboundLimit(failBytes) {
       fail("shouldn't successfully run")
     }.recover {
       case RetryStrategy.FailedRetryException(
@@ -64,8 +64,8 @@ class VeryLargeArchiveSpec
     }
   }
 
-  s"${successMB}MiB" should "succeed" in {
-    runWithInboundLimit(successMB * 1024 * 1024) {
+  s"running with a limit of ${successBytes}B" should "succeed" in {
+    runWithInboundLimit(successBytes) {
       succeed
     }
   }

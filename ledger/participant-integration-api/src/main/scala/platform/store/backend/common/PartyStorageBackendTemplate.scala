@@ -17,9 +17,7 @@ import com.daml.platform.store.backend.PartyStorageBackend
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.daml.platform.store.entries.PartyLedgerEntry
 
-trait PartyStorageBackendTemplate extends PartyStorageBackend {
-
-  def queryStrategy: QueryStrategy
+class PartyStorageBackendTemplate(queryStrategy: QueryStrategy) extends PartyStorageBackend {
 
   private val SQL_GET_PARTY_ENTRIES = SQL(
     """select * from party_entries

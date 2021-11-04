@@ -27,6 +27,7 @@ da_scala_library(
         "//compiler/scenario-service:__subpackages__",
         "//daml-lf:__subpackages__",
         "//daml-script:__subpackages__",
+        "//extractor:__subpackages__",
         "//ledger:__subpackages__",
         "//triggers:__subpackages__",
     ],

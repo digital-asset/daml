@@ -368,16 +368,16 @@ test("createAndExercise", async () => {
 
   const [result, events] = await ledger.createAndExercise(
     buildAndLint.Main.Person.Birthday,
-    {name: 'Alice', party: ALICE_PARTY, age: '5', friends: []},
+    {name: 'Alice', party: ALICE_PARTY, age: '10', friends: []},
     {});
   expect(events).toMatchObject(
     [{created: {templateId: buildAndLint.Main.Person.templateId,
                 signatories: [ALICE_PARTY],
-                payload: {name: 'Alice', age: '5'}}},
+                payload: {name: 'Alice', age: '10'}}},
      {archived: {templateId: buildAndLint.Main.Person.templateId}},
      {created: {templateId: buildAndLint.Main.Person.templateId,
                 signatories: [ALICE_PARTY],
-                payload: {name: 'Alice', age: '6'}}}]);
+                payload: {name: 'Alice', age: '11'}}}]);
   expect((events[0] as {created: {contractId: string}}).created.contractId).toEqual((events[1] as {archived: {contractId: string}}).archived.contractId);
   expect(result).toEqual((events[2] as {created: {contractId: string}}).created.contractId);
 });

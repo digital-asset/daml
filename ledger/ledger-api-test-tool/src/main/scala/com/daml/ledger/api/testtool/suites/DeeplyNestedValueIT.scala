@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
@@ -56,7 +57,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
     // The nesting of the key of a `ContractWithKey` is one more than the nat it contains
     val nKey = n - 1
 
-    def test[T](description: String)(
+    def test[T](description: String, errorCodeIfExpected: ErrorCode)(
         update: ExecutionContext => (
             ParticipantTestContext,
             Party,
@@ -74,7 +75,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
               alpha,
               err,
               Status.Code.INVALID_ARGUMENT,
-              LedgerApiErrors.PreprocessingErrors.PreprocessingFailed,
+              errorCodeIfExpected,
               None,
               checkDefiniteAnswerMetadata = true,
             )
@@ -83,22 +84,27 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
         }
       })
 
-    test("create command") { implicit ec => (alpha, party) =>
-      waitForTransactionId(alpha, party, Contract(party, nContract, toNat(nContract)).create)
+    test("create command", LedgerApiErrors.PreprocessingErrors.PreprocessingFailed) {
+      implicit ec => (alpha, party) =>
+        waitForTransactionId(alpha, party, Contract(party, nContract, toNat(nContract)).create)
     }
 
-    test("exercise command") { implicit ec => (alpha, party) =>
-      for {
-        handler <- alpha.create(party, Handler(party))
-        result <- waitForTransactionId(
-          alpha,
-          party,
-          handler.exerciseDestruct(party, toNat(nChoiceArgument)),
-        )
-      } yield result
+    test("exercise command", LedgerApiErrors.PreprocessingErrors.PreprocessingFailed) {
+      implicit ec => (alpha, party) =>
+        for {
+          handler <- alpha.create(party, Handler(party))
+          result <- waitForTransactionId(
+            alpha,
+            party,
+            handler.exerciseDestruct(party, toNat(nChoiceArgument)),
+          )
+        } yield result
     }
 
-    test("create argument in CreateAndExercise command") { implicit ec => (alpha, party) =>
+    test(
+      "create argument in CreateAndExercise command",
+      LedgerApiErrors.PreprocessingErrors.PreprocessingFailed,
+    ) { implicit ec => (alpha, party) =>
       waitForTransactionId(
         alpha,
         party,
@@ -107,7 +113,10 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       )
     }
 
-    test("choice argument in CreateAndExercise command") { implicit ec => (alpha, party) =>
+    test(
+      "choice argument in CreateAndExercise command",
+      LedgerApiErrors.PreprocessingErrors.PreprocessingFailed,
+    ) { implicit ec => (alpha, party) =>
       waitForTransactionId(
         alpha,
         party,
@@ -115,7 +124,10 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       )
     }
 
-    test("exercise argument") { implicit ec => (alpha, party) =>
+    test(
+      "exercise argument",
+      LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError,
+    ) { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
         result <-
@@ -127,41 +139,48 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       } yield result
     }
 
-    test("exercise output") { implicit ec => (alpha, party) =>
-      for {
-        handler <- alpha.create(party, Handler(party))
-        result <-
-          waitForTransactionId(alpha, party, handler.exerciseConstruct(party, n))
-      } yield result
+    test("exercise output", LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError) {
+      implicit ec => (alpha, party) =>
+        for {
+          handler <- alpha.create(party, Handler(party))
+          result <-
+            waitForTransactionId(alpha, party, handler.exerciseConstruct(party, n))
+        } yield result
     }
 
-    test("create argument") { implicit ec => (alpha, party) =>
-      for {
-        handler <- alpha.create(party, Handler(party))
-        result <- waitForTransactionId(alpha, party, handler.exerciseCreate(party, nContract))
-      } yield result
+    test("create argument", LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError) {
+      implicit ec => (alpha, party) =>
+        for {
+          handler <- alpha.create(party, Handler(party))
+          result <- waitForTransactionId(alpha, party, handler.exerciseCreate(party, nContract))
+        } yield result
     }
 
-    test("contract key") { implicit ec => (alpha, party) =>
-      for {
-        handler <- alpha.create(party, Handler(party))
-        result <- waitForTransactionId(alpha, party, handler.exerciseCreateKey(party, nKey))
-      } yield result
+    test("contract key", LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError) {
+      implicit ec => (alpha, party) =>
+        for {
+          handler <- alpha.create(party, Handler(party))
+          result <- waitForTransactionId(alpha, party, handler.exerciseCreateKey(party, nKey))
+        } yield result
     }
 
     if (accepted) {
       // Because we cannot create contracts with nesting > 100,
       // it does not make sense to test fetch of those kinds of contracts.
-      test("fetch by key") { implicit ec => (alpha, party) =>
-        for {
-          handler <- alpha.create(party, Handler(party))
-          _ <- alpha.exercise(party, handler.exerciseCreateKey(_, nKey))
-          result <- waitForTransactionId(alpha, party, handler.exerciseFetchByKey(party, nKey))
-        } yield result
+      test("fetch by key", LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError) {
+        implicit ec => (alpha, party) =>
+          for {
+            handler <- alpha.create(party, Handler(party))
+            _ <- alpha.exercise(party, handler.exerciseCreateKey(_, nKey))
+            result <- waitForTransactionId(alpha, party, handler.exerciseFetchByKey(party, nKey))
+          } yield result
       }
     }
 
-    test("failing lookup by key") { implicit ec => (alpha, party) =>
+    test(
+      "failing lookup by key",
+      LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError,
+    ) { implicit ec => (alpha, party) =>
       for {
         handler <- alpha.create(party, Handler(party))
         result <- waitForTransactionId(alpha, party, handler.exerciseLookupByKey(party, nKey))
@@ -171,7 +190,10 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
     if (accepted) {
       // Because we cannot create contracts with key nesting > 100,
       // it does not make sens to test successful lookup for those keys.
-      test("successful lookup by key") { implicit ec => (alpha, party) =>
+      test(
+        "successful lookup by key",
+        LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError,
+      ) { implicit ec => (alpha, party) =>
         for {
           handler <- alpha.create(party, Handler(party))
           _ <- alpha.exercise(party, handler.exerciseCreateKey(_, nKey))

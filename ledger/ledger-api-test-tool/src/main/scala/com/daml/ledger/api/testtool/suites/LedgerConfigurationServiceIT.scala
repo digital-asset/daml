@@ -3,14 +3,14 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import java.util.regex.Pattern
+
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.test.model.Test.Dummy
 import io.grpc.Status
-
-import java.util.regex.Pattern
 
 class LedgerConfigurationServiceIT extends LedgerTestSuite {
   test("ConfigSucceeds", "Return a valid configuration for a valid request", allocate(NoParties))(
@@ -63,7 +63,7 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
 
   test(
     "CSLSuccessIfMaxDeduplicationTimeExceeded",
-    "Submission returns INVALID_ARGUMENT if deduplication time is too big",
+    "Submission returns expected error codes if deduplication time is too big",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger.submitRequest(party, Dummy(party).create.command)
@@ -80,11 +80,18 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
         )
         .mustFail("submitting a command with a deduplication time that is too big")
     } yield {
+      val expectedCode =
+        if (ledger.features.selfServiceErrorCodes) Status.Code.FAILED_PRECONDITION
+        else Status.Code.INVALID_ARGUMENT
+      val expectedError =
+        if (ledger.features.selfServiceErrorCodes)
+          LedgerApiErrors.CommandValidation.InvalidDeduplicationPeriodField
+        else LedgerApiErrors.CommandValidation.InvalidField
       assertGrpcErrorRegex(
         ledger,
         failure,
-        Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.CommandValidation.InvalidField,
+        expectedCode,
+        expectedError,
         Some(
           Pattern.compile(
             "The given deduplication duration .+ exceeds the maximum deduplication time of .+"

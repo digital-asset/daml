@@ -4,6 +4,7 @@
 package com.daml.platform.store.appendonlydao.events
 
 import java.sql.Connection
+
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
@@ -29,7 +30,7 @@ import com.daml.platform.store.appendonlydao.{
   PaginatingAsyncStream,
 }
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
-import com.daml.platform.store.backend.StorageBackend
+import com.daml.platform.store.backend.{ContractStorageBackend, EventStorageBackend}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.utils.Telemetry
 import com.daml.telemetry
@@ -49,7 +50,8 @@ import scala.util.{Failure, Success}
 private[appendonlydao] final class TransactionsReader(
     dispatcher: DbDispatcher,
     queryNonPruned: QueryNonPruned,
-    storageBackend: StorageBackend[_],
+    eventStorageBackend: EventStorageBackend,
+    contractStorageBackend: ContractStorageBackend,
     pageSize: Int,
     eventProcessingParallelism: Int,
     metrics: Metrics,
@@ -59,11 +61,11 @@ private[appendonlydao] final class TransactionsReader(
 
   private val dbMetrics = metrics.daml.index.db
   private val eventSeqIdReader =
-    new EventsRange.EventSeqIdReader(storageBackend.maxEventSequentialIdOfAnObservableEvent)
+    new EventsRange.EventSeqIdReader(eventStorageBackend.maxEventSequentialIdOfAnObservableEvent)
   private val getTransactions =
-    new EventsTableFlatEventsRangeQueries.GetTransactions(storageBackend)
+    new EventsTableFlatEventsRangeQueries.GetTransactions(eventStorageBackend)
   private val getActiveContracts =
-    new EventsTableFlatEventsRangeQueries.GetActiveContracts(storageBackend)
+    new EventsTableFlatEventsRangeQueries.GetActiveContracts(eventStorageBackend)
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -156,7 +158,7 @@ private[appendonlydao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
     dispatcher
       .executeSql(dbMetrics.lookupFlatTransactionById)(
-        storageBackend.flatTransaction(
+        eventStorageBackend.flatTransaction(
           transactionId,
           FilterParams(
             wildCardParties = requestingParties,
@@ -193,7 +195,7 @@ private[appendonlydao] final class TransactionsReader(
       queryNonPruned.executeSql(
         EventsRange.readPage(
           read = (range, limit, fetchSizeHint) =>
-            storageBackend.transactionTreeEvents(
+            eventStorageBackend.transactionTreeEvents(
               rangeParams = RangeParams(
                 startExclusive = range.startExclusive,
                 endInclusive = range.endInclusive,
@@ -256,7 +258,7 @@ private[appendonlydao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     dispatcher
       .executeSql(dbMetrics.lookupTransactionTreeById)(
-        storageBackend.transactionTree(
+        eventStorageBackend.transactionTree(
           transactionId,
           FilterParams(
             wildCardParties = requestingParties,
@@ -306,7 +308,7 @@ private[appendonlydao] final class TransactionsReader(
       .mapAsync(eventProcessingParallelism) { range =>
         dispatcher.executeSql(dbMetrics.getTransactionLogUpdates) { implicit conn =>
           queryNonPruned.executeSql(
-            query = storageBackend.rawEvents(
+            query = eventStorageBackend.rawEvents(
               startExclusive = range.startExclusive,
               endInclusive = range.endInclusive,
             )(conn),
@@ -436,7 +438,7 @@ private[appendonlydao] final class TransactionsReader(
       .mapAsync(eventProcessingParallelism) { range =>
         dispatcher.executeSql(dbMetrics.getContractStateEvents) { implicit conn =>
           queryNonPruned.executeSql(
-            storageBackend
+            contractStorageBackend
               .contractStateEvents(range.startExclusive, range.endInclusive)(conn),
             startExclusive._1,
             pruned =>

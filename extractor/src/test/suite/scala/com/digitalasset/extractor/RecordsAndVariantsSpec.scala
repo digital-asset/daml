@@ -13,6 +13,7 @@ import io.circe.parser._
 import org.scalatest.{Inside, Suite}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import scalaz.NonEmptyList
 import scalaz.Scalaz._
 
 class RecordsAndVariantsSpec
@@ -25,9 +26,13 @@ class RecordsAndVariantsSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File(rlocation("extractor/RecordsAndVariants.dar"))
+  override protected def darFile = new File(rlocation("extractor/test.dar"))
 
-  override def scenario: Option[String] = Some("RecordsAndVariants:suite")
+  override protected val initScript = Some("RecordsAndVariants:suite")
+
+  override protected val parties = NonEmptyList("Suite")
+
+  private val party: String = parties.head
 
   "Contracts" should "be extracted" in {
     val contracts = getContracts
@@ -39,9 +44,9 @@ class RecordsAndVariantsSpec
     val contractsJson = getContracts.map(_.create_arguments)
 
     val expected = List(
-      """
+      s"""
         {
-          "party" : "Bob",
+          "party" : "$party",
           "reference" : "All-in-one",
           "deepNested" : {
             "tag" : "MaybeRecRecordABRight",

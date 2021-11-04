@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.backend
 
-import com.daml.platform.store.backend.postgresql.PostgresStorageBackend
+import com.daml.platform.store.backend.postgresql.PostgresDataSourceStorageBackend
 import org.scalatest.Inside
 import org.scalatest.flatspec.AsyncFlatSpec
 
@@ -18,7 +18,7 @@ final class StorageBackendPostgresSpec
 
   it should "find the Postgres version" in {
     for {
-      version <- executeSql(PostgresStorageBackend.getPostgresVersion)
+      version <- executeSql(PostgresDataSourceStorageBackend.getPostgresVersion)
     } yield {
       inside(version) { case Some(versionNumbers) =>
         // Minimum Postgres version used in tests
@@ -29,9 +29,9 @@ final class StorageBackendPostgresSpec
   }
 
   it should "correctly parse a Postgres version" in {
-    PostgresStorageBackend.parsePostgresVersion("1.2") shouldBe Some((1, 2))
-    PostgresStorageBackend.parsePostgresVersion("1.2.3") shouldBe Some((1, 2))
-    PostgresStorageBackend.parsePostgresVersion("1.2.3-alpha.4.5") shouldBe Some((1, 2))
-    PostgresStorageBackend.parsePostgresVersion("10.11") shouldBe Some((10, 11))
+    PostgresDataSourceStorageBackend.parsePostgresVersion("1.2") shouldBe Some((1, 2))
+    PostgresDataSourceStorageBackend.parsePostgresVersion("1.2.3") shouldBe Some((1, 2))
+    PostgresDataSourceStorageBackend.parsePostgresVersion("1.2.3-alpha.4.5") shouldBe Some((1, 2))
+    PostgresDataSourceStorageBackend.parsePostgresVersion("10.11") shouldBe Some((10, 11))
   }
 }

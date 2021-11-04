@@ -35,14 +35,11 @@ class MultiPartySpec
     with Matchers
     with ScalaCheckDrivenPropertyChecks {
 
-  override protected def darFile = new File(rlocation("extractor/RecordsAndVariants.dar"))
+  override protected def darFile = new File(rlocation("extractor/test.dar"))
 
-  override def scenario: Option[String] = Some("RecordsAndVariants:multiParty")
+  override protected val initScript = Some("RecordsAndVariants:multiParty")
 
-  override def configureExtractor(ec: ExtractorConfig): ExtractorConfig = {
-    val ec2 = super.configureExtractor(ec)
-    ec2.copy(parties = OneAnd(Party assertFromString "Alice", ec2.parties.toList))
-  }
+  override protected val parties = NonEmptyList(1, 2).map(n => s"MultiParty$n")
 
   private[this] implicit def partyArb: Arbitrary[Party] = Arbitrary(partyGen)
   private[this] val readParties = implicitly[scopt.Read[ExtractorConfig.Parties]]

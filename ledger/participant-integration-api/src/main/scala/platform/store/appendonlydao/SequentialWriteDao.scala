@@ -23,7 +23,8 @@ object NoopSequentialWriteDao extends SequentialWriteDao {
 }
 
 case class SequentialWriteDaoImpl[DB_BATCH](
-    storageBackend: IngestionStorageBackend[DB_BATCH] with ParameterStorageBackend,
+    ingestionStorageBackend: IngestionStorageBackend[DB_BATCH],
+    parameterStorageBackend: ParameterStorageBackend,
     updateToDbDtos: Offset => state.Update => Iterator[DbDto],
     ledgerEndCache: MutableLedgerEndCache,
 ) extends SequentialWriteDao {
@@ -33,7 +34,7 @@ case class SequentialWriteDaoImpl[DB_BATCH](
 
   private def lazyInit(connection: Connection): Unit =
     if (!lastEventSeqIdInitialized) {
-      lastEventSeqId = storageBackend.ledgerEndOrBeforeBegin(connection).lastEventSeqId
+      lastEventSeqId = parameterStorageBackend.ledgerEndOrBeforeBegin(connection).lastEventSeqId
       lastEventSeqIdInitialized = true
     }
 
@@ -60,10 +61,10 @@ case class SequentialWriteDaoImpl[DB_BATCH](
         .getOrElse(Vector.empty)
 
       dbDtos
-        .pipe(storageBackend.batch)
-        .pipe(storageBackend.insertBatch(connection, _))
+        .pipe(ingestionStorageBackend.batch)
+        .pipe(ingestionStorageBackend.insertBatch(connection, _))
 
-      storageBackend.updateLedgerEnd(
+      parameterStorageBackend.updateLedgerEnd(
         ParameterStorageBackend.LedgerEnd(
           lastOffset = offset,
           lastEventSeqId = lastEventSeqId,

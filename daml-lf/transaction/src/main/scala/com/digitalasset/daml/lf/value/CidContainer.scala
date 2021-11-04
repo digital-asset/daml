@@ -23,6 +23,14 @@ trait CidContainer[+A] {
     }))
   }
 
+  def cids: Set[ContractId] = collectCids(Set.empty)
+
+  def collectCids(acc: Set[ContractId]): Set[ContractId] = {
+    var acc_ = acc
+    foreachCid(cid => discard(acc_ += cid))
+    acc_
+  }
+
   // We cheat using exceptions, to get a cheap implementation of traverse using the `map` function above.
   // In practice, we abort the traversal using an exception as soon as we find an input we cannot map.
   def traverseCid[L](f: ContractId => Either[L, ContractId]): Either[L, A] = {
@@ -34,21 +42,22 @@ trait CidContainer[+A] {
     }
   }
 
+  @deprecated("use cids method instead", since = "1.18.0")
   final def ensureNoCid: Either[Value.ContractId, A] =
     traverseCid[Value.ContractId](Left(_))
 
+  @deprecated("use foreachCid or cids method instead", since = "1.18.0")
   final def assertNoCid(message: Value.ContractId => String): A =
     data.assertRight(ensureNoCid.left.map(message))
 
   // Sets the suffix of any the V1 ContractId `coid` of the container that are not already suffixed.
   // Uses `f(coid.discriminator)` as suffix.
-  final def suffixCid(f: crypto.Hash => Bytes): Either[String, A] = {
+  final def suffixCid(f: crypto.Hash => Bytes): Either[String, A] =
     traverseCid[String] {
       case Value.ContractId.V1(discriminator, Bytes.Empty) =>
         Value.ContractId.V1.build(discriminator, f(discriminator))
       case acoid @ Value.ContractId.V1(_, _) => Right(acoid)
       case acoid @ Value.ContractId.V0(_) => Right(acoid)
     }
-  }
 
 }

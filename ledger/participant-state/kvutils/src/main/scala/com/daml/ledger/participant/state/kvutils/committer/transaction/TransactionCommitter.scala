@@ -77,6 +77,7 @@ private[kvutils] class TransactionCommitter(
     "check_informee_parties_allocation" -> checkInformeePartiesAllocation,
     "overwrite_deduplication_period" -> overwriteDeduplicationPeriodWithMaxDuration,
     "deduplicate" -> deduplicateCommand,
+    "set_time_bounds" -> TimeBoundBindingStep.setTimeBoundsInContextStep(defaultConfig),
     "validate_ledger_time" -> ledgerTimeValidator.createValidationStep(rejections),
     "validate_model_conformance" -> modelConformanceValidator.createValidationStep(rejections),
     "validate_consistency" -> TransactionConsistencyValidator.createValidationStep(rejections),
@@ -328,13 +329,14 @@ private[kvutils] class TransactionCommitter(
     if (!transactionEntry.submitterInfo.hasDeduplicationDuration) {
       throw Err.InvalidSubmission("Deduplication duration is not set.")
     }
-    val commandDedupBuilder = DamlCommandDedupValue.newBuilder.setDeduplicatedUntil(
-      Conversions.buildTimestamp(
-        transactionEntry.submissionTime
-          .add(parseDuration(transactionEntry.submitterInfo.getDeduplicationDuration))
-          .add(config.timeModel.minSkew)
-      )
+    val deduplicateUntil = Conversions.buildTimestamp(
+      transactionEntry.submissionTime
+        .add(parseDuration(transactionEntry.submitterInfo.getDeduplicationDuration))
+        .add(config.timeModel.minSkew)
     )
+    val commandDedupBuilder = DamlCommandDedupValue.newBuilder
+      .setDeduplicatedUntil(deduplicateUntil)
+      .setSubmissionTime(Conversions.buildTimestamp(transactionEntry.submissionTime))
     // Set a deduplication entry.
     commitContext.set(
       commandDedupKey(transactionEntry.submitterInfo),

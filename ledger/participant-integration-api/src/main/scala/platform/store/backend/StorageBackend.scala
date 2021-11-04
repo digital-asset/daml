@@ -14,13 +14,11 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.ledger.EventId
 import com.daml.logging.LoggingContext
 import com.daml.platform
-import com.daml.platform.store.{DbType, EventSequentialId}
+import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Raw}
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
-import com.daml.platform.store.backend.h2.H2StorageBackend
-import com.daml.platform.store.backend.oracle.OracleStorageBackend
-import com.daml.platform.store.backend.postgresql.{PostgresDataSourceConfig, PostgresStorageBackend}
+import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.scalautil.NeverEqualsOverride
@@ -48,7 +46,11 @@ trait StorageBackend[DB_BATCH]
     with EventStorageBackend
     with DataSourceStorageBackend
     with DBLockStorageBackend
-    with IntegrityStorageBackend {
+    with IntegrityStorageBackend
+    with ResetStorageBackend
+    with StringInterningStorageBackend
+
+trait ResetStorageBackend {
 
   /** Truncates all storage backend tables, EXCEPT the packages table.
     * Does not touch other tables, like the Flyway history table.
@@ -351,6 +353,12 @@ trait IntegrityStorageBackend {
   def verifyIntegrity()(connection: Connection): Unit
 }
 
+trait StringInterningStorageBackend {
+  def loadStringInterningEntries(fromIdExclusive: Int, untilIdInclusive: Int)(
+      connection: Connection
+  ): Iterable[(Int, String)]
+}
+
 object StorageBackend {
   case class RawContractState(
       templateId: Option[String],
@@ -411,11 +419,4 @@ object StorageBackend {
       eventSequentialId: Long,
       offset: Offset,
   ) extends NeverEqualsOverride
-
-  def of(dbType: DbType): StorageBackend[_] =
-    dbType match {
-      case DbType.H2Database => H2StorageBackend
-      case DbType.Postgres => PostgresStorageBackend
-      case DbType.Oracle => OracleStorageBackend
-    }
 }

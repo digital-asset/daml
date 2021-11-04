@@ -20,21 +20,44 @@ load(
     ":extractor.bzl",
     "extractor_test",
 )
+load("@build_environment//:configuration.bzl", "sdk_version")
 
-TEST_DARS = [
-    "RecordsAndVariants",
-    "PrimitiveTypes",
-    "TransactionExample",
-]
-
-[
-    daml_compile(
-        name = darmod,
-        srcs = ["src/test/resources/damls/%s.daml" % darmod],
-        target = lf_version_configuration.get("default"),
-    )
-    for darmod in TEST_DARS
-]
+genrule(
+    name = "test-dar",
+    srcs = [
+        "//daml-script/daml:daml-script.dar",
+        ":src/test/resources/damls/EnumMod.daml",
+        ":src/test/resources/damls/GenMapMod.daml",
+        ":src/test/resources/damls/PrimitiveTypes.daml",
+        ":src/test/resources/damls/RecordsAndVariants.daml",
+        ":src/test/resources/damls/TransactionExample.daml",
+    ],
+    outs = ["test.dar"],
+    cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location :src/test/resources/damls/EnumMod.daml) $$TMP_DIR/daml
+      cp -L $(location :src/test/resources/damls/GenMapMod.daml) $$TMP_DIR/daml
+      cp -L $(location :src/test/resources/damls/RecordsAndVariants.daml) $$TMP_DIR/daml
+      cp -L $(location :src/test/resources/damls/PrimitiveTypes.daml) $$TMP_DIR/daml
+      cp -L $(location :src/test/resources/damls/TransactionExample.daml) $$TMP_DIR/daml
+      cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: test
+source: daml
+version: 0.0.1
+dependencies:
+  - daml-stdlib
+  - daml-prim
+  - daml-script.dar
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location test.dar)
+      rm -rf $$TMP_DIR
+    """.format(sdk = sdk_version),
+    tools = ["//compiler/damlc"],
+)
 
 genrule(
     name = "VeryLargeArchive_src",
@@ -79,6 +102,11 @@ daml_compile(
 da_scala_library(
     name = "extractor",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    data = [
+        "//daml-script/test:script-test.dar",
+        "//daml-script/test:script-test-1.dev.dar",
+        "//extractor:test-dar",
+    ],
     plugins = [
         silencer_plugin,
     ],
@@ -160,6 +188,7 @@ da_scala_library(
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:io_circe_circe_core",
         "@maven//:io_circe_circe_parser",
+        "@maven//:io_spray_spray_json",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
@@ -186,8 +215,14 @@ da_scala_library(
     ],
     deps = [
         ":extractor",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/interface",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-script/runner:script-runner-lib",
+        "//daml-script/test:test-utils",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
@@ -195,8 +230,8 @@ da_scala_library(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
-        "//ledger/sandbox-classic",
-        "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
+        "//ledger/sandbox",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//libs-scala/auth-utils",

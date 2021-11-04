@@ -313,6 +313,23 @@ class ErrorFactoriesSpec
       }
     }
 
+    "return an invalid deduplication period error" in {
+      val errorDetailMessage = "message"
+      val field = "field"
+      assertVersionedError(_.invalidDeduplicationDuration(field, errorDetailMessage, None))(
+        v1_code = Code.INVALID_ARGUMENT,
+        v1_message = s"Invalid field $field: $errorDetailMessage",
+        v1_details = Seq.empty,
+        v2_code = Code.FAILED_PRECONDITION,
+        v2_message =
+          s"INVALID_DEDUPLICATION_PERIOD(9,trace-id): The submitted command had an invalid deduplication period: $errorDetailMessage",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("INVALID_DEDUPLICATION_PERIOD"),
+          DefaultTraceIdRequestInfo,
+        ),
+      )
+    }
+
     "return an invalidField error" in {
       val testCases = Table(
         ("definite answer", "expected details"),
@@ -562,7 +579,7 @@ class ErrorFactoriesSpec
     status.getCode shouldBe expectedCode.value()
     status.getMessage shouldBe expectedMessage
     val details = status.getDetailsList.asScala.toSeq
-    val _ = ErrorDetails.from(details) should contain theSameElementsAs (expectedDetails)
+    val _ = ErrorDetails.from(details) should contain theSameElementsAs expectedDetails
     // TODO error codes: Assert logging
   }
 }

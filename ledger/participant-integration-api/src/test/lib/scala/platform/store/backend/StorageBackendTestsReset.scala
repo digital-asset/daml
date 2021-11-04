@@ -11,18 +11,34 @@ import scala.concurrent.Future
 private[backend] trait StorageBackendTestsReset extends Matchers with StorageBackendSpec {
   this: AsyncFlatSpec =>
 
+  private val parameterStorageBackend: ParameterStorageBackend =
+    backendFactory.createParameterStorageBackend
+  private val configurationStorageBackend: ConfigurationStorageBackend =
+    backendFactory.createConfigurationStorageBackend
+  private val partyStorageBackend: PartyStorageBackend = backendFactory.createPartyStorageBackend
+  private val packageStorageBackend: PackageStorageBackend =
+    backendFactory.createPackageStorageBackend
+  private val contractStorageBackend: ContractStorageBackend =
+    backendFactory.createContractStorageBackend
+  private val stringInterningStorageBackend: StringInterningStorageBackend =
+    backendFactory.createStringInterningStorageBackend
+  private val resetStorageBackend: ResetStorageBackend = backendFactory.createResetStorageBackend
+
   behavior of "StorageBackend (reset)"
 
   import StorageBackendTestValues._
 
   it should "start with an empty index" in {
     for {
-      identity <- executeSql(backend.ledgerIdentity)
-      end <- executeSql(backend.ledgerEnd)
-      parties <- executeSql(backend.knownParties)
-      config <- executeSql(backend.ledgerConfiguration)
-      packages <- executeSql(backend.lfPackages)
-      events <- executeSql(backend.contractStateEvents(0, Long.MaxValue))
+      identity <- executeSql(parameterStorageBackend.ledgerIdentity)
+      end <- executeSql(parameterStorageBackend.ledgerEnd)
+      parties <- executeSql(partyStorageBackend.knownParties)
+      config <- executeSql(configurationStorageBackend.ledgerConfiguration)
+      packages <- executeSql(packageStorageBackend.lfPackages)
+      events <- executeSql(contractStorageBackend.contractStateEvents(0, Long.MaxValue))
+      stringInterningEntries <- executeSql(
+        stringInterningStorageBackend.loadStringInterningEntries(0, 1000)
+      )
     } yield {
       identity shouldBe None
       end shouldBe None
@@ -30,15 +46,16 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       packages shouldBe empty
       events shouldBe empty
       config shouldBe None
+      stringInterningEntries shouldBe empty
     }
   }
 
   it should "not see any data after advancing the ledger end" in {
     for {
       _ <- advanceLedgerEndToMakeOldDataVisible()
-      parties <- executeSql(backend.knownParties)
-      config <- executeSql(backend.ledgerConfiguration)
-      packages <- executeSql(backend.lfPackages)
+      parties <- executeSql(partyStorageBackend.knownParties)
+      config <- executeSql(configurationStorageBackend.ledgerConfiguration)
+      packages <- executeSql(packageStorageBackend.lfPackages)
     } yield {
       parties shouldBe empty
       packages shouldBe empty
@@ -62,27 +79,31 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       dtoExercise(offset(5), 2L, true, "#4"),
       dtoDivulgence(Some(offset(5)), 3L, "#4"),
       dtoCompletion(offset(5)),
+      DbDto.StringInterningDto(2, "2"),
     )
 
     for {
       // Initialize and insert some data
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(backend.updateLedgerEnd(ledgerEnd(5, 3L)))
+      _ <- executeSql(parameterStorageBackend.updateLedgerEnd(ledgerEnd(5, 3L)))
 
       // Reset
-      _ <- executeSql(backend.reset)
+      _ <- executeSql(resetStorageBackend.reset)
 
       // Check the contents
-      identity <- executeSql(backend.ledgerIdentity)
-      end <- executeSql(backend.ledgerEnd)
-      events <- executeSql(backend.contractStateEvents(0, Long.MaxValue))
+      identity <- executeSql(parameterStorageBackend.ledgerIdentity)
+      end <- executeSql(parameterStorageBackend.ledgerEnd)
+      events <- executeSql(contractStorageBackend.contractStateEvents(0, Long.MaxValue))
 
       // Check the contents (queries that don't read beyond ledger end)
       _ <- advanceLedgerEndToMakeOldDataVisible()
-      parties <- executeSql(backend.knownParties)
-      config <- executeSql(backend.ledgerConfiguration)
-      packages <- executeSql(backend.lfPackages)
+      parties <- executeSql(partyStorageBackend.knownParties)
+      config <- executeSql(configurationStorageBackend.ledgerConfiguration)
+      packages <- executeSql(packageStorageBackend.lfPackages)
+      stringInterningEntries <- executeSql(
+        stringInterningStorageBackend.loadStringInterningEntries(0, 1000)
+      )
     } yield {
       identity shouldBe None
       end shouldBe None
@@ -90,6 +111,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       packages should not be empty // Note: reset() does not delete packages
       events shouldBe empty
       config shouldBe None
+      stringInterningEntries shouldBe empty
     }
   }
 
@@ -113,23 +135,26 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
 
     for {
       // Initialize and insert some data
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(backend.updateLedgerEnd(ledgerEnd(5, 3L)))
+      _ <- executeSql(parameterStorageBackend.updateLedgerEnd(ledgerEnd(5, 3L)))
 
       // Reset
-      _ <- executeSql(backend.resetAll)
+      _ <- executeSql(resetStorageBackend.resetAll)
 
       // Check the contents (queries that do not depend on ledger end)
-      identity <- executeSql(backend.ledgerIdentity)
-      end <- executeSql(backend.ledgerEnd)
-      events <- executeSql(backend.contractStateEvents(0, Long.MaxValue))
+      identity <- executeSql(parameterStorageBackend.ledgerIdentity)
+      end <- executeSql(parameterStorageBackend.ledgerEnd)
+      events <- executeSql(contractStorageBackend.contractStateEvents(0, Long.MaxValue))
 
       // Check the contents (queries that don't read beyond ledger end)
       _ <- advanceLedgerEndToMakeOldDataVisible()
-      parties <- executeSql(backend.knownParties)
-      config <- executeSql(backend.ledgerConfiguration)
-      packages <- executeSql(backend.lfPackages)
+      parties <- executeSql(partyStorageBackend.knownParties)
+      config <- executeSql(configurationStorageBackend.ledgerConfiguration)
+      packages <- executeSql(packageStorageBackend.lfPackages)
+      stringInterningEntries <- executeSql(
+        stringInterningStorageBackend.loadStringInterningEntries(0, 1000)
+      )
     } yield {
       identity shouldBe None
       end shouldBe None
@@ -137,6 +162,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       packages shouldBe empty // Note: resetAll() does delete packages
       events shouldBe empty
       config shouldBe None
+      stringInterningEntries shouldBe empty
     }
   }
 
@@ -145,8 +171,8 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
   // queries now find any left-over data not cleaned by reset.
   private def advanceLedgerEndToMakeOldDataVisible(): Future[Unit] = {
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
-      _ <- executeSql(backend.updateLedgerEnd(ledgerEnd(10000, 10000)))
+      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
+      _ <- executeSql(parameterStorageBackend.updateLedgerEnd(ledgerEnd(10000, 10000)))
     } yield ()
   }
 }

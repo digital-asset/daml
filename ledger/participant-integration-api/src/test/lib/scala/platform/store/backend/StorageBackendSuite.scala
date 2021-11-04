@@ -15,6 +15,7 @@ trait StorageBackendSuite
     with StorageBackendTestsDBLockForSuite
     with StorageBackendTestsIntegrity
     with StorageBackendTestsDeduplication
-    with StorageBackendTestsTimestamps {
+    with StorageBackendTestsTimestamps
+    with StorageBackendTestsStringInterning {
   this: AsyncFlatSpec =>
 }

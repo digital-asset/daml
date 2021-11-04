@@ -10,11 +10,13 @@ from typing import Dict, Any
 import json
 
 error_codes_data = {}
+group_data = {}
 
 CONFIG_OPT = 'error_codes_json_export'
 
 def load_data(app, config):
     global error_codes_data
+    global group_data
 
     if CONFIG_OPT in config:
         file_name = config[CONFIG_OPT]
@@ -22,6 +24,7 @@ def load_data(app, config):
             with open(file_name) as f:
                 tmp = json.load(f)
                 error_codes_data = {error["code"]: error for error in tmp["errorCodes"]}
+                group_data = {group["className"]: group for group in tmp["groups"]}
         except EnvironmentError:
             print(f"Failed to open file: '{file_name}'")
             raise
@@ -81,8 +84,8 @@ def process_error_code_nodes(app, doctree, fromDocName):
                 bold_text="Explanation: ",
                 non_bold_text=item['explanation'])
         definition_node += build_indented_bold_and_non_bold_node(
-            bold_text="Category: ",
-            non_bold_text=item['category'])
+             bold_text="Category: ",
+             non_bold_text=item['category'])
         if item["conveyance"]:
             definition_node += build_indented_bold_and_non_bold_node(
                 bold_text="Conveyance: ",
@@ -102,6 +105,9 @@ def process_error_code_nodes(app, doctree, fromDocName):
 
         return node
 
+    def group_explanation_to_node(text: str) -> nodes.definition_list_item:
+        return text_node(nodes.paragraph, text)
+
     # A node of this tree is a dict that can contain
     #   1. further nodes and/or
     #   2. 'leaves' in the form of a list of error (code) data
@@ -111,8 +117,9 @@ def process_error_code_nodes(app, doctree, fromDocName):
         root = defaultdict(create_node)
         for error_data in data:
             current = root
-            for group in error_data["hierarchicalGrouping"]:
-                current = current[group]
+            for grouping in error_data['hierarchicalGrouping']:
+                current = current[grouping['docName']]
+                current['explanation'] = group_data[grouping['className']]['explanation']
             if 'error-codes' in current:
                 current['error-codes'].append(error_data)
             else:
@@ -122,6 +129,8 @@ def process_error_code_nodes(app, doctree, fromDocName):
     # DFS to traverse the error code data tree from `build_hierarchical_tree_of_error_data`
     # While traversing the tree, the presentation of the error codes on the documentation is built
     def dfs(tree, node, prefix: str) -> None:
+        if 'explanation' in tree and tree['explanation']:
+            node += group_explanation_to_node(tree['explanation'])
         if 'error-codes' in tree:
             dlist = nodes.definition_list()
             for code in tree['error-codes']:
@@ -129,7 +138,7 @@ def process_error_code_nodes(app, doctree, fromDocName):
             node += dlist
         i = 1
         for subtopic, subtree in tree.items():
-            if subtopic == 'error-codes':
+            if subtopic in ['error-codes', 'explanation']:
                 continue
             subprefix = f"{prefix}{i}."
             i += 1

@@ -52,6 +52,9 @@ private[backend] object AppendOnlySchema {
     def smallintOptional[FROM, _](extractor: FROM => Option[Int]): Field[FROM, Option[Int], _] =
       SmallintOptional(extractor)
 
+    def int[FROM, _](extractor: FROM => Int): Field[FROM, Int, _] =
+      Integer(extractor)
+
     def intOptional[FROM, _](extractor: FROM => Option[Int]): Field[FROM, Option[Int], _] =
       IntOptional(extractor)
 
@@ -227,6 +230,12 @@ private[backend] object AppendOnlySchema {
         "deduplication_key" -> fieldStrategy.string(_.deduplication_key)
       )
 
+    val stringInterningTable: Table[DbDto.StringInterningDto] =
+      fieldStrategy.insert("string_interning")(
+        "internal_id" -> fieldStrategy.int(_.internalId),
+        "external_string" -> fieldStrategy.string(_.externalString),
+      )
+
     val executes: Seq[Array[Array[_]] => Connection => Unit] = List(
       eventsDivulgence.executeUpdate,
       eventsCreate.executeUpdate,
@@ -238,6 +247,7 @@ private[backend] object AppendOnlySchema {
       partyEntries.executeUpdate,
       commandCompletions.executeUpdate,
       commandSubmissionDeletes.executeUpdate,
+      stringInterningTable.executeUpdate,
     )
 
     new Schema[DbDto] {
@@ -257,6 +267,7 @@ private[backend] object AppendOnlySchema {
           partyEntries.prepareData(collect[PartyEntry]),
           commandCompletions.prepareData(collect[CommandCompletion]),
           commandSubmissionDeletes.prepareData(collect[CommandDeduplication]),
+          stringInterningTable.prepareData(collect[StringInterningDto]),
         )
       }
 

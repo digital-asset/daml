@@ -1747,16 +1747,11 @@ private[lf] object SBuiltin {
     v match {
       case SStruct(_, vals) =>
         val key = onLedger.ptx.normValue(templateId, vals.get(keyIdx))
-        key.ensureNoCid match {
-          case Right(keyVal) =>
-            Node.KeyWithMaintainers(
-              key = keyVal,
-              maintainers =
-                extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(maintainerIdx)),
-            )
-          case Left(_) =>
-            throw SErrorDamlException(IE.ContractIdInContractKey(key))
-        }
+        key.foreachCid(_ => throw SErrorDamlException(IE.ContractIdInContractKey(key)))
+        Node.KeyWithMaintainers(
+          key = key,
+          maintainers = extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(maintainerIdx)),
+        )
       case _ => throw SErrorCrash(location, s"Invalid key with maintainers: $v")
     }
 

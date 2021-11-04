@@ -28,12 +28,15 @@ module DA.Daml.Options.Types
     , pkgNameVersion
     , fullPkgName
     , optUnitId
+    , getLogger
     ) where
 
 import Control.Monad.Reader
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
 import DA.Pretty
+import qualified DA.Service.Logger as Logger
+import qualified DA.Service.Logger.Impl.IO as Logger.IO
 import Data.Maybe
 import qualified Data.Text as T
 import Development.IDE.GHC.Util (prettyPrint)
@@ -71,8 +74,8 @@ data Options = Options
     -- ^ number of threads to use
   , optDamlLfVersion :: LF.Version
     -- ^ The target Daml-LF version
-  , optDebug :: Bool
-    -- ^ Whether to enable debugging output
+  , optLogLevel :: Logger.Priority
+    -- ^ Min log level that we display
   , optGhcCustomOpts :: [String]
     -- ^ custom options, parsed by GHC option parser, overriding DynFlags
   , optScenarioService :: EnableScenarioService
@@ -186,7 +189,7 @@ defaultOptions mbVersion =
         , optShakeProfiling = Nothing
         , optThreads = 1
         , optDamlLfVersion = fromMaybe LF.versionDefault mbVersion
-        , optDebug = False
+        , optLogLevel = Logger.Info
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
         , optEnableScripts = EnableScripts False
@@ -220,3 +223,6 @@ fullPkgName (LF.PackageName n) mbV (LF.PackageId h) =
 
 optUnitId :: Options -> Maybe UnitId
 optUnitId Options{..} = fmap (\name -> pkgNameVersion name optMbPackageVersion) optMbPackageName
+
+getLogger :: Options -> T.Text -> IO (Logger.Handle IO)
+getLogger Options {optLogLevel} name = Logger.IO.newStderrLogger optLogLevel name

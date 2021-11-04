@@ -16,6 +16,11 @@ private[backend] trait StorageBackendTestsDeduplication
     with StorageBackendSpec {
   this: AsyncFlatSpec =>
 
+  private val parameterStorageBackend: ParameterStorageBackend =
+    backendFactory.createParameterStorageBackend
+  private val deduplicationStorageBackend: DeduplicationStorageBackend =
+    backendFactory.createDeduplicationStorageBackend
+
   behavior of "DeduplicationStorageBackend"
 
   import StorageBackendTestValues._
@@ -27,13 +32,15 @@ private[backend] trait StorageBackendTestsDeduplication
     val n = 8
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
       insertedRows <- Future.sequence(
         Vector.fill(n)(
-          executeSql(backend.upsertDeduplicationEntry(key, submittedAt, deduplicateUntil))
+          executeSql(
+            deduplicationStorageBackend.upsertDeduplicationEntry(key, submittedAt, deduplicateUntil)
+          )
         )
       )
-      foundDeduplicateUntil <- executeSql(backend.deduplicatedUntil(key))
+      foundDeduplicateUntil <- executeSql(deduplicationStorageBackend.deduplicatedUntil(key))
     } yield {
       insertedRows.count(_ == 1) shouldBe 1 // One of the calls inserts a new row
       insertedRows.count(_ == 0) shouldBe (n - 1) // All other calls don't write anything
@@ -52,17 +59,23 @@ private[backend] trait StorageBackendTestsDeduplication
     val n = 8
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
       insertedRows <- executeSql(
-        backend.upsertDeduplicationEntry(key, submittedAt, deduplicateUntil)
+        deduplicationStorageBackend.upsertDeduplicationEntry(key, submittedAt, deduplicateUntil)
       )
-      foundDeduplicateUntil <- executeSql(backend.deduplicatedUntil(key))
+      foundDeduplicateUntil <- executeSql(deduplicationStorageBackend.deduplicatedUntil(key))
       updatedRows <- Future.sequence(
         Vector.fill(n)(
-          executeSql(backend.upsertDeduplicationEntry(key, submittedAt2, deduplicateUntil2))
+          executeSql(
+            deduplicationStorageBackend.upsertDeduplicationEntry(
+              key,
+              submittedAt2,
+              deduplicateUntil2,
+            )
+          )
         )
       )
-      foundDeduplicateUntil2 <- executeSql(backend.deduplicatedUntil(key))
+      foundDeduplicateUntil2 <- executeSql(deduplicationStorageBackend.deduplicatedUntil(key))
     } yield {
       insertedRows shouldBe 1 // First call inserts a new row
       updatedRows.count(
@@ -84,15 +97,15 @@ private[backend] trait StorageBackendTestsDeduplication
     val deduplicateUntil2 = submittedAt2.addMicros(5000L)
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
       insertedRows <- executeSql(
-        backend.upsertDeduplicationEntry(key, submittedAt, deduplicateUntil)
+        deduplicationStorageBackend.upsertDeduplicationEntry(key, submittedAt, deduplicateUntil)
       )
-      foundDeduplicateUntil <- executeSql(backend.deduplicatedUntil(key))
+      foundDeduplicateUntil <- executeSql(deduplicationStorageBackend.deduplicatedUntil(key))
       updatedRows <- executeSql(
-        backend.upsertDeduplicationEntry(key, submittedAt2, deduplicateUntil2)
+        deduplicationStorageBackend.upsertDeduplicationEntry(key, submittedAt2, deduplicateUntil2)
       )
-      foundDeduplicateUntil2 <- executeSql(backend.deduplicatedUntil(key))
+      foundDeduplicateUntil2 <- executeSql(deduplicationStorageBackend.deduplicatedUntil(key))
     } yield {
       insertedRows shouldBe 1 // First call inserts a new row
       updatedRows shouldBe 0 // Second call doesn't write anything

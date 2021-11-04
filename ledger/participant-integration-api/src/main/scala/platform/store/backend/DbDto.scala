@@ -135,4 +135,8 @@ object DbDto {
 
   final case class CommandDeduplication(deduplication_key: String) extends DbDto
 
+  final case class StringInterningDto(
+      internalId: Int,
+      externalString: String,
+  ) extends DbDto
 }

@@ -34,7 +34,7 @@ dependencies:
   - daml-script.dar
 build-options: {build_options}
 EOF
-          $(location //compiler/damlc) build --project-root $$TMP_DIR --ghc-option=-Werror \
+          $(location //compiler/damlc) build --project-root $$TMP_DIR --ghc-option=-Werror --log-level=WARNING \
               -o $$PWD/$@
           rm -rf $$TMP_DIR
         """.format(

@@ -35,7 +35,8 @@ object ParallelIndexerFactory {
       dataSourceConfig: DataSourceConfig,
       haConfig: HaConfig,
       metrics: Metrics,
-      storageBackend: DBLockStorageBackend with DataSourceStorageBackend,
+      dbLockStorageBackend: DBLockStorageBackend,
+      dataSourceStorageBackend: DataSourceStorageBackend,
       initializeParallelIngestion: InitializeParallelIngestion,
       parallelIndexerSubscription: ParallelIndexerSubscription[_],
       mat: Materializer,
@@ -53,7 +54,7 @@ object ParallelIndexerFactory {
         Some(metrics.daml.parallelIndexer.batching.executor -> metrics.registry),
       )
       haCoordinator <-
-        if (storageBackend.dbLockSupported) {
+        if (dbLockStorageBackend.dbLockSupported) {
           for {
             executionContext <- ResourceOwner
               .forExecutorService(() =>
@@ -67,10 +68,10 @@ object ParallelIndexerFactory {
             timer <- ResourceOwner.forTimer(() => new Timer)
             // this DataSource will be used to spawn the main connection where we keep the Indexer Main Lock
             // The life-cycle of such connections matches the life-cycle of a protectedExecution
-            dataSource = storageBackend.createDataSource(jdbcUrl, dataSourceConfig)
+            dataSource = dataSourceStorageBackend.createDataSource(jdbcUrl, dataSourceConfig)
           } yield HaCoordinator.databaseLockBasedHaCoordinator(
             connectionFactory = () => dataSource.getConnection,
-            storageBackend = storageBackend,
+            storageBackend = dbLockStorageBackend,
             executionContext = executionContext,
             timer = timer,
             haConfig = haConfig,
@@ -85,7 +86,7 @@ object ParallelIndexerFactory {
             .owner(
               // this is the DataSource which will be wrapped by HikariCP, and which will drive the ingestion
               // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
-              dataSource = storageBackend.createDataSource(
+              dataSource = dataSourceStorageBackend.createDataSource(
                 jdbcUrl = jdbcUrl,
                 dataSourceConfig = dataSourceConfig,
                 connectionInitHook = Some(connectionInitializer.initialize),

@@ -30,7 +30,8 @@ import com.daml.platform.store.backend.{
 import scala.concurrent.Future
 
 private[platform] case class ParallelIndexerSubscription[DB_BATCH](
-    storageBackend: IngestionStorageBackend[DB_BATCH] with ParameterStorageBackend,
+    ingestionStorageBackend: IngestionStorageBackend[DB_BATCH],
+    parameterStorageBackend: ParameterStorageBackend,
     participantId: Ref.ParticipantId,
     translation: LfValueTranslation,
     compressionStrategy: CompressionStrategy,
@@ -69,12 +70,13 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
         seqMapperZero = seqMapperZero(initialized.initialEventSeqId),
         seqMapper = seqMapper(metrics),
         batchingParallelism = batchingParallelism,
-        batcher = batcherExecutor.execute(batcher(storageBackend.batch, metrics)),
+        batcher = batcherExecutor.execute(batcher(ingestionStorageBackend.batch, metrics)),
         ingestingParallelism = ingestionParallelism,
-        ingester = ingester(storageBackend.insertBatch, dbDispatcher, metrics),
-        tailer = tailer(storageBackend.batch(Vector.empty)),
+        ingester = ingester(ingestionStorageBackend.insertBatch, dbDispatcher, metrics),
+        tailer = tailer(ingestionStorageBackend.batch(Vector.empty)),
         tailingRateLimitPerSecond = tailingRateLimitPerSecond,
-        ingestTail = ingestTail[DB_BATCH](storageBackend.updateLedgerEnd, dbDispatcher, metrics),
+        ingestTail =
+          ingestTail[DB_BATCH](parameterStorageBackend.updateLedgerEnd, dbDispatcher, metrics),
       )(
         InstrumentedSource
           .bufferedSource(
