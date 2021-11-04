@@ -1,0 +1,45 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Port of daml-lf/encoder/src/test/lf/GenMap_1.11_1.12_1.13_1.14_1.dev_.lf
+
+module GenMapMod where
+
+import Daml.Script
+import DA.Map (Map)
+import DA.Map qualified as M
+
+template Box
+  with
+    x: Map (Int, Decimal) (Either Int Decimal)
+    party: Party
+  where
+    signatory party
+
+l1 = []
+
+l2 = ((1, 1.0), (Left (0))) :: l1
+
+l3 = ((-2, -2.2222222222), (Right (1.1111111111)))  :: l2
+
+l4 = ((-3, -3333333333333333333333333333.0), (Right (-2.2222222222))) :: l3
+
+createContracts =
+  script do
+    party <- allocatePartyWithHint "GenMapMod" (PartyIdHint "GenMapMod")
+    submit party do
+      createCmd Box with
+        x = M.fromList l1
+        party = party
+    submit party do
+      createCmd Box with
+        x = M.fromList l2
+        party = party
+    submit party do
+      createCmd Box with
+        x = M.fromList l3
+        party = party
+    submit party do
+      createCmd Box with
+        x = M.fromList l4
+        party = party

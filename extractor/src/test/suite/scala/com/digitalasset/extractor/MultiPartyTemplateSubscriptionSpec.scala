@@ -6,7 +6,6 @@ package com.daml.extractor
 import java.io.File
 
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.lf.data.Ref.Party
 import com.daml.extractor.config.{ExtractorConfig, TemplateConfig}
 import com.daml.extractor.services.ExtractorFixtureAroundAll
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
@@ -14,7 +13,7 @@ import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.{Inside, Suite}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import scalaz.OneAnd
+import scalaz.NonEmptyList
 
 class MultiPartyTemplateSubscriptionSpec
     extends AnyFlatSpec
@@ -25,21 +24,19 @@ class MultiPartyTemplateSubscriptionSpec
     with Matchers
     with Inside {
 
-  override protected def darFile = new File(rlocation("extractor/TransactionExample.dar"))
+  override protected def darFile = new File(rlocation("extractor/test.dar"))
 
-  override def scenario: Option[String] = Some("TransactionExample:templateFilterTest")
+  override protected val initScript: Option[String] = Some("TransactionExample:templateFilterTest")
 
-  private final val alice = Party assertFromString "Alice"
-  private final val bob = Party assertFromString "Bob"
+  override protected val parties = NonEmptyList(1, 2).map(n => s"TemplateFilterTest$n")
 
   override def configureExtractor(ec: ExtractorConfig): ExtractorConfig = {
     val ec2 = super.configureExtractor(ec)
     ec2.copy(
-      parties = OneAnd(alice, List(bob)),
       templateConfigs = Set(
         TemplateConfig("TransactionExample", "RightOfUseOffer"),
         TemplateConfig("TransactionExample", "RightOfUseAgreement"),
-      ),
+      )
     )
   }
 

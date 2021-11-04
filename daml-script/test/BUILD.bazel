@@ -121,6 +121,7 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
