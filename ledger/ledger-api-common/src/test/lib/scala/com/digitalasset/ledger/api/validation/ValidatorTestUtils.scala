@@ -13,7 +13,6 @@ import io.grpc.StatusRuntimeException
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 
-import scala.collection.compat._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
