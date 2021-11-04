@@ -37,7 +37,7 @@ class TransactionSingleTableSpec
 
   override protected val initScript = Some("TransactionExample:example")
 
-  override protected val parties = NonEmptyList(1, 2).map(n => s"Example$n")
+  override protected val parties = NonEmptyList("Example1")
 
   "Transactions" should "be extracted" in {
     getTransactions should have length 3
@@ -49,14 +49,13 @@ class TransactionSingleTableSpec
         case TransactionResult(
               transaction_id,
               seq,
-              workflow_id,
+              _,
               effective_at,
               extracted_at,
               ledger_offset,
             ) =>
           transaction_id should not be empty
           seq should be >= 1
-          workflow_id should not be empty
           effective_at should be(new Timestamp(0L))
           extracted_at should beWithin(30.seconds)(Timestamp.from(Instant.now()))
           ledger_offset should not be empty
@@ -68,7 +67,6 @@ class TransactionSingleTableSpec
     val transactions = getTransactions
 
     transactions.map(_.transaction_id).toSet should have size 3
-    transactions.map(_.workflow_id).toSet should have size 3
     transactions.map(_.seq).toSet should have size 3
     transactions.map(_.ledger_offset).toSet should have size 3
   }
