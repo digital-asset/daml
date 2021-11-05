@@ -521,16 +521,6 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
-#Javadoc
-nixpkgs_package(
-    name = "jdk_nix",
-    attribute_path = "jdk8",
-    fail_not_supported = False,
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-)
-
 # To run canton
 nixpkgs_package(
     name = "jdk11_nix",
