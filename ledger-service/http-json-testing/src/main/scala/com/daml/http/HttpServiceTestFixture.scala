@@ -427,7 +427,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   def accountCreateCommand(
       owner: domain.Party,
       number: String,
-      time: v.Value.Sum.Timestamp = TimestampConversion.instantToMicros(Instant.now),
+      time: v.Value.Sum.Timestamp = TimestampConversion.roundInstantToMicros(Instant.now),
   ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
     val templateId = domain.TemplateId(None, "Account", "Account")
     val timeValue = v.Value(time)
@@ -447,7 +447,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   def sharedAccountCreateCommand(
       owners: Seq[String],
       number: String,
-      time: v.Value.Sum.Timestamp = TimestampConversion.instantToMicros(Instant.now),
+      time: v.Value.Sum.Timestamp = TimestampConversion.roundInstantToMicros(Instant.now),
   ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
     val templateId = domain.TemplateId(None, "Account", "SharedAccount")
     val timeValue = v.Value(time)

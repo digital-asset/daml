@@ -1628,7 +1628,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "query by a variant field" in withHttpService { (uri, encoder, _, _) =>
     val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
     val accountNumber = "abc123"
-    val now = TimestampConversion.instantToMicros(Instant.now)
+    val now = TimestampConversion.roundInstantToMicros(Instant.now)
     val nowStr = TimestampConversion.microsToInstant(now).toString
     val command: domain.CreateCommand[v.Record, OptionalPkg] =
       accountCreateCommand(alice, accountNumber, now)

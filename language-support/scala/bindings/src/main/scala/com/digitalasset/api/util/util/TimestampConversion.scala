@@ -33,6 +33,10 @@ object TimestampConversion {
 
   }
 
+  def roundInstantToMicros(t: Instant): Value.Sum.Timestamp = {
+    instantToMicros(roundToMicros(t, ConversionMode.HalfUp))
+  }
+
   def toInstant(protoTimestamp: ProtoTimestamp): Instant = {
     Instant.ofEpochSecond(protoTimestamp.seconds, protoTimestamp.nanos.toLong)
   }
