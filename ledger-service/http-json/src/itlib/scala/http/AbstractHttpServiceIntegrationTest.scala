@@ -44,6 +44,7 @@ import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
+import scalaz.syntax.std.option._
 import scalaz.{-\/, EitherT, \/, \/-}
 import spray.json._
 import scalaz.syntax.apply._
@@ -437,9 +438,19 @@ trait AbstractHttpServiceIntegrationTestFuns
       cmd: domain.ContractLocator[JsValue],
       uri: Uri,
       headers: List[HttpHeader] = headersWithAuth,
+      readAs: Option[List[domain.Party]] = None,
   ): Future[(StatusCode, JsValue)] =
     for {
-      json <- toFuture(SprayJson.encode(cmd)): Future[JsValue]
+      locjson <- toFuture(SprayJson.encode(cmd)): Future[JsValue]
+      json <- toFuture(
+        readAs.cata(
+          ral =>
+            SprayJson
+              .encode(ral)
+              .map(ralj => JsObject(locjson.asJsObject.fields.updated("readAs", ralj))),
+          \/-(locjson),
+        )
+      )
       result <- postJsonRequest(uri.withPath(Uri.Path("/v1/fetch")), json, headers)
     } yield result
 
@@ -1506,6 +1517,40 @@ abstract class AbstractHttpServiceIntegrationTest
             .fields
             .get("result") shouldBe Some(JsNull)
       }: Future[Assertion]
+  }
+
+  "fetch fails when readAs not authed, even if prior fetch succeeded" in withHttpService {
+    (uri, encoder, _, _) =>
+      val (alice, aliceHeaders) = getUniquePartyAndAuthHeaders("Alice")
+      val command = iouCreateCommand(alice.unwrap)
+      for {
+        createStatusOutput <- postCreateCommand(command, encoder, uri, aliceHeaders)
+        contractId = {
+          val (status, output) = createStatusOutput
+          status shouldBe StatusCodes.OK
+          assertStatus(output, StatusCodes.OK)
+          getContractId(getResult(output))
+        }
+        locator = domain.EnrichedContractId(None, contractId)
+        // will cache if DB configured
+        _ <- lookupContractAndAssert(locator)(contractId, command, encoder, uri, aliceHeaders)
+        charlie = getUniqueParty("Charlie")
+        badLookup <- postContractsLookup(
+          locator,
+          uri.withPath(Uri.Path("/v1/fetch")),
+          aliceHeaders,
+          readAs = Some(List(charlie)),
+        )
+        _ = {
+          val (status, output) = badLookup
+          status shouldBe StatusCodes.Unauthorized
+          assertStatus(output, StatusCodes.Unauthorized)
+          output
+            .asJsObject(s"expected JsObject, got: $output")
+            .fields
+            .keySet should ===(Set("errors", "status"))
+        }
+      } yield succeed
   }
 
   "fetch by key" in withHttpService { (uri, encoder, _, _) =>
