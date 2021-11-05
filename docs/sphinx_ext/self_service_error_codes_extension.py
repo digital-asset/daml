@@ -75,6 +75,10 @@ def process_error_code_nodes(app, doctree, fromDocName):
         node = nodes.definition_list_item()
         term_node = text_node(nodes.term, "%s" % (item["code"]))
         definition_node = nodes.definition('', text_node(nodes.paragraph, ''))
+        if item["deprecation"]:
+            definition_node += build_indented_bold_and_non_bold_node(
+                bold_text="Deprecated: ",
+                non_bold_text=item['deprecation'])
         if item["explanation"]:
             definition_node += build_indented_bold_and_non_bold_node(
                 bold_text="Explanation: ",

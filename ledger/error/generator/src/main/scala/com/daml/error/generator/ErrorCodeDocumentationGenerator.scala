@@ -4,7 +4,8 @@
 package com.daml.error.generator
 
 import java.lang.reflect.Modifier
-import com.daml.error.{ErrorCode, ErrorGroup, Explanation, Resolution}
+
+import com.daml.error.{Deprecation, ErrorCode, ErrorGroup, Explanation, Resolution}
 import com.daml.error.generator.ErrorCodeDocumentationGenerator.{
   acceptedTypeNames,
   deprecatedTypeName,
@@ -58,7 +59,7 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
       .toSeq
 
   private def convertToDocItem(error: ErrorCode): ErrorDocItem = {
-    val ErrorDocumentationAnnotations(explanation, resolution) =
+    val ErrorDocumentationAnnotations(deprecation, explanation, resolution) =
       getErrorDocumentationAnnotations(error)
 
     ErrorDocItem(
@@ -67,6 +68,7 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
       hierarchicalGrouping = error.parent.groupings.filter(_.docName.nonEmpty),
       conveyance = error.errorConveyanceDocString.getOrElse(""),
       code = error.id,
+      deprecation = deprecation.getOrElse(Deprecation("")),
       explanation = explanation.getOrElse(Explanation("")),
       resolution = resolution.getOrElse(Resolution("")),
     )
@@ -86,6 +88,7 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
     any.getClass.getSimpleName.replace("$", "")
 
   private case class ErrorDocumentationAnnotations(
+      deprecation: Option[Deprecation],
       explanation: Option[Explanation],
       resolution: Option[Resolution],
   )
@@ -114,6 +117,7 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
   }
 
   private case class GetAnnotationsState(
+      deprecation: Option[Deprecation],
       explanation: Option[Explanation],
       resolution: Option[Resolution],
   )
@@ -124,6 +128,7 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
 
     def update(
         state: GetAnnotationsState,
+        updatedDeprecation: Option[String] = None,
         updatedExplanation: Option[String] = None,
         updatedResolution: Option[String] = None,
     ): GetAnnotationsState = {
@@ -140,6 +145,9 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
             Some(value)
         }
 
+      val existingDeprecation = state.deprecation
+      val updatedDeprecationString =
+        updateString(existingDeprecation.map(_.deprecation), updatedDeprecation, "deprecation")
       val existingExplanation = state.explanation
       val updatedExplanationString =
         updateString(existingExplanation.map(_.explanation), updatedExplanation, "explanation")
@@ -147,31 +155,42 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
       val updatedResolutionString =
         updateString(existingResolution.map(_.resolution), updatedResolution, "resolution")
       GetAnnotationsState(
+        updatedDeprecationString.map(Deprecation),
         updatedExplanationString.map(Explanation),
         updatedResolutionString.map(Resolution),
       )
     }
 
-    val doc = annotations.foldLeft(GetAnnotationsState(None, None)) { case (state, annotation) =>
-      if (isAnnotation(annotation, deprecatedTypeName))
-        state
-      else if (isAnnotation(annotation, explanationTypeName))
-        update(state, updatedExplanation = Some(parseAnnotationValue(annotation.tree)))
-      else if (isAnnotation(annotation, resolutionTypeName))
-        update(state, updatedResolution = Some(parseAnnotationValue(annotation.tree)))
-      else
-        sys.error(
-          s"Unexpected annotation detected (${annotations.map(annotationTypeName)} but the only supported ones are $acceptedTypeNames)."
-        )
+    val doc = annotations.foldLeft(GetAnnotationsState(None, None, None)) {
+      case (state, annotation) =>
+        if (isAnnotation(annotation, deprecatedTypeName))
+          update(state, updatedDeprecation = Some(parseDeprecatedAnnotationValue(annotation.tree)))
+        else if (isAnnotation(annotation, explanationTypeName))
+          update(state, updatedExplanation = Some(parseAnnotationValue(annotation.tree)))
+        else if (isAnnotation(annotation, resolutionTypeName))
+          update(state, updatedResolution = Some(parseAnnotationValue(annotation.tree)))
+        else
+          sys.error(
+            s"Unexpected annotation detected (${annotations.map(annotationTypeName)} but the only supported ones are $acceptedTypeNames)."
+          )
     }
 
-    ErrorDocumentationAnnotations(doc.explanation, doc.resolution)
+    ErrorDocumentationAnnotations(doc.deprecation, doc.explanation, doc.resolution)
   }
+
+  private def parseDeprecatedAnnotationValue(tree: ru.Tree): String =
+    tree
+      .children(1)
+      .asInstanceOf[ru.NamedArg]
+      .children(1)
+      .asInstanceOf[ru.Literal]
+      .value
+      .value
+      .asInstanceOf[String]
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private def parseAnnotationValue(tree: ru.Tree): String = {
     try {
-      // get second (index starts at 0) child of tree as it contains the first value of the annotation
       Seq(1).map(tree.children(_).asInstanceOf[ru.Literal].value.value.asInstanceOf[String]) match {
         case s :: Nil => s.stripMargin
         case _ => sys.exit(1)
