@@ -63,6 +63,8 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[(Offset, CompletionStreamResponse), NotUsed]
 
+  // ActiveContractsService:
+  //  - getActiveContractsSource
   def activeContracts(
       filter: Map[Ref.Party, Set[Ref.Identifier]],
       verbose: Boolean,

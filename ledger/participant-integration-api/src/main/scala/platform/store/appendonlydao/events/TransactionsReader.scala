@@ -490,6 +490,9 @@ private[appendonlydao] final class TransactionsReader(
         )
       }
 
+  // TransactionService:
+  //  - getTransactions
+  //  - getTransactionTrees
   private def getEventSeqIdRange(
       startExclusive: Offset,
       endInclusive: Offset,

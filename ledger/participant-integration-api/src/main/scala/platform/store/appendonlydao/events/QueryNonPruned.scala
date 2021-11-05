@@ -12,11 +12,16 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.backend.ParameterStorageBackend
 
 trait QueryNonPruned {
+  // ??? com.daml.platform.index.ReadOnlySqlLedgerWithMutableCache.Owner.ledgerWithMutableCacheAndInMemoryFanOut
+  // ReadOnlySqlLedgerWithMutableCache
+  //
   // CommandCompletionService
   //  - completionStreamSource
   // TransactionService:
   //  - getTransactions
-  // - getTransactionTrees
+  //  - getTransactionTrees
+  // ActiveContractsService:
+  //  - getActiveContractsSource
   def executeSql[T](
       query: => T,
       minOffsetExclusive: Offset,

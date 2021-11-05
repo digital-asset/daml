@@ -24,6 +24,8 @@ private[appendonlydao] final class CommandCompletionsReader(
   private def offsetFor(response: CompletionStreamResponse): Offset =
     ApiOffset.assertFromString(response.checkpoint.get.offset.get.getAbsolute)
 
+  // CommandCompletionService
+  //  - completionStreamSource
   override def getCommandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,

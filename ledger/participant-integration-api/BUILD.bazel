@@ -436,7 +436,11 @@ filegroup(
 da_scala_binary(
     name = "pbatko-yml",
     main_class = "com.daml.platform.PbatkoErrorsYml",
-    resources = ["src/main/resources/pbatko/errors_pbatko.yml"],
+    resources = [
+        "src/main/resources/pbatko/errors_pbatko.yml",
+        "src/main/resources/pbatko/submit_pbatko.yml",
+
+        ],
     visibility = ["//visibility:public"],
     deps = [
         ":participant-integration-api",

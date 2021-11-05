@@ -1,0 +1,41 @@
+---
+
+service:
+  SubmissionService:
+    - submit
+changes:
+  - desc: ErrorCause.DamlLf
+    from:
+      - ABORTED
+      - INVALID_ARGUMENT
+    to:
+      - UNKNOWN: Package.PackageValidationFailed
+      - NOT_FOUND: Package.MissingPackage
+      - INVALID_ARGUMENT: Package.AllowedLanguageVersion
+      - INTERNAL: Package.Internal, Package.SelfConsistency
+      - INTERNAL: Preprocessing.Internal
+      - INVALID_ARGUMENT: other Preprocessing errors
+      - INTERNAL: Interpretation.Internal
+      - NOT_FOUND: Interpretation.ContractNotFound, Interpretation.ContractKeyNotFound, Interpretation.ContractNotActive
+      - INVALID_ARGUMENT: Interpretation.FailedAuthorization
+      - ALREADY_EXISTS: Interpretation.DuplicateContractKey
+      - FAILED_PRECONDITION: |
+            Interpretation::
+            LocalContractKeyNotVisible,
+            UnhandledException,
+            UserError,
+            TemplatePreconditionViolated,
+            CreateEmptyContractKeyMaintainers,
+            FetchEmptyContractKeyMaintainers,
+            WronglyTypedContract,
+            NonComparableValues,
+            ContractIdInContractKey,
+            ValueExceedsMaxNesting,
+            ContractIdComparability
+      - INTERNAL: "Validation.ReplayMismatch"
+      - INVALID_ARGUMENT: "other errors as long as message contains 'requires authorizers'"
+  - desc: LedgerTime
+    from:
+     - ABORTED
+    to:
+     - ABORTED

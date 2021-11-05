@@ -3,7 +3,7 @@ transactionNotFound:
   change:
     - NOT_FOUND
     - NOT_FOUND
-  ApiTransactionService:
+  TransactionService:
     - getTransactionByEventId
     - getTransactionById
 
@@ -11,7 +11,7 @@ malformedPackageId:
   change:
    - INVALID_ARGUMENT
    - INVALID_ARGUMENT
-  ApiPackageService:
+  PackageService:
    - getPackage
    - getPackageStatus
 
@@ -19,21 +19,21 @@ packageNotFound:
   change:
    - NOT_FOUND
    - NOT_FOUND
-  ApiPackageService:
+  PackageService:
    - getPackage
 
 versionServiceInternalError:
   change:
    - INTERNAL
    - INTERNAL
-  ApiVersionService:
-    - getLedgerApiVersion
+  VersionService:
+    - getLedgerVersion
 
 duplicateCommandException:
   change:
    - ALREADY_EXISTS
    - ALREADY_EXISTS
-  ApiSubmissionService:
+  SubmissionService:
    - submit
 
 ledgerIdMismatch:
@@ -42,7 +42,7 @@ ledgerIdMismatch:
    - NOT_FOUND
   SandboxResetService:
    - reset
-  ApiTimeService:
+  TimeService:
    - getTimeSource
    - setTime
   CommandSubmissionService:
@@ -111,10 +111,6 @@ invalidArgument:
    - submitAndWaitForTransaction
    - submitAndWaitForTransactionId
    - submitAndWait
-  ApiConfigManagementService:
-   - setTimeModel
-  ApiPackageManagementService:
-   - uploadDarFile
   CommandCompletionService:
    - completionStreamSource
   TransactionService:
@@ -141,7 +137,7 @@ invalidArgumentWasNotFound:
   change:
     - NOT_FOUND
     - INVALID_ARGUMENT
-  ApiTransactionService:
+  TransactionService:
    - getTransactionByEventId
    - getFlatTransactionByEventId
   GrpcHealthService:
@@ -152,7 +148,7 @@ offsetOutOfRange_was_invalidArgument:
   change:
    - INVALID_ARGUMENT
    - OUT_OF_RANGE
-  ApiParticipantPruningService:
+  ParticipantPruningService:
    - prune
   LedgerBackedIndexService:
    - transactionTrees
@@ -212,14 +208,14 @@ packageUploadRejected:
   change:
    - INVALID_ARGUMENT
    - FAILED_PRECONDITION
-  ApiPackageManagementService:
+  PackageManagementService:
    - uploadDarFile
 
 configurationEntryRejected:
   change:
    - ABORTED
    - FAILED_PRECONDITION
-  ApiConfigManagementService:
+  ConfigManagementService:
    - setTimeModel
 
 permissionDenied:
@@ -247,9 +243,9 @@ missingLedgerConfig:
   change:
    - UNAVAILABLE
    - NOT_FOUND
-  ApiConfigManagementService:
+  ConfigManagementService:
    - setTimeModel
-  ApiSubmissionService:
+  SubmissionService:
    - submit
   CommandSubmissionService:
     - submit
@@ -266,18 +262,19 @@ missingLedgerConfigUponRequest:
   ConfigManagmentService:
    - getTimeModel
 
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 participantPrunedDataAccessed:
   change:
    - NOT_FOUND
    - OUT_OF_RANGE
-  TODO:
-   - com.daml.platform.store.appendonlydao.events.QueryNonPrunedImpl.executeSql
-
+  CommandCompletionService:
+   - completionStreamSource
+  TransactionService:
+   - getTransactions
+   - getTransactionTrees
+  ActiveContractsService:
+   - getActiveContractsSource
+  ReadOnlySqlLedgerWithMutableCache:
+    - UNFINISHED - hard to track down where this cache is used
 
 serviceNotRunning:
   change:

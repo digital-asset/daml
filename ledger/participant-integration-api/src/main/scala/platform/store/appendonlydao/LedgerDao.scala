@@ -82,6 +82,8 @@ private[platform] trait LedgerDaoTransactionsReader {
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]]
 
+  // ActiveContractsService:
+  //  - getActiveContractsSource
   def getActiveContracts(
       activeAt: Offset,
       filter: FilterRelation,
