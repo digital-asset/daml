@@ -58,7 +58,7 @@ conformance_test(
         "@curl_nix//:bin/curl",
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
-        "@jdk11_nix//:bin/java",
+        "@bazel_tools//tools/jdk",
     ],
     lf_versions = [
         "default",
@@ -117,7 +117,7 @@ conformance_test(
         "@curl_nix//:bin/curl",
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
-        "@jdk11_nix//:bin/java",
+        "@bazel_tools//tools/jdk",
     ],
     lf_versions = [
         "default",
@@ -152,7 +152,7 @@ conformance_test(
         "@curl_nix//:bin/curl",
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
-        "@jdk11_nix//:bin/java",
+        "@bazel_tools//tools/jdk",
     ],
     ports = [
         5011,
@@ -186,7 +186,7 @@ conformance_test(
         "@curl_nix//:bin/curl",
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
-        "@jdk11_nix//:bin/java",
+        "@bazel_tools//tools/jdk",
     ],
     lf_versions = [
         "default",
