@@ -88,7 +88,7 @@ private[platform] final class DbDispatcher private (
   }
 }
 
-private[platform] object DbDispatcher {
+object DbDispatcher {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def owner(

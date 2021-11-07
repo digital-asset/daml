@@ -24,7 +24,7 @@ private[backend] class PackageStorageBackendTemplate(ledgerEndCache: LedgerEndCa
   private val SQL_SELECT_PACKAGES =
     SQL(
       """select packages.package_id, packages.source_description, packages.known_since, packages.package_size
-        |from packages, parameters
+        |from packages
         |where packages.ledger_offset <= {ledgerEndOffset}
         |""".stripMargin
     )
@@ -59,7 +59,7 @@ private[backend] class PackageStorageBackendTemplate(ledgerEndCache: LedgerEndCa
 
   private val SQL_SELECT_PACKAGE =
     SQL("""select packages.package
-          |from packages, parameters
+          |from packages
           |where package_id = {package_id}
           |and packages.ledger_offset <= {ledgerEndOffset}
           |""".stripMargin)
