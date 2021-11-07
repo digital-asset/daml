@@ -40,17 +40,12 @@ private[scenario] trait HasCreateRequest {
 
   def fillAcsScenario(size: Int, silent: Boolean): ScenarioBuilder =
     scenario(s"FillAcsScenario, size: $size")
-      .doWhile(_ => this.acsSize() < size) {
+      .repeat(size / defaultNumUsers) {
         feed(Iterator.continually(Map("amount" -> randomAmount())))
           .group("FillAcsGroup") {
             val create =
               if (silent) randomAmountCreateRequest.silent else randomAmountCreateRequest.notSilent
-            exec(
-              1.to(size / defaultNumUsers)
-                .map(_ =>
-                  exec(create.check(status.is(200)).check(captureContractId)).exitHereIfFailed
-                )
-            )
+            exec(create.check(status.is(200)).check(captureContractId)).exitHereIfFailed
           }
       }
 }

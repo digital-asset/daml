@@ -38,18 +38,24 @@ class ExerciseCommand extends Simulation with SimulationConfig {
       .post("/v1/exercise")
       .body(StringBody(exerciseCommand))
 
-  private val scn = scenario("ExerciseCommandScenario")
+  private val scn = scenario("ExerciseCommandScenario-Create")
     .repeat(numberOfRuns / defaultNumUsers)(exec(createRequest.silent)) // populate the ACS
-    .exec(
-      // retrieve all contractIds
-      http("GetACS")
-        .get("/v1/query")
-        .check(status.is(200), jsonPath("$.result[*].contractId").findAll.saveAs("contractIds"))
-        .silent
+
+  private val queryScn = scenario("ExerciseCommandScenario-QueryAndExercise")
+    .repeat(1)(
+      exec(
+        // retrieve all contractIds
+        http("GetACS")
+          .get("/v1/query")
+          .check(status.is(200), jsonPath("$.result[*].contractId").findAll.saveAs("contractIds"))
+          .silent
+      )
     )
     .foreach("${contractIds}", "contractId")(exec(exerciseRequest))
 
   setUp(
-    scn.inject(atOnceUsers(defaultNumUsers))
+    scn
+      .inject(atOnceUsers(defaultNumUsers))
+      .andThen(queryScn.inject(atOnceUsers(1)))
   ).protocols(httpProtocol)
 }
