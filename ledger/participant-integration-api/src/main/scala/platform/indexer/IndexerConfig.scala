@@ -49,12 +49,12 @@ object IndexerConfig {
   val DefaultAsyncCommitMode: DbType.AsyncCommitMode = DbType.AsynchronousCommit
 
   val DefaultMaxInputBufferSize: Int = 50
-  val DefaultInputMappingParallelism: Int = 16
+  val DefaultInputMappingParallelism: Int = 4
   val DefaultBatchingParallelism: Int = 4
-  val DefaultIngestionParallelism: Int = 16
+  val DefaultIngestionParallelism: Int = 4
   val DefaultSubmissionBatchSize: Long = 50L
-  val DefaultTailingRateLimitPerSecond: Int = 20
-  val DefaultBatchWithinMillis: Long = 50L
+  val DefaultTailingRateLimitPerSecond: Int = 500
+  val DefaultBatchWithinMillis: Long = 3L
   val DefaultEnableCompression: Boolean = false
 
   val DefaultSchemaMigrationAttempts: Int = 30

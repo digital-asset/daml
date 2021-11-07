@@ -12,10 +12,12 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-
 import java.sql.Connection
 import java.util.concurrent.{Executor, Executors, TimeUnit}
+
+import com.daml.platform.store.backend.m.MDataSource
 import javax.sql.DataSource
+
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -103,15 +105,18 @@ object DbDispatcher {
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbDispatcher] =
     for {
-      hikariDataSource <- HikariDataSourceOwner(
-        dataSource,
-        serverRole,
-        connectionPoolSize,
-        connectionPoolSize,
-        connectionTimeout,
-        Some(metrics.registry),
-      )
-      connectionProvider <- DataSourceConnectionProvider.owner(hikariDataSource)
+      wrappedDataSource <-
+        if (dataSource.isInstanceOf[MDataSource]) ResourceOwner.successful(dataSource)
+        else
+          HikariDataSourceOwner(
+            dataSource,
+            serverRole,
+            connectionPoolSize,
+            connectionPoolSize,
+            connectionTimeout,
+            Some(metrics.registry),
+          )
+      connectionProvider <- DataSourceConnectionProvider.owner(wrappedDataSource)
       threadPoolName = s"daml.index.db.threadpool.connection.${serverRole.threadPoolSuffix}"
       executor <- ResourceOwner.forExecutorService(() =>
         new InstrumentedExecutorService(

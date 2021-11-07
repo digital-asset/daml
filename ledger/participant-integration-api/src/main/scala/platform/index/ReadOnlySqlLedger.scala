@@ -20,6 +20,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.PruneBuffers
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
+import com.daml.platform.apiserver.LooseSyncChannel
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -70,6 +71,7 @@ private[platform] object ReadOnlySqlLedger {
       enableInMemoryFanOutForLedgerApi: Boolean,
       participantId: Ref.ParticipantId,
       errorFactories: ErrorFactories,
+      ledgerEndUpdateChannel: Option[LooseSyncChannel],
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlySqlLedger] {
 
@@ -130,6 +132,7 @@ private[platform] object ReadOnlySqlLedger {
           maxTransactionsInMemoryFanOutBufferSize,
           enableInMemoryFanOutForLedgerApi,
           servicesExecutionContext = servicesExecutionContext,
+          ledgerEndUpdateChannel = ledgerEndUpdateChannel,
         )
       } else
         new ReadOnlySqlLedgerWithTranslationCache.Owner(
@@ -138,6 +141,7 @@ private[platform] object ReadOnlySqlLedger {
           updatingStringInterningView,
           ledgerId,
           lfValueTranslationCache,
+          ledgerEndUpdateChannel,
         )
 
     private def verifyLedgerId(

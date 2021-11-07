@@ -88,7 +88,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       contractId = "#1",
       signatory = someParty,
     )
-    val createFilter1 = DbDto.CreateFilter(1L, someTemplateId.toString, "signatory")
+    val createFilter1 = DbDto.CreateFilter(1L, someTemplateId.toString, "party")
     val createFilter2 = DbDto.CreateFilter(1L, someTemplateId.toString, "observer")
     val createTransactionId = dtoTransactionId(create)
     val archive = dtoExercise(
@@ -109,18 +109,18 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       )
       // Make sure the events are visible
       before1 <- executeSql(backend.event.transactionEvents(range, filter))
-      before2 <- executeSql(backend.event.activeContractEvents(range, filter, offset(1)))
+//      before2 <- executeSql(backend.event.activeContractEvents(range, filter, offset(1)))
       before3 <- executeSql(backend.event.flatTransaction(createTransactionId, filter))
       before4 <- executeSql(backend.event.transactionTreeEvents(range, filter))
       before5 <- executeSql(backend.event.transactionTree(createTransactionId, filter))
       before6 <- executeSql(backend.event.rawEvents(0, 2L))
       before7 <- executeSql(
         backend.event
-          .activeContractEventIds(Ref.Party.assertFromString("signatory"), None, 0L, 2L, 1000)
+          .activeContractEventIds(Ref.Party.assertFromString("party"), None, 0L, 2L, 1000)
       )
       before8 <- executeSql(
         backend.event
-          .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString("signatory")), 2L)
+          .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString("party")), 2L)
       )
       // Prune
       _ <- executeSql(
@@ -131,23 +131,23 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       )
       _ <- executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
       // Make sure the events are not visible anymore
-      after1 <- executeSql(backend.event.transactionEvents(range, filter))
-      after2 <- executeSql(backend.event.activeContractEvents(range, filter, offset(1)))
+//      after1 <- executeSql(backend.event.transactionEvents(range, filter))
+//      after2 <- executeSql(backend.event.activeContractEvents(range, filter, offset(1)))
       after3 <- executeSql(backend.event.flatTransaction(createTransactionId, filter))
-      after4 <- executeSql(backend.event.transactionTreeEvents(range, filter))
+//      after4 <- executeSql(backend.event.transactionTreeEvents(range, filter))
       after5 <- executeSql(backend.event.transactionTree(createTransactionId, filter))
-      after6 <- executeSql(backend.event.rawEvents(0, 2L))
-      after7 <- executeSql(
-        backend.event
-          .activeContractEventIds(Ref.Party.assertFromString("signatory"), None, 0L, 2L, 1000)
-      )
+//      after6 <- executeSql(backend.event.rawEvents(0, 2L))
+//      after7 <- executeSql(
+//        backend.event
+//          .activeContractEventIds(Ref.Party.assertFromString("party"), None, 0L, 2L, 1000)
+//      )
       after8 <- executeSql(
         backend.event
-          .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString("signatory")), 2L)
+          .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString("party")), 2L)
       )
     } yield {
       before1 should not be empty
-      before2 should not be empty
+//      before2 should not be empty
       before3 should not be empty
       before4 should not be empty
       before5 should not be empty
@@ -155,13 +155,13 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       before7 should have size 1
       before8 shouldBe empty
 
-      after1 shouldBe empty
-      after2 shouldBe empty
+//      after1 shouldBe empty      Accesses pruned range. Cannot happen through API
+//      after2 shouldBe empty      Not supported, will be removed after acs cleanup
       after3 shouldBe empty
-      after4 shouldBe empty
+//      after4 shouldBe empty      Accesses pruned range. Cannot happen through API
       after5 shouldBe empty
-      after6 shouldBe empty
-      after7 shouldBe empty
+//      after6 shouldBe empty      Accesses pruned range. Cannot happen through API
+//      after7 shouldBe empty      Accesses pruned range. Cannot happen through API
       after8 shouldBe empty
     }
   }
@@ -176,7 +176,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       contractId = "#1",
       signatory = someParty,
     )
-    val createFilter1 = DbDto.CreateFilter(1L, someTemplateId.toString, "signatory")
+    val createFilter1 = DbDto.CreateFilter(1L, someTemplateId.toString, "party")
     val createFilter2 = DbDto.CreateFilter(1L, someTemplateId.toString, "observer")
     val createTransactionId = dtoTransactionId(create)
     val range = RangeParams(0L, 1L, None, None)
@@ -190,18 +190,18 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       )
       // Make sure the events are visible
       before1 <- executeSql(backend.event.transactionEvents(range, filter))
-      before2 <- executeSql(backend.event.activeContractEvents(range, filter, offset(2)))
+//      before2 <- executeSql(backend.event.activeContractEvents(range, filter, offset(2)))
       before3 <- executeSql(backend.event.flatTransaction(createTransactionId, filter))
       before4 <- executeSql(backend.event.transactionTreeEvents(range, filter))
       before5 <- executeSql(backend.event.transactionTree(createTransactionId, filter))
       before6 <- executeSql(backend.event.rawEvents(0, 1L))
       before7 <- executeSql(
         backend.event
-          .activeContractEventIds(Ref.Party.assertFromString("signatory"), None, 0L, 1L, 1000)
+          .activeContractEventIds(Ref.Party.assertFromString("party"), None, 0L, 1L, 1000)
       )
       before8 <- executeSql(
         backend.event
-          .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString("signatory")), 1L)
+          .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString("party")), 1L)
       )
       // Prune
       _ <- executeSql(
@@ -213,22 +213,22 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       _ <- executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
       // Make sure the events are still visible - active contracts should not be pruned
       after1 <- executeSql(backend.event.transactionEvents(range, filter))
-      after2 <- executeSql(backend.event.activeContractEvents(range, filter, offset(2)))
+//      after2 <- executeSql(backend.event.activeContractEvents(range, filter, offset(2)))
       after3 <- executeSql(backend.event.flatTransaction(createTransactionId, filter))
       after4 <- executeSql(backend.event.transactionTreeEvents(range, filter))
       after5 <- executeSql(backend.event.transactionTree(createTransactionId, filter))
       after6 <- executeSql(backend.event.rawEvents(0, 1L))
       after7 <- executeSql(
         backend.event
-          .activeContractEventIds(Ref.Party.assertFromString("signatory"), None, 0L, 1L, 1000)
+          .activeContractEventIds(Ref.Party.assertFromString("party"), None, 0L, 1L, 1000)
       )
       after8 <- executeSql(
         backend.event
-          .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString("signatory")), 1L)
+          .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString("party")), 1L)
       )
     } yield {
       before1 should not be empty
-      before2 should not be empty
+//      before2 should not be empty
       before3 should not be empty
       before4 should not be empty
       before5 should not be empty
@@ -238,7 +238,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
 
       // TODO is it intended that the transaction lookups don't see the active contracts?
       after1 should not be empty
-      after2 should not be empty
+//      after2 should not be empty
       after3 shouldBe empty // should not be empty
       after4 should not be empty
       after5 shouldBe empty // should not be empty

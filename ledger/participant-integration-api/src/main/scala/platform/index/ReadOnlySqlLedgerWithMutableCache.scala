@@ -18,10 +18,12 @@ import com.daml.metrics.Metrics
 import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
+import com.daml.platform.apiserver.LooseSyncChannel
 import com.daml.platform.index.ReadOnlySqlLedgerWithMutableCache.DispatcherLagMeter
 import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.{EventSequentialId, LfValueTranslationCache}
 import com.daml.platform.store.appendonlydao.events.{BufferedTransactionsReader, LfValueTranslation}
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.SignalNewLedgerHead
 import com.daml.platform.store.cache.{
   EventsBuffer,
@@ -49,9 +51,19 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
       maxTransactionsInMemoryFanOutBufferSize: Long,
       enableInMemoryFanOutForLedgerApi: Boolean,
       servicesExecutionContext: ExecutionContext,
+      ledgerEndUpdateChannel: Option[LooseSyncChannel],
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlySqlLedgerWithMutableCache] {
     private val logger = ContextualizedLogger.get(getClass)
+
+    private val subscribeToLedgerEndFeed: Option[(LedgerEnd => Unit) => Unit] =
+      ledgerEndUpdateChannel.map(channel =>
+        ledgerEndCallback =>
+          channel.subscribe {
+            case ledgerEnd: LedgerEnd => ledgerEndCallback(ledgerEnd)
+            case _ => ()
+          }
+      )
 
     override def acquire()(implicit
         context: ResourceContext
@@ -160,6 +172,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
             generalDispatcher,
             dispatcherLagMeter,
             updatingStringInterningView,
+            subscribeToLedgerEndFeed,
           )
         )
       } yield ledger
@@ -233,6 +246,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
             dispatcher = generalDispatcher,
             dispatcherLagger = dispatcherLagMeter,
             updatingStringInterningView = updatingStringInterningView,
+            subscribeToLedgerEndFeed = subscribeToLedgerEndFeed,
           )
         )
       } yield ledger
@@ -285,6 +299,7 @@ private final class ReadOnlySqlLedgerWithMutableCache(
     dispatcher: Dispatcher[Offset],
     dispatcherLagger: DispatcherLagMeter,
     updatingStringInterningView: UpdatingStringInterningView,
+    subscribeToLedgerEndFeed: Option[(LedgerEnd => Unit) => Unit],
 )(implicit mat: Materializer, loggingContext: LoggingContext)
     extends ReadOnlySqlLedger(
       ledgerId,
@@ -299,20 +314,32 @@ private final class ReadOnlySqlLedgerWithMutableCache(
     RestartSource
       .withBackoff(
         RestartSettings(minBackoff = 1.second, maxBackoff = 10.seconds, randomFactor = 0.2)
-      )(() =>
-        Source
-          .tick(0.millis, 100.millis, ())
+      ) { () =>
+        (subscribeToLedgerEndFeed match {
+          case Some(subscribe) =>
+            val (queue, source) = Source.queue[LedgerEnd](10).preMaterialize()
+            subscribe { ledgerEnd =>
+              queue.offer(ledgerEnd)
+              ()
+            }
+            source
+
+          case None =>
+            Source
+              .tick(0.millis, 100.millis, ())
+              .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd())
+        })
+          .conflate((_, last) => last)
           .mapAsync(1) {
             implicit val ec: ExecutionContext = mat.executionContext
-            _ =>
-              for {
-                ledgerEnd <- ledgerDao.lookupLedgerEnd()
-                _ <- updatingStringInterningView.update(ledgerEnd.lastStringInterningId)
-              } yield ledgerEnd
+            ledgerEnd =>
+              updatingStringInterningView
+                .update(ledgerEnd.lastStringInterningId)
+                .map(_ => ledgerEnd)
           }
-      )
+      }
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .toMat(Sink.foreach { case newLedgerHead =>
+      .toMat(Sink.foreach { newLedgerHead =>
         dispatcherLagger.startTimer(newLedgerHead.lastOffset)
         contractStateEventsDispatcher.signalNewHead(
           newLedgerHead.lastOffset -> newLedgerHead.lastEventSeqId

@@ -24,11 +24,13 @@ private[platform] class FlywayMigrations(
   private val dbType = DbType.jdbcType(jdbcUrl)
   implicit private val ec: ExecutionContext = resourceContext.executionContext
 
-  private def runF[T](t: FluentConfiguration => Future[T]): Future[T] =
-    VerifiedDataSource(jdbcUrl).flatMap(dataSource => t(configurationBase(dataSource)))
+  private def runF(t: FluentConfiguration => Future[Unit]): Future[Unit] =
+    if (dbType == DbType.M) Future.unit
+    else VerifiedDataSource(jdbcUrl).flatMap(dataSource => t(configurationBase(dataSource)))
 
-  private def run[T](t: FluentConfiguration => T): Future[T] =
-    runF(fc => Future(t(fc)))
+  private def run(t: FluentConfiguration => Unit): Future[Unit] =
+    if (dbType == DbType.M) Future.unit
+    else runF(fc => Future(t(fc)))
 
   private def configurationBase(dataSource: DataSource): FluentConfiguration =
     Flyway

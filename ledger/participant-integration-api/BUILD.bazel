@@ -86,6 +86,8 @@ compile_deps = [
 ]
 
 scala_compile_deps = [
+    #    "@maven//:com_lihaoyi_pprint",
+    #    "@maven//:com_lihaoyi_fansi",
     "@maven//:com_github_scopt_scopt",
     "@maven//:com_typesafe_akka_akka_actor",
     "@maven//:com_typesafe_akka_akka_stream",

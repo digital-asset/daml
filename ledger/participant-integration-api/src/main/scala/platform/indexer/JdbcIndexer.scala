@@ -8,6 +8,7 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.LooseSyncChannel
 import com.daml.platform.indexer.parallel.{
   InitializeParallelIngestion,
   ParallelIndexerFactory,
@@ -38,12 +39,18 @@ object JdbcIndexer {
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
+      ledgerEndUpdateChannel: Option[LooseSyncChannel] = None,
   )(implicit materializer: Materializer) {
 
     def initialized(
         resetSchema: Boolean = false
     )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
-      val factory = StorageBackendFactory.of(DbType.jdbcType(config.jdbcUrl))
+      val dbType = DbType.jdbcType(config.jdbcUrl)
+      val ingestionParallelism = dbType match {
+        case DbType.M | DbType.H2Database => 1
+        case _ => config.ingestionParallelism
+      }
+      val factory = StorageBackendFactory.of(dbType)
       val dataSourceStorageBackend = factory.createDataSourceStorageBackend
       val ingestionStorageBackend = factory.createIngestionStorageBackend
       val parameterStorageBackend = factory.createParameterStorageBackend
@@ -54,7 +61,7 @@ object JdbcIndexer {
         jdbcUrl = config.jdbcUrl,
         inputMappingParallelism = config.inputMappingParallelism,
         batchingParallelism = config.batchingParallelism,
-        ingestionParallelism = config.ingestionParallelism,
+        ingestionParallelism = ingestionParallelism,
         dataSourceConfig = DataSourceConfig(
           postgresConfig = PostgresDataSourceConfig(
             synchronousCommit = Some(config.asyncCommitMode match {
@@ -94,11 +101,12 @@ object JdbcIndexer {
           maxInputBufferSize = config.maxInputBufferSize,
           inputMappingParallelism = config.inputMappingParallelism,
           batchingParallelism = config.batchingParallelism,
-          ingestionParallelism = config.ingestionParallelism,
+          ingestionParallelism = ingestionParallelism,
           submissionBatchSize = config.submissionBatchSize,
           tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
           batchWithinMillis = config.batchWithinMillis,
           metrics = metrics,
+          ledgerEndUpdateChannel = ledgerEndUpdateChannel,
         ),
         stringInterningStorageBackend = stringInterningStorageBackend,
         mat = materializer,

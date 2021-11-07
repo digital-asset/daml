@@ -21,7 +21,7 @@ import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.JvmMetricSet
-import com.daml.platform.apiserver.{StandaloneApiServer, StandaloneIndexService}
+import com.daml.platform.apiserver.{LooseSyncChannel, StandaloneApiServer, StandaloneIndexService}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
@@ -151,6 +151,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   )
                   .map(ExecutionContext.fromExecutorService)
                   .acquire()
+                ledgerEndUpdateChannel: Option[LooseSyncChannel] = Some(new LooseSyncChannel)
                 healthChecksWithIndexer <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
                     new StandaloneIndexerServer(
@@ -159,6 +160,7 @@ final class Runner[T <: ReadWriteService, Extra](
                       servicesExecutionContext = servicesExecutionContext,
                       metrics = metrics,
                       lfValueTranslationCache = lfValueTranslationCache,
+                      ledgerEndUpdateChannel = ledgerEndUpdateChannel,
                     ).acquire().map(indexerHealth => healthChecks + ("indexer" -> indexerHealth))
                   case ParticipantRunMode.LedgerApiServer =>
                     Resource.successful(healthChecks)
@@ -171,6 +173,12 @@ final class Runner[T <: ReadWriteService, Extra](
                   engine = sharedEngine,
                   servicesExecutionContext = servicesExecutionContext,
                   lfValueTranslationCache = lfValueTranslationCache,
+                  ledgerEndUpdateChannel = ledgerEndUpdateChannel.filter(_ =>
+                    participantConfig.mode match {
+                      case ParticipantRunMode.Combined | ParticipantRunMode.Indexer => true
+                      case _ => false
+                    }
+                  ),
                 ).acquire()
                 _ <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>

@@ -97,7 +97,9 @@ object ResetServiceDatabaseIT {
     val dbTypeAndConnection =
       for {
         dbInfo <- dbInfoOwner
-        _ <- ResourceOwner.forTry[Class[_]](() => Try(Class.forName(dbInfo.dbType.driver)))
+        _ <- ResourceOwner.forTry[Class[_]](() =>
+          Try(Class.forName(dbInfo.dbType.driver))
+        ) // WUUUUUUUUUUUUUUUUUUT?
         connection <- ResourceOwner.forCloseable(() => DriverManager.getConnection(dbInfo.jdbcUrl))
       } yield (dbInfo.dbType, connection)
     dbTypeAndConnection.use { case (dbType, connection) =>
@@ -116,6 +118,7 @@ object ResetServiceDatabaseIT {
       case DbType.Oracle =>
         SQL"select * from USER_TABLES"
           .as(str("table_name").*)(connection)
+      case DbType.M => throw new Exception("no no, no reset service, mister, no no")
     }
 
   private def countRows(tableName: String)(connection: Connection): Int =

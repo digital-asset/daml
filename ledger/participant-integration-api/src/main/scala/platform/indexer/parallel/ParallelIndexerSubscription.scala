@@ -15,6 +15,7 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{InstrumentedSource, Metrics}
+import com.daml.platform.apiserver.LooseSyncChannel
 import com.daml.platform.indexer.ha.Handle
 import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.store.appendonlydao.DbDispatcher
@@ -45,6 +46,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
     tailingRateLimitPerSecond: Int,
     batchWithinMillis: Long,
     metrics: Metrics,
+    ledgerEndUpdateChannel: Option[LooseSyncChannel] = None,
 ) {
   import ParallelIndexerSubscription._
 
@@ -84,8 +86,12 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
         ingester = ingester(ingestionStorageBackend.insertBatch, dbDispatcher, metrics),
         tailer = tailer(ingestionStorageBackend.batch(Vector.empty, stringInterningView)),
         tailingRateLimitPerSecond = tailingRateLimitPerSecond,
-        ingestTail =
-          ingestTail[DB_BATCH](parameterStorageBackend.updateLedgerEnd, dbDispatcher, metrics),
+        ingestTail = ingestTail[DB_BATCH](
+          parameterStorageBackend.updateLedgerEnd,
+          dbDispatcher,
+          metrics,
+          ledgerEndUpdateChannel,
+        ),
       )(
         InstrumentedSource
           .bufferedSource(
@@ -282,14 +288,17 @@ object ParallelIndexerSubscription {
       ingestTailFunction: LedgerEnd => Connection => Unit,
       dbDispatcher: DbDispatcher,
       metrics: Metrics,
+      ledgerEndUpdateChannel: Option[LooseSyncChannel] = None,
   )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
     batch =>
       withEnrichedLoggingContext("updateOffset" -> batch.lastOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.parallelIndexer.tailIngestion) { connection =>
-          ingestTailFunction(ledgerEndFrom(batch))(connection)
+          val ledgerEnd = ledgerEndFrom(batch)
+          ingestTailFunction(ledgerEnd)(connection)
           metrics.daml.indexer.ledgerEndSequentialId.updateValue(batch.lastSeqEventId)
           metrics.daml.indexer.lastReceivedRecordTime.updateValue(batch.lastRecordTime)
           metrics.daml.indexer.lastReceivedOffset.updateValue(batch.lastOffset.toHexString)
+          ledgerEndUpdateChannel.foreach(_.push(ledgerEnd))
           logger.info("Ledger end updated")
           batch
         }

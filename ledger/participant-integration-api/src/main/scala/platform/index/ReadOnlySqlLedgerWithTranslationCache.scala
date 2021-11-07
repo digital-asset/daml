@@ -13,8 +13,10 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
 import com.daml.platform.PruneBuffersNoOp
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
+import com.daml.platform.apiserver.LooseSyncChannel
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.appendonlydao.LedgerReadDao
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.cache.{MutableLedgerEndCache, TranslationCacheBackedContractStore}
 import com.daml.platform.store.interning.UpdatingStringInterningView
 
@@ -29,6 +31,7 @@ private[index] object ReadOnlySqlLedgerWithTranslationCache {
       updatingStringInterningView: UpdatingStringInterningView,
       ledgerId: LedgerId,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
+      ledgerEndUpdateChannel: Option[LooseSyncChannel],
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlySqlLedgerWithTranslationCache] {
 
@@ -53,6 +56,13 @@ private[index] object ReadOnlySqlLedgerWithTranslationCache {
             contractsStore,
             dispatcher,
             updatingStringInterningView,
+            ledgerEndUpdateChannel.map(channel =>
+              ledgerEndCallback =>
+                channel.subscribe {
+                  case ledgerEnd: LedgerEnd => ledgerEndCallback(ledgerEnd)
+                  case _ => ()
+                }
+            ),
           )
         )
 
@@ -76,6 +86,7 @@ private final class ReadOnlySqlLedgerWithTranslationCache(
     contractStore: ContractStore,
     dispatcher: Dispatcher[Offset],
     updatingStringInterningView: UpdatingStringInterningView,
+    subscribeToLedgerEndFeed: Option[(LedgerEnd => Unit) => Unit],
 )(implicit mat: Materializer, loggingContext: LoggingContext)
     extends ReadOnlySqlLedger(
       ledgerId,
@@ -90,18 +101,30 @@ private final class ReadOnlySqlLedgerWithTranslationCache(
     RestartSource
       .withBackoff(
         RestartSettings(minBackoff = 1.second, maxBackoff = 10.seconds, randomFactor = 0.2)
-      )(() =>
-        Source
-          .tick(0.millis, 100.millis, ())
+      ) { () =>
+        (subscribeToLedgerEndFeed match {
+          case Some(subscribe) =>
+            val (queue, source) = Source.queue[LedgerEnd](10).preMaterialize()
+            subscribe { ledgerEnd =>
+              queue.offer(ledgerEnd)
+              ()
+            }
+            source
+
+          case None =>
+            Source
+              .tick(0.millis, 100.millis, ())
+              .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd())
+        })
+          .conflate((_, last) => last)
           .mapAsync(1) {
             implicit val ec: ExecutionContext = mat.executionContext
-            _ =>
-              for {
-                ledgerEnd <- ledgerDao.lookupLedgerEnd()
-                _ <- updatingStringInterningView.update(ledgerEnd.lastStringInterningId)
-              } yield ledgerEnd
+            ledgerEnd =>
+              updatingStringInterningView
+                .update(ledgerEnd.lastStringInterningId)
+                .map(_ => ledgerEnd)
           }
-      )
+      }
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
       .toMat(Sink.foreach { ledgerEnd =>
         ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)

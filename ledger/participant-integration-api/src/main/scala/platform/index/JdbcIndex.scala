@@ -12,6 +12,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.LooseSyncChannel
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.LfValueTranslationCache
@@ -42,6 +43,7 @@ private[platform] object JdbcIndex {
       maxTransactionsInMemoryFanOutBufferSize: Long,
       enableInMemoryFanOutForLedgerApi: Boolean,
       enableSelfServiceErrorCodes: Boolean,
+      ledgerEndUpdateChannel: Option[LooseSyncChannel],
   )(implicit mat: Materializer, loggingContext: LoggingContext): ResourceOwner[IndexService] =
     new ReadOnlySqlLedger.Owner(
       serverRole = serverRole,
@@ -65,6 +67,7 @@ private[platform] object JdbcIndex {
       participantId = participantId,
       maxTransactionsInMemoryFanOutBufferSize = maxTransactionsInMemoryFanOutBufferSize,
       errorFactories = ErrorFactories(new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes)),
+      ledgerEndUpdateChannel = ledgerEndUpdateChannel,
     ).map { ledger =>
       new LedgerBackedIndexService(
         MeteredReadOnlyLedger(ledger, metrics),

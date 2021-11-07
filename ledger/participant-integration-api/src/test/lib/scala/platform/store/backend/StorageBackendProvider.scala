@@ -6,8 +6,9 @@ package com.daml.platform.store.backend
 import java.sql.Connection
 
 import com.daml.ledger.offset.Offset
+import com.daml.platform.store.DbType
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.daml.platform.store.backend.h2.H2StorageBackendFactory
+//import com.daml.platform.store.backend.h2.H2StorageBackendFactory
 import com.daml.platform.store.backend.oracle.OracleStorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
@@ -61,8 +62,10 @@ private[backend] trait StorageBackendProviderPostgres
 }
 
 private[backend] trait StorageBackendProviderH2 extends StorageBackendProvider { this: Suite =>
-  override protected def jdbcUrl: String = "jdbc:h2:mem:storage_backend_provider;db_close_delay=-1"
-  override protected val backend: TestBackend = TestBackend(H2StorageBackendFactory)
+  override protected val jdbcUrl: String = "jdbc:h2:mem:storage_backend_provider;db_close_delay=-1"
+  override protected val backend: TestBackend = TestBackend(
+    StorageBackendFactory.of(DbType.jdbcType(jdbcUrl))
+  )
 }
 
 private[backend] trait StorageBackendProviderOracle

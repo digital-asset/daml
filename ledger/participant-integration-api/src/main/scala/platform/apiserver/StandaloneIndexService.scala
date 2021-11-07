@@ -30,6 +30,7 @@ object StandaloneIndexService {
       engine: Engine,
       servicesExecutionContext: ExecutionContextExecutor,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
+      ledgerEndUpdateChannel: Option[LooseSyncChannel] = None,
   )(implicit
       materializer: Materializer,
       loggingContext: LoggingContext,
@@ -95,6 +96,7 @@ object StandaloneIndexService {
           maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
           enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
           enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+          ledgerEndUpdateChannel = ledgerEndUpdateChannel,
         )
         .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
     } yield indexService

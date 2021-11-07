@@ -5,6 +5,7 @@ package com.daml.platform.store.backend
 
 import com.daml.platform.store.DbType
 import com.daml.platform.store.backend.h2.H2StorageBackendFactory
+import com.daml.platform.store.backend.m.MStorageBackendFactory
 import com.daml.platform.store.backend.oracle.OracleStorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackendFactory
 import com.daml.platform.store.cache.LedgerEndCache
@@ -52,6 +53,7 @@ object StorageBackendFactory {
       case DbType.H2Database => H2StorageBackendFactory
       case DbType.Postgres => PostgresStorageBackendFactory
       case DbType.Oracle => OracleStorageBackendFactory
+      case DbType.M => MStorageBackendFactory
     }
 }
 

@@ -9,6 +9,7 @@ import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.LooseSyncChannel
 import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -20,6 +21,7 @@ final class StandaloneIndexerServer(
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     additionalMigrationPaths: Seq[String] = Seq.empty,
+    ledgerEndUpdateChannel: Option[LooseSyncChannel] = None,
 )(implicit materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ReportsHealth] {
 
@@ -37,6 +39,7 @@ final class StandaloneIndexerServer(
       servicesExecutionContext,
       metrics,
       lfValueTranslationCache,
+      ledgerEndUpdateChannel,
     )
     val indexer = RecoveringIndexer(
       materializer.system.scheduler,

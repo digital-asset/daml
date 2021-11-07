@@ -43,10 +43,19 @@ object DbType {
         supportsAsynchronousCommits = false,
       )
 
+  object M
+      extends DbType(
+        "M",
+        "N/A",
+        supportsParallelWrites = false,
+        supportsAsynchronousCommits = false,
+      )
+
   def jdbcType(jdbcUrl: String): DbType = jdbcUrl match {
-    case h2 if h2.startsWith("jdbc:h2:") => H2Database
+    case h2 if h2.startsWith("jdbc:h2:") => M
     case pg if pg.startsWith("jdbc:postgresql:") => Postgres
     case oracle if oracle.startsWith("jdbc:oracle:") => Oracle
+    case m if m.startsWith("jdbc:m:") => M
     case _ =>
       sys.error(s"JDBC URL doesn't match any supported databases (h2, pg, oracle)")
   }
