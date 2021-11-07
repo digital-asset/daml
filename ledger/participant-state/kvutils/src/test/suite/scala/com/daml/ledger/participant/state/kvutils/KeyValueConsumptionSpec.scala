@@ -33,7 +33,6 @@ import com.google.protobuf.any.{Any => AnyProto}
 import com.google.protobuf.{ByteString, Empty}
 import com.google.rpc.code.Code
 import com.google.rpc.error_details.ErrorInfo
-import com.google.rpc.status.Status
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
@@ -58,7 +57,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
     .setPackageUploadEntry(DamlPackageUploadEntry.getDefaultInstance)
     .build
 
-  private val errorVersionsTable: TableFor1[ValueSwitch[Status]] = Table[ValueSwitch[Status]](
+  private val errorVersionsTable: TableFor1[ValueSwitch] = Table[ValueSwitch](
     "Error Version",
     v1ErrorSwitch,
     v2ErrorSwitch,
@@ -447,13 +446,11 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
   }
 
   private def runAll(
-      table: TableFor5[ValueSwitch[
-        Status
-      ], TimeBounds, Timestamp, DamlLogEntry.PayloadCase, Assertions]
+      table: TableFor5[ValueSwitch, TimeBounds, Timestamp, DamlLogEntry.PayloadCase, Assertions]
   ): Unit =
     forAll(table) {
       (
-          errorVersionSwitch: ValueSwitch[Status],
+          errorVersionSwitch: ValueSwitch,
           timeBounds: TimeBounds,
           recordTime: Timestamp,
           logEntryType: DamlLogEntry.PayloadCase,
@@ -572,10 +569,10 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
         Map.empty[String, String]
     }
 
-  private lazy val v1ErrorSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes = false) {
+  private lazy val v1ErrorSwitch = new ValueSwitch(enableSelfServiceErrorCodes = false) {
     override def toString: String = "1"
   }
-  private lazy val v2ErrorSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes = true) {
+  private lazy val v2ErrorSwitch = new ValueSwitch(enableSelfServiceErrorCodes = true) {
     override def toString: String = "2"
   }
 }

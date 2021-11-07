@@ -25,7 +25,6 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
-import com.google.rpc.status.Status
 import org.mockito.Mockito.when
 import org.mockito.MockitoSugar._
 import org.scalatest.matchers.should.Matchers
@@ -248,7 +247,7 @@ object KeyValueParticipantStateReaderSpec {
   private val zeroUpdateGenerator: (
       DamlLogEntryId,
       DamlLogEntry,
-      ValueSwitch[Status],
+      ValueSwitch,
       Option[Timestamp],
   ) => LoggingContext => List[Update] =
     (_, _, _, _) => _ => List.empty
@@ -256,7 +255,7 @@ object KeyValueParticipantStateReaderSpec {
   private val singleUpdateGenerator: (
       DamlLogEntryId,
       DamlLogEntry,
-      ValueSwitch[Status],
+      ValueSwitch,
       Option[Timestamp],
   ) => LoggingContext => List[Update] =
     (_, _, _, _) =>
@@ -274,7 +273,7 @@ object KeyValueParticipantStateReaderSpec {
   private val twoUpdatesGenerator: (
       DamlLogEntryId,
       DamlLogEntry,
-      ValueSwitch[Status],
+      ValueSwitch,
       Option[Timestamp],
   ) => LoggingContext => List[Update] =
     (entryId, entry, errorVersionSwitch, recordTime) =>
@@ -310,7 +309,7 @@ object KeyValueParticipantStateReaderSpec {
       logEntryToUpdate: (
           DamlLogEntryId,
           DamlLogEntry,
-          ValueSwitch[Status],
+          ValueSwitch,
           Option[Timestamp],
       ) => LoggingContext => List[Update] = singleUpdateGenerator,
       failOnUnexpectedEvent: Boolean = true,

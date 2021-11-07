@@ -41,7 +41,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.{TextFormat, Timestamp}
 import com.google.rpc.error_details.{ErrorInfo, ResourceInfo}
-import com.google.rpc.status.Status
 import io.grpc.Status.Code
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
@@ -545,7 +544,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
   }
 
   private def checkErrors(
-      errorVersionSwitch: ValueSwitch[Status],
+      errorVersionSwitch: ValueSwitch,
       submitterInfo: DamlSubmitterInfo,
       rejection: Rejection,
       expectedCode: Code,
@@ -638,8 +637,8 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       )
       .build
 
-  private lazy val v1ErrorSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes = false)
-  private lazy val v2ErrorSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes = true)
+  private lazy val v1ErrorSwitch = new ValueSwitch(enableSelfServiceErrorCodes = false)
+  private lazy val v2ErrorSwitch = new ValueSwitch(enableSelfServiceErrorCodes = true)
 
   private[this] val txVersion = TransactionVersion.StableVersions.max
 
