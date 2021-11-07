@@ -542,6 +542,14 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           )
         }
 
+        case class MultipleContractsNotFound(notFoundContractIds: Set[String])(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends LoggingTransactionErrorImpl(
+              cause = s"Unknown contracts: ${notFoundContractIds.mkString("[", ", ", "]")}"
+            ) {
+          override def resources: Seq[(ErrorResource, String)] =
+            notFoundContractIds.map(ErrorResource.ContractId -> _).toSeq
+        }
       }
 
       @Explanation(

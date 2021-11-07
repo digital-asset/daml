@@ -19,8 +19,6 @@ import java.sql.Connection
 import java.time.Instant
 import java.util.UUID
 
-import scala.util.{Failure, Success, Try}
-
 final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
   import PostCommitValidation._
   import PostCommitValidationSpec._
@@ -536,12 +534,12 @@ object PostCommitValidationSpec {
       contracts.find(c => c.key.contains(key)).map(_.id)
     override def maximumLedgerTime(
         ids: Set[ContractId]
-    )(connection: Connection): Try[Option[Timestamp]] = {
+    )(connection: Connection): Either[Set[ContractId], Option[Timestamp]] = {
       val lookup = contracts.collect {
         case c if ids.contains(c.id) => c.ledgerEffectiveTime
       }
-      if (lookup.isEmpty) Failure(notFound(ids))
-      else Success(lookup.fold[Option[Timestamp]](None)(pickTheGreatest))
+      if (lookup.isEmpty) Left(ids)
+      else Right(lookup.fold[Option[Timestamp]](None)(pickTheGreatest))
     }
     override def keyState(key: Key, validAt: Long)(connection: Connection): KeyState =
       notImplemented()
@@ -582,11 +580,6 @@ object PostCommitValidationSpec {
 
   private def pickTheGreatest(l: Option[Timestamp], r: Option[Timestamp]): Option[Timestamp] =
     l.fold(r)(left => r.fold(l)(right => if (left > right) l else r))
-
-  private def notFound(contractIds: Set[ContractId]): Throwable =
-    new IllegalArgumentException(
-      s"One or more of the following contract identifiers has not been found: ${contractIds.map(_.coid).mkString(", ")}"
-    )
 
   private def noCommittedContract(parties: List[PartyDetails]): ContractStoreFixture =
     ContractStoreFixture(

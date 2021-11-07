@@ -10,8 +10,6 @@ import java.util.TimeZone
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.util.Success
-
 private[backend] trait StorageBackendTestsTimestamps extends Matchers with StorageBackendSpec {
   this: AsyncFlatSpec =>
 
@@ -44,9 +42,9 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
         withDefaultTimeZone("GMT+1")(backend.contract.maximumLedgerTime(Set(cid)))
       )
     } yield {
-      withClue("UTC") { let1 shouldBe Success(Some(let)) }
-      withClue("GMT-1") { let2 shouldBe Success(Some(let)) }
-      withClue("GMT+1") { let3 shouldBe Success(Some(let)) }
+      withClue("UTC") { let1 shouldBe Right(Some(let)) }
+      withClue("GMT-1") { let2 shouldBe Right(Some(let)) }
+      withClue("GMT+1") { let3 shouldBe Right(Some(let)) }
     }
   }
 

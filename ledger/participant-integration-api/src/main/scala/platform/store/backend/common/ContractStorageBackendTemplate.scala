@@ -27,8 +27,6 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyUnassigned,
 }
 
-import scala.util.{Failure, Success, Try}
-
 class ContractStorageBackendTemplate(
     queryStrategy: QueryStrategy,
     ledgerEndCache: LedgerEndCache,
@@ -43,16 +41,6 @@ class ContractStorageBackendTemplate(
       key = key,
       validAt = ledgerEndCache()._2,
     )(connection)
-
-  private def emptyContractIds: Throwable =
-    new IllegalArgumentException(
-      "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
-    )
-
-  private def notFound(missingContractIds: Set[ContractId]): Throwable =
-    new IllegalArgumentException(
-      s"The following contracts have not been found: ${missingContractIds.map(_.coid).mkString(", ")}"
-    )
 
   protected def maximumLedgerTimeSqlLiteral(
       id: ContractId,
@@ -102,10 +90,10 @@ class ContractStorageBackendTemplate(
   // TODO append-only: consider pulling up traversal logic to upper layer
   override def maximumLedgerTime(
       ids: Set[ContractId]
-  )(connection: Connection): Try[Option[Timestamp]] = {
+  )(connection: Connection): Either[Set[ContractId], Option[Timestamp]] = {
     val lastEventSequentialId = ledgerEndCache()._2
     if (ids.isEmpty) {
-      Failure(emptyContractIds)
+      Right(None)
     } else {
       def lookup(id: ContractId): Option[Option[Timestamp]] =
         maximumLedgerTimeSqlLiteral(id, lastEventSequentialId).as(
@@ -124,8 +112,8 @@ class ContractStorageBackendTemplate(
         val missingIds = queriedIds.collect { case (missingId, None) =>
           missingId
         }
-        Failure(notFound(missingIds.toSet))
-      } else Success(foundLedgerEffectiveTimes.max)
+        Left(missingIds.toSet)
+      } else Right(foundLedgerEffectiveTimes.max)
     }
   }
 

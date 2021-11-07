@@ -3,15 +3,21 @@
 
 package com.daml.platform.store.dao
 
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.utils.ErrorDetails
 import com.daml.lf.data.Time.Timestamp
 
 import java.util.UUID
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.Node.KeyWithMaintainers
-import com.daml.lf.value.Value.{ContractId, VersionedContractInstance, ValueText}
+import com.daml.lf.value.Value.{ContractId, ValueText, VersionedContractInstance}
+import io.grpc.StatusRuntimeException
+import io.grpc.protobuf.StatusProto
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
+
+import scala.jdk.CollectionConverters._
 
 private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside with OptionValues {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
@@ -167,8 +173,8 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     for {
       failure <- contractsReader.lookupMaximumLedgerTime(Set(randomContractId)).failed
     } yield {
-      failure shouldBe an[IllegalArgumentException]
-      assertIsLedgerTimeLookupError(failure.getMessage)
+      failure shouldBe a[StatusRuntimeException]
+      assertIsLedgerTimeLookupError(failure, randomContractId.coid)
     }
   }
 
@@ -248,8 +254,8 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       _ <- store(singleExercise(divulgedContractId))
       failure <- contractsReader.lookupMaximumLedgerTime(Set(divulgedContractId)).failed
     } yield {
-      failure shouldBe an[IllegalArgumentException]
-      assertIsLedgerTimeLookupError(failure.getMessage)
+      failure shouldBe a[StatusRuntimeException]
+      assertIsLedgerTimeLookupError(failure, divulgedContractId.coid)
     }
   }
 
@@ -257,8 +263,20 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     store(fullyTransientWithChildren).flatMap(_ => succeed)
   }
 
-  private[this] def assertIsLedgerTimeLookupError(actualErrorString: String) = {
-    val errorString = "The following contracts have not been found"
-    actualErrorString should startWith(errorString)
-  }
+  private[this] def assertIsLedgerTimeLookupError(exception: Throwable, missingContractId: String) =
+    exception match {
+      case ex: StatusRuntimeException =>
+        val expectedErrorCodeId = LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound
+        val status = StatusProto.fromThrowable(ex)
+        val details = status.getDetailsList.asScala.toSeq
+
+        status.getCode shouldBe expectedErrorCodeId.category.grpcCode.get.value()
+
+        ErrorDetails.from(details) should contain theSameElementsAs Set(
+          ErrorDetails.ResourceInfoDetail("CONTRACT_ID", missingContractId),
+          ErrorDetails.ErrorInfoDetail(expectedErrorCodeId.id),
+        )
+
+      case _ => fail("Expected StatusRuntimeException")
+    }
 }

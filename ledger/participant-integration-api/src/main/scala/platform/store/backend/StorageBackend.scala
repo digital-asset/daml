@@ -24,7 +24,6 @@ import com.daml.scalautil.NeverEqualsOverride
 
 import javax.sql.DataSource
 import scala.annotation.unused
-import scala.util.Try
 
 /** Encapsulates the interface which hides database technology specific implementations.
   * Naming convention for the interface methods, which requiring Connection:
@@ -202,7 +201,9 @@ trait CompletionStorageBackend {
 
 trait ContractStorageBackend {
   def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId]
-  def maximumLedgerTime(ids: Set[ContractId])(connection: Connection): Try[Option[Timestamp]]
+  def maximumLedgerTime(ids: Set[ContractId])(
+      connection: Connection
+  ): Either[Set[ContractId], Option[Timestamp]]
   def keyState(key: Key, validAt: Long)(connection: Connection): KeyState
   def contractState(contractId: ContractId, before: Long)(
       connection: Connection

@@ -5,8 +5,10 @@ package com.daml.platform.store.appendonlydao.events
 
 import java.io.ByteArrayInputStream
 import com.codahale.metrics.Timer
+import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.lf.data.Time.Timestamp
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
 import com.daml.platform.store.appendonlydao.events.ContractsReader._
@@ -23,6 +25,7 @@ private[appendonlydao] sealed class ContractsReader(
     metrics: Metrics,
 )(implicit ec: ExecutionContext)
     extends LedgerDaoContractsReader {
+  private val logger = ContextualizedLogger.get(getClass)
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
@@ -33,7 +36,17 @@ private[appendonlydao] sealed class ContractsReader(
         .executeSql(metrics.daml.index.db.lookupMaximumLedgerTimeDbMetrics)(
           storageBackend.maximumLedgerTime(ids)
         )
-        .map(_.get),
+        .flatMap {
+          case Left(missingContractIds) =>
+            Future.failed(
+              LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound
+                .MultipleContractsNotFound(
+                  missingContractIds.map(_.coid)
+                )(new DamlContextualizedErrorLogger(logger, loggingContext, None))
+                .asGrpcError
+            )
+          case Right(value) => Future.successful(value)
+        },
     )
 
   /** Lookup a contract key state at a specific ledger offset.
