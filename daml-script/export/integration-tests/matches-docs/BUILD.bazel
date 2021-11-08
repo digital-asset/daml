@@ -107,4 +107,4 @@ $(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;s/[0-9a-f]\\{{64\\}
         "//docs:source/tools/export/output-root/daml.yaml",
     ],
     toolchains = ["@rules_sh//sh/posix:make_variables"],
-)
+) if not is_windows else None
