@@ -40,9 +40,15 @@ import com.daml.platform.sandbox.stores.ledger.{Ledger, Rejection, SandboxOffset
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
 import com.daml.platform.store.cache.{MutableLedgerEndCache, TranslationCacheBackedContractStore}
-import com.daml.platform.store.appendonlydao.{LedgerDao, LedgerWriteDao}
+import com.daml.platform.store.appendonlydao.{
+  DbDispatcher,
+  LedgerDao,
+  LedgerWriteDao,
+  SequentialWriteDao,
+}
+import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
-import com.daml.platform.store.{BaseLedger, FlywayMigrations, LfValueTranslationCache}
+import com.daml.platform.store.{BaseLedger, DbType, FlywayMigrations, LfValueTranslationCache}
 import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.Status
 
@@ -100,8 +106,26 @@ private[sandbox] object SqlLedger {
         _ <- Resource.fromFuture(
           new FlywayMigrations(jdbcUrl).migrate()
         )
+        dbType = DbType.jdbcType(jdbcUrl)
+        storageBackendFactory = StorageBackendFactory.of(dbType)
         ledgerEndCache = MutableLedgerEndCache()
-        dao <- ledgerDaoOwner(ledgerEndCache, servicesExecutionContext, errorFactories).acquire()
+        dbDispatcher <- DbDispatcher
+          .owner(
+            dataSource =
+              storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl),
+            serverRole = serverRole,
+            connectionPoolSize = dbType.maxSupportedWriteConnections(databaseConnectionPoolSize),
+            connectionTimeout = databaseConnectionTimeout,
+            metrics = metrics,
+          )
+          .acquire()
+        dao = ledgerDaoOwner(
+          dbDispatcher,
+          storageBackendFactory,
+          ledgerEndCache,
+          servicesExecutionContext,
+          errorFactories,
+        )
         _ <- startMode match {
           case SqlStartMode.ResetAndStart =>
             Resource.fromFuture(dao.reset())
@@ -253,18 +277,27 @@ private[sandbox] object SqlLedger {
     }
 
     private def ledgerDaoOwner(
+        dbDispatcher: DbDispatcher,
+        storageBackendFactory: StorageBackendFactory,
         ledgerEndCache: MutableLedgerEndCache,
         servicesExecutionContext: ExecutionContext,
         errorFactories: ErrorFactories,
-    ): ResourceOwner[LedgerDao] = {
+    ): LedgerDao = {
       val compressionStrategy =
         if (enableCompression) CompressionStrategy.allGZIP(metrics)
         else CompressionStrategy.none(metrics)
-      com.daml.platform.store.appendonlydao.JdbcLedgerDao.validatingWriteOwner(
-        serverRole = serverRole,
-        jdbcUrl = jdbcUrl,
-        connectionPoolSize = databaseConnectionPoolSize,
-        connectionTimeout = databaseConnectionTimeout,
+      val refParticipantId = Ref.ParticipantId.assertFromString(participantId.toString)
+      com.daml.platform.store.appendonlydao.JdbcLedgerDao.validatingWrite(
+        dbDispatcher = dbDispatcher,
+        sequentialWriteDao = SequentialWriteDao(
+          participantId = refParticipantId,
+          lfValueTranslationCache = lfValueTranslationCache,
+          metrics = metrics,
+          compressionStrategy = compressionStrategy,
+          ledgerEndCache = ledgerEndCache,
+          ingestionStorageBackend = storageBackendFactory.createIngestionStorageBackend,
+          parameterStorageBackend = storageBackendFactory.createParameterStorageBackend,
+        ),
         eventsPageSize = eventsPageSize,
         eventsProcessingParallelism = eventsProcessingParallelism,
         servicesExecutionContext = servicesExecutionContext,
@@ -272,8 +305,8 @@ private[sandbox] object SqlLedger {
         lfValueTranslationCache = lfValueTranslationCache,
         validatePartyAllocation = validatePartyAllocation,
         enricher = Some(new ValueEnricher(engine)),
-        participantId = Ref.ParticipantId.assertFromString(participantId.toString),
-        compressionStrategy = compressionStrategy,
+        participantId = refParticipantId,
+        storageBackendFactory = storageBackendFactory,
         ledgerEndCache = ledgerEndCache,
         errorFactories = errorFactories,
       )

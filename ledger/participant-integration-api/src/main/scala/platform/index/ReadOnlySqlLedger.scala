@@ -24,12 +24,14 @@ import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.{
+  DbDispatcher,
   JdbcLedgerDao,
   LedgerDaoTransactionsReader,
   LedgerReadDao,
 }
+import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.{LedgerEndCache, MutableLedgerEndCache}
-import com.daml.platform.store.{BaseLedger, LfValueTranslationCache}
+import com.daml.platform.store.{BaseLedger, DbType, LfValueTranslationCache}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 
@@ -65,9 +67,25 @@ private[platform] object ReadOnlySqlLedger {
 
     override def acquire()(implicit context: ResourceContext): Resource[ReadOnlySqlLedger] = {
       val ledgerEndCache = MutableLedgerEndCache()
+      val storageBackendFactory = StorageBackendFactory.of(DbType.jdbcType(jdbcUrl))
       for {
-        ledgerDao <- ledgerDaoOwner(servicesExecutionContext, errorFactories, ledgerEndCache)
+        dbDispatcher <- DbDispatcher
+          .owner(
+            dataSource =
+              storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl),
+            serverRole = serverRole,
+            connectionPoolSize = databaseConnectionPoolSize,
+            connectionTimeout = databaseConnectionTimeout,
+            metrics = metrics,
+          )
           .acquire()
+        ledgerDao = ledgerDaoOwner(
+          servicesExecutionContext,
+          errorFactories,
+          ledgerEndCache,
+          dbDispatcher,
+          storageBackendFactory,
+        )
         ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao, initialLedgerId))
         ledger <- ledgerOwner(ledgerDao, ledgerId, ledgerEndCache).acquire()
       } yield ledger
@@ -144,21 +162,21 @@ private[platform] object ReadOnlySqlLedger {
         servicesExecutionContext: ExecutionContext,
         errorFactories: ErrorFactories,
         ledgerEndCache: LedgerEndCache,
-    ): ResourceOwner[LedgerReadDao] =
-      JdbcLedgerDao.readOwner(
-        serverRole,
-        jdbcUrl,
-        databaseConnectionPoolSize,
-        databaseConnectionTimeout,
-        eventsPageSize,
-        eventsProcessingParallelism,
-        servicesExecutionContext,
-        metrics,
-        lfValueTranslationCache,
-        Some(enricher),
-        participantId,
-        errorFactories,
-        ledgerEndCache,
+        dbDispatcher: DbDispatcher,
+        storageBackendFactory: StorageBackendFactory,
+    ): LedgerReadDao =
+      JdbcLedgerDao.read(
+        dbDispatcher = dbDispatcher,
+        eventsPageSize = eventsPageSize,
+        eventsProcessingParallelism = eventsProcessingParallelism,
+        servicesExecutionContext = servicesExecutionContext,
+        metrics = metrics,
+        lfValueTranslationCache = lfValueTranslationCache,
+        enricher = Some(enricher),
+        participantId = participantId,
+        storageBackendFactory = storageBackendFactory,
+        ledgerEndCache = ledgerEndCache,
+        errorFactories = errorFactories,
       )
   }
 

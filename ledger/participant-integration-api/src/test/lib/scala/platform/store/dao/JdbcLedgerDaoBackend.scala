@@ -14,7 +14,14 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.appendonlydao.LedgerDao
+import com.daml.platform.store.appendonlydao.{
+  DbDispatcher,
+  JdbcLedgerDao,
+  LedgerDao,
+  SequentialWriteDao,
+}
+import com.daml.platform.store.appendonlydao.events.CompressionStrategy
+import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParticipantId}
 import com.daml.platform.store.{DbType, FlywayMigrations, LfValueTranslationCache}
@@ -51,23 +58,41 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] = {
-    com.daml.platform.store.appendonlydao.JdbcLedgerDao.writeOwner(
-      serverRole = ServerRole.Testing(getClass),
-      jdbcUrl = jdbcUrl,
-      // this was the previous default.
-      // keeping it hardcoded here to keep tests working as before extracting the parameter
-      connectionPoolSize = 16,
-      connectionTimeout = 250.millis,
-      eventsPageSize = eventsPageSize,
-      eventsProcessingParallelism = eventsProcessingParallelism,
-      servicesExecutionContext = executionContext,
-      metrics = new Metrics(new MetricRegistry),
-      lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-      enricher = Some(new ValueEnricher(new Engine())),
-      participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
-      ledgerEndCache = ledgerEndCache,
-      errorFactories = errorFactories,
-    )
+    val metrics = new Metrics(new MetricRegistry)
+    val dbType = DbType.jdbcType(jdbcUrl)
+    val storageBackendFactory = StorageBackendFactory.of(dbType)
+    DbDispatcher
+      .owner(
+        dataSource = storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl),
+        serverRole = ServerRole.Testing(getClass),
+        connectionPoolSize = dbType.maxSupportedWriteConnections(16),
+        connectionTimeout = 250.millis,
+        metrics = metrics,
+      )
+      .map(dbDispatcher =>
+        JdbcLedgerDao.write(
+          dbDispatcher = dbDispatcher,
+          sequentialWriteDao = SequentialWriteDao(
+            participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
+            lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+            metrics = metrics,
+            compressionStrategy = CompressionStrategy.none(metrics),
+            ledgerEndCache = ledgerEndCache,
+            ingestionStorageBackend = storageBackendFactory.createIngestionStorageBackend,
+            parameterStorageBackend = storageBackendFactory.createParameterStorageBackend,
+          ),
+          eventsPageSize = eventsPageSize,
+          eventsProcessingParallelism = eventsProcessingParallelism,
+          servicesExecutionContext = executionContext,
+          metrics = metrics,
+          lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+          enricher = Some(new ValueEnricher(new Engine())),
+          participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
+          storageBackendFactory = storageBackendFactory,
+          ledgerEndCache = ledgerEndCache,
+          errorFactories = errorFactories,
+        )
+      )
   }
 
   protected final var ledgerDao: LedgerDao = _

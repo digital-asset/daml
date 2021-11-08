@@ -24,6 +24,16 @@ trait StorageBackendFactory {
   def createIntegrityStorageBackend: IntegrityStorageBackend
   def createResetStorageBackend: ResetStorageBackend
   def createStringInterningStorageBackend: StringInterningStorageBackend
+
+  final def readStorageBackend(ledgerEndCache: LedgerEndCache): ReadStorageBackend =
+    ReadStorageBackend(
+      configurationStorageBackend = createConfigurationStorageBackend(ledgerEndCache),
+      partyStorageBackend = createPartyStorageBackend(ledgerEndCache),
+      packageStorageBackend = createPackageStorageBackend(ledgerEndCache),
+      completionStorageBackend = createCompletionStorageBackend,
+      contractStorageBackend = createContractStorageBackend(ledgerEndCache),
+      eventStorageBackend = createEventStorageBackend(ledgerEndCache),
+    )
 }
 
 object StorageBackendFactory {
@@ -33,21 +43,6 @@ object StorageBackendFactory {
       case DbType.Postgres => PostgresStorageBackendFactory
       case DbType.Oracle => OracleStorageBackendFactory
     }
-
-  def readStorageBackendFor(
-      dbType: DbType,
-      ledgerEndCache: LedgerEndCache,
-  ): ReadStorageBackend = {
-    val factory = of(dbType)
-    ReadStorageBackend(
-      configurationStorageBackend = factory.createConfigurationStorageBackend(ledgerEndCache),
-      partyStorageBackend = factory.createPartyStorageBackend(ledgerEndCache),
-      packageStorageBackend = factory.createPackageStorageBackend(ledgerEndCache),
-      completionStorageBackend = factory.createCompletionStorageBackend,
-      contractStorageBackend = factory.createContractStorageBackend(ledgerEndCache),
-      eventStorageBackend = factory.createEventStorageBackend(ledgerEndCache),
-    )
-  }
 }
 
 case class ReadStorageBackend(
