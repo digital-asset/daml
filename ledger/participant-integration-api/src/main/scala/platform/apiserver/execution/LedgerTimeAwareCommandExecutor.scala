@@ -90,13 +90,13 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
                   if (maxUsedTime.forall(_ <= commands.commands.ledgerEffectiveTime)) {
                     Future.successful(Right(cer))
                   } else if (!cer.dependsOnLedgerTime) {
-                    logger.debug(
+                    logger.info(
                       s"Advancing ledger effective time for the output from ${commands.commands.ledgerEffectiveTime} to $maxUsedTime"
                     )
                     Future.successful(Right(advanceOutputTime(cer, maxUsedTime)))
                   } else {
                     logger.info(
-                      s"Ledger time was used in the Daml code, but a different ledger effective time $maxUsedTime was determined afterwards. The transaction needs to be rerun with the new ledger effective time."
+                      s"Ledger time was used in the Daml code, but a different ledger effective time $maxUsedTime was determined afterwards."
                     )
                     val advancedCommands = advanceInputTime(commands, maxUsedTime)
                     retryOrError(advancedCommands)
