@@ -397,6 +397,7 @@ final class SandboxServer(
         seedService = seedingService,
         managementServiceTimeout = config.managementServiceTimeout,
         enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+        checkOverloaded = _ => None,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(List(resetService)))
       apiServer <- new LedgerApiServer(

@@ -97,8 +97,7 @@ private[daml] object ApiServices {
       seedService: SeedService,
       managementServiceTimeout: Duration,
       enableSelfServiceErrorCodes: Boolean,
-      checkOverloaded: TelemetryContext => Option[state.SubmissionResult] =
-        _ => None, // Used for Canton rate-limiting
+      checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
