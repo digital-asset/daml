@@ -230,6 +230,7 @@ class TransactionCoderSpec
           signatories = Set(Party.assertFromString("alice")),
           stakeholders = Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
           key = None,
+          byInterface = None,
           version = TransactionVersion.minVersion,
         )
 

@@ -53,6 +53,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
           Set(party),
           Set.empty,
           None,
+          None,
         )
         ._2
 
@@ -70,6 +71,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
         choiceObservers = Set.empty,
         mbKey = None,
         byKey = false,
+        byInterface = None,
         chosenValue = Value.ValueUnit,
       )
 

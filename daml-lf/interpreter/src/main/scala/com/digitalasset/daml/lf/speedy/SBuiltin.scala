@@ -945,6 +945,7 @@ private[lf] object SBuiltin {
           signatories = sigs,
           stakeholders = sigs union obs,
           key = mbKey,
+          byInterface = None, // TODO https://github.com/digital-asset/daml/issues/10915
         )
 
       machine.addLocalContract(coid, templateId, createArg, sigs, obs, mbKey)
@@ -1007,6 +1008,7 @@ private[lf] object SBuiltin {
           mbKey = mbKey,
           byKey = byKey,
           chosenValue = chosenValue,
+          byInterface = None, // TODO https://github.com/digital-asset/daml/issues/10915
         )
       checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
@@ -1220,6 +1222,7 @@ private[lf] object SBuiltin {
         stakeholders,
         key,
         byKey,
+        None, // TODO https://github.com/digital-asset/daml/issues/10915
       )
       checkAborted(onLedger.ptx)
       machine.returnValue = SUnit

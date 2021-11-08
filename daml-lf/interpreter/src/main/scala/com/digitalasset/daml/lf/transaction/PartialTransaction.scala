@@ -136,6 +136,8 @@ private[lf] object PartialTransaction {
     *  @param parent The context in which the exercises is
     *                       happening.
     *  @param byKey True if the exercise is done "by key"
+    *  @param byInterface The interface through which this exercise
+    *                         was invoked, if any.
     */
   final case class ExercisesContextInfo(
       targetId: Value.ContractId,
@@ -151,6 +153,7 @@ private[lf] object PartialTransaction {
       nodeId: NodeId,
       parent: Context,
       byKey: Boolean,
+      byInterface: Option[TypeConName],
   ) extends ContextInfo {
     val actionNodeSeed = parent.nextActionChildSeed
     val actionChildSeed = crypto.Hash.deriveNodeSeed(actionNodeSeed, _)
@@ -406,6 +409,7 @@ private[speedy] case class PartialTransaction(
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[Node.KeyWithMaintainers[Value]],
+      byInterface: Option[TypeConName],
   ): (Value.ContractId, PartialTransaction) = {
     val actionNodeSeed = context.nextActionChildSeed
     val discriminator =
@@ -420,6 +424,7 @@ private[speedy] case class PartialTransaction(
       signatories,
       stakeholders,
       key,
+      byInterface,
       version,
     )
     val nid = NodeId(nextNodeIdx)
@@ -498,6 +503,7 @@ private[speedy] case class PartialTransaction(
       stakeholders: Set[Party],
       key: Option[Node.KeyWithMaintainers[Value]],
       byKey: Boolean,
+      byInterface: Option[TypeConName],
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
     val version = packageToTransactionVersion(templateId.packageId)
@@ -509,6 +515,7 @@ private[speedy] case class PartialTransaction(
       stakeholders,
       key,
       normByKey(version, byKey),
+      byInterface,
       version,
     )
     mustBeActive(
@@ -554,6 +561,7 @@ private[speedy] case class PartialTransaction(
       mbKey: Option[Node.KeyWithMaintainers[Value]],
       byKey: Boolean,
       chosenValue: Value,
+      byInterface: Option[TypeConName],
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
     val ec =
@@ -571,6 +579,7 @@ private[speedy] case class PartialTransaction(
         nodeId = nid,
         parent = context,
         byKey = byKey,
+        byInterface = byInterface,
       )
 
     mustBeActive(
@@ -663,6 +672,7 @@ private[speedy] case class PartialTransaction(
       exerciseResult = None,
       key = ec.contractKey,
       byKey = normByKey(version, ec.byKey),
+      byInterface = ec.byInterface,
       version = version,
     )
   }

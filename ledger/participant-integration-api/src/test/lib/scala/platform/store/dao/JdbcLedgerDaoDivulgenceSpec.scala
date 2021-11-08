@@ -34,6 +34,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           signatories = Set(alice),
           stakeholders = Set(alice),
           key = None,
+          byInterface = None,
           version = TransactionVersion.minVersion,
         )
       )
@@ -53,6 +54,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           key = Some(
             Node.KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
           ),
+          byInterface = None,
           version = TransactionVersion.minVersion,
         )
       )
@@ -77,6 +79,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           exerciseResult = Some(someChoiceResult),
           key = None,
           byKey = false,
+          byInterface = None,
           version = TransactionVersion.minVersion,
         )
       )
@@ -91,6 +94,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
             Node.KeyWithMaintainers(ValueParty(bob), Set(bob))
           ),
           byKey = false,
+          byInterface = None,
           version = TransactionVersion.minVersion,
         ),
         parentId = rootExercise,
@@ -112,6 +116,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
             Node.KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
           ),
           byKey = false,
+          byInterface = None,
           version = TransactionVersion.minVersion,
         ),
         parentId = rootExercise,
@@ -127,6 +132,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           key = Some(
             Node.KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
           ),
+          byInterface = None,
           version = TransactionVersion.minVersion,
         ),
         parentId = nestedExercise,
