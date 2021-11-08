@@ -997,11 +997,6 @@ data FeatureFlags = FeatureFlags
   }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
-defaultFeatureFlags :: FeatureFlags
-defaultFeatureFlags = FeatureFlags
-  { forbidPartyLiterals = False
-  }
-
 -- | Feature flags for DAML 1.2.
 daml12FeatureFlags :: FeatureFlags
 daml12FeatureFlags = FeatureFlags
