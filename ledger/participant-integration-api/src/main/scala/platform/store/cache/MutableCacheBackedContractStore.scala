@@ -102,7 +102,8 @@ private[platform] class MutableCacheBackedContractStore(
 
         // failure cases
         case (acc, (cid, Some(Archived(_) | NotFound))) =>
-          acc.left.map(_ + cid).orElse(Left(Set(cid)))
+          val missingContracts = acc.left.getOrElse(Set.empty) + cid
+          Left(missingContracts)
         case (acc @ Left(_), _) => acc
       }
 
