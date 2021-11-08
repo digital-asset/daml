@@ -31,7 +31,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
-import com.google.rpc.status.Status
 
 import scala.jdk.CollectionConverters._
 
@@ -59,7 +58,7 @@ object KeyValueConsumption {
   def logEntryToUpdate(
       entryId: DamlLogEntryId,
       entry: DamlLogEntry,
-      errorVersionSwitch: ValueSwitch[Status],
+      errorVersionSwitch: ValueSwitch,
       recordTimeForUpdate: Option[Timestamp] = None,
   )(loggingContext: LoggingContext): List[Update] = {
     implicit val logContext: LoggingContext = loggingContext
@@ -250,7 +249,7 @@ object KeyValueConsumption {
   private def transactionRejectionEntryToUpdate(
       recordTime: Timestamp,
       rejEntry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch[Status],
+      errorVersionSwitch: ValueSwitch,
   )(implicit loggingContext: ContextualizedErrorLogger): Update = {
     val reason = Conversions.decodeTransactionRejectionEntry(rejEntry, errorVersionSwitch)
     Update.CommandRejected(
@@ -343,7 +342,7 @@ object KeyValueConsumption {
   private[kvutils] def outOfTimeBoundsEntryToUpdate(
       recordTime: Timestamp,
       outOfTimeBoundsEntry: DamlOutOfTimeBoundsEntry,
-      errorVersionSwitch: ValueSwitch[Status],
+      errorVersionSwitch: ValueSwitch,
   )(implicit loggingContext: LoggingContext): Option[Update] = {
     val timeBounds = parseTimeBounds(outOfTimeBoundsEntry)
     val deduplicated = timeBounds.deduplicateUntil.exists(recordTime <= _)

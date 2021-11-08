@@ -17,7 +17,6 @@ import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
-import com.google.rpc.status.Status
 
 /** Adapts a [[LedgerReader]] instance to [[ReadService]].
   * Performs translation between the offsets required by the underlying reader and [[ReadService]]:
@@ -34,7 +33,7 @@ class KeyValueParticipantStateReader private[api] (
     logEntryToUpdate: (
         DamlLogEntryId,
         DamlLogEntry,
-        ValueSwitch[Status],
+        ValueSwitch,
         Option[Timestamp],
     ) => LoggingContext => List[Update],
     timeUpdatesProvider: TimeUpdatesProvider,
@@ -43,7 +42,7 @@ class KeyValueParticipantStateReader private[api] (
 
   import KeyValueParticipantStateReader._
 
-  private val errorVersionSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes)
+  private val errorVersionSwitch = new ValueSwitch(enableSelfServiceErrorCodes)
 
   override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Source.single(createLedgerInitialConditions())
