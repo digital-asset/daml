@@ -28,9 +28,9 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
 }
 
 class ContractStorageBackendTemplate(
-                                      queryStrategy: QueryStrategy,
-                                      ledgerEndCache: LedgerEndCache,
-                                    ) extends ContractStorageBackend {
+    queryStrategy: QueryStrategy,
+    ledgerEndCache: LedgerEndCache,
+) extends ContractStorageBackend {
   override def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId] =
     contractKey(
       resultColumns = List("contract_id"),
@@ -92,7 +92,7 @@ class ContractStorageBackendTemplate(
   )(connection: Connection): Either[Set[ContractId], Option[Timestamp]] = {
     val lastEventSequentialId = ledgerEndCache()._2
     def lookup(id: ContractId): Option[Option[Timestamp]] =
-        maximumLedgerTimeSqlLiteral(id, lastEventSequentialId).as(
+      maximumLedgerTimeSqlLiteral(id, lastEventSequentialId).as(
         timestampFromMicros("ledger_effective_time").?.singleOpt
       )(
         connection
