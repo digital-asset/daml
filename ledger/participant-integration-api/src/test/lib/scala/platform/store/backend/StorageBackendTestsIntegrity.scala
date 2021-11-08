@@ -23,7 +23,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
       _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(updates, _))
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(7), 7L))
+        updateLedgerEnd(offset(7), 7L)
       )
       failure <- executeSql(backend.integrity.verifyIntegrity()).failed
     } yield {
@@ -42,7 +42,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
       _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(updates, _))
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 3L))
+        updateLedgerEnd(offset(3), 3L)
       )
       failure <- executeSql(backend.integrity.verifyIntegrity()).failed
     } yield {
@@ -63,7 +63,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
       _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(updates, _))
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 2L))
+        updateLedgerEnd(offset(2), 2L)
       )
       _ <- executeSql(backend.integrity.verifyIntegrity())
     } yield {

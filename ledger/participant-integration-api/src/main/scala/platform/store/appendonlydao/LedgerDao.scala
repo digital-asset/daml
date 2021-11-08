@@ -25,6 +25,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.events.{ContractStateEvent, FilterRelation}
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -116,12 +117,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   def lookupParticipantId()(implicit loggingContext: LoggingContext): Future[Option[ParticipantId]]
 
   /** Looks up the current ledger end */
-  def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset]
-
-  /** Looks up the current ledger end as the offset and event sequential id */
-  def lookupLedgerEndOffsetAndSequentialId()(implicit
-      loggingContext: LoggingContext
-  ): Future[(Offset, Long)]
+  def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[LedgerEnd]
 
   /** Looks up the current external ledger end offset */
   def lookupInitialLedgerEnd()(implicit loggingContext: LoggingContext): Future[Option[Offset]]

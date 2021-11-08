@@ -32,7 +32,7 @@ trait JdbcLedgerDaoConfigurationSpec {
       response shouldEqual PersistenceResponse.Ok
       startingConfig shouldEqual None
       optStoredConfig.map(_._2) shouldEqual Some(defaultConfig)
-      endingOffset should be > startingOffset
+      endingOffset.lastOffset should be > startingOffset.lastOffset
     }
   }
 

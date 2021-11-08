@@ -248,8 +248,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       resultForAlice <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startExclusive = from,
-            endInclusive = to,
+            startExclusive = from.lastOffset,
+            endInclusive = to.lastOffset,
             requestingParties = Set(alice),
             verbose = true,
           )
@@ -257,8 +257,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       resultForBob <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startExclusive = from,
-            endInclusive = to,
+            startExclusive = from.lastOffset,
+            endInclusive = to.lastOffset,
             requestingParties = Set(bob),
             verbose = true,
           )
@@ -266,8 +266,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       resultForCharlie <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startExclusive = from,
-            endInclusive = to,
+            startExclusive = from.lastOffset,
+            endInclusive = to.lastOffset,
             requestingParties = Set(charlie),
             verbose = true,
           )
@@ -287,7 +287,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       (_, t3) <- store(singleExercise(nonTransient(t2).loneElement))
       (_, t4) <- store(fullyTransient())
       to <- ledgerDao.lookupLedgerEnd()
-    } yield (from, to, Seq(t1, t2, t3, t4))
+    } yield (from.lastOffset, to.lastOffset, Seq(t1, t2, t3, t4))
 
   private def lookupIndividually(
       transactions: Seq[LedgerEntry.Transaction],

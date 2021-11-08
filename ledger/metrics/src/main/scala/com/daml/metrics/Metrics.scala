@@ -430,9 +430,6 @@ final class Metrics(val registry: MetricRegistry) {
         val getLedgerId: DatabaseMetrics = createDbMetrics("get_ledger_id")
         val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")
         val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")
-        val getLedgerEndOffsetAndSequentialId: DatabaseMetrics = createDbMetrics(
-          "get_ledger_end_offset_and_sequential_id"
-        )
         val getInitialLedgerEnd: DatabaseMetrics = createDbMetrics("get_initial_ledger_end")
         val initializeLedgerParameters: DatabaseMetrics = createDbMetrics(
           "initialize_ledger_parameters"
@@ -523,6 +520,9 @@ final class Metrics(val registry: MetricRegistry) {
           createDbMetrics("get_acs_event_sequential_id_range")
         val getContractStateEvents: DatabaseMetrics = createDbMetrics(
           "get_contract_state_events"
+        )
+        val loadStringInterningEntries: DatabaseMetrics = createDbMetrics(
+          "loadStringInterningEntries"
         )
 
         object translation {

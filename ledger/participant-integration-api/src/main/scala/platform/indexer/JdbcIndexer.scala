@@ -47,6 +47,7 @@ object JdbcIndexer {
       val parameterStorageBackend = factory.createParameterStorageBackend
       val DBLockStorageBackend = factory.createDBLockStorageBackend
       val resetStorageBackend = factory.createResetStorageBackend
+      val stringInterningStorageBackend = factory.createStringInterningStorageBackend
       val indexer = ParallelIndexerFactory(
         jdbcUrl = config.jdbcUrl,
         inputMappingParallelism = config.inputMappingParallelism,
@@ -97,6 +98,7 @@ object JdbcIndexer {
           batchWithinMillis = config.batchWithinMillis,
           metrics = metrics,
         ),
+        stringInterningStorageBackend = stringInterningStorageBackend,
         mat = materializer,
         readService = readService,
       )

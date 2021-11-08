@@ -34,7 +34,7 @@ private[backend] trait StorageBackendTestsCompletions
       _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(4), 3L))
+        updateLedgerEnd(offset(4), 3L)
       )
       completions0to3 <- executeSql(
         backend.completion.commandCompletions(
@@ -74,7 +74,7 @@ private[backend] trait StorageBackendTestsCompletions
       _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 1L))
+        updateLedgerEnd(offset(2), 1L)
       )
       completions <- executeSql(
         backend.completion.commandCompletions(offset(1), offset(2), applicationId, Set(party))
@@ -100,7 +100,7 @@ private[backend] trait StorageBackendTestsCompletions
       _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 2L))
+        updateLedgerEnd(offset(3), 2L)
       )
       completions <- executeSql(
         backend.completion.commandCompletions(
@@ -138,7 +138,7 @@ private[backend] trait StorageBackendTestsCompletions
       _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 2L))
+        updateLedgerEnd(offset(3), 2L)
       )
       completions <- executeSql(
         backend.completion.commandCompletions(
@@ -187,7 +187,7 @@ private[backend] trait StorageBackendTestsCompletions
       _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 2L))
+        updateLedgerEnd(offset(3), 2L)
       )
       completions <- executeSql(
         backend.completion.commandCompletions(
@@ -233,7 +233,7 @@ private[backend] trait StorageBackendTestsCompletions
       _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos1, _))
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 1L))
+        updateLedgerEnd(offset(2), 1L)
       )
       result <- executeSql(
         backend.completion.commandCompletions(
@@ -260,7 +260,7 @@ private[backend] trait StorageBackendTestsCompletions
     for {
       _ <- executeSql(ingest(dtos2, _))
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 2L))
+        updateLedgerEnd(offset(3), 2L)
       )
       result <- executeSql(
         backend.completion.commandCompletions(

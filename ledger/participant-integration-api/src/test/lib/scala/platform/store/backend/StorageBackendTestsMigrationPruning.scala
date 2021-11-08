@@ -31,7 +31,7 @@ private[backend] trait StorageBackendTestsMigrationPruning
       _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(Vector(create, divulgence, archive), _))
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 3L))
+        updateLedgerEnd(offset(2), 3L)
       )
       // Simulate that the archive happened after the migration to append-only schema
       _ <- executeSql(updateMigrationHistoryTable(ledgerSequentialIdBefore = 2))

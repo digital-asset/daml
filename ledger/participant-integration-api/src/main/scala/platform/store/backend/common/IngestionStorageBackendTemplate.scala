@@ -24,6 +24,7 @@ private[backend] class IngestionStorageBackendTemplate(schema: Schema[DbDto])
         "DELETE FROM participant_events_non_consuming_exercise WHERE event_offset > {ledger_offset}"
       ),
       SQL("DELETE FROM party_entries WHERE ledger_offset > {ledger_offset}"),
+      SQL("DELETE FROM string_interning WHERE internal_id > {last_string_interning_id}"),
     )
 
   override def deletePartiallyIngestedData(
@@ -34,6 +35,7 @@ private[backend] class IngestionStorageBackendTemplate(schema: Schema[DbDto])
         import com.daml.platform.store.Conversions.OffsetToStatement
         query
           .on("ledger_offset" -> existingLedgerEnd.lastOffset)
+          .on("last_string_interning_id" -> existingLedgerEnd.lastStringInterningId)
           .execute()(connection)
         ()
       }

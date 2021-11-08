@@ -17,6 +17,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -40,16 +41,8 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
   ): Future[Option[ParticipantId]] =
     Timed.future(metrics.daml.index.db.lookupParticipantId, ledgerDao.lookupParticipantId())
 
-  override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset] =
+  override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[LedgerEnd] =
     Timed.future(metrics.daml.index.db.lookupLedgerEnd, ledgerDao.lookupLedgerEnd())
-
-  def lookupLedgerEndOffsetAndSequentialId()(implicit
-      loggingContext: LoggingContext
-  ): Future[(Offset, Long)] =
-    Timed.future(
-      metrics.daml.index.db.lookupLedgerEndSequentialId,
-      ledgerDao.lookupLedgerEndOffsetAndSequentialId(),
-    )
 
   override def lookupInitialLedgerEnd()(implicit
       loggingContext: LoggingContext
