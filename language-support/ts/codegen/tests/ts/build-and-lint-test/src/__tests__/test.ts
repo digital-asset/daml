@@ -6,7 +6,7 @@ import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
 import Ledger, { Event, Stream, PartyInfo } from  '@daml/ledger';
-import { Int, emptyMap, Map, ContractId } from '@daml/types';
+import { Int, emptyMap, Map } from '@daml/types';
 import pEvent from 'p-event';
 import _ from 'lodash';
 import WebSocket from 'ws';
@@ -335,6 +335,9 @@ test('create + fetch & exercise', async () => {
 
 });
 
+// TODO https://github.com/digital-asset/daml/issues/10810
+// Reenable test
+/*
 test("interfaces", async () => {
   const aliceLedger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
   const bobLedger = new Ledger({token: BOB_TOKEN, httpBaseUrl: httpBaseUrl()});
@@ -362,6 +365,7 @@ test("interfaces", async () => {
     ]
   )
 });
+*/
 
 test("createAndExercise", async () => {
   const ledger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
