@@ -342,7 +342,7 @@ private[sandbox] final class InMemoryLedger(
   ): Future[Option[Timestamp]] =
     Future.fromTry(Try(this.synchronized {
       contractIds
-        .foldLeft[Option[Instant]](Some(Instant.MIN))((acc, id) => {
+        .foldLeft[Option[Instant]](None)((acc, id) => {
           val let = acs.activeContracts
             .getOrElse(
               id,

@@ -4,11 +4,12 @@
 package com.daml.platform.store.dao
 
 import com.daml.lf.data.Time.Timestamp
-
 import java.util.UUID
+
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.Node.KeyWithMaintainers
-import com.daml.lf.value.Value.{ContractId, VersionedContractInstance, ValueText}
+import com.daml.lf.value.Value.{ContractId, ValueText, VersionedContractInstance}
+import com.daml.platform.apiserver.execution.MissingContracts
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
@@ -167,7 +168,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     for {
       failure <- contractsReader.lookupMaximumLedgerTime(Set(randomContractId)).failed
     } yield {
-      failure shouldBe an[IllegalArgumentException]
+      failure shouldBe an[MissingContracts]
       assertIsLedgerTimeLookupError(failure.getMessage)
     }
   }
@@ -248,7 +249,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       _ <- store(singleExercise(divulgedContractId))
       failure <- contractsReader.lookupMaximumLedgerTime(Set(divulgedContractId)).failed
     } yield {
-      failure shouldBe an[IllegalArgumentException]
+      failure shouldBe an[MissingContracts]
       assertIsLedgerTimeLookupError(failure.getMessage)
     }
   }
