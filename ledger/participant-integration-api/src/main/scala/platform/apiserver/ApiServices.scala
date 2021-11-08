@@ -52,8 +52,10 @@ import com.daml.platform.services.time.TimeProviderType
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 import scalaz.syntax.tag._
-
 import java.time.Duration
+
+import com.daml.telemetry.TelemetryContext
+
 import scala.collection.immutable
 import scala.concurrent.duration.{Duration => ScalaDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -95,6 +97,8 @@ private[daml] object ApiServices {
       seedService: SeedService,
       managementServiceTimeout: Duration,
       enableSelfServiceErrorCodes: Boolean,
+      checkOverloaded: TelemetryContext => Option[state.SubmissionResult] =
+        _ => None, // Used for Canton rate-limiting
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -131,7 +135,11 @@ private[daml] object ApiServices {
           configurationLoadTimeout = ScalaDuration.fromNanos(configurationLoadTimeout.toNanos),
         )
         services <- Resource(
-          Future(createServices(ledgerId, currentLedgerConfiguration)(servicesExecutionContext))
+          Future(
+            createServices(ledgerId, currentLedgerConfiguration, checkOverloaded)(
+              servicesExecutionContext
+            )
+          )
         )(services =>
           Future {
             services.foreach {
@@ -146,6 +154,7 @@ private[daml] object ApiServices {
     private def createServices(
         ledgerId: LedgerId,
         ledgerConfigurationSubscription: LedgerConfigurationSubscription,
+        checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
       val apiTransactionService =
         ApiTransactionService.create(ledgerId, transactionsService, metrics, errorsVersionsSwitcher)
@@ -191,6 +200,7 @@ private[daml] object ApiServices {
           ledgerConfigurationSubscription,
           apiCompletionService,
           apiTransactionService,
+          checkOverloaded,
         )
 
       val apiReflectionService = ProtoReflectionService.newInstance()
@@ -217,6 +227,7 @@ private[daml] object ApiServices {
         ledgerConfigurationSubscription: LedgerConfigurationSubscription,
         apiCompletionService: GrpcCommandCompletionService,
         apiTransactionService: GrpcTransactionService,
+        checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
       optWriteService.toList.flatMap { writeService =>
         val commandExecutor = new TimedCommandExecutor(
@@ -245,6 +256,7 @@ private[daml] object ApiServices {
           ledgerConfigurationSubscription,
           seedService,
           commandExecutor,
+          checkOverloaded,
           ApiSubmissionService.Configuration(
             partyConfig.implicitPartyAllocation,
             submissionConfig.enableDeduplication,

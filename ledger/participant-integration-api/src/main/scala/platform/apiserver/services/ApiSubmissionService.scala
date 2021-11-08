@@ -56,6 +56,7 @@ private[apiserver] object ApiSubmissionService {
       ledgerConfigurationSubscription: LedgerConfigurationSubscription,
       seedService: SeedService,
       commandExecutor: CommandExecutor,
+      checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
       configuration: ApiSubmissionService.Configuration,
       metrics: Metrics,
       errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
@@ -73,6 +74,7 @@ private[apiserver] object ApiSubmissionService {
         ledgerConfigurationSubscription,
         seedService,
         commandExecutor,
+        checkOverloaded,
         configuration,
         metrics,
         errorCodesVersionSwitcher,
@@ -102,6 +104,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
     ledgerConfigurationSubscription: LedgerConfigurationSubscription,
     seedService: SeedService,
     commandExecutor: CommandExecutor,
+    checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
     configuration: ApiSubmissionService.Configuration,
     metrics: Metrics,
     val errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
@@ -221,13 +224,20 @@ private[apiserver] final class ApiSubmissionService private[services] (
       telemetryContext: TelemetryContext,
       contextualizedErrorLogger: ContextualizedErrorLogger,
   ): Future[state.SubmissionResult] =
-    for {
-      result <- commandExecutor.execute(commands, submissionSeed, ledgerConfig)
-      transactionInfo <- handleCommandExecutionResult(result)
-      partyAllocationResults <- allocateMissingInformees(transactionInfo.transaction)
-      submissionResult <- submitTransaction(transactionInfo, partyAllocationResults, ledgerConfig)
-    } yield submissionResult
-
+    checkOverloaded(telemetryContext) match {
+      case Some(submissionResult) => Future.successful(submissionResult)
+      case None =>
+        for {
+          result <- commandExecutor.execute(commands, submissionSeed, ledgerConfig)
+          transactionInfo <- handleCommandExecutionResult(result)
+          partyAllocationResults <- allocateMissingInformees(transactionInfo.transaction)
+          submissionResult <- submitTransaction(
+            transactionInfo,
+            partyAllocationResults,
+            ledgerConfig,
+          )
+        } yield submissionResult
+    }
   // Takes the whole transaction to ensure to traverse it only if necessary
   private[services] def allocateMissingInformees(
       transaction: SubmittedTransaction

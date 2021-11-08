@@ -489,6 +489,7 @@ object ApiSubmissionServiceSpec {
       errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
         enableSelfServiceErrorCodes = useSelfServiceErrorCodes
       ),
+      checkOverloaded = _ => None, // Used and tested in Canton
     )
   }
 }
