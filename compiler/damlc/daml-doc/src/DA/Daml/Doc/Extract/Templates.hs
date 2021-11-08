@@ -46,6 +46,8 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
       , td_payload = getFields tmplADT
       -- assumes exactly one record constructor (syntactic, template syntax)
       , td_choices = map mkChoiceDoc choices
+      -- is filled via distributeInstanceDocs
+      , td_impls = []
       }
       where
         tmplADT = asADT name
@@ -91,35 +93,41 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
 -- and a map of template names to its set of choices
 getTemplateData :: ParsedModule ->
     ( Set.Set Typename
+    , Set.Set Typename
     , MS.Map Typename (Set.Set Typename) )
 getTemplateData ParsedModule{..} =
   let
+    dataDs    = mapMaybe (isDataDecl . unLoc) . hsmodDecls . unLoc $ pm_parsed_source
     instDs    = mapMaybe (isInstDecl . unLoc) . hsmodDecls . unLoc $ pm_parsed_source
-    templates = mapMaybe isTemplate instDs
+    templates = mapMaybe isTemplate dataDs
+    interfaces = mapMaybe isInterface dataDs
     choiceMap = MS.fromListWith (<>) $
                 map (second Set.singleton) $
                 mapMaybe isChoice instDs
   in
-    (Set.fromList templates, choiceMap)
+    (Set.fromList templates, Set.fromList interfaces, choiceMap)
     where
       isInstDecl (InstD _ (ClsInstD _ i)) = Just i
       isInstDecl _ = Nothing
+      isDataDecl (TyClD _ d@DataDecl{}) = Just d
+      isDataDecl _ = Nothing
 
 
 -- | If the given instance declaration is declaring a template instance, return
 --   its name (IdP). Used to build the set of templates declared in a module.
-isTemplate :: ClsInstDecl GhcPs -> Maybe Typename
-isTemplate (XClsInstDecl _) = Nothing
-isTemplate ClsInstDecl{..}
-  | L _ ty <- getLHsInstDeclHead cid_poly_ty
-  , HsAppTy _ (L _ t1) t2 <- ty
-  , HsTyVar _ _ (L _ tmplClass) <- t1
-  , Just (L _ tmplName) <- hsTyGetAppHead_maybe t2
-  , Qual classModule classOcc <- tmplClass
-  , moduleNameString classModule == "DA.Internal.Desugar"
-  , occNameString classOcc == "HasCreate"
-  = Just (Typename . packRdrName $ tmplName)
+isTemplate :: TyClDecl GhcPs -> Maybe Typename
+isTemplate = hasGhcTypesConstraint "DamlTemplate"
 
+isInterface :: TyClDecl GhcPs -> Maybe Typename
+isInterface = hasGhcTypesConstraint "DamlInterface"
+
+hasGhcTypesConstraint :: String -> TyClDecl GhcPs -> Maybe Typename
+hasGhcTypesConstraint c decl
+  | DataDecl {tcdLName, tcdDataDefn} <- decl
+  , HsDataDefn {dd_ctxt} <- tcdDataDefn
+  , L _ [L _ (HsTyVar _ _ (L _ (Qual mod cst)))] <- dd_ctxt
+  , moduleNameString mod == "GHC.Types"
+  , occNameString cst == c = Just $ Typename $ packRdrName $ unLoc tcdLName
   | otherwise = Nothing
 
 -- | If the given instance declaration is declaring a template choice instance,

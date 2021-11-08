@@ -10,6 +10,7 @@ import DA.Daml.Doc.Transform.Options
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import Safe
 
 type InstanceMap = Map.Map Anchor (Set.Set InstanceDoc)
 
@@ -53,7 +54,7 @@ distributeInstanceDocs opts docs =
         , md_anchor = md_anchor
         , md_descr = md_descr
         , md_functions = md_functions
-        , md_templates = md_templates
+        , md_templates = map (addIfaceImpls imap) md_templates
         , md_classes = map (addClassInstances imap) md_classes
         , md_adts = map (addTypeInstances imap) md_adts
         , md_instances =
@@ -75,3 +76,18 @@ distributeInstanceDocs opts docs =
             anchor <- ad_anchor ad
             Map.lookup anchor imap
         }
+
+    addIfaceImpls :: InstanceMap -> TemplateDoc -> TemplateDoc
+    addIfaceImpls imap td = td
+        { td_impls =
+            [ ImplDoc iface_type
+            | InstanceDoc {id_type} <-
+                maybe [] Set.toList $ do
+                  anchor <- td_anchor td
+                  Map.lookup anchor imap
+            , Just "Implements" == getTypeAppName id_type
+            , Just args <- [getTypeAppArgs id_type]
+            , Just iface_type <- [lastMay args]
+            ]
+        }
+

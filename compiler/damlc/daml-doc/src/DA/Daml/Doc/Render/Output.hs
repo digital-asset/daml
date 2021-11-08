@@ -75,7 +75,15 @@ instance RenderDoc TemplateDoc where
             , fieldTable td_payload
             , RenderList (map renderDoc td_choices)
             ]
+        , RenderBlock $ mconcat
+            [ RenderList (map renderDoc td_impls)
+            ]
         ]
+
+instance RenderDoc ImplDoc where
+    renderDoc ImplDoc {..} =
+        RenderParagraph $
+            RenderPlain "Interface " <> renderType impl_iface
 
 instance RenderDoc ChoiceDoc where
     renderDoc ChoiceDoc{..} = mconcat
