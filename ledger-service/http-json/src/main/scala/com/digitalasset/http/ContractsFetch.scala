@@ -3,6 +3,7 @@
 
 package com.daml.http
 
+import akka.NotUsed
 import akka.stream.scaladsl.{Flow, GraphDSL, Keep, RunnableGraph, Sink, Source}
 import akka.stream.{ClosedShape, FanOutShape2, Materializer}
 import com.daml.http.dbbackend.{ContractDao, SupportedJdbcDriver}
@@ -327,7 +328,7 @@ private class ContractsFetch(
 
         val transactInsertsDeletes = Flow
           .fromFunction(jsonifyInsertDeleteStep)
-          .conflate(_ append _)
+          .via(conflation)
           .map(insertAndDelete)
 
         idses.map(_.toInsertDelete) ~> transactInsertsDeletes ~> acsSink
@@ -405,6 +406,11 @@ private[http] object ContractsFetch {
         ))
     }.void
   }
+
+  private def conflation[D, C: InsertDeleteStep.Cid]
+      : Flow[InsertDeleteStep[D, C], InsertDeleteStep[D, C], NotUsed] =
+    Flow[InsertDeleteStep[D, C]]
+      .conflate(_ append _)
 
   private final case class FetchContext(
       jwt: Jwt,
