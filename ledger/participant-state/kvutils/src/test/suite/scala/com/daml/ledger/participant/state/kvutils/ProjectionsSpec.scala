@@ -23,6 +23,7 @@ class ProjectionsSpec extends AnyWordSpec with Matchers {
       signatories = signatories,
       stakeholders = stakeholders,
       key = None,
+      byInterface = None,
       version = TransactionVersion.minVersion,
     )
 
@@ -49,6 +50,7 @@ class ProjectionsSpec extends AnyWordSpec with Matchers {
       exerciseResult = None,
       key = None,
       byKey = false,
+      byInterface = None,
       version = TransactionVersion.minVersion,
     )
 

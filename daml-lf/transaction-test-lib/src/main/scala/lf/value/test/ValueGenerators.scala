@@ -316,6 +316,7 @@ object ValueGenerators {
       signatories,
       stakeholders,
       key,
+      None, // TODO https://github.com/digital-asset/daml/issues/10915
       version,
     )
   }
@@ -343,6 +344,7 @@ object ValueGenerators {
       stakeholders,
       key,
       byKey,
+      None, // TODO https://github.com/digital-asset/daml/issues/10915
       version,
     )
   }
@@ -399,6 +401,7 @@ object ValueGenerators {
       exerciseResult,
       key,
       byKey,
+      None, // TODO https://github.com/digital-asset/daml/issues/10915
       version,
     )
   }

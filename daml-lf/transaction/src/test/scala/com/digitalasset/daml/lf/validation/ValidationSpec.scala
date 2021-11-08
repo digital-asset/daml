@@ -96,6 +96,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       signatories = samParties1,
       stakeholders = samParties2,
       key = key,
+      byInterface = None, // TODO https://github.com/digital-asset/daml/issues/10915
       version = version,
     )
 
@@ -112,6 +113,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       stakeholders = samParties3,
       key = key,
       byKey = samBool1,
+      byInterface = None, // TODO https://github.com/digital-asset/daml/issues/10915
       version = version,
     )
 
@@ -145,6 +147,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       exerciseResult = exerciseResult,
       key = key,
       byKey = samBool2,
+      byInterface = None, // TODO https://github.com/digital-asset/daml/issues/10915
       version = version,
     )
 

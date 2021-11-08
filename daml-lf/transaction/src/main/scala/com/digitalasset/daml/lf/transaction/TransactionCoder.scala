@@ -277,11 +277,16 @@ object TransactionCoder {
 
           node match {
 
-            case nc @ Node.Create(_, _, _, _, _, _, _, _) =>
+            case nc @ Node.Create(_, _, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeCreate.newBuilder()
               nc.stakeholders.foreach(builder.addStakeholders)
               nc.signatories.foreach(builder.addSignatories)
               discard(builder.setContractIdStruct(encodeCid.encode(nc.coid)))
+              if (nodeVersion >= TransactionVersion.minInterfaces) {
+                nc.byInterface.foreach(iface =>
+                  builder.setByInterface(ValueCoder.encodeIdentifier(iface))
+                )
+              }
               for {
                 _ <-
                   if (nodeVersion < TransactionVersion.minNoVersionValue) {
@@ -309,7 +314,7 @@ object TransactionCoder {
                 )
               } yield nodeBuilder.setCreate(builder).build()
 
-            case nf @ Node.Fetch(_, _, _, _, _, _, _, _) =>
+            case nf @ Node.Fetch(_, _, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeFetch.newBuilder()
               discard(builder.setTemplateId(ValueCoder.encodeIdentifier(nf.templateId)))
               nf.stakeholders.foreach(builder.addStakeholders)
@@ -319,6 +324,11 @@ object TransactionCoder {
                 discard(builder.setByKey(nf.byKey))
               }
               nf.actingParties.foreach(builder.addActors)
+              if (nodeVersion >= TransactionVersion.minInterfaces) {
+                nf.byInterface.foreach(iface =>
+                  builder.setByInterface(ValueCoder.encodeIdentifier(iface))
+                )
+              }
               for {
                 _ <- encodeAndSetContractKey(
                   encodeCid,
@@ -328,7 +338,7 @@ object TransactionCoder {
                 )
               } yield nodeBuilder.setFetch(builder).build()
 
-            case ne @ Node.Exercise(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+            case ne @ Node.Exercise(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeExercise.newBuilder()
               discard(
                 builder
@@ -344,6 +354,11 @@ object TransactionCoder {
               ne.choiceObservers.foreach(builder.addObservers)
               if (nodeVersion >= TransactionVersion.minByKey) {
                 discard(builder.setByKey(ne.byKey))
+              }
+              if (nodeVersion >= TransactionVersion.minInterfaces) {
+                ne.byInterface.foreach(iface =>
+                  builder.setByInterface(ValueCoder.encodeIdentifier(iface))
+                )
               }
               for {
                 _ <- Either.cond(
@@ -515,6 +530,12 @@ object TransactionCoder {
             nodeVersion,
             protoCreate.getKeyWithMaintainers,
           )
+          byInterface <-
+            if (nodeVersion >= TransactionVersion.minInterfaces && protoCreate.hasByInterface) {
+              ValueCoder.decodeIdentifier(protoCreate.getByInterface).map(Some(_))
+            } else {
+              Right(None)
+            }
         } yield ni -> Node.Create(
           c,
           ci.template,
@@ -523,6 +544,7 @@ object TransactionCoder {
           signatories,
           stakeholders,
           key,
+          byInterface,
           nodeVersion,
         )
       case NodeTypeCase.FETCH =>
@@ -543,6 +565,12 @@ object TransactionCoder {
             if (nodeVersion >= TransactionVersion.minByKey)
               protoFetch.getByKey
             else false
+          byInterface <-
+            if (nodeVersion >= TransactionVersion.minInterfaces && protoFetch.hasByInterface) {
+              ValueCoder.decodeIdentifier(protoFetch.getByInterface).map(Some(_))
+            } else {
+              Right(None)
+            }
         } yield ni -> Node.Fetch(
           coid = c,
           templateId = templateId,
@@ -551,6 +579,7 @@ object TransactionCoder {
           stakeholders = stakeholders,
           key = key,
           byKey = byKey,
+          byInterface = byInterface,
           version = nodeVersion,
         )
 
@@ -600,6 +629,12 @@ object TransactionCoder {
             if (nodeVersion >= TransactionVersion.minByKey)
               protoExe.getByKey
             else false
+          byInterface <-
+            if (nodeVersion >= TransactionVersion.minInterfaces && protoExe.hasByInterface) {
+              ValueCoder.decodeIdentifier(protoExe.getByInterface).map(Some(_))
+            } else {
+              Right(None)
+            }
         } yield ni -> Node.Exercise(
           targetCoid = targetCoid,
           templateId = templateId,
@@ -614,6 +649,7 @@ object TransactionCoder {
           exerciseResult = rvOpt,
           key = keyWithMaintainers,
           byKey = byKey,
+          byInterface = byInterface,
           version = nodeVersion,
         )
       case NodeTypeCase.LOOKUP_BY_KEY =>
