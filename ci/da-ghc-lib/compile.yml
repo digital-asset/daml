@@ -8,7 +8,7 @@ jobs:
 
 - job: ${{ parameters.final_job_name }}
   pool:
-    vmImage: 'Ubuntu 16.04'
+    vmImage: 'Ubuntu 20.04'
   variables:
     ghc-lib-sha: '77fcc42eef2256ba9bb61a7e442a65bedb19a35d'
     base-sha: '9c787d4d24f2b515934c8503ee2bbd7cfac4da20'

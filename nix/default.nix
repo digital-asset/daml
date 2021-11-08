@@ -182,6 +182,7 @@ in rec {
     # String mangling tooling.
     base64 = pkgs.coreutils;
     bc = pkgs.bc;
+    date = pkgs.coreutils;
     find = pkgs.findutils;
     gawk = bazel_dependencies.gawk;
     grep = pkgs.gnugrep;

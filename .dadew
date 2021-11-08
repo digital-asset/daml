@@ -5,7 +5,7 @@
         "7zip",
         "bazel",
         "cacert",
-        "curl-7.73.0",
+        "curl",
         "java-openjdk-8u201",
         "maven-3.6.1",
         "msys2",

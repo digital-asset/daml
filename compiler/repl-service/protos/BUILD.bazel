@@ -5,7 +5,7 @@ load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
 load("//bazel_tools:proto.bzl", "proto_gen")
 
 proto_library(
-    name = "repl_service_proto",
+    name = "repl_service_proto_lib",
     srcs = ["repl_service.proto"],
     visibility = ["//visibility:public"],
     deps = [],
@@ -13,14 +13,14 @@ proto_library(
 
 proto_gen(
     name = "repl_service_java_proto_src",
-    srcs = [":repl_service_proto"],
+    srcs = [":repl_service_proto_lib"],
     plugin_name = "java",
     visibility = ["//visibility:public"],
 )
 
 proto_gen(
     name = "repl_service_java_proto_grpc_src",
-    srcs = [":repl_service_proto"],
+    srcs = [":repl_service_proto_lib"],
     plugin_exec = "@io_grpc_grpc_java//compiler:grpc_java_plugin",
     plugin_name = "java-grpc",
     visibility = ["//visibility:public"],
