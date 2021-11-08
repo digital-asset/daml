@@ -238,6 +238,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
           )
         } yield submissionResult
     }
+
   // Takes the whole transaction to ensure to traverse it only if necessary
   private[services] def allocateMissingInformees(
       transaction: SubmittedTransaction
