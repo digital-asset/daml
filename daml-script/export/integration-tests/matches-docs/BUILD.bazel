@@ -49,7 +49,7 @@ client_server_build(
     client_files = ["//daml-script/test:script-test.dar"],
     data = ["//daml-script/test:script-test.dar"],
     output_env = "EXPORT_OUT",
-    server = "//ledger/sandbox:sandbox-binary",
+    server = "//ledger/sandbox:sandbox-ephemeral-postgresql",
     server_args = [
         "--port=0",
         "--port-file=%PORT_FILE%",
