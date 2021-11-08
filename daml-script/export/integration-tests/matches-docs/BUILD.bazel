@@ -14,6 +14,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
 )
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_binary(
     name = "example-export-client",
