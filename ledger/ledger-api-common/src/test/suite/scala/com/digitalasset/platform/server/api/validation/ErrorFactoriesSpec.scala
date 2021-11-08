@@ -22,8 +22,9 @@ import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
-
 import java.sql.{SQLNonTransientException, SQLTransientException}
+import java.time.Duration
+
 import scala.jdk.CollectionConverters._
 
 class ErrorFactoriesSpec
@@ -316,7 +317,9 @@ class ErrorFactoriesSpec
     "return an invalid deduplication period error" in {
       val errorDetailMessage = "message"
       val field = "field"
-      assertVersionedError(_.invalidDeduplicationDuration(field, errorDetailMessage, None))(
+      assertVersionedError(
+        _.invalidDeduplicationDuration(field, errorDetailMessage, None, Duration.ofSeconds(5))
+      )(
         v1_code = Code.INVALID_ARGUMENT,
         v1_message = s"Invalid field $field: $errorDetailMessage",
         v1_details = Seq.empty,
