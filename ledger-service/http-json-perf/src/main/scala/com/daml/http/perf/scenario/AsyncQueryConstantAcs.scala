@@ -53,8 +53,9 @@ class AsyncQueryConstantAcs
     )
 
   setUp(
-    fillAcsScenario(wantedAcsSize, silent = true).inject(atOnceUsers(defaultNumUsers)),
-    asyncQueryScenario.inject(atOnceUsers(defaultNumUsers)),
+    fillAcsScenario(wantedAcsSize, silent = true).inject(atOnceUsers(defaultNumUsers)).andThen {
+      asyncQueryScenario.inject(atOnceUsers(defaultNumUsers))
+    }
   ).protocols(httpProtocol)
 
 }
