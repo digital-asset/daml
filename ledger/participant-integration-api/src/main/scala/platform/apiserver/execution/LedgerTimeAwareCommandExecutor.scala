@@ -99,12 +99,16 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
                     )
                     loop(commands, submissionSeed, retriesLeft - 1)
                   } else {
+                    logger.info(
+                      s"Lookup of maximum ledger time failed after ${maxRetries - retriesLeft}. Used contracts: ${usedContractIds
+                        .mkString("[", ", ", "]")}."
+                    )
                     Future.successful(Left(ErrorCause.LedgerTime(maxRetries)))
                   }
                 case error =>
                   logger.info(
                     s"Lookup of maximum ledger time failed. This can happen if there is contention on contracts used by the transaction. Used contracts: ${usedContractIds
-                      .mkString(", ")}. Details: $error"
+                      .mkString("[", ", ", "]")}. Details: $error"
                   )
                   Future.successful(Left(ErrorCause.LedgerTime(maxRetries - retriesLeft)))
               }
