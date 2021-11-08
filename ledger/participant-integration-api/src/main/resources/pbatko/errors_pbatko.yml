@@ -53,7 +53,7 @@ ledgerIdMismatch:
    - submitAndWaitForTransactionId
    - submitAndWait
   CommandCompletionService:
-   - completionStreamSource
+   - completionStream
    - completionEnd
   LedgerConfigurationService:
     - getLedgerConfiguration
@@ -62,7 +62,7 @@ ledgerIdMismatch:
     - getPackage
     - getPackageStatus
   TransactionService:
-    - getTransactionsSource
+    - getTransactions
     - getTransactionTreesSource
     - getLedgerEnd
     - getTransactionById
@@ -84,17 +84,17 @@ missingField:
    - submitAndWaitForTransactionId
    - submitAndWait
   CommandCompletionService:
-   - completionStreamSource
+   - completionStream
   TransactionService:
     - getFlatTransactionById
     - getFlatTransactionByEventId
     - getTransactionById
-    - getTransactionsSource
+    - getTransactions
     - getTransactionByEventId
-    - getTransactionTreesSource
-    - getTransactionsSource
+    - getTransactionTrees
+    - getTransactions
   ActiveContractsService:
-    - getActiveContractsSource
+    - getActiveContracts
   ConfigManagementService:
     - setTimeModel
   TimeService:
@@ -112,16 +112,16 @@ invalidArgument:
    - submitAndWaitForTransactionId
    - submitAndWait
   CommandCompletionService:
-   - completionStreamSource
+   - completionStream
   TransactionService:
-   - getTransactionTreesSource
-   - getTransactionsSource
+   - getTransactionTrees
+   - getTransactions
    - getTransactionById
    - getFlatTransactionById
    - getFlatTransactionByEventId
    - getTransactionByEventId
   ActiveContractsService:
-   - getActiveContractsSource
+   - getActiveContracts
   ConfigManagementService:
    - setTimeModel
   PackageManagementService:
@@ -142,7 +142,7 @@ invalidArgumentWasNotFound:
    - getFlatTransactionByEventId
   GrpcHealthService:
    - check
-   - watchSource
+   - watch
 
 offsetOutOfRange_was_invalidArgument:
   change:
@@ -150,9 +150,9 @@ offsetOutOfRange_was_invalidArgument:
    - OUT_OF_RANGE
   ParticipantPruningService:
    - prune
-  LedgerBackedIndexService:
-   - transactionTrees
-   - transactions
+  TransactionService:
+   - getTransactionTrees
+   - getTransactions
 
 nonHexOffset:
   change:
@@ -166,7 +166,7 @@ invalidField:
    - INVALID_ARGUMENT
    - INVALID_ARGUMENT
   CommandCompletionService:
-   - completionStreamSource
+   - completionStream
    - submit
   CommandService:
    - submitAndWaitForTransactionTree
@@ -174,12 +174,12 @@ invalidField:
    - submitAndWaitForTransactionId
    - submitAndWait
   ActiveContractsService:
-   - getActiveContractsSource
+   - getActiveContracts
   TransactionService:
-   - getTransactionsSource
+   - getTransactions
    - getFlatTransactionByEventId
    - getTransactionByEventId
-   - getTransactionTreesSource
+   - getTransactionTrees
   CommandSubmissionService:
    - submit
 
@@ -188,10 +188,10 @@ offsetOutOfRange:
    - OUT_OF_RANGE
    - OUT_OF_RANGE
   CommandCompletionService:
-    - completionStreamSource
+    - completionStream
   TransactionService:
-    - getTransactionsSource
-    - getTransactionTreesSource
+    - getTransactions
+    - getTransactionTrees
 
 isTimeoutUnknown_wasAborted:
   change:
@@ -267,12 +267,12 @@ participantPrunedDataAccessed:
    - NOT_FOUND
    - OUT_OF_RANGE
   CommandCompletionService:
-   - completionStreamSource
+   - completionStream
   TransactionService:
    - getTransactions
    - getTransactionTrees
   ActiveContractsService:
-   - getActiveContractsSource
+   - getActiveContracts
   ReadOnlySqlLedgerWithMutableCache:
     - UNFINISHED - hard to track down where this cache is used
 
