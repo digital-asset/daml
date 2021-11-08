@@ -14,6 +14,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
 )
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_binary(
     name = "example-export-client",
@@ -49,13 +50,14 @@ client_server_build(
     client_files = ["//daml-script/test:script-test.dar"],
     data = ["//daml-script/test:script-test.dar"],
     output_env = "EXPORT_OUT",
-    server = "//ledger/sandbox:sandbox-binary",
+    server = "//ledger/sandbox:sandbox-ephemeral-postgresql",
     server_args = [
         "--port=0",
         "--port-file=%PORT_FILE%",
     ],
     server_files = ["//daml-script/test:script-test.dar"],
-)
+) if not is_windows else None
+# Disabled on Windows since postgres gets unhappy in client_server_build.
 
 # Compare the generated Daml ledger export to the example export used in the
 # documentation. This functions as both a golden test on ledger exports and to
@@ -105,4 +107,4 @@ $(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;s/[0-9a-f]\\{{64\\}
         "//docs:source/tools/export/output-root/daml.yaml",
     ],
     toolchains = ["@rules_sh//sh/posix:make_variables"],
-)
+) if not is_windows else None
