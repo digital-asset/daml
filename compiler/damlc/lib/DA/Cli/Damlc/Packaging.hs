@@ -1,6 +1,8 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# OPTIONS_GHC -Wwarn #-}
+
 module DA.Cli.Damlc.Packaging
   ( createProjectPackageDb
   , mbErr
@@ -238,6 +240,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
     Logger.logDebug loggerH "Writing out dummy source files"
     let src' = [ (toNormalizedFilePath' $ workDir </> fromNormalizedFilePath nfp, str) | (nfp, str) <- src]
     mapM_ (writeSrc loggerH) src'
+    {-
     Logger.logDebug loggerH "Compiling dummy interface files"
     -- We expose dependencies under a Pkg_$pkgId prefix so we can unambiguously refer to them
     -- while avoiding name collisions in package imports. Note that we can only do this
@@ -295,8 +298,9 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
             (map (GHC.mkModuleName . T.unpack) $ LF.packageModuleNames dalf)
             pkgIdStr
     BS.writeFile (dbPath </> "package.conf.d" </> cfPath) cfBs
-    Logger.logDebug loggerH $ "Recaching package db for " <> pkgContext
-    recachePkgDb dbPath
+    -- Logger.logDebug loggerH $ "Recaching package db for " <> pkgContext
+    -- recachePkgDb dbPath
+    -}
 
 -- | Fake settings, we need those to make ghc-pkg happy.
 --
@@ -409,9 +413,9 @@ getUnitId thisUnitId pkgMap =
 
 -- | Write generated source files
 writeSrc :: Logger.Handle IO -> (NormalizedFilePath, String) -> IO ()
-writeSrc loggerH (fp, content) = do
+writeSrc _loggerH (fp, content) = do
     let path = fromNormalizedFilePath fp
-    Logger.logDebug loggerH $ T.pack $ "Writing out " <> path
+    -- Logger.logDebug loggerH $ T.pack $ "Writing out " <> path
     createDirectoryIfMissing True $ takeDirectory path
     writeFileUTF8 path content
 
@@ -474,8 +478,8 @@ buildLfPackageGraph pkgs stablePkgs dependencyPkgs = (depGraph, vertexToNode')
         { configPackages = packages
         , configGetUnitId = getUnitId unitId pkgMap
         , configSelfPkgId = pkgId
-        , configStablePackages = MS.fromList [ (LF.dalfPackageId dalfPkg, unitId) | ((unitId, _), dalfPkg) <- MS.toList stablePkgs ]
-        , configDependencyPackages = Set.fromList $ map LF.dalfPackageId $ MS.elems dependencyPkgs
+        , configStablePackages = MS.empty -- fromList [ (LF.dalfPackageId dalfPkg, unitId) | ((unitId, _), dalfPkg) <- MS.toList stablePkgs ]
+        , configDependencyPackages = Set.empty -- fromList $ map LF.dalfPackageId $ MS.elems dependencyPkgs
         , configSdkPrefix = [T.pack currentSdkPrefix]
         }
 

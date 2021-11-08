@@ -610,6 +610,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
   Command Build (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \relativize -> do
             installDepsAndInitPackageDb opts initPkgDb
+            exitSuccess
             withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
                 loggerH <- getLogger opts "build"
                 Logger.logInfo loggerH $ "Compiling " <> LF.unPackageName pName <> " to a DAR."
