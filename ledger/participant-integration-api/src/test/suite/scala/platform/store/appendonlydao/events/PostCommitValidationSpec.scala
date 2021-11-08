@@ -19,6 +19,8 @@ import java.sql.Connection
 import java.time.Instant
 import java.util.UUID
 
+import com.daml.platform.apiserver.execution.MissingContracts
+
 import scala.util.{Failure, Success, Try}
 
 final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
@@ -584,9 +586,7 @@ object PostCommitValidationSpec {
     l.fold(r)(left => r.fold(l)(right => if (left > right) l else r))
 
   private def notFound(contractIds: Set[ContractId]): Throwable =
-    new IllegalArgumentException(
-      s"One or more of the following contract identifiers has not been found: ${contractIds.map(_.coid).mkString(", ")}"
-    )
+    MissingContracts(contractIds)
 
   private def noCommittedContract(parties: List[PartyDetails]): ContractStoreFixture =
     ContractStoreFixture(
