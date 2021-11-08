@@ -9,6 +9,7 @@ import java.util.UUID
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.Node.KeyWithMaintainers
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
+import com.daml.platform.apiserver.execution.MissingContracts
 import org.scalatest.{Inside, LoneElement, OptionValues}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -159,10 +160,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     for {
       failure <- ledgerDao.lookupMaximumLedgerTime(Set(randomContractId)).failed
     } yield {
-      failure shouldBe an[IllegalArgumentException]
-      failure.getMessage should startWith(
-        "One or more of the following contract identifiers has been found"
-      )
+      failure shouldBe an[MissingContracts]
     }
   }
 
@@ -226,10 +224,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
       failure <- ledgerDao.lookupMaximumLedgerTime(Set(divulgedContractId)).failed
     } yield {
-      failure shouldBe an[IllegalArgumentException]
-      failure.getMessage should startWith(
-        "One or more of the following contract identifiers has been found"
-      )
+      failure shouldBe an[MissingContracts]
     }
   }
 

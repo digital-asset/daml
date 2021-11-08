@@ -90,6 +90,17 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
                 // which can happen under contention.
                 // A retry would only be successful in case the archived contracts were referenced by key.
                 // Direct references to archived contracts will result in the same error.
+                case MissingContracts(cids) =>
+                  if (retriesLeft > 0) {
+                    metrics.daml.execution.retry.mark()
+                    logger.debug(
+                      s"Some input contracts could not be found. Restarting the computation. Missing contracts: ${cids
+                        .mkString("[", ", ", "]")}"
+                    )
+                    loop(commands, submissionSeed, retriesLeft - 1)
+                  } else {
+                    Future.successful(Left(ErrorCause.LedgerTime(maxRetries)))
+                  }
                 case error =>
                   logger.info(
                     s"Lookup of maximum ledger time failed. This can happen if there is contention on contracts used by the transaction. Used contracts: ${usedContractIds
@@ -113,3 +124,5 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
   private[this] def advanceInputTime(cmd: Commands, newTime: Option[Time.Timestamp]): Commands =
     newTime.fold(cmd)(t => cmd.copy(commands = cmd.commands.copy(ledgerEffectiveTime = t)))
 }
+
+case class MissingContracts(contracts: Set[ContractId]) extends RuntimeException
