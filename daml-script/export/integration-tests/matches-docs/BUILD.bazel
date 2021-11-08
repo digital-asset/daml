@@ -55,7 +55,8 @@ client_server_build(
         "--port-file=%PORT_FILE%",
     ],
     server_files = ["//daml-script/test:script-test.dar"],
-)
+) if not is_windows else None
+# Disabled on Windows since postgres gets unhappy in client_server_build.
 
 # Compare the generated Daml ledger export to the example export used in the
 # documentation. This functions as both a golden test on ledger exports and to
