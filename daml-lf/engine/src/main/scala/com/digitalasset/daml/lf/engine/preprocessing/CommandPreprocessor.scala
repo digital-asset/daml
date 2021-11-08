@@ -52,7 +52,7 @@ private[lf] final class CommandPreprocessor(
         case Left(_) =>
           handleLookup(interface.lookupChoice(identifier, choiceId)).argBinder._2
         case Right(interfaceChoice) =>
-          interfaceChoice.fold(_.argType, _.argBinder._2)
+          interfaceChoice.argBinder._2
       }
     val arg = valueTranslator.unsafeTranslateValue(choice, argument)
     speedy.Command.Exercise(identifier, cid, choiceId, arg)

@@ -441,24 +441,9 @@ convertInterfaces env tyThings = interfaceClasses
         let intParam = this
         withRange intLocation $ do
             intMethods <- NM.fromList <$> mapM convertMethod (drop 4 $ classMethods cls)
-            intVirtualChoices <- NM.fromList <$> mapM convertVirtualChoice
-                (MS.findWithDefault [] intName (envInterfaceChoiceData env))
             intFixedChoices <- convertChoices env intName emptyTemplateBinds
             let intPrecondition = ETrue -- TODO (drsk) #11397 Implement interface preconditions
             pure DefInterface {..}
-
-    convertVirtualChoice :: ChoiceData -> ConvertM InterfaceChoice
-    convertVirtualChoice (ChoiceData ty _expr) = do
-        TConApp _ [_ :-> _ :-> arg@(TConApp choiceTyCon _) :-> TUpdate res, consumingTy] <- convertType env ty
-        let choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choiceTyCon)
-        consuming <- convertConsuming consumingTy
-        pure InterfaceChoice
-          { ifcLocation = Nothing
-          , ifcName = choiceName
-          , ifcConsuming = consuming == Consuming
-          , ifcArgType = arg
-          , ifcRetType = res
-          }
 
     convertMethod :: Var -> ConvertM InterfaceMethod
     convertMethod method = do

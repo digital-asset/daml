@@ -597,8 +597,8 @@ typeOfExerciseInterface :: MonadGamma m =>
 typeOfExerciseInterface tpl chName cid arg = do
   choice <- inWorld (lookupInterfaceChoice (tpl, chName))
   checkExpr cid (TContractId (TCon tpl))
-  checkExpr arg (either ifcArgType chcArgType choice)
-  pure (TUpdate (either ifcRetType chcReturnType choice))
+  checkExpr arg (chcArgType choice)
+  pure (TUpdate (chcReturnType choice))
 
 typeOfExerciseByKey :: MonadGamma m =>
   Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
@@ -810,21 +810,15 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
 
 -- | Check that an interface definition is well defined.
 checkIface :: MonadGamma m => Module -> DefInterface -> m ()
-checkIface m DefInterface{intName, intParam, intVirtualChoices, intFixedChoices, intMethods, intPrecondition} = do
-  checkUnique (EDuplicateInterfaceChoiceName intName) $ NM.names intVirtualChoices `union` NM.names intFixedChoices
+checkIface m DefInterface{intName, intParam, intFixedChoices, intMethods, intPrecondition} = do
+  checkUnique (EDuplicateInterfaceChoiceName intName) $ NM.names intFixedChoices
   checkUnique (EDuplicateInterfaceMethodName intName) $ NM.names intMethods
-  forM_ intVirtualChoices checkIfaceChoice
   forM_ intMethods checkIfaceMethod
 
   let tcon = Qualified PRSelf (moduleName m) intName
   introExprVar intParam (TCon tcon) $ do
     forM_ intFixedChoices (checkTemplateChoice tcon)
     checkExpr intPrecondition TBool
-
-checkIfaceChoice :: MonadGamma m => InterfaceChoice -> m ()
-checkIfaceChoice InterfaceChoice{ifcArgType,ifcRetType} = do
-  checkType ifcArgType KStar
-  checkType ifcRetType KStar
 
 checkIfaceMethod :: MonadGamma m => InterfaceMethod -> m ()
 checkIfaceMethod InterfaceMethod{ifmType} = do
@@ -891,23 +885,12 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
 checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> TemplateImplements -> m ()
 checkIfaceImplementation tplTcon TemplateImplements{..} = do
   let tplName = qualObject tplTcon
-  DefInterface {intFixedChoices, intVirtualChoices, intMethods} <- inWorld $ lookupInterface tpiInterface
+  DefInterface {intFixedChoices, intMethods} <- inWorld $ lookupInterface tpiInterface
 
   -- check fixed choices
   let inheritedChoices = S.fromList (NM.names intFixedChoices)
   unless (inheritedChoices == tpiInheritedChoiceNames) $
     throwWithContext $ EBadInheritedChoices tpiInterface (S.toList inheritedChoices) (S.toList tpiInheritedChoiceNames)
-
-  -- check virtual choices
-  forM_ intVirtualChoices $ \InterfaceChoice {ifcName, ifcConsuming, ifcArgType, ifcRetType} -> do
-    TemplateChoice {chcConsuming, chcArgBinder, chcReturnType} <-
-      inWorld $ lookupChoice (tplTcon, ifcName)
-    unless (chcConsuming == ifcConsuming) $
-      throwWithContext $ EBadInterfaceChoiceImplConsuming ifcName ifcConsuming chcConsuming
-    unless (alphaType (snd chcArgBinder) ifcArgType) $
-      throwWithContext $ EBadInterfaceChoiceImplArgType ifcName ifcArgType (snd chcArgBinder)
-    unless (alphaType chcReturnType ifcRetType) $
-      throwWithContext $ EBadInterfaceChoiceImplRetType ifcName ifcRetType chcReturnType
 
   -- check methods
   let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet tpiMethods)

@@ -1005,20 +1005,10 @@ encodeDefInterface DefInterface{..} = do
     defInterfaceLocation <- traverse encodeSourceLoc intLocation
     defInterfaceTyconInternedDname <- encodeDottedNameId unTypeConName intName
     defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
-    defInterfaceChoices <- encodeNameMap encodeInterfaceChoice intVirtualChoices
     defInterfaceFixedChoices <- encodeNameMap encodeTemplateChoice intFixedChoices
     defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
     defInterfacePrecond <- encodeExpr intPrecondition
     pure $ P.DefInterface{..}
-
-encodeInterfaceChoice :: InterfaceChoice -> Encode P.InterfaceChoice
-encodeInterfaceChoice InterfaceChoice {..} = do
-    interfaceChoiceLocation <- traverse encodeSourceLoc ifcLocation
-    interfaceChoiceNameInternedString <- encodeNameId unChoiceName ifcName
-    let interfaceChoiceConsuming = ifcConsuming
-    interfaceChoiceArgType <- encodeType ifcArgType
-    interfaceChoiceRetType <- encodeType ifcRetType
-    pure $ P.InterfaceChoice{..}
 
 encodeInterfaceMethod :: InterfaceMethod -> Encode P.InterfaceMethod
 encodeInterfaceMethod InterfaceMethod {..} = do

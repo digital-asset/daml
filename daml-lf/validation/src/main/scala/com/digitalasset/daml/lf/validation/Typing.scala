@@ -455,20 +455,14 @@ private[validation] object Typing {
 
     def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
-        case DefInterface(param, virtualChoices, fixedChoices, methods, precond) =>
+        case DefInterface(param, fixedChoices, methods, precond) =>
           fixedChoices.values.foreach(
             introExprVar(param, TTyCon(ifaceName)).checkChoice(ifaceName, _)
           )
-          virtualChoices.values.foreach(checkIfaceChoice)
           methods.values.foreach(checkIfaceMethod)
           val env = introExprVar(param, TTyCon(ifaceName))
           env.checkExpr(precond, TBool)
       }
-
-    def checkIfaceChoice(choice: InterfaceChoice): Unit = {
-      checkType(choice.argType, KStar)
-      checkType(choice.returnType, KStar)
-    }
 
     def checkIfaceMethod(method: InterfaceMethod): Unit = {
       checkType(method.returnType, KStar)
@@ -479,7 +473,7 @@ private[validation] object Typing {
         AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
 
     def checkIfaceImplementation(tplTcon: TypeConName, impl: TemplateImplements): Unit = {
-      val DefInterfaceSignature(_, virtualChoices, fixedChoices, methods, _) =
+      val DefInterfaceSignature(_, fixedChoices, methods, _) =
         handleLookup(ctx, interface.lookupInterface(impl.interface))
 
       val fixedChoiceSet = fixedChoices.keys.toSet
@@ -491,37 +485,6 @@ private[validation] object Typing {
           fixedChoiceSet,
           impl.inheritedChoices,
         )
-      }
-
-      virtualChoices.values.foreach { case InterfaceChoice(name, consuming, argType, returnType) =>
-        val tplChoice = handleLookup(ctx, interface.lookupChoice(tplTcon, name))
-        if (tplChoice.consuming != consuming)
-          throw EBadInterfaceChoiceImplConsuming(
-            ctx,
-            impl.interface,
-            tplTcon,
-            name,
-            consuming,
-            tplChoice.consuming,
-          )
-        if (!alphaEquiv(tplChoice.argBinder._2, argType))
-          throw EBadInterfaceChoiceImplArgType(
-            ctx,
-            impl.interface,
-            tplTcon,
-            name,
-            argType,
-            tplChoice.argBinder._2,
-          )
-        if (!alphaEquiv(tplChoice.returnType, returnType))
-          throw EBadInterfaceChoiceImplRetType(
-            ctx,
-            impl.interface,
-            tplTcon,
-            name,
-            returnType,
-            tplChoice.returnType,
-          )
       }
 
       methods.values.foreach { (method: InterfaceMethod) =>
@@ -940,14 +903,9 @@ private[validation] object Typing {
         arg: Expr,
     ): Type = {
       checkExpr(cid, TContractId(TTyCon(tpl)))
-      handleLookup(ctx, interface.lookupInterfaceChoice(tpl, chName)) match {
-        case Left(virtualChoice) =>
-          checkExpr(arg, virtualChoice.argType)
-          TUpdate(virtualChoice.returnType)
-        case Right(fixedChoice) =>
-          checkExpr(arg, fixedChoice.argBinder._2)
-          TUpdate(fixedChoice.returnType)
-      }
+      val fixedChoice = handleLookup(ctx, interface.lookupInterfaceChoice(tpl, chName))
+      checkExpr(arg, fixedChoice.argBinder._2)
+      TUpdate(fixedChoice.returnType)
     }
 
     private def typeOfExerciseByKey(

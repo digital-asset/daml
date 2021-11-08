@@ -672,9 +672,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     ): DefInterface =
       DefInterface(
         param = getInternedName(lfInterface.getParamInternedStr, "DefInterface.param"),
-        virtualChoices = lfInterface.getChoicesList.asScala.view
-          .map(decodeInterfaceChoice)
-          .map(choice => choice.name -> choice),
         fixedChoices = lfInterface.getFixedChoicesList.asScala.view
           .map(decodeChoice(id, _))
           .map(choice => choice.name -> choice),
@@ -682,16 +679,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           .map(decodeInterfaceMethod)
           .map(method => method.name -> method),
         precond = decodeExpr(lfInterface.getPrecond, s"$id:ensure"),
-      )
-
-    private[this] def decodeInterfaceChoice(
-        lfChoice: PLF.InterfaceChoice
-    ): InterfaceChoice =
-      InterfaceChoice(
-        name = getInternedName(lfChoice.getNameInternedString, "InterfaceChoice.name"),
-        consuming = lfChoice.getConsuming,
-        argType = decodeType(lfChoice.getArgType),
-        returnType = decodeType(lfChoice.getRetType),
       )
 
     private[this] def decodeInterfaceMethod(

@@ -205,7 +205,6 @@ private[validation] object ExprIterable {
     x match {
       case DefInterface(
             param @ _,
-            virtualChoices @ _,
             fixedChoices,
             methods @ _,
             precond,
