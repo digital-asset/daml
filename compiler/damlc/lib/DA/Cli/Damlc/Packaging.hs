@@ -7,6 +7,7 @@ module DA.Cli.Damlc.Packaging
   , getUnitId
   ) where
 
+import Debug.Trace
 import Control.Exception.Safe (tryAny)
 import Control.Lens (toListOf)
 import Control.Monad.Extra
@@ -130,7 +131,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 
       Logger.logDebug loggerH "Building dependency package graph"
 
-      let (depGraph, vertexToNode) = buildLfPackageGraph dalfsFromDataDependencies stablePkgs dependenciesInPkgDb
+      let !(!depGraph, vertexToNode) = buildLfPackageGraph dalfsFromDataDependencies stablePkgs dependenciesInPkgDb
 
 
       validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes (dalfsFromDependencies <> dalfsFromDataDependencies))
@@ -236,7 +237,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
     loggerH <- getLogger opts $ "data-dependencies " <> pkgContext
     Logger.logDebug loggerH "Writing out dummy source files"
     let src' = [ (toNormalizedFilePath' $ workDir </> fromNormalizedFilePath nfp, str) | (nfp, str) <- src]
-    mapM_ writeSrc src'
+    mapM_ (writeSrc loggerH) src'
     Logger.logDebug loggerH "Compiling dummy interface files"
     -- We expose dependencies under a Pkg_$pkgId prefix so we can unambiguously refer to them
     -- while avoiding name collisions in package imports. Note that we can only do this
@@ -407,9 +408,10 @@ getUnitId thisUnitId pkgMap =
 
 
 -- | Write generated source files
-writeSrc :: (NormalizedFilePath, String) -> IO ()
-writeSrc (fp, content) = do
+writeSrc :: Logger.Handle IO -> (NormalizedFilePath, String) -> IO ()
+writeSrc loggerH (fp, content) = do
     let path = fromNormalizedFilePath fp
+    Logger.logDebug loggerH $ T.pack $ "Writing out " <> path
     createDirectoryIfMissing True $ takeDirectory path
     writeFileUTF8 path content
 
@@ -455,14 +457,15 @@ buildLfPackageGraph pkgs stablePkgs dependencyPkgs = (depGraph, vertexToNode')
 
 
     -- order the packages in topological order
-    (depGraph, vertexToNode, _keyToVertex) =
-        graphFromEdges
-            [ (PackageNode src decodedUnitId decodedDalfPkg, LF.dalfPackageId decodedDalfPkg, pkgRefs)
-            | DecodedDalf{decodedUnitId, decodedDalfPkg} <- pkgs
-            , let pkg = LF.extPackagePkg (LF.dalfPackagePkg decodedDalfPkg)
-            , let pkgRefs = [ pid | LF.PRImport pid <- toListOf packageRefs pkg ]
-            , let src = generateSrcPkgFromLf (config (LF.dalfPackageId decodedDalfPkg) decodedUnitId) pkg
-            ]
+    !(depGraph, vertexToNode, _keyToVertex) =
+        let !edges =
+              [ (trace ("Package node " <> show (LF.dalfPackageId decodedDalfPkg)) $ PackageNode src decodedUnitId decodedDalfPkg, LF.dalfPackageId decodedDalfPkg, pkgRefs)
+              | DecodedDalf{decodedUnitId, decodedDalfPkg} <- pkgs
+              , let pkg = LF.extPackagePkg (LF.dalfPackagePkg decodedDalfPkg)
+              , let pkgRefs = [ pid | LF.PRImport pid <- toListOf packageRefs pkg ]
+              , let src = generateSrcPkgFromLf (config (LF.dalfPackageId decodedDalfPkg) decodedUnitId) pkg
+              ]
+        in foldr (\(n, pkgId, refs) acc -> n `seq` pkgId `seq` refs `seq` acc) () edges `seq` graphFromEdges edges
     vertexToNode' v = case vertexToNode v of
         -- We don’t care about outgoing edges.
         (node, key, _keys) -> (node, key)
@@ -477,11 +480,11 @@ buildLfPackageGraph pkgs stablePkgs dependencyPkgs = (depGraph, vertexToNode')
         }
 
 data PackageNode = PackageNode
-  { stubSources :: [(NormalizedFilePath, String)]
+  { stubSources :: ![(NormalizedFilePath, String)]
   -- ^ Sources for the stub package containining data type definitions
   -- ^ Sources for the package containing instances for Template, Choice, …
-  , unitId :: UnitId
-  , dalfPackage :: LF.DalfPackage
+  , unitId :: !UnitId
+  , dalfPackage :: !LF.DalfPackage
   }
 
 currentSdkPrefix :: String

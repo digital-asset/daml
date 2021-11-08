@@ -1026,15 +1026,15 @@ data Module = Module
 
 
 data PackageMetadata = PackageMetadata
-    { packageName :: PackageName
-    , packageVersion :: PackageVersion
+    { packageName :: !PackageName
+    , packageVersion :: !PackageVersion
     } deriving (Eq, Data, Generic, NFData, Show)
 
 -- | A package.
 data Package = Package
-    { packageLfVersion :: Version
-    , packageModules :: NM.NameMap Module
-    , packageMetadata :: Maybe PackageMetadata
+    { packageLfVersion :: !Version
+    , packageModules :: !(NM.NameMap Module)
+    , packageMetadata :: !(Maybe PackageMetadata)
     }
   deriving (Eq, Data, Generic, NFData, Show)
 
