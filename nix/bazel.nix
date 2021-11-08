@@ -32,7 +32,7 @@ let shared = rec {
 
     postgresql_9_6 = if pkgs.buildPlatform.libc == "glibc"
       then pkgs.runCommand "postgresql_9_6_wrapper" { buildInputs = [ pkgs.makeWrapper ]; } ''
-      mkdir -p $out/bin $out/include $out/lib $out/share
+      mkdir -p $out/bin
       for tool in ${pkgs.postgresql_9_6}/bin/*; do
         makeWrapper $tool $out/bin/$(basename $tool) --set LOCALE_ARCHIVE ${pkgs.glibcLocales}/lib/locale/locale-archive
       done
