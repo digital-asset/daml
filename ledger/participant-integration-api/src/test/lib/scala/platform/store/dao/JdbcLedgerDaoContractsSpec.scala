@@ -169,7 +169,6 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       failure <- contractsReader.lookupMaximumLedgerTime(Set(randomContractId)).failed
     } yield {
       failure shouldBe an[MissingContracts]
-      assertIsLedgerTimeLookupError(failure.getMessage)
     }
   }
 
@@ -250,16 +249,10 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       failure <- contractsReader.lookupMaximumLedgerTime(Set(divulgedContractId)).failed
     } yield {
       failure shouldBe an[MissingContracts]
-      assertIsLedgerTimeLookupError(failure.getMessage)
     }
   }
 
   it should "store contracts with a transient contract in the global divulgence" in {
     store(fullyTransientWithChildren).flatMap(_ => succeed)
-  }
-
-  private[this] def assertIsLedgerTimeLookupError(actualErrorString: String) = {
-    val errorString = "The following contracts have not been found"
-    actualErrorString should startWith(errorString)
   }
 }
