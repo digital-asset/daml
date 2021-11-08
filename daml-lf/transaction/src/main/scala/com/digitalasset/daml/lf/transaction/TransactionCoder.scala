@@ -282,9 +282,11 @@ object TransactionCoder {
               nc.stakeholders.foreach(builder.addStakeholders)
               nc.signatories.foreach(builder.addSignatories)
               discard(builder.setContractIdStruct(encodeCid.encode(nc.coid)))
-              nc.byInterface.foreach(iface =>
-                builder.setByInterface(ValueCoder.encodeIdentifier(iface))
-              )
+              if (nodeVersion >= TransactionVersion.minInterfaces) {
+                nc.byInterface.foreach(iface =>
+                  builder.setByInterface(ValueCoder.encodeIdentifier(iface))
+                )
+              }
               for {
                 _ <-
                   if (nodeVersion < TransactionVersion.minNoVersionValue) {
@@ -322,9 +324,11 @@ object TransactionCoder {
                 discard(builder.setByKey(nf.byKey))
               }
               nf.actingParties.foreach(builder.addActors)
-              nf.byInterface.foreach(iface =>
-                builder.setByInterface(ValueCoder.encodeIdentifier(iface))
-              )
+              if (nodeVersion >= TransactionVersion.minInterfaces) {
+                nf.byInterface.foreach(iface =>
+                  builder.setByInterface(ValueCoder.encodeIdentifier(iface))
+                )
+              }
               for {
                 _ <- encodeAndSetContractKey(
                   encodeCid,
@@ -351,9 +355,11 @@ object TransactionCoder {
               if (nodeVersion >= TransactionVersion.minByKey) {
                 discard(builder.setByKey(ne.byKey))
               }
-              ne.byInterface.foreach(iface =>
-                builder.setByInterface(ValueCoder.encodeIdentifier(iface))
-              )
+              if (nodeVersion >= TransactionVersion.minInterfaces) {
+                ne.byInterface.foreach(iface =>
+                  builder.setByInterface(ValueCoder.encodeIdentifier(iface))
+                )
+              }
               for {
                 _ <- Either.cond(
                   test = ne.version >= TransactionVersion.minChoiceObservers ||
@@ -525,7 +531,7 @@ object TransactionCoder {
             protoCreate.getKeyWithMaintainers,
           )
           byInterface <-
-            if (protoCreate.hasByInterface) {
+            if (nodeVersion >= TransactionVersion.minInterfaces && protoCreate.hasByInterface) {
               ValueCoder.decodeIdentifier(protoCreate.getByInterface).map(Some(_))
             } else {
               Right(None)
@@ -560,7 +566,7 @@ object TransactionCoder {
               protoFetch.getByKey
             else false
           byInterface <-
-            if (protoFetch.hasByInterface) {
+            if (nodeVersion >= TransactionVersion.minInterfaces && protoFetch.hasByInterface) {
               ValueCoder.decodeIdentifier(protoFetch.getByInterface).map(Some(_))
             } else {
               Right(None)
@@ -624,7 +630,7 @@ object TransactionCoder {
               protoExe.getByKey
             else false
           byInterface <-
-            if (protoExe.hasByInterface) {
+            if (nodeVersion >= TransactionVersion.minInterfaces && protoExe.hasByInterface) {
               ValueCoder.decodeIdentifier(protoExe.getByInterface).map(Some(_))
             } else {
               Right(None)
