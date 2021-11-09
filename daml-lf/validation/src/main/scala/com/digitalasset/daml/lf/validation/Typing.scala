@@ -890,7 +890,7 @@ private[validation] object Typing {
         cid: Expr,
         arg: Expr,
     ): Type = {
-      val choice = handleLookup(ctx, interface.lookupChoice(tpl, chName))
+      val choice = handleLookup(ctx, interface.lookupTemplateChoice(tpl, chName))
       checkExpr(cid, TContractId(TTyCon(tpl)))
       checkExpr(arg, choice.argBinder._2)
       TUpdate(choice.returnType)
@@ -903,9 +903,9 @@ private[validation] object Typing {
         arg: Expr,
     ): Type = {
       checkExpr(cid, TContractId(TTyCon(tpl)))
-      val fixedChoice = handleLookup(ctx, interface.lookupInterfaceChoice(tpl, chName))
-      checkExpr(arg, fixedChoice.argBinder._2)
-      TUpdate(fixedChoice.returnType)
+      val choice = handleLookup(ctx, interface.lookupInterfaceChoice(tpl, chName))
+      checkExpr(arg, choice.argBinder._2)
+      TUpdate(choice.returnType)
     }
 
     private def typeOfExerciseByKey(
@@ -915,7 +915,7 @@ private[validation] object Typing {
         arg: Expr,
     ): Type = {
       checkByKey(tmplId, key)
-      val choice = handleLookup(ctx, interface.lookupChoice(tmplId, chName))
+      val choice = handleLookup(ctx, interface.lookupTemplateChoice(tmplId, chName))
       checkExpr(arg, choice.argBinder._2)
       TUpdate(choice.returnType)
     }

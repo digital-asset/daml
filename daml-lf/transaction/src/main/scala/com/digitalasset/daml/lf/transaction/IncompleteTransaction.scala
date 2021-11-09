@@ -7,6 +7,6 @@ package transaction
 import com.daml.lf.data.Ref.Location
 
 final case class IncompleteTransaction(
-    transaction: GenTransaction,
+    transaction: Transaction,
     locationInfo: Map[NodeId, Location],
 )
