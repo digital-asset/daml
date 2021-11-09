@@ -1,0 +1,364 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+
+/*
+Satisfied Design goals:
+- can co-exist with existing API services for single-domain participants
+- can be served with the 1.17 IndexDB
+- supports serving a snapshot and delta on the same stream
+- serves transaction nodes in individual messages
+- supports retrieving the transaction of a transaction node
+- supports consumers in building the transaction tree
+
+WIP:
+- supports TransactionFilter
+- provides clear docs for how the events are filtered
+- minimize differences to existing transaction_service and active_contracts_service
+- ensure that there is an efficient strategy for serving the stream
+
+Next design goals:
+- support evolving the interface to v2 multi-domain transactions
+- include completions
+- communicate pruning events
+- include all data required for Ledger API completeness
+
+
+*/
+
+
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1;
+
+import "google/protobuf/wrappers.proto";
+import "com/daml/ledger/api/v1/transaction_filter.proto";
+
+
+option java_outer_classname = "EventsServiceServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+
+
+service EventsService {
+  // Get the address of a recent transaction as of which an event source can be provided.
+  rpc GetRecentSnapshotOffset(GetRecentSnapshotOffsetRequest) returns (GetRecentSnapshotOffsetResponse);
+
+  // Stream events while first serving all events required to reconstruct a state snapshot as
+  // of a given transaction, and afterwards streaming changes to that state.
+  rpc StreamEvents (StreamEventsRequest) returns (stream StreamEventsResponse);
+}
+
+// Offsets
+//////////
+
+// A participant-wide address of a transaction and the state it may depend on.
+message TransactionOffset {
+  // The Ledger API v1 offset
+  oneof kind {
+    // Compared in lexicographic order.
+    string transaction_log_offset = 1;
+
+    // TODO: what kind of type do we need to support multi-domain transactions?
+    // Could the below work?
+    TransactionGraphOffset transaction_graph_offset = 2;
+  }
+}
+
+message TransactionGraphOffset {
+  // Party-id to record_time vector clock.
+  map<string, uint64> vector_clock = 1;
+}
+
+// A participant-wide address of an event and the state it may depend on.
+// Comparisons are done in lexicographic order of the fields.
+message EventOffset {
+  TransactionOffset transaction_offset = 1;
+  LocalEventOffset local_event_offset = 2;
+}
+
+// A transaction-local address of an event.
+message LocalEventOffset {
+  // Equivalent to v1 node-id within a transaction.
+  // TODO: do we need something more powerful?
+  int32 event_index = 1;
+}
+
+
+// Snapshots
+////////////
+
+message GetRecentSnapshotOffsetRequest {}
+
+message GetRecentSnapshotOffsetResponse {
+  // The address of the last transaction included in the snapshot.
+  TransactionOffset snapshot_transaction_offset = 1;
+}
+
+
+// Event Streaming
+//////////////////
+
+message StreamEventsRequest {
+  // The address of the last transaction included in the snapshot.
+  // Retrieved from `GetRecentSnapshotOffset` or from client-side
+  // storage in case of resuming a stream.
+  //
+  // Required.
+  TransactionOffset snapshot_event_offset = 1;
+
+  // Optional offset after which to serve the first event, which can
+  // be set to resume streaming events.
+  EventOffset after_event_offset = 2;
+
+  // Projection determining what kind of events to serve with what data.
+  EventProjection projection = 3; 
+
+  // Filter determining which of the projected events to serve.
+  // Required
+  // 
+  // TODO: expand filter or projection to select domains to consider.
+  TransactionFilter filter = 4;
+
+}
+
+// The server guarantees to provide at least one `StreamEventsResponse` 
+// every 100ms after ingesting new events from the subscribed domains.
+message StreamEventsResponse {
+  // The offset of this event, which is strictly monotonically increasing
+  // for consecutive events wrt the order on `EventOffset`s.
+  //
+  // Thus all events from the same transaction will be served consecutively
+  // and be assigned the same `TransactionOffset`.
+  EventOffset event_offset = 1;
+
+  // The event at this offset provided the event matches the filter.
+  Event event = 2;
+}
+
+// Event Projection
+///////////////////
+
+// If no projection is set for a specific kind of event, then none of these events will be served.
+//
+// Use the default `EventProjection` to subscribe to just the changes of the ledger end.
+//
+// Note that the projections generally provide an opinionated set of of fields only.
+message EventProjection {
+  TransactionCommittedEventProjection transaction_committed_event_projection = 1;
+  ContractCreatedEventProjection contract_created_event_projection = 2;
+  ChoiceExercisedEventProjection exercised_event_projection = 4;
+}
+
+// No fine-grained projection available for now.
+message TransactionCommittedEventProjection {}
+
+// No fine-grained projection available for now. 
+message ContractCreatedEventProjection {
+  // TODO: think about the difference of filtering on stakeholders for "flat" Transactions
+  //       vs filtering on informees for TransactionTrees
+}
+
+// TODO: think about what kind of projections are required.
+message ChoiceExercisedEventProjection {
+  enum Kind { 
+    KIND_FULL = 0 ;          // corresponds to serving TransactionTrees
+    KIND_ARCHIVALS_ONLY = 1; // corresponds to serving "flat" Transactions
+  }
+
+  Kind kind = 1;
+}
+
+
+// Events: copied from v1.events.proto with light adjustments.
+//////////////////////////////////////////////////////////////
+
+message Event {
+    oneof kind {
+        TransactionCommittedEvent transaction_committed_event = 1;
+        ContractCreatedEvent contract_created_event = 2;
+        ChoiceExercisedEvent exercised_event = 4;
+    }
+}
+
+// Served as the first event of a transaction.
+// TODO:
+//  - filtering conditions
+//    - option 1: Visible to the submitters and informees of the transaction.
+//    - option 2: prefixed provided the stream contains an unfiltered event referring to this transaction
+//    - other options?
+//
+// Changes relative to v1.Transaction and v1.TransactionTree:
+//    - no need for `event_by_id` and `events`, as transaction boundary is communicated by TransactionOffset
+//    - no need for `root_event_ids`, as nesting structure is specified using `descendant_event_offset_upper_bound`
+//    - no need for `offset` as that is part of the `StreamEventsResponse`
+message TransactionCommittedEvent {
+
+  // A globally unique identifier useful to correlate transactions across different participant nodes.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string transaction_id = 1;
+
+  // The ID of the command which resulted in this transaction. Missing for everyone except the submitting party.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string command_id = 2;
+
+  // The workflow ID used in command submission. Only set if the ``workflow_id`` for the command was set.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string workflow_id = 3;
+
+  // Ledger effective time.
+  // Required
+  google.protobuf.Timestamp effective_at = 4;
+
+  // TODO: potentially missing
+  // string application_id = 6;
+  // repeated string submitters = 7; 
+}
+
+
+// Records that a contract has been created, and choices may now be exercised on it.
+//
+// Changes relative to v1.CreatedEventd
+//  - no `event_id`, as `EventOffset` structure communicates transaction scope and nesting
+//  - include `ledger_effective_time`, as that is contract metadata relevant for state evolution
+message ContractCreatedEvent {
+  reserved 1; // was 'event_id'
+
+  // The ID of the created contract.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string contract_id = 2;
+
+  // The template of the created contract.
+  // Required
+  Identifier template_id = 3;
+
+  // The key of the created contract, if defined.
+  // Optional
+  Value contract_key = 7;
+
+  // The arguments that have been used to create the contract.
+  // Required
+  Record create_arguments = 4;
+
+  // The parties that are notified of this event. When a ``CreatedEvent``
+  // is returned as part of a transaction tree, this will include all
+  // the parties specified in the ``TransactionFilter`` that are informees
+  // of the event. If served as part of a flat transaction those will
+  // be limited to all parties specified in the ``TransactionFilter`` that
+  // are stakeholders of the contract (i.e. either signatories or observers).
+  // Required
+  repeated string witness_parties = 5;
+
+  // The signatories for this contract as specified by the template.
+  // Required
+  repeated string signatories = 8;
+
+  // The observers for this contract as specified explicitly by the template or implicitly as choice controllers.
+  // This field never contains parties that are signatories.
+  // Required
+  repeated string observers = 9;
+
+  // The agreement text of the contract.
+  // We use StringValue to properly reflect optionality on the wire for backwards compatibility.
+  // This is necessary since the empty string is an acceptable (and in fact the default) agreement
+  // text, but also the default string in protobuf.
+  // This means a newer client works with an older sandbox seamlessly.
+  // Optional
+  google.protobuf.StringValue agreement_text = 6;
+
+  // The time as of which this contract is present on the ledger.
+  google.protobuf.Timestamp ledger_effective_time = 10;
+}
+
+
+// Records that a choice has been exercised on a target contract.
+// 
+// Changes compared to v1.ExercisedEvent
+//  - replaced child_event_ids with descendant_event_offset_upper_bound, which is stable under filtering
+//  - no `event_id`, as `EventOffset` structure communicates transaction scope and nesting
+//  - include `ledger_effective_time`, as that is contract metadata relevant for state evolution
+message ChoiceExercisedEvent {
+  reserved 1; // was 'event_id'
+
+  // The ID of the target contract.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string contract_id = 2;
+
+  // The template of the target contract.
+  // Required
+  Identifier template_id = 3;
+
+  // The choice that's been exercised on the target contract.
+  // Must be a valid NameString (as described in ``value.proto``).
+  // Optional for ARCHIVALS_ONLY
+  string choice = 5;
+
+  // The argument the choice was made with.
+  // Optional for ARCHIVALS_ONLY
+  Value choice_argument = 6;
+
+  // The parties that made the choice.
+  // Each element must be a valid PartyIdString (as described in ``value.proto``).
+  // Optional for ARCHIVALS_ONLY
+  repeated string acting_parties = 7;
+
+  // If true, the target contract may no longer be exercised.
+  // Required
+  bool consuming = 8;
+
+  reserved 9; // removed field
+
+  // The parties that are notified of this event. The witnesses of an exercise
+  // node will depend on whether the exercise was consuming or not.
+  // If consuming, the witnesses are the union of the stakeholders and
+  // the actors.
+  // If not consuming, the witnesses are the union of the signatories and
+  // the actors. Note that the actors might not necessarily be observers
+  // and thus signatories. This is the case when the controllers of a
+  // choice are specified using "flexible controllers", using the
+  // ``choice ... controller`` syntax, and said controllers are not
+  // explicitly marked as observers.
+  // Each element must be a valid PartyIdString (as described in ``value.proto``).
+  // Optional for ARCHIVALS_ONLY
+  repeated string witness_parties = 10;
+
+  reserved 11; // was repeated string child_event_ids = 11;
+
+  // An upper bound that is larger or equal to the largest `LocalEventOffset` of any descendant event.
+  // Optional for ARCHIVALS_ONLY
+  LocalEventOffset descendant_event_offset_upper_bound = 14;
+
+  // The result of exercising the choice
+  // Optional for ARCHIVALS_ONLY
+  Value exercise_result = 12;
+
+  // The time as of which this choice is effective on the ledger.
+  // Required.
+  google.protobuf.Timestamp ledger_effective_time = 13;
+}
+
+  
+
+// Scratchpad: Completions
+/*
+
+  message SubmissionAcceptedEvent {
+  
+  }
+  message SubmissionInfo {
+    string application_id = 1;
+    repeated string submitters = 2;
+    string command_id = 3;
+  }
+  message SubmissionRejectedEvent {
+    SubmissionInfo submission_info = 1;
+    // status code
+  }
+*/
+
