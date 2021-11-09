@@ -67,7 +67,12 @@ object KVErrors extends LedgerApiErrorGroup {
           extends KVLoggingTransactionErrorImpl(
             cause =
               s"Invalid ledger time: Record time is outside of valid range [$minimumRecordTime, $maximumRecordTime]"
-          )
+          ) {
+        override def context: Map[String, String] = Map(
+          "minimum_record_time" -> minimumRecordTime.toString,
+          "maximum_record_time" -> maximumRecordTime.toString,
+        )
+      }
     }
 
     @Explanation(
@@ -388,7 +393,13 @@ object KVErrors extends LedgerApiErrorGroup {
             ledgerTimeLowerBound: Instant,
             ledgerTimeUpperBound: Instant,
         )(implicit loggingContext: ContextualizedErrorLogger)
-            extends KVLoggingTransactionErrorImpl(cause = s"Invalid ledger time: $details")
+            extends KVLoggingTransactionErrorImpl(cause = s"Invalid ledger time: $details") {
+          override def context: Map[String, String] = Map(
+            "ledger_time" -> ledgerTime.toString,
+            "ledger_time_lower_bound" -> ledgerTimeLowerBound.toString,
+            "ledger_time_upper_bound" -> ledgerTimeUpperBound.toString,
+          )
+        }
       }
 
     }
