@@ -4,8 +4,6 @@
 package com.daml.lf.data
 
 import ScalazEqual.{orderBy, toIterableForScalazInstances}
-import scalaz.syntax.applicative._
-import scalaz.syntax.traverse._
 import scalaz.{Applicative, Order, Traverse}
 
 import scala.annotation.tailrec
@@ -154,11 +152,26 @@ object FrontStack extends FrontStackInstances {
   implicit val `FrontStack covariant`: Traverse[FrontStack] = new Traverse[FrontStack] {
     override def traverseImpl[G[_]: Applicative, A, B](
         fa: FrontStack[A]
-    )(f: A => G[B]): G[FrontStack[B]] =
+    )(f: A => G[B]): G[FrontStack[B]] = {
+      import scalaz.syntax.applicative._, scalaz.syntax.traverse._
       fa.toBackStack.bqFoldRight(FrontStack.empty[B].pure[G])(
         (a, z) => ^(f(a), z)(_ +: _),
         (iaa, z) => ^(iaa traverse f, z)(_ ++: _),
       )
+    }
+
+    override def map[A, B](fa: FrontStack[A])(f: A => B) = fa map f
+
+    override def foldLeft[A, B](fa: FrontStack[A], z: B)(f: (B, A) => B) =
+      fa.iterator.foldLeft(z)(f)
+
+    override def foldRight[A, B](fa: FrontStack[A], z: => B)(f: (A, => B) => B) =
+      fa.toBackStack.bqFoldRight(z)(
+        (a, z) => f(a, z),
+        (iaa, z) => iaa.foldRight(z)(f(_, _)),
+      )
+
+    override def length[A](fa: FrontStack[A]) = fa.length
   }
 
   implicit def `FrontStack Order`[A: Order]: Order[FrontStack[A]] = {

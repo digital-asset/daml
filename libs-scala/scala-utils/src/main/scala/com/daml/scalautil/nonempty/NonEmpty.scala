@@ -6,10 +6,12 @@ package com.daml.scalautil.nonempty
 import scala.collection.compat._
 import scala.collection.{immutable => imm}, imm.Map, imm.Set
 import scalaz.Id.Id
-import scalaz.{Foldable, Foldable1, Monoid, OneAnd, Semigroup, Traverse}
+import scalaz.{Foldable, Foldable1, OneAnd, Semigroup, Traverse}
 import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
 import scalaz.syntax.std.option._
+
+import com.daml.scalautil.FoldableContravariant
 import NonEmptyCollCompat._
 
 /** The visible interface of [[NonEmpty]]; use that value to access
@@ -169,7 +171,7 @@ sealed abstract class NonEmptyCollInstances extends NonEmptyCollInstances0 {
 
 sealed abstract class NonEmptyCollInstances0 {
   implicit def foldable1[F[_]](implicit F: Foldable[F]): Foldable1[NonEmptyF[F, *]] =
-    NonEmpty.substF(new Foldable1[F] {
+    NonEmpty.substF(new Foldable1[F] with FoldableContravariant[F, F] {
       private[this] def errEmpty(fa: F[_]) =
         throw new IllegalArgumentException(
           s"empty structure coerced to non-empty: $fa: ${fa.getClass.getSimpleName}"
@@ -187,12 +189,9 @@ sealed abstract class NonEmptyCollInstances0 {
       override def foldMapLeft1[A, B](fa: F[A])(z: A => B)(f: (B, A) => B) =
         assertNE(fa, F.foldMapLeft1Opt(fa)(z)(f))
 
-      override def foldMap[A, B: Monoid](fa: F[A])(f: A => B) = F.foldMap(fa)(f)
+      protected[this] override def Y = F
 
-      override def foldRight[A, B](fa: F[A], z: => B)(f: (A, => B) => B) = F.foldRight(fa, z)(f)
-
-      override def foldLeft[A, B](fa: F[A], z: B)(f: (B, A) => B) =
-        F.foldLeft(fa, z)(f)
+      protected[this] override def ctmap[A](xa: F[A]) = xa
     })
 
   import scala.language.implicitConversions
