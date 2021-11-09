@@ -18,6 +18,7 @@ import scalaz.{NonEmptyList, OneAnd}
 import scalaz.syntax.tag._
 import spray.json.{JsNull, JsValue}
 import cats.effect.{Blocker, ContextShift, IO}
+import com.daml.scalautil.Statement.discard
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import doobie._
 
@@ -44,11 +45,10 @@ class ContractDao private (
   def isValid(timeoutSeconds: Int): IO[Boolean] =
     fconn.isValid(timeoutSeconds).transact(xa)
 
-  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   def shutdown(): Try[Unit] = {
     Try {
       dbAccessPool.shutdown()
-      dbAccessPool.awaitTermination(10, TimeUnit.SECONDS)
+      discard(dbAccessPool.awaitTermination(10, TimeUnit.SECONDS))
       ds.close()
     }
   }
@@ -305,9 +305,6 @@ object ContractDao {
   }
 }
 
-/*
-  TODO below values are hardcoded for now, refactor to be picked up as cli flags/ props later.
- */
 object ConnectionPool {
 
   type PoolSize = Int

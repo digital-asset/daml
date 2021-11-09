@@ -107,15 +107,16 @@ private[http] final case class JdbcConfig(
     url: String,
     user: String,
     password: String,
+    poolSize: Int,
     createSchema: Boolean = false,
     minIdle: Int = JdbcConfig.MinIdle,
     connectionTimeout: Long = JdbcConfig.ConnectionTimeout,
     idleTimeout: Long = JdbcConfig.IdleTimeout,
-    poolSize: Int = ConnectionPool.PoolSize.Integration,
 )
 
 private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig") {
 
+  import ConnectionPool.PoolSize.Production
   final val MinIdle = 8
   final val IdleTimeout = 10000L // ms, minimum according to log, defaults to 600s
   final val ConnectionTimeout = 5000L
@@ -125,7 +126,9 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
   private[this] def supportedDriversHelp = supportedJdbcDriverNames mkString ", "
 
   implicit val showInstance: Show[JdbcConfig] = Show.shows(a =>
-    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, createSchema=${a.createSchema}, poolSize=${a.poolSize})"
+    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, createSchema=${a.createSchema}, " +
+      s"poolSize=${a.poolSize}), minIdle=${a.minIdle}, connectionTimeout=${a.connectionTimeout}, " +
+      s"idleTimeout=${a.idleTimeout}"
   )
 
   lazy val help: String =
@@ -136,13 +139,19 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
       s"${indent}password -- database user password,\n" +
       s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.\n" +
       s"${indent}poolSize -- int value, specifies the max pool size for the database connection pool.\n" +
+      s"${indent}minIdle -- int value, specifies the min idle connections for database connection pool.\n" +
+      s"${indent}connectionTimeout -- long value, specifies the connection timeout for database connection pool.\n" +
+      s"${indent}idleTimeout -- long value, specifies the idle timeout for the database connection pool.\n" +
       s"${indent}Example: " + helpString(
         "org.postgresql.Driver",
         "jdbc:postgresql://localhost:5432/test?&ssl=true",
         "postgres",
         "password",
         "false",
-        "8",
+        Production.toString,
+        MinIdle.toString,
+        ConnectionTimeout.toString,
+        IdleTimeout.toString,
       )
 
   lazy val usage: String = helpString(
@@ -152,6 +161,9 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
     "<password>",
     "<true|false>",
     "<poolSize>",
+    "<minIdle>",
+    "<connectionTimeout>",
+    "<idleTimeout>",
   )
 
   override def create(x: Map[String, String]): Either[String, JdbcConfig] =
@@ -166,14 +178,20 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
       user <- requiredField(x)("user")
       password <- requiredField(x)("password")
       createSchema <- optionalBooleanField(x)("createSchema")
-      poolSize <- optionalIntField(x)("poolSize")
+      maxPoolSize <- optionalIntField(x)("poolSize")
+      minIdle <- optionalIntField(x)("minIdle")
+      connTimeout <- optionalLongField(x)("connectionTimeout")
+      idleTimeout <- optionalLongField(x)("idleTimeout")
     } yield JdbcConfig(
       driver = driver,
       url = url,
       user = user,
       password = password,
+      poolSize = maxPoolSize.getOrElse(ConnectionPool.PoolSize.Production),
       createSchema = createSchema.getOrElse(false),
-      poolSize = poolSize.getOrElse(ConnectionPool.PoolSize.Production),
+      minIdle = minIdle.getOrElse(MinIdle),
+      connectionTimeout = connTimeout.getOrElse(ConnectionTimeout),
+      idleTimeout = idleTimeout.getOrElse(IdleTimeout),
     )
 
   private def helpString(
@@ -183,8 +201,12 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
       password: String,
       createSchema: String,
       poolSize: String,
+      minIdle: String,
+      connectionTimeout: String,
+      idleTimeout: String,
   ): String =
-    s"""\"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema,poolSize=${poolSize}\""""
+    s"""\"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema,poolSize=$poolSize,
+       |minIdle=$minIdle, connectionTimeout=$connectionTimeout,idleTimeout=$idleTimeout\"""".stripMargin
 }
 
 // It is public for DABL

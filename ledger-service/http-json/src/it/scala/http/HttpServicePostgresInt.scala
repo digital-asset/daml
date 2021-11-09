@@ -3,6 +3,7 @@
 
 package com.daml.http
 
+import com.daml.http.dbbackend.ConnectionPool
 import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.Inside
 import org.scalatest.AsyncTestSuite
@@ -22,6 +23,7 @@ trait HttpServicePostgresInt extends AbstractHttpServiceIntegrationTestFuns with
     url = postgresDatabase.url,
     user = "test",
     password = "",
+    poolSize = ConnectionPool.PoolSize.Integration,
     createSchema = true,
   )
 

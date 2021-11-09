@@ -4,12 +4,12 @@
 package com.daml.http.perf
 
 import java.io.File
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.gatling.stats.{SimulationLog, SimulationLogSyntax}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.http.HttpServiceTestFixture.{withLedger, withHttpService}
+import com.daml.http.HttpServiceTestFixture.{withHttpService, withLedger}
+import com.daml.http.dbbackend.ConnectionPool
 import com.daml.http.domain.{JwtPayload, LedgerId}
 import com.daml.http.perf.scenario.SimulationConfig
 import com.daml.http.util.FutureUtil._
@@ -162,6 +162,7 @@ object Main extends StrictLogging {
       url = c.url,
       user = "test",
       password = "",
+      poolSize = ConnectionPool.PoolSize.Integration,
       createSchema = true,
     )
 
