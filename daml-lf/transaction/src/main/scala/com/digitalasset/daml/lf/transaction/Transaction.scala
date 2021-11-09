@@ -779,9 +779,6 @@ object Transaction {
     }.duplicates
   }
 
-  @deprecated("use com.daml.value.Value.VersionedValue directly", since = "1.18.0")
-  type Value = Value.VersionedValue
-
   @deprecated("use com.daml.value.Value.VersionedContractInstance", since = "1.18.0")
   type ContractInstance = Value.VersionedContractInstance
 
