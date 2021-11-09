@@ -330,9 +330,6 @@ abstract class AbstractFuncIT
       }
     }
 
-    // TODO https://github.com/digital-asset/daml/issues/10810
-    // Reenable test
-    /*
     "Interface:test" should {
       "succeed" in {
         for {
@@ -347,7 +344,6 @@ abstract class AbstractFuncIT
         }
       }
     }
-     */
 
     "testMultiPartyQuery" should {
       "should return contracts for all listed parties" in {

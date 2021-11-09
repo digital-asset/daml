@@ -85,7 +85,7 @@ final class ValueEnricher(
       choiceName: Name,
       value: Value,
   ): Result[Value] =
-    handleLookup(interface.lookupChoice(tyCon, choiceName))
+    handleLookup(interface.lookupTemplateChoice(tyCon, choiceName))
       .flatMap(choice => enrichValue(choice.argBinder._2, value))
 
   def enrichChoiceResult(
@@ -93,7 +93,7 @@ final class ValueEnricher(
       choiceName: Name,
       value: Value,
   ): Result[Value] =
-    handleLookup(interface.lookupChoice(tyCon, choiceName)).flatMap(choice =>
+    handleLookup(interface.lookupTemplateChoice(tyCon, choiceName)).flatMap(choice =>
       enrichValue(choice.returnType, value)
     )
 
