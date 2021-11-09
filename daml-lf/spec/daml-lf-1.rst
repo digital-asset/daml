@@ -289,7 +289,7 @@ Where:
 * The ``description`` describes the terminal being defined.
 * The ``symbols`` define how we will refer of the terminal in type rules /
   operational semantics / ....
-* The ``regexp`` is a `java regular expression
+* The ``regexp`` is a `Java regular expression
   <https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html>`_
   describing the members of the terminal. In particular, we will use
   the following conventions:
@@ -299,7 +299,7 @@ Where:
   * ``\r`` matches the carriage return ``\x0D``,
   * ``\"`` matches the double quote character ``\x22``.
   * ``\$`` match the dollar character ``\x24``.
-  * ``\.`` matches the full stop character ``\x2e\``.
+  * ``\.`` matches the full stop character ``\x2e``.
   * ``\\`` matches the backslash character ``\x5c``.
   * ``\d`` to match a digit: ``[0-9]``.
 
@@ -345,8 +345,9 @@ We first define two types of *strings*::
 
   Sequences of string characters:
           StrChars ::= StrChar                      -- StrChars
-                    |  StrChars StrChar
-                    |  EscapedStrChar StrChar
+                    |  EscapedStrChar
+                    |  StrChar StrChars
+                    |  EscapedStrChar StrChars
 
   String chars:
            StrChar  ∈  [^\n\r\"\\]                  -- StrChar
@@ -396,7 +397,7 @@ We can now define a generic notion of *identifier* and *name*::
          Name   ::= Ident                           -- Name
                  |  Name \. Ident
 
-Identifiers are standard `java identifiers
+Identifiers are standard `Java identifiers
 <https://docs.oracle.com/javase/specs/jls/se8/html/jls-3.html#jls-3.8>`_
 restricted to US-ASCII with a length of at most 1000 characters.
 Names are sequences of identifiers intercalated with dots with a total
@@ -473,7 +474,7 @@ load any non-deprecated Daml-LF version. V1 Contract IDs allocation
 scheme is described in the `V1 Contract ID allocation scheme
 specification <./contract-id.rst>`_. In the following we will say that
 a V1 contract identifier is *non-suffixed* if it is built from exactly
-66 charters. Otherwise (meaning it has between 68 and 254 charters) we
+66 characters. Otherwise (meaning it has between 68 and 254 characters) we
 will say it is *suffixed*.
 
 Literals
@@ -497,7 +498,7 @@ We now define all the literals that a program can handle::
      LitTimestamp ∈  \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(.\d{1,3})?Z
                                                      -- LitTimestamp
   UTF8 string literals:
-               t ::= String                          -- LitText
+               t ::= Str                             -- LitText
 
   Party literals:
         LitParty ::= PartyIdString                   -- LitParty
@@ -906,7 +907,7 @@ well-formed and will be rejected by the Daml-LF type checker.
 Well-formed types
 .................
 
-We now formally defined *well-formed types*. ::
+We now formally define *well-formed types*. ::
 
  Type context:
    Γ ::= ε                                 -- CtxEmpty
@@ -1662,7 +1663,7 @@ Exception coherence
 
 The *exception coherence* condition is literally the same as the template
 coherence condition with "template" replaced by "exception". We further require
-that no type has a template definition and an exception definition associated to
+that no type has both a template definition and an exception definition associated to
 it.
 
 
@@ -2752,13 +2753,12 @@ Update interpretation
 ~~~~~~~~~~~~~~~~~~~~~
 
 We define the operational semantics of the update interpretation
-against the ledger model described in the `DA Ledger Model
-<https://docs.daml.com/concepts/ledger-model/index.html>`_ theory
-report.
+against the ledger model described in the `Daml Ledger Model
+<https://docs.daml.com/concepts/ledger-model/index.html>`_.
 
 
 Update semantics use the predicate ``=ₛ`` to compare two lists of
-party literals as those latter were sets.
+party literals as if the lists were sets.
 
 
 ..

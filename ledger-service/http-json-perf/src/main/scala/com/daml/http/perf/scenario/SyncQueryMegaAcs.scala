@@ -94,12 +94,12 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
       scenario(s"SyncQueryMegaScenario $scnName")
         .exec(createRequest.silent)
         // populate the ACS
-        .repeat(10, "amount") {
+        .repeat(10 / defaultNumUsers, "amount") {
           feed(Iterator continually env)
             .exec(createManyRequest.silent)
         }
         // run queries
-        .repeat(500) {
+        .repeat(500 / defaultNumUsers) {
           // unless we request under Alice, we don't get negatives in the DB
           def m(amount: Int, reqJwt: String, templateId: String): Record[Any] =
             Map("amount" -> amount, "reqJwt" -> reqJwt, "templateId" -> templateId)
@@ -116,7 +116,7 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
   private val scn = scns.head
 
   setUp(
-    scn.inject(atOnceUsers(1))
+    scn.inject(atOnceUsers(defaultNumUsers))
   ).protocols(httpProtocol)
 }
 

@@ -37,6 +37,12 @@ instance HasSignatory Token where
 instance HasFetch Token where
   fetch = GHC.Types.primitive @"UFetchInterface"
 
+instance DA.Internal.Desugar.HasEnsure Token where
+  ensure this
+    = DA.Internal.Desugar.True
+    where
+        _ = this
+
 instance IsToken Token where
   toToken = GHC.Types.primitive @"EToInterface"
   fromToken = GHC.Types.primitive @"EFromInterface"
@@ -184,7 +190,7 @@ instance HasSignatory Asset where
   signatory Asset{..} = [issuer, owner]
 
 instance HasEnsure Asset where
-  ensure _ = True
+  ensure this = getAmount this >= 0
 
 instance HasAgreement Asset where
   agreement _ = ""

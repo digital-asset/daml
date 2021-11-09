@@ -192,7 +192,7 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   def lookupInterface(name: TypeConName): Either[LookupError, DefInterfaceSignature] =
     lookupInterface(name, Reference.Interface(name))
 
-  private[this] def lookupChoice(
+  private[this] def lookupTemplateChoice(
       tmpName: TypeConName,
       chName: ChoiceName,
       context: => Reference,
@@ -202,40 +202,89 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
         case Some(choice) => Right(choice)
         case None =>
           template.inheritedChoices.get(chName) match {
-            case None => Left(LookupError(Reference.Choice(tmpName, chName), context))
+            case None => Left(LookupError(Reference.TemplateChoice(tmpName, chName), context))
             case Some(ifaceName) =>
               lookupInterface(ifaceName, context).flatMap(iface =>
                 iface.fixedChoices
                   .get(chName)
-                  .toRight(LookupError(Reference.Choice(ifaceName, chName), context))
+                  .toRight(LookupError(Reference.TemplateChoice(ifaceName, chName), context))
               )
           }
       }
     )
 
-  def lookupChoice(
+  def lookupTemplateChoice(
       tmpName: TypeConName,
       chName: ChoiceName,
   ): Either[LookupError, TemplateChoiceSignature] =
-    lookupChoice(tmpName, chName, Reference.Choice(tmpName, chName))
+    lookupTemplateChoice(tmpName, chName, Reference.TemplateChoice(tmpName, chName))
 
   private[this] def lookupInterfaceChoice(
       ifaceName: TypeConName,
       chName: ChoiceName,
       context: => Reference,
   ): Either[LookupError, TemplateChoiceSignature] =
-    lookupInterface(ifaceName, context).flatMap(iface =>
-      iface.fixedChoices.get(chName) match {
-        case Some(choice) => Right(choice)
-        case None => Left(LookupError(Reference.Choice(ifaceName, chName), context))
-      }
+    lookupInterface(ifaceName, context).flatMap(
+      _.fixedChoices
+        .get(chName)
+        .toRight(LookupError(Reference.TemplateChoice(ifaceName, chName), context))
     )
 
   def lookupInterfaceChoice(
       ifaceName: TypeConName,
       chName: ChoiceName,
   ): Either[LookupError, TemplateChoiceSignature] =
-    lookupInterfaceChoice(ifaceName, chName, Reference.Choice(ifaceName, chName))
+    lookupInterfaceChoice(ifaceName, chName, Reference.InterfaceChoice(ifaceName, chName))
+
+  private[lf] def lookupTemplateOrInterface(
+      identier: TypeConName,
+      context: => Reference,
+  ): Either[LookupError, Either[TemplateSignature, DefInterfaceSignature]] =
+    lookupModule(identier.packageId, identier.qualifiedName.module, context).flatMap(mod =>
+      mod.templates.get(identier.qualifiedName.name) match {
+        case Some(template) => Right(Left(template))
+        case None =>
+          mod.interfaces.get(identier.qualifiedName.name) match {
+            case Some(interface) => Right(Right(interface))
+            case None =>
+              Left(LookupError(Reference.TemplateOrInterface(identier), context))
+          }
+      }
+    )
+
+  import PackageInterface.ChoiceInfo
+
+  private[lf] def lookupChoice(
+      identifier: TypeConName,
+      chName: ChoiceName,
+  ): Either[LookupError, ChoiceInfo] = {
+    lazy val context = Reference.Choice(identifier, chName)
+    lookupTemplateOrInterface(identifier, context).flatMap {
+      case Left(template) =>
+        template.choices.get(chName) match {
+          case Some(choice) => Right(ChoiceInfo.Template(choice))
+          case None =>
+            template.inheritedChoices.get(chName) match {
+              case Some(ifaceId) =>
+                lookupInterfaceChoice(ifaceId, chName, context).map(
+                  ChoiceInfo.Inherited(ifaceId, _)
+                )
+              case None =>
+                Left(LookupError(context, context))
+            }
+        }
+      case Right(interface) =>
+        interface.fixedChoices.get(chName) match {
+          case Some(choice) => Right(ChoiceInfo.Interface(choice))
+          case None => Left(LookupError(context, context))
+        }
+    }
+  }
+
+  def lookupTemplateOrInterface(
+      name: TypeConName
+  ): Either[LookupError, Either[TemplateSignature, DefInterfaceSignature]] =
+    lookupTemplateOrInterface(name, Reference.TemplateOrInterface(name))
 
   private[this] def lookupInterfaceMethod(
       ifaceName: TypeConName,
@@ -340,5 +389,22 @@ object PackageInterface {
       dataType: DDataType,
       dataEnum: DataEnum,
   )
+
+  // ChoiceInfo defined the output of lookupChoice(iden, chName)
+  // There is 3 cases:
+  // - iden refers to an interface that defines a choice chName
+  // - iden refers to a template that defines a choice chName
+  // - iden refers to a template that inherits from a interface than defined chName
+  sealed trait ChoiceInfo extends Serializable with Product
+  object ChoiceInfo {
+
+    final case class Interface(choice: TemplateChoiceSignature) extends ChoiceInfo
+
+    final case class Template(choice: TemplateChoiceSignature) extends ChoiceInfo
+
+    final case class Inherited(ifaceId: Identifier, choice: TemplateChoiceSignature)
+        extends ChoiceInfo
+
+  }
 
 }

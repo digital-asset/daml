@@ -38,8 +38,8 @@ final case class VersionedTransaction private[lf] (
     )
 
   // O(1)
-  def transaction: GenTransaction =
-    GenTransaction(nodes, roots)
+  def transaction: Transaction =
+    Transaction(nodes, roots)
 
 }
 
@@ -54,18 +54,18 @@ final case class VersionedTransaction private[lf] (
   * For performance reasons, users are not required to call `isWellFormed`.
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
   */
-final case class GenTransaction(
+final case class Transaction(
     nodes: Map[NodeId, Node],
     roots: ImmArray[NodeId],
 ) extends HasTxNodes
-    with value.CidContainer[GenTransaction] {
+    with value.CidContainer[Transaction] {
 
-  import GenTransaction._
+  import Transaction._
 
   override protected def self: this.type = this
-  override def mapCid(f: ContractId => ContractId): GenTransaction =
+  override def mapCid(f: ContractId => ContractId): Transaction =
     copy(nodes = nodes.map { case (nodeId, node) => nodeId -> node.mapCid(f) })
-  def mapNodeId(f: NodeId => NodeId): GenTransaction =
+  def mapNodeId(f: NodeId => NodeId): Transaction =
     copy(
       nodes = nodes.map { case (nodeId, node) => f(nodeId) -> node.mapNodeId(f) },
       roots = roots.map(f),
@@ -134,13 +134,13 @@ final case class GenTransaction(
   /** Compares two Transactions up to renaming of Nids. You most likely want to use this rather than ==, since the
     * Nid is irrelevant to the content of the transaction.
     */
-  def equalForest(other: GenTransaction): Boolean =
+  def equalForest(other: Transaction): Boolean =
     compareForest(other)(_ == _)
 
   /** Compares two Transactions up to renaming of Nids. with the specified comparision of nodes
     * Nid is irrelevant to the content of the transaction.
     */
-  def compareForest(other: GenTransaction)(
+  def compareForest(other: Transaction)(
       compare: (Node, Node) => Boolean
   ): Boolean = {
     @tailrec
@@ -731,14 +731,14 @@ sealed abstract class HasTxNodes {
 
 }
 
-object GenTransaction {
+object Transaction {
 
   @deprecated("use com.daml.transaction.GenTransaction directly", since = "1.18.0")
-  type WithTxValue = GenTransaction
+  type WithTxValue = Transaction
 
-  private[this] val Empty = GenTransaction(HashMap.empty, ImmArray.Empty)
+  private[this] val Empty = Transaction(HashMap.empty, ImmArray.Empty)
 
-  private[lf] def empty: GenTransaction = Empty
+  private[lf] def empty: Transaction = Empty
 
   private[lf] case class NotWellFormedError(nid: NodeId, reason: NotWellFormedErrorReason)
   private[lf] sealed trait NotWellFormedErrorReason
@@ -778,12 +778,6 @@ object GenTransaction {
       }
     }.duplicates
   }
-}
-
-object Transaction {
-
-  @deprecated("use com.daml.value.Value.VersionedValue directly", since = "1.18.0")
-  type Value = Value.VersionedValue
 
   @deprecated("use com.daml.value.Value.VersionedContractInstance", since = "1.18.0")
   type ContractInstance = Value.VersionedContractInstance
@@ -792,11 +786,6 @@ object Transaction {
   type ActionNode = Node.Action
   @deprecated("use com.daml.transaction.Node.LeafOnlyAction directly", since = "1.18.0")
   type LeafNode = Node.LeafOnlyAction
-
-  @deprecated("use com.daml.transaction.VersionedTransaction", since = "1.18.0")
-  type Transaction = VersionedTransaction
-  @deprecated("use com.daml.transaction.VersionedTransaction", since = "1.18.0")
-  val Transaction: VersionedTransaction.type = VersionedTransaction
 
   /** Transaction meta data
     *
@@ -901,4 +890,5 @@ object Transaction {
     * was inconsistent with earlier nodes (in execution order).
     */
   final case class InconsistentKeys(key: GlobalKey) extends KeyInputError
+
 }

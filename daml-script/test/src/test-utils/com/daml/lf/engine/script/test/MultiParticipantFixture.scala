@@ -23,6 +23,7 @@ import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.ports.Port
 import org.scalatest.Suite
 
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.ExecutionContext
 
 trait MultiParticipantFixture
@@ -84,7 +85,9 @@ trait MultiParticipantFixture
               archiveFiles = Seq(darFile),
             )
         )
-      } yield (readPortfile(participant1Portfile), readPortfile(participant2Portfile))
+      } yield (readPortfile(participant1Portfile), readPortfile(participant2Portfile)),
+      acquisitionTimeout = 1.minute,
+      releaseTimeout = 1.minute,
     )
   }
 

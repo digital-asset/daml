@@ -7,13 +7,7 @@ package test
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import com.daml.lf.transaction.{
-  GenTransaction,
-  Node,
-  NodeId,
-  TransactionVersion,
-  VersionedTransaction,
-}
+import com.daml.lf.transaction.{Transaction, Node, NodeId, TransactionVersion, VersionedTransaction}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
@@ -485,11 +479,11 @@ object ValueGenerators {
     *
     * This list is complete as of transaction version 5. -SC
     */
-  val malformedGenTransaction: Gen[GenTransaction] = {
+  val malformedGenTransaction: Gen[Transaction] = {
     for {
       nodes <- Gen.listOf(danglingRefGenNode)
       roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(NodeId(_)))
-    } yield GenTransaction(nodes.toMap, roots.to(ImmArray))
+    } yield Transaction(nodes.toMap, roots.to(ImmArray))
   }
 
   /*
@@ -503,7 +497,7 @@ object ValueGenerators {
    *
    */
 
-  val noDanglingRefGenTransaction: Gen[GenTransaction] = {
+  val noDanglingRefGenTransaction: Gen[Transaction] = {
 
     def nonDanglingRefNodeGen(
         maxDepth: Int,
@@ -557,7 +551,7 @@ object ValueGenerators {
     }
 
     nonDanglingRefNodeGen(3, NodeId(0)).map { case (nodeIds, nodes) =>
-      GenTransaction(nodes, nodeIds)
+      Transaction(nodes, nodeIds)
     }
   }
 

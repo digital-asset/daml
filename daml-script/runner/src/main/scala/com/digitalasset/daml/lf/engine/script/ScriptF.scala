@@ -75,7 +75,7 @@ object ScriptF {
         _clients.copy(party_participants = _clients.party_participants + (party -> participant))
     }
     def lookupChoice(id: Identifier, choice: Name): Either[String, Ast.TemplateChoiceSignature] =
-      compiledPackages.interface.lookupChoice(id, choice).left.map(_.pretty)
+      compiledPackages.interface.lookupTemplateChoice(id, choice).left.map(_.pretty)
 
     def lookupKeyTy(id: Identifier): Either[String, Ast.Type] =
       compiledPackages.interface.lookupTemplateKey(id) match {

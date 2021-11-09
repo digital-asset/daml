@@ -19,7 +19,6 @@ import com.daml.lf.transaction.{
   NodeId,
   SubmittedTransaction,
   VersionedTransaction,
-  GenTransaction => GenTx,
   Transaction => Tx,
   TransactionVersion => TxVersions,
 }
@@ -1196,7 +1195,7 @@ class EngineTest
       }
     }
 
-    def txFetchActors(tx: GenTx): Set[Party] =
+    def txFetchActors(tx: Tx): Set[Party] =
       tx.fold(Set[Party]()) { case (actors, (_, n)) =>
         actors union actFetchActors(n)
       }
@@ -1369,9 +1368,7 @@ class EngineTest
       lookerUpCid -> lookerUpInst,
     )
 
-    def firstLookupNode(
-        tx: GenTx
-    ): Option[(NodeId, Node.LookupByKey)] =
+    def firstLookupNode(tx: Tx): Option[(NodeId, Node.LookupByKey)] =
       tx.nodes.collectFirst { case (nid, nl @ Node.LookupByKey(_, _, _, _)) =>
         nid -> nl
       }
@@ -2213,7 +2210,7 @@ object EngineTest {
       dependsOnTime: Boolean = false,
       nodeSeeds: BackStack[(NodeId, crypto.Hash)] = BackStack.empty,
   ) {
-    def commit(tr: GenTx, meta: Tx.Metadata) = {
+    def commit(tr: Tx, meta: Tx.Metadata) = {
       val (newContracts, newKeys) = tr.fold((contracts, keys)) {
         case ((contracts, keys), (_, exe: Node.Exercise)) =>
           (contracts - exe.targetCoid, keys)
@@ -2306,10 +2303,7 @@ object EngineTest {
     finalState.map(state =>
       (
         TxVersions.asVersionedTransaction(
-          GenTx(
-            state.nodes,
-            state.roots.toImmArray,
-          )
+          Tx(state.nodes, state.roots.toImmArray)
         ),
         Tx.Metadata(
           submissionSeed = None,

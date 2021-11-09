@@ -677,7 +677,7 @@ object TransactionCoder {
       .map(_.toImmArray)
   }
 
-  /** Encode a [[GenTransaction[Nid]]] to protobuf using [[TransactionVersion]] provided by the libary.
+  /** Encode a [[Transaction[Nid]]] to protobuf using [[TransactionVersion]] provided by the libary.
     *
     * @param tx        the transaction to be encoded
     * @param encodeNid node id encoding function
@@ -787,7 +787,7 @@ object TransactionCoder {
       )
     } yield tx
 
-  /** Reads a [[GenTransaction[Nid]]] from protobuf. Does not check if
+  /** Reads a [[Transaction[Nid]]] from protobuf. Does not check if
     * [[TransactionVersion]] passed in the protobuf is currently supported, if you need this check use
     * [[TransactionCoder.decodeTransaction]].
     *
