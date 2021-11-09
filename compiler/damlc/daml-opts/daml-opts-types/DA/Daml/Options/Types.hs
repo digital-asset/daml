@@ -28,6 +28,7 @@ module DA.Daml.Options.Types
     , pkgNameVersion
     , fullPkgName
     , optUnitId
+    , getLogger
     ) where
 
 import Control.Monad.Reader
@@ -35,6 +36,7 @@ import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
 import DA.Pretty
 import qualified DA.Service.Logger as Logger
+import qualified DA.Service.Logger.Impl.IO as Logger.IO
 import Data.Maybe
 import qualified Data.Text as T
 import Development.IDE.GHC.Util (prettyPrint)
@@ -221,3 +223,6 @@ fullPkgName (LF.PackageName n) mbV (LF.PackageId h) =
 
 optUnitId :: Options -> Maybe UnitId
 optUnitId Options{..} = fmap (\name -> pkgNameVersion name optMbPackageVersion) optMbPackageName
+
+getLogger :: Options -> T.Text -> IO (Logger.Handle IO)
+getLogger Options {optLogLevel} name = Logger.IO.newStderrLogger optLogLevel name

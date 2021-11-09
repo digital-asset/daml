@@ -24,12 +24,23 @@ let shared = rec {
     openssl
     gnupatch
     patchelf
-    postgresql_9_6
     protobuf3_8
     python3
     toxiproxy
     zip
-    ;
+  ;
+
+    postgresql_9_6 = if pkgs.buildPlatform.libc == "glibc"
+      then pkgs.runCommand "postgresql_9_6_wrapper" { buildInputs = [ pkgs.makeWrapper ]; } ''
+      mkdir -p $out/bin
+      for tool in ${pkgs.postgresql_9_6}/bin/*; do
+        makeWrapper $tool $out/bin/$(basename $tool) --set LOCALE_ARCHIVE ${pkgs.glibcLocales}/lib/locale/locale-archive
+      done
+      ln -s ${pkgs.postgresql_9_6}/include $out/include
+      ln -s ${pkgs.postgresql_9_6}/lib $out/lib
+      ln -s ${pkgs.postgresql_9_6}/share $out/share
+    '' else pkgs.postgresql_9_6;
+
 
     scala_2_12 = (pkgs.scala_2_12.override { }).overrideAttrs (attrs: {
       # Something appears to be broken in nixpkgs' fixpoint which results in the

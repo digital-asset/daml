@@ -24,7 +24,7 @@ final class CommandGenerator(
       .toMap
   private val observersWithIndices: List[(Primitive.Party, Int)] = observers.zipWithIndex
 
-  def next(): Try[Primitive.Party => Command] =
+  def next(): Try[Command] =
     (for {
       (description, observers) <- Try((pickDescription(), pickObservers()))
       payload <- Try(randomPayload(description.payloadSizeBytes))
@@ -35,7 +35,7 @@ final class CommandGenerator(
         payload = payload,
         archive = archive,
       )
-    } yield command).recoverWith { case NonFatal(ex) =>
+    } yield command(signatory)).recoverWith { case NonFatal(ex) =>
       Failure(
         CommandGenerator.CommandGeneratorError(
           msg = s"Command generation failed. Details: ${ex.getLocalizedMessage}",

@@ -15,11 +15,11 @@ import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.PartyStorageBackend
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.entries.PartyLedgerEntry
 
-trait PartyStorageBackendTemplate extends PartyStorageBackend {
-
-  def queryStrategy: QueryStrategy
+class PartyStorageBackendTemplate(queryStrategy: QueryStrategy, ledgerEndCache: LedgerEndCache)
+    extends PartyStorageBackend {
 
   private val SQL_GET_PARTY_ENTRIES = SQL(
     """select * from party_entries
@@ -121,9 +121,9 @@ trait PartyStorageBackendTemplate extends PartyStorageBackend {
             party,
             max(ledger_offset) ledger_offset,
             #${queryStrategy.booleanOrAggregationFunction}(is_local) is_local
-          FROM party_entries, parameters
+          FROM party_entries
           WHERE
-            ledger_offset <= parameters.ledger_end AND
+            ledger_offset <= ${ledgerEndCache()._1.toHexString.toString} AND
             $partyFilter
             typ = 'accept'
           GROUP BY party

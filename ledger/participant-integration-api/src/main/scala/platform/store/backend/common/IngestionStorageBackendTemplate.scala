@@ -6,10 +6,10 @@ package com.daml.platform.store.backend.common
 import java.sql.Connection
 
 import anorm.{SQL, SqlQuery}
-import com.daml.platform.store.backend.{IngestionStorageBackend, ParameterStorageBackend}
+import com.daml.platform.store.backend.{DbDto, IngestionStorageBackend, ParameterStorageBackend}
 
-private[backend] trait IngestionStorageBackendTemplate[DB_BATCH]
-    extends IngestionStorageBackend[DB_BATCH] {
+private[backend] class IngestionStorageBackendTemplate(schema: Schema[DbDto])
+    extends IngestionStorageBackend[AppendOnlySchema.Batch] {
 
   private val SQL_DELETE_OVERSPILL_ENTRIES: List[SqlQuery] =
     List(
@@ -39,4 +39,13 @@ private[backend] trait IngestionStorageBackendTemplate[DB_BATCH]
       }
     }
   }
+
+  override def insertBatch(
+      connection: Connection,
+      dbBatch: AppendOnlySchema.Batch,
+  ): Unit =
+    schema.executeUpdate(dbBatch, connection)
+
+  override def batch(dbDtos: Vector[DbDto]): AppendOnlySchema.Batch =
+    schema.prepareData(dbDtos)
 }

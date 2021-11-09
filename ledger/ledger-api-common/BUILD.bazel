@@ -79,6 +79,8 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//ledger/ledger-api-domain",
         "//libs-scala/concurrent",
+        "//libs-scala/grpc-utils",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

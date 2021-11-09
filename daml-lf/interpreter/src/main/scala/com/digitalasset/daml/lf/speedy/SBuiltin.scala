@@ -945,6 +945,7 @@ private[lf] object SBuiltin {
           signatories = sigs,
           stakeholders = sigs union obs,
           key = mbKey,
+          byInterface = None, // TODO https://github.com/digital-asset/daml/issues/10915
         )
 
       machine.addLocalContract(coid, templateId, createArg, sigs, obs, mbKey)
@@ -970,6 +971,7 @@ private[lf] object SBuiltin {
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
+      byInterface: Option[TypeConName],
   ) extends OnLedgerBuiltin(4) {
 
     override protected def execute(
@@ -1007,6 +1009,7 @@ private[lf] object SBuiltin {
           mbKey = mbKey,
           byKey = byKey,
           chosenValue = chosenValue,
+          byInterface = byInterface,
         )
       checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
@@ -1140,10 +1143,26 @@ private[lf] object SBuiltin {
       choiceName: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
+      ifaceId: TypeConName,
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.ctrl = SEBuiltin(
-        SBUBeginExercise(getSRecord(args, 0).id, choiceName, consuming, byKey)
+        SBUBeginExercise(
+          getSRecord(args, 0).id,
+          choiceName,
+          consuming,
+          byKey,
+          byInterface = Some(ifaceId),
+        )
+      )
+  }
+
+  final case class SBResolveSBUInsertFetchNode(
+      ifaceId: TypeConName
+  ) extends SBuiltin(1) {
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
+      machine.ctrl = SEBuiltin(
+        SBUInsertFetchNode(getSRecord(args, 0).id, byKey = false, byInterface = Some(ifaceId))
       )
   }
 
@@ -1152,11 +1171,6 @@ private[lf] object SBuiltin {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.ctrl = SEVal(toDef(getSRecord(args, 0).id))
   }
-
-  final case object SBResolveVirtualFetch extends SBResolveVirtual(FetchDefRef)
-
-  final case class SBResolveVirtualChoice(choiceName: ChoiceName)
-      extends SBResolveVirtual(ChoiceDefRef(_, choiceName))
 
   // Convert an interface to a given template type if possible. Since interfaces have the
   // same representation as the underlying template, we only need to perform a check
@@ -1191,8 +1205,11 @@ private[lf] object SBuiltin {
     *    -> Optional {key: key, maintainers: List Party}  (template key, if present)
     *    -> ()
     */
-  final case class SBUInsertFetchNode(templateId: TypeConName, byKey: Boolean)
-      extends OnLedgerBuiltin(1) {
+  final case class SBUInsertFetchNode(
+      templateId: TypeConName,
+      byKey: Boolean,
+      byInterface: Option[TypeConName],
+  ) extends OnLedgerBuiltin(1) {
     override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -1220,6 +1237,7 @@ private[lf] object SBuiltin {
         stakeholders,
         key,
         byKey,
+        byInterface,
       )
       checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
@@ -1747,16 +1765,11 @@ private[lf] object SBuiltin {
     v match {
       case SStruct(_, vals) =>
         val key = onLedger.ptx.normValue(templateId, vals.get(keyIdx))
-        key.ensureNoCid match {
-          case Right(keyVal) =>
-            Node.KeyWithMaintainers(
-              key = keyVal,
-              maintainers =
-                extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(maintainerIdx)),
-            )
-          case Left(_) =>
-            throw SErrorDamlException(IE.ContractIdInContractKey(key))
-        }
+        key.foreachCid(_ => throw SErrorDamlException(IE.ContractIdInContractKey(key)))
+        Node.KeyWithMaintainers(
+          key = key,
+          maintainers = extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(maintainerIdx)),
+        )
       case _ => throw SErrorCrash(location, s"Invalid key with maintainers: $v")
     }
 

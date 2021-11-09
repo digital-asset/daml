@@ -5,6 +5,7 @@ module PrimitiveTypes where
 
 import DA.Date
 import DA.TextMap as TM
+import Daml.Script
 
 template BasicPrimitiveTypes
   with
@@ -61,10 +62,10 @@ template TextMaps
       "whatevs"
 
 primitives =
-  scenario do
-    bob <- getParty "Bob"
-    submit bob do
-      create BasicPrimitiveTypes with
+  script do
+    party <- allocatePartyWithHint "Primitives" (PartyIdHint "Primitives")
+    submit party do
+      createCmd BasicPrimitiveTypes with
         reference = "Simple values"
         int_field = 5
         decimal_field = 5.5
@@ -72,10 +73,11 @@ primitives =
         numeric37_field = 0.25
         text_field = "Hey"
         bool_field = True
-        party_field = bob
+        party_field = party
         date_field = date 2020 Feb 22
         time_field = datetime 2020 Feb 22 12 13 14
-      create BasicPrimitiveTypes with
+    submit party do
+      createCmd BasicPrimitiveTypes with
         reference = "Positive extremes"
         int_field = 9223372036854775807
         decimal_field   = 9999999999999999999999999999.9999999999
@@ -83,10 +85,11 @@ primitives =
         numeric37_field = 9.9999999999999999999999999999999999999
         text_field = "Hey"
         bool_field = True
-        party_field = bob
+        party_field = party
         date_field = date 9999 Dec 31
         time_field = datetime 9999 Dec 31 23 59 59
-      create BasicPrimitiveTypes with
+    submit party do
+      createCmd BasicPrimitiveTypes with
         reference = "Negative extremes"
         int_field = -9223372036854775808
         decimal_field   = -9999999999999999999999999999.9999999999
@@ -94,56 +97,60 @@ primitives =
         numeric37_field = -9.9999999999999999999999999999999999999
         text_field = "Hey"
         bool_field = True
-        party_field = bob
+        party_field = party
         date_field = date 0001 Jan 01
         time_field = datetime 0001 Jan 01 00 00 00
 
 lists =
-  scenario do
-    bob <- getParty "Bob"
-    submit bob do
-      create Lists with
+  script do
+    party <- allocatePartyWithHint "Lists" (PartyIdHint "Lists")
+    submit party do
+      createCmd Lists with
         reference = "Empty lists"
         int_list = []
         text_list = []
-        party = bob
-      create Lists with
+        party = party
+    submit party do
+      createCmd Lists with
         reference = "Non-empty lists"
         int_list = [1, 2, 3, 4, 5]
         text_list = ["foo", "bar", "baz"]
-        party = bob
+        party = party
 
 optionals =
-  scenario do
-    bob <- getParty "Bob"
-    submit bob do
-      create Optionals with
+  script do
+    party <- allocatePartyWithHint "Optionals" (PartyIdHint "Optionals")
+    submit party do
+      createCmd Optionals with
         reference = "Nones"
         optional = None
         deep_optional = None
-        party = bob
-      create Optionals with
+        party = party
+    submit party do
+      createCmd Optionals with
         reference = "Somes"
         optional = Some "foo"
         deep_optional = Some (Some "foo")
-        party = bob
-      create Optionals with
+        party = party
+    submit party do
+      createCmd Optionals with
         reference = "Some None"
         optional = Some "foo"
         deep_optional = Some None
-        party = bob
+        party = party
 
 textMaps =
-  scenario do
-    bob <- getParty "Bob"
-    submit bob do
-      create TextMaps with
+  script do
+    party <- allocatePartyWithHint "TextMaps" (PartyIdHint "TextMaps")
+    submit party do
+      createCmd TextMaps with
         reference = "Empty maps"
         map = TM.empty
         deep_map = TM.empty
-        party = bob
-      create TextMaps with
+        party = party
+    submit party do
+      createCmd TextMaps with
         reference = "Non-empty maps"
         map = TM.fromList [("1", 1), ("2", 2), ("3",3), ("4",4), ("5",5)]
         deep_map = TM.empty
-        party = bob
+        party = party

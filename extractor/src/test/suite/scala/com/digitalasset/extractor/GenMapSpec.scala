@@ -13,6 +13,7 @@ import io.circe.parser._
 import org.scalatest._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import scalaz.NonEmptyList
 import scalaz.Scalaz._
 
 class GenMapSpec
@@ -25,10 +26,13 @@ class GenMapSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile =
-    new File(rlocation(com.daml.lf.archive.testing.TestDar.fileName))
+  override protected def darFile = new File(rlocation("extractor/test.dar"))
 
-  override def scenario: Option[String] = Some("GenMapMod:createContracts")
+  override protected val initScript: Option[String] = Some("GenMapMod:createContracts")
+
+  override protected val parties = NonEmptyList("GenMapMod")
+
+  private val party = parties.head
 
   "Lists" should "be extracted" in {
     val contracts = getContracts
@@ -39,37 +43,37 @@ class GenMapSpec
     val contractsJson = getContracts.map(_.create_arguments)
 
     val expected = List(
-      """
+      s"""
         {
           "x" : [],
-          "party" : "Bob"
+          "party" : "$party"
         }
       """,
-      """
+      s"""
         {
           "x" : [
-                  [ { "fst" : 1, "snd" : "1.0" },                            { "tag" : "Left", "value" : 0 } ]
+                  [ { "_1" : 1, "_2" : "1.0" },                            { "tag" : "Left", "value" : 0 } ]
                 ],
-          "party" : "Bob"
+          "party" : "$party"
         }
       """,
-      """
+      s"""
         {
           "x" : [
-                  [ { "fst" : -2, "snd" : "-2.2222222222" },                   { "tag" : "Right", "value" : "1.1111111111" } ],
-                  [ { "fst" : 1, "snd" : "1.0" },                              { "tag" : "Left", "value" : 0 } ]
+                  [ { "_1" : -2, "_2" : "-2.2222222222" },                   { "tag" : "Right", "value" : "1.1111111111" } ],
+                  [ { "_1" : 1, "_2" : "1.0" },                              { "tag" : "Left", "value" : 0 } ]
                 ],
-          "party" : "Bob"
+          "party" : "$party"
         }
       """,
-      """
+      s"""
         {
           "x" : [
-                  [ { "fst" : -3, "snd" : "-3333333333333333333333333333.0" },  { "tag" : "Right", "value" : "-2.2222222222" } ],
-                  [ { "fst" : -2, "snd" : "-2.2222222222" },                    { "tag" : "Right", "value" : "1.1111111111" } ],
-                  [ { "fst" : 1, "snd" : "1.0" },                               { "tag" : "Left", "value" : 0 } ]
+                  [ { "_1" : -3, "_2" : "-3333333333333333333333333333.0" },  { "tag" : "Right", "value" : "-2.2222222222" } ],
+                  [ { "_1" : -2, "_2" : "-2.2222222222" },                    { "tag" : "Right", "value" : "1.1111111111" } ],
+                  [ { "_1" : 1, "_2" : "1.0" },                               { "tag" : "Left", "value" : 0 } ]
                 ],
-          "party" : "Bob"
+          "party" : "$party"
         }
       """,
     ).traverse(parse)

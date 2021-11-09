@@ -7,14 +7,14 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.DbType
-import com.daml.platform.store.backend.StorageBackend
+import com.daml.platform.store.backend.{ParameterStorageBackend, StorageBackendFactory}
 import org.scalatest.Assertion
 import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Seconds, Span}
-
 import java.sql.Connection
+
 import scala.concurrent.{ExecutionContext, Future}
 
 trait IndexerStabilitySpec
@@ -50,8 +50,10 @@ trait IndexerStabilitySpec
         materializer,
       )
       .use[Unit] { indexers =>
-        val storageBackend = StorageBackend.of(DbType.jdbcType(jdbcUrl))
-        val dataSource = storageBackend.createDataSource(jdbcUrl)
+        val factory = StorageBackendFactory.of(DbType.jdbcType(jdbcUrl))
+        val dataSource = factory.createDataSourceStorageBackend.createDataSource(jdbcUrl)
+        val parameterStorageBackend = factory.createParameterStorageBackend
+        val integrityStorageBackend = factory.createIntegrityStorageBackend
         val connection = dataSource.getConnection()
 
         Iterator
@@ -61,7 +63,7 @@ trait IndexerStabilitySpec
             info(s"Indexer ${activeIndexer.readService.name} is running")
 
             // Assert that state updates are being indexed
-            assertLedgerEndHasMoved(storageBackend, connection)
+            assertLedgerEndHasMoved(parameterStorageBackend, connection)
             info("Ledger end has moved")
 
             // At this point, the indexer that was aborted by the previous iteration can be reset,
@@ -94,7 +96,7 @@ trait IndexerStabilitySpec
         Thread.sleep(1000L)
 
         // Verify the integrity of the index database
-        storageBackend.verifyIntegrity()(connection)
+        integrityStorageBackend.verifyIntegrity()(connection)
         info(s"Integrity of the index database was checked")
 
         connection.close()
@@ -120,7 +122,7 @@ trait IndexerStabilitySpec
 
   // Asserts that the ledger end has moved at least the specified number of events within a short time
   private def assertLedgerEndHasMoved(
-      storageBackend: StorageBackend[_],
+      parameterStorageBackend: ParameterStorageBackend,
       connection: Connection,
   )(implicit pos: org.scalactic.source.Position): Assertion = {
     implicit val patienceConfig: PatienceConfig = PatienceConfig(
@@ -129,10 +131,10 @@ trait IndexerStabilitySpec
     )
     // Note: we don't know exactly at which ledger end the current indexer has started.
     // We only observe that the ledger end is moving right now.
-    val initialLedgerEnd = storageBackend.ledgerEndOrBeforeBegin(connection)
+    val initialLedgerEnd = parameterStorageBackend.ledgerEndOrBeforeBegin(connection)
     val minEvents = 2L
     eventually {
-      val ledgerEnd = storageBackend.ledgerEndOrBeforeBegin(connection)
+      val ledgerEnd = parameterStorageBackend.ledgerEndOrBeforeBegin(connection)
       assert(ledgerEnd.lastEventSeqId > initialLedgerEnd.lastEventSeqId + minEvents)
     }
   }

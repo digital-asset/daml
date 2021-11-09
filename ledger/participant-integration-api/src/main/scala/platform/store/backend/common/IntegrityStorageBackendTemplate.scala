@@ -10,7 +10,7 @@ import anorm.SqlParser.{long, str}
 import anorm.~
 import com.daml.platform.store.backend.IntegrityStorageBackend
 
-private[backend] trait IntegrityStorageBackendTemplate extends IntegrityStorageBackend {
+private[backend] object IntegrityStorageBackendTemplate extends IntegrityStorageBackend {
 
   private val allSequentialIds: String =
     s"""

@@ -8,22 +8,62 @@ import java.sql.Connection
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.{v2 => state}
-import com.daml.platform.store.backend.{DbDto, IngestionStorageBackend, ParameterStorageBackend}
+import com.daml.lf.data.Ref
+import com.daml.metrics.Metrics
+import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
+import com.daml.platform.store.backend.{
+  DbDto,
+  IngestionStorageBackend,
+  ParameterStorageBackend,
+  UpdateToDbDto,
+}
 import com.daml.platform.store.cache.MutableLedgerEndCache
 
+import scala.concurrent.Future
 import scala.util.chaining.scalaUtilChainingOps
 
 trait SequentialWriteDao {
   def store(connection: Connection, offset: Offset, update: Option[state.Update]): Unit
 }
 
-object NoopSequentialWriteDao extends SequentialWriteDao {
+object SequentialWriteDao {
+  def apply(
+      participantId: Ref.ParticipantId,
+      lfValueTranslationCache: LfValueTranslationCache.Cache,
+      metrics: Metrics,
+      compressionStrategy: CompressionStrategy,
+      ledgerEndCache: MutableLedgerEndCache,
+      ingestionStorageBackend: IngestionStorageBackend[_],
+      parameterStorageBackend: ParameterStorageBackend,
+  ): SequentialWriteDao =
+    SequentialWriteDaoImpl(
+      ingestionStorageBackend = ingestionStorageBackend,
+      parameterStorageBackend = parameterStorageBackend,
+      updateToDbDtos = UpdateToDbDto(
+        participantId = participantId,
+        translation = new LfValueTranslation(
+          cache = lfValueTranslationCache,
+          metrics = metrics,
+          enricherO = None,
+          loadPackage = (_, _) => Future.successful(None),
+        ),
+        compressionStrategy = compressionStrategy,
+      ),
+      ledgerEndCache = ledgerEndCache,
+    )
+
+  val noop: SequentialWriteDao = NoopSequentialWriteDao
+}
+
+private[appendonlydao] object NoopSequentialWriteDao extends SequentialWriteDao {
   override def store(connection: Connection, offset: Offset, update: Option[Update]): Unit =
     throw new UnsupportedOperationException
 }
 
-case class SequentialWriteDaoImpl[DB_BATCH](
-    storageBackend: IngestionStorageBackend[DB_BATCH] with ParameterStorageBackend,
+private[appendonlydao] case class SequentialWriteDaoImpl[DB_BATCH](
+    ingestionStorageBackend: IngestionStorageBackend[DB_BATCH],
+    parameterStorageBackend: ParameterStorageBackend,
     updateToDbDtos: Offset => state.Update => Iterator[DbDto],
     ledgerEndCache: MutableLedgerEndCache,
 ) extends SequentialWriteDao {
@@ -33,7 +73,7 @@ case class SequentialWriteDaoImpl[DB_BATCH](
 
   private def lazyInit(connection: Connection): Unit =
     if (!lastEventSeqIdInitialized) {
-      lastEventSeqId = storageBackend.ledgerEndOrBeforeBegin(connection).lastEventSeqId
+      lastEventSeqId = parameterStorageBackend.ledgerEndOrBeforeBegin(connection).lastEventSeqId
       lastEventSeqIdInitialized = true
     }
 
@@ -60,10 +100,10 @@ case class SequentialWriteDaoImpl[DB_BATCH](
         .getOrElse(Vector.empty)
 
       dbDtos
-        .pipe(storageBackend.batch)
-        .pipe(storageBackend.insertBatch(connection, _))
+        .pipe(ingestionStorageBackend.batch)
+        .pipe(ingestionStorageBackend.insertBatch(connection, _))
 
-      storageBackend.updateLedgerEnd(
+      parameterStorageBackend.updateLedgerEnd(
         ParameterStorageBackend.LedgerEnd(
           lastOffset = offset,
           lastEventSeqId = lastEventSeqId,

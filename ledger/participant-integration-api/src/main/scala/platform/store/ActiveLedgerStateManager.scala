@@ -159,9 +159,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                 witnesses = disclosure(nodeId),
                 // A contract starts its life without being divulged at all.
                 divulgences = Map.empty,
-                key = nc.versionedKey.map(
-                  _.assertNoCid(coid => s"Contract ID ${coid.coid} found in contract key")
-                ),
+                key = nc.versionedKey,
                 signatories = nc.signatories,
                 observers = nc.stakeholders.diff(nc.signatories),
                 agreementText = nc.agreementText,
@@ -195,13 +193,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
               }
             case nlkup: Node.LookupByKey =>
               // Check that the stored lookup result matches the current result
-              val key = nlkup.key.key.ensureNoCid.fold(
-                coid =>
-                  throw new IllegalStateException(
-                    s"Contract ID ${coid.coid} found in contract key"
-                  ),
-                identity,
-              )
+              val key = nlkup.key.key
               val gk = GlobalKey(nlkup.templateId, key)
               val nodeParties = nlkup.key.maintainers
 

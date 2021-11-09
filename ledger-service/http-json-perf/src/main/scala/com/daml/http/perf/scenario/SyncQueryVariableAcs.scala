@@ -43,7 +43,8 @@ class SyncQueryVariableAcs
       }
 
   setUp(
-    fillAcsScenario(wantedAcsSize, silent = true).inject(atOnceUsers(1)),
-    syncQueryScenario.inject(atOnceUsers(1)),
+    fillAcsScenario(wantedAcsSize, silent = true).inject(atOnceUsers(defaultNumUsers)).andThen {
+      syncQueryScenario.inject(atOnceUsers(1))
+    }
   ).protocols(httpProtocol)
 }

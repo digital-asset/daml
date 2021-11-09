@@ -13,6 +13,7 @@ import io.circe.parser._
 import org.scalatest._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import scalaz.NonEmptyList
 import scalaz.Scalaz._
 
 class TextMapsSpec
@@ -25,9 +26,13 @@ class TextMapsSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File(rlocation("extractor/PrimitiveTypes.dar"))
+  override protected def darFile = new File(rlocation("extractor/test.dar"))
 
-  override def scenario: Option[String] = Some("PrimitiveTypes:textMaps")
+  override protected val initScript = Some("PrimitiveTypes:textMaps")
+
+  override protected val parties = NonEmptyList("TextMaps")
+
+  private val party: String = parties.head
 
   "TextMaps" should "be extracted" in {
     val contracts = getContracts
@@ -39,15 +44,15 @@ class TextMapsSpec
     val contractsJson = getContracts.map(_.create_arguments)
 
     val expected = List(
-      """
+      s"""
         {
           "reference" : "Empty maps",
           "map" : {},
           "deep_map" : {},
-          "party" : "Bob"
+          "party" : "$party"
         }
       """,
-      """
+      s"""
         {
          "reference" : "Non-empty maps",
          "map" : { "1" : 1 ,
@@ -56,7 +61,7 @@ class TextMapsSpec
                    "4" : 4 ,
                    "5" : 5 },
          "deep_map" : {},
-         "party" : "Bob"
+         "party" : "$party"
         }
       """,
     ).traverse(parse)

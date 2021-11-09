@@ -3,6 +3,8 @@
 
 package com.daml.error.definitions
 
+import java.time.Duration
+
 import com.daml.error._
 import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LedgerApiErrorGroup
 import com.daml.lf.data.Ref
@@ -295,11 +297,14 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "INVALID_DEDUPLICATION_PERIOD",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      case class Reject(_reason: String)(implicit
+      case class Reject(_reason: String, _maxDeduplicationDuration: Duration)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
             cause = s"The submitted command had an invalid deduplication period: ${_reason}"
-          )
+          ) {
+        override def context: Map[String, String] =
+          super.context + ("max_deduplication_duration" -> _maxDeduplicationDuration.toString)
+      }
     }
 
   }

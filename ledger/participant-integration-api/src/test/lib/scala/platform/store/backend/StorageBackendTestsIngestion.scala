@@ -24,11 +24,13 @@ private[backend] trait StorageBackendTestsIngestion
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
-      configBeforeLedgerEndUpdate <- executeSql(backend.ledgerConfiguration)
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0)))
-      configAfterLedgerEndUpdate <- executeSql(backend.ledgerConfiguration)
+      configBeforeLedgerEndUpdate <- executeSql(backend.configuration.ledgerConfiguration)
+      _ <- executeSql(
+        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0))
+      )
+      configAfterLedgerEndUpdate <- executeSql(backend.configuration.ledgerConfiguration)
     } yield {
       // The first query is executed before the ledger end is updated.
       // It should not see the already ingested configuration change.
@@ -51,11 +53,13 @@ private[backend] trait StorageBackendTestsIngestion
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
-      packagesBeforeLedgerEndUpdate <- executeSql(backend.lfPackages)
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0)))
-      packagesAfterLedgerEndUpdate <- executeSql(backend.lfPackages)
+      packagesBeforeLedgerEndUpdate <- executeSql(backend.packageBackend.lfPackages)
+      _ <- executeSql(
+        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0))
+      )
+      packagesAfterLedgerEndUpdate <- executeSql(backend.packageBackend.lfPackages)
     } yield {
       // The first query is executed before the ledger end is updated.
       // It should not see the already ingested package upload.
@@ -73,11 +77,13 @@ private[backend] trait StorageBackendTestsIngestion
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
-      partiesBeforeLedgerEndUpdate <- executeSql(backend.knownParties)
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0)))
-      partiesAfterLedgerEndUpdate <- executeSql(backend.knownParties)
+      partiesBeforeLedgerEndUpdate <- executeSql(backend.party.knownParties)
+      _ <- executeSql(
+        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0))
+      )
+      partiesAfterLedgerEndUpdate <- executeSql(backend.party.knownParties)
     } yield {
       // The first query is executed before the ledger end is updated.
       // It should not see the already ingested party allocation.

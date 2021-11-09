@@ -9,11 +9,11 @@ import org.scalatest.matchers.should.Matchers
 
 class ValueSwitchSpec extends AnyFlatSpec with Matchers {
 
-  behavior of classOf[ValueSwitch[_]].getSimpleName
+  behavior of classOf[ValueSwitch].getSimpleName
 
   it should "use self-service (v2) error codes" in {
     // given
-    val tested = new ValueSwitch[StatusRuntimeException](enableSelfServiceErrorCodes = true)
+    val tested = new ValueSwitch(enableSelfServiceErrorCodes = true)
 
     // when
     val actual =
@@ -28,7 +28,7 @@ class ValueSwitchSpec extends AnyFlatSpec with Matchers {
 
   it should "use legacy (v1) error codes" in {
     // given
-    val tested = new ValueSwitch[StatusRuntimeException](enableSelfServiceErrorCodes = false)
+    val tested = new ValueSwitch(enableSelfServiceErrorCodes = false)
 
     // when
     val actual =

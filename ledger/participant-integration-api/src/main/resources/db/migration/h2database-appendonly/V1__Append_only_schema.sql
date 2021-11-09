@@ -539,3 +539,8 @@ SELECT
     exercise_result_compression
 FROM participant_events_non_consuming_exercise
 ;
+
+CREATE TABLE string_interning (
+    internal_id integer PRIMARY KEY NOT NULL,
+    external_string text
+);

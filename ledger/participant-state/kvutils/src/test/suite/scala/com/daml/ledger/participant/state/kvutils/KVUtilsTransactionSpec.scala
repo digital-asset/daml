@@ -43,7 +43,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private val errorVersionSwitch =
-    new ValueSwitch[com.google.rpc.status.Status](enableSelfServiceErrorCodes = false)
+    new ValueSwitch(enableSelfServiceErrorCodes = false)
 
   private val alice = party("Alice")
   private val bob = party("Bob")

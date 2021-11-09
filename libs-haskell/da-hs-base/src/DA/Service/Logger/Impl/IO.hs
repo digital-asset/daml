@@ -78,14 +78,13 @@ ioLogJson ih threshold prio msg =
     when (prio >= threshold) $
     withMVar (ihOutputLock ih) $
     \_ -> do
-        let tags = []
         now <- getCurrentTime
         let outH = ihOutputH ih
         System.IO.hPutStrLn outH
            $ "\n"
           <> take 22 (show now)
           <> prioToString prio
-          <> showTags (ihContext ih) <> showTags tags
+          <> showTags (ihContext ih)
         BSL8.hPutStrLn outH $ truncateBSL8 $ case Aeson.toJSON msg of
           -- Print strings without quoting
           Aeson.String txt -> BSL8.fromStrict $ TE.encodeUtf8 txt

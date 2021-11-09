@@ -4,6 +4,7 @@
 package com.daml.platform.server.api.validation
 
 import java.sql.{SQLNonTransientException, SQLTransientException}
+import java.time.Duration
 
 import com.daml.error.ErrorCode.ApiException
 import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
@@ -231,11 +232,12 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       fieldName: String,
       message: String,
       definiteAnswer: Option[Boolean],
+      maxDeduplicationDuration: Duration,
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
       legacyInvalidField(fieldName, message, definiteAnswer),
       LedgerApiErrors.CommandValidation.InvalidDeduplicationPeriodField
-        .Reject(message)
+        .Reject(message, maxDeduplicationDuration)
         .asGrpcError,
     )
 

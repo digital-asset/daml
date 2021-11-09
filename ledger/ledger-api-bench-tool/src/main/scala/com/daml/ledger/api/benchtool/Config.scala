@@ -19,20 +19,19 @@ case class Config(
     reportingPeriod: FiniteDuration,
     contractSetDescriptorFile: Option[File],
     maxInFlightCommands: Int,
+    submissionBatchSize: Int,
     metricsReporter: MetricsReporter,
 )
 
 object Config {
   trait StreamConfig {
     def name: String
-    def party: String
   }
 
   object StreamConfig {
     case class TransactionsStreamConfig(
         name: String,
-        party: String,
-        templateIds: Option[List[Identifier]],
+        filters: Map[String, Option[List[Identifier]]],
         beginOffset: Option[LedgerOffset],
         endOffset: Option[LedgerOffset],
         objectives: StreamConfig.Objectives,
@@ -40,8 +39,7 @@ object Config {
 
     case class TransactionTreesStreamConfig(
         name: String,
-        party: String,
-        templateIds: Option[List[Identifier]],
+        filters: Map[String, Option[List[Identifier]]],
         beginOffset: Option[LedgerOffset],
         endOffset: Option[LedgerOffset],
         objectives: StreamConfig.Objectives,
@@ -49,8 +47,7 @@ object Config {
 
     case class ActiveContractsStreamConfig(
         name: String,
-        party: String,
-        templateIds: Option[List[Identifier]],
+        filters: Map[String, Option[List[Identifier]]],
     ) extends StreamConfig
 
     case class CompletionsStreamConfig(
@@ -95,6 +92,7 @@ object Config {
       reportingPeriod = 5.seconds,
       contractSetDescriptorFile = None,
       maxInFlightCommands = 100,
+      submissionBatchSize = 100,
       metricsReporter = MetricsReporter.Console,
     )
 }

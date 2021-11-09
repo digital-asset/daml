@@ -49,6 +49,7 @@ object TransactionVersion {
   //nothing was added in V13, so there are no vals: "minSomething = V13"
   private[lf] val minExceptions = V14
   private[lf] val minByKey = V14
+  private[lf] val minInterfaces = VDev
 
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
     import LanguageVersion._
@@ -65,12 +66,12 @@ object TransactionVersion {
   }
 
   private[lf] def asVersionedTransaction(
-      tx: GenTransaction
+      tx: Transaction
   ): VersionedTransaction = {
     import scala.Ordering.Implicits.infixOrderingOps
 
     tx match {
-      case GenTransaction(nodes, roots) =>
+      case Transaction(nodes, roots) =>
         val txVersion = roots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
           nodes(nodeId).optVersion match {
             case Some(version) => acc max version

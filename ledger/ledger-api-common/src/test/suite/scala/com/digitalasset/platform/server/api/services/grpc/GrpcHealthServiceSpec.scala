@@ -11,7 +11,6 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.logging.LoggingContext
 import com.daml.platform.server.api.services.grpc.GrpcHealthService._
 import com.daml.platform.server.api.services.grpc.GrpcHealthServiceSpec._
-import io.grpc.StatusRuntimeException
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Second, Span}
@@ -346,10 +345,7 @@ final class GrpcHealthServiceSpec
   // Negative tests returning errors should explicitly instantiate it
   private def errorCodesVersionSwitcherMock: ErrorCodesVersionSwitcher =
     new ErrorCodesVersionSwitcher(false) {
-      override def choose(
-          v1: => StatusRuntimeException,
-          v2: => StatusRuntimeException,
-      ): StatusRuntimeException = {
+      override def choose[X](v1: => X, v2: => X): X = {
         val _ = (v1, v2)
         fail("Should not be called")
       }

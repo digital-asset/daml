@@ -60,6 +60,14 @@ object Cli {
         config.copy(maxInFlightCommands = size)
       }
 
+    opt[Int]("submission-batch-size")
+      .hidden() // TODO: uncomment when production-ready
+      .text("Number of contracts created per command submission.")
+      .optional()
+      .action { case (size, config) =>
+        config.copy(submissionBatchSize = size)
+      }
+
     opt[FiniteDuration]("log-interval")
       .abbr("r")
       .text("Stream metrics log interval.")
@@ -101,17 +109,19 @@ object Cli {
     note(1, "Transactions/transaction trees:")
     note(2, "stream-type=<transactions|transaction-trees>", "(required)")
     note(2, "name=<stream-name>", "Stream name used to identify results (required)")
-    note(2, "party=<party>", "(required)")
+    note(2, "filters=party1|template1|template2&party2", "(required)")
     note(2, "begin-offset=<offset>")
     note(2, "end-offset=<offset>")
-    note(2, "template-ids=<id1>|<id2>")
     note(2, "max-delay=<seconds>", "Max record time delay objective")
     note(2, "min-consumption-speed=<speed>", "Min consumption speed objective")
     note(1, "Active contract sets:")
     note(2, "stream-type=active-contracts", "(required)")
     note(2, "name=<stream-name>", "Stream name used to identify results (required)")
-    note(2, "party=<party>", "(required)")
-    note(2, "template-ids=<id1>|<id2>")
+    note(
+      2,
+      "filters=party1@template1@template2+party2",
+      "List of per-party filters separated by the plus symbol (required)",
+    )
     note(1, "Command completions:")
     note(2, "stream-type=completions", "(required)")
     note(2, "name=<stream-name>", "Stream name used to identify results (required)")
@@ -153,19 +163,14 @@ object Cli {
 
         def transactionsConfig: Either[String, StreamConfig.TransactionsStreamConfig] = for {
           name <- stringField("name")
-          party <- stringField("party")
-          templateIds <- optionalStringField("template-ids").flatMap {
-            case Some(ids) => listOfTemplateIds(ids).map(Some(_))
-            case None => Right(None)
-          }
+          filters <- stringField("filters").flatMap(filters)
           beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
           endOffset <- optionalStringField("end-offset").map(_.map(offset))
           maxDelaySeconds <- optionalLongField("max-delay")
           minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
         } yield Config.StreamConfig.TransactionsStreamConfig(
           name = name,
-          party = party,
-          templateIds = templateIds,
+          filters = filters,
           beginOffset = beginOffset,
           endOffset = endOffset,
           objectives = Config.StreamConfig.Objectives(
@@ -177,19 +182,14 @@ object Cli {
         def transactionTreesConfig: Either[String, StreamConfig.TransactionTreesStreamConfig] =
           for {
             name <- stringField("name")
-            party <- stringField("party")
-            templateIds <- optionalStringField("template-ids").flatMap {
-              case Some(ids) => listOfTemplateIds(ids).map(Some(_))
-              case None => Right(None)
-            }
+            filters <- stringField("filters").flatMap(filters)
             beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
             endOffset <- optionalStringField("end-offset").map(_.map(offset))
             maxDelaySeconds <- optionalLongField("max-delay")
             minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
           } yield Config.StreamConfig.TransactionTreesStreamConfig(
             name = name,
-            party = party,
-            templateIds = templateIds,
+            filters = filters,
             beginOffset = beginOffset,
             endOffset = endOffset,
             objectives = Config.StreamConfig.Objectives(
@@ -200,15 +200,10 @@ object Cli {
 
         def activeContractsConfig: Either[String, StreamConfig.ActiveContractsStreamConfig] = for {
           name <- stringField("name")
-          party <- stringField("party")
-          templateIds <- optionalStringField("template-ids").flatMap {
-            case Some(ids) => listOfTemplateIds(ids).map(Some(_))
-            case None => Right(None)
-          }
+          filters <- stringField("filters").flatMap(filters)
         } yield Config.StreamConfig.ActiveContractsStreamConfig(
           name = name,
-          party = party,
-          templateIds = templateIds,
+          filters = filters,
         )
 
         def completionsConfig: Either[String, StreamConfig.CompletionsStreamConfig] = for {
@@ -234,18 +229,41 @@ object Cli {
         config.fold(error => throw new IllegalArgumentException(error), identity)
       }
 
-    private def listOfTemplateIds(listOfIds: String): Either[String, List[Identifier]] =
+    private def filters(listOfIds: String): Either[String, Map[String, Option[List[Identifier]]]] =
       listOfIds
-        .split('|')
+        .split('+')
         .toList
-        .map(templateIdFromString)
-        .foldLeft[Either[String, List[Identifier]]](Right(List.empty[Identifier])) {
+        .map(filter)
+        .foldLeft[Either[String, Map[String, List[Identifier]]]](Right(Map.empty)) {
           case (acc, next) =>
             for {
-              ids <- acc
-              id <- next
-            } yield id :: ids
+              filters <- acc
+              filter <- next
+            } yield filters + filter
         }
+        .map { filters =>
+          filters.map { case (party, templateIds) =>
+            party -> Some(templateIds).filter(_.nonEmpty)
+          }
+        }
+
+    private def filter(filterString: String): Either[String, (String, List[Identifier])] =
+      filterString
+        .split('@')
+        .toList match {
+        case party :: templates =>
+          templates
+            .map(templateIdFromString)
+            .foldLeft[Either[String, List[Identifier]]](Right(List.empty[Identifier])) {
+              case (acc, next) =>
+                for {
+                  ids <- acc
+                  id <- next
+                } yield id :: ids
+            }
+            .map(party -> _)
+        case _ => Left("Filter cannot be empty")
+      }
 
     private def templateIdFromString(fullyQualifiedTemplateId: String): Either[String, Identifier] =
       fullyQualifiedTemplateId

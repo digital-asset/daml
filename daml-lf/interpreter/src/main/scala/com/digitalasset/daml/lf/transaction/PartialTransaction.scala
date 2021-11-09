@@ -9,7 +9,6 @@ import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
 import com.daml.lf.ledger.{Authorize, FailedAuthorization}
 import com.daml.lf.transaction.{
   ContractKeyUniquenessMode,
-  GenTransaction,
   GlobalKey,
   Node,
   NodeId,
@@ -136,6 +135,8 @@ private[lf] object PartialTransaction {
     *  @param parent The context in which the exercises is
     *                       happening.
     *  @param byKey True if the exercise is done "by key"
+    *  @param byInterface The interface through which this exercise
+    *                         was invoked, if any.
     */
   final case class ExercisesContextInfo(
       targetId: Value.ContractId,
@@ -151,6 +152,7 @@ private[lf] object PartialTransaction {
       nodeId: NodeId,
       parent: Context,
       byKey: Boolean,
+      byInterface: Option[TypeConName],
   ) extends ContextInfo {
     val actionNodeSeed = parent.nextActionChildSeed
     val actionChildSeed = crypto.Hash.deriveNodeSeed(actionNodeSeed, _)
@@ -322,7 +324,7 @@ private[speedy] case class PartialTransaction(
 
         nodes.keySet diff allChildNodeIds
       }
-      val tx = GenTransaction(nodes, rootNodes.to(ImmArray))
+      val tx = Tx(nodes, rootNodes.to(ImmArray))
 
       tx.foreach { (nid, node) =>
         val rootPrefix = if (rootNodes.contains(nid)) "root " else ""
@@ -367,7 +369,7 @@ private[speedy] case class PartialTransaction(
     context.info match {
       case _: RootContextInfo if aborted.isEmpty =>
         val roots = context.children.toImmArray
-        val tx0 = GenTransaction(nodes, roots)
+        val tx0 = Tx(nodes, roots)
         val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
         CompleteTransaction(
           SubmittedTransaction(
@@ -386,7 +388,7 @@ private[speedy] case class PartialTransaction(
     val ptx = unwind()
 
     transaction.IncompleteTransaction(
-      GenTransaction(
+      Tx(
         ptx.nodes,
         ptx.context.children.toImmArray.toSeq.sortBy(_.index).toImmArray,
       ),
@@ -406,6 +408,7 @@ private[speedy] case class PartialTransaction(
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[Node.KeyWithMaintainers[Value]],
+      byInterface: Option[TypeConName],
   ): (Value.ContractId, PartialTransaction) = {
     val actionNodeSeed = context.nextActionChildSeed
     val discriminator =
@@ -420,6 +423,7 @@ private[speedy] case class PartialTransaction(
       signatories,
       stakeholders,
       key,
+      byInterface,
       version,
     )
     val nid = NodeId(nextNodeIdx)
@@ -498,6 +502,7 @@ private[speedy] case class PartialTransaction(
       stakeholders: Set[Party],
       key: Option[Node.KeyWithMaintainers[Value]],
       byKey: Boolean,
+      byInterface: Option[TypeConName],
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
     val version = packageToTransactionVersion(templateId.packageId)
@@ -509,6 +514,7 @@ private[speedy] case class PartialTransaction(
       stakeholders,
       key,
       normByKey(version, byKey),
+      byInterface,
       version,
     )
     mustBeActive(
@@ -554,6 +560,7 @@ private[speedy] case class PartialTransaction(
       mbKey: Option[Node.KeyWithMaintainers[Value]],
       byKey: Boolean,
       chosenValue: Value,
+      byInterface: Option[TypeConName],
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
     val ec =
@@ -571,6 +578,7 @@ private[speedy] case class PartialTransaction(
         nodeId = nid,
         parent = context,
         byKey = byKey,
+        byInterface = byInterface,
       )
 
     mustBeActive(
@@ -663,6 +671,7 @@ private[speedy] case class PartialTransaction(
       exerciseResult = None,
       key = ec.contractKey,
       byKey = normByKey(version, ec.byKey),
+      byInterface = ec.byInterface,
       version = version,
     )
   }

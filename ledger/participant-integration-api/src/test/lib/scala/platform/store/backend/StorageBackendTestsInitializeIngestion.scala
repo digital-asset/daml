@@ -59,46 +59,58 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
     for {
       // Initialize
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
       // Start the indexer (a no-op in this case)
-      end1 <- executeSql(backend.ledgerEnd)
-      _ <- executeSql(backend.deletePartiallyIngestedData(end1))
+      end1 <- executeSql(backend.parameter.ledgerEnd)
+      _ <- executeSql(backend.ingestion.deletePartiallyIngestedData(end1))
 
       // Fully insert first batch of updates
       _ <- executeSql(ingest(dtos1, _))
-      _ <- executeSql(backend.updateLedgerEnd(ledgerEnd(5, 3L)))
+      _ <- executeSql(updateLedgerEnd(ledgerEnd(5, 3L)))
 
       // Partially insert second batch of updates (indexer crashes before updating ledger end)
       _ <- executeSql(ingest(dtos2, _))
 
       // Check the contents
-      parties1 <- executeSql(backend.knownParties)
-      config1 <- executeSql(backend.ledgerConfiguration)
-      packages1 <- executeSql(backend.lfPackages)
+      parties1 <- executeSql(backend.party.knownParties)
+      config1 <- executeSql(backend.configuration.ledgerConfiguration)
+      packages1 <- executeSql(backend.packageBackend.lfPackages)
       contract41 <- executeSql(
-        backend.activeContractWithoutArgument(readers, ContractId.V0.assertFromString("#4"))
+        backend.contract.activeContractWithoutArgument(
+          readers,
+          ContractId.V0.assertFromString("#4"),
+        )
       )
       contract91 <- executeSql(
-        backend.activeContractWithoutArgument(readers, ContractId.V0.assertFromString("#9"))
+        backend.contract.activeContractWithoutArgument(
+          readers,
+          ContractId.V0.assertFromString("#9"),
+        )
       )
 
       // Restart the indexer - should delete data from the partial insert above
-      end2 <- executeSql(backend.ledgerEnd)
-      _ <- executeSql(backend.deletePartiallyIngestedData(end2))
+      end2 <- executeSql(backend.parameter.ledgerEnd)
+      _ <- executeSql(backend.ingestion.deletePartiallyIngestedData(end2))
 
       // Move the ledger end so that any non-deleted data would become visible
-      _ <- executeSql(backend.updateLedgerEnd(ledgerEnd(10, 6L)))
+      _ <- executeSql(updateLedgerEnd(ledgerEnd(10, 6L)))
 
       // Check the contents
-      parties2 <- executeSql(backend.knownParties)
-      config2 <- executeSql(backend.ledgerConfiguration)
-      packages2 <- executeSql(backend.lfPackages)
+      parties2 <- executeSql(backend.party.knownParties)
+      config2 <- executeSql(backend.configuration.ledgerConfiguration)
+      packages2 <- executeSql(backend.packageBackend.lfPackages)
       contract42 <- executeSql(
-        backend.activeContractWithoutArgument(readers, ContractId.V0.assertFromString("#4"))
+        backend.contract.activeContractWithoutArgument(
+          readers,
+          ContractId.V0.assertFromString("#4"),
+        )
       )
       contract92 <- executeSql(
-        backend.activeContractWithoutArgument(readers, ContractId.V0.assertFromString("#9"))
+        backend.contract.activeContractWithoutArgument(
+          readers,
+          ContractId.V0.assertFromString("#9"),
+        )
       )
     } yield {
       parties1 should have length 1

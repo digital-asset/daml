@@ -13,7 +13,7 @@ private[platform] sealed abstract class DbType(
     if (supportsParallelWrites) maxConnections else 1
 }
 
-private[platform] object DbType {
+object DbType {
   object Postgres
       extends DbType(
         "postgres",

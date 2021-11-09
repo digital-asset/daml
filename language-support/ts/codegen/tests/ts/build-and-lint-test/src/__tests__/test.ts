@@ -6,7 +6,7 @@ import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
 import Ledger, { Event, Stream, PartyInfo } from  '@daml/ledger';
-import { Int, emptyMap, Map, ContractId } from '@daml/types';
+import { Int, emptyMap, Map } from '@daml/types';
 import pEvent from 'p-event';
 import _ from 'lodash';
 import WebSocket from 'ws';
@@ -335,6 +335,9 @@ test('create + fetch & exercise', async () => {
 
 });
 
+// TODO https://github.com/digital-asset/daml/issues/10810
+// Reenable test
+/*
 test("interfaces", async () => {
   const aliceLedger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
   const bobLedger = new Ledger({token: BOB_TOKEN, httpBaseUrl: httpBaseUrl()});
@@ -362,22 +365,23 @@ test("interfaces", async () => {
     ]
   )
 });
+*/
 
 test("createAndExercise", async () => {
   const ledger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
 
   const [result, events] = await ledger.createAndExercise(
     buildAndLint.Main.Person.Birthday,
-    {name: 'Alice', party: ALICE_PARTY, age: '5', friends: []},
+    {name: 'Alice', party: ALICE_PARTY, age: '10', friends: []},
     {});
   expect(events).toMatchObject(
     [{created: {templateId: buildAndLint.Main.Person.templateId,
                 signatories: [ALICE_PARTY],
-                payload: {name: 'Alice', age: '5'}}},
+                payload: {name: 'Alice', age: '10'}}},
      {archived: {templateId: buildAndLint.Main.Person.templateId}},
      {created: {templateId: buildAndLint.Main.Person.templateId,
                 signatories: [ALICE_PARTY],
-                payload: {name: 'Alice', age: '6'}}}]);
+                payload: {name: 'Alice', age: '11'}}}]);
   expect((events[0] as {created: {contractId: string}}).created.contractId).toEqual((events[1] as {archived: {contractId: string}}).archived.contractId);
   expect(result).toEqual((events[2] as {created: {contractId: string}}).created.contractId);
 });

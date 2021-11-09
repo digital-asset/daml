@@ -103,6 +103,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       observers = Seq("Carl"),
       key = Some(ValueRecord(None, ImmArray.empty)),
       maintainers = Seq("Alice"),
+      byInterface = None,
     )
     val lookup = builder.lookupByKey(create, true)
     val nodeId = builder.add(lookup)
@@ -124,6 +125,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       observers = Seq("Carl"),
       key = Some(ValueRecord(None, ImmArray.empty)),
       maintainers = Seq("Alice"),
+      byInterface = None,
     )
     val lookup = builder.lookupByKey(create, false)
     val nodeId = builder.add(lookup)

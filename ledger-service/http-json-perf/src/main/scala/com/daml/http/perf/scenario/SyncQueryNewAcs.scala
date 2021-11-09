@@ -5,6 +5,9 @@ package com.daml.http.perf.scenario
 
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
+import io.gatling.http.check.HttpCheck
+
+import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class SyncQueryNewAcs
@@ -21,24 +24,29 @@ class SyncQueryNewAcs
 
   private val syncQueryNewAcs =
     scenario(s"SyncQueryNewAcs, numberOfRuns: $numberOfRuns, ACS size: $wantedAcsSize")
-      .repeat(numberOfRuns) {
+      .repeat(numberOfRuns / defaultNumUsers) {
+        val acsQueue: BlockingQueue[String] = new LinkedBlockingQueue[String]()
+        val captureContractId: HttpCheck =
+          jsonPath("$.result.contractId").transform(x => acsQueue.put(x))
         group("Populate ACS") {
-          doWhile(_ => acsSize() < wantedAcsSize) {
+          doWhile(_ => acsQueue.size() < wantedAcsSize) {
             feed(Iterator.continually(Map("amount" -> String.valueOf(randomAmount()))))
-              .exec(randomAmountCreateRequest.check(status.is(200), captureContractId).silent)
+              .exec {
+                randomAmountCreateRequest.check(status.is(200), captureContractId).silent
+              }
           }
         }.group("Run Query") {
           feed(Iterator.continually(Map("amount" -> String.valueOf(randomAmount()))))
             .exec(randomAmountQueryRequest.notSilent)
         }.group("Archive ACS") {
-          doWhile(_ => acsSize() > 0) {
-            feed(Iterator.continually(Map("archiveContractId" -> removeNextContractIdFromAcs())))
+          doWhile(_ => acsQueue.size() > 0) {
+            feed(Iterator.continually(Map("archiveContractId" -> acsQueue.poll())))
               .exec(archiveRequest.silent)
           }
         }
       }
 
   setUp(
-    syncQueryNewAcs.inject(atOnceUsers(1))
+    syncQueryNewAcs.inject(atOnceUsers(defaultNumUsers))
   ).protocols(httpProtocol)
 }

@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexSubmissionService,
 }
-import com.daml.ledger.participant.state.v2.WriteService
+import com.daml.ledger.participant.state.v2.{SubmissionResult, WriteService}
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf
 import com.daml.lf.command.{Commands => LfCommands}
@@ -35,15 +35,15 @@ import com.daml.platform.apiserver.services.ApiSubmissionServiceSpec._
 import com.daml.platform.apiserver.SeedService
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.google.rpc.status.{Status => RpcStatus}
-import io.grpc.Status
+import io.grpc.{Status, StatusRuntimeException}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, Inside}
-
 import java.time.Duration
 import java.util.concurrent.CompletableFuture.completedFuture
 import java.util.concurrent.atomic.AtomicInteger
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -413,6 +413,32 @@ class ApiSubmissionServiceSpec
         Success(succeed)
       })
   }
+
+  it should "rate-limit when configured to do so" in {
+    val grpcError = RpcStatus.of(Status.Code.ABORTED.value(), s"Quota Exceeded", Seq.empty)
+
+    val service =
+      newSubmissionService(
+        mock[state.WriteService],
+        mock[IndexPartyManagementService],
+        implicitPartyAllocation = true,
+        deduplicationEnabled = false,
+        mockIndexSubmissionService = mock[IndexSubmissionService],
+        commandExecutor = mock[CommandExecutor],
+        checkOverloaded = _ => Some(SubmissionResult.SynchronousError(grpcError)),
+      )
+
+    val submitRequest = newSubmitRequest()
+    service
+      .submit(submitRequest)
+      .transform {
+        case Failure(e: StatusRuntimeException)
+            if e.getStatus.getCode.value == grpcError.code && e.getStatus.getDescription == grpcError.message =>
+          Success(succeed)
+        case result =>
+          Try(fail(s"Expected submission to be aborted, but got ${result}"))
+      }
+  }
 }
 
 object ApiSubmissionServiceSpec {
@@ -449,6 +475,7 @@ object ApiSubmissionServiceSpec {
       deduplicationEnabled: Boolean = true,
       mockIndexSubmissionService: IndexSubmissionService = mock[IndexSubmissionService],
       useSelfServiceErrorCodes: Boolean = false,
+      checkOverloaded: TelemetryContext => Option[SubmissionResult] = _ => None,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -489,6 +516,7 @@ object ApiSubmissionServiceSpec {
       errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
         enableSelfServiceErrorCodes = useSelfServiceErrorCodes
       ),
+      checkOverloaded = checkOverloaded,
     )
   }
 }

@@ -56,6 +56,8 @@ object Node {
 
     def byKey: Boolean
 
+    def byInterface: Option[TypeConName]
+
     protected def versionValue[Cid2 >: ContractId](v: Value): VersionedValue =
       VersionedValue(version, v)
   }
@@ -82,6 +84,7 @@ object Node {
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers[Value]],
+      override val byInterface: Option[TypeConName],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyAction
@@ -121,6 +124,7 @@ object Node {
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers[Value]],
       override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
+      override val byInterface: Option[TypeConName],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyAction
@@ -160,6 +164,7 @@ object Node {
       exerciseResult: Option[Value],
       key: Option[KeyWithMaintainers[Value]],
       override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
+      override val byInterface: Option[TypeConName],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends Action
@@ -210,6 +215,7 @@ object Node {
     override def keyMaintainers: Set[Party] = key.maintainers
     override def hasResult: Boolean = result.isDefined
     override def byKey: Boolean = true
+    override def byInterface: Option[TypeConName] = None
 
     override private[lf] def updateVersion(version: TransactionVersion): Node.LookupByKey =
       copy(version = version)

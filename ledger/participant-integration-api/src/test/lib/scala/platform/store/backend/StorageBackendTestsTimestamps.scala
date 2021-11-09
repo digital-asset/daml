@@ -29,14 +29,20 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
       ledgerEffectiveTime = Some(let),
     )
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
       _ <- executeSql(ingest(Vector(create), _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(1), 1L)))
+      _ <- executeSql(
+        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(1), 1L))
+      )
 
-      let1 <- executeSql(backend.maximumLedgerTime(Set(cid)))
-      let2 <- executeSql(withDefaultTimeZone("GMT-1")(backend.maximumLedgerTime(Set(cid))))
-      let3 <- executeSql(withDefaultTimeZone("GMT+1")(backend.maximumLedgerTime(Set(cid))))
+      let1 <- executeSql(backend.contract.maximumLedgerTime(Set(cid)))
+      let2 <- executeSql(
+        withDefaultTimeZone("GMT-1")(backend.contract.maximumLedgerTime(Set(cid)))
+      )
+      let3 <- executeSql(
+        withDefaultTimeZone("GMT+1")(backend.contract.maximumLedgerTime(Set(cid)))
+      )
     } yield {
       withClue("UTC") { let1 shouldBe Success(Some(let)) }
       withClue("GMT-1") { let2 shouldBe Success(Some(let)) }
@@ -54,14 +60,16 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
       ledgerEffectiveTime = Some(let),
     )
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
       _ <- executeSql(ingest(Vector(create), _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(1), 1L)))
+      _ <- executeSql(
+        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(1), 1L))
+      )
 
-      events1 <- executeSql(backend.rawEvents(0L, 1L))
-      events2 <- executeSql(withDefaultTimeZone("GMT-1")(backend.rawEvents(0L, 1L)))
-      events3 <- executeSql(withDefaultTimeZone("GMT+1")(backend.rawEvents(0L, 1L)))
+      events1 <- executeSql(backend.event.rawEvents(0L, 1L))
+      events2 <- executeSql(withDefaultTimeZone("GMT-1")(backend.event.rawEvents(0L, 1L)))
+      events3 <- executeSql(withDefaultTimeZone("GMT+1")(backend.event.rawEvents(0L, 1L)))
     } yield {
       withClue("UTC") { events1.head.ledgerEffectiveTime shouldBe Some(let) }
       withClue("GMT-1") { events2.head.ledgerEffectiveTime shouldBe Some(let) }

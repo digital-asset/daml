@@ -13,6 +13,7 @@ import io.circe.parser._
 import org.scalatest.{Inside, Suite}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import scalaz.NonEmptyList
 import scalaz.Scalaz._
 
 class ListsSpec
@@ -25,9 +26,13 @@ class ListsSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File(rlocation("extractor/PrimitiveTypes.dar"))
+  override protected def darFile = new File(rlocation("extractor/test.dar"))
 
-  override def scenario: Option[String] = Some("PrimitiveTypes:lists")
+  override protected val initScript = Some("PrimitiveTypes:lists")
+
+  override protected val parties = NonEmptyList("Lists")
+
+  private val party: String = parties.head
 
   "Lists" should "be extracted" in {
     val contracts = getContracts
@@ -39,20 +44,20 @@ class ListsSpec
     val contractsJson = getContracts.map(_.create_arguments)
 
     val expected = List(
-      """
+      s"""
         {
           "reference" : "Empty lists",
           "int_list" : [],
           "text_list" : [],
-          "party" : "Bob"
+          "party" : "$party"
         }
       """,
-      """
+      s"""
         {
           "reference" : "Non-empty lists",
           "int_list" : [1, 2, 3, 4, 5],
           "text_list" : ["foo", "bar", "baz"],
-          "party" : "Bob"
+          "party" : "$party"
         }
       """,
     ).traverse(parse)

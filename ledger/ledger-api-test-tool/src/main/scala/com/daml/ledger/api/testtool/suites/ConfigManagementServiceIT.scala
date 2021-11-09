@@ -95,7 +95,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         ledger,
         expiredMRTFailure,
         Status.Code.ABORTED,
-        LedgerApiErrors.InterpreterErrors.GenericInterpretationError,
+        LedgerApiErrors.WriteErrors.RequestTimeOut,
         exceptionMessageSubstring = None,
       )
     }

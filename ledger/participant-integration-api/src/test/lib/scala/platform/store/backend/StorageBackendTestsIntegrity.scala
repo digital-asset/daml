@@ -20,10 +20,12 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(updates, _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(7), 7L)))
-      failure <- executeSql(backend.verifyIntegrity()).failed
+      _ <- executeSql(
+        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(7), 7L))
+      )
+      failure <- executeSql(backend.integrity.verifyIntegrity()).failed
     } yield {
       // Error message should contain the duplicate event sequential id
       failure.getMessage should include("7")
@@ -37,10 +39,12 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(updates, _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 3L)))
-      failure <- executeSql(backend.verifyIntegrity()).failed
+      _ <- executeSql(
+        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 3L))
+      )
+      failure <- executeSql(backend.integrity.verifyIntegrity()).failed
     } yield {
       failure.getMessage should include("consecutive")
     }
@@ -56,10 +60,12 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(updates, _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 2L)))
-      _ <- executeSql(backend.verifyIntegrity())
+      _ <- executeSql(
+        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 2L))
+      )
+      _ <- executeSql(backend.integrity.verifyIntegrity())
     } yield {
       succeed
     }

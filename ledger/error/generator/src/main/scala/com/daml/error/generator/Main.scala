@@ -3,6 +3,7 @@
 
 package com.daml.error.generator
 
+import com.daml.error.Grouping
 import io.circe.Encoder
 import io.circe.syntax._
 
@@ -12,15 +13,27 @@ import java.nio.file.{Files, Paths, StandardOpenOption}
   */
 object Main {
 
-  case class Output(errorCodes: Seq[DocItem])
+  case class Output(errorCodes: Seq[ErrorDocItem], groups: Seq[GroupDocItem])
 
-  implicit val errorCodeEncode: Encoder[DocItem] =
-    Encoder.forProduct7(
+  implicit val groupingEncode: Encoder[Grouping] =
+    Encoder.forProduct2(
+      "docName",
+      "className",
+    )(i =>
+      (
+        i.docName,
+        i.group.map(_.fullClassName),
+      )
+    )
+
+  implicit val errorCodeEncode: Encoder[ErrorDocItem] =
+    Encoder.forProduct8(
       "className",
       "category",
       "hierarchicalGrouping",
       "conveyance",
       "code",
+      "deprecation",
       "explanation",
       "resolution",
     )(i =>
@@ -30,18 +43,30 @@ object Main {
         i.hierarchicalGrouping,
         i.conveyance,
         i.code,
+        i.deprecation.deprecation,
         i.explanation.explanation,
         i.resolution.resolution,
       )
     )
 
+  implicit val groupEncode: Encoder[GroupDocItem] =
+    Encoder.forProduct2(
+      "className",
+      "explanation",
+    )(i =>
+      (
+        i.className,
+        i.explanation.explanation,
+      )
+    )
+
   implicit val outputEncode: Encoder[Output] =
-    Encoder.forProduct1("errorCodes")(i => (i.errorCodes))
+    Encoder.forProduct2("errorCodes", "groups")(i => (i.errorCodes, i.groups))
 
   def main(args: Array[String]): Unit = {
-    val errorCodes = new ErrorCodeDocumentationGenerator().getDocItems
+    val (errorCodes, groups) = new ErrorCodeDocumentationGenerator().getDocItems
     val outputFile = Paths.get(args(0))
-    val output = Output(errorCodes)
+    val output = Output(errorCodes, groups)
     val outputText: String = output.asJson.spaces2
     val outputBytes = outputText.getBytes
     val _ = Files.write(outputFile, outputBytes, StandardOpenOption.CREATE_NEW)

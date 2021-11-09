@@ -49,10 +49,18 @@ import qualified DA.Daml.LF.Ast.Type as LF
 import qualified DA.Daml.LF.Ast.Alpha as LF
 import qualified DA.Daml.LF.TypeChecker.Check as LF
 import qualified DA.Daml.LF.TypeChecker.Env as LF
+import qualified DA.Daml.LF.TypeChecker.Error as LF
 import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import DA.Daml.Options
 
 import SdkVersion
+
+panicOnError :: Either LF.Error a -> a
+panicOnError (Left e) = error $ "Internal LF type error: " <> renderPretty e
+panicOnError (Right a) = a
+
+-- | Newtype wrapper around an LF type where all type synonyms have been expanded.
+newtype ExpandedType = ExpandedType { getExpandedType :: LF.Type }
 
 data Config = Config
     { configPackages :: MS.Map LF.PackageId LF.Package
@@ -81,7 +89,7 @@ data Env = Env
         -- ^ Set of references that should be hidden, not exposed.
     , envDepClassMap :: DepClassMap
         -- ^ Map of typeclasses from dependencies.
-    , envDepInstances :: MS.Map LF.TypeSynName [LF.Qualified LF.Type]
+    , envDepInstances :: MS.Map LF.TypeSynName [LF.Qualified ExpandedType]
         -- ^ Map of instances from dependencies.
         -- We only store the name since the real check happens in `isDuplicate`.
     , envMod :: LF.Module
@@ -106,38 +114,43 @@ buildWorld Config{..} =
         self <- MS.lookup configSelfPkgId configPackages
         Just (LF.initWorldSelf extPackages self)
 
+worldLfVersion :: LF.World -> LF.Version
+worldLfVersion = LF.packageLfVersion . LF.getWorldSelf
+
 envLfVersion :: Env -> LF.Version
-envLfVersion = LF.packageLfVersion . LF.getWorldSelf . envWorld
+envLfVersion = worldLfVersion . envWorld
 
 -- | Type classes coming from dependencies. This maps a (module, synonym)
--- name pair to a corresponding dependency package id and synonym definition.
+-- name pair to a corresponding dependency package id and synonym type (closed over synonym variables).
 newtype DepClassMap = DepClassMap
     { unDepClassMap :: MS.Map
         (LF.ModuleName, LF.TypeSynName)
-        (LF.PackageId, LF.DefTypeSyn)
+        (LF.PackageId, ExpandedType)
     }
 
-buildDepClassMap :: Config -> DepClassMap
-buildDepClassMap Config{..} = DepClassMap $ MS.fromList
-    [ ((moduleName, synName), (packageId, dsyn))
+buildDepClassMap :: Config -> LF.World -> DepClassMap
+buildDepClassMap Config{..} world = DepClassMap $ MS.fromList
+    [ ((moduleName, synName), (packageId, synTy))
     | packageId <- Set.toList configDependencyPackages
     , Just LF.Package{..} <- [MS.lookup packageId configPackages]
     , LF.Module{..} <- NM.toList packageModules
     , dsyn@LF.DefTypeSyn{..} <- NM.toList moduleSynonyms
+    , let synTy = ExpandedType (panicOnError $ LF.runGamma world (worldLfVersion world) $ LF.expandTypeSynonyms $ closedSynType dsyn)
     ]
 
-buildDepInstances :: Config -> MS.Map LF.TypeSynName [LF.Qualified LF.Type]
-buildDepInstances Config{..} = MS.fromListWith (<>)
-    [ (clsName, [LF.Qualified (LF.PRImport packageId) moduleName (snd dvalBinder)])
+buildDepInstances :: Config -> LF.World -> MS.Map LF.TypeSynName [LF.Qualified ExpandedType]
+buildDepInstances Config{..} world = MS.fromListWith (<>)
+    [ (clsName, [LF.Qualified (LF.PRImport packageId) moduleName ty])
     | packageId <- Set.toList configDependencyPackages
     , Just LF.Package{..} <- [MS.lookup packageId configPackages]
     , LF.Module{..} <- NM.toList packageModules
     , dval@LF.DefValue{..} <- NM.toList moduleValues
     , Just dfun <- [getDFunSig dval]
     , let clsName = LF.qualObject $ dfhName $ dfsHead dfun
+    , let ty = ExpandedType (panicOnError $ LF.runGamma world (worldLfVersion world) $ LF.expandTypeSynonyms $ snd dvalBinder)
     ]
 
-envLookupDepClass :: LF.TypeSynName -> Env -> Maybe (LF.PackageId, LF.DefTypeSyn)
+envLookupDepClass :: LF.TypeSynName -> Env -> Maybe (LF.PackageId, ExpandedType)
 envLookupDepClass synName env =
     let modName = LF.moduleName (envMod env)
         classMap = unDepClassMap (envDepClassMap env)
@@ -146,30 +159,27 @@ envLookupDepClass synName env =
 -- | Determine whether two type synonym definitions are similar enough to
 -- reexport one as the other. This is done by computing alpha equivalence
 -- after expanding all type synonyms.
-safeToReexport :: Env -> LF.DefTypeSyn -> LF.DefTypeSyn -> Bool
+safeToReexport :: Env -> LF.DefTypeSyn -> ExpandedType -> Bool
 safeToReexport env syn1 syn2 =
     -- this should never fail so we just call `error` if it does
-    either (error . ("Internal LF type error: " <>) . renderPretty) id $ do
+    panicOnError $ do
         LF.runGamma (envWorld env) (envLfVersion env) $ do
-            esyn1 <- LF.expandTypeSynonyms (closedType syn1)
-            esyn2 <- LF.expandTypeSynonyms (closedType syn2)
-            pure (LF.alphaType esyn1 esyn2)
+            esyn1 <- LF.expandTypeSynonyms (closedSynType syn1)
+            pure (LF.alphaType esyn1 (getExpandedType syn2))
 
-  where
-    -- | Turn a type synonym definition into a closed type.
-    closedType :: LF.DefTypeSyn -> LF.Type
-    closedType LF.DefTypeSyn{..} = LF.mkTForalls synParams synType
+-- | Turn a type synonym definition into a closed type.
+closedSynType :: LF.DefTypeSyn -> LF.Type
+closedSynType LF.DefTypeSyn{..} = LF.mkTForalls synParams synType
 
 -- | Check if an instance is a duplicate of another one.
 -- This is needed to filter out duplicate instances which would
 -- result in a type error.
-isDuplicate :: Env -> LF.Type -> LF.Type -> Bool
+isDuplicate :: Env -> LF.Type -> ExpandedType -> Bool
 isDuplicate env ty1 ty2 =
     fromRight False $ do
         LF.runGamma (envWorld env) (envLfVersion env) $ do
             esyn1 <- LF.expandTypeSynonyms ty1
-            esyn2 <- LF.expandTypeSynonyms ty2
-            pure (LF.alphaType esyn1 esyn2)
+            pure (LF.alphaType esyn1 (getExpandedType ty2))
 
 data ImportOrigin = FromCurrentSdk UnitId | FromPackage LF.PackageId
     deriving (Eq, Ord)
@@ -1041,8 +1051,8 @@ generateSrcPkgFromLf envConfig pkg = do
   where
     env envMod = Env {..}
     envQualifyThisModule = False
-    envDepClassMap = buildDepClassMap envConfig
-    envDepInstances = buildDepInstances envConfig
+    envDepClassMap = buildDepClassMap envConfig envWorld
+    envDepInstances = buildDepInstances envConfig envWorld
     envWorld = buildWorld envConfig
     envHiddenRefMap = buildHiddenRefMap envConfig envWorld
     header =
