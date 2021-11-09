@@ -51,6 +51,7 @@ import com.daml.lf.transaction.{GlobalKey, TransactionCommitter}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.index.TransactionConversion
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.participant.util.LfEngineToApi
@@ -257,25 +258,17 @@ private[sandbox] final class InMemoryLedger(
   override def lookupMaximumLedgerTime(contractIds: Set[ContractId])(implicit
       loggingContext: LoggingContext
   ): Future[Option[Instant]] =
-    if (contractIds.isEmpty) {
-      Future.failed(
-        new IllegalArgumentException(
-          "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
-        )
-      )
-    } else {
-      Future.fromTry(Try(this.synchronized {
-        contractIds.foldLeft[Option[Instant]](Some(Instant.MIN))((acc, id) => {
-          val let = acs.activeContracts
-            .getOrElse(
-              id,
-              sys.error(s"Contract $id not found while looking for maximum ledger time"),
-            )
-            .let
-          acc.map(acc => if (let.isAfter(acc)) let else acc)
-        })
-      }))
-    }
+    Future.fromTry(Try(this.synchronized {
+      contractIds.foldLeft[Option[Instant]](Some(Instant.MIN))((acc, id) => {
+        val let = acs.activeContracts
+          .getOrElse(
+            id,
+            throw MissingContracts(Set(id)),
+          )
+          .let
+        acc.map(acc => if (let.isAfter(acc)) let else acc)
+      })
+    }))
 
   override def publishTransaction(
       submitterInfo: SubmitterInfo,

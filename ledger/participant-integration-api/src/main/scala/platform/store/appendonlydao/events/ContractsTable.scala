@@ -8,6 +8,7 @@ import java.time.Instant
 
 import anorm.SqlStringInterpolation
 import com.daml.ledger.api.domain.PartyDetails
+import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 
@@ -44,11 +45,8 @@ private[events] object ContractsTable extends PostCommitValidationData {
   override final def lookupMaximumLedgerTime(
       ids: Set[ContractId]
   )(implicit connection: Connection): Try[Option[Instant]] = {
-    if (ids.isEmpty) {
-      Failure(ContractsTable.emptyContractIds)
-    } else {
-      def lookup(id: ContractId): Option[Option[Instant]] =
-        SQL"""
+    def lookup(id: ContractId): Option[Option[Instant]] =
+      SQL"""
   WITH archival_event AS (
          SELECT participant_events.*
            FROM participant_events, parameters
@@ -87,33 +85,22 @@ private[events] object ContractsTable extends PostCommitValidationData {
    LIMIT 1;
                """.as(instant("ledger_effective_time").?.singleOpt)
 
-      val queriedIds: List[(ContractId, Option[Option[Instant]])] = ids.toList
-        .map(id => id -> lookup(id))
-      val foundLedgerEffectiveTimes: List[Option[Instant]] = queriedIds
-        .collect { case (_, Some(found)) =>
-          found
-        }
-      if (foundLedgerEffectiveTimes.size != ids.size) {
-        val missingIds = queriedIds.collect { case (missingId, None) =>
-          missingId
-        }
-        Failure(ContractsTable.notFound(missingIds.toSet))
-      } else Success(foundLedgerEffectiveTimes.max)
-    }
+    val queriedIds: List[(ContractId, Option[Option[Instant]])] = ids.toList
+      .map(id => id -> lookup(id))
+    val foundLedgerEffectiveTimes: List[Option[Instant]] = queriedIds
+      .collect { case (_, Some(found)) =>
+        found
+      }
+    if (foundLedgerEffectiveTimes.size != ids.size) {
+      val missingIds = queriedIds.collect { case (missingId, None) =>
+        missingId
+      }
+      Failure(MissingContracts(missingIds.toSet))
+    } else Success(foundLedgerEffectiveTimes.max)
   }
 
   override final def lookupParties(parties: Seq[Party])(implicit
       connection: Connection
   ): List[PartyDetails] =
     JdbcLedgerDao.selectParties(parties).map(JdbcLedgerDao.constructPartyDetails)
-
-  private def emptyContractIds: Throwable =
-    new IllegalArgumentException(
-      "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
-    )
-
-  private def notFound(missingContractIds: Set[ContractId]): Throwable =
-    new IllegalArgumentException(
-      s"The following contracts have not been found: ${missingContractIds.map(_.coid).mkString(", ")}"
-    )
 }

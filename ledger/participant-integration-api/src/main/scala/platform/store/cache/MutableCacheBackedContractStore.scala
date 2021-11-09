@@ -15,6 +15,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.store.cache.ContractKeyStateValue._
 import com.daml.platform.store.cache.ContractStateValue._
 import com.daml.platform.store.cache.MutableCacheBackedContractStore._
@@ -31,7 +32,7 @@ import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 class MutableCacheBackedContractStore(
     metrics: Metrics,
@@ -73,41 +74,44 @@ class MutableCacheBackedContractStore(
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
   ): Future[Option[Instant]] =
-    if (ids.isEmpty)
-      Future.failed(EmptyContractIds())
-    else {
-      Future
-        .fromTry(partitionCached(ids))
-        .flatMap {
-          case (cached, toBeFetched) if toBeFetched.isEmpty =>
-            Future.successful(Some(cached.max))
-          case (cached, toBeFetched) =>
-            contractsReader
-              .lookupMaximumLedgerTime(toBeFetched)
-              .map(_.map(m => (cached + m).max))
-        }
-    }
+    Future
+      .fromTry(partitionCached(ids))
+      .flatMap {
+        case (cached, toBeFetched) if toBeFetched.isEmpty =>
+          Future.successful(Some(cached.max))
+        case (cached, toBeFetched) =>
+          contractsReader
+            .lookupMaximumLedgerTime(toBeFetched)
+            .map(_.map(m => (cached + m).max))
+      }
 
   private def partitionCached(
       ids: Set[ContractId]
-  )(implicit loggingContext: LoggingContext) = {
+  )(implicit loggingContext: LoggingContext): Try[(Set[Instant], Set[ContractId])] = {
     val cacheQueried = ids.map(id => id -> contractsCache.get(id))
 
     val cached = cacheQueried.view
-      .map(_._2)
-      .foldLeft(Try(Set.empty[Instant])) {
-        case (Success(timestamps), Some(active: Active)) =>
-          Success(timestamps + active.createLedgerEffectiveTime)
-        case (Success(_), Some(Archived(_))) => Failure(ContractNotFound(ids))
-        case (Success(_), Some(NotFound)) => Failure(ContractNotFound(ids))
-        case (Success(timestamps), None) => Success(timestamps)
-        case (failure, _) => failure
+      .foldLeft[Either[Set[ContractId], Set[Instant]]](Right(Set.empty[Instant])) {
+        // successful lookups
+        case (Right(timestamps), (_, Some(active: Active))) =>
+          Right(timestamps + active.createLedgerEffectiveTime)
+        case (Right(timestamps), (_, None)) => Right(timestamps)
+
+        // failure cases
+        case (acc, (cid, Some(Archived(_) | NotFound))) =>
+          val missingContracts = acc.left.getOrElse(Set.empty) + cid
+          Left(missingContracts)
+        case (acc @ Left(_), _) => acc
       }
 
-    cached.map { cached =>
-      val missing = cacheQueried.collect { case (id, None) => id }
-      (cached, missing)
-    }
+    cached
+      .map { cached =>
+        val missing = cacheQueried.collect { case (id, None) => id }
+        (cached, missing)
+      }
+      .left
+      .map(MissingContracts)
+      .toTry
   }
 
   private def readThroughContractsCache(contractId: ContractId)(implicit
@@ -391,16 +395,6 @@ object MutableCacheBackedContractStore {
       _ <- subscribingContractStoreOwner(contractStore).acquire()
     } yield contractStore
   }
-
-  final case class ContractNotFound(contractIds: Set[ContractId])
-      extends IllegalArgumentException(
-        s"One or more of the following contract identifiers has not been found: ${contractIds.map(_.coid).mkString(", ")}"
-      )
-
-  final case class EmptyContractIds()
-      extends IllegalArgumentException(
-        "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
-      )
 
   private[cache] class CacheIndex {
     private val offsetRef: AtomicReference[Option[(Offset, EventSequentialId)]] =

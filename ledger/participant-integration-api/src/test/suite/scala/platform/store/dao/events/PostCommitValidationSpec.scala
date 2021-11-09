@@ -12,6 +12,7 @@ import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
 import com.daml.lf.value.Value.ValueText
+import com.daml.platform.apiserver.execution.MissingContracts
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -611,7 +612,7 @@ object PostCommitValidationSpec {
       val lookup = contracts.collect {
         case c if ids.contains(c.id) => c.ledgerEffectiveTime
       }
-      if (lookup.isEmpty) Failure(notFound(ids))
+      if (lookup.isEmpty) Failure(MissingContracts(ids))
       else Success(lookup.fold[Option[Instant]](None)(pickTheGreatest))
     }
 
@@ -625,11 +626,6 @@ object PostCommitValidationSpec {
 
   private def pickTheGreatest(l: Option[Instant], r: Option[Instant]): Option[Instant] =
     l.fold(r)(left => r.fold(l)(right => if (left.isAfter(right)) l else r))
-
-  private def notFound(contractIds: Set[ContractId]): Throwable =
-    new IllegalArgumentException(
-      s"One or more of the following contract identifiers has not been found: ${contractIds.map(_.coid).mkString(", ")}"
-    )
 
   private def noCommittedContract(parties: List[PartyDetails]): ContractStoreFixture =
     ContractStoreFixture(Set.empty, parties)

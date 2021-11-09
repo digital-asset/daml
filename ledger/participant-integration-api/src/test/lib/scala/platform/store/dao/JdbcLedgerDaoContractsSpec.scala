@@ -9,6 +9,7 @@ import java.util.UUID
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.Node.KeyWithMaintainers
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
+import com.daml.platform.apiserver.execution.MissingContracts
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
@@ -167,8 +168,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     for {
       failure <- contractsReader.lookupMaximumLedgerTime(Set(randomContractId)).failed
     } yield {
-      failure shouldBe an[IllegalArgumentException]
-      assertIsLedgerTimeLookupError(failure.getMessage)
+      failure shouldBe an[MissingContracts]
     }
   }
 
@@ -248,22 +248,11 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       _ <- store(singleExercise(divulgedContractId))
       failure <- contractsReader.lookupMaximumLedgerTime(Set(divulgedContractId)).failed
     } yield {
-      failure shouldBe an[IllegalArgumentException]
-      assertIsLedgerTimeLookupError(failure.getMessage)
+      failure shouldBe an[MissingContracts]
     }
   }
 
   it should "store contracts with a transient contract in the global divulgence" in {
     store(fullyTransientWithChildren).flatMap(_ => succeed)
-  }
-
-  // dao.JdbcLedgerDao uses the pattern 'One or more of the following contract identifiers has not been found'
-  // appendonly.JdbcLedgerDao uses the pattern 'The following contracts have not been found'
-  // They both use different error classes.
-  // TODO append-only: remove references to errors produced by the mutating schema
-  private[this] def assertIsLedgerTimeLookupError(actualErrorString: String) = {
-    val errorStringMutating = "One or more of the following contract identifiers has not been found"
-    val errorStringAppendOnly = "The following contracts have not been found"
-    actualErrorString should (startWith(errorStringMutating) or startWith(errorStringAppendOnly))
   }
 }
