@@ -6,7 +6,7 @@ package com.daml.http
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import com.daml.dbutils
-import com.daml.http.dbbackend.{JdbcConfig, DbStartupMode}
+import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
 
 final class CliSpec extends AnyFreeSpec with Matchers {
 
@@ -22,11 +22,17 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       "jdbc:postgresql://localhost:5432/test?&ssl=true",
       "postgres",
       "password",
+      poolSize = 10,
+      minIdle = 4,
+      connectionTimeout = 5000,
+      idleTimeout = 1000,
+      tablePrefix = "foo",
     ),
     dbStartupMode = DbStartupMode.StartOnly,
   )
   val jdbcConfigString =
-    "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
+    "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password," +
+      "poolSize=10,minIdle=4,connectionTimeout=5000,idleTimeout=1000,tablePrefix=foo"
 
   val sharedOptions =
     Seq("--ledger-host", "localhost", "--ledger-port", "6865", "--http-port", "7500")
@@ -106,7 +112,8 @@ final class CliSpec extends AnyFreeSpec with Matchers {
 
     "DbStartupMode" - {
       val jdbcConfigShared =
-        "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password"
+        "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres," +
+          "password=password,poolSize=10,minIdle=4,connectionTimeout=5000,idleTimeout=1000,tablePrefix=foo"
 
       "should get the CreateOnly startup mode from the string" in {
         val jdbcConfigString = s"$jdbcConfigShared,start-mode=create-only"

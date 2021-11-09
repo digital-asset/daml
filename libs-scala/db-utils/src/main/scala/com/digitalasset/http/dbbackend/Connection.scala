@@ -26,9 +26,6 @@ object Connection {
       )
 }
 
-/*
-  TODO below values are hardcoded for now, refactor to be picked up as cli flags/ props later.
- */
 object ConnectionPool {
 
   type PoolSize = Int
@@ -40,27 +37,25 @@ object ConnectionPool {
   type T = Transactor.Aux[IO, _ <: DataSource with Closeable]
 
   def connect(
-      c: JdbcConfig,
-      poolSize: PoolSize,
+      c: JdbcConfig
   )(implicit
       ec: ExecutionContext,
       cs: ContextShift[IO],
   ): (DataSource with Closeable, T) = {
-    val ds = dataSource(c, poolSize)
+    val ds = dataSource(c)
     (
       ds,
       Transactor
         .fromDataSource[IO](
           ds,
           connectEC = ec,
-          blocker = Blocker liftExecutorService newWorkStealingPool(poolSize),
+          blocker = Blocker liftExecutorService newWorkStealingPool(c.poolSize),
         )(IO.ioConcurrentEffect(cs), cs),
     )
   }
 
   private[this] def dataSource(
-      jc: JdbcConfig,
-      poolSize: PoolSize,
+      jc: JdbcConfig
   ) = {
     import jc._
     val c = new HikariConfig

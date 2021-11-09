@@ -315,11 +315,11 @@ object DbTriggerDao {
   def supportedJdbcDriverNames(available: Set[String]): Set[String] =
     supportedJdbcDrivers.keySet intersect available
 
-  def apply(c: JdbcConfig, poolSize: PoolSize = Production)(implicit
+  def apply(c: JdbcConfig)(implicit
       ec: ExecutionContext
   ): DbTriggerDao = {
     implicit val cs: ContextShift[IO] = IO.contextShift(ec)
-    val (ds, conn) = ConnectionPool.connect(c, poolSize)
+    val (ds, conn) = ConnectionPool.connect(c)
     val driver = supportedJdbcDrivers
       .get(c.driver)
       .getOrElse(throw new IllegalArgumentException(s"Unsupported JDBC driver ${c.driver}"))
