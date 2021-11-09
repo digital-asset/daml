@@ -155,7 +155,7 @@ trait JsonApiFixture
                 )
                 .flatMap({
                   case -\/(e) => Future.failed(new IllegalStateException(e.toString))
-                  case \/-(a) => Future.successful(a)
+                  case \/-(a) => Future.successful(a._1)
                 })
             }((binding: ServerBinding) => binding.unbind().map(_ => ()))
           }

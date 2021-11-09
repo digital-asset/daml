@@ -19,10 +19,10 @@ final class CliSpec extends AnyFreeSpec with Matchers {
     "jdbc:postgresql://localhost:5432/test?&ssl=true",
     "postgres",
     "password",
-    false,
+    poolSize = 10,
   )
   val jdbcConfigString =
-    "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
+    "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false,poolSize=10"
 
   val sharedOptions =
     Seq("--ledger-host", "localhost", "--ledger-port", "6865", "--http-port", "7500")

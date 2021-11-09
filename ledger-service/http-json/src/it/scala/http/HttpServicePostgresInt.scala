@@ -13,6 +13,9 @@ trait HttpServicePostgresInt extends AbstractHttpServiceIntegrationTestFuns with
 
   override final def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
 
+  // has to be lazy because jdbcConfig_ is NOT initialized yet
+  protected lazy val dao = dbbackend.ContractDao(jdbcConfig_)
+
   // has to be lazy because postgresFixture is NOT initialized yet
   protected[this] lazy val jdbcConfig_ = JdbcConfig(
     driver = "org.postgresql.Driver",
@@ -21,4 +24,9 @@ trait HttpServicePostgresInt extends AbstractHttpServiceIntegrationTestFuns with
     password = "",
     createSchema = true,
   )
+
+  override protected def afterAll(): Unit = {
+    dao.close()
+    super.afterAll()
+  }
 }

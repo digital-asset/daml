@@ -6,8 +6,8 @@ package com.daml.http
 import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
-
 import akka.stream.ThrottleMode
+import com.daml.http.dbbackend.ConnectionPool
 import com.daml.util.ExceptionOps._
 import com.daml.ledger.api.tls.TlsConfiguration
 import scalaz.std.option._
@@ -76,6 +76,9 @@ private[http] abstract class ConfigCompanion[A](name: String) {
   protected def optionalLongField(m: Map[String, String])(k: String): Either[String, Option[Long]] =
     m.get(k).traverse(v => parseLong(k)(v)).toEither
 
+  protected def optionalIntField(m: Map[String, String])(k: String): Either[String, Option[Int]] =
+    m.get(k).traverse(v => parseInt(k)(v)).toEither
+
   import scalaz.syntax.std.string._
 
   protected def parseBoolean(k: String)(v: String): String \/ Boolean =
@@ -83,6 +86,9 @@ private[http] abstract class ConfigCompanion[A](name: String) {
 
   protected def parseLong(k: String)(v: String): String \/ Long =
     v.parseLong.leftMap(e => s"$k=$v must be a int value: ${e.description}").disjunction
+
+  protected def parseInt(k: String)(v: String): String \/ Int =
+    v.parseInt.leftMap(e => s"$k=$v must be a int value: ${e.description}").disjunction
 
   protected def requiredDirectoryField(m: Map[String, String])(k: String): Either[String, File] =
     requiredField(m)(k).flatMap(directory)
@@ -102,15 +108,24 @@ private[http] final case class JdbcConfig(
     user: String,
     password: String,
     createSchema: Boolean = false,
+    minIdle: Int = JdbcConfig.MinIdle,
+    connectionTimeout: Long = JdbcConfig.ConnectionTimeout,
+    idleTimeout: Long = JdbcConfig.IdleTimeout,
+    poolSize: Int = ConnectionPool.PoolSize.Integration,
 )
 
 private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig") {
+
+  final val MinIdle = 8
+  final val IdleTimeout = 10000L // ms, minimum according to log, defaults to 600s
+  final val ConnectionTimeout = 5000L
+
   import dbbackend.ContractDao.supportedJdbcDriverNames
 
   private[this] def supportedDriversHelp = supportedJdbcDriverNames mkString ", "
 
   implicit val showInstance: Show[JdbcConfig] = Show.shows(a =>
-    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, createSchema=${a.createSchema})"
+    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, createSchema=${a.createSchema}, poolSize=${a.poolSize})"
   )
 
   lazy val help: String =
@@ -120,12 +135,14 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
       s"${indent}user -- database user name,\n" +
       s"${indent}password -- database user password,\n" +
       s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.\n" +
+      s"${indent}poolSize -- int value, specifies the max pool size for the database connection pool.\n" +
       s"${indent}Example: " + helpString(
         "org.postgresql.Driver",
         "jdbc:postgresql://localhost:5432/test?&ssl=true",
         "postgres",
         "password",
         "false",
+        "8",
       )
 
   lazy val usage: String = helpString(
@@ -134,6 +151,7 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
     "<user>",
     "<password>",
     "<true|false>",
+    "<poolSize>",
   )
 
   override def create(x: Map[String, String]): Either[String, JdbcConfig] =
@@ -148,12 +166,14 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
       user <- requiredField(x)("user")
       password <- requiredField(x)("password")
       createSchema <- optionalBooleanField(x)("createSchema")
+      poolSize <- optionalIntField(x)("poolSize")
     } yield JdbcConfig(
       driver = driver,
       url = url,
       user = user,
       password = password,
       createSchema = createSchema.getOrElse(false),
+      poolSize = poolSize.getOrElse(ConnectionPool.PoolSize.Production),
     )
 
   private def helpString(
@@ -162,8 +182,9 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
       user: String,
       password: String,
       createSchema: String,
+      poolSize: String,
   ): String =
-    s"""\"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema\""""
+    s"""\"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema,poolSize=${poolSize}\""""
 }
 
 // It is public for DABL
