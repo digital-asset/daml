@@ -383,7 +383,10 @@ object KVErrors extends LedgerApiErrorGroup {
             ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
           ) {
         case class Reject(
-            details: String
+            details: String,
+            ledgerTime: Instant,
+            ledgerTimeLowerBound: Instant,
+            ledgerTimeUpperBound: Instant,
         )(implicit loggingContext: ContextualizedErrorLogger)
             extends KVLoggingTransactionErrorImpl(cause = s"Invalid ledger time: $details")
       }
