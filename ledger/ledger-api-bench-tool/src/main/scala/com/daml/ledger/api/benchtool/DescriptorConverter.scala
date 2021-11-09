@@ -6,12 +6,13 @@ package com.daml.ledger.api.benchtool
 import com.daml.ledger.api.benchtool.Config.StreamConfig
 import com.daml.ledger.api.benchtool.submission.CommandSubmitter
 import com.daml.ledger.test.model.Foo.{Foo1, Foo2, Foo3}
+import com.daml.ledger.client.binding.Primitive
 
 object DescriptorConverter {
 
   def streamDescriptorToConfig(
       descriptor: StreamDescriptor,
-      submissionSummary: CommandSubmitter.SubmissionSummary,
+      submissionSummary: Option[CommandSubmitter.SubmissionSummary],
   ): StreamConfig = {
     import scalaz.syntax.tag._
     def templateStringToId(template: String) = template match {
@@ -20,14 +21,22 @@ object DescriptorConverter {
       case "Foo3" => Foo3.id.unwrap
       case invalid => throw new RuntimeException(s"Invalid template: $invalid")
     }
-    def partyFromObservers(party: String): String =
-      submissionSummary.observers
+
+    def convertedParty(party: String): String = {
+      submissionSummary match {
+        case None => party
+        case Some(summary) => partyFromObservers(party, summary.observers)
+      }
+    }
+
+    def partyFromObservers(party: String, observers: List[Primitive.Party]): String =
+      observers
         .map(_.unwrap)
         .find(_.contains(party))
         .getOrElse(throw new RuntimeException(s"Observer not found: $party"))
 
     val filters = descriptor.filters.map { filter =>
-      partyFromObservers(filter.party) -> Some(filter.templates.map(templateStringToId))
+      convertedParty(filter.party) -> Some(filter.templates.map(templateStringToId))
     }.toMap
 
     descriptor.streamType match {

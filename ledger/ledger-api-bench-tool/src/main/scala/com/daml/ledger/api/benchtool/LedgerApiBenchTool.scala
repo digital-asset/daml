@@ -60,13 +60,21 @@ object LedgerApiBenchTool {
         }
 
       def submissionStep(
-          submissionDescriptor: SubmissionDescriptor
-      ): Future[CommandSubmitter.SubmissionSummary] =
-        CommandSubmitter(apiServices).submit(
-          descriptor = submissionDescriptor,
-          maxInFlightCommands = config.maxInFlightCommands,
-          submissionBatchSize = config.submissionBatchSize,
-        )
+          submissionDescriptor: Option[SubmissionDescriptor]
+      ): Future[Option[CommandSubmitter.SubmissionSummary]] =
+        submissionDescriptor match {
+          case None =>
+            logger.info(s"No submission defined. Skipping.")
+            Future.successful(None)
+          case Some(descriptor) =>
+            CommandSubmitter(apiServices)
+              .submit(
+                descriptor = descriptor,
+                maxInFlightCommands = config.maxInFlightCommands,
+                submissionBatchSize = config.submissionBatchSize,
+              )
+              .map(Some(_))
+        }
 
       config.contractSetDescriptorFile match {
         case None =>
