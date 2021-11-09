@@ -177,7 +177,7 @@ object KVErrors extends LedgerApiErrorGroup {
     @Explanation("One or more informee parties have not been allocated.")
     @Resolution(
       "Check that all the informee party identifiers are correct, allocate all the informee parties, " +
-        "request their allocation or wait for them to be allocated before retrying the transactiomn submission."
+        "request their allocation or wait for them to be allocated before retrying the transaction submission."
     )
     object PartiesNotKnownOnLedger
         extends ErrorCode(
@@ -398,7 +398,7 @@ object KVErrors extends LedgerApiErrorGroup {
       @Explanation("One or more informee parties have not been allocated.")
       @Resolution(
         "Check that all the informee party identifiers are correct, allocate all the informee parties, " +
-          "request their allocation or wait for them to be allocated before retrying the transactiomn submission."
+          "request their allocation or wait for them to be allocated before retrying the transaction submission."
       )
       @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
       object PartyNotKnownOnLedger
