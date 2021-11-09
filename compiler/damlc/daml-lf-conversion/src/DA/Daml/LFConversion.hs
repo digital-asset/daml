@@ -173,6 +173,7 @@ data Env = Env
     -- packages does not cause performance issues.
     ,envLfVersion :: LF.Version
     ,envTemplateBinds :: MS.Map TypeConName TemplateBinds
+    ,envInterfaceBinds :: MS.Map TypeConName InterfaceBinds
     ,envExceptionBinds :: MS.Map TypeConName ExceptionBinds
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envImplements :: MS.Map TypeConName [GHC.TyCon]
@@ -394,6 +395,18 @@ scrapeTemplateBinds binds = MS.filter (isJust . tbTyCon) $ MS.map ($ emptyTempla
     , hasDamlTemplateCtx tpl
     ]
 
+data InterfaceBinds = InterfaceBinds
+    { ibEnsure :: Maybe (GHC.Expr Var)
+    }
+
+scrapeInterfaceBinds :: [(Var, GHC.Expr Var)] -> MS.Map TypeConName InterfaceBinds
+scrapeInterfaceBinds binds = MS.fromList
+    [ ( mkTypeCon [getOccText (GHC.tyConName iface)]
+      , InterfaceBinds { ibEnsure = Just expr} )
+    | (HasEnsureDFunId iface, expr) <- binds
+    , hasDamlInterfaceCtx iface
+    ]
+
 data ExceptionBinds = ExceptionBinds
     { ebTyCon :: GHC.TyCon
     , ebMessage :: GHC.Expr Var
@@ -439,10 +452,12 @@ convertInterfaces env tyThings = interfaceClasses
     convertInterface intName tyCon cls = do
         let intLocation = convNameLoc (GHC.tyConName tyCon)
         let intParam = this
+        let precond = fromMaybe (error $ "Missing precondition for interface " <> show intName)
+                        $ (MS.lookup intName $ envInterfaceBinds env) >>= ibEnsure
         withRange intLocation $ do
             intMethods <- NM.fromList <$> mapM convertMethod (drop 4 $ classMethods cls)
             intFixedChoices <- convertChoices env intName emptyTemplateBinds
-            let intPrecondition = ETrue -- TODO (drsk) #11397 Implement interface preconditions
+            intPrecondition <- useSingleMethodDict env precond (`ETmApp` EVar intParam)
             pure DefInterface {..}
 
     convertMethod :: Var -> ConvertM InterfaceMethod
@@ -537,6 +552,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
             , ty@(TypeCon _ [_, TypeCon _ [TypeCon tplTy _]]) <- [varType name]
             ]
         templateBinds = scrapeTemplateBinds binds
+        interfaceBinds = scrapeInterfaceBinds binds
         exceptionBinds
             | lfVersion `supports` featureExceptions =
                 scrapeExceptionBinds binds
@@ -554,6 +570,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
           , envInterfaces = interfaceCons
           , envInterfaceChoiceData = ifChoiceData
           , envTemplateBinds = templateBinds
+          , envInterfaceBinds = interfaceBinds
           , envExceptionBinds = exceptionBinds
           , envImplements = tplImplements
           , envInterfaceInstances = tplInterfaceInstances
