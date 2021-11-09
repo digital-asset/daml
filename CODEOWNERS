@@ -41,12 +41,15 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /ledger/      @digital-asset/kv-participant
 /ledger-api/  @digital-asset/kv-participant
 
-# Interfaces that are jointly owned
+# Ledger API Interfaces and Read/Write services are jointly owned between KV teams and @meiersi-da
 /ledger-api/grpc-definitions/       @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/ledger-configuration/       @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/ledger-offset/              @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/participant-state/          @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
-/ledger/participant-state-metrics/  @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/ledger-offset/              @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer 
+/ledger/participant-state/src       @meiersi-da @digital-asset/kv-participant @digital-asset/kv-committer
+
+# Needs cleanup due to mix of kvutils implementation and interfaces. Until then: shared ownership for KV teams
+/ledger/participant-state/          @digital-asset/kv-participant @digital-asset/kv-committer
+/ledger/participant-state-metrics/  @digital-asset/kv-participant @digital-asset/kv-committer
 
 # Owned by KV Participant with KV Committer added for notifications
 /ledger/ledger-api-common/          @digital-asset/kv-participant @digital-asset/kv-committer
@@ -58,18 +61,14 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 /ledger/participant-state-index/    @digital-asset/kv-participant @digital-asset/kv-committer
 /ledger/sandbox/                    @digital-asset/kv-participant @digital-asset/kv-committer
 
-# Owned by KV Participant except for IndexDB schema which is jointly owned with @meiersi-da
-/ledger/participant-integration-api/                    @digital-asset/kv-participant @meiersi-da
+# KV Participant
+/ledger/participant-integration-api/      @digital-asset/kv-participant
 
 
 # KV Committer
 /ledger/ledger-on-memory/           @digital-asset/kv-committer
 /ledger/ledger-on-sql/              @digital-asset/kv-committer
 /ledger/participant-state/kvutils/  @digital-asset/kv-committer
-
-# Jointly owned persistence schema and wire format
-/ledger/participant-state/kvutils/src/main/protobuf  @meiersi-da @digital-asset/kv-committer
-
 
 
 # Ecosystems

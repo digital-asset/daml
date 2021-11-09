@@ -423,7 +423,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private def tweakTxNodes(tweakNode: Tweak[Node]) = Tweak[VTX] { vtx =>
     // tweak any node in a transaction
     vtx.transaction match {
-      case GenTransaction(nodeMapA, roots) =>
+      case Transaction(nodeMapA, roots) =>
         for {
           nid <- nodeMapA.keys.toList
           nodeB <- tweakNode.run(nodeMapA(nid))

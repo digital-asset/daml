@@ -13,7 +13,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.Transaction.LeafNode
 import com.daml.lf.transaction.TransactionVersion
-import com.daml.lf.transaction.{NodeId, GenTransaction}
+import com.daml.lf.transaction.{NodeId, Transaction}
 import com.daml.lf.value.{Value => V}
 
 class NormalizeRollbacksSpec extends AnyWordSpec with Matchers with Inside {
@@ -172,7 +172,7 @@ class NormalizeRollbacksSpec extends AnyWordSpec with Matchers with Inside {
 object NormalizeRollbackSpec {
 
   type Cid = V.ContractId
-  type TX = GenTransaction
+  type TX = Transaction
 
   def preOrderNidsOfTxIsIncreasingFromZero(tx: TX): Boolean = {
     def check(x1: Int, xs: List[Int]): Boolean = {
@@ -221,7 +221,7 @@ object NormalizeRollbackSpec {
 
   def isNormalized(tx: TX): Boolean = {
     tx match {
-      case GenTransaction(nodes, _) =>
+      case Transaction(nodes, _) =>
         def isRB(node: Node): Boolean = {
           node match {
             case _: Node.Rollback => true
@@ -269,7 +269,7 @@ object NormalizeRollbackSpec {
         }
       }
       val roots: List[NodeId] = top.xs.map(toNid)
-      GenTransaction(nodes, roots.to(ImmArray))
+      Transaction(nodes, roots.to(ImmArray))
     }
 
     def ofTransaction(tx: TX): Top = {

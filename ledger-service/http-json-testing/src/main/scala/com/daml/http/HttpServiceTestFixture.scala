@@ -37,13 +37,14 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
+import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox
-import com.daml.platform.sandbox.SandboxServer
+import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandboxnext.Runner
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.typesafe.scalalogging.LazyLogging
@@ -150,19 +151,35 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       useTls: UseTls = UseTls.NoTls,
       authService: Option[AuthService] = None,
   )(testFn: (Port, DamlLedgerClient, LedgerId) => Future[A])(implicit
-      mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
   ): Future[A] = {
 
     val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
+    implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
     val ledgerF = for {
-      ledger <- Future(
-        new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId, authService, useTls), mat)
+      urlResource <- Future(
+        SandboxBackend.H2Database.owner
+          .map(info => Some(info.jdbcUrl))
+          .acquire()
       )
-      port <- ledger.portF
+      jdbcUrl <- urlResource.asFuture
+      ledger <- Future(
+        new Runner(
+          ledgerConfig(
+            Port.Dynamic,
+            dars,
+            ledgerId,
+            useTls = useTls,
+            authService = authService,
+            jdbcUrl = jdbcUrl,
+          )
+        )
+          .acquire()
+      )
+      port <- ledger.asFuture
     } yield (ledger, port)
 
     val clientF: Future[DamlLedgerClient] = for {
@@ -179,11 +196,12 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       a <- testFn(ledgerPort, client, ledgerId)
     } yield a
 
-    fa.onComplete { _ =>
-      ledgerF.foreach(_._1.close())
+    fa.transformWith { ta =>
+      ledgerF
+        .flatMap(_._1.release())
+        .fallbackTo(Future.unit)
+        .transform(_ => ta)
     }
-
-    fa
   }
 
   private def ledgerConfig(
@@ -192,10 +210,12 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       ledgerId: LedgerId,
       authService: Option[AuthService],
       useTls: UseTls,
+      jdbcUrl: Option[String],
   ): SandboxConfig =
-    sandbox.DefaultConfig.copy(
+    SandboxConfig.defaultConfig.copy(
       port = ledgerPort,
       damlPackages = dars,
+      jdbcUrl = jdbcUrl,
       timeProviderType = Some(TimeProviderType.WallClock),
       tlsConfig = if (useTls) Some(serverTlsConfig) else None,
       ledgerIdMode = LedgerIdMode.Static(ledgerId),

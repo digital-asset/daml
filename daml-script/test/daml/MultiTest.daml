@@ -6,6 +6,7 @@
 module MultiTest where
 
 import DA.List
+import DA.Time
 import Daml.Script
 
 template T
@@ -47,6 +48,12 @@ listKnownPartiesTest = do
   parties2 <- listKnownPartiesOn (ParticipantName "two")
   p1 <- allocatePartyOn "p1" (ParticipantName "one")
   p2 <- allocatePartyOn "p2" (ParticipantName "two")
+  -- Synchronize by submitting transactions in both directions. This matches
+  -- what the ledger API test tool uses for synchronization.
+  proposalCid <- submit p1 $ createCmd (TProposal p1 p2)
+  waitForCid tries p2 proposalCid
+  (tCid, _) <- submit p2 $ exerciseCmd proposalCid Accept
+  waitForCid tries p1 tCid
   parties1' <- listKnownPartiesOn (ParticipantName "one")
   parties2' <- listKnownPartiesOn (ParticipantName "two")
   pure
@@ -55,3 +62,17 @@ listKnownPartiesTest = do
     )
  where
   toTuple PartyDetails{..} = (displayName, isLocal)
+
+tries : Int
+tries = 60
+
+
+waitForCid : Template t => Int -> Party -> ContractId t -> Script ()
+waitForCid tries p cid
+  | tries <= 0 = abort $ "Cid " <> show cid <> " did not appear"
+  | otherwise = do
+    r <- queryContractId p cid
+    case r of
+      None -> waitForCid (tries - 1) p cid
+      Some _ -> pure ()
+  where delay = seconds 1

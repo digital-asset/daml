@@ -43,19 +43,22 @@ private[lf] final class CommandPreprocessor(
       choiceId: Ref.ChoiceName,
       argument: Value,
   ): speedy.Command.Exercise = {
+    import language.PackageInterface.ChoiceInfo
+
     val cid = valueTranslator.unsafeTranslateCid(contractId)
-    val choice =
-      // TODO https://github.com/digital-asset/daml/issues/10810
-      //  Push this lookup logic in PackageInterface and extend
-      //  com.daml.lf.language.LookupError accordingly
-      interface.lookupInterfaceChoice(identifier, choiceId) match {
-        case Left(_) =>
-          handleLookup(interface.lookupChoice(identifier, choiceId)).argBinder._2
-        case Right(interfaceChoice) =>
-          interfaceChoice.argBinder._2
-      }
-    val arg = valueTranslator.unsafeTranslateValue(choice, argument)
-    speedy.Command.Exercise(identifier, cid, choiceId, arg)
+    def command(id: Ref.Identifier, choice: Ast.TemplateChoiceSignature) = {
+      val arg = valueTranslator.unsafeTranslateValue(choice.argBinder._2, argument)
+      speedy.Command.Exercise(id, cid, choiceId, arg)
+    }
+
+    handleLookup(interface.lookupChoice(identifier, choiceId)) match {
+      case ChoiceInfo.Template(choice) =>
+        command(identifier, choice)
+      case ChoiceInfo.Interface(choice) =>
+        command(identifier, choice)
+      case ChoiceInfo.Inherited(ifaceId, choice) =>
+        command(ifaceId, choice)
+    }
   }
 
   @throws[Error.Preprocessing.Error]
@@ -65,7 +68,9 @@ private[lf] final class CommandPreprocessor(
       choiceId: Ref.ChoiceName,
       argument: Value,
   ): speedy.Command.ExerciseByKey = {
-    val choiceArgType = handleLookup(interface.lookupChoice(templateId, choiceId)).argBinder._2
+    val choiceArgType = handleLookup(
+      interface.lookupTemplateChoice(templateId, choiceId)
+    ).argBinder._2
     val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
     val arg = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
     val key = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
@@ -81,7 +86,9 @@ private[lf] final class CommandPreprocessor(
   ): speedy.Command.CreateAndExercise = {
     val createArg =
       valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), createArgument)
-    val choiceArgType = handleLookup(interface.lookupChoice(templateId, choiceId)).argBinder._2
+    val choiceArgType = handleLookup(
+      interface.lookupTemplateChoice(templateId, choiceId)
+    ).argBinder._2
     val choiceArg =
       valueTranslator.unsafeTranslateValue(choiceArgType, choiceArgument)
     speedy.Command
