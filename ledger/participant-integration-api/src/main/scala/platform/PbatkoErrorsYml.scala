@@ -105,7 +105,7 @@ object PbatkoErrorsYml {
       header = Array(
         "Service method",
         "gRPC error code (legacy errors)",
-        "gRPC error code (self-service errors",
+        "gRPC error code (self-service errors)",
         "Remarks",
         "Sef-service error code id",
       ))
