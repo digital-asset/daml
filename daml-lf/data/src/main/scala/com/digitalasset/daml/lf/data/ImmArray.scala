@@ -3,6 +3,7 @@
 
 package com.daml.lf.data
 
+import com.daml.scalautil.FoldableContravariant
 import com.daml.scalautil.Statement.discard
 
 import ScalazEqual.{equalBy, orderBy, toIterableForScalazInstances}
@@ -429,12 +430,13 @@ object ImmArray extends ImmArrayInstances {
   object ImmArraySeq extends ImmArraySeqCompanion {
     val Empty: ImmArraySeq[Nothing] = ImmArray.Empty.toSeq
     implicit val `immArraySeq Traverse instance`: Traverse[ImmArraySeq] = new Traverse[ImmArraySeq]
-      with Foldable.FromFoldr[ImmArraySeq] {
+      with Foldable.FromFoldr[ImmArraySeq]
+      with FoldableContravariant[ImmArraySeq, ImmArray] {
       override def map[A, B](fa: ImmArraySeq[A])(f: A => B) = fa.toImmArray.map(f).toSeq
-      override def foldLeft[A, B](fa: ImmArraySeq[A], z: B)(f: (B, A) => B) =
-        fa.foldLeft(z)(f)
-      override def foldRight[A, B](fa: ImmArraySeq[A], z: => B)(f: (A, => B) => B) =
-        fa.foldRight(z)(f(_, _))
+
+      protected[this] override def Y = Foldable[ImmArray]
+      protected[this] override def ctmap[A](xa: ImmArraySeq[A]) = xa.toImmArray
+
       override def traverseImpl[F[_], A, B](
           immArr: ImmArraySeq[A]
       )(f: A => F[B])(implicit F: Applicative[F]): F[ImmArraySeq[B]] = {
