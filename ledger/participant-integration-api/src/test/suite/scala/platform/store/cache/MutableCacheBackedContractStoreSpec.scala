@@ -20,13 +20,12 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractInstance, ValueRecord, ValueText}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.appendonlydao.events.ContractStateEvent
 import com.daml.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
 import com.daml.platform.store.cache.ContractStateValue.{Active, Archived}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.{
-  ContractNotFound,
-  EmptyContractIds,
   EventSequentialId,
   SignalNewLedgerHead,
   SubscribeToContractStateEvents,
@@ -350,7 +349,7 @@ class MutableCacheBackedContractStoreSpec
         _ = store.cacheIndex.set(unusedOffset, 2L)
         // populate the cache
         _ <- store.lookupActiveContract(Set(bob), cId_5)
-        assertion <- recoverToSucceededIf[ContractNotFound](
+        assertion <- recoverToSucceededIf[MissingContracts](
           store.lookupMaximumLedgerTime(Set(cId_1, cId_5))
         )
       } yield assertion
@@ -360,17 +359,10 @@ class MutableCacheBackedContractStoreSpec
       for {
         store <- contractStore(cachesSize = 0L).asFuture
         _ = store.cacheIndex.set(unusedOffset, 2L)
-        assertion <- recoverToSucceededIf[IllegalArgumentException](
+        assertion <- recoverToSucceededIf[MissingContracts](
           store.lookupMaximumLedgerTime(Set(cId_1, cId_5))
         )
       } yield assertion
-    }
-
-    "fail if the requested contract id set is empty" in {
-      for {
-        store <- contractStore(cachesSize = 0L).asFuture
-        _ <- recoverToSucceededIf[EmptyContractIds](store.lookupMaximumLedgerTime(Set.empty))
-      } yield succeed
     }
   }
 
@@ -496,14 +488,8 @@ object MutableCacheBackedContractStoreSpec {
     ): Future[Option[Timestamp]] = ids match {
       case setIds if setIds == Set(cId_4) =>
         Future.successful(Some(t4))
-      case set if set.isEmpty =>
-        Future.failed(EmptyContractIds())
       case _ =>
-        Future.failed(
-          new IllegalArgumentException(
-            s"The following contracts have not been found: ${ids.map(_.coid).mkString(", ")}"
-          )
-        )
+        Future.failed(MissingContracts(ids))
     }
 
     override def lookupActiveContractAndLoadArgument(
