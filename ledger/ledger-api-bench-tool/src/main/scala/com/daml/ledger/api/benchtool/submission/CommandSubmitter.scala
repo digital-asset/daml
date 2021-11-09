@@ -118,7 +118,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
     val numBatches: Int = descriptor.numberOfInstances / submissionBatchSize
     val progressMeter = CommandSubmitter.ProgressMeter(descriptor.numberOfInstances)
     // Output a log line roughly once per 10% progress, or once every 500 submissions (whichever comes first)
-    val progressLogInterval = math.min(descriptor.numberOfInstances / 10 + 1, 500)
+    val progressLogInterval = math.min(descriptor.numberOfInstances / 10 + 1, 10000)
     val progressLoggingSink = {
       var lastInterval = 0
       Sink.foreach[Int](index =>
