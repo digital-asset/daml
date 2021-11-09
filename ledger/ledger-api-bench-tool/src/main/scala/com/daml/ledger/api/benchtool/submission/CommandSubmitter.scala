@@ -197,14 +197,16 @@ object CommandSubmitter {
     }
 
     def getProgress(index: Int): String =
-      f"Progress: $index/${totalItems} (${percentage(index)}%1.1f%%). Remaining time: ${remainingSeconds(index)}%1.1f s"
+      f"Progress: $index/${totalItems} (${percentage(index)}%1.1f%%). Elapsed time: ${elapsedSeconds}%1.1f s. Remaining time: ${remainingSeconds(index)}%1.1f s"
 
     private def percentage(index: Int): Double = (index.toDouble / totalItems) * 100
+
+    private def elapsedSeconds: Double =
+      (System.currentTimeMillis() - startTimeMillis).toDouble / 1000
 
     private def remainingSeconds(index: Int): Double = {
       val remainingItems = totalItems - index
       if (remainingItems > 0) {
-        val elapsedSeconds: Double = (System.currentTimeMillis() - startTimeMillis).toDouble / 1000
         val timePerItem: Double = elapsedSeconds / index
         remainingItems * timePerItem
       } else {
