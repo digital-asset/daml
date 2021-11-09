@@ -26,6 +26,8 @@ object TransactionVersion {
   private[daml] implicit val Ordering: scala.Ordering[TransactionVersion] =
     scala.Ordering.by(_.index)
 
+  private[lf] val NoVersions: VersionRange[TransactionVersion] = VersionRange.slowEmpty(All)
+
   private[this] val stringMapping = All.iterator.map(v => v.protoValue -> v).toMap
 
   def fromString(vs: String): Either[String, TransactionVersion] =
@@ -39,7 +41,7 @@ object TransactionVersion {
     data.assertRight(fromString(vs))
 
   val minVersion: TransactionVersion = All.min
-  def maxVersion: TransactionVersion = VDev
+  val maxVersion: TransactionVersion = All.max
 
   private[lf] val minGenMap = V11
   private[lf] val minChoiceObservers = V11
@@ -63,24 +65,6 @@ object TransactionVersion {
       v1_14 -> V14,
       v1_dev -> VDev,
     )
-  }
-
-  private[lf] def asVersionedTransaction(
-      tx: Transaction
-  ): VersionedTransaction = {
-    import scala.Ordering.Implicits.infixOrderingOps
-
-    tx match {
-      case Transaction(nodes, roots) =>
-        val txVersion = roots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
-          nodes(nodeId).optVersion match {
-            case Some(version) => acc max version
-            case None => acc max TransactionVersion.minExceptions
-          }
-        )
-
-        VersionedTransaction(txVersion, nodes, roots)
-    }
   }
 
   val StableVersions: VersionRange[TransactionVersion] =

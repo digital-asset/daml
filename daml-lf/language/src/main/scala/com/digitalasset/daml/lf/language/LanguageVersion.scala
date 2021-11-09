@@ -67,7 +67,7 @@ object LanguageVersion {
 
   // All versions compatible with legacy contract ID scheme.
   val LegacyVersions: VersionRange[LanguageVersion] =
-    StableVersions.copy(max = v1_8)
+    VersionRange(StableVersions.min, max = v1_8)
 
   // All the stable and preview versions
   // Equals `Stable` if no preview version is available
@@ -76,7 +76,7 @@ object LanguageVersion {
 
   // All the versions
   val DevVersions: VersionRange[LanguageVersion] =
-    StableVersions.copy(max = v1_dev)
+    VersionRange(StableVersions.min, v1_dev)
 
   val defaultV1: LanguageVersion = StableVersions.max
 
