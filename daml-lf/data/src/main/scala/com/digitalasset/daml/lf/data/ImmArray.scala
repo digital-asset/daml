@@ -394,6 +394,12 @@ object ImmArray extends ImmArrayInstances {
         }
         .map(_.toImmArray)
     }
+
+    override def foldLeft[A, B](fa: ImmArray[A], z: B)(f: (B, A) => B) =
+      fa.foldLeft(z)(f)
+
+    override def foldRight[A, B](fa: ImmArray[A], z: => B)(f: (A, => B) => B) =
+      fa.foldRight(z)(f(_, _))
   }
 
   implicit def immArrayOrderInstance[A: Order]: Order[ImmArray[A]] = {
