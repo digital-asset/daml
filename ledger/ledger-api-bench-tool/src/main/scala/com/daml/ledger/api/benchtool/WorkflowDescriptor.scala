@@ -11,6 +11,7 @@ final case class WorkflowDescriptor(
 final case class SubmissionDescriptor(
     numberOfInstances: Int,
     numberOfObservers: Int,
+    uniqueParties: Boolean,
     instanceDistribution: List[SubmissionDescriptor.ContractDescription],
 )
 

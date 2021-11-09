@@ -30,9 +30,10 @@ object WorkflowParser {
       )(SubmissionDescriptor.ContractDescription.apply)
 
     implicit val submissionDescriptorDecoder: Decoder[SubmissionDescriptor] =
-      Decoder.forProduct3(
+      Decoder.forProduct4(
         "num_instances",
         "num_observers",
+        "unique_parties",
         "instance_distribution",
       )(SubmissionDescriptor.apply)
 

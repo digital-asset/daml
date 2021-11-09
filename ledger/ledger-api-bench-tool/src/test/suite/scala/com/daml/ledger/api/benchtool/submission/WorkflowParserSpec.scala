@@ -24,6 +24,7 @@ class WorkflowParserSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         """submission:
           |  num_instances: 123
           |  num_observers: 5
+          |  unique_parties: false
           |  instance_distribution:
           |    - template: Foo1
           |      weight: 50
@@ -43,6 +44,7 @@ class WorkflowParserSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           submission = SubmissionDescriptor(
             numberOfInstances = 123,
             numberOfObservers = 5,
+            uniqueParties = false,
             instanceDistribution = List(
               ContractDescription(
                 template = "Foo1",
@@ -73,6 +75,7 @@ class WorkflowParserSpec extends AnyWordSpec with Matchers with TableDrivenPrope
         """submission:
           |  num_instances: 1
           |  num_observers: 1
+          |  unique_parties: false
           |  instance_distribution: []
           |streams:
           |  - type: "active-contracts"
@@ -101,6 +104,7 @@ class WorkflowParserSpec extends AnyWordSpec with Matchers with TableDrivenPrope
           submission = SubmissionDescriptor(
             numberOfInstances = 1,
             numberOfObservers = 1,
+            uniqueParties = false,
             instanceDistribution = Nil,
           ),
           streams = List(

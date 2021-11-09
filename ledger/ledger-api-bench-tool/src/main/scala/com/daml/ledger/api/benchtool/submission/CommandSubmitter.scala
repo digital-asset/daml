@@ -26,7 +26,10 @@ case class CommandSubmitter(services: LedgerApiServices) {
   private val applicationId = "benchtool"
   private val workflowId = s"$applicationId-$identifierSuffix"
   private val signatoryName = s"signatory-$identifierSuffix"
-  private def observerName(index: Int): String = s"Obs-$index-$identifierSuffix"
+  private def observerName(index: Int, uniqueParties: Boolean): String = {
+    if (uniqueParties) s"Obs-$index-$identifierSuffix"
+    else s"Obs-$index"
+  }
   private def commandId(index: Int): String = s"command-$index-$identifierSuffix"
   private def darId(index: Int) = s"submission-dars-$index-$identifierSuffix"
 
@@ -39,7 +42,10 @@ case class CommandSubmitter(services: LedgerApiServices) {
       _ <- Future.successful(logger.info("Generating contracts..."))
       _ <- Future.successful(logger.info(s"Identifier suffix: $identifierSuffix"))
       signatory <- allocateParty(signatoryName)
-      observers <- allocateParties(descriptor.numberOfObservers, observerName)
+      observers <- allocateParties(
+        number = descriptor.numberOfObservers,
+        name = index => observerName(index, descriptor.uniqueParties),
+      )
       _ <- uploadTestDars()
       _ <- submitCommands(
         descriptor,
