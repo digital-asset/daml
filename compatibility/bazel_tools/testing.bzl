@@ -546,6 +546,18 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        # Self-service error code assertions adapted
+        "end": "1.18.0-snapshot.20211102.8257.1",
+        "platform_ranges": [
+            {
+                "start": "1.18.0-snapshot.20211102.8257.1",
+                "exclusions": [
+                    "PackageManagementServiceIT",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
