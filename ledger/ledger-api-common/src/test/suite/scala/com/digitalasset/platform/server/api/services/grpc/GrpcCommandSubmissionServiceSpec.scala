@@ -16,6 +16,7 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.telemetry.{SpanAttribute, TelemetryContext, TelemetrySpecBase}
+import org.mockito.captor.ArgCaptor
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -29,31 +30,20 @@ class GrpcCommandSubmissionServiceSpec
     with Matchers
     with ArgumentMatchersSugar {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+  private val errorCodesVersionSwitcher_mock = mock[ErrorCodesVersionSwitcher]
+  private val generatedSubmissionId = "generated-submission-id"
 
   import GrpcCommandSubmissionServiceSpec._
-
-  private val errorCodesVersionSwitcher_mock = mock[ErrorCodesVersionSwitcher]
-
   "GrpcCommandSubmissionService" should {
     "propagate trace context" in {
+      val span = anEmptySpan()
+      val scope = span.makeCurrent()
       val mockCommandSubmissionService = mock[CommandSubmissionService with AutoCloseable]
       when(mockCommandSubmissionService.submit(any[SubmitRequest])(any[TelemetryContext]))
         .thenReturn(Future.unit)
-      val grpcCommandSubmissionService = new GrpcCommandSubmissionService(
-        mockCommandSubmissionService,
-        ledgerId = LedgerId(ledgerId),
-        currentLedgerTime = () => Instant.EPOCH,
-        currentUtcTime = () => Instant.EPOCH,
-        maxDeduplicationTime = () => Some(Duration.ZERO),
-        submissionIdGenerator = () => Ref.SubmissionId.assertFromString("submissionId"),
-        metrics = new Metrics(new MetricRegistry),
-        errorCodesVersionSwitcher = errorCodesVersionSwitcher_mock,
-      )
 
-      val span = anEmptySpan()
-      val scope = span.makeCurrent()
       try {
-        grpcCommandSubmissionService
+        grpcCommandSubmissionService(mockCommandSubmissionService)
           .submit(aSubmitRequest)
           .map { _ =>
             val spanAttributes = spanExporter.finishedSpanAttributes
@@ -67,7 +57,55 @@ class GrpcCommandSubmissionServiceSpec
         span.end()
       }
     }
+
+    "propagate submission id" in {
+      val expectedSubmissionId = "explicitSubmissionId"
+      val requestWithSubmissionId = submitRequest.copy(
+        commands =
+          Some(commands.copy(commands = Seq(aCommand), submissionId = expectedSubmissionId))
+      )
+      val requestCaptor = ArgCaptor[com.daml.ledger.api.messages.command.submission.SubmitRequest]
+      val mockCommandSubmissionService = mock[CommandSubmissionService with AutoCloseable]
+      when(mockCommandSubmissionService.submit(any[SubmitRequest])(any[TelemetryContext]))
+        .thenReturn(Future.unit)
+
+      grpcCommandSubmissionService(mockCommandSubmissionService)
+        .submit(requestWithSubmissionId)
+        .map { _ =>
+          verify(mockCommandSubmissionService).submit(requestCaptor.capture)(any[TelemetryContext])
+          requestCaptor.value.commands.submissionId shouldBe Some(expectedSubmissionId)
+        }
+    }
+
+    "set submission id if empty" in {
+      val requestCaptor = ArgCaptor[com.daml.ledger.api.messages.command.submission.SubmitRequest]
+
+      val mockCommandSubmissionService = mock[CommandSubmissionService with AutoCloseable]
+      when(mockCommandSubmissionService.submit(any[SubmitRequest])(any[TelemetryContext]))
+        .thenReturn(Future.unit)
+
+      grpcCommandSubmissionService(mockCommandSubmissionService)
+        .submit(aSubmitRequest)
+        .map { _ =>
+          verify(mockCommandSubmissionService).submit(requestCaptor.capture)(any[TelemetryContext])
+          requestCaptor.value.commands.submissionId shouldBe Some(generatedSubmissionId)
+        }
+    }
   }
+
+  private def grpcCommandSubmissionService(
+      commandSubmissionService: CommandSubmissionService with AutoCloseable
+  ) =
+    new GrpcCommandSubmissionService(
+      commandSubmissionService,
+      ledgerId = LedgerId(ledgerId),
+      currentLedgerTime = () => Instant.EPOCH,
+      currentUtcTime = () => Instant.EPOCH,
+      maxDeduplicationTime = () => Some(Duration.ZERO),
+      submissionIdGenerator = () => Ref.SubmissionId.assertFromString(generatedSubmissionId),
+      metrics = new Metrics(new MetricRegistry),
+      errorCodesVersionSwitcher = errorCodesVersionSwitcher_mock,
+    )
 }
 
 object GrpcCommandSubmissionServiceSpec {
