@@ -3,7 +3,11 @@
 
 package com.daml.platform.server.api.validation
 
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.daml.ledger.api.v1.active_contracts_service.{
@@ -23,6 +27,7 @@ class ActiveContractsServiceValidation(
     protected val service: ActiveContractsService with AutoCloseable,
     val ledgerId: LedgerId,
     fieldValidations: FieldValidations,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends ActiveContractsService
     with ProxyCloseable
@@ -39,7 +44,11 @@ class ActiveContractsServiceValidation(
     fieldValidations
       .matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .fold(
-        t => responseObserver.onError(ValidationLogger.logFailure(request, t)),
+        t =>
+          responseObserver.onError(
+            ValidationLogger
+              .logFailure(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(request, t)
+          ),
         _ => service.getActiveContracts(request, responseObserver),
       )
 

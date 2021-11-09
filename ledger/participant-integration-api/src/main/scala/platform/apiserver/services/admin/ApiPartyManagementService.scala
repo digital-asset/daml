@@ -115,7 +115,10 @@ private[apiserver] final class ApiPartyManagementService private (
                 error =>
                   Future.failed(
                     ValidationLogger
-                      .logFailureWithContext(request, errorFactories.invalidArgument(None)(error))
+                      .logFailureWithContext(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(
+                        request,
+                        errorFactories.invalidArgument(None)(error),
+                      )
                   ),
                 party => Future.successful(Some(party)),
               )

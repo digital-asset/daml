@@ -6,21 +6,29 @@ package com.daml.platform.server.api
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 object ValidationLogger {
-  def logFailure[Request](request: Request, t: Throwable)(implicit
+  def logFailure[Request](
+      selfServiceErrorCodesEnabled: Boolean
+  )(request: Request, t: Throwable)(implicit
       logger: ContextualizedLogger,
       loggingContext: LoggingContext,
   ): Throwable = {
     logger.debug(s"Request validation failed for $request. Message: ${t.getMessage}")
-    logger.info(t.getMessage)
+    if (!selfServiceErrorCodesEnabled) {
+      logger.info(t.getMessage)
+    }
     t
   }
 
-  def logFailureWithContext[Request, T <: Throwable](request: Request, t: T)(implicit
+  def logFailureWithContext[Request, T <: Throwable](
+      selfServiceErrorCodesEnabled: Boolean
+  )(request: Request, t: T)(implicit
       logger: ContextualizedLogger,
       loggingContext: LoggingContext,
   ): T = {
     logger.debug(s"Request validation failed for $request. Message: ${t.getMessage}")
-    logger.info(t.getMessage)
+    if (!selfServiceErrorCodesEnabled) {
+      logger.info(t.getMessage)
+    }
     t
   }
 }

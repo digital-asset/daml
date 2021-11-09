@@ -62,7 +62,7 @@ private[apiserver] final class ApiCommandCompletionService private (
               response => LoggingEntries("response" -> responseToLoggingValue(response)),
             )
           )
-          .via(logger.logErrorsOnStream)
+          .via(logger.logErrorsOnStream(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
           .via(StreamMetrics.countElements(metrics.daml.lapi.streams.completions))
     }
 

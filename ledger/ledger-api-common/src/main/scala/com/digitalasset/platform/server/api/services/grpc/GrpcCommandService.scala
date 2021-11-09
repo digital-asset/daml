@@ -49,7 +49,13 @@ class GrpcCommandService(
         maxDeduplicationTime(),
       )(contextualizedErrorLogger(requestWithSubmissionId))
       .fold(
-        t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
+        t =>
+          Future.failed(
+            ValidationLogger.logFailure(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(
+              requestWithSubmissionId,
+              t,
+            )
+          ),
         _ => service.submitAndWait(requestWithSubmissionId),
       )
   }
@@ -66,7 +72,13 @@ class GrpcCommandService(
         maxDeduplicationTime(),
       )(contextualizedErrorLogger(requestWithSubmissionId))
       .fold(
-        t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
+        t =>
+          Future.failed(
+            ValidationLogger.logFailure(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(
+              requestWithSubmissionId,
+              t,
+            )
+          ),
         _ => service.submitAndWaitForTransactionId(requestWithSubmissionId),
       )
   }
@@ -83,7 +95,13 @@ class GrpcCommandService(
         maxDeduplicationTime(),
       )(contextualizedErrorLogger(requestWithSubmissionId))
       .fold(
-        t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
+        t =>
+          Future.failed(
+            ValidationLogger.logFailure(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(
+              requestWithSubmissionId,
+              t,
+            )
+          ),
         _ => service.submitAndWaitForTransaction(requestWithSubmissionId),
       )
   }
@@ -100,7 +118,13 @@ class GrpcCommandService(
         maxDeduplicationTime(),
       )(contextualizedErrorLogger(requestWithSubmissionId))
       .fold(
-        t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
+        t =>
+          Future.failed(
+            ValidationLogger.logFailure(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(
+              requestWithSubmissionId,
+              t,
+            )
+          ),
         _ => service.submitAndWaitForTransactionTree(requestWithSubmissionId),
       )
   }

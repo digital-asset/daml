@@ -35,6 +35,7 @@ private[apiserver] final class ApiActiveContractsService private (
     backend: ACSBackend,
     metrics: Metrics,
     transactionFilterValidator: TransactionFilterValidator,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -53,14 +54,19 @@ private[apiserver] final class ApiActiveContractsService private (
     transactionFilterValidator
       .validate(request.getFilter)
       .fold(
-        t => Source.failed(ValidationLogger.logFailureWithContext(request, t)),
+        t =>
+          Source.failed(
+            ValidationLogger.logFailureWithContext(
+              errorCodesVersionSwitcher.enableSelfServiceErrorCodes
+            )(request, t)
+          ),
         filters =>
           withEnrichedLoggingContext(logging.filters(filters)) { implicit loggingContext =>
             logger.info(s"Received request for active contracts: $request")
             backend.getActiveContracts(filters, request.verbose)
           },
       )
-      .via(logger.logErrorsOnStream)
+      .via(logger.logErrorsOnStream(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.acs))
 
   override def bindService(): ServerServiceDefinition =
@@ -86,11 +92,13 @@ private[apiserver] object ApiActiveContractsService {
       backend = backend,
       metrics = metrics,
       transactionFilterValidator = new TransactionFilterValidator(errorFactories),
+      errorCodesVersionSwitcher = errorCodesVersionSwitcher,
     )
     new ActiveContractsServiceValidation(
       service = service,
       ledgerId = ledgerId,
       fieldValidations = field,
+      errorCodesVersionSwitcher = errorCodesVersionSwitcher,
     ) with BindableService {
       override def bindService(): ServerServiceDefinition =
         ActiveContractsServiceGrpc.bindService(this, executionContext)

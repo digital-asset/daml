@@ -54,23 +54,21 @@ final class ContextualizedLogger private (val withoutContext: Logger) {
 
   def logErrorsOnCall[Out](selfServiceErrorCodesEnabled: Boolean)(implicit
       loggingContext: LoggingContext
-  ): PartialFunction[Try[Out], Unit] =
-    if (selfServiceErrorCodesEnabled) { case _ =>
-      ()
-    }
-    else {
-      case Failure(e @ GrpcException(s, _)) =>
-        if (internalOrUnknown(s.getCode)) {
-          logError(e)
-        }
-      case Failure(NonFatal(e)) =>
+  ): PartialFunction[Try[Out], Unit] = {
+    case Failure(e @ GrpcException(s, _)) =>
+      if (internalOrUnknown(s.getCode) && !selfServiceErrorCodesEnabled) {
         logError(e)
-    }
+      }
+    case Failure(NonFatal(e)) =>
+      logError(e)
+  }
 
-  def logErrorsOnStream[Out](implicit loggingContext: LoggingContext): Flow[Out, Out, NotUsed] =
+  def logErrorsOnStream[Out](
+      selfServiceErrorCodesEnabled: Boolean
+  )(implicit loggingContext: LoggingContext): Flow[Out, Out, NotUsed] =
     Flow[Out].mapError {
       case e @ GrpcException(s, _) =>
-        if (internalOrUnknown(s.getCode)) {
+        if (internalOrUnknown(s.getCode) && !selfServiceErrorCodesEnabled) {
           logError(e)
         }
         e

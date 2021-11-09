@@ -3,7 +3,11 @@
 
 package com.daml.platform.server.api.validation
 
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.daml.ledger.api.v1.ledger_configuration_service.{
@@ -23,6 +27,7 @@ class LedgerConfigurationServiceValidation(
     protected val service: LedgerConfigurationService with GrpcApiService,
     protected val ledgerId: LedgerId,
     fieldValidations: FieldValidations,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends LedgerConfigurationService
     with ProxyCloseable
@@ -39,7 +44,11 @@ class LedgerConfigurationServiceValidation(
     fieldValidations
       .matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .fold(
-        t => responseObserver.onError(ValidationLogger.logFailure(request, t)),
+        t =>
+          responseObserver.onError(
+            ValidationLogger
+              .logFailure(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(request, t)
+          ),
         _ => service.getLedgerConfiguration(request, responseObserver),
       )
 

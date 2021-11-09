@@ -58,7 +58,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       loggingContext: LoggingContext,
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
-      v1 = ValidationLogger.logFailureWithContext(
+      v1 = ValidationLogger.logFailureWithContext(selfServiceErrorCodesEnabled = false)(
         request,
         io.grpc.Status.INVALID_ARGUMENT
           .withDescription(message)

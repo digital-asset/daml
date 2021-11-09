@@ -61,7 +61,11 @@ class GrpcCommandCompletionService(
       validator
         .validateCompletionStreamRequest(request, ledgerEnd)
         .fold(
-          t => Source.failed[CompletionStreamResponse](ValidationLogger.logFailure(request, t)),
+          t =>
+            Source.failed[CompletionStreamResponse](
+              ValidationLogger
+                .logFailure(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(request, t)
+            ),
           GrpcCommandCompletionService.fillInWithDefaults _ andThen service.completionStreamSource,
         )
     }
@@ -71,7 +75,11 @@ class GrpcCommandCompletionService(
     validator
       .validateCompletionEndRequest(request)
       .fold(
-        t => Future.failed[CompletionEndResponse](ValidationLogger.logFailure(request, t)),
+        t =>
+          Future.failed[CompletionEndResponse](
+            ValidationLogger
+              .logFailure(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(request, t)
+          ),
         req =>
           service
             .getLedgerEnd(req.ledgerId)

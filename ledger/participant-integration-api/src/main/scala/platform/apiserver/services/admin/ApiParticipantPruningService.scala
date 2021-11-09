@@ -62,7 +62,11 @@ final class ApiParticipantPruningService private (
       )
 
     submissionIdOrErr.fold(
-      t => Future.failed(ValidationLogger.logFailure(request, t)),
+      t =>
+        Future.failed(
+          ValidationLogger
+            .logFailure(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(request, t)
+        ),
       submissionId =>
         LoggingContext.withEnrichedLoggingContext(logging.submissionId(submissionId)) {
           implicit loggingContext =>
@@ -101,7 +105,12 @@ final class ApiParticipantPruningService private (
       pruneUpTo <- checkOffsetIsHexadecimal(pruneUpToString)
     } yield (pruneUpTo, pruneUpToString))
       .fold(
-        t => Future.failed(ValidationLogger.logFailureWithContext(request, t)),
+        t =>
+          Future.failed(
+            ValidationLogger.logFailureWithContext(
+              errorCodesVersionSwitcher.enableSelfServiceErrorCodes
+            )(request, t)
+          ),
         o => checkOffsetIsBeforeLedgerEnd(o._1, o._2),
       )
   }

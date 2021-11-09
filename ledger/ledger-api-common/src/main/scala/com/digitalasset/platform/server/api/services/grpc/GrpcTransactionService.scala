@@ -6,7 +6,11 @@ package com.daml.platform.server.api.services.grpc
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -26,7 +30,7 @@ final class GrpcTransactionService(
     protected val service: TransactionService,
     val ledgerId: LedgerId,
     partyNameChecker: PartyNameChecker,
-    errorFactories: ErrorFactories,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
     protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
@@ -39,6 +43,7 @@ final class GrpcTransactionService(
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
   private val validator =
     new TransactionServiceRequestValidator(ledgerId, partyNameChecker, errorFactories)
 
@@ -50,7 +55,11 @@ final class GrpcTransactionService(
       val validation = validator.validate(request, ledgerEnd)
 
       validation.fold(
-        t => Source.failed(ValidationLogger.logFailure(request, t)),
+        t =>
+          Source.failed(
+            ValidationLogger
+              .logFailure(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(request, t)
+          ),
         req =>
           if (req.filter.filtersByParty.isEmpty) Source.empty
           else service.getTransactions(req),
@@ -66,7 +75,11 @@ final class GrpcTransactionService(
       val validation = validator.validateTree(request, ledgerEnd)
 
       validation.fold(
-        t => Source.failed(ValidationLogger.logFailure(request, t)),
+        t =>
+          Source.failed(
+            ValidationLogger
+              .logFailure(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(request, t)
+          ),
         req => {
           if (req.parties.isEmpty) Source.empty
           else service.getTransactionTrees(req)
@@ -80,7 +93,14 @@ final class GrpcTransactionService(
       validate: Request => Result[DomainRequest],
       fetch: DomainRequest => Future[Response],
   ): Future[Response] =
-    validate(request).fold(t => Future.failed(ValidationLogger.logFailure(request, t)), fetch(_))
+    validate(request).fold(
+      t =>
+        Future.failed(
+          ValidationLogger
+            .logFailure(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(request, t)
+        ),
+      fetch(_),
+    )
 
   override def getTransactionByEventId(
       request: GetTransactionByEventIdRequest
@@ -126,7 +146,11 @@ final class GrpcTransactionService(
     val validation = validator.validateLedgerEnd(request)
 
     validation.fold(
-      t => Future.failed(ValidationLogger.logFailure(request, t)),
+      t =>
+        Future.failed(
+          ValidationLogger
+            .logFailure(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(request, t)
+        ),
       _ =>
         service
           .getLedgerEnd(request.ledgerId)

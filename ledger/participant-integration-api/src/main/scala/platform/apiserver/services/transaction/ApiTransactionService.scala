@@ -59,7 +59,7 @@ private[apiserver] object ApiTransactionService {
       new ApiTransactionService(transactionsService, metrics, errorsVersionsSwitcher),
       ledgerId,
       PartyNameChecker.AllowAllParties,
-      ErrorFactories(errorsVersionsSwitcher),
+      errorCodesVersionSwitcher = errorsVersionsSwitcher,
     )
 }
 
@@ -97,7 +97,7 @@ private[apiserver] final class ApiTransactionService private (
     transactionsService
       .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
       .via(logger.debugStream(transactionsLoggable))
-      .via(logger.logErrorsOnStream)
+      .via(logger.logErrorsOnStream(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
   }
 
@@ -122,7 +122,7 @@ private[apiserver] final class ApiTransactionService private (
         request.verbose,
       )
       .via(logger.debugStream(transactionTreesLoggable))
-      .via(logger.logErrorsOnStream)
+      .via(logger.logErrorsOnStream(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
       .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactionTrees))
   }
 

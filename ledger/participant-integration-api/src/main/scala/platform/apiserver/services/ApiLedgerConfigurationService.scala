@@ -24,7 +24,8 @@ import io.grpc.{BindableService, ServerServiceDefinition}
 import scala.concurrent.ExecutionContext
 
 private[apiserver] final class ApiLedgerConfigurationService private (
-    configurationService: IndexConfigurationService
+    configurationService: IndexConfigurationService,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
     protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
@@ -50,7 +51,7 @@ private[apiserver] final class ApiLedgerConfigurationService private (
           )
         )
       )
-      .via(logger.logErrorsOnStream)
+      .via(logger.logErrorsOnStream(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
   }
 
   override def bindService(): ServerServiceDefinition =
@@ -70,9 +71,10 @@ private[apiserver] object ApiLedgerConfigurationService {
   ): LedgerConfigurationServiceGrpc.LedgerConfigurationService with GrpcApiService = {
     val fieldValidations = FieldValidations(ErrorFactories(errorCodesVersionSwitcher))
     new LedgerConfigurationServiceValidation(
-      service = new ApiLedgerConfigurationService(configurationService),
+      service = new ApiLedgerConfigurationService(configurationService, errorCodesVersionSwitcher),
       ledgerId = ledgerId,
       fieldValidations = fieldValidations,
+      errorCodesVersionSwitcher = errorCodesVersionSwitcher,
     ) with BindableService {
       override def bindService(): ServerServiceDefinition =
         LedgerConfigurationServiceGrpc.bindService(this, executionContext)

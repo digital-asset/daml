@@ -3,7 +3,11 @@
 
 package com.daml.platform.server.api.validation
 
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service._
@@ -18,12 +22,13 @@ import scala.concurrent.{ExecutionContext, Future}
 class PackageServiceValidation(
     protected val service: PackageService with AutoCloseable,
     val ledgerId: LedgerId,
-    fieldValidations: FieldValidations,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends PackageService
     with ProxyCloseable
     with GrpcApiService {
 
+  private val fieldValidations = FieldValidations(ErrorFactories(errorCodesVersionSwitcher))
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
@@ -33,7 +38,11 @@ class PackageServiceValidation(
       .matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .map(const(request))
       .fold(
-        t => Future.failed(ValidationLogger.logFailure(request, t)),
+        t =>
+          Future.failed(
+            ValidationLogger
+              .logFailure(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(request, t)
+          ),
         service.listPackages,
       )
 
@@ -42,7 +51,11 @@ class PackageServiceValidation(
       .matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .map(const(request))
       .fold(
-        t => Future.failed(ValidationLogger.logFailure(request, t)),
+        t =>
+          Future.failed(
+            ValidationLogger
+              .logFailure(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(request, t)
+          ),
         service.getPackage,
       )
 
@@ -53,7 +66,11 @@ class PackageServiceValidation(
       .matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .map(const(request))
       .fold(
-        t => Future.failed(ValidationLogger.logFailure(request, t)),
+        t =>
+          Future.failed(
+            ValidationLogger
+              .logFailure(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(request, t)
+          ),
         service.getPackageStatus,
       )
   override def bindService(): ServerServiceDefinition =

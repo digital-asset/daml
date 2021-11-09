@@ -73,7 +73,11 @@ class GrpcCommandSubmissionService(
           )(errorLogger),
         )
         .fold(
-          t => Future.failed(ValidationLogger.logFailure(request, t)),
+          t =>
+            Future.failed(
+              ValidationLogger
+                .logFailure(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(request, t)
+            ),
           service.submit(_).map(_ => Empty.defaultInstance),
         ),
     )
