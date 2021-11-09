@@ -337,12 +337,12 @@ test('create + fetch & exercise', async () => {
 
 });
 
+
 // TODO https://github.com/digital-asset/daml/issues/10810
-// Reenable test
-/*
+// Reenable full test when JSON API can handle interface contract IDs.
 test("interfaces", async () => {
   const aliceLedger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
-  const bobLedger = new Ledger({token: BOB_TOKEN, httpBaseUrl: httpBaseUrl()});
+  // const bobLedger = new Ledger({token: BOB_TOKEN, httpBaseUrl: httpBaseUrl()});
 
   const assetPayload = {
     issuer: ALICE_PARTY,
@@ -350,24 +350,30 @@ test("interfaces", async () => {
   }
   const ifaceContract = await aliceLedger.create(buildAndLint.Main.Asset, assetPayload);
   expect(ifaceContract.payload).toEqual(assetPayload);
-  const [ifaceContract1, events1] = await aliceLedger.exercise(buildAndLint.Main.Asset.Transfer, ifaceContract.contractId, {newOwner: BOB_PARTY});
-  expect(events1).toMatchObject(
-    [ {archived: {templateId: buildAndLint.Main.Asset.templateId}},
-      {created: {templateId: buildAndLint.Main.Asset.templateId,
-       signatories: [ALICE_PARTY],
-       payload: {issuer: ALICE_PARTY, owner: BOB_PARTY}}}
-    ]
-  )
-  const [,events2] = await bobLedger.exercise(buildAndLint.Main.Asset.Transfer, ifaceContract1 as unknown as ContractId<buildAndLint.Main.Asset>, {newOwner: ALICE_PARTY});
-  expect(events2).toMatchObject(
-    [ {archived: {templateId: buildAndLint.Main.Asset.templateId}},
-      {created: {templateId: buildAndLint.Main.Asset.templateId,
-       signatories: [ALICE_PARTY],
-       payload: {issuer: ALICE_PARTY, owner: ALICE_PARTY}}}
-    ]
-  )
+  try {
+  const [, ] = await aliceLedger.exercise(buildAndLint.Main.Asset.Transfer, ifaceContract.contractId, {newOwner: BOB_PARTY});
+  } catch (ex) {
+      expect([400]).toContain(ex.status);
+      // currently the JSON API can't handle interface contract IDs in the response and returns a
+      // 400 error.
+      expect(ex.errors.length).toBe(1);
+  }
+  // expect(events1).toMatchObject(
+  //   [ {archived: {templateId: buildAndLint.Main.Asset.templateId}},
+  //     {created: {templateId: buildAndLint.Main.Asset.templateId,
+  //      signatories: [ALICE_PARTY],
+  //      payload: {issuer: ALICE_PARTY, owner: BOB_PARTY}}}
+  //   ]
+  // )
+  // const [,events2] = await bobLedger.exercise(buildAndLint.Main.Token.Transfer, ifaceContract1, {newOwner: ALICE_PARTY});
+  // expect(events2).toMatchObject(
+  //   [ {archived: {templateId: buildAndLint.Main.Asset.templateId}},
+  //     {created: {templateId: buildAndLint.Main.Asset.templateId,
+  //      signatories: [ALICE_PARTY],
+  //      payload: {issuer: ALICE_PARTY, owner: ALICE_PARTY}}}
+  //   ]
+  // )
 });
-*/
 
 test("createAndExercise", async () => {
   const ledger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
