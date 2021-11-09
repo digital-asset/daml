@@ -125,7 +125,7 @@ private[appendonlydao] case class SequentialWriteDaoImpl[DB_BATCH](
         }
 
       dbDtosWithStringInterning
-        .pipe(ingestionStorageBackend.batch)
+        .pipe(ingestionStorageBackend.batch(_, stringInterningView))
         .pipe(ingestionStorageBackend.insertBatch(connection, _))
 
       parameterStorageBackend.updateLedgerEnd(
