@@ -356,24 +356,7 @@ private[kvutils] object TransactionRejections {
           "upper_bound" -> ledgerTimeUpperBound.toString,
         ),
       ),
-      V2.invalidLedgerTimeStatus(
-        details,
-        ledger_time = Instant
-          .ofEpochSecond(
-            ledgerTime.getSeconds,
-            ledgerTime.getNanos.toLong,
-          ),
-        ledger_time_lower_bound = Instant
-          .ofEpochSecond(
-            ledgerTimeLowerBound.getSeconds,
-            ledgerTimeLowerBound.getNanos.toLong,
-          ),
-        ledger_time_upper_bound = Instant
-          .ofEpochSecond(
-            ledgerTimeUpperBound.getSeconds,
-            ledgerTimeUpperBound.getNanos.toLong,
-          ),
-      ),
+      V2.invalidLedgerTimeStatus(details),
     )
   }
 
@@ -574,13 +557,10 @@ private[kvutils] object TransactionRejections {
 
     @deprecated
     def invalidLedgerTimeStatus(
-        details: String,
-        ledger_time: Instant,
-        ledger_time_lower_bound: Instant,
-        ledger_time_upper_bound: Instant,
+        details: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
       KVErrors.Deprecated.Time.InvalidLedgerTime
-        .Reject(details, ledger_time, ledger_time_lower_bound, ledger_time_upper_bound)
+        .Reject(details)
         .asStatus
 
     @deprecated

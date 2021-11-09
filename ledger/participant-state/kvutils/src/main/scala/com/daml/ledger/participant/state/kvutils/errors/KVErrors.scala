@@ -61,12 +61,12 @@ object KVErrors extends LedgerApiErrorGroup {
           ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
         ) {
       case class Reject(
-          minimum_record_time: Instant,
-          maximum_record_time: Instant,
+          minimumRecordTime: Instant,
+          maximumRecordTime: Instant,
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends KVLoggingTransactionErrorImpl(
             cause =
-              s"Invalid ledger time: Record time is outside of valid range [$minimum_record_time, $maximum_record_time]"
+              s"Invalid ledger time: Record time is outside of valid range [$minimumRecordTime, $maximumRecordTime]"
           )
     }
 
@@ -163,13 +163,13 @@ object KVErrors extends LedgerApiErrorGroup {
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing, // It may become known at a later time
         ) {
       case class Reject(
-          submitter_party: String
+          submitterParty: String
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends KVLoggingTransactionErrorImpl(
-            cause = s"Party not known on ledger: Submitting party '$submitter_party' not known"
+            cause = s"Party not known on ledger: Submitting party '$submitterParty' not known"
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
-          ErrorResource.Party -> submitter_party
+          ErrorResource.Party -> submitterParty
         )
       }
     }
@@ -383,10 +383,7 @@ object KVErrors extends LedgerApiErrorGroup {
             ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
           ) {
         case class Reject(
-            details: String,
-            ledger_time: Instant,
-            ledger_time_lower_bound: Instant,
-            ledger_time_upper_bound: Instant,
+            details: String
         )(implicit loggingContext: ContextualizedErrorLogger)
             extends KVLoggingTransactionErrorImpl(cause = s"Invalid ledger time: $details")
       }
