@@ -641,10 +641,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     ) extends LoggingTransactionErrorImpl(
           cause = s"Daml-Engine interpretation failed with internal error: ${where} / ${message}"
         )
-
-    case class Error(override val cause: String)(implicit
-        loggingContext: ContextualizedErrorLogger
-    ) extends LoggingTransactionErrorImpl(cause = cause)
   }
 
   // The "NonHexOffset" error code is currently only used by canton, but should also be used by the ledger api services,
@@ -687,7 +683,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     @Explanation("One or more informee parties have not been allocated.")
     @Resolution(
       "Check that all the informee party identifiers are correct, allocate all the informee parties, " +
-        "request their allocation or wait for them to be allocated before retrying the transactiomn submission."
+        "request their allocation or wait for them to be allocated before retrying the transaction submission."
     )
     object PartyNotKnownOnLedger
         extends ErrorCode(
@@ -721,6 +717,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         "without an archived contract as an input, or the transaction submission may be retried " +
         "to load the up-to-date value of a contract key."
     )
+    @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
     object Inconsistent
         extends ErrorCode(
           id = "INCONSISTENT",

@@ -21,6 +21,7 @@ import spray.json._
 import java.io.BufferedReader
 import java.sql.{PreparedStatement, Types}
 import java.util.stream.Collectors
+import scala.annotation.nowarn
 
 // TODO append-only: split this file on cleanup, and move anorm/db conversion related stuff to the right place
 
@@ -328,6 +329,7 @@ private[platform] object Conversions {
   }
 
   implicit class RejectionReasonOps(rejectionReason: domain.RejectionReason) {
+    @nowarn("msg=deprecated")
     def toParticipantStateRejectionReason(
         errorFactories: ErrorFactories
     )(implicit
@@ -336,45 +338,45 @@ private[platform] object Conversions {
       rejectionReason match {
         case domain.RejectionReason.ContractsNotFound(missingContractIds) =>
           CommandRejected.FinalReason(
-            errorFactories.SandboxClassicRejectionStatus.contractsNotFound(missingContractIds)
+            errorFactories.CommandRejections.contractsNotFound(missingContractIds)
           )
         case domain.RejectionReason.Inconsistent(reason) =>
           CommandRejected.FinalReason(
-            errorFactories.SandboxClassicRejectionStatus.Deprecated.inconsistent(reason)
+            errorFactories.CommandRejections.Deprecated.inconsistent(reason)
           )
         case domain.RejectionReason.InconsistentContractKeys(lookupResult, currentResult) =>
           CommandRejected.FinalReason(
-            errorFactories.SandboxClassicRejectionStatus
+            errorFactories.CommandRejections
               .inconsistentContractKeys(lookupResult, currentResult)
           )
         case rejection @ domain.RejectionReason.DuplicateContractKey(key) =>
           CommandRejected.FinalReason(
-            errorFactories.SandboxClassicRejectionStatus
+            errorFactories.CommandRejections
               .duplicateContractKey(rejection.description, key)
           )
         case domain.RejectionReason.Disputed(reason) =>
           CommandRejected.FinalReason(
-            errorFactories.SandboxClassicRejectionStatus.Deprecated.disputed(reason)
+            errorFactories.CommandRejections.Deprecated.disputed(reason)
           )
         case domain.RejectionReason.OutOfQuota(reason) =>
           CommandRejected.FinalReason(
-            errorFactories.SandboxClassicRejectionStatus.Deprecated.outOfQuota(reason)
+            errorFactories.CommandRejections.Deprecated.outOfQuota(reason)
           )
         case domain.RejectionReason.PartiesNotKnownOnLedger(parties) =>
           CommandRejected.FinalReason(
-            errorFactories.SandboxClassicRejectionStatus.partiesKnownToLedger(parties)
+            errorFactories.CommandRejections.partiesKnownToLedger(parties)
           )
-        case domain.RejectionReason.PartyNotKnownOnLedger(parties) =>
+        case domain.RejectionReason.PartyNotKnownOnLedger(description) =>
           CommandRejected.FinalReason(
-            errorFactories.SandboxClassicRejectionStatus.Deprecated.partyNotKnownOnLedger(parties)
+            errorFactories.CommandRejections.Deprecated.partyNotKnownOnLedger(description)
           )
         case domain.RejectionReason.SubmitterCannotActViaParticipant(reason) =>
           CommandRejected.FinalReason(
-            errorFactories.SandboxClassicRejectionStatus.submitterCannotActViaParticipant(reason)
+            errorFactories.CommandRejections.submitterCannotActViaParticipant(reason)
           )
         case domain.RejectionReason.InvalidLedgerTime(reason) =>
           CommandRejected.FinalReason(
-            errorFactories.SandboxClassicRejectionStatus.invalidLedgerTime(reason)
+            errorFactories.CommandRejections.invalidLedgerTime(reason)
           )
       }
   }

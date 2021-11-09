@@ -14,7 +14,6 @@ import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.server.api.validation.ErrorFactories._
-import com.google.protobuf
 import com.google.rpc._
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
@@ -43,7 +42,7 @@ class ErrorFactoriesSpec
   private val DefaultTraceIdRequestInfo: ErrorDetails.RequestInfoDetail =
     ErrorDetails.RequestInfoDetail("trace-id")
 
-  val tested = ErrorFactories(mock[ErrorCodesVersionSwitcher])
+  private val tested = ErrorFactories(mock[ErrorCodesVersionSwitcher])
 
   "ErrorFactories" should {
     "return sqlTransientException" in {
@@ -566,7 +565,7 @@ class ErrorFactoriesSpec
   private def assertV1Error(
       statusRuntimeException: StatusRuntimeException
   )(expectedCode: Code, expectedMessage: String, expectedDetails: Seq[Any]): Unit = {
-    val status: Status = StatusProto.fromThrowable(statusRuntimeException)
+    val status = StatusProto.fromThrowable(statusRuntimeException)
     status.getCode shouldBe expectedCode.value()
     status.getMessage shouldBe expectedMessage
     val _ = status.getDetailsList.asScala shouldBe expectedDetails
@@ -582,7 +581,7 @@ class ErrorFactoriesSpec
     val status = StatusProto.fromThrowable(statusRuntimeException)
     status.getCode shouldBe expectedCode.value()
     status.getMessage shouldBe expectedMessage
-    val details: Seq[protobuf.Any] = status.getDetailsList.asScala.toSeq
+    val details = status.getDetailsList.asScala.toSeq
     val _ = ErrorDetails.from(details) should contain theSameElementsAs expectedDetails
     // TODO error codes: Assert logging
   }

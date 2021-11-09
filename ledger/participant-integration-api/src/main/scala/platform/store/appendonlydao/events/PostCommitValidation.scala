@@ -37,8 +37,7 @@ private[appendonlydao] sealed trait PostCommitValidation {
       transactionLedgerEffectiveTime: Timestamp,
       divulged: Set[ContractId],
   )(implicit
-      connection: Connection,
-      contextualizedErrorLogger: ContextualizedErrorLogger,
+      connection: Connection
   ): Option[Rejection]
 }
 
@@ -55,8 +54,7 @@ private[appendonlydao] object PostCommitValidation {
         transactionLedgerEffectiveTime: Timestamp,
         divulged: Set[ContractId],
     )(implicit
-        connection: Connection,
-        contextualizedErrorLogger: ContextualizedErrorLogger,
+        connection: Connection
     ): Option[Rejection] =
       None
   }
@@ -65,17 +63,13 @@ private[appendonlydao] object PostCommitValidation {
       partyStorageBackend: PartyStorageBackend,
       contractStorageBackend: ContractStorageBackend,
       validatePartyAllocation: Boolean,
-      errorFactories: ErrorFactories,
   ) extends PostCommitValidation {
 
     def validate(
         transaction: CommittedTransaction,
         transactionLedgerEffectiveTime: Timestamp,
         divulged: Set[ContractId],
-    )(implicit
-        connection: Connection,
-        contextualizedErrorLogger: ContextualizedErrorLogger,
-    ): Option[Rejection] = {
+    )(implicit connection: Connection): Option[Rejection] = {
 
       val causalMonotonicityViolation =
         validateCausalMonotonicity(transaction, transactionLedgerEffectiveTime, divulged)
@@ -99,17 +93,14 @@ private[appendonlydao] object PostCommitValidation {
         transaction: CommittedTransaction,
         transactionLedgerEffectiveTime: Timestamp,
         divulged: Set[ContractId],
-    )(implicit
-        connection: Connection,
-        contextualizedErrorLogger: ContextualizedErrorLogger,
-    ): Option[Rejection] = {
+    )(implicit connection: Connection): Option[Rejection] = {
       val referredContracts = collectReferredContracts(transaction, divulged)
       if (referredContracts.isEmpty) {
         None
       } else
         contractStorageBackend.maximumLedgerTime(referredContracts)(connection) match {
           case Failure(MissingContracts(missingContractIds)) =>
-            Some(Rejection.UnknownContracts(missingContractIds.map(_.coid), errorFactories))
+            Some(Rejection.UnknownContracts(missingContractIds.map(_.coid)))
           case Failure(_) =>
             Some(Rejection.UnknownContract)
           case Success(value) => validateCausalMonotonicity(value, transactionLedgerEffectiveTime)
@@ -119,7 +110,7 @@ private[appendonlydao] object PostCommitValidation {
     private def validateCausalMonotonicity(
         maximumLedgerEffectiveTime: Option[Timestamp],
         transactionLedgerEffectiveTime: Timestamp,
-    )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Option[Rejection] =
+    ): Option[Rejection] =
       maximumLedgerEffectiveTime
         .filter(_ > transactionLedgerEffectiveTime)
         .fold(Option.empty[Rejection])(contractLedgerEffectiveTime => {
@@ -127,7 +118,6 @@ private[appendonlydao] object PostCommitValidation {
             Rejection.CausalMonotonicityViolation(
               contractLedgerEffectiveTime = contractLedgerEffectiveTime,
               transactionLedgerEffectiveTime = transactionLedgerEffectiveTime,
-              errorFactories = errorFactories,
             )
           )
         })
@@ -135,8 +125,7 @@ private[appendonlydao] object PostCommitValidation {
     private def validateParties(
         transaction: CommittedTransaction
     )(implicit
-        connection: Connection,
-        contextualizedErrorLogger: ContextualizedErrorLogger,
+        connection: Connection
     ): Option[Rejection] = {
       val informees = transaction.informees
       val allocatedInformees =
@@ -145,7 +134,7 @@ private[appendonlydao] object PostCommitValidation {
         None
       else
         Some(
-          Rejection.UnallocatedParties((informees diff allocatedInformees).toSet, errorFactories)
+          Rejection.UnallocatedParties((informees diff allocatedInformees).toSet)
         )
     }
 
@@ -159,8 +148,7 @@ private[appendonlydao] object PostCommitValidation {
     private def validateKeyUsages(
         transaction: CommittedTransaction
     )(implicit
-        connection: Connection,
-        contextualizedErrorLogger: ContextualizedErrorLogger,
+        connection: Connection
     ): Option[Rejection] =
       transaction
         .foldInExecutionOrder[Result](Right(State.empty(contractStorageBackend)))(
@@ -179,14 +167,13 @@ private[appendonlydao] object PostCommitValidation {
         node: Node,
         state: State,
     )(implicit
-        connection: Connection,
-        contextualizedErrorLogger: ContextualizedErrorLogger,
+        connection: Connection
     ): Result =
       node match {
         case c: Create =>
-          state.validateCreate(c.versionedKey.map(convert(c.templateId, _)), c.coid, errorFactories)
+          state.validateCreate(c.versionedKey.map(convert(c.templateId, _)), c.coid)
         case l: LookupByKey =>
-          state.validateLookupByKey(convert(l.templateId, l.versionedKey), l.result, errorFactories)
+          state.validateLookupByKey(convert(l.templateId, l.versionedKey), l.result)
         case e: Exercise if e.consuming =>
           state.removeKeyIfDefined(e.versionedKey.map(convert(e.templateId, _)))
         case _ =>
@@ -250,15 +237,11 @@ private[appendonlydao] object PostCommitValidation {
     def validateCreate(
         maybeKey: Option[Key],
         id: ContractId,
-        errorFactories: ErrorFactories,
     )(implicit
-        connection: Connection,
-        contextualizedErrorLogger: ContextualizedErrorLogger,
+        connection: Connection
     ): Result =
       maybeKey.fold[Result](Right(this)) { key =>
-        lookup(key).fold[Result](Right(add(key, id)))(_ =>
-          Left(Rejection.DuplicateKey(key, errorFactories))
-        )
+        lookup(key).fold[Result](Right(add(key, id)))(_ => Left(Rejection.DuplicateKey(key)))
       }
 
     // `causalMonotonicity` already reports unknown contracts, no need to check it here
@@ -268,14 +251,12 @@ private[appendonlydao] object PostCommitValidation {
     def validateLookupByKey(
         key: Key,
         expectation: Option[ContractId],
-        errorFactories: ErrorFactories,
     )(implicit
-        connection: Connection,
-        contextualizedErrorLogger: ContextualizedErrorLogger,
+        connection: Connection
     ): Result = {
       val result = lookup(key)
       if (result == expectation) Right(this)
-      else Left(Rejection.MismatchingLookup(expectation, result, errorFactories))
+      else Left(Rejection.MismatchingLookup(expectation, result))
     }
 
     def beginRollback(): State =
@@ -323,7 +304,9 @@ private[appendonlydao] object PostCommitValidation {
 
     def toStateV1RejectionReason: v1.RejectionReason
 
-    def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate
+    def toStateV2RejectionReason(errorFactories: ErrorFactories)(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): v2.Update.CommandRejected.RejectionReasonTemplate
   }
 
   object Rejection {
@@ -335,7 +318,9 @@ private[appendonlydao] object PostCommitValidation {
       override def toStateV1RejectionReason: v1.RejectionReason =
         v1.RejectionReasonV0.Inconsistent(description)
 
-      override def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
+      override def toStateV2RejectionReason(errorFactories: ErrorFactories)(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): v2.Update.CommandRejected.RejectionReasonTemplate =
         domain.RejectionReason
           .Inconsistent(description)
           .toParticipantStateRejectionReason(ErrorFactories(new ErrorCodesVersionSwitcher(false)))(
@@ -344,10 +329,7 @@ private[appendonlydao] object PostCommitValidation {
     }
 
     final case class UnknownContracts(
-        missingContractIds: Set[String],
-        errorFactories: ErrorFactories,
-    )(implicit
-        contextualizedErrorLogger: ContextualizedErrorLogger
+        missingContractIds: Set[String]
     ) extends Rejection {
       override val description =
         s"Unknown contracts: ${missingContractIds.mkString("[", ", ", "]")}"
@@ -355,23 +337,25 @@ private[appendonlydao] object PostCommitValidation {
       override def toStateV1RejectionReason: v1.RejectionReason =
         v1.RejectionReasonV0.Inconsistent(description)
 
-      override def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
+      override def toStateV2RejectionReason(errorFactories: ErrorFactories)(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): v2.Update.CommandRejected.RejectionReasonTemplate =
         domain.RejectionReason
           // TODO error codes: Return specialized error codes
           .ContractsNotFound(missingContractIds)
           .toParticipantStateRejectionReason(errorFactories)
     }
 
-    final case class DuplicateKey(key: GlobalKey, errorFactories: ErrorFactories)(implicit
-        contextualizedErrorLogger: ContextualizedErrorLogger
-    ) extends Rejection {
+    final case class DuplicateKey(key: GlobalKey) extends Rejection {
       override val description =
         "DuplicateKey: contract key is not unique"
 
       override def toStateV1RejectionReason: v1.RejectionReason =
         v1.RejectionReasonV0.Inconsistent(description)
 
-      override def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
+      override def toStateV2RejectionReason(errorFactories: ErrorFactories)(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): v2.Update.CommandRejected.RejectionReasonTemplate =
         domain.RejectionReason
           .DuplicateContractKey(key)
           .toParticipantStateRejectionReason(errorFactories)
@@ -380,16 +364,16 @@ private[appendonlydao] object PostCommitValidation {
     final case class MismatchingLookup(
         lookupResult: Option[ContractId],
         currentResult: Option[ContractId],
-        errorFactories: ErrorFactories,
-    )(implicit contextualizedErrorLogger: ContextualizedErrorLogger)
-        extends Rejection {
+    ) extends Rejection {
       override lazy val description: String =
         s"Contract key lookup with different results: expected [$lookupResult], actual [$currentResult]"
 
       override def toStateV1RejectionReason: v1.RejectionReason =
         v1.RejectionReasonV0.Inconsistent(description)
 
-      override def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
+      override def toStateV2RejectionReason(errorFactories: ErrorFactories)(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): v2.Update.CommandRejected.RejectionReasonTemplate =
         domain.RejectionReason
           .InconsistentContractKeys(lookupResult, currentResult)
           .toParticipantStateRejectionReason(errorFactories)
@@ -398,33 +382,32 @@ private[appendonlydao] object PostCommitValidation {
     final case class CausalMonotonicityViolation(
         contractLedgerEffectiveTime: Timestamp,
         transactionLedgerEffectiveTime: Timestamp,
-        errorFactories: ErrorFactories,
-    )(implicit contextualizedErrorLogger: ContextualizedErrorLogger)
-        extends Rejection {
+    ) extends Rejection {
       override lazy val description: String =
         s"Encountered contract with LET [$contractLedgerEffectiveTime] greater than the LET of the transaction [$transactionLedgerEffectiveTime]"
 
       override def toStateV1RejectionReason: v1.RejectionReason =
         v1.RejectionReasonV0.InvalidLedgerTime(description)
 
-      override def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
+      override def toStateV2RejectionReason(errorFactories: ErrorFactories)(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): v2.Update.CommandRejected.RejectionReasonTemplate =
         domain.RejectionReason
           .InvalidLedgerTime(description)
           .toParticipantStateRejectionReason(errorFactories)
     }
 
     final case class UnallocatedParties(
-        unallocatedParties: Set[String],
-        errorFactories: ErrorFactories,
-    )(implicit
-        contextualizedErrorLogger: ContextualizedErrorLogger
+        unallocatedParties: Set[String]
     ) extends Rejection {
       override def description: String = "Some parties are unallocated"
 
       override def toStateV1RejectionReason: v1.RejectionReason =
         v1.RejectionReasonV0.PartyNotKnownOnLedger(description)
 
-      override def toStateV2RejectionReason: v2.Update.CommandRejected.RejectionReasonTemplate =
+      override def toStateV2RejectionReason(errorFactories: ErrorFactories)(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): v2.Update.CommandRejected.RejectionReasonTemplate =
         domain.RejectionReason
           .PartiesNotKnownOnLedger(unallocatedParties)
           .toParticipantStateRejectionReason(errorFactories)

@@ -3,11 +3,6 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
 import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
@@ -15,8 +10,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
 import com.daml.lf.value.Value.ValueText
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.store.backend.{ContractStorageBackend, PartyStorageBackend}
 import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
@@ -26,21 +20,12 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.sql.Connection
 import java.time.Instant
 import java.util.UUID
-import com.daml.platform.apiserver.execution.MissingContracts
-
 import scala.util.{Failure, Success, Try}
 
 final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
   import PostCommitValidation._
   import PostCommitValidationSpec._
 
-  private val errorFactories = ErrorFactories(new ErrorCodesVersionSwitcher(true))
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(
-      ContextualizedLogger.get(getClass),
-      LoggingContext.ForTesting,
-      None,
-    )
   "PostCommitValidation" when {
     "run without prior history" should {
       val fixture = noCommittedContract(parties = List.empty)
@@ -48,7 +33,6 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         fixture,
         fixture,
         validatePartyAllocation = false,
-        errorFactories,
       )
 
       "accept a create with a key" in {
@@ -111,7 +95,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           divulged = Set.empty,
         )
 
-        error shouldBe Some(Rejection.UnknownContracts(Set(missingCreate.coid), errorFactories))
+        error shouldBe Some(Rejection.UnknownContracts(Set(missingCreate.coid.coid)))
       }
 
       "accept a fetch of a contract created within the transaction" in {
@@ -147,7 +131,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           divulged = Set.empty,
         )
 
-        error shouldBe Some(Rejection.UnknownContracts(Set(missingCreate.coid), errorFactories))
+        error shouldBe Some(Rejection.UnknownContracts(Set(missingCreate.coid.coid)))
       }
 
       "accept a successful lookup of a contract created in this transaction" in {
@@ -173,11 +157,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         )
 
         error shouldBe Some(
-          Rejection.MismatchingLookup(
-            lookupResult = Some(missingCreate.coid),
-            currentResult = None,
-            errorFactories,
-          )
+          Rejection.MismatchingLookup(lookupResult = Some(missingCreate.coid), currentResult = None)
         )
       }
 
@@ -241,7 +221,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           divulged = Set.empty,
         )
 
-        error shouldBe Some(Rejection.DuplicateKey(duplicateKey, errorFactories))
+        error shouldBe Some(Rejection.DuplicateKey(duplicateKey))
       }
 
       "reject a create after a rolled back archive of a contract with the same key" in {
@@ -261,7 +241,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           divulged = Set.empty,
         )
 
-        error shouldBe Some(Rejection.DuplicateKey(duplicateKey, errorFactories))
+        error shouldBe Some(Rejection.DuplicateKey(duplicateKey))
       }
 
       "accept a failed lookup in a rollback" in {
@@ -300,7 +280,6 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         fixture,
         fixture,
         validatePartyAllocation = false,
-        errorFactories,
       )
 
       "reject a create that would introduce a duplicate key" in {
@@ -313,7 +292,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         val duplicateKey =
           GlobalKey.assertBuild(committedContract.templateId, committedContract.key.get.key)
 
-        error shouldBe Some(Rejection.DuplicateKey(duplicateKey, errorFactories))
+        error shouldBe Some(Rejection.DuplicateKey(duplicateKey))
       }
 
       "accept an exercise on the committed contract" in {
@@ -337,7 +316,6 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           Rejection.CausalMonotonicityViolation(
             contractLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.addMicros(-1),
-            errorFactories = errorFactories,
           )
         )
       }
@@ -363,7 +341,6 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           Rejection.CausalMonotonicityViolation(
             contractLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.addMicros(-1),
-            errorFactories = errorFactories,
           )
         )
       }
@@ -391,7 +368,6 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           Rejection.MismatchingLookup(
             lookupResult = None,
             currentResult = Some(committedContract.coid),
-            errorFactories = errorFactories,
           )
         )
       }
@@ -410,7 +386,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         val duplicateKey =
           GlobalKey.assertBuild(committedContract.templateId, committedContract.key.get.key)
 
-        error shouldBe Some(Rejection.DuplicateKey(duplicateKey, errorFactories))
+        error shouldBe Some(Rejection.DuplicateKey(duplicateKey))
       }
 
       "reject a failed lookup in a rollback" in {
@@ -428,7 +404,6 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           Rejection.MismatchingLookup(
             lookupResult = None,
             currentResult = Some(committedContract.coid),
-            errorFactories = errorFactories,
           )
         )
       }
@@ -462,7 +437,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         val duplicateKey =
           GlobalKey.assertBuild(committedContract.templateId, committedContract.key.get.key)
 
-        error shouldBe Some(Rejection.DuplicateKey(duplicateKey, errorFactories))
+        error shouldBe Some(Rejection.DuplicateKey(duplicateKey))
       }
     }
 
@@ -478,7 +453,6 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         fixture,
         fixture,
         validatePartyAllocation = false,
-        errorFactories,
       )
 
       "accept an exercise on the divulged contract" in {
@@ -507,7 +481,6 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         noCommittedContract(List.empty),
         noCommittedContract(List.empty),
         validatePartyAllocation = true,
-        errorFactories,
       )
 
       "reject" in {
@@ -518,7 +491,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           divulged = Set.empty,
         )
 
-        error shouldBe Some(Rejection.UnallocatedParties(Set("Alice"), errorFactories))
+        error shouldBe Some(Rejection.UnallocatedParties(Set("Alice")))
       }
 
       "reject if party is used in rollback" in {
@@ -533,7 +506,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
           divulged = Set.empty,
         )
 
-        error shouldBe Some(Rejection.UnallocatedParties(Set("Alice"), errorFactories))
+        error shouldBe Some(Rejection.UnallocatedParties(Set("Alice")))
       }
     }
   }

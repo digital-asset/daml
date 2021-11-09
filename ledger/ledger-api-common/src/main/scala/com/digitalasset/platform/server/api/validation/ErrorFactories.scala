@@ -496,8 +496,9 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     grpcError(statusBuilder.build())
   }
 
-  object SandboxClassicRejectionStatus {
+  object CommandRejections {
     object Deprecated {
+      @deprecated
       def inconsistent(reason: String)(implicit
           contextualizedErrorLogger: ContextualizedErrorLogger
       ): com.google.rpc.status.Status =

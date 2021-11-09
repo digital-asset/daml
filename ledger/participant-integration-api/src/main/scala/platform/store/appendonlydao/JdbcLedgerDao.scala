@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.platform.store.appendonlydao
 
-import java.sql.Connection
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
@@ -32,13 +31,7 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.events._
-import com.daml.platform.store.backend.{
-  DeduplicationStorageBackend,
-  ParameterStorageBackend,
-  ReadStorageBackend,
-  ResetStorageBackend,
-  StorageBackendFactory,
-}
+import com.daml.platform.store.backend._
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
@@ -47,6 +40,7 @@ import com.daml.platform.store.entries.{
   PartyLedgerEntry,
 }
 
+import java.sql.Connection
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -285,8 +279,7 @@ private class JdbcLedgerDao(
       transaction: CommittedTransaction,
       divulged: Iterable[state.DivulgedContract],
   )(implicit
-      connection: Connection,
-      contextualizedErrorLogger: ContextualizedErrorLogger,
+      connection: Connection
   ): Option[PostCommitValidation.Rejection] =
     Timed.value(
       metrics.daml.index.db.storeTransactionDbMetrics.commitValidation,
@@ -687,7 +680,6 @@ private class JdbcLedgerDao(
         readStorageBackend.partyStorageBackend,
         readStorageBackend.contractStorageBackend,
         validatePartyAllocation,
-        errorFactories,
       )
     else
       PostCommitValidation.Skip
@@ -707,8 +699,6 @@ private class JdbcLedgerDao(
       recordTime: Timestamp,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     logger.info("Storing transaction")
-    implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
@@ -742,7 +732,13 @@ private class JdbcLedgerDao(
                 state.Update.CommandRejected(
                   recordTime = recordTime,
                   completionInfo = info,
-                  reasonTemplate = reason.toStateV2RejectionReason,
+                  reasonTemplate = reason.toStateV2RejectionReason(errorFactories)(
+                    new DamlContextualizedErrorLogger(
+                      logger,
+                      loggingContext,
+                      info.submissionId,
+                    )
+                  ),
                 )
               )
           },
