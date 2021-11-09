@@ -7,6 +7,8 @@ import scalaz.{Monoid, Foldable, Semigroup}
 import FoldableContravariant._
 
 // Specialized overrides for when a Foldable wraps another Foldable.
+// If you need to hand-write some of these, just mix in the traits you
+// don't want to hand-write.
 private[daml] trait FoldableContravariant[X[_], Y[_]]
     extends CoreOps[X, Y]
     with Semigroupoids[X, Y]
@@ -19,6 +21,7 @@ private[daml] object FoldableContravariant {
     protected[this] def ctmap[A](ax: X[A]): Y[A]
   }
 
+  // non-derived combinators
   trait CoreOps[X[_], Y[_]] extends Foldable[X] with CtMap[X, Y] {
     override final def foldLeft[A, B](xa: X[A], z: B)(f: (B, A) => B) = Y.foldLeft(ctmap(xa), z)(f)
     override final def foldRight[A, B](xa: X[A], z: => B)(f: (A, => B) => B) =
@@ -26,6 +29,7 @@ private[daml] object FoldableContravariant {
     override final def foldMap[A, Z: Monoid](xa: X[A])(f: A => Z) = Y.foldMap(ctmap(xa))(f)
   }
 
+  // plays on functions from the semigroupoids library
   trait Semigroupoids[X[_], Y[_]] extends Foldable[X] with CtMap[X, Y] {
     override final def foldMapRight1Opt[A, B](xa: X[A])(z: A => B)(f: (A, B) => B) =
       Y.foldMapRight1Opt(ctmap(xa))(z)(f)
@@ -35,6 +39,7 @@ private[daml] object FoldableContravariant {
       Y.foldMap1Opt(ctmap(xa))(f)
   }
 
+  // to (collection type) converters
   trait Conversions[X[_], Y[_]] extends Foldable[X] with CtMap[X, Y] {
     override final def toStream[A](xa: X[A]) = Y.toStream(ctmap(xa))
     override final def toSet[A](xa: X[A]) = Y.toSet(ctmap(xa))
@@ -45,6 +50,7 @@ private[daml] object FoldableContravariant {
       Y.toEphemeralStream(ctmap(xa))
   }
 
+  // list-like operations
   trait Lookups[X[_], Y[_]] extends Foldable[X] with CtMap[X, Y] {
     override final def index[A](xa: X[A], i: Int) = Y.index(ctmap(xa), i)
     override final def length[A](xa: X[A]) = Y.length(ctmap(xa))
