@@ -12,7 +12,7 @@ import io.gatling.http.check.HttpCheck
 import io.gatling.http.request.builder.HttpRequestBuilder
 
 private[scenario] trait HasCreateRequest {
-  this: HasRandomAmount =>
+  this: HasRandomAmount with SimulationConfig =>
 
   private lazy val acsQueue: BlockingQueue[String] = new LinkedBlockingQueue[String]()
 
@@ -40,7 +40,7 @@ private[scenario] trait HasCreateRequest {
 
   def fillAcsScenario(size: Int, silent: Boolean): ScenarioBuilder =
     scenario(s"FillAcsScenario, size: $size")
-      .doWhile(_ => this.acsSize() < size) {
+      .repeat(size / defaultNumUsers) {
         feed(Iterator.continually(Map("amount" -> randomAmount())))
           .group("FillAcsGroup") {
             val create =
