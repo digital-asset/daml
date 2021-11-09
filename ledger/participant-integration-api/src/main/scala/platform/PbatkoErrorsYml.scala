@@ -21,17 +21,8 @@ object Service {
 }
 
 case class Change0(v1_grpc_codes: List[String], v2_grpc_codes: List[String], self_service_error_code_id: Option[String], comments: Option[String]) {
-  //  def mkString: String = {
-  //    val remarks = ""
-  //    val v1 = v1_line_string
-  //    val v2 = v2_line_string
-  //    s"""$v1 -> $v2$remarks""".stripMargin
-  //  }
-
   def v1_line_string: String = v1_grpc_codes.mkString(", ")
-
   def v2_line_string: String = v2_grpc_codes.mkString(", ")
-
 }
 
 case class Change(service: Service, changes: List[Change0]) {
@@ -52,46 +43,38 @@ object Change {
 
 object PbatkoErrorsYml {
   def main(args: Array[String]): Unit = {
-    val cs1: Seq[Change] = bar_submit()
-    val cs2: Seq[Change] = parseErrorsYml()
-    val all = (cs1 ++ cs2).distinct
+    val changes: Seq[Change] = parseErrorsYml("pbatko/errors_pbatko.yml").toList
 
-    val serviceToChanges: mutable.Map[Service, ArrayBuffer[Change0]] = mutable.Map.empty[Service, ArrayBuffer[Change0]]
-
-    all.foreach { change
-    =>
-      if (!serviceToChanges.contains(change.service)) {
-        serviceToChanges.put(change.service, new ArrayBuffer[Change0])
+    // Group changes by service
+    val serviceToChangesMap: mutable.Map[Service, ArrayBuffer[Change0]] = mutable.Map.empty[Service, ArrayBuffer[Change0]]
+    changes.foreach { change: Change =>
+      if (!serviceToChangesMap.contains(change.service)) {
+        serviceToChangesMap.put(change.service, new ArrayBuffer[Change0])
       }
-      serviceToChanges.apply(change.service).addAll(change.changes)
+      serviceToChangesMap.apply(change.service).addAll(change.changes)
     }
-
-    val all2: Seq[(Service, ArrayBuffer[Change0])] = serviceToChanges.toList
+    val changesGroupedByService: Seq[(Service, ArrayBuffer[Change0])] = serviceToChangesMap.toList
 
 
     val tableLines: Array[Array[String]] = {
       val unsorted: Array[Array[String]] = for {
-        (s, changes) <- all2.toArray
-        serviceName = s.mkString
-        c <- changes
+        (service, changes) <- changesGroupedByService.toArray
+        serviceName = service.mkString
+        change <- changes
       } yield {
-        val comment = c.comments.getOrElse("").replace('\n', ' ')
-        Array(serviceName, c.v1_line_string, c.v2_line_string, comment, c.self_service_error_code_id.getOrElse(""))
+        val comment = change.comments.getOrElse("").replace('\n', ' ')
+        Array(
+          serviceName,
+          change.v1_line_string,
+          change.v2_line_string,
+          comment,
+          change.self_service_error_code_id.getOrElse(throw new Exception(s"Missing self service code id for change: $change!"))
+        )
       }
       unsorted.sortBy(line => (line(0), line(1), line(2), line(3), line(4)))
     }
 
-    val csvLines = for {
-      line <- tableLines
-    } yield {
-      line.mkString("|")
-    }
-    val csvLinesSorted = csvLines.distinct.sorted
-
-    println("==============================")
-    println("==============================")
-    println("==============================")
-    println(csvLinesSorted.mkString("\n"))
+    printOutAsCsvText(tableLines)
 
     println()
     println()
@@ -110,6 +93,20 @@ object PbatkoErrorsYml {
         "Sef-service error code id",
       ))
     println(reStTable)
+  }
+
+  private def printOutAsCsvText(tableLines: Array[Array[String]]): Unit = {
+    val csvLines = for {
+      line <- tableLines
+    } yield {
+      line.mkString("|")
+    }
+    val csvLinesSorted = csvLines.distinct.sorted
+
+    println("==============================")
+    println("==============================")
+    println("==============================")
+    println(csvLinesSorted.mkString("\n"))
   }
 
   def generateReStTable(rows: Array[Array[String]], header: Array[String]): String = {
@@ -136,70 +133,8 @@ object PbatkoErrorsYml {
     textTable
   }
 
-
-  def bar_submit(): Seq[Change] = {
-    val json: JsonObject = readYmlFileAsJsonObject("pbatko/submit_pbatko.yml")
-    val services = parseServices(json("service").get)
-    val changes = parseChanges(json("changes").get)
-    //    println(services)
-    //    println(changes)
-    //    println("111")
-    for {
-      s <- services
-    } yield
-      Change(
-        service = s, changes = changes.toList
-      )
-  }
-
-  def parseChanges(json: Json): Seq[Change0] = {
-    val rawChanges: Seq[JsonObject] = json.asArray.get.map(_.asObject.get)
-    rawChanges.map(parseChange)
-  }
-
-  def parseChange(json: JsonObject): Change0 = {
-    val desc = json("desc").get.asString.get
-    val fromRaw = json("from").get.asArray.get
-    val toRaw = json("to").get.asArray.get
-
-    val from_codes: Seq[String] = parseFromOrTo(fromRaw).map(_._1)
-    val to = parseFromOrTo(toRaw)
-    val to_codes = to.map(_._1)
-    val comments = to.map { case (code, comment) => s"$code: $comment" }.mkString("\n")
-    val comment: String = {
-      s"""$desc
-         |
-         |$comments
-         |""".stripMargin
-    }
-
-    Change0(
-      v1_grpc_codes = from_codes.toList,
-      v2_grpc_codes = to_codes.toList,
-      comments = Some(comment),
-      self_service_error_code_id = None,
-    )
-  }
-
-  def parseFromOrTo(raw: Vector[Json]): Seq[(String, String)] = {
-    raw.map {
-      case json if json.isString => (json.asString.get, "")
-      case json if json.isObject =>
-        val h = json.asObject.get.toList.head
-        (h._1, h._2.asString.get)
-      case x => throw new Exception(x.toString())
-    }
-  }
-
-  def parseServices(json: Json): Seq[Service] = {
-    val x: Seq[(String, Json)] = json.asObject.get.toList
-    val name = x.head._1
-    val methods: Seq[String] = x.head._2.asArray.get.map(_.asString.get)
-    Service(name, methods)
-  }
-
-  def parseErrorsYml(): Seq[Change] = {
-    val changesDocument: JsonObject = readYmlFileAsJsonObject("pbatko/errors_pbatko.yml")
+  def parseErrorsYml(resourcePath: String): Seq[Change] = {
+    val changesDocument: JsonObject = readYmlFileAsJsonObject(resourcePath)
     val changesToCommentsMap: mutable.Map[Change, mutable.Set[String]] = mutable.Map.empty[Change, mutable.Set[String]]
 
     changesDocument.toList.foreach { case (errorFactories_methodName: String, changeEntryJson: Json) =>
