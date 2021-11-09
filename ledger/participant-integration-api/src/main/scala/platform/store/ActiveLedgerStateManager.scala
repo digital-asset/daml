@@ -174,7 +174,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                   )
                 case Some(key) =>
                   val gk =
-                    GlobalKey(activeContract.contract.unversioned.template, key.key.unversioned)
+                    GlobalKey(activeContract.contract.unversioned.template, key.unversioned.key)
                   if (als.lookupContractByKey(gk).isDefined) {
                     state.copy(
                       currentState = state.currentState.copy(

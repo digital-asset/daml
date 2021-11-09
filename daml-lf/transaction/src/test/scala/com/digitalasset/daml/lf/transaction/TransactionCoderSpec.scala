@@ -941,7 +941,7 @@ class TransactionCoderSpec
     )
 
   private[this] def normalizeKey(
-      key: Node.KeyWithMaintainers[Value],
+      key: Node.KeyWithMaintainers,
       version: TransactionVersion,
   ) = {
     key.copy(key = normalize(key.key, version))

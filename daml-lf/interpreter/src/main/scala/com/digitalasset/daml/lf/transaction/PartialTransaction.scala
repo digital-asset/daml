@@ -141,7 +141,7 @@ private[lf] object PartialTransaction {
   final case class ExercisesContextInfo(
       targetId: Value.ContractId,
       templateId: TypeConName,
-      contractKey: Option[Node.KeyWithMaintainers[Value]],
+      contractKey: Option[Node.KeyWithMaintainers],
       choiceId: ChoiceName,
       consuming: Boolean,
       actingParties: Set[Party],
@@ -407,7 +407,7 @@ private[speedy] case class PartialTransaction(
       optLocation: Option[Location],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers[Value]],
+      key: Option[Node.KeyWithMaintainers],
       byInterface: Option[TypeConName],
   ): (Value.ContractId, PartialTransaction) = {
     val actionNodeSeed = context.nextActionChildSeed
@@ -500,7 +500,7 @@ private[speedy] case class PartialTransaction(
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers[Value]],
+      key: Option[Node.KeyWithMaintainers],
       byKey: Boolean,
       byInterface: Option[TypeConName],
   ): PartialTransaction = {
@@ -528,7 +528,7 @@ private[speedy] case class PartialTransaction(
       auth: Authorize,
       templateId: TypeConName,
       optLocation: Option[Location],
-      key: Node.KeyWithMaintainers[Value],
+      key: Node.KeyWithMaintainers,
       result: Option[Value.ContractId],
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
@@ -557,7 +557,7 @@ private[speedy] case class PartialTransaction(
       signatories: Set[Party],
       stakeholders: Set[Party],
       choiceObservers: Set[Party],
-      mbKey: Option[Node.KeyWithMaintainers[Value]],
+      mbKey: Option[Node.KeyWithMaintainers],
       byKey: Boolean,
       chosenValue: Value,
       byInterface: Option[TypeConName],

@@ -58,8 +58,8 @@ private[replay] final class Adapter(
 
   // drop value version
   private[this] def adapt(
-      k: Node.KeyWithMaintainers[Value]
-  ): Node.KeyWithMaintainers[Value] =
+      k: Node.KeyWithMaintainers
+  ): Node.KeyWithMaintainers =
     k.copy(adapt(k.key))
 
   def adapt(coinst: Value.VersionedContractInstance): Value.VersionedContractInstance =

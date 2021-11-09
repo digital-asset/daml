@@ -187,8 +187,8 @@ object TransactionBuilder {
 
   type TxValue = value.Value.VersionedValue
 
-  type KeyWithMaintainers = Node.KeyWithMaintainers[Value]
-  type TxKeyWithMaintainers = Node.KeyWithMaintainers[TxValue]
+  type KeyWithMaintainers = Node.KeyWithMaintainers
+  type TxKeyWithMaintainers = Node.VersionedKeyWithMaintainers
 
   def apply(
       pkgLangVersion: Ref.PackageId => LanguageVersion = _ => LanguageVersion.StableVersions.max
