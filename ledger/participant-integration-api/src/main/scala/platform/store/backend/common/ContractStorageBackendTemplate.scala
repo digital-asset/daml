@@ -9,6 +9,7 @@ import java.time.Instant
 import anorm.SqlParser.{byteArray, int, long, str}
 import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
 import com.daml.lf.data.Ref
+import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.store.Conversions.{
   contractId,
   flatEventWitnessesColumn,
@@ -45,11 +46,6 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
   private def emptyContractIds: Throwable =
     new IllegalArgumentException(
       "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
-    )
-
-  private def notFound(missingContractIds: Set[ContractId]): Throwable =
-    new IllegalArgumentException(
-      s"The following contracts have not been found: ${missingContractIds.map(_.coid).mkString(", ")}"
     )
 
   protected def maximumLedgerTimeSqlLiteral(id: ContractId): SimpleSql[Row] = {
@@ -116,7 +112,7 @@ trait ContractStorageBackendTemplate extends ContractStorageBackend {
         val missingIds = queriedIds.collect { case (missingId, None) =>
           missingId
         }
-        Failure(notFound(missingIds.toSet))
+        Failure(MissingContracts(missingIds.toSet))
       } else Success(foundLedgerEffectiveTimes.max)
     }
   }

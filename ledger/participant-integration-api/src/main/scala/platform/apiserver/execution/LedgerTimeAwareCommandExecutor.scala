@@ -86,18 +86,32 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
                   Future.successful(Left(ErrorCause.LedgerTime(maxRetries)))
                 }
               }
-              .recover {
-                // An error while looking up the maximum ledger time for the used contracts
-                // most likely means that one of the contracts is already not active anymore,
-                // which can happen under contention.
-                // A retry would only be successful in case the archived contracts were referenced by key.
-                // Direct references to archived contracts will result in the same error.
+              .recoverWith {
+
+                case MissingContracts(contracts) =>
+                  if (retriesLeft > 0) {
+                    metrics.daml.execution.retry.mark()
+                    logger.info(
+                      s"Some input contracts could not be found. Restarting the computation. Missing contracts: ${contracts
+                        .mkString("[", ", ", "]")}"
+                    )
+                    loop(commands, submissionSeed, ledgerConfiguration, retriesLeft - 1)
+                  } else {
+                    logger.info(
+                      s"Lookup of maximum ledger time failed after ${maxRetries - retriesLeft}. Used contracts: ${usedContractIds
+                        .mkString("[", ", ", "]")}."
+                    )
+                    Future.successful(Left(ErrorCause.LedgerTime(maxRetries)))
+                  }
+
+                // An error while looking up the maximum ledger time for the used contracts. The nature of this error is not known.
+                // Not retrying automatically. All other automatically retryable cases are covered by the logic above.
                 case error =>
                   logger.info(
-                    s"Lookup of maximum ledger time failed. This can happen if there is contention on contracts used by the transaction. Used contracts: ${usedContractIds
-                      .mkString(", ")}. Details: $error"
+                    s"Lookup of maximum ledger time failed after ${maxRetries - retriesLeft}. Used contracts: ${usedContractIds
+                      .mkString("[", ", ", "]")}. Details: $error"
                   )
-                  Left(ErrorCause.LedgerTime(maxRetries - retriesLeft))
+                  Future.successful(Left(ErrorCause.LedgerTime(maxRetries - retriesLeft)))
               }
       }
 
@@ -114,3 +128,5 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
   private[this] def advanceInputTime(cmd: Commands, newTime: Option[Time.Timestamp]): Commands =
     newTime.fold(cmd)(t => cmd.copy(commands = cmd.commands.copy(ledgerEffectiveTime = t)))
 }
+
+case class MissingContracts(contracts: Set[ContractId]) extends RuntimeException
