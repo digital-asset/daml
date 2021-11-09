@@ -243,7 +243,7 @@ private class ContractsFetch(
 
         val transactInsertsDeletes = Flow
           .fromFunction(jsonifyInsertDeleteStep)
-          .conflate(_ append _)
+          .via(conflation)
           .map(insertAndDelete)
 
         idses.map(_.toInsertDelete) ~> transactInsertsDeletes ~> acsSink
@@ -518,5 +518,15 @@ private[http] object ContractsFetch {
       else Filters(Some(lav1.transaction_filter.InclusiveFilters(templateIds.map(apiIdentifier))))
 
     TransactionFilter(domain.Party.unsubst(parties.toVector).map(_ -> filters).toMap)
+  }
+
+  private def conflation[D, C: InsertDeleteStep.Cid]
+      : Flow[InsertDeleteStep[D, C], InsertDeleteStep[D, C], NotUsed] = {
+    // when considering this cost, keep in mind that each deleteContracts
+    // may entail a table scan.  Backpressure indicates that DB operations
+    // are slow, the idea here is to set the DB up for success
+    val maxCost = 250L
+    Flow[InsertDeleteStep[D, C]]
+      .batchWeighted(max = maxCost, costFn = _.size.toLong, identity)(_ append _)
   }
 }
