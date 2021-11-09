@@ -6,7 +6,7 @@ package com.daml.scalautil.nonempty
 import scala.collection.compat._
 import scala.collection.{immutable => imm}, imm.Map, imm.Set
 import scalaz.Id.Id
-import scalaz.{Foldable, Foldable1, Monoid, OneAnd, Semigroup, Traverse}
+import scalaz.{Foldable, Foldable1, OneAnd, Semigroup, Traverse}
 import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
 import scalaz.syntax.std.option._

@@ -31,7 +31,7 @@ private[daml] object FoldableContravariant {
 
   // plays on functions from the semigroupoids library
   trait Semigroupoids[X[_], Y[_]] extends Foldable[X] with CtMap[X, Y] {
-    override final def foldMapRight1Opt[A, B](xa: X[A])(z: A => B)(f: (A, B) => B) =
+    override final def foldMapRight1Opt[A, B](xa: X[A])(z: A => B)(f: (A, => B) => B) =
       Y.foldMapRight1Opt(ctmap(xa))(z)(f)
     override final def foldMapLeft1Opt[A, B](xa: X[A])(z: A => B)(f: (B, A) => B) =
       Y.foldMapLeft1Opt(ctmap(xa))(z)(f)
