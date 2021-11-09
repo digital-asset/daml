@@ -89,9 +89,7 @@ object LedgerApiBenchTool {
   private def parseDescriptor(descriptorFile: File): Try[WorkflowDescriptor] =
     SimpleFileReader.readFile(descriptorFile)(WorkflowParser.parse).flatMap {
       case Left(err: WorkflowParser.ParserError) =>
-        Failure(
-          CommandSubmitter.CommandSubmitterError(s"Workflow parsing error. Details: ${err.details}")
-        )
+        Failure(new RuntimeException(s"Workflow parsing error. Details: ${err.details}"))
       case Right(descriptor) =>
         Success(descriptor)
     }
