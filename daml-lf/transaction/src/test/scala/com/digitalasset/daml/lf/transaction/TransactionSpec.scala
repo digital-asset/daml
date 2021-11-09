@@ -647,7 +647,6 @@ object TransactionSpec {
 
   import TransactionBuilder.Implicits._
 
-  type Transaction = Transaction
   def mkTransaction(
       nodes: HashMap[NodeId, Node],
       roots: ImmArray[NodeId],
