@@ -16,15 +16,17 @@ import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.appendonlydao.LedgerReadDao
 import com.daml.platform.store.cache.{MutableLedgerEndCache, TranslationCacheBackedContractStore}
+import com.daml.platform.store.interning.UpdatingStringInterningView
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 private[index] object ReadOnlySqlLedgerWithTranslationCache {
 
   final class Owner(
       ledgerDao: LedgerReadDao,
       ledgerEndCache: MutableLedgerEndCache,
+      updatingStringInterningView: UpdatingStringInterningView,
       ledgerId: LedgerId,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
@@ -50,6 +52,7 @@ private[index] object ReadOnlySqlLedgerWithTranslationCache {
             ledgerEndCache,
             contractsStore,
             dispatcher,
+            updatingStringInterningView,
           )
         )
 
@@ -72,6 +75,7 @@ private final class ReadOnlySqlLedgerWithTranslationCache(
     ledgerEndCache: MutableLedgerEndCache,
     contractStore: ContractStore,
     dispatcher: Dispatcher[Offset],
+    updatingStringInterningView: UpdatingStringInterningView,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
     extends ReadOnlySqlLedger(
       ledgerId,
@@ -89,7 +93,14 @@ private final class ReadOnlySqlLedgerWithTranslationCache(
       )(() =>
         Source
           .tick(0.millis, 100.millis, ())
-          .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd())
+          .mapAsync(1) {
+            implicit val ec: ExecutionContext = mat.executionContext
+            _ =>
+              for {
+                ledgerEnd <- ledgerDao.lookupLedgerEnd()
+                _ <- updatingStringInterningView.update(ledgerEnd.lastStringInterningId)
+              } yield ledgerEnd
+          }
       )
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
       .toMat(Sink.foreach { ledgerEnd =>

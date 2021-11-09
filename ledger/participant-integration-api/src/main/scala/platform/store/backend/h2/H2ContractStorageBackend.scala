@@ -8,9 +8,10 @@ import com.daml.platform.store.appendonlydao.events.ContractId
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.ContractStorageBackendTemplate
 import com.daml.platform.store.cache.LedgerEndCache
+import com.daml.platform.store.interning.StringInterning
 
-class H2ContractStorageBackend(ledgerEndCache: LedgerEndCache)
-    extends ContractStorageBackendTemplate(H2QueryStrategy, ledgerEndCache) {
+class H2ContractStorageBackend(ledgerEndCache: LedgerEndCache, stringInterning: StringInterning)
+    extends ContractStorageBackendTemplate(H2QueryStrategy, ledgerEndCache, stringInterning) {
   override def maximumLedgerTimeSqlLiteral(
       id: ContractId,
       lastEventSequentialId: Long,

@@ -23,6 +23,7 @@ import com.daml.platform.store.backend.{
   StorageBackendFactory,
 }
 import com.daml.platform.store.cache.LedgerEndCache
+import com.daml.platform.store.interning.StringInterning
 
 object PostgresStorageBackendFactory
     extends StorageBackendFactory
@@ -37,16 +38,22 @@ object PostgresStorageBackendFactory
   override val createDeduplicationStorageBackend: DeduplicationStorageBackend =
     PostgresDeduplicationStorageBackend
 
-  override val createCompletionStorageBackend: CompletionStorageBackend =
-    new CompletionStorageBackendTemplate(PostgresQueryStrategy)
+  override def createCompletionStorageBackend(
+      stringInterning: StringInterning
+  ): CompletionStorageBackend =
+    new CompletionStorageBackendTemplate(PostgresQueryStrategy, stringInterning)
 
   override def createContractStorageBackend(
-      ledgerEndCache: LedgerEndCache
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
   ): ContractStorageBackend =
-    new ContractStorageBackendTemplate(PostgresQueryStrategy, ledgerEndCache)
+    new ContractStorageBackendTemplate(PostgresQueryStrategy, ledgerEndCache, stringInterning)
 
-  override def createEventStorageBackend(ledgerEndCache: LedgerEndCache): EventStorageBackend =
-    new PostgresEventStorageBackend(ledgerEndCache)
+  override def createEventStorageBackend(
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
+  ): EventStorageBackend =
+    new PostgresEventStorageBackend(ledgerEndCache, stringInterning)
 
   override val createDataSourceStorageBackend: DataSourceStorageBackend =
     PostgresDataSourceStorageBackend

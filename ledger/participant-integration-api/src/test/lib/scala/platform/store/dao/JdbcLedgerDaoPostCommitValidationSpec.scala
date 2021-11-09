@@ -82,8 +82,9 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
           enricher = None,
           participantId = participantId,
           storageBackendFactory = storageBackendFactory,
-          ledgerEndCache = ledgerEndCache,
           errorFactories = errorFactories,
+          ledgerEndCache = ledgerEndCache,
+          stringInterning = stringInterningView,
         )
       }
   }

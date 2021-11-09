@@ -48,6 +48,7 @@ import com.daml.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry,
 }
+import com.daml.platform.store.interning.StringInterning
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -759,6 +760,7 @@ private[platform] object JdbcLedgerDao {
       errorFactories: ErrorFactories,
       storageBackendFactory: StorageBackendFactory,
       ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
   ): LedgerReadDao =
     new MeteredLedgerReadDao(
       new JdbcLedgerDao(
@@ -773,7 +775,7 @@ private[platform] object JdbcLedgerDao {
         enricher,
         SequentialWriteDao.noop,
         participantId,
-        storageBackendFactory.readStorageBackend(ledgerEndCache),
+        storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
         storageBackendFactory.createParameterStorageBackend,
         storageBackendFactory.createDeduplicationStorageBackend,
         storageBackendFactory.createResetStorageBackend,
@@ -795,6 +797,7 @@ private[platform] object JdbcLedgerDao {
       errorFactories: ErrorFactories,
       storageBackendFactory: StorageBackendFactory,
       ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
   ): LedgerDao =
     new MeteredLedgerDao(
       new JdbcLedgerDao(
@@ -809,7 +812,7 @@ private[platform] object JdbcLedgerDao {
         enricher,
         sequentialWriteDao,
         participantId,
-        storageBackendFactory.readStorageBackend(ledgerEndCache),
+        storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
         storageBackendFactory.createParameterStorageBackend,
         storageBackendFactory.createDeduplicationStorageBackend,
         storageBackendFactory.createResetStorageBackend,
@@ -832,6 +835,7 @@ private[platform] object JdbcLedgerDao {
       errorFactories: ErrorFactories,
       storageBackendFactory: StorageBackendFactory,
       ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
   ): LedgerDao =
     new MeteredLedgerDao(
       new JdbcLedgerDao(
@@ -846,7 +850,7 @@ private[platform] object JdbcLedgerDao {
         enricher,
         sequentialWriteDao,
         participantId,
-        storageBackendFactory.readStorageBackend(ledgerEndCache),
+        storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
         storageBackendFactory.createParameterStorageBackend,
         storageBackendFactory.createDeduplicationStorageBackend,
         storageBackendFactory.createResetStorageBackend,
