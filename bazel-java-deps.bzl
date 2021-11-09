@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # When adding, removing or changing a dependency in this file, update the pinned dependencies by executing
-# $ bazel run @unpinned_maven//:pin && DAML_SCALA_VERSION=2.12.14 bazel run @unpinned_maven//:pin
+# $ bazel run @unpinned_maven//
 # See https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
