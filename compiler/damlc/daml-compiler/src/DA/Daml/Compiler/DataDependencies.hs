@@ -121,20 +121,21 @@ envLfVersion :: Env -> LF.Version
 envLfVersion = worldLfVersion . envWorld
 
 -- | Type classes coming from dependencies. This maps a (module, synonym)
--- name pair to a corresponding dependency package id and synonym definition.
+-- name pair to a corresponding dependency package id and synonym type (closed over synonym variables).
 newtype DepClassMap = DepClassMap
     { unDepClassMap :: MS.Map
         (LF.ModuleName, LF.TypeSynName)
-        (LF.PackageId, LF.DefTypeSyn)
+        (LF.PackageId, ExpandedType)
     }
 
-buildDepClassMap :: Config -> DepClassMap
-buildDepClassMap Config{..} = DepClassMap $ MS.fromList
-    [ ((moduleName, synName), (packageId, dsyn))
+buildDepClassMap :: Config -> LF.World -> DepClassMap
+buildDepClassMap Config{..} world = DepClassMap $ MS.fromList
+    [ ((moduleName, synName), (packageId, synTy))
     | packageId <- Set.toList configDependencyPackages
     , Just LF.Package{..} <- [MS.lookup packageId configPackages]
     , LF.Module{..} <- NM.toList packageModules
     , dsyn@LF.DefTypeSyn{..} <- NM.toList moduleSynonyms
+    , let synTy = ExpandedType (panicOnError $ LF.runGamma world (worldLfVersion world) $ LF.expandTypeSynonyms $ closedSynType dsyn)
     ]
 
 buildDepInstances :: Config -> LF.World -> MS.Map LF.TypeSynName [LF.Qualified ExpandedType]
@@ -149,7 +150,7 @@ buildDepInstances Config{..} world = MS.fromListWith (<>)
     , let ty = ExpandedType (panicOnError $ LF.runGamma world (worldLfVersion world) $ LF.expandTypeSynonyms $ snd dvalBinder)
     ]
 
-envLookupDepClass :: LF.TypeSynName -> Env -> Maybe (LF.PackageId, LF.DefTypeSyn)
+envLookupDepClass :: LF.TypeSynName -> Env -> Maybe (LF.PackageId, ExpandedType)
 envLookupDepClass synName env =
     let modName = LF.moduleName (envMod env)
         classMap = unDepClassMap (envDepClassMap env)
@@ -158,19 +159,17 @@ envLookupDepClass synName env =
 -- | Determine whether two type synonym definitions are similar enough to
 -- reexport one as the other. This is done by computing alpha equivalence
 -- after expanding all type synonyms.
-safeToReexport :: Env -> LF.DefTypeSyn -> LF.DefTypeSyn -> Bool
+safeToReexport :: Env -> LF.DefTypeSyn -> ExpandedType -> Bool
 safeToReexport env syn1 syn2 =
     -- this should never fail so we just call `error` if it does
     panicOnError $ do
         LF.runGamma (envWorld env) (envLfVersion env) $ do
-            esyn1 <- LF.expandTypeSynonyms (closedType syn1)
-            esyn2 <- LF.expandTypeSynonyms (closedType syn2)
-            pure (LF.alphaType esyn1 esyn2)
+            esyn1 <- LF.expandTypeSynonyms (closedSynType syn1)
+            pure (LF.alphaType esyn1 (getExpandedType syn2))
 
-  where
-    -- | Turn a type synonym definition into a closed type.
-    closedType :: LF.DefTypeSyn -> LF.Type
-    closedType LF.DefTypeSyn{..} = LF.mkTForalls synParams synType
+-- | Turn a type synonym definition into a closed type.
+closedSynType :: LF.DefTypeSyn -> LF.Type
+closedSynType LF.DefTypeSyn{..} = LF.mkTForalls synParams synType
 
 -- | Check if an instance is a duplicate of another one.
 -- This is needed to filter out duplicate instances which would
@@ -1052,7 +1051,7 @@ generateSrcPkgFromLf envConfig pkg = do
   where
     env envMod = Env {..}
     envQualifyThisModule = False
-    envDepClassMap = buildDepClassMap envConfig
+    envDepClassMap = buildDepClassMap envConfig envWorld
     envDepInstances = buildDepInstances envConfig envWorld
     envWorld = buildWorld envConfig
     envHiddenRefMap = buildHiddenRefMap envConfig envWorld
