@@ -99,37 +99,9 @@ object BaseError {
       .filterNot(x => ignoreFields.contains(x.getName) || x.getName.startsWith("_"))
       .map { field =>
         field.setAccessible(true)
-        (contextKeyForFieldName(field.getName), field.get(obj).toString)
+        (field.getName, field.get(obj).toString)
       }
       .toMap
-
-  private[error] def contextKeyForFieldName(fieldName: String): String =
-    if (!fieldName.contains('_')) {
-      camelCaseToUnderscore(fieldName)
-    } else {
-      // We assume the field name isn't camel-cased.
-      fieldName
-    }
-
-  private def camelCaseToUnderscore(input: String): String =
-    input.foldLeft[(String, Option[Char])](("", None)) { case ((builtString, previousChar), nextChar) =>
-      if (nextChar.isLower) {
-        (builtString :+ nextChar, Some(nextChar))
-      } else {
-        if (nextChar.isUpper) {
-          previousChar match {
-            case Some(previous) if previous.isLower =>
-              (builtString + s"_${nextChar.toLower}", Some(nextChar))
-            case _ =>
-              // Skip adding an underscore in case of consecutive upper-cased characters.
-              (builtString :+ nextChar, Some(nextChar))
-          }
-        } else {
-          (builtString :+ nextChar, Some(nextChar))
-        }
-      }
-    }
-      ._1
 
   abstract class Impl(
       override val cause: String,
