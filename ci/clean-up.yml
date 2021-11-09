@@ -4,31 +4,54 @@
 steps:
 - bash: |
     set -euo pipefail
-    # Location of the disk cache for CI servers set in their init files:
-    # infra/macos/2-common-box/init.sh:echo "build:darwin --disk_cache=~/.bazel-cache" > ~/.bazelrc
-    # infra/vsts_agent_linux_startup.sh:echo "build:linux --disk_cache=~/.bazel-cache" > ~/.bazelrc
 
-    # Linux machines don't seem to recover when this script fails, and they get
-    # renewed by the instance_group
-    if [ "$(uname -s)" == "Linux" ]; then
-        trap "shutdown -h now" EXIT
-    fi
+    eval "$(dev-env/bin/dade-assist)"
 
-    if [ $(df -m . | sed 1d | awk '{print $4}') -lt 50000 ]; then
-        echo "Disk full, cleaning up..."
-        disk_cache="$HOME/.bazel-cache"
-        rm -rf "$disk_cache"
-        echo "removed '$disk_cache'"
-        local_cache="$HOME/.cache/bazel"
-        if [ -d "$local_cache" ]; then
-            for pid in $(pgrep -a -f bazel | awk '{print $1}'); do
-                kill -s KILL $pid
-            done
-            chmod -R +w "$local_cache"
-            rm -rf "$local_cache"
-            echo "removed '$local_cache'"
-        fi
-    fi
+    exec 1> >(while IFS= read -r line; do echo "$(date -uIs) [out]: $line"; done)
+    exec 2> >(while IFS= read -r line; do echo "$(date -uIs) [err]: $line"; done >&2)
+
+    ## START temp debug
+    UNAME=$(uname)
+
+    case "$UNAME" in
+    Darwin)
+      MPS="/var/tmp/_bazel_vsts /Users/vsts/.bazel-cache"
+      CMD="hdiutil info"
+      ;;
+    Linux)
+      MPS="/home/vsts/.cache/bazel /home/vsts/.bazel-cache"
+      CMD="mount"
+      ;;
+    *)
+      echo "Unexpected uname: $UNAME"
+      MPS=
+      ;;
+    esac
+
+    for path in $MPS; do
+      if ! ($CMD | grep -F "$path"); then
+        echo "$path is not a mount point, forcing cache reset"
+        $HOME/reset_caches.sh
+        echo "Done."
+      fi
+    done
+    ## END temp debug
+
     df -h .
-    trap - EXIT
+    if [ $(df -m . | sed 1d | awk '{print $4}') -lt 80000 ]; then
+        echo "Disk full, cleaning up..."
+        $HOME/reset_caches.sh
+        echo "Done."
+        df -h .
+    fi
+
+    ## More temp debugging
+    for path in $MPS; do
+      if ! ($CMD | grep -F "$path"); then
+        echo "$path is not a mount point, forcing cache reset"
+        $HOME/reset_caches.sh
+        echo "Done."
+      fi
+    done
+    ## End more debugging
   displayName: clean-up disk cache

@@ -229,7 +229,7 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
 haskell_cabal_library(
     name = "ghc-lib",
-    version = "8.8.1.20210101",
+    version = "8.8.1.20211108",
     srcs = glob(["**"]),
     haddock = False,
     deps = packages["ghc-lib"].deps,
@@ -242,9 +242,9 @@ haskell_cabal_library(
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-ghc-lib.patch",
         ],
-        sha256 = "7014dd6b9b277ecc6c41de8331eeb741c8f255aea784414b43aa668e98bef5d7",
-        strip_prefix = "ghc-lib-8.8.1.20210101",
-        urls = ["https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-927591afb5343097516894c6163a6df7.tar.gz"],
+        sha256 = "a08327db2699bc0fa25b05d2eb727c01e2495875e347288bffbc48d4df1f3bbe",
+        strip_prefix = "ghc-lib-8.8.1.20211108",
+        urls = ["https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-ed61e002b65f2861c6c9e8df1f0ea0c0.tar.gz"],
     )
 
     # Note (MK)
