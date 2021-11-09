@@ -66,12 +66,12 @@ object TransactionVersion {
   }
 
   private[lf] def asVersionedTransaction(
-      tx: GenTransaction
+      tx: Transaction
   ): VersionedTransaction = {
     import scala.Ordering.Implicits.infixOrderingOps
 
     tx match {
-      case GenTransaction(nodes, roots) =>
+      case Transaction(nodes, roots) =>
         val txVersion = roots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
           nodes(nodeId).optVersion match {
             case Some(version) => acc max version
