@@ -139,8 +139,8 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
             "id" -> c.id.coid,
             "transaction_id" -> c.transactionId,
             "workflow_id" -> c.workflowId.getOrElse(""),
-            "package_id" -> c.contract.template.packageId,
-            "name" -> c.contract.template.qualifiedName.toString,
+            "package_id" -> c.contract.unversioned.template.packageId,
+            "name" -> c.contract.unversioned.template.qualifiedName.toString,
             "create_offset" -> offset,
             "contract" -> contractSerializer
               .serializeContractInstance(c.contract)

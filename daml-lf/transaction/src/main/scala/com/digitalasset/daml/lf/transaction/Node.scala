@@ -59,7 +59,7 @@ object Node {
     def byInterface: Option[TypeConName]
 
     protected def versionValue[Cid2 >: ContractId](v: Value): VersionedValue =
-      VersionedValue(version, v)
+      Versioned(version, v)
   }
 
   @deprecated("use Node.LeafOnlyAction", since = "1.18.0")
@@ -104,7 +104,7 @@ object Node {
       Value.ContractInstance(templateId, arg, agreementText)
 
     def versionedCoinst: Value.VersionedContractInstance =
-      Value.VersionedContractInstance(version, templateId, arg, agreementText)
+      Versioned(version, coinst)
 
     def versionedKey: Option[KeyWithMaintainers[Value.VersionedValue]] =
       key.map(_.map(versionValue))

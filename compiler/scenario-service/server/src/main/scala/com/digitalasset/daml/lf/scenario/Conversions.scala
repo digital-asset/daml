@@ -663,7 +663,7 @@ final class Conversions(
   }
 
   private def convertVersionedValue(value: V.VersionedValue): proto.Value =
-    convertValue(value.value)
+    convertValue(value.unversioned)
 
   def convertValue(value: V): proto.Value = {
     val builder = proto.Value.newBuilder

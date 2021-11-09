@@ -303,7 +303,7 @@ object ScenarioLedger {
   //----------------------------------------------------------------------------
 
   def collectCoids(value: VersionedValue): Set[ContractId] =
-    collectCoids(value.value)
+    collectCoids(value.unversioned)
 
   /** Collect all contract ids appearing in a value
     */

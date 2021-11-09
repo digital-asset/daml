@@ -89,7 +89,7 @@ package object events {
       .concatSubstreams
 
   def convert(template: Identifier, key: lftx.Node.KeyWithMaintainers[Value]): Key =
-    Key.assertBuild(template, key.key.value)
+    Key.assertBuild(template, key.key.unversioned)
 
   def convertLfValueKey(
       template: Identifier,
