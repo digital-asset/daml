@@ -49,7 +49,7 @@ class ApiPackageManagementServiceSpec
   import ApiPackageManagementServiceSpec._
 
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-  private val errorCodesVersionSwitcher: ErrorCodesVersionSwitcher = mock[ErrorCodesVersionSwitcher]
+  private val errorCodesVersionSwitcher: ErrorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true)
 
   "ApiPackageManagementService $suffix" should {
     "propagate trace context" in {
@@ -65,7 +65,6 @@ class ApiPackageManagementServiceSpec
         }
         .map { _ =>
           spanExporter.finishedSpanAttributes should contain(anApplicationIdSpanAttribute)
-          verifyZeroInteractions(errorCodesVersionSwitcher)
           succeed
         }
     }

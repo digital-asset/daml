@@ -83,7 +83,9 @@ final class ApiParticipantPruningService private (
                 request.pruneAllDivulgedContracts,
               )
 
-            } yield pruneResponse).andThen(logger.logErrorsOnCall[PruneResponse])
+            } yield pruneResponse).andThen(
+              logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)
+            )
         },
     )
   }

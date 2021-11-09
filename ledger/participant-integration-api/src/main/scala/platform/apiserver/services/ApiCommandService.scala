@@ -17,7 +17,6 @@ import com.daml.ledger.api.v1.command_completion_service.{
 }
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.v1.commands.Commands
-import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionByIdRequest,
@@ -171,7 +170,11 @@ private[apiserver] final class ApiCommandService private[services] (
           )
         )
       )
-      .andThen(logger.logErrorsOnCall[Completion](loggingContext))
+      .andThen(
+        logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)(
+          loggingContext
+        )
+      )
 }
 
 private[apiserver] object ApiCommandService {

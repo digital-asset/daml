@@ -43,7 +43,7 @@ private[apiserver] final class ApiPackageService private (
     backend
       .listLfPackages()
       .map(p => ListPackagesResponse(p.keys.toSeq))
-      .andThen(logger.logErrorsOnCall[ListPackagesResponse])
+      .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
   }
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
@@ -61,7 +61,7 @@ private[apiserver] final class ApiPackageService private (
               )
             case Some(archive) => Future.successful(toGetPackageResponse(archive))
           }
-          .andThen(logger.logErrorsOnCall[GetPackageResponse])
+          .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
       }
     }
 
@@ -81,7 +81,7 @@ private[apiserver] final class ApiPackageService private (
             }
             GetPackageStatusResponse(result)
           }
-          .andThen(logger.logErrorsOnCall[GetPackageStatusResponse])
+          .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
       }
     }
 

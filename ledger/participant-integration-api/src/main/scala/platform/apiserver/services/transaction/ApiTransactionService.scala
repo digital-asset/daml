@@ -77,7 +77,9 @@ private[apiserver] final class ApiTransactionService private (
   import errorFactories.invalidArgumentWasNotFound
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
-    transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
+    transactionsService
+      .currentLedgerEnd()
+      .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
 
   override def getTransactions(
       request: GetTransactionsRequest
@@ -149,7 +151,7 @@ private[apiserver] final class ApiTransactionService private (
           invalidArgumentWasNotFound(None)(s"invalid eventId: ${request.eventId}")
         }
       }
-      .andThen(logger.logErrorsOnCall[GetTransactionResponse])
+      .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
   }
 
   override def getTransactionById(
@@ -166,7 +168,7 @@ private[apiserver] final class ApiTransactionService private (
     logger.trace(s"Transaction by ID request: $request")
 
     lookUpTreeByTransactionId(request.transactionId, request.requestingParties)(errorLogger)
-      .andThen(logger.logErrorsOnCall[GetTransactionResponse])
+      .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
   }
 
   override def getFlatTransactionByEventId(
@@ -191,7 +193,7 @@ private[apiserver] final class ApiTransactionService private (
         val msg = s"eventId: ${request.eventId}"
         Future.failed(invalidArgumentWasNotFound(None)(msg))
       }
-      .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
+      .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
   }
 
   override def getFlatTransactionById(
@@ -208,7 +210,7 @@ private[apiserver] final class ApiTransactionService private (
     logger.trace(s"Flat transaction by ID request: $request")
 
     lookUpFlatByTransactionId(request.transactionId, request.requestingParties)(errorLogger)
-      .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
+      .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
   }
 
   private def lookUpTreeByTransactionId(

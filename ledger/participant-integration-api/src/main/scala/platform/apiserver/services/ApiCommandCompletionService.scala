@@ -30,6 +30,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[apiserver] final class ApiCommandCompletionService private (
     completionsService: IndexCompletionsService,
     metrics: Metrics,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
     protected val materializer: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -66,7 +67,9 @@ private[apiserver] final class ApiCommandCompletionService private (
     }
 
   override def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute] =
-    completionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
+    completionsService
+      .currentLedgerEnd()
+      .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
 }
 
 private[apiserver] object ApiCommandCompletionService {
@@ -83,7 +86,7 @@ private[apiserver] object ApiCommandCompletionService {
       loggingContext: LoggingContext,
   ): GrpcCommandCompletionService with GrpcApiService = {
     val impl: CommandCompletionService =
-      new ApiCommandCompletionService(completionsService, metrics)
+      new ApiCommandCompletionService(completionsService, metrics, errorCodesVersionSwitcher)
 
     new GrpcCommandCompletionService(
       ledgerId,

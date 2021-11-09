@@ -52,16 +52,20 @@ final class ContextualizedLogger private (val withoutContext: Logger) {
   private def logError(t: Throwable)(implicit loggingContext: LoggingContext): Unit =
     error("Unhandled internal error", t)
 
-  def logErrorsOnCall[Out](implicit
+  def logErrorsOnCall[Out](selfServiceErrorCodesEnabled: Boolean)(implicit
       loggingContext: LoggingContext
-  ): PartialFunction[Try[Out], Unit] = {
-    case Failure(e @ GrpcException(s, _)) =>
-      if (internalOrUnknown(s.getCode)) {
+  ): PartialFunction[Try[Out], Unit] =
+    if (selfServiceErrorCodesEnabled) { case _ =>
+      ()
+    }
+    else {
+      case Failure(e @ GrpcException(s, _)) =>
+        if (internalOrUnknown(s.getCode)) {
+          logError(e)
+        }
+      case Failure(NonFatal(e)) =>
         logError(e)
-      }
-    case Failure(NonFatal(e)) =>
-      logError(e)
-  }
+    }
 
   def logErrorsOnStream[Out](implicit loggingContext: LoggingContext): Flow[Out, Out, NotUsed] =
     Flow[Out].mapError {

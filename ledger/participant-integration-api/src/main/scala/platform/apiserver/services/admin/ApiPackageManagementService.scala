@@ -95,7 +95,7 @@ private[apiserver] final class ApiPackageManagementService private (
           )
         })
       }
-      .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])
+      .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
   }
 
   private def decodeAndValidate(
@@ -141,7 +141,9 @@ private[apiserver] final class ApiPackageManagementService private (
           }
           UploadDarFileResponse()
         }
-        response.andThen(logger.logErrorsOnCall[UploadDarFileResponse])
+        response.andThen(
+          logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)
+        )
     }
 
   private implicit class ErrorValidations[E, R](result: Either[E, R]) {

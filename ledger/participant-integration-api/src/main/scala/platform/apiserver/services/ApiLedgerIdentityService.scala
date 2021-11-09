@@ -48,7 +48,7 @@ private[apiserver] final class ApiLedgerIdentityService private (
     else
       getLedgerId()
         .map(ledgerId => GetLedgerIdentityResponse(ledgerId.unwrap))
-        .andThen(logger.logErrorsOnCall[GetLedgerIdentityResponse])
+        .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
   }
 
   override def close(): Unit = closed = true

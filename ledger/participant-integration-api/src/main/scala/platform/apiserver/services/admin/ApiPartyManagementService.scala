@@ -77,7 +77,7 @@ private[apiserver] final class ApiPartyManagementService private (
     partyManagementService
       .getParticipantId()
       .map(pid => GetParticipantIdResponse(pid.toString))
-      .andThen(logger.logErrorsOnCall[GetParticipantIdResponse])
+      .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
   }
 
   override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
@@ -86,7 +86,7 @@ private[apiserver] final class ApiPartyManagementService private (
       partyManagementService
         .getParties(request.parties.map(Ref.Party.assertFromString))
         .map(ps => GetPartiesResponse(ps.map(mapPartyDetails)))
-        .andThen(logger.logErrorsOnCall[GetPartiesResponse])
+        .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
     }
 
   override def listKnownParties(
@@ -96,7 +96,7 @@ private[apiserver] final class ApiPartyManagementService private (
     partyManagementService
       .listKnownParties()
       .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))
-      .andThen(logger.logErrorsOnCall[ListKnownPartiesResponse])
+      .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
   }
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] =
@@ -138,7 +138,7 @@ private[apiserver] final class ApiPartyManagementService private (
                 )
               }
           })
-          .andThen(logger.logErrorsOnCall[AllocatePartyResponse])
+          .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
     }
 
   private[this] def mapPartyDetails(

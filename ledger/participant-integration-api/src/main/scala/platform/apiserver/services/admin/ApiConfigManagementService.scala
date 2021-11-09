@@ -73,7 +73,7 @@ private[apiserver] final class ApiConfigManagementService private (
             )
           )
       }
-      .andThen(logger.logErrorsOnCall[GetTimeModelResponse])
+      .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
   }
 
   private def configurationToResponse(configuration: Configuration): GetTimeModelResponse = {
@@ -161,7 +161,9 @@ private[apiserver] final class ApiConfigManagementService private (
           )
         } yield SetTimeModelResponse(entry.configuration.generation)
 
-        response.andThen(logger.logErrorsOnCall[SetTimeModelResponse])
+        response.andThen(
+          logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)
+        )
     }
 
   private case class SetTimeModelParameters(

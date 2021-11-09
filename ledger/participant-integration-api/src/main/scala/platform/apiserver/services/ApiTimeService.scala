@@ -123,7 +123,7 @@ private[apiserver] final class ApiTimeService private (
           dispatcher.signal()
           Empty()
         }
-        .andThen(logger.logErrorsOnCall[Empty])
+        .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
     }
 
     result.fold(

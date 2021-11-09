@@ -51,7 +51,7 @@ private[apiserver] final class ApiVersionService private (enableSelfServiceError
     Future
       .fromTry(apiVersion)
       .map(apiVersionResponse)
-      .andThen(logger.logErrorsOnCall[GetLedgerApiVersionResponse])
+      .andThen(logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes))
       .recoverWith { case NonFatal(_) =>
         internalError
       }

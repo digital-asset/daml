@@ -7,7 +7,7 @@ package com.daml.error
   * This class is intended to facilitate transition to self-service error codes.
   * Once the previous error codes are removed, this class and its specializations should be dropped as well.
   */
-class ValueSwitch(enableSelfServiceErrorCodes: Boolean) {
+class ValueSwitch(val enableSelfServiceErrorCodes: Boolean) {
   def choose[X](
       v1: => X,
       v2: => X,

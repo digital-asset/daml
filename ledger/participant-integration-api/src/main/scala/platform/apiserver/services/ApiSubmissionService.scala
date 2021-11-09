@@ -147,7 +147,9 @@ private[apiserver] final class ApiSubmissionService private[services] (
             errorFactories.missingLedgerConfig(definiteAnswer = Some(false))
           )
       }
-      evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])
+      evaluatedCommand.andThen(
+        logger.logErrorsOnCall(errorCodesVersionSwitcher.enableSelfServiceErrorCodes)
+      )
     }
 
   private def deduplicateAndRecordOnLedger(
