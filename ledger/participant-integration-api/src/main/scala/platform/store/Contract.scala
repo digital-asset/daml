@@ -6,10 +6,10 @@ package com.daml.platform.store
 import java.time.Instant
 
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction.Node.KeyWithMaintainers
+import com.daml.lf.transaction.Node.VersionedKeyWithMaintainers
 import com.daml.lf.transaction.NodeId
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, VersionedContractInstance, VersionedValue}
+import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 
 /** A contract that is part of the [[ActiveLedgerState]].
   * Depending on where the contract came from, other metadata may be available.
@@ -57,7 +57,7 @@ private[platform] object Contract {
         Ref.Party,
         Ref.TransactionId,
       ], // for each party, the transaction id at which the contract was divulged
-      key: Option[KeyWithMaintainers[VersionedValue]],
+      key: Option[VersionedKeyWithMaintainers],
       signatories: Set[Ref.Party],
       observers: Set[Ref.Party],
       agreementText: String,

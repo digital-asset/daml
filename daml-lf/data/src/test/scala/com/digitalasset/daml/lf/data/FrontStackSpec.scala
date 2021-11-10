@@ -75,6 +75,10 @@ class FrontStackSpec
 
   "Traverse instance" should {
     checkLaws(ScalazProperties.traverse.laws[FrontStack])
+
+    "reconstruct itself with foldRight" in forAll { fs: FrontStack[Int] =>
+      scalaz.Foldable[FrontStack].foldRight(fs, FrontStack.empty[Int])(_ +: _) should ===(fs)
+    }
   }
 
   "Equal instance" should {

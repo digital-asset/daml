@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils.errors
 import java.time.Instant
 import com.daml.error.{
   ContextualizedErrorLogger,
+  DeprecatedDocs,
   ErrorCategory,
   ErrorCode,
   ErrorGroup,
@@ -379,6 +380,9 @@ object KVErrors extends LedgerApiErrorGroup {
         "The ledger time of the submission violated some constraint on the ledger time."
       )
       @Resolution("Retry the transaction submission.")
+      @DeprecatedDocs(
+        "It was produced by submissions batching and it's not produced anymore by pre-execution."
+      )
       @deprecated(
         "It was produced by submissions batching and it's not produced anymore by pre-execution."
       )
@@ -411,6 +415,9 @@ object KVErrors extends LedgerApiErrorGroup {
         "Check that all the informee party identifiers are correct, allocate all the informee parties, " +
           "request their allocation or wait for them to be allocated before retrying the transaction submission."
       )
+      @DeprecatedDocs(
+        "Corresponds to transaction submission rejections that are not produced anymore."
+      )
       @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
       object PartyNotKnownOnLedger
           extends ErrorCode(
@@ -433,6 +440,9 @@ object KVErrors extends LedgerApiErrorGroup {
 
       @Explanation("An invalid transaction submission was not detected by the participant.")
       @Resolution("Contact support.")
+      @DeprecatedDocs(
+        "Corresponds to transaction submission rejections that are not produced anymore."
+      )
       @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
       object Disputed
           extends ErrorCode(
@@ -454,6 +464,9 @@ object KVErrors extends LedgerApiErrorGroup {
       "The correct resolution depends on the business flow, for example it may be possible to proceed " +
         "without an archived contract as an input, or the transaction submission may be retried " +
         "to load the up-to-date value of a contract key."
+    )
+    @DeprecatedDocs(
+      "Corresponds to transaction submission rejections that are not produced anymore."
     )
     @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
     object Inconsistent

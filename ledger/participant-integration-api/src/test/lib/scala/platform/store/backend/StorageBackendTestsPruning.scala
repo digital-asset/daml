@@ -103,7 +103,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       // Ingest a create and archive event
       _ <- executeSql(ingest(Vector(create, archive), _))
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 2L))
+        updateLedgerEnd(offset(2), 2L)
       )
       // Make sure the events are visible
       before1 <- executeSql(backend.event.transactionEvents(range, filter))
@@ -162,7 +162,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       // Ingest a create and archive event
       _ <- executeSql(ingest(Vector(partyEntry, create), _))
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 1L))
+        updateLedgerEnd(offset(2), 1L)
       )
       // Make sure the events are visible
       before1 <- executeSql(backend.event.transactionEvents(range, filter))
@@ -246,7 +246,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
         )
       )
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(4), 4L))
+        updateLedgerEnd(offset(4), 4L)
       )
       contract1_beforePruning <- executeSql(
         backend.contract.activeContractWithoutArgument(
@@ -336,7 +336,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       )
       // Set the ledger end past the last ingested event so we can prune up to it inclusively
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(5), 5L))
+        updateLedgerEnd(offset(5), 5L)
       )
       contract1_beforePruning <- executeSql(
         backend.contract.activeContractWithoutArgument(
@@ -394,7 +394,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       // Ingest a completion
       _ <- executeSql(ingest(Vector(completion), _))
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(1), 1L))
+        updateLedgerEnd(offset(1), 1L)
       )
       // Make sure the completion is visible
       before <- executeSql(

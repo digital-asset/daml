@@ -8,28 +8,32 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.command.{ApiCommand, Commands, CreateCommand, ExerciseCommand}
 import com.daml.lf.data.FrontStack
-import com.daml.lf.data.Ref.{Name, Party, ParticipantId, PackageId, Identifier, QualifiedName}
+import com.daml.lf.data.Ref.{Identifier, Name, PackageId, ParticipantId, Party, QualifiedName}
 import com.daml.lf.data.Time
-import com.daml.lf.data.{ImmArray, Bytes}
+import com.daml.lf.data.{Bytes, ImmArray}
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.ledger.FailedAuthorization.{
   CreateMissingAuthorization,
   ExerciseMissingAuthorization,
 }
-import com.daml.lf.transaction.GlobalKeyWithMaintainers
+import com.daml.lf.transaction.{
+  GlobalKeyWithMaintainers,
+  SubmittedTransaction,
+  TransactionVersion,
+  Versioned,
+}
 import com.daml.lf.transaction.Transaction.Metadata
-import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion}
 import com.daml.lf.value.Value.{
   ContractId,
-  ValueRecord,
-  ValueParty,
-  VersionedContractInstance,
+  ContractInstance,
   ValueContractId,
   ValueList,
+  ValueParty,
+  ValueRecord,
+  VersionedContractInstance,
 }
 
 import java.io.File
-
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -59,29 +63,31 @@ class AuthPropagationSpec extends AnyFreeSpec with Matchers with Inside with Baz
     ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
   }
 
-  private def t1InstanceFor(party: Party): VersionedContractInstance = {
-    VersionedContractInstance(
+  private def t1InstanceFor(party: Party): VersionedContractInstance =
+    Versioned(
       TransactionVersion.VDev,
-      "T1",
-      ValueRecord(
-        Some("T1"),
-        ImmArray((Some[Name]("party"), ValueParty(party))),
+      ContractInstance(
+        "T1",
+        ValueRecord(
+          Some("T1"),
+          ImmArray((Some[Name]("party"), ValueParty(party))),
+        ),
+        "",
       ),
-      "",
     )
-  }
 
-  private def x1InstanceFor(party: Party): VersionedContractInstance = {
-    VersionedContractInstance(
+  private def x1InstanceFor(party: Party): VersionedContractInstance =
+    Versioned(
       TransactionVersion.VDev,
-      "X1",
-      ValueRecord(
-        Some("X1"),
-        ImmArray((Some[Name]("party"), ValueParty(party))),
+      ContractInstance(
+        "X1",
+        ValueRecord(
+          Some("X1"),
+          ImmArray((Some[Name]("party"), ValueParty(party))),
+        ),
+        "",
       ),
-      "",
     )
-  }
 
   private val defaultContracts: Map[ContractId, VersionedContractInstance] =
     Map(

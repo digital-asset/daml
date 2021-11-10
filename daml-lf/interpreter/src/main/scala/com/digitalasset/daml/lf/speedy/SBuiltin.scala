@@ -6,7 +6,6 @@ package speedy
 
 import java.util
 import java.util.regex.Pattern
-
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
@@ -18,9 +17,14 @@ import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.SValue.{SValue => SV}
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  Node,
+  Versioned,
+  Transaction => Tx,
+}
 import com.daml.lf.value.{Value => V}
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node}
 import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
@@ -1051,7 +1055,7 @@ private[lf] object SBuiltin {
               coid,
               templateId,
               onLedger.committers,
-              { case V.VersionedContractInstance(_, actualTmplId, arg, _) =>
+              { case Versioned(_, V.ContractInstance(actualTmplId, arg, _)) =>
                 if (actualTmplId != templateId) {
                   machine.ctrl =
                     SEDamlException(IE.WronglyTypedContract(coid, templateId, actualTmplId))
@@ -1111,7 +1115,7 @@ private[lf] object SBuiltin {
               coid,
               ifaceId,
               onLedger.committers,
-              { case V.VersionedContractInstance(_, actualTmplId, arg, _) =>
+              { case Versioned(_, V.ContractInstance(actualTmplId, arg, _)) =>
                 machine.compiledPackages.getDefinition(
                   ImplementsDefRef(actualTmplId, ifaceId)
                 ) match {
@@ -1761,7 +1765,7 @@ private[lf] object SBuiltin {
       templateId: TypeConName,
       location: String,
       v: SValue,
-  ): Node.KeyWithMaintainers[V] =
+  ): Node.KeyWithMaintainers =
     v match {
       case SStruct(_, vals) =>
         val key = onLedger.ptx.normValue(templateId, vals.get(keyIdx))
@@ -1778,7 +1782,7 @@ private[lf] object SBuiltin {
       templateId: TypeConName,
       where: String,
       optKey: SValue,
-  ): Option[Node.KeyWithMaintainers[V]] =
+  ): Option[Node.KeyWithMaintainers] =
     optKey match {
       case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers(onLedger, templateId, where, _))
       case v => throw SErrorCrash(where, s"Expected optional key with maintainers, got: $v")

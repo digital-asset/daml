@@ -41,6 +41,7 @@ steps:
   - template: publish-platform-independence-dar.yml
     parameters:
       platform: '${{parameters.name}}'
+      is_release: '${{parameters.is_release}}'
 
   - task: PublishBuildArtifacts@1
     condition: succeededOrFailed()

@@ -5,12 +5,15 @@ package com.daml.ledger.api.benchtool
 
 import com.daml.ledger.api.benchtool.submission.CommandSubmitter
 import com.daml.ledger.api.benchtool.services._
+import com.daml.ledger.api.benchtool.util.SimpleFileReader
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.{Logger, LoggerFactory}
+import pprint.PPrinter
 
+import java.io.File
 import java.util.concurrent.{
   ArrayBlockingQueue,
   Executor,
@@ -20,6 +23,7 @@ import java.util.concurrent.{
 }
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 object LedgerApiBenchTool {
   def main(args: Array[String]): Unit = {
@@ -38,37 +42,65 @@ object LedgerApiBenchTool {
   }
 
   private def run(config: Config)(implicit ec: ExecutionContext): Future[Unit] = {
-    val printer = pprint.PPrinter(200, 1000)
-    logger.info(s"Starting benchmark with configuration:\n${printer(config).toString()}")
+    logger.info(s"Starting benchmark with configuration:\n${prettyPrint(config)}")
 
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
     apiServicesOwner(config).use { apiServices =>
-      def testContractsGenerationStep(): Future[Unit] = config.contractSetDescriptorFile match {
+      def benchmarkStep(streams: List[Config.StreamConfig]): Future[Unit] =
+        if (streams.isEmpty) {
+          Future.successful(logger.info(s"No streams defined. Skipping the benchmark step."))
+        } else {
+          Benchmark.run(
+            streams = streams,
+            reportingPeriod = config.reportingPeriod,
+            apiServices = apiServices,
+            metricsReporter = config.metricsReporter,
+          )
+        }
+
+      def submissionStep(
+          submissionDescriptor: Option[SubmissionDescriptor]
+      ): Future[Option[CommandSubmitter.SubmissionSummary]] =
+        submissionDescriptor match {
+          case None =>
+            logger.info(s"No submission defined. Skipping.")
+            Future.successful(None)
+          case Some(descriptor) =>
+            CommandSubmitter(apiServices)
+              .submit(
+                descriptor = descriptor,
+                maxInFlightCommands = config.maxInFlightCommands,
+                submissionBatchSize = config.submissionBatchSize,
+              )
+              .map(Some(_))
+        }
+
+      config.contractSetDescriptorFile match {
         case None =>
-          Future.successful(
-            logger.info("No contract set descriptor file provided. Skipping contracts generation.")
-          )
+          benchmarkStep(config.streams)
         case Some(descriptorFile) =>
-          CommandSubmitter(apiServices).submit(
-            descriptorFile,
-            config.maxInFlightCommands,
-            config.submissionBatchSize,
-          )
+          for {
+            descriptor <- Future.fromTry(parseDescriptor(descriptorFile))
+            _ = logger.info(prettyPrint(descriptor))
+            summary <- submissionStep(descriptor.submission)
+            streams = descriptor.streams.map(
+              DescriptorConverter.streamDescriptorToConfig(_, summary)
+            )
+            _ = logger.info(s"Converted stream configs: ${prettyPrint(streams)}")
+            _ <- benchmarkStep(streams)
+          } yield ()
       }
-
-      def benchmarkStep(): Future[Unit] = if (config.streams.isEmpty) {
-        Future.successful(logger.info(s"No streams defined. Skipping the benchmark step."))
-      } else {
-        Benchmark.run(config, apiServices)
-      }
-
-      for {
-        _ <- testContractsGenerationStep()
-        _ <- benchmarkStep()
-      } yield ()
     }
   }
+
+  private def parseDescriptor(descriptorFile: File): Try[WorkflowDescriptor] =
+    SimpleFileReader.readFile(descriptorFile)(WorkflowParser.parse).flatMap {
+      case Left(err: WorkflowParser.ParserError) =>
+        Failure(new RuntimeException(s"Workflow parsing error. Details: ${err.details}"))
+      case Right(descriptor) =>
+        Success(descriptor)
+    }
 
   private def apiServicesOwner(
       config: Config
@@ -124,4 +156,6 @@ object LedgerApiBenchTool {
     )
 
   private val logger: Logger = LoggerFactory.getLogger(getClass)
+  private val printer: PPrinter = pprint.PPrinter(200, 1000)
+  private def prettyPrint(x: Any): String = printer(x).toString()
 }

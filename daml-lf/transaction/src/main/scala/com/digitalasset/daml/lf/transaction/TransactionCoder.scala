@@ -115,13 +115,13 @@ object TransactionCoder {
       coinst: Value.VersionedContractInstance,
   ): Either[EncodeError, TransactionOuterClass.ContractInstance] =
     ValueCoder
-      .encodeVersionedValue(encodeCid, coinst.version, coinst.arg)
+      .encodeVersionedValue(encodeCid, coinst.version, coinst.unversioned.arg)
       .map(
         TransactionOuterClass.ContractInstance
           .newBuilder()
-          .setTemplateId(ValueCoder.encodeIdentifier(coinst.template))
+          .setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.template))
           .setArgVersioned(_)
-          .setAgreement(coinst.agreementText)
+          .setAgreement(coinst.unversioned.agreementText)
           .build()
       )
 
@@ -173,17 +173,18 @@ object TransactionCoder {
     for {
       id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
       value <- ValueCoder.decodeVersionedValue(decodeCid, protoCoinst.getArgVersioned)
-    } yield Value.VersionedContractInstance(
-      value.version,
-      id,
-      value.value,
-      protoCoinst.getAgreement,
+    } yield value.map(
+      Value.ContractInstance(
+        id,
+        _,
+        protoCoinst.getAgreement,
+      )
     )
 
   private[this] def encodeKeyWithMaintainers(
       encodeCid: ValueCoder.EncodeCid,
       version: TransactionVersion,
-      key: Node.KeyWithMaintainers[Value],
+      key: Node.KeyWithMaintainers,
   ): Either[EncodeError, TransactionOuterClass.KeyWithMaintainers] = {
     val builder =
       TransactionOuterClass.KeyWithMaintainers
@@ -203,7 +204,7 @@ object TransactionCoder {
   private[this] def encodeAndSetContractKey(
       encodeCid: ValueCoder.EncodeCid,
       version: TransactionVersion,
-      key: Option[Node.KeyWithMaintainers[Value]],
+      key: Option[Node.KeyWithMaintainers],
       setKey: TransactionOuterClass.KeyWithMaintainers => GeneratedMessageV3.Builder[_],
   ) = {
     key match {
@@ -419,7 +420,7 @@ object TransactionCoder {
       decodeCid: ValueCoder.DecodeCid,
       version: TransactionVersion,
       keyWithMaintainers: TransactionOuterClass.KeyWithMaintainers,
-  ): Either[DecodeError, Node.KeyWithMaintainers[Value]] = {
+  ): Either[DecodeError, Node.KeyWithMaintainers] = {
     for {
       maintainers <- toPartySet(keyWithMaintainers.getMaintainersList)
       key <- decodeValue(
@@ -437,7 +438,7 @@ object TransactionCoder {
       decodeCid: ValueCoder.DecodeCid,
       version: TransactionVersion,
       keyWithMaintainers: TransactionOuterClass.KeyWithMaintainers,
-  ): Either[DecodeError, Option[Node.KeyWithMaintainers[Value]]] = {
+  ): Either[DecodeError, Option[Node.KeyWithMaintainers]] = {
     if (keyWithMaintainers == TransactionOuterClass.KeyWithMaintainers.getDefaultInstance) {
       RightNone
     } else {

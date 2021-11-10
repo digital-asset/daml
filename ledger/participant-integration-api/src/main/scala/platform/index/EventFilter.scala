@@ -34,8 +34,14 @@ private[platform] object EventFilter {
   def apply(event: ActiveContract)(txf: TransactionFilter): Option[ActiveContract] =
     Some(event)
       .filter(ac =>
-        (ac.signatories union ac.observers).exists(party => txf(party, event.contract.template))
+        (ac.signatories union ac.observers).exists(party =>
+          txf(party, event.contract.unversioned.template)
+        )
       )
-      .map(_.copy(witnesses = event.witnesses.filter(party => txf(party, event.contract.template))))
+      .map(
+        _.copy(witnesses =
+          event.witnesses.filter(party => txf(party, event.contract.unversioned.template))
+        )
+      )
 
 }

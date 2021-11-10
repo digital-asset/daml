@@ -25,7 +25,7 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
       createdContractId = nonTransient(create).loneElement
       (_, lookup) <- store(txLookupByKey(alice, keyValue, Some(createdContractId)))
       to <- ledgerDao.lookupLedgerEnd()
-      completions <- getCompletions(from, to, defaultAppId, Set(alice))
+      completions <- getCompletions(from.lastOffset, to.lastOffset, defaultAppId, Set(alice))
     } yield {
       completions should contain.allOf(
         create.commandId.get -> ok,
@@ -43,7 +43,7 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
       createdContractId = nonTransient(create).loneElement
       (_, fetch) <- store(txFetch(alice, createdContractId))
       to <- ledgerDao.lookupLedgerEnd()
-      completions <- getCompletions(from, to, defaultAppId, Set(alice))
+      completions <- getCompletions(from.lastOffset, to.lastOffset, defaultAppId, Set(alice))
     } yield {
       completions should contain.allOf(
         create.commandId.get -> ok,

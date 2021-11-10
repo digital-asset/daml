@@ -28,7 +28,7 @@ class Normalization {
     * longer need this separate normalization pass.
     */
 
-  private type KWM = Node.KeyWithMaintainers[Val]
+  private type KWM = Node.KeyWithMaintainers
   private type VTX = VersionedTransaction
 
   def normalizeTx(vtx: VTX): VTX = {

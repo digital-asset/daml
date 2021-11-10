@@ -130,7 +130,7 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
 
       Logger.logDebug loggerH "Building dependency package graph"
 
-      let (depGraph, vertexToNode) = buildLfPackageGraph dalfsFromDataDependencies stablePkgs dependenciesInPkgDb
+      let (depGraph, vertexToNode) = buildLfPackageGraph (optDamlLfVersion opts) dalfsFromDataDependencies stablePkgs dependenciesInPkgDb
 
 
       validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes (dalfsFromDependencies <> dalfsFromDataDependencies))
@@ -430,13 +430,14 @@ lfVersionString = DA.Pretty.renderPretty
 
 -- | The graph will have an edge from package A to package B if A depends on B.
 buildLfPackageGraph
-    :: [DecodedDalf]
+    :: LF.Version
+    -> [DecodedDalf]
     -> MS.Map (UnitId, LF.ModuleName) LF.DalfPackage
     -> MS.Map UnitId LF.DalfPackage
     -> ( Graph
        , Vertex -> (PackageNode, LF.PackageId)
        )
-buildLfPackageGraph pkgs stablePkgs dependencyPkgs = (depGraph, vertexToNode')
+buildLfPackageGraph targetLfVersion pkgs stablePkgs dependencyPkgs = (depGraph, vertexToNode')
   where
     -- mapping from package id's to unit id's. if the same package is imported with
     -- different unit id's, we would loose a unit id here.
@@ -467,12 +468,17 @@ buildLfPackageGraph pkgs stablePkgs dependencyPkgs = (depGraph, vertexToNode')
         -- We don’t care about outgoing edges.
         (node, key, _keys) -> (node, key)
 
+    dependencyInfo =
+        buildDependencyInfo
+           (map LF.dalfPackagePkg $ MS.elems dependencyPkgs)
+           (LF.initWorld (map (uncurry LF.ExternalPackage) (MS.toList packages)) targetLfVersion)
+
     config pkgId unitId = DataDeps.Config
         { configPackages = packages
         , configGetUnitId = getUnitId unitId pkgMap
         , configSelfPkgId = pkgId
         , configStablePackages = MS.fromList [ (LF.dalfPackageId dalfPkg, unitId) | ((unitId, _), dalfPkg) <- MS.toList stablePkgs ]
-        , configDependencyPackages = Set.fromList $ map LF.dalfPackageId $ MS.elems dependencyPkgs
+        , configDependencyInfo = dependencyInfo
         , configSdkPrefix = [T.pack currentSdkPrefix]
         }
 

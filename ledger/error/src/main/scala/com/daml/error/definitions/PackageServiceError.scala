@@ -3,15 +3,21 @@
 
 package com.daml.error.definitions
 
-import cats.data.EitherT
-import com.daml.error._
+import com.daml.error.{
+  BaseError,
+  ContextualizedErrorLogger,
+  ErrorCategory,
+  ErrorCode,
+  ErrorGroup,
+  Explanation,
+  Resolution,
+}
 import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.PackageServiceErrorGroup
+import com.daml.lf.archive.{Error => LfArchiveError}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.Error
 import com.daml.lf.{VersionRange, language, validation}
-
-import scala.concurrent.{ExecutionContext, Future}
 
 trait PackageServiceError extends BaseError
 object PackageServiceError extends PackageServiceErrorGroup {
@@ -140,24 +146,45 @@ object PackageServiceError extends PackageServiceErrorGroup {
   }
 
   object Validation {
+    def handleLfArchiveError(
+        lfArchiveError: LfArchiveError
+    )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): BaseError.Impl =
+      lfArchiveError match {
+        case LfArchiveError.InvalidDar(entries, cause) =>
+          PackageServiceError.Reading.InvalidDar
+            .Error(entries.entries.keys.toSeq, cause)
+        case LfArchiveError.InvalidZipEntry(name, entries) =>
+          PackageServiceError.Reading.InvalidZipEntry
+            .Error(name, entries.entries.keys.toSeq)
+        case LfArchiveError.InvalidLegacyDar(entries) =>
+          PackageServiceError.Reading.InvalidLegacyDar.Error(entries.entries.keys.toSeq)
+        case LfArchiveError.ZipBomb =>
+          PackageServiceError.Reading.ZipBomb.Error(LfArchiveError.ZipBomb.getMessage)
+        case e: LfArchiveError =>
+          PackageServiceError.Reading.ParseError.Error(e.msg)
+        case e =>
+          PackageServiceError.InternalError.Unhandled(e)
+      }
 
-    def fromDamlLfEnginePackageError(err: Either[Error.Package.Error, Unit])(implicit
-        executionContext: ExecutionContext,
-        loggingContext: ContextualizedErrorLogger,
-    ): EitherT[Future, PackageServiceError, Unit] =
-      EitherT.fromEither[Future](err.left.map {
-        case Error.Package.Internal(nameOfFunc, msg) =>
-          PackageServiceError.InternalError.Validation(nameOfFunc, msg)
-        case Error.Package.Validation(validationError) =>
-          ValidationError.Error(validationError)
-        case Error.Package.MissingPackage(packageId, _) =>
-          PackageServiceError.InternalError.Error(Set(packageId))
-        case Error.Package
-              .AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions) =>
-          AllowedLanguageMismatchError(packageId, languageVersion, allowedLanguageVersions)
-        case Error.Package.SelfConsistency(packageIds, missingDependencies) =>
-          SelfConsistency.Error(packageIds, missingDependencies)
-      })
+    def handleLfEnginePackageError(err: Error.Package.Error)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ): BaseError.Impl = err match {
+      case Error.Package.Internal(nameOfFunc, msg) =>
+        PackageServiceError.InternalError.Validation(nameOfFunc, msg)
+      case Error.Package.Validation(validationError) =>
+        ValidationError.Error(validationError)
+      case Error.Package.MissingPackage(packageId, _) =>
+        PackageServiceError.InternalError.Error(Set(packageId))
+      case Error.Package
+            .AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions) =>
+        AllowedLanguageMismatchError(
+          packageId,
+          languageVersion,
+          allowedLanguageVersions,
+        )
+      case Error.Package.SelfConsistency(packageIds, missingDependencies) =>
+        SelfConsistency.Error(packageIds, missingDependencies)
+    }
 
     @Explanation("""This error indicates that the validation of the uploaded dar failed.""")
     @Resolution("Inspect the error message and contact support.")
@@ -206,7 +233,5 @@ object PackageServiceError extends PackageServiceErrorGroup {
           )
           with PackageServiceError
     }
-
   }
-
 }

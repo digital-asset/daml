@@ -12,9 +12,9 @@ import com.daml.ledger.participant.state.v2.{ReadService, Update}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.store.EventSequentialId
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.{IngestionStorageBackend, ParameterStorageBackend}
+import com.daml.platform.store.interning.UpdatingStringInterningView
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -29,6 +29,7 @@ private[platform] case class InitializeParallelIngestion(
 
   def apply(
       dbDispatcher: DbDispatcher,
+      updatingStringInterningView: UpdatingStringInterningView,
       readService: ReadService,
       ec: ExecutionContext,
       mat: Materializer,
@@ -54,8 +55,14 @@ private[platform] case class InitializeParallelIngestion(
       _ <- dbDispatcher.executeSql(metrics.daml.parallelIndexer.initialization)(
         ingestionStorageBackend.deletePartiallyIngestedData(ledgerEnd)
       )
+      _ <- ledgerEnd match {
+        case Some(ledgerEnd) => updatingStringInterningView.update(ledgerEnd.lastStringInterningId)
+        case None => Future.unit
+      }
+      ledgerEndOrBeforeBegin = ledgerEnd.getOrElse(ParameterStorageBackend.LedgerEndBeforeBegin)
     } yield InitializeParallelIngestion.Initialized(
-      initialEventSeqId = ledgerEnd.map(_.lastEventSeqId).getOrElse(EventSequentialId.beforeBegin),
+      initialEventSeqId = ledgerEndOrBeforeBegin.lastEventSeqId,
+      initialStringInterningId = ledgerEndOrBeforeBegin.lastStringInterningId,
       readServiceSource = readService.stateUpdates(beginAfter = ledgerEnd.map(_.lastOffset)),
     )
   }
@@ -66,6 +73,7 @@ object InitializeParallelIngestion {
 
   case class Initialized(
       initialEventSeqId: Long,
+      initialStringInterningId: Int,
       readServiceSource: Source[(Offset, Update), NotUsed],
   )
 

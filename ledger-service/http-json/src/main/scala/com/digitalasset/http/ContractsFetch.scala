@@ -3,6 +3,7 @@
 
 package com.daml.http
 
+import akka.NotUsed
 import akka.stream.scaladsl.{Flow, GraphDSL, Keep, RunnableGraph, Sink, Source}
 import akka.stream.{ClosedShape, FanOutShape2, Materializer}
 import com.daml.http.dbbackend.{ContractDao, SupportedJdbcDriver}
@@ -327,7 +328,7 @@ private class ContractsFetch(
 
         val transactInsertsDeletes = Flow
           .fromFunction(jsonifyInsertDeleteStep)
-          .conflate(_ append _)
+          .via(conflation)
           .map(insertAndDelete)
 
         idses.map(_.toInsertDelete) ~> transactInsertsDeletes ~> acsSink
@@ -404,6 +405,16 @@ private[http] object ContractsFetch {
           )
         ))
     }.void
+  }
+
+  private def conflation[D, C: InsertDeleteStep.Cid]
+      : Flow[InsertDeleteStep[D, C], InsertDeleteStep[D, C], NotUsed] = {
+    // when considering this cost, keep in mind that each deleteContracts
+    // may entail a table scan.  Backpressure indicates that DB operations
+    // are slow, the idea here is to set the DB up for success
+    val maxCost = 250L
+    Flow[InsertDeleteStep[D, C]]
+      .batchWeighted(max = maxCost, costFn = _.size.toLong, identity)(_ append _)
   }
 
   private final case class FetchContext(

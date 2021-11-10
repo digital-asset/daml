@@ -38,7 +38,7 @@ private[migration] final class V32_1__Fix_key_hashes extends BaseJavaMigration {
         val templateId = Ref.Identifier.assertFromString(rawTemplateId)
         val rawKeyValue = keysRows.getBinaryStream("create_key_value")
         val keyValue = ValueSerializer.deserializeValue(rawKeyValue)
-        val key = GlobalKey.assertBuild(templateId, keyValue.value)
+        val key = GlobalKey.assertBuild(templateId, keyValue.unversioned)
         val hashBytes = key.hash.bytes.toInputStream
 
         fixHash.setBinaryStream(1, hashBytes)

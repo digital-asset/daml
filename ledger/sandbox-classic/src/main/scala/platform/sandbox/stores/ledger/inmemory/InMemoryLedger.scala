@@ -270,15 +270,15 @@ private[sandbox] final class InMemoryLedger(
         .map { contract =>
           val contractInst =
             if (verbose) {
-              consumeEnricherResult(enricher.enrichContract(contract.contract.coinst))
+              consumeEnricherResult(enricher.enrichContract(contract.contract.unversioned))
             } else {
-              contract.contract.coinst
+              contract.contract.unversioned
             }
           val contractKey = contract.key.map { key =>
-            val unversionedKey = key.map(_.value)
+            val unversionedKey = key.unversioned
             if (verbose) {
               consumeEnricherResult(
-                enricher.enrichContractKey(contract.contract.template, unversionedKey)
+                enricher.enrichContractKey(contract.contract.unversioned.template, unversionedKey)
               )
             } else {
               unversionedKey
@@ -290,7 +290,7 @@ private[sandbox] final class InMemoryLedger(
               CreatedEvent(
                 EventId(contract.transactionId, contract.nodeId).toLedgerString,
                 contract.id.coid,
-                Some(LfEngineToApi.toApiIdentifier(contract.contract.template)),
+                Some(LfEngineToApi.toApiIdentifier(contract.contract.unversioned.template)),
                 contractKey = contractKey.map(ck =>
                   LfEngineToApi.assertOrRuntimeEx(
                     "converting stored contract",
