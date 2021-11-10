@@ -41,7 +41,7 @@ object TransactionVersion {
     data.assertRight(fromString(vs))
 
   val minVersion: TransactionVersion = All.min
-  val maxVersion: TransactionVersion = All.max
+  def maxVersion: TransactionVersion = VDev
 
   private[lf] val minGenMap = V11
   private[lf] val minChoiceObservers = V11
