@@ -264,3 +264,4 @@ object ErrorCode {
 case class Deprecation(deprecation: String) extends StaticAnnotation
 case class Explanation(explanation: String) extends StaticAnnotation
 case class Resolution(resolution: String) extends StaticAnnotation
+case class DeprecatedDocs(description: String) extends StaticAnnotation

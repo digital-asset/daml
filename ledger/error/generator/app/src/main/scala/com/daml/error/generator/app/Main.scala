@@ -1,9 +1,10 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.error.generator
+package com.daml.error.generator.app
 
 import com.daml.error.Grouping
+import com.daml.error.generator.{ErrorCodeDocumentationGenerator, ErrorDocItem, GroupDocItem}
 import io.circe.Encoder
 import io.circe.syntax._
 
