@@ -200,11 +200,9 @@ object JsonProtocol extends JsonProtocolLow {
 
       override def read(json: JsValue): domain.FetchRequest[JsValue] = {
         val jo = json.asJsObject("fetch request must be a JSON object").fields
-        val rj = jo.get(ReadAs)
         domain.FetchRequest(
-          (JsObject(jo - ReadAs))
-            .convertTo[domain.ContractLocator[JsValue]],
-          rj.flatMap(_.convertTo[Option[NonEmptyList[domain.Party]]]),
+          JsObject(jo - ReadAs).convertTo[domain.ContractLocator[JsValue]],
+          jo.get(ReadAs).flatMap(_.convertTo[Option[NonEmptyList[domain.Party]]]),
         )
       }
     }
