@@ -201,7 +201,7 @@ object JsonProtocol extends JsonProtocolLow {
         val jo = json.asJsObject("fetch request must be a JSON object").fields
         val rj = jo.get(ReadAs)
         domain.FetchRequest(
-          (if (rj.isEmpty) json else JsObject(jo - ReadAs))
+          (JsObject(jo - ReadAs))
             .convertTo[domain.ContractLocator[JsValue]],
           rj.flatMap(_.convertTo[Option[NonEmptyList[domain.Party]]]),
         )
