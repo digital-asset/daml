@@ -15,8 +15,8 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.Speedy._
-import com.daml.lf.speedy.{SExpr0 => s}
-import com.daml.lf.speedy.{SExpr => t}
+import com.daml.lf.speedy.{SExpr0 => compileTime}
+import com.daml.lf.speedy.{SExpr => runTime}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.SValue.{SValue => SV}
 import com.daml.lf.transaction.{
@@ -49,11 +49,14 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
 
   // Helper for constructing expressions applying this builtin.
   // E.g. SBCons(SEVar(1), SEVar(2))
-  private[lf] def apply(args: s.SExpr*): s.SExpr = //expressions built at compile-time
-    s.SEApp(s.SEBuiltin(this), args.toArray)
 
-  private[lf] def apply(args: t.SExpr*): t.SExpr = //expressions built at runtime
-    t.SEApp(t.SEBuiltin(this), args.toArray)
+  // TODO: move this into the speedy compiler code
+  private[lf] def apply(args: compileTime.SExpr*): compileTime.SExpr =
+    compileTime.SEApp(compileTime.SEBuiltin(this), args.toArray)
+
+  // TODO: avoid constructing application expression at run time
+  private[lf] def apply(args: runTime.SExpr*): runTime.SExpr =
+    runTime.SEApp(runTime.SEBuiltin(this), args.toArray)
 
   /** Execute the builtin with 'arity' number of arguments in 'args'.
     * Updates the machine state accordingly.
@@ -1712,17 +1715,21 @@ private[lf] object SBuiltin {
       }
     }
 
-    private val mapping: Map[String, s.SExpr] =
+    //TODO: move this into the speedy compiler code
+    private val mapping: Map[String, compileTime.SExpr] =
       List(
         "ANSWER" -> SBExperimentalAnswer,
         "TO_TYPE_REP" -> SBExperimentalToTypeRep,
         "RESOLVE_VIRTUAL_CREATE" -> new SBResolveVirtual(CreateDefRef),
         "RESOLVE_VIRTUAL_SIGNATORY" -> new SBResolveVirtual(SignatoriesDefRef),
         "RESOLVE_VIRTUAL_OBSERVER" -> new SBResolveVirtual(ObserversDefRef),
-      ).view.map { case (name, builtin) => name -> s.SEBuiltin(builtin) }.toMap
+      ).view.map { case (name, builtin) => name -> compileTime.SEBuiltin(builtin) }.toMap
 
-    def apply(name: String): s.SExpr =
-      mapping.getOrElse(name, SBError(s.SEValue(SText(s"experimental $name not supported."))))
+    def apply(name: String): compileTime.SExpr =
+      mapping.getOrElse(
+        name,
+        SBError(compileTime.SEValue(SText(s"experimental $name not supported."))),
+      )
 
   }
 
