@@ -620,6 +620,13 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
 
+    case class EmptySubmissionId()(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends LoggingTransactionErrorImpl(
+          cause =
+            """Attempted to commit a submission with an empty submission id. This indicates a programming error."""
+        )
+
     // TODO error codes: This is an internal error not related to the interpreter
     case class CommandTrackerInternalError(
         message: String
