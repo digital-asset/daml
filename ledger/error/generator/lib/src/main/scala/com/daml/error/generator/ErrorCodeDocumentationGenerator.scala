@@ -4,10 +4,10 @@
 package com.daml.error.generator
 
 import java.lang.reflect.Modifier
-
-import com.daml.error.{Deprecation, ErrorCode, ErrorGroup, Explanation, Resolution}
+import com.daml.error.{DeprecatedDocs, Deprecation, ErrorCode, ErrorGroup, Explanation, Resolution}
 import com.daml.error.generator.ErrorCodeDocumentationGenerator.{
   acceptedTypeNames,
+  deprecatedDocsTypeName,
   deprecatedTypeName,
   explanationTypeName,
   resolutionTypeName,
@@ -163,13 +163,17 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
 
     val doc = annotations.foldLeft(GetAnnotationsState(None, None, None)) {
       case (state, annotation) =>
-        if (isAnnotation(annotation, deprecatedTypeName))
-          update(state, updatedDeprecation = Some(parseDeprecatedAnnotationValue(annotation.tree)))
+        if (isAnnotation(annotation, deprecatedDocsTypeName))
+          update(state, updatedDeprecation = Some(parseAnnotationValue(annotation.tree)))
         else if (isAnnotation(annotation, explanationTypeName))
           update(state, updatedExplanation = Some(parseAnnotationValue(annotation.tree)))
         else if (isAnnotation(annotation, resolutionTypeName))
           update(state, updatedResolution = Some(parseAnnotationValue(annotation.tree)))
-        else
+        else if (isAnnotation(annotation, deprecatedTypeName)) {
+          // Ignore @deprecate annotations
+          // TODO Scala 2.13: Use these annotations to extract the docs description instead of the redundant [[DeprecatedDocs]]
+          state
+        } else
           sys.error(
             s"Unexpected annotation detected (${annotations.map(annotationTypeName)} but the only supported ones are $acceptedTypeNames)."
           )
@@ -177,16 +181,6 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
 
     ErrorDocumentationAnnotations(doc.deprecation, doc.explanation, doc.resolution)
   }
-
-  private def parseDeprecatedAnnotationValue(tree: ru.Tree): String =
-    tree
-      .children(1)
-      .asInstanceOf[ru.NamedArg]
-      .children(1)
-      .asInstanceOf[ru.Literal]
-      .value
-      .value
-      .asInstanceOf[String]
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private def parseAnnotationValue(tree: ru.Tree): String = {
@@ -216,8 +210,10 @@ private object ErrorCodeDocumentationGenerator {
   private val runtimeMirror: ru.Mirror = ru.runtimeMirror(getClass.getClassLoader)
 
   private val deprecatedTypeName = classOf[deprecated].getTypeName.replace("scala.", "")
+  private val deprecatedDocsTypeName = classOf[DeprecatedDocs].getTypeName.replace("$", ".")
   private val explanationTypeName = classOf[Explanation].getTypeName.replace("$", ".")
   private val resolutionTypeName = classOf[Resolution].getTypeName.replace("$", ".")
 
-  private val acceptedTypeNames = Set(deprecatedTypeName, explanationTypeName, resolutionTypeName)
+  private val acceptedTypeNames =
+    Set(deprecatedTypeName, deprecatedDocsTypeName, explanationTypeName, resolutionTypeName)
 }

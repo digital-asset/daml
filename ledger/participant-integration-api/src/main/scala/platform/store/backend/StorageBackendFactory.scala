@@ -8,6 +8,7 @@ import com.daml.platform.store.backend.h2.H2StorageBackendFactory
 import com.daml.platform.store.backend.oracle.OracleStorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackendFactory
 import com.daml.platform.store.cache.LedgerEndCache
+import com.daml.platform.store.interning.StringInterning
 
 trait StorageBackendFactory {
   def createIngestionStorageBackend: IngestionStorageBackend[_]
@@ -16,23 +17,32 @@ trait StorageBackendFactory {
   def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend
   def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend
   def createDeduplicationStorageBackend: DeduplicationStorageBackend
-  def createCompletionStorageBackend: CompletionStorageBackend
-  def createContractStorageBackend(ledgerEndCache: LedgerEndCache): ContractStorageBackend
-  def createEventStorageBackend(ledgerEndCache: LedgerEndCache): EventStorageBackend
+  def createCompletionStorageBackend(stringInterning: StringInterning): CompletionStorageBackend
+  def createContractStorageBackend(
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
+  ): ContractStorageBackend
+  def createEventStorageBackend(
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
+  ): EventStorageBackend
   def createDataSourceStorageBackend: DataSourceStorageBackend
   def createDBLockStorageBackend: DBLockStorageBackend
   def createIntegrityStorageBackend: IntegrityStorageBackend
   def createResetStorageBackend: ResetStorageBackend
   def createStringInterningStorageBackend: StringInterningStorageBackend
 
-  final def readStorageBackend(ledgerEndCache: LedgerEndCache): ReadStorageBackend =
+  final def readStorageBackend(
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
+  ): ReadStorageBackend =
     ReadStorageBackend(
       configurationStorageBackend = createConfigurationStorageBackend(ledgerEndCache),
       partyStorageBackend = createPartyStorageBackend(ledgerEndCache),
       packageStorageBackend = createPackageStorageBackend(ledgerEndCache),
-      completionStorageBackend = createCompletionStorageBackend,
-      contractStorageBackend = createContractStorageBackend(ledgerEndCache),
-      eventStorageBackend = createEventStorageBackend(ledgerEndCache),
+      completionStorageBackend = createCompletionStorageBackend(stringInterning),
+      contractStorageBackend = createContractStorageBackend(ledgerEndCache, stringInterning),
+      eventStorageBackend = createEventStorageBackend(ledgerEndCache, stringInterning),
     )
 }
 

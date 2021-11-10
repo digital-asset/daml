@@ -29,6 +29,7 @@ import com.daml.platform.store.cache.{
   MutableLedgerEndCache,
 }
 import com.daml.platform.store.interfaces.TransactionLogUpdate
+import com.daml.platform.store.interning.UpdatingStringInterningView
 import com.daml.scalautil.Statement.discard
 
 import scala.collection.mutable
@@ -39,6 +40,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
   final class Owner(
       ledgerDao: LedgerReadDao,
       ledgerEndCache: MutableLedgerEndCache,
+      updatingStringInterningView: UpdatingStringInterningView,
       enricher: ValueEnricher,
       ledgerId: LedgerId,
       metrics: Metrics,
@@ -59,6 +61,9 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
           ledgerDao.lookupLedgerEnd()
         )
         _ = ledgerEndCache.set((ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId))
+        _ <- Resource.fromFuture(
+          updatingStringInterningView.update(ledgerEnd.lastStringInterningId)
+        )
         prefetchingDispatcher <- dispatcherOffsetSeqIdOwner(
           ledgerEnd.lastOffset,
           ledgerEnd.lastEventSeqId,
@@ -154,6 +159,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
             cacheUpdatesDispatcher,
             generalDispatcher,
             dispatcherLagMeter,
+            updatingStringInterningView,
           )
         )
       } yield ledger
@@ -226,6 +232,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
             contractStateEventsDispatcher = cacheUpdatesDispatcher,
             dispatcher = generalDispatcher,
             dispatcherLagger = dispatcherLagMeter,
+            updatingStringInterningView = updatingStringInterningView,
           )
         )
       } yield ledger
@@ -277,6 +284,7 @@ private final class ReadOnlySqlLedgerWithMutableCache(
     contractStateEventsDispatcher: Dispatcher[(Offset, Long)],
     dispatcher: Dispatcher[Offset],
     dispatcherLagger: DispatcherLagMeter,
+    updatingStringInterningView: UpdatingStringInterningView,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
     extends ReadOnlySqlLedger(
       ledgerId,
@@ -294,7 +302,14 @@ private final class ReadOnlySqlLedgerWithMutableCache(
       )(() =>
         Source
           .tick(0.millis, 100.millis, ())
-          .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd())
+          .mapAsync(1) {
+            implicit val ec: ExecutionContext = mat.executionContext
+            _ =>
+              for {
+                ledgerEnd <- ledgerDao.lookupLedgerEnd()
+                _ <- updatingStringInterningView.update(ledgerEnd.lastStringInterningId)
+              } yield ledgerEnd
+          }
       )
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
       .toMat(Sink.foreach { case newLedgerHead =>
