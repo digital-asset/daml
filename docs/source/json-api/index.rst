@@ -427,7 +427,7 @@ When creating a new contract you may specify an optional ``meta`` field. This al
         "owner": "Alice"
       },
       "meta": {
-      	"commandId": "a unique ID",
+        "commandId": "a unique ID",
         "actAs": ["Alice"],
         "readAs": ["PublicParty"]
       }
