@@ -28,7 +28,8 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{SExpr => t}
+import com.daml.lf.speedy.SExpr.{SDefinitionRef, SCasePat}
+import com.daml.lf.speedy.{SExpr => runTime}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 private[speedy] object SExpr0 {
@@ -48,7 +49,7 @@ private[speedy] object SExpr0 {
   /** Reference to a value. On first lookup the evaluated expression is
     * stored in 'cached'.
     */
-  final case class SEVal(ref: t.SDefinitionRef) extends SExpr
+  final case class SEVal(ref: SDefinitionRef) extends SExpr
 
   /** Reference to a builtin function */
   final case class SEBuiltin(b: SBuiltin) extends SExprAtomic
@@ -154,14 +155,15 @@ private[speedy] object SExpr0 {
   /** Case alternative. If the 'pattern' matches, then the environment is accordingly
     * extended and 'body' is evaluated.
     */
-  final case class SCaseAlt(pattern: t.SCasePat, body: SExpr)
+  final case class SCaseAlt(pattern: SCasePat, body: SExpr)
 
   //
   // List builtins (equalList) are implemented as recursive
   // definition to save java stack
   //
 
-  final case class SEBuiltinRecursiveDefinition(ref: t.SEBuiltinRecursiveDefinition.Reference)
+  // TODO: simplify here: There is only kind of SEBuiltinRecursiveDefinition! - EqualList
+  final case class SEBuiltinRecursiveDefinition(ref: runTime.SEBuiltinRecursiveDefinition.Reference)
       extends SExprAtomic
 
 }

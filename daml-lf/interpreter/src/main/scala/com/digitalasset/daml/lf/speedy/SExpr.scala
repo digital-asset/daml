@@ -452,6 +452,7 @@ object SExpr {
 
   }
 
+  // TODO: simplify here: There is only kind of SEBuiltinRecursiveDefinition! - EqualList
   final object SEBuiltinRecursiveDefinition {
 
     sealed abstract class Reference
