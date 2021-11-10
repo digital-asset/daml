@@ -189,13 +189,13 @@ private[lf] object Pretty {
           prettyLoc(amf.optLocation)
     }
 
-  def prettyKeyWithMaintainers(key: Node.KeyWithMaintainers[Value]): Doc =
+  def prettyKeyWithMaintainers(key: Node.KeyWithMaintainers): Doc =
     // the maintainers are induced from the key -- so don't clutter
     prettyValue(false)(key.key)
 
-  def prettyVersionedKeyWithMaintainers(key: Node.KeyWithMaintainers[VersionedValue]): Doc =
+  def prettyVersionedKeyWithMaintainers(key: Node.VersionedKeyWithMaintainers): Doc =
     // the maintainers are induced from the key -- so don't clutter
-    prettyValue(false)(key.key.unversioned)
+    prettyKeyWithMaintainers(key.unversioned)
 
   def prettyEventInfo(l: ScenarioLedger, txId: TransactionId)(nodeId: NodeId): Doc = {
     def arrowRight(d: Doc) = text("└─>") & d

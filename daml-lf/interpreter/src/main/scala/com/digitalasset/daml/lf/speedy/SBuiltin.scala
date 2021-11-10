@@ -1765,7 +1765,7 @@ private[lf] object SBuiltin {
       templateId: TypeConName,
       location: String,
       v: SValue,
-  ): Node.KeyWithMaintainers[V] =
+  ): Node.KeyWithMaintainers =
     v match {
       case SStruct(_, vals) =>
         val key = onLedger.ptx.normValue(templateId, vals.get(keyIdx))
@@ -1782,7 +1782,7 @@ private[lf] object SBuiltin {
       templateId: TypeConName,
       where: String,
       optKey: SValue,
-  ): Option[Node.KeyWithMaintainers[V]] =
+  ): Option[Node.KeyWithMaintainers] =
     optKey match {
       case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers(onLedger, templateId, where, _))
       case v => throw SErrorCrash(where, s"Expected optional key with maintainers, got: $v")

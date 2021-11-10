@@ -184,7 +184,7 @@ object TransactionCoder {
   private[this] def encodeKeyWithMaintainers(
       encodeCid: ValueCoder.EncodeCid,
       version: TransactionVersion,
-      key: Node.KeyWithMaintainers[Value],
+      key: Node.KeyWithMaintainers,
   ): Either[EncodeError, TransactionOuterClass.KeyWithMaintainers] = {
     val builder =
       TransactionOuterClass.KeyWithMaintainers
@@ -204,7 +204,7 @@ object TransactionCoder {
   private[this] def encodeAndSetContractKey(
       encodeCid: ValueCoder.EncodeCid,
       version: TransactionVersion,
-      key: Option[Node.KeyWithMaintainers[Value]],
+      key: Option[Node.KeyWithMaintainers],
       setKey: TransactionOuterClass.KeyWithMaintainers => GeneratedMessageV3.Builder[_],
   ) = {
     key match {
@@ -420,7 +420,7 @@ object TransactionCoder {
       decodeCid: ValueCoder.DecodeCid,
       version: TransactionVersion,
       keyWithMaintainers: TransactionOuterClass.KeyWithMaintainers,
-  ): Either[DecodeError, Node.KeyWithMaintainers[Value]] = {
+  ): Either[DecodeError, Node.KeyWithMaintainers] = {
     for {
       maintainers <- toPartySet(keyWithMaintainers.getMaintainersList)
       key <- decodeValue(
@@ -438,7 +438,7 @@ object TransactionCoder {
       decodeCid: ValueCoder.DecodeCid,
       version: TransactionVersion,
       keyWithMaintainers: TransactionOuterClass.KeyWithMaintainers,
-  ): Either[DecodeError, Option[Node.KeyWithMaintainers[Value]]] = {
+  ): Either[DecodeError, Option[Node.KeyWithMaintainers]] = {
     if (keyWithMaintainers == TransactionOuterClass.KeyWithMaintainers.getDefaultInstance) {
       RightNone
     } else {

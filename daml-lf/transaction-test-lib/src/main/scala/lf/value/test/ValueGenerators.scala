@@ -274,7 +274,7 @@ object ValueGenerators {
       agreement <- Arbitrary.arbitrary[String]
     } yield arg.map(Value.ContractInstance(template, _, agreement))
 
-  val keyWithMaintainersGen: Gen[Node.KeyWithMaintainers[Value]] = {
+  val keyWithMaintainersGen: Gen[Node.KeyWithMaintainers] = {
     for {
       key <- valueGen
       maintainers <- genNonEmptyParties

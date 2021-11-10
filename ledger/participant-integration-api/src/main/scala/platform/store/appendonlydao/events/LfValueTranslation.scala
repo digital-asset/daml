@@ -103,7 +103,7 @@ final class LfValueTranslation(
   private def serializeNullableKeyOrThrow(c: Create): Option[Array[Byte]] =
     c.versionedKey.map(k =>
       ValueSerializer.serializeValue(
-        value = k.key,
+        value = k.map(_.key),
         errorContext = cantSerialize(attribute = "key", forContract = c.coid),
       )
     )
@@ -111,7 +111,7 @@ final class LfValueTranslation(
   private def serializeNullableKeyOrThrow(e: Exercise): Option[Array[Byte]] = {
     e.versionedKey.map(k =>
       ValueSerializer.serializeValue(
-        value = k.key,
+        value = k.map(_.key),
         errorContext = cantSerialize(attribute = "key", forContract = e.targetCoid),
       )
     )
@@ -146,7 +146,7 @@ final class LfValueTranslation(
     cache.events.put(
       key = LfValueTranslationCache.EventCache.Key(eventId),
       value = LfValueTranslationCache.EventCache.Value
-        .Create(create.versionedArg, create.versionedKey.map(_.key)),
+        .Create(create.versionedArg, create.versionedKey.map(_.map(_.key))),
     )
     cache.contracts.put(
       key = LfValueTranslationCache.ContractCache.Key(create.coid),

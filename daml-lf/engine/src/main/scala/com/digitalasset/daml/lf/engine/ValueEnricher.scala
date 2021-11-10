@@ -101,25 +101,18 @@ final class ValueEnricher(
     handleLookup(interface.lookupTemplateKey(tyCon))
       .flatMap(key => enrichValue(key.typ, value))
 
-  def enrichVersionedContractKey(
-      tyCon: Identifier,
-      value: VersionedValue,
-  ): Result[VersionedValue] =
-    handleLookup(interface.lookupTemplateKey(tyCon))
-      .flatMap(key => enrichVersionedValue(key.typ, value))
-
   private val ResultNone = ResultDone(None)
 
   def enrichContractKey(
       tyCon: Identifier,
-      key: Node.KeyWithMaintainers[Value],
-  ): Result[Node.KeyWithMaintainers[Value]] =
+      key: Node.KeyWithMaintainers,
+  ): Result[Node.KeyWithMaintainers] =
     enrichContractKey(tyCon, key.key).map(normalizedKey => key.copy(key = normalizedKey))
 
   def enrichContractKey(
       tyCon: Identifier,
-      key: Option[Node.KeyWithMaintainers[Value]],
-  ): Result[Option[Node.KeyWithMaintainers[Value]]] =
+      key: Option[Node.KeyWithMaintainers],
+  ): Result[Option[Node.KeyWithMaintainers]] =
     key match {
       case Some(k) =>
         enrichContractKey(tyCon, k).map(Some(_))
@@ -129,14 +122,14 @@ final class ValueEnricher(
 
   def enrichVersionedContractKey(
       tyCon: Identifier,
-      key: Node.KeyWithMaintainers[VersionedValue],
-  ): Result[Node.KeyWithMaintainers[VersionedValue]] =
-    enrichVersionedContractKey(tyCon, key.key).map(normalizedKey => key.copy(key = normalizedKey))
+      key: Node.VersionedKeyWithMaintainers,
+  ): Result[Node.VersionedKeyWithMaintainers] =
+    enrichContractKey(tyCon, key.unversioned).map(normalizedValue => key.map(_ => normalizedValue))
 
   def enrichVersionedContractKey(
       tyCon: Identifier,
-      key: Option[Node.KeyWithMaintainers[VersionedValue]],
-  ): Result[Option[Node.KeyWithMaintainers[VersionedValue]]] =
+      key: Option[Node.VersionedKeyWithMaintainers],
+  ): Result[Option[Node.VersionedKeyWithMaintainers]] =
     key match {
       case Some(k) =>
         enrichVersionedContractKey(tyCon, k).map(Some(_))

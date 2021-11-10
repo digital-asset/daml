@@ -275,7 +275,7 @@ private[sandbox] final class InMemoryLedger(
               contract.contract.unversioned
             }
           val contractKey = contract.key.map { key =>
-            val unversionedKey = key.map(_.unversioned)
+            val unversionedKey = key.unversioned
             if (verbose) {
               consumeEnricherResult(
                 enricher.enrichContractKey(contract.contract.unversioned.template, unversionedKey)

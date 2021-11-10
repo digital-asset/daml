@@ -547,12 +547,12 @@ final class Conversions(
   }
 
   def convertKeyWithMaintainers(
-      key: Node.KeyWithMaintainers[V.VersionedValue]
+      key: Node.VersionedKeyWithMaintainers
   ): proto.KeyWithMaintainers = {
     proto.KeyWithMaintainers
       .newBuilder()
-      .setKey(convertVersionedValue(key.key))
-      .addAllMaintainers(key.maintainers.map(convertParty).asJava)
+      .setKey(convertVersionedValue(key.map(_.key)))
+      .addAllMaintainers(key.unversioned.maintainers.map(convertParty).asJava)
       .build()
   }
 

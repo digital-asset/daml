@@ -153,11 +153,11 @@ private[appendonlydao] object PostCommitValidation {
     )(implicit connection: Connection): Result =
       node match {
         case c: Create =>
-          state.validateCreate(c.versionedKey.map(convert(c.templateId, _)), c.coid)
+          state.validateCreate(c.key.map(convert(c.templateId, _)), c.coid)
         case l: LookupByKey =>
-          state.validateLookupByKey(convert(l.templateId, l.versionedKey), l.result)
+          state.validateLookupByKey(convert(l.templateId, l.key), l.result)
         case e: Exercise if e.consuming =>
-          state.removeKeyIfDefined(e.versionedKey.map(convert(e.templateId, _)))
+          state.removeKeyIfDefined(e.key.map(convert(e.templateId, _)))
         case _ =>
           // fetch and non-consuming exercise nodes don't need to validate
           // anything with regards to contract keys and do not alter the
