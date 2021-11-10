@@ -46,9 +46,10 @@ object JsonProtocol extends JsonProtocolLow {
     taggedJsonFormat
 
   implicit def NonEmptyListFormat[A: JsonReader: JsonWriter]: JsonFormat[NonEmptyList[A]] =
-    jsonFormatIsSilly(NonEmptyListReader, NonEmptyListWriter)
+    jsonFormatFromReaderWriter(NonEmptyListReader, NonEmptyListWriter)
 
-  private[this] def jsonFormatIsSilly[A: JsonReader: JsonWriter]: JsonFormat[A] =
+  // Do not design your own open typeclasses like JsonFormat was designed.
+  private[this] def jsonFormatFromReaderWriter[A: JsonReader: JsonWriter]: JsonFormat[A] =
     new JsonFormat[A] {
       override def read(json: JsValue) = json.convertTo[A]
       override def write(obj: A) = obj.toJson
