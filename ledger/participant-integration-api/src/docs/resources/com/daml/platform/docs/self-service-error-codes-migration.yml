@@ -181,11 +181,19 @@ offsetOutOfRange_was_invalidArgument:
   changeExplanation: "OUT_OF_RANGE can now be returned when the supplied offset was out of range."
   selfServiceErrorCodeId: REQUESTED_OFFSET_OUT_OF_RANGE
   services:
-    ParticipantPruningService:
-      - prune
     TransactionService:
       - getTransactionTrees
       - getTransactions
+
+offsetOutOfRange_was_invalidArgument::pruning:
+  change:
+    - INVALID_ARGUMENT
+    - OUT_OF_RANGE
+  changeExplanation: "OUT_OF_RANGE can now be returned when the supplied pruning offset was out of range."
+  selfServiceErrorCodeId: REQUESTED_OFFSET_OUT_OF_RANGE
+  services:
+    ParticipantPruningService:
+      - prune
 
 nonHexOffset:
   change:
@@ -405,7 +413,7 @@ ApiSubmissionService.failedOnCommandExecution#Interpretation::Validation::Replay
   change:
     - ABORTED
     - INTERNAL
-  changeExplanation: "INTERNAL can now be returned when validation fails on replay mismatch."
+  changeExplanation: "INTERNAL can now be returned when validation fails on a mismatch during relay of the submitted transaction."
   selfServiceErrorCodeId: LEDGER_API_INTERNAL_ERROR
   services:
     SubmissionService:
