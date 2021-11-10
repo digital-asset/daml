@@ -286,7 +286,7 @@ class AnfTest extends AnyWordSpec with Matchers {
   ): Assertion = {
     val transformed = flattenToAnf(original)
     if (show || transformed != expected) {
-      //println(s"**original:\n${pp(original)}\n")
+      println(s"**original:\n${original}\n")
       println(s"**transformed:\n${pp(transformed)}\n")
       println(s"**expected:\n${pp(expected)}\n")
     }
