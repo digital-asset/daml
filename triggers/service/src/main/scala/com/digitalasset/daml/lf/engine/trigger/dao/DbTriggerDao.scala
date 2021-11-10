@@ -8,7 +8,6 @@ import cats.effect.{ContextShift, IO}
 import cats.syntax.functor._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.dbutils.{ConnectionPool, JdbcConfig}
-import ConnectionPool.PoolSize, PoolSize._
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.lf.archive.{ArchivePayloadParser, Dar}
 import com.daml.lf.data.Ref.{Identifier, PackageId}
