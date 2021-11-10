@@ -69,14 +69,12 @@ private[kvutils] class TransactionCommitter(
   override protected val steps: Steps[DamlTransactionEntrySummary] = Iterable(
     "authorize_submitter" -> authorizeSubmitters,
     "check_informee_parties_allocation" -> checkInformeePartiesAllocation,
-    "overwrite_deduplication_period" -> CommandDeduplication
-      .overwriteDeduplicationPeriodWithMaxDurationStep(defaultConfig),
-    "deduplicate" -> CommandDeduplication.deduplicateCommandStep(rejections),
     "set_time_bounds" -> TimeBoundBindingStep.setTimeBoundsInContextStep(defaultConfig),
+    "deduplicate" -> CommandDeduplication.deduplicateCommandStep(rejections),
     "validate_ledger_time" -> ledgerTimeValidator.createValidationStep(rejections),
     "validate_model_conformance" -> modelConformanceValidator.createValidationStep(rejections),
     "validate_consistency" -> TransactionConsistencyValidator.createValidationStep(rejections),
-    "set_deduplication_entry" -> CommandDeduplication.setDeduplicationEntryStep(defaultConfig),
+    "set_deduplication_entry" -> CommandDeduplication.setDeduplicationEntryStep(),
     "blind" -> blind,
     "trim_unnecessary_nodes" -> trimUnnecessaryNodes,
     "build_final_log_entry" -> buildFinalLogEntry,
