@@ -39,7 +39,7 @@ object Cli {
         "<param1>=<value1>,<param2>=<value2>,..."
       )
       .action { case (streamConfig, config) =>
-        config.copy(streams = config.streams :+ streamConfig)
+        config.copy(workflow = config.workflow.copy(streams = config.workflow.streams :+ streamConfig))
       }
 
     opt[File]("contract-set-descriptor")

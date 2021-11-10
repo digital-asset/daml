@@ -78,7 +78,7 @@ object LedgerApiBenchTool {
 
       config.contractSetDescriptorFile match {
         case None =>
-          benchmarkStep(config.streams)
+          benchmarkStep(config.workflow.streams)
         case Some(descriptorFile) =>
           for {
             descriptor <- Future.fromTry(parseDescriptor(descriptorFile))

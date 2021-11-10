@@ -8,7 +8,7 @@ import com.daml.ledger.api.v1.value.Identifier
 
 case class WorkflowConfig(
 //    submission: Option[WorkflowConfig.SubmissionConfig],
-    streams: Option[List[WorkflowConfig.StreamConfig]]
+    streams: List[WorkflowConfig.StreamConfig] = Nil,
 )
 
 object WorkflowConfig {
