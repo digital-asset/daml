@@ -31,7 +31,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{SExpr => t}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-object SExpr0 {
+private[speedy] object SExpr0 {
 
   sealed abstract class SExpr extends Product with Serializable
 
