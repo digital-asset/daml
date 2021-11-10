@@ -602,7 +602,7 @@ private[kvutils] object TransactionRejections {
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
       GrpcStatus.toProto(
         LedgerApiErrors.CommandRejections.PartyNotKnownOnLedger
-          .Reject(details)
+          .RejectDeprecated(details)
           .asGrpcStatusFromContext
       )
 

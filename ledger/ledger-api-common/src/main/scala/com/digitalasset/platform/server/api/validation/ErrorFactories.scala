@@ -497,6 +497,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   }
 
   object CommandRejections {
+    @deprecated
     def partyNotKnownOnLedger(reason: String)(implicit
         contextualizedErrorLogger: ContextualizedErrorLogger
     ): com.google.rpc.status.Status =
@@ -505,7 +506,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           .of(Code.INVALID_ARGUMENT.value(), s"Parties not known on ledger: $reason", Seq.empty),
         v2 = GrpcStatus.toProto(
           LedgerApiErrors.CommandRejections.PartyNotKnownOnLedger
-            .Reject(reason)
+            .RejectDeprecated(reason)
             .asGrpcStatusFromContext
         ),
       )

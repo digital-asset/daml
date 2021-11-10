@@ -204,6 +204,7 @@ test_deps = [
     "//ledger/caching",
     "//ledger/participant-integration-api",
     "//ledger/participant-integration-api:participant-integration-api-tests-lib",
+    "//ledger/error",
     "//ledger/ledger-api-auth",
     "//ledger/ledger-api-common",
     "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",

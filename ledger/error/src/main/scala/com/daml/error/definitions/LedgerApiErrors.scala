@@ -690,24 +690,21 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "PARTY_NOT_KNOWN_ON_LEDGER",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-
-      object Reject {
-        def apply(parties: Set[String])(implicit
-            loggingContext: ContextualizedErrorLogger
-        ): LoggingTransactionErrorImpl = new LoggingTransactionErrorImpl(
-          cause = s"Parties not known on ledger: ${parties.mkString("[", ",", "]")}"
-        ) {
-          override def resources: Seq[(ErrorResource, String)] =
-            parties.map((ErrorResource.Party, _)).toSeq
-        }
-
-        def apply(
-            description: String
-        )(implicit loggingContext: ContextualizedErrorLogger): LoggingTransactionErrorImpl =
-          new LoggingTransactionErrorImpl(
-            cause = s"Party not known on ledger: $description"
-          ) {}
+      case class Reject(parties: Set[String])(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(cause = s"Parties not known on ledger: ${parties
+            .mkString("[", ",", "]")}") {
+        override def resources: Seq[(ErrorResource, String)] =
+          parties.map((ErrorResource.Party, _)).toSeq
       }
+
+      @deprecated
+      case class RejectDeprecated(
+          description: String
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends LoggingTransactionErrorImpl(
+            cause = s"Party not known on ledger: $description"
+          )
     }
 
     @Explanation("At least one input has been altered by a concurrent transaction submission.")
@@ -729,7 +726,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           )
     }
 
-    @Explanation("""This error occurs if the Damle interpreter can not find a referenced contract. This
+    @Explanation("""This error occurs if the Daml engine interpreter can not find a referenced contract. This
                    |can be caused by either the contract not being known to the participant, or not being known to
                    |the submitting parties or already being archived.""")
     @Resolution("This error type occurs if there is contention on a contract.")
