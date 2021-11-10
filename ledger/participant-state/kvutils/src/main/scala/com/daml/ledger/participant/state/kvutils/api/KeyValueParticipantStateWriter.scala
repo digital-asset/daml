@@ -3,10 +3,9 @@
 
 package com.daml.ledger.participant.state.kvutils.api
 
+import java.util.UUID
+import java.util.concurrent.{CompletableFuture, CompletionStage}
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.error.definitions.LedgerApiErrors
-import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
@@ -20,8 +19,6 @@ import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext
 
-import java.util.UUID
-import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.compat.java8.FutureConverters
 
 class KeyValueParticipantStateWriter(
@@ -47,8 +44,21 @@ class KeyValueParticipantStateWriter(
         transaction,
       )
     val metadata = CommitMetadata(submission, Some(estimatedInterpretationCost))
+    val submissionId = submitterInfo.submissionId.getOrElse {
+      newLoggingContextWith(
+        "commandId" -> submitterInfo.commandId,
+        "applicationId" -> submitterInfo.applicationId,
+      ) { implicit loggingContext =>
+        logger.warn("Submission id should not be empty")
+      }
+      ""
+    }
 
-    ifSubmissionIdNonEmpty(submitterInfo)(commit(_, submission, Some(metadata)))
+    commit(
+      correlationId = submissionId,
+      submission = submission,
+      metadata = Some(metadata),
+    )
   }
 
   override def uploadPackages(
@@ -118,25 +128,4 @@ class KeyValueParticipantStateWriter(
   ): CompletionStage[PruningResult] =
     // kvutils has no participant local state to prune, so return success to let participant pruning proceed elsewhere.
     CompletableFuture.completedFuture(PruningResult.ParticipantPruned)
-
-  private def ifSubmissionIdNonEmpty(submitterInfo: SubmitterInfo)(
-      commit: Ref.SubmissionId => CompletionStage[SubmissionResult]
-  ): CompletionStage[SubmissionResult] = {
-    submitterInfo.submissionId.fold[CompletionStage[SubmissionResult]](
-      newLoggingContextWith(
-        "commandId" -> submitterInfo.commandId,
-        "applicationId" -> submitterInfo.applicationId,
-      ) { implicit loggingContext =>
-        implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
-          new DamlContextualizedErrorLogger(logger, loggingContext, None)
-        CompletableFuture.completedFuture(
-          SubmissionResult.SynchronousError(
-            GrpcStatus.toProto(
-              LedgerApiErrors.InternalError.EmptySubmissionId().asGrpcStatusFromContext
-            )
-          )
-        )
-      }
-    )(commit)
-  }
 }
