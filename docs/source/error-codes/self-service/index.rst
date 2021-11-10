@@ -17,8 +17,8 @@ The introduction of the self-service error codes means that some of the gRPC err
 Consult the table below for details on those changes.
 
 Note that the table below contains entries only for cases where a gRPC codes was changed.
-For example, if a service method was returning gRPC error code ``CODE_A`` for some error
-conditions which are now signalled by ``CODE_B``, it could be the case that there are another error conditions for which ``CODE_A`` is still being returned,
+For example, a service method previously returning gRPC error code ``CODE_A`` may now return 
+``CODE_B`` for some error condition while returning ``CODE_A`` for other conditions,
 and only an entry for the change from ``CODE_A`` in ``CODE_B`` is included in the table below.
 
 
