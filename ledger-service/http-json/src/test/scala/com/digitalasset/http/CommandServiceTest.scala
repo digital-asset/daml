@@ -32,6 +32,7 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside {
   import CommandServiceTest._
 
   "create" should {
+    // exercise and createAndExercise use the exact same party-handling code
     "let CommandMeta parties override JWT" in {
       val (cs, txns, trees) = simpleCommand()
       val specialActAs = NonEmptyList("bar")
