@@ -8,7 +8,7 @@ import com.daml.ledger.api.v1.value.Identifier
 
 case class WorkflowConfig(
 //    submission: Option[WorkflowConfig.SubmissionConfig],
-    streams: List[WorkflowConfig.StreamConfig] = Nil,
+    streams: List[WorkflowConfig.StreamConfig] = Nil
 )
 
 object WorkflowConfig {
@@ -36,7 +36,7 @@ object WorkflowConfig {
   object StreamConfig {
     final case class TransactionsStreamConfig(
         name: String,
-        filters: Map[String, Option[List[Identifier]]],
+        filters: Map[String, List[Identifier]],
         beginOffset: Option[LedgerOffset],
         endOffset: Option[LedgerOffset],
         objectives: StreamConfig.Objectives,
@@ -44,7 +44,7 @@ object WorkflowConfig {
 
     final case class TransactionTreesStreamConfig(
         name: String,
-        filters: Map[String, Option[List[Identifier]]],
+        filters: Map[String, List[Identifier]],
         beginOffset: Option[LedgerOffset],
         endOffset: Option[LedgerOffset],
         objectives: StreamConfig.Objectives,
@@ -52,7 +52,7 @@ object WorkflowConfig {
 
     final case class ActiveContractsStreamConfig(
         name: String,
-        filters: Map[String, Option[List[Identifier]]],
+        filters: Map[String, List[Identifier]],
     ) extends StreamConfig
 
     final case class CompletionsStreamConfig(

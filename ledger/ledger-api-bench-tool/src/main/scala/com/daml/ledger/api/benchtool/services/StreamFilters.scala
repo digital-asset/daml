@@ -9,15 +9,15 @@ import com.daml.ledger.api.v1.value.Identifier
 object StreamFilters {
 
   def transactionFilters(
-      filters: Map[String, Option[List[Identifier]]]
+      filters: Map[String, List[Identifier]]
   ): TransactionFilter = {
     val byParty: Map[String, Filters] = filters.map {
-      case (party, Some(templateIds)) =>
+      case (party, Nil) =>
+        party -> Filters.defaultInstance
+      case (party, templateIds) =>
         party -> Filters.defaultInstance.withInclusive(
           InclusiveFilters.defaultInstance.addAllTemplateIds(templateIds)
         )
-      case (party, None) =>
-        party -> Filters.defaultInstance
     }
 
     TransactionFilter.defaultInstance.withFiltersByParty(byParty)

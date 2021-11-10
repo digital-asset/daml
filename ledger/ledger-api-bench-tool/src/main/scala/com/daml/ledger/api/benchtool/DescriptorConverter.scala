@@ -36,7 +36,7 @@ object DescriptorConverter {
         .getOrElse(throw new RuntimeException(s"Observer not found: $party"))
 
     val filters = descriptor.filters.map { filter =>
-      convertedParty(filter.party) -> Some(filter.templates.map(templateStringToId))
+      convertedParty(filter.party) -> filter.templates.map(templateStringToId)
     }.toMap
 
     descriptor.streamType match {

@@ -61,7 +61,7 @@ final class TransactionService(
 
   private def getTransactionsRequest(
       ledgerId: String,
-      filters: Map[String, Option[List[Identifier]]],
+      filters: Map[String, List[Identifier]],
       beginOffset: Option[LedgerOffset],
       endOffset: Option[LedgerOffset],
   ): GetTransactionsRequest = {

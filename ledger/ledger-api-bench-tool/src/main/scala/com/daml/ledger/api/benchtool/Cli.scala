@@ -39,7 +39,8 @@ object Cli {
         "<param1>=<value1>,<param2>=<value2>,..."
       )
       .action { case (streamConfig, config) =>
-        config.copy(workflow = config.workflow.copy(streams = config.workflow.streams :+ streamConfig))
+        config
+          .copy(workflow = config.workflow.copy(streams = config.workflow.streams :+ streamConfig))
       }
 
     opt[File]("contract-set-descriptor")
@@ -232,7 +233,7 @@ object Cli {
         config.fold(error => throw new IllegalArgumentException(error), identity)
       }
 
-    private def filters(listOfIds: String): Either[String, Map[String, Option[List[Identifier]]]] =
+    private def filters(listOfIds: String): Either[String, Map[String, List[Identifier]]] =
       listOfIds
         .split('+')
         .toList
@@ -243,11 +244,6 @@ object Cli {
               filters <- acc
               filter <- next
             } yield filters + filter
-        }
-        .map { filters =>
-          filters.map { case (party, templateIds) =>
-            party -> Some(templateIds).filter(_.nonEmpty)
-          }
         }
 
     private def filter(filterString: String): Either[String, (String, List[Identifier])] =
