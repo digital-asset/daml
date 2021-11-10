@@ -22,6 +22,17 @@ package speedy
   * Stages 1 and 2 are in Compiler.scala; stage 3 in Anf.scala.
   * During Stage3 (ANF transformation), we move from this type (SExpr0) to SExpr,
   * and so have the expression form suitable for execution on a speedy machine.
+  *
+  * Here is a summary of the differences between SExp0 and SExpr:
+  *
+  * - Constructors in both: SEAppGeneral, SEBuiltin, SEBuiltinRecursiveDefinition,
+  *   SEDamlException, SEImportValue, SELabelClosure, SELet1General, SELocA, SELocF,
+  *   SELocS, SELocation, SEMakeClo, SEScopeExercise, SETryCatch, SEVal, SEValue,
+  *
+  * - Only in SExpr0: SEAbs, SECase, SELet, SEVar
+  *
+  * - Only in SExpr: SEAppAtomicFun, SEAppAtomicGeneral, SEAppAtomicSaturatedBuiltin,
+  *   SECaseAtomic, SELet1Builtin, SELet1BuiltinArithmetic
   */
 
 import com.daml.lf.data.Ref._
