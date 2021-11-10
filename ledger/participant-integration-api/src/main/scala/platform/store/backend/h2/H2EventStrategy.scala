@@ -7,35 +7,42 @@ import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.common.EventStrategy
+import com.daml.platform.store.interning.StringInterning
 
 object H2EventStrategy extends EventStrategy {
   override def filteredEventWitnessesClause(
       witnessesColumnName: String,
       parties: Set[Ref.Party],
+      stringInterning: StringInterning,
   ): CompositeSql = {
-    val partiesArray = parties.view.map(_.toString).toArray
-    cSQL"array_intersection(#$witnessesColumnName, $partiesArray)"
+    val partiesArray: Array[java.lang.Integer] =
+      parties.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).map(Int.box).toArray
+    if (partiesArray.isEmpty) cSQL"false"
+    else cSQL"array_intersection(#$witnessesColumnName, $partiesArray)"
   }
 
   override def submittersArePartiesClause(
       submittersColumnName: String,
       parties: Set[Ref.Party],
+      stringInterning: StringInterning,
   ): CompositeSql =
     H2QueryStrategy.arrayIntersectionNonEmptyClause(
       columnName = submittersColumnName,
       parties = parties,
+      stringInterning = stringInterning,
     )
 
   override def witnessesWhereClause(
       witnessesColumnName: String,
       filterParams: FilterParams,
+      stringInterning: StringInterning,
   ): CompositeSql = {
     val wildCardClause = filterParams.wildCardParties match {
       case wildCardParties if wildCardParties.isEmpty =>
         Nil
 
       case wildCardParties =>
-        cSQL"(${H2QueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, wildCardParties)})" :: Nil
+        cSQL"(${H2QueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, wildCardParties, stringInterning)})" :: Nil
     }
     val partiesTemplatesClauses =
       filterParams.partiesAndTemplates.iterator.map { case (parties, templateIds) =>
@@ -43,6 +50,7 @@ object H2EventStrategy extends EventStrategy {
           H2QueryStrategy.arrayIntersectionNonEmptyClause(
             witnessesColumnName,
             parties,
+            stringInterning,
           )
         val templateIdsArray = templateIds.view.map(_.toString).toArray
         cSQL"( ($clause) AND (template_id = ANY($templateIdsArray)) )"

@@ -5,22 +5,17 @@ package com.daml.platform.store.backend.common
 
 import java.sql.Connection
 
-import anorm.SqlParser.{byteArray, int, long, str}
+import anorm.SqlParser.{array, byteArray, int, long, str}
 import anorm.{ResultSetParser, Row, RowParser, SimpleSql, SqlParser, ~}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.platform.apiserver.execution.MissingContracts
-import com.daml.platform.store.Conversions.{
-  contractId,
-  flatEventWitnessesColumn,
-  identifier,
-  offset,
-  timestampFromMicros,
-}
+import com.daml.platform.store.Conversions.{contractId, identifier, offset, timestampFromMicros}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.backend.ContractStorageBackend
+import com.daml.platform.store.backend.ContractStorageBackend.RawContractState
 import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyAssigned,
@@ -36,7 +31,8 @@ class ContractStorageBackendTemplate(
     ledgerEndCache: LedgerEndCache,
     stringInterning: StringInterning,
 ) extends ContractStorageBackend {
-  assert(stringInterning != null) // TODO remove
+  import com.daml.platform.store.Conversions.ArrayColumnToIntArray._
+
   override def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId] =
     contractKey(
       resultColumns = List("contract_id"),
@@ -132,9 +128,12 @@ class ContractStorageBackendTemplate(
       resultColumns = List("contract_id", "flat_event_witnesses"),
       resultParser = (
         contractId("contract_id")
-          ~ flatEventWitnessesColumn("flat_event_witnesses")
+          ~ array[Int]("flat_event_witnesses")
       ).map { case cId ~ stakeholders =>
-        KeyAssigned(cId, stakeholders)
+        KeyAssigned(
+          cId,
+          stakeholders.view.map(stringInterning.party.externalize).toSet,
+        )
       },
     )(
       readers = None,
@@ -144,13 +143,24 @@ class ContractStorageBackendTemplate(
 
   private val fullDetailsContractRowParser: RowParser[ContractStorageBackend.RawContractState] =
     (str("template_id").?
-      ~ flatEventWitnessesColumn("flat_event_witnesses")
+      ~ array[Int]("flat_event_witnesses")
       ~ byteArray("create_argument").?
       ~ int("create_argument_compression").?
       ~ int("event_kind")
       ~ timestampFromMicros("ledger_effective_time").?)
-      .map(SqlParser.flatten)
-      .map(ContractStorageBackend.RawContractState.tupled)
+      .map {
+        case internedTemplateId ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ eventKind ~ ledgerEffectiveTime =>
+          RawContractState(
+            templateId = internedTemplateId,
+            flatEventWitnesses = flatEventWitnesses.view
+              .map(stringInterning.party.externalize)
+              .toSet,
+            createArgument = createArgument,
+            createArgumentCompression = createArgumentCompression,
+            eventKind = eventKind,
+            ledgerEffectiveTime = ledgerEffectiveTime,
+          )
+      }
 
   override def contractState(contractId: ContractId, before: Long)(
       connection: Connection
@@ -184,7 +194,7 @@ class ContractStorageBackendTemplate(
       byteArray("create_argument").? ~
       int("create_argument_compression").? ~
       long("event_sequential_id") ~
-      flatEventWitnessesColumn("flat_event_witnesses") ~
+      array[Int]("flat_event_witnesses") ~
       offset("event_offset")).map {
       case eventKind ~ contractId ~ templateId ~ ledgerEffectiveTime ~ createKeyValue ~ createKeyCompression ~ createArgument ~ createArgumentCompression ~ eventSequentialId ~ flatEventWitnesses ~ offset =>
         ContractStorageBackend.RawContractStateEvent(
@@ -196,7 +206,9 @@ class ContractStorageBackendTemplate(
           createKeyCompression,
           createArgument,
           createArgumentCompression,
-          flatEventWitnesses,
+          flatEventWitnesses.view
+            .map(stringInterning.party.externalize)
+            .toSet,
           eventSequentialId,
           offset,
         )
@@ -315,6 +327,7 @@ class ContractStorageBackendTemplate(
       queryStrategy.arrayIntersectionNonEmptyClause(
         columnName = "tree_event_witnesses",
         parties = readers,
+        stringInterning = stringInterning,
       )
     val coalescedColumns: String = resultColumns
       .map(columnName =>
@@ -391,6 +404,7 @@ class ContractStorageBackendTemplate(
         queryStrategy.arrayIntersectionNonEmptyClause(
           columnName = "last_contract_key_create.flat_event_witnesses",
           _,
+          stringInterning,
         )
       )
     val participantEventsFlatEventWitnessesClause =
@@ -398,6 +412,7 @@ class ContractStorageBackendTemplate(
         queryStrategy.arrayIntersectionNonEmptyClause(
           columnName = "participant_events.flat_event_witnesses",
           _,
+          stringInterning,
         )
       )
 

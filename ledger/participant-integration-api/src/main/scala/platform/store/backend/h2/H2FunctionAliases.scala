@@ -6,7 +6,10 @@ package com.daml.platform.store.backend.h2
 // Warning this object is accessed directly by H2Database, see "CREATE ALIAS" in H2 related FLyway scripts
 object H2FunctionAliases {
 
-  def arrayIntersection(a: Array[String], b: Array[String]): Array[String] =
+  def arrayIntersection(
+      a: Array[java.lang.Integer],
+      b: Array[java.lang.Integer],
+  ): Array[java.lang.Integer] =
     a.toSet.intersect(b.toSet).toArray
 
 }
