@@ -25,6 +25,7 @@ import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeP
 import com.daml.platform.store.backend.EventStorageBackend.RawTransactionEvent
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
 import com.daml.platform.store.cache.LedgerEndCache
+import com.daml.platform.store.interning.StringInterning
 
 import scala.collection.compat.immutable.ArraySeq
 
@@ -32,12 +33,13 @@ abstract class EventStorageBackendTemplate(
     eventStrategy: EventStrategy,
     queryStrategy: QueryStrategy,
     ledgerEndCache: LedgerEndCache,
+    stringInterning: StringInterning,
     // TODO Refactoring: This method is needed in pruneEvents, but belongs to [[ParameterStorageBackend]].
     //                   Remove with the break-out of pruneEvents.
     participantAllDivulgedContractsPrunedUpToInclusive: Connection => Option[Offset],
 ) extends EventStorageBackend {
   import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
-
+  assert(stringInterning != null) // TODO remove
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   private val selectColumnsForFlatTransactions =

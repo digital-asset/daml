@@ -100,8 +100,9 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           enricher = Some(new ValueEnricher(new Engine())),
           participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
           storageBackendFactory = storageBackendFactory,
-          ledgerEndCache = ledgerEndCache,
           errorFactories = errorFactories,
+          ledgerEndCache = ledgerEndCache,
+          stringInterning = stringInterningView,
         )
       }
   }

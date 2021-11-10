@@ -17,6 +17,7 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.{DbDispatcher, JdbcLedgerDao}
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.store.interning.StringInterningView
 import scalaz.Tag
 
 import scala.concurrent.duration._
@@ -67,9 +68,11 @@ object IndexMetadata {
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
           enricher = None,
           participantId = Ref.ParticipantId.assertFromString("1"),
+          errorFactories = errorFactories,
           storageBackendFactory = storageBackendFactory,
           ledgerEndCache = MutableLedgerEndCache(), // not used
-          errorFactories = errorFactories,
+          stringInterning =
+            new StringInterningView((_, _) => _ => Future.successful(Nil)), // not used
         )
       )
   }

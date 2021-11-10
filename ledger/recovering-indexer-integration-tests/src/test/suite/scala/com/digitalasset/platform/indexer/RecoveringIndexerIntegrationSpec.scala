@@ -32,6 +32,7 @@ import com.daml.platform.store.appendonlydao.{DbDispatcher, JdbcLedgerDao, Ledge
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.testing.LogCollector
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.timer.RetryStrategy
@@ -226,10 +227,12 @@ class RecoveringIndexerIntegrationSpec
       }
     }
 
+  // TODO we probably do not need a full dao for this purpose: refactoring with direct usage of StorageBackend?
   private def dao(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[(LedgerReadDao, MutableLedgerEndCache)] = {
     val mutableLedgerEndCache = MutableLedgerEndCache()
+    val stringInterning = new StringInterningView((_, _) => _ => Future.successful(Nil)) // not used
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase}-$testId;db_close_delay=-1;db_close_on_exit=false"
     val errorFactories: ErrorFactories = mock[ErrorFactories]
@@ -256,6 +259,7 @@ class RecoveringIndexerIntegrationSpec
           storageBackendFactory = storageBackendFactory,
           ledgerEndCache = mutableLedgerEndCache,
           errorFactories = errorFactories,
+          stringInterning = stringInterning,
         ) -> mutableLedgerEndCache
       )
   }
