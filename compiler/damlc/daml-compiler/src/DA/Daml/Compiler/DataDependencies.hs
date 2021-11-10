@@ -3,6 +3,7 @@
 
 module DA.Daml.Compiler.DataDependencies
     ( Config (..)
+    , buildDependencyInfo
     , generateSrcPkgFromLf
     , prefixDependencyModule
     ) where
@@ -73,8 +74,8 @@ data Config = Config
     , configStablePackages :: MS.Map LF.PackageId UnitId
         -- ^ map from a package id of a stable package to the unit id
         -- of the corresponding package, i.e., daml-prim/daml-stdlib.
-    , configDependencyPackages :: Set LF.PackageId
-        -- ^ set of package ids for dependencies (not data-dependencies)
+    , configDependencyInfo :: DependencyInfo
+        -- ^ Information about dependencies (not data-dependencies)
     , configSdkPrefix :: [T.Text]
         -- ^ prefix to use for current SDK in data-dependencies
     }
@@ -87,11 +88,8 @@ data Env = Env
         -- ^ World built from dependencies, stable packages, and current package.
     , envHiddenRefMap :: HMS.HashMap Ref Bool
         -- ^ Set of references that should be hidden, not exposed.
-    , envDepClassMap :: DepClassMap
-        -- ^ Map of typeclasses from dependencies.
-    , envDepInstances :: MS.Map LF.TypeSynName [LF.Qualified ExpandedType]
-        -- ^ Map of instances from dependencies.
-        -- We only store the name since the real check happens in `isDuplicate`.
+    , envDependencyInfo :: DependencyInfo
+        -- ^ Information about dependencies (as opposed to data-dependencies)
     , envMod :: LF.Module
         -- ^ The module under consideration.
     }
@@ -120,6 +118,14 @@ worldLfVersion = LF.packageLfVersion . LF.getWorldSelf
 envLfVersion :: Env -> LF.Version
 envLfVersion = worldLfVersion . envWorld
 
+data DependencyInfo = DependencyInfo
+  { depClassMap :: !DepClassMap
+  -- ^ Map of typeclasses from dependencies.
+  , depInstances :: !(MS.Map LF.TypeSynName [LF.Qualified ExpandedType])
+  -- ^ Map of instances from dependencies.
+  -- We only store the name since the real check happens in `isDuplicate`.
+  }
+
 -- | Type classes coming from dependencies. This maps a (module, synonym)
 -- name pair to a corresponding dependency package id and synonym type (closed over synonym variables).
 newtype DepClassMap = DepClassMap
@@ -128,21 +134,26 @@ newtype DepClassMap = DepClassMap
         (LF.PackageId, ExpandedType)
     }
 
-buildDepClassMap :: Config -> LF.World -> DepClassMap
-buildDepClassMap Config{..} world = DepClassMap $ MS.fromList
+buildDependencyInfo :: [LF.ExternalPackage] -> LF.World -> DependencyInfo
+buildDependencyInfo deps world =
+    DependencyInfo
+      { depClassMap = buildDepClassMap deps world
+      , depInstances = buildDepInstances deps world
+      }
+
+buildDepClassMap :: [LF.ExternalPackage] -> LF.World -> DepClassMap
+buildDepClassMap deps world = DepClassMap $ MS.fromList
     [ ((moduleName, synName), (packageId, synTy))
-    | packageId <- Set.toList configDependencyPackages
-    , Just LF.Package{..} <- [MS.lookup packageId configPackages]
+    | LF.ExternalPackage packageId LF.Package{..} <- deps
     , LF.Module{..} <- NM.toList packageModules
     , dsyn@LF.DefTypeSyn{..} <- NM.toList moduleSynonyms
     , let synTy = ExpandedType (panicOnError $ LF.runGamma world (worldLfVersion world) $ LF.expandTypeSynonyms $ closedSynType dsyn)
     ]
 
-buildDepInstances :: Config -> LF.World -> MS.Map LF.TypeSynName [LF.Qualified ExpandedType]
-buildDepInstances Config{..} world = MS.fromListWith (<>)
+buildDepInstances :: [LF.ExternalPackage] -> LF.World -> MS.Map LF.TypeSynName [LF.Qualified ExpandedType]
+buildDepInstances deps world = MS.fromListWith (<>)
     [ (clsName, [LF.Qualified (LF.PRImport packageId) moduleName ty])
-    | packageId <- Set.toList configDependencyPackages
-    , Just LF.Package{..} <- [MS.lookup packageId configPackages]
+    | LF.ExternalPackage packageId LF.Package{..} <- deps
     , LF.Module{..} <- NM.toList packageModules
     , dval@LF.DefValue{..} <- NM.toList moduleValues
     , Just dfun <- [getDFunSig dval]
@@ -153,7 +164,7 @@ buildDepInstances Config{..} world = MS.fromListWith (<>)
 envLookupDepClass :: LF.TypeSynName -> Env -> Maybe (LF.PackageId, ExpandedType)
 envLookupDepClass synName env =
     let modName = LF.moduleName (envMod env)
-        classMap = unDepClassMap (envDepClassMap env)
+        classMap = unDepClassMap (depClassMap $ envDependencyInfo env)
     in MS.lookup (modName, synName) classMap
 
 -- | Determine whether two type synonym definitions are similar enough to
@@ -518,7 +529,7 @@ generateSrcFromLf env = noLoc mod
         Just dfunSig <- [getDFunSig dval]
         guard (shouldExposeInstance dval)
         let clsName = LF.qualObject $ dfhName $ dfsHead dfunSig
-        case find (isDuplicate env (snd dvalBinder) . LF.qualObject) (MS.findWithDefault [] clsName $ envDepInstances env) of
+        case find (isDuplicate env (snd dvalBinder) . LF.qualObject) (MS.findWithDefault [] clsName $ depInstances $ envDependencyInfo env) of
             Just qualInstance ->
                 -- If the instance already exists, we still
                 -- need to import it so that we can refer to it from other
@@ -1051,8 +1062,7 @@ generateSrcPkgFromLf envConfig pkg = do
   where
     env envMod = Env {..}
     envQualifyThisModule = False
-    envDepClassMap = buildDepClassMap envConfig envWorld
-    envDepInstances = buildDepInstances envConfig envWorld
+    envDependencyInfo = configDependencyInfo envConfig
     envWorld = buildWorld envConfig
     envHiddenRefMap = buildHiddenRefMap envConfig envWorld
     header =
