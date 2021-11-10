@@ -26,7 +26,7 @@ final case class JdbcConfig(
     url: String,
     user: String,
     password: String,
-    poolSize: Int = PoolSize.Production,
+    poolSize: Int,
     minIdle: Int = JdbcConfig.MinIdle,
     connectionTimeout: Long = JdbcConfig.ConnectionTimeout,
     idleTimeout: Long = JdbcConfig.IdleTimeout,
