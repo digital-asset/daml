@@ -53,7 +53,7 @@ private[apiserver] final class ApiActiveContractsService private (
     transactionFilterValidator
       .validate(request.getFilter)
       .fold(
-        t => Source.failed(ValidationLogger.logFailureWithContext(request, t)),
+        t => Source.failed(ValidationLogger.logFailure(request, t)),
         filters =>
           withEnrichedLoggingContext(logging.filters(filters)) { implicit loggingContext =>
             logger.info(s"Received request for active contracts: $request")

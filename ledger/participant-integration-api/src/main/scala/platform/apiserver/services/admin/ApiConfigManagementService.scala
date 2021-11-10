@@ -103,7 +103,7 @@ private[apiserver] final class ApiConfigManagementService private (
         val response = for {
           // Validate and convert the request parameters
           params <- validateParameters(request).fold(
-            t => Future.failed(ValidationLogger.logFailureWithContext(request, t)),
+            t => Future.failed(ValidationLogger.logFailure(request, t)),
             Future.successful,
           )
 
@@ -126,7 +126,7 @@ private[apiserver] final class ApiConfigManagementService private (
           _ <-
             if (request.configurationGeneration != expectedGeneration) {
               Future.failed(
-                ValidationLogger.logFailureWithContext(
+                ValidationLogger.logFailure(
                   request,
                   invalidArgument(None)(
                     s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
