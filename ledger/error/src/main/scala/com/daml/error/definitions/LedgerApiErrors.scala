@@ -4,7 +4,6 @@
 package com.daml.error.definitions
 
 import java.time.Duration
-
 import com.daml.error._
 import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LedgerApiErrorGroup
 import com.daml.lf.data.Ref
@@ -680,6 +679,43 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   }
 
   object CommandRejections extends ErrorGroup {
+    @Explanation("An input contract has been archived by a concurrent transaction submission.")
+    @Resolution(
+      "The correct resolution depends on the business flow, for example it may be possible to " +
+        "proceed without the archived contract as an input, or a different contract could be used."
+    )
+    object InconsistentContracts
+        extends ErrorCode(
+          id = "INCONSISTENT_CONTRACTS",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      case class Reject(override val cause: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(cause = cause)
+    }
+
+    @Explanation("The submitting party has not been allocated.")
+    @Resolution(
+      "Check that the party identifier is correct, allocate the submitting party, " +
+        "request its allocation or wait for it to be allocated before retrying the transaction submission."
+    )
+    object SubmittingPartyNotKnownOnLedger
+        extends ErrorCode(
+          id = "SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing, // It may become known at a later time
+        ) {
+      case class Reject(
+          submitter_party: String
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends LoggingTransactionErrorImpl(
+            cause = s"Party not known on ledger: Submitting party '$submitter_party' not known"
+          ) {
+        override def resources: Seq[(ErrorResource, String)] = Seq(
+          ErrorResource.Party -> submitter_party
+        )
+      }
+    }
+
     @Explanation("One or more informee parties have not been allocated.")
     @Resolution(
       "Check that all the informee party identifiers are correct, allocate all the informee parties, " +
@@ -785,11 +821,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         )
       }
 
-      case class LedgerReject()(implicit
+      case class LedgerReject(override val cause: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
-            cause = "Inconsistent: DuplicateKey: Contract key is not unique"
-          )
+      ) extends LoggingTransactionErrorImpl(cause = cause)
     }
 
     @Explanation("An invalid transaction submission was not detected by the participant.")

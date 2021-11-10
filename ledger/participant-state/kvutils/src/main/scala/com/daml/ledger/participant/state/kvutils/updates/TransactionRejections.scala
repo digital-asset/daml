@@ -444,11 +444,12 @@ private[kvutils] object TransactionRejections {
 
   private object V2 {
 
-    def externallyDuplicateKeysStatus(
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
+    def externallyDuplicateKeysStatus()(implicit
+        loggingContext: ContextualizedErrorLogger
+    ): Status =
       GrpcStatus.toProto(
         LedgerApiErrors.CommandRejections.DuplicateContractKey
-          .LedgerReject()
+          .LedgerReject(ExternallyInconsistentTransaction.DuplicateKeys.description)
           .asGrpcStatusFromContext
       )
 
@@ -456,15 +457,17 @@ private[kvutils] object TransactionRejections {
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
       GrpcStatus.toProto(
         LedgerApiErrors.CommandRejections.InconsistentContractKey
-          .Reject("Inconsistent contract key lookups")
+          .Reject(ExternallyInconsistentTransaction.InconsistentKeys.description)
           .asGrpcStatusFromContext
       )
 
     def externallyInconsistentContractsStatus(
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.SubmissionRaces.ExternallyInconsistentContracts
-        .Reject()
-        .asStatus
+      GrpcStatus.toProto(
+        LedgerApiErrors.CommandRejections.InconsistentContracts
+          .Reject(ExternallyInconsistentTransaction.InconsistentContracts.description)
+          .asGrpcStatusFromContext
+      )
 
     def submitterCannotActViaParticipantStatus(
         details: String,
@@ -563,9 +566,11 @@ private[kvutils] object TransactionRejections {
     def submittingPartyNotKnownOnLedgerStatus(
         submitter: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Parties.SubmittingPartyNotKnownOnLedger
-        .Reject(submitter)
-        .asStatus
+      GrpcStatus.toProto(
+        LedgerApiErrors.CommandRejections.SubmittingPartyNotKnownOnLedger
+          .Reject(submitter)
+          .asGrpcStatusFromContext
+      )
 
     def partiesNotKnownOnLedgerStatus(
         parties: Seq[String]

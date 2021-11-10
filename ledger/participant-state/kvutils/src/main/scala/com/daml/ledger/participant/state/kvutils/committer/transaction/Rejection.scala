@@ -86,7 +86,7 @@ object Rejection {
 
   final case class PartiesNotKnownOnLedger(parties: Iterable[Ref.Party]) extends Rejection {
     override lazy val description: String =
-      s"Party not known on ledger: ${parties.mkString("[", ", ", "]")}"
+      s"Parties not known on ledger: ${parties.mkString("[", ", ", "]")}"
   }
 
   final case class SubmitterCannotActViaParticipant(

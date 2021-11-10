@@ -9,15 +9,11 @@ import com.daml.error.{
   ErrorCategory,
   ErrorCode,
   ErrorGroup,
-  ErrorResource,
   Explanation,
   Resolution,
 }
 import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LedgerApiErrorGroup
-import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
-  ExternallyInconsistentTransaction,
-  InternallyInconsistentTransaction,
-}
+import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.InternallyInconsistentTransaction
 
 @Explanation(
   "Errors that are specific to ledgers based on the KV architecture. " +
@@ -84,57 +80,6 @@ object KVErrors extends LedgerApiErrorGroup {
           extends KVLoggingTransactionErrorImpl(
             cause = s"Invalid ledger time: Causal monotonicity violated"
           )
-    }
-
-  }
-
-  @Explanation(
-    "Errors that can arise due to concurrent processing of transactions in the participant."
-  )
-  object SubmissionRaces extends ErrorGroup() {
-    @Explanation("An input contract has been archived by a concurrent transaction submission.")
-    @Resolution(
-      "The correct resolution depends on the business flow, for example it may be possible to " +
-        "proceed without the archived contract as an input, or a different contract could be used."
-    )
-    object ExternallyInconsistentContracts
-        extends ErrorCode(
-          id = "EXTERNALLY_INCONSISTENT_CONTRACTS",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
-        ) {
-      case class Reject(
-      )(implicit loggingContext: ContextualizedErrorLogger)
-          extends KVLoggingTransactionErrorImpl(
-            cause =
-              s"Inconsistent: ${ExternallyInconsistentTransaction.InconsistentContracts.description}"
-          )
-    }
-
-  }
-
-  @Explanation("Errors that relate to parties.")
-  object Parties extends ErrorGroup {
-
-    @Explanation("The submitting party has not been allocated.")
-    @Resolution(
-      "Check that the party identifier is correct, allocate the submitting party, " +
-        "request its allocation or wait for it to be allocated before retrying the transaction submission."
-    )
-    object SubmittingPartyNotKnownOnLedger
-        extends ErrorCode(
-          id = "SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing, // It may become known at a later time
-        ) {
-      case class Reject(
-          submitter_party: String
-      )(implicit loggingContext: ContextualizedErrorLogger)
-          extends KVLoggingTransactionErrorImpl(
-            cause = s"Party not known on ledger: Submitting party '$submitter_party' not known"
-          ) {
-        override def resources: Seq[(ErrorResource, String)] = Seq(
-          ErrorResource.Party -> submitter_party
-        )
-      }
     }
   }
 

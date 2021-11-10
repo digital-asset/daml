@@ -605,17 +605,17 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         ),
       )
 
-    object Deprecated {
-      def inconsistent(reason: String)(implicit
-          contextualizedErrorLogger: ContextualizedErrorLogger
-      ): com.google.rpc.status.Status =
-        errorCodesVersionSwitcher.choose(
-          v1 = RpcStatus.of(Code.ABORTED.value(), s"Inconsistent: $reason", Seq.empty),
-          v2 = GrpcStatus.toProto(
-            LedgerApiErrors.CommandRejections.Inconsistent.Reject(reason).asGrpcStatusFromContext
-          ),
-        )
+    def inconsistent(reason: String)(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): com.google.rpc.status.Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = RpcStatus.of(Code.ABORTED.value(), s"Inconsistent: $reason", Seq.empty),
+        v2 = GrpcStatus.toProto(
+          LedgerApiErrors.CommandRejections.Inconsistent.Reject(reason).asGrpcStatusFromContext
+        ),
+      )
 
+    object Deprecated {
       @deprecated
       def disputed(reason: String)(implicit
           contextualizedErrorLogger: ContextualizedErrorLogger

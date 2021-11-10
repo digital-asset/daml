@@ -342,7 +342,7 @@ private[platform] object Conversions {
           )
         case domain.RejectionReason.Inconsistent(reason) =>
           CommandRejected.FinalReason(
-            errorFactories.CommandRejections.Deprecated.inconsistent(reason)
+            errorFactories.CommandRejections.inconsistent(reason)
           )
         case domain.RejectionReason.InconsistentContractKeys(lookupResult, currentResult) =>
           CommandRejected.FinalReason(
