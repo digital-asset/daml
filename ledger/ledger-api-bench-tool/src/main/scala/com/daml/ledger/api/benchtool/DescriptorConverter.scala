@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.benchtool
 
-import com.daml.ledger.api.benchtool.Config.StreamConfig
+import com.daml.ledger.api.benchtool.WorkflowConfig.StreamConfig
 import com.daml.ledger.api.benchtool.submission.CommandSubmitter
 import com.daml.ledger.test.model.Foo.{Foo1, Foo2, Foo3}
 import com.daml.ledger.client.binding.Primitive
@@ -41,7 +41,7 @@ object DescriptorConverter {
 
     descriptor.streamType match {
       case StreamDescriptor.StreamType.ActiveContracts =>
-        Config.StreamConfig.ActiveContractsStreamConfig(
+        WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
           name = descriptor.name,
           filters = filters,
         )

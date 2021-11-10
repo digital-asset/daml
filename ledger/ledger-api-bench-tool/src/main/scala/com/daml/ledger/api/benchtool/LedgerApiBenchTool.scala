@@ -47,7 +47,7 @@ object LedgerApiBenchTool {
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
     apiServicesOwner(config).use { apiServices =>
-      def benchmarkStep(streams: List[Config.StreamConfig]): Future[Unit] =
+      def benchmarkStep(streams: List[WorkflowConfig.StreamConfig]): Future[Unit] =
         if (streams.isEmpty) {
           Future.successful(logger.info(s"No streams defined. Skipping the benchmark step."))
         } else {

@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.benchtool
 
+import com.daml.ledger.api.benchtool.WorkflowConfig.StreamConfig
 import com.daml.ledger.api.benchtool.metrics.{
   MetricRegistryOwner,
   MetricsCollector,
@@ -23,7 +24,7 @@ object Benchmark {
   private val logger = LoggerFactory.getLogger(getClass)
 
   def run(
-      streams: List[Config.StreamConfig],
+      streams: List[StreamConfig],
       reportingPeriod: FiniteDuration,
       apiServices: LedgerApiServices,
       metricsReporter: MetricsReporter,
@@ -40,7 +41,7 @@ object Benchmark {
     resources.use { case (system, registry) =>
       Future
         .traverse(streams) {
-          case streamConfig: Config.StreamConfig.TransactionsStreamConfig =>
+          case streamConfig: StreamConfig.TransactionsStreamConfig =>
             StreamMetrics
               .observer(
                 streamName = streamConfig.name,
@@ -55,7 +56,7 @@ object Benchmark {
               .flatMap { observer =>
                 apiServices.transactionService.transactions(streamConfig, observer)
               }
-          case streamConfig: Config.StreamConfig.TransactionTreesStreamConfig =>
+          case streamConfig: StreamConfig.TransactionTreesStreamConfig =>
             StreamMetrics
               .observer(
                 streamName = streamConfig.name,
@@ -73,7 +74,7 @@ object Benchmark {
               .flatMap { observer =>
                 apiServices.transactionService.transactionTrees(streamConfig, observer)
               }
-          case streamConfig: Config.StreamConfig.ActiveContractsStreamConfig =>
+          case streamConfig: StreamConfig.ActiveContractsStreamConfig =>
             StreamMetrics
               .observer(
                 streamName = streamConfig.name,
@@ -91,7 +92,7 @@ object Benchmark {
               .flatMap { observer =>
                 apiServices.activeContractsService.getActiveContracts(streamConfig, observer)
               }
-          case streamConfig: Config.StreamConfig.CompletionsStreamConfig =>
+          case streamConfig: StreamConfig.CompletionsStreamConfig =>
             StreamMetrics
               .observer(
                 streamName = streamConfig.name,

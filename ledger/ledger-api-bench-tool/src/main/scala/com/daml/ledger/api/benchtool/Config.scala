@@ -4,8 +4,6 @@
 package com.daml.ledger.api.benchtool
 
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.value.Identifier
 import com.daml.metrics.MetricsReporter
 
 import java.io.File
@@ -15,7 +13,7 @@ case class Config(
     ledger: Config.Ledger,
     concurrency: Config.Concurrency,
     tls: TlsConfiguration,
-    streams: List[Config.StreamConfig],
+    streams: List[WorkflowConfig.StreamConfig],
     reportingPeriod: FiniteDuration,
     contractSetDescriptorFile: Option[File],
     maxInFlightCommands: Int,
@@ -24,45 +22,6 @@ case class Config(
 )
 
 object Config {
-  trait StreamConfig {
-    def name: String
-  }
-
-  object StreamConfig {
-    case class TransactionsStreamConfig(
-        name: String,
-        filters: Map[String, Option[List[Identifier]]],
-        beginOffset: Option[LedgerOffset],
-        endOffset: Option[LedgerOffset],
-        objectives: StreamConfig.Objectives,
-    ) extends StreamConfig
-
-    case class TransactionTreesStreamConfig(
-        name: String,
-        filters: Map[String, Option[List[Identifier]]],
-        beginOffset: Option[LedgerOffset],
-        endOffset: Option[LedgerOffset],
-        objectives: StreamConfig.Objectives,
-    ) extends StreamConfig
-
-    case class ActiveContractsStreamConfig(
-        name: String,
-        filters: Map[String, Option[List[Identifier]]],
-    ) extends StreamConfig
-
-    case class CompletionsStreamConfig(
-        name: String,
-        party: String,
-        applicationId: String,
-        beginOffset: Option[LedgerOffset],
-    ) extends StreamConfig
-
-    case class Objectives(
-        maxDelaySeconds: Option[Long],
-        minConsumptionSpeed: Option[Double],
-    )
-  }
-
   case class Ledger(
       hostname: String,
       port: Int,
@@ -88,7 +47,7 @@ object Config {
         maxQueueLength = 10000,
       ),
       tls = TlsConfiguration.Empty.copy(enabled = false),
-      streams = List.empty[Config.StreamConfig],
+      streams = List.empty[WorkflowConfig.StreamConfig],
       reportingPeriod = 5.seconds,
       contractSetDescriptorFile = None,
       maxInFlightCommands = 100,

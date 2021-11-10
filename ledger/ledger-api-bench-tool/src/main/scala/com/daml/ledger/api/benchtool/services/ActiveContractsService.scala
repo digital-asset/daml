@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.benchtool.services
 
-import com.daml.ledger.api.benchtool.Config
+import com.daml.ledger.api.benchtool.WorkflowConfig
 import com.daml.ledger.api.benchtool.util.ObserverWithResult
 import com.daml.ledger.api.v1.active_contracts_service._
 import io.grpc.Channel
@@ -21,7 +21,7 @@ final class ActiveContractsService(
     ActiveContractsServiceGrpc.stub(channel)
 
   def getActiveContracts[Result](
-      config: Config.StreamConfig.ActiveContractsStreamConfig,
+      config: WorkflowConfig.StreamConfig.ActiveContractsStreamConfig,
       observer: ObserverWithResult[GetActiveContractsResponse, Result],
   ): Future[Result] = {
     service.getActiveContracts(getActiveContractsRequest(ledgerId, config), observer)
@@ -31,7 +31,7 @@ final class ActiveContractsService(
 
   private def getActiveContractsRequest(
       ledgerId: String,
-      config: Config.StreamConfig.ActiveContractsStreamConfig,
+      config: WorkflowConfig.StreamConfig.ActiveContractsStreamConfig,
   ): GetActiveContractsRequest =
     GetActiveContractsRequest.defaultInstance
       .withLedgerId(ledgerId)

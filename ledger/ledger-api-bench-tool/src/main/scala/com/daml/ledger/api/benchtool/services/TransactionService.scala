@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.benchtool.services
 
-import com.daml.ledger.api.benchtool.Config
+import com.daml.ledger.api.benchtool.WorkflowConfig
 import com.daml.ledger.api.benchtool.util.ObserverWithResult
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_service.{
@@ -27,7 +27,7 @@ final class TransactionService(
     TransactionServiceGrpc.stub(channel)
 
   def transactions[Result](
-      config: Config.StreamConfig.TransactionsStreamConfig,
+      config: WorkflowConfig.StreamConfig.TransactionsStreamConfig,
       observer: ObserverWithResult[GetTransactionsResponse, Result],
   ): Future[Result] = {
     val request = getTransactionsRequest(
@@ -42,7 +42,7 @@ final class TransactionService(
   }
 
   def transactionTrees[Result](
-      config: Config.StreamConfig.TransactionTreesStreamConfig,
+      config: WorkflowConfig.StreamConfig.TransactionTreesStreamConfig,
       observer: ObserverWithResult[
         GetTransactionTreesResponse,
         Result,

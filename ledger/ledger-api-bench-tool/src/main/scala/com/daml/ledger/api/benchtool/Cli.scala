@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.benchtool
 
-import com.daml.ledger.api.benchtool.Config.StreamConfig
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.value.Identifier
@@ -30,7 +29,7 @@ object Cli {
         config.copy(ledger = config.ledger.copy(hostname = hostname, port = port))
       }
 
-    opt[Config.StreamConfig]("consume-stream")
+    opt[WorkflowConfig.StreamConfig]("consume-stream")
       .abbr("s")
       .unbounded()
       .text(
@@ -134,7 +133,7 @@ object Cli {
     parser.parse(args, Config.Default)
 
   private object Reads {
-    implicit val streamConfigRead: Read[Config.StreamConfig] =
+    implicit val streamConfigRead: Read[WorkflowConfig.StreamConfig] =
       Read.mapRead[String, String].map { m =>
         def stringField(fieldName: String): Either[String, String] =
           m.get(fieldName) match {
@@ -161,25 +160,27 @@ object Cli {
         def offset(stringValue: String): LedgerOffset =
           LedgerOffset.defaultInstance.withAbsolute(stringValue)
 
-        def transactionsConfig: Either[String, StreamConfig.TransactionsStreamConfig] = for {
+        def transactionsConfig
+            : Either[String, WorkflowConfig.StreamConfig.TransactionsStreamConfig] = for {
           name <- stringField("name")
           filters <- stringField("filters").flatMap(filters)
           beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
           endOffset <- optionalStringField("end-offset").map(_.map(offset))
           maxDelaySeconds <- optionalLongField("max-delay")
           minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
-        } yield Config.StreamConfig.TransactionsStreamConfig(
+        } yield WorkflowConfig.StreamConfig.TransactionsStreamConfig(
           name = name,
           filters = filters,
           beginOffset = beginOffset,
           endOffset = endOffset,
-          objectives = Config.StreamConfig.Objectives(
+          objectives = WorkflowConfig.StreamConfig.Objectives(
             maxDelaySeconds = maxDelaySeconds,
             minConsumptionSpeed = minConsumptionSpeed,
           ),
         )
 
-        def transactionTreesConfig: Either[String, StreamConfig.TransactionTreesStreamConfig] =
+        def transactionTreesConfig
+            : Either[String, WorkflowConfig.StreamConfig.TransactionTreesStreamConfig] =
           for {
             name <- stringField("name")
             filters <- stringField("filters").flatMap(filters)
@@ -187,38 +188,40 @@ object Cli {
             endOffset <- optionalStringField("end-offset").map(_.map(offset))
             maxDelaySeconds <- optionalLongField("max-delay")
             minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
-          } yield Config.StreamConfig.TransactionTreesStreamConfig(
+          } yield WorkflowConfig.StreamConfig.TransactionTreesStreamConfig(
             name = name,
             filters = filters,
             beginOffset = beginOffset,
             endOffset = endOffset,
-            objectives = Config.StreamConfig.Objectives(
+            objectives = WorkflowConfig.StreamConfig.Objectives(
               maxDelaySeconds = maxDelaySeconds,
               minConsumptionSpeed = minConsumptionSpeed,
             ),
           )
 
-        def activeContractsConfig: Either[String, StreamConfig.ActiveContractsStreamConfig] = for {
+        def activeContractsConfig
+            : Either[String, WorkflowConfig.StreamConfig.ActiveContractsStreamConfig] = for {
           name <- stringField("name")
           filters <- stringField("filters").flatMap(filters)
-        } yield Config.StreamConfig.ActiveContractsStreamConfig(
+        } yield WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
           name = name,
           filters = filters,
         )
 
-        def completionsConfig: Either[String, StreamConfig.CompletionsStreamConfig] = for {
-          name <- stringField("name")
-          party <- stringField("party")
-          applicationId <- stringField("application-id")
-          beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
-        } yield Config.StreamConfig.CompletionsStreamConfig(
-          name = name,
-          party = party,
-          applicationId = applicationId,
-          beginOffset = beginOffset,
-        )
+        def completionsConfig: Either[String, WorkflowConfig.StreamConfig.CompletionsStreamConfig] =
+          for {
+            name <- stringField("name")
+            party <- stringField("party")
+            applicationId <- stringField("application-id")
+            beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
+          } yield WorkflowConfig.StreamConfig.CompletionsStreamConfig(
+            name = name,
+            party = party,
+            applicationId = applicationId,
+            beginOffset = beginOffset,
+          )
 
-        val config = stringField("stream-type").flatMap[String, Config.StreamConfig] {
+        val config = stringField("stream-type").flatMap[String, WorkflowConfig.StreamConfig] {
           case "transactions" => transactionsConfig
           case "transaction-trees" => transactionTreesConfig
           case "active-contracts" => activeContractsConfig
