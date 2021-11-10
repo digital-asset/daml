@@ -24,7 +24,6 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Map.Strict as MS
 import Data.Maybe
-import Data.Either
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import Development.IDE.Types.Location
@@ -147,7 +146,7 @@ buildDepClassMap deps world = DepClassMap $ MS.fromList
     | LF.ExternalPackage packageId LF.Package{..} <- deps
     , LF.Module{..} <- NM.toList packageModules
     , dsyn@LF.DefTypeSyn{..} <- NM.toList moduleSynonyms
-    , let synTy = ExpandedType (panicOnError $ LF.runGamma world (worldLfVersion world) $ LF.expandTypeSynonyms $ closedSynType dsyn)
+    , let synTy = panicOnError $ expandSynonyms world $ closedSynType dsyn
     ]
 
 buildDepInstances :: [LF.ExternalPackage] -> LF.World -> MS.Map LF.TypeSynName [LF.Qualified ExpandedType]
@@ -158,7 +157,7 @@ buildDepInstances deps world = MS.fromListWith (<>)
     , dval@LF.DefValue{..} <- NM.toList moduleValues
     , Just dfun <- [getDFunSig dval]
     , let clsName = LF.qualObject $ dfhName $ dfsHead dfun
-    , let ty = ExpandedType (panicOnError $ LF.runGamma world (worldLfVersion world) $ LF.expandTypeSynonyms $ snd dvalBinder)
+    , let ty = panicOnError $ expandSynonyms world (snd dvalBinder)
     ]
 
 envLookupDepClass :: LF.TypeSynName -> Env -> Maybe (LF.PackageId, ExpandedType)
@@ -167,16 +166,19 @@ envLookupDepClass synName env =
         classMap = unDepClassMap (depClassMap $ envDependencyInfo env)
     in MS.lookup (modName, synName) classMap
 
+expandSynonyms :: LF.World -> LF.Type -> Either LF.Error ExpandedType
+expandSynonyms world ty =
+    fmap ExpandedType $
+    LF.runGamma world (worldLfVersion world) $
+    LF.expandTypeSynonyms ty
+
 -- | Determine whether two type synonym definitions are similar enough to
 -- reexport one as the other. This is done by computing alpha equivalence
 -- after expanding all type synonyms.
 safeToReexport :: Env -> LF.DefTypeSyn -> ExpandedType -> Bool
 safeToReexport env syn1 syn2 =
     -- this should never fail so we just call `error` if it does
-    panicOnError $ do
-        LF.runGamma (envWorld env) (envLfVersion env) $ do
-            esyn1 <- LF.expandTypeSynonyms (closedSynType syn1)
-            pure (LF.alphaType esyn1 (getExpandedType syn2))
+    LF.alphaType (getExpandedType $ panicOnError $ expandSynonyms (envWorld env) (closedSynType syn1)) (getExpandedType syn2)
 
 -- | Turn a type synonym definition into a closed type.
 closedSynType :: LF.DefTypeSyn -> LF.Type
@@ -185,12 +187,8 @@ closedSynType LF.DefTypeSyn{..} = LF.mkTForalls synParams synType
 -- | Check if an instance is a duplicate of another one.
 -- This is needed to filter out duplicate instances which would
 -- result in a type error.
-isDuplicate :: Env -> LF.Type -> ExpandedType -> Bool
-isDuplicate env ty1 ty2 =
-    fromRight False $ do
-        LF.runGamma (envWorld env) (envLfVersion env) $ do
-            esyn1 <- LF.expandTypeSynonyms ty1
-            pure (LF.alphaType esyn1 (getExpandedType ty2))
+isDuplicate :: ExpandedType -> ExpandedType -> Bool
+isDuplicate ty1 ty2 = LF.alphaType (getExpandedType ty1) (getExpandedType ty2)
 
 data ImportOrigin = FromCurrentSdk UnitId | FromPackage LF.PackageId
     deriving (Eq, Ord)
@@ -529,7 +527,8 @@ generateSrcFromLf env = noLoc mod
         Just dfunSig <- [getDFunSig dval]
         guard (shouldExposeInstance dval)
         let clsName = LF.qualObject $ dfhName $ dfsHead dfunSig
-        case find (isDuplicate env (snd dvalBinder) . LF.qualObject) (MS.findWithDefault [] clsName $ depInstances $ envDependencyInfo env) of
+        let expandedTy = panicOnError $ expandSynonyms (envWorld env) $ snd dvalBinder
+        case find (isDuplicate expandedTy . LF.qualObject) (MS.findWithDefault [] clsName $ depInstances $ envDependencyInfo env) of
             Just qualInstance ->
                 -- If the instance already exists, we still
                 -- need to import it so that we can refer to it from other
