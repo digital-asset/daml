@@ -28,7 +28,7 @@ final case class VersionRange[V] private (
 
   def join(version: V): VersionRange[V] = join(VersionRange(version))
 
-  def map[W](f: V => W)(implicit ordering: Ordering[W]): VersionRange[W] =
+  private[lf] def map[W](f: V => W)(implicit ordering: Ordering[W]): VersionRange[W] =
     VersionRange(f(min), f(max))
 
   def contains(v: V): Boolean =

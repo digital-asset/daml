@@ -205,13 +205,13 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
       versionsInOrder(
         initialState
           .insertCreate_(templates(V14))
-      ) shouldBe (V14, Seq(Some(V14)))
+      ) shouldBe (V14 -> Seq(Some(V14)))
 
       versionsInOrder(
         initialState
           .insertCreate_(templates(V12))
           .insertCreate_(templates(V13))
-      ) shouldBe (V13, Seq(Some(V12), Some(V13)))
+      ) shouldBe (V13 -> Seq(Some(V12), Some(V13)))
 
       versionsInOrder(
         initialState
@@ -219,7 +219,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
           .insertCreate_(templates(V12))
           .insertCreate_(templates(V13))
           .endExercises_
-      ) shouldBe (V14, Seq(Some(V14), Some(V12), Some(V13)))
+      ) shouldBe (V14 -> Seq(Some(V14), Some(V12), Some(V13)))
 
       versionsInOrder(
         initialState
@@ -227,21 +227,21 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
           .insertCreate_(templates(V12))
           .insertCreate_(templates(V13))
           .endExercises_
-      ) shouldBe (V13, Seq(Some(V13), Some(V12), Some(V13)))
+      ) shouldBe (V13 -> Seq(Some(V13), Some(V12), Some(V13)))
 
       versionsInOrder(
         initialState.beginTry
           .insertCreate_(templates(VDev))
           .insertCreate_(templates(V14))
           .endTry
-      ) shouldBe (VDev, Seq(Some(VDev), Some(V14)))
+      ) shouldBe (VDev -> Seq(Some(VDev), Some(V14)))
 
       versionsInOrder(
         initialState.beginTry
           .insertCreate_(templates(V14))
           .insertCreate_(templates(VDev))
           .rollbackTry_
-      ) shouldBe (VDev, Seq(None, Some(V14), Some(VDev)))
+      ) shouldBe (VDev -> Seq(None, Some(V14), Some(VDev)))
 
     }
   }
