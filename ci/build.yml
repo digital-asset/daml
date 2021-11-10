@@ -352,6 +352,8 @@ jobs:
     - template: report-end.yml
 
 - job: platform_independence_test
+  condition: and(succeeded(),
+                 eq(dependencies.check_for_release.outputs['out.is_release'], 'false'))
   dependsOn:
     - Windows
     - Linux
