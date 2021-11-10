@@ -7,9 +7,9 @@ import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplic
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.{
   DeduplicationFeatures,
   DelayMechanism,
+  TimeDelayMechanism,
 }
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.timer.Delayed
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -28,7 +28,7 @@ final class CommandDeduplicationIT(
   )(
       testWithDelayMechanism: DelayMechanism => Future[Unit]
   )(implicit ec: ExecutionContext): Future[Unit] =
-    testWithDelayMechanism(() => Delayed.by(defaultDeduplicationWindowWait)(()))
+    testWithDelayMechanism(new TimeDelayMechanism(deduplicationDuration, ledgerWaitInterval))
 
   override def testNamingPrefix: String = "ParticipantCommandDeduplication"
 

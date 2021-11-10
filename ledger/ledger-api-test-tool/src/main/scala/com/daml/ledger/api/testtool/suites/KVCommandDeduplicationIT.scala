@@ -8,10 +8,11 @@ import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplic
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.{
   DeduplicationFeatures,
   DelayMechanism,
+  StaticTimeDelayMechanism,
+  TimeDelayMechanism,
 }
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
-import com.daml.timer.Delayed
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
@@ -43,69 +44,37 @@ class KVCommandDeduplicationIT(
   )(
       testWithDelayMechanism: DelayMechanism => Future[Unit]
   )(implicit ec: ExecutionContext): Future[Unit] = {
-    runWithConfig(participants) { case (maxDeduplicationDuration, minSkew) =>
+    runWithConfig(participants) { extraWait =>
       val anyParticipant = participants.head
-      testWithDelayMechanism(() => delay(anyParticipant, maxDeduplicationDuration, minSkew))
+      testWithDelayMechanism(delayMechanism(anyParticipant, extraWait))
     }
   }
 
-  private def delay(
+  private def delayMechanism(
       ledger: ParticipantTestContext,
-      maxDeduplicationDuration: Duration,
-      minSkew: Duration,
+      extraWait: Duration,
   )(implicit ec: ExecutionContext) = {
-    val committerDeduplicationWindow =
-      maxDeduplicationDuration.plus(minSkew).plus(ledgerWaitInterval)
     if (staticTime) {
-      forwardTimeWithDuration(ledger, committerDeduplicationWindow)
+      new StaticTimeDelayMechanism(ledger, deduplicationDuration, extraWait)
     } else {
-      Delayed.by(committerDeduplicationWindow)(())
+      new TimeDelayMechanism(deduplicationDuration, extraWait)
     }
   }
-
-  private def forwardTimeWithDuration(
-      ledger: ParticipantTestContext,
-      duration: Duration,
-  )(implicit ec: ExecutionContext): Future[Unit] =
-    ledger
-      .time()
-      .flatMap(currentTime => {
-        ledger.setTime(currentTime, currentTime.plusMillis(duration.toMillis))
-      })
 
   private def runWithConfig(
       participants: Seq[ParticipantTestContext]
-  )(
-      test: (FiniteDuration, FiniteDuration) => Future[Unit]
-  )(implicit ec: ExecutionContext): Future[Unit] = {
-    // deduplication duration is increased by minSkew in the committer so we set the skew to a low value for testing
-    val minSkew = scaledDuration(1.second).asProtobuf
-    val anyParticipant = participants.head
-    anyParticipant
-      .configuration()
-      .flatMap(ledgerConfiguration => {
-        val maxDeduplicationTime = ledgerConfiguration.maxDeduplicationTime
-          .getOrElse(
-            throw new IllegalStateException(
-              "Max deduplication time was not set and our deduplication period depends on it"
-            )
-          )
-          .asScala
-        // max deduplication should be set to 5 seconds through the --max-deduplication-duration flag
-        assert(
-          maxDeduplicationTime <= 5.seconds,
-          s"Max deduplication time [$maxDeduplicationTime] is too high for the test.",
-        )
-        runWithUpdatedTimeModel(
-          participants,
-          _.update(_.minSkew := minSkew),
-        )(timeModel =>
-          test(
-            asFiniteDuration(maxDeduplicationTime),
-            asFiniteDuration(timeModel.getMinSkew.asScala),
-          )
-        )
-      })
+  )(test: FiniteDuration => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
+    // deduplication duration is adjusted by min skew and max skew when running using pre-execution
+    // to account for this we adjust the time model
+    val skew = scaledDuration(1.second).asProtobuf
+    runWithUpdatedTimeModel(
+      participants,
+      _.update(_.minSkew := skew, _.maxSkew := skew),
+    )(timeModel =>
+      test(
+        asFiniteDuration(timeModel.getMinSkew.asScala + timeModel.getMaxSkew.asScala)
+      )
+    )
   }
 
   private def runWithUpdatedTimeModel(
@@ -121,7 +90,7 @@ class KVCommandDeduplicationIT(
             time <- participant.time()
             _ <- participant
               .setTimeModel(
-                time.plusSeconds(30),
+                time.plusSeconds(1),
                 timeModel.configurationGeneration + 1,
                 timeModel.getTimeModel,
               )
@@ -138,11 +107,10 @@ class KVCommandDeduplicationIT(
           (timeModelForTest, participantThatDidTheUpdate) <- tryTimeModelUpdateOnAllParticipants(
             participants,
             _.setTimeModel(
-              time.plusSeconds(30),
+              time.plusSeconds(1),
               timeModel.configurationGeneration,
               updatedModel,
-            )
-              .map(_ => updatedModel),
+            ).map(_ => updatedModel),
           )
           _ <- test(timeModelForTest)
             .transformWith(testResult =>
