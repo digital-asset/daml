@@ -126,7 +126,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     }
 
   protected def withHttpServiceAndClient[A](maxInboundMessageSize: Int)(
-      testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, DamlLedgerClient) => Future[A]
+      testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A]
   ): Future[A] =
     HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId, None, useTls) {
       case (ledgerPort, _) =>
@@ -1530,14 +1530,14 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "archiving a large number of contracts should succeed" in withHttpServiceAndClient(
-    StartSettings.DefaultMaxInboundMessageSize * 10
+    HttpService.DefaultMaxInboundMessageSize * 10
   ) { (uri, encoder, _, _) =>
     val numContracts: Long = 10000
     val helperId = domain.TemplateId(None, "Account", "Helper")
     val payload = v.Record(
       fields = List(v.RecordField("owner", Some(v.Value(v.Value.Sum.Party("Alice")))))
     )
-    val createCmd: domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] =
+    val createCmd: domain.CreateAndExerciseCommand[v.Record, v.Value] =
       domain.CreateAndExerciseCommand(
         templateId = helperId,
         payload = payload,
@@ -1549,7 +1549,7 @@ abstract class AbstractHttpServiceIntegrationTest
         ),
         meta = None,
       )
-    def encode(cmd: domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg]): JsValue =
+    def encode(cmd: domain.CreateAndExerciseCommand[v.Record, v.Value]): JsValue =
       encoder.encodeCreateAndExerciseCommand(cmd).valueOr(e => fail(e.shows))
     def archiveCmd(cids: List[String]) =
       domain.CreateAndExerciseCommand(
