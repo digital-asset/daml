@@ -34,9 +34,9 @@ private[index] object ReadOnlySqlLedgerWithTranslationCache {
         context: ResourceContext
     ): Resource[ReadOnlySqlLedgerWithTranslationCache] =
       for {
-        ledgerEnd <- Resource.fromFuture(ledgerDao.lookupLedgerEndOffsetAndSequentialId())
-        _ = ledgerEndCache.set(ledgerEnd)
-        dispatcher <- dispatcherOwner(ledgerEnd._1).acquire()
+        ledgerEnd <- Resource.fromFuture(ledgerDao.lookupLedgerEnd())
+        _ = ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
+        dispatcher <- dispatcherOwner(ledgerEnd.lastOffset).acquire()
         contractsStore <- contractStoreOwner()
         ledger <- ledgerOwner(dispatcher, contractsStore).acquire()
       } yield ledger
@@ -89,15 +89,15 @@ private final class ReadOnlySqlLedgerWithTranslationCache(
       )(() =>
         Source
           .tick(0.millis, 100.millis, ())
-          .mapAsync(1)(_ => ledgerDao.lookupLedgerEndOffsetAndSequentialId())
+          .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd())
       )
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
       .toMat(Sink.foreach { ledgerEnd =>
-        ledgerEndCache.set(ledgerEnd)
+        ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
         // the order here is very important: first we need to make data available for point-wise lookups
         // and SQL queries, and only then we can make it available on the streams.
         // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
-        dispatcher.signalNewHead(ledgerEnd._1)
+        dispatcher.signalNewHead(ledgerEnd.lastOffset)
       })(
         Keep.both[UniqueKillSwitch, Future[Done]]
       )

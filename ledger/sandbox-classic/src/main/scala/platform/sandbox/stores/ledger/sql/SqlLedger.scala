@@ -48,6 +48,11 @@ import com.daml.platform.store.appendonlydao.{
 }
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.daml.platform.store.interning.{
+  InternizingStringInterningView,
+  StringInterning,
+  StringInterningView,
+}
 import com.daml.platform.store.{BaseLedger, DbType, FlywayMigrations, LfValueTranslationCache}
 import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.Status
@@ -119,10 +124,19 @@ private[sandbox] object SqlLedger {
             metrics = metrics,
           )
           .acquire()
+        stringInterningStorageBackend = storageBackendFactory.createStringInterningStorageBackend
+        stringInterningView = new StringInterningView(
+          loadPrefixedEntries = (fromExclusive, toInclusive) =>
+            implicit loggingContext =>
+              dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+                stringInterningStorageBackend.loadStringInterningEntries(fromExclusive, toInclusive)
+              }
+        )
         dao = ledgerDaoOwner(
           dbDispatcher,
           storageBackendFactory,
           ledgerEndCache,
+          stringInterningView,
           servicesExecutionContext,
           errorFactories,
         )
@@ -135,10 +149,11 @@ private[sandbox] object SqlLedger {
         existingLedgerId <- Resource.fromFuture(dao.lookupLedgerId())
         existingParticipantId <- Resource.fromFuture(dao.lookupParticipantId())
         ledgerId <- Resource.fromFuture(initialize(dao, existingLedgerId, existingParticipantId))
-        ledgerEnd <- Resource.fromFuture(dao.lookupLedgerEndOffsetAndSequentialId())
-        _ = ledgerEndCache.set(ledgerEnd)
+        ledgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())
+        _ = ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
+        _ <- Resource.fromFuture(stringInterningView.update(ledgerEnd.lastStringInterningId))
         ledgerConfig <- Resource.fromFuture(dao.lookupLedgerConfiguration())
-        dispatcher <- dispatcherOwner(ledgerEnd._1).acquire()
+        dispatcher <- dispatcherOwner(ledgerEnd.lastOffset).acquire()
         persistenceQueue <- new PersistenceQueueOwner(dispatcher).acquire()
         // Close the dispatcher before the persistence queue.
         _ <- Resource(Future.unit)(_ => Future.successful(dispatcher.close()))
@@ -280,6 +295,7 @@ private[sandbox] object SqlLedger {
         dbDispatcher: DbDispatcher,
         storageBackendFactory: StorageBackendFactory,
         ledgerEndCache: MutableLedgerEndCache,
+        stringInterningView: StringInterning with InternizingStringInterningView,
         servicesExecutionContext: ExecutionContext,
         errorFactories: ErrorFactories,
     ): LedgerDao = {
@@ -295,6 +311,7 @@ private[sandbox] object SqlLedger {
           metrics = metrics,
           compressionStrategy = compressionStrategy,
           ledgerEndCache = ledgerEndCache,
+          stringInterningView = stringInterningView,
           ingestionStorageBackend = storageBackendFactory.createIngestionStorageBackend,
           parameterStorageBackend = storageBackendFactory.createParameterStorageBackend,
         ),

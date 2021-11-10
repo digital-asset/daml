@@ -5,6 +5,7 @@ package com.daml.platform.store.backend
 
 import java.sql.Connection
 
+import com.daml.ledger.offset.Offset
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.h2.H2StorageBackendFactory
 import com.daml.platform.store.backend.oracle.OracleStorageBackendFactory
@@ -25,6 +26,16 @@ private[backend] trait StorageBackendProvider {
     def typeBoundIngest[T](ingestionStorageBackend: IngestionStorageBackend[T]): Unit =
       ingestionStorageBackend.insertBatch(connection, ingestionStorageBackend.batch(dbDtos))
     typeBoundIngest(backend.ingestion)
+  }
+
+  protected final def updateLedgerEnd(
+      ledgerEndOffset: Offset,
+      ledgerEndSequentialId: Long,
+  )(connection: Connection): Unit = {
+    backend.parameter.updateLedgerEnd(LedgerEnd(ledgerEndOffset, ledgerEndSequentialId, 0))(
+      connection
+    ) // we do not care about the stringInterningId here
+    updateLedgerEndCache(connection)
   }
 
   protected final def updateLedgerEnd(ledgerEnd: LedgerEnd)(connection: Connection): Unit = {

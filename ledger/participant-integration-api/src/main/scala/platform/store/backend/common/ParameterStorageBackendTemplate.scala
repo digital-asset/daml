@@ -5,7 +5,7 @@ package com.daml.platform.store.backend.common
 
 import java.sql.Connection
 
-import anorm.SqlParser.long
+import anorm.SqlParser.{int, long}
 import anorm.{RowParser, SQL, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.offset.Offset
@@ -28,7 +28,8 @@ private[backend] object ParameterStorageBackendTemplate extends ParameterStorage
       |  parameters
       |SET
       |  ledger_end = {ledger_end},
-      |  ledger_end_sequential_id = {ledger_end_sequential_id}
+      |  ledger_end_sequential_id = {ledger_end_sequential_id},
+      |  ledger_end_string_interning_id = {ledger_end_string_interning_id}
       |""".stripMargin
   )
 
@@ -39,6 +40,7 @@ private[backend] object ParameterStorageBackendTemplate extends ParameterStorage
     SQL_UPDATE_LEDGER_END
       .on("ledger_end" -> ledgerEnd.lastOffset)
       .on("ledger_end_sequential_id" -> ledgerEnd.lastEventSeqId)
+      .on("ledger_end_string_interning_id" -> ledgerEnd.lastStringInterningId)
       .execute()(connection)
     ()
   }
@@ -47,7 +49,8 @@ private[backend] object ParameterStorageBackendTemplate extends ParameterStorage
     """
       |SELECT
       |  ledger_end,
-      |  ledger_end_sequential_id
+      |  ledger_end_sequential_id,
+      |  ledger_end_string_interning_id
       |FROM
       |  parameters
       |
@@ -62,6 +65,7 @@ private[backend] object ParameterStorageBackendTemplate extends ParameterStorage
   private val ParticipantIdColumnName: String = "participant_id"
   private val LedgerEndColumnName: String = "ledger_end"
   private val LedgerEndSequentialIdColumnName: String = "ledger_end_sequential_id"
+  private val LedgerEndStringInterningIdColumnName: String = "ledger_end_string_interning_id"
 
   private val LedgerIdParser: RowParser[LedgerId] =
     ledgerString(LedgerIdColumnName).map(LedgerId(_))
@@ -75,15 +79,24 @@ private[backend] object ParameterStorageBackendTemplate extends ParameterStorage
   private val LedgerEndSequentialIdParser: RowParser[Option[Long]] =
     long(LedgerEndSequentialIdColumnName).?
 
+  private val LedgerEndStringInterningIdParser: RowParser[Option[Int]] =
+    int(LedgerEndStringInterningIdColumnName).?
+
   private val LedgerIdentityParser: RowParser[ParameterStorageBackend.IdentityParams] =
     LedgerIdParser ~ ParticipantIdParser map { case ledgerId ~ participantId =>
       ParameterStorageBackend.IdentityParams(ledgerId, participantId)
     }
 
   private val LedgerEndParser: RowParser[Option[ParameterStorageBackend.LedgerEnd]] =
-    LedgerEndOffsetParser ~ LedgerEndSequentialIdParser map {
-      case Some(lastOffset) ~ Some(lastEventSequentialId) =>
-        Some(ParameterStorageBackend.LedgerEnd(lastOffset, lastEventSequentialId))
+    LedgerEndOffsetParser ~ LedgerEndSequentialIdParser ~ LedgerEndStringInterningIdParser map {
+      case Some(lastOffset) ~ Some(lastEventSequentialId) ~ Some(lastStringInterningId) =>
+        Some(
+          ParameterStorageBackend.LedgerEnd(
+            lastOffset,
+            lastEventSequentialId,
+            lastStringInterningId,
+          )
+        )
       case _ =>
         // Note: offset and event sequential id are always written together.
         // Cases where only one of them is defined are not handled here.

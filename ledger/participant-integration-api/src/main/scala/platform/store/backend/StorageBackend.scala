@@ -103,9 +103,7 @@ trait ParameterStorageBackend {
     * @return the current LedgerEnd, or a LedgerEnd that points to before the ledger begin if no ledger end exists
     */
   final def ledgerEndOrBeforeBegin(connection: Connection): ParameterStorageBackend.LedgerEnd =
-    ledgerEnd(connection).getOrElse(
-      ParameterStorageBackend.LedgerEnd(Offset.beforeBegin, EventSequentialId.beforeBegin)
-    )
+    ledgerEnd(connection).getOrElse(ParameterStorageBackend.LedgerEndBeforeBegin)
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
@@ -136,8 +134,11 @@ trait ParameterStorageBackend {
 }
 
 object ParameterStorageBackend {
-  case class LedgerEnd(lastOffset: Offset, lastEventSeqId: Long)
+  case class LedgerEnd(lastOffset: Offset, lastEventSeqId: Long, lastStringInterningId: Int)
   case class IdentityParams(ledgerId: LedgerId, participantId: ParticipantId)
+
+  final val LedgerEndBeforeBegin =
+    ParameterStorageBackend.LedgerEnd(Offset.beforeBegin, EventSequentialId.beforeBegin, 0)
 }
 
 trait ConfigurationStorageBackend {

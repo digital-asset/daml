@@ -28,7 +28,7 @@ private[backend] trait StorageBackendTestsIngestion
       _ <- executeSql(ingest(dtos, _))
       configBeforeLedgerEndUpdate <- executeSql(backend.configuration.ledgerConfiguration)
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0))
+        updateLedgerEnd(someOffset, 0)
       )
       configAfterLedgerEndUpdate <- executeSql(backend.configuration.ledgerConfiguration)
     } yield {
@@ -57,7 +57,7 @@ private[backend] trait StorageBackendTestsIngestion
       _ <- executeSql(ingest(dtos, _))
       packagesBeforeLedgerEndUpdate <- executeSql(backend.packageBackend.lfPackages)
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0))
+        updateLedgerEnd(someOffset, 0)
       )
       packagesAfterLedgerEndUpdate <- executeSql(backend.packageBackend.lfPackages)
     } yield {
@@ -81,7 +81,7 @@ private[backend] trait StorageBackendTestsIngestion
       _ <- executeSql(ingest(dtos, _))
       partiesBeforeLedgerEndUpdate <- executeSql(backend.party.knownParties)
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(someOffset, 0))
+        updateLedgerEnd(someOffset, 0)
       )
       partiesAfterLedgerEndUpdate <- executeSql(backend.party.knownParties)
     } yield {

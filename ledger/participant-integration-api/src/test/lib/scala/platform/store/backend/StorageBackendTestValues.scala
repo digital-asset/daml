@@ -24,7 +24,7 @@ private[backend] object StorageBackendTestValues {
   /** Produces offsets that are ordered the same as the input value */
   def offset(x: Long): Offset = Offset.fromHexString(Ref.HexString.assertFromString(f"$x%08d"))
   def ledgerEnd(o: Long, e: Long): ParameterStorageBackend.LedgerEnd =
-    ParameterStorageBackend.LedgerEnd(offset(o), e)
+    ParameterStorageBackend.LedgerEnd(offset(o), e, 0)
   def transactionIdFromOffset(x: Offset): Ref.LedgerString =
     Ref.LedgerString.assertFromString(x.toHexString)
 

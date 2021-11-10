@@ -211,8 +211,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       resultForAlice <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
-            startExclusive = from,
-            endInclusive = to,
+            startExclusive = from.lastOffset,
+            endInclusive = to.lastOffset,
             filter = Map(alice -> Set.empty),
             verbose = true,
           )
@@ -220,8 +220,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       resultForBob <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
-            startExclusive = from,
-            endInclusive = to,
+            startExclusive = from.lastOffset,
+            endInclusive = to.lastOffset,
             filter = Map(bob -> Set.empty),
             verbose = true,
           )
@@ -229,8 +229,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       resultForCharlie <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
-            startExclusive = from,
-            endInclusive = to,
+            startExclusive = from.lastOffset,
+            endInclusive = to.lastOffset,
             filter = Map(charlie -> Set.empty),
             verbose = true,
           )
@@ -259,8 +259,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       result <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
-            startExclusive = from,
-            endInclusive = to,
+            startExclusive = from.lastOffset,
+            endInclusive = to.lastOffset,
             filter = Map(alice -> Set(otherTemplateId)),
             verbose = true,
           )
@@ -290,8 +290,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       result <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
-            startExclusive = from,
-            endInclusive = to,
+            startExclusive = from.lastOffset,
+            endInclusive = to.lastOffset,
             filter = Map(
               alice -> Set(otherTemplateId),
               bob -> Set(otherTemplateId),
@@ -330,8 +330,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       result <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
-            startExclusive = from,
-            endInclusive = to,
+            startExclusive = from.lastOffset,
+            endInclusive = to.lastOffset,
             filter = Map(
               alice -> Set(someTemplateId),
               bob -> Set(otherTemplateId),
@@ -370,8 +370,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       result <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
-            startExclusive = from,
-            endInclusive = to,
+            startExclusive = from.lastOffset,
+            endInclusive = to.lastOffset,
             filter = Map(
               alice -> Set(otherTemplateId),
               bob -> Set.empty,
@@ -401,7 +401,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       (offset, exercise) <- store(exerciseWithChild(firstContractId))
       result <- ledgerDao.transactionsReader
         .getFlatTransactions(
-          from,
+          from.lastOffset,
           offset,
           exercise.actAs.map(submitter => submitter -> Set.empty[Identifier]).toMap,
           verbose = true,
@@ -555,7 +555,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           }
           to <- ledgerDao.lookupLedgerEnd()
           response <- ledgerDao.transactionsReader
-            .getFlatTransactions(from, to, cp.filter, verbose = false)
+            .getFlatTransactions(from.lastOffset, to.lastOffset, cp.filter, verbose = false)
             .runWith(Sink.seq)
           readOffsets = response flatMap { case (_, gtr) => gtr.transactions map (_.offset) }
           readCreates = extractAllTransactions(response) flatMap (_.events)
@@ -600,7 +600,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       (_, t3) <- store(singleExercise(nonTransient(t2).loneElement))
       (_, t4) <- store(fullyTransient())
       to <- ledgerDao.lookupLedgerEnd()
-    } yield (from, to, Seq(t1, t2, t3, t4))
+    } yield (from.lastOffset, to.lastOffset, Seq(t1, t2, t3, t4))
 
   private def lookupIndividually(
       transactions: Seq[LedgerEntry.Transaction],

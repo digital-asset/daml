@@ -33,6 +33,7 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.events._
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{
   DeduplicationStorageBackend,
   ParameterStorageBackend,
@@ -92,22 +93,13 @@ private class JdbcLedgerDao(
 
   /** Defaults to Offset.begin if ledger_end is unset
     */
-  override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset] =
+  override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[LedgerEnd] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.getLedgerEnd)(
-        parameterStorageBackend.ledgerEndOrBeforeBegin(_).lastOffset
+        parameterStorageBackend.ledgerEndOrBeforeBegin
       )
 
   case class InvalidLedgerEnd(msg: String) extends RuntimeException(msg)
-
-  override def lookupLedgerEndOffsetAndSequentialId()(implicit
-      loggingContext: LoggingContext
-  ): Future[(Offset, Long)] =
-    dbDispatcher
-      .executeSql(metrics.daml.index.db.getLedgerEndOffsetAndSequentialId) { connection =>
-        val end = parameterStorageBackend.ledgerEndOrBeforeBegin(connection)
-        end.lastOffset -> end.lastEventSeqId
-      }
 
   override def lookupInitialLedgerEnd()(implicit
       loggingContext: LoggingContext

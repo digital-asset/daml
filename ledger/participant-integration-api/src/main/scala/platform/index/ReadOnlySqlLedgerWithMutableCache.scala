@@ -55,15 +55,15 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         context: ResourceContext
     ): Resource[ReadOnlySqlLedgerWithMutableCache] =
       for {
-        (ledgerEndOffset, ledgerEndSequentialId) <- Resource.fromFuture(
-          ledgerDao.lookupLedgerEndOffsetAndSequentialId()
+        ledgerEnd <- Resource.fromFuture(
+          ledgerDao.lookupLedgerEnd()
         )
-        _ = ledgerEndCache.set((ledgerEndOffset, ledgerEndSequentialId))
+        _ = ledgerEndCache.set((ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId))
         prefetchingDispatcher <- dispatcherOffsetSeqIdOwner(
-          ledgerEndOffset,
-          ledgerEndSequentialId,
+          ledgerEnd.lastOffset,
+          ledgerEnd.lastEventSeqId,
         ).acquire()
-        generalDispatcher <- dispatcherOwner(ledgerEndOffset).acquire()
+        generalDispatcher <- dispatcherOwner(ledgerEnd.lastOffset).acquire()
         dispatcherLagMeter <- Resource.successful(
           new DispatcherLagMeter((offset, eventSeqId) => {
             ledgerEndCache.set((offset, eventSeqId))
@@ -79,7 +79,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
           prefetchingDispatcher,
           generalDispatcher,
           dispatcherLagMeter,
-          ledgerEndOffset -> ledgerEndSequentialId,
+          ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId,
         ).acquire()
       } yield ledger
 
@@ -294,12 +294,14 @@ private final class ReadOnlySqlLedgerWithMutableCache(
       )(() =>
         Source
           .tick(0.millis, 100.millis, ())
-          .mapAsync(1)(_ => ledgerDao.lookupLedgerEndOffsetAndSequentialId())
+          .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd())
       )
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .toMat(Sink.foreach { case newLedgerHead @ (offset, _) =>
-        dispatcherLagger.startTimer(offset)
-        contractStateEventsDispatcher.signalNewHead(newLedgerHead)
+      .toMat(Sink.foreach { case newLedgerHead =>
+        dispatcherLagger.startTimer(newLedgerHead.lastOffset)
+        contractStateEventsDispatcher.signalNewHead(
+          newLedgerHead.lastOffset -> newLedgerHead.lastEventSeqId
+        )
       })(
         Keep.both[UniqueKillSwitch, Future[Done]]
       )
