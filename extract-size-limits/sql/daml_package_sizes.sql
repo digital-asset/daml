@@ -1,0 +1,1 @@
+select package_id, upload_id, source_description, known_since, ledger_offset, octet_length(package) as package_size_stored_bytes, pg_column_size(package) as package_size_stored_compressed_bytes from packages order by ledger_offset;

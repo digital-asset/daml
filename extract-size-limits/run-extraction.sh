@@ -2,15 +2,24 @@
 
 # set -e
 
-DBNAME='chess_db'
-EXTRACT="sudo -u postgres psql -D$DBNAME --csv"
+DBNAME='connect_1_0_1'
+PSQL="sudo -u postgres psql -d$DBNAME"
 
+echo "-- starting extraction --"
 
-for SQL in $(ls *sql)
+mkdir -p "csv/$DBNAME"
+
+for SQL in $(ls sql/*.sql)
 do
     
-    CSV="$(basename -s .csv $SQL)"
+    CSV="csv/$DBNAME/$(basename -s .sql $SQL).csv"
     echo "Extracting $SQL -> $CSV"
    
-    $EXTRACT > $CSV
+    $PSQL --csv -f "$SQL" > "$CSV"
 done
+
+TAR="db-limits-extraction-$(date -u -I).tar.gz"
+
+echo "-- extraction complete --"
+echo "Storing the extraction results in '$TAR'"
+tar -czf "$TAR" csv/ sql/
