@@ -12,7 +12,6 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
   TransactionServiceGrpc,
 }
-import com.daml.ledger.api.v1.value.Identifier
 import io.grpc.Channel
 import org.slf4j.LoggerFactory
 
@@ -61,7 +60,7 @@ final class TransactionService(
 
   private def getTransactionsRequest(
       ledgerId: String,
-      filters: Map[String, List[Identifier]],
+      filters: List[WorkflowConfig.StreamConfig.PartyFilter],
       beginOffset: Option[LedgerOffset],
       endOffset: Option[LedgerOffset],
   ): GetTransactionsRequest = {

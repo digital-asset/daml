@@ -36,7 +36,7 @@ object WorkflowConfig {
   object StreamConfig {
     final case class TransactionsStreamConfig(
         name: String,
-        filters: Map[String, List[Identifier]],
+        filters: List[PartyFilter],
         beginOffset: Option[LedgerOffset],
         endOffset: Option[LedgerOffset],
         objectives: StreamConfig.Objectives,
@@ -44,7 +44,7 @@ object WorkflowConfig {
 
     final case class TransactionTreesStreamConfig(
         name: String,
-        filters: Map[String, List[Identifier]],
+        filters: List[PartyFilter],
         beginOffset: Option[LedgerOffset],
         endOffset: Option[LedgerOffset],
         objectives: StreamConfig.Objectives,
@@ -52,7 +52,7 @@ object WorkflowConfig {
 
     final case class ActiveContractsStreamConfig(
         name: String,
-        filters: Map[String, List[Identifier]],
+        filters: List[PartyFilter],
     ) extends StreamConfig
 
     final case class CompletionsStreamConfig(
@@ -61,6 +61,8 @@ object WorkflowConfig {
         applicationId: String,
         beginOffset: Option[LedgerOffset],
     ) extends StreamConfig
+
+    final case class PartyFilter(party: String, templates: List[Identifier])
 
     case class Objectives(
         maxDelaySeconds: Option[Long],

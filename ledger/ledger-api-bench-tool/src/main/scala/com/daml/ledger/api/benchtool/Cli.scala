@@ -233,20 +233,20 @@ object Cli {
         config.fold(error => throw new IllegalArgumentException(error), identity)
       }
 
-    private def filters(listOfIds: String): Either[String, Map[String, List[Identifier]]] =
+    private def filters(listOfIds: String): Either[String, List[WorkflowConfig.StreamConfig.PartyFilter]] =
       listOfIds
         .split('+')
         .toList
         .map(filter)
-        .foldLeft[Either[String, Map[String, List[Identifier]]]](Right(Map.empty)) {
+        .foldLeft[Either[String, List[WorkflowConfig.StreamConfig.PartyFilter]]](Right(List.empty)) {
           case (acc, next) =>
             for {
               filters <- acc
               filter <- next
-            } yield filters + filter
+            } yield filters :+ filter
         }
 
-    private def filter(filterString: String): Either[String, (String, List[Identifier])] =
+    private def filter(filterString: String): Either[String, WorkflowConfig.StreamConfig.PartyFilter] =
       filterString
         .split('@')
         .toList match {
@@ -260,7 +260,7 @@ object Cli {
                   id <- next
                 } yield id :: ids
             }
-            .map(party -> _)
+            .map(WorkflowConfig.StreamConfig.PartyFilter(party, _))
         case _ => Left("Filter cannot be empty")
       }
 

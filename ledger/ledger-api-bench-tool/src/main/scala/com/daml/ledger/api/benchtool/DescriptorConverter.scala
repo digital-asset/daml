@@ -36,8 +36,11 @@ object DescriptorConverter {
         .getOrElse(throw new RuntimeException(s"Observer not found: $party"))
 
     val filters = descriptor.filters.map { filter =>
-      convertedParty(filter.party) -> filter.templates.map(templateStringToId)
-    }.toMap
+      WorkflowConfig.StreamConfig.PartyFilter(
+        party = convertedParty(filter.party),
+        templates = filter.templates.map(templateStringToId),
+      )
+    }
 
     descriptor.streamType match {
       case StreamDescriptor.StreamType.ActiveContracts =>
