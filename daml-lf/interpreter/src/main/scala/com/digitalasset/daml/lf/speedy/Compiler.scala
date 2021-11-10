@@ -1537,7 +1537,6 @@ private[lf] final class Compiler(
       ifaceId: Identifier,
   ): (t.SDefinitionRef, SDefinition) =
     t.ImplementsDefRef(tmplId, ifaceId) ->
-      //SDefinition(flattenToAnf(unsafeClosureConvert(SEAbs.identity)))// NIC, was bug, 2x flattenToAnf!
       SDefinition(unsafeClosureConvert(s.SEAbs.identity))
 
   // Compile the implementation of an interface method.
