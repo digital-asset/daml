@@ -13,7 +13,7 @@ export LC_ALL=en_US.UTF-8
 ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 
 tag_filter=""
-if [[ "$execution_log_postfix" == "_Darwin" ]]; then
+if [[ "$(uname)" == "Darwin" ]]; then
   tag_filter="-dont-run-on-darwin,-scaladoc,-pdfdocs"
 fi
 
