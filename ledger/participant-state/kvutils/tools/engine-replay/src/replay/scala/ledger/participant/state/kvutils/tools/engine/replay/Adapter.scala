@@ -58,12 +58,14 @@ private[replay] final class Adapter(
 
   // drop value version
   private[this] def adapt(
-      k: Node.KeyWithMaintainers[Value]
-  ): Node.KeyWithMaintainers[Value] =
+      k: Node.KeyWithMaintainers
+  ): Node.KeyWithMaintainers =
     k.copy(adapt(k.key))
 
   def adapt(coinst: Value.VersionedContractInstance): Value.VersionedContractInstance =
-    coinst.copy(template = adapt(coinst.template), arg = adapt(coinst.arg))
+    coinst.map(unversioned =>
+      unversioned.copy(template = adapt(unversioned.template), arg = adapt(unversioned.arg))
+    )
 
   def adapt(gkey: GlobalKey): GlobalKey =
     GlobalKey.assertBuild(adapt(gkey.templateId), adapt(gkey.key))

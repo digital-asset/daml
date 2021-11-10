@@ -8,7 +8,6 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, Name}
 import com.daml.lf.data._
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.TransactionVersion
 import data.ScalazEqual._
 
 import scalaz.{@@, Equal, Order, Tag}
@@ -88,23 +87,9 @@ object Value {
     */
   val MAXIMUM_NESTING: Int = 100
 
-  final case class VersionedValue(version: TransactionVersion, value: Value)
-      extends CidContainer[VersionedValue] {
-
-    override protected def self: this.type = this
-
-    override def mapCid(f: ContractId => ContractId): VersionedValue =
-      copy(value = value.mapCid(f))
-  }
-
-  object VersionedValue {
-    implicit def `VersionedValue Equal instance`: Equal[VersionedValue] =
-      ScalazEqual.withNatural(Equal[ContractId].equalIsNatural) { (a, b) =>
-        import a._
-        val VersionedValue(bVersion, bValue) = b
-        version == bVersion && value === bValue
-      }
-  }
+  type VersionedValue = transaction.Versioned[Value]
+  @deprecated("use com.daml.lf.transaction.Versioned directly", since = "1.18.0")
+  val VersionedValue = transaction.Versioned
 
   /** The parent of all [[Value]] cases that cannot possibly have a Cid.
     * NB: use only in pattern-matching [[Value]]; the ''type'' of a cid-less
@@ -201,25 +186,23 @@ object Value {
       copy(arg = arg.mapCid(f))
   }
 
-  final case class VersionedContractInstance(
-      version: TransactionVersion,
-      template: Identifier,
-      arg: Value,
-      agreementText: String,
-  ) {
-    def coinst = ContractInstance(template, arg, agreementText)
-    def versionedArg = VersionedValue(version, arg)
-  }
+  type VersionedContractInstance = transaction.Versioned[ContractInstance]
 
   object VersionedContractInstance {
-    def apply(version: TransactionVersion, coinst: ContractInstance): VersionedContractInstance =
-      VersionedContractInstance(version, coinst.template, coinst.arg, coinst.agreementText)
     def apply(
         template: Identifier,
         arg: VersionedValue,
         agreementText: String,
     ): VersionedContractInstance =
-      VersionedContractInstance(arg.version, template, arg.value, agreementText)
+      arg.map(ContractInstance(template, _, agreementText))
+
+    def apply(
+        version: transaction.TransactionVersion,
+        template: Identifier,
+        arg: Value,
+        agreementText: String,
+    ): VersionedContractInstance =
+      transaction.Versioned(version, ContractInstance(template, arg, agreementText))
   }
 
   type NodeIdx = Int

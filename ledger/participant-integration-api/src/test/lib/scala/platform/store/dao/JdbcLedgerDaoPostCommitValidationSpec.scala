@@ -23,6 +23,7 @@ import com.daml.platform.store.appendonlydao.{
   SequentialWriteDao,
 }
 import com.daml.platform.store.backend.StorageBackendFactory
+import com.daml.platform.store.interning.StringInterningView
 import org.scalatest.LoneElement
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -51,7 +52,16 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
         connectionTimeout = 250.millis,
         metrics = metrics,
       )
-      .map(dbDispatcher =>
+      .map { dbDispatcher =>
+        val stringInterningStorageBackend =
+          storageBackendFactory.createStringInterningStorageBackend
+        val stringInterningView = new StringInterningView(
+          loadPrefixedEntries = (fromExclusive, toInclusive) =>
+            implicit loggingContext =>
+              dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+                stringInterningStorageBackend.loadStringInterningEntries(fromExclusive, toInclusive)
+              }
+        )
         JdbcLedgerDao.validatingWrite(
           dbDispatcher = dbDispatcher,
           sequentialWriteDao = SequentialWriteDao(
@@ -60,6 +70,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
             metrics = metrics,
             compressionStrategy = CompressionStrategy.none(metrics),
             ledgerEndCache = ledgerEndCache,
+            stringInterningView = stringInterningView,
             ingestionStorageBackend = storageBackendFactory.createIngestionStorageBackend,
             parameterStorageBackend = storageBackendFactory.createParameterStorageBackend,
           ),
@@ -74,7 +85,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
           ledgerEndCache = ledgerEndCache,
           errorFactories = errorFactories,
         )
-      )
+      }
   }
 
   private val ok = io.grpc.Status.Code.OK.value()
@@ -95,7 +106,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       _ <- store(original)
       _ <- store(duplicate)
       to <- ledgerDao.lookupLedgerEnd()
-      completions <- getCompletions(from, to, defaultAppId, Set(alice))
+      completions <- getCompletions(from.lastOffset, to.lastOffset, defaultAppId, Set(alice))
     } yield {
       completions should contain.allOf(
         originalAttempt.commandId.get -> ok,
@@ -115,7 +126,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       (_, create) <- store(txCreateContractWithKey(alice, keyValue))
       (_, lookup) <- store(txLookupByKey(alice, keyValue, None))
       to <- ledgerDao.lookupLedgerEnd()
-      completions <- getCompletions(from, to, defaultAppId, Set(alice))
+      completions <- getCompletions(from.lastOffset, to.lastOffset, defaultAppId, Set(alice))
     } yield {
       completions should contain.allOf(
         create.commandId.get -> ok,
@@ -137,7 +148,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       (_, archive) <- store(txArchiveContract(alice, createdContractId -> Some(keyValue)))
       (_, lookup) <- store(txLookupByKey(alice, keyValue, Some(createdContractId)))
       to <- ledgerDao.lookupLedgerEnd()
-      completions <- getCompletions(from, to, defaultAppId, Set(alice))
+      completions <- getCompletions(from.lastOffset, to.lastOffset, defaultAppId, Set(alice))
     } yield {
       completions should contain.allOf(
         create.commandId.get -> ok,
@@ -160,7 +171,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       (_, archive) <- store(txArchiveContract(alice, createdContractId -> Some(keyValue)))
       (_, fetch) <- store(txFetch(alice, createdContractId))
       to <- ledgerDao.lookupLedgerEnd()
-      completions <- getCompletions(from, to, defaultAppId, Set(alice))
+      completions <- getCompletions(from.lastOffset, to.lastOffset, defaultAppId, Set(alice))
     } yield {
       completions should contain.allOf(
         create.commandId.get -> ok,
@@ -192,7 +203,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       )
       (_, fetch2) <- store(txFetch(alice, divulgedContractId))
       to <- ledgerDao.lookupLedgerEnd()
-      completions <- getCompletions(from, to, defaultAppId, Set(alice))
+      completions <- getCompletions(from.lastOffset, to.lastOffset, defaultAppId, Set(alice))
     } yield {
       completions should contain.allOf(
         fetch1.commandId.get -> aborted,

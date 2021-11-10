@@ -14,11 +14,17 @@ import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.{
   DbDto,
+  DbDtoToStringsForInterning,
   IngestionStorageBackend,
   ParameterStorageBackend,
   UpdateToDbDto,
 }
 import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.store.interning.{
+  DomainStringIterators,
+  InternizingStringInterningView,
+  StringInterning,
+}
 
 import scala.concurrent.Future
 import scala.util.chaining.scalaUtilChainingOps
@@ -34,6 +40,7 @@ object SequentialWriteDao {
       metrics: Metrics,
       compressionStrategy: CompressionStrategy,
       ledgerEndCache: MutableLedgerEndCache,
+      stringInterningView: StringInterning with InternizingStringInterningView,
       ingestionStorageBackend: IngestionStorageBackend[_],
       parameterStorageBackend: ParameterStorageBackend,
   ): SequentialWriteDao =
@@ -51,6 +58,8 @@ object SequentialWriteDao {
         compressionStrategy = compressionStrategy,
       ),
       ledgerEndCache = ledgerEndCache,
+      stringInterningView = stringInterningView,
+      dbDtosToStringsForInterning = DbDtoToStringsForInterning(_),
     )
 
   val noop: SequentialWriteDao = NoopSequentialWriteDao
@@ -66,14 +75,19 @@ private[appendonlydao] case class SequentialWriteDaoImpl[DB_BATCH](
     parameterStorageBackend: ParameterStorageBackend,
     updateToDbDtos: Offset => state.Update => Iterator[DbDto],
     ledgerEndCache: MutableLedgerEndCache,
+    stringInterningView: StringInterning with InternizingStringInterningView,
+    dbDtosToStringsForInterning: Iterable[DbDto] => DomainStringIterators,
 ) extends SequentialWriteDao {
 
   private var lastEventSeqId: Long = _
+  private var lastStringInterningId: Int = _
   private var lastEventSeqIdInitialized = false
 
   private def lazyInit(connection: Connection): Unit =
     if (!lastEventSeqIdInitialized) {
-      lastEventSeqId = parameterStorageBackend.ledgerEndOrBeforeBegin(connection).lastEventSeqId
+      val ledgerEnd = parameterStorageBackend.ledgerEndOrBeforeBegin(connection)
+      lastEventSeqId = ledgerEnd.lastEventSeqId
+      lastStringInterningId = ledgerEnd.lastStringInterningId
       lastEventSeqIdInitialized = true
     }
 
@@ -99,7 +113,18 @@ private[appendonlydao] case class SequentialWriteDaoImpl[DB_BATCH](
         .map(adaptEventSeqIds)
         .getOrElse(Vector.empty)
 
-      dbDtos
+      val dbDtosWithStringInterning =
+        dbDtos
+          .pipe(dbDtosToStringsForInterning)
+          .pipe(stringInterningView.internize)
+          .map(DbDto.StringInterningDto.from) match {
+          case noNewEntries if noNewEntries.isEmpty => dbDtos
+          case newEntries =>
+            lastStringInterningId = newEntries.last.internalId
+            dbDtos ++ newEntries
+        }
+
+      dbDtosWithStringInterning
         .pipe(ingestionStorageBackend.batch)
         .pipe(ingestionStorageBackend.insertBatch(connection, _))
 
@@ -107,6 +132,7 @@ private[appendonlydao] case class SequentialWriteDaoImpl[DB_BATCH](
         ParameterStorageBackend.LedgerEnd(
           lastOffset = offset,
           lastEventSeqId = lastEventSeqId,
+          lastStringInterningId = lastStringInterningId,
         )
       )(connection)
 

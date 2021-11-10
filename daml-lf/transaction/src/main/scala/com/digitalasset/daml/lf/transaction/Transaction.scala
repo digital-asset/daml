@@ -502,7 +502,7 @@ sealed abstract class HasTxNodes {
       def assertKeyMapping(
           templateId: Identifier,
           cid: Value.ContractId,
-          optKey: Option[Node.KeyWithMaintainers[Value]],
+          optKey: Option[Node.KeyWithMaintainers],
       ): Either[KeyInputError, State] =
         optKey.fold[Either[KeyInputError, State]](Right(this)) { key =>
           val gk = GlobalKey.assertBuild(templateId, key.key)

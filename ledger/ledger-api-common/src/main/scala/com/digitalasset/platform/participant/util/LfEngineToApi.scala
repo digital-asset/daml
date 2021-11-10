@@ -173,13 +173,13 @@ object LfEngineToApi {
 
   def lfContractKeyToApiValue(
       verbose: Boolean,
-      lf: Node.KeyWithMaintainers[LfValue],
+      lf: Node.KeyWithMaintainers,
   ): Either[String, api.Value] =
     lfValueToApiValue(verbose, lf.key)
 
   def lfContractKeyToApiValue(
       verbose: Boolean,
-      lf: Option[Node.KeyWithMaintainers[LfValue]],
+      lf: Option[Node.KeyWithMaintainers],
   ): Either[String, Option[api.Value]] =
     lf.fold[Either[String, Option[api.Value]]](Right(None))(
       lfContractKeyToApiValue(verbose, _).map(Some(_))

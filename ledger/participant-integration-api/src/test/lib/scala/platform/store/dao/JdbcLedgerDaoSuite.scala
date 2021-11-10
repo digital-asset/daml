@@ -195,7 +195,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       absCid: ContractId,
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers[LfValue]] = None,
+      key: Option[Node.KeyWithMaintainers] = None,
       templateId: Identifier = someTemplateId,
       contractArgument: LfValue = someContractArgument,
   ): Node.Create =
@@ -213,7 +213,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected final def exerciseNode(
       targetCid: ContractId,
-      key: Option[Node.KeyWithMaintainers[LfValue]] = None,
+      key: Option[Node.KeyWithMaintainers] = None,
   ): Node.Exercise =
     Node.Exercise(
       targetCoid = targetCid,
@@ -328,7 +328,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected final def createTestKey(
       maintainers: Set[Party]
-  ): (Node.KeyWithMaintainers[ValueText], GlobalKey) = {
+  ): (Node.KeyWithMaintainers, GlobalKey) = {
     val aTextValue = ValueText(scala.util.Random.nextString(10))
     val keyWithMaintainers = Node.KeyWithMaintainers(aTextValue, maintainers)
     val globalKey = GlobalKey.assertBuild(someTemplateId, aTextValue)
@@ -339,7 +339,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       submittingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers[LfValue]],
+      key: Option[Node.KeyWithMaintainers],
       contractArgument: LfValue = someContractArgument,
   ): Future[(Offset, LedgerEntry.Transaction)] =
     store(
@@ -422,7 +422,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected def singleExercise(
       targetCid: ContractId,
-      key: Option[Node.KeyWithMaintainers[LfValue]] = None,
+      key: Option[Node.KeyWithMaintainers] = None,
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
     val nid = txBuilder.add(exerciseNode(targetCid, key))

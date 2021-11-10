@@ -104,7 +104,7 @@ private[lf] object Speedy {
       value: SValue,
       signatories: Set[Party],
       observers: Set[Party],
-      key: Option[Node.KeyWithMaintainers[V]],
+      key: Option[Node.KeyWithMaintainers],
   ) {
     private[lf] val stakeholders: Set[Party] = signatories union observers;
   }
@@ -355,7 +355,7 @@ private[lf] object Speedy {
         arg: SValue,
         signatories: Set[Party],
         observers: Set[Party],
-        key: Option[Node.KeyWithMaintainers[V]],
+        key: Option[Node.KeyWithMaintainers],
     ) =
       withOnLedger("addLocalContract") { onLedger =>
         onLedger.cachedContracts = onLedger.cachedContracts.updated(

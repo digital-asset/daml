@@ -240,10 +240,10 @@ object UpdateToDbDto {
               application_id = u.optCompletionInfo.map(_.applicationId),
               submitters = u.optCompletionInfo.map(_.actAs.toSet),
               contract_id = contractId.coid,
-              template_id = contractInst.map(_.template.toString),
+              template_id = contractInst.map(_.unversioned.template.toString),
               tree_event_witnesses = visibleToParties.map(_.toString),
               create_argument = contractInst
-                .map(_.versionedArg)
+                .map(_.map(_.arg))
                 .map(translation.serialize(contractId, _))
                 .map(compressionStrategy.createArgumentCompression.compress),
               create_argument_compression = compressionStrategy.createArgumentCompression.id,

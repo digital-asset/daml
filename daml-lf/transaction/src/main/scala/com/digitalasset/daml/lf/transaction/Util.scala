@@ -79,24 +79,24 @@ object Util {
   def normalizeVersionedValue(
       value: VersionedValue
   ): Either[String, VersionedValue] =
-    normalizeValue(value.value, value.version).map(normalized => value.copy(value = normalized))
+    normalizeValue(value.unversioned, value.version).map(normalized => value.map(_ => normalized))
 
   def normalizeContract(
       contract: VersionedContractInstance
   ): Either[String, VersionedContractInstance] =
-    normalizeValue(contract.arg, contract.version)
-      .map(normalized => contract.copy(arg = normalized))
+    normalizeValue(contract.unversioned.arg, contract.version)
+      .map(normalized => contract.map(_.copy(arg = normalized)))
 
   def normalizeKey(
-      key: Node.KeyWithMaintainers[Value],
+      key: Node.KeyWithMaintainers,
       version: TransactionVersion,
-  ): Either[String, Node.KeyWithMaintainers[Value]] =
+  ): Either[String, Node.KeyWithMaintainers] =
     normalizeValue(key.key, version).map(normalized => key.copy(key = normalized))
 
   def normalizeOptKey(
-      key: Option[Node.KeyWithMaintainers[Value]],
+      key: Option[Node.KeyWithMaintainers],
       version: TransactionVersion,
-  ): Either[String, Option[Node.KeyWithMaintainers[Value]]] =
+  ): Either[String, Option[Node.KeyWithMaintainers]] =
     key match {
       case Some(value) => normalizeKey(value, version).map(Some(_))
       case None => Right(None)

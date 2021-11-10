@@ -941,14 +941,14 @@ class TransactionCoderSpec
     )
 
   private[this] def normalizeKey(
-      key: Node.KeyWithMaintainers[Value],
+      key: Node.KeyWithMaintainers,
       version: TransactionVersion,
   ) = {
     key.copy(key = normalize(key.key, version))
   }
 
   private[this] def normalizeContract(contract: Value.VersionedContractInstance) =
-    contract.copy(arg = normalize(contract.arg, contract.version))
+    contract.map(_.copy(arg = normalize(contract.unversioned.arg, contract.version)))
 
   private[this] def normalize(
       value0: Value,

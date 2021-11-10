@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.benchtool.submission
 
+import com.daml.ledger.api.benchtool.SubmissionDescriptor
 import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Foo._
@@ -13,12 +14,12 @@ import scala.util.{Failure, Success, Try}
 
 final class CommandGenerator(
     randomnessProvider: RandomnessProvider,
-    descriptor: ContractSetDescriptor,
+    descriptor: SubmissionDescriptor,
     signatory: Primitive.Party,
     observers: List[Primitive.Party],
 ) {
   private val distribution = new Distribution(descriptor.instanceDistribution.map(_.weight))
-  private val descriptionMapping: Map[Int, ContractSetDescriptor.ContractDescription] =
+  private val descriptionMapping: Map[Int, SubmissionDescriptor.ContractDescription] =
     descriptor.instanceDistribution.zipWithIndex
       .map(_.swap)
       .toMap
@@ -44,7 +45,7 @@ final class CommandGenerator(
       )
     }
 
-  private def pickDescription(): ContractSetDescriptor.ContractDescription =
+  private def pickDescription(): SubmissionDescriptor.ContractDescription =
     descriptionMapping(distribution.index(randomnessProvider.randomDouble()))
 
   private def pickObservers(): List[Primitive.Party] =
@@ -52,7 +53,7 @@ final class CommandGenerator(
       .filter { case (_, index) => isObserverUsed(index) }
       .map(_._1)
 
-  private def pickArchive(description: ContractSetDescriptor.ContractDescription): Boolean =
+  private def pickArchive(description: SubmissionDescriptor.ContractDescription): Boolean =
     randomnessProvider.randomDouble() < description.archiveChance
 
   private def isObserverUsed(i: Int): Boolean =

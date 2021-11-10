@@ -88,12 +88,12 @@ package object events {
       .fold(Vector.empty[A])(_ :+ _)
       .concatSubstreams
 
-  def convert(template: Identifier, key: lftx.Node.KeyWithMaintainers[Value]): Key =
-    Key.assertBuild(template, key.key.value)
+  def convert(template: Identifier, key: lftx.Node.KeyWithMaintainers): Key =
+    Key.assertBuild(template, key.key)
 
   def convertLfValueKey(
       template: Identifier,
-      key: KeyWithMaintainers[lfval],
+      key: KeyWithMaintainers,
   ) =
     Key.assertBuild(template, key.key)
 

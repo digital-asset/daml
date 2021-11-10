@@ -33,7 +33,7 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
 
       _ <- executeSql(ingest(Vector(create), _))
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(1), 1L))
+        updateLedgerEnd(offset(1), 1L)
       )
 
       let1 <- executeSql(backend.contract.maximumLedgerTime(Set(cid)))
@@ -64,7 +64,7 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
 
       _ <- executeSql(ingest(Vector(create), _))
       _ <- executeSql(
-        updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(1), 1L))
+        updateLedgerEnd(offset(1), 1L)
       )
 
       events1 <- executeSql(backend.event.rawEvents(0L, 1L))

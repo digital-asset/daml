@@ -139,4 +139,9 @@ object DbDto {
       internalId: Int,
       externalString: String,
   ) extends DbDto
+
+  object StringInterningDto {
+    def from(entry: (Int, String)): StringInterningDto =
+      StringInterningDto(entry._1, entry._2)
+  }
 }

@@ -31,7 +31,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       (offset, tx) <- store(singleCreate)
       to <- ledgerDao.lookupLedgerEnd()
       (_, response) <- ledgerDao.completions
-        .getCommandCompletions(from, to, tx.applicationId.get, tx.actAs.toSet)
+        .getCommandCompletions(from.lastOffset, to.lastOffset, tx.applicationId.get, tx.actAs.toSet)
         .runWith(Sink.head)
     } yield {
       offsetOf(response) shouldBe offset
@@ -51,15 +51,25 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       to <- ledgerDao.lookupLedgerEnd()
       // Response 1: querying as all submitters
       (_, response1) <- ledgerDao.completions
-        .getCommandCompletions(from, to, tx.applicationId.get, tx.actAs.toSet)
+        .getCommandCompletions(from.lastOffset, to.lastOffset, tx.applicationId.get, tx.actAs.toSet)
         .runWith(Sink.head)
       // Response 2: querying as a proper subset of all submitters
       (_, response2) <- ledgerDao.completions
-        .getCommandCompletions(from, to, tx.applicationId.get, Set(tx.actAs.head))
+        .getCommandCompletions(
+          from.lastOffset,
+          to.lastOffset,
+          tx.applicationId.get,
+          Set(tx.actAs.head),
+        )
         .runWith(Sink.head)
       // Response 3: querying as a proper superset of all submitters
       (_, response3) <- ledgerDao.completions
-        .getCommandCompletions(from, to, tx.applicationId.get, tx.actAs.toSet + "UNRELATED")
+        .getCommandCompletions(
+          from.lastOffset,
+          to.lastOffset,
+          tx.applicationId.get,
+          tx.actAs.toSet + "UNRELATED",
+        )
         .runWith(Sink.head)
     } yield {
       response1.completions.loneElement.commandId shouldBe tx.commandId.get
@@ -78,7 +88,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       offset <- storeRejection(rejection, expectedCmdId)
       to <- ledgerDao.lookupLedgerEnd()
       (_, response) <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, parties)
+        .getCommandCompletions(from.lastOffset, to.lastOffset, applicationId, parties)
         .runWith(Sink.head)
     } yield {
       offsetOf(response) shouldBe offset
@@ -102,15 +112,15 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       to <- ledgerDao.lookupLedgerEnd()
       // Response 1: querying as all submitters
       (_, response1) <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, parties)
+        .getCommandCompletions(from.lastOffset, to.lastOffset, applicationId, parties)
         .runWith(Sink.head)
       // Response 2: querying as a proper subset of all submitters
       (_, response2) <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, Set(parties.head))
+        .getCommandCompletions(from.lastOffset, to.lastOffset, applicationId, Set(parties.head))
         .runWith(Sink.head)
       // Response 3: querying as a proper superset of all submitters
       (_, response3) <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, parties + "UNRELATED")
+        .getCommandCompletions(from.lastOffset, to.lastOffset, applicationId, parties + "UNRELATED")
         .runWith(Sink.head)
     } yield {
       response1.completions.loneElement.commandId shouldBe expectedCmdId
@@ -128,7 +138,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       _ <- storeRejection(rejection)
       to <- ledgerDao.lookupLedgerEnd()
       response <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId = "WRONG", parties)
+        .getCommandCompletions(from.lastOffset, to.lastOffset, applicationId = "WRONG", parties)
         .runWith(Sink.seq)
     } yield {
       response shouldBe Seq.empty
@@ -144,10 +154,15 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       _ <- storeRejection(rejection)
       to <- ledgerDao.lookupLedgerEnd()
       response1 <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, Set("WRONG"))
+        .getCommandCompletions(from.lastOffset, to.lastOffset, applicationId, Set("WRONG"))
         .runWith(Sink.seq)
       response2 <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, Set("WRONG1", "WRONG2", "WRONG3"))
+        .getCommandCompletions(
+          from.lastOffset,
+          to.lastOffset,
+          applicationId,
+          Set("WRONG1", "WRONG2", "WRONG3"),
+        )
         .runWith(Sink.seq)
     } yield {
       response1 shouldBe Seq.empty
@@ -164,10 +179,15 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       _ <- storeMultiPartyRejection(rejection)
       to <- ledgerDao.lookupLedgerEnd()
       response1 <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, Set("WRONG"))
+        .getCommandCompletions(from.lastOffset, to.lastOffset, applicationId, Set("WRONG"))
         .runWith(Sink.seq)
       response2 <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, Set("WRONG1", "WRONG2", "WRONG3"))
+        .getCommandCompletions(
+          from.lastOffset,
+          to.lastOffset,
+          applicationId,
+          Set("WRONG1", "WRONG2", "WRONG3"),
+        )
         .runWith(Sink.seq)
     } yield {
       response1 shouldBe Seq.empty
@@ -184,7 +204,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       _ <- storeMultiPartyRejection(rejection)
       to <- ledgerDao.lookupLedgerEnd()
       response1 <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, Set("WRONG"))
+        .getCommandCompletions(from.lastOffset, to.lastOffset, applicationId, Set("WRONG"))
         .runWith(Sink.seq)
     } yield {
       response1 shouldBe Seq.empty

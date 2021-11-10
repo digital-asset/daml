@@ -103,7 +103,7 @@ final class LfValueTranslation(
   private def serializeNullableKeyOrThrow(c: Create): Option[Array[Byte]] =
     c.versionedKey.map(k =>
       ValueSerializer.serializeValue(
-        value = k.key,
+        value = k.map(_.key),
         errorContext = cantSerialize(attribute = "key", forContract = c.coid),
       )
     )
@@ -111,7 +111,7 @@ final class LfValueTranslation(
   private def serializeNullableKeyOrThrow(e: Exercise): Option[Array[Byte]] = {
     e.versionedKey.map(k =>
       ValueSerializer.serializeValue(
-        value = k.key,
+        value = k.map(_.key),
         errorContext = cantSerialize(attribute = "key", forContract = e.targetCoid),
       )
     )
@@ -146,7 +146,7 @@ final class LfValueTranslation(
     cache.events.put(
       key = LfValueTranslationCache.EventCache.Key(eventId),
       value = LfValueTranslationCache.EventCache.Value
-        .Create(create.versionedArg, create.versionedKey.map(_.key)),
+        .Create(create.versionedArg, create.versionedKey.map(_.map(_.key))),
     )
     cache.contracts.put(
       key = LfValueTranslationCache.ContractCache.Key(create.coid),
@@ -206,7 +206,7 @@ final class LfValueTranslation(
       if (verbose)
         consumeEnricherResult(enrich(value))
       else
-        Future.successful(value.value)
+        Future.successful(value.unversioned)
   } yield {
     LfEngineToApi.assertOrRuntimeEx(
       failureContext = s"attempting to deserialize persisted $attribute to value",
@@ -231,7 +231,7 @@ final class LfValueTranslation(
       if (verbose)
         consumeEnricherResult(enrich(value))
       else
-        Future.successful(value.value)
+        Future.successful(value.unversioned)
   } yield {
     LfEngineToApi.assertOrRuntimeEx(
       failureContext = s"attempting to deserialize persisted $attribute to record",
@@ -298,7 +298,7 @@ final class LfValueTranslation(
         value = create.argument,
         verbose = verbose,
         attribute = "create argument",
-        enrich = value => enricher.enrichContract(templateId, value.value),
+        enrich = value => enricher.enrichContract(templateId, value.unversioned),
       )
       contractKey <- create.key match {
         case Some(key) =>
@@ -306,7 +306,7 @@ final class LfValueTranslation(
             value = key,
             verbose = verbose,
             attribute = "create key",
-            enrich = value => enricher.enrichContractKey(templateId, value.value),
+            enrich = value => enricher.enrichContractKey(templateId, value.unversioned),
           ).map(Some(_))
         case None => Future.successful(None)
       }
@@ -350,7 +350,7 @@ final class LfValueTranslation(
         value = exercise.argument,
         verbose = verbose,
         attribute = "exercise argument",
-        enrich = value => enricher.enrichChoiceArgument(templateId, choiceName, value.value),
+        enrich = value => enricher.enrichChoiceArgument(templateId, choiceName, value.unversioned),
       )
       exerciseResult <- exercise.result match {
         case Some(result) =>
@@ -358,7 +358,7 @@ final class LfValueTranslation(
             value = result,
             verbose = verbose,
             attribute = "exercise result",
-            enrich = value => enricher.enrichChoiceResult(templateId, choiceName, value.value),
+            enrich = value => enricher.enrichChoiceResult(templateId, choiceName, value.unversioned),
           ).map(Some(_))
         case None => Future.successful(None)
       }

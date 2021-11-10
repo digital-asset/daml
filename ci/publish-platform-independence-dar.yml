@@ -3,10 +3,11 @@
 
 parameters:
   platform: ''
+  is_release: ''
 
 steps:
   - task: PublishBuildArtifacts@1
     inputs:
         pathtoPublish: bazel-bin/compiler/damlc/tests/platform-independence.dar
         artifactName: platform-independence-dar-${{parameters.platform}}
-
+    condition: and(succeeded(), eq(${{parameters.is_release}}, 'false'))

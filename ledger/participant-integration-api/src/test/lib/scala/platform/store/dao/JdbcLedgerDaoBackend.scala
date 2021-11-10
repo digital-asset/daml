@@ -24,6 +24,7 @@ import com.daml.platform.store.appendonlydao.events.CompressionStrategy
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParticipantId}
+import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbType, FlywayMigrations, LfValueTranslationCache}
 import org.mockito.MockitoSugar
 import org.scalatest.AsyncTestSuite
@@ -69,7 +70,16 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
         connectionTimeout = 250.millis,
         metrics = metrics,
       )
-      .map(dbDispatcher =>
+      .map { dbDispatcher =>
+        val stringInterningStorageBackend =
+          storageBackendFactory.createStringInterningStorageBackend
+        val stringInterningView = new StringInterningView(
+          loadPrefixedEntries = (fromExclusive, toInclusive) =>
+            implicit loggingContext =>
+              dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+                stringInterningStorageBackend.loadStringInterningEntries(fromExclusive, toInclusive)
+              }
+        )
         JdbcLedgerDao.write(
           dbDispatcher = dbDispatcher,
           sequentialWriteDao = SequentialWriteDao(
@@ -78,6 +88,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
             metrics = metrics,
             compressionStrategy = CompressionStrategy.none(metrics),
             ledgerEndCache = ledgerEndCache,
+            stringInterningView = stringInterningView,
             ingestionStorageBackend = storageBackendFactory.createIngestionStorageBackend,
             parameterStorageBackend = storageBackendFactory.createParameterStorageBackend,
           ),
@@ -92,7 +103,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
           ledgerEndCache = ledgerEndCache,
           errorFactories = errorFactories,
         )
-      )
+      }
   }
 
   protected final var ledgerDao: LedgerDao = _
@@ -114,8 +125,8 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
         )
         dao <- daoOwner(100, 4, errorFactories_mock).acquire()
         _ <- Resource.fromFuture(dao.initialize(TestLedgerId, TestParticipantId))
-        initialLedgerEnd <- Resource.fromFuture(dao.lookupLedgerEndOffsetAndSequentialId())
-        _ = ledgerEndCache.set(initialLedgerEnd)
+        initialLedgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())
+        _ = ledgerEndCache.set(initialLedgerEnd.lastOffset -> initialLedgerEnd.lastEventSeqId)
       } yield dao
     }
     ledgerDao = Await.result(resource.asFuture, 30.seconds)

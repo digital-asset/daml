@@ -189,13 +189,13 @@ private[lf] object Pretty {
           prettyLoc(amf.optLocation)
     }
 
-  def prettyKeyWithMaintainers(key: Node.KeyWithMaintainers[Value]): Doc =
+  def prettyKeyWithMaintainers(key: Node.KeyWithMaintainers): Doc =
     // the maintainers are induced from the key -- so don't clutter
     prettyValue(false)(key.key)
 
-  def prettyVersionedKeyWithMaintainers(key: Node.KeyWithMaintainers[VersionedValue]): Doc =
+  def prettyVersionedKeyWithMaintainers(key: Node.VersionedKeyWithMaintainers): Doc =
     // the maintainers are induced from the key -- so don't clutter
-    prettyValue(false)(key.key.value)
+    prettyKeyWithMaintainers(key.unversioned)
 
   def prettyEventInfo(l: ScenarioLedger, txId: TransactionId)(nodeId: NodeId): Doc = {
     def arrowRight(d: Doc) = text("└─>") & d
@@ -308,7 +308,7 @@ private[lf] object Pretty {
     text(id.qualifiedName.toString) + char('@') + prettyPackageId(id.packageId)
 
   def prettyVersionedValue(verbose: Boolean)(v: VersionedValue): Doc =
-    prettyValue(verbose)(v.value)
+    prettyValue(verbose)(v.unversioned)
 
   // Pretty print a value. If verbose then the top-level value is printed with type constructor
   // if possible.

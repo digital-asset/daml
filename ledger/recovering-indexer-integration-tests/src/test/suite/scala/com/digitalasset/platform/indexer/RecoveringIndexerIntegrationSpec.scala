@@ -216,8 +216,8 @@ class RecoveringIndexerIntegrationSpec
     dao.use { case (ledgerDao, ledgerEndCache) =>
       eventually { (_, _) =>
         for {
-          ledgerEnd <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
-          _ = ledgerEndCache.set(ledgerEnd)
+          ledgerEnd <- ledgerDao.lookupLedgerEnd()
+          _ = ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
           knownParties <- ledgerDao.listKnownParties()
         } yield {
           knownParties.map(_.displayName) shouldBe partyNames.map(Some(_))
