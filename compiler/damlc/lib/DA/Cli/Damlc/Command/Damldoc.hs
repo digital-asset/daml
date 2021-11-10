@@ -261,8 +261,6 @@ exec Damldoc{..} = do
         { do_compileOptions = cOptions
             { optHaddock = Haddock True
             , optScenarioService = EnableScenarioService False
-            , optEnableOfInterestRule = False
-            -- No need to generate core in the background, so we disable it.
             }
         , do_diagsLogger = diagnosticsLogger
         , do_outputPath = cOutputPath
