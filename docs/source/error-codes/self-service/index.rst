@@ -13,7 +13,7 @@ Self-Service Error Codes (Experimental)
 Self-Service Error Codes Migration Guide
 ########################################
 
-Using self-service error codes means that some of the gRPC error codes returned from service methods change as well.
+The introduction of the self-service error codes means that some of the gRPC error codes returned from service methods change.
 Consult the table below for details on those changes.
 
 Note that the table below contains entries only for cases when a gRPC codes was changed.
