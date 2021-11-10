@@ -17,7 +17,13 @@ final class NonRepudiationTest extends AbstractNonRepudiationTest {
     val expectedParty = "Alice"
     val expectedNumber = "abc123"
     val expectedCommandId = UUID.randomUUID.toString
-    val meta = Some(domain.CommandMeta(commandId = Some(domain.CommandId(expectedCommandId))))
+    val meta = Some(
+      domain.CommandMeta(
+        commandId = Some(domain.CommandId(expectedCommandId)),
+        actAs = None,
+        readAs = None,
+      )
+    )
     val domainParty = domain.Party(expectedParty)
     val command = accountCreateCommand(domainParty, expectedNumber).copy(meta = meta)
     postCreateCommand(command, encoder, uri)
