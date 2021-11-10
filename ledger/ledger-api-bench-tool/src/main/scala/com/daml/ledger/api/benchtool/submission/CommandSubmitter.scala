@@ -6,20 +6,18 @@ package com.daml.ledger.api.benchtool.submission
 import akka.actor.ActorSystem
 import akka.stream.{Materializer, OverflowStrategy}
 import akka.stream.scaladsl.{Sink, Source}
+import com.daml.ledger.api.benchtool.SubmissionDescriptor
 import com.daml.ledger.api.benchtool.infrastructure.TestDars
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
-import com.daml.ledger.api.benchtool.util.SimpleFileReader
 import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
-import java.io.File
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success, Try}
 
 case class CommandSubmitter(services: LedgerApiServices) {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -28,21 +26,26 @@ case class CommandSubmitter(services: LedgerApiServices) {
   private val applicationId = "benchtool"
   private val workflowId = s"$applicationId-$identifierSuffix"
   private val signatoryName = s"signatory-$identifierSuffix"
-  private def observerName(index: Int): String = s"Obs-$index-$identifierSuffix"
+  private def observerName(index: Int, uniqueParties: Boolean): String = {
+    if (uniqueParties) s"Obs-$index-$identifierSuffix"
+    else s"Obs-$index"
+  }
   private def commandId(index: Int): String = s"command-$index-$identifierSuffix"
   private def darId(index: Int) = s"submission-dars-$index-$identifierSuffix"
 
   def submit(
-      descriptorFile: File,
+      descriptor: SubmissionDescriptor,
       maxInFlightCommands: Int,
       submissionBatchSize: Int,
-  )(implicit ec: ExecutionContext): Future[Unit] =
+  )(implicit ec: ExecutionContext): Future[CommandSubmitter.SubmissionSummary] =
     (for {
       _ <- Future.successful(logger.info("Generating contracts..."))
       _ <- Future.successful(logger.info(s"Identifier suffix: $identifierSuffix"))
-      descriptor <- Future.fromTry(parseDescriptor(descriptorFile))
       signatory <- allocateParty(signatoryName)
-      observers <- allocateParties(descriptor.numberOfObservers, observerName)
+      observers <- allocateParties(
+        number = descriptor.numberOfObservers,
+        name = index => observerName(index, descriptor.uniqueParties),
+      )
       _ <- uploadTestDars()
       _ <- submitCommands(
         descriptor,
@@ -51,22 +54,16 @@ case class CommandSubmitter(services: LedgerApiServices) {
         maxInFlightCommands,
         submissionBatchSize,
       )
-    } yield logger.info("Commands submitted successfully."))
+    } yield {
+      logger.info("Commands submitted successfully.")
+      CommandSubmitter.SubmissionSummary(
+        observers = observers
+      )
+    })
       .recoverWith { case NonFatal(ex) =>
         logger.error(s"Command submission failed. Details: ${ex.getLocalizedMessage}", ex)
         Future.failed(CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage))
       }
-
-  private def parseDescriptor(descriptorFile: File): Try[ContractSetDescriptor] =
-    SimpleFileReader.readFile(descriptorFile)(DescriptorParser.parse).flatMap {
-      case Left(err: DescriptorParser.DescriptorParserError) =>
-        val message = s"Descriptor parsing error. Details: ${err.details}"
-        logger.error(message)
-        Failure(CommandSubmitter.CommandSubmitterError(message))
-      case Right(descriptor) =>
-        logger.info(s"Descriptor parsed: $descriptor")
-        Success(descriptor)
-    }
 
   private def allocateParty(name: String)(implicit ec: ExecutionContext): Future[Primitive.Party] =
     services.partyManagementService.allocateParty(name)
@@ -114,7 +111,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
   }
 
   private def submitCommands(
-      descriptor: ContractSetDescriptor,
+      descriptor: SubmissionDescriptor,
       signatory: Primitive.Party,
       observers: List[Primitive.Party],
       maxInFlightCommands: Int,
@@ -127,7 +124,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
     val numBatches: Int = descriptor.numberOfInstances / submissionBatchSize
     val progressMeter = CommandSubmitter.ProgressMeter(descriptor.numberOfInstances)
     // Output a log line roughly once per 10% progress, or once every 500 submissions (whichever comes first)
-    val progressLogInterval = math.min(descriptor.numberOfInstances / 10 + 1, 500)
+    val progressLogInterval = math.min(descriptor.numberOfInstances / 10 + 1, 10000)
     val progressLoggingSink = {
       var lastInterval = 0
       Sink.foreach[Int](index =>
@@ -196,6 +193,8 @@ case class CommandSubmitter(services: LedgerApiServices) {
 object CommandSubmitter {
   case class CommandSubmitterError(msg: String) extends RuntimeException(msg)
 
+  case class SubmissionSummary(observers: List[Primitive.Party])
+
   class ProgressMeter(totalItems: Int) {
     var startTimeMillis: Long = System.currentTimeMillis()
 
@@ -204,14 +203,16 @@ object CommandSubmitter {
     }
 
     def getProgress(index: Int): String =
-      f"Progress: $index/${totalItems} (${percentage(index)}%1.1f%%). Remaining time: ${remainingSeconds(index)}%1.1f s"
+      f"Progress: $index/${totalItems} (${percentage(index)}%1.1f%%). Elapsed time: ${elapsedSeconds}%1.1f s. Remaining time: ${remainingSeconds(index)}%1.1f s"
 
     private def percentage(index: Int): Double = (index.toDouble / totalItems) * 100
+
+    private def elapsedSeconds: Double =
+      (System.currentTimeMillis() - startTimeMillis).toDouble / 1000
 
     private def remainingSeconds(index: Int): Double = {
       val remainingItems = totalItems - index
       if (remainingItems > 0) {
-        val elapsedSeconds: Double = (System.currentTimeMillis() - startTimeMillis).toDouble / 1000
         val timePerItem: Double = elapsedSeconds / index
         remainingItems * timePerItem
       } else {
