@@ -435,6 +435,12 @@ da_scala_binary(
         "@maven//:io_circe_circe_yaml",
         "@maven//:io_circe_circe_core",
     ],
+    versioned_scala_deps = {
+        "2.12": [
+            "@maven//:org_typelevel_cats_core",
+            "@maven//:org_typelevel_cats_kernel",
+        ],
+    },
     visibility = ["//visibility:public"],
     deps = [
         ":participant-integration-api",

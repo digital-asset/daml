@@ -29,7 +29,7 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
       if (!serviceToChangesMap.contains(change.service)) {
         serviceToChangesMap.put(change.service, new ArrayBuffer[Change0])
       }
-      serviceToChangesMap.apply(change.service).addAll(change.changes)
+      serviceToChangesMap.apply(change.service) ++= (change.changes)
     }
     val changesGroupedByService: Seq[(Service, ArrayBuffer[Change0])] = serviceToChangesMap.toList
 
@@ -173,7 +173,7 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
           if (!changesToCommentsMap.contains(change)) {
             changesToCommentsMap.put(change, new mutable.HashSet[String]())
           }
-          changesToCommentsMap.apply(change).addOne(changeExplanation)
+          changesToCommentsMap.apply(change) += (changeExplanation)
         }
     }
 
