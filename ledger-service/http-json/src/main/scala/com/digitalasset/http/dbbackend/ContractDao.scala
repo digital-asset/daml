@@ -3,7 +3,6 @@
 
 package com.daml.http.dbbackend
 
-import cats.effect._
 import cats.syntax.apply._
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.domain
