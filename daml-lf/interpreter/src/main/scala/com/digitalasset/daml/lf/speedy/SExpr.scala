@@ -24,7 +24,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SBuiltin._
-import com.daml.lf.speedy.{SExpr0 => s}
+import com.daml.lf.speedy.{SExpr0 => compileTime}
 import com.daml.scalautil.Statement.discard
 
 /** The speedy expression:
@@ -393,9 +393,9 @@ object SExpr {
     def ref: DefinitionRef
     def packageId: PackageId = ref.packageId
     def modName: ModuleName = ref.qualifiedName.module
-    private[this] val eval = s.SEVal(this)
-    def apply(args: s.SExpr*) = s.SEApp(eval, args.toArray) // build at compile-time
-    def apply(args: SExpr*) = SEApp(SEVal(this), args.toArray) // build at runtime
+    // TODO: move this into the speedy compiler code
+    private[this] val eval = compileTime.SEVal(this)
+    def apply(args: compileTime.SExpr*) = compileTime.SEApp(eval, args.toArray)
   }
 
   // references to definitions that come from the archive
