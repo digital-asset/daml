@@ -1,0 +1,1 @@
+select * from flyway_schema_history order by installed_rank;
