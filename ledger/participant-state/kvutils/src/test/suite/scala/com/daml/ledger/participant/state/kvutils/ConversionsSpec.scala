@@ -89,7 +89,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       )
     }
 
-    "return Left with missing contract ids when extracting divulged contracts if a contract instance is missing" in {
+    "return Left with missing contract IDs when extracting divulged contracts if a contract instance is missing" in {
       val encodedBlindingInfoWithMissingContractInstance =
         correctlySortedEncodedBlindingInfo.toBuilder
           .addDivulgences(
