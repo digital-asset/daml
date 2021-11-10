@@ -412,6 +412,8 @@ instance Pretty Update where
           $$ keyword_ "in" <-> pPrintPrec lvl precELam body
     UCreate tpl arg ->
       pPrintAppKeyword lvl prec "create" [tplArg tpl, TmArg arg]
+    UCreateInterface interface arg ->
+      pPrintAppKeyword lvl prec "create_interface" [interfaceArg interface, TmArg arg]
     UExercise tpl choice cid arg ->
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
       pPrintAppKeyword lvl prec "exercise"

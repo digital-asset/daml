@@ -158,6 +158,8 @@ private[daml] class AstRewriter(
         UpdateBlock(bindings.map(apply), apply(body))
       case UpdateCreate(templateId, arg) =>
         UpdateCreate(apply(templateId), apply(arg))
+      case UpdateCreateInterface(intarfec, arg) =>
+        UpdateCreateInterface(apply(interface), apply(arg))
       case UpdateFetch(templateId, contractId) =>
         UpdateFetch(apply(templateId), apply(contractId))
       case UpdateFetchInterface(interface, contractId) =>

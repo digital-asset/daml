@@ -923,7 +923,7 @@ private[lf] object SBuiltin {
     *    -> Optional {key: key, maintainers: List Party} (template key, if present)
     *    -> ContractId arg
     */
-  final case class SBUCreate(templateId: TypeConName) extends OnLedgerBuiltin(5) {
+  final case class SBUCreate(templateId: TypeConName, byInterface: Option[TypeConName]) extends OnLedgerBuiltin(5) {
     override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -957,7 +957,7 @@ private[lf] object SBuiltin {
           signatories = sigs,
           stakeholders = sigs union obs,
           key = mbKey,
-          byInterface = None, // TODO https://github.com/digital-asset/daml/issues/10915
+          byInterface = byInterface,
         )
 
       machine.addLocalContract(coid, templateId, createArg, sigs, obs, mbKey)
@@ -1183,6 +1183,9 @@ private[lf] object SBuiltin {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.ctrl = SEVal(toDef(getSRecord(args, 0).id))
   }
+
+  final case class SBResolveCreateByInterface(ifaceId: TypeConName) extends
+    SBResolveVirtual(ref => CreateByInterfaceDefRef(ref, ifaceId))
 
   // Convert an interface to a given template type if possible. Since interfaces have the
   // same representation as the underlying template, we only need to perform a check

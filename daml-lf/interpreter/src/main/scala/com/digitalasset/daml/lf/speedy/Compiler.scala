@@ -375,6 +375,7 @@ private[lf] final class Compiler(
       addDef(compileSignatories(identifier, tmpl))
       addDef(compileObservers(identifier, tmpl))
       tmpl.implements.values.foreach { impl =>
+        addDef(compileCreateByInterface(identifier, tmpl, impl.interface))
         addDef(compileImplements(identifier, impl.interface))
         impl.methods.values.foreach(method =>
           addDef(compileImplementsMethod(identifier, impl.interface, method))
@@ -392,6 +393,7 @@ private[lf] final class Compiler(
 
     module.interfaces.foreach { case (ifaceName, iface) =>
       val identifier = Identifier(pkgId, QualifiedName(module.name, ifaceName))
+      addDef(compileCreateInterface(identifier))
       addDef(compileFetchInterface(identifier))
       iface.fixedChoices.values.foreach(
         builder += compileFixedChoice(identifier, iface.param, _)
@@ -850,6 +852,8 @@ private[lf] final class Compiler(
         compileEmbedExpr(env, e)
       case UpdateCreate(tmplId, arg) =>
         t.CreateDefRef(tmplId)(compile(env, arg))
+      case UpdateCreateInterface(iface, arg) =>
+        t.CreateDefRef(iface)(compile(env, arg))
       case UpdateExercise(tmplId, chId, cidE, argE) =>
         t.ChoiceDefRef(tmplId, chId)(compile(env, cidE), compile(env, argE))
       case UpdateExerciseInterface(ifaceId, chId, cidE, argE) =>
@@ -1549,33 +1553,61 @@ private[lf] final class Compiler(
     ref -> SDefinition(withLabelT(ref, unsafeCompile(method.value)))
   }
 
-  private[this] def compileCreate(
+  @nowarn("msg=parameter value tokenPos in method compileCreateBody is never used")
+  private[this] def compileCreateBody(
       tmplId: Identifier,
       tmpl: Template,
-  ): (t.SDefinitionRef, SDefinition) = {
+      byInterface: Option[Identifier],
+  )(
+    tmplArgPos: Position,
+    tokenPos: Position,
+    env: Env
+  ) = {
     val precondsArray =
       (Iterator(tmpl.precond) ++ (tmpl.implements.iterator.map(impl => impl._2.precond)))
         .to(ImmArray)
     val preconds = ECons(TBuiltin(BTBool), precondsArray, ENil(TBuiltin(BTBool)))
+    val env2 = env.bindExprVar(tmpl.param, tmplArgPos)
+    // We check precondition in a separated builtin to prevent
+    // further evaluation of agreement, signatories, observers and key
+    // in case of failed precondition.
+    let(env2, SBCheckPrecond(tmplId)(env2.toSEVar(tmplArgPos), compile(env2, preconds))) {
+      (_, env) =>
+        SBUCreate(tmplId, byInterface)(
+          env.toSEVar(tmplArgPos),
+          compile(env, tmpl.agreementText),
+          compile(env, tmpl.signatories),
+          compile(env, tmpl.observers),
+          compileKeyWithMaintainers(env, tmpl.key),
+        )
+    }
+  }
+
+  private[this] def compileCreate(
+      tmplId: Identifier,
+      tmpl: Template,
+  ): (SDefinitionRef, SDefinition) = {
     // Translates 'create Foo with <params>' into:
     // CreateDefRef(tmplId) = \ <tmplArg> <token> ->
     //   let _ = $checkPrecond(tmplId)(<tmplArg> [tmpl.precond ++ [precond | precond <- tmpl.implements]]
     //   in $create <tmplArg> [tmpl.agreementText] [tmpl.signatories] [tmpl.observers] [tmpl.key]
-    topLevelFunction2(t.CreateDefRef(tmplId)) { (tmplArgPos, _, _env) =>
-      val env = _env.bindExprVar(tmpl.param, tmplArgPos)
-      // We check precondition in a separated builtin to prevent
-      // further evaluation of agreement, signatories, observers and key
-      // in case of failed precondition.
-      let(env, SBCheckPrecond(tmplId)(env.toSEVar(tmplArgPos), compile(env, preconds))) {
-        (_, env) =>
-          SBUCreate(tmplId)(
-            env.toSEVar(tmplArgPos),
-            compile(env, tmpl.agreementText),
-            compile(env, tmpl.signatories),
-            compile(env, tmpl.observers),
-            compileKeyWithMaintainers(env, tmpl.key),
-          )
-      }
+    topLevelFunction2(t.CreateDefRef(tmplId)) (compileCreateBody(tmplId, tmpl, None))
+  }
+
+  private[this] def compileCreateByInterface(
+      tmplId: Identifier,
+      tmpl: Template,
+      ifaceId: Identifier,
+  ): (SDefinitionRef, SDefinition) = {
+    // Similar to compileCreate, but sets the 'byInterface' field in the transaction.
+    topLevelFunction2(t.CreateByInterfaceDefRef(tmplId, ifaceId)) (compileCreateBody(tmplId, tmpl, Some(ifaceId)))
+  }
+
+  private[this] def compileCreateInterface(
+    ifaceId: Identifier,
+  ): (SDefinitionRef, SDefinition) = {
+    topLevelFunction2(t.CreateDefRef(ifaceId)) { (tmplArgPos, tokenPos, env) =>
+      SBResolveCreateByInterface(ifaceId) (env.toSEVar(tmplArgPos), env.toSEVar(tmplArgPos), env.toSEVar(tokenPos))
     }
   }
 

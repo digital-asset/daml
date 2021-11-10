@@ -244,6 +244,9 @@ applySubstInUpdate subst = \case
     UCreate templateName e -> UCreate
         templateName
         (applySubstInExpr subst e)
+    UCreateInterface interface e -> UCreateInterface
+        interface
+        (applySubstInExpr subst e)
     UExercise templateName choiceName e1 e2 -> UExercise
         templateName
         choiceName
