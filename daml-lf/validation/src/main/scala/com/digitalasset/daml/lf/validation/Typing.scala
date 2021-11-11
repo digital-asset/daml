@@ -884,6 +884,12 @@ private[validation] object Typing {
       TUpdate(TContractId(TTyCon(tpl)))
     }
 
+    private def typeOfCreateInterface(iface: TypeConName, arg: Expr): Type = {
+      discard(handleLookup(ctx, interface.lookupInterface(iface)))
+      checkExpr(arg, TTyCon(iface))
+      TUpdate(TContractId(TTyCon(iface)))
+    }
+
     private def typeOfExercise(
         tpl: TypeConName,
         chName: ChoiceName,
@@ -954,6 +960,8 @@ private[validation] object Typing {
         typeOfUpdateBlock(bindings, body)
       case UpdateCreate(tpl, arg) =>
         typeOfCreate(tpl, arg)
+      case UpdateCreateInterface(iface, arg) =>
+        typeOfCreateInterface(iface, arg)
       case UpdateExercise(tpl, choice, cid, arg) =>
         typeOfExercise(tpl, choice, cid, arg)
       case UpdateExerciseInterface(tpl, choice, cid, arg) =>

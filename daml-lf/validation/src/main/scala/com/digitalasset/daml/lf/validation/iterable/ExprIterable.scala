@@ -81,6 +81,8 @@ private[validation] object ExprIterable {
         bindings.iterator.map(_.bound) ++ Iterator(body)
       case UpdateCreate(templateId @ _, arg) =>
         Iterator(arg)
+      case UpdateCreateInterface(interface @ _, arg) =>
+        Iterator(arg)
       case UpdateFetch(templateId @ _, contractId) =>
         Iterator(contractId)
       case UpdateFetchInterface(interface @ _, contractId) =>

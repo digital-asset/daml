@@ -1281,6 +1281,13 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             arg = decodeExpr(create.getExpr, definition),
           )
 
+        case PLF.Update.SumCase.CREATE_INTERFACE =>
+          val create = lfUpdate.getCreateInterface
+          UpdateCreateInterface(
+            interface = decodeTypeConName(create.getInterface),
+            arg = decodeExpr(create.getExpr, definition),
+          )
+
         case PLF.Update.SumCase.EXERCISE =>
           val exercise = lfUpdate.getExercise
           UpdateExercise(

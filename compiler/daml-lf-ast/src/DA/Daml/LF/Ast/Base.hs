@@ -654,6 +654,14 @@ data Update
     , creArg      :: !Expr
       -- ^ Argument for the contract template.
     }
+  -- | Create contract instance based on interface payload.
+  | UCreateInterface
+    { creInterface :: !(Qualified TypeConName)
+      -- ^ Interface type.
+    , creArg :: !Expr
+      -- ^ Payload expression.
+    }
+
   -- | Exercise choice on a contract given a contract ID.
   | UExercise
     { exeTemplate   :: !(Qualified TypeConName)
