@@ -673,7 +673,7 @@ domain on which your server is exposed. And voilà! Your application is up and
 running. You should be able to log in with Auth0, exchange messages, and set up
 an auto-reply trigger, all by connecting your browser to ``https://$DOMAIN/``.
 
-Manually Setting Up The Connect Components
+Manually Setting Up the Connect Components
 ******************************************
 
 For simplicity, we assume that all of the Daml components will run on a single
