@@ -3,10 +3,10 @@
 
 package com.daml.http.dbbackend
 
-import cats.effect._
 import cats.syntax.apply._
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.domain
+import com.daml.http.JdbcConfig
 import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec
 import doobie.LogHandler
 import doobie.free.connection.ConnectionIO
@@ -16,10 +16,25 @@ import doobie.util.log
 import scalaz.{NonEmptyList, OneAnd}
 import scalaz.syntax.tag._
 import spray.json.{JsNull, JsValue}
+import cats.effect.{Blocker, ContextShift, IO}
+import com.daml.scalautil.Statement.discard
+import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
+import doobie._
 
+import java.io.{Closeable, IOException}
+import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
+import java.util.concurrent.Executors.newWorkStealingPool
+import javax.sql.DataSource
 import scala.concurrent.ExecutionContext
+import scala.language.existentials
+import scala.util.Try
 
-class ContractDao private (xa: Connection.T)(implicit val jdbcDriver: SupportedJdbcDriver) {
+class ContractDao private (
+    ds: DataSource with Closeable,
+    xa: ConnectionPool.T,
+    dbAccessPool: ExecutorService,
+)(implicit val jdbcDriver: SupportedJdbcDriver)
+    extends Closeable {
 
   implicit val logHandler: log.LogHandler = Slf4jLogHandler(classOf[ContractDao])
 
@@ -28,6 +43,25 @@ class ContractDao private (xa: Connection.T)(implicit val jdbcDriver: SupportedJ
 
   def isValid(timeoutSeconds: Int): IO[Boolean] =
     fconn.isValid(timeoutSeconds).transact(xa)
+
+  def shutdown(): Try[Unit] = {
+    Try {
+      dbAccessPool.shutdown()
+      discard(dbAccessPool.awaitTermination(10, TimeUnit.SECONDS))
+      ds.close()
+    }
+  }
+
+  @throws[IOException]
+  override def close(): Unit = {
+    shutdown().fold(
+      {
+        case e: IOException => throw e
+        case e => throw new IOException(e)
+      },
+      identity,
+    )
+  }
 }
 
 object ContractDao {
@@ -40,17 +74,20 @@ object ContractDao {
     scala.util.Try(Class forName d).isSuccess
   }
 
-  def apply(jdbcDriver: String, jdbcUrl: String, username: String, password: String)(implicit
+  def apply(cfg: JdbcConfig)(implicit
       ec: ExecutionContext
   ): ContractDao = {
     val cs: ContextShift[IO] = IO.contextShift(ec)
     implicit val sjd: SupportedJdbcDriver = supportedJdbcDrivers.getOrElse(
-      jdbcDriver,
+      cfg.driver,
       throw new IllegalArgumentException(
-        s"JDBC driver $jdbcDriver is not one of ${supportedJdbcDrivers.keySet}"
+        s"JDBC driver ${cfg.driver} is not one of ${supportedJdbcDrivers.keySet}"
       ),
     )
-    new ContractDao(Connection.connect(jdbcDriver, jdbcUrl, username, password)(cs))
+    //pool for connections awaiting database access
+    val es = Executors.newWorkStealingPool(cfg.poolSize)
+    val (ds, conn) = ConnectionPool.connect(cfg)(ExecutionContext.fromExecutor(es), cs)
+    new ContractDao(ds, conn, es)
   }
 
   def initialize(implicit log: LogHandler, sjd: SupportedJdbcDriver): ConnectionIO[Unit] =
@@ -264,5 +301,45 @@ object ContractDao {
 
   object StaleOffsetException {
     val SqlState = "STALE_OFFSET_EXCEPTION"
+  }
+}
+
+object ConnectionPool {
+
+  type PoolSize = Int
+  object PoolSize {
+    val Integration = 2
+    val Production = 8
+  }
+
+  type T = Transactor.Aux[IO, _ <: DataSource with Closeable]
+
+  def connect(c: JdbcConfig)(implicit
+      ec: ExecutionContext,
+      cs: ContextShift[IO],
+  ): (DataSource with Closeable, T) = {
+    val ds = dataSource(c)
+    (
+      ds,
+      Transactor
+        .fromDataSource[IO](
+          ds,
+          connectEC = ec,
+          blocker = Blocker liftExecutorService newWorkStealingPool(c.poolSize),
+        )(IO.ioConcurrentEffect(cs), cs),
+    )
+  }
+
+  private[this] def dataSource(jc: JdbcConfig) = {
+    import jc._
+    val c = new HikariConfig
+    c.setJdbcUrl(url)
+    c.setUsername(user)
+    c.setPassword(password)
+    c.setMinimumIdle(jc.minIdle)
+    c.setConnectionTimeout(jc.connectionTimeout)
+    c.setMaximumPoolSize(poolSize)
+    c.setIdleTimeout(jc.idleTimeout)
+    new HikariDataSource(c)
   }
 }

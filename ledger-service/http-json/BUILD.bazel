@@ -67,6 +67,7 @@ da_scala_library(
         "//libs-scala/doobie-slf4j",
         "//libs-scala/ports",
         "//libs-scala/scala-utils",
+        "@maven//:com_zaxxer_HikariCP",
     ],
 )
 

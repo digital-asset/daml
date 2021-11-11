@@ -3,6 +3,7 @@
 
 package com.daml.http
 
+import com.daml.http.dbbackend.ConnectionPool
 import org.scalatest.Inside
 import org.scalatest.AsyncTestSuite
 import org.scalatest.matchers.should.Matchers
@@ -22,6 +23,7 @@ trait HttpServiceOracleInt extends AbstractHttpServiceIntegrationTestFuns {
     url = s"jdbc:oracle:thin:@//localhost:$oraclePort/XEPDB1",
     user = oracleUsername,
     password = oraclePwd,
+    poolSize = ConnectionPool.PoolSize.Integration,
     createSchema = true,
   )
 }
