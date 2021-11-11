@@ -1553,15 +1553,12 @@ private[lf] final class Compiler(
     ref -> SDefinition(withLabelT(ref, unsafeCompile(method.value)))
   }
 
-  @nowarn("msg=parameter value tokenPos in method compileCreateBody is never used")
   private[this] def compileCreateBody(
       tmplId: Identifier,
       tmpl: Template,
       byInterface: Option[Identifier],
-  )(
-    tmplArgPos: Position,
-    tokenPos: Position,
-    env: Env
+      tmplArgPos: Position,
+      env: Env,
   ) = {
     val precondsArray =
       (Iterator(tmpl.precond) ++ (tmpl.implements.iterator.map(impl => impl._2.precond)))
@@ -1591,7 +1588,9 @@ private[lf] final class Compiler(
     // CreateDefRef(tmplId) = \ <tmplArg> <token> ->
     //   let _ = $checkPrecond(tmplId)(<tmplArg> [tmpl.precond ++ [precond | precond <- tmpl.implements]]
     //   in $create <tmplArg> [tmpl.agreementText] [tmpl.signatories] [tmpl.observers] [tmpl.key]
-    topLevelFunction2(t.CreateDefRef(tmplId)) (compileCreateBody(tmplId, tmpl, None))
+    topLevelFunction2(t.CreateDefRef(tmplId))((tmplArgPos, _, env) =>
+      compileCreateBody(tmplId, tmpl, None, tmplArgPos, env)
+    )
   }
 
   private[this] def compileCreateByInterface(
@@ -1600,14 +1599,20 @@ private[lf] final class Compiler(
       ifaceId: Identifier,
   ): (SDefinitionRef, SDefinition) = {
     // Similar to compileCreate, but sets the 'byInterface' field in the transaction.
-    topLevelFunction2(t.CreateByInterfaceDefRef(tmplId, ifaceId)) (compileCreateBody(tmplId, tmpl, Some(ifaceId)))
+    topLevelFunction2(t.CreateByInterfaceDefRef(tmplId, ifaceId))((tmplArgPos, _, env) =>
+      compileCreateBody(tmplId, tmpl, Some(ifaceId), tmplArgPos, env)
+    )
   }
 
   private[this] def compileCreateInterface(
-    ifaceId: Identifier,
+      ifaceId: Identifier
   ): (SDefinitionRef, SDefinition) = {
     topLevelFunction2(t.CreateDefRef(ifaceId)) { (tmplArgPos, tokenPos, env) =>
-      SBResolveCreateByInterface(ifaceId) (env.toSEVar(tmplArgPos), env.toSEVar(tmplArgPos), env.toSEVar(tokenPos))
+      SBResolveCreateByInterface(ifaceId)(
+        env.toSEVar(tmplArgPos),
+        env.toSEVar(tmplArgPos),
+        env.toSEVar(tokenPos),
+      )
     }
   }
 

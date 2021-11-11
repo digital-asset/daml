@@ -263,7 +263,8 @@ object Profile {
           case AnonymousClosure => "<lambda>"
           case LfDefRef(ref) => ref.qualifiedName.toString()
           case CreateDefRef(tmplRef) => s"create @${tmplRef.qualifiedName}"
-          case CreateByInterfaceDefRef(tmplRef,iface) => s"creatByInterface @${tmplRef.qualifiedName} @${iface.qualifiedName}"
+          case CreateByInterfaceDefRef(tmplRef, iface) =>
+            s"creatByInterface @${tmplRef.qualifiedName} @${iface.qualifiedName}"
           case KeyDefRef(tmplRef) => s"keyAndMaintainers @${tmplRef.qualifiedName}"
           case SignatoriesDefRef(tmplRef) => s"signatories @${tmplRef.qualifiedName}"
           case ObserversDefRef(tmplRef) => s"observers @${tmplRef.qualifiedName}"
