@@ -24,7 +24,6 @@ da_scala_library(
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//external:io_bazel_rules_scala/dependency/jmh/jmh_core",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
@@ -48,6 +47,7 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
+        "@io_bazel_rules_scala//jmh:jmh_core",
         "@maven//:ch_qos_logback_logback_classic",
     ],
 )
