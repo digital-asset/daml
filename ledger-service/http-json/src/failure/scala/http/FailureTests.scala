@@ -8,6 +8,7 @@ import akka.http.scaladsl.model.{StatusCodes, Uri}
 import akka.stream.{KillSwitches, UniqueKillSwitch}
 import akka.stream.scaladsl.{Keep, Sink}
 import com.codahale.metrics.MetricRegistry
+import com.daml.dbutils.ConnectionPool
 
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
@@ -381,7 +382,13 @@ final class FailureTests
     val dao = dbbackend.ContractDao(
       JdbcConfig(
         // discarding other settings
-        dbutils.JdbcConfig(driver = bc.driver, url = bc.url, user = bc.user, password = bc.password)
+        dbutils.JdbcConfig(
+          driver = bc.driver,
+          url = bc.url,
+          user = bc.user,
+          password = bc.password,
+          poolSize = ConnectionPool.PoolSize.Integration,
+        )
       )
     )
     util.Logging

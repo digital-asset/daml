@@ -29,6 +29,7 @@ import scalaz.syntax.tag._
 import scalaz.{-\/, EitherT, \/, \/-}
 
 import Config.QueryStoreIndex
+import com.daml.dbutils.ConnectionPool
 
 import scala.concurrent.duration.{Duration, _}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise, TimeoutException}
@@ -220,7 +221,13 @@ object Main extends StrictLogging {
         import DbStartupMode._
         val startupMode: DbStartupMode = if (retainData) CreateIfNeededAndStart else CreateAndStart
         JdbcConfig(
-          dbutils.JdbcConfig("oracle.jdbc.OracleDriver", oracleJdbcUrl, user.name, user.pwd),
+          dbutils.JdbcConfig(
+            "oracle.jdbc.OracleDriver",
+            oracleJdbcUrl,
+            user.name,
+            user.pwd,
+            ConnectionPool.PoolSize.Production,
+          ),
           dbStartupMode = startupMode,
         )
       }
@@ -240,7 +247,13 @@ object Main extends StrictLogging {
   private def jsonApiJdbcConfig(c: PostgresDatabase): JdbcConfig =
     JdbcConfig(
       dbutils
-        .JdbcConfig(driver = "org.postgresql.Driver", url = c.url, user = "test", password = ""),
+        .JdbcConfig(
+          driver = "org.postgresql.Driver",
+          url = c.url,
+          user = "test",
+          password = "",
+          ConnectionPool.PoolSize.Production,
+        ),
       dbStartupMode = DbStartupMode.CreateOnly,
     )
 

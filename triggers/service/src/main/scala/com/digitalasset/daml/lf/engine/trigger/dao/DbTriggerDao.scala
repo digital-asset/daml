@@ -8,7 +8,6 @@ import cats.effect.{ContextShift, IO}
 import cats.syntax.functor._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.dbutils.{ConnectionPool, JdbcConfig}
-import ConnectionPool.PoolSize, PoolSize._
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.lf.archive.{ArchivePayloadParser, Dar}
 import com.daml.lf.data.Ref.{Identifier, PackageId}
@@ -315,11 +314,11 @@ object DbTriggerDao {
   def supportedJdbcDriverNames(available: Set[String]): Set[String] =
     supportedJdbcDrivers.keySet intersect available
 
-  def apply(c: JdbcConfig, poolSize: PoolSize = Production)(implicit
+  def apply(c: JdbcConfig)(implicit
       ec: ExecutionContext
   ): DbTriggerDao = {
     implicit val cs: ContextShift[IO] = IO.contextShift(ec)
-    val (ds, conn) = ConnectionPool.connect(c, poolSize)
+    val (ds, conn) = ConnectionPool.connect(c)
     val driver = supportedJdbcDrivers
       .get(c.driver)
       .getOrElse(throw new IllegalArgumentException(s"Unsupported JDBC driver ${c.driver}"))

@@ -7,13 +7,16 @@ import cats.instances.list._
 import com.codahale.metrics.MetricRegistry
 import doobie.util.log.LogHandler
 import com.daml.dbutils
+import com.daml.dbutils.ConnectionPool
 import com.daml.doobie.logging.Slf4jLogHandler
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.TemplateId
 import com.daml.http.util.Logging.instanceUUIDLogCtx
 import com.daml.metrics.Metrics
-import com.daml.testing.oracle, oracle.{OracleAround, User}
+import com.daml.testing.oracle
+import oracle.{OracleAround, User}
 import org.openjdk.jmh.annotations._
+
 import scala.concurrent.ExecutionContext
 import scalaz.std.list._
 import spray.json._
@@ -39,7 +42,13 @@ abstract class ContractDaoBenchmark extends OracleAround {
     connectToOracle()
     user = createNewRandomUser()
     val cfg = JdbcConfig(
-      dbutils.JdbcConfig("oracle.jdbc.OracleDriver", oracleJdbcUrl, user.name, user.pwd)
+      dbutils.JdbcConfig(
+        "oracle.jdbc.OracleDriver",
+        oracleJdbcUrl,
+        user.name,
+        user.pwd,
+        poolSize = ConnectionPool.PoolSize.Integration,
+      )
     )
     val oracleDao = ContractDao(cfg)
     dao = oracleDao

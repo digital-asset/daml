@@ -416,9 +416,14 @@ trait TriggerDaoPostgresFixture
 
   // Lazy because the postgresDatabase is only available once the tests start
   private lazy val jdbcConfig_ =
-    JdbcConfig("org.postgresql.Driver", postgresDatabase.url, "operator", "password")
-  private lazy val triggerDao =
-    DbTriggerDao(jdbcConfig_, poolSize = ConnectionPool.PoolSize.Integration)
+    JdbcConfig(
+      "org.postgresql.Driver",
+      postgresDatabase.url,
+      "operator",
+      "password",
+      ConnectionPool.PoolSize.Integration,
+    )
+  private lazy val triggerDao = DbTriggerDao(jdbcConfig_)
   private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
 
   override protected def beforeEach(): Unit = {
@@ -448,11 +453,17 @@ trait TriggerDaoOracleFixture
 
   // Lazy because the oracleDatabase is only available once the tests start
   private lazy val jdbcConfig_ =
-    JdbcConfig("oracle.jdbc.OracleDriver", oracleJdbcUrl, oracleUser, oraclePwd)
+    JdbcConfig(
+      "oracle.jdbc.OracleDriver",
+      oracleJdbcUrl,
+      oracleUser,
+      oraclePwd,
+      ConnectionPool.PoolSize.Production,
+    )
   // TODO For whatever reason we need a larger pool here, otherwise
   // the connection deadlocks. I have no idea why :(
   private lazy val triggerDao =
-    DbTriggerDao(jdbcConfig_, poolSize = ConnectionPool.PoolSize.Production)
+    DbTriggerDao(jdbcConfig_)
   private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
 
   override protected def beforeEach(): Unit = {
