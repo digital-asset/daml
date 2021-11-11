@@ -9,6 +9,7 @@ import java.util
 import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.lf.value.{Value => V}
@@ -121,7 +122,7 @@ sealed trait SValue {
         val prim2 = prim match {
           case PClosure(label, expr, vars) =>
             PClosure(label, expr, vars.map(_.mapContractId(f)))
-          case other => other
+          case _: PBuiltin => prim
         }
         val args2 = mapArrayList(args, _.mapContractId(f))
         SPAP(prim2, args2, arity)

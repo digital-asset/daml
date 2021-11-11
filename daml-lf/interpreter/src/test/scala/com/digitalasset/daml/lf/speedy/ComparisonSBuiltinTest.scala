@@ -6,6 +6,7 @@ package speedy
 
 import com.daml.lf.data.{ImmArray, Ref, Struct}
 import com.daml.lf.language.Ast
+import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SResult.SResultError
 import com.daml.lf.testing.parser.ParserParameters
@@ -633,7 +634,7 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
       ContractId.V1.assertFromString("00" * 32 + "0000"),
       ContractId.V1.assertFromString("00" * 32 + "0001"),
       ContractId.V1.assertFromString("00" + "ff" * 32),
-    ).map(cid => SExpr.SEValue(SValue.SContractId(cid)): SExpr)
+    ).map(cid => SEValue(SValue.SContractId(cid)): SExpr)
 
   private[this] def eval(bi: Ast.BuiltinFunction, t: Ast.Type, x: Ast.Expr, y: Ast.Expr) = {
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
@@ -649,7 +650,7 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
       )
     )
     val machine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, SExpr.SEApp(sexpr, contractIds))
+      Speedy.Machine.fromPureSExpr(compiledPackages, SEApp(sexpr, contractIds))
     try {
       machine.run() match {
         case SResult.SResultFinalValue(v) => Right(v)

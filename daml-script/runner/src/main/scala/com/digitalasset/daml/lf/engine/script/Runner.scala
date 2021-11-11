@@ -41,7 +41,6 @@ import com.daml.lf.speedy.{
   Pretty,
   SDefinition,
   SError,
-  SExpr,
   SValue,
   Speedy,
   TraceLog,

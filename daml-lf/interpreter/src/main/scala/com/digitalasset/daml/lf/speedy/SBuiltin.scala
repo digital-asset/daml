@@ -13,8 +13,10 @@ import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.Speedy._
+import com.daml.lf.speedy.{SExpr0 => compileTime}
+import com.daml.lf.speedy.{SExpr => runTime}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.SValue.{SValue => SV}
 import com.daml.lf.transaction.{
@@ -47,8 +49,14 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
 
   // Helper for constructing expressions applying this builtin.
   // E.g. SBCons(SEVar(1), SEVar(2))
-  private[lf] def apply(args: SExpr*): SExpr =
-    SEApp(SEBuiltin(this), args.toArray)
+
+  // TODO: move this into the speedy compiler code
+  private[lf] def apply(args: compileTime.SExpr*): compileTime.SExpr =
+    compileTime.SEApp(compileTime.SEBuiltin(this), args.toArray)
+
+  // TODO: avoid constructing application expression at run time
+  private[lf] def apply(args: runTime.SExpr*): runTime.SExpr =
+    runTime.SEApp(runTime.SEBuiltin(this), args.toArray)
 
   /** Execute the builtin with 'arity' number of arguments in 'args'.
     * Updates the machine state accordingly.
@@ -1198,7 +1206,8 @@ private[lf] object SBuiltin {
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val record = getSRecord(args, 0)
-      machine.ctrl = ImplementsMethodDefRef(record.id, ifaceId, methodName)(SEValue(record))
+      machine.ctrl =
+        SEApp(SEVal(ImplementsMethodDefRef(record.id, ifaceId, methodName)), Array(SEValue(record)))
     }
   }
 
@@ -1438,7 +1447,7 @@ private[lf] object SBuiltin {
       machine.ledgerMode match {
         case onLedger: OnLedger =>
           onLedger.dependsOnTime = true
-        case Speedy.OffLedger =>
+        case OffLedger =>
       }
       throw SpeedyHungry(SResultNeedTime(timestamp => machine.returnValue = STimestamp(timestamp)))
     }
@@ -1707,17 +1716,21 @@ private[lf] object SBuiltin {
       }
     }
 
-    private val mapping: Map[String, SExpr] =
+    //TODO: move this into the speedy compiler code
+    private val mapping: Map[String, compileTime.SExpr] =
       List(
         "ANSWER" -> SBExperimentalAnswer,
         "TO_TYPE_REP" -> SBExperimentalToTypeRep,
         "RESOLVE_VIRTUAL_CREATE" -> new SBResolveVirtual(CreateDefRef),
         "RESOLVE_VIRTUAL_SIGNATORY" -> new SBResolveVirtual(SignatoriesDefRef),
         "RESOLVE_VIRTUAL_OBSERVER" -> new SBResolveVirtual(ObserversDefRef),
-      ).view.map { case (name, builtin) => name -> SEBuiltin(builtin) }.toMap
+      ).view.map { case (name, builtin) => name -> compileTime.SEBuiltin(builtin) }.toMap
 
-    def apply(name: String): SExpr =
-      mapping.getOrElse(name, SBError(SEValue(SText(s"experimental $name not supported."))))
+    def apply(name: String): compileTime.SExpr =
+      mapping.getOrElse(
+        name,
+        SBError(compileTime.SEValue(SText(s"experimental $name not supported."))),
+      )
 
   }
 

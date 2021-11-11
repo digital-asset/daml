@@ -8,7 +8,8 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError, SExpr}
+import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError}
+import com.daml.lf.speedy.SExpr.{SExpr, SEApp, SEValue}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{SubmittedTransaction, VersionedTransaction, Transaction => Tx}
@@ -309,7 +310,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         compiledPackages = compiledPackages,
         submissionTime = submissionTime,
         initialSeeding = seeding,
-        expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
+        expr = SEApp(sexpr, Array(SEValue.Token)),
         committers = submitters,
         readAs = readAs,
         validating = validating,
