@@ -60,10 +60,8 @@ class GrpcCommandSubmissionServiceSpec
 
     "propagate submission id" in {
       val expectedSubmissionId = "explicitSubmissionId"
-      val requestWithSubmissionId = submitRequest.copy(
-        commands =
-          Some(commands.copy(commands = Seq(aCommand), submissionId = expectedSubmissionId))
-      )
+      val requestWithSubmissionId =
+        aSubmitRequest.update(_.commands.submissionId := expectedSubmissionId)
       val requestCaptor = ArgCaptor[com.daml.ledger.api.messages.command.submission.SubmitRequest]
       val mockCommandSubmissionService = mock[CommandSubmissionService with AutoCloseable]
       when(mockCommandSubmissionService.submit(any[SubmitRequest])(any[TelemetryContext]))

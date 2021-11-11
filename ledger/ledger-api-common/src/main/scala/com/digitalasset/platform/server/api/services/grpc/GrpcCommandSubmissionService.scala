@@ -57,7 +57,6 @@ class GrpcCommandSubmissionService(
       telemetryContext.setAttribute(SpanAttribute.WorkflowId, commands.workflowId)
     }
     val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
-
     val errorLogger = new DamlContextualizedErrorLogger(
       logger = logger,
       loggingContext = loggingContext,
@@ -86,13 +85,9 @@ class GrpcCommandSubmissionService(
   override def bindService(): ServerServiceDefinition =
     CommandSubmissionServiceGrpc.bindService(this, executionContext)
 
-  private def generateSubmissionIdIfEmpty(request: ApiSubmitRequest): ApiSubmitRequest = {
-    if (request.commands.exists(_.submissionId.isEmpty)) {
-      val commandsWithSubmissionId =
-        request.commands.map(_.copy(submissionId = submissionIdGenerator.generate()))
-      request.copy(commands = commandsWithSubmissionId)
-    } else {
+  private def generateSubmissionIdIfEmpty(request: ApiSubmitRequest): ApiSubmitRequest =
+    if (request.commands.exists(_.submissionId.isEmpty))
+      request.update(_.commands.submissionId := submissionIdGenerator.generate())
+    else
       request
-    }
-  }
 }
