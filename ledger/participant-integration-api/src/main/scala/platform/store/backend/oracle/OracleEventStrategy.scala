@@ -62,7 +62,7 @@ object OracleEventStrategy extends EventStrategy {
         .map { case (parties, templateIds) =>
           (
             parties.flatMap(s => stringInterning.party.tryInternalize(s).toList),
-            templateIds,
+            templateIds.flatMap(s => stringInterning.templateId.tryInternalize(s).toList),
           )
         }
         .filterNot(_._1.isEmpty)
@@ -74,7 +74,7 @@ object OracleEventStrategy extends EventStrategy {
               parties.map(stringInterning.party.externalize),
               stringInterning,
             )
-          cSQL"( ($clause) AND (template_id IN (${templateIds.map(_.toString)})) )"
+          cSQL"( ($clause) AND (template_id IN ($templateIds)) )"
         }
         .toList
     wildCardClause ::: partiesTemplatesClauses match {

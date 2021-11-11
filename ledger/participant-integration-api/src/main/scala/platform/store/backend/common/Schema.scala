@@ -105,7 +105,9 @@ private[backend] object AppendOnlySchema {
           _.submitters.map(_.map(stringInterning.party.unsafe.internalize))
         ),
         "contract_id" -> fieldStrategy.string(_ => _.contract_id),
-        "template_id" -> fieldStrategy.stringOptional(_ => _.template_id),
+        "template_id" -> fieldStrategy.intOptional(stringInterning =>
+          _.template_id.map(stringInterning.templateId.unsafe.internalize)
+        ),
         "tree_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
           _.tree_event_witnesses.map(stringInterning.party.unsafe.internalize)
         ),
@@ -130,7 +132,9 @@ private[backend] object AppendOnlySchema {
         "node_index" -> fieldStrategy.intOptional(_ => _.node_index),
         "event_id" -> fieldStrategy.stringOptional(_ => _.event_id),
         "contract_id" -> fieldStrategy.string(_ => _.contract_id),
-        "template_id" -> fieldStrategy.stringOptional(_ => _.template_id),
+        "template_id" -> fieldStrategy.intOptional(stringInterning =>
+          _.template_id.map(stringInterning.templateId.unsafe.internalize)
+        ),
         "flat_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
           _.flat_event_witnesses.map(stringInterning.party.unsafe.internalize)
         ),
@@ -180,7 +184,9 @@ private[backend] object AppendOnlySchema {
         "exercise_child_event_ids" -> fieldStrategy.stringArrayOptional(_ =>
           _.exercise_child_event_ids
         ),
-        "template_id" -> fieldStrategy.stringOptional(_ => _.template_id),
+        "template_id" -> fieldStrategy.intOptional(stringInterning =>
+          _.template_id.map(stringInterning.templateId.unsafe.internalize)
+        ),
         "flat_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
           _.flat_event_witnesses.map(stringInterning.party.unsafe.internalize)
         ),
