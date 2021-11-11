@@ -364,7 +364,7 @@ private[platform] object Conversions {
           )
         case domain.RejectionReason.PartiesNotKnownOnLedger(parties) =>
           CommandRejected.FinalReason(
-            errorFactories.CommandRejections.partiesKnownToLedger(parties)
+            errorFactories.CommandRejections.partiesNotKnownToLedger(parties)
           )
         case domain.RejectionReason.PartyNotKnownOnLedger(description) =>
           CommandRejected.FinalReason(

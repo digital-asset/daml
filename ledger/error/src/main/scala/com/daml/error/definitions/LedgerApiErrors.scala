@@ -886,9 +886,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
       case class RejectEnriched(
           details: String,
-          ledger_time: Instant,
-          ledger_time_lower_bound: Instant,
-          ledger_time_upper_bound: Instant,
+          ledgerTime: Instant,
+          ledgerTimeLowerBound: Instant,
+          ledgerTimeUpperBound: Instant,
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends LoggingTransactionErrorImpl(cause = s"Invalid ledger time: $details")
 

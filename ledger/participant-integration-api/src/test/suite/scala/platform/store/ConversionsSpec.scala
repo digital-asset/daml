@@ -36,132 +36,126 @@ class ConversionsSpec extends AsyncWordSpec with Matchers {
   "converting rejection reasons" should {
     "convert an 'Inconsistent' rejection reason" in {
       assertConversion(domain.RejectionReason.Inconsistent("This was not very consistent."))(
-        v1_expectedCode = Status.Code.ABORTED.value(),
-        v1_expectedMessage = "Inconsistent: This was not very consistent.",
-        v2_expectedCode = Status.Code.FAILED_PRECONDITION.value(),
-        // TODO error codes: remove context from end of message (see [[com.daml.error.definitions.TransactionError.rpcStatus]])
-        v2_expectedMessage = "INCONSISTENT(9,0): Inconsistent: This was not very consistent.",
+        v1expectedCode = Status.Code.ABORTED.value(),
+        v1expectedMessage = "Inconsistent: This was not very consistent.",
+        v2expectedCode = Status.Code.FAILED_PRECONDITION.value(),
+        v2expectedMessage = "INCONSISTENT(9,0): Inconsistent: This was not very consistent.",
       )
     }
 
-    "convert an 'ContractsNotFound' rejection reason" in {
+    "convert a 'ContractsNotFound' rejection reason" in {
       assertConversion(domain.RejectionReason.ContractsNotFound(Set("cId_1", "cId_2")))(
-        v1_expectedCode = Status.Code.ABORTED.value(),
-        v1_expectedMessage = "Inconsistent: Could not lookup contracts: [cId_1, cId_2]",
-        v2_expectedCode = Status.Code.NOT_FOUND.value(),
-        // TODO error codes: remove context from end of message (see [[com.daml.error.definitions.TransactionError.rpcStatus]])
-        v2_expectedMessage = "CONTRACTS_NOT_FOUND(11,0): Unknown contracts: [cId_1, cId_2]",
+        v1expectedCode = Status.Code.ABORTED.value(),
+        v1expectedMessage = "Inconsistent: Could not lookup contracts: [cId_1, cId_2]",
+        v2expectedCode = Status.Code.NOT_FOUND.value(),
+        v2expectedMessage = "CONTRACTS_NOT_FOUND(11,0): Unknown contracts: [cId_1, cId_2]",
       )
     }
 
     "convert an 'InconsistentContractKeys' rejection reason" in {
+      val cId = "#cId1"
       assertConversion(
         domain.RejectionReason
-          .InconsistentContractKeys(Some(Value.ContractId.assertFromString("#cId1")), None)
+          .InconsistentContractKeys(Some(Value.ContractId.assertFromString(cId)), None)
       )(
-        v1_expectedCode = Status.Code.ABORTED.value(),
-        v1_expectedMessage =
-          s"Inconsistent: Contract key lookup with different results: expected [Some(ContractId(#cId1))], actual [None]",
-        v2_expectedCode = Status.Code.FAILED_PRECONDITION.value(),
-        // TODO error codes: remove context from end of message (see [[com.daml.error.definitions.TransactionError.rpcStatus]])
-        v2_expectedMessage =
-          "INCONSISTENT_CONTRACT_KEY(9,0): Contract key lookup with different results: expected [Some(ContractId(#cId1))], actual [None]",
+        v1expectedCode = Status.Code.ABORTED.value(),
+        v1expectedMessage =
+          s"Inconsistent: Contract key lookup with different results: expected [Some(ContractId($cId))], actual [$None]",
+        v2expectedCode = Status.Code.FAILED_PRECONDITION.value(),
+        v2expectedMessage =
+          s"INCONSISTENT_CONTRACT_KEY(9,0): Contract key lookup with different results: expected [Some(ContractId($cId))], actual [$None]",
       )
     }
 
-    "convert an 'DuplicateContractKey' rejection reason" in {
+    "convert a 'DuplicateContractKey' rejection reason" in {
       val key = GlobalKey.assertBuild(
-        Ref.Identifier.assertFromString(s"some:template:value"),
+        Ref.Identifier.assertFromString("some:template:value"),
         ValueText("value"),
       )
       assertConversion(domain.RejectionReason.DuplicateContractKey(key))(
-        v1_expectedCode = Status.Code.ABORTED.value(),
-        v1_expectedMessage = s"Inconsistent: DuplicateKey: contract key is not unique",
-        v2_expectedCode = Status.Code.ALREADY_EXISTS.value(),
-        // TODO error codes: remove context from end of message (see [[com.daml.error.definitions.TransactionError.rpcStatus]])
-        v2_expectedMessage =
-          "DUPLICATE_CONTRACT_KEY(10,0): DuplicateKey: contract key is not unique",
+        v1expectedCode = Status.Code.ABORTED.value(),
+        v1expectedMessage = "Inconsistent: DuplicateKey: contract key is not unique",
+        v2expectedCode = Status.Code.ALREADY_EXISTS.value(),
+        v2expectedMessage = "DUPLICATE_CONTRACT_KEY(10,0): DuplicateKey: contract key is not unique",
       )
     }
 
-    "convert an 'Disputed' rejection reason" in {
+    "convert a 'Disputed' rejection reason" in {
       assertConversion(domain.RejectionReason.Disputed("I dispute that."))(
-        v1_expectedCode = Status.Code.INVALID_ARGUMENT.value(),
-        v1_expectedMessage = "Disputed: I dispute that.",
-        v2_expectedCode = Status.Code.INTERNAL.value(),
-        // TODO error codes: remove context from end of message (see [[com.daml.error.definitions.TransactionError.rpcStatus]])
-        v2_expectedMessage =
+        v1expectedCode = Status.Code.INVALID_ARGUMENT.value(),
+        v1expectedMessage = "Disputed: I dispute that.",
+        v2expectedCode = Status.Code.INTERNAL.value(),
+        v2expectedMessage =
           "An error occurred. Please contact the operator and inquire about the request <no-correlation-id>",
       )
     }
 
     "convert an 'OutOfQuota' rejection reason" in {
       assertConversion(domain.RejectionReason.OutOfQuota("Insert coins to continue."))(
-        v1_expectedCode = Status.Code.ABORTED.value(),
-        v1_expectedMessage = "Resources exhausted: Insert coins to continue.",
-        v2_expectedCode = Status.Code.ABORTED.value(),
-        // TODO error codes: remove context from end of message (see [[com.daml.error.definitions.TransactionError.rpcStatus]])
-        v2_expectedMessage = "OUT_OF_QUOTA(2,0): Insert coins to continue.",
+        v1expectedCode = Status.Code.ABORTED.value(),
+        v1expectedMessage = "Resources exhausted: Insert coins to continue.",
+        v2expectedCode = Status.Code.ABORTED.value(),
+        v2expectedMessage = "OUT_OF_QUOTA(2,0): Insert coins to continue.",
       )
     }
 
-    "convert an 'PartiesNotKnownOnLedger' rejection reason" in {
+    "convert a 'PartiesNotKnownOnLedger' rejection reason" in {
       assertConversion(domain.RejectionReason.PartiesNotKnownOnLedger(Set("Alice")))(
-        v1_expectedCode = Status.Code.INVALID_ARGUMENT.value(),
-        v1_expectedMessage = "Parties not known on ledger: [Alice]",
-        v2_expectedCode = Status.Code.NOT_FOUND.value(),
-        // TODO error codes: remove context from end of message (see [[com.daml.error.definitions.TransactionError.rpcStatus]])
-        v2_expectedMessage = "PARTY_NOT_KNOWN_ON_LEDGER(11,0): Parties not known on ledger: [Alice]",
+        v1expectedCode = Status.Code.INVALID_ARGUMENT.value(),
+        v1expectedMessage = "Parties not known on ledger: [Alice]",
+        v2expectedCode = Status.Code.NOT_FOUND.value(),
+        v2expectedMessage = "PARTY_NOT_KNOWN_ON_LEDGER(11,0): Parties not known on ledger: [Alice]",
       )
     }
 
-    "convert an 'PartyNotKnownOnLedger' rejection reason" in {
+    "convert a 'PartyNotKnownOnLedger' rejection reason" in {
       assertConversion(domain.RejectionReason.PartyNotKnownOnLedger("reason"))(
-        v1_expectedCode = Status.Code.INVALID_ARGUMENT.value(),
-        v1_expectedMessage = "Parties not known on ledger: reason",
-        v2_expectedCode = Status.Code.NOT_FOUND.value(),
-        // TODO error codes: remove context from end of message (see [[com.daml.error.definitions.TransactionError.rpcStatus]])
-        v2_expectedMessage = "PARTY_NOT_KNOWN_ON_LEDGER(11,0): Party not known on ledger: reason",
+        v1expectedCode = Status.Code.INVALID_ARGUMENT.value(),
+        v1expectedMessage = "Parties not known on ledger: reason",
+        v2expectedCode = Status.Code.NOT_FOUND.value(),
+        v2expectedMessage = "PARTY_NOT_KNOWN_ON_LEDGER(11,0): Party not known on ledger: reason",
       )
     }
 
-    "convert an 'SubmitterCannotActViaParticipant' rejection reason" in {
+    "convert a 'SubmitterCannotActViaParticipant' rejection reason" in {
       assertConversion(domain.RejectionReason.SubmitterCannotActViaParticipant("Wrong box."))(
-        v1_expectedCode = Status.Code.PERMISSION_DENIED.value(),
-        v1_expectedMessage = "Submitted cannot act via participant: Wrong box.",
-        v2_expectedCode = Status.Code.PERMISSION_DENIED.value(),
-        // TODO error codes: remove context from end of message (see [[com.daml.error.definitions.TransactionError.rpcStatus]])
-        v2_expectedMessage =
+        v1expectedCode = Status.Code.PERMISSION_DENIED.value(),
+        v1expectedMessage = "Submitted cannot act via participant: Wrong box.",
+        v2expectedCode = Status.Code.PERMISSION_DENIED.value(),
+        v2expectedMessage =
           "An error occurred. Please contact the operator and inquire about the request <no-correlation-id>",
       )
     }
 
     "convert an 'InvalidLedgerTime' rejection reason" in {
       assertConversion(domain.RejectionReason.InvalidLedgerTime("Too late."))(
-        v1_expectedCode = Status.Code.ABORTED.value(),
-        v1_expectedMessage = "Invalid ledger time: Too late.",
-        v2_expectedCode = Status.Code.FAILED_PRECONDITION.value(),
-        // TODO error codes: remove context from end of message (see [[com.daml.error.definitions.TransactionError.rpcStatus]])
-        v2_expectedMessage = "INVALID_LEDGER_TIME(9,0): Invalid ledger time: Too late.",
+        v1expectedCode = Status.Code.ABORTED.value(),
+        v1expectedMessage = "Invalid ledger time: Too late.",
+        v2expectedCode = Status.Code.FAILED_PRECONDITION.value(),
+        v2expectedMessage = "INVALID_LEDGER_TIME(9,0): Invalid ledger time: Too late.",
       )
     }
   }
 
   private def assertConversion(actualRejectionReason: RejectionReason)(
-      v1_expectedCode: Int,
-      v1_expectedMessage: String,
-      v2_expectedCode: Int,
-      v2_expectedMessage: String,
+      v1expectedCode: Int,
+      v1expectedMessage: String,
+      v2expectedCode: Int,
+      v2expectedMessage: String,
   ): Assertion = {
-    val errorFactoriesV1 = ErrorFactories(new ErrorCodesVersionSwitcher(false))
-    val errorFactoriesV2 = ErrorFactories(new ErrorCodesVersionSwitcher(true))
+    val errorFactoriesV1 = ErrorFactories(
+      new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = false)
+    )
+    val errorFactoriesV2 = ErrorFactories(
+      new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true)
+    )
 
     val convertedV1 = actualRejectionReason.toParticipantStateRejectionReason(errorFactoriesV1)
-    convertedV1.code shouldBe v1_expectedCode
-    convertedV1.message shouldBe v1_expectedMessage
+    convertedV1.code shouldBe v1expectedCode
+    convertedV1.message shouldBe v1expectedMessage
 
     val convertedV2 = actualRejectionReason.toParticipantStateRejectionReason(errorFactoriesV2)
-    convertedV2.code shouldBe v2_expectedCode
-    convertedV2.message shouldBe v2_expectedMessage
+    convertedV2.code shouldBe v2expectedCode
+    convertedV2.message shouldBe v2expectedMessage
   }
 }

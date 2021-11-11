@@ -560,7 +560,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         ),
       )
 
-    def partiesKnownToLedger(parties: Set[String])(implicit
+    def partiesNotKnownToLedger(parties: Set[String])(implicit
         contextualizedErrorLogger: ContextualizedErrorLogger
     ): com.google.rpc.status.Status =
       errorCodesVersionSwitcher.choose(

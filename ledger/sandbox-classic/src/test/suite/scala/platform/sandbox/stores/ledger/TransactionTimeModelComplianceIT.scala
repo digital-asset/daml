@@ -55,7 +55,9 @@ class TransactionTimeModelComplianceIT
     Set(BackendType.InMemory, BackendType.Postgres)
 
   override protected def constructResource(index: Int, fixtureId: BackendType): Resource[Ledger] = {
-    val errorFactories = ErrorFactories(new ErrorCodesVersionSwitcher(false))
+    val errorFactories = ErrorFactories(
+      new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = false)
+    )
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     fixtureId match {
       case BackendType.InMemory =>
