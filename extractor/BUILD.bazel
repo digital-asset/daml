@@ -230,6 +230,7 @@ da_scala_library(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-resources",
         "//ledger/sandbox",
         "//ledger/sandbox:sandbox-scala-tests-lib",
         "//ledger/sandbox-common",
