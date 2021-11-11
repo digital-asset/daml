@@ -278,4 +278,672 @@ external connections to the JSON API, Trigger Service and OAuth2 Middleware.
 Helm Chart Options Reference
 ----------------------------
 
-TODO: copy over Configuration.md
+..
+
+  copied from https://github.com/DACH-NY/connect-helm-chart/blob/c297baae3565d92f6ff2aad5e40b7138945772b5/Configuration.md
+  This will need to be updated, but hopefully we can move the Helm chart to
+  this repo "soon" and that will stop being an problem. Also, converting md to rst sucks.
+
+These options have been extracted from the Helm chart version ``daml-connect-1.18.0-20211110.main.84.c297baae``.
+
+authUrl
+^^^^^^^
+
+- **Type**: string
+- **Required**: if either the ledger or the auth middleware is started
+
+The JWKS endpoint used to get the public key to validate tokens. Used by the
+ledger and the OAuth2 Middleware.
+
+imagePullSecret
+^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: true
+
+The Kubernetes secret which is used for gaining access to the repository where
+the Daml Docker images are located.
+
+jsonApi.create
+^^^^^^^^^^^^^^
+
+- **Type**: bool
+- **Default**: true
+- **Required**: false
+
+Controls whether the HTTP JSON API Service is deployed.
+
+jsonApi.db.host
+^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: if enabled & production
+
+The hostname of the database server for the HTTP JSON API Service, if one is
+started by the Helm chart.
+
+jsonApi.db.oracle.serviceName
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: if enabled & using Oracle
+
+If the HTTP JSON API Service database is Oracle, this is used to set the
+Service Name.
+
+jsonApi.db.port
+^^^^^^^^^^^^^^^
+
+- **Type**: integer
+- **Required**: if enabled & production
+
+The exposed port of the database server for the HTTP JSON API Service, if one
+is started by the Helm chart.
+
+jsonApi.db.postgres.database
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: if enabled & using an external PostgreSQL
+
+The database the HTTP JSON API Service should use when connecting to the
+database server.
+
+jsonApi.db.secret
+^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: if enabled & production
+
+The Kubernetes secret which is used for gaining access to the database.
+The content should have the following structure:
+
+.. code-block:: yaml
+
+  username: daml
+  password: s3cr3t
+
+or as JSON:
+
+.. code-block:: json
+
+  {
+      "username": "daml",
+      "password": "s3cr3t"
+  }
+
+jsonApi.db.setupSecret
+^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Default**: none
+- **Required**: false
+
+The HTTP JSON API Service supports a mode where the credentials used at startup
+(to create the database structure) are not the same as the credentials used
+while the application is running. This can be useful if you want to run with
+lower privileges, specifically without the privileges to alter table structure.
+
+If this option is given, a separate instance of the HTTP JSON API Service will
+be started with ``start-mode=create-only`` using these credentials as a
+one-time job, while the regular, long-lived instances will be started with
+``start-mode=start-only``.  If this option is **not** given, then no separate
+one-time job is started and regular instances are started with
+``start-mode=create-if-needed-and-start``.
+
+The format of this option is the same as ``jsonApi.db.secret``.
+
+jsonApi.healthCheck
+^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Default**: see below
+- **Required**: false
+
+Overrides the probes for the long-lived HTTP JSON API Service instances. The
+current default is:
+
+.. code-block:: yaml
+
+    readinessProbe:
+      httpGet:
+        path: /readyz
+        port: http
+      initialDelaySeconds: 10
+      periodSeconds: 5
+    startupProbe:
+      httpGet:
+        path: /livez
+        port: http
+      failureThreshold: 30
+      periodSeconds: 10
+    livenessProbe:
+      httpGet:
+        path: /livez
+        port: http
+      initialDelaySeconds: 10
+      failureThreshold: 1
+      periodSeconds: 5
+
+jsonApi.logLevel
+^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Default**: info
+- **Required**: false
+
+Sets the log level for the HTTP JSON API Service instances. Valid values are
+``error``, ``warning``, ``info``, ``debug`` and ``trace``.
+
+jsonApi.podAnnotations
+^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: object
+- **Default**: {}
+- **Required**: false
+
+The annotations which should be attached to the metadata of the HTTP JSON API
+Service pods.
+
+jsonApi.replicaCount
+^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: number
+- **Default**: 1
+- **Required**: false
+
+Controls how many long-lived instance of the HTTP JSON API Service are started.
+
+jsonApi.resources
+^^^^^^^^^^^^^^^^^
+
+- **Type**: object
+- **Default**: see below
+- **Required**: false
+
+Overrides the ``resources`` field on the HTTP JSON API Service pods. Default:
+
+.. code-block:: yaml
+
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+    requests:
+      cpu: "0.5"
+      memory: "1Gi"
+
+jsonApi.serviceAccount
+^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Default**: null
+- **Required**: false
+
+The service account which should be attached to the HTTP JSON API Service pods.
+
+ledger.create
+^^^^^^^^^^^^^
+
+- **Type**: bool
+- **Default**: true
+- **Required**: false
+
+If true, the Helm chart will create a Daml Driver for PostgreSQL instance. If
+false, you will need to provide ``ledger.host`` and ``ledger.port`` (see
+below).
+
+ledger.db.host
+^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: if enabled & production
+
+The hostname of the database server for the Daml Driver for PostgreSQL, if one
+is started by the Helm chart.
+
+ledger.db.port
+^^^^^^^^^^^^^^
+
+- **Type**: integer
+- **Required**: if enabled & production
+
+The exposed port of the database server for the Daml Driver for PostgreSQL, if
+one is started by the Helm chart.
+
+ledger.db.postgres.database
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: if enabled & production
+
+The database the Daml Driver for PostgreSQL should use when connecting to the
+database server. Note that, unlike the Trigger Service and HTTP JSON API
+Service, the Daml Driver for PostgreSQL started by the Helm chart only supports
+PostgreSQL database servers.
+
+ledger.db.secret
+^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: if enabled & production
+
+The Kubernetes secret which is used for gaining access to the database.
+The content should have the following structure:
+
+.. code-block:: yaml
+
+  username: daml
+  password: s3cr3t
+
+or as JSON:
+
+.. code-block:: json
+
+  {
+      "username": "daml",
+      "password": "s3cr3t"
+  }
+
+ledger.db.setupSecret
+^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Default**: none
+- **Required**: false
+
+The Daml Driver for PostgreSQL supports two start modes: ``--migrate-only`` and
+``--migrate-and-start``. The long-running instance always starts with
+``--migrate-and-start``, but if you supply this option, the Helm chart will
+start a separate, one-time job with ``--migrate-only``.
+
+This can be used to supply separate credentials with table alteration
+privileges to the one-time job (this property), and restricted credentials with
+no table creation/alteration privileges to the long-running one
+(``ledger.db.secret``).
+
+The structure is the same as ``ledger.db.secret``.
+
+ledger.healthCheck
+^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Default**: see below
+- **Required**: false
+
+Overrides the probes for the long-running Daml Driver for PostgreSQL instance.
+Defaults:
+
+.. code-block:: yaml
+
+    readinessProbe:
+      exec:
+        command: ["./grpc-health-probe", "-addr=:6865" ]
+      initialDelaySeconds: 5
+      failureThreshold: 30
+      periodSeconds: 5
+    livenessProbe:
+      exec:
+        command: ["./grpc-health-probe", "-addr=:6865" ]
+      initialDelaySeconds: 10
+      failureThreshold: 30
+      periodSeconds: 5
+
+
+ledger.host
+^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: if ledger.create is false
+
+If the Helm chart should not create its own Daml Driver for PostgreSQL instance
+(i.e. you want to connect to other components to an existing gRPC Ledger API
+provider), this option should be set to the hostname of the gRPC Ledger API
+Server to connect to.
+
+ledger.podAnnotations
+^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: object
+- **Default**: {}
+- **Required**: false
+
+The annotations which should be attached to the metadata of the Daml Driver for
+PostgreSQL pod.
+
+ledger.port
+^^^^^^^^^^^
+
+- **Type**: number
+- **Default**: 6865
+- **Required**: false
+
+The port on which the external gRPC Ledger API Server is exposed.
+
+ledger.resources
+^^^^^^^^^^^^^^^^
+
+- **Type**: object
+- **Default**: see below
+- **Required**: false
+
+Overrides the ``resources`` field of the Daml Driver for PostgreSQL pod.
+Defaults:
+
+.. code-block:: yaml
+
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+    requests:
+      cpu: "0.5"
+      memory: "1Gi"
+
+ledger.serviceAccount
+^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Default**: null
+- **Required**: false
+
+The service account which should be attached to the Daml Driver for PostgreSQL
+pod.
+
+oauthMiddleware.callback
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: if oauthMiddleware.create
+
+The ``--callback`` argument given to the :ref:`oauth2-middleware` instance.
+
+oauthMiddleware.clientId
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: if oauthMiddleware.create
+
+The value of the ``DAML_CLIENT_ID`` environment variable needed by the
+:ref:`oauth2-middleware` instance.
+
+oauthMiddleware.clientSecret
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: if oauthMiddleware.create
+
+The value of the ``DAML_CLIENT_SECRET`` environment variable needed by the
+:ref:`oauth2-middleware` instance.
+
+oauthMiddleware.create
+^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: bool
+- **Default**: false
+- **Required**: false
+
+Controls whether the OAuth2 Middleware should be deployed.
+
+oauthMiddleware.healthCheck
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Default**: see below
+- **Required**: false
+
+Overrides the probes for the OAuth2 Auth Middleware instance. Defaults:
+
+.. code-block:: yaml
+
+    startupProbe:
+      httpGet:
+        path: /livez
+        port: http
+      failureThreshold: 30
+      periodSeconds: 10
+    livenessProbe:
+      httpGet:
+        path: /livez
+        port: http
+      initialDelaySeconds: 10
+      failureThreshold: 1
+      periodSeconds: 5
+
+oauthMiddleware.oauthAuth
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: true
+
+The ``oauth-auth`` argument given to the :ref:`oauth2-middleware` instance.
+
+oauthMiddleware.oauthToken
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: true
+
+The ``oauth-token`` argument given to the :ref:`oauth2-middleware` instance.
+
+oauthMiddleware.podAnnotations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: object
+- **Default**: {}
+- **Required**: false
+
+The annotations which should be attached to the metadata of the OAuth2 Auth
+Middleware pod.
+
+oauthMiddleware.replicaCount
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: number
+- **Default**: 1
+- **Required**: false
+
+Controls how many replicas of the OAuth2 Auth Middleware are started.
+
+oauthMiddleware.resources
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: object
+- **Default**: see below
+- **Required**: false
+
+Overrides the ``resources`` field on the OAuth2 Auth Middleware pods. Defaults:
+
+.. code-block:: yaml
+
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+    requests:
+      cpu: "0.5"
+      memory: "1Gi"
+
+oauthMiddleware.serviceAccount
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Default**: not used
+- **Required**: false
+
+The service account which should be attached to the OAuth2 Auth Middleware pods.
+
+production
+^^^^^^^^^^
+
+- **Type**: string
+- **Default**: false
+- **Required**: false
+
+If true, disables the non-production components, and marks some important
+options as required.
+
+triggerService.authCallback
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: true
+
+The ``--auth-callback`` argument passed to the :ref:`trigger-service` instance.
+Note that this should be externally-reachable.
+
+triggerService.authExternal
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: true
+
+The ``--auth-external`` argument passed to the :ref:`trigger-service` instance.
+Note that this should be externally-reachable.
+
+triggerService.create
+^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: bool
+- **Default**: false
+- **Required**: false
+
+Controls whether a Trigger Service instance should be created.
+
+triggerService.db.host
+^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: if enabled & production
+
+The hostname of the database server for the Trigger Service, if one is started
+by the Helm chart.
+
+triggerService.db.oracle.serviceName
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: if enabled & using Oracle
+
+If the Trigger Service database is Oracle, this is used to set the
+Service Name.
+
+triggerService.db.port
+^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: integer
+- **Required**: if enabled & production
+
+The exposed port of the database server for the Trigger Service, if one is
+started by the Helm chart.
+
+triggerService.db.postgres.database
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: if enabled & using an external PostgreSQL
+
+The database the Trigger Service should use when connecting to the
+database server.
+
+triggerService.db.secret
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Required**: if enabled & production
+
+The Kubernetes secret which is used for gaining access to the database.
+The content should have the following structure:
+
+.. code-block:: yaml
+
+  username: daml
+  password: s3cr3t
+
+or as JSON:
+
+.. code-block:: json
+
+  {
+      "username": "daml",
+      "password": "s3cr3t"
+  }
+
+
+triggerService.db.setupSecret
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Default**: null
+- **Required**: false
+
+The Trigger Service supports an optional argument ``init-db`` which, when
+supplied, causes the Trigger Service to initialize its database structure and
+rthen immediately exit. If this field is set, the Helm chart will start a
+separate instance of the Trigger Service in this mode, as a one-time job.
+
+This can be used to supply separate credentials with table alteration
+privileges to the one-time job (this property), and restricted credentials with
+no table creation/alteration privileges to the long-running one
+(``triggerService.db.secret``).
+
+The format of this option is the same as ``triggerService.db.secret``.
+
+triggerService.healthCheck
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Default**: see below
+- **Required**: false
+
+Overrides the probes for the long-running Trigger Service instance. Defaults:
+
+.. code-block:: yaml
+
+    startupProbe:
+      httpGet:
+        path: /livez
+        port: http
+      failureThreshold: 30
+      periodSeconds: 10
+    livenessProbe:
+      httpGet:
+        path: /livez
+        port: http
+      initialDelaySeconds: 10
+      failureThreshold: 1
+      periodSeconds: 5
+
+triggerService.podAnnotations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: object
+- **Default**: {}
+- **Required**: false
+
+The annotations which should be attached to the metadata of the Trigger Service
+pod.
+
+triggerService.resources
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: object
+- **Default**: see below
+- **Required**: false
+
+Overrides the ``resources`` field of the Trigger Service pod. Defaults:
+
+.. code-block:: yaml
+
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+    requests:
+      cpu: "0.5"
+      memory: "1Gi"
+
+triggerService.serviceAccount
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Type**: string
+- **Default**: not used
+- **Required**: false
+
+The service account which should be attached to the Trigger Service pod.
