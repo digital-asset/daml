@@ -121,8 +121,7 @@ private[speedy] object ClosureConversion {
       case source.SELet1General(bound, body) =>
         target.SELet1General(closureConvert(remaps, bound), closureConvert(shift(remaps, 1), body))
 
-      case _: source.SELoc | _: source.SEMakeClo | _: source.SEDamlException |
-          _: source.SEImportValue =>
+      case _: source.SEDamlException | _: source.SEImportValue =>
         throw CompilationError(s"closureConvert: unexpected $expr")
     }
   }
@@ -185,8 +184,7 @@ private[speedy] object ClosureConversion {
         case source.SEScopeExercise(body) =>
           go(body, bound, free)
 
-        case _: source.SELoc | _: source.SEMakeClo | _: source.SEDamlException |
-            _: source.SEImportValue | _: source.SELet1General =>
+        case _: source.SEDamlException | _: source.SEImportValue | _: source.SELet1General =>
           throw CompilationError(s"freeVars: unexpected $expr")
       }
 

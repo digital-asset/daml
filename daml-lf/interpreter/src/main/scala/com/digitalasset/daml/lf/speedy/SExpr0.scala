@@ -25,18 +25,22 @@ package speedy
   * Stage 3 is in Anf.scala
   * Stage 4 is in ValidateCompilation.scala
   *
-  * During Stage3 (ANF transformation), we move from this type (SExpr0) to SExpr,
-  * and so have the expression form suitable for execution on a speedy machine.
+  * During Stage2 (Closure Conversion), we move from SExpr0 to SExpr1,
+  * During Stage3 (ANF transformation), we move from SExpr1 to SExpr.
   *
-  * Here is a summary of the differences between SExp0 and SExpr:
+  * Summary of which constructors are contained by: SExp0, SExpr1 and SExpr:
   *
-  * - Constructors in both: SEAppGeneral, SEBuiltin, SEBuiltinRecursiveDefinition,
-  *   SEDamlException, SEImportValue, SELabelClosure, SELet1General, SELocA, SELocF,
-  *   SELocS, SELocation, SEMakeClo, SEScopeExercise, SETryCatch, SEVal, SEValue,
+  * - In SExpr{0,1,} (everywhere): SEAppGeneral, SEBuiltin, SEBuiltinRecursiveDefinition,
+  *   SEDamlException, SEImportValue, SELabelClosure, SELet1General, SELocation,
+  *   SEScopeExercise, SETryCatch, SEVal, SEValue,
   *
-  * - Only in SExpr0: SEAbs, SECase, SELet, SEVar
+  * - In SExpr0: SEAbs, SEVar
   *
-  * - Only in SExpr: SEAppAtomicFun, SEAppAtomicGeneral, SEAppAtomicSaturatedBuiltin,
+  * - In SExpr{0,1}: SECase, SELet
+  *
+  * - In SExpr{1,}: SELocA, SELocF, SELocS, SEMakeClo,
+  *
+  * - In SExpr: SEAppAtomicFun, SEAppAtomicGeneral, SEAppAtomicSaturatedBuiltin,
   *   SECaseAtomic, SELet1Builtin, SELet1BuiltinArithmetic
   */
 
@@ -99,29 +103,6 @@ private[speedy] object SExpr0 {
 
     val identity: SEAbs = SEAbs(1, SEVar(1))
   }
-
-  /** Closure creation. Create a new closure object storing the free variables
-    * in 'body'.
-    */
-  final case class SEMakeClo(fvs: Array[SELoc], arity: Int, body: SExpr)
-      extends SExpr
-      with SomeArrayEquals
-
-  /** SELoc -- Reference to the runtime location of a variable.
-    *
-    *    This is the closure-converted form of SEVar. There are three sub-forms, with sufffix:
-    *    S/A/F, indicating [S]tack, [A]argument, or [F]ree variable captured by a closure.
-    */
-  sealed abstract class SELoc extends SExprAtomic
-
-  // SELocS -- variable is located on the stack (SELet & binding forms of SECasePat)
-  final case class SELocS(n: Int) extends SELoc
-
-  // SELocS -- variable is located in the args array of the application
-  final case class SELocA(n: Int) extends SELoc
-
-  // SELocF -- variable is located in the free-vars array of the closure being applied
-  final case class SELocF(n: Int) extends SELoc
 
   /** Pattern match. */
   final case class SECase(scrut: SExpr, alts: Array[SCaseAlt]) extends SExpr with SomeArrayEquals

@@ -22,14 +22,6 @@ private[speedy] object SExpr1 {
 
   sealed abstract class SExprAtomic extends SExpr
 
-  /** Reference to a variable. 'index' is the 1-based de Bruijn index,
-    * that is, SEVar(1) points to the nearest enclosing variable binder.
-    * which could be an SELam, SELet, or a binding variant of SECasePat.
-    * https://en.wikipedia.org/wiki/De_Bruijn_index
-    * This expression form is only allowed prior to closure conversion
-    */
-  final case class SEVar(index: Int) extends SExprAtomic
-
   /** Reference to a value. On first lookup the evaluated expression is
     * stored in 'cached'.
     */
@@ -52,20 +44,6 @@ private[speedy] object SExpr1 {
     def apply(fun: SExpr, args: Array[SExpr]): SExpr = {
       SEAppGeneral(fun, args)
     }
-  }
-
-  /** Lambda abstraction. Transformed into SEMakeClo in lambda lifting.
-    * NOTE(JM): Compilation done in two passes so that closure conversion
-    * can be written against this simplified expression type.
-    */
-  final case class SEAbs(arity: Int, body: SExpr) extends SExpr
-
-  object SEAbs {
-    // Helper for constructing abstraction expressions:
-    // SEAbs(1) { ... }
-    def apply(arity: Int)(body: SExpr): SExpr = SEAbs(arity, body)
-
-    val identity: SEAbs = SEAbs(1, SEVar(1))
   }
 
   /** Closure creation. Create a new closure object storing the free variables
