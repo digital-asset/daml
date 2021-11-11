@@ -15,7 +15,7 @@ Credentials
 
 Like all Enterprise Edition components, the Helm Chart is hosted on
 Artifactory. To get both the Helm chart itself and the Docker images it relies
-on, you will need Artifactory credentials. In the rest of thie document, we
+on, you will need Artifactory credentials. In the rest of this document, we
 assume that ``$ARTIFACTORY_USERNAME`` refers to your Artifactory user name,
 whereas ``$ARTIFACTORY_PASSWORD`` refers to your Artifactory API key.
 
@@ -150,7 +150,7 @@ need to set the following:
 - ``production=true``: By default, the Helm chart starts a number of components
   that are meant to give you a quick idea of what the Helm chart enables, but
   are most definitely not meant for production use. Specifically, this will
-  disabble the internal PostgreSQL instances, the mock auth server, and the
+  disable the internal PostgreSQL instances, the mock auth server, and the
   reverse proxy.
 - ``ledger.db``: If you want the Helm char to start a Daml Driver For
   PostgreSQL instance for you, you need to set this. See reference section at
@@ -193,14 +193,14 @@ You can find external documentation on, how to setup `ElasticSearch` with
 `here <https://www.deepnetwork.com/blog/2020/01/27/ELK-stack-filebeat-k8s-deployment.html>`_.
 
 As of 1.18.0, the :ref:`HTTP JSON API <json-api>` component in the Helm chart produces
-JSON-encoded logs. Other components log in somewhat less structured formats.
+JSON-encoded logs. Other components log as unstructured text.
 
 Daml Metrics Options
 --------------------
 
 The Daml Driver for PostgreSQL instance and the HTTP JSON API instances started
 by the Helm chart are configured to expose Prometheus metrics on a port named
-`metrics`, using the appropriate annotations. This means that, if you are
+``metrics``, using the appropriate annotations. This means that, if you are
 running a cluster-wide Prometheus instance, the relevant metrics should be
 collected automatically.
 
@@ -216,7 +216,7 @@ Upgrading
 
    This section only makes sense with the ``production`` flag set to ``true``.
 
-Upgrading the Daml Connect version should be done by uninstalling the exiting
+Upgrading the Daml Connect version should be done by uninstalling the existing
 Helm chart, waiting for all of the pods to stop, and then installing a higher
 version. Destroying all of the components is a safe operation because all of
 the state is stored in the provided database coordinates. There is no
