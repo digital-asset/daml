@@ -1583,7 +1583,7 @@ private[lf] final class Compiler(
   private[this] def compileCreate(
       tmplId: Identifier,
       tmpl: Template,
-  ): (SDefinitionRef, SDefinition) = {
+  ): (t.SDefinitionRef, SDefinition) = {
     // Translates 'create Foo with <params>' into:
     // CreateDefRef(tmplId) = \ <tmplArg> <token> ->
     //   let _ = $checkPrecond(tmplId)(<tmplArg> [tmpl.precond ++ [precond | precond <- tmpl.implements]]
@@ -1597,7 +1597,7 @@ private[lf] final class Compiler(
       tmplId: Identifier,
       tmpl: Template,
       ifaceId: Identifier,
-  ): (SDefinitionRef, SDefinition) = {
+  ): (t.SDefinitionRef, SDefinition) = {
     // Similar to compileCreate, but sets the 'byInterface' field in the transaction.
     topLevelFunction2(t.CreateByInterfaceDefRef(tmplId, ifaceId))((tmplArgPos, _, env) =>
       compileCreateBody(tmplId, tmpl, Some(ifaceId), tmplArgPos, env)
@@ -1606,7 +1606,7 @@ private[lf] final class Compiler(
 
   private[this] def compileCreateInterface(
       ifaceId: Identifier
-  ): (SDefinitionRef, SDefinition) = {
+  ): (t.SDefinitionRef, SDefinition) = {
     topLevelFunction2(t.CreateDefRef(ifaceId)) { (tmplArgPos, tokenPos, env) =>
       SBResolveCreateByInterface(ifaceId)(
         env.toSEVar(tmplArgPos),
