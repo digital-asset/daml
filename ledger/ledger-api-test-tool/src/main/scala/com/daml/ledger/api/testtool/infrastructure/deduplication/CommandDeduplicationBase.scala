@@ -64,6 +64,8 @@ private[testtool] abstract class CommandDeduplicationBase(
             DeduplicationPeriod.DeduplicationTime(deduplicationDuration.asProtobuf)
         )
       runWithDeduplicationDelay(configuredParticipants) { delay =>
+        val deltaForTransactionLatency =
+          300.millis // account for 3 requests, first accepted and the following 2 rejected
         for {
           // Submit command (first deduplication window)
           // Note: the second submit() in this block is deduplicated and thus rejected by the ledger API server,
@@ -71,10 +73,10 @@ private[testtool] abstract class CommandDeduplicationBase(
           completion1 <- submitRequestAndAssertCompletionAccepted(ledger)(request, party)
           _ <- submitRequestAndAssertDeduplication(ledger)(request, party)
           // Delay close to the end of the minimum guaranteed deduplication
-          _ <- delay.delayToEndOfMinimumDeduplicationPeriod(100.millis)
+          _ <- delay.delayToEndOfMinimumDeduplicationPeriod(deltaForTransactionLatency)
           _ <- submitRequestAndAssertDeduplication(ledger)(request, party)
           // Wait until the end of first deduplication window
-          _ <- delay.delayFromEndOfMinimumDeduplicationPeriod(100.millis)
+          _ <- delay.delayFromEndOfMinimumDeduplicationPeriod(deltaForTransactionLatency)
 
           // Submit command (second deduplication window)
           // Note: the deduplication window is guaranteed to have passed on both
