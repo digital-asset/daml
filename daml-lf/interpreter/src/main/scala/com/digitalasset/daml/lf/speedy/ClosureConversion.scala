@@ -12,7 +12,7 @@ package com.daml.lf.speedy
   * following ANF transformation phase.
   */
 
-import com.daml.lf.speedy.{SExpr0 => s}
+import com.daml.lf.speedy.{SExpr0 => source}
 
 private[speedy] object ClosureConversion {
 
@@ -41,86 +41,87 @@ private[speedy] object ClosureConversion {
     */
 
   // TODO: Introduce a new type expression for the result of closure conversion
-  private[speedy] def closureConvert(expr: s.SExpr): s.SExpr = {
+  private[speedy] def closureConvert(expr: source.SExpr): source.SExpr = {
     closureConvert(Map.empty, expr)
   }
 
-  private def closureConvert(remaps: Map[Int, s.SELoc], expr: s.SExpr): s.SExpr = {
+  private def closureConvert(remaps: Map[Int, source.SELoc], expr: source.SExpr): source.SExpr = {
 
     // remaps is a function which maps the relative offset from variables (SEVar) to their runtime location
     // The Map must contain a binding for every variable referenced.
     // The Map is consulted when translating variable references (SEVar) and free variables of an abstraction (SEAbs)
-    def remap(i: Int): s.SELoc =
+    def remap(i: Int): source.SELoc =
       remaps.get(i) match {
         case Some(loc) => loc
         case None =>
           throw CompilationError(s"remap($i),remaps=$remaps")
       }
     expr match {
-      case s.SEVar(i) => remap(i)
-      case v: s.SEVal => v
-      case be: s.SEBuiltin => be
-      case pl: s.SEValue => pl
-      case f: s.SEBuiltinRecursiveDefinition => f
-      case s.SELocation(loc, body) =>
-        s.SELocation(loc, closureConvert(remaps, body))
+      case source.SEVar(i) => remap(i)
+      case v: source.SEVal => v
+      case be: source.SEBuiltin => be
+      case pl: source.SEValue => pl
+      case f: source.SEBuiltinRecursiveDefinition => f
+      case source.SELocation(loc, body) =>
+        source.SELocation(loc, closureConvert(remaps, body))
 
-      case s.SEAbs(0, _) =>
+      case source.SEAbs(0, _) =>
         throw CompilationError("empty SEAbs")
 
-      case s.SEAbs(arity, body) =>
+      case source.SEAbs(arity, body) =>
         val fvs = freeVars(body, arity).toList.sorted
-        val newRemapsF: Map[Int, s.SELoc] = fvs.zipWithIndex.map { case (orig, i) =>
-          (orig + arity) -> s.SELocF(i)
+        val newRemapsF: Map[Int, source.SELoc] = fvs.zipWithIndex.map { case (orig, i) =>
+          (orig + arity) -> source.SELocF(i)
         }.toMap
         val newRemapsA = (1 to arity).map { case i =>
-          i -> s.SELocA(arity - i)
+          i -> source.SELocA(arity - i)
         }
         // The keys in newRemapsF and newRemapsA are disjoint
         val newBody = closureConvert(newRemapsF ++ newRemapsA, body)
-        s.SEMakeClo(fvs.map(remap).toArray, arity, newBody)
+        source.SEMakeClo(fvs.map(remap).toArray, arity, newBody)
 
-      case s.SEAppGeneral(fun, args) =>
+      case source.SEAppGeneral(fun, args) =>
         val newFun = closureConvert(remaps, fun)
         val newArgs = args.map(closureConvert(remaps, _))
-        s.SEApp(newFun, newArgs)
+        source.SEApp(newFun, newArgs)
 
-      case s.SECase(scrut, alts) =>
-        s.SECase(
+      case source.SECase(scrut, alts) =>
+        source.SECase(
           closureConvert(remaps, scrut),
-          alts.map { case s.SCaseAlt(pat, body) =>
+          alts.map { case source.SCaseAlt(pat, body) =>
             val n = pat.numArgs
-            s.SCaseAlt(
+            source.SCaseAlt(
               pat,
               closureConvert(shift(remaps, n), body),
             )
           },
         )
 
-      case s.SELet(bounds, body) =>
-        s.SELet(
+      case source.SELet(bounds, body) =>
+        source.SELet(
           bounds.zipWithIndex.map { case (b, i) =>
             closureConvert(shift(remaps, i), b)
           },
           closureConvert(shift(remaps, bounds.length), body),
         )
 
-      case s.SETryCatch(body, handler) =>
-        s.SETryCatch(
+      case source.SETryCatch(body, handler) =>
+        source.SETryCatch(
           closureConvert(remaps, body),
           closureConvert(shift(remaps, 1), handler),
         )
 
-      case s.SEScopeExercise(body) =>
-        s.SEScopeExercise(closureConvert(remaps, body))
+      case source.SEScopeExercise(body) =>
+        source.SEScopeExercise(closureConvert(remaps, body))
 
-      case s.SELabelClosure(label, expr) =>
-        s.SELabelClosure(label, closureConvert(remaps, expr))
+      case source.SELabelClosure(label, expr) =>
+        source.SELabelClosure(label, closureConvert(remaps, expr))
 
-      case s.SELet1General(bound, body) =>
-        s.SELet1General(closureConvert(remaps, bound), closureConvert(shift(remaps, 1), body))
+      case source.SELet1General(bound, body) =>
+        source.SELet1General(closureConvert(remaps, bound), closureConvert(shift(remaps, 1), body))
 
-      case _: s.SELoc | _: s.SEMakeClo | _: s.SEDamlException | _: s.SEImportValue =>
+      case _: source.SELoc | _: source.SEMakeClo | _: source.SEDamlException |
+          _: source.SEImportValue =>
         throw CompilationError(s"closureConvert: unexpected $expr")
     }
   }
@@ -131,60 +132,60 @@ private[speedy] object ClosureConversion {
   // We must modify `remaps` because it is keyed by indexes relative to the end of the stack.
   // And any values in the map which are of the form SELocS must also be _shifted_
   // because SELocS indexes are also relative to the end of the stack.
-  private[this] def shift(remaps: Map[Int, s.SELoc], n: Int): Map[Int, s.SELoc] = {
+  private[this] def shift(remaps: Map[Int, source.SELoc], n: Int): Map[Int, source.SELoc] = {
 
     // We must update both the keys of the map (the relative-indexes from the original SEVar)
     // And also any values in the map which are stack located (SELocS), which are also indexed relatively
     val m1 = remaps.map { case (k, loc) => (n + k, shiftLoc(loc, n)) }
 
     // And create mappings for the `n` new stack items
-    val m2 = (1 to n).map(i => (i, s.SELocS(i)))
+    val m2 = (1 to n).map(i => (i, source.SELocS(i)))
 
     m1 ++ m2
   }
 
-  private[this] def shiftLoc(loc: s.SELoc, n: Int): s.SELoc = loc match {
-    case s.SELocS(i) => s.SELocS(i + n)
-    case s.SELocA(_) | s.SELocF(_) => loc
+  private[this] def shiftLoc(loc: source.SELoc, n: Int): source.SELoc = loc match {
+    case source.SELocS(i) => source.SELocS(i + n)
+    case source.SELocA(_) | source.SELocF(_) => loc
   }
 
   /** Compute the free variables in a speedy expression.
     * The returned free variables are de bruijn indices
     * adjusted to the stack of the caller.
     */
-  private[this] def freeVars(expr: s.SExpr, initiallyBound: Int): Set[Int] = {
-    def go(expr: s.SExpr, bound: Int, free: Set[Int]): Set[Int] =
+  private[this] def freeVars(expr: source.SExpr, initiallyBound: Int): Set[Int] = {
+    def go(expr: source.SExpr, bound: Int, free: Set[Int]): Set[Int] =
       expr match {
-        case s.SEVar(i) =>
+        case source.SEVar(i) =>
           if (i > bound) free + (i - bound) else free /* adjust to caller's environment */
-        case _: s.SEVal => free
-        case _: s.SEBuiltin => free
-        case _: s.SEValue => free
-        case _: s.SEBuiltinRecursiveDefinition => free
-        case s.SELocation(_, body) =>
+        case _: source.SEVal => free
+        case _: source.SEBuiltin => free
+        case _: source.SEValue => free
+        case _: source.SEBuiltinRecursiveDefinition => free
+        case source.SELocation(_, body) =>
           go(body, bound, free)
-        case s.SEAppGeneral(fun, args) =>
+        case source.SEAppGeneral(fun, args) =>
           args.foldLeft(go(fun, bound, free))((acc, arg) => go(arg, bound, acc))
-        case s.SEAbs(n, body) =>
+        case source.SEAbs(n, body) =>
           go(body, bound + n, free)
-        case s.SECase(scrut, alts) =>
-          alts.foldLeft(go(scrut, bound, free)) { case (acc, s.SCaseAlt(pat, body)) =>
+        case source.SECase(scrut, alts) =>
+          alts.foldLeft(go(scrut, bound, free)) { case (acc, source.SCaseAlt(pat, body)) =>
             val n = pat.numArgs
             go(body, bound + n, acc)
           }
-        case s.SELet(bounds, body) =>
+        case source.SELet(bounds, body) =>
           bounds.zipWithIndex.foldLeft(go(body, bound + bounds.length, free)) {
             case (acc, (expr, idx)) => go(expr, bound + idx, acc)
           }
-        case s.SELabelClosure(_, expr) =>
+        case source.SELabelClosure(_, expr) =>
           go(expr, bound, free)
-        case s.SETryCatch(body, handler) =>
+        case source.SETryCatch(body, handler) =>
           go(body, bound, go(handler, 1 + bound, free))
-        case s.SEScopeExercise(body) =>
+        case source.SEScopeExercise(body) =>
           go(body, bound, free)
 
-        case _: s.SELoc | _: s.SEMakeClo | _: s.SEDamlException | _: s.SEImportValue |
-            _: s.SELet1General =>
+        case _: source.SELoc | _: source.SEMakeClo | _: source.SEDamlException |
+            _: source.SEImportValue | _: source.SELet1General =>
           throw CompilationError(s"freeVars: unexpected $expr")
       }
 

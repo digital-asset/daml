@@ -7,8 +7,8 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import com.daml.lf.speedy.{SExpr0 => s}
-import com.daml.lf.speedy.{SExpr => t}
+import com.daml.lf.speedy.{SExpr0 => source}
+import com.daml.lf.speedy.{SExpr => target}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.Anf.flattenToAnf
@@ -129,16 +129,16 @@ class AnfTest extends AnyWordSpec with Matchers {
 
   "error applied to 1 arg" should {
     "be transformed to ANF as expected" in {
-      val original = slam(1, s.SEApp(s.SEBuiltin(SBError), Array(sarg0)))
-      val expected = lam(1, t.SEAppAtomicSaturatedBuiltin(SBError, Array(arg0)))
+      val original = slam(1, source.SEApp(source.SEBuiltin(SBError), Array(sarg0)))
+      val expected = lam(1, target.SEAppAtomicSaturatedBuiltin(SBError, Array(arg0)))
       testTransform(original, expected)
     }
   }
 
   "error (over) applied to 2 arg" should {
     "be transformed to ANF as expected" in {
-      val original = slam(2, s.SEApp(s.SEBuiltin(SBError), Array(sarg0, sarg1)))
-      val expected = lam(2, t.SEAppAtomicFun(t.SEBuiltin(SBError), Array(arg0, arg1)))
+      val original = slam(2, source.SEApp(source.SEBuiltin(SBError), Array(sarg0, sarg1)))
+      val expected = lam(2, target.SEAppAtomicFun(target.SEBuiltin(SBError), Array(arg0, arg1)))
       testTransform(original, expected)
     }
   }
@@ -194,47 +194,60 @@ class AnfTest extends AnyWordSpec with Matchers {
   }
 
   // expression builders
-  private def lam(n: Int, body: t.SExpr): t.SExpr = t.SEMakeClo(Array(), n, body)
-  private def clo1(fv: t.SELoc, n: Int, body: t.SExpr): t.SExpr = t.SEMakeClo(Array(fv), n, body)
+  private def lam(n: Int, body: target.SExpr): target.SExpr = target.SEMakeClo(Array(), n, body)
+  private def clo1(fv: target.SELoc, n: Int, body: target.SExpr): target.SExpr =
+    target.SEMakeClo(Array(fv), n, body)
 
-  private def app2n(func: t.SExprAtomic, arg1: t.SExpr, arg2: t.SExpr): t.SExpr =
-    t.SEAppAtomicFun(func, Array(arg1, arg2))
+  private def app2n(
+      func: target.SExprAtomic,
+      arg1: target.SExpr,
+      arg2: target.SExpr,
+  ): target.SExpr =
+    target.SEAppAtomicFun(func, Array(arg1, arg2))
 
   // anf builders
-  private def let1(rhs: t.SExpr, body: t.SExpr): t.SExpr =
-    t.SELet1General(rhs, body)
+  private def let1(rhs: target.SExpr, body: target.SExpr): target.SExpr =
+    target.SELet1General(rhs, body)
 
   private def let1b2(
       op: SBuiltinPure,
-      arg1: t.SExprAtomic,
-      arg2: t.SExprAtomic,
-      body: t.SExpr,
-  ): t.SExpr =
-    t.SELet1Builtin(op, Array(arg1, arg2), body)
+      arg1: target.SExprAtomic,
+      arg2: target.SExprAtomic,
+      body: target.SExpr,
+  ): target.SExpr =
+    target.SELet1Builtin(op, Array(arg1, arg2), body)
 
   private def let1b2(
       op: SBuiltinArithmetic,
-      arg1: t.SExprAtomic,
-      arg2: t.SExprAtomic,
-      body: t.SExpr,
-  ): t.SExpr =
-    t.SELet1BuiltinArithmetic(op, Array(arg1, arg2), body)
+      arg1: target.SExprAtomic,
+      arg2: target.SExprAtomic,
+      body: target.SExpr,
+  ): target.SExpr =
+    target.SELet1BuiltinArithmetic(op, Array(arg1, arg2), body)
 
-  private def appa(func: t.SExprAtomic, arg: t.SExprAtomic): t.SExpr =
-    t.SEAppAtomicGeneral(func, Array(arg))
+  private def appa(func: target.SExprAtomic, arg: target.SExprAtomic): target.SExpr =
+    target.SEAppAtomicGeneral(func, Array(arg))
 
-  private def binopa(op: SBuiltinArithmetic, x: t.SExprAtomic, y: t.SExprAtomic): t.SExpr =
-    t.SEAppAtomicSaturatedBuiltin(op, Array(x, y))
+  private def binopa(
+      op: SBuiltinArithmetic,
+      x: target.SExprAtomic,
+      y: target.SExprAtomic,
+  ): target.SExpr =
+    target.SEAppAtomicSaturatedBuiltin(op, Array(x, y))
 
-  private def itea(i: t.SExprAtomic, th: t.SExpr, e: t.SExpr): t.SExpr =
-    t.SECaseAtomic(i, Array(t.SCaseAlt(patTrue, th), t.SCaseAlt(patFalse, e)))
+  private def itea(i: target.SExprAtomic, th: target.SExpr, e: target.SExpr): target.SExpr =
+    target.SECaseAtomic(i, Array(target.SCaseAlt(patTrue, th), target.SCaseAlt(patFalse, e)))
 
   // true/false case-patterns
-  private def patTrue: t.SCasePat =
-    t.SCPVariant(Identifier.assertFromString("P:M:bool"), IdString.Name.assertFromString("True"), 1)
+  private def patTrue: target.SCasePat =
+    target.SCPVariant(
+      Identifier.assertFromString("P:M:bool"),
+      IdString.Name.assertFromString("True"),
+      1,
+    )
 
-  private def patFalse: t.SCasePat =
-    t.SCPVariant(
+  private def patFalse: target.SCasePat =
+    target.SCPVariant(
       Identifier.assertFromString("P:M:bool"),
       IdString.Name.assertFromString("False"),
       2,
@@ -242,46 +255,48 @@ class AnfTest extends AnyWordSpec with Matchers {
 
   // atoms
 
-  private def arg0 = t.SELocA(0)
-  private def arg1 = t.SELocA(1)
-  private def arg2 = t.SELocA(2)
-  private def arg3 = t.SELocA(3)
-  private def free0 = t.SELocF(0)
-  private def stack1 = t.SELocS(1)
-  private def stack2 = t.SELocS(2)
-  private def stack3 = t.SELocS(3)
+  private def arg0 = target.SELocA(0)
+  private def arg1 = target.SELocA(1)
+  private def arg2 = target.SELocA(2)
+  private def arg3 = target.SELocA(3)
+  private def free0 = target.SELocF(0)
+  private def stack1 = target.SELocS(1)
+  private def stack2 = target.SELocS(2)
+  private def stack3 = target.SELocS(3)
   private def num0 = num(0)
   private def num1 = num(1)
   private def num2 = num(2)
-  private def num(n: Long): t.SExprAtomic = t.SEValue(SInt64(n))
+  private def num(n: Long): target.SExprAtomic = target.SEValue(SInt64(n))
 
   // We have different expression types before/after the ANF transform, so we different constructors.
   // Use "s" (for "source") as a prefix to distinguish.
-  private def slam(n: Int, body: s.SExpr): s.SExpr = s.SEMakeClo(Array(), n, body)
-  private def sclo1(fv: s.SELoc, n: Int, body: s.SExpr): s.SExpr = s.SEMakeClo(Array(fv), n, body)
-  private def sapp(func: s.SExpr, arg: s.SExpr): s.SExpr = s.SEAppGeneral(func, Array(arg))
-  private def sbinop(op: SBuiltinPure, x: s.SExpr, y: s.SExpr): s.SExpr =
-    s.SEApp(s.SEBuiltin(op), Array(x, y))
-  private def sbinop(op: SBuiltinArithmetic, x: s.SExpr, y: s.SExpr): s.SExpr =
-    s.SEApp(s.SEBuiltin(op), Array(x, y))
-  private def sapp2(func: s.SExpr, arg1: s.SExpr, arg2: s.SExpr): s.SExpr =
-    s.SEAppGeneral(func, Array(arg1, arg2))
-  private def site(i: s.SExpr, t: s.SExpr, e: s.SExpr): s.SExpr =
-    s.SECase(i, Array(s.SCaseAlt(patTrue, t), s.SCaseAlt(patFalse, e)))
-  private def sarg0 = s.SELocA(0)
-  private def sarg1 = s.SELocA(1)
-  private def sarg2 = s.SELocA(2)
-  private def sarg3 = s.SELocA(3)
-  private def sfree0 = s.SELocF(0)
+  private def slam(n: Int, body: source.SExpr): source.SExpr = source.SEMakeClo(Array(), n, body)
+  private def sclo1(fv: source.SELoc, n: Int, body: source.SExpr): source.SExpr =
+    source.SEMakeClo(Array(fv), n, body)
+  private def sapp(func: source.SExpr, arg: source.SExpr): source.SExpr =
+    source.SEAppGeneral(func, Array(arg))
+  private def sbinop(op: SBuiltinPure, x: source.SExpr, y: source.SExpr): source.SExpr =
+    source.SEApp(source.SEBuiltin(op), Array(x, y))
+  private def sbinop(op: SBuiltinArithmetic, x: source.SExpr, y: source.SExpr): source.SExpr =
+    source.SEApp(source.SEBuiltin(op), Array(x, y))
+  private def sapp2(func: source.SExpr, arg1: source.SExpr, arg2: source.SExpr): source.SExpr =
+    source.SEAppGeneral(func, Array(arg1, arg2))
+  private def site(i: source.SExpr, t: source.SExpr, e: source.SExpr): source.SExpr =
+    source.SECase(i, Array(source.SCaseAlt(patTrue, t), source.SCaseAlt(patFalse, e)))
+  private def sarg0 = source.SELocA(0)
+  private def sarg1 = source.SELocA(1)
+  private def sarg2 = source.SELocA(2)
+  private def sarg3 = source.SELocA(3)
+  private def sfree0 = source.SELocF(0)
   private def snum0 = snum(0)
   private def snum1 = snum(1)
   private def snum2 = snum(2)
-  private def snum(n: Long): s.SExprAtomic = s.SEValue(SInt64(n))
+  private def snum(n: Long): source.SExprAtomic = source.SEValue(SInt64(n))
 
   // run a test...
   private def testTransform(
-      original: s.SExpr,
-      expected: t.SExpr,
+      original: source.SExpr,
+      expected: target.SExpr,
       show: Boolean = false,
   ): Assertion = {
     val transformed = flattenToAnf(original)
@@ -293,7 +308,7 @@ class AnfTest extends AnyWordSpec with Matchers {
     transformed shouldBe (expected)
   }
 
-  private def pp(e: t.SExpr): String = {
+  private def pp(e: target.SExpr): String = {
     prettySExpr(0)(e).render(80)
   }
 

@@ -9,7 +9,7 @@ package com.daml.lf.speedy
   */
 
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{SExpr => t}
+import com.daml.lf.speedy.SExpr._
 
 import scala.annotation.tailrec
 
@@ -17,7 +17,7 @@ private[lf] object ValidateCompilation {
 
   case class CompilationError(error: String) extends RuntimeException(error, null, true, false)
 
-  private[speedy] def validateCompilation(expr0: t.SExpr): t.SExpr = {
+  private[speedy] def validateCompilation(expr0: SExpr): SExpr = {
 
     def goV(v: SValue): Unit =
       v match {
@@ -37,73 +37,73 @@ private[lf] object ValidateCompilation {
           throw CompilationError("validate: unexpected s.SEValue")
       }
 
-    def goBody(maxS: Int, maxA: Int, maxF: Int): t.SExpr => Unit = {
+    def goBody(maxS: Int, maxA: Int, maxF: Int): SExpr => Unit = {
 
-      def goLoc(loc: t.SELoc) = loc match {
-        case t.SELocS(i) =>
+      def goLoc(loc: SELoc) = loc match {
+        case SELocS(i) =>
           if (i < 1 || i > maxS)
             throw CompilationError(s"validate: SELocS: index $i out of range ($maxS..1)")
-        case t.SELocA(i) =>
+        case SELocA(i) =>
           if (i < 0 || i >= maxA)
             throw CompilationError(s"validate: SELocA: index $i out of range (0..$maxA-1)")
-        case t.SELocF(i) =>
+        case SELocF(i) =>
           if (i < 0 || i >= maxF)
             throw CompilationError(s"validate: SELocF: index $i out of range (0..$maxF-1)")
       }
 
-      def go(expr: t.SExpr): Unit = expr match {
-        case loc: t.SELoc => goLoc(loc)
-        case _: t.SEVal => ()
-        case _: t.SEBuiltin => ()
-        case _: t.SEBuiltinRecursiveDefinition => ()
-        case t.SEValue(v) => goV(v)
-        case t.SEAppAtomicGeneral(fun, args) =>
+      def go(expr: SExpr): Unit = expr match {
+        case loc: SELoc => goLoc(loc)
+        case _: SEVal => ()
+        case _: SEBuiltin => ()
+        case _: SEBuiltinRecursiveDefinition => ()
+        case SEValue(v) => goV(v)
+        case SEAppAtomicGeneral(fun, args) =>
           go(fun)
           args.foreach(go)
-        case t.SEAppAtomicSaturatedBuiltin(_, args) =>
+        case SEAppAtomicSaturatedBuiltin(_, args) =>
           args.foreach(go)
-        case t.SEAppGeneral(fun, args) =>
+        case SEAppGeneral(fun, args) =>
           go(fun)
           args.foreach(go)
-        case t.SEAppAtomicFun(fun, args) =>
+        case SEAppAtomicFun(fun, args) =>
           go(fun)
           args.foreach(go)
-        case t.SEMakeClo(fvs, n, body) =>
+        case SEMakeClo(fvs, n, body) =>
           fvs.foreach(goLoc)
           goBody(0, n, fvs.length)(body)
-        case t.SECaseAtomic(scrut, alts) =>
+        case SECaseAtomic(scrut, alts) =>
           go(scrut)
-          alts.foreach { case t.SCaseAlt(pat, body) =>
+          alts.foreach { case SCaseAlt(pat, body) =>
             val n = pat.numArgs
             goBody(maxS + n, maxA, maxF)(body)
           }
-        case _: t.SELet1General => goLets(maxS)(expr)
-        case _: t.SELet1Builtin => goLets(maxS)(expr)
-        case _: t.SELet1BuiltinArithmetic => goLets(maxS)(expr)
-        case t.SELocation(_, body) =>
+        case _: SELet1General => goLets(maxS)(expr)
+        case _: SELet1Builtin => goLets(maxS)(expr)
+        case _: SELet1BuiltinArithmetic => goLets(maxS)(expr)
+        case SELocation(_, body) =>
           go(body)
-        case t.SELabelClosure(_, expr) =>
+        case SELabelClosure(_, expr) =>
           go(expr)
-        case t.SETryCatch(body, handler) =>
+        case SETryCatch(body, handler) =>
           go(body)
           goBody(maxS + 1, maxA, maxF)(handler)
-        case t.SEScopeExercise(body) =>
+        case SEScopeExercise(body) =>
           go(body)
 
-        case _: t.SEDamlException | _: t.SEImportValue =>
+        case _: SEDamlException | _: SEImportValue =>
           throw CompilationError(s"validate: unexpected $expr")
       }
       @tailrec
-      def goLets(maxS: Int)(expr: t.SExpr): Unit = {
+      def goLets(maxS: Int)(expr: SExpr): Unit = {
         def go = goBody(maxS, maxA, maxF)
         expr match {
-          case t.SELet1General(rhs, body) =>
+          case SELet1General(rhs, body) =>
             go(rhs)
             goLets(maxS + 1)(body)
-          case t.SELet1Builtin(_, args, body) =>
+          case SELet1Builtin(_, args, body) =>
             args.foreach(go)
             goLets(maxS + 1)(body)
-          case t.SELet1BuiltinArithmetic(_, args, body) =>
+          case SELet1BuiltinArithmetic(_, args, body) =>
             args.foreach(go)
             goLets(maxS + 1)(body)
           case expr =>
