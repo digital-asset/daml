@@ -18,8 +18,13 @@ package speedy
   *
   * 2: closure conversion
   * 3: transform to ANF
+  * 4: validate the final expression which will run on the speedy machine
   *
-  * Stages 1 and 2 are in Compiler.scala; stage 3 in Anf.scala.
+  * Stage 1 is in Compiler.scala
+  * Stage 2 is in ClosureConversion.scala
+  * Stage 3 is in Anf.scala
+  * Stage 4 is in ValidateCompilation.scala
+  *
   * During Stage3 (ANF transformation), we move from this type (SExpr0) to SExpr,
   * and so have the expression form suitable for execution on a speedy machine.
   *
