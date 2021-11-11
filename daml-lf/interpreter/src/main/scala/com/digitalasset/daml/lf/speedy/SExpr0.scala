@@ -56,15 +56,13 @@ private[speedy] object SExpr0 {
 
   sealed abstract class SExpr extends Product with Serializable
 
-  sealed abstract class SExprAtomic extends SExpr
-
   /** Reference to a variable. 'index' is the 1-based de Bruijn index,
     * that is, SEVar(1) points to the nearest enclosing variable binder.
     * which could be an SELam, SELet, or a binding variant of SECasePat.
     * https://en.wikipedia.org/wiki/De_Bruijn_index
     * This expression form is only allowed prior to closure conversion
     */
-  final case class SEVar(index: Int) extends SExprAtomic
+  final case class SEVar(index: Int) extends SExpr
 
   /** Reference to a value. On first lookup the evaluated expression is
     * stored in 'cached'.
@@ -72,16 +70,14 @@ private[speedy] object SExpr0 {
   final case class SEVal(ref: SDefinitionRef) extends SExpr
 
   /** Reference to a builtin function */
-  final case class SEBuiltin(b: SBuiltin) extends SExprAtomic
+  final case class SEBuiltin(b: SBuiltin) extends SExpr
 
   /** A pre-computed value, usually primitive literal, e.g. integer, text, boolean etc. */
-  final case class SEValue(v: SValue) extends SExprAtomic
+  final case class SEValue(v: SValue) extends SExpr
 
   object SEValue extends SValueContainer[SEValue]
 
-  /** Function application:
-    *    General case: 'fun' and 'args' are any kind of expression
-    */
+  /** Function application */
   final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals
 
   object SEApp {
@@ -90,10 +86,7 @@ private[speedy] object SExpr0 {
     }
   }
 
-  /** Lambda abstraction. Transformed into SEMakeClo in lambda lifting.
-    * NOTE(JM): Compilation done in two passes so that closure conversion
-    * can be written against this simplified expression type.
-    */
+  /** Lambda abstraction. Transformed to SEMakeClo during closure conversion */
   final case class SEAbs(arity: Int, body: SExpr) extends SExpr
 
   object SEAbs {
@@ -161,6 +154,6 @@ private[speedy] object SExpr0 {
 
   // TODO: simplify here: There is only kind of SEBuiltinRecursiveDefinition! - EqualList
   final case class SEBuiltinRecursiveDefinition(ref: runTime.SEBuiltinRecursiveDefinition.Reference)
-      extends SExprAtomic
+      extends SExpr
 
 }
