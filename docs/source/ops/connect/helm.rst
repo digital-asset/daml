@@ -19,7 +19,7 @@ on, you will need Artifactory credentials. In the rest of thie document, we
 assume that ``$ARTIFACTORY_USERNAME`` refers to your Artifactory user name,
 whereas ``$ARTIFACTORY_PASSWORD`` refers to your Artifactory API key.
 
-Installing the Helm chart repository
+Installing the Helm Chart Repository
 ------------------------------------
 
 To let your local Helm installation know about the Daml Connect Helm chart, you
@@ -53,7 +53,7 @@ where ``values.yaml`` is a YAML file that includes at least the
 ``imagePullSecret`` key. See the rest of this page for other options in
 ``values.yaml``, and the Helm documentation for related Helm usage.
 
-Setting up the ``imagePullSecret``
+Setting Up the ``imagePullSecret``
 ----------------------------------
 
 The Helm chart relies on the production-ready Docker images for individual
