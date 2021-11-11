@@ -746,6 +746,10 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_CreateTemplate <- encodeQualTypeConName creTemplate
         update_CreateExpr <- encodeExpr creArg
         pure $ P.UpdateSumCreate P.Update_Create{..}
+    UCreateInterface{..} -> do
+        update_CreateInterfaceInterface <- encodeQualTypeConName creInterface
+        update_CreateInterfaceExpr <- encodeExpr creArg
+        pure $ P.UpdateSumCreateInterface P.Update_CreateInterface{..}
     UExercise{..} -> do
         update_ExerciseTemplate <- encodeQualTypeConName exeTemplate
         update_ExerciseChoice <- encodeName unChoiceName exeChoice

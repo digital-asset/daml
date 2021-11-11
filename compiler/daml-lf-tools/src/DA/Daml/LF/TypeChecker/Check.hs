@@ -584,6 +584,11 @@ checkCreate tpl arg = do
   _ :: Template <- inWorld (lookupTemplate tpl)
   checkExpr arg (TCon tpl)
 
+checkCreateInterface :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
+checkCreateInterface iface arg = do
+  _ :: DefInterface <- inWorld (lookupInterface iface)
+  checkExpr arg (TCon iface)
+
 typeOfExercise :: MonadGamma m =>
   Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
 typeOfExercise tpl chName cid arg = do
@@ -645,6 +650,7 @@ typeOfUpdate = \case
   UPure typ expr -> checkPure typ expr $> TUpdate typ
   UBind binding body -> typeOfBind binding body
   UCreate tpl arg -> checkCreate tpl arg $> TUpdate (TContractId (TCon tpl))
+  UCreateInterface iface arg -> checkCreateInterface iface arg $> TUpdate (TContractId (TCon iface))
   UExercise tpl choice cid arg -> typeOfExercise tpl choice cid arg
   UExerciseInterface tpl choice cid arg -> typeOfExerciseInterface tpl choice cid arg
   UExerciseByKey tpl choice key arg -> typeOfExerciseByKey tpl choice key arg

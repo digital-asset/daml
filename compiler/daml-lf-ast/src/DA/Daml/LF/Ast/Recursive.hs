@@ -63,6 +63,7 @@ data UpdateF expr
   = UPureF     !Type !expr
   | UBindF     !(BindingF expr) !expr
   | UCreateF   !(Qualified TypeConName) !expr
+  | UCreateInterfaceF !(Qualified TypeConName) !expr
   | UExerciseF !(Qualified TypeConName) !ChoiceName !expr !expr
   | UExerciseInterfaceF !(Qualified TypeConName) !ChoiceName !expr !expr
   | UExerciseByKeyF !(Qualified TypeConName) !ChoiceName !expr !expr
@@ -111,6 +112,7 @@ projectUpdate = \case
   UPure a b -> UPureF a b
   UBind a b -> UBindF (projectBinding a) b
   UCreate a b -> UCreateF a b
+  UCreateInterface a b -> UCreateInterfaceF a b
   UExercise a b c d -> UExerciseF a b c d
   UExerciseInterface a b c d -> UExerciseInterfaceF a b c d
   UExerciseByKey a b c d -> UExerciseByKeyF a b c d
@@ -130,6 +132,7 @@ embedUpdate = \case
   UPureF a b -> UPure a b
   UBindF a b -> UBind (embedBinding a) b
   UCreateF a b -> UCreate a b
+  UCreateInterfaceF a b -> UCreateInterface a b
   UExerciseF a b c d -> UExercise a b c d
   UExerciseInterfaceF a b c d -> UExerciseInterface a b c d
   UExerciseByKeyF a b c d -> UExerciseByKey a b c d

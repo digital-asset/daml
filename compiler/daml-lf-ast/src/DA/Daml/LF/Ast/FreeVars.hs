@@ -135,6 +135,7 @@ freeVarsStep = \case
         UPureF t e -> freeVarsInType t <> e
         UBindF b e -> goBinding b e
         UCreateF _ e -> e
+        UCreateInterfaceF _ e -> e
         UExerciseF _ _ e1 e2 -> e1 <> e2
         UExerciseInterfaceF _ _ e1 e2 -> e1 <> e2
         UExerciseByKeyF _ _ e1 e2 -> e1 <> e2

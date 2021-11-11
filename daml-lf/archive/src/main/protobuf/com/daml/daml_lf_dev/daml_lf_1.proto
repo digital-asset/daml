@@ -1187,6 +1187,14 @@ message Update {
     Expr expr = 2;
   }
 
+  // Interface Create Update
+  message CreateInterface {
+    // Interface type
+    TypeConName interface = 1;
+    // Interface argument
+    Expr expr = 2;
+  }
+
   // Exercise Update
   message Exercise {
     // Template type
@@ -1293,6 +1301,7 @@ message Update {
     TryCatch try_catch = 11; // *Available in versions >= 1.14*
     ExerciseInterface exercise_interface = 12; // *Available in versions >= 1.dev*
     FetchInterface fetch_interface = 13; // *Available in versions >= 1.dev*
+    CreateInterface create_interface = 14; // *Available in versions >= 1.dev*
   }
 }
 
