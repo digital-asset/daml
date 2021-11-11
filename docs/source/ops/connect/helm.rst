@@ -7,13 +7,13 @@ Connect Helm Chart
 ==================
 
 As of 1.18.0, we provide an Early Access version of the Connect Helm Chart for
-Entreprise Edition customers. This page contains documentation for that Helm
+Enterprise Edition customers. This page contains documentation for that Helm
 chart.
 
 Credentials
 -----------
 
-Like all Entreprise Edition components, the Helm Chart is hosted on
+Like all Enterprise Edition components, the Helm Chart is hosted on
 Artifactory. To get both the Helm chart itself and the Docker images it relies
 on, you will need Artifactory credentials. In the rest of thie document, we
 assume that ``$ARTIFACTORY_USERNAME`` refers to your Artifactory user name,
@@ -57,7 +57,7 @@ Setting up the ``imagePullSecret``
 ----------------------------------
 
 The Helm chart relies on the production-ready Docker images for individual
-components that are part of the Entreprise Edition. Specifically, it expects a
+components that are part of the Enterprise Edition. Specifically, it expects a
 Kubernetes secret given as the ``imagePullSecret`` argument with the relevant
 Docker credentials in it.
 

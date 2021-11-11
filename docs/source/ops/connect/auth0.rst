@@ -595,7 +595,7 @@ And that's it for building the application. We now have a DAR file that is
 ready to be deployed to a ledger, as well as a Docker container ready to serve
 our frontend. All we need now is to get a Daml Connect system up and running.
 We document two paths forward here: one that relies on the Helm chart included
-in Daml Connect Entreprise Edition, and a manual setup using only the Community
+in Daml Connect Enterprise Edition, and a manual setup using only the Community
 Edition SDK.
 
 Using the Connect Helm Chart
@@ -603,7 +603,7 @@ Using the Connect Helm Chart
 
 For simplicity, we assume that you have access to a server with a public IP
 address that both you and Auth0 can reach. Furthermore, we assume that you have
-access to Entreprise Edition credentials to download the Docker images.  We
+access to Enterprise Edition credentials to download the Docker images.  We
 also assume you can create a local cluster with ``minikube`` on the remote
 machine. Finally, we assume that you have downloaded the Helm chart in a folder
 called ``daml-connect``.
