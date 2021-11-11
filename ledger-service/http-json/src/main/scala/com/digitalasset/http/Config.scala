@@ -6,8 +6,8 @@ package com.daml.http
 import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
-
 import akka.stream.ThrottleMode
+import com.daml.http.dbbackend.ConnectionPool
 import com.daml.util.ExceptionOps._
 import com.daml.ledger.api.tls.TlsConfiguration
 import scalaz.std.option._
@@ -76,6 +76,9 @@ private[http] abstract class ConfigCompanion[A](name: String) {
   protected def optionalLongField(m: Map[String, String])(k: String): Either[String, Option[Long]] =
     m.get(k).traverse(v => parseLong(k)(v)).toEither
 
+  protected def optionalIntField(m: Map[String, String])(k: String): Either[String, Option[Int]] =
+    m.get(k).traverse(v => parseInt(k)(v)).toEither
+
   import scalaz.syntax.std.string._
 
   protected def parseBoolean(k: String)(v: String): String \/ Boolean =
@@ -83,6 +86,9 @@ private[http] abstract class ConfigCompanion[A](name: String) {
 
   protected def parseLong(k: String)(v: String): String \/ Long =
     v.parseLong.leftMap(e => s"$k=$v must be a int value: ${e.description}").disjunction
+
+  protected def parseInt(k: String)(v: String): String \/ Int =
+    v.parseInt.leftMap(e => s"$k=$v must be a int value: ${e.description}").disjunction
 
   protected def requiredDirectoryField(m: Map[String, String])(k: String): Either[String, File] =
     requiredField(m)(k).flatMap(directory)
@@ -101,16 +107,28 @@ private[http] final case class JdbcConfig(
     url: String,
     user: String,
     password: String,
+    poolSize: Int,
     createSchema: Boolean = false,
+    minIdle: Int = JdbcConfig.MinIdle,
+    connectionTimeout: Long = JdbcConfig.ConnectionTimeout,
+    idleTimeout: Long = JdbcConfig.IdleTimeout,
 )
 
 private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig") {
+
+  import ConnectionPool.PoolSize.Production
+  final val MinIdle = 8
+  final val IdleTimeout = 10000L // ms, minimum according to log, defaults to 600s
+  final val ConnectionTimeout = 5000L
+
   import dbbackend.ContractDao.supportedJdbcDriverNames
 
   private[this] def supportedDriversHelp = supportedJdbcDriverNames mkString ", "
 
   implicit val showInstance: Show[JdbcConfig] = Show.shows(a =>
-    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, createSchema=${a.createSchema})"
+    s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, createSchema=${a.createSchema}, " +
+      s"poolSize=${a.poolSize}), minIdle=${a.minIdle}, connectionTimeout=${a.connectionTimeout}, " +
+      s"idleTimeout=${a.idleTimeout}"
   )
 
   lazy val help: String =
@@ -120,12 +138,20 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
       s"${indent}user -- database user name,\n" +
       s"${indent}password -- database user password,\n" +
       s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.\n" +
+      s"${indent}poolSize -- int value, specifies the max pool size for the database connection pool.\n" +
+      s"${indent}minIdle -- int value, specifies the min idle connections for database connection pool.\n" +
+      s"${indent}connectionTimeout -- long value, specifies the connection timeout for database connection pool.\n" +
+      s"${indent}idleTimeout -- long value, specifies the idle timeout for the database connection pool.\n" +
       s"${indent}Example: " + helpString(
         "org.postgresql.Driver",
         "jdbc:postgresql://localhost:5432/test?&ssl=true",
         "postgres",
         "password",
         "false",
+        Production.toString,
+        MinIdle.toString,
+        ConnectionTimeout.toString,
+        IdleTimeout.toString,
       )
 
   lazy val usage: String = helpString(
@@ -134,6 +160,10 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
     "<user>",
     "<password>",
     "<true|false>",
+    "<poolSize>",
+    "<minIdle>",
+    "<connectionTimeout>",
+    "<idleTimeout>",
   )
 
   override def create(x: Map[String, String]): Either[String, JdbcConfig] =
@@ -148,12 +178,20 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
       user <- requiredField(x)("user")
       password <- requiredField(x)("password")
       createSchema <- optionalBooleanField(x)("createSchema")
+      maxPoolSize <- optionalIntField(x)("poolSize")
+      minIdle <- optionalIntField(x)("minIdle")
+      connTimeout <- optionalLongField(x)("connectionTimeout")
+      idleTimeout <- optionalLongField(x)("idleTimeout")
     } yield JdbcConfig(
       driver = driver,
       url = url,
       user = user,
       password = password,
+      poolSize = maxPoolSize.getOrElse(ConnectionPool.PoolSize.Production),
       createSchema = createSchema.getOrElse(false),
+      minIdle = minIdle.getOrElse(MinIdle),
+      connectionTimeout = connTimeout.getOrElse(ConnectionTimeout),
+      idleTimeout = idleTimeout.getOrElse(IdleTimeout),
     )
 
   private def helpString(
@@ -162,8 +200,13 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
       user: String,
       password: String,
       createSchema: String,
+      poolSize: String,
+      minIdle: String,
+      connectionTimeout: String,
+      idleTimeout: String,
   ): String =
-    s"""\"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema\""""
+    s"""\"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema,poolSize=$poolSize,
+       |minIdle=$minIdle, connectionTimeout=$connectionTimeout,idleTimeout=$idleTimeout\"""".stripMargin
 }
 
 // It is public for DABL

@@ -97,7 +97,7 @@ object HttpService extends StrictLogging {
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
-  ): Future[Error \/ ServerBinding] = {
+  ): Future[Error \/ (ServerBinding, Option[ContractDao])] = {
     import startSettings._
 
     implicit val settings: ServerSettings = ServerSettings(asys).withTransparentHeadRequests(true)
@@ -113,7 +113,7 @@ object HttpService extends StrictLogging {
       maxInboundMessageSize = maxInboundMessageSize,
     )
 
-    val bindingEt: EitherT[Future, Error, ServerBinding] = for {
+    val bindingEt: EitherT[Future, Error, (ServerBinding, Option[ContractDao])] = for {
       client <- eitherT(
         ledgerClient(ledgerHost, ledgerPort, clientConfig)
       ): ET[LedgerClient]
@@ -222,9 +222,9 @@ object HttpService extends StrictLogging {
 
       _ <- either(portFile.cata(f => createPortFile(f, binding), \/-(()))): ET[Unit]
 
-    } yield binding
+    } yield (binding, contractDao)
 
-    bindingEt.run: Future[Error \/ ServerBinding]
+    bindingEt.run: Future[Error \/ (ServerBinding, Option[ContractDao])]
   }
 
   private[http] def refreshToken(
@@ -267,9 +267,14 @@ object HttpService extends StrictLogging {
       } yield ()
     }
 
-  def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {
+  def stop(
+      f: Future[Error \/ (ServerBinding, Option[ContractDao])]
+  )(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info("Stopping server...")
-    f.collect { case \/-(a) => a.unbind().void }.join
+    f.collect { case \/-((a, dao)) =>
+      dao.foreach(_.close())
+      a.unbind().void
+    }.join
   }
 
   // Decode JWT without any validation
