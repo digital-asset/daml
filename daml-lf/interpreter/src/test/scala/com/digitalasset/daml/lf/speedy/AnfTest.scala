@@ -7,7 +7,7 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import com.daml.lf.speedy.{SExpr0 => source}
+import com.daml.lf.speedy.{SExpr1 => source}
 import com.daml.lf.speedy.{SExpr => target}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltin._

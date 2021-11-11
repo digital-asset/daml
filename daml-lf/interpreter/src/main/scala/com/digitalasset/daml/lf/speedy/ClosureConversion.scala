@@ -13,6 +13,7 @@ package com.daml.lf.speedy
   */
 
 import com.daml.lf.speedy.{SExpr0 => source}
+import com.daml.lf.speedy.{SExpr1 => target}
 
 private[speedy] object ClosureConversion {
 
@@ -41,16 +42,16 @@ private[speedy] object ClosureConversion {
     */
 
   // TODO: Introduce a new type expression for the result of closure conversion
-  private[speedy] def closureConvert(expr: source.SExpr): source.SExpr = {
+  private[speedy] def closureConvert(expr: source.SExpr): target.SExpr = {
     closureConvert(Map.empty, expr)
   }
 
-  private def closureConvert(remaps: Map[Int, source.SELoc], expr: source.SExpr): source.SExpr = {
+  private def closureConvert(remaps: Map[Int, target.SELoc], expr: source.SExpr): target.SExpr = {
 
     // remaps is a function which maps the relative offset from variables (SEVar) to their runtime location
     // The Map must contain a binding for every variable referenced.
     // The Map is consulted when translating variable references (SEVar) and free variables of an abstraction (SEAbs)
-    def remap(i: Int): source.SELoc =
+    def remap(i: Int): target.SELoc =
       remaps.get(i) match {
         case Some(loc) => loc
         case None =>
@@ -58,39 +59,39 @@ private[speedy] object ClosureConversion {
       }
     expr match {
       case source.SEVar(i) => remap(i)
-      case v: source.SEVal => v
-      case be: source.SEBuiltin => be
-      case pl: source.SEValue => pl
-      case f: source.SEBuiltinRecursiveDefinition => f
+      case source.SEVal(ref) => target.SEVal(ref)
+      case source.SEBuiltin(b) => target.SEBuiltin(b)
+      case source.SEValue(v) => target.SEValue(v)
+      case source.SEBuiltinRecursiveDefinition(f) => target.SEBuiltinRecursiveDefinition(f)
       case source.SELocation(loc, body) =>
-        source.SELocation(loc, closureConvert(remaps, body))
+        target.SELocation(loc, closureConvert(remaps, body))
 
       case source.SEAbs(0, _) =>
         throw CompilationError("empty SEAbs")
 
       case source.SEAbs(arity, body) =>
         val fvs = freeVars(body, arity).toList.sorted
-        val newRemapsF: Map[Int, source.SELoc] = fvs.zipWithIndex.map { case (orig, i) =>
-          (orig + arity) -> source.SELocF(i)
+        val newRemapsF: Map[Int, target.SELoc] = fvs.zipWithIndex.map { case (orig, i) =>
+          (orig + arity) -> target.SELocF(i)
         }.toMap
         val newRemapsA = (1 to arity).map { case i =>
-          i -> source.SELocA(arity - i)
+          i -> target.SELocA(arity - i)
         }
         // The keys in newRemapsF and newRemapsA are disjoint
         val newBody = closureConvert(newRemapsF ++ newRemapsA, body)
-        source.SEMakeClo(fvs.map(remap).toArray, arity, newBody)
+        target.SEMakeClo(fvs.map(remap).toArray, arity, newBody)
 
       case source.SEAppGeneral(fun, args) =>
         val newFun = closureConvert(remaps, fun)
         val newArgs = args.map(closureConvert(remaps, _))
-        source.SEApp(newFun, newArgs)
+        target.SEApp(newFun, newArgs)
 
       case source.SECase(scrut, alts) =>
-        source.SECase(
+        target.SECase(
           closureConvert(remaps, scrut),
           alts.map { case source.SCaseAlt(pat, body) =>
             val n = pat.numArgs
-            source.SCaseAlt(
+            target.SCaseAlt(
               pat,
               closureConvert(shift(remaps, n), body),
             )
@@ -98,7 +99,7 @@ private[speedy] object ClosureConversion {
         )
 
       case source.SELet(bounds, body) =>
-        source.SELet(
+        target.SELet(
           bounds.zipWithIndex.map { case (b, i) =>
             closureConvert(shift(remaps, i), b)
           },
@@ -106,19 +107,19 @@ private[speedy] object ClosureConversion {
         )
 
       case source.SETryCatch(body, handler) =>
-        source.SETryCatch(
+        target.SETryCatch(
           closureConvert(remaps, body),
           closureConvert(shift(remaps, 1), handler),
         )
 
       case source.SEScopeExercise(body) =>
-        source.SEScopeExercise(closureConvert(remaps, body))
+        target.SEScopeExercise(closureConvert(remaps, body))
 
       case source.SELabelClosure(label, expr) =>
-        source.SELabelClosure(label, closureConvert(remaps, expr))
+        target.SELabelClosure(label, closureConvert(remaps, expr))
 
       case source.SELet1General(bound, body) =>
-        source.SELet1General(closureConvert(remaps, bound), closureConvert(shift(remaps, 1), body))
+        target.SELet1General(closureConvert(remaps, bound), closureConvert(shift(remaps, 1), body))
 
       case _: source.SELoc | _: source.SEMakeClo | _: source.SEDamlException |
           _: source.SEImportValue =>
@@ -132,21 +133,21 @@ private[speedy] object ClosureConversion {
   // We must modify `remaps` because it is keyed by indexes relative to the end of the stack.
   // And any values in the map which are of the form SELocS must also be _shifted_
   // because SELocS indexes are also relative to the end of the stack.
-  private[this] def shift(remaps: Map[Int, source.SELoc], n: Int): Map[Int, source.SELoc] = {
+  private[this] def shift(remaps: Map[Int, target.SELoc], n: Int): Map[Int, target.SELoc] = {
 
     // We must update both the keys of the map (the relative-indexes from the original SEVar)
     // And also any values in the map which are stack located (SELocS), which are also indexed relatively
     val m1 = remaps.map { case (k, loc) => (n + k, shiftLoc(loc, n)) }
 
     // And create mappings for the `n` new stack items
-    val m2 = (1 to n).map(i => (i, source.SELocS(i)))
+    val m2 = (1 to n).map(i => (i, target.SELocS(i)))
 
     m1 ++ m2
   }
 
-  private[this] def shiftLoc(loc: source.SELoc, n: Int): source.SELoc = loc match {
-    case source.SELocS(i) => source.SELocS(i + n)
-    case source.SELocA(_) | source.SELocF(_) => loc
+  private[this] def shiftLoc(loc: target.SELoc, n: Int): target.SELoc = loc match {
+    case target.SELocS(i) => target.SELocS(i + n)
+    case target.SELocA(_) | target.SELocF(_) => loc
   }
 
   /** Compute the free variables in a speedy expression.

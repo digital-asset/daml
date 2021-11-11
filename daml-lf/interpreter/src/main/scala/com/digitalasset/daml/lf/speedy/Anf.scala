@@ -30,7 +30,7 @@ package com.daml.lf.speedy
   */
 
 import com.daml.lf.data.Trampoline.{Bounce, Land, Trampoline}
-import com.daml.lf.speedy.{SExpr0 => source}
+import com.daml.lf.speedy.{SExpr1 => source}
 import com.daml.lf.speedy.{SExpr => target}
 import com.daml.lf.speedy.Compiler.CompilationError
 
