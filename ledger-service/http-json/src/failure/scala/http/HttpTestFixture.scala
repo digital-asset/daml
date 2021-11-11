@@ -5,10 +5,12 @@ package com.daml.http
 
 import akka.http.scaladsl.model.Uri
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.http.dbbackend.ConnectionPool
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ports.LockedFreePort
 import com.daml.testing.postgresql.PostgresAroundAll
+
 import java.net.InetAddress
 import org.scalatest.Suite
 
@@ -38,6 +40,7 @@ trait HttpFailureTestFixture extends ToxicSandboxFixture with PostgresAroundAll 
         s"jdbc:postgresql://${postgresDatabase.hostName}:$dbProxyPort/${postgresDatabase.databaseName}?user=${postgresDatabase.userName}&password=${postgresDatabase.password}",
       user = "test",
       password = "",
+      poolSize = ConnectionPool.PoolSize.Integration,
       createSchema = true,
     )
 

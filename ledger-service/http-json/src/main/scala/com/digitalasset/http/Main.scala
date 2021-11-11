@@ -63,7 +63,7 @@ object Main extends StrictLogging {
 
     def terminate(): Unit = discard { Await.result(asys.terminate(), 10.seconds) }
 
-    val contractDao = config.jdbcConfig.map(c => ContractDao(c.driver, c.url, c.user, c.password))
+    val contractDao = config.jdbcConfig.map(c => ContractDao(c))
 
     (contractDao, config.jdbcConfig) match {
       case (Some(dao), Some(c)) if c.createSchema =>
@@ -82,7 +82,7 @@ object Main extends StrictLogging {
       case _ =>
     }
 
-    val serviceF: Future[HttpService.Error \/ ServerBinding] =
+    val serviceF: Future[HttpService.Error \/ (ServerBinding, Option[ContractDao])] =
       HttpService.start(
         startSettings = config,
         contractDao = contractDao,
