@@ -360,7 +360,14 @@ object SExpr {
   }
 
   /** Case patterns */
-  sealed trait SCasePat
+  sealed trait SCasePat {
+
+    private[speedy] def numArgs: Int = this match {
+      case _: SCPEnum | _: SCPPrimCon | SCPNil | SCPDefault | SCPNone => 0
+      case _: SCPVariant | SCPSome => 1
+      case SCPCons => 2
+    }
+  }
 
   /** Match on a variant. On match the value is unboxed and pushed to stack. */
   final case class SCPVariant(id: Identifier, variant: Name, constructorRank: Int) extends SCasePat
