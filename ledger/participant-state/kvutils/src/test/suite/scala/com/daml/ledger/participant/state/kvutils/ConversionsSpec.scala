@@ -502,7 +502,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
         DamlSubmitterInfo.newBuilder().setApplicationId("id").setCommandId("commandId")
       }
 
-      "use empty submission id" in {
+      "use empty submission ID" in {
         val completionInfo = parseCompletionInfo(
           recordTime,
           submitterInfo.build(),
@@ -510,7 +510,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
         completionInfo.submissionId shouldBe None
       }
 
-      "use defined submission id" in {
+      "use defined submission ID" in {
         val submissionId = "submissionId"
         val completionInfo = parseCompletionInfo(
           recordTime,
