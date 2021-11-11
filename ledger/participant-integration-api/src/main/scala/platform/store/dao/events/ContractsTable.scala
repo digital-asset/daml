@@ -9,6 +9,7 @@ import java.time.Instant
 import anorm.SqlParser.int
 import anorm.{BatchSql, NamedParameter, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.PartyDetails
+import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.JdbcLedgerDao
@@ -114,8 +115,6 @@ private[events] object ContractsTable {
     )
 
   private def notFound(contractIds: Set[ContractId]): Throwable =
-    new IllegalArgumentException(
-      s"One or more of the following contract identifiers has been found: ${contractIds.map(_.coid).mkString(", ")}"
-    )
+    new MissingContracts(contractIds)
 
 }
