@@ -703,7 +703,7 @@ class Ledger {
   /**
    * Construct a new `Ledger` object. See [[LedgerOptions]] for the constructor arguments.
    */
-  constructor({token, httpBaseUrl, wsBaseUrl, reconnectThreshold = 30000, multiplexQueryStreams = true}: LedgerOptions) {
+  constructor({token, httpBaseUrl, wsBaseUrl, reconnectThreshold = 30000, multiplexQueryStreams = false}: LedgerOptions) {
     if (!httpBaseUrl) {
       httpBaseUrl = `${window.location.protocol}//${window.location.host}/`;
     }
@@ -1054,11 +1054,11 @@ class Ledger {
           }
         }
       } else if (isRecordWith('warnings', json)) {
-        console.warn(`Ledger.${callerName} warnings`, json);
+        console.warn(`${callerName} warnings`, json);
       } else if (isRecordWith('errors', json)) {
-        console.error(`Ledger.${callerName} errors`, json);
+        console.error(`${callerName} errors`, json);
       } else {
-        console.error(`Ledger.${callerName} unknown message`, json);
+        console.error(`${callerName} unknown message`, json);
       }
     };
     const closeStream = (status: { code: number; reason: string }): void => {
@@ -1242,7 +1242,7 @@ class Ledger {
       lastContractId = contract ? contract.contractId : null
       return contract;
     }
-    return this.streamSubmit("streamFetchByKey", template, 'v1/stream/fetch', request, reconnectRequest, null, change);
+    return this.streamSubmit("Ledger.streamFetchByKey", template, 'v1/stream/fetch', request, reconnectRequest, null, change);
   }
 
   /**

@@ -216,7 +216,7 @@ test('create + fetch & exercise', async () => {
   const personRawStream = aliceLedger.streamQuery(buildAndLint.Main.Person);
   const personStream = promisifyStream(personRawStream);
   const personStreamLive = pEvent(personRawStream, 'live');
-  expect(await personStream.next()).toEqual([[alice6Contract], [{created: alice6Contract, matchedQueries:[1]}]]);
+  expect(await personStream.next()).toEqual([[alice6Contract], [{created: alice6Contract, matchedQueries:[0]}]]);
 
   // end of non-live data, first offset
   expect(await personStreamLive).toEqual([alice6Contract]);
@@ -226,7 +226,7 @@ test('create + fetch & exercise', async () => {
   const bob4Contract = await bobLedger.create(buildAndLint.Main.Person, bob4);
   expect(bob4Contract.payload).toEqual(bob4);
   expect(bob4Contract.key).toEqual(bob4Key);
-  expect(await personStream.next()).toEqual([[alice6Contract, bob4Contract], [{created: bob4Contract, matchedQueries:[1]}]]);
+  expect(await personStream.next()).toEqual([[alice6Contract, bob4Contract], [{created: bob4Contract, matchedQueries:[0]}]]);
 
 
   // Alice changes her name.
@@ -243,7 +243,7 @@ test('create + fetch & exercise', async () => {
   expect(cooper6Contract.key).toEqual(alice6Key);
   expect(await aliceStream.next()).toEqual([[cooper6Contract], [{archived: alice6Archived}, {created: cooper6Contract, matchedQueries:[0]}]]);
   expect(await alice6KeyStream.next()).toEqual([cooper6Contract, [{archived: alice6Archived}, {created: cooper6Contract}]]);
-  expect(await personStream.next()).toEqual([[bob4Contract, cooper6Contract], [{archived: alice6Archived}, {created: cooper6Contract, matchedQueries:[1]}]]);
+  expect(await personStream.next()).toEqual([[bob4Contract, cooper6Contract], [{archived: alice6Archived}, {created: cooper6Contract, matchedQueries:[0]}]]);
 
   personContracts = await aliceLedger.query(buildAndLint.Main.Person);
   expect(personContracts).toEqual([bob4Contract, cooper6Contract]);
