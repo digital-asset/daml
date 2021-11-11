@@ -61,6 +61,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       dtoPackageEntry(offset(3)),
       // 4: transaction with create node
       dtoCreate(offset(4), 1L, "#4"),
+      DbDto.CreateFilter(1L, someTemplateId.toString, someParty.toString),
       dtoCompletion(offset(4)),
       // 5: transaction with exercise node and retroactive divulgence
       dtoExercise(offset(5), 2L, true, "#4"),
@@ -91,6 +92,15 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       stringInterningEntries <- executeSql(
         backend.stringInterning.loadStringInterningEntries(0, 1000)
       )
+      filterIds <- executeSql(
+        backend.event.activeContractEventIds(
+          partyFilter = someParty,
+          templateIdFilter = None,
+          startExclusive = 0,
+          endInclusive = 1000,
+          limit = 1000,
+        )
+      )
     } yield {
       identity shouldBe None
       end shouldBe None
@@ -99,6 +109,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       events shouldBe empty
       config shouldBe None
       stringInterningEntries shouldBe empty
+      filterIds shouldBe empty
     }
   }
 
@@ -113,6 +124,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       dtoPackageEntry(offset(3)),
       // 4: transaction with create node
       dtoCreate(offset(4), 1L, "#4"),
+      DbDto.CreateFilter(1L, someTemplateId.toString, someParty.toString),
       dtoCompletion(offset(4)),
       // 5: transaction with exercise node and retroactive divulgence
       dtoExercise(offset(5), 2L, true, "#4"),
@@ -142,6 +154,15 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       stringInterningEntries <- executeSql(
         backend.stringInterning.loadStringInterningEntries(0, 1000)
       )
+      filterIds <- executeSql(
+        backend.event.activeContractEventIds(
+          partyFilter = someParty,
+          templateIdFilter = None,
+          startExclusive = 0,
+          endInclusive = 1000,
+          limit = 1000,
+        )
+      )
     } yield {
       identity shouldBe None
       end shouldBe None
@@ -150,6 +171,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       events shouldBe empty
       config shouldBe None
       stringInterningEntries shouldBe empty
+      filterIds shouldBe empty
     }
   }
 

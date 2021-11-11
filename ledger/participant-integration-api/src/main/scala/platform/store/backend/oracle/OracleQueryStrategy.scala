@@ -31,4 +31,11 @@ object OracleQueryStrategy extends QueryStrategy {
     s"EXISTS (SELECT 1 FROM JSON_TABLE($arrayColumnName, '$$[*]' columns (value NUMBER PATH '$$')) WHERE value = $elementColumnName)"
 
   override def isTrue(booleanColumnName: String): String = s"$booleanColumnName = 1"
+
+  // WARNING! this construction will lead to "= ANY(?, ?, ?, ..... ?)" SQLs, for which oracle has an upper limit of 1000
+  override def anyOf(longs: Iterable[Long]): CompositeSql = {
+    val longArray: Vector[java.lang.Long] =
+      longs.view.map(Long.box).toVector
+    cSQL"= ANY($longArray)"
+  }
 }

@@ -294,6 +294,17 @@ private[backend] object AppendOnlySchema {
         "external_string" -> fieldStrategy.string(_ => _.externalString),
       )
 
+    val createFilter: Table[DbDto.CreateFilter] =
+      fieldStrategy.insert("participant_events_create_filter")(
+        "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
+        "template_id" -> fieldStrategy.int(stringInterning =>
+          dto => stringInterning.templateId.unsafe.internalize(dto.template_id)
+        ),
+        "party_id" -> fieldStrategy.int(stringInterning =>
+          dto => stringInterning.party.unsafe.internalize(dto.party_id)
+        ),
+      )
+
     val executes: Seq[Array[Array[_]] => Connection => Unit] = List(
       eventsDivulgence.executeUpdate,
       eventsCreate.executeUpdate,
@@ -306,6 +317,7 @@ private[backend] object AppendOnlySchema {
       commandCompletions.executeUpdate,
       commandSubmissionDeletes.executeUpdate,
       stringInterningTable.executeUpdate,
+      createFilter.executeUpdate,
     )
 
     new Schema[DbDto] {
@@ -331,6 +343,7 @@ private[backend] object AppendOnlySchema {
           commandCompletions.prepareData(collect[CommandCompletion], stringInterning),
           commandSubmissionDeletes.prepareData(collect[CommandDeduplication], stringInterning),
           stringInterningTable.prepareData(collect[StringInterningDto], stringInterning),
+          createFilter.prepareData(collect[CreateFilter], stringInterning),
         )
       }
 

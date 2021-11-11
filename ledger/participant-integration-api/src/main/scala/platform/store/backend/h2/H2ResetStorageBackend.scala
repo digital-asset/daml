@@ -23,6 +23,7 @@ object H2ResetStorageBackend extends ResetStorageBackend {
           |truncate table participant_events_non_consuming_exercise;
           |truncate table party_entries;
           |truncate table string_interning;
+          |truncate table participant_events_create_filter;
           |set referential_integrity true;""".stripMargin)
       .execute()(connection)
     ()
@@ -42,6 +43,7 @@ object H2ResetStorageBackend extends ResetStorageBackend {
           |truncate table participant_events_non_consuming_exercise;
           |truncate table party_entries;
           |truncate table string_interning;
+          |truncate table participant_events_create_filter;
           |set referential_integrity true;""".stripMargin)
       .execute()(connection)
     ()

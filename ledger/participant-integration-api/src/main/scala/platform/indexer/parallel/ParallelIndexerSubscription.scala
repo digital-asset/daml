@@ -193,7 +193,11 @@ object ParallelIndexerSubscription {
         eventSeqId += 1
         dbDto.copy(event_sequential_id = eventSeqId)
 
-      case notEvent => notEvent
+      case dbDto: DbDto.CreateFilter =>
+        // we do not increase the event_seq_id here, because all the CreateFilter DbDto-s must have the same eventSeqId as the preceding EventCreate
+        dbDto.copy(event_sequential_id = eventSeqId)
+
+      case unChanged => unChanged
     }
 
     val (newLastStringInterningId, dbDtosWithStringInterning) =
