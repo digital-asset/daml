@@ -4,6 +4,7 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
+
 import anorm.SqlParser.{byteArray, int, long, str}
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -17,12 +18,15 @@ import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Conversions.{offset, timestampFromMicros}
 import com.daml.platform.store.backend.CompletionStorageBackend
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+import com.daml.platform.store.interning.StringInterning
 import com.google.protobuf.any
 import com.google.rpc.status.{Status => StatusProto}
 
-class CompletionStorageBackendTemplate(queryStrategy: QueryStrategy)
-    extends CompletionStorageBackend {
-
+class CompletionStorageBackendTemplate(
+    queryStrategy: QueryStrategy,
+    stringInterning: StringInterning,
+) extends CompletionStorageBackend {
+  assert(stringInterning != null) // TODO remove
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override def commandCompletions(

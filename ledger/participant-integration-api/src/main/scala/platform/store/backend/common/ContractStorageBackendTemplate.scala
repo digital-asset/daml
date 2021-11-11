@@ -27,14 +27,16 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyState,
   KeyUnassigned,
 }
+import com.daml.platform.store.interning.StringInterning
 
 import scala.util.{Failure, Success, Try}
 
 class ContractStorageBackendTemplate(
     queryStrategy: QueryStrategy,
     ledgerEndCache: LedgerEndCache,
+    stringInterning: StringInterning,
 ) extends ContractStorageBackend {
-
+  assert(stringInterning != null) // TODO remove
   override def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId] =
     contractKey(
       resultColumns = List("contract_id"),

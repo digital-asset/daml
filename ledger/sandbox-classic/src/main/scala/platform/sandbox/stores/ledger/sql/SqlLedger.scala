@@ -132,7 +132,7 @@ private[sandbox] object SqlLedger {
                 stringInterningStorageBackend.loadStringInterningEntries(fromExclusive, toInclusive)
               }
         )
-        dao = ledgerDaoOwner(
+        dao = ledgerDao(
           dbDispatcher,
           storageBackendFactory,
           ledgerEndCache,
@@ -291,7 +291,7 @@ private[sandbox] object SqlLedger {
       }
     }
 
-    private def ledgerDaoOwner(
+    private def ledgerDao(
         dbDispatcher: DbDispatcher,
         storageBackendFactory: StorageBackendFactory,
         ledgerEndCache: MutableLedgerEndCache,
@@ -326,6 +326,7 @@ private[sandbox] object SqlLedger {
         storageBackendFactory = storageBackendFactory,
         ledgerEndCache = ledgerEndCache,
         errorFactories = errorFactories,
+        stringInterning = stringInterningView,
       )
     }
 

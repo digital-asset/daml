@@ -19,7 +19,8 @@ import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{Pretty, SValue, Speedy}
+import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier

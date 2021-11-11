@@ -3,6 +3,7 @@
 
 package com.daml.dbutils
 
+import ConnectionPool.PoolSize
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.either._
 import scalaz.std.option._
@@ -25,6 +26,7 @@ final case class JdbcConfig(
     url: String,
     user: String,
     password: String,
+    poolSize: Int,
     minIdle: Int = JdbcConfig.MinIdle,
     connectionTimeout: Long = JdbcConfig.ConnectionTimeout,
     idleTimeout: Long = JdbcConfig.IdleTimeout,
@@ -69,6 +71,9 @@ abstract class ConfigCompanion[A, ReadCtx](name: String) {
   ): Fields[Option[Boolean]] =
     optionalStringField(k).flatMap(ov => StateT liftM (ov traverse parseBoolean(k)).toEither)
 
+  protected def optionalIntField(k: String): Fields[Option[Int]] =
+    optionalStringField(k).flatMap(ov => StateT liftM (ov traverse parseInt(k)).toEither)
+
   protected def optionalLongField(k: String): Fields[Option[Long]] =
     optionalStringField(k).flatMap(ov => StateT liftM (ov traverse parseLong(k)).toEither)
 
@@ -79,6 +84,9 @@ abstract class ConfigCompanion[A, ReadCtx](name: String) {
 
   protected def parseLong(k: String)(v: String): String \/ Long =
     v.parseLong.leftMap(e => s"$k=$v must be a int value: ${e.description}").disjunction
+
+  protected def parseInt(k: String)(v: String): String \/ Int =
+    v.parseInt.leftMap(e => s"$k=$v must be an int value: ${e.description}").disjunction
 
   protected def requiredDirectoryField(k: String): Fields[File] =
     requiredField(k).flatMap(s => StateT liftM directory(s))
@@ -102,7 +110,10 @@ object JdbcConfig
 
   @scala.deprecated("do I need this?", since = "SC")
   implicit val showInstance: Show[JdbcConfig] =
-    Show.shows(a => s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user})")
+    Show.shows(a =>
+      s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, poolSize=${a.poolSize}, " +
+        s"minIdle=${a.minIdle}, connectionTimeout=${a.connectionTimeout}, idleTimeout=${a.idleTimeout}"
+    )
 
   def help(otherOptions: String = "")(implicit jcd: DBConfig.JdbcConfigDefaults): String =
     "Contains comma-separated key-value pairs. Where:\n" +
@@ -111,6 +122,10 @@ object JdbcConfig
       s"${indent}user -- database user name,\n" +
       s"${indent}password -- database user password,\n" +
       s"${indent}tablePrefix -- prefix for table names to avoid collisions, empty by default,\n" +
+      s"${indent}poolSize -- int value, specifies the max pool size for the database connection pool.\n" +
+      s"${indent}minIdle -- int value, specifies the min idle connections for database connection pool.\n" +
+      s"${indent}connectionTimeout -- long value, specifies the connection timeout for database connection pool.\n" +
+      s"${indent}idleTimeout -- long value, specifies the idle timeout for the database connection pool.\n" +
       otherOptions +
       s"${indent}Example: " + helpString(
         "org.postgresql.Driver",
@@ -118,6 +133,10 @@ object JdbcConfig
         "postgres",
         "password",
         "table_prefix_",
+        PoolSize.Production.toString,
+        MinIdle.toString,
+        ConnectionTimeout.toString,
+        IdleTimeout.toString,
       )
 
   private[daml] def create(x: Map[String, String])(implicit
@@ -142,12 +161,20 @@ object JdbcConfig
     user <- requiredField("user")
     password <- requiredField("password")
     tablePrefix <- optionalStringField("tablePrefix").map(_ getOrElse "")
+    maxPoolSize <- optionalIntField("poolSize").map(_ getOrElse PoolSize.Production)
+    minIdle <- optionalIntField("minIdle").map(_ getOrElse MinIdle)
+    connTimeout <- optionalLongField("connectionTimeout").map(_ getOrElse ConnectionTimeout)
+    idleTimeout <- optionalLongField("idleTimeout").map(_ getOrElse IdleTimeout)
   } yield JdbcConfig(
     driver = driver,
     url = url,
     user = user,
     password = password,
     tablePrefix = tablePrefix,
+    poolSize = maxPoolSize,
+    minIdle = minIdle,
+    connectionTimeout = connTimeout,
+    idleTimeout = idleTimeout,
   )
 
   private def helpString(
@@ -156,6 +183,11 @@ object JdbcConfig
       user: String,
       password: String,
       tablePrefix: String,
+      poolSize: String,
+      minIdle: String,
+      connectionTimeout: String,
+      idleTimeout: String,
   ): String =
-    s"""\"driver=$driver,url=$url,user=$user,password=$password,tablePrefix=$tablePrefix\""""
+    s"""\"driver=$driver,url=$url,user=$user,password=$password,tablePrefix=$tablePrefix,poolSize=$poolSize,
+       |minIdle=$minIdle, connectionTimeout=$connectionTimeout,idleTimeout=$idleTimeout\"""".stripMargin
 }

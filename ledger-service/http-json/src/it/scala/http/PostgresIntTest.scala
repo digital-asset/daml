@@ -4,6 +4,7 @@
 package com.daml.http
 
 import com.daml.dbutils
+import com.daml.dbutils.ConnectionPool
 import com.daml.http.PostgresIntTest.defaultJdbcConfig
 import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
 import com.daml.testing.postgresql.PostgresAroundAll
@@ -26,6 +27,7 @@ object PostgresIntTest {
       user = "test",
       password = "",
       tablePrefix = "some_nice_prefix_",
+      poolSize = ConnectionPool.PoolSize.Integration,
     ),
     dbStartupMode = DbStartupMode.CreateOnly,
   )

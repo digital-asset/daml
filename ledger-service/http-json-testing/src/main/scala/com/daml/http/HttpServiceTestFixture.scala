@@ -17,7 +17,6 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.HttpService.doLoad
 import com.daml.http.dbbackend.{ContractDao, JdbcConfig}
-import com.daml.dbutils.ConnectionPool.PoolSize
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.daml.http.util.ClientUtil.boxedRecord
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
@@ -266,7 +265,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       metrics: Metrics,
   ): Future[ContractDao] =
     for {
-      dao <- Future(ContractDao(c, poolSize = PoolSize.Integration))
+      dao <- Future(ContractDao(c))
       isSuccess <- DbStartupOps
         .fromStartupMode(dao, c.dbStartupMode)
         .unsafeToFuture()

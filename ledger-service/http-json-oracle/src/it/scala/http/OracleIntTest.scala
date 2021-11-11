@@ -5,6 +5,7 @@ package com.daml.http
 
 import com.daml.dbutils
 import OracleIntTest.defaultJdbcConfig
+import com.daml.dbutils.ConnectionPool
 import dbbackend.{DbStartupMode, JdbcConfig}
 import dbbackend.OracleQueries.DisableContractPayloadIndexing
 import com.daml.testing.oracle.OracleAroundAll
@@ -33,6 +34,7 @@ object OracleIntTest {
       user = user,
       password = pwd,
       tablePrefix = "some_nice_prefix_",
+      poolSize = ConnectionPool.PoolSize.Integration,
     ),
     dbStartupMode = DbStartupMode.CreateOnly,
     backendSpecificConf =

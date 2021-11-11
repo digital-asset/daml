@@ -13,7 +13,7 @@ import com.daml.lf.engine.script._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.{Compiler, SDefinition, SError, SExpr, SValue}
+import com.daml.lf.speedy.{Compiler, SDefinition, SError, SValue}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}

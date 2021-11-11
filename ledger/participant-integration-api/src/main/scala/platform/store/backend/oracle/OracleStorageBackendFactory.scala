@@ -23,6 +23,7 @@ import com.daml.platform.store.backend.{
   StorageBackendFactory,
 }
 import com.daml.platform.store.cache.LedgerEndCache
+import com.daml.platform.store.interning.StringInterning
 
 object OracleStorageBackendFactory extends StorageBackendFactory with CommonStorageBackendFactory {
 
@@ -35,16 +36,22 @@ object OracleStorageBackendFactory extends StorageBackendFactory with CommonStor
   override val createDeduplicationStorageBackend: DeduplicationStorageBackend =
     OracleDeduplicationStorageBackend
 
-  override def createCompletionStorageBackend: CompletionStorageBackend =
-    new CompletionStorageBackendTemplate(OracleQueryStrategy)
+  override def createCompletionStorageBackend(
+      stringInterning: StringInterning
+  ): CompletionStorageBackend =
+    new CompletionStorageBackendTemplate(OracleQueryStrategy, stringInterning)
 
   override def createContractStorageBackend(
-      ledgerEndCache: LedgerEndCache
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
   ): ContractStorageBackend =
-    new ContractStorageBackendTemplate(OracleQueryStrategy, ledgerEndCache)
+    new ContractStorageBackendTemplate(OracleQueryStrategy, ledgerEndCache, stringInterning)
 
-  override def createEventStorageBackend(ledgerEndCache: LedgerEndCache): EventStorageBackend =
-    new OracleEventStorageBackend(ledgerEndCache)
+  override def createEventStorageBackend(
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
+  ): EventStorageBackend =
+    new OracleEventStorageBackend(ledgerEndCache, stringInterning)
 
   override val createDataSourceStorageBackend: DataSourceStorageBackend =
     OracleDataSourceStorageBackend

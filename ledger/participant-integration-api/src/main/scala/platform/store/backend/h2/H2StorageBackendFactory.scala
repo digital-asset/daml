@@ -22,6 +22,7 @@ import com.daml.platform.store.backend.{
   StorageBackendFactory,
 }
 import com.daml.platform.store.cache.LedgerEndCache
+import com.daml.platform.store.interning.StringInterning
 
 object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageBackendFactory {
 
@@ -34,16 +35,22 @@ object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageB
   override val createDeduplicationStorageBackend: DeduplicationStorageBackend =
     H2DeduplicationStorageBackend
 
-  override val createCompletionStorageBackend: CompletionStorageBackend =
-    new CompletionStorageBackendTemplate(H2QueryStrategy)
+  override def createCompletionStorageBackend(
+      stringInterning: StringInterning
+  ): CompletionStorageBackend =
+    new CompletionStorageBackendTemplate(H2QueryStrategy, stringInterning)
 
   override def createContractStorageBackend(
-      ledgerEndCache: LedgerEndCache
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
   ): ContractStorageBackend =
-    new H2ContractStorageBackend(ledgerEndCache)
+    new H2ContractStorageBackend(ledgerEndCache, stringInterning)
 
-  override def createEventStorageBackend(ledgerEndCache: LedgerEndCache): EventStorageBackend =
-    new H2EventStorageBackend(ledgerEndCache)
+  override def createEventStorageBackend(
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
+  ): EventStorageBackend =
+    new H2EventStorageBackend(ledgerEndCache, stringInterning)
 
   override val createDataSourceStorageBackend: DataSourceStorageBackend =
     H2DataSourceStorageBackend

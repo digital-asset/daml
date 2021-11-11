@@ -31,6 +31,11 @@ import com.daml.platform.store.appendonlydao.{
 }
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.{LedgerEndCache, MutableLedgerEndCache}
+import com.daml.platform.store.interning.{
+  StringInterning,
+  StringInterningView,
+  UpdatingStringInterningView,
+}
 import com.daml.platform.store.{BaseLedger, DbType, LfValueTranslationCache}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
@@ -79,15 +84,27 @@ private[platform] object ReadOnlySqlLedger {
             metrics = metrics,
           )
           .acquire()
-        ledgerDao = ledgerDaoOwner(
+        stringInterningStorageBackend = storageBackendFactory.createStringInterningStorageBackend
+        stringInterningView = new StringInterningView(
+          loadPrefixedEntries = (fromExclusive, toInclusive) =>
+            implicit loggingContext =>
+              dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+                stringInterningStorageBackend.loadStringInterningEntries(
+                  fromExclusive,
+                  toInclusive,
+                )
+              }
+        )
+        ledgerDao = createLedgerDao(
           servicesExecutionContext,
           errorFactories,
           ledgerEndCache,
+          stringInterningView,
           dbDispatcher,
           storageBackendFactory,
         )
         ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao, initialLedgerId))
-        ledger <- ledgerOwner(ledgerDao, ledgerId, ledgerEndCache).acquire()
+        ledger <- ledgerOwner(ledgerDao, ledgerId, ledgerEndCache, stringInterningView).acquire()
       } yield ledger
     }
 
@@ -95,11 +112,13 @@ private[platform] object ReadOnlySqlLedger {
         ledgerDao: LedgerReadDao,
         ledgerId: LedgerId,
         ledgerEndCache: MutableLedgerEndCache,
+        updatingStringInterningView: UpdatingStringInterningView,
     ) =
       if (enableMutableContractStateCache) {
         new ReadOnlySqlLedgerWithMutableCache.Owner(
           ledgerDao,
           ledgerEndCache,
+          updatingStringInterningView,
           enricher,
           ledgerId,
           metrics,
@@ -113,6 +132,7 @@ private[platform] object ReadOnlySqlLedger {
         new ReadOnlySqlLedgerWithTranslationCache.Owner(
           ledgerDao,
           ledgerEndCache,
+          updatingStringInterningView,
           ledgerId,
           lfValueTranslationCache,
         )
@@ -158,10 +178,11 @@ private[platform] object ReadOnlySqlLedger {
       }
     }
 
-    private def ledgerDaoOwner(
+    private def createLedgerDao(
         servicesExecutionContext: ExecutionContext,
         errorFactories: ErrorFactories,
         ledgerEndCache: LedgerEndCache,
+        stringInterning: StringInterning,
         dbDispatcher: DbDispatcher,
         storageBackendFactory: StorageBackendFactory,
     ): LedgerReadDao =
@@ -176,6 +197,7 @@ private[platform] object ReadOnlySqlLedger {
         participantId = participantId,
         storageBackendFactory = storageBackendFactory,
         ledgerEndCache = ledgerEndCache,
+        stringInterning = stringInterning,
         errorFactories = errorFactories,
       )
   }

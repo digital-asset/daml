@@ -11,6 +11,7 @@ import com.daml.platform.store.backend.h2.H2StorageBackendFactory
 import com.daml.platform.store.backend.oracle.OracleStorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.store.interning.InterningStringInterning
 import com.daml.testing.oracle.OracleAroundAll
 import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.Suite
@@ -90,6 +91,7 @@ case class TestBackend(
 object TestBackend {
   def apply(storageBackendFactory: StorageBackendFactory): TestBackend = {
     val ledgerEndCache = MutableLedgerEndCache()
+    val stringInterning = new InterningStringInterning
     TestBackend(
       ingestion = storageBackendFactory.createIngestionStorageBackend,
       parameter = storageBackendFactory.createParameterStorageBackend,
@@ -97,9 +99,10 @@ object TestBackend {
       party = storageBackendFactory.createPartyStorageBackend(ledgerEndCache),
       packageBackend = storageBackendFactory.createPackageStorageBackend(ledgerEndCache),
       deduplication = storageBackendFactory.createDeduplicationStorageBackend,
-      completion = storageBackendFactory.createCompletionStorageBackend,
-      contract = storageBackendFactory.createContractStorageBackend(ledgerEndCache),
-      event = storageBackendFactory.createEventStorageBackend(ledgerEndCache),
+      completion = storageBackendFactory.createCompletionStorageBackend(stringInterning),
+      contract =
+        storageBackendFactory.createContractStorageBackend(ledgerEndCache, stringInterning),
+      event = storageBackendFactory.createEventStorageBackend(ledgerEndCache, stringInterning),
       dataSource = storageBackendFactory.createDataSourceStorageBackend,
       dbLock = storageBackendFactory.createDBLockStorageBackend,
       integrity = storageBackendFactory.createIntegrityStorageBackend,
