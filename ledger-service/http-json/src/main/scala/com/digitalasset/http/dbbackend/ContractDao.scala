@@ -75,7 +75,7 @@ class ContractDao private (
 }
 
 object ContractDao {
-  import ConnectionPool.PoolSize, SurrogateTemplateIdCache.MaxEntries
+  import SurrogateTemplateIdCache.MaxEntries
   private[this] val supportedJdbcDrivers = Map[String, SupportedJdbcDriver.Available](
     "org.postgresql.Driver" -> SupportedJdbcDriver.Postgres,
     "oracle.jdbc.OracleDriver" -> SupportedJdbcDriver.Oracle,
@@ -92,7 +92,6 @@ object ContractDao {
   def apply(
       cfg: JdbcConfig,
       tpIdCacheMaxEntries: Option[Long] = None,
-      poolSize: PoolSize = PoolSize.Production,
   )(implicit
       ec: ExecutionContext,
       metrics: Metrics,
@@ -108,9 +107,9 @@ object ContractDao {
     } yield {
       implicit val sjd: SupportedJdbcDriver.TC = sjdc
       //pool for connections awaiting database access
-      val es = Executors.newWorkStealingPool(poolSize)
+      val es = Executors.newWorkStealingPool(cfg.baseConfig.poolSize)
       val (ds, conn) =
-        ConnectionPool.connect(cfg.baseConfig, poolSize)(ExecutionContext.fromExecutor(es), cs)
+        ConnectionPool.connect(cfg.baseConfig)(ExecutionContext.fromExecutor(es), cs)
       new ContractDao(ds, conn, es)
     }
     setup.fold(msg => throw new IllegalArgumentException(msg), identity)

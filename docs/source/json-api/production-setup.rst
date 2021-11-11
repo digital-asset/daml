@@ -161,7 +161,7 @@ logs with structured information about the event being logged.
 
 The default log encoder used is the plaintext one for traditional logging targets.
 
-
+.. _json-api-metrics:
 
 Metrics
 *******

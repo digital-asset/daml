@@ -4,6 +4,7 @@
 package com.daml.lf.speedy
 
 import com.daml.lf.data.Ref.Location
+import com.daml.lf.speedy.SExpr.SExpr
 
 /** Top-level speedy definition.
   *

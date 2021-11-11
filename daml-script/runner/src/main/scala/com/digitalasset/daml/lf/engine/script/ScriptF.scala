@@ -16,7 +16,8 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SExpr.{SEApp, SEValue}
-import com.daml.lf.speedy.{SError, SExpr, SValue}
+import com.daml.lf.speedy.{SError, SValue}
+import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.value.Value

@@ -4,7 +4,6 @@
 package com.daml.http
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.dbutils.ConnectionPool.PoolSize
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.metrics.Metrics
 import com.daml.testing.postgresql.PostgresAroundAll
@@ -19,7 +18,7 @@ trait HttpServicePostgresInt extends AbstractHttpServiceIntegrationTestFuns with
   protected implicit val metics = new Metrics(new MetricRegistry)
 
   // has to be lazy because jdbcConfig_ is NOT initialized yet
-  protected lazy val dao = dbbackend.ContractDao(jdbcConfig_, poolSize = PoolSize.Integration)
+  protected lazy val dao = dbbackend.ContractDao(jdbcConfig_)
 
   // has to be lazy because postgresFixture is NOT initialized yet
   protected[this] def jdbcConfig_ = PostgresIntTest.defaultJdbcConfig(postgresDatabase.url)
