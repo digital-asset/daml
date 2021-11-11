@@ -80,7 +80,7 @@ object CommandServiceTest {
     submitter = domain.Party subst NonEmptyList("foo", "bar"),
     readAs = domain.Party subst List("baz", "quux"),
   )
-  private val multiPartyJwt = jwtForParties(
+  private lazy val multiPartyJwt = jwtForParties(
     actAs = domain.Party unsubst multiPartyJwp.submitter.toList,
     readAs = domain.Party unsubst multiPartyJwp.readAs,
     ledgerId = multiPartyJwp.ledgerId.unwrap,
