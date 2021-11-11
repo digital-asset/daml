@@ -12,6 +12,7 @@ object CompletionStreamElement {
 
   final case class CheckpointElement(checkpoint: Checkpoint) extends CompletionStreamElement
 
-  final case class CompletionElement(completion: Completion) extends CompletionStreamElement
+  final case class CompletionElement(checkpoint: Option[Checkpoint], completion: Completion)
+      extends CompletionStreamElement
 
 }

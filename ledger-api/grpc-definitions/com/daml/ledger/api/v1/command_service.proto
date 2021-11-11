@@ -8,6 +8,7 @@ package com.daml.ledger.api.v1;
 import "com/daml/ledger/api/v1/commands.proto";
 import "com/daml/ledger/api/v1/transaction.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
 
 option java_outer_classname = "CommandServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
@@ -80,16 +81,19 @@ message SubmitAndWaitForTransactionIdResponse {
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string transaction_id = 1;
+  google.protobuf.StringValue completion_offset = 2;
 }
 
 message SubmitAndWaitForTransactionResponse {
   // The flat transaction that resulted from the submitted command.
   // Required
   Transaction transaction = 1;
+  google.protobuf.StringValue completion_offset = 2;
 }
 
 message SubmitAndWaitForTransactionTreeResponse {
   // The transaction tree that resulted from the submitted command.
   // Required
   TransactionTree transaction = 1;
+  google.protobuf.StringValue completion_offset = 2;
 }

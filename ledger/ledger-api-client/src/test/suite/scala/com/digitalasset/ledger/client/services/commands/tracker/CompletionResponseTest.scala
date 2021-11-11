@@ -37,7 +37,7 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
 
       "match successful completion" in {
         val completionWithTransactionId = completion.update(_.transactionId := "transactionId")
-        val response = CompletionResponse(completionWithTransactionId)
+        val response = CompletionResponse(completionWithTransactionId, None)
         response shouldBe a[Right[_, _]]
         CompletionResponse.toCompletion(response) shouldEqual completionWithTransactionId
       }
@@ -45,7 +45,7 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
       "match not ok status" in {
         val failedCodeCompletion = completion.update(_.status.code := Code.INTERNAL.value())
         val response =
-          CompletionResponse(failedCodeCompletion)
+          CompletionResponse(failedCodeCompletion, None)
         response should matchPattern { case Left(_: NotOkResponse) => }
         CompletionResponse.toCompletion(response) shouldEqual failedCodeCompletion
       }
@@ -53,7 +53,7 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
       "handle missing status" in {
         val noStatusCodeCompletion = completion.update(_.optionalStatus := None)
         val response =
-          CompletionResponse(noStatusCodeCompletion)
+          CompletionResponse(noStatusCodeCompletion, None)
         response should matchPattern { case Left(_: NoStatusInResponse) => }
         CompletionResponse.toCompletion(response) shouldEqual noStatusCodeCompletion
 
@@ -121,9 +121,10 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
                         details = Seq.empty,
                       )
                     ),
-                  )
-                )
-              ),
+                  ),
+              None,
+            )
+          ),
               errorFactories,
             )
             val status = protobuf.StatusProto.fromThrowable(exception)
@@ -150,9 +151,10 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
                         ),
                       )
                     ),
-                  )
-                )
-              ),
+                  ),
+              None,
+            )
+          ),
               errorFactories,
             )
             val status = protobuf.StatusProto.fromThrowable(exception)
@@ -179,9 +181,10 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
                         ),
                       )
                     ),
-                  )
-                )
-              ),
+                  ),
+              None,
+            )
+          ),
               errorFactories,
             )
 

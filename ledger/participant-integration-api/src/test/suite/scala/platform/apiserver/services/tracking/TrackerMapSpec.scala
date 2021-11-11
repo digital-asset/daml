@@ -201,7 +201,8 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
                         commandId = submission.commands.commandId,
                         status = Some(Status.defaultInstance),
                         transactionId = "",
-                      )
+                      ),
+                      None,
                     )
                   )
                 )
@@ -250,7 +251,8 @@ class TrackerMapSpec extends AsyncWordSpec with Matchers {
                         commandId = submission.commands.commandId,
                         status = Some(Status.defaultInstance),
                         transactionId = "",
-                      )
+                      ),
+                      None,
                     )
                   )
                 )
@@ -289,7 +291,8 @@ object TrackerMapSpec {
               commandId = submission.commands.commandId,
               status = Some(Status.defaultInstance),
               transactionId = transactionIds.next(),
-            )
+            ),
+            None,
           )
         )
       )

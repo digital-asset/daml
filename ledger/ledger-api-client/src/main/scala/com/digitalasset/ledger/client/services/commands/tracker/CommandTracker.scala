@@ -24,8 +24,10 @@ import com.google.protobuf.empty.Empty
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status
 import org.slf4j.LoggerFactory
-
 import java.time.{Duration, Instant}
+
+import com.daml.ledger.api.v1.command_completion_service.Checkpoint
+
 import scala.annotation.nowarn
 import scala.collection.compat._
 import scala.collection.{immutable, mutable}
@@ -162,8 +164,8 @@ private[commands] class CommandTracker[Context](
               case Left(submitResponse) =>
                 pushResultOrPullCommandResultIn(handleSubmitResponse(submitResponse))
 
-              case Right(CompletionStreamElement.CompletionElement(completion)) =>
-                pushResultOrPullCommandResultIn(getResponseForCompletion(completion))
+              case Right(CompletionStreamElement.CompletionElement(checkpoint, completion)) =>
+                pushResultOrPullCommandResultIn(getResponseForCompletion(completion, checkpoint))
 
               case Right(CompletionStreamElement.CheckpointElement(checkpoint)) =>
                 if (!hasBeenPulled(commandResultIn)) pull(commandResultIn)
@@ -306,7 +308,8 @@ private[commands] class CommandTracker[Context](
       }
 
       private def getResponseForCompletion(
-          completion: Completion
+          completion: Completion,
+          checkpoint: Option[Checkpoint],
       ): Option[ContextualizedCompletionResponse[Context]] = {
         val commandId = completion.commandId
         val maybeSubmissionId = Option(completion.submissionId).filter(_.nonEmpty)
@@ -324,7 +327,7 @@ private[commands] class CommandTracker[Context](
             val key = TrackedCommandKey(submissionId, completion.commandId)
             val trackedCommandForCompletion = pendingCommands.remove(key)
             trackedCommandForCompletion.map(trackingData =>
-              Ctx(trackingData.context, tracker.CompletionResponse(completion))
+              Ctx(trackingData.context, tracker.CompletionResponse(completion, checkpoint))
             )
           }
           .getOrElse {
@@ -350,7 +353,8 @@ private[commands] class CommandTracker[Context](
                   commandKey.commandId,
                   Some(status),
                   submissionId = commandKey.submissionId,
-                )
+                ),
+                None,
               ),
             )
           }

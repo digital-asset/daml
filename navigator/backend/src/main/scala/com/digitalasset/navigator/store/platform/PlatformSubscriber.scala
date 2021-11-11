@@ -259,7 +259,7 @@ class PlatformSubscriber(
                 val status = CommandStatusError(code.Code.ABORTED.toString(), "Timeout")
                 party.addCommandStatus(commandId, status)
                 log.info("Command '{}' completed with status '{}'.", commandId, status)
-              case CompletionResponse.NoStatusInResponse(_) =>
+              case CompletionResponse.NoStatusInResponse(_, _) =>
                 party.addCommandStatus(commandId, CommandStatusUnknown())
                 log.error(
                   "Command tracking failed. Status unknown for command '{}': {}.",

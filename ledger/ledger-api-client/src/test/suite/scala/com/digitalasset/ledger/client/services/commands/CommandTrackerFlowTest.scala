@@ -257,7 +257,9 @@ class CommandTrackerFlowTest
 
         results.expectNoMessage(3.seconds)
 
-        completionStreamMock.send(CompletionStreamElement.CompletionElement(abortedCompletion))
+        completionStreamMock.send(
+          CompletionStreamElement.CompletionElement(None, abortedCompletion)
+        )
         results.requestNext().value shouldEqual Left(
           failureCompletion(Code.ABORTED)
         )
@@ -272,7 +274,9 @@ class CommandTrackerFlowTest
 
         submissions.sendNext(submission)
 
-        completionStreamMock.send(CompletionStreamElement.CompletionElement(abortedCompletion))
+        completionStreamMock.send(
+          CompletionStreamElement.CompletionElement(None, abortedCompletion)
+        )
         results.requestNext().value shouldEqual Left(
           failureCompletion(Code.ABORTED)
         )
@@ -479,7 +483,7 @@ class CommandTrackerFlowTest
             Some(status),
             submissionId = submissionId,
           )
-        completionStreamMock.send(CompletionStreamElement.CompletionElement(failedCompletion))
+        completionStreamMock.send(CompletionStreamElement.CompletionElement(None, failedCompletion))
 
         results.expectNext(
           Ctx(
@@ -640,7 +644,8 @@ class CommandTrackerFlowTest
       submissionId: String = submissionId,
   ) =
     CompletionResponse.CompletionSuccess(
-      Completion(commandId, Some(successStatus), submissionId = submissionId)
+      Completion(commandId, Some(successStatus), submissionId = submissionId),
+      None,
     )
 
   private def failureCompletion(
@@ -653,7 +658,8 @@ class CommandTrackerFlowTest
         commandId = commandId,
         status = Some(StatusProto(code.value, message)),
         submissionId = submissionId,
-      )
+      ),
+      None,
     )
 
   private def commandWithIds(submissionId: String, commandId: String) = {
@@ -665,7 +671,8 @@ class CommandTrackerFlowTest
 
   private def successfulStreamCompletion(submissionId: String, commandId: String) =
     CompletionStreamElement.CompletionElement(
-      Completion(commandId, Some(successStatus), submissionId = submissionId)
+      None,
+      Completion(commandId, Some(successStatus), submissionId = submissionId),
     )
 
   private def checkPoint(ledgerOffset: LedgerOffset) =

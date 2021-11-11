@@ -22,7 +22,9 @@ object CommandCompletionSource {
   ): immutable.Iterable[CompletionStreamElement] = {
 
     val completions: Vector[CompletionStreamElement] =
-      response.completions.view.map(CompletionStreamElement.CompletionElement).toVector
+      response.completions.view
+        .map(CompletionStreamElement.CompletionElement(response.checkpoint, _))
+        .toVector
     response.checkpoint.fold(completions)(cp =>
       completions :+ CompletionStreamElement.CheckpointElement(cp)
     )

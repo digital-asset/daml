@@ -393,7 +393,7 @@ class Runner(
             .completionSource(List(parties.actAs.unwrap), offset)
             .mapConcat {
               case CheckpointElement(_) => List()
-              case CompletionElement(c) => List(c)
+              case CompletionElement(_, c) => List(c)
             }
         )
         .map(CompletionMsg)

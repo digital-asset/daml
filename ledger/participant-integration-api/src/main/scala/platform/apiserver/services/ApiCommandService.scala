@@ -97,9 +97,15 @@ private[apiserver] final class ApiCommandService private[services] (
       submitAndWaitInternal(request)(enrichedLoggingContext, errorLogger).map {
         case Left(failure) =>
           throw CompletionResponse.toException(failure, errorFactories)(errorLogger)
-        case Right(response) => SubmitAndWaitForTransactionIdResponse(response.transactionId)
+        case Right(response) => SubmitAndWaitForTransactionIdResponse.of(response.transactionId,
+          offsetFromResponse(response),
+        )
       }
     }
+
+  private def offsetFromResponse(response: CompletionSuccess) = {
+    response.checkpoint.flatMap(_.offset).flatMap(_.value.absolute)
+  }
 
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest
@@ -117,7 +123,10 @@ private[apiserver] final class ApiCommandService private[services] (
           )
           transactionServices
             .getFlatTransactionById(txRequest)
-            .map(resp => SubmitAndWaitForTransactionResponse(resp.transaction))
+            .map(transactionResponse =>
+              SubmitAndWaitForTransactionResponse
+                .of(transactionResponse.transaction, transactionResponse.transaction.map(_.offset))
+            )
       }
     }
 
@@ -137,7 +146,10 @@ private[apiserver] final class ApiCommandService private[services] (
           )
           transactionServices
             .getTransactionById(txRequest)
-            .map(resp => SubmitAndWaitForTransactionTreeResponse(resp.transaction))
+            .map(resp =>
+              SubmitAndWaitForTransactionTreeResponse
+                .of(resp.transaction, resp.transaction.map(_.offset))
+            )
       }
     }
 
