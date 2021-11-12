@@ -12,6 +12,57 @@ import java.io.StringReader
 class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
 
   "WorkflowConfigParser" should {
+    "parse complete workflow configuration" in {
+      val yaml =
+        """submission:
+          |  num_instances: 500
+          |  num_observers: 4
+          |  unique_parties: true
+          |  instance_distribution:
+          |    - template: Foo1
+          |      weight: 50
+          |      payload_size_bytes: 60
+          |      archive_probability: 0.9
+          |streams:
+          |  - type: active-contracts
+          |    name: stream-1
+          |    filters:
+          |      - party: Obs-2
+          |        templates:
+          |         - Foo1
+          |         - Foo3""".stripMargin
+
+      parseYaml(yaml) shouldBe Right(
+        WorkflowConfig(
+          submission = Some(
+            WorkflowConfig.SubmissionConfig(
+              numberOfInstances = 500,
+              numberOfObservers = 4,
+              uniqueParties = true,
+              instanceDistribution = List(
+                WorkflowConfig.SubmissionConfig.ContractDescription(
+                  template = "Foo1",
+                  weight = 50,
+                  payloadSizeBytes = 60,
+                  archiveChance = 0.9,
+                )),
+            )
+          ),
+          streams = List(
+            WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
+              name = "stream-1",
+              filters = List(
+                WorkflowConfig.StreamConfig.PartyFilter(
+                  party = "Obs-2",
+                  templates = List("Foo1", "Foo3"),
+                )
+              ),
+            )
+          ),
+        )
+      )
+    }
+
     "parse submission configuration" in {
       val yaml =
         """submission:
