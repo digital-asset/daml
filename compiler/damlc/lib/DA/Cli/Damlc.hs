@@ -485,6 +485,7 @@ execIde telemetry (Debug debug) enableScenarioService options =
           dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
           options <- pure options
               { optScenarioService = enableScenarioService
+              , optEnableOfInterestRule = True
               , optSkipScenarioValidation = SkipScenarioValidation True
               -- TODO(MH): The `optionsParser` does not provide a way to skip
               -- individual options. As a stopgap we ignore the argument to

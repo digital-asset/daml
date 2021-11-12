@@ -979,7 +979,6 @@ options :: Options
 options =
   (defaultOptions (Just lfVersion))
     { optDlintUsage = DlintDisabled,
-      optEnableOfInterestRule = False,
       optEnableScripts = EnableScripts True
     }
 

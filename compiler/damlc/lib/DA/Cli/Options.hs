@@ -290,7 +290,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     let optHaddock = Haddock False
     let optIncrementalBuild = IncrementalBuild False
     let optIgnorePackageMetadata = IgnorePackageMetadata False
-    let optEnableOfInterestRule = True
+    let optEnableOfInterestRule = False
     optCppPath <- optCppPath
     optEnableScripts <- enableScriptsOpt
 
