@@ -25,6 +25,9 @@ private[http] final case class InsertDeleteStep[+D, +C](
       deletes ++ o.deletes,
     )
 
+  /** NB: This is ''not'' distributive across `append`. */
+  def size: Int = inserts.length + deletes.size
+
   def nonEmpty: Boolean = inserts.nonEmpty || deletes.nonEmpty
 
   def leftMap[DD](f: D => DD): InsertDeleteStep[DD, C] =
