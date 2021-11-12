@@ -55,7 +55,6 @@ private[lf] object ValidateCompilation {
         case loc: SELoc => goLoc(loc)
         case _: SEVal => ()
         case _: SEBuiltin => ()
-        case _: SEBuiltinRecursiveDefinition => ()
         case SEValue(v) => goV(v)
         case SEAppAtomicGeneral(fun, args) =>
           go(fun)

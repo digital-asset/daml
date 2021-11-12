@@ -251,7 +251,6 @@ object Profile {
       implicit val lookupByKeyDefRef: Allowed[LookupByKeyDefRef] = allowAll
       implicit val createAndExerciseLabel: Allowed[CreateAndExerciseLabel] = allowAll
       implicit val exceptionMessageDefRef: Allowed[ExceptionMessageDefRef] = allowAll
-      implicit val sebrdr: Allowed[SEBuiltinRecursiveDefinition.Reference] = allowAll
       implicit val scenarioLabel: Allowed[ScenarioLabel] = allowAll
       implicit val exprVarName: Allowed[Ast.ExprVarName] = allowAll
 
@@ -281,7 +280,6 @@ object Profile {
           case CreateAndExerciseLabel(tmplRef, name) =>
             s"createAndExercise @${tmplRef.qualifiedName} ${name}"
           case ExceptionMessageDefRef(typeId) => s"message @${typeId.qualifiedName}"
-          case ref: SEBuiltinRecursiveDefinition.Reference => ref.toString().toLowerCase()
           case SubmitLabel => "submit"
           case SubmitMustFailLabel => "submitMustFail"
           case PassLabel => "pass"

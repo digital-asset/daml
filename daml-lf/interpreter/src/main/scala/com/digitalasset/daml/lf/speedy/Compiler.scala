@@ -570,12 +570,6 @@ private[lf] final class Compiler(
   @inline
   private[this] def compileBuiltin(bf: BuiltinFunction): s.SExpr =
     bf match {
-      case BEqualList =>
-        val ref: t.SEBuiltinRecursiveDefinition.Reference =
-          t.SEBuiltinRecursiveDefinition.Reference.EqualList
-        val exp: s.SExpr = s.SEBuiltinRecursiveDefinition(ref)
-        withLabelS(ref, exp)
-
       case BCoerceContractId => s.SEAbs.identity
       // Numeric Comparisons
       case BLessNumeric => SBLessNumeric
@@ -639,6 +633,7 @@ private[lf] final class Compiler(
           // List functions
           case BFoldl => SBFoldl
           case BFoldr => SBFoldr
+          case BEqualList => SBEqualList
 
           // Errors
           case BError => SBError
@@ -690,8 +685,8 @@ private[lf] final class Compiler(
           case BTextIntercalate => SBTextIntercalate
 
           // Implemented using normal SExpr
-          case BFoldl | BFoldr | BCoerceContractId | BEqual | BEqualList | BLessEq |
-              BLess | BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
+
+          case BCoerceContractId | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
               BGreaterEqNumeric | BEqualNumeric | BNumericToText | BTextMapEmpty | BGenMapEmpty =>
             throw CompilationError(s"unexpected $bf")
 
