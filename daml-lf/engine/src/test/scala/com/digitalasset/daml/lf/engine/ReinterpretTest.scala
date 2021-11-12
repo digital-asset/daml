@@ -11,8 +11,13 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, NodeId, Transaction, SubmittedTransaction}
-import com.daml.lf.transaction.Node.{NodeRollback, NodeExercises, NodeCreate}
+import com.daml.lf.transaction.{
+  GlobalKeyWithMaintainers,
+  Node,
+  NodeId,
+  Transaction,
+  SubmittedTransaction,
+}
 import com.daml.lf.value.Value._
 import com.daml.lf.command._
 import com.daml.lf.transaction.test.TransactionBuilder.{assertAsVersionedContract}
@@ -191,9 +196,9 @@ object ReinterpretTest {
     def ofTransaction(tx: Transaction): Top = {
       def ofNid(nid: NodeId): Shape = {
         tx.nodes(nid) match {
-          case node: NodeExercises => Exercise(node.children.toList.map(ofNid))
-          case node: NodeRollback => Rollback(node.children.toList.map(ofNid))
-          case _: NodeCreate => Create()
+          case node: Node.Exercise => Exercise(node.children.toList.map(ofNid))
+          case node: Node.Rollback => Rollback(node.children.toList.map(ofNid))
+          case _: Node.Create => Create()
           case _ => sys.error(s"Shape.ofTransaction, unexpected tx node")
         }
       }

@@ -12,8 +12,7 @@ import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError}
 import com.daml.lf.speedy.SExpr.{SExpr, SEApp, SEValue}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{SubmittedTransaction, VersionedTransaction, Transaction => Tx}
-import com.daml.lf.transaction.Node._
+import com.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction, Transaction => Tx}
 import java.nio.file.Files
 
 import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackages}
@@ -490,12 +489,12 @@ object Engine {
       val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
         s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"
       tx.nodes.get(tx.roots(0)).toList.head match {
-        case _: NodeRollback => "rollback"
-        case create: NodeCreate => makeDesc("create", create.templateId, None)
-        case exercise: NodeExercises =>
+        case _: Node.Rollback => "rollback"
+        case create: Node.Create => makeDesc("create", create.templateId, None)
+        case exercise: Node.Exercise =>
           makeDesc("exercise", exercise.templateId, Some(exercise.choiceId))
-        case fetch: NodeFetch => makeDesc("fetch", fetch.templateId, None)
-        case lookup: NodeLookupByKey => makeDesc("lookup", lookup.templateId, None)
+        case fetch: Node.Fetch => makeDesc("fetch", fetch.templateId, None)
+        case lookup: Node.LookupByKey => makeDesc("lookup", lookup.templateId, None)
       }
     } else {
       s"compound:${tx.roots.length}"
