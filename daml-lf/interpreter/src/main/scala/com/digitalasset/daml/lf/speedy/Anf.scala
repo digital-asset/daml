@@ -30,7 +30,7 @@ package com.daml.lf.speedy
   */
 
 import com.daml.lf.data.Trampoline.{Bounce, Land, Trampoline}
-import com.daml.lf.speedy.{SExpr0 => source}
+import com.daml.lf.speedy.{SExpr1 => source}
 import com.daml.lf.speedy.{SExpr => target}
 import com.daml.lf.speedy.Compiler.CompilationError
 
@@ -190,7 +190,6 @@ private[lf] object Anf {
       case source.SEValue(x) => target.SEValue(x)
       case source.SEBuiltin(x) => target.SEBuiltin(x)
       case source.SEBuiltinRecursiveDefinition(x) => target.SEBuiltinRecursiveDefinition(x)
-      case _: source.SEVar => sys.error(s"Anf1.convertAtom, unexpected: $x")
     }
   }
 
@@ -375,7 +374,7 @@ private[lf] object Anf {
         val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf.wrapped)).bounce
         Bounce(() => transform(depth, target.SEScopeExercise(body), k))
 
-      case _: source.SEAbs | _: source.SEDamlException =>
+      case _: source.SEDamlException =>
         throw CompilationError(s"flatten: unexpected: $exp")
     }
 
