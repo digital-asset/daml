@@ -216,7 +216,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     val template = BranchingSignatories(whichSign = false, signTrue = alice, signFalse = bob)
     val create = beta.submitAndWaitRequest(bob, template.create.command)
     for {
-      transaction <- beta.submitAndWaitForTransaction(create)
+      transaction <- beta.submitAndWaitForTransactionReturningTransaction(create)
       _ <- synchronize(alpha, beta)
       aliceTransactions <- alpha.flatTransactions(alice)
     } yield {
@@ -278,7 +278,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
       BranchingControllers(giver = alice, whichCtrl = false, ctrlTrue = bob, ctrlFalse = eve)
     val create = alpha.submitAndWaitRequest(alice, template.create.command)
     for {
-      transaction <- alpha.submitAndWaitForTransaction(create)
+      transaction <- alpha.submitAndWaitForTransactionReturningTransaction(create)
       _ <- synchronize(alpha, beta)
       transactions <- beta.flatTransactions(bob)
     } yield {
@@ -298,7 +298,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
       val template = WithObservers(alice, Primitive.List(observers: _*))
       val create = alpha.submitAndWaitRequest(alice, template.create.command)
       for {
-        transactionId <- alpha.submitAndWaitForTransactionId(create)
+        transactionId <- alpha.submitAndWaitForTransactionId(create).map(_.transactionId)
         _ <- eventually {
           for {
             transactions <- beta.flatTransactions(observers: _*)

@@ -35,7 +35,7 @@ class TransactionServiceArgumentsIT extends LedgerTestSuite {
     )
     val create = ledger.submitAndWaitRequest(party, template.create.command)
     for {
-      transaction <- ledger.submitAndWaitForTransaction(create)
+      transaction <- ledger.submitAndWaitForTransactionReturningTransaction(create)
     } yield {
       val contract = assertSingleton("CreateWithAnyType", createdEvents(transaction))
       assertEquals("CreateWithAnyType", contract.getCreateArguments, template.arguments)
@@ -100,7 +100,7 @@ class TransactionServiceArgumentsIT extends LedgerTestSuite {
     )
     val create = ledger.submitAndWaitRequest(party, template.create.command)
     for {
-      transaction <- ledger.submitAndWaitForTransaction(create)
+      transaction <- ledger.submitAndWaitForTransactionReturningTransaction(create)
     } yield {
       val contract = assertSingleton("VeryLongList", createdEvents(transaction))
       assertEquals("VeryLongList", contract.getCreateArguments, template.arguments)

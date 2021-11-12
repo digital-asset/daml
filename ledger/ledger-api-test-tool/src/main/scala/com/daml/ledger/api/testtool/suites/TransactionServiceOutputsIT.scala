@@ -19,7 +19,7 @@ class TransactionServiceOutputsIT extends LedgerTestSuite {
     val template = NothingArgument(party, Primitive.Optional.empty)
     val create = ledger.submitAndWaitRequest(party, template.create.command)
     for {
-      transaction <- ledger.submitAndWaitForTransaction(create)
+      transaction <- ledger.submitAndWaitForTransactionReturningTransaction(create)
     } yield {
       val contract = assertSingleton("UnitAsArgumentToNothing", createdEvents(transaction))
       assertEquals("UnitAsArgumentToNothing", contract.getCreateArguments, template.arguments)

@@ -46,7 +46,12 @@ import com.daml.ledger.api.v1.command_completion_service.{
   CompletionStreamRequest,
   CompletionStreamResponse,
 }
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.command_service.{
+  SubmitAndWaitForTransactionIdResponse,
+  SubmitAndWaitForTransactionResponse,
+  SubmitAndWaitForTransactionTreeResponse,
+  SubmitAndWaitRequest,
+}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands, ExerciseByKeyCommand}
 import com.daml.ledger.api.v1.completion.Completion
@@ -475,7 +480,9 @@ private[testtool] final class ParticipantTestContext private[participant] (
       party: Party,
       template: Template[T],
   ): Future[Primitive.ContractId[T]] =
-    submitAndWaitForTransaction(submitAndWaitRequest(party, template.create.command))
+    submitAndWaitForTransactionReturningTransaction(
+      submitAndWaitRequest(party, template.create.command)
+    )
       .map(extractContracts)
       .map(_.head)
 
@@ -484,7 +491,9 @@ private[testtool] final class ParticipantTestContext private[participant] (
       readAs: List[Party],
       template: Template[T],
   ): Future[Primitive.ContractId[T]] =
-    submitAndWaitForTransaction(submitAndWaitRequest(actAs, readAs, template.create.command))
+    submitAndWaitForTransactionReturningTransaction(
+      submitAndWaitRequest(actAs, readAs, template.create.command)
+    )
       .map(extractContracts)
       .map(_.head)
 
@@ -492,7 +501,9 @@ private[testtool] final class ParticipantTestContext private[participant] (
       party: Party,
       template: Template[T],
   ): Future[(String, Primitive.ContractId[T])] =
-    submitAndWaitForTransaction(submitAndWaitRequest(party, template.create.command))
+    submitAndWaitForTransactionReturningTransaction(
+      submitAndWaitRequest(party, template.create.command)
+    )
       .map(tx =>
         tx.transactionId -> tx.events.collect { case Event(Created(e)) =>
           Primitive.ContractId(e.contractId)
@@ -503,26 +514,34 @@ private[testtool] final class ParticipantTestContext private[participant] (
       party: Party,
       exercise: Party => Primitive.Update[T],
   ): Future[TransactionTree] =
-    submitAndWaitForTransactionTree(submitAndWaitRequest(party, exercise(party).command))
+    submitAndWaitForTransactionTreeReturningTree(
+      submitAndWaitRequest(party, exercise(party).command)
+    )
 
   def exercise[T](
       actAs: List[Party],
       readAs: List[Party],
       exercise: => Primitive.Update[T],
   ): Future[TransactionTree] =
-    submitAndWaitForTransactionTree(submitAndWaitRequest(actAs, readAs, exercise.command))
+    submitAndWaitForTransactionTreeReturningTree(
+      submitAndWaitRequest(actAs, readAs, exercise.command)
+    )
 
   def exerciseForFlatTransaction[T](
       party: Party,
       exercise: Party => Primitive.Update[T],
   ): Future[Transaction] =
-    submitAndWaitForTransaction(submitAndWaitRequest(party, exercise(party).command))
+    submitAndWaitForTransactionReturningTransaction(
+      submitAndWaitRequest(party, exercise(party).command)
+    )
 
   def exerciseAndGetContract[T](
       party: Party,
       exercise: Party => Primitive.Update[Any],
   ): Future[Primitive.ContractId[T]] =
-    submitAndWaitForTransaction(submitAndWaitRequest(party, exercise(party).command))
+    submitAndWaitForTransactionReturningTransaction(
+      submitAndWaitRequest(party, exercise(party).command)
+    )
       .map(extractContracts)
       .map(_.head.asInstanceOf[Primitive.ContractId[T]])
 
@@ -533,7 +552,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
       choice: String,
       argument: Value,
   ): Future[TransactionTree] =
-    submitAndWaitForTransactionTree(
+    submitAndWaitForTransactionTreeReturningTree(
       submitAndWaitRequest(
         party,
         Command.of(
@@ -621,16 +640,31 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def submitAndWait(request: SubmitAndWaitRequest): Future[Unit] =
     services.command.submitAndWait(request).map(_ => ())
 
-  def submitAndWaitForTransactionId(request: SubmitAndWaitRequest): Future[String] =
-    services.command.submitAndWaitForTransactionId(request).map(_.transactionId)
+  def submitAndWaitForTransactionId(
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionIdResponse] =
+    services.command.submitAndWaitForTransactionId(request)
 
-  def submitAndWaitForTransaction(request: SubmitAndWaitRequest): Future[Transaction] =
-    services.command.submitAndWaitForTransaction(request).map(_.getTransaction)
+  def submitAndWaitForTransaction(
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionResponse] =
+    services.command.submitAndWaitForTransaction(request)
 
-  def submitAndWaitForTransactionTree(request: SubmitAndWaitRequest): Future[TransactionTree] =
+  def submitAndWaitForTransactionReturningTransaction(
+      request: SubmitAndWaitRequest
+  ): Future[Transaction] =
+    submitAndWaitForTransaction(request).map(_.getTransaction)
+
+  def submitAndWaitForTransactionTree(
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionTreeResponse] =
     services.command
       .submitAndWaitForTransactionTree(request)
-      .map(_.getTransaction)
+
+  def submitAndWaitForTransactionTreeReturningTree(
+      request: SubmitAndWaitRequest
+  ): Future[TransactionTree] =
+    submitAndWaitForTransactionTree(request).map(_.getTransaction)
 
   def completionStreamRequest(from: LedgerOffset = referenceOffset)(parties: Party*) =
     new CompletionStreamRequest(ledgerId, applicationId, parties.map(_.unwrap), Some(from))

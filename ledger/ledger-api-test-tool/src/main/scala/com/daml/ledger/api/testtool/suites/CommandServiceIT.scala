@@ -47,7 +47,8 @@ final class CommandServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
     for {
-      transactionId <- ledger.submitAndWaitForTransactionId(request)
+      transactionIdResponse <- ledger.submitAndWaitForTransactionId(request)
+      transactionId = transactionIdResponse.transactionId
       retrievedTransaction <- ledger.transactionTreeById(transactionId, party)
       transactions <- ledger.flatTransactions(party)
     } yield {
@@ -57,6 +58,16 @@ final class CommandServiceIT extends LedgerTestSuite {
         transactions.size == 1,
         s"$party should see only one transaction but sees ${transactions.size}",
       )
+
+      assert(
+        transactionIdResponse.completionOffset.exists(_.nonEmpty),
+        "The offset was not set in the response",
+      )
+      assert(
+        transactionIdResponse.completionOffset.contains(retrievedTransaction.offset),
+        "Transaction offset was not equal to the retrieved one",
+      )
+
       val events = transactions.head.events
 
       assert(events.size == 1, s"$party should see only one event but sees ${events.size}")
@@ -95,11 +106,20 @@ final class CommandServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
     for {
-      transaction <- ledger.submitAndWaitForTransaction(request)
+      transactionResponse <- ledger.submitAndWaitForTransaction(request)
     } yield {
+      val transaction = transactionResponse.getTransaction
       assert(
         transaction.transactionId.nonEmpty,
         "The transaction identifier was empty but shouldn't.",
+      )
+      assert(
+        transactionResponse.completionOffset.exists(_.nonEmpty),
+        "The offset was not set in the response",
+      )
+      assert(
+        transactionResponse.completionOffset.contains(transaction.offset),
+        "Transaction offset was not equal to the retrieved one",
       )
       assert(
         transaction.events.size == 1,
@@ -124,8 +144,9 @@ final class CommandServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
     for {
-      transactionTree <- ledger.submitAndWaitForTransactionTree(request)
+      transactionTreeResponse <- ledger.submitAndWaitForTransactionTree(request)
     } yield {
+      val transactionTree = transactionTreeResponse.getTransaction
       assert(
         transactionTree.transactionId.nonEmpty,
         "The transaction identifier was empty but shouldn't.",
@@ -133,6 +154,14 @@ final class CommandServiceIT extends LedgerTestSuite {
       assert(
         transactionTree.eventsById.size == 1,
         s"The returned transaction tree should contain 1 event, but contained ${transactionTree.eventsById.size}",
+      )
+      assert(
+        transactionTreeResponse.completionOffset.exists(_.nonEmpty),
+        "The offset was not set in the response",
+      )
+      assert(
+        transactionTreeResponse.completionOffset.contains(transactionTree.offset),
+        "Transaction offset was not equal to the retrieved one",
       )
       val event = transactionTree.eventsById.head._2
       assert(
@@ -197,9 +226,9 @@ final class CommandServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
     for {
-      _ <- ledger.submitAndWaitForTransaction(request)
+      _ <- ledger.submitAndWaitForTransactionReturningTransaction(request)
       failure <- ledger
-        .submitAndWaitForTransaction(request)
+        .submitAndWaitForTransactionReturningTransaction(request)
         .mustFail("submitting a duplicate request")
     } yield {
       assertGrpcError(
@@ -220,9 +249,9 @@ final class CommandServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
     for {
-      _ <- ledger.submitAndWaitForTransactionTree(request)
+      _ <- ledger.submitAndWaitForTransactionTreeReturningTree(request)
       failure <- ledger
-        .submitAndWaitForTransactionTree(request)
+        .submitAndWaitForTransactionTreeReturningTree(request)
         .mustFail("submitting a duplicate request")
     } yield {
       assertGrpcError(
@@ -270,7 +299,7 @@ final class CommandServiceIT extends LedgerTestSuite {
       .update(_.commands.ledgerId := invalidLedgerId)
     for {
       failure <- ledger
-        .submitAndWaitForTransaction(request)
+        .submitAndWaitForTransactionReturningTransaction(request)
         .mustFail("submitting a request with an invalid ledger ID")
     } yield assertGrpcError(
       ledger,
@@ -293,7 +322,7 @@ final class CommandServiceIT extends LedgerTestSuite {
       .update(_.commands.ledgerId := invalidLedgerId)
     for {
       failure <- ledger
-        .submitAndWaitForTransactionTree(request)
+        .submitAndWaitForTransactionTreeReturningTree(request)
         .mustFail("submitting a request with an invalid ledger ID")
     } yield assertGrpcError(
       ledger,
