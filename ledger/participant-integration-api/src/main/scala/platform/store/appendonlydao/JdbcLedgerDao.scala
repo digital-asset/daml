@@ -371,7 +371,7 @@ private class JdbcLedgerDao(
                     completionInfo = state
                       .CompletionInfo(actAs, applicationId, commandId, None, submissionId),
                     reasonTemplate = reason.toParticipantStateRejectionReason(errorFactories)(
-                      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+                      new DamlContextualizedErrorLogger(logger, loggingContext, submissionId)
                     ),
                   )
                 ),

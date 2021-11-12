@@ -237,7 +237,7 @@ private[sandbox] final class InMemoryLedger(
           ) if actAs.exists(parties) =>
         val status = reason
           .toParticipantStateRejectionReason(errorFactories)(
-            new DamlContextualizedErrorLogger(logger, loggingContext, None)
+            new DamlContextualizedErrorLogger(logger, loggingContext, submissionId)
           )
           .status
         offset -> CompletionFromTransaction.rejectedCompletion(

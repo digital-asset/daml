@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher, NoLogging}
+import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.{v1, v2}
 import com.daml.lf.data.Time.Timestamp
@@ -97,7 +97,7 @@ private[appendonlydao] object PostCommitValidation {
         contractStorageBackend.maximumLedgerTime(referredContracts)(connection) match {
           case Failure(MissingContracts(missingContractIds)) =>
             Some(Rejection.UnknownContracts(missingContractIds.map(_.coid)))
-          case Failure(_) => Some(Rejection.UnknownContract)
+          case Failure(_) => Some(Rejection.MaximumLedgerTimeLookupFailure)
           case Success(value) => validateCausalMonotonicity(value, transactionLedgerEffectiveTime)
         }
     }
@@ -297,20 +297,18 @@ private[appendonlydao] object PostCommitValidation {
   object Rejection {
 
     import com.daml.platform.store.Conversions.RejectionReasonOps
-    object UnknownContract extends Rejection {
-      override val description = "Unknown contract"
+    object MaximumLedgerTimeLookupFailure extends Rejection {
+      override val description = "An unhandled failure occurred during ledger time lookup."
 
       override def toStateV1RejectionReason: v1.RejectionReason =
-        v1.RejectionReasonV0.Inconsistent(description)
+        v1.RejectionReasonV0.Disputed(description)
 
       override def toStateV2RejectionReason(errorFactories: ErrorFactories)(implicit
           contextualizedErrorLogger: ContextualizedErrorLogger
       ): v2.Update.CommandRejected.RejectionReasonTemplate =
         domain.RejectionReason
-          .Inconsistent(description)
-          .toParticipantStateRejectionReason(ErrorFactories(new ErrorCodesVersionSwitcher(false)))(
-            NoLogging
-          )
+          .Disputed(description)
+          .toParticipantStateRejectionReason(ErrorFactories(new ErrorCodesVersionSwitcher(false)))
     }
 
     final case class UnknownContracts(
