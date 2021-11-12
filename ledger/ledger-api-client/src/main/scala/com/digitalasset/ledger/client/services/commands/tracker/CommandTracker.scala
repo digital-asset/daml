@@ -327,7 +327,10 @@ private[commands] class CommandTracker[Context](
             val key = TrackedCommandKey(submissionId, completion.commandId)
             val trackedCommandForCompletion = pendingCommands.remove(key)
             trackedCommandForCompletion.map(trackingData =>
-              Ctx(trackingData.context, tracker.CompletionResponse(completion, checkpoint))
+              Ctx(
+                trackingData.context,
+                tracker.CompletionResponse(completion = completion, checkpoint = checkpoint),
+              )
             )
           }
           .getOrElse {
@@ -349,12 +352,12 @@ private[commands] class CommandTracker[Context](
             Ctx(
               t.context,
               tracker.CompletionResponse(
-                Completion(
+                completion = Completion(
                   commandKey.commandId,
                   Some(status),
                   submissionId = commandKey.submissionId,
                 ),
-                None,
+                checkpoint = None,
               ),
             )
           }
