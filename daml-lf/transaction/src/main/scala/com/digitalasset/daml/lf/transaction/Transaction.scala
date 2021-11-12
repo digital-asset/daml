@@ -12,6 +12,7 @@ import com.daml.lf.value.Value.ContractId
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
+import com.daml.scalautil.Statement.discard
 
 final case class VersionedTransaction private[lf] (
     version: TransactionVersion,
@@ -287,9 +288,9 @@ sealed abstract class HasTxNodes {
 
   private[lf] def byInterfaceNodes: List[Node.Action] = {
     val builder = List.newBuilder[Node.Action]
-    nodes.values.foreach {
-      case action: Node.Action if action.byInterface.isDefined =>
-        (builder += action)
+    foreach {
+      case (_, action: Node.Action) if action.byInterface.isDefined =>
+        discard(builder += action)
       case _ =>
         ()
     }
