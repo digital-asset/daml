@@ -304,7 +304,7 @@ final class JsonApiIt
         )
       } yield {
         assert(
-          exception.getCause.getMessage === "Tried to submit a command with actAs = [Bob] but token provides claims for actAs = [Alice]"
+          exception.getCause.getMessage === "Tried to submit a command with actAs = [Bob] but token provides claims for actAs = [Alice]. Missing claims: [Bob]"
         )
       }
     }
@@ -338,7 +338,7 @@ final class JsonApiIt
         )
       } yield {
         assert(
-          exception.getCause.getMessage === "Tried to query as Bob but token provides claims for Alice"
+          exception.getCause.getMessage === "Tried to query as [Bob] but token provides claims for [Alice]. Missing claims: [Bob]"
         )
       }
     }
@@ -491,6 +491,20 @@ final class JsonApiIt
         )
       } yield {
         assert(r == SUnit)
+      }
+    }
+    "party-set arguments" in {
+      val party1 = "partySetArguments1"
+      val party2 = "partySetArguments2"
+      for {
+        clients <- getMultiPartyClients(List(party1, party2))
+        r <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:jsonMultiPartyPartySets"),
+          inputValue = Some(JsArray(JsString(party1), JsString(party2))),
+        )
+      } yield {
+        r shouldBe SUnit
       }
     }
     "invalid response" in {

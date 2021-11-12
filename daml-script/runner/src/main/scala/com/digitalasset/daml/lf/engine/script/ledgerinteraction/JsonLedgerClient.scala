@@ -107,6 +107,22 @@ class JsonLedgerClient(
     Http().singleRequest(req).flatMap(resp => Unmarshal(resp.entity).to[Response[A]])
   }
 
+  // Update a js object with the given key & value (if it is Some)
+  private def updateJsObject[A: JsonWriter, B: JsonWriter](v: A, key: String, optValue: Option[B]) =
+    v.toJson match {
+      case JsObject(o) => JsObject(optValue.fold(o)(v => o + (key -> v.toJson)))
+      case other => throw new IllegalArgumentException(s"Expected JsObject but got $other")
+    }
+
+  def queryRequestSuccess[A: JsonWriter, B: JsonReader](
+      path: Path,
+      a: A,
+      parties: Option[QueryParties],
+  ): Future[B] = {
+    val args = updateJsObject(a, "readers", parties.map(_.readers.toSet))
+    requestSuccess[JsObject, B](path, args)
+  }
+
   def requestSuccess[A, B](path: Path, a: A)(implicit
       wa: JsonWriter[A],
       rb: JsonReader[B],
@@ -129,10 +145,11 @@ class JsonLedgerClient(
       mat: Materializer,
   ) = {
     for {
-      () <- validateTokenParties(parties, "query")
-      queryResponse <- requestSuccess[QueryArgs, QueryResponse](
+      parties <- validateTokenParties(parties, "query")
+      queryResponse <- queryRequestSuccess[QueryArgs, QueryResponse](
         uri.path./("v1")./("query"),
         QueryArgs(templateId),
+        parties,
       )
     } yield {
       val ctx = templateId.qualifiedName
@@ -153,10 +170,11 @@ class JsonLedgerClient(
       cid: ContractId,
   )(implicit ec: ExecutionContext, mat: Materializer) = {
     for {
-      () <- validateTokenParties(parties, "queryContractId")
-      fetchResponse <- requestSuccess[FetchArgs, FetchResponse](
+      parties <- validateTokenParties(parties, "queryContractId")
+      fetchResponse <- queryRequestSuccess[FetchArgs, FetchResponse](
         uri.path./("v1")./("fetch"),
         FetchArgs(cid),
+        parties,
       )
     } yield {
       val ctx = templateId.qualifiedName
@@ -177,10 +195,11 @@ class JsonLedgerClient(
       translateKey: (Identifier, Value) => Either[String, SValue],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
     for {
-      _ <- validateTokenParties(parties, "queryContractKey")
-      fetchResponse <- requestSuccess[FetchKeyArgs, FetchResponse](
+      parties <- validateTokenParties(parties, "queryContractKey")
+      fetchResponse <- queryRequestSuccess[FetchKeyArgs, FetchResponse](
         uri.path./("v1")./("fetch"),
         FetchKeyArgs(templateId, key.toUnnormalizedValue),
+        parties,
       )
     } yield {
       val ctx = templateId.qualifiedName
@@ -204,20 +223,20 @@ class JsonLedgerClient(
       mat: Materializer,
   ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
     for {
-      () <- validateSubmitParties(actAs, readAs)
+      optPartySets <- validateSubmitParties(actAs, readAs)
 
       result <- commands match {
         case Nil => Future { Right(List()) }
         case cmd :: Nil =>
           cmd match {
             case command.CreateCommand(tplId, argument) =>
-              create(tplId, argument)
+              create(tplId, argument, optPartySets)
             case command.ExerciseCommand(tplId, cid, choice, argument) =>
-              exercise(tplId, cid, choice, argument)
+              exercise(tplId, cid, choice, argument, optPartySets)
             case command.ExerciseByKeyCommand(tplId, key, choice, argument) =>
-              exerciseByKey(tplId, key, choice, argument)
+              exerciseByKey(tplId, key, choice, argument, optPartySets)
             case command.CreateAndExerciseCommand(tplId, template, choice, argument) =>
-              createAndExercise(tplId, template, choice, argument)
+              createAndExercise(tplId, template, choice, argument, optPartySets)
           }
         case _ =>
           Future.failed(
@@ -294,10 +313,16 @@ class JsonLedgerClient(
     )
   }
 
-  // Check that the parties in the token match the given parties.
-  private def validateTokenParties(parties: OneAnd[Set, Ref.Party], what: String): Future[Unit] = {
-    import scalaz.std.string._
-    val tokenParties = Set(tokenPayload.readAs ++ tokenPayload.actAs: _*)
+  // Check that the parties in the token provide read claims for the given parties
+  // and return explicit party specifications if required.
+  private def validateTokenParties(
+      parties: OneAnd[Set, Ref.Party],
+      what: String,
+  ): Future[Option[QueryParties]] = {
+    val tokenParties = tokenPayload.readAs.toSet union tokenPayload.actAs.toSet
+    // Use toSet twice to convert from Party to String
+    val partiesSet = parties.toSet.toSet[String]
+    val missingParties = partiesSet diff tokenParties
     // First check is just for a nicer error message and would be covered by the second
     if (tokenParties.isEmpty) {
       Future.failed(
@@ -305,18 +330,24 @@ class JsonLedgerClient(
           s"Tried to $what as ${parties.toList.mkString(" ")} but token contains no parties."
         )
       )
-    } else if (tokenParties === parties.toSet.toSet[String]) {
-      Future.unit
+    } else if (missingParties.isEmpty) {
+      import scalaz.std.string._
+      if (partiesSet === tokenParties) {
+        Future.successful(None)
+      } else {
+        Future.successful(Some(QueryParties(parties)))
+      }
     } else {
-      Future.failed(new RuntimeException(s"Tried to $what as ${parties.toList
-        .mkString(" ")} but token provides claims for ${tokenParties.mkString(" ")}"))
+      Future.failed(new RuntimeException(s"Tried to $what as [${parties.toList
+        .mkString(", ")}] but token provides claims for [${tokenParties
+        .mkString(", ")}]. Missing claims: [${missingParties.mkString(", ")}]"))
     }
   }
 
   private def validateSubmitParties(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-  ): Future[Unit] = {
+  ): Future[Option[SubmitParties]] = {
     JsonLedgerClient
       .validateSubmitParties(actAs, readAs, tokenPayload)
       .fold(s => Future.failed(new RuntimeException(s)), Future.successful(_))
@@ -325,9 +356,10 @@ class JsonLedgerClient(
   private def create(
       tplId: Identifier,
       argument: Value,
+      partySets: Option[SubmitParties],
   ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CreateResult]]] = {
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
-    commandRequest[CreateArgs, CreateResponse]("create", CreateArgs(tplId, jsonArgument))
+    commandRequest[CreateArgs, CreateResponse]("create", CreateArgs(tplId, jsonArgument), partySets)
       .map(_.map { case CreateResponse(cid) =>
         List(ScriptLedgerClient.CreateResult(ContractId.assertFromString(cid)))
       })
@@ -338,6 +370,7 @@ class JsonLedgerClient(
       contractId: ContractId,
       choice: ChoiceName,
       argument: Value,
+      partySets: Option[SubmitParties],
   ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
@@ -348,6 +381,7 @@ class JsonLedgerClient(
     commandRequest[ExerciseArgs, ExerciseResponse](
       "exercise",
       ExerciseArgs(tplId, contractId, choice, jsonArgument),
+      partySets,
     )
       .map(_.map { case ExerciseResponse(result) =>
         List(
@@ -367,6 +401,7 @@ class JsonLedgerClient(
       key: Value,
       choice: ChoiceName,
       argument: Value,
+      partySets: Option[SubmitParties],
   ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
@@ -377,8 +412,8 @@ class JsonLedgerClient(
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
     commandRequest[ExerciseByKeyArgs, ExerciseResponse](
       "exercise",
-      JsonLedgerClient
-        .ExerciseByKeyArgs(tplId, jsonKey, choice, jsonArgument),
+      ExerciseByKeyArgs(tplId, jsonKey, choice, jsonArgument),
+      partySets,
     ).map(_.map { case ExerciseResponse(result) =>
       List(
         ScriptLedgerClient.ExerciseResult(
@@ -397,6 +432,7 @@ class JsonLedgerClient(
       template: Value,
       choice: ChoiceName,
       argument: Value,
+      partySets: Option[SubmitParties],
   ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CommandResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
@@ -407,8 +443,8 @@ class JsonLedgerClient(
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
     commandRequest[CreateAndExerciseArgs, CreateAndExerciseResponse](
       "create-and-exercise",
-      JsonLedgerClient
-        .CreateAndExerciseArgs(tplId, jsonTemplate, choice, jsonArgument),
+      CreateAndExerciseArgs(tplId, jsonTemplate, choice, jsonArgument),
+      partySets,
     )
       .map(_.map { case CreateAndExerciseResponse(cid, result) =>
         List(
@@ -430,11 +466,13 @@ class JsonLedgerClient(
     Set(InternalServerError, BadRequest, Conflict)
   }
 
-  def commandRequest[In, Out](endpoint: String, argument: In)(implicit
+  def commandRequest[In, Out](endpoint: String, argument: In, partySets: Option[SubmitParties])(
+      implicit
       argumentWriter: JsonWriter[In],
       outputReader: RootJsonReader[Out],
   ): Future[Either[StatusRuntimeException, Out]] = {
-    request[In, Out](uri.path./("v1")./(endpoint), argument).flatMap {
+    val argumentWithPartySets = updateJsObject(argument, "meta", partySets)
+    request[JsObject, Out](uri.path./("v1")./(endpoint), argumentWithPartySets).flatMap {
       case ErrorResponse(errors, status) if SubmissionFailures(status) =>
         // TODO (MK) Using a grpc exception here doesn’t make that much sense.
         // We should refactor this to provide something more general.
@@ -450,7 +488,7 @@ class JsonLedgerClient(
         Future.failed(
           new FailedJsonApiRequest(
             uri.path./("v1")./(endpoint),
-            Some(argument.toJson),
+            Some(argumentWithPartySets),
             status,
             errors,
           )
@@ -471,33 +509,56 @@ object JsonLedgerClient {
         s"Request to $path with ${reqBody.map(_.compactPrint)} failed with status $respStatus: $errors"
       )
 
+  // Explicit party specifications for command submissions
+  final case class SubmitParties(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+  )
+
+  // Expect party specifications for queries
+  final case class QueryParties(
+      readers: OneAnd[Set, Ref.Party]
+  )
+
+  // Validate that the token has the required claims and return
+  // SubmitParties we need to pass to the JSON API
+  // if the token has more claims than we need.
   def validateSubmitParties(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       tokenPayload: AuthServiceJWTPayload,
-  ): Either[String, Unit] = {
+  ): Either[String, Option[SubmitParties]] = {
+    val actAsSet = actAs.toList.toSet[String]
+    val readAsSet = readAs.toSet[String]
     val tokenActAs = tokenPayload.actAs.toSet
-    // Relax once the JSON API supports multi-party read/write
-    import scalaz.std.string._
-    val onlyReadAs = readAs.diff(actAs.toSet)
-    val tokenOnlyReadAs = tokenPayload.readAs.toSet.diff(tokenActAs)
+    val tokenReadAs = tokenPayload.readAs.toSet
+    val missingActAs = actAs.toSet.map(p => p: String) diff tokenActAs
+    val missingReadAs = readAs.map(p => p: String) diff (tokenReadAs union tokenActAs)
     if (tokenPayload.actAs.isEmpty) {
       Left(
         s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token contains no actAs parties."
       )
 
-    } else if (actAs.toList.toSet[String] /== tokenActAs) {
+    } else if (!missingActAs.isEmpty) {
       Left(
         s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token provides claims for actAs = [${tokenPayload.actAs
-          .mkString(" ")}]"
+          .mkString(", ")}]. Missing claims: [${missingActAs.mkString(", ")}]"
       )
-    } else if (onlyReadAs.toSet[String] /== tokenOnlyReadAs) {
+    } else if (!missingReadAs.isEmpty) {
       Left(
         s"Tried to submit a command with readAs = [${readAs.mkString(", ")}] but token provides claims for readAs = [${tokenPayload.readAs
-          .mkString(" ")}]"
+          .mkString(", ")}]. Missing claims: [${missingReadAs.mkString(", ")}]"
       )
     } else {
-      Right(())
+      import scalaz.std.string._
+      val onlyReadAs = readAsSet diff actAsSet
+      val tokenOnlyReadAs = tokenReadAs diff tokenActAs
+      if (onlyReadAs === tokenOnlyReadAs && actAsSet == tokenActAs) {
+        // For backwards-compatibility we only set the party set flags when needed
+        Right(None)
+      } else {
+        Right(Some(SubmitParties(actAs, readAs)))
+      }
     }
   }
 
@@ -622,6 +683,21 @@ object JsonLedgerClient {
         case _ => deserializationError(s"Could not parse ActiveContract: $v")
       }
     }
+
+    implicit val partyFormat: JsonFormat[Ref.Party] = new JsonFormat[Ref.Party] {
+      override def write(p: Ref.Party) = JsString(p)
+      override def read(json: JsValue) = json match {
+        case JsString(p) =>
+          Party.fromString(p) match {
+            case Left(err) => deserializationError(err)
+            case Right(p) => p
+          }
+        case _ => deserializationError(s"Expected party but got $json")
+      }
+    }
+
+    implicit val submitPartiesWriter: JsonWriter[SubmitParties] = parties =>
+      JsObject("actAs" -> parties.actAs.toList.toJson, "readAs" -> parties.readAs.toJson)
 
     implicit val createWriter: JsonWriter[CreateArgs] = args =>
       JsObject("templateId" -> args.templateId.toJson, "payload" -> args.payload)
