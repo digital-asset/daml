@@ -189,20 +189,21 @@ object JsonProtocol extends JsonProtocolLow {
     domain.ContractKeyStreamRequest(domain.ContractId.subst[OO, String](off), ekey)
   }
 
+  private[http] val ReadersKey = "readers"
+
   implicit val FetchRequestFormat: RootJsonReader[domain.FetchRequest[JsValue]] =
     new RootJsonFormat[domain.FetchRequest[JsValue]] {
-      private[this] val ReadAs = "readAs"
       override def write(obj: domain.FetchRequest[JsValue]): JsValue = {
         val domain.FetchRequest(locator, readAs) = obj
         val lj = locator.toJson
-        readAs.cata(rl => JsObject(lj.asJsObject.fields.updated(ReadAs, rl.toJson)), lj)
+        readAs.cata(rl => JsObject(lj.asJsObject.fields.updated(ReadersKey, rl.toJson)), lj)
       }
 
       override def read(json: JsValue): domain.FetchRequest[JsValue] = {
         val jo = json.asJsObject("fetch request must be a JSON object").fields
         domain.FetchRequest(
-          JsObject(jo - ReadAs).convertTo[domain.ContractLocator[JsValue]],
-          jo.get(ReadAs).flatMap(_.convertTo[Option[NonEmptyList[domain.Party]]]),
+          JsObject(jo - ReadersKey).convertTo[domain.ContractLocator[JsValue]],
+          jo.get(ReadersKey).flatMap(_.convertTo[Option[NonEmptyList[domain.Party]]]),
         )
       }
     }
@@ -308,8 +309,7 @@ object JsonProtocol extends JsonProtocolLow {
   }
 
   implicit val GetActiveContractsRequestFormat: RootJsonReader[domain.GetActiveContractsRequest] = {
-    val ReadAsKey = "readAs"
-    requestJsonReaderPlusOne(ReadAsKey)(domain.GetActiveContractsRequest)
+    requestJsonReaderPlusOne(ReadersKey)(domain.GetActiveContractsRequest)
   }
 
   implicit val SearchForeverQueryFormat: RootJsonReader[domain.SearchForeverQuery] = {

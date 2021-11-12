@@ -703,7 +703,7 @@ application/json body:
     }
 
 
-``readAs`` may be passed as with :ref:`Query <sync-query-req>`.
+``readers`` may be passed as with :ref:`Query <sync-query-req>`.
 
 Contract Not Found HTTP Response
 ================================
@@ -770,7 +770,7 @@ HTTP Request
         }
     }
 
-``readAs`` may be passed as with :ref:`Query <sync-query-req>`.
+``readers`` may be passed as with :ref:`Query <sync-query-req>`.
 
 Contract Not Found HTTP Response
 ================================
@@ -860,14 +860,14 @@ HTTP Request
     {
         "templateIds": ["Iou:Iou"],
         "query": {"amount": 999.99},
-        "readAs": ["Alice"]
+        "readers": ["Alice"]
     }
 
 Where:
 
 - ``templateIds`` --  an array of contract template identifiers to search through,
 - ``query`` -- search criteria to apply to the specified ``templateIds``, formatted according to the :doc:`search-query-language`.
-- ``readAs`` -- *optional* non-empty list of parties to query as; must be a subset of the actAs/readAs parties in the JWT
+- ``readers`` -- *optional* non-empty list of parties to query as; must be a subset of the actAs/readAs parties in the JWT
 
 Empty HTTP Response
 ===================
