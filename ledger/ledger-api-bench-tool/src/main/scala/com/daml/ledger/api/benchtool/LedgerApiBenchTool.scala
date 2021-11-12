@@ -75,7 +75,7 @@ object LedgerApiBenchTool {
       for {
         summary <- submissionStep(config.workflow.submission)
         streams = config.workflow.streams.map(
-          DescriptorConverter.enrichedStreamConfig(_, summary)
+          ConfigEnricher.enrichedStreamConfig(_, summary)
         )
         _ = logger.info(
           s"Stream configs adapted after the submission step: ${prettyPrint(streams)}"
