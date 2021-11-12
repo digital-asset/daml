@@ -538,9 +538,7 @@ excluded_test_tool_tests = [
                 "end": "1.18.0-snapshot.20211026.8179.0.e474b2d1",
                 "exclusions": [
                     # Exclude dedup tests due to large number of changes (removed participant deduplication, switch to append-only schema, changes in deduplication duration)
-                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationMixedClients",
-                    "KVCommandDeduplicationIT:KVCommandDeduplicationDeduplicateSubmitterBasic",
-                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationBasic",
+                    "KVCommandDeduplicationIT",
                     "CommandDeduplicationIT",  # Latest version of the test is dependent on having the submission id populated
                 ],
             },
