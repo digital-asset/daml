@@ -494,7 +494,7 @@ class QueryStreamsManager {
             const ws = new WebSocket(manager.url, manager.protocols);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const onWsMessage = ({data}: {data: any}): void => {
-                if(ws.readyState === WsState.Open) {
+                if(manager.ws?.readyState === WsState.Open) {
                     const json: unknown = JSON.parse(data.toString());
                     if (isRecordWith('events', json)) {
                         const events: Event<object>[] = jtv.Result.withException(jtv.array(decodeEventUnknown).run(json.events));
@@ -533,21 +533,20 @@ class QueryStreamsManager {
 
                         if (isRecordWith('offset', json)) {
                             const offset = jtv.Result.withException(jtv.oneOf(jtv.constant(null), jtv.string()).run(json.offset));
-                            let anyLiveEvent: boolean = false;
+                            if(manager.wsLiveSince === undefined) {
+                                //on receiving the first offset event we consider the web socket to be live.
+                                manager.wsLiveSince = Date.now();
+                            }
                             for (const consumer of materialize(manager.queries.values())) {
                                 if (!(typeof consumer.offset === 'string')) {
                                     // Rebuilding the state array from scratch to make sure mutable state is not shared between the 'change' and 'live' event
                                     consumer.stream.emit('live', Array.from(consumer.state.values()));
-                                    anyLiveEvent = true;
                                 }
                                 if (typeof offset === 'string') {
                                     consumer.offset = offset;
                                 } else {
                                     consumer.offset = NullOffsetReceived;
                                 }
-                            }
-                            if (anyLiveEvent === true) {
-                                manager.wsLiveSince = Date.now();
                             }
                         }
                     } else if (isRecordWith('warnings', json)) {
@@ -603,7 +602,9 @@ class QueryStreamsManager {
                 if (!manager.wsQueriesChange) {
                     // The web socket has been closed due to an error
                     // If the conditions are met, attempt to reconnect and/or inform downstream consumers
-                    if (manager.wsLiveSince !== undefined && Date.now() - manager.wsLiveSince >= manager.reconnectThresholdMs) {
+                    const now = Date.now();
+                    if (manager.wsLiveSince !== undefined && now - manager.wsLiveSince >= manager.reconnectThresholdMs) {
+                        console.log(`Reconnecting ws, previously liveSince: ${manager.wsLiveSince} and reconnectThresholdMs: ${manager.reconnectThresholdMs}`);
                         manager.wsLiveSince = undefined;
                         const ws = new WebSocket(manager.url, manager.protocols);
                         ws.addEventListener('open', onWsOpen);
@@ -703,7 +704,7 @@ class Ledger {
   /**
    * Construct a new `Ledger` object. See [[LedgerOptions]] for the constructor arguments.
    */
-  constructor({token, httpBaseUrl, wsBaseUrl, reconnectThreshold = 30000, multiplexQueryStreams = false}: LedgerOptions) {
+  constructor({token, httpBaseUrl, wsBaseUrl, reconnectThreshold = 30000, multiplexQueryStreams = true}: LedgerOptions) {
     if (!httpBaseUrl) {
       httpBaseUrl = `${window.location.protocol}//${window.location.host}/`;
     }
