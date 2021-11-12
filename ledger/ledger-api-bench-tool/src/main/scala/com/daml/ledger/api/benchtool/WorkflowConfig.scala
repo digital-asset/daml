@@ -6,27 +6,27 @@ package com.daml.ledger.api.benchtool
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 
 case class WorkflowConfig(
-//    submission: Option[WorkflowConfig.SubmissionConfig],
-    streams: List[WorkflowConfig.StreamConfig] = Nil
+    submission: Option[WorkflowConfig.SubmissionConfig] = None,
+    streams: List[WorkflowConfig.StreamConfig] = Nil,
 )
 
 object WorkflowConfig {
 
-//  case class SubmissionConfig(
-//                               numberOfInstances: Int,
-//                               numberOfObservers: Int,
-//                               uniqueParties: Boolean,
-//                               instanceDistribution: List[SubmissionDescriptor.ContractDescription],
-//                             )
-//
-//  object SubmissionConfig {
-//    case class ContractDescription(
-//                                    template: String,
-//                                    weight: Int,
-//                                    payloadSizeBytes: Int,
-//                                    archiveChance: Double,
-//                                  )
-//  }
+  case class SubmissionConfig(
+      numberOfInstances: Int,
+      numberOfObservers: Int,
+      uniqueParties: Boolean,
+      instanceDistribution: List[WorkflowConfig.SubmissionConfig.ContractDescription],
+  )
+
+  object SubmissionConfig {
+    case class ContractDescription(
+        template: String,
+        weight: Int,
+        payloadSizeBytes: Int,
+        archiveChance: Double,
+    )
+  }
 
   sealed trait StreamConfig {
     def name: String
