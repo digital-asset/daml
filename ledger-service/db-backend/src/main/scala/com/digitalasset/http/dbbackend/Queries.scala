@@ -38,7 +38,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
 
-  val schemaVersion = 3
+  val schemaVersion = 4
 
   private[http] val surrogateTpIdCache = new SurrogateTemplateIdCache(metrics, tpIdCacheMaxEntries)
 
@@ -681,11 +681,19 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
 
   protected[this] override val maxListSize = None
 
-  protected[this] val contractsTableIndexName = Fragment.const0(s"${tablePrefix}contract_tpid_idx")
-
-  private[this] val indexContractsTable = CreateIndex(sql"""
-      CREATE INDEX $contractsTableIndexName ON $contractTableName (tpid)
+  private[this] val contractTpidIndex = {
+    val name = Fragment.const0(s"${tablePrefix}contract_tpid_idx")
+    CreateIndex(sql"""
+      CREATE INDEX $name ON $contractTableName (tpid)
     """)
+  }
+
+  private[this] val contractStakeholdersIndex = {
+    val name = Fragment.const0(s"${tablePrefix}contract_stakeholders_idx")
+    CreateIndex(sql"""
+      CREATE INDEX $name ON $contractTableName USING GIN ((signatories || observers))
+    """)
+  }
 
   private[this] val contractKeyHashIndexName = Fragment.const0(s"${tablePrefix}ckey_hash_idx")
   private[this] val contractKeyHashIndex = CreateIndex(
@@ -693,7 +701,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
   )
 
   protected[this] override def extraDatabaseDdls =
-    Seq(indexContractsTable, contractKeyHashIndex)
+    Seq(contractTpidIndex, contractStakeholdersIndex, contractKeyHashIndex)
 
   protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] = {
     for {
@@ -746,7 +754,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
       query = (tpid, unionPred) =>
         sql"""SELECT contract_id, $tpid tpid, key, key_hash, payload, signatories, observers, agreement_text
               FROM $contractTableName AS c
-              WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
+              WHERE ((signatories || observers) && $partyVector::text[])
                     AND ($unionPred)""",
       key = identity[JsValue],
       sigsObs = identity[Vector[String]],
