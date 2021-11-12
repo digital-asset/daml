@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.benchtool
 
-import com.daml.ledger.api.benchtool.WorkflowConfig.StreamConfig
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig
 import com.daml.ledger.api.benchtool.metrics.{
   MetricRegistryOwner,
   MetricsCollector,

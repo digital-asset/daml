@@ -1,17 +1,17 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.benchtool
+package com.daml.ledger.api.benchtool.config
 
-import com.daml.ledger.api.benchtool.WorkflowConfig.StreamConfig
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import io.circe.Decoder
 import io.circe.yaml.parser
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import cats.syntax.functor._
 
 import java.io.Reader
 
 object WorkflowConfigParser {
+  import WorkflowConfig._
   import Decoders._
 
   def parse(reader: Reader): Either[ParserError, WorkflowConfig] =
@@ -28,7 +28,7 @@ object WorkflowConfigParser {
       Decoder.forProduct2(
         "max_delay_seconds",
         "min_consumption_speed",
-      )(WorkflowConfig.StreamConfig.Objectives.apply)
+      )(StreamConfig.Objectives.apply)
 
     implicit val offsetDecoder: Decoder[LedgerOffset] =
       Decoder.decodeString.map(LedgerOffset.defaultInstance.withAbsolute)
@@ -82,22 +82,21 @@ object WorkflowConfigParser {
           case invalid => Decoder.failedWithMessage(s"Invalid stream type: $invalid")
         }
 
-    implicit val contractDescriptionDecoder
-        : Decoder[WorkflowConfig.SubmissionConfig.ContractDescription] =
+    implicit val contractDescriptionDecoder: Decoder[SubmissionConfig.ContractDescription] =
       Decoder.forProduct4(
         "template",
         "weight",
         "payload_size_bytes",
         "archive_probability",
-      )(WorkflowConfig.SubmissionConfig.ContractDescription.apply)
+      )(SubmissionConfig.ContractDescription.apply)
 
-    implicit val submissionConfigDecoder: Decoder[WorkflowConfig.SubmissionConfig] =
+    implicit val submissionConfigDecoder: Decoder[SubmissionConfig] =
       Decoder.forProduct4(
         "num_instances",
         "num_observers",
         "unique_parties",
         "instance_distribution",
-      )(WorkflowConfig.SubmissionConfig.apply)
+      )(SubmissionConfig.apply)
 
     implicit val workflowConfigDecoder: Decoder[WorkflowConfig] =
       Decoder.forProduct2(
