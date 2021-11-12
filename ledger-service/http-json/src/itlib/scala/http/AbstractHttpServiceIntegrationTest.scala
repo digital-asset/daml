@@ -20,7 +20,6 @@ import com.daml.http.domain.ContractId
 import com.daml.http.domain.TemplateId.OptionalPkg
 import com.daml.http.json.SprayJson.{decode, decode1, objectField}
 import com.daml.http.json._
-import JsonProtocol.ReadersKey
 import com.daml.http.util.ClientUtil.{boxedRecord, uniqueId}
 import com.daml.http.util.FutureUtil.toFuture
 import com.daml.http.util.{FutureUtil, SandboxTestLedger}
