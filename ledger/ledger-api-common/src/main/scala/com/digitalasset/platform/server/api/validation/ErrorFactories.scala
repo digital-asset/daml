@@ -3,7 +3,6 @@
 
 package com.daml.platform.server.api.validation
 
-import java.time.Duration
 import com.daml.error.ErrorCode.ApiException
 import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
@@ -28,6 +27,7 @@ import io.grpc.{Metadata, StatusRuntimeException}
 import scalaz.syntax.tag._
 
 import java.sql.{SQLNonTransientException, SQLTransientException}
+import java.time.Duration
 
 class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
   def sqlTransientException(exception: SQLTransientException)(implicit
@@ -64,9 +64,13 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     errorCodesVersionSwitcher.choose(
       v1 = ValidationLogger.logFailureWithContext(
         request,
-        io.grpc.Status.INVALID_ARGUMENT
-          .withDescription(message)
-          .asRuntimeException(),
+        grpcError(
+          Status
+            .newBuilder()
+            .setCode(Code.INVALID_ARGUMENT.value())
+            .setMessage(message)
+            .build()
+        ),
       ),
       v2 = LedgerApiErrors.ReadErrors.MalformedPackageId
         .Reject(
@@ -87,9 +91,13 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
-      v1 = io.grpc.Status.INTERNAL
-        .withDescription(message)
-        .asRuntimeException(),
+      v1 = grpcError(
+        Status
+          .newBuilder()
+          .setCode(Code.INTERNAL.value())
+          .setMessage(message)
+          .build()
+      ),
       v2 = LedgerApiErrors.VersionServiceError.InternalError.Reject(message).asGrpcError,
     )
 
@@ -171,9 +179,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
-      v1 = {
-        invalidArgumentV1(definiteAnswer, message)
-      },
+      v1 = invalidArgumentV1(definiteAnswer, message),
       // TODO error codes: This error group is confusing for this generic error as it can be dispatched
       //                   from call-sites that do not involve command validation (e.g. ApiTransactionService).
       v2 = LedgerApiErrors.CommandValidation.InvalidArgument
@@ -208,9 +214,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
-      v1 = {
-        invalidArgumentV1(definiteAnswer, message)
-      },
+      v1 = invalidArgumentV1(definiteAnswer, message),
       v2 = LedgerApiErrors.ReadErrors.RequestedOffsetOutOfRange
         .Reject(message)
         .asGrpcError,
@@ -378,7 +382,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           s"$securitySafeMessage: ${exception.getMessage}"
         )
         new ApiException(
-          io.grpc.Status.INTERNAL.withDescription(securitySafeMessage),
+          io.grpc.Status.INTERNAL.withDescription(truncated(securitySafeMessage)),
           new Metadata(),
         )
       },
@@ -472,18 +476,6 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       v2 = LedgerApiErrors.InternalError.CommandTrackerInternalError(msg).asGrpcError,
     )
 
-  /** Transforms Protobuf [[Status]] objects, possibly including metadata packed as [[ErrorInfo]] objects,
-    * into exceptions with metadata in the trailers.
-    *
-    * Asynchronous errors, i.e. failed completions, contain Protobuf [[Status]] objects themselves.
-    *
-    * @param status A Protobuf [[Status]] object.
-    * @return An exception without a stack trace.
-    */
-  def grpcError(status: Status): StatusRuntimeException = new NoStackTraceApiException(
-    StatusProto.toStatusRuntimeException(status)
-  )
-
   private def invalidArgumentV1(
       definiteAnswer: Option[Boolean],
       message: String,
@@ -494,6 +486,32 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       .setMessage(s"Invalid argument: $message")
     addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
     grpcError(statusBuilder.build())
+  }
+
+  /** Transforms Protobuf [[Status]] objects, possibly including metadata packed as [[ErrorInfo]] objects,
+    * into exceptions with metadata in the trailers.
+    *
+    * Asynchronous errors, i.e. failed completions, contain Protobuf [[Status]] objects themselves.
+    *
+    * NOTE: The length of the Status message is truncated to a reasonable size for satisfying
+    *        the Netty header size limit - as the message is also incorporated in the header, bundled in the gRPC metadata.
+    * @param status A Protobuf [[Status]] object.
+    * @return An exception without a stack trace.
+    */
+  def grpcError(status: Status): StatusRuntimeException = {
+    val newStatus =
+      Status
+        .newBuilder(status)
+        .setMessage(truncated(status.getMessage))
+    new NoStackTraceApiException(
+      StatusProto.toStatusRuntimeException(newStatus.build)
+    )
+  }
+
+  private def truncated(message: String): String = {
+    val maxMessageLength =
+      1536 // An arbitrary limit that doesn't break netty serialization while being useful to human operator.
+    if (message.length > maxMessageLength) message.take(maxMessageLength) + "..." else message
   }
 
   object CommandRejections {
