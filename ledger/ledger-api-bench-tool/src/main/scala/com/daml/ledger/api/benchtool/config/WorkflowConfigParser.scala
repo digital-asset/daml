@@ -4,7 +4,7 @@
 package com.daml.ledger.api.benchtool.config
 
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import io.circe.Decoder
+import io.circe.{Decoder, HCursor}
 import io.circe.yaml.parser
 import cats.syntax.functor._
 
@@ -99,10 +99,14 @@ object WorkflowConfigParser {
       )(SubmissionConfig.apply)
 
     implicit val workflowConfigDecoder: Decoder[WorkflowConfig] =
-      Decoder.forProduct2(
-        "submission",
-        "streams",
-      )(WorkflowConfig.apply)
+      (c: HCursor) =>
+        for {
+          submission <- c.downField("submission").as[Option[SubmissionConfig]]
+          streams <- c
+            .downField("streams")
+            .as[Option[List[WorkflowConfig.StreamConfig]]]
+            .map(_.getOrElse(Nil))
+        } yield WorkflowConfig(submission, streams)
   }
 
 }
