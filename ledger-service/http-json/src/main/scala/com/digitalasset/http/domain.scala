@@ -15,7 +15,7 @@ import scalaz.std.option._
 import scalaz.std.vector._
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Applicative, Bitraverse, NonEmptyList, OneAnd, Traverse, \/, \/-}
+import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, OneAnd, Traverse, \/, \/-}
 import spray.json.JsValue
 
 import scala.annotation.tailrec
@@ -34,8 +34,9 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
     val parties: PartySet
   }
 
-  // Until we get multi-party submissions, write endpoints require a single party in actAs but we
-  // can have multiple parties in readAs.
+  // write endpoints require at least one party in actAs
+  // (only the first one is used for pre-multiparty ledgers)
+  // but we can have multiple parties in readAs.
   final case class JwtWritePayload(
       ledgerId: LedgerId,
       applicationId: ApplicationId,
@@ -44,13 +45,13 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
   ) extends JwtPayloadG {
     override val actAs: List[Party] = submitter.toList
     override val parties: PartySet =
-      actAs.tail.toSet union readAs.toSet incl1 actAs.head
+      submitter.toSet1 ++ readAs
   }
 
   final case class JwtPayloadLedgerIdOnly(ledgerId: LedgerId)
 
-  // JWT payload that preserves readAs and actAs and supports multiple parties. This is currently only used for
-  // read endpoints but once we get multi-party submissions, this can also be used for write endpoints.
+  // As with JwtWritePayload, but supports empty `actAs`.  At least one of
+  // `actAs` or `readAs` must be non-empty.
   sealed abstract case class JwtPayload private (
       ledgerId: LedgerId,
       applicationId: ApplicationId,
@@ -86,6 +87,15 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
 
   case class ArchivedContract(contractId: ContractId, templateId: TemplateId.RequiredPkg)
 
+  final case class FetchRequest[+LfV](
+      locator: ContractLocator[LfV],
+      readAs: Option[NonEmptyList[Party]],
+  ) {
+    private[http] def traverseLocator[F[_]: Functor, OV](
+        f: ContractLocator[LfV] => F[ContractLocator[OV]]
+    ): F[FetchRequest[OV]] = f(locator) map (l => copy(locator = l))
+  }
+
   sealed abstract class ContractLocator[+LfV] extends Product with Serializable
 
   final case class EnrichedContractKey[+LfV](
@@ -106,6 +116,7 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
   final case class GetActiveContractsRequest(
       templateIds: OneAnd[Set, TemplateId.OptionalPkg],
       query: Map[String, JsValue],
+      readAs: Option[NonEmptyList[Party]],
   )
 
   final case class SearchForeverQuery(
@@ -123,7 +134,9 @@ object domain extends com.daml.fetchcontracts.domain.Aliases {
   final case class AllocatePartyRequest(identifierHint: Option[Party], displayName: Option[String])
 
   final case class CommandMeta(
-      commandId: Option[CommandId]
+      commandId: Option[CommandId],
+      actAs: Option[NonEmptyList[Party]],
+      readAs: Option[List[Party]],
   )
 
   final case class CreateCommand[+LfV, TmplId](

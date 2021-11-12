@@ -411,7 +411,7 @@ Where:
 Creating a Contract with a Command ID
 *************************************
 
-When creating a new contract you may specify an optional ``meta`` field. This allows you to control the `commandId` used when submitting a command to the ledger.
+When creating a new contract you may specify an optional ``meta`` field. This allows you to control the ``commandId``, ``actAs``, and ``readAs`` used when submitting a command to the ledger.  Each of these ``meta`` fields is optional.
 
 .. note:: You cannot currently use ``commandIds`` anywhere else in the JSON API, but you can use it for observing the results of its commands outside the JSON API in logs or via the Ledger API's :doc:`Command Services </app-dev/services>`
 
@@ -427,7 +427,9 @@ When creating a new contract you may specify an optional ``meta`` field. This al
         "owner": "Alice"
       },
       "meta": {
-      	"commandId": "a unique ID"
+        "commandId": "a unique ID",
+        "actAs": ["Alice"],
+        "readAs": ["PublicParty"]
       }
     }
 
@@ -700,6 +702,9 @@ application/json body:
       "contractId": "#201:1"
     }
 
+
+``readers`` may be passed as with :ref:`Query <sync-query-req>`.
+
 Contract Not Found HTTP Response
 ================================
 
@@ -764,6 +769,8 @@ HTTP Request
             "_2": "abc123"
         }
     }
+
+``readers`` may be passed as with :ref:`Query <sync-query-req>`.
 
 Contract Not Found HTTP Response
 ================================
@@ -846,17 +853,21 @@ HTTP Request
 - Content-Type: ``application/json``
 - Content:
 
+.. _sync-query-req:
+
 .. code-block:: json
 
     {
         "templateIds": ["Iou:Iou"],
-        "query": {"amount": 999.99}
+        "query": {"amount": 999.99},
+        "readers": ["Alice"]
     }
 
 Where:
 
 - ``templateIds`` --  an array of contract template identifiers to search through,
 - ``query`` -- search criteria to apply to the specified ``templateIds``, formatted according to the :doc:`search-query-language`.
+- ``readers`` -- *optional* non-empty list of parties to query as; must be a subset of the actAs/readAs parties in the JWT
 
 Empty HTTP Response
 ===================

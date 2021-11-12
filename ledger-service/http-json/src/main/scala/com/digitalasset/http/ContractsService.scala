@@ -25,6 +25,7 @@ import com.daml.ledger.api.{v1 => api}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.scalautil.ExceptionOps._
+import com.daml.scalautil.nonempty.NonEmptyReturningOps._
 import scalaz.Id.Id
 import scalaz.std.option._
 import scalaz.syntax.show._
@@ -90,19 +91,20 @@ class ContractsService(
   def lookup(
       jwt: Jwt,
       jwtPayload: JwtPayload,
-      contractLocator: domain.ContractLocator[LfValue],
+      req: domain.FetchRequest[LfValue],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: Metrics,
   ): Future[Option[domain.ActiveContract[JsValue]]] = {
     val ledgerId = toLedgerId(jwtPayload.ledgerId)
-    contractLocator match {
+    val readAs = req.readAs.cata(_.toSet1, jwtPayload.parties)
+    req.locator match {
       case domain.EnrichedContractKey(templateId, contractKey) =>
-        findByContractKey(jwt, jwtPayload.parties, templateId, ledgerId, contractKey)
+        findByContractKey(jwt, readAs, templateId, ledgerId, contractKey)
       case domain.EnrichedContractId(templateId, contractId) =>
         findByContractId(
           jwt,
-          jwtPayload.parties,
+          readAs,
           templateId,
           ledgerId,
           contractId,
@@ -261,7 +263,7 @@ class ContractsService(
     search(
       jwt,
       toLedgerId(jwtPayload.ledgerId),
-      jwtPayload.parties,
+      request.readAs.cata((_.toSet1), jwtPayload.parties),
       request.templateIds,
       request.query,
     )
