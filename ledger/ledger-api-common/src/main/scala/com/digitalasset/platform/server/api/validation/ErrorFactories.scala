@@ -509,7 +509,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   }
 
   private def truncated(message: String): String = {
-    val maxMessageLength = 1536
+    val maxMessageLength = 1536 // An arbitrary limit that doesn't break netty serialization while being useful to human operator.
     if (message.length > maxMessageLength) message.take(maxMessageLength) + "..." else message
   }
 
