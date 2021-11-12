@@ -4,7 +4,6 @@
 package com.daml.ledger.api.benchtool
 
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.value.Identifier
 
 case class WorkflowConfig(
 //    submission: Option[WorkflowConfig.SubmissionConfig],
@@ -62,7 +61,7 @@ object WorkflowConfig {
         beginOffset: Option[LedgerOffset],
     ) extends StreamConfig
 
-    final case class PartyFilter(party: String, templates: List[Identifier])
+    final case class PartyFilter(party: String, templates: List[String])
 
     case class Objectives(
         maxDelaySeconds: Option[Long],

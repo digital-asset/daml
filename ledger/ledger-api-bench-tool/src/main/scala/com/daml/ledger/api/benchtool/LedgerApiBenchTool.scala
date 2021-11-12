@@ -81,7 +81,7 @@ object LedgerApiBenchTool {
           benchmarkStep(config.workflow.streams)
         case Some(descriptorFile) =>
           for {
-            descriptor <- Future.fromTry(parseDescriptor(descriptorFile))
+            descriptor: WorkflowDescriptor <- Future.fromTry(parseDescriptor(descriptorFile))
             _ = logger.info(prettyPrint(descriptor))
             summary <- submissionStep(descriptor.submission)
             streams = descriptor.streams.map(

@@ -24,17 +24,24 @@ final class ActiveContractsService(
       config: WorkflowConfig.StreamConfig.ActiveContractsStreamConfig,
       observer: ObserverWithResult[GetActiveContractsResponse, Result],
   ): Future[Result] = {
-    service.getActiveContracts(getActiveContractsRequest(ledgerId, config), observer)
-    logger.info("Started fetching active contracts")
-    observer.result
+    getActiveContractsRequest(ledgerId, config) match {
+      case Right(request) =>
+        service.getActiveContracts(request, observer)
+        logger.info("Started fetching active contracts")
+        observer.result
+      case Left(error) =>
+        Future.failed(new RuntimeException(error))
+    }
   }
 
   private def getActiveContractsRequest(
       ledgerId: String,
       config: WorkflowConfig.StreamConfig.ActiveContractsStreamConfig,
-  ): GetActiveContractsRequest =
-    GetActiveContractsRequest.defaultInstance
-      .withLedgerId(ledgerId)
-      .withFilter(StreamFilters.transactionFilters(config.filters))
+  ): Either[String, GetActiveContractsRequest] =
+    StreamFilters.transactionFilters(config.filters).map { filters =>
+      GetActiveContractsRequest.defaultInstance
+        .withLedgerId(ledgerId)
+        .withFilter(filters)
+    }
 
 }

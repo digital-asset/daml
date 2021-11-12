@@ -28,17 +28,20 @@ final class TransactionService(
   def transactions[Result](
       config: WorkflowConfig.StreamConfig.TransactionsStreamConfig,
       observer: ObserverWithResult[GetTransactionsResponse, Result],
-  ): Future[Result] = {
-    val request = getTransactionsRequest(
+  ): Future[Result] =
+    getTransactionsRequest(
       ledgerId = ledgerId,
       filters = config.filters,
       beginOffset = config.beginOffset,
       endOffset = config.endOffset,
-    )
-    service.getTransactions(request, observer)
-    logger.info("Started fetching transactions")
-    observer.result
-  }
+    ) match {
+      case Right(request) =>
+        service.getTransactions(request, observer)
+        logger.info("Started fetching transactions")
+        observer.result
+      case Left(error) =>
+        Future.failed(new RuntimeException(error))
+    }
 
   def transactionTrees[Result](
       config: WorkflowConfig.StreamConfig.TransactionTreesStreamConfig,
@@ -46,34 +49,40 @@ final class TransactionService(
         GetTransactionTreesResponse,
         Result,
       ],
-  ): Future[Result] = {
-    val request = getTransactionsRequest(
+  ): Future[Result] =
+    getTransactionsRequest(
       ledgerId = ledgerId,
       filters = config.filters,
       beginOffset = config.beginOffset,
       endOffset = config.endOffset,
-    )
-    service.getTransactionTrees(request, observer)
-    logger.info("Started fetching transaction trees")
-    observer.result
-  }
+    ) match {
+      case Right(request) =>
+        service.getTransactionTrees(request, observer)
+        logger.info("Started fetching transaction trees")
+        observer.result
+      case Left(error) =>
+        Future.failed(new RuntimeException(error))
+    }
 
   private def getTransactionsRequest(
       ledgerId: String,
       filters: List[WorkflowConfig.StreamConfig.PartyFilter],
       beginOffset: Option[LedgerOffset],
       endOffset: Option[LedgerOffset],
-  ): GetTransactionsRequest = {
-    val getTransactionsRequest = GetTransactionsRequest.defaultInstance
-      .withLedgerId(ledgerId)
-      .withBegin(beginOffset.getOrElse(ledgerBeginOffset))
-      .withFilter(StreamFilters.transactionFilters(filters))
+  ): Either[String, GetTransactionsRequest] =
+    StreamFilters
+      .transactionFilters(filters)
+      .map { filters =>
+        val getTransactionsRequest = GetTransactionsRequest.defaultInstance
+          .withLedgerId(ledgerId)
+          .withBegin(beginOffset.getOrElse(ledgerBeginOffset))
+          .withFilter(filters)
 
-    endOffset match {
-      case Some(end) => getTransactionsRequest.withEnd(end)
-      case None => getTransactionsRequest
-    }
-  }
+        endOffset match {
+          case Some(end) => getTransactionsRequest.withEnd(end)
+          case None => getTransactionsRequest
+        }
+      }
 
   private def ledgerBeginOffset: LedgerOffset =
     LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)

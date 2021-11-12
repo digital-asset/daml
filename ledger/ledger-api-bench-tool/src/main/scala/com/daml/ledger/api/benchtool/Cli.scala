@@ -5,7 +5,6 @@ package com.daml.ledger.api.benchtool
 
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.value.Identifier
 import com.daml.metrics.MetricsReporter
 import scopt.{OptionDef, OptionParser, Read}
 
@@ -233,51 +232,33 @@ object Cli {
         config.fold(error => throw new IllegalArgumentException(error), identity)
       }
 
-    private def filters(listOfIds: String): Either[String, List[WorkflowConfig.StreamConfig.PartyFilter]] =
+    private def filters(
+        listOfIds: String
+    ): Either[String, List[WorkflowConfig.StreamConfig.PartyFilter]] =
       listOfIds
         .split('+')
         .toList
         .map(filter)
-        .foldLeft[Either[String, List[WorkflowConfig.StreamConfig.PartyFilter]]](Right(List.empty)) {
-          case (acc, next) =>
-            for {
-              filters <- acc
-              filter <- next
-            } yield filters :+ filter
+        .foldLeft[Either[String, List[WorkflowConfig.StreamConfig.PartyFilter]]](
+          Right(List.empty)
+        ) { case (acc, next) =>
+          for {
+            filters <- acc
+            filter <- next
+          } yield filters :+ filter
         }
 
-    private def filter(filterString: String): Either[String, WorkflowConfig.StreamConfig.PartyFilter] =
+    private def filter(
+        filterString: String
+    ): Either[String, WorkflowConfig.StreamConfig.PartyFilter] = {
       filterString
         .split('@')
         .toList match {
         case party :: templates =>
-          templates
-            .map(templateIdFromString)
-            .foldLeft[Either[String, List[Identifier]]](Right(List.empty[Identifier])) {
-              case (acc, next) =>
-                for {
-                  ids <- acc
-                  id <- next
-                } yield id :: ids
-            }
-            .map(WorkflowConfig.StreamConfig.PartyFilter(party, _))
+          Right(WorkflowConfig.StreamConfig.PartyFilter(party, templates))
         case _ => Left("Filter cannot be empty")
       }
-
-    private def templateIdFromString(fullyQualifiedTemplateId: String): Either[String, Identifier] =
-      fullyQualifiedTemplateId
-        .split(':')
-        .toList match {
-        case packageId :: moduleName :: entityName :: Nil =>
-          Right(
-            Identifier.defaultInstance
-              .withEntityName(entityName)
-              .withModuleName(moduleName)
-              .withPackageId(packageId)
-          )
-        case _ =>
-          Left(s"Invalid template id: $fullyQualifiedTemplateId")
-      }
+    }
 
     def endpointRead: Read[(String, Int)] = new Read[(String, Int)] {
       val arity = 1
