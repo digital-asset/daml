@@ -125,6 +125,22 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
         )(testFn)
     }
 
+  protected def withHttpServiceAndClient[A](maxInboundMessageSize: Int)(
+      testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A]
+  ): Future[A] =
+    HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId, None, useTls) {
+      case (ledgerPort, _) =>
+        HttpServiceTestFixture.withHttpService[A](
+          testId,
+          ledgerPort,
+          jdbcConfig,
+          staticContentConfig,
+          useTls = useTls,
+          wsConfig = wsConfig,
+          maxInboundMessageSize = maxInboundMessageSize,
+        )(testFn)
+    }
+
   protected def withHttpService[A](
       f: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]
   ): Future[A] =
@@ -1511,5 +1527,84 @@ abstract class AbstractHttpServiceIntegrationTest
           }
         }
     }: Future[Assertion]
+  }
+
+  "archiving a large number of contracts should succeed" in withHttpServiceAndClient(
+    HttpService.DefaultMaxInboundMessageSize * 10
+  ) { (uri, encoder, _, _) =>
+    val numContracts: Long = 10000
+    val helperId = domain.TemplateId(None, "Account", "Helper")
+    val payload = v.Record(
+      fields = List(v.RecordField("owner", Some(v.Value(v.Value.Sum.Party("Alice")))))
+    )
+    val createCmd: domain.CreateAndExerciseCommand[v.Record, v.Value] =
+      domain.CreateAndExerciseCommand(
+        templateId = helperId,
+        payload = payload,
+        choice = lar.Choice("CreateN"),
+        argument = boxedRecord(
+          v.Record(fields =
+            List(v.RecordField("n", Some(v.Value(v.Value.Sum.Int64(numContracts)))))
+          )
+        ),
+        meta = None,
+      )
+    def encode(cmd: domain.CreateAndExerciseCommand[v.Record, v.Value]): JsValue =
+      encoder.encodeCreateAndExerciseCommand(cmd).valueOr(e => fail(e.shows))
+    def archiveCmd(cids: List[String]) =
+      domain.CreateAndExerciseCommand(
+        templateId = helperId,
+        payload = payload,
+        choice = lar.Choice("ArchiveAll"),
+        argument = boxedRecord(
+          v.Record(fields =
+            List(
+              v.RecordField(
+                "cids",
+                Some(
+                  v.Value(
+                    v.Value.Sum.List(v.List(cids.map(cid => v.Value(v.Value.Sum.ContractId(cid)))))
+                  )
+                ),
+              )
+            )
+          )
+        ),
+        meta = None,
+      )
+    def queryN(n: Long): Future[Assertion] = postJsonRequest(
+      uri.withPath(Uri.Path("/v1/query")),
+      jsObject("""{"templateIds": ["Account:Account"]}"""),
+    ).flatMap { case (status, output) =>
+      status shouldBe StatusCodes.OK
+      assertStatus(output, StatusCodes.OK)
+      inside(getResult(output)) { case JsArray(result) =>
+        result should have length n
+      }
+    }
+
+    for {
+      resp <- postJsonRequest(uri.withPath(Uri.Path("/v1/create-and-exercise")), encode(createCmd))
+      (status, output) = resp
+      _ = {
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+      }
+      created = getChild(getResult(output), "exerciseResult").convertTo[List[String]]
+      _ = created should have length numContracts
+
+      _ <- queryN(numContracts)
+
+      status <- postJsonRequest(
+        uri.withPath(Uri.Path("/v1/create-and-exercise")),
+        encode(archiveCmd(created)),
+      ).map(_._1)
+      _ = {
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+      }
+
+      _ <- queryN(0)
+    } yield succeed
   }
 }
