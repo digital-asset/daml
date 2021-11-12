@@ -20,6 +20,16 @@ private[oracle] object OracleSchema {
     ): Field[FROM, Option[Iterable[String]], _] =
       OracleStringArrayOptional(extractor)
 
+    override def intArray[FROM, _](
+        extractor: StringInterning => FROM => Iterable[Int]
+    ): Field[FROM, Iterable[Int], _] =
+      OracleIntArray(extractor)
+
+    override def intArrayOptional[FROM, _](
+        extractor: StringInterning => FROM => Option[Iterable[Int]]
+    ): Field[FROM, Option[Iterable[Int]], _] =
+      OracleIntArrayOptional(extractor)
+
     override def insert[FROM](tableName: String)(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =

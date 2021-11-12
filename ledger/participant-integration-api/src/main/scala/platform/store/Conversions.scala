@@ -18,9 +18,11 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
+import scala.util.Try
 import java.io.BufferedReader
-import java.sql.{PreparedStatement, Types}
+import java.sql.{PreparedStatement, SQLNonTransientException, Types}
 import java.util.stream.Collectors
+
 import scala.annotation.nowarn
 
 // TODO append-only: split this file on cleanup, and move anorm/db conversion related stuff to the right place
@@ -143,7 +145,58 @@ private[platform] object Conversions {
   }
 
   object DefaultImplicitArrayColumn {
-    val default = Column.of[Array[String]]
+    val defaultString: Column[Array[String]] = Column.of[Array[String]]
+    val defaultInt: Column[Array[Int]] = Column.of[Array[Int]]
+  }
+
+  object ArrayColumnToIntArray {
+    implicit val arrayColumnToIntArray: Column[Array[Int]] = nonNull { (value, meta) =>
+      DefaultImplicitArrayColumn.defaultInt(value, meta) match {
+        case Right(value) => Right(value)
+        case Left(_) =>
+          val MetaDataItem(qualified, _, _) = meta
+          value match {
+            case someArray: Array[_] =>
+              Try(
+                someArray.view.map {
+                  case i: Int => i
+                  case null =>
+                    throw new SQLNonTransientException(
+                      s"Cannot convert object array element null to Int"
+                    )
+                  case invalid =>
+                    throw new SQLNonTransientException(
+                      s"Cannot convert object array element (of type ${invalid.getClass.getName}) to Int"
+                    )
+                }.toArray
+              ).toEither.left.map(t => TypeDoesNotMatch(t.getMessage))
+
+            case jsonArrayString: String =>
+              Right(jsonArrayString.parseJson.convertTo[Array[Int]])
+
+            case clob: java.sql.Clob =>
+              try {
+                val reader = clob.getCharacterStream
+                val br = new BufferedReader(reader)
+                val jsonArrayString = br.lines.collect(Collectors.joining)
+                reader.close
+                Right(jsonArrayString.parseJson.convertTo[Array[Int]])
+              } catch {
+                case e: Throwable =>
+                  Left(
+                    TypeDoesNotMatch(
+                      s"Cannot convert $value: received CLOB but failed to deserialize to " +
+                        s"string array for column $qualified. Error message: ${e.getMessage}"
+                    )
+                  )
+              }
+            case _ =>
+              Left(
+                TypeDoesNotMatch(s"Cannot convert $value: to string array for column $qualified")
+              )
+          }
+      }
+    }
   }
 
   object ArrayColumnToStringArray {
@@ -153,7 +206,7 @@ private[platform] object Conversions {
     // strategies
 
     implicit val arrayColumnToStringArray: Column[Array[String]] = nonNull { (value, meta) =>
-      DefaultImplicitArrayColumn.default(value, meta) match {
+      DefaultImplicitArrayColumn.defaultString(value, meta) match {
         case Right(value) => Right(value)
         case Left(_) =>
           val MetaDataItem(qualified, _, _) = meta
@@ -251,11 +304,6 @@ private[platform] object Conversions {
 
   def contractId(columnName: String): RowParser[Value.ContractId] =
     SqlParser.get[Value.ContractId](columnName)(columnToContractId)
-
-  def flatEventWitnessesColumn(columnName: String): RowParser[Set[Ref.Party]] =
-    SqlParser
-      .get[Array[String]](columnName)(ArrayColumnToStringArray.arrayColumnToStringArray)
-      .map(_.iterator.map(Ref.Party.assertFromString).toSet)
 
   // ContractIdString
 

@@ -38,8 +38,9 @@ abstract class EventStorageBackendTemplate(
     //                   Remove with the break-out of pruneEvents.
     participantAllDivulgedContractsPrunedUpToInclusive: Connection => Option[Offset],
 ) extends EventStorageBackend {
-  import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
-  assert(stringInterning != null) // TODO remove
+  import com.daml.platform.store.Conversions.ArrayColumnToIntArray._
+  import com.daml.platform.store.Conversions.ArrayColumnToStringArray._
+
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   private val selectColumnsForFlatTransactions =
@@ -64,7 +65,7 @@ abstract class EventStorageBackendTemplate(
 
   private type SharedRow =
     Offset ~ String ~ Int ~ Long ~ String ~ String ~ Timestamp ~ Identifier ~ Option[String] ~
-      Option[String] ~ Array[String]
+      Option[String] ~ Array[Int]
 
   private val sharedRow: RowParser[SharedRow] =
     offset("event_offset") ~
@@ -77,25 +78,25 @@ abstract class EventStorageBackendTemplate(
       identifier("template_id") ~
       str("command_id").? ~
       str("workflow_id").? ~
-      array[String]("event_witnesses")
+      array[Int]("event_witnesses")
 
   private type CreatedEventRow =
-    SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[String] ~ Array[String] ~ Option[String] ~
+    SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[Int] ~ Array[Int] ~ Option[String] ~
       Option[Array[Byte]] ~ Option[Int]
 
   private val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
       byteArray("create_argument") ~
       int("create_argument_compression").? ~
-      array[String]("create_signatories") ~
-      array[String]("create_observers") ~
+      array[Int]("create_signatories") ~
+      array[Int]("create_observers") ~
       str("create_agreement_text").? ~
       byteArray("create_key_value").? ~
       int("create_key_value_compression").?
 
   private type ExercisedEventRow =
     SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
-      Array[String] ~ Array[String]
+      Array[Int] ~ Array[String]
 
   private val exercisedEventRow: RowParser[ExercisedEventRow] = {
     import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
@@ -106,7 +107,7 @@ abstract class EventStorageBackendTemplate(
       int("exercise_argument_compression").? ~
       byteArray("exercise_result").? ~
       int("exercise_result_compression").? ~
-      array[String]("exercise_actors") ~
+      array[Int]("exercise_actors") ~
       array[String]("exercise_child_event_ids")
   }
 
@@ -135,12 +136,18 @@ abstract class EventStorageBackendTemplate(
             templateId = templateId,
             createArgument = createArgument,
             createArgumentCompression = createArgumentCompression,
-            createSignatories = ArraySeq.unsafeWrapArray(createSignatories),
-            createObservers = ArraySeq.unsafeWrapArray(createObservers),
+            createSignatories = ArraySeq.unsafeWrapArray(
+              createSignatories.map(stringInterning.party.unsafe.externalize)
+            ),
+            createObservers = ArraySeq.unsafeWrapArray(
+              createObservers.map(stringInterning.party.unsafe.externalize)
+            ),
             createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
             createKeyValueCompression = createKeyValueCompression,
-            eventWitnesses = ArraySeq.unsafeWrapArray(eventWitnesses),
+            eventWitnesses = ArraySeq.unsafeWrapArray(
+              eventWitnesses.map(stringInterning.party.unsafe.externalize)
+            ),
           ),
         )
     }
@@ -162,7 +169,9 @@ abstract class EventStorageBackendTemplate(
             eventId = eventId,
             contractId = contractId,
             templateId = templateId,
-            eventWitnesses = ArraySeq.unsafeWrapArray(eventWitnesses),
+            eventWitnesses = ArraySeq.unsafeWrapArray(
+              eventWitnesses.map(stringInterning.party.unsafe.externalize)
+            ),
           ),
         )
     }
@@ -189,12 +198,18 @@ abstract class EventStorageBackendTemplate(
             templateId = templateId,
             createArgument = createArgument,
             createArgumentCompression = createArgumentCompression,
-            createSignatories = ArraySeq.unsafeWrapArray(createSignatories),
-            createObservers = ArraySeq.unsafeWrapArray(createObservers),
+            createSignatories = ArraySeq.unsafeWrapArray(
+              createSignatories.map(stringInterning.party.unsafe.externalize)
+            ),
+            createObservers = ArraySeq.unsafeWrapArray(
+              createObservers.map(stringInterning.party.unsafe.externalize)
+            ),
             createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
             createKeyValueCompression = createKeyValueCompression,
-            eventWitnesses = ArraySeq.unsafeWrapArray(eventWitnesses),
+            eventWitnesses = ArraySeq.unsafeWrapArray(
+              eventWitnesses.map(stringInterning.party.unsafe.externalize)
+            ),
           ),
         )
     }
@@ -222,9 +237,13 @@ abstract class EventStorageBackendTemplate(
             exerciseArgumentCompression = exerciseArgumentCompression,
             exerciseResult = exerciseResult,
             exerciseResultCompression = exerciseResultCompression,
-            exerciseActors = ArraySeq.unsafeWrapArray(exerciseActors),
+            exerciseActors = ArraySeq.unsafeWrapArray(
+              exerciseActors.map(stringInterning.party.unsafe.externalize)
+            ),
             exerciseChildEventIds = ArraySeq.unsafeWrapArray(exerciseChildEventIds),
-            eventWitnesses = ArraySeq.unsafeWrapArray(eventWitnesses),
+            eventWitnesses = ArraySeq.unsafeWrapArray(
+              eventWitnesses.map(stringInterning.party.unsafe.externalize)
+            ),
           ),
         )
     }
@@ -274,14 +293,14 @@ abstract class EventStorageBackendTemplate(
     SQL"""
         SELECT
           #$selectColumns, ${eventStrategy
-      .filteredEventWitnessesClause(witnessesColumn, parties)} as event_witnesses,
+      .filteredEventWitnessesClause(witnessesColumn, parties, stringInterning)} as event_witnesses,
           case when ${eventStrategy
-      .submittersArePartiesClause("submitters", parties)} then command_id else '' end as command_id
+      .submittersArePartiesClause("submitters", parties, stringInterning)} then command_id else '' end as command_id
         FROM
           participant_events #$columnPrefix $joinClause
         WHERE
         $additionalAndClause
-          ${eventStrategy.witnessesWhereClause(witnessesColumn, filterParams)}
+          ${eventStrategy.witnessesWhereClause(witnessesColumn, filterParams, stringInterning)}
         ORDER BY event_sequential_id
         ${queryStrategy.limitClause(limit)}"""
       .withFetchSize(fetchSizeHint)
@@ -477,7 +496,7 @@ abstract class EventStorageBackendTemplate(
               where p.typ = 'accept'
               and p.ledger_offset <= c.event_offset
               and #${queryStrategy.isTrue("p.is_local")}
-              and #${queryStrategy.arrayContains("c.flat_event_witnesses", "p.party")}
+              and #${queryStrategy.arrayContains("c.flat_event_witnesses", "p.party_id")}
             )
             $pruneAfterClause
          """
@@ -520,22 +539,22 @@ abstract class EventStorageBackendTemplate(
       contractId("contract_id") ~
       identifier("template_id").? ~
       timestampFromMicros("ledger_effective_time").? ~
-      array[String]("create_signatories").? ~
-      array[String]("create_observers").? ~
+      array[Int]("create_signatories").? ~
+      array[Int]("create_observers").? ~
       str("create_agreement_text").? ~
       byteArray("create_key_value").? ~
       int("create_key_value_compression").? ~
       byteArray("create_argument").? ~
       int("create_argument_compression").? ~
-      array[String]("tree_event_witnesses") ~
-      array[String]("flat_event_witnesses") ~
-      array[String]("submitters").? ~
+      array[Int]("tree_event_witnesses") ~
+      array[Int]("flat_event_witnesses") ~
+      array[Int]("submitters").? ~
       str("exercise_choice").? ~
       byteArray("exercise_argument").? ~
       int("exercise_argument_compression").? ~
       byteArray("exercise_result").? ~
       int("exercise_result_compression").? ~
-      array[String]("exercise_actors").? ~
+      array[Int]("exercise_actors").? ~
       array[String]("exercise_child_event_ids").? ~
       long("event_sequential_id") ~
       offset("event_offset")).map {
@@ -554,22 +573,24 @@ abstract class EventStorageBackendTemplate(
           contractId,
           templateId,
           ledgerEffectiveTime,
-          createSignatories,
-          createObservers,
+          createSignatories.map(_.map(stringInterning.party.unsafe.externalize)),
+          createObservers.map(_.map(stringInterning.party.unsafe.externalize)),
           createAgreementText,
           createKeyValue,
           createKeyCompression,
           createArgument,
           createArgumentCompression,
-          treeEventWitnesses.toSet,
-          flatEventWitnesses.toSet,
-          submitters.map(_.toSet).getOrElse(Set.empty),
+          treeEventWitnesses.view.map(stringInterning.party.unsafe.externalize).toSet,
+          flatEventWitnesses.view.map(stringInterning.party.unsafe.externalize).toSet,
+          submitters
+            .map(_.view.map(stringInterning.party.unsafe.externalize).toSet)
+            .getOrElse(Set.empty),
           exerciseChoice,
           exerciseArgument,
           exerciseArgumentCompression,
           exerciseResult,
           exerciseResultCompression,
-          exerciseActors,
+          exerciseActors.map(_.map(stringInterning.party.unsafe.externalize)),
           exerciseChildEventIds,
           eventSequentialId,
           offset,
@@ -635,6 +656,7 @@ trait EventStrategy {
   def filteredEventWitnessesClause(
       witnessesColumnName: String,
       parties: Set[Ref.Party],
+      stringInterning: StringInterning,
   ): CompositeSql
 
   /** This populates the following part of the query:
@@ -648,6 +670,7 @@ trait EventStrategy {
   def submittersArePartiesClause(
       submittersColumnName: String,
       parties: Set[Ref.Party],
+      stringInterning: StringInterning,
   ): CompositeSql
 
   /** This populates the following part of the query:
@@ -661,5 +684,6 @@ trait EventStrategy {
   def witnessesWhereClause(
       witnessesColumnName: String,
       filterParams: FilterParams,
+      stringInterning: StringInterning,
   ): CompositeSql
 }

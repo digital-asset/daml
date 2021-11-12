@@ -29,7 +29,7 @@ import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbType, FlywayMigrations, LfValueTranslationCache}
 import org.scalatest.AsyncTestSuite
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
 
 object JdbcLedgerDaoBackend {
@@ -71,15 +71,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
         metrics = metrics,
       )
       .map { dbDispatcher =>
-        val stringInterningStorageBackend =
-          storageBackendFactory.createStringInterningStorageBackend
-        val stringInterningView = new StringInterningView(
-          loadPrefixedEntries = (fromExclusive, toInclusive) =>
-            implicit loggingContext =>
-              dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
-                stringInterningStorageBackend.loadStringInterningEntries(fromExclusive, toInclusive)
-              }
-        )
         JdbcLedgerDao.write(
           dbDispatcher = dbDispatcher,
           sequentialWriteDao = SequentialWriteDao(
@@ -109,6 +100,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
 
   protected final var ledgerDao: LedgerDao = _
   protected var ledgerEndCache: MutableLedgerEndCache = _
+  protected var stringInterningView: StringInterningView = _
 
   // `dbDispatcher` and `ledgerDao` depend on the `postgresFixture` which is in turn initialized `beforeAll`
   private var resource: Resource[LedgerDao] = _
@@ -121,6 +113,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     // We use the dispatcher here because the default Scalatest execution context is too slow.
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     ledgerEndCache = MutableLedgerEndCache()
+    stringInterningView = new StringInterningView((_, _) => _ => Future.successful(Nil))
     resource = newLoggingContext { implicit loggingContext =>
       for {
         _ <- Resource.fromFuture(

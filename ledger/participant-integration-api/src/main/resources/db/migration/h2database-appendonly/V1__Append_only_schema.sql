@@ -82,6 +82,7 @@ CREATE TABLE party_entries (
     typ VARCHAR NOT NULL,
     rejection_reason VARCHAR,
     is_local BOOLEAN,
+    party_id INTEGER,
 
     CONSTRAINT check_party_entry_type
         CHECK (
@@ -92,6 +93,7 @@ CREATE TABLE party_entries (
 
 CREATE INDEX idx_party_entries ON party_entries (submission_id);
 CREATE INDEX idx_party_entries_party_and_ledger_offset ON party_entries(party, ledger_offset);
+CREATE INDEX idx_party_entries_party_id_and_ledger_offset ON party_entries(party_id, ledger_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Submissions table

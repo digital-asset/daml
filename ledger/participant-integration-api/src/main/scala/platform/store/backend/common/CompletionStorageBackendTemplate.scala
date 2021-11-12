@@ -26,7 +26,7 @@ class CompletionStorageBackendTemplate(
     queryStrategy: QueryStrategy,
     stringInterning: StringInterning,
 ) extends CompletionStorageBackend {
-  assert(stringInterning != null) // TODO remove
+
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override def commandCompletions(
@@ -59,7 +59,7 @@ class CompletionStorageBackendTemplate(
           ($startExclusive is null or completion_offset > $startExclusive) AND
           completion_offset <= $endInclusive AND
           application_id = $applicationId AND
-          ${queryStrategy.arrayIntersectionNonEmptyClause("submitters", parties)}
+          ${queryStrategy.arrayIntersectionNonEmptyClause("submitters", parties, stringInterning)}
         ORDER BY completion_offset ASC"""
       .as(completionParser.*)(connection)
   }
