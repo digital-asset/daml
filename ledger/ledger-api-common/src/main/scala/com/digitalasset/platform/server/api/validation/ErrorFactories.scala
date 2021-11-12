@@ -3,6 +3,7 @@
 
 package com.daml.platform.server.api.validation
 
+import com.daml.error.ErrorCode.ApiException
 import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.grpc.GrpcStatus
@@ -21,8 +22,8 @@ import com.google.protobuf.{Any => AnyProto}
 import com.google.rpc.status.{Status => RpcStatus}
 import com.google.rpc.{ErrorInfo, Status}
 import io.grpc.Status.Code
-import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
+import io.grpc.{Metadata, StatusRuntimeException}
 import scalaz.syntax.tag._
 
 import java.sql.{SQLNonTransientException, SQLTransientException}
@@ -352,11 +353,9 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   ): StatusRuntimeException = errorCodesVersionSwitcher.choose(
     v1 = {
       contextualizedErrorLogger.warn(s"Permission denied. Reason: $cause.")
-      grpcError(
-        Status
-          .newBuilder()
-          .setCode(Code.PERMISSION_DENIED.value())
-          .build()
+      new ApiException(
+        io.grpc.Status.PERMISSION_DENIED,
+        new Metadata(),
       )
     },
     v2 = LedgerApiErrors.AuthorizationChecks.PermissionDenied.Reject(cause).asGrpcError,
@@ -365,11 +364,9 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   def unauthenticatedMissingJwtToken()(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException = errorCodesVersionSwitcher.choose(
-    v1 = grpcError(
-      Status
-        .newBuilder()
-        .setCode(Code.UNAUTHENTICATED.value())
-        .build()
+    v1 = new ApiException(
+      io.grpc.Status.UNAUTHENTICATED,
+      new Metadata(),
     ),
     v2 = LedgerApiErrors.AuthorizationChecks.Unauthenticated
       .MissingJwtToken()
@@ -384,12 +381,9 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         contextualizedErrorLogger.warn(
           s"$securitySafeMessage: ${exception.getMessage}"
         )
-        grpcError(
-          Status
-            .newBuilder()
-            .setCode(Code.INTERNAL.value())
-            .setMessage(securitySafeMessage)
-            .build()
+        new ApiException(
+          io.grpc.Status.INTERNAL.withDescription(truncated(securitySafeMessage)),
+          new Metadata(),
         )
       },
       v2 = LedgerApiErrors.AuthorizationChecks.InternalAuthorizationError
@@ -482,24 +476,6 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       v2 = LedgerApiErrors.InternalError.CommandTrackerInternalError(msg).asGrpcError,
     )
 
-  /** Transforms Protobuf [[Status]] objects, possibly including metadata packed as [[ErrorInfo]] objects,
-    * into exceptions with metadata in the trailers.
-    *
-    * Asynchronous errors, i.e. failed completions, contain Protobuf [[Status]] objects themselves.
-    *
-    * @param status A Protobuf [[Status]] object.
-    * @return An exception without a stack trace.
-    */
-  def grpcError(status: Status): StatusRuntimeException = {
-    val maxMessageLength = 1536
-    def truncate(str: String) =
-      if (str.length > maxMessageLength) str.take(maxMessageLength) + "..." else str
-    val newStatus = Status.newBuilder(status).setMessage(truncate(status.getMessage))
-    new NoStackTraceApiException(
-      StatusProto.toStatusRuntimeException(newStatus.build)
-    )
-  }
-
   private def invalidArgumentV1(
       definiteAnswer: Option[Boolean],
       message: String,
@@ -510,6 +486,31 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       .setMessage(s"Invalid argument: $message")
     addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
     grpcError(statusBuilder.build())
+  }
+
+  /** Transforms Protobuf [[Status]] objects, possibly including metadata packed as [[ErrorInfo]] objects,
+    * into exceptions with metadata in the trailers.
+    *
+    * Asynchronous errors, i.e. failed completions, contain Protobuf [[Status]] objects themselves.
+    *
+    * NOTE: The length of the Status message is truncated to a reasonable size for satisfying
+    *        the Netty header size limit - as the message is also incorporated in the header, bundled in the gRPC metadata.
+    * @param status A Protobuf [[Status]] object.
+    * @return An exception without a stack trace.
+    */
+  def grpcError(status: Status): StatusRuntimeException = {
+    val newStatus =
+      Status
+        .newBuilder(status)
+        .setMessage(truncated(status.getMessage))
+    new NoStackTraceApiException(
+      StatusProto.toStatusRuntimeException(newStatus.build)
+    )
+  }
+
+  private def truncated(message: String): String = {
+    val maxMessageLength = 1536
+    if (message.length > maxMessageLength) message.take(maxMessageLength) + "..." else message
   }
 
   object CommandRejections {
