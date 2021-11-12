@@ -3,10 +3,12 @@
 
 package com.daml.ledger.participant.state.kvutils.updates
 
+import com.daml.error.definitions.LedgerApiErrors
+
 import java.io.StringWriter
 import java.time.Instant
-
 import com.daml.error.{ContextualizedErrorLogger, ValueSwitch}
+import com.daml.grpc.GrpcStatus
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.ledger.participant.state.kvutils.Conversions.parseCompletionInfo
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.{
@@ -18,7 +20,6 @@ import com.daml.ledger.participant.state.kvutils.store.events._
 import com.daml.ledger.participant.state.v2.Update
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.FinalReason
 import com.daml.lf.data.Time.Timestamp
-
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.ProtocolStringList
 import com.google.protobuf.any.{Any => AnyProto}
@@ -443,36 +444,45 @@ private[kvutils] object TransactionRejections {
 
   private object V2 {
 
-    def externallyDuplicateKeysStatus(
-    )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.SubmissionRaces.ExternallyDuplicateKeys
-        .Reject()
-        .asStatus
+    def externallyDuplicateKeysStatus()(implicit
+        loggingContext: ContextualizedErrorLogger
+    ): Status =
+      GrpcStatus.toProto(
+        LedgerApiErrors.CommandRejections.DuplicateContractKey
+          .LedgerReject(ExternallyInconsistentTransaction.DuplicateKeys.description)
+          .asGrpcStatusFromContext
+      )
 
     def externallyInconsistentKeysStatus(
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.SubmissionRaces.ExternallyInconsistentKeys
-        .Reject()
-        .asStatus
+      GrpcStatus.toProto(
+        LedgerApiErrors.CommandRejections.InconsistentContractKey
+          .Reject(ExternallyInconsistentTransaction.InconsistentKeys.description)
+          .asGrpcStatusFromContext
+      )
 
     def externallyInconsistentContractsStatus(
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.SubmissionRaces.ExternallyInconsistentContracts
-        .Reject()
-        .asStatus
+      GrpcStatus.toProto(
+        LedgerApiErrors.CommandRejections.InconsistentContracts
+          .Reject(ExternallyInconsistentTransaction.InconsistentContracts.description)
+          .asGrpcStatusFromContext
+      )
 
     def submitterCannotActViaParticipantStatus(
         details: String,
         submitter: String,
         participantId: String,
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Unauthorized.SubmitterCannotActViaParticipant
-        .Reject(
-          details,
-          submitter,
-          participantId,
-        )
-        .asStatus
+      GrpcStatus.toProto(
+        LedgerApiErrors.CommandRejections.SubmitterCannotActViaParticipant
+          .Reject(
+            details,
+            submitter,
+            participantId,
+          )
+          .asGrpcStatusFromContext
+      )
 
     def recordTimeOutOfRangeStatus(
         minimumRecordTime: Instant,
@@ -507,9 +517,11 @@ private[kvutils] object TransactionRejections {
     def duplicateCommandsRejectionStatus(
         definiteAnswer: Boolean = false
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.DuplicateCommand
-        .Reject(definiteAnswer)
-        .asStatus
+      GrpcStatus.toProto(
+        LedgerApiErrors.CommandRejections.DuplicateCommand
+          .Reject(definiteAnswer)
+          .asGrpcStatusFromContext
+      )
 
     def rejectionReasonNotSetStatus(
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
@@ -554,16 +566,20 @@ private[kvutils] object TransactionRejections {
     def submittingPartyNotKnownOnLedgerStatus(
         submitter: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Parties.SubmittingPartyNotKnownOnLedger
-        .Reject(submitter)
-        .asStatus
+      GrpcStatus.toProto(
+        LedgerApiErrors.CommandRejections.SubmittingPartyNotKnownOnLedger
+          .Reject(submitter)
+          .asGrpcStatusFromContext
+      )
 
     def partiesNotKnownOnLedgerStatus(
         parties: Seq[String]
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Parties.PartiesNotKnownOnLedger
-        .Reject(parties)
-        .asStatus
+      GrpcStatus.toProto(
+        LedgerApiErrors.CommandRejections.PartyNotKnownOnLedger
+          .Reject(parties.toSet)
+          .asGrpcStatusFromContext
+      )
 
     def resourceExhaustedStatus(
         details: String
@@ -579,33 +595,41 @@ private[kvutils] object TransactionRejections {
         ledger_time_lower_bound: Instant,
         ledger_time_upper_bound: Instant,
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Deprecated.Time.InvalidLedgerTime
-        .Reject(details, ledger_time, ledger_time_lower_bound, ledger_time_upper_bound)
-        .asStatus
+      GrpcStatus.toProto(
+        LedgerApiErrors.CommandRejections.InvalidLedgerTime
+          .RejectEnriched(details, ledger_time, ledger_time_lower_bound, ledger_time_upper_bound)
+          .asGrpcStatusFromContext
+      )
 
     @deprecated
     def partyNotKnownOnLedgerStatus(
         details: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Deprecated.Parties.PartyNotKnownOnLedger
-        .Reject(details)
-        .asStatus
+      GrpcStatus.toProto(
+        LedgerApiErrors.CommandRejections.PartyNotKnownOnLedger
+          .RejectDeprecated(details)
+          .asGrpcStatusFromContext
+      )
 
     @deprecated
     def inconsistentStatus(
         details: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Deprecated.Inconsistent
-        .Reject(details)
-        .asStatus
+      GrpcStatus.toProto(
+        LedgerApiErrors.CommandRejections.Inconsistent
+          .Reject(details)
+          .asGrpcStatusFromContext
+      )
 
     @deprecated
     def disputedStatus(
         details: String
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
-      KVErrors.Deprecated.Internal.Disputed
-        .Reject(details)
-        .asStatus
+      GrpcStatus.toProto(
+        LedgerApiErrors.CommandRejections.Disputed
+          .Reject(details)
+          .asGrpcStatusFromContext
+      )
   }
 
   @deprecated

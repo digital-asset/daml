@@ -4,7 +4,6 @@
 package com.daml.error.definitions
 
 import java.time.Duration
-
 import com.daml.error._
 import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LedgerApiErrorGroup
 import com.daml.lf.data.Ref
@@ -16,6 +15,8 @@ import com.daml.lf.language.{LanguageVersion, LookupError, Reference}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.{VersionRange, language}
+
+import java.time.Instant
 
 object LedgerApiErrors extends LedgerApiErrorGroup {
 
@@ -310,22 +311,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   }
 
   object CommandPreparation extends ErrorGroup {
-
-    @Explanation("Command deduplication")
-    @Resolution("Celebrate, as your command has already been delivered")
-    object DuplicateCommand
-        extends ErrorCode(
-          id = "DUPLICATE_COMMAND",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
-        ) {
-
-      case class Reject()(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
-            cause = "A command with the given command id has already been successfully processed"
-          )
-    }
-
     @Explanation(
       """This error occurs if the participant fails to determine the max ledger time of the used 
         |contracts. Most likely, this means that one of the contracts is not active anymore which can 
@@ -497,31 +482,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
     }
 
-    @Explanation(
-      """This error signals that within the transaction we got to a point where two contracts with the same key were active."""
-    )
-    @Resolution("This error indicates an application error.")
-    object DuplicateContractKey
-        extends ErrorCode(
-          id = "DUPLICATE_CONTRACT_KEY_DURING_INTERPRETATION",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
-        ) {
-      case class Reject(
-          override val cause: String,
-          _key: GlobalKey,
-      )(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
-            cause = cause
-          ) {
-        override def resources: Seq[(ErrorResource, String)] = Seq(
-          // TODO error codes: Reconsider the transport format for the contract key.
-          //                   If the key is big, it can force chunking other resources.
-          (ErrorResource.ContractKey, _key.toString())
-        )
-      }
-    }
-
     object LookupErrors extends ErrorGroup {
 
       @Explanation("""This error occurs if the Damle interpreter can not find a referenced contract. This
@@ -664,7 +624,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     ) extends LoggingTransactionErrorImpl(
           cause = s"Daml-Engine interpretation failed with internal error: ${where} / ${message}"
         )
-
   }
 
   // The "NonHexOffset" error code is currently only used by canton, but should also be used by the ledger api services,
@@ -700,8 +659,242 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       case class Reject(message: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(cause = message)
-
     }
   }
 
+  object CommandRejections extends ErrorGroup {
+    @Explanation("A command with the given command id has already been successfully processed")
+    @Resolution("Celebrate, as your command has already been delivered")
+    object DuplicateCommand
+        extends ErrorCode(
+          id = "DUPLICATE_COMMAND",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
+        ) {
+
+      case class Reject(override val definiteAnswer: Boolean = false)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = "A command with the given command id has already been successfully processed"
+          )
+    }
+
+    @Explanation("An input contract has been archived by a concurrent transaction submission.")
+    @Resolution(
+      "The correct resolution depends on the business flow, for example it may be possible to " +
+        "proceed without the archived contract as an input, or a different contract could be used."
+    )
+    object InconsistentContracts
+        extends ErrorCode(
+          id = "INCONSISTENT_CONTRACTS",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      case class Reject(override val cause: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(cause = cause)
+    }
+
+    @Explanation("The submitting party has not been allocated.")
+    @Resolution(
+      "Check that the party identifier is correct, allocate the submitting party, " +
+        "request its allocation or wait for it to be allocated before retrying the transaction submission."
+    )
+    object SubmittingPartyNotKnownOnLedger
+        extends ErrorCode(
+          id = "SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing, // It may become known at a later time
+        ) {
+      case class Reject(
+          submitter_party: String
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends LoggingTransactionErrorImpl(
+            cause = s"Party not known on ledger: Submitting party '$submitter_party' not known"
+          ) {
+        override def resources: Seq[(ErrorResource, String)] = Seq(
+          ErrorResource.Party -> submitter_party
+        )
+      }
+    }
+
+    @Explanation("One or more informee parties have not been allocated.")
+    @Resolution(
+      "Check that all the informee party identifiers are correct, allocate all the informee parties, " +
+        "request their allocation or wait for them to be allocated before retrying the transaction submission."
+    )
+    object PartyNotKnownOnLedger
+        extends ErrorCode(
+          id = "PARTY_NOT_KNOWN_ON_LEDGER",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+      case class Reject(parties: Set[String])(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(cause = s"Parties not known on ledger: ${parties
+            .mkString("[", ",", "]")}") {
+        override def resources: Seq[(ErrorResource, String)] =
+          parties.map((ErrorResource.Party, _)).toSeq
+      }
+
+      @deprecated
+      case class RejectDeprecated(
+          description: String
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends LoggingTransactionErrorImpl(
+            cause = s"Party not known on ledger: $description"
+          )
+    }
+
+    @Explanation("At least one input has been altered by a concurrent transaction submission.")
+    @Resolution(
+      "The correct resolution depends on the business flow, for example it may be possible to proceed " +
+        "without an archived contract as an input, or the transaction submission may be retried " +
+        "to load the up-to-date value of a contract key."
+    )
+    object Inconsistent
+        extends ErrorCode(
+          id = "INCONSISTENT",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      case class Reject(
+          details: String
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends LoggingTransactionErrorImpl(
+            cause = s"Inconsistent: $details"
+          )
+    }
+
+    @Explanation("""This error occurs if the Daml engine interpreter can not find a referenced contract. This
+                   |can be caused by either the contract not being known to the participant, or not being known to
+                   |the submitting parties or already being archived.""")
+    @Resolution("This error type occurs if there is contention on a contract.")
+    object ContractsNotFound
+        extends ErrorCode(
+          id = "CONTRACTS_NOT_FOUND",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+
+      case class MultipleContractsNotFound(notFoundContractIds: Set[String])(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = s"Unknown contracts: ${notFoundContractIds.mkString("[", ", ", "]")}"
+          ) {
+        override def resources: Seq[(ErrorResource, String)] = Seq(
+          (ErrorResource.ContractId, notFoundContractIds.mkString("[", ", ", "]"))
+        )
+      }
+    }
+
+    @Explanation(
+      "An input contract key was re-assigned to a different contract by a concurrent transaction submission."
+    )
+    @Resolution("Retry the transaction submission.")
+    object InconsistentContractKey
+        extends ErrorCode(
+          id = "INCONSISTENT_CONTRACT_KEY",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      case class Reject(reason: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(cause = reason)
+    }
+
+    @Explanation(
+      """This error signals that within the transaction we got to a point where two contracts with the same key were active."""
+    )
+    @Resolution("This error indicates an application error.")
+    object DuplicateContractKey
+        extends ErrorCode(
+          id = "DUPLICATE_CONTRACT_KEY",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
+        ) {
+      case class InterpretationReject(
+          override val cause: String,
+          _key: GlobalKey,
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = cause
+          ) {
+        override def resources: Seq[(ErrorResource, String)] = Seq(
+          // TODO error codes: Reconsider the transport format for the contract key.
+          //                   If the key is big, it can force chunking other resources.
+          (ErrorResource.ContractKey, _key.toString())
+        )
+      }
+
+      case class LedgerReject(override val cause: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(cause = cause)
+    }
+
+    @Explanation("An invalid transaction submission was not detected by the participant.")
+    @Resolution("Contact support.")
+    @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
+    @DeprecatedDocs(
+      "Corresponds to transaction submission rejections that are not produced anymore."
+    )
+    object Disputed
+        extends ErrorCode(
+          id = "DISPUTED",
+          ErrorCategory.SystemInternalAssumptionViolated, // It should have been caught by the participant
+        ) {
+      case class Reject(
+          details: String
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends LoggingTransactionErrorImpl(
+            cause = s"Disputed: $details"
+          )
+    }
+
+    @Explanation(
+      "The Participant node did not have sufficient resource quota to submit the transaction."
+    )
+    @Resolution("Inspect the error message and retry after after correcting the underlying issue.")
+    @deprecated("Corresponds to transaction submission rejections that are not produced anymore.")
+    @DeprecatedDocs(
+      "Corresponds to transaction submission rejections that are not produced anymore."
+    )
+    object OutOfQuota
+        extends ErrorCode(id = "OUT_OF_QUOTA", ErrorCategory.ContentionOnSharedResources) {
+      case class Reject(reason: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(cause = reason)
+    }
+
+    @Explanation("A submitting party is not authorized to act through the participant.")
+    @Resolution("Contact the participant operator or re-submit with an authorized party.")
+    object SubmitterCannotActViaParticipant
+        extends ErrorCode(
+          id = "SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT",
+          ErrorCategory.InsufficientPermission,
+        ) {
+      case class Reject(
+          details: String,
+          submitter: String = "N/A",
+          participantId: String = "N/A",
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends LoggingTransactionErrorImpl(cause = s"Inconsistent: $details")
+    }
+
+    @Explanation(
+      "The ledger time of the submission violated some constraint on the ledger time."
+    )
+    @Resolution("Retry the transaction submission.")
+    object InvalidLedgerTime
+        extends ErrorCode(
+          id = "INVALID_LEDGER_TIME",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
+        ) {
+      case class RejectEnriched(
+          details: String,
+          ledger_time: Instant,
+          ledger_time_lower_bound: Instant,
+          ledger_time_upper_bound: Instant,
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends LoggingTransactionErrorImpl(cause = s"Invalid ledger time: $details")
+
+      case class RejectSimple(
+          details: String
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends LoggingTransactionErrorImpl(cause = s"Invalid ledger time: $details")
+    }
+  }
 }

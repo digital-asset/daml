@@ -5,9 +5,9 @@ package com.daml.platform.sandbox.stores.ledger
 
 import java.time.{Instant, Duration => JDuration}
 import java.util.UUID
-
 import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimeProvider
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.DeduplicationPeriod
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{
@@ -55,10 +55,13 @@ class TransactionTimeModelComplianceIT
     Set(BackendType.InMemory, BackendType.Postgres)
 
   override protected def constructResource(index: Int, fixtureId: BackendType): Resource[Ledger] = {
+    val errorFactories = ErrorFactories(
+      new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = false)
+    )
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     fixtureId match {
       case BackendType.InMemory =>
-        LedgerResource.inMemory(ledgerId, timeProvider)
+        LedgerResource.inMemory(ledgerId, timeProvider, errorFactories)
       case BackendType.Postgres =>
         LedgerResource.postgres(getClass, ledgerId, timeProvider, metrics, mock[ErrorFactories])
     }

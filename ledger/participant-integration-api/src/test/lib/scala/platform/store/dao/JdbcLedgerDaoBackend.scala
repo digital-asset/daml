@@ -4,6 +4,7 @@
 package com.daml.platform.store.dao
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -26,7 +27,6 @@ import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParticipantId}
 import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.store.{DbType, FlywayMigrations, LfValueTranslationCache}
-import org.mockito.MockitoSugar
 import org.scalatest.AsyncTestSuite
 
 import scala.concurrent.Await
@@ -112,7 +112,9 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
 
   // `dbDispatcher` and `ledgerDao` depend on the `postgresFixture` which is in turn initialized `beforeAll`
   private var resource: Resource[LedgerDao] = _
-  private val errorFactories_mock = MockitoSugar.mock[ErrorFactories]
+  private val errorFactories = ErrorFactories(
+    new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = false)
+  )
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -124,7 +126,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
         _ <- Resource.fromFuture(
           new FlywayMigrations(jdbcUrl).migrate()
         )
-        dao <- daoOwner(100, 4, errorFactories_mock).acquire()
+        dao <- daoOwner(100, 4, errorFactories).acquire()
         _ <- Resource.fromFuture(dao.initialize(TestLedgerId, TestParticipantId))
         initialLedgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())
         _ = ledgerEndCache.set(initialLedgerEnd.lastOffset -> initialLedgerEnd.lastEventSeqId)
@@ -135,7 +137,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
 
   override protected def afterAll(): Unit = {
     Await.result(resource.release(), 10.seconds)
-    MockitoSugar.verifyZeroInteractions(errorFactories_mock)
     super.afterAll()
   }
 }

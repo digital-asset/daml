@@ -7,19 +7,9 @@ import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
-import com.daml.ledger.participant.state.kvutils.errors.KVErrors
-import com.daml.ledger.test.semantic.Exceptions.{
-  Divulger,
-  ExceptionTester,
-  Fetcher,
-  Informer,
-  RollbackNestingHelper,
-  WithKey,
-  WithKeyDelegate,
-  WithSimpleKey,
-}
+import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
+import com.daml.ledger.test.semantic.Exceptions._
 import io.grpc.Status
 
 final class ExceptionsIT extends LedgerTestSuite {
@@ -196,7 +186,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ABORTED,
-        KVErrors.SubmissionRaces.ExternallyDuplicateKeys,
+        LedgerApiErrors.CommandRejections.DuplicateContractKey,
         Some("DuplicateKey"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -216,7 +206,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ABORTED,
-        KVErrors.SubmissionRaces.ExternallyDuplicateKeys,
+        LedgerApiErrors.CommandRejections.DuplicateContractKey,
         Some("DuplicateKey"),
         checkDefiniteAnswerMetadata = true,
       )

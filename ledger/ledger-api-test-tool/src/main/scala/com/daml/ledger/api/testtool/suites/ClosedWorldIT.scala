@@ -3,11 +3,11 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.client.binding
-import com.daml.ledger.participant.state.kvutils.errors.KVErrors
 import com.daml.ledger.test.semantic.SemanticTests.{Amount, Iou}
 import io.grpc.Status
 
@@ -35,7 +35,7 @@ class ClosedWorldIT extends LedgerTestSuite {
         alpha,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        KVErrors.Parties.PartiesNotKnownOnLedger,
+        LedgerApiErrors.CommandRejections.PartyNotKnownOnLedger,
         Some(Pattern.compile("Part(y|ies) not known on ledger")),
         checkDefiniteAnswerMetadata = true,
       )

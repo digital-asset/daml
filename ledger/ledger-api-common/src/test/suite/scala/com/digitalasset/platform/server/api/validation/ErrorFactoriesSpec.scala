@@ -42,7 +42,7 @@ class ErrorFactoriesSpec
   private val DefaultTraceIdRequestInfo: ErrorDetails.RequestInfoDetail =
     ErrorDetails.RequestInfoDetail("trace-id")
 
-  val tested = ErrorFactories(mock[ErrorCodesVersionSwitcher])
+  private val tested = ErrorFactories(mock[ErrorCodesVersionSwitcher])
 
   "ErrorFactories" should {
     "return sqlTransientException" in {

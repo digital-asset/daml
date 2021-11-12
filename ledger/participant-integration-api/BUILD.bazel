@@ -185,6 +185,7 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/sample-service",
         "//ledger-api/testing-utils",
+        "//ledger/error",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",

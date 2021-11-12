@@ -43,6 +43,7 @@ da_scala_library(
         "//ledger/metrics",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/grpc-utils",
         "//libs-scala/logging-entries",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
