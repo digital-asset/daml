@@ -643,7 +643,7 @@ final class CommandServiceIT extends LedgerTestSuite {
     "SubmitAndWait methods return the completion offset in the response",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+    def request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
     for {
       transactionIdResponse <- ledger.submitAndWaitForTransactionId(request)
       retrievedTransaction <- ledger.transactionTreeById(transactionIdResponse.transactionId, party)
