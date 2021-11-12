@@ -187,7 +187,7 @@ private[engine] final class Preprocessor(
       getDependencies(
         List.empty,
         tx.rootNodes.toList.map(_.templateId)
-          ++ tx.byInterfaceNodes.toList.map(_.templateId),
+          ++ tx.byInterfaceNodes.map(_.templateId),
       )
     ) {
       transactionPreprocessor.unsafeTranslateTransactionRoots(tx)

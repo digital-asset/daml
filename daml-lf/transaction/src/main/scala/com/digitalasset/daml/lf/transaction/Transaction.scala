@@ -12,6 +12,7 @@ import com.daml.lf.value.Value.ContractId
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
+import com.daml.scalautil.Statement.discard
 
 final case class VersionedTransaction private[lf] (
     version: TransactionVersion,
@@ -285,18 +286,16 @@ sealed abstract class HasTxNodes {
       }
     )
 
-  def byInterfaceNodes: Iterable[Node.Action] =
-    nodes.values.flatMap(node =>
-      node match {
-        case action: Node.Action =>
-          if (action.byInterface.isDefined)
-            Iterator(action)
-          else
-            Iterator()
-        case _: Node.Rollback =>
-          Iterator()
-      }
-    )
+  private[lf] def byInterfaceNodes: List[Node.Action] = {
+    val builder = List.newBuilder[Node.Action]
+    foreach {
+      case (_, action: Node.Action) if action.byInterface.isDefined =>
+        discard(builder += action)
+      case _ =>
+        ()
+    }
+    builder.result()
+  }
 
   /** This function traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children).
     *
