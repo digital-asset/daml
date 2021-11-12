@@ -469,5 +469,5 @@ object KeyValueConsumption {
       .fold(err => throw Err.DecodeError("Party", s"Cannot parse '$s': $err"), identity)
 
   private def correlationId(submitterInfo: DamlSubmitterInfo): String =
-    submitterInfo.getCommandId
+    submitterInfo.getSubmissionId
 }
