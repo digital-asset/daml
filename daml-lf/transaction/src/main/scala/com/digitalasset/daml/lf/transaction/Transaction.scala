@@ -285,18 +285,16 @@ sealed abstract class HasTxNodes {
       }
     )
 
-  def byInterfaceNodes: Iterable[Node.Action] =
-    nodes.values.flatMap(node =>
-      node match {
-        case action: Node.Action =>
-          if (action.byInterface.isDefined)
-            Iterator(action)
-          else
-            Iterator()
-        case _: Node.Rollback =>
-          Iterator()
-      }
-    )
+  private[lf] def byInterfaceNodes: List[Node.Action] = {
+    val builder = List.newBuilder[Node.Action]
+    nodes.values.foreach {
+      case action: Node.Action if action.byInterface.isDefined =>
+        (builder += action)
+      case _ =>
+        ()
+    }
+    builder.result()
+  }
 
   /** This function traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children).
     *
