@@ -301,8 +301,6 @@ private[lf] object Anf {
         Bounce(() => transform(depth, atom, k))
 
       case source.SEVal(x) => Bounce(() => transform(depth, target.SEVal(x), k))
-      case source.SEImportValue(ty, v) =>
-        Bounce(() => transform(depth, target.SEImportValue(ty, v), k))
 
       case source.SEAppGeneral(func, args) =>
         // It's safe to perform ANF if the func-expression has no effects when evaluated.
@@ -373,9 +371,6 @@ private[lf] object Anf {
       case source.SEScopeExercise(body0) =>
         val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf.wrapped)).bounce
         Bounce(() => transform(depth, target.SEScopeExercise(body), k))
-
-      case _: source.SEDamlException =>
-        throw CompilationError(s"flatten: unexpected: $exp")
     }
 
   private[this] def atomizeExps[A](

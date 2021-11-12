@@ -31,7 +31,7 @@ package speedy
   * Summary of which constructors are contained by: SExp0, SExpr1 and SExpr:
   *
   * - In SExpr{0,1,} (everywhere): SEAppGeneral, SEBuiltin, SEBuiltinRecursiveDefinition,
-  *   SEDamlException, SEImportValue, SELabelClosure, SELet1General, SELocation,
+  *   SELabelClosure, SELet1General, SELocation,
   *   SEScopeExercise, SETryCatch, SEVal, SEValue,
   *
   * - In SExpr0: SEAbs, SEVar
@@ -42,11 +42,11 @@ package speedy
   *
   * - In SExpr: SEAppAtomicFun, SEAppAtomicGeneral, SEAppAtomicSaturatedBuiltin,
   *   SECaseAtomic, SELet1Builtin, SELet1BuiltinArithmetic
+  *
+  * - In SExpr (runtime only, i.e. rejected by validate): SEDamlException, SEImportValue
   */
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.language.Ast
-import com.daml.lf.value.{Value => V}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SExpr.{SDefinitionRef, SCasePat}
 import com.daml.lf.speedy.{SExpr => runTime}
@@ -128,13 +128,6 @@ private[speedy] object SExpr0 {
     * [[AnyRef]] for the label.
     */
   final case class SELabelClosure(label: Profile.Label, expr: SExpr) extends SExpr
-
-  /** We cannot crash in the engine call back.
-    * Rather, we set the control to this expression and then crash when executing.
-    */
-  final case class SEDamlException(error: interpretation.Error) extends SExpr
-
-  final case class SEImportValue(typ: Ast.Type, value: V) extends SExpr
 
   /** Exception handler */
   final case class SETryCatch(body: SExpr, handler: SExpr) extends SExpr
