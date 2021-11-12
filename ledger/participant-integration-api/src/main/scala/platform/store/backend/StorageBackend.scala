@@ -4,6 +4,7 @@
 package com.daml.platform.store.backend
 
 import java.sql.Connection
+
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.configuration.Configuration
@@ -20,9 +21,10 @@ import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeP
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
+import com.daml.platform.store.interning.StringInterning
 import com.daml.scalautil.NeverEqualsOverride
-
 import javax.sql.DataSource
+
 import scala.annotation.unused
 import scala.util.Try
 
@@ -55,9 +57,10 @@ trait IngestionStorageBackend[DB_BATCH] {
     * This should be pure CPU logic without IO.
     *
     * @param dbDtos is a collection of DbDto from which the batch is formed
+    * @param stringInterning will be used to switch ingested strings to the internal integers
     * @return the database-specific batch DTO, which can be inserted via insertBatch
     */
-  def batch(dbDtos: Vector[DbDto]): DB_BATCH
+  def batch(dbDtos: Vector[DbDto], stringInterning: StringInterning): DB_BATCH
 
   /** Using a JDBC connection, a batch will be inserted into the database.
     * No significant CPU load, mostly blocking JDBC communication with the database backend.

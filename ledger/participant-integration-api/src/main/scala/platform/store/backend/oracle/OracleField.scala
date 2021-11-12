@@ -4,12 +4,15 @@
 package com.daml.platform.store.backend.oracle
 
 import java.sql.PreparedStatement
+
 import com.daml.platform.store.backend.common.Field
+import com.daml.platform.store.interning.StringInterning
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
-private[oracle] case class OracleStringArray[FROM](extract: FROM => Iterable[String])
-    extends Field[FROM, Iterable[String], String] {
+private[oracle] case class OracleStringArray[FROM](
+    extract: StringInterning => FROM => Iterable[String]
+) extends Field[FROM, Iterable[String], String] {
   override def convert: Iterable[String] => String = _.toList.toJson.compactPrint
   override def prepareDataTemplate(
       preparedStatement: PreparedStatement,
@@ -21,7 +24,7 @@ private[oracle] case class OracleStringArray[FROM](extract: FROM => Iterable[Str
 }
 
 private[oracle] case class OracleStringArrayOptional[FROM](
-    extract: FROM => Option[Iterable[String]]
+    extract: StringInterning => FROM => Option[Iterable[String]]
 ) extends Field[FROM, Option[Iterable[String]], String] {
   override def convert: Option[Iterable[String]] => String =
     _.map(_.toList.toJson.compactPrint).getOrElse("[]")

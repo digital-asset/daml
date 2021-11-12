@@ -7,6 +7,7 @@ import java.sql.Connection
 
 import anorm.{SQL, SqlQuery}
 import com.daml.platform.store.backend.{DbDto, IngestionStorageBackend, ParameterStorageBackend}
+import com.daml.platform.store.interning.StringInterning
 
 private[backend] class IngestionStorageBackendTemplate(schema: Schema[DbDto])
     extends IngestionStorageBackend[AppendOnlySchema.Batch] {
@@ -48,6 +49,9 @@ private[backend] class IngestionStorageBackendTemplate(schema: Schema[DbDto])
   ): Unit =
     schema.executeUpdate(dbBatch, connection)
 
-  override def batch(dbDtos: Vector[DbDto]): AppendOnlySchema.Batch =
-    schema.prepareData(dbDtos)
+  override def batch(
+      dbDtos: Vector[DbDto],
+      stringInterning: StringInterning,
+  ): AppendOnlySchema.Batch =
+    schema.prepareData(dbDtos, stringInterning)
 }

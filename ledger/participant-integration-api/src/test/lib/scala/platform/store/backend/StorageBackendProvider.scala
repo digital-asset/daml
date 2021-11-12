@@ -11,7 +11,7 @@ import com.daml.platform.store.backend.h2.H2StorageBackendFactory
 import com.daml.platform.store.backend.oracle.OracleStorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
-import com.daml.platform.store.interning.InterningStringInterning
+import com.daml.platform.store.interning.{MockStringInterning, StringInterning}
 import com.daml.testing.oracle.OracleAroundAll
 import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.Suite
@@ -25,7 +25,10 @@ private[backend] trait StorageBackendProvider {
 
   protected final def ingest(dbDtos: Vector[DbDto], connection: Connection): Unit = {
     def typeBoundIngest[T](ingestionStorageBackend: IngestionStorageBackend[T]): Unit =
-      ingestionStorageBackend.insertBatch(connection, ingestionStorageBackend.batch(dbDtos))
+      ingestionStorageBackend.insertBatch(
+        connection,
+        ingestionStorageBackend.batch(dbDtos, backend.stringInterningSupport),
+      )
     typeBoundIngest(backend.ingestion)
   }
 
@@ -86,12 +89,13 @@ case class TestBackend(
     reset: ResetStorageBackend,
     stringInterning: StringInterningStorageBackend,
     ledgerEndCache: MutableLedgerEndCache,
+    stringInterningSupport: StringInterning,
 )
 
 object TestBackend {
   def apply(storageBackendFactory: StorageBackendFactory): TestBackend = {
     val ledgerEndCache = MutableLedgerEndCache()
-    val stringInterning = new InterningStringInterning
+    val stringInterning = new MockStringInterning
     TestBackend(
       ingestion = storageBackendFactory.createIngestionStorageBackend,
       parameter = storageBackendFactory.createParameterStorageBackend,
@@ -109,6 +113,7 @@ object TestBackend {
       reset = storageBackendFactory.createResetStorageBackend,
       stringInterning = storageBackendFactory.createStringInterningStorageBackend,
       ledgerEndCache = ledgerEndCache,
+      stringInterningSupport = stringInterning,
     )
   }
 }

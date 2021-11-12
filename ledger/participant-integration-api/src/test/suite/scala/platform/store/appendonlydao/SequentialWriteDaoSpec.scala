@@ -108,7 +108,8 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
     var captured: Vector[Any] = Vector.empty
 
-    override def batch(dbDtos: Vector[DbDto]): Vector[DbDto] = dbDtos
+    override def batch(dbDtos: Vector[DbDto], stringInterning: StringInterning): Vector[DbDto] =
+      dbDtos
 
     override def insertBatch(connection: Connection, batch: Vector[DbDto]): Unit = synchronized {
       connection shouldBe someConnection

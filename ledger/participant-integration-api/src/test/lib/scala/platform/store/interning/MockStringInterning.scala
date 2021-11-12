@@ -6,7 +6,10 @@ package com.daml.platform.store.interning
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 
-class InterningStringInterning extends StringInterning {
+/** This StringInterning implementation is interning in a transparent way everything it sees.
+  * This is only for test purposes.
+  */
+class MockStringInterning extends StringInterning {
   private var idToString: Map[Int, String] = Map.empty
   private var stringToId: Map[String, Int] = Map.empty
   private var lastId: Int = 0

@@ -197,9 +197,9 @@ describe("streamSubmit", () => {
     expect(mockChange).not.toHaveBeenCalled();
   });
 
-  test("reconnect on server close with appropriate offsets", async () => {
+  test("reconnect on server close with appropriate offsets, when ws multiplexing is enabled", async () => {
     const reconnectThreshold = 200;
-    const ledger = new Ledger({...mockOptions, reconnectThreshold: reconnectThreshold});
+    const ledger = new Ledger({...mockOptions, reconnectThreshold: reconnectThreshold, multiplexQueryStreams: true});
     const stream = ledger.streamQuery(Foo, {"key": "1"});
     stream.on("live", mockLive);
     stream.on("close", mockClose);
@@ -214,6 +214,32 @@ describe("streamSubmit", () => {
     expect(mockSend).toHaveBeenNthCalledWith(1, [{"query": {"key": "1"}, "templateIds": ["foo-id"]}]);
     //subsequent one on reconnection with offsets received
     expect(mockSend).toHaveBeenNthCalledWith(2, [{"offset": "4", "query": {"key": "1"}, "templateIds": ["foo-id"]}]);
+    mockSend.mockClear();
+    mockConstructor.mockClear();
+
+    // check that the client doesn't try to reconnect again.  it should only reconnect if it
+    // received an event confirming the stream is live again, i.e. {events: [], offset: '4'}
+    mockInstance.serverClose({code: 1, reason: 'test close'});
+    expect(mockConstructor).not.toHaveBeenCalled();
+  });
+
+
+  test("reconnect on server close with appropriate offsets, when ws multiplexing is disabled", async () => {
+    const reconnectThreshold = 200;
+    const ledger = new Ledger({...mockOptions, reconnectThreshold: reconnectThreshold, multiplexQueryStreams: false});
+    const stream = ledger.streamQuery(Foo);
+    stream.on("live", mockLive);
+    stream.on("close", mockClose);
+    mockInstance.serverOpen();
+    mockInstance.serverSend({events: [], offset: "3"});
+    await new Promise(resolve => setTimeout(resolve, reconnectThreshold * 2));
+    mockConstructor.mockClear();
+    mockInstance.serverClose({code: 1, reason: 'test close'});
+    expect(mockConstructor).toHaveBeenCalled();
+    mockInstance.serverOpen();
+    expect(mockSend).toHaveBeenNthCalledWith(1, [{"templateIds": ["foo-id"]}]); //initial query
+    expect(mockSend).toHaveBeenNthCalledWith(2, {offset: "3"}); // offsets sent when reconnecting.
+    expect(mockSend).toHaveBeenNthCalledWith(3, [{"templateIds": ["foo-id"]}]); //reconnect query request.
     mockSend.mockClear();
     mockConstructor.mockClear();
 
