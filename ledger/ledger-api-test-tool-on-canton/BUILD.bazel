@@ -101,7 +101,8 @@ conformance_test(
         ",TLSOnePointThreeIT" +
         ",TLSAtLeastOnePointTwoIT" +
         ",KVCommandDeduplicationIT" +  # only for KV-utils
-        ",MonotonicRecordTimeIT",  # KV-utils specific
+        ",MonotonicRecordTimeIT" +  # KV-utils specific
+        ",CommandServiceIT:CSsubmitAndWaitCompletionOffset",  # Canton does not fill the offsets
     ],
 ) if not is_windows else None
 

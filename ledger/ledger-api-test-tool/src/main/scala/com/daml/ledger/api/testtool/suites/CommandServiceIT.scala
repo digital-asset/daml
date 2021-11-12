@@ -59,15 +59,6 @@ final class CommandServiceIT extends LedgerTestSuite {
         s"$party should see only one transaction but sees ${transactions.size}",
       )
 
-      assert(
-        transactionIdResponse.completionOffset.exists(_.nonEmpty),
-        "The offset was not set in the response",
-      )
-      assert(
-        transactionIdResponse.completionOffset.contains(retrievedTransaction.offset),
-        "Transaction offset was not equal to the retrieved one",
-      )
-
       val events = transactions.head.events
 
       assert(events.size == 1, s"$party should see only one event but sees ${events.size}")
@@ -113,18 +104,6 @@ final class CommandServiceIT extends LedgerTestSuite {
         transaction.transactionId.nonEmpty,
         "The transaction identifier was empty but shouldn't.",
       )
-      assert(
-        transactionResponse.completionOffset.exists(_.nonEmpty),
-        "The offset was not set in the response",
-      )
-      assert(
-        transactionResponse.completionOffset.contains(transaction.offset),
-        "Transaction offset was not equal to the retrieved one",
-      )
-      assert(
-        transaction.events.size == 1,
-        s"The returned transaction should contain 1 event, but contained ${transaction.events.size}",
-      )
       val event = transaction.events.head
       assert(
         event.event.isCreated,
@@ -154,14 +133,6 @@ final class CommandServiceIT extends LedgerTestSuite {
       assert(
         transactionTree.eventsById.size == 1,
         s"The returned transaction tree should contain 1 event, but contained ${transactionTree.eventsById.size}",
-      )
-      assert(
-        transactionTreeResponse.completionOffset.exists(_.nonEmpty),
-        "The offset was not set in the response",
-      )
-      assert(
-        transactionTreeResponse.completionOffset.contains(transactionTree.offset),
-        "Transaction offset was not equal to the retrieved one",
       )
       val event = transactionTree.eventsById.head._2
       assert(
@@ -663,6 +634,38 @@ final class CommandServiceIT extends LedgerTestSuite {
           )
         ),
         checkDefiniteAnswerMetadata = true,
+      )
+    }
+  })
+
+  test(
+    "CSsubmitAndWaitCompletionOffset",
+    "SubmitAndWait methods return the completion offset in the response",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+    for {
+      transactionIdResponse <- ledger.submitAndWaitForTransactionId(request)
+      retrievedTransaction <- ledger.transactionTreeById(transactionIdResponse.transactionId, party)
+      transactionResponse <- ledger.submitAndWaitForTransaction(request)
+      transactionTreeResponse <- ledger.submitAndWaitForTransactionTree(request)
+    } yield {
+      assert(
+        transactionIdResponse.completionOffset.exists(_.nonEmpty) &&
+          transactionIdResponse.completionOffset.contains(retrievedTransaction.offset),
+        "SubmitAndWaitForTransactionId does not contain the expected completion offset",
+      )
+      assert(
+        transactionResponse.completionOffset.exists(_.nonEmpty) &&
+          transactionResponse.completionOffset.contains(transactionResponse.getTransaction.offset),
+        "SubmitAndWaitForTransaction does not contain the expected completion offset",
+      )
+      assert(
+        transactionTreeResponse.completionOffset.exists(
+          _.nonEmpty
+        ) && transactionTreeResponse.completionOffset
+          .contains(transactionTreeResponse.getTransaction.offset),
+        "SubmitAndWaitForTransactionTree does not contain the expected completion offset",
       )
     }
   })

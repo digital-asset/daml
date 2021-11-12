@@ -558,6 +558,18 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        # Completion offset included in the CommandService responses
+        "start": "1.18.0-snapshot.20211111.8349.0.d938a44c",
+        "platform_ranges": [
+            {
+                "end": "1.18.0-snapshot.20211111.8349.0.d938a44c ",
+                "exclusions": [
+                    "CommandServiceIT:CSsubmitAndWaitCompletionOffset",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
