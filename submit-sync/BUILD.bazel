@@ -8,6 +8,7 @@ load(
 
 da_scala_test(
     name = "submit-sync",
+    timeout = "eternal",
     srcs = ["SubmitSync.scala"],
     data = [
         "//ledger/test-common:dar-files",
@@ -61,5 +62,4 @@ da_scala_test(
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_dropwizard_metrics_metrics_core",
     ],
-    timeout = "eternal",
 )
