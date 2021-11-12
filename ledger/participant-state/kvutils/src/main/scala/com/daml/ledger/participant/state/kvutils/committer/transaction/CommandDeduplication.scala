@@ -54,11 +54,9 @@ private[transaction] object CommandDeduplication {
             // During pre-execution in the deduplication state value we stored the maximum record time
             // To guarantee the deduplication duration, we basically compare the maximum record time of the previous transaction
             // with the minimum record time of the current transaction. This gives us the smallest possible interval between two transactions.
-            commitContext.minimumRecordTime match {
-              case Some(minimumRecordTime) => minimumRecordTime.toInstant
-              case None =>
-                throw Err.InternalError("Minimum record time is not set for pre-execution")
-            }
+            commitContext.minimumRecordTime
+              .getOrElse(throw Err.InternalError("Minimum record time is not set for pre-execution"))
+              .toInstant
         }
         val isDuplicate = maybeDedupValue
           .flatMap(commandDeduplication =>
@@ -128,12 +126,11 @@ private[transaction] object CommandDeduplication {
           case Some(recordTime) =>
             commandDedupBuilder.setRecordTime(recordTime)
           case None =>
+            val maxRecordTime = commitContext.maximumRecordTime.getOrElse(
+              throw Err.InternalError("Maximum record time is not set for pre-execution")
+            )
             commandDedupBuilder.setMaxRecordTime(
-              commitContext.maximumRecordTime
-                .map(Conversions.buildTimestamp)
-                .getOrElse(
-                  throw Err.InternalError("Maximum record time is not set for pre-execution")
-                )
+              Conversions.buildTimestamp(maximumRecordTime)
             )
         }
 
