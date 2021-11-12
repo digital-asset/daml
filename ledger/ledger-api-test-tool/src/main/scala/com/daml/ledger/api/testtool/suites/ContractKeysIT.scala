@@ -263,9 +263,10 @@ final class ContractKeysIT extends LedgerTestSuite {
       val key = ledger.nextKeyId()
       for {
         delegated1TxTree <- ledger
-          .submitAndWaitForTransactionTreeReturningTree(
+          .submitAndWaitForTransactionTree(
             ledger.submitAndWaitRequest(owner, Delegated(owner, key).create.command)
           )
+          .map(_.getTransaction)
         delegated1Id = com.daml.ledger.client.binding.Primitive
           .ContractId[Delegated](delegated1TxTree.eventsById.head._2.getCreated.contractId)
 

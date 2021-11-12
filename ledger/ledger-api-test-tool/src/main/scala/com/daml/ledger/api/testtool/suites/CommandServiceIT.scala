@@ -197,9 +197,9 @@ final class CommandServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
     for {
-      _ <- ledger.submitAndWaitForTransactionReturningTransaction(request)
+      _ <- ledger.submitAndWaitForTransaction(request)
       failure <- ledger
-        .submitAndWaitForTransactionReturningTransaction(request)
+        .submitAndWaitForTransaction(request)
         .mustFail("submitting a duplicate request")
     } yield {
       assertGrpcError(
@@ -220,9 +220,9 @@ final class CommandServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
     for {
-      _ <- ledger.submitAndWaitForTransactionTreeReturningTree(request)
+      _ <- ledger.submitAndWaitForTransactionTree(request)
       failure <- ledger
-        .submitAndWaitForTransactionTreeReturningTree(request)
+        .submitAndWaitForTransactionTree(request)
         .mustFail("submitting a duplicate request")
     } yield {
       assertGrpcError(
@@ -270,7 +270,7 @@ final class CommandServiceIT extends LedgerTestSuite {
       .update(_.commands.ledgerId := invalidLedgerId)
     for {
       failure <- ledger
-        .submitAndWaitForTransactionReturningTransaction(request)
+        .submitAndWaitForTransaction(request)
         .mustFail("submitting a request with an invalid ledger ID")
     } yield assertGrpcError(
       ledger,
@@ -293,7 +293,7 @@ final class CommandServiceIT extends LedgerTestSuite {
       .update(_.commands.ledgerId := invalidLedgerId)
     for {
       failure <- ledger
-        .submitAndWaitForTransactionTreeReturningTree(request)
+        .submitAndWaitForTransactionTree(request)
         .mustFail("submitting a request with an invalid ledger ID")
     } yield assertGrpcError(
       ledger,

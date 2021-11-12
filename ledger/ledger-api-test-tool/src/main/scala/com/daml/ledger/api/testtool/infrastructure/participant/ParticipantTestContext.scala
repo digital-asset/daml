@@ -480,9 +480,10 @@ private[testtool] final class ParticipantTestContext private[participant] (
       party: Party,
       template: Template[T],
   ): Future[Primitive.ContractId[T]] =
-    submitAndWaitForTransactionReturningTransaction(
+    submitAndWaitForTransaction(
       submitAndWaitRequest(party, template.create.command)
     )
+      .map(_.getTransaction)
       .map(extractContracts)
       .map(_.head)
 
@@ -491,9 +492,9 @@ private[testtool] final class ParticipantTestContext private[participant] (
       readAs: List[Party],
       template: Template[T],
   ): Future[Primitive.ContractId[T]] =
-    submitAndWaitForTransactionReturningTransaction(
+    submitAndWaitForTransaction(
       submitAndWaitRequest(actAs, readAs, template.create.command)
-    )
+    ).map(_.getTransaction)
       .map(extractContracts)
       .map(_.head)
 
@@ -501,9 +502,10 @@ private[testtool] final class ParticipantTestContext private[participant] (
       party: Party,
       template: Template[T],
   ): Future[(String, Primitive.ContractId[T])] =
-    submitAndWaitForTransactionReturningTransaction(
+    submitAndWaitForTransaction(
       submitAndWaitRequest(party, template.create.command)
     )
+      .map(_.getTransaction)
       .map(tx =>
         tx.transactionId -> tx.events.collect { case Event(Created(e)) =>
           Primitive.ContractId(e.contractId)
@@ -514,34 +516,35 @@ private[testtool] final class ParticipantTestContext private[participant] (
       party: Party,
       exercise: Party => Primitive.Update[T],
   ): Future[TransactionTree] =
-    submitAndWaitForTransactionTreeReturningTree(
+    submitAndWaitForTransactionTree(
       submitAndWaitRequest(party, exercise(party).command)
-    )
+    ).map(_.getTransaction)
 
   def exercise[T](
       actAs: List[Party],
       readAs: List[Party],
       exercise: => Primitive.Update[T],
   ): Future[TransactionTree] =
-    submitAndWaitForTransactionTreeReturningTree(
+    submitAndWaitForTransactionTree(
       submitAndWaitRequest(actAs, readAs, exercise.command)
-    )
+    ).map(_.getTransaction)
 
   def exerciseForFlatTransaction[T](
       party: Party,
       exercise: Party => Primitive.Update[T],
   ): Future[Transaction] =
-    submitAndWaitForTransactionReturningTransaction(
+    submitAndWaitForTransaction(
       submitAndWaitRequest(party, exercise(party).command)
-    )
+    ).map(_.getTransaction)
 
   def exerciseAndGetContract[T](
       party: Party,
       exercise: Party => Primitive.Update[Any],
   ): Future[Primitive.ContractId[T]] =
-    submitAndWaitForTransactionReturningTransaction(
+    submitAndWaitForTransaction(
       submitAndWaitRequest(party, exercise(party).command)
     )
+      .map(_.getTransaction)
       .map(extractContracts)
       .map(_.head.asInstanceOf[Primitive.ContractId[T]])
 
@@ -552,7 +555,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
       choice: String,
       argument: Value,
   ): Future[TransactionTree] =
-    submitAndWaitForTransactionTreeReturningTree(
+    submitAndWaitForTransactionTree(
       submitAndWaitRequest(
         party,
         Command.of(
@@ -566,7 +569,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
           )
         ),
       )
-    )
+    ).map(_.getTransaction)
 
   def submitRequest(actAs: List[Party], readAs: List[Party], commands: Command*): SubmitRequest =
     new SubmitRequest(
@@ -650,21 +653,11 @@ private[testtool] final class ParticipantTestContext private[participant] (
   ): Future[SubmitAndWaitForTransactionResponse] =
     services.command.submitAndWaitForTransaction(request)
 
-  def submitAndWaitForTransactionReturningTransaction(
-      request: SubmitAndWaitRequest
-  ): Future[Transaction] =
-    submitAndWaitForTransaction(request).map(_.getTransaction)
-
   def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionTreeResponse] =
     services.command
       .submitAndWaitForTransactionTree(request)
-
-  def submitAndWaitForTransactionTreeReturningTree(
-      request: SubmitAndWaitRequest
-  ): Future[TransactionTree] =
-    submitAndWaitForTransactionTree(request).map(_.getTransaction)
 
   def completionStreamRequest(from: LedgerOffset = referenceOffset)(parties: Party*) =
     new CompletionStreamRequest(ledgerId, applicationId, parties.map(_.unwrap), Some(from))
