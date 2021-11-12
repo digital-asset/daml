@@ -55,7 +55,9 @@ private[transaction] object CommandDeduplication {
             // To guarantee the deduplication duration, we basically compare the maximum record time of the previous transaction
             // with the minimum record time of the current transaction. This gives us the smallest possible interval between two transactions.
             commitContext.minimumRecordTime
-              .getOrElse(throw Err.InternalError("Minimum record time is not set for pre-execution"))
+              .getOrElse(
+                throw Err.InternalError("Minimum record time is not set for pre-execution")
+              )
               .toInstant
         }
         val isDuplicate = maybeDedupValue
@@ -63,28 +65,30 @@ private[transaction] object CommandDeduplication {
             commandDeduplication.getTimeCase match {
               // Backward-compatibility, will not  be set for new entries
               case TimeCase.DEDUPLICATED_UNTIL =>
-                Some(parseTimestamp(commandDeduplication.getDeduplicatedUntil).toInstant)
+                Some(parseTimestamp(commandDeduplication.getDeduplicatedUntil))
               // Set during normal execution, no time skews are added
               case TimeCase.RECORD_TIME =>
                 val storedDuplicateRecordTime =
-                  parseTimestamp(commandDeduplication.getRecordTime).toInstant
+                  parseTimestamp(commandDeduplication.getRecordTime)
                 Some(
                   storedDuplicateRecordTime
-                    .plus(commandDeduplicationDuration)
+                    .add(commandDeduplicationDuration)
                 )
               // Set during pre-execution, time skews are already accounted for
               case TimeCase.MAX_RECORD_TIME =>
                 val maxRecordTime =
-                  parseTimestamp(commandDeduplication.getMaxRecordTime).toInstant
+                  parseTimestamp(commandDeduplication.getMaxRecordTime)
                 Some(
                   maxRecordTime
-                    .plus(commandDeduplicationDuration)
+                    .add(commandDeduplicationDuration)
                 )
               case TimeCase.TIME_NOT_SET =>
                 None
             }
           )
-          .forall(deduplicatedUntil => recordTimeOrMinimumRecordTime.isAfter(deduplicatedUntil))
+          .forall(deduplicatedUntil =>
+            recordTimeOrMinimumRecordTime.isAfter(deduplicatedUntil.toInstant)
+          )
         if (isDuplicate) {
           StepContinue(transactionEntry)
         } else {
@@ -130,7 +134,7 @@ private[transaction] object CommandDeduplication {
               throw Err.InternalError("Maximum record time is not set for pre-execution")
             )
             commandDedupBuilder.setMaxRecordTime(
-              Conversions.buildTimestamp(maximumRecordTime)
+              Conversions.buildTimestamp(maxRecordTime)
             )
         }
 
