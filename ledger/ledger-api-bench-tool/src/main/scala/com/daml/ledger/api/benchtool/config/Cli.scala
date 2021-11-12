@@ -42,13 +42,15 @@ object Cli {
           .copy(workflow = config.workflow.copy(streams = config.workflow.streams :+ streamConfig))
       }
 
-    opt[File]("contract-set-descriptor")
+    opt[File]("workflow-config")
       .hidden() // TODO: uncomment when production-ready
-      .abbr("d")
+      .abbr("w")
       .optional()
-      .text("A contract set descriptor file.")
-      .action { case (descriptorFile, config) =>
-        config.copy(contractSetDescriptorFile = Some(descriptorFile))
+      .text(
+        "A workflow configuration file. Parameters defined via this method take precedence over --consume-stream options."
+      )
+      .action { case (workflowConfigFile, config) =>
+        config.copy(workflowConfigFile = Some(workflowConfigFile))
       }
 
     opt[Int]("max-in-flight-commands")
@@ -108,7 +110,7 @@ object Cli {
     note(1, "Transactions/transaction trees:")
     note(2, "stream-type=<transactions|transaction-trees>", "(required)")
     note(2, "name=<stream-name>", "Stream name used to identify results (required)")
-    note(2, "filters=party1|template1|template2&party2", "(required)")
+    note(2, "filters=party1@template1@template2+party2", "(required)")
     note(2, "begin-offset=<offset>")
     note(2, "end-offset=<offset>")
     note(2, "max-delay=<seconds>", "Max record time delay objective")

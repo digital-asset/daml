@@ -45,7 +45,8 @@ class WorkflowConfigParserSpec extends AnyWordSpec with Matchers {
                   weight = 50,
                   payloadSizeBytes = 60,
                   archiveChance = 0.9,
-                )),
+                )
+              ),
             )
           ),
           streams = List(

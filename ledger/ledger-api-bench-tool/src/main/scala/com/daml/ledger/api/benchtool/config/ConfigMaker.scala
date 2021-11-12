@@ -17,8 +17,8 @@ object ConfigMaker {
         Right(config)
     }
 
-    def parseWorkflowConfig(descriptorFile: File): Either[ConfigurationError, WorkflowConfig] =
-      SimpleFileReader.readFile(descriptorFile)(WorkflowConfigParser.parse) match {
+    def parseWorkflowConfig(workflowConfigFile: File): Either[ConfigurationError, WorkflowConfig] =
+      SimpleFileReader.readFile(workflowConfigFile)(WorkflowConfigParser.parse) match {
         case Failure(ex) =>
           Left(ConfigurationError(s"Workflow config reading error: ${ex.getLocalizedMessage}"))
         case Success(result) =>
@@ -30,9 +30,9 @@ object ConfigMaker {
 
     for {
       config <- parseCli
-      workflowConfig <- config.contractSetDescriptorFile match {
+      workflowConfig <- config.workflowConfigFile match {
         case None => Right(config.workflow)
-        case Some(descriptorFile) => parseWorkflowConfig(descriptorFile)
+        case Some(workflowConfigFile) => parseWorkflowConfig(workflowConfigFile)
       }
     } yield {
       // Workflow defined in the YAML file takes precedence over CLI params
