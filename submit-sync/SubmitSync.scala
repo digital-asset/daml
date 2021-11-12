@@ -12,6 +12,7 @@ import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.daml.platform.sandbox.services.TestCommands
+import com.daml.platform.sandbox.SandboxBackend
 import java.util.UUID
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AsyncFreeSpec
@@ -20,6 +21,7 @@ import scala.concurrent.Future
 final class SubmitSync
     extends AsyncFreeSpec
     with SandboxNextFixture
+    with SandboxBackend.Postgresql
     with Matchers
     with SuiteResourceManagementAroundAll
     with TestCommands {
