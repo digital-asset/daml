@@ -10,8 +10,6 @@ package speedy
   */
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.language.Ast
-import com.daml.lf.value.{Value => V}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SExpr.{SDefinitionRef, SCasePat}
 import com.daml.lf.speedy.{SExpr => runTime}
@@ -100,13 +98,6 @@ private[speedy] object SExpr1 {
     * [[AnyRef]] for the label.
     */
   final case class SELabelClosure(label: Profile.Label, expr: SExpr) extends SExpr
-
-  /** We cannot crash in the engine call back.
-    * Rather, we set the control to this expression and then crash when executing.
-    */
-  final case class SEDamlException(error: interpretation.Error) extends SExpr
-
-  final case class SEImportValue(typ: Ast.Type, value: V) extends SExpr
 
   /** Exception handler */
   final case class SETryCatch(body: SExpr, handler: SExpr) extends SExpr

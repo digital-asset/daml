@@ -327,6 +327,9 @@ object SExpr {
 
   /** We cannot crash in the engine call back.
     * Rather, we set the control to this expression and then crash when executing.
+    *
+    * The SEDamlException form is never constructed when compiling user LF.
+    * It is only constructed at runtime by certain builtin-ops.
     */
   final case class SEDamlException(error: interpretation.Error) extends SExpr {
     def execute(machine: Machine): Unit = {
@@ -334,6 +337,9 @@ object SExpr {
     }
   }
 
+  /** The SEImportValue form is never constructed when compiling user LF.
+    * It is only constructed at runtime by certain builtin-ops.
+    */
   final case class SEImportValue(typ: Ast.Type, value: V) extends SExpr {
     def execute(machine: Machine): Unit = {
       machine.importValue(typ, value)
