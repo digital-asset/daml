@@ -9,7 +9,6 @@ import com.daml.ledger.api.v1.value.Identifier
 import com.daml.ledger.test.model.Foo.{Foo1, Foo2, Foo3}
 import scalaz.syntax.tag._
 
-// KTODO: rename this
 object ConfigEnricher {
 
   def enrichedStreamConfig(
