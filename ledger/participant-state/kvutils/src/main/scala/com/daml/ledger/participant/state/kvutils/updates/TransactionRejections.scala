@@ -518,7 +518,7 @@ private[kvutils] object TransactionRejections {
         definiteAnswer: Boolean = false
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
       GrpcStatus.toProto(
-        LedgerApiErrors.CommandPreparation.DuplicateCommand
+        LedgerApiErrors.CommandRejections.DuplicateCommand
           .Reject(definiteAnswer)
           .asGrpcStatusFromContext
       )

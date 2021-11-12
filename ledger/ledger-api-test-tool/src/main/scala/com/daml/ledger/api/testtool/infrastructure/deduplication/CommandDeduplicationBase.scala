@@ -369,7 +369,7 @@ private[testtool] abstract class CommandDeduplicationBase(
     submitRequestAndAssertSyncFailure(ledger)(
       request,
       Code.ALREADY_EXISTS,
-      LedgerApiErrors.CommandPreparation.DuplicateCommand,
+      LedgerApiErrors.CommandRejections.DuplicateCommand,
     )
 
   private def submitRequestAndAssertSyncFailure(ledger: ParticipantTestContext)(
@@ -401,7 +401,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           ledger,
           _,
           expectedCode = Code.ALREADY_EXISTS,
-          selfServiceErrorCode = LedgerApiErrors.CommandPreparation.DuplicateCommand,
+          selfServiceErrorCode = LedgerApiErrors.CommandRejections.DuplicateCommand,
           exceptionMessageSubstring = None,
           checkDefiniteAnswerMetadata = true,
         )

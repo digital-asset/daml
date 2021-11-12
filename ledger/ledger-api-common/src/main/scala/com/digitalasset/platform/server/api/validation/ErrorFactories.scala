@@ -109,7 +109,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         contextualizedErrorLogger.info(exception.getMessage)
         exception
       },
-      v2 = LedgerApiErrors.CommandPreparation.DuplicateCommand.Reject().asGrpcError,
+      v2 = LedgerApiErrors.CommandRejections.DuplicateCommand.Reject().asGrpcError,
     )
 
   /** @param expected Expected ledger id.

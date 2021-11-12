@@ -160,7 +160,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ALREADY_EXISTS,
-        LedgerApiErrors.CommandPreparation.DuplicateCommand,
+        LedgerApiErrors.CommandRejections.DuplicateCommand,
         None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -183,7 +183,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ALREADY_EXISTS,
-        LedgerApiErrors.CommandPreparation.DuplicateCommand,
+        LedgerApiErrors.CommandRejections.DuplicateCommand,
         None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -206,7 +206,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ALREADY_EXISTS,
-        LedgerApiErrors.CommandPreparation.DuplicateCommand,
+        LedgerApiErrors.CommandRejections.DuplicateCommand,
         None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -229,7 +229,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ALREADY_EXISTS,
-        LedgerApiErrors.CommandPreparation.DuplicateCommand,
+        LedgerApiErrors.CommandRejections.DuplicateCommand,
         None,
         checkDefiniteAnswerMetadata = true,
       )

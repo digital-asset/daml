@@ -311,22 +311,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   }
 
   object CommandPreparation extends ErrorGroup {
-
-    @Explanation("Command deduplication")
-    @Resolution("Celebrate, as your command has already been delivered")
-    object DuplicateCommand
-        extends ErrorCode(
-          id = "DUPLICATE_COMMAND",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
-        ) {
-
-      case class Reject(override val definiteAnswer: Boolean = false)(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
-            cause = "A command with the given command id has already been successfully processed"
-          )
-    }
-
     @Explanation(
       """This error occurs if the participant fails to determine the max ledger time of the used 
         |contracts. Most likely, this means that one of the contracts is not active anymore which can 
@@ -679,6 +663,21 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   }
 
   object CommandRejections extends ErrorGroup {
+    @Explanation("A command with the given command id has already been successfully processed")
+    @Resolution("Celebrate, as your command has already been delivered")
+    object DuplicateCommand
+        extends ErrorCode(
+          id = "DUPLICATE_COMMAND",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
+        ) {
+
+      case class Reject(override val definiteAnswer: Boolean = false)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = "A command with the given command id has already been successfully processed"
+          )
+    }
+
     @Explanation("An input contract has been archived by a concurrent transaction submission.")
     @Resolution(
       "The correct resolution depends on the business flow, for example it may be possible to " +
