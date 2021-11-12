@@ -45,16 +45,25 @@ object H2EventStrategy extends EventStrategy {
         cSQL"(${H2QueryStrategy.arrayIntersectionNonEmptyClause(witnessesColumnName, wildCardParties, stringInterning)})" :: Nil
     }
     val partiesTemplatesClauses =
-      filterParams.partiesAndTemplates.iterator.map { case (parties, templateIds) =>
+      filterParams.partiesAndTemplates.iterator.flatMap { case (parties, templateIds) =>
         val clause =
           H2QueryStrategy.arrayIntersectionNonEmptyClause(
             witnessesColumnName,
             parties,
             stringInterning,
           )
-        val templateIdsArray = templateIds.view.map(_.toString).toArray
-        cSQL"( ($clause) AND (template_id = ANY($templateIdsArray)) )"
+        val templateIdsArray: Array[java.lang.Integer] =
+          templateIds.view
+            .map(stringInterning.templateId.tryInternalize)
+            .flatMap(_.toList)
+            .map(Int.box)
+            .toArray
+        if (templateIdsArray.isEmpty) Iterator.empty
+        else Iterator(cSQL"( ($clause) AND (template_id = ANY($templateIdsArray)) )")
       }.toList
-    (wildCardClause ::: partiesTemplatesClauses).mkComposite("(", " OR ", ")")
+    wildCardClause ::: partiesTemplatesClauses match {
+      case Nil => cSQL"false"
+      case allClauses => allClauses.mkComposite("(", " OR ", ")")
+    }
   }
 }

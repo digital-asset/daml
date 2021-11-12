@@ -11,15 +11,9 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.store.Conversions.{
-  contractId,
-  eventId,
-  identifier,
-  offset,
-  timestampFromMicros,
-}
+import com.daml.platform.store.Conversions.{contractId, eventId, offset, timestampFromMicros}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store.appendonlydao.events.{EventsTable, Identifier, Raw}
+import com.daml.platform.store.appendonlydao.events.{EventsTable, Raw}
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.EventStorageBackend.RawTransactionEvent
@@ -64,7 +58,7 @@ abstract class EventStorageBackendTemplate(
     ).mkString(", ")
 
   private type SharedRow =
-    Offset ~ String ~ Int ~ Long ~ String ~ String ~ Timestamp ~ Identifier ~ Option[String] ~
+    Offset ~ String ~ Int ~ Long ~ String ~ String ~ Timestamp ~ Int ~ Option[String] ~
       Option[String] ~ Array[Int]
 
   private val sharedRow: RowParser[SharedRow] =
@@ -75,7 +69,7 @@ abstract class EventStorageBackendTemplate(
       str("event_id") ~
       str("contract_id") ~
       timestampFromMicros("ledger_effective_time") ~
-      identifier("template_id") ~
+      int("template_id") ~
       str("command_id").? ~
       str("workflow_id").? ~
       array[Int]("event_witnesses")
@@ -133,7 +127,7 @@ abstract class EventStorageBackendTemplate(
           event = Raw.FlatEvent.Created(
             eventId = eventId,
             contractId = contractId,
-            templateId = templateId,
+            templateId = stringInterning.templateId.externalize(templateId),
             createArgument = createArgument,
             createArgumentCompression = createArgumentCompression,
             createSignatories = ArraySeq.unsafeWrapArray(
@@ -168,7 +162,7 @@ abstract class EventStorageBackendTemplate(
           event = Raw.FlatEvent.Archived(
             eventId = eventId,
             contractId = contractId,
-            templateId = templateId,
+            templateId = stringInterning.templateId.externalize(templateId),
             eventWitnesses = ArraySeq.unsafeWrapArray(
               eventWitnesses.map(stringInterning.party.unsafe.externalize)
             ),
@@ -195,7 +189,7 @@ abstract class EventStorageBackendTemplate(
           event = Raw.TreeEvent.Created(
             eventId = eventId,
             contractId = contractId,
-            templateId = templateId,
+            templateId = stringInterning.templateId.externalize(templateId),
             createArgument = createArgument,
             createArgumentCompression = createArgumentCompression,
             createSignatories = ArraySeq.unsafeWrapArray(
@@ -230,7 +224,7 @@ abstract class EventStorageBackendTemplate(
           event = Raw.TreeEvent.Exercised(
             eventId = eventId,
             contractId = contractId,
-            templateId = templateId,
+            templateId = stringInterning.templateId.externalize(templateId),
             exerciseConsuming = exerciseConsuming,
             exerciseChoice = exerciseChoice,
             exerciseArgument = exerciseArgument,
@@ -537,7 +531,7 @@ abstract class EventStorageBackendTemplate(
       str("workflow_id").? ~
       eventId("event_id") ~
       contractId("contract_id") ~
-      identifier("template_id").? ~
+      int("template_id").? ~
       timestampFromMicros("ledger_effective_time").? ~
       array[Int]("create_signatories").? ~
       array[Int]("create_observers").? ~
@@ -571,7 +565,7 @@ abstract class EventStorageBackendTemplate(
           workflowId,
           eventId,
           contractId,
-          templateId,
+          templateId.map(stringInterning.templateId.externalize),
           ledgerEffectiveTime,
           createSignatories.map(_.map(stringInterning.party.unsafe.externalize)),
           createObservers.map(_.map(stringInterning.party.unsafe.externalize)),

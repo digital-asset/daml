@@ -58,15 +58,18 @@ object PostgresEventStrategy extends EventStrategy {
         .map { case (parties, templateIds) =>
           (
             parties.flatMap(s => stringInterning.party.tryInternalize(s).toList),
-            templateIds,
+            templateIds.flatMap(s => stringInterning.templateId.tryInternalize(s).toList),
           )
         }
         .filterNot(_._1.isEmpty)
         .filterNot(_._2.isEmpty)
         .map { case (parties, templateIds) =>
           val partiesArray: Array[java.lang.Integer] = parties.view.map(Int.box).toArray
-          val templateIdsArray = templateIds.view.map(_.toString).toArray
-          cSQL"( (#$witnessesColumnName::integer[] && $partiesArray::integer[]) AND (template_id = ANY($templateIdsArray::text[])) )"
+          val templateIdsArray: Array[java.lang.Integer] =
+            templateIds.view
+              .map(Int.box)
+              .toArray // anorm does not like primitive arrays, so we need to box it
+          cSQL"( (#$witnessesColumnName::integer[] && $partiesArray::integer[]) AND (template_id = ANY($templateIdsArray::integer[])) )"
         }
         .toList
 
