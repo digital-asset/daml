@@ -365,16 +365,16 @@ server_conformance_test(
     ],
 )
 
-# Full conformance test with self-service error codes (Postgres)
+# Full conformance test with legacy error codes (Postgres)
 server_conformance_test(
-    name = "conformance-test-self-service-error-codes",
+    name = "conformance-test-legacy-error-codes",
     lf_versions = [
         "default",
         "preview",
     ],
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--use-self-service-error-codes",
+        "--use-legacy-grpc-error-codes",
     ],
     servers = {"postgresql": SERVERS["postgresql"]},
     test_tool_args = [

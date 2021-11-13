@@ -52,7 +52,7 @@ final case class Config[Extra](
     enableMutableContractStateCache: Boolean,
     enableInMemoryFanOutForLedgerApi: Boolean,
     extra: Extra,
-    enableSelfServiceErrorCodes: Boolean,
+    useLegacyErrorCodes: Boolean,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
     copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
@@ -87,7 +87,7 @@ object Config {
       enableInMemoryFanOutForLedgerApi = false,
       maxDeduplicationDuration = None,
       extra = extra,
-      enableSelfServiceErrorCodes = false,
+      useLegacyErrorCodes = false,
     )
 
   def ownerWithoutExtras(name: String, args: collection.Seq[String]): ResourceOwner[Config[Unit]] =
@@ -584,11 +584,12 @@ object Config {
           else success
         )
 
-        opt[Unit]("use-self-service-error-codes")
+        opt[Unit]("use-legacy-grpc-error-codes")
           .optional()
-          .hidden()
-          .text("Enable self-service error codes.")
-          .action((_, config) => config.copy(enableSelfServiceErrorCodes = true))
+          .text(
+            "Enables legacy gRPC error code conformance mode. This option is deprecated and will be removed in future release versions."
+          )
+          .action((_, config: Config[Extra]) => config.copy(useLegacyErrorCodes = true))
       }
     extraOptions(parser)
     parser

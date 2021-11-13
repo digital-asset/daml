@@ -334,7 +334,7 @@ final class SandboxServer(
             engine = engine,
             validatePartyAllocation = !config.implicitPartyAllocation,
             enableCompression = config.enableCompression,
-            enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+            enableSelfServiceErrorCodes = !config.useLegacyErrorCodes,
           )
         case None =>
           SandboxIndexAndWriteService.inMemory(
@@ -348,12 +348,12 @@ final class SandboxServer(
             packageStore,
             metrics,
             engine,
-            enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+            enableSelfServiceErrorCodes = !config.useLegacyErrorCodes,
           )
       }).acquire()
       ledgerId <- Resource.fromFuture(indexAndWriteService.indexService.getLedgerId())
       errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
-        config.enableSelfServiceErrorCodes
+        !config.useLegacyErrorCodes
       )
       authorizer = new Authorizer(
         () => java.time.Clock.systemUTC.instant(),
@@ -371,7 +371,7 @@ final class SandboxServer(
         () => resetAndRestartServer(),
         authorizer,
         errorFactories = ErrorFactories(
-          new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
+          new ErrorCodesVersionSwitcher(!config.useLegacyErrorCodes)
         ),
       )
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner().acquire()
@@ -396,7 +396,7 @@ final class SandboxServer(
         healthChecks = healthChecks,
         seedService = seedingService,
         managementServiceTimeout = config.managementServiceTimeout,
-        enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+        enableSelfServiceErrorCodes = !config.useLegacyErrorCodes,
         checkOverloaded = _ => None,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(List(resetService)))

@@ -66,7 +66,7 @@ final class LogAppendingReadServiceFactory(
             keyValueSource,
             metrics,
             failOnUnexpectedEvent = false,
-            enableSelfServiceErrorCodes = false,
+            enableSelfServiceErrorCodes = true,
           )
         new ReplayingReadService {
           override def updateCount(): Long = recordedBlocksSnapshot.length.toLong

@@ -106,7 +106,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
   // `dbDispatcher` and `ledgerDao` depend on the `postgresFixture` which is in turn initialized `beforeAll`
   private var resource: Resource[LedgerDao] = _
   private val errorFactories = ErrorFactories(
-    new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = false)
+    new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true)
   )
 
   override protected def beforeAll(): Unit = {

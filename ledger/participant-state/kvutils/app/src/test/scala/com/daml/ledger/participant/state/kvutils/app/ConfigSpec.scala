@@ -64,11 +64,11 @@ final class ConfigSpec
       Seq(
         dumpIndexMetadataCommand,
         "some-jdbc-url",
-        "--use-self-service-error-codes",
+        "--use-legacy-grpc-error-codes",
       )
     )
 
-    actual.value.enableSelfServiceErrorCodes shouldBe true
+    actual.value.useLegacyErrorCodes shouldBe true
   }
 
   it should "disable error codes v2 flag by default" in {
@@ -79,7 +79,7 @@ final class ConfigSpec
       )
     )
 
-    actual.value.enableSelfServiceErrorCodes shouldBe false
+    actual.value.useLegacyErrorCodes shouldBe false
   }
 
   it should "succeed when server's private key is encrypted and secret-url is provided" in {

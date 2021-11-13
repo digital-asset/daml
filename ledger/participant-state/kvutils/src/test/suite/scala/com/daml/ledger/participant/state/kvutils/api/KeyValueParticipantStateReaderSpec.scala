@@ -317,7 +317,7 @@ object KeyValueParticipantStateReaderSpec {
     new KeyValueParticipantStateReader(
       reader,
       new Metrics(new MetricRegistry),
-      enableSelfServiceErrorCodes = false,
+      enableSelfServiceErrorCodes = true,
       logEntryToUpdate,
       () => None,
       failOnUnexpectedEvent,

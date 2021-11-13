@@ -57,7 +57,7 @@ class TransactionTimeModelComplianceIT
       enableSelfServiceErrorCodes = true
     )
     val errorFactories = ErrorFactories(
-      errorCodesVersionSwitcher
+      new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = true)
     )
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     fixtureId match {
