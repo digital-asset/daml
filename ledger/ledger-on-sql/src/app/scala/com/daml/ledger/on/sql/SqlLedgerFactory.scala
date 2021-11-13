@@ -83,7 +83,7 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
             readerWriter,
             readerWriter,
             metrics,
-            enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+            enableSelfServiceErrorCodes = !config.useLegacyErrorCodes,
           )
         )
     }

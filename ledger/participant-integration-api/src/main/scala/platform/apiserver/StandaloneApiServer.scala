@@ -94,11 +94,11 @@ final class StandaloneApiServer(
           enableMutableContractStateCache = config.enableMutableContractStateCache,
           maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
           enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
-          enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+          enableSelfServiceErrorCodes = !config.useLegacyErrorCodes,
         )
         .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
       errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
-        config.enableSelfServiceErrorCodes
+        enableSelfServiceErrorCodes = !config.useLegacyErrorCodes
       )
       authorizer = new Authorizer(
         Clock.systemUTC.instant _,
@@ -130,7 +130,7 @@ final class StandaloneApiServer(
         healthChecks = healthChecksWithIndexService,
         seedService = SeedService(config.seeding),
         managementServiceTimeout = config.managementServiceTimeout,
-        enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+        enableSelfServiceErrorCodes = !config.useLegacyErrorCodes,
         checkOverloaded = checkOverloaded,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))

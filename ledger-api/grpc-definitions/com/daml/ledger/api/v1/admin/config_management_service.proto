@@ -25,7 +25,7 @@ service ConfigManagementService {
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   rpc GetTimeModel (GetTimeModelRequest) returns (GetTimeModelResponse);
-
+    ledger/sandbox-classic/src/test/suite/scala/platform/sandbox/stores/ledger/TransactionTimeModelComplianceIT.scala
   // Set the ledger time model.
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
