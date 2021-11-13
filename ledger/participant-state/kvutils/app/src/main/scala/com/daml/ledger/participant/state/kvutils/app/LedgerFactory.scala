@@ -84,7 +84,7 @@ trait ConfigProvider[ExtraConfig] {
       maxTransactionsInMemoryFanOutBufferSize =
         participantConfig.maxTransactionsInMemoryFanOutBufferSize,
       enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
-      enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+      useLegacyErrorCodes = config.useLegacyErrorCodes,
     )
 
   def partyConfig(@unused config: Config[ExtraConfig]): PartyConfiguration =
@@ -184,7 +184,7 @@ object LedgerFactory {
         readerWriter,
         readerWriter,
         createMetrics(participantConfig, config),
-        config.enableSelfServiceErrorCodes,
+        !config.useLegacyErrorCodes,
       )
 
     def owner(
