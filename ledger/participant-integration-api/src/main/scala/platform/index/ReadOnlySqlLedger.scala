@@ -199,6 +199,7 @@ private[platform] object ReadOnlySqlLedger {
         ledgerEndCache = ledgerEndCache,
         stringInterning = stringInterning,
         errorFactories = errorFactories,
+        materializer = mat,
       )
   }
 
