@@ -133,7 +133,7 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.GenericInterpretationError,
+        LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
         Some("Assertion failed"),
         checkDefiniteAnswerMetadata = true,
       )

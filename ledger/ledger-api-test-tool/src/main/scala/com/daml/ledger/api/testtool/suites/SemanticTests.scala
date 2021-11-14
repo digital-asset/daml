@@ -63,7 +63,7 @@ final class SemanticTests extends LedgerTestSuite {
           alpha,
           failure,
           Status.Code.ABORTED,
-          LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
+          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -131,7 +131,7 @@ final class SemanticTests extends LedgerTestSuite {
           alpha,
           failure,
           Status.Code.INVALID_ARGUMENT,
-          LedgerApiErrors.InterpreterErrors.ContractNotActive,
+          LedgerApiErrors.CommandExecution.Interpreter.ContractNotActive,
           Some("Update failed due to fetch of an inactive contract"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -156,7 +156,7 @@ final class SemanticTests extends LedgerTestSuite {
           beta,
           failure,
           Status.Code.ABORTED,
-          LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
+          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -251,7 +251,7 @@ final class SemanticTests extends LedgerTestSuite {
         alpha,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.AuthorizationError,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         Some("requires authorizers"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -275,7 +275,7 @@ final class SemanticTests extends LedgerTestSuite {
           beta,
           failure,
           Status.Code.INVALID_ARGUMENT,
-          LedgerApiErrors.InterpreterErrors.AuthorizationError,
+          LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
           Some("requires authorizers"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -343,7 +343,7 @@ final class SemanticTests extends LedgerTestSuite {
           beta,
           iouFetchFailure,
           Status.Code.ABORTED,
-          LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
+          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -351,7 +351,7 @@ final class SemanticTests extends LedgerTestSuite {
           alpha,
           paintOfferFetchFailure,
           Status.Code.ABORTED,
-          LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
+          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -359,7 +359,7 @@ final class SemanticTests extends LedgerTestSuite {
           alpha,
           paintAgreeFetchFailure,
           Status.Code.ABORTED,
-          LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
+          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -367,7 +367,7 @@ final class SemanticTests extends LedgerTestSuite {
           alpha,
           secondIouFetchFailure,
           Status.Code.INVALID_ARGUMENT,
-          LedgerApiErrors.InterpreterErrors.AuthorizationError,
+          LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
           Some("requires one of the stakeholders"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -435,7 +435,7 @@ final class SemanticTests extends LedgerTestSuite {
             beta,
             failure,
             Status.Code.ABORTED,
-            LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
+            LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
             Some("Contract could not be found"),
             checkDefiniteAnswerMetadata = true,
           )

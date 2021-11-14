@@ -3,17 +3,13 @@
 
 package com.daml
 
-import com.daml.error.utils.ErrorDetails
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
-import com.daml.ledger.api.domain.LedgerId
-import com.daml.lf.data.Ref
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.server.api.validation.ErrorFactories._
+import error.utils.ErrorDetails
+import error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+import ledger.api.domain.LedgerId
+import lf.data.Ref
+import logging.{ContextualizedLogger, LoggingContext}
+import platform.server.api.validation.ErrorFactories
+import platform.server.api.validation.ErrorFactories._
 import com.google.rpc._
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
@@ -22,11 +18,13 @@ import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
+
 import java.sql.{SQLNonTransientException, SQLTransientException}
 import java.time.Duration
-
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
+@nowarn("msg=deprecated")
 class ErrorFactoriesSpec
     extends AnyWordSpec
     with Matchers
@@ -79,24 +77,6 @@ class ErrorFactoriesSpec
       )
     }
 
-    "return malformedPackageId" in {
-      assertVersionedError(
-        _.malformedPackageId("message123")(
-          contextualizedErrorLogger = contextualizedErrorLogger
-        )
-      )(
-        v1_code = Code.INVALID_ARGUMENT,
-        v1_message = "message123",
-        v1_details = Seq.empty,
-        v2_code = Code.INVALID_ARGUMENT,
-        v2_message = s"MALFORMED_PACKAGE_ID(8,$correlationId): message123",
-        v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("MALFORMED_PACKAGE_ID"),
-          DefaultTraceIdRequestInfo,
-        ),
-      )
-    }
-
     "return packageNotFound" in {
       assertVersionedError(_.packageNotFound("packageId123"))(
         v1_code = Code.NOT_FOUND,
@@ -112,7 +92,7 @@ class ErrorFactoriesSpec
       )
     }
 
-    "return the internalError" in {
+    "return the a versioned service internal error" in {
       assertVersionedError(_.versionServiceInternalError("message123"))(
         v1_code = Code.INTERNAL,
         v1_message = "message123",
@@ -121,7 +101,7 @@ class ErrorFactoriesSpec
         v2_message =
           s"An error occurred. Please contact the operator and inquire about the request trace-id",
         v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("VERSION_SERVICE_INTERNAL_ERROR"),
+          ErrorDetails.ErrorInfoDetail("LEDGER_API_INTERNAL_ERROR"),
           DefaultTraceIdRequestInfo,
         ),
       )
@@ -187,7 +167,7 @@ class ErrorFactoriesSpec
       )
     }
 
-    "return a isTimeoutUnknown_wasAborted error" in {
+    "return a isTimeoutUnknon_wasAborted error" in {
       assertVersionedError(
         _.isTimeoutUnknown_wasAborted("message123", definiteAnswer = Some(false))
       )(
@@ -225,15 +205,30 @@ class ErrorFactoriesSpec
       )
     }
 
-    "return a offsetOutOfRange_was_invalidArgument error" in {
-      assertVersionedError(_.offsetOutOfRange_was_invalidArgument(None)("message123"))(
+    "return an offsetAfterLedgerEnd error" in {
+      val expectedMessage = s"Absolute offset (AABBCC) is after ledger end (E)"
+      assertVersionedError(_.offsetAfterLedgerEnd("Absolute", "AABBCC", "E"))(
+        v1_code = Code.OUT_OF_RANGE,
+        v1_message = expectedMessage,
+        v1_details = Seq.empty,
+        v2_code = Code.OUT_OF_RANGE,
+        v2_message = s"OFFSET_AFTER_LEDGER_END(12,$correlationId): $expectedMessage",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("OFFSET_AFTER_LEDGER_END"),
+          DefaultTraceIdRequestInfo,
+        ),
+      )
+    }
+
+    "return a offsetOutOfRange error" in {
+      assertVersionedError(_.offsetOutOfRange(None)("message123"))(
         v1_code = Code.INVALID_ARGUMENT,
         v1_message = "Invalid argument: message123",
         v1_details = Seq.empty,
-        v2_code = Code.OUT_OF_RANGE,
-        v2_message = s"REQUESTED_OFFSET_OUT_OF_RANGE(12,$correlationId): message123",
+        v2_code = Code.FAILED_PRECONDITION,
+        v2_message = s"OFFSET_OUT_OF_RANGE(9,$correlationId): message123",
         v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("REQUESTED_OFFSET_OUT_OF_RANGE"),
+          ErrorDetails.ErrorInfoDetail("OFFSET_OUT_OF_RANGE"),
           DefaultTraceIdRequestInfo,
         ),
       )
@@ -278,9 +273,11 @@ class ErrorFactoriesSpec
         (Some(false), Seq(definiteAnswers(false))),
       )
 
+      val legacyErrorCode = Code.UNAVAILABLE
+
       forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        assertVersionedError(_.missingLedgerConfig(definiteAnswer))(
-          v1_code = Code.UNAVAILABLE,
+        assertVersionedError(_.missingLedgerConfig(legacyErrorCode)(definiteAnswer))(
+          v1_code = legacyErrorCode,
           v1_message = "The ledger configuration is not available.",
           v1_details = expectedDetails,
           v2_code = Code.NOT_FOUND,
@@ -295,8 +292,6 @@ class ErrorFactoriesSpec
     }
 
     "return an aborted error" in {
-      // TODO error codes: This error code is not specific enough.
-      //                   Break down into more specific errors.
       val testCases = Table(
         ("definite answer", "expected details"),
         (None, Seq.empty),
@@ -392,8 +387,8 @@ class ErrorFactoriesSpec
         v1_code = Code.NOT_FOUND,
         v1_message = "my message",
         v1_details = Seq.empty,
-        v2_code = Code.OUT_OF_RANGE,
-        v2_message = s"PARTICIPANT_PRUNED_DATA_ACCESSED(12,$correlationId): my message",
+        v2_code = Code.FAILED_PRECONDITION,
+        v2_message = s"PARTICIPANT_PRUNED_DATA_ACCESSED(9,$correlationId): my message",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("PARTICIPANT_PRUNED_DATA_ACCESSED"),
           DefaultTraceIdRequestInfo,
@@ -416,34 +411,21 @@ class ErrorFactoriesSpec
       )
     }
 
-    "return an offsetOutOfRange error" in {
-      assertVersionedError(_.offsetOutOfRange("my message"))(
-        v1_code = Code.OUT_OF_RANGE,
-        v1_message = "my message",
-        v1_details = Seq.empty,
-        v2_code = Code.OUT_OF_RANGE,
-        v2_message = s"REQUESTED_OFFSET_OUT_OF_RANGE(12,$correlationId): my message",
-        v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("REQUESTED_OFFSET_OUT_OF_RANGE"),
-          DefaultTraceIdRequestInfo,
-        ),
-      )
-    }
-
     "return a serviceNotRunning error" in {
       val testCases = Table(
         ("definite answer", "expected details"),
         (None, Seq.empty),
         (Some(false), Seq(definiteAnswers(false))),
       )
+      val serviceName = "Some API Service"
 
       forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        assertVersionedError(_.serviceNotRunning(definiteAnswer))(
+        assertVersionedError(_.serviceNotRunning(serviceName)(definiteAnswer))(
           v1_code = Code.UNAVAILABLE,
-          v1_message = "Service has been shut down.",
+          v1_message = s"$serviceName has been shut down.",
           v1_details = expectedDetails,
           v2_code = Code.UNAVAILABLE,
-          v2_message = s"SERVICE_NOT_RUNNING(1,$correlationId): Service has been shut down.",
+          v2_message = s"SERVICE_NOT_RUNNING(1,$correlationId): $serviceName has been shut down.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("SERVICE_NOT_RUNNING"),
             DefaultTraceIdRequestInfo,
@@ -451,21 +433,6 @@ class ErrorFactoriesSpec
           ),
         )
       }
-    }
-
-    "return a missingLedgerConfigUponRequest error" in {
-      assertVersionedError(_.missingLedgerConfigUponRequest)(
-        v1_code = Code.NOT_FOUND,
-        v1_message = "The ledger configuration is not available.",
-        v1_details = Seq.empty,
-        v2_code = Code.NOT_FOUND,
-        v2_message =
-          s"LEDGER_CONFIGURATION_NOT_FOUND(11,$correlationId): The ledger configuration is not available.",
-        v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("LEDGER_CONFIGURATION_NOT_FOUND"),
-          DefaultTraceIdRequestInfo,
-        ),
-      )
     }
 
     "return a missingField error" in {

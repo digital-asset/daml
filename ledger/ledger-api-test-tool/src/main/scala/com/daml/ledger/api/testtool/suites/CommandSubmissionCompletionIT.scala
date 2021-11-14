@@ -74,7 +74,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.OUT_OF_RANGE,
-        LedgerApiErrors.ReadErrors.RequestedOffsetOutOfRange,
+        LedgerApiErrors.RequestValidation.OffsetAfterLedgerEnd,
         Some("is after ledger end"),
       )
     }
@@ -112,7 +112,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.PreprocessingErrors.PreprocessingFailed,
+        LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
         Some(
           Pattern.compile(
             "(unknown|Couldn't find requested) choice " + badChoice
@@ -138,7 +138,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       ledger,
       failure,
       Status.Code.NOT_FOUND,
-      LedgerApiErrors.CommandValidation.LedgerIdMismatch,
+      LedgerApiErrors.RequestValidation.LedgerIdMismatch,
       Some(s"Ledger ID '$invalidLedgerId' not found."),
       checkDefiniteAnswerMetadata = true,
     )
@@ -157,7 +157,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.CommandValidation.MissingField,
+        LedgerApiErrors.RequestValidation.MissingField,
         Some("commands"),
         checkDefiniteAnswerMetadata = true,
       )

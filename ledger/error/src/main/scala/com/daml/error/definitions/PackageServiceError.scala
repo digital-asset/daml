@@ -3,16 +3,7 @@
 
 package com.daml.error.definitions
 
-import com.daml.error.{
-  BaseError,
-  ContextualizedErrorLogger,
-  ErrorCategory,
-  ErrorCode,
-  ErrorGroup,
-  Explanation,
-  Resolution,
-}
-import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.PackageServiceErrorGroup
+import com.daml.error._
 import com.daml.lf.archive.{Error => LfArchiveError}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
@@ -27,10 +18,8 @@ abstract class PackageServiceError(
   final override def logOnCreation: Boolean = true
 }
 
-object PackageServiceError extends PackageServiceErrorGroup {
-
+object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
   object Reading extends ErrorGroup {
-
     @Explanation(
       """This error indicates that the supplied dar file name did not meet the requirements to be stored in the persistence store."""
     )
@@ -203,9 +192,11 @@ object PackageServiceError extends PackageServiceErrorGroup {
     )(implicit
         val loggingContext: ContextualizedErrorLogger
     ) extends PackageServiceError(
-          cause = LedgerApiErrors.Package.AllowedLanguageVersions
+          cause = LedgerApiErrors.CommandExecution.Package.AllowedLanguageVersions
             .buildCause(packageId, languageVersion, allowedLanguageVersions)
-        )(LedgerApiErrors.Package.AllowedLanguageVersions) // reuse error code of ledger api server
+        )(
+          LedgerApiErrors.CommandExecution.Package.AllowedLanguageVersions
+        ) // reuse error code of ledger api server
 
     @Explanation(
       """This error indicates that the uploaded Dar is broken because it is missing internal dependencies."""

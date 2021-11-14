@@ -26,7 +26,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.GenericInterpretationError,
+        LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
         Some("Unhandled exception"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -79,7 +79,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ABORTED,
-        LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
+        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
         Some("Contract could not be found"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -104,7 +104,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ABORTED,
-        LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
+        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
         Some("Contract could not be found"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -129,7 +129,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ABORTED,
-        LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
+        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
         Some("Contract could not be found"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -186,7 +186,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ABORTED,
-        LedgerApiErrors.CommandRejections.DuplicateContractKey,
+        LedgerApiErrors.ConsistencyErrors.DuplicateContractKey,
         Some("DuplicateKey"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -206,7 +206,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ABORTED,
-        LedgerApiErrors.CommandRejections.DuplicateContractKey,
+        LedgerApiErrors.ConsistencyErrors.DuplicateContractKey,
         Some("DuplicateKey"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -231,7 +231,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound,
+        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some("couldn't find key"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -251,7 +251,7 @@ final class ExceptionsIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound,
+        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some("couldn't find key"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -296,7 +296,7 @@ final class ExceptionsIT extends LedgerTestSuite {
           aLedger,
           fetchFailure,
           Status.Code.ABORTED,
-          LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
+          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -325,7 +325,7 @@ final class ExceptionsIT extends LedgerTestSuite {
           bLedger,
           fetchFailure,
           Status.Code.ABORTED,
-          LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
+          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -336,7 +336,7 @@ final class ExceptionsIT extends LedgerTestSuite {
           bLedger,
           fetchFailure,
           Status.Code.ABORTED,
-          LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
+          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
