@@ -37,7 +37,7 @@ abstract class EventStorageBackendTemplate(
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  private val selectColumnsForFlatTransactions =
+  private val baseColumnsForFlatTransactions =
     Seq(
       "event_offset",
       "transaction_id",
@@ -55,7 +55,13 @@ abstract class EventStorageBackendTemplate(
       "create_agreement_text",
       "create_key_value",
       "create_key_value_compression",
-    ).mkString(", ")
+    )
+
+  private val selectColumnsForFlatTransactions =
+    baseColumnsForFlatTransactions.mkString(", ")
+
+  private val selectColumnsForACSEvents =
+    baseColumnsForFlatTransactions.map(c => s"create_evs.$c").mkString(", ")
 
   private type SharedRow =
     Offset ~ String ~ Int ~ Long ~ String ~ String ~ Timestamp ~ Int ~ Option[String] ~
@@ -352,6 +358,79 @@ abstract class EventStorageBackendTemplate(
     )(connection)
   }
 
+  override def activeContractEventIds(
+      partyFilter: Ref.Party,
+      templateIdFilter: Option[Ref.Identifier],
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long] = {
+    (
+      stringInterning.party.tryInternalize(partyFilter),
+      templateIdFilter.map(stringInterning.templateId.tryInternalize),
+    ) match {
+      case (None, _) => Vector.empty // partyFilter never seen
+      case (_, Some(None)) => Vector.empty // templateIdFilter never seen
+      case (Some(internedPartyFilter), internedTemplateIdFilterNested) =>
+        val (templateIdFilterClause, templateIdOrderingClause) =
+          internedTemplateIdFilterNested.flatten // flatten works for both None, Some(Some(x)) case, Some(None) excluded before
+          match {
+            case Some(internedTemplateId) =>
+              (
+                cSQL"AND filters.template_id = $internedTemplateId",
+                cSQL"filters.template_id,",
+              )
+            case None => (cSQL"", cSQL"")
+          }
+        SQL"""
+         SELECT filters.event_sequential_id
+         FROM
+           participant_events_create_filter filters
+         WHERE
+           filters.party_id = $internedPartyFilter
+           $templateIdFilterClause
+           AND $startExclusive < event_sequential_id
+           AND event_sequential_id <= $endInclusive
+         ORDER BY
+           filters.party_id,
+           $templateIdOrderingClause
+           filters.event_sequential_id -- deliver in index order
+         ${queryStrategy.limitClause(Some(limit))}
+       """
+          .asVectorOf(long("event_sequential_id"))(connection)
+    }
+  }
+
+  override def activeContractEventBatch(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Ref.Party],
+      endInclusive: Long,
+  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
+    val eventWitnessesClause =
+      eventStrategy
+        .filteredEventWitnessesClause("flat_event_witnesses", allFilterParties, stringInterning)
+    SQL"""
+      SELECT
+        #$selectColumnsForACSEvents,
+        $eventWitnessesClause as event_witnesses,
+        '' as command_id
+      FROM
+        participant_events_create create_evs
+      WHERE
+        create_evs.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
+        AND NOT EXISTS (  -- check not archived as of snapshot
+          SELECT 1
+          FROM participant_events_consuming_exercise consuming_evs
+          WHERE
+            create_evs.contract_id = consuming_evs.contract_id
+            AND consuming_evs.event_sequential_id <= $endInclusive
+        )
+      ORDER BY
+        create_evs.event_sequential_id -- deliver in index order
+      """
+      .asVectorOf(rawFlatEventParser)(connection)
+  }
+
   override def flatTransaction(
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,
@@ -453,6 +532,10 @@ abstract class EventStorageBackendTemplate(
             )"""
       }(connection, loggingContext)
     }
+
+    pruneWithLogging(queryDescription = "Create events filter table pruning") {
+      eventStrategy.pruneCreateFilters(pruneUpToInclusive)
+    }(connection, loggingContext)
 
     pruneWithLogging(queryDescription = "Create events pruning") {
       SQL"""
@@ -680,4 +763,11 @@ trait EventStrategy {
       filterParams: FilterParams,
       stringInterning: StringInterning,
   ): CompositeSql
+
+  /** Pruning participant_events_create_filter entries.
+    *
+    * @param pruneUpToInclusive create and archive events must be earlier or equal to this offset
+    * @return the executable anorm query
+    */
+  def pruneCreateFilters(pruneUpToInclusive: Offset): SimpleSql[Row]
 }

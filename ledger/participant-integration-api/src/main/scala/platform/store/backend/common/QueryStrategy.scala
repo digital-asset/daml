@@ -57,4 +57,12 @@ trait QueryStrategy {
 
   /** Boolean predicate */
   def isTrue(booleanColumnName: String): String
+
+  /** ANY SQL clause generation for a number of Long values
+    */
+  def anyOf(longs: Iterable[Long]): CompositeSql = {
+    val longArray: Array[java.lang.Long] =
+      longs.view.map(Long.box).toArray
+    cSQL"= ANY($longArray)"
+  }
 }

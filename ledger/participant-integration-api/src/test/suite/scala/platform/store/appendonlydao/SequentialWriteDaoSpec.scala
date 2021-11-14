@@ -53,30 +53,32 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     storageBackendCaptor.captured(0) shouldBe someParty
     storageBackendCaptor.captured(1) shouldBe LedgerEnd(offset("01"), 5, 1)
     storageBackendCaptor.captured(2).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 6
+    storageBackendCaptor.captured(3).asInstanceOf[DbDto.CreateFilter].event_sequential_id shouldBe 6
+    storageBackendCaptor.captured(4).asInstanceOf[DbDto.CreateFilter].event_sequential_id shouldBe 6
     storageBackendCaptor
-      .captured(3)
+      .captured(5)
       .asInstanceOf[DbDto.EventExercise]
       .event_sequential_id shouldBe 7
     storageBackendCaptor
-      .captured(4)
+      .captured(6)
       .asInstanceOf[DbDto.EventDivulgence]
       .event_sequential_id shouldBe 8
-    storageBackendCaptor.captured(5).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 1
+    storageBackendCaptor.captured(7).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 1
     storageBackendCaptor
-      .captured(5)
+      .captured(7)
       .asInstanceOf[DbDto.StringInterningDto]
       .externalString shouldBe "a"
-    storageBackendCaptor.captured(6).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 2
+    storageBackendCaptor.captured(8).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 2
     storageBackendCaptor
-      .captured(6)
+      .captured(8)
       .asInstanceOf[DbDto.StringInterningDto]
       .externalString shouldBe "b"
-    storageBackendCaptor.captured(7) shouldBe LedgerEnd(offset("02"), 8, 2)
-    storageBackendCaptor.captured(8) shouldBe LedgerEnd(offset("03"), 8, 2)
-    storageBackendCaptor.captured(9) shouldBe someParty
-    storageBackendCaptor.captured(10).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 9
-    storageBackendCaptor.captured(11) shouldBe LedgerEnd(offset("04"), 9, 2)
-    storageBackendCaptor.captured should have size 12
+    storageBackendCaptor.captured(9) shouldBe LedgerEnd(offset("02"), 8, 2)
+    storageBackendCaptor.captured(10) shouldBe LedgerEnd(offset("03"), 8, 2)
+    storageBackendCaptor.captured(11) shouldBe someParty
+    storageBackendCaptor.captured(12).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 9
+    storageBackendCaptor.captured(13) shouldBe LedgerEnd(offset("04"), 9, 2)
+    storageBackendCaptor.captured should have size 14
   }
 
   it should "start event_seq_id from 1" in {
@@ -269,6 +271,8 @@ object SequentialWriteDaoSpec {
     partyAndCreateFixture.get.rejectionReason -> List(someParty, someEventCreated),
     allEventsFixture.get.rejectionReason -> List(
       someEventCreated,
+      DbDto.CreateFilter(0L, "", ""),
+      DbDto.CreateFilter(0L, "", ""),
       someEventExercise,
       someEventDivulgence,
     ),
@@ -282,7 +286,7 @@ object SequentialWriteDaoSpec {
     }
 
   private val dbDtoToStringsForInterningFixture: Iterable[DbDto] => DomainStringIterators = {
-    case iterable if iterable.size == 3 =>
+    case iterable if iterable.size == 5 =>
       new DomainStringIterators(Iterator.empty, List("1").iterator)
     case _ => new DomainStringIterators(Iterator.empty, Iterator.empty)
   }

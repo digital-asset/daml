@@ -507,3 +507,13 @@ CREATE TABLE string_interning (
     internal_id integer PRIMARY KEY NOT NULL,
     external_string text
 );
+
+CREATE TABLE participant_events_create_filter (
+    event_sequential_id BIGINT NOT NULL,
+    template_id INTEGER NOT NULL,
+    party_id INTEGER NOT NULL
+);
+
+CREATE INDEX idx_participant_events_create_filter_party_template_seq_id_idx ON participant_events_create_filter(party_id, template_id, event_sequential_id);
+CREATE INDEX idx_participant_events_create_filter_party_seq_id_idx ON participant_events_create_filter(party_id, event_sequential_id);
+CREATE INDEX idx_participant_events_create_seq_id_idx ON participant_events_create_filter(event_sequential_id);
