@@ -98,7 +98,7 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
               beta,
               failure,
               Status.Code.INVALID_ARGUMENT,
-              LedgerApiErrors.InterpreterErrors.AuthorizationError,
+              LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
               Some("requires authorizers"),
               checkDefiniteAnswerMetadata = true,
             )
@@ -138,7 +138,7 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
               beta,
               failure,
               Status.Code.INVALID_ARGUMENT,
-              LedgerApiErrors.InterpreterErrors.GenericInterpretationError,
+              LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
               Some("Assertion failed"),
               checkDefiniteAnswerMetadata = true,
             )

@@ -4,7 +4,6 @@
 package com.daml.platform.server.api.validation
 
 import java.time.Duration
-
 import com.daml.api.util.DurationConversion
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.domain.LedgerId
@@ -15,7 +14,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value.ContractId
 import com.google.protobuf.duration.{Duration => DurationProto}
-import io.grpc.StatusRuntimeException
+import io.grpc.{Status, StatusRuntimeException}
 
 // TODO error codes: Remove default usage of ErrorFactories
 class FieldValidations private (errorFactories: ErrorFactories) {
@@ -151,7 +150,7 @@ class FieldValidations private (errorFactories: ErrorFactories) {
   ): Either[StatusRuntimeException, DeduplicationPeriod] = {
 
     optMaxDeduplicationDuration.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
-      Left(missingLedgerConfig(definiteAnswer = Some(false)))
+      Left(missingLedgerConfig(Status.Code.UNAVAILABLE)(definiteAnswer = Some(false)))
     )(maxDeduplicationDuration => {
       def validateDuration(duration: Duration, exceedsMaxDurationMessage: String) = {
         if (duration.isNegative)

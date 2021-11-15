@@ -29,7 +29,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.CommandValidation.InvalidArgument,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
         Some("filtersByParty cannot be empty"),
       )
     }
@@ -54,7 +54,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.ReadErrors.RequestedOffsetOutOfRange,
+        LedgerApiErrors.RequestValidation.OffsetOutOfRange,
         Some("is before Begin offset"),
       )
     }
@@ -78,7 +78,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.CommandValidation.LedgerIdMismatch,
+        LedgerApiErrors.RequestValidation.LedgerIdMismatch,
         Some(s"Ledger ID '$invalidLedgerId' not found."),
       )
     }
@@ -102,7 +102,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.CommandValidation.LedgerIdMismatch,
+        LedgerApiErrors.RequestValidation.LedgerIdMismatch,
         Some(s"Ledger ID '$invalidLedgerId' not found."),
       )
     }
@@ -126,7 +126,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.CommandValidation.LedgerIdMismatch,
+        LedgerApiErrors.RequestValidation.LedgerIdMismatch,
         Some(s"Ledger ID '$invalidLedgerId' not found."),
       )
     }
@@ -150,7 +150,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.CommandValidation.LedgerIdMismatch,
+        LedgerApiErrors.RequestValidation.LedgerIdMismatch,
         Some(s"Ledger ID '$invalidLedgerId' not found."),
       )
     }
@@ -174,7 +174,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.CommandValidation.LedgerIdMismatch,
+        LedgerApiErrors.RequestValidation.LedgerIdMismatch,
         Some(s"Ledger ID '$invalidLedgerId' not found."),
       )
     }
@@ -198,7 +198,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.CommandValidation.LedgerIdMismatch,
+        LedgerApiErrors.RequestValidation.LedgerIdMismatch,
         Some(s"Ledger ID '$invalidLedgerId' not found."),
       )
     }
@@ -219,7 +219,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.CommandValidation.LedgerIdMismatch,
+        LedgerApiErrors.RequestValidation.LedgerIdMismatch,
         Some(s"Ledger ID '$invalidLedgerId' not found."),
       )
     }
@@ -239,7 +239,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.CommandValidation.MissingField,
+        LedgerApiErrors.RequestValidation.MissingField,
         Some("requesting_parties"),
       )
     }
@@ -259,7 +259,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.CommandValidation.MissingField,
+        LedgerApiErrors.RequestValidation.MissingField,
         Some("requesting_parties"),
       )
     }
@@ -279,7 +279,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.CommandValidation.InvalidField,
+        LedgerApiErrors.RequestValidation.InvalidField,
         Some("Invalid field event_id"),
       )
     }
@@ -299,7 +299,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.CommandValidation.MissingField,
+        LedgerApiErrors.RequestValidation.MissingField,
         Some("requesting_parties"),
       )
     }
@@ -319,7 +319,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.CommandValidation.InvalidField,
+        LedgerApiErrors.RequestValidation.InvalidField,
         Some("Invalid field event_id"),
       )
     }
@@ -339,7 +339,7 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.CommandValidation.MissingField,
+        LedgerApiErrors.RequestValidation.MissingField,
         Some("requesting_parties"),
       )
     }

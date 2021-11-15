@@ -28,7 +28,7 @@ import com.daml.platform.apiserver.services.logging
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
-import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
+import io.grpc.{ServerServiceDefinition, Status, StatusRuntimeException}
 
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{Duration, FiniteDuration}
@@ -66,9 +66,8 @@ private[apiserver] final class ApiConfigManagementService private (
         case Some((_, configuration)) =>
           Future.successful(configurationToResponse(configuration))
         case None =>
-          // TODO error codes: Duplicate of missingLedgerConfig
           Future.failed(
-            missingLedgerConfigUponRequest(
+            missingLedgerConfig(Status.Code.NOT_FOUND)(Some(true))(
               new DamlContextualizedErrorLogger(logger, loggingContext, None)
             )
           )
@@ -117,7 +116,7 @@ private[apiserver] final class ApiConfigManagementService private (
                 logger.warn(
                   "Could not get the current time model. The index does not yet have any ledger configuration."
                 )
-                Future.failed(missingLedgerConfig(None))
+                Future.failed(missingLedgerConfig(Status.Code.UNAVAILABLE)(None))
             }
           (ledgerEndBeforeRequest, currentConfig) = configuration
 

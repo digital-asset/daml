@@ -174,7 +174,9 @@ final class ApiParticipantPruningService private (
         if (pruneUpToString < ledgerEnd.value) Future.successful(())
         else
           Future.failed(
-            offsetOutOfRange_was_invalidArgument(None)(
+            // TODO error codes: Relax the constraint (pruneUpToString <= ledgerEnd.value)
+            //                   and use offsetAfterLedgerEnd
+            offsetOutOfRange(None)(
               s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
             )
           )

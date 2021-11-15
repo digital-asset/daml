@@ -77,14 +77,14 @@ final class ContractKeysIT extends LedgerTestSuite {
         beta,
         fetchFailure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound,
+        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some("couldn't find key"),
       )
       assertGrpcErrorRegex(
         beta,
         lookupByKeyFailure,
         Status.Code.ABORTED,
-        LedgerApiErrors.CommandRejections.InconsistentContractKey,
+        LedgerApiErrors.ConsistencyErrors.InconsistentContractKey,
         Some(Pattern.compile("Inconsistent|Contract key lookup with different results")),
         checkDefiniteAnswerMetadata = true,
       )
@@ -128,7 +128,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         beta,
         fetchFailure,
         Status.Code.ABORTED,
-        LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
+        LedgerApiErrors.ConsistencyErrors.ContractNotFound,
         Some("Contract could not be found"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -136,14 +136,14 @@ final class ContractKeysIT extends LedgerTestSuite {
         beta,
         fetchByKeyFailure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound,
+        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some("couldn't find key"),
       )
       assertGrpcErrorRegex(
         beta,
         lookupByKeyFailure,
         Status.Code.ABORTED,
-        LedgerApiErrors.CommandRejections.InconsistentContractKey,
+        LedgerApiErrors.ConsistencyErrors.InconsistentContractKey,
         Some(Pattern.compile("Inconsistent|Contract key lookup with different results")),
         checkDefiniteAnswerMetadata = true,
       )
@@ -218,7 +218,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         alpha,
         duplicateKeyFailure,
         Status.Code.ABORTED,
-        LedgerApiErrors.CommandRejections.DuplicateContractKey,
+        LedgerApiErrors.ConsistencyErrors.DuplicateContractKey,
         Some(Pattern.compile("Inconsistent|contract key is not unique")),
         checkDefiniteAnswerMetadata = true,
       )
@@ -226,7 +226,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         beta,
         bobLooksUpTextKeyFailure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.AuthorizationError,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         Some("requires authorizers"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -234,7 +234,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         beta,
         bobLooksUpBogusTextKeyFailure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.AuthorizationError,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         Some("requires authorizers"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -242,7 +242,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         alpha,
         aliceFailedFetch,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound,
+        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some("couldn't find key"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -250,7 +250,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         alpha,
         maintainerNotSignatoryFailed,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.AuthorizationError,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         Some("are not a subset of the signatories"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -314,7 +314,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         ledger,
         failedFetch,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound,
+        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some("couldn't find key"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -393,7 +393,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         ledger,
         failureBeforeCreation,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound,
+        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some("dependency error: couldn't find key"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -401,7 +401,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         ledger,
         failureAfterConsuming,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound,
+        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some("dependency error: couldn't find key"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -439,7 +439,7 @@ final class ContractKeysIT extends LedgerTestSuite {
           ledger2,
           failedLookup,
           Status.Code.INVALID_ARGUMENT,
-          LedgerApiErrors.InterpreterErrors.GenericInterpretationError,
+          LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
           Some("not visible"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -447,7 +447,7 @@ final class ContractKeysIT extends LedgerTestSuite {
           ledger2,
           failedFetch,
           Status.Code.INVALID_ARGUMENT,
-          LedgerApiErrors.InterpreterErrors.GenericInterpretationError,
+          LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
           Some("not visible"),
           checkDefiniteAnswerMetadata = true,
         )

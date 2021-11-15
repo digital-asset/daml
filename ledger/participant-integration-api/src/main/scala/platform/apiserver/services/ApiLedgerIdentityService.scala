@@ -44,7 +44,7 @@ private[apiserver] final class ApiLedgerIdentityService private (
   ): Future[GetLedgerIdentityResponse] = {
     logger.info(s"Received request for ledger identity: $request")
     if (closed)
-      Future.failed(errorFactories.serviceNotRunning(None))
+      Future.failed(errorFactories.serviceNotRunning("Ledger Identity Service")(None))
     else
       getLedgerId()
         .map(ledgerId => GetLedgerIdentityResponse(ledgerId.unwrap))

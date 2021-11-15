@@ -596,7 +596,7 @@ private class JdbcLedgerDao(
             conn,
           )
         ) {
-          throw errorFactories.offsetOutOfRange_was_invalidArgument(None)(
+          throw errorFactories.offsetOutOfRange(None)(
             "Pruning offset for all divulged contracts needs to be after the migration offset"
           )(new DamlContextualizedErrorLogger(logger, loggingContext, None))
         }

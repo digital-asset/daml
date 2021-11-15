@@ -46,7 +46,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.CommandValidation.LedgerIdMismatch,
+        LedgerApiErrors.RequestValidation.LedgerIdMismatch,
         Some("not found. Actual Ledger ID"),
       )
     }
