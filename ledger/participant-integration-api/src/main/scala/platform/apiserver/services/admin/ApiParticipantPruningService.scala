@@ -99,7 +99,7 @@ final class ApiParticipantPruningService private (
       pruneUpTo <- checkOffsetIsHexadecimal(pruneUpToString)
     } yield (pruneUpTo, pruneUpToString))
       .fold(
-        t => Future.failed(ValidationLogger.logFailureWithContext(request, t)),
+        t => Future.failed(ValidationLogger.logFailure(request, t)),
         o => checkOffsetIsBeforeLedgerEnd(o._1, o._2),
       )
   }

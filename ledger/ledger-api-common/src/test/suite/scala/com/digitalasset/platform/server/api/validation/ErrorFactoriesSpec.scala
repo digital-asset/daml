@@ -81,10 +81,8 @@ class ErrorFactoriesSpec
 
     "return malformedPackageId" in {
       assertVersionedError(
-        _.malformedPackageId(request = "request123", message = "message123")(
-          contextualizedErrorLogger = contextualizedErrorLogger,
-          logger = logger,
-          loggingContext = loggingContext,
+        _.malformedPackageId("message123")(
+          contextualizedErrorLogger = contextualizedErrorLogger
         )
       )(
         v1_code = Code.INVALID_ARGUMENT,

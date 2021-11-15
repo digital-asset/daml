@@ -62,7 +62,7 @@ private[apiserver] final class ApiTimeService private (
     val validated =
       matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
     validated.fold(
-      t => Source.failed(ValidationLogger.logFailureWithContext(request, t)),
+      t => Source.failed(ValidationLogger.logFailure(request, t)),
       { ledgerId =>
         logger.info(s"Received request for time with ledger ID $ledgerId")
         dispatcher

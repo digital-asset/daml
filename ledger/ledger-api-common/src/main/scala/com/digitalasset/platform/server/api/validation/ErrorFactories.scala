@@ -12,12 +12,11 @@ import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.lf.data.Ref.TransactionId
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.validation.ErrorFactories.{
   addDefiniteAnswerDetails,
   definiteAnswers,
 }
-import com.daml.platform.server.api.{ValidationLogger, ApiException => NoStackTraceApiException}
+import com.daml.platform.server.api.{ApiException => NoStackTraceApiException}
 import com.google.protobuf.{Any => AnyProto}
 import com.google.rpc.status.{Status => RpcStatus}
 import com.google.rpc.{ErrorInfo, Status}
@@ -56,21 +55,16 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         .asGrpcError,
     )
 
-  def malformedPackageId[Request](request: Request, message: String)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger,
-      logger: ContextualizedLogger,
-      loggingContext: LoggingContext,
+  def malformedPackageId[Request](message: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
-      v1 = ValidationLogger.logFailureWithContext(
-        request,
-        grpcError(
-          Status
-            .newBuilder()
-            .setCode(Code.INVALID_ARGUMENT.value())
-            .setMessage(message)
-            .build()
-        ),
+      v1 = grpcError(
+        Status
+          .newBuilder()
+          .setCode(Code.INVALID_ARGUMENT.value())
+          .setMessage(message)
+          .build()
       ),
       v2 = LedgerApiErrors.ReadErrors.MalformedPackageId
         .Reject(

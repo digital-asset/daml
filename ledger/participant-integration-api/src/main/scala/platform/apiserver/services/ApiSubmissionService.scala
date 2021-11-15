@@ -4,6 +4,7 @@
 package com.daml.platform.apiserver.services
 
 import com.daml.api.util.TimeProvider
+import com.daml.error.ErrorCode.LoggingApiException
 import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
@@ -199,6 +200,8 @@ private[apiserver] final class ApiSubmissionService private[services] (
         logger.info(s"Rejected: ${result.description}")
         Failure(result.exception)
 
+      // Do not log again on errors that are logging on creation
+      case Failure(error: LoggingApiException) => Failure(error)
       case Failure(error) =>
         logger.info(s"Rejected: ${error.getMessage}")
         Failure(error)
