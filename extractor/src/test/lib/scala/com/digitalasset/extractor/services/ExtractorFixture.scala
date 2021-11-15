@@ -121,7 +121,7 @@ trait ExtractorFixture extends SandboxParticipantFixture with PostgresAroundSuit
         try {
           val (dar, _) = readDar(darFile)
           val result = participantClients().flatMap(run(_, init, dar = dar)(ec))(ec)
-          val _ = Await.result(result, atMost = 60.seconds)
+          val _ = Await.result(result, atMost = 30.seconds)
         } finally {
           ec.shutdown()
         }
