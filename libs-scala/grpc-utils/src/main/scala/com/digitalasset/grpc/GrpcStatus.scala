@@ -8,7 +8,7 @@ import com.google.protobuf.{Any => AnyJavaProto}
 import com.google.rpc.status.{Status => StatusProto}
 import com.google.rpc.{ErrorInfo, Status => StatusJavaProto}
 import io.grpc.Status.Code
-import io.grpc.{Metadata, Status, StatusRuntimeException, protobuf}
+import io.grpc.{Metadata, Status}
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
@@ -30,15 +30,6 @@ object GrpcStatus {
       .clearDetails()
       .addAllDetails(details.asJava)
       .build()
-  }
-
-  def buildException(
-      metadata: Map[String, String],
-      status: StatusJavaProto.Builder,
-  ): StatusRuntimeException = {
-    protobuf.StatusProto.toStatusRuntimeException(
-      buildStatus(metadata, status)
-    )
   }
 
   /** As [[io.grpc.Status]] and [[com.google.rpc.status.Status]] aren't isomorphic i.e. the former one

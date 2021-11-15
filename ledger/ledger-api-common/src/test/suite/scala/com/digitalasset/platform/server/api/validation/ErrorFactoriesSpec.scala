@@ -90,7 +90,7 @@ class ErrorFactoriesSpec
       "return failedToEnqueue" in {
         val t = new Exception("message123")
         assertVersionedStatus(
-          _.TrackerErrors.QueueSubmitFailure.failedToEnqueue(t)(
+          _.TrackerErrors.failedToEnqueueCommandSubmission(t)(
             contextualizedErrorLogger = contextualizedErrorLogger
           )
         )(
@@ -110,27 +110,26 @@ class ErrorFactoriesSpec
       "return failed" in {
         val t = new Exception("message123")
         assertVersionedStatus(
-          _.TrackerErrors.QueueSubmitFailure.failed(t)(
+          _.TrackerErrors.commandSubmissionQueueFailedUnexpectedly(t)(
             contextualizedErrorLogger = contextualizedErrorLogger
           )
         )(
           v1_code = Code.ABORTED,
           v1_message = "Failure: Exception: message123",
           v1_details = Seq(errorDetails),
-          v2_code = Code.ABORTED,
+          v2_code = Code.INTERNAL,
           v2_message =
-            s"COMMAND_SUBMISSION_FAILURE(2,$correlationId): Failure: Exception: message123",
+            s"An error occurred. Please contact the operator and inquire about the request trace-id",
           v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail("COMMAND_SUBMISSION_FAILURE"),
+            ErrorDetails.ErrorInfoDetail("LEDGER_API_INTERNAL_ERROR"),
             DefaultTraceIdRequestInfo,
-            ErrorDetails.RetryInfoDetail(1),
           ),
         )
       }
 
       "return ingressBufferFull" in {
         assertVersionedStatus(
-          _.TrackerErrors.QueueSubmitFailure.ingressBufferFull()(
+          _.TrackerErrors.commandServiceIngressBufferFull()(
             contextualizedErrorLogger = contextualizedErrorLogger
           )
         )(
@@ -139,7 +138,7 @@ class ErrorFactoriesSpec
           v1_details = Seq(errorDetails),
           v2_code = Code.ABORTED,
           v2_message =
-            s"PARTICIPANT_BACKPRESSURE(2,trace-id): The participant is overloaded: Ingress buffer is full",
+            s"PARTICIPANT_BACKPRESSURE(2,trace-id): The participant is overloaded: Command service ingress buffer is full",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("PARTICIPANT_BACKPRESSURE"),
             DefaultTraceIdRequestInfo,
@@ -150,7 +149,7 @@ class ErrorFactoriesSpec
 
       "return queueClosed" in {
         assertVersionedStatus(
-          _.TrackerErrors.QueueSubmitFailure.queueClosed()(
+          _.TrackerErrors.commandSubmissionQueueClosed()(
             contextualizedErrorLogger = contextualizedErrorLogger
           )
         )(
@@ -168,17 +167,18 @@ class ErrorFactoriesSpec
       }
       "return timeout" in {
         assertVersionedStatus(
-          _.TrackerErrors.CompletionResponse.timeout()(
+          _.TrackerErrors.timedOutOnAwaitingForCommandCompletion()(
             contextualizedErrorLogger = contextualizedErrorLogger
           )
         )(
           v1_code = Code.ABORTED,
           v1_message = "Timeout",
           v1_details = Seq(errorDetails),
-          v2_code = Code.ABORTED,
-          v2_message = s"COMMAND_COMPLETION_FAILURE(2,$correlationId): Timeout",
+          v2_code = Code.DEADLINE_EXCEEDED,
+          v2_message =
+            s"REQUEST_TIME_OUT(3,trace-id): Timed out while awaiting for a completion corresponding to a command submission.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail("COMMAND_COMPLETION_FAILURE"),
+            ErrorDetails.ErrorInfoDetail("REQUEST_TIME_OUT"),
             DefaultTraceIdRequestInfo,
             ErrorDetails.RetryInfoDetail(1),
           ),
@@ -186,13 +186,13 @@ class ErrorFactoriesSpec
       }
       "return noStatusInResponse" in {
         assertVersionedStatus(
-          _.TrackerErrors.CompletionResponse.noStatusInResponse()(
+          _.TrackerErrors.noStatusInCompletionResponse()(
             contextualizedErrorLogger = contextualizedErrorLogger
           )
         )(
           v1_code = Code.INTERNAL,
           v1_message = "Missing status in completion response.",
-          v1_details = Seq(errorDetails),
+          v1_details = Seq(),
           v2_code = Code.INTERNAL,
           v2_message =
             s"An error occurred. Please contact the operator and inquire about the request trace-id",

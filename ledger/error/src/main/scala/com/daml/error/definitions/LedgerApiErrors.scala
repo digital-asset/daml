@@ -55,20 +55,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           )
     }
 
-    @Explanation("This rejection is given when a command completion has failed.")
-    @Resolution("Refer to the error details and/or retry.")
-    object CommandCompletionFailure
-        extends ErrorCode(
-          id = "COMMAND_COMPLETION_FAILURE",
-          ErrorCategory.ContentionOnSharedResources,
-        ) {
-      case class Reject(message: String)(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
-            cause = message
-          )
-    }
-
   }
 
   object WriteErrors extends ErrorGroup() {

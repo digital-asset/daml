@@ -111,9 +111,9 @@ object CompletionResponse {
         val statusBuilder = GrpcStatus.toJavaBuilder(notOkResponse.grpcStatus)
         GrpcStatus.buildStatus(metadata, statusBuilder)
       case CompletionResponse.TimeoutResponse(_) =>
-        errorFactories.TrackerErrors.CompletionResponse.timeout()
+        errorFactories.TrackerErrors.timedOutOnAwaitingForCommandCompletion()
       case CompletionResponse.NoStatusInResponse(_) =>
-        errorFactories.TrackerErrors.CompletionResponse.noStatusInResponse()
+        errorFactories.TrackerErrors.noStatusInCompletionResponse()
     }
 
 }

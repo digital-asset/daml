@@ -43,7 +43,7 @@ private[services] final class QueueBackedTracker(
     implicit val errorLogger: DamlContextualizedErrorLogger = new DamlContextualizedErrorLogger(
       logger,
       loggingContext,
-      None,
+      Some(submission.commands.submissionId),
     )
     logger.trace("Tracking command")
     val trackedPromise = Promise[Either[CompletionFailure, CompletionSuccess]]()
@@ -55,18 +55,20 @@ private[services] final class QueueBackedTracker(
             _.left.map(completionFailure => QueueCompletionFailure(completionFailure))
           )
         case QueueOfferResult.Failure(t) =>
-          toQueueSubmitFailure(errorFactories.TrackerErrors.QueueSubmitFailure.failedToEnqueue(t))
+          toQueueSubmitFailure(errorFactories.TrackerErrors.failedToEnqueueCommandSubmission(t))
         case QueueOfferResult.Dropped =>
-          toQueueSubmitFailure(errorFactories.TrackerErrors.QueueSubmitFailure.ingressBufferFull())
+          toQueueSubmitFailure(errorFactories.TrackerErrors.commandServiceIngressBufferFull())
         case QueueOfferResult.QueueClosed =>
-          toQueueSubmitFailure(errorFactories.TrackerErrors.QueueSubmitFailure.queueClosed())
+          toQueueSubmitFailure(errorFactories.TrackerErrors.commandSubmissionQueueClosed())
       }
       .recoverWith {
         case i: IllegalStateException
             if i.getMessage == "You have to wait for previous offer to be resolved to send another request" =>
-          toQueueSubmitFailure(errorFactories.TrackerErrors.QueueSubmitFailure.ingressBufferFull())
+          toQueueSubmitFailure(errorFactories.TrackerErrors.commandServiceIngressBufferFull())
         case t =>
-          toQueueSubmitFailure(errorFactories.TrackerErrors.QueueSubmitFailure.failed(t))
+          toQueueSubmitFailure(
+            errorFactories.TrackerErrors.commandSubmissionQueueFailedUnexpectedly(t)
+          )
       }
   }
 
