@@ -94,7 +94,7 @@ private[transaction] object CommandDeduplication {
         maybeDedupValue
           .flatMap(commandDeduplication =>
             commandDeduplication.getTimeCase match {
-              // Backward-compatibility, will not  be set for new entries
+              // Backward-compatibility, will not be set for new entries
               case TimeCase.DEDUPLICATED_UNTIL =>
                 Some(parseTimestamp(commandDeduplication.getDeduplicatedUntil))
               // Set during normal execution, no time skews are added
