@@ -478,18 +478,18 @@ class QueryStreamsManager {
     }
 
     private handleQueriesChange(): void {
-        if (this.queries.size > 0) {
+        //eslint-disable-next-line @typescript-eslint/no-this-alias
+        const manager = this; // stable self-reference for callbacks
 
-            if (this.ws !== undefined) {
+        if (manager.queries.size > 0) {
+
+            if (manager.ws !== undefined) {
                 //set the queries change flag to true, this should eventually get reset once the ws is closed.
-                this.wsQueriesChange = true;
-                this.wsLiveSince = undefined;
-                this.ws.close();
-                this.ws = undefined;
+                manager.wsQueriesChange = true;
+                manager.wsLiveSince = undefined;
+                manager.ws.close();
+                manager.ws = undefined;
             }
-
-            //eslint-disable-next-line @typescript-eslint/no-this-alias
-            const manager = this; // stable self-reference for callbacks
 
             const ws = new WebSocket(manager.url, manager.protocols);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -567,10 +567,10 @@ class QueryStreamsManager {
 
             const onWsOpen = (): void => {
                 // only make a new websocket request if we have registered queries
-                if(this.queries.size > 0) {
+                if(manager.queries.size > 0) {
                     let newRequests: StreamingQueryRequest[] = [];
                     let newMatchIndexLookupTable: [StreamingQuery<object, unknown, string>, number][] = [];
-                    for (const query of materialize(this.queries.values())) {
+                    for (const query of materialize(manager.queries.values())) {
 
                         const request = QueryStreamsManager.toRequest(query);
 
@@ -582,16 +582,16 @@ class QueryStreamsManager {
                         // Add entries to the lookup table for archive events
                         for (const {templateIds} of request) {
                             for (const templateId of templateIds) {
-                                this.templateIdsLookupTable[templateId] = this.templateIdsLookupTable[templateId] || new Set();
-                                this.templateIdsLookupTable[templateId].add(query);
+                                manager.templateIdsLookupTable[templateId] = manager.templateIdsLookupTable[templateId] || new Set();
+                                manager.templateIdsLookupTable[templateId].add(query);
                             }
                         }
 
                         //since we go through all queries on the manager, we should be safely able to rebuild the whole request
                         newRequests = newRequests.concat(request);
                     }
-                    this.request = newRequests;
-                    this.matchIndexLookupTable = newMatchIndexLookupTable;
+                    manager.request = newRequests;
+                    manager.matchIndexLookupTable = newMatchIndexLookupTable;
                     // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
                     manager.ws?.send(JSON.stringify(Array.from(manager.request.values())));
                 }
