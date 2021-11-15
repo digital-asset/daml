@@ -53,8 +53,8 @@ class CommandDeduplicationSpec
   private val deduplicateCommandStep = CommandDeduplication.deduplicateCommandStep(rejections)
   private val setDeduplicationEntryStep =
     CommandDeduplication.setDeduplicationEntryStep()
-
   private val timestamp: Timestamp = Timestamp.now()
+
   "deduplicateCommand" should {
     Map(
       "pre-execution" -> ((dedupValueBuilder: Timestamp => Option[DamlStateValue]) => {
@@ -118,10 +118,7 @@ class CommandDeduplicationSpec
 
         "using deduplication duration" should {
           forAll(
-            Table[
-              String,
-              Timestamp => DamlCommandDedupValue.Builder => DamlCommandDedupValue.Builder,
-            ](
+            Table(
               "identifier" -> "time setter",
               "record time" -> ((timestamp: Timestamp) =>
                 (builder: DamlCommandDedupValue.Builder) =>
@@ -134,50 +131,45 @@ class CommandDeduplicationSpec
                   )
               ),
             )
-          )(
-            (
-                identifier: String,
-                timeSetter: Timestamp => DamlCommandDedupValue.Builder => DamlCommandDedupValue.Builder,
-            ) => {
-              identifier should {
-                "continue if record time is after deduplication time in case a deduplication entry is found" in {
+          ) { case (identifier, timeSetter) =>
+            identifier should {
+              "continue if record time is after deduplication time in case a deduplication entry is found" in {
+                val (_, context) = contextBuilder(timestamp =>
+                  Some(
+                    newDedupValue(
+                      timeSetter(timestamp.subtract(deduplicationDuration.plusMillis(1)))
+                    )
+                  )
+                )
+
+                deduplicationStepContinues(context)
+              }
+
+              "produce rejection log entry in case transaction timestamp is on or before deduplication time" in {
+                for (
+                  durationToSubstractFromDeduplicationDuration <- Iterable(
+                    Duration.ZERO,
+                    Duration.ofSeconds(1),
+                  )
+                ) {
                   val (_, context) = contextBuilder(timestamp =>
                     Some(
                       newDedupValue(
-                        timeSetter(timestamp.subtract(deduplicationDuration.plusMillis(1)))
-                      )
-                    )
-                  )
-
-                  deduplicationStepContinues(context)
-                }
-
-                "produce rejection log entry in case transaction timestamp is on or before deduplication time" in {
-                  for (
-                    durationToSubstractFromDeduplicationDuration <- Iterable(
-                      Duration.ZERO,
-                      Duration.ofSeconds(1),
-                    )
-                  ) {
-                    val (_, context) = contextBuilder(timestamp =>
-                      Some(
-                        newDedupValue(
-                          timeSetter(
-                            timestamp.subtract(
-                              deduplicationDuration.minus(
-                                durationToSubstractFromDeduplicationDuration
-                              )
+                        timeSetter(
+                          timestamp.subtract(
+                            deduplicationDuration.minus(
+                              durationToSubstractFromDeduplicationDuration
                             )
                           )
                         )
                       )
                     )
-                    deduplicateStepHasTransactionRejectionEntry(context)
-                  }
+                  )
+                  deduplicateStepHasTransactionRejectionEntry(context)
                 }
               }
             }
-          )
+          }
         }
       }
     }
