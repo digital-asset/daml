@@ -476,7 +476,7 @@ private[kvutils] object TransactionRejections {
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
       GrpcStatus.toProto(
         LedgerApiErrors.WriteServiceRejections.SubmitterCannotActViaParticipant
-          .Reject(
+          .RejectWithSubmitterAndParticipantId(
             details,
             submitter,
             participantId,

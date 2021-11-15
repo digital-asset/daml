@@ -848,10 +848,15 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT",
           ErrorCategory.InsufficientPermission,
         ) {
-      case class Reject(
+      case class RejectWithSubmitterAndParticipantId(
           details: String,
-          submitter: String = "N/A",
-          participantId: String = "N/A",
+          submitter: String,
+          participantId: String,
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends LoggingTransactionErrorImpl(cause = s"Inconsistent: $details")
+
+      case class Reject(
+          details: String
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends LoggingTransactionErrorImpl(cause = s"Inconsistent: $details")
     }
