@@ -56,7 +56,7 @@ object AsyncSupport {
           throwable =>
             ContextualizedLogger
               .get(this.getClass)
-              .error(s"ExecutionContext ${namePrefix} has failed with an exception", throwable),
+              .error(s"ExecutionContext $namePrefix has failed with an exception", throwable),
         )
       )
       .map(Executor.forExecutionContext)
