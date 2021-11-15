@@ -28,6 +28,8 @@ const ALICE_PARTY = 'Alice';
 const ALICE_TOKEN = computeToken(ALICE_PARTY);
 const BOB_PARTY = 'Bob';
 const BOB_TOKEN = computeToken(BOB_PARTY);
+const CHARLIE_PARTY = 'Charlie'
+const CHARLIE_TOKEN = computeToken(CHARLIE_PARTY)
 
 let sandboxPort: number | undefined = undefined;
 const SANDBOX_PORT_FILE = 'sandbox.port';
@@ -77,7 +79,7 @@ beforeAll(async () => {
     getEnv('JSON_API'),
     ['--ledger-host', 'localhost', '--ledger-port', `${sandboxPort}`,
      '--port-file', JSON_API_PORT_FILE, '--http-port', "0",
-     '--allow-insecure-tokens', '--websocket-config', '--heartBeatPer=1', '--log-level=INFO'],
+     '--allow-insecure-tokens', '--websocket-config=maxDuration=1,heartBeatPer=1', '--log-level=INFO'],
     ['-Dakka.http.server.request-timeout=60s'],
   )
   await waitOn({resources: [`file:${JSON_API_PORT_FILE}`]})
@@ -216,7 +218,7 @@ test('create + fetch & exercise', async () => {
   const personRawStream = aliceLedger.streamQuery(buildAndLint.Main.Person);
   const personStream = promisifyStream(personRawStream);
   const personStreamLive = pEvent(personRawStream, 'live');
-  expect(await personStream.next()).toEqual([[alice6Contract], [{created: alice6Contract, matchedQueries:[0]}]]);
+  expect(await personStream.next()).toEqual([[alice6Contract], [{created: alice6Contract, matchedQueries:[1]}]]);
 
   // end of non-live data, first offset
   expect(await personStreamLive).toEqual([alice6Contract]);
@@ -226,7 +228,7 @@ test('create + fetch & exercise', async () => {
   const bob4Contract = await bobLedger.create(buildAndLint.Main.Person, bob4);
   expect(bob4Contract.payload).toEqual(bob4);
   expect(bob4Contract.key).toEqual(bob4Key);
-  expect(await personStream.next()).toEqual([[alice6Contract, bob4Contract], [{created: bob4Contract, matchedQueries:[0]}]]);
+  expect(await personStream.next()).toEqual([[alice6Contract, bob4Contract], [{created: bob4Contract, matchedQueries:[1]}]]);
 
 
   // Alice changes her name.
@@ -243,7 +245,7 @@ test('create + fetch & exercise', async () => {
   expect(cooper6Contract.key).toEqual(alice6Key);
   expect(await aliceStream.next()).toEqual([[cooper6Contract], [{archived: alice6Archived}, {created: cooper6Contract, matchedQueries:[0]}]]);
   expect(await alice6KeyStream.next()).toEqual([cooper6Contract, [{archived: alice6Archived}, {created: cooper6Contract}]]);
-  expect(await personStream.next()).toEqual([[bob4Contract, cooper6Contract], [{archived: alice6Archived}, {created: cooper6Contract, matchedQueries:[0]}]]);
+  expect(await personStream.next()).toEqual([[bob4Contract, cooper6Contract], [{archived: alice6Archived}, {created: cooper6Contract, matchedQueries:[1]}]]);
 
   personContracts = await aliceLedger.query(buildAndLint.Main.Person);
   expect(personContracts).toEqual([bob4Contract, cooper6Contract]);
@@ -610,4 +612,39 @@ test('package API', async () => {
 
   const downSuc = await ledger.getPackage(buildAndLint.packageId);
   expect(downSuc.byteLength > 0).toBe(true);
+});
+
+test('reconnect on timeout, when multiplexing is enabled', async () => {
+  const charlieLedger = new Ledger({token: CHARLIE_TOKEN, httpBaseUrl: httpBaseUrl(), multiplexQueryStreams: true});
+  const charlieRawStream = charlieLedger.streamQuery(buildAndLint.Main.Person, {party: CHARLIE_PARTY});
+  const charlieStream = promisifyStream(charlieRawStream);
+  const charlieStreamLive = pEvent(charlieRawStream, 'live');
+  expect(await charlieStreamLive).toEqual([]);
+
+  const charlieRecord1: buildAndLint.Main.Person = {
+    name: 'Charlie Chaplin',
+    party: CHARLIE_PARTY,
+    age: '10',
+    friends: [],
+  };
+
+  const charlieContract1 = await charlieLedger.create(buildAndLint.Main.Person, charlieRecord1);
+  expect(await charlieStream.next()).toEqual([[charlieContract1], [{created: charlieContract1, matchedQueries: [0]}]]);
+
+  // wait 70s to trigger a disconnect on json-api which is configured to close conn after 1 minute.
+  await new Promise(resolve => setTimeout(resolve, 70000));
+
+  const charlieRecord2: buildAndLint.Main.Person = {
+    name: 'Charlie and the chocolate factory',
+    party: CHARLIE_PARTY,
+    age: '5',
+    friends: [],
+  };
+
+  // ensure that we can write and read data post reconnect.
+  const charlieContract2 = await charlieLedger.create(buildAndLint.Main.Person, charlieRecord2);
+  expect(await charlieStream.next()).toEqual([[charlieContract1, charlieContract2], [{created: charlieContract2, matchedQueries: [0]}]]);
+
+  charlieStream.close();
+
 });

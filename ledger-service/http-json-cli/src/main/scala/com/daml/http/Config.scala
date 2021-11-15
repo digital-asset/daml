@@ -74,7 +74,7 @@ private[http] object WebsocketConfig
     extends ConfigCompanion[WebsocketConfig, DummyImplicit]("WebsocketConfig") {
 
   implicit val showInstance: Show[WebsocketConfig] = Show.shows(c =>
-    s"WebsocketConfig(maxDuration=${c.maxDuration}, heartBeatPer=${c.heartBeatPer}.seconds)"
+    s"WebsocketConfig(maxDuration=${c.maxDuration}, heartBeatPer=${c.heartBeatPer})"
   )
 
   lazy val help: String =
