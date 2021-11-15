@@ -71,7 +71,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
   private def allocateParties(number: Int, name: Int => String)(implicit
       ec: ExecutionContext
   ): Future[List[Primitive.Party]] =
-    (1 to number).foldLeft(Future.successful(List.empty[Primitive.Party])) { (allocated, i) =>
+    (0 until number).foldLeft(Future.successful(List.empty[Primitive.Party])) { (allocated, i) =>
       allocated.flatMap { parties =>
         services.partyManagementService.allocateParty(name(i)).map(party => parties :+ party)
       }
