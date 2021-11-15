@@ -6,7 +6,7 @@ package com.daml.ledger.api.benchtool.submission
 import akka.actor.ActorSystem
 import akka.stream.{Materializer, OverflowStrategy}
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.api.benchtool.SubmissionDescriptor
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.SubmissionConfig
 import com.daml.ledger.api.benchtool.infrastructure.TestDars
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.v1.commands.{Command, Commands}
@@ -34,7 +34,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
   private def darId(index: Int) = s"submission-dars-$index-$identifierSuffix"
 
   def submit(
-      descriptor: SubmissionDescriptor,
+      config: SubmissionConfig,
       maxInFlightCommands: Int,
       submissionBatchSize: Int,
   )(implicit ec: ExecutionContext): Future[CommandSubmitter.SubmissionSummary] =
@@ -43,12 +43,12 @@ case class CommandSubmitter(services: LedgerApiServices) {
       _ <- Future.successful(logger.info(s"Identifier suffix: $identifierSuffix"))
       signatory <- allocateParty(signatoryName)
       observers <- allocateParties(
-        number = descriptor.numberOfObservers,
-        name = index => observerName(index, descriptor.uniqueParties),
+        number = config.numberOfObservers,
+        name = index => observerName(index, config.uniqueParties),
       )
       _ <- uploadTestDars()
       _ <- submitCommands(
-        descriptor,
+        config,
         signatory,
         observers,
         maxInFlightCommands,
@@ -111,7 +111,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
   }
 
   private def submitCommands(
-      descriptor: SubmissionDescriptor,
+      config: SubmissionConfig,
       signatory: Primitive.Party,
       observers: List[Primitive.Party],
       maxInFlightCommands: Int,
@@ -121,10 +121,10 @@ case class CommandSubmitter(services: LedgerApiServices) {
   ): Future[Unit] = {
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
-    val numBatches: Int = descriptor.numberOfInstances / submissionBatchSize
-    val progressMeter = CommandSubmitter.ProgressMeter(descriptor.numberOfInstances)
+    val numBatches: Int = config.numberOfInstances / submissionBatchSize
+    val progressMeter = CommandSubmitter.ProgressMeter(config.numberOfInstances)
     // Output a log line roughly once per 10% progress, or once every 500 submissions (whichever comes first)
-    val progressLogInterval = math.min(descriptor.numberOfInstances / 10 + 1, 10000)
+    val progressLogInterval = math.min(config.numberOfInstances / 10 + 1, 10000)
     val progressLoggingSink = {
       var lastInterval = 0
       Sink.foreach[Int](index =>
@@ -139,7 +139,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
     val generator = new CommandGenerator(
       randomnessProvider = RandomnessProvider.Default,
       signatory = signatory,
-      descriptor = descriptor,
+      config = config,
       observers = observers,
     )
 
@@ -150,7 +150,7 @@ case class CommandSubmitter(services: LedgerApiServices) {
       .use { implicit materializer =>
         for {
           _ <- Source
-            .fromIterator(() => (1 to descriptor.numberOfInstances).iterator)
+            .fromIterator(() => (1 to config.numberOfInstances).iterator)
             .wireTap(i => if (i == 1) progressMeter.start())
             .mapAsync(8)(index =>
               Future.fromTry(

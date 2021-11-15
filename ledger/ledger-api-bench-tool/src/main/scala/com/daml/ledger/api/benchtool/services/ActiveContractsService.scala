@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.benchtool.services
 
-import com.daml.ledger.api.benchtool.Config
+import com.daml.ledger.api.benchtool.config.WorkflowConfig
 import com.daml.ledger.api.benchtool.util.ObserverWithResult
 import com.daml.ledger.api.v1.active_contracts_service._
 import io.grpc.Channel
@@ -21,20 +21,27 @@ final class ActiveContractsService(
     ActiveContractsServiceGrpc.stub(channel)
 
   def getActiveContracts[Result](
-      config: Config.StreamConfig.ActiveContractsStreamConfig,
+      config: WorkflowConfig.StreamConfig.ActiveContractsStreamConfig,
       observer: ObserverWithResult[GetActiveContractsResponse, Result],
   ): Future[Result] = {
-    service.getActiveContracts(getActiveContractsRequest(ledgerId, config), observer)
-    logger.info("Started fetching active contracts")
-    observer.result
+    getActiveContractsRequest(ledgerId, config) match {
+      case Right(request) =>
+        service.getActiveContracts(request, observer)
+        logger.info("Started fetching active contracts")
+        observer.result
+      case Left(error) =>
+        Future.failed(new RuntimeException(error))
+    }
   }
 
   private def getActiveContractsRequest(
       ledgerId: String,
-      config: Config.StreamConfig.ActiveContractsStreamConfig,
-  ): GetActiveContractsRequest =
-    GetActiveContractsRequest.defaultInstance
-      .withLedgerId(ledgerId)
-      .withFilter(StreamFilters.transactionFilters(config.filters))
+      config: WorkflowConfig.StreamConfig.ActiveContractsStreamConfig,
+  ): Either[String, GetActiveContractsRequest] =
+    StreamFilters.transactionFilters(config.filters).map { filters =>
+      GetActiveContractsRequest.defaultInstance
+        .withLedgerId(ledgerId)
+        .withFilter(filters)
+    }
 
 }
