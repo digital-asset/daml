@@ -230,6 +230,7 @@ object TransactionBuilder {
   def justCommitted(node: Node, nodes: Node*): CommittedTransaction =
     CommittedTransaction(just(node, nodes: _*))
 
+  def Empty: Transaction = Transaction.Empty
   val EmptySubmitted: SubmittedTransaction = SubmittedTransaction(Transaction.Empty)
   val EmptyCommitted: CommittedTransaction = CommittedTransaction(Transaction.Empty)
 
