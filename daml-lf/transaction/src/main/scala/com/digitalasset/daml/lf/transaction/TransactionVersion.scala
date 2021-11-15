@@ -6,8 +6,6 @@ package transaction
 
 import com.daml.lf.language.LanguageVersion
 
-import scala.Ordering.Implicits.infixOrderingOps
-
 sealed abstract class TransactionVersion private (val protoValue: String, private val index: Int)
     extends Product
     with Serializable
@@ -73,13 +71,13 @@ object TransactionVersion {
       tx: Transaction
   ): VersionedTransaction = tx match {
     case Transaction(nodes, roots) =>
-      val txVersion = roots.foldLeft(minVersion)((acc, nodeId) =>
+      val rootVersions = roots.iterator.map(nodeId =>
         nodes(nodeId) match {
-          case action: Node.Action => acc max action.version
-          case _: Node.Rollback => acc max minExceptions
+          case action: Node.Action => action.version
+          case _: Node.Rollback => minExceptions
         }
       )
-      VersionedTransaction(txVersion, nodes, roots)
+      VersionedTransaction(rootVersions.max, nodes, roots)
   }
 
   val StableVersions: VersionRange[TransactionVersion] =
