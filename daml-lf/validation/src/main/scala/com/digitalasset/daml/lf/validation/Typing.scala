@@ -310,14 +310,6 @@ private[validation] object Typing {
             env.checkInterfaceType(tyConName, params)
         }
       case (dfnName, dfn: DValue) =>
-        if (dfnName.toString.contains("fMultiplicativeNumeric")) {
-          remy.log(s" >>> $dfnName <<<<  ")
-          remy.log(dfn.typ)
-          remy.log("")
-          remy.log(dfn.body)
-          remy.log("")
-
-        }
         Env(langVersion, interface, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
 
       case (dfnName, DTypeSyn(params, replacementTyp)) =>
