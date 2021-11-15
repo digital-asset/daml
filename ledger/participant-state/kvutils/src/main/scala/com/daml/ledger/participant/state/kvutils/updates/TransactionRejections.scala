@@ -449,7 +449,7 @@ private[kvutils] object TransactionRejections {
     ): Status =
       GrpcStatus.toProto(
         LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
-          .LedgerReject(ExternallyInconsistentTransaction.DuplicateKeys.description)
+          .Reject(ExternallyInconsistentTransaction.DuplicateKeys.description)
           .asGrpcStatusFromContext
       )
 
