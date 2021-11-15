@@ -3,8 +3,10 @@
 
 package com.daml.http
 
+import com.daml.dbutils
+import dbutils.ConnectionPool
 import com.daml.testing.oracle.OracleAroundAll
-import dbbackend.JdbcConfig
+import dbbackend.{DbStartupMode, JdbcConfig}
 import dbbackend.OracleQueries.DisableContractPayloadIndexing
 
 import org.scalatest.Inside
@@ -19,10 +21,32 @@ trait HttpServiceOracleInt extends AbstractHttpServiceIntegrationTestFuns with O
   override final def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
 
   protected[this] def jdbcConfig_ =
-    OracleIntTest.defaultJdbcConfig(
+    HttpServiceOracleInt.defaultJdbcConfig(
       oracleJdbcUrl,
       oracleUser,
       oraclePwd,
       disableContractPayloadIndexing = disableContractPayloadIndexing,
     )
+}
+
+object HttpServiceOracleInt {
+  def defaultJdbcConfig(
+      url: => String,
+      user: => String,
+      pwd: => String,
+      disableContractPayloadIndexing: DisableContractPayloadIndexing = false,
+  ) = JdbcConfig(
+    dbutils.JdbcConfig(
+      driver = "oracle.jdbc.OracleDriver",
+      url = url,
+      user = user,
+      password = pwd,
+      tablePrefix = "some_nice_prefix_",
+      poolSize = ConnectionPool.PoolSize.Integration,
+    ),
+    dbStartupMode = DbStartupMode.CreateOnly,
+    backendSpecificConf =
+      if (disableContractPayloadIndexing) Map(DisableContractPayloadIndexing -> "true")
+      else Map.empty,
+  )
 }
