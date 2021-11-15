@@ -103,9 +103,8 @@ private[apiserver] final class ApiCommandService private[services] (
       }
     }
 
-  private def offsetFromResponse(response: CompletionSuccess) = {
+  private def offsetFromResponse(response: CompletionSuccess) =
     response.checkpoint.flatMap(_.offset).flatMap(_.value.absolute)
-  }
 
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest

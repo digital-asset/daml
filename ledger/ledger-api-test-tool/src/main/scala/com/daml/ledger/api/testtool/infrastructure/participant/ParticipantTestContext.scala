@@ -483,9 +483,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     submitAndWaitForTransaction(
       submitAndWaitRequest(party, template.create.command)
     )
-      .map(_.getTransaction)
-      .map(extractContracts)
-      .map(_.head)
+      .map(response => extractContracts(response.getTransaction).head)
 
   def create[T](
       actAs: List[Party],
@@ -494,9 +492,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
   ): Future[Primitive.ContractId[T]] =
     submitAndWaitForTransaction(
       submitAndWaitRequest(actAs, readAs, template.create.command)
-    ).map(_.getTransaction)
-      .map(extractContracts)
-      .map(_.head)
+    ).map(response => extractContracts(response.getTransaction).head)
 
   def createAndGetTransactionId[T](
       party: Party,
