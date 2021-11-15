@@ -13,7 +13,7 @@ DROP TABLE IF EXISTS participant_events_create_filter;
 DROP TABLE IF EXISTS participant_streams_active_contracts;
 
 
-CREATE TABLE participant_template_interning 
+CREATE TABLE participant_template_interning
   ( template_internal_id SERIAL PRIMARY KEY
   , template_external_id TEXT NOT NULL UNIQUE
   );
@@ -24,7 +24,7 @@ INSERT INTO participant_template_interning (template_external_id)
    GROUP BY template_id
    ORDER BY template_id;
 
-CREATE TABLE participant_party_interning 
+CREATE TABLE participant_party_interning
   ( party_internal_id SERIAL PRIMARY KEY
   , party_external_id TEXT NOT NULL UNIQUE
   );
@@ -37,25 +37,25 @@ INSERT INTO participant_party_interning (party_external_id)
    ORDER BY party_id;
 
 
--- EXPLAIN ANALYZE 
--- WITH 
+-- EXPLAIN ANALYZE
+-- WITH
 --   flat_event_interning AS (
 --     SELECT event_sequential_id, array_agg(party_internal_id) as flat_event_witnesses_internal
---       FROM participant_events, 
+--       FROM participant_events,
 --            unnest(flat_event_witnesses) witnesses(party_external_id) INNER JOIN participant_party_interning USING (party_external_id)
 --      GROUP BY event_sequential_id
 --   ),
 --   tree_event_interning AS (
 --     SELECT event_sequential_id, array_agg(party_internal_id) as tree_event_witnesses_internal
---       FROM participant_events, 
+--       FROM participant_events,
 --            unnest(tree_event_witnesses) witnesses(party_external_id) INNER JOIN participant_party_interning USING (party_external_id)
 --      GROUP BY event_sequential_id
 --   )
--- SELECT event_sequential_id, event_kind, 
---        template_id, template_internal_id, 
+-- SELECT event_sequential_id, event_kind,
+--        template_id, template_internal_id,
 --        COALESCE(flat_event_witnesses_internal, array[]::integer[]),
 --        COALESCE(tree_event_witnesses_internal, array[]::integer[])
---   FROM participant_events 
+--   FROM participant_events
 --          LEFT OUTER JOIN flat_event_interning USING (event_sequential_id)
 --          LEFT OUTER JOIN tree_event_interning USING (event_sequential_id)
 --          LEFT OUTER JOIN participant_template_interning ON (template_id = template_external_id);
@@ -66,8 +66,8 @@ SET enable_hashjoin = off;
 SET enable_mergejoin = off;
 
 EXPLAIN ANALYZE
-CREATE TABLE participant_events_create_interned AS 
-  SELECT  
+CREATE TABLE participant_events_create_interned AS
+  SELECT
         event_sequential_id,
         ledger_effective_time,
         node_index,
@@ -76,9 +76,9 @@ CREATE TABLE participant_events_create_interned AS
         workflow_id,
         command_id,
         application_id,
-        
+
         (SELECT array_agg(party_internal_id)
-          FROM unnest(submitters) parties(party_external_id) 
+          FROM unnest(submitters) parties(party_external_id)
                   INNER JOIN participant_party_interning USING (party_external_id)
         ) submitters,
 
@@ -88,14 +88,14 @@ CREATE TABLE participant_events_create_interned AS
 
         COALESCE(
             (SELECT array_agg(party_internal_id)
-              FROM unnest(flat_event_witnesses) parties(party_external_id) 
+              FROM unnest(flat_event_witnesses) parties(party_external_id)
                      INNER JOIN participant_party_interning USING (party_external_id)
             ), array[]::integer[]
         ) flat_event_witnesses,
 
         COALESCE(
             (SELECT array_agg(party_internal_id)
-              FROM unnest(tree_event_witnesses) parties(party_external_id) 
+              FROM unnest(tree_event_witnesses) parties(party_external_id)
                      INNER JOIN participant_party_interning USING (party_external_id)
             ), array[]::integer[]
         ) tree_event_witnesses,
@@ -104,14 +104,14 @@ CREATE TABLE participant_events_create_interned AS
 
         COALESCE(
             (SELECT array_agg(party_internal_id)
-              FROM unnest(create_signatories) parties(party_external_id) 
+              FROM unnest(create_signatories) parties(party_external_id)
                      INNER JOIN participant_party_interning USING (party_external_id)
             ), array[]::integer[]
         ) create_signatories,
 
         COALESCE(
             (SELECT array_agg(party_internal_id)
-              FROM unnest(create_observers) parties(party_external_id) 
+              FROM unnest(create_observers) parties(party_external_id)
                      INNER JOIN participant_party_interning USING (party_external_id)
             ), array[]::integer[]
         ) create_observers,
@@ -122,7 +122,7 @@ CREATE TABLE participant_events_create_interned AS
         create_argument_compression,
         create_key_value_compression
 
-  FROM participant_events_create 
+  FROM participant_events_create
          LEFT OUTER JOIN participant_template_interning ON (template_id = template_external_id);
 
 -- Reenable hash and merge joins
@@ -131,11 +131,150 @@ SET enable_mergejoin = on;
 
 CREATE UNIQUE INDEX participant_events_create_interned_event_sequential_id_idx ON participant_events_create_interned USING btree(event_sequential_id);
 
+-- verify correct migration of participant_events_create, in two steps:
+--
+-- 1. check that the original and new table have the same counts
+-- 2. check that the inner join on event_sequential_id
+--
+-- We use this approach in favor of a full outer join as it yields better plans.
+
+EXPLAIN ANALYZE
+SELECT (SELECT count(event_sequential_id) FROM participant_events_create) as original_create_count,
+       (SELECT count(event_sequential_id) FROM participant_events_create_interned) as interned_create_count;
+
+
+-- Disable hash and merge join to bias the planner to use lookups against the interning table
+SET enable_hashjoin = off;
+SET enable_mergejoin = off;
+
+EXPLAIN ANALYZE
+WITH participant_events_create_uninterned AS (
+  SELECT
+        event_sequential_id,
+        ledger_effective_time,
+        node_index,
+        event_offset,
+        transaction_id,
+        workflow_id,
+        command_id,
+        application_id,
+
+        (SELECT array_agg(party_external_id order by party_external_id)
+          FROM unnest(submitters) parties(party_internal_id)
+                  INNER JOIN participant_party_interning USING (party_internal_id)
+        ) submitters,
+
+        event_id,
+        contract_id,
+        template_external_id template_id,
+
+        COALESCE(
+            (SELECT array_agg(party_external_id order by party_external_id)
+              FROM unnest(flat_event_witnesses) parties(party_internal_id)
+                     INNER JOIN participant_party_interning USING (party_internal_id)
+            ), array[]::text[]
+        ) flat_event_witnesses,
+
+        COALESCE(
+            (SELECT array_agg(party_external_id order by party_external_id)
+              FROM unnest(tree_event_witnesses) parties(party_internal_id)
+                     INNER JOIN participant_party_interning USING (party_internal_id)
+            ), array[]::text[]
+        ) tree_event_witnesses,
+
+        create_argument,
+
+        COALESCE(
+            (SELECT array_agg(party_external_id order by party_external_id)
+              FROM unnest(create_signatories) parties(party_internal_id)
+                     INNER JOIN participant_party_interning USING (party_internal_id)
+            ), array[]::text[]
+        ) create_signatories,
+
+        COALESCE(
+            (SELECT array_agg(party_external_id order by party_external_id)
+              FROM unnest(create_observers) parties(party_internal_id)
+                     INNER JOIN participant_party_interning USING (party_internal_id)
+            ), array[]::text[]
+        ) create_observers,
+
+        create_agreement_text,
+        create_key_value,
+        create_key_hash,
+        create_argument_compression,
+        create_key_value_compression
+
+  FROM participant_events_create_interned
+         LEFT OUTER JOIN participant_template_interning ON (template_id = template_internal_id)
+  ),
+  participant_events_create_normalized AS (
+      SELECT
+        event_sequential_id,
+        ledger_effective_time,
+        node_index,
+        event_offset,
+        transaction_id,
+        workflow_id,
+        command_id,
+        application_id,
+
+        (SELECT array_agg(party_external_id order by party_external_id)
+          FROM unnest(submitters) parties(party_external_id)
+        ) submitters,
+
+        event_id,
+        contract_id,
+        template_id,
+
+        COALESCE(
+            (SELECT array_agg(party_external_id order by party_external_id)
+              FROM unnest(flat_event_witnesses) parties(party_external_id)
+
+            ), array[]::text[]
+        ) flat_event_witnesses,
+
+        COALESCE(
+            (SELECT array_agg(party_external_id order by party_external_id)
+              FROM unnest(tree_event_witnesses) parties(party_external_id)
+            ), array[]::text[]
+        ) tree_event_witnesses,
+
+        create_argument,
+
+        COALESCE(
+            (SELECT array_agg(party_external_id order by party_external_id)
+              FROM unnest(create_signatories) parties(party_external_id)
+            ), array[]::text[]
+        ) create_signatories,
+
+        COALESCE(
+            (SELECT array_agg(party_external_id order by party_external_id)
+              FROM unnest(create_observers) parties(party_external_id)
+                     INNER JOIN participant_party_interning USING (party_external_id)
+            ), array[]::text[]
+        ) create_observers,
+
+        create_agreement_text,
+        create_key_value,
+        create_key_hash,
+        create_argument_compression,
+        create_key_value_compression
+    FROM participant_events_create
+  )
+SELECT o.*, n.*
+  FROM participant_events_create_normalized as o INNER JOIN
+       participant_events_create_uninterned as n USING (event_sequential_id)
+ WHERE o.* != n.*;
+
+-- Reenable hash and merge joins
+SET enable_hashjoin = on;
+SET enable_mergejoin = on;
+
 
 EXPLAIN ANALYZE
 CREATE TABLE participant_events_create_filter AS
-    SELECT event_sequential_id, template_id, party_id 
-      FROM participant_events_create_interned create_evs, 
+    SELECT event_sequential_id, template_id, party_id
+      FROM participant_events_create_interned create_evs,
            parameters,
            unnest(flat_event_witnesses) as party_id
     -- TODO: in real migration drop the archived ones. Here we leave it for the experiments.
@@ -145,7 +284,7 @@ CREATE TABLE participant_events_create_filter AS
     --              AND consuming_evs.event_offset <= parameters.ledger_end
     --        )
      ORDER BY event_sequential_id;  -- use temporal odering
-    
+
 -- used for efficient pruning
 CREATE INDEX participant_events_create_filter_event_sequential_id_idx ON participant_events_create_filter USING btree(event_sequential_id);
 -- used for efficient filtering of the ACS
@@ -160,7 +299,7 @@ CREATE TABLE participant_streams_active_contracts (
     application_id text,                       -- application id of the gRPC request's claims
     transaction_filter jsonb NOT NULL,         -- the filter used in the gRPC request
     -- snapshot metadata
-    snapshot_event_sequential_id_incl bigint,  -- the non-strict upper bound of what events to include in the snapshot 
+    snapshot_event_sequential_id_incl bigint,  -- the non-strict upper bound of what events to include in the snapshot
     -- stream serving metadata
     last_heartbeat_at timestamptz              -- the last time the stream fetching code marked this entry as alive by setting
                                                -- its heartbeat to now()
