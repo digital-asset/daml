@@ -70,14 +70,12 @@ object ParallelIndexerFactory {
                     new ThreadFactoryBuilder().setNameFormat(s"ha-coordinator-%d").build,
                   ),
                   throwable =>
-                    LoggingContext.newLoggingContext { implicit loggingContext =>
-                      ContextualizedLogger
-                        .get(this.getClass)
-                        .error(
-                          s"ExecutionContext ${jdbcUrl} has failed with an exception",
-                          throwable,
-                        )
-                    },
+                    ContextualizedLogger
+                      .get(this.getClass)
+                      .error(
+                        s"ExecutionContext has failed with an exception",
+                        throwable,
+                      ),
                 )
               )
             timer <- ResourceOwner.forTimer(() => new Timer)

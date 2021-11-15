@@ -25,15 +25,13 @@ private[platform] final class DbDispatcher private (
     executor: Executor,
     overallWaitTimer: Timer,
     overallExecutionTimer: Timer,
-) extends ReportsHealth {
+)(implicit loggingContext: LoggingContext)
+    extends ReportsHealth {
 
   private val logger = ContextualizedLogger.get(this.getClass)
   private val executionContext = ExecutionContext.fromExecutor(
     executor,
-    throwable =>
-      LoggingContext.newLoggingContext { implicit loggingContext =>
-        logger.error("ExecutionContext has failed with an exception", throwable)
-      },
+    throwable => logger.error("ExecutionContext has failed with an exception", throwable),
   )
 
   override def currentHealth(): HealthStatus =

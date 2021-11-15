@@ -31,7 +31,7 @@ object AsyncSupport {
       size: Int,
       namePrefix: String,
       withMetric: Option[(MetricName, MetricRegistry)] = None,
-  ): ResourceOwner[Executor] =
+  )(implicit loggingContext: LoggingContext): ResourceOwner[Executor] =
     ResourceOwner
       .forExecutorService(() =>
         ExecutionContext.fromExecutorService(
@@ -54,11 +54,9 @@ object AsyncSupport {
             }
           },
           throwable =>
-            LoggingContext.newLoggingContext { implicit loggingContext =>
-              ContextualizedLogger
-                .get(this.getClass)
-                .error(s"ExecutionContext ${namePrefix} has failed with an exception", throwable)
-            },
+            ContextualizedLogger
+              .get(this.getClass)
+              .error(s"ExecutionContext ${namePrefix} has failed with an exception", throwable),
         )
       )
       .map(Executor.forExecutionContext)
