@@ -142,6 +142,82 @@ message StreamEventsResponse {
 // Event Projection
 ///////////////////
 
+/*
+
+Design requirements:
+- union streams
+- filter streams specific to what one party can see
+- filter streams to only show actions on contracts of a specific template
+- show subtrees of exercise nodes
+- selectively include: exercise nodes, divulgence nodes, fetch nodes, lookup by key nodes, create nodes, topology actions
+
+
+exercise nodes: filter on informees == stakeholders + actors + choice observers
+create nodes: filter on informees == stakeholders
+
+
+event-seq-id : Int64 = [ index : 54bit | tags : 10bit ]
+
+[ domain_id : 20bit | event_idx : 40bit | kind : 4bit ]
+
+[ | reserved: 4bit | tx_idx: 50bit | reserved: 2bit | event_idx : 14bit | kind: 3bit | audit: 1bit ]
+
+
+TABLE audit_events {
+  tx_idx bigint
+  event_payload bytes[] NOT NULL
+}
+
+TABLE state_events {
+  event_idx bigint
+  event_payload bytes NOT NULL
+}
+
+TABLE state_archivals {
+  create_event_idx bigint
+  archive_event_idx bigint
+}
+
+TABLE state_ids {
+  bytes identifier NOT NULL,
+  event_idx bigint NOT NULL
+}
+
+-- party and template filtering, package filtering? implements interface filtering?
+TABLE events_attributes {
+  attribute                  bigint NOT NULL,
+  domain_event_idx           bigint NOT NULL, 
+  subtree_end_event_idx_off  integer
+}
+
+TABLE event_archivals {
+  archive_domain_id  integer NOT NULL,
+  create_domain_id   integer NOT NULL,
+  archive_event_idx  bigint  NOT NULL,
+  create_event_idx   bigint  NOT NULL,
+}
+
+CREATE INDEX archival_idx1 ON event_archivals USING btree (create_domain_id, create_event_idx, archive)
+CREATE INDEX archival_idx2 ON event_archivals USING btree (create_domain_id, create_event_idx)
+
+
+
+TABLE contract_id_interning {
+  contract_id
+  event_sequential_id
+}
+
+
+*/
+
+
+
+message TransactionProjection {
+  bool include_exercise_subtrees = 1;
+  EventProjection event_projection = 2;
+}
+
+
 // If no projection is set for a specific kind of event, then none of these events will be served.
 //
 // Use the default `EventProjection` to subscribe to just the changes of the ledger end.
@@ -157,9 +233,43 @@ message EventProjection {
 message TransactionCommittedEventProjection {}
 
 // No fine-grained projection available for now. 
-message ContractCreatedEventProjection {
+message ContractCreatedEventFieldSelector {
   // TODO: think about the difference of filtering on stakeholders for "flat" Transactions
   //       vs filtering on informees for TransactionTrees
+
+  bool include_contract_id = 2;
+
+  bool include_template_id = 3;
+
+  bool include_contract_key = 7;
+
+  bool include_create_arguments = 4;
+
+  bool include_signatories = 8;
+
+  bool include_observers = 9;
+
+  bool include_agreement_text = 6;
+
+  bool include_ledger_effective_time = 10;
+}
+
+message EventFilter {
+  // Conjunction of basic filters
+  repeated BasicFilter basic_filters = 1;
+}
+
+message BasicFilter {
+  // stakeholders include set
+  // implements interface, functions X
+  // implements interface,
+}
+
+message FilterCondition {
+  oneof condition {
+    HasStakeholdersCondition has_stakeholders_condition = 1;
+    HasInformeesCondition
+  }
 }
 
 // TODO: think about what kind of projections are required.
@@ -170,6 +280,8 @@ message ChoiceExercisedEventProjection {
   }
 
   Kind kind = 1;
+
+  bool include_exercise_subtrees = 2;
 }
 
 
