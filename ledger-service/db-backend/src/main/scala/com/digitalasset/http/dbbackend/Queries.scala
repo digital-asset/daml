@@ -352,6 +352,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
       queries: ISeq[(SurrogateTpId, Fragment)],
       trackMatchIndices: MatchedQueryMarker[Mark],
       tpidSelector: Fragment,
+      tpidComparator: SurrogateTpId => Fragment,
       query: (Fragment, Fragment) => Fragment,
       key: Key => JsValue,
       sigsObs: SigsObs => Vector[String],
@@ -363,7 +364,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     val queriesCondition =
       joinFragment(
         queryConditions.toOneAnd map { case (tpid, predicate) =>
-          fr"($tpid = $tpidSelector AND ($predicate))"
+          fr"(${tpidComparator(tpid)} AND ($predicate))"
         },
         fr" OR ",
       )
@@ -681,17 +682,10 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
 
   protected[this] override val maxListSize = None
 
-  private[this] val contractTpidIndex = {
-    val name = Fragment.const0(s"${tablePrefix}contract_tpid_idx")
+  private[this] val contractTpidStakeholdersIndex = {
+    val name = Fragment.const0(s"${tablePrefix}contract_tpid_stakeholders_idx")
     CreateIndex(sql"""
-      CREATE INDEX $name ON $contractTableName (tpid)
-    """)
-  }
-
-  private[this] val contractStakeholdersIndex = {
-    val name = Fragment.const0(s"${tablePrefix}contract_stakeholders_idx")
-    CreateIndex(sql"""
-      CREATE INDEX $name ON $contractTableName USING GIN ((signatories || observers))
+      CREATE INDEX $name ON $contractTableName USING GIN ((array[tpid]), (signatories || observers))
     """)
   }
 
@@ -701,7 +695,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
   )
 
   protected[this] override def extraDatabaseDdls =
-    Seq(contractTpidIndex, contractStakeholdersIndex, contractKeyHashIndex)
+    Seq(contractTpidStakeholdersIndex, contractKeyHashIndex)
 
   protected[http] override def version()(implicit log: LogHandler): ConnectionIO[Option[Int]] = {
     for {
@@ -751,6 +745,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
       queries,
       trackMatchIndices,
       tpidSelector = fr"tpid",
+      tpidComparator = tpid => fr"array[$tpid]::$bigIntType[] = array[tpid]",
       query = (tpid, unionPred) =>
         sql"""SELECT contract_id, $tpid tpid, key, key_hash, payload, signatories, observers, agreement_text
               FROM $contractTableName AS c
@@ -918,6 +913,7 @@ private final class OracleQueries(
       queries,
       trackMatchIndices,
       tpidSelector = fr"cst.tpid",
+      tpidComparator = tpid => fr"$tpid = cst.tpid",
       query = { (tpid, queriesCondition) =>
         val rownum = parties.tail.nonEmpty option fr""",
             row_number() over (PARTITION BY c.contract_id ORDER BY c.contract_id) AS rownumber"""
