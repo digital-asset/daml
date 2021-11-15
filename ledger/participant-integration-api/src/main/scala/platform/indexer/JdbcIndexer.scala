@@ -38,9 +38,11 @@ object JdbcIndexer {
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext) {
+  )(implicit materializer: Materializer) {
 
-    def initialized(resetSchema: Boolean = false): ResourceOwner[Indexer] = {
+    def initialized(
+        resetSchema: Boolean = false
+    )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
       val factory = StorageBackendFactory.of(DbType.jdbcType(config.jdbcUrl))
       val dataSourceStorageBackend = factory.createDataSourceStorageBackend
       val ingestionStorageBackend = factory.createIngestionStorageBackend
@@ -110,7 +112,7 @@ object JdbcIndexer {
     private def reset(
         resetStorageBackend: ResetStorageBackend,
         dataSourceStorageBackend: DataSourceStorageBackend,
-    ): ResourceOwner[Unit] =
+    )(implicit loggingContext: LoggingContext): ResourceOwner[Unit] =
       ResourceOwner.forFuture(() =>
         Future(
           Using.resource(dataSourceStorageBackend.createDataSource(config.jdbcUrl).getConnection)(
