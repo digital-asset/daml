@@ -59,9 +59,13 @@ message DamlCommandDedupValue {
     // deduplication key will be rejected due to a duplicate submission.
     google.protobuf.Timestamp deduplicated_until = 2;
     google.protobuf.Timestamp record_time = 3;
-    // record_time is not available during pre-execution
-    google.protobuf.Timestamp max_record_time = 4;
+    PreExecutionDeduplicationBounds record_time_bounds = 4;
   }
+}
+message PreExecutionDeduplicationBounds {
+  // record_time is not available during pre-execution
+  google.protobuf.Timestamp max_record_time = 1;
+  google.protobuf.Timestamp min_record_time = 2;
 }
 
 message DamlSubmissionDedupKey {

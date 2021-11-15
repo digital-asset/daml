@@ -3,14 +3,19 @@
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction
 
+import java.time.Duration
+
 import com.daml.ledger.participant.state.kvutils.Conversions.{
+  buildDuration,
   commandDedupKey,
   parseDuration,
+  parseInstant,
   parseTimestamp,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
 import com.daml.ledger.participant.state.kvutils.store.DamlCommandDedupValue.TimeCase
 import com.daml.ledger.participant.state.kvutils.store.events.{
+  DamlSubmitterInfo,
   DamlTransactionRejectionEntry,
   Duplicate,
 }
@@ -18,6 +23,7 @@ import com.daml.ledger.participant.state.kvutils.store.{
   DamlCommandDedupValue,
   DamlLogEntry,
   DamlStateValue,
+  PreExecutionDeduplicationBounds,
 }
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.logging.LoggingContext
@@ -60,7 +66,7 @@ private[transaction] object CommandDeduplication {
               )
               .toInstant
         }
-        val isDuplicate = maybeDedupValue
+        val isNotADuplicate = maybeDedupValue
           .flatMap(commandDeduplication =>
             commandDeduplication.getTimeCase match {
               // Backward-compatibility, will not  be set for new entries
@@ -75,9 +81,9 @@ private[transaction] object CommandDeduplication {
                     .add(commandDeduplicationDuration)
                 )
               // Set during pre-execution, time skews are already accounted for
-              case TimeCase.MAX_RECORD_TIME =>
+              case TimeCase.RECORD_TIME_BOUNDS =>
                 val maxRecordTime =
-                  parseTimestamp(commandDeduplication.getMaxRecordTime)
+                  parseTimestamp(commandDeduplication.getRecordTimeBounds.getMaxRecordTime)
                 Some(
                   maxRecordTime
                     .add(commandDeduplicationDuration)
@@ -89,24 +95,54 @@ private[transaction] object CommandDeduplication {
           .forall(deduplicatedUntil =>
             recordTimeOrMinimumRecordTime.isAfter(deduplicatedUntil.toInstant)
           )
-        if (isDuplicate) {
+        if (isNotADuplicate) {
           StepContinue(transactionEntry)
         } else {
           if (commitContext.preExecute) {
             // The out of time bounds entry is required in the committer, so we set it to the default value as we stop the steps here with the duplicate rejection
             commitContext.outOfTimeBoundsLogEntry = Some(DamlLogEntry.getDefaultInstance)
+            maybeDedupValue.collect {
+              case dedupValue if dedupValue.hasRecordTimeBounds => dedupValue.getRecordTimeBounds
+            } match {
+              case Some(recordTimeBounds) =>
+                val currentCommandMaxRecordTime = commitContext.maximumRecordTime.getOrElse(
+                  throw Err.InternalError("Maximum record time is not set for pre-execution")
+                )
+                val maxDurationBetweenRecords = Duration.between(
+                  parseInstant(recordTimeBounds.getMinRecordTime),
+                  currentCommandMaxRecordTime.toInstant,
+                )
+                // We use min and max record time to determine if a command is a duplicate.
+                // These boundaries account for time skews.
+                // To guarantee that the interval between the the previous command record time and the rejection record time
+                // is bigger or equal compared to rejection deduplication duration we select the max duration between
+                // the passed deduplication duration and the maximum possible interval between the two commands.
+                val rejectionDeduplicationDuration =
+                  Seq(maxDurationBetweenRecords, commandDeduplicationDuration).max
+                duplicateRejection(
+                  commitContext,
+                  transactionEntry.submitterInfo.toBuilder
+                    .setDeduplicationDuration(
+                      buildDuration(rejectionDeduplicationDuration)
+                    )
+                    .build,
+                )
+              case None =>
+                duplicateRejection(commitContext, transactionEntry.submitterInfo)
+            }
+          } else {
+            duplicateRejection(commitContext, transactionEntry.submitterInfo)
           }
-          duplicateRejection(commitContext, transactionEntry)
         }
       }
 
       private def duplicateRejection(
           commitContext: CommitContext,
-          transactionEntry: DamlTransactionEntrySummary,
+          submitterInfo: DamlSubmitterInfo,
       )(implicit loggingContext: LoggingContext) = {
         rejections.reject(
           DamlTransactionRejectionEntry.newBuilder
-            .setSubmitterInfo(transactionEntry.submitterInfo)
+            .setSubmitterInfo(submitterInfo)
             // No duplicate rejection is a definite answer as the deduplication entry will eventually expire.
             .setDefiniteAnswer(false)
             .setDuplicateCommand(Duplicate.newBuilder.setDetails("")),
@@ -133,8 +169,13 @@ private[transaction] object CommandDeduplication {
             val maxRecordTime = commitContext.maximumRecordTime.getOrElse(
               throw Err.InternalError("Maximum record time is not set for pre-execution")
             )
-            commandDedupBuilder.setMaxRecordTime(
-              Conversions.buildTimestamp(maxRecordTime)
+            val minRecordTime = commitContext.minimumRecordTime.getOrElse(
+              throw Err.InternalError("Minimum record time is not set for pre-execution")
+            )
+            commandDedupBuilder.setRecordTimeBounds(
+              PreExecutionDeduplicationBounds.newBuilder
+                .setMaxRecordTime(Conversions.buildTimestamp(maxRecordTime))
+                .setMinRecordTime(Conversions.buildTimestamp(minRecordTime))
             )
         }
 
