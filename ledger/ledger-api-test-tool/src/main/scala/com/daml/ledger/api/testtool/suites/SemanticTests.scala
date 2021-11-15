@@ -63,7 +63,7 @@ final class SemanticTests extends LedgerTestSuite {
           alpha,
           failure,
           Status.Code.ABORTED,
-          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
+          LedgerApiErrors.ConsistencyErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -156,7 +156,7 @@ final class SemanticTests extends LedgerTestSuite {
           beta,
           failure,
           Status.Code.ABORTED,
-          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
+          LedgerApiErrors.ConsistencyErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -343,7 +343,7 @@ final class SemanticTests extends LedgerTestSuite {
           beta,
           iouFetchFailure,
           Status.Code.ABORTED,
-          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
+          LedgerApiErrors.ConsistencyErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -351,7 +351,7 @@ final class SemanticTests extends LedgerTestSuite {
           alpha,
           paintOfferFetchFailure,
           Status.Code.ABORTED,
-          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
+          LedgerApiErrors.ConsistencyErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -359,7 +359,7 @@ final class SemanticTests extends LedgerTestSuite {
           alpha,
           paintAgreeFetchFailure,
           Status.Code.ABORTED,
-          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
+          LedgerApiErrors.ConsistencyErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -435,7 +435,7 @@ final class SemanticTests extends LedgerTestSuite {
             beta,
             failure,
             Status.Code.ABORTED,
-            LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
+            LedgerApiErrors.ConsistencyErrors.ContractNotFound,
             Some("Contract could not be found"),
             checkDefiniteAnswerMetadata = true,
           )

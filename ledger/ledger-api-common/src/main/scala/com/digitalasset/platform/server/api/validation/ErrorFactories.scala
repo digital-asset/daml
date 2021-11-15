@@ -501,7 +501,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           Seq.empty,
         ),
         v2 = GrpcStatus.toProto(
-          LedgerApiErrors.ConsistencyErrors.ContractsNotFound
+          LedgerApiErrors.ConsistencyErrors.ContractNotFound
             .MultipleContractsNotFound(missingContractIds)
             .asGrpcStatusFromContext
         ),

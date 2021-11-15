@@ -101,8 +101,7 @@ final class ContractIdIT extends LedgerTestSuite {
               Try(
                 assertSelfServiceErrorCode(
                   statusRuntimeException = exception,
-                  expectedErrorCode =
-                    LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
+                  expectedErrorCode = LedgerApiErrors.ConsistencyErrors.ContractNotFound,
                 )
               ).isSuccess =>
           Success(())

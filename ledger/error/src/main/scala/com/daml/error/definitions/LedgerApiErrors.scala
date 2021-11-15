@@ -44,7 +44,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       @Explanation(
         """This error indicates that the uploaded dar is based on an unsupported language version."""
       )
-      @Resolution("Use a Dar compiled with a language version that this participant supports.")
+      @Resolution("Use a DAR compiled with a language version that this participant supports.")
       object AllowedLanguageVersions
           extends ErrorCode(
             id = "ALLOWED_LANGUAGE_VERSIONS",
@@ -72,7 +72,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       }
 
       @Explanation(
-        """This error occurs if a package referred to by a Command fails validation. This should not happen as packages are validated when being uploaded."""
+        """This error occurs if a package referred to by a command fails validation. This should not happen as packages are validated when being uploaded."""
       )
       @Resolution("Contact support.")
       object PackageValidationFailed
@@ -166,33 +166,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       }
 
       object LookupErrors extends ErrorGroup {
-        @Explanation("""This error occurs if the Damle interpreter can not find a referenced contract. This
-                       |can be caused by either the contract not being known to the participant, or not being known to
-                       |the submitting parties or already being archived.""")
-        @Resolution("This error type occurs if there is contention on a contract.")
-        object ContractNotFound
-            extends ErrorCode(
-              id = "CONTRACT_NOT_FOUND",
-              ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-            ) {
-
-          case class Reject(
-              override val cause: String,
-              _cid: Value.ContractId,
-          )(implicit
-              loggingContext: ContextualizedErrorLogger
-          ) extends LoggingTransactionErrorImpl(
-                cause = cause
-              ) {
-            override def resources: Seq[(ErrorResource, String)] = Seq(
-              (ErrorResource.ContractId, _cid.coid)
-            )
-          }
-
-        }
-
         @Explanation(
-          """This error occurs if the Damle interpreter can not resolve a contract key to an active contract. This
+          """This error occurs if the Daml engine interpreter can not resolve a contract key to an active contract. This
             |can be caused by either the contract key not being known to the participant, or not being known to
             |the submitting parties or the contract representing the key has already being archived."""
         )
@@ -215,7 +190,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
               (ErrorResource.ContractKey, _key.toString())
             )
           }
-
         }
       }
 
@@ -293,7 +267,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         |The exact reason is logged on the participant, but not given to the user for security reasons."""
     )
     @Resolution(
-      "Inspect your command and your token, or ask your participant operator for an explanation why this command failed."
+      "Inspect your command and your token or ask your participant operator for an explanation why this command failed."
     )
     object PermissionDenied
         extends ErrorCode(id = "PERMISSION_DENIED", ErrorCategory.InsufficientPermission) {
@@ -421,7 +395,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
 
     @Explanation(
-      """Every ledger Api command contains a ledger-id which is verifying against the running ledger.
+      """Every ledger API command contains a ledger-id which is verified against the running ledger.
           This error indicates that the provided ledger-id does not match the expected one."""
     )
     @Resolution("Ensure that your application is correctly configured to use the correct ledger.")
@@ -439,7 +413,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
 
     @Explanation(
-      """This error is emitted, when a submitted ledger Api command could not be successfully deserialized due to mandatory fields not being set."""
+      """This error is emitted when a submitted ledger API command has some mandatory fields not set."""
     )
     @Resolution("Inspect the reason given and correct your application.")
     object MissingField
@@ -452,7 +426,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
 
     @Explanation(
-      """This error is emitted, when a submitted ledger Api command contained an invalid argument."""
+      """This error is emitted when a submitted ledger API command contains an invalid argument."""
     )
     @Resolution("Inspect the reason given and correct your application.")
     object InvalidArgument
@@ -465,7 +439,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
 
     @Explanation(
-      """This error is emitted, when a submitted ledger Api command contained a field value that could not be properly understood"""
+      """This error is emitted when a submitted ledger API command contains a field value that could not be properly understood."""
     )
     @Resolution("Inspect the reason given and correct your application.")
     object InvalidField
@@ -608,7 +582,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       "This rejection is given when a request might not been processed and a time-out was reached."
     )
     @Resolution(
-      "Retry for transient problems. If non-transient contact the operator as the time-out limit might be to short."
+      "Retry for transient problems. If non-transient contact the operator as the time-out limit might be too short."
     )
     object RequestTimeOut
         extends ErrorCode(
@@ -624,8 +598,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   }
 
   object ConsistencyErrors extends ErrorGroup {
-    @Explanation("A command with the given command id has already been successfully processed")
-    @Resolution("Celebrate, as your command has already been delivered")
+    @Explanation("A command with the given command id has already been successfully processed.")
+    @Resolution("Celebrate, as your command has already been delivered.")
     object DuplicateCommand
         extends ErrorCode(
           id = "DUPLICATE_COMMAND",
@@ -674,14 +648,14 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
 
     @Explanation(
-      """This error occurs if the Daml engine interpreter can not find a referenced contract. This
+      """This error occurs if the Daml engine can not find a referenced contract. This
         |can be caused by either the contract not being known to the participant, or not being known to
         |the submitting parties or already being archived."""
     )
     @Resolution("This error type occurs if there is contention on a contract.")
-    object ContractsNotFound
+    object ContractNotFound
         extends ErrorCode(
-          id = "CONTRACTS_NOT_FOUND",
+          id = "CONTRACT_NOT_FOUND",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
 
@@ -692,6 +666,19 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           (ErrorResource.ContractId, notFoundContractIds.mkString("[", ", ", "]"))
+        )
+      }
+
+      case class Reject(
+          override val cause: String,
+          _cid: Value.ContractId,
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = cause
+          ) {
+        override def resources: Seq[(ErrorResource, String)] = Seq(
+          (ErrorResource.ContractId, _cid.coid)
         )
       }
     }

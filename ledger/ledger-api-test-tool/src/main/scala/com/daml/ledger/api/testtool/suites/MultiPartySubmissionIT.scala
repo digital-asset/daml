@@ -213,7 +213,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ABORTED,
-        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
+        LedgerApiErrors.ConsistencyErrors.ContractNotFound,
         Some(Pattern.compile("Contract could not be found")),
         checkDefiniteAnswerMetadata = true,
       )

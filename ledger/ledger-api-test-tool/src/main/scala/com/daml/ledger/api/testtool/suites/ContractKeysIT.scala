@@ -128,7 +128,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         beta,
         fetchFailure,
         Status.Code.ABORTED,
-        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound,
+        LedgerApiErrors.ConsistencyErrors.ContractNotFound,
         Some("Contract could not be found"),
         checkDefiniteAnswerMetadata = true,
       )

@@ -16,7 +16,7 @@ class RejectionGenerators(conformanceMode: Boolean) {
   private val adjustErrors = Map(
     LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound -> Code.INVALID_ARGUMENT,
     LedgerApiErrors.CommandExecution.Interpreter.ContractNotActive -> Code.INVALID_ARGUMENT,
-    LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound -> Code.ABORTED,
+    LedgerApiErrors.ConsistencyErrors.ContractNotFound -> Code.ABORTED,
     LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound -> Code.INVALID_ARGUMENT,
     LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError -> Code.INVALID_ARGUMENT,
   )
@@ -88,7 +88,7 @@ class RejectionGenerators(conformanceMode: Boolean) {
 
       err match {
         case LfInterpretationError.ContractNotFound(cid) =>
-          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractNotFound
+          LedgerApiErrors.ConsistencyErrors.ContractNotFound
             .Reject(renderedMessage, cid)
         case LfInterpretationError.ContractKeyNotFound(key) =>
           LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound
