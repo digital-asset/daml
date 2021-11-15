@@ -374,7 +374,6 @@ object SBuiltinBigNumericTest {
         }
 
     """
-  )
 
   val compiledPackages =
     PureCompiledPackages.assertBuild(Map(defaultParserParameters.defaultPackageId -> pkg))
