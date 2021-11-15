@@ -402,7 +402,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     object LedgerIdMismatch
         extends ErrorCode(
           id = "LEDGER_ID_MISMATCH",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
       case class Reject(override val cause: String)(implicit
           loggingContext: ContextualizedErrorLogger

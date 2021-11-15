@@ -448,7 +448,7 @@ class SubmitRequestValidatorTest
           expectedDescriptionV1 = "The ledger configuration is not available.",
           expectedCodeV2 = NOT_FOUND,
           expectedDescriptionV2 =
-            "LEDGER_CONFIGURATION_NOT_FOUND(11,0): The ledger configuration is not available.",
+            "LEDGER_CONFIGURATION_NOT_FOUND(11,0): The ledger configuration could not be retrieved.",
         )
       }
     }

@@ -282,7 +282,7 @@ class ErrorFactoriesSpec
           v1_details = expectedDetails,
           v2_code = Code.NOT_FOUND,
           v2_message =
-            s"LEDGER_CONFIGURATION_NOT_FOUND(11,$correlationId): The ledger configuration is not available.",
+            s"LEDGER_CONFIGURATION_NOT_FOUND(11,$correlationId): The ledger configuration could not be retrieved.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("LEDGER_CONFIGURATION_NOT_FOUND"),
             DefaultTraceIdRequestInfo,
