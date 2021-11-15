@@ -258,7 +258,7 @@ class CommandTrackerFlowTest
         results.expectNoMessage(3.seconds)
 
         completionStreamMock.send(
-          CompletionStreamElement.CompletionElement(None, abortedCompletion)
+          CompletionStreamElement.CompletionElement(abortedCompletion, None)
         )
         results.requestNext().value shouldEqual Left(
           failureCompletion(Code.ABORTED)
@@ -275,7 +275,7 @@ class CommandTrackerFlowTest
         submissions.sendNext(submission)
 
         completionStreamMock.send(
-          CompletionStreamElement.CompletionElement(None, abortedCompletion)
+          CompletionStreamElement.CompletionElement(abortedCompletion, None)
         )
         results.requestNext().value shouldEqual Left(
           failureCompletion(Code.ABORTED)
@@ -483,7 +483,7 @@ class CommandTrackerFlowTest
             Some(status),
             submissionId = submissionId,
           )
-        completionStreamMock.send(CompletionStreamElement.CompletionElement(None, failedCompletion))
+        completionStreamMock.send(CompletionStreamElement.CompletionElement(failedCompletion, None))
 
         results.expectNext(
           Ctx(
@@ -671,8 +671,8 @@ class CommandTrackerFlowTest
 
   private def successfulStreamCompletion(submissionId: String, commandId: String) =
     CompletionStreamElement.CompletionElement(
-      None,
       Completion(commandId, Some(successStatus), submissionId = submissionId),
+      None,
     )
 
   private def checkPoint(ledgerOffset: LedgerOffset) =

@@ -164,7 +164,7 @@ private[commands] class CommandTracker[Context](
               case Left(submitResponse) =>
                 pushResultOrPullCommandResultIn(handleSubmitResponse(submitResponse))
 
-              case Right(CompletionStreamElement.CompletionElement(checkpoint, completion)) =>
+              case Right(CompletionStreamElement.CompletionElement(completion, checkpoint)) =>
                 pushResultOrPullCommandResultIn(getResponseForCompletion(completion, checkpoint))
 
               case Right(CompletionStreamElement.CheckpointElement(checkpoint)) =>

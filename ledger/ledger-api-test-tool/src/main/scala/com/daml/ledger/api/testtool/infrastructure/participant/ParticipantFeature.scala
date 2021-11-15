@@ -16,7 +16,6 @@ object Features {
     Features(selfServiceErrorCodesFeature.toList)
   }
 }
-
 case class Features(features: Seq[Feature]) {
   val selfServiceErrorCodes: Boolean = SelfServiceErrorCodes.enabled(features)
 }
