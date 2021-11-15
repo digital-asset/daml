@@ -42,6 +42,7 @@ private[validation] object Typing {
     case PLParty(_) => TParty
     case PLDate(_) => TDate
     case PLRoundingMode(_) => TRoundingMode
+    case PLNatSingleton(n) => TNatSingleton(TNat(n))
   }
 
   protected[validation] lazy val typeOfBuiltinFunction = {
@@ -49,19 +50,32 @@ private[validation] object Typing {
     val beta = TVar(Name.assertFromString("$beta$"))
     val gamma = TVar(Name.assertFromString("$gamma$"))
     def tBinop(typ: Type): Type = typ ->: typ ->: typ
-    val tNumBinop = TForall(alpha.name -> KNat, tBinop(TNumeric(alpha)))
+    val tNumBinop = TForall(alpha.name -> KNat, TNatSingleton(alpha) ->: tBinop(TNumeric(alpha)))
     val tMultiNumBinop =
       TForall(
         alpha.name -> KNat,
-        TForall(
-          beta.name -> KNat,
-          TForall(gamma.name -> KNat, TNumeric(alpha) ->: TNumeric(beta) ->: TNumeric(gamma)),
-        ),
+        TNatSingleton(alpha) ->:
+          TForall(
+            beta.name -> KNat,
+            TNatSingleton(beta) ->:
+              TForall(
+                gamma.name -> KNat,
+                TNatSingleton(gamma) ->:
+                  TNumeric(alpha) ->: TNumeric(beta) ->: TNumeric(gamma),
+              ),
+          ),
       )
     val tNumConversion =
-      TForall(alpha.name -> KNat, TForall(beta.name -> KNat, TNumeric(alpha) ->: TNumeric(beta)))
+      TForall(
+        alpha.name -> KNat,
+        TNatSingleton(alpha) ->:
+          TForall(beta.name -> KNat, TNatSingleton(beta) ->: TNumeric(alpha) ->: TNumeric(beta)),
+      )
     val tComparison: Type = TForall(alpha.name -> KStar, alpha ->: alpha ->: TBool)
-    val tNumComparison = TForall(alpha.name -> KNat, TNumeric(alpha) ->: TNumeric(alpha) ->: TBool)
+    val tNumComparison = TForall(
+      alpha.name -> KNat,
+      TNatSingleton(alpha) ->: TNumeric(alpha) ->: TNumeric(alpha) ->: TBool,
+    )
 
     Map[BuiltinFunction, Type](
       BTrace -> TForall(alpha.name -> KStar, TText ->: alpha ->: alpha),
@@ -70,7 +84,10 @@ private[validation] object Typing {
       BSubNumeric -> tNumBinop,
       BMulNumeric -> tMultiNumBinop,
       BDivNumeric -> tMultiNumBinop,
-      BRoundNumeric -> TForall(alpha.name -> KNat, TInt64 ->: TNumeric(alpha) ->: TNumeric(alpha)),
+      BRoundNumeric -> TForall(
+        alpha.name -> KNat,
+        TNatSingleton(alpha) ->: TInt64 ->: TNumeric(alpha) ->: TNumeric(alpha),
+      ),
       BCastNumeric -> tNumConversion,
       BShiftNumeric -> tNumConversion,
       // Int64 arithmetic
@@ -81,8 +98,14 @@ private[validation] object Typing {
       BModInt64 -> tBinop(TInt64),
       BExpInt64 -> tBinop(TInt64),
       // Conversions
-      BInt64ToNumeric -> TForall(alpha.name -> KNat, TInt64 ->: TNumeric(alpha)),
-      BNumericToInt64 -> TForall(alpha.name -> KNat, TNumeric(alpha) ->: TInt64),
+      BInt64ToNumeric -> TForall(
+        alpha.name -> KNat,
+        TNatSingleton(alpha) ->: TInt64 ->: TNumeric(alpha),
+      ),
+      BNumericToInt64 -> TForall(
+        alpha.name -> KNat,
+        TNatSingleton(alpha) ->: TNumeric(alpha) ->: TInt64,
+      ),
       BDateToUnixDays -> (TDate ->: TInt64),
       BUnixDaysToDate -> (TInt64 ->: TDate),
       BTimestampToUnixMicroseconds -> (TTimestamp ->: TInt64),
@@ -186,7 +209,10 @@ private[validation] object Typing {
       BExplodeText -> (TText ->: TList(TText)),
       BAppendText -> tBinop(TText),
       BInt64ToText -> (TInt64 ->: TText),
-      BNumericToText -> TForall(alpha.name -> KNat, TNumeric(alpha) ->: TText),
+      BNumericToText -> TForall(
+        alpha.name -> KNat,
+        TNatSingleton(alpha) ->: TNumeric(alpha) ->: TText,
+      ),
       BTextToText -> (TText ->: TText),
       BTimestampToText -> (TTimestamp ->: TText),
       BPartyToText -> (TParty ->: TText),
@@ -197,7 +223,10 @@ private[validation] object Typing {
       BCodePointsToText -> (TList(TInt64) ->: TText),
       BTextToParty -> (TText ->: TOptional(TParty)),
       BTextToInt64 -> (TText ->: TOptional(TInt64)),
-      BTextToNumeric -> TForall(alpha.name -> KNat, TText ->: TOptional(TNumeric(alpha))),
+      BTextToNumeric -> TForall(
+        alpha.name -> KNat,
+        TNatSingleton(alpha) ->: TText ->: TOptional(TNumeric(alpha)),
+      ),
       BTextToCodePoints -> (TText ->: TList(TInt64)),
       BError -> TForall(alpha.name -> KStar, TText ->: alpha),
       // ComparisonsA
@@ -232,8 +261,14 @@ private[validation] object Typing {
       BMulBigNumeric -> (TBigNumeric ->: TBigNumeric ->: TBigNumeric),
       BDivBigNumeric -> (TInt64 ->: TRoundingMode ->: TBigNumeric ->: TBigNumeric ->: TBigNumeric),
       BShiftRightBigNumeric -> (TInt64 ->: TBigNumeric ->: TBigNumeric),
-      BBigNumericToNumeric -> TForall(alpha.name -> KNat, TBigNumeric ->: TNumeric(alpha)),
-      BNumericToBigNumeric -> TForall(alpha.name -> KNat, TNumeric(alpha) ->: TBigNumeric),
+      BBigNumericToNumeric -> TForall(
+        alpha.name -> KNat,
+        TNatSingleton(alpha) ->: TBigNumeric ->: TNumeric(alpha),
+      ),
+      BNumericToBigNumeric -> TForall(
+        alpha.name -> KNat,
+        TNatSingleton(alpha) ->: TNumeric(alpha) ->: TBigNumeric,
+      ),
       BBigNumericToText -> (TBigNumeric ->: TText),
       // Exception functions
       BAnyExceptionMessage -> (TAnyException ->: TText),
@@ -275,7 +310,16 @@ private[validation] object Typing {
             env.checkInterfaceType(tyConName, params)
         }
       case (dfnName, dfn: DValue) =>
+        if (dfnName.toString.contains("fMultiplicativeNumeric")) {
+          remy.log(s" >>> $dfnName <<<<  ")
+          remy.log(dfn.typ)
+          remy.log("")
+          remy.log(dfn.body)
+          remy.log("")
+
+        }
         Env(langVersion, interface, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
+
       case (dfnName, DTypeSyn(params, replacementTyp)) =>
         val env =
           Env(langVersion, interface, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
@@ -316,16 +360,19 @@ private[validation] object Typing {
       interface: PackageInterface,
       ctx: Context,
       tVars: Map[TypeVarName, Kind] = Map.empty,
-      eVars: Map[ExprVarName, Type] = Map.empty,
+      eVars: Map[EVar, Type] = Map.empty,
   ) {
 
     /* Env Ops */
 
-    private def introTypeVar(v: TypeVarName, k: Kind): Env = {
-      copy(tVars = tVars + (v -> k))
-    }
+    private def introTypeVar(v: TypeVarName, k: Kind): Env =
+      copy(tVars = tVars.updated(v, k))
 
-    private def introExprVar(x: ExprVarName, t: Type): Env = copy(eVars = eVars + (x -> t))
+    private def introExprVar(x: EVar, t: Type): Env =
+      copy(eVars = eVars.updated(x, t))
+
+    private def introExprVar(x: ExprVarName, t: Type): Env =
+      introExprVar(EVar(x), t)
 
     private def introExprVar(xOpt: Option[ExprVarName], t: Type): Env =
       xOpt.fold(this)(introExprVar(_, t))
@@ -333,8 +380,8 @@ private[validation] object Typing {
     private def newLocation(loc: Location): Env =
       copy(ctx = ContextLocation(loc))
 
-    private def lookupExpVar(name: ExprVarName): Type =
-      eVars.getOrElse(name, throw EUnknownExprVar(ctx, name))
+    private def lookupExpVar(v: EVar): Type =
+      eVars.getOrElse(v, throw EUnknownExprVar(ctx, v.value))
 
     private def lookupTypeVar(name: TypeVarName): Kind =
       tVars.getOrElse(name, throw EUnknownTypeVar(ctx, name))
@@ -551,6 +598,9 @@ private[validation] object Typing {
       case TStruct(fields) =>
         checkRecordType(fields.toImmArray)
         KStar
+      case TNatSingleton(n) =>
+        checkType(n, KNat)
+        KStar
     }
 
     private[lf] def expandTypeSynonyms(typ0: Type): Type = typ0 match {
@@ -571,6 +621,8 @@ private[validation] object Typing {
         TForall((v, k), introTypeVar(v, k).expandTypeSynonyms(b))
       case TStruct(recordType) =>
         TStruct(recordType.mapValues(expandTypeSynonyms(_)))
+      case TNatSingleton(n) =>
+        TNatSingleton(expandTypeSynonyms(n))
     }
 
     private def expandSynApp(syn: TypeSynName, tArgs: ImmArray[Type]): Type = {
@@ -683,7 +735,7 @@ private[validation] object Typing {
       unwrapForall(typeOf(expr), typs, Map.empty)
     }
 
-    private def typeOfTmLam(x: ExprVarName, typ: Type, body: Expr): Type = {
+    private def typeOfTmLam(x: EVar, typ: Type, body: Expr): Type = {
       checkType(typ, KStar)
       typ ->: introExprVar(x, typ).typeOf(body)
     }
@@ -1060,8 +1112,8 @@ private[validation] object Typing {
     }
 
     def typeOf(expr0: Expr): Type = expr0 match {
-      case EVar(name) =>
-        lookupExpVar(name)
+      case x: EVar =>
+        lookupExpVar(x)
       case EVal(ref) =>
         handleLookup(ctx, interface.lookupValue(ref)).typ
       case EBuiltin(fun) =>

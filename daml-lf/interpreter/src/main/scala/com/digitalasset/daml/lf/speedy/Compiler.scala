@@ -6,7 +6,7 @@ package speedy
 
 import java.util
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Numeric, Ref, Struct, Time}
+import com.daml.lf.data.{ImmArray, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageVersion, LookupError, PackageInterface, StablePackages}
 import com.daml.lf.speedy.Anf.flattenToAnf
@@ -99,9 +99,9 @@ private[lf] object Compiler {
   private val SBEqualNumeric = SBCompareNumeric(SBEqual)
 
   private val SBEToTextNumeric = s.SEAbs(1, s.SEBuiltin(SBToText))
-
-  private val SENat: Numeric.Scale => Some[s.SEValue] =
-    Numeric.Scale.values.map(n => Some(s.SEValue(STNat(n))))
+//
+//  private val SENat: Numeric.Scale => Some[s.SEValue] =
+//    Numeric.Scale.values.map(n => Some(s.SEValue(STNat(n))))
 
   /** Validates and Compiles all the definitions in the packages provided. Returns them in a Map.
     *
@@ -165,12 +165,6 @@ private[lf] final class Compiler(
 
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
-  private[this] abstract class VarRef { def name: Name }
-  // corresponds to Daml-LF expression variable.
-  private[this] case class EVarRef(name: ExprVarName) extends VarRef
-  // corresponds to Daml-LF type variable.
-  private[this] case class TVarRef(name: TypeVarName) extends VarRef
-
   case class Position(idx: Int)
 
   private[this] object Env {
@@ -179,50 +173,41 @@ private[lf] final class Compiler(
 
   private[this] case class Env(
       position: Int,
-      varIndices: Map[VarRef, Position],
+      varIndices: Map[EVar, Position],
   ) {
 
     def toSEVar(p: Position): s.SEVar = s.SEVar(position - p.idx)
 
     def nextPosition = Position(position)
 
-    def pushVar: Env = copy(position = position + 1)
-
-    private[this] def bindVar(ref: VarRef, p: Position) =
+    private[this] def bindVar(ref: EVar, p: Position) =
       copy(varIndices = varIndices.updated(ref, p))
 
-    def pushVar(ref: VarRef): Env =
-      bindVar(ref, nextPosition).pushVar
+    def pushVar(): Env = copy(position = position + 1)
 
-    def pushExprVar(name: ExprVarName): Env =
-      pushVar(EVarRef(name))
+    def pushVar(evar: EVar): Env =
+      bindVar(evar, nextPosition).pushVar()
 
-    def pushExprVar(maybeName: Option[ExprVarName]): Env =
+    def pushVar(name: ExprVarName): Env =
+      pushVar(EVar(name))
+
+    def pushVar(maybeName: Option[ExprVarName]): Env =
       maybeName match {
-        case Some(name) => pushExprVar(name)
-        case None => pushVar
+        case Some(name) => pushVar(name)
+        case None => pushVar()
       }
 
-    def pushTypeVar(name: ExprVarName): Env =
-      pushVar(TVarRef(name))
+    def bindVar(name: ExprVarName, p: Position): Env =
+      bindVar(EVar(name), p)
 
-    def hideTypeVar(name: TypeVarName): Env =
-      copy(varIndices = varIndices - TVarRef(name))
+    private[this] def vars: List[EVar] = varIndices.keys.toList
 
-    def bindExprVar(name: ExprVarName, p: Position): Env =
-      bindVar(EVarRef(name), p)
-
-    private[this] def vars: List[VarRef] = varIndices.keys.toList
-
-    private[this] def lookupVar(varRef: VarRef): Option[s.SEVar] =
-      varIndices.get(varRef).map(toSEVar)
-
-    def lookupExprVar(name: ExprVarName): s.SEVar =
-      lookupVar(EVarRef(name))
-        .getOrElse(throw CompilationError(s"Unknown variable: $name. Known: ${vars.mkString(",")}"))
-
-    def lookupTypeVar(name: TypeVarName): Option[s.SEVar] =
-      lookupVar(TVarRef(name))
+    def lookupVar(evar: EVar): s.SEVar =
+      varIndices.get(evar) match {
+        case Some(p) => toSEVar(p)
+        case None =>
+          throw CompilationError(s"Unknown variable: ${evar.value}. Known: ${vars.mkString(",")}")
+      }
 
   }
 
@@ -266,7 +251,7 @@ private[lf] final class Compiler(
   private[this] def app(f: s.SExpr, a: s.SExpr) = s.SEApp(f, Array(a))
 
   private[this] def let(env: Env, bound: s.SExpr)(f: (Position, Env) => s.SExpr): s.SELet =
-    f(env.nextPosition, env.pushVar) match {
+    f(env.nextPosition, env.pushVar()) match {
       case s.SELet(bounds, body) =>
         s.SELet(bound :: bounds, body)
       case otherwise =>
@@ -274,7 +259,7 @@ private[lf] final class Compiler(
     }
 
   private[this] def unaryFunction(env: Env)(f: (Position, Env) => s.SExpr): s.SEAbs =
-    f(env.nextPosition, env.pushVar) match {
+    f(env.nextPosition, env.pushVar()) match {
       case s.SEAbs(n, body) => s.SEAbs(n + 1, body)
       case otherwise => s.SEAbs(1, otherwise)
     }
@@ -295,11 +280,11 @@ private[lf] final class Compiler(
     ref -> SDefinition(unsafeClosureConvert(withLabelS(ref, body)))
 
   private val Position1 = Env.Empty.nextPosition
-  private val Env1 = Env.Empty.pushVar
+  private val Env1 = Env.Empty.pushVar()
   private val Position2 = Env1.nextPosition
-  private val Env2 = Env1.pushVar
+  private val Env2 = Env1.pushVar()
   private val Position3 = Env2.nextPosition
-  private val Env3 = Env2.pushVar
+  private val Env3 = Env2.pushVar()
 
   private[this] def topLevelFunction1[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
@@ -457,8 +442,8 @@ private[lf] final class Compiler(
 
   private[this] def compile(env: Env, expr0: Expr): s.SExpr =
     expr0 match {
-      case EVar(name) =>
-        env.lookupExprVar(name)
+      case evar: EVar =>
+        env.lookupVar(evar)
       case EVal(ref) =>
         s.SEVal(t.LfDefRef(ref))
       case EBuiltin(bf) =>
@@ -467,10 +452,14 @@ private[lf] final class Compiler(
         compilePrimCon(con)
       case EPrimLit(lit) =>
         compilePrimLit(lit)
-      case EAbs(_, _, _) | ETyAbs(_, _) =>
+      case EAbs(_, _, _) =>
         compileAbss(env, expr0)
-      case EApp(_, _) | ETyApp(_, _) =>
+      case ETyAbs(_, body) =>
+        compile(env, body)
+      case EApp(_, _) =>
         compileApps(env, expr0)
+      case ETyApp(body, _) =>
+        compile(env, body)
       case ERecCon(tApp, fields) =>
         compileERecCon(env, tApp, fields)
       case ERecProj(tapp, field, record) =>
@@ -717,6 +706,7 @@ private[lf] final class Compiler(
       case PLParty(p) => SParty(p)
       case PLDate(d) => SDate(d)
       case PLRoundingMode(roundingMode) => SInt64(roundingMode.ordinal.toLong)
+      case PLNatSingleton(n) => SNatSingleton(n)
     })
 
   // ERecUpd(_, f2, ERecUpd(_, f1, e0, e1), e2) => (e0, [f1, f2], [e1, e2])
@@ -780,7 +770,7 @@ private[lf] final class Compiler(
               NameOf.qualifiedNameOfCurrentFunc,
               interface.lookupVariantConstructor(tycon, variant),
             ).rank
-            s.SCaseAlt(t.SCPVariant(tycon, variant, rank), compile(env.pushExprVar(binder), expr))
+            s.SCaseAlt(t.SCPVariant(tycon, variant, rank), compile(env.pushVar(binder), expr))
 
           case CPEnum(tycon, constructor) =>
             val rank = handleLookup(
@@ -793,7 +783,7 @@ private[lf] final class Compiler(
             s.SCaseAlt(t.SCPNil, compile(env, expr))
 
           case CPCons(head, tail) =>
-            s.SCaseAlt(t.SCPCons, compile(env.pushExprVar(head).pushExprVar(tail), expr))
+            s.SCaseAlt(t.SCPCons, compile(env.pushVar(head).pushVar(tail), expr))
 
           case CPPrimCon(pc) =>
             s.SCaseAlt(t.SCPPrimCon(pc), compile(env, expr))
@@ -802,7 +792,7 @@ private[lf] final class Compiler(
             s.SCaseAlt(t.SCPNone, compile(env, expr))
 
           case CPSome(body) =>
-            s.SCaseAlt(t.SCPSome, compile(env.pushExprVar(body), expr))
+            s.SCaseAlt(t.SCPSome, compile(env.pushVar(body), expr))
 
           case CPDefault =>
             s.SCaseAlt(t.SCPDefault, compile(env, expr))
@@ -819,7 +809,7 @@ private[lf] final class Compiler(
   ): s.SELet = {
     val binding = eLet0.binding
     val bounds = withOptLabelS(binding.binder, compile(env0, binding.bound)) :: bounds0
-    val env1 = env0.pushExprVar(binding.binder)
+    val env1 = env0.pushVar(binding.binder)
     eLet0.body match {
       case eLet1: ELet =>
         compileELet(env1, eLet1, bounds)
@@ -867,10 +857,10 @@ private[lf] final class Compiler(
         unaryFunction(env) { (tokenPos, env0) =>
           s.SETryCatch(
             app(compile(env0, body), env0.toSEVar(tokenPos)), {
-              val env1 = env0.pushExprVar(binder)
+              val env1 = env0.pushVar(binder)
               SBTryHandler(
                 compile(env1, handler),
-                env1.lookupExprVar(binder),
+                env1.lookupVar(EVar(binder)),
                 env1.toSEVar(tokenPos),
               )
             },
@@ -882,11 +872,11 @@ private[lf] final class Compiler(
   private[this] def compileAbss(env: Env, expr0: Expr, arity: Int = 0): s.SExpr =
     expr0 match {
       case EAbs((binder, typ @ _), body, ref @ _) =>
-        compileAbss(env.pushExprVar(binder), body, arity + 1)
-      case ETyAbs((binder, KNat), body) =>
-        compileAbss(env.pushTypeVar(binder), body, arity + 1)
-      case ETyAbs((binder, _), body) =>
-        compileAbss(env.hideTypeVar(binder), body, arity)
+        compileAbss(env.pushVar(binder), body, arity + 1)
+//      case ETyAbs((binder, KNat), body) =>
+//        compileAbss(env.pushTypeVar(binder), body, arity + 1)
+//      case ETyAbs((binder, _), body) =>
+//        compileAbss(env.hideTypeVar(binder), body, arity)
       case _ if arity == 0 =>
         compile(env, expr0)
       case _ =>
@@ -898,20 +888,21 @@ private[lf] final class Compiler(
     expr0 match {
       case EApp(fun, arg) =>
         compileApps(env, fun, compile(env, arg) :: args)
-      case ETyApp(fun, arg) =>
-        compileApps(env, fun, translateType(env, arg).fold(args)(_ :: args))
+//      case ETyApp(fun, arg) =>
+//        compileApps(env, fun, args)
+//          translateType(env, arg).fold(args)(_ :: args))
       case _ if args.isEmpty =>
         compile(env, expr0)
       case _ =>
         s.SEApp(compile(env, expr0), args.toArray)
     }
 
-  private[this] def translateType(env: Env, typ: Type): Option[s.SExpr] =
-    typ match {
-      case TNat(n) => SENat(n)
-      case TVar(name) => env.lookupTypeVar(name)
-      case _ => None
-    }
+//  private[this] def translateType(env: Env, typ: Type): Option[s.SExpr] =
+//    typ match {
+//      case TNat(n) => SENat(n)
+//      case TVar(name) => env.lookupTypeVar(name)
+//      case _ => None
+//    }
 
   private[this] def compileScenario(env: Env, scen: Scenario, optLoc: Option[Location]): s.SExpr =
     scen match {
@@ -996,12 +987,12 @@ private[lf] final class Compiler(
     let(env, compile(env, bindings.head.bound)) { (firstPos, env) =>
       unaryFunction(env) { (tokenPos, env) =>
         let(env, app(env.toSEVar(firstPos), env.toSEVar(tokenPos))) { (firstBoundPos, _env) =>
-          val env = bindings.head.binder.fold(_env)(_env.bindExprVar(_, firstBoundPos))
+          val env = bindings.head.binder.fold(_env)(_env.bindVar(_, firstBoundPos))
 
           def loop(env: Env, list: List[Binding]): s.SExpr = list match {
             case Binding(binder, _, bound) :: tail =>
               let(env, app(compile(env, bound), env.toSEVar(tokenPos))) { (boundPos, _env) =>
-                val env = binder.fold(_env)(_env.bindExprVar(_, boundPos))
+                val env = binder.fold(_env)(_env.bindVar(_, boundPos))
                 loop(env, tail)
               }
             case Nil =>
@@ -1056,7 +1047,7 @@ private[lf] final class Compiler(
       )(env.toSEVar(cidPos), mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos)))),
     ) { (tmplArgPos, _env) =>
       val env =
-        _env.bindExprVar(tmpl.param, tmplArgPos).bindExprVar(choice.argBinder._1, choiceArgPos)
+        _env.bindVar(tmpl.param, tmplArgPos).bindVar(choice.argBinder._1, choiceArgPos)
       let(
         env,
         SBUBeginExercise(
@@ -1075,7 +1066,7 @@ private[lf] final class Compiler(
           },
         ),
       ) { (_, _env) =>
-        val env = _env.bindExprVar(choice.selfBinder, cidPos)
+        val env = _env.bindVar(choice.selfBinder, cidPos)
         s.SEScopeExercise(
           app(compile(env, choice.update), env.toSEVar(tokenPos))
         )
@@ -1095,7 +1086,7 @@ private[lf] final class Compiler(
       tokenPos: Position,
   ) =
     let(env, SBUFetchInterface(ifaceId)(env.toSEVar(cidPos))) { (payloadPos, _env) =>
-      val env = _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
+      val env = _env.bindVar(param, payloadPos).bindVar(choice.argBinder._1, choiceArgPos)
       let(
         env,
         SBResolveSBUBeginExercise(choice.name, choice.consuming, byKey = false, ifaceId = ifaceId)(
@@ -1109,7 +1100,7 @@ private[lf] final class Compiler(
           },
         ),
       ) { (_, _env) =>
-        val env = _env.bindExprVar(choice.selfBinder, cidPos)
+        val env = _env.bindVar(choice.selfBinder, cidPos)
         s.SEScopeExercise(app(compile(env, choice.update), env.toSEVar(tokenPos)))
       }
     }
@@ -1199,7 +1190,7 @@ private[lf] final class Compiler(
         tmplId
       )(env.toSEVar(cidPos), mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos)))),
     ) { (tmplArgPos, _env) =>
-      val env = _env.bindExprVar(tmpl.param, tmplArgPos)
+      val env = _env.bindVar(tmpl.param, tmplArgPos)
       let(
         env,
         SBUInsertFetchNode(tmplId, byKey = mbKey.isDefined, byInterface = None)(env.toSEVar(cidPos)),
@@ -1242,7 +1233,7 @@ private[lf] final class Compiler(
       tmpl: Template,
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction1(t.KeyDefRef(tmplId)) { (tmplArgPos, env) =>
-      compileKeyWithMaintainers(env.bindExprVar(tmpl.param, tmplArgPos), tmpl.key)
+      compileKeyWithMaintainers(env.bindVar(tmpl.param, tmplArgPos), tmpl.key)
     }
 
   private[this] def compileSignatories(
@@ -1250,7 +1241,7 @@ private[lf] final class Compiler(
       tmpl: Template,
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction1(t.SignatoriesDefRef(tmplId)) { (tmplArgPos, env) =>
-      compile(env.bindExprVar(tmpl.param, tmplArgPos), tmpl.signatories)
+      compile(env.bindVar(tmpl.param, tmplArgPos), tmpl.signatories)
     }
 
   private[this] def compileObservers(
@@ -1258,7 +1249,7 @@ private[lf] final class Compiler(
       tmpl: Template,
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction1(t.ObserversDefRef(tmplId)) { (tmplArgPos, env) =>
-      compile(env.bindExprVar(tmpl.param, tmplArgPos), tmpl.observers)
+      compile(env.bindVar(tmpl.param, tmplArgPos), tmpl.observers)
     }
 
   // Turn a template value into an interface value. Since interfaces have a
@@ -1293,7 +1284,7 @@ private[lf] final class Compiler(
       (Iterator(tmpl.precond) ++ (tmpl.implements.iterator.map(impl => impl._2.precond)))
         .to(ImmArray)
     val preconds = ECons(TBuiltin(BTBool), precondsArray, ENil(TBuiltin(BTBool)))
-    val env2 = env.bindExprVar(tmpl.param, tmplArgPos)
+    val env2 = env.bindVar(tmpl.param, tmplArgPos)
     // We check precondition in a separated builtin to prevent
     // further evaluation of agreement, signatories, observers and key
     // in case of failed precondition.
@@ -1444,7 +1435,7 @@ private[lf] final class Compiler(
       s.SETryCatch(
         app(e, env0.toSEVar(tokenPos)), {
           val binderPos = env0.nextPosition
-          val env1 = env0.pushVar
+          val env1 = env0.pushVar()
           SBTryHandler(handleEverything, env1.toSEVar(binderPos), env1.toSEVar(tokenPos))
         },
       )
@@ -1467,7 +1458,7 @@ private[lf] final class Compiler(
               var env = _env
               val exprs = rest.map { cmd =>
                 val expr = app(compileCommand(cmd), env.toSEVar(tokenPos))
-                env = env.pushVar
+                env = env.pushVar()
                 expr
               }
               s.SELet(exprs, s.SEValue.Unit)

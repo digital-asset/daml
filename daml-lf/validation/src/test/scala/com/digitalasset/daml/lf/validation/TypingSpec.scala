@@ -794,7 +794,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: ETypeMismatch => },
       )
 
-      val ELocation(expectedLocation, EVar("something")) = E"⸨ something ⸩"
+      val ELocation(expectedLocation, EVar("something", false)) = E"⸨ something ⸩"
       val expectedContext = ContextLocation(expectedLocation)
 
       forEvery(testCases) { (exp, checkError) =>

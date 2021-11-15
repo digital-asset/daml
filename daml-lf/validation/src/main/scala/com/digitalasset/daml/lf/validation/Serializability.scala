@@ -58,6 +58,8 @@ private[validation] object Serializability {
       case TApp(tyfun, targ) =>
         checkType(tyfun)
         checkType(targ)
+      case TNatSingleton(_) =>
+        sys.error("unexpected TNatSingleton")
       case TBuiltin(builtinType) =>
         builtinType match {
           case BTInt64 | BTText | BTTimestamp | BTDate | BTParty | BTBool | BTUnit |

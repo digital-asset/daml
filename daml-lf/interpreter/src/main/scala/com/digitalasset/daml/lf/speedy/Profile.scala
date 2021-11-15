@@ -254,6 +254,7 @@ object Profile {
       implicit val sebrdr: Allowed[SEBuiltinRecursiveDefinition.Reference] = allowAll
       implicit val scenarioLabel: Allowed[ScenarioLabel] = allowAll
       implicit val exprVarName: Allowed[Ast.ExprVarName] = allowAll
+      implicit val exprVar: Allowed[Ast.EVar] = allowAll
 
       // below cases must cover above set
 

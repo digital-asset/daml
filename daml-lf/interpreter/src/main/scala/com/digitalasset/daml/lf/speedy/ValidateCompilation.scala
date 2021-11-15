@@ -21,7 +21,7 @@ private[lf] object ValidateCompilation {
 
     def goV(v: SValue): Unit =
       v match {
-        case _: SPrimLit | STNat(_) | STypeRep(_) =>
+        case _: SPrimLit | _: SNatSingleton | STypeRep(_) =>
         case SList(a) => a.iterator.foreach(goV)
         case SOptional(x) => x.foreach(goV)
         case SMap(_, entries) =>

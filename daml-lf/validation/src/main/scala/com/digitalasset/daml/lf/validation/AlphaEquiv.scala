@@ -19,6 +19,7 @@ private[validation] object AlphaEquiv {
       case (TVar(x1), TVar(x2)) =>
         binderDepthLhs.get(x1).toLeft(t1) == binderDepthRhs.get(x2).toLeft(t2)
       case (TNat(n1), TNat(n2)) => n1 == n2
+      case (TNatSingleton(s1), TNatSingleton(s2)) => alphaEquiv(s1, s2)
       case (TTyCon(c1), TTyCon(c2)) => c1 == c2
       case (TApp(f1, a1), TApp(f2, a2)) => alphaEquiv(f1, f2) && alphaEquiv(a1, a2)
       case (TBuiltin(b1), TBuiltin(b2)) => b1 == b2

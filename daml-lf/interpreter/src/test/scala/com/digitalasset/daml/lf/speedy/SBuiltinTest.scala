@@ -5,7 +5,6 @@ package com.daml.lf
 package speedy
 
 import java.util
-
 import com.daml.lf.data._
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
@@ -1403,7 +1402,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       import Numeric.Scale.{MinValue => MinScale, MaxValue => MaxScale}
       import java.math.BigDecimal
 
-      val TMinScale = STNat(MinScale)
+      val MinNatSingleton = SNatSingleton(MinScale)
 
       val MaxNumeric0 = SNumeric(Numeric.maxValue(MinScale))
       val MinNumeric0 = SNumeric(Numeric.minValue(MinScale))
@@ -1434,19 +1433,19 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         (SBDivInt64, List[SValue](MaxInt64, ZeroInt64), "DIV_INT64"),
         (SBModInt64, List[SValue](MaxInt64, ZeroInt64), "MOD_INT64"),
         (SBExpInt64, List[SValue](TwoInt64, MaxInt64), "EXP_INT64"),
-        (SBAddNumeric, List[SValue](TMinScale, MaxNumeric0, TwoNumeric0), "ADD_NUMERIC"),
-        (SBSubNumeric, List[SValue](TMinScale, MinNumeric0, TwoNumeric0), "SUB_NUMERIC"),
+        (SBAddNumeric, List[SValue](MinNatSingleton, MaxNumeric0, TwoNumeric0), "ADD_NUMERIC"),
+        (SBSubNumeric, List[SValue](MinNatSingleton, MinNumeric0, TwoNumeric0), "SUB_NUMERIC"),
         (
           SBMulNumeric,
-          List[SValue](TMinScale, TMinScale, TMinScale, MaxNumeric0, MaxNumeric0),
+          List[SValue](MinNatSingleton, MinNatSingleton, MinNatSingleton, MaxNumeric0, MaxNumeric0),
           "MUL_NUMERIC",
         ),
         (
           SBDivNumeric,
           List[SValue](
-            TMinScale,
-            TMinScale,
-            TMinScale,
+            MinNatSingleton,
+            MinNatSingleton,
+            MinNatSingleton,
             TwoNumeric0,
             SNumeric(Numeric.assertFromString("0.")),
           ),
@@ -1454,16 +1453,16 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         ),
         (
           SBRoundNumeric,
-          List[SValue](STNat(MinScale), SInt64(MaxScale.toLong), MaxNumeric0),
+          List[SValue](SNatSingleton(MinScale), SInt64(MaxScale.toLong), MaxNumeric0),
           "ROUND_NUMERIC",
         ),
         (
           SBCastNumeric,
-          List[SValue](STNat(MinScale), STNat(MaxScale), MaxNumeric0),
+          List[SValue](SNatSingleton(MinScale), SNatSingleton(MaxScale), MaxNumeric0),
           "CAST_NUMERIC",
         ),
-        (SBInt64ToNumeric, List[SValue](STNat(MaxScale), SInt64(10)), "INT64_TO_NUMERIC"),
-        (SBNumericToInt64, List[SValue](STNat(MinScale), MaxNumeric0), "NUMERIC_TO_INT64"),
+        (SBInt64ToNumeric, List[SValue](SNatSingleton(MaxScale), SInt64(10)), "INT64_TO_NUMERIC"),
+        (SBNumericToInt64, List[SValue](SNatSingleton(MinScale), MaxNumeric0), "NUMERIC_TO_INT64"),
         (SBUnixDaysToDate, List[SValue](MaxInt64), "UNIX_DAYS_TO_DATE"),
         (SBUnixMicrosecondsToTimestamp, List(MaxInt64), "UNIX_MICROSECONDS_TO_TIMESTAMP"),
         (SBAddBigNumeric, List[SValue](VeryBigBigNumericA, VeryBigBigNumericB), "ADD_BIGNUMERIC"),
@@ -1490,7 +1489,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         ),
         (
           SBBigNumericToNumeric,
-          List[SValue](TMinScale, VeryBigBigNumericA),
+          List[SValue](MinNatSingleton, VeryBigBigNumericA),
           "BIGNUMERIC_TO_NUMERIC",
         ),
       )
@@ -1666,7 +1665,7 @@ object SBuiltinTest {
       case SDate(date) => date.toString
       case SBigNumeric(x) => Numeric.toUnscaledString(x)
       case SNumeric(x) => Numeric.toUnscaledString(x)
-      case STNat(n) => s"@$n"
+      case SNatSingleton(n) => n.toString
       case _ => sys.error(s"litToText: unexpected $x")
     }
 

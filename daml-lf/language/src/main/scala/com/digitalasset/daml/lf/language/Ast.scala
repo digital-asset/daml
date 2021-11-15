@@ -51,7 +51,7 @@ object Ast {
   }
 
   /** Reference to a variable in current lexical scope. */
-  final case class EVar(value: ExprVarName) extends Expr
+  final case class EVar(value: ExprVarName, internal: Boolean = false) extends Expr
 
   /** Reference to a value definition. */
   final case class EVal(value: ValueRef) extends Expr
@@ -104,7 +104,7 @@ object Ast {
 
   /** Expression abstraction. */
   final case class EAbs(
-      binder: (ExprVarName, Type),
+      binder: (EVar, Type),
       body: Expr,
       ref: Option[DefinitionRef], // The definition in which this abstraction is defined.
   ) extends Expr
@@ -247,6 +247,11 @@ object Ast {
             .map { case (n, t) => n + ": " + prettyType(t, precTForall) }
             .toSeq
             .mkString(", ") + ")"
+        case TNatSingleton(n) =>
+          maybeParens(
+            prec > precTApp,
+            "NatSingleton " + prettyType(n),
+          )
       }
 
       def prettyForAll(t: Type): String = t match {
@@ -271,6 +276,8 @@ object Ast {
     def apply(n: Numeric.Scale): TNat = values(n)
     val Decimal: TNat = values(10)
   }
+
+  final case class TNatSingleton(n: Type) extends Type
 
   /** Fully applied type synonym. */
   final case class TSynApp(tysyn: TypeSynName, args: ImmArray[Type]) extends Type
@@ -330,6 +337,7 @@ object Ast {
   final case class PLParty(override val value: Party) extends PrimLit
   final case class PLDate(override val value: Time.Date) extends PrimLit
   final case class PLRoundingMode(override val value: java.math.RoundingMode) extends PrimLit
+  final case class PLNatSingleton(override val value: Numeric.Scale) extends PrimLit
 
   //
   // Primitive constructors

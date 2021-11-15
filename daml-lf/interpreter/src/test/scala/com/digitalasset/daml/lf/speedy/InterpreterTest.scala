@@ -45,23 +45,23 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
       val int64Nil = ENil(int64)
       val concat =
         EAbs(
-          ("xss", TApp(TBuiltin(BTList), int64List)),
+          (EVar("xss"), TApp(TBuiltin(BTList), int64List)),
           ELet(
             Binding(
               Some("work"),
               TFun(int64List, TFun(int64List, int64List)),
               EAbs(
-                ("xs", int64List),
+                (EVar("xs"), int64List),
                 EAbs(
-                  ("acc", int64List),
+                  (EVar("acc"), int64List),
                   EApp(
                     EApp(
                       EApp(
                         EBuiltin(BFoldr),
                         EAbs(
-                          ("x", int64),
+                          (EVar("x"), int64),
                           EAbs(
-                            ("accInner", int64List),
+                            (EVar("accInner"), int64List),
                             ECons(int64, ImmArray(EVar("x")), EVar("accInner")),
                             None,
                           ),

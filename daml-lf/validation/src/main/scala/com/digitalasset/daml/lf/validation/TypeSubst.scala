@@ -30,6 +30,8 @@ private[validation] object TypeSubst {
           TForall(v0 -> k, go(fv0 + v0, subst0 - v0, t))
       case TStruct(ts) =>
         TStruct(ts.mapValues(go(fv0, subst0, _)))
+      case TNatSingleton(t) =>
+        TNatSingleton(go(fv0, subst0, t))
     }
 
   private def freshTypeVarName(fv: Set[TypeVarName]): TypeVarName =

@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Decimal, ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.language.{LanguageVersion => LV}
+import com.daml.lf.language.{FixNat, LanguageVersion => LV}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
@@ -71,7 +71,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       metadata = metadata,
     )
 
-  }
+  }.map(FixNat.processPkg)
 
   private[archive] def decodePackageMetadata(
       metadata: PLF.PackageMetadata,
@@ -121,7 +121,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     val env = env0.copy(internedTypes = internedTypes)
     env.decodeModule(lfScenarioModule.getModules(0))
 
-  }
+  }.map(FixNat.processModule)
 
   private[this] def decodeInternedDottedNames(
       internedList: collection.Seq[PLF.InternedDottedName],
@@ -1017,9 +1017,10 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           val params = lfAbs.getParamList.asScala
           assertNonEmpty(params, "params")
           // val params = lfAbs.getParamList.asScala.map(decodeBinder)
-          (params foldRight decodeExpr(lfAbs.getBody, definition))((param, e) =>
-            EAbs(decodeBinder(param), e, currentDefinitionRef)
-          )
+          (params foldRight decodeExpr(lfAbs.getBody, definition)) { (param, e) =>
+            val (x, t) = decodeBinder(param)
+            EAbs(EVar(x) -> t, e, currentDefinitionRef)
+          }
 
         case PLF.Expr.SumCase.TY_APP =>
           val tyapp = lfExpr.getTyApp

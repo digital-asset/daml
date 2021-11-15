@@ -103,6 +103,12 @@ object Util {
   val ETrue = EPrimCon(PCTrue)
   val EFalse = EPrimCon(PCFalse)
 
+  object ENatSingleton {
+    // works because Numeric.Scale.MinValue = 0
+    val values = data.Numeric.Scale.values.map(n => new EPrimLit(PLNatSingleton(n)))
+    def apply(n: data.Numeric.Scale): EPrimLit = values(n)
+  }
+
   def EBool(b: Boolean): EPrimCon = if (b) ETrue else EFalse
 
   val CPUnit = CPPrimCon(PCUnit)

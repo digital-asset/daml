@@ -100,7 +100,7 @@ object TypeOrdering extends Ordering[Type] {
       case Ast.TNat(_) => 2
       case Ast.TStruct(_) => 3
       case Ast.TApp(_, _) => 4
-      case Ast.TVar(_) | Ast.TForall(_, _) | Ast.TSynApp(_, _) =>
+      case Ast.TVar(_) | Ast.TForall(_, _) | Ast.TSynApp(_, _) | Ast.TNatSingleton(_) =>
         InternalError.illegalArgumentException(
           NameOf.qualifiedNameOfCurrentFunc,
           s"cannot compare types $typ",

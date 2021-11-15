@@ -45,7 +45,9 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       (id ^? builtinFunctions) ^^ EBuiltin |
       experimental |
       caseOf |
-      id ^^ EVar |
+      id ^^ { i =>
+        EVar(i, false)
+      } |
       (`(` ~> expr <~ `)`)
 
   lazy val exprs: Parser[List[Expr]] = rep(expr0)
@@ -171,7 +173,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   private lazy val eAbs: Parser[Expr] =
     `\\` ~>! rep1(varBinder) ~ (`->` ~> expr) ^^ { case binders ~ body =>
-      (binders foldRight body)(EAbs(_, _, None))
+      (binders foldRight body) { case ((x, t), e) => EAbs(EVar(x) -> t, e, None) }
     }
 
   private lazy val eTyAbs: Parser[Expr] =

@@ -10,6 +10,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.language.{LanguageVersion => LV}
 import com.daml.daml_lf_dev.{DamlLf1 => PLF}
+import com.daml.lf.language.Util.TFun
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
@@ -210,9 +211,9 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       fun -> arg
     })
 
-    private def ignoreOneDecimalScaleParameter(typs: ImmArray[Type]): ImmArray[Type] =
+    private def ignoreOneDecimalScaleParameter(typs: List[Type]): List[Type] =
       typs match {
-        case ImmArrayCons(TNat(_), tail) => tail
+        case TNat(_) :: tail => tail
         case _ =>
           sys.error(s"cannot encode the archive in LF < ${LV.Features.numeric.pretty}")
       }
@@ -224,54 +225,60 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         PLF.Type.newBuilder().setInterned(typeTable.insert(typ)).build()
 
     private def encodeTypeBuilder(typ0: Type): PLF.Type.Builder = {
-      val (typ, args) =
-        typ0 match {
-          case TApps(typ1, args1) => typ1 -> args1
-          case _ => typ0 -> ImmArray.Empty
-        }
-      val builder = PLF.Type.newBuilder()
-      // Be warned: Both the use of the unapply pattern TForalls and the pattern
-      //    case TBuiltin(BTArrow) if versionIsOlderThan(LV.Features.arrowType) =>
-      // cause scala's exhaustivty checking to be disabled in the following match.
-      (typ: @unchecked) match {
-        case TVar(varName) =>
-          val b = PLF.Type.Var.newBuilder()
-          setString(varName, b.setVarStr, b.setVarInternedStr)
-          args.foldLeft(b)(_ addArgs _)
-          builder.setVar(b)
-        case TNat(n) =>
-          assertSince(LV.Features.numeric, "Type.TNat")
-          builder.setNat(n.toLong)
-        case TTyCon(tycon) =>
-          builder.setCon(
-            PLF.Type.Con.newBuilder().setTycon(tycon).accumulateLeft(args)(_ addArgs _)
-          )
-        case TBuiltin(bType) =>
-          val (proto, typs) =
-            if (bType == BTNumeric && (languageVersion < LV.Features.numeric))
-              PLF.PrimType.DECIMAL -> ignoreOneDecimalScaleParameter(args)
-            else
-              builtinTypeInfoMap(bType).proto -> args
-          builder.setPrim(
-            PLF.Type.Prim.newBuilder().setPrim(proto).accumulateLeft(typs)(_ addArgs _)
-          )
-        case TApp(_, _) =>
-          sys.error("unexpected error")
-        case TForalls(binders, body) =>
-          expect(args.isEmpty)
-          builder.setForall(
-            PLF.Type.Forall.newBuilder().accumulateLeft(binders)(_ addVars _).setBody(body)
-          )
-        case TStruct(fields) =>
-          expect(args.isEmpty)
-          builder.setStruct(
-            PLF.Type.Struct.newBuilder().accumulateLeft(fields.toImmArray)(_ addFields _)
-          )
-        case TSynApp(name, args) =>
-          val b = PLF.Type.Syn.newBuilder()
-          b.setTysyn(name)
-          b.accumulateLeft(args)(_ addArgs _)
-          builder.setSyn(b)
+      typ0 match {
+        case TFun(TNatSingleton(_), a) =>
+          encodeTypeBuilder(a)
+        case _ =>
+          val (typ, args_) =
+            typ0 match {
+              case TApps(typ1, args1) => typ1 -> args1
+              case _ => typ0 -> ImmArray.Empty
+            }
+          val args = args_.toList
+          val builder = PLF.Type.newBuilder()
+          // Be warned: Both the use of the unapply pattern TForalls and the pattern
+          //    case TBuiltin(BTArrow) if versionIsOlderThan(LV.Features.arrowType) =>
+          // cause scala's exhaustivty checking to be disabled in the following match.
+          (typ: @unchecked) match {
+            case TVar(varName) =>
+              val b = PLF.Type.Var.newBuilder()
+              setString(varName, b.setVarStr, b.setVarInternedStr)
+              args.foldLeft(b)(_ addArgs _)
+              builder.setVar(b)
+            case TNat(n) =>
+              assertSince(LV.Features.numeric, "Type.TNat")
+              builder.setNat(n.toLong)
+            case TTyCon(tycon) =>
+              builder.setCon(
+                PLF.Type.Con.newBuilder().setTycon(tycon).accumulateLeft(args)(_ addArgs _)
+              )
+            case TBuiltin(bType) =>
+              val (proto, typs) =
+                if (bType == BTNumeric && (languageVersion < LV.Features.numeric))
+                  PLF.PrimType.DECIMAL -> ignoreOneDecimalScaleParameter(args)
+                else
+                  builtinTypeInfoMap(bType).proto -> args
+              builder.setPrim(
+                PLF.Type.Prim.newBuilder().setPrim(proto).accumulateLeft(typs)(_ addArgs _)
+              )
+            case TApp(_, _) =>
+              sys.error("unexpected error")
+            case TForalls(binders, body) =>
+              expect(args.isEmpty)
+              builder.setForall(
+                PLF.Type.Forall.newBuilder().accumulateLeft(binders)(_ addVars _).setBody(body)
+              )
+            case TStruct(fields) =>
+              expect(args.isEmpty)
+              builder.setStruct(
+                PLF.Type.Struct.newBuilder().accumulateLeft(fields.toImmArray)(_ addFields _)
+              )
+            case TSynApp(name, args) =>
+              val b = PLF.Type.Syn.newBuilder()
+              b.setTysyn(name)
+              b.accumulateLeft(args)(_ addArgs _)
+              builder.setSyn(b)
+          }
       }
     }
 
@@ -471,6 +478,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setDate(date.days)
         case PLRoundingMode(rounding) =>
           builder.setRoundingModeValue(rounding.ordinal())
+        case x =>
+          sys.error("not implemented " + x.toString)
       }
       builder.build()
     }
@@ -516,7 +525,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
     private val ETyApps = LeftRecMatcher[Expr, Type]({ case ETyApp(exp, typ) =>
       exp -> typ
     })
-    private val EAbss = RightRecMatcher[(ExprVarName, Type), Expr]({ case EAbs(binder, body, _) =>
+    private val EAbss = RightRecMatcher[(EVar, Type), Expr]({ case EAbs(binder, body, _) =>
       binder -> body
     })
     private val ETyAbss = RightRecMatcher[(TypeVarName, Kind), Expr]({ case ETyAbs(binder, body) =>
@@ -528,7 +537,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
 
       // EAbss breaks the exhaustiveness checker.
       (expr0: @unchecked) match {
-        case EVar(value) =>
+        case EVar(value, internal) =>
+          assert(!internal)
           setString(value, builder.setVarStr, builder.setVarInternedStr)
         case EVal(value) =>
           builder.setVal(value)
@@ -580,9 +590,18 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           b.setStruct(struct)
           b.setUpdate(update)
           builder.setStructUpd(b)
-        case EApps(fun, args) =>
+        case EApps(fun, args_) =>
+          val args = args_.filter {
+            case EVar(_, true) => false
+            case EPrimLit(_: PLNatSingleton) => false
+            case _ => true
+          }
           builder.setApp(PLF.Expr.App.newBuilder().setFun(fun).accumulateLeft(args)(_ addArgs _))
-        case ETyApps(expr: Expr, typs0) =>
+        case ETyApps(expr: Expr, typs0_) =>
+          val typs0 = typs0_.filter {
+            case TNatSingleton(_) => false
+            case _ => true
+          }
           expr match {
             case EBuiltin(builtin) if indirectBuiltinFunctionMap.contains(builtin) =>
               val typs = typs0.toSeq.toList
@@ -596,7 +615,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setTyApp(
             PLF.Expr.TyApp.newBuilder().setExpr(expr).accumulateLeft(typs)(_ addTypes _)
           )
-        case EAbss(binders, body) =>
+        case EAbss(binders_, body) =>
+          val binders = binders_.collect { case (EVar(x, false), t) => x -> t }
           builder.setAbs(
             PLF.Expr.Abs.newBuilder().accumulateLeft(binders)(_ addParam _).setBody(body)
           )

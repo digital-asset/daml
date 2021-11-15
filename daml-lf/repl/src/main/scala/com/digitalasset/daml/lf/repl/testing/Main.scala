@@ -376,6 +376,11 @@ object Repl {
           .map { case (n, t) => n + ": " + prettyType(t, precTForall) }
           .toSeq
           .mkString(", ") + ")"
+      case TNatSingleton(n) =>
+        maybeParens(
+          prec > precTApp,
+          "TNatSingleton " + prettyType(n, precTApp + 1),
+        )
     }
 
     def prettyForAll(t: Type): String = t match {

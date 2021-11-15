@@ -8,7 +8,7 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.language.{Ast, FixNat, LanguageVersion}
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.testing.parser.{AstRewriter, ParserParameters}
 import com.daml.lf.validation.Validation
@@ -31,8 +31,7 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
       implicit val defaultParserParameters2: ParserParameters[this.type] =
         defaultParserParameters
 
-      val pkg: Ast.Package =
-        p"""
+      val pkg: Ast.Package = FixNat.processPkg(p"""
 
          metadata ( 'foobar' : '0.0.1' )
 
@@ -157,7 +156,7 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
              
          }
         
-      """
+      """)
 
       validate(pkgId, pkg)
       val archive =
@@ -182,8 +181,8 @@ object EncodeV1Spec {
     val replacePkId: PartialFunction[Identifier, Identifier] = {
       case Identifier(`hashCode`, name) => Identifier(selfPackageId, name)
     }
-    lazy val dropEAbsRef: PartialFunction[Expr, Expr] = { case EAbs(binder, body, Some(_)) =>
-      EAbs(normalizer.apply(binder), normalizer.apply(body), None)
+    lazy val dropEAbsRef: PartialFunction[Expr, Expr] = { case EAbs((x, typ), body, Some(_)) =>
+      EAbs(x -> normalizer.apply(typ), normalizer.apply(body), None)
     }
     lazy val normalizer = new AstRewriter(exprRule = dropEAbsRef, identifierRule = replacePkId)
 

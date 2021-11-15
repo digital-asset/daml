@@ -5,7 +5,7 @@ package com.daml.lf.testing
 
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast.{Expr, Kind, Module, Type}
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{FixNat, LanguageVersion}
 
 package object parser {
 
@@ -25,18 +25,19 @@ package object parser {
   def parseType[P](s: String)(implicit
       parserParameters: ParserParameters[P]
   ): Either[String, Type] =
-    safeParse(new TypeParser[P](parserParameters).typ, s)
+    safeParse(new TypeParser[P](parserParameters).typ, s).map(FixNat.processType)
   def parseExpr[P](s: String)(implicit
       parserParameters: ParserParameters[P]
   ): Either[String, Expr] =
-    safeParse(new ExprParser[P](parserParameters).expr, s)
+    safeParse(new ExprParser[P](parserParameters).expr, s).map(FixNat.processExpr)
   def parseExprs[P](s: String)(implicit
       parserParameters: ParserParameters[P]
   ): Either[String, List[Expr]] =
-    safeParse(new ExprParser[P](parserParameters).exprs, s)
+    safeParse(new ExprParser[P](parserParameters).exprs, s).map(_.map(FixNat.processExpr))
   def parseModules[P](s: String)(implicit
       parserParameters: ParserParameters[P]
   ): Either[String, List[Module]] =
     safeParse(Parsers.rep(new ModParser[P](parserParameters).mod), s)
+      .map(_.map(FixNat.processModule))
 
 }

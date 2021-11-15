@@ -25,6 +25,8 @@ private[validation] object TypeIterable {
         Iterator(body)
       case TStruct(fields) =>
         fields.values
+      case TNatSingleton(n) =>
+        Iterator(n)
     }
 
   private[validation] def iterator(expr0: Expr): Iterator[Type] = {
@@ -84,9 +86,9 @@ private[validation] object TypeIterable {
         Iterator(TTyCon(iface), TTyCon(tpl)) ++ iterator(value)
       case ECallInterface(iface, _, value) =>
         Iterator(TTyCon(iface)) ++ iterator(value)
-      case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) | ECase(_, _) |
-          ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) | ETyAbs(_, _) |
-          EExperimental(_, _) =>
+      case EVar(_, _) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) |
+          ECase(_, _) | ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) |
+          ETyAbs(_, _) | EExperimental(_, _) =>
         ExprIterable.iterator(expr0).flatMap(iterator(_))
     }
   }

@@ -104,7 +104,8 @@ sealed trait SValue {
           )
         case SContractId(coid) =>
           V.ValueContractId(coid)
-        case _: SStruct | _: SAny | _: SBigNumeric | _: STypeRep | _: STNat | _: SPAP | SToken =>
+        case _: SStruct | _: SAny | _: SBigNumeric | _: STypeRep | _: SNatSingleton | _: SPAP |
+            SToken =>
           throw SError.SErrorCrash(
             NameOf.qualifiedNameOfCurrentFunc,
             s"SValue.toValue: unexpected ${getClass.getSimpleName}",
@@ -117,7 +118,7 @@ sealed trait SValue {
   def mapContractId(f: V.ContractId => V.ContractId): SValue =
     this match {
       case SContractId(coid) => SContractId(f(coid))
-      case SEnum(_, _, _) | _: SPrimLit | SToken | STNat(_) | STypeRep(_) => this
+      case SEnum(_, _, _) | _: SPrimLit | SToken | _: SNatSingleton | STypeRep(_) => this
       case SPAP(prim, args, arity) =>
         val prim2 = prim match {
           case PClosure(label, expr, vars) =>
@@ -274,7 +275,7 @@ object SValue {
   // It is currently used to track at runtime the scale of the
   // Numeric builtin's arguments/output. Should never be translated
   // back to Daml-LF expressions / values.
-  final case class STNat(n: Numeric.Scale) extends SValue
+  final case class SNatSingleton(n: Numeric.Scale) extends SValue
 
   // NOTE(JM): We are redefining PrimLit here so it can be unified
   // with SValue and we can remove one layer of indirection.

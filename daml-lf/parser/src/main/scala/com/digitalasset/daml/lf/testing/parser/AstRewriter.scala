@@ -50,6 +50,8 @@ private[daml] class AstRewriter(
           TForall(binder, apply(body))
         case TStruct(fields) =>
           TStruct(fields.mapValues(apply))
+        case TNatSingleton(n) =>
+          TNatSingleton(apply(n))
       }
 
   def apply(nameWithType: (Name, Type)): (Name, Type) = nameWithType match {
@@ -61,7 +63,7 @@ private[daml] class AstRewriter(
       exprRule(x)
     else
       x match {
-        case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | ETypeRep(_) |
+        case EVar(_, _) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | ETypeRep(_) |
             EExperimental(_, _) =>
           x
         case EVal(ref) =>
@@ -95,8 +97,8 @@ private[daml] class AstRewriter(
           EApp(apply(fun), apply(arg))
         case ETyApp(expr, typ) =>
           ETyApp(apply(expr), apply(typ))
-        case EAbs(binder, body, ref) =>
-          EAbs(apply(binder), apply(body), ref)
+        case EAbs((x: EVar, t), body, ref) =>
+          EAbs(x -> apply(t), apply(body), ref)
         case ETyAbs(binder, body) =>
           ETyAbs(binder, apply(body))
         case ECase(scrut, alts) =>

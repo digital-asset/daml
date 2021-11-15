@@ -625,9 +625,9 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
     t"ContractId Mod:Template"
   }
 
-  private[this] val binder1 = Ref.Name.assertFromString("cid1") -> binderType
-  private[this] val binder2 = Ref.Name.assertFromString("cid2") -> binderType
-  private[this] val binder3 = Ref.Name.assertFromString("cid3") -> binderType
+  private[this] val binder1 = Ast.EVar(Ref.Name.assertFromString("cid1")) -> binderType
+  private[this] val binder2 = Ast.EVar(Ref.Name.assertFromString("cid2")) -> binderType
+  private[this] val binder3 = Ast.EVar(Ref.Name.assertFromString("cid3")) -> binderType
 
   private[this] val contractIds =
     Array(

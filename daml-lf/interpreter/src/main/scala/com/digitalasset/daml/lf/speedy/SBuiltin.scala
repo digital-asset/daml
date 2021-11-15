@@ -104,7 +104,7 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
 
   final protected def getSTNat(args: util.ArrayList[SValue], i: Int): Numeric.Scale =
     args.get(i) match {
-      case STNat(x) => x
+      case SNatSingleton(x) => x
       case otherwise => unexpectedType(i, "STNat", otherwise)
     }
 
@@ -414,7 +414,7 @@ private[lf] object SBuiltin {
       case SDate(date) => date.toString
       case SBigNumeric(x) => Numeric.toUnscaledString(x)
       case SNumeric(x) => Numeric.toUnscaledString(x)
-      case STNat(n) => s"@$n"
+      case SNatSingleton(n) => n.toString
       case _: SContractId | SToken | _: SAny | _: SEnum | _: SList | _: SMap | _: SOptional |
           _: SPAP | _: SRecord | _: SStruct | _: STypeRep | _: SVariant =>
         throw SErrorCrash(location, s"litToText: unexpected $x")

@@ -84,7 +84,8 @@ class TypeSpec extends AnyWordSpec with Matchers {
             sys.error("exception not supported")
         }
       case Pkg.TTyCon(tycon) => TypeCon(TypeConName(tycon), args.toImmArray.toSeq)
-      case Pkg.TNat(_) => sys.error("cannot use nat type in interface type")
+      case _: Pkg.TNat => sys.error("cannot use nat type in interface type")
+      case _: Pkg.TNatSingleton => sys.error("cannot use nat singleton type in interface type")
       case _: Pkg.TStruct => sys.error("cannot use structs in interface type")
       case _: Pkg.TForall => sys.error("cannot use forall in interface type")
       case _: Pkg.TSynApp => sys.error("cannot use type synonym in interface type")
