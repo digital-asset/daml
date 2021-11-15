@@ -11,23 +11,23 @@ import scalaz.syntax.tag._
 
 object ConfigEnricher {
 
-  def enrichedStreamConfig(
+  def enrichStreamConfig(
       streamConfig: StreamConfig,
       submissionSummary: Option[CommandSubmitter.SubmissionSummary],
   ): StreamConfig = {
     streamConfig match {
       case config: StreamConfig.TransactionsStreamConfig =>
-        config.copy(filters = enrichedFilters(config.filters, submissionSummary))
+        config.copy(filters = enrichFilters(config.filters, submissionSummary))
       case config: StreamConfig.TransactionTreesStreamConfig =>
-        config.copy(filters = enrichedFilters(config.filters, submissionSummary))
+        config.copy(filters = enrichFilters(config.filters, submissionSummary))
       case config: StreamConfig.ActiveContractsStreamConfig =>
-        config.copy(filters = enrichedFilters(config.filters, submissionSummary))
+        config.copy(filters = enrichFilters(config.filters, submissionSummary))
       case config: StreamConfig.CompletionsStreamConfig =>
-        config.copy(party = convertedParty(config.party, submissionSummary))
+        config.copy(party = convertParty(config.party, submissionSummary))
     }
   }
 
-  private def convertedParty(
+  private def convertParty(
       party: String,
       submissionSummary: Option[CommandSubmitter.SubmissionSummary],
   ): String =
@@ -40,7 +40,7 @@ object ConfigEnricher {
           .getOrElse(throw new RuntimeException(s"Observer not found: $party"))
     }
 
-  private def enrichedFilters(
+  private def enrichFilters(
       filters: List[StreamConfig.PartyFilter],
       submissionSummary: Option[CommandSubmitter.SubmissionSummary],
   ): List[StreamConfig.PartyFilter] = {
@@ -56,7 +56,7 @@ object ConfigEnricher {
 
     filters.map { filter =>
       StreamConfig.PartyFilter(
-        party = convertedParty(filter.party, submissionSummary),
+        party = convertParty(filter.party, submissionSummary),
         templates = filter.templates.map(fullyQualifiedTemplateId),
       )
     }
