@@ -73,7 +73,7 @@ object TransactionVersion {
       tx: Transaction
   ): VersionedTransaction = tx match {
     case Transaction(nodes, roots) =>
-      val txVersion = roots.iterator.foldLeft(minVersion)((acc, nodeId) =>
+      val txVersion = roots.foldLeft(minVersion)((acc, nodeId) =>
         nodes(nodeId) match {
           case action: Node.Action => acc max action.version
           case _: Node.Rollback => acc max minExceptions
