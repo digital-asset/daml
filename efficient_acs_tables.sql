@@ -1,3 +1,6 @@
+-- disable the annoying pager
+\pset pager off
+
 BEGIN;
 
 -- The following code is meant to be applied to an IndexDB with the append-only schema.
@@ -56,7 +59,12 @@ INSERT INTO participant_party_interning (party_external_id)
 --          LEFT OUTER JOIN flat_event_interning USING (event_sequential_id)
 --          LEFT OUTER JOIN tree_event_interning USING (event_sequential_id)
 --          LEFT OUTER JOIN participant_template_interning ON (template_id = template_external_id);
-     
+
+
+-- Disable hash and merge join to bias the planner to use lookups against the interning table
+SET enable_hashjoin = off;
+SET enable_mergejoin = off;
+
 EXPLAIN ANALYZE
 CREATE TABLE participant_events_create_interned AS 
   SELECT  
@@ -117,8 +125,11 @@ CREATE TABLE participant_events_create_interned AS
         create_key_value_compression
 
   FROM participant_events_create 
-         LEFT OUTER JOIN participant_template_interning ON (template_id = template_external_id)
- ORDER BY event_sequential_id;  -- retain or re-establish temporal ordering
+         LEFT OUTER JOIN participant_template_interning ON (template_id = template_external_id);
+
+-- Reenable hash and merge joins
+SET enable_hashjoin = on;
+SET enable_mergejoin = on;
 
 CREATE UNIQUE INDEX participant_events_create_interned_event_sequential_id_idx ON participant_events_create_interned USING btree(event_sequential_id);
 
