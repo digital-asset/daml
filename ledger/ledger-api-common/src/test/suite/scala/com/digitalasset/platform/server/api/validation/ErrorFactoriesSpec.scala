@@ -167,7 +167,7 @@ class ErrorFactoriesSpec
       )
     }
 
-    "return a isTimeoutUnknon_wasAborted error" in {
+    "return a isTimeoutUnknown_wasAborted error" in {
       assertVersionedError(
         _.isTimeoutUnknown_wasAborted("message123", definiteAnswer = Some(false))
       )(

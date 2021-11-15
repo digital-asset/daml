@@ -22,10 +22,10 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     @Explanation(
       """This error occurs if the participant fails to determine the max ledger time of the used
         |contracts. Most likely, this means that one of the contracts is not active anymore which can
-        |happen under contention. However, it can also happen with contract keys.
+        |happen under contention. It can also happen with contract keys.
         |"""
     )
-    @Resolution("Retry the transaction")
+    @Resolution("Retry the transaction submission.")
     object FailedToDetermineLedgerTime
         extends ErrorCode(
           id = "FAILED_TO_DETERMINE_LEDGER_TIME",
@@ -42,7 +42,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
     object Package extends ErrorGroup() {
       @Explanation(
-        """This error indicates that the uploaded dar is based on an unsupported language version."""
+        """This error indicates that the uploaded DAR is based on an unsupported language version."""
       )
       @Resolution("Use a DAR compiled with a language version that this participant supports.")
       object AllowedLanguageVersions
@@ -107,7 +107,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
 
     object Interpreter extends ErrorGroup {
-      @Explanation("""This error occurs if the Daml transaction failed during interpretation.""")
+      @Explanation("""This error occurs if a Daml transaction fails during interpretation.""")
       @Resolution("This error type occurs if there is an application error.")
       object GenericInterpretationError
           extends ErrorCode(
@@ -123,7 +123,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       }
 
       @Explanation(
-        """This error occurs if the Daml transaction failed during interpretation due to an invalid argument."""
+        """This error occurs if a Daml transaction fails during interpretation due to an invalid argument."""
       )
       @Resolution("This error type occurs if there is an application error.")
       object InvalidArgumentInterpretationError
@@ -167,9 +167,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
       object LookupErrors extends ErrorGroup {
         @Explanation(
-          """This error occurs if the Daml engine interpreter can not resolve a contract key to an active contract. This
+          """This error occurs if the Daml engine interpreter cannot resolve a contract key to an active contract. This
             |can be caused by either the contract key not being known to the participant, or not being known to
-            |the submitting parties or the contract representing the key has already being archived."""
+            |the submitting parties or the contract representing an already archived key."""
         )
         @Resolution("This error type occurs if there is contention on a contract.")
         object ContractKeyNotFound
@@ -193,7 +193,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         }
       }
 
-      @Explanation("""This error occurs if the Daml transaction fails due to an authorization error.
+      @Explanation("""This error occurs if a Daml transaction fails due to an authorization error.
                      |An authorization means that the Daml transaction computed a different set of required submitters than
                      |you have provided during the submission as `actAs` parties.""")
       @Resolution("This error type occurs if there is an application error.")
@@ -230,10 +230,10 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
   object AuthorizationChecks extends ErrorGroup() {
     @Explanation(
-      """This rejection is given if the submitted command does not contain an authentication token on a participant enforcing authentication."""
+      """This rejection is given if the submitted command does not contain a JWT token on a participant enforcing JWT authentication."""
     )
     @Resolution(
-      "Ask your participant operator to provide you with an appropriate authentication token."
+      "Ask your participant operator to provide you with an appropriate JWT token."
     )
     object Unauthenticated
         extends ErrorCode(
@@ -345,7 +345,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         case class Reject()(implicit
             loggingContext: ContextualizedErrorLogger
         ) extends LoggingTransactionErrorImpl(
-              cause = "The ledger configuration is not available."
+              cause = "The ledger configuration could not be retrieved."
             )
       }
     }
@@ -402,7 +402,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     object LedgerIdMismatch
         extends ErrorCode(
           id = "LEDGER_ID_MISMATCH",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
       case class Reject(override val cause: String)(implicit
           loggingContext: ContextualizedErrorLogger
@@ -413,7 +413,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
 
     @Explanation(
-      """This error is emitted when a submitted ledger API command has some mandatory fields not set."""
+      """This error is emitted when a mandatory field is not set in a submitted ledger API command."""
     )
     @Resolution("Inspect the reason given and correct your application.")
     object MissingField
@@ -439,7 +439,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
 
     @Explanation(
-      """This error is emitted when a submitted ledger API command contains a field value that could not be properly understood."""
+      """This error is emitted when a submitted ledger API command contains a field value that cannot be understood."""
     )
     @Resolution("Inspect the reason given and correct your application.")
     object InvalidField
@@ -455,7 +455,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       "This error is emitted when a submitted ledger API command specifies an invalid deduplication period."
     )
     @Resolution(
-      "Inspect the error message, adjust the value of the deduplication period or ask the participant operator to increase the maximum."
+      "Inspect the error message, adjust the value of the deduplication period or ask the participant operator to increase the maximum deduplication period."
     )
     object InvalidDeduplicationPeriodField
         extends ErrorCode(
@@ -550,7 +550,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   }
 
   object AdminServices {
-    @Explanation("This rejection is given when a configuration entry write was rejected.")
+    @Explanation("This rejection is given when a new configuration is rejected.")
     @Resolution("Fetch newest configuration and/or retry.")
     object ConfigurationEntryRejected
         extends ErrorCode(
@@ -564,7 +564,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           )
     }
 
-    @Explanation("This rejection is given when a package upload was rejected.")
+    @Explanation("This rejection is given when a package upload is rejected.")
     @Resolution("Refer to the detailed message of the received error.")
     object PackageUploadRejected
         extends ErrorCode(
@@ -579,7 +579,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
 
     @Explanation(
-      "This rejection is given when a request might not been processed and a time-out was reached."
+      "This rejection is given when a request processing status is not known and a time-out is reached."
     )
     @Resolution(
       "Retry for transient problems. If non-transient contact the operator as the time-out limit might be too short."
@@ -599,7 +599,12 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
   object ConsistencyErrors extends ErrorGroup {
     @Explanation("A command with the given command id has already been successfully processed.")
-    @Resolution("Celebrate, as your command has already been delivered.")
+    @Resolution(
+      """The correct resolution depends on the use case. If the error received pertains to a submission retried due to a timeout,
+        |do nothing, as the previous command has already been accepted.
+        |If the intent is to submit a new command, re-submit using a distinct command id. 
+        |""".stripMargin
+    )
     object DuplicateCommand
         extends ErrorCode(
           id = "DUPLICATE_COMMAND",
