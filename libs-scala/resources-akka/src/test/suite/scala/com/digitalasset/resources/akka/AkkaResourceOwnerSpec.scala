@@ -4,9 +4,8 @@
 package com.daml.resources.akka
 
 import java.util.concurrent.atomic.AtomicBoolean
-
 import akka.actor.{Actor, ActorSystem, Cancellable, Props}
-import akka.stream.Materializer
+import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.{Done, NotUsed}
 import com.daml.resources.{HasExecutionContext, ResourceOwnerFactories, TestContext}
@@ -101,6 +100,34 @@ final class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
         _ <- resource.release()
       } yield {
         cancellable.isCancelled should be(true)
+      }
+    }
+  }
+
+  "a function returning a SourceQueue" should {
+    "convert to a ResourceOwner" in {
+      var number = 0
+      val resource = for {
+        actorSystem <- Factories
+          .forActorSystem(() => ActorSystem("TestActorSystem"))
+          .acquire()
+        materializer <- Factories.forMaterializer(() => Materializer(actorSystem)).acquire()
+        sourceQueue <- Factories
+          .forSourceQueue(
+            Source
+              .queue[Int](10, OverflowStrategy.backpressure)
+              .to(Sink.foreach(number = _))
+          )(materializer)
+          .acquire()
+      } yield sourceQueue
+
+      for {
+        queue <- resource.asFuture
+        offerResult <- queue.offer(123)
+        _ <- resource.release()
+      } yield {
+        offerResult should be(QueueOfferResult.Enqueued)
+        number should be(123)
       }
     }
   }
