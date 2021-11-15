@@ -493,8 +493,8 @@ class QueryStreamsManager {
 
             const ws = new WebSocket(manager.url, manager.protocols);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const onWsMessage = ({data}: {data: any}): void => {
-                if(manager.ws?.readyState === WsState.Open) {
+            const onWsMessage = (ws: WebSocket) => ({data}: {data: any}): void => {
+                if(ws.readyState === WsState.Open) {
                     const json: unknown = JSON.parse(data.toString());
                     if (isRecordWith('events', json)) {
                         const events: Event<object>[] = jtv.Result.withException(jtv.array(decodeEventUnknown).run(json.events));
@@ -608,7 +608,7 @@ class QueryStreamsManager {
                         manager.wsLiveSince = undefined;
                         const ws = new WebSocket(manager.url, manager.protocols);
                         ws.addEventListener('open', onWsOpen);
-                        ws.addEventListener('message', onWsMessage);
+                        ws.addEventListener('message', onWsMessage(ws));
                         ws.addEventListener('close', onWsClose);
                         manager.ws = ws;
                     } else {
@@ -627,7 +627,7 @@ class QueryStreamsManager {
             // Purposefully ignoring 'error' events; they are always followed by a 'close' event, which needs to be handled anyway
 
             ws.addEventListener('open', onWsOpen);
-            ws.addEventListener('message', onWsMessage);
+            ws.addEventListener('message', onWsMessage(ws));
             ws.addEventListener('close', onWsClose);
 
             //eslint-disable-next-line @typescript-eslint/no-this-alias
