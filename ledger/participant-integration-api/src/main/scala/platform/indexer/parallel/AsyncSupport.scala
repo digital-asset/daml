@@ -7,6 +7,7 @@ import java.util.concurrent.Executors
 
 import com.codahale.metrics.{InstrumentedExecutorService, MetricRegistry}
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.MetricName
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -33,22 +34,32 @@ object AsyncSupport {
   ): ResourceOwner[Executor] =
     ResourceOwner
       .forExecutorService(() =>
-        ExecutionContext.fromExecutorService {
-          val executor = Executors.newFixedThreadPool(
-            size,
-            new ThreadFactoryBuilder().setNameFormat(s"$namePrefix-%d").build,
-          )
-          withMetric match {
-            case Some((metricName, metricRegistry)) =>
-              new InstrumentedExecutorService(
-                executor,
-                metricRegistry,
-                metricName,
-              )
+        ExecutionContext.fromExecutorService(
+          {
+            val executor = Executors.newFixedThreadPool(
+              size,
+              new ThreadFactoryBuilder()
+                .setNameFormat(s"$namePrefix-%d")
+                .build,
+            )
+            withMetric match {
+              case Some((metricName, metricRegistry)) =>
+                new InstrumentedExecutorService(
+                  executor,
+                  metricRegistry,
+                  metricName,
+                )
 
-            case None => executor
-          }
-        }
+              case None => executor
+            }
+          },
+          throwable =>
+            LoggingContext.newLoggingContext { implicit loggingContext =>
+              ContextualizedLogger
+                .get(this.getClass)
+                .error(s"ExecutionContext ${namePrefix} has failed with an exception", throwable)
+            },
+        )
       )
       .map(Executor.forExecutionContext)
 }

@@ -9,7 +9,7 @@ import java.util.concurrent.Executors
 import akka.stream.{KillSwitch, Materializer}
 import com.daml.ledger.participant.state.v2.ReadService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.ha.{HaConfig, HaCoordinator, Handle, NoopHaCoordinator}
@@ -68,7 +68,16 @@ object ParallelIndexerFactory {
                   Executors.newFixedThreadPool(
                     1,
                     new ThreadFactoryBuilder().setNameFormat(s"ha-coordinator-%d").build,
-                  )
+                  ),
+                  throwable =>
+                    LoggingContext.newLoggingContext { implicit loggingContext =>
+                      ContextualizedLogger
+                        .get(this.getClass)
+                        .error(
+                          s"ExecutionContext ${jdbcUrl} has failed with an exception",
+                          throwable,
+                        )
+                    },
                 )
               )
             timer <- ResourceOwner.forTimer(() => new Timer)
