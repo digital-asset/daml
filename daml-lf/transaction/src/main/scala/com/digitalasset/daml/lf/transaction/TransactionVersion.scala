@@ -67,6 +67,19 @@ object TransactionVersion {
     )
   }
 
+  private[lf] def asVersionedTransaction(
+      tx: Transaction
+  ): VersionedTransaction = tx match {
+    case Transaction(nodes, roots) =>
+      val rootVersions = roots.iterator.map(nodeId =>
+        nodes(nodeId) match {
+          case action: Node.Action => action.version
+          case _: Node.Rollback => minExceptions
+        }
+      )
+      VersionedTransaction(rootVersions.max, nodes, roots)
+  }
+
   val StableVersions: VersionRange[TransactionVersion] =
     LanguageVersion.StableVersions.map(assignNodeVersion)
 
