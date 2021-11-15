@@ -12,7 +12,7 @@ import DA.Daml.StablePackages (numStablePackagesForVersion)
 import DA.Test.Process
 import DA.Test.Util
 import qualified Data.ByteString.Lazy as BSL
-import Data.List (sort)
+import Data.List (sort, (\\))
 import qualified Data.NameMap as NM
 import Module (unitIdString)
 import System.Directory.Extra
@@ -30,6 +30,7 @@ main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "3" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
+    damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
     repl <- locateRunfiles (mainWorkspace </> "daml-lf" </> "repl" </> exe "repl")
     davlDar <- locateRunfiles ("davl-v3" </> "released" </> "davl-v3.dar")
     oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
@@ -38,11 +39,17 @@ main = do
 
 data Tools = Tools -- and places
   { damlc :: FilePath
+  , damlcLegacy :: FilePath
   , repl :: FilePath
   , validate :: FilePath -> IO ()
   , davlDar :: FilePath
   , oldProjDar :: FilePath
   }
+
+damlcForTarget :: Tools -> LF.Version -> FilePath
+damlcForTarget Tools{damlc, damlcLegacy} target
+  | target `elem` LF.supportedOutputVersions = damlc
+  | otherwise = damlcLegacy
 
 darPackageIds :: FilePath -> IO [LF.PackageId]
 darPackageIds fp = do
@@ -51,14 +58,18 @@ darPackageIds fp = do
     Right dalfPkgIds  <- pure $ mapM (LFArchive.decodeArchivePackageId . BSL.toStrict) $ mainDalf : dalfDeps
     pure dalfPkgIds
 
--- | Sequential LF version pairs, with an additional (1.dev, 1.dev) pair at the end.
-sequentialVersionPairs :: [(LF.Version, LF.Version)]
-sequentialVersionPairs =
-    let versions = sort LF.supportedOutputVersions ++ [LF.versionDev]
-    in zip versions (tail versions)
+-- | We test two sets of versions:
+-- 1. Versions no longer supported as output versions by damlc are tested against
+--    1.14.
+-- 2. For all other versions we test them against the next version + an extra (1.dev, 1.dev) pair.
+lfVersionTestPairs :: [(LF.Version, LF.Version)]
+lfVersionTestPairs =
+    let legacyPairs = map (, LF.version1_14) (LF.supportedInputVersions \\ LF.supportedOutputVersions)
+        versions = sort LF.supportedOutputVersions ++ [LF.versionDev]
+    in legacyPairs ++ zip versions (tail versions)
 
 tests :: Tools -> TestTree
-tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependencies" $
+tests tools@Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependencies" $
     [ testCaseSteps ("Cross DAML-LF version: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
@@ -91,7 +102,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "source: src"
               , "dependencies: [daml-prim, daml-stdlib]"
               ]
-          callProcessSilent damlc
+          callProcessSilent (damlcForTarget tools depLfVer)
                 ["build"
                 , "--project-root", proja
                 , "--target", LF.renderVersion depLfVer
@@ -143,7 +154,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               - numStablePackagesForVersion depLfVer ) + -- new stable packages
               1 + -- projb
               (if targetLfVer /= depLfVer then 2 else 0) -- different daml-stdlib/daml-prim
-    | (depLfVer, targetLfVer) <- sequentialVersionPairs
+    | (depLfVer, targetLfVer) <- lfVersionTestPairs
     ] <>
     [ testCaseSteps "Cross-SDK dependency on DAVL" $ \step -> withTempDir $ \tmpDir -> do
           step "Building DAR"
@@ -642,7 +653,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "source: src"
               , "dependencies: [daml-prim, daml-stdlib]"
               ]
-          callProcessSilent damlc
+          callProcessSilent (damlcForTarget tools depLfVer)
               [ "build"
               , "--project-root", proja
               , "--target", LF.renderVersion depLfVer
@@ -736,7 +747,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               ]
           validate $ projb </> "projb.dar"
 
-    | (depLfVer, targetLfVer) <- sequentialVersionPairs
+    | (depLfVer, targetLfVer) <- lfVersionTestPairs
     , LF.supports depLfVer LF.featureTypeSynonyms -- only test for new-style typeclasses
     ] <>
     [ testCase "Cross-SDK typeclasses" $ withTempDir $ \tmpDir -> do
