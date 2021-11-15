@@ -6,7 +6,7 @@ package transaction
 
 import com.daml.lf.value.{Value => Val}
 
-class Normalization {
+object Normalization {
 
   /** This class provides methods to normalize a transaction and embedded values.
     *
@@ -29,20 +29,10 @@ class Normalization {
     */
 
   private type KWM = Node.KeyWithMaintainers
-  private type VTX = VersionedTransaction
+  private type TX = Transaction
 
-  def normalizeTx(vtx: VTX): VTX = {
-    vtx match {
-      case VersionedTransaction(_, nodes, _) =>
-        VersionedTransaction(
-          vtx.version,
-          nodes.map { case (k, v) =>
-            (k, normNode(v))
-          },
-          vtx.roots,
-        )
-    }
-  }
+  def normalizeTx(vtx: TX): TX =
+    vtx.copy(nodes = vtx.nodes.transform((_, v) => normNode(v)))
 
   private def normNode(
       node: Node
@@ -98,10 +88,4 @@ class Normalization {
     }
   }
 
-}
-
-object Normalization {
-  def normalizeTx(tx: VersionedTransaction): VersionedTransaction = {
-    new Normalization().normalizeTx(tx)
-  }
 }

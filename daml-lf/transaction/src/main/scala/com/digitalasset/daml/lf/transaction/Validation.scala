@@ -6,8 +6,8 @@ package transaction
 
 object Validation {
   def isReplayedBy(
-      recorded: VersionedTransaction,
-      replayed: VersionedTransaction,
+      recorded: Transaction,
+      replayed: Transaction,
   ): Either[ReplayMismatch, Unit] =
     if (recorded == replayed) {
       Right(())
@@ -17,8 +17,8 @@ object Validation {
 }
 
 final case class ReplayMismatch(
-    recordedTransaction: VersionedTransaction,
-    replayedTransaction: VersionedTransaction,
+    recordedTransaction: Transaction,
+    replayedTransaction: Transaction,
 ) extends Product
     with Serializable {
   def message: String =

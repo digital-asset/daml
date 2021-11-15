@@ -6,13 +6,7 @@ package engine
 
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId}
 import com.daml.lf.language.{Ast, LookupError}
-import com.daml.lf.transaction.{
-  IncompleteTransaction,
-  Transaction,
-  Node,
-  NodeId,
-  VersionedTransaction,
-}
+import com.daml.lf.transaction.{IncompleteTransaction, Node, NodeId, Transaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.speedy.SValue
@@ -177,16 +171,7 @@ final class ValueEnricher(
               normalizedNode <- enrichNode(node)
             } yield nodes.updated(nid, normalizedNode)
         }
-    } yield Transaction(
-      nodes = normalizedNodes,
-      roots = tx.roots,
-    )
-
-  def enrichVersionedTransaction(versionedTx: VersionedTransaction): Result[VersionedTransaction] =
-    enrichTransaction(Transaction(versionedTx.nodes, versionedTx.roots)).map {
-      case Transaction(nodes, roots) =>
-        VersionedTransaction(versionedTx.version, nodes, roots)
-    }
+    } yield tx.copy(nodes = normalizedNodes)
 
   def enrichIncompleteTransaction(
       incompleteTx: IncompleteTransaction

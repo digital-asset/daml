@@ -7,14 +7,7 @@ package test
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import com.daml.lf.transaction.{
-  Transaction,
-  Node,
-  NodeId,
-  TransactionVersion,
-  Versioned,
-  VersionedTransaction,
-}
+import com.daml.lf.transaction.{Node, NodeId, TransactionVersion, Versioned, Transaction}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
@@ -562,7 +555,7 @@ object ValueGenerators {
     }
   }
 
-  val noDanglingRefGenVersionedTransaction: Gen[VersionedTransaction] = {
+  val noDanglingRefGenTransactionWithVersion: Gen[Transaction] =
     for {
       tx <- noDanglingRefGenTransaction
       txVer <- transactionVersionGen()
@@ -572,9 +565,7 @@ object ValueGenerators {
           hashMap <- acc
         } yield hashMap.updated(nodeId, node)
       }
-    } yield VersionedTransaction(txVer, nodes, tx.roots)
-
-  }
+    } yield tx.copy(nodes = nodes)
 
   def stringVersionGen: Gen[String] = {
     val g: Gen[String] = for {

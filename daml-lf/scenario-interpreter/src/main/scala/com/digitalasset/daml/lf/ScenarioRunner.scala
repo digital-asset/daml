@@ -408,7 +408,7 @@ object ScenarioRunner {
         case x => crash(s"unexpected Result when enriching value: $x")
       }
     override def enrich(tx: SubmittedTransaction): SubmittedTransaction =
-      SubmittedTransaction(consume(enricher.enrichVersionedTransaction(tx)))
+      SubmittedTransaction(consume(enricher.enrichTransaction(tx)))
     override def enrich(tx: IncompleteTransaction): IncompleteTransaction =
       consume(enricher.enrichIncompleteTransaction(tx))
   }

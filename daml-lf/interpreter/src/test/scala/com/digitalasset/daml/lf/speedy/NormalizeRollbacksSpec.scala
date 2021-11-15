@@ -220,24 +220,18 @@ object NormalizeRollbackSpec {
   }
 
   def isNormalized(tx: TX): Boolean = {
-    tx match {
-      case Transaction(nodes, _) =>
-        def isRB(node: Node): Boolean = {
-          node match {
-            case _: Node.Rollback => true
-            case _ => false
-          }
-        }
-        def check(rb: Node.Rollback): Boolean = {
-          val n = rb.children.length
-          (n > 0) && // Normalization rule #1
-          !isRB(nodes(rb.children(0))) && // Normalization rule #2
-          !isRB(nodes(rb.children(n - 1))) // Normalization rule #3
-        }
-        forallRB(tx) { rb =>
-          check(rb)
-        }
+    def isRB(node: Node): Boolean =
+      node match {
+        case _: Node.Rollback => true
+        case _ => false
+      }
+    def check(rb: Node.Rollback): Boolean = {
+      val n = rb.children.length
+      (n > 0) && // Normalization rule #1
+      !isRB(tx.nodes(rb.children(0))) && // Normalization rule #2
+      !isRB(tx.nodes(rb.children(n - 1))) // Normalization rule #3
     }
+    forallRB(tx)(check)
   }
 
   // Shape: description of a transaction, with conversions to and from a real tx

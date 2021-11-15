@@ -18,9 +18,7 @@ import com.daml.lf.transaction.{
   Node,
   NodeId,
   SubmittedTransaction,
-  VersionedTransaction,
   Transaction => Tx,
-  TransactionVersion => TxVersions,
 }
 import com.daml.lf.transaction.{Normalization, Validation, ReplayMismatch}
 import com.daml.lf.value.Value
@@ -1071,7 +1069,7 @@ class EngineTest
         reinterpret(
           suffixStrictEngine,
           Set(bob),
-          stx.transaction.roots,
+          stx.roots,
           stx,
           txMeta,
           let,
@@ -1085,7 +1083,7 @@ class EngineTest
     "blinded correctly" in {
 
       // Bob sees both the archive and the create
-      val bobView = Blinding.divulgedTransaction(blindingInfo.disclosure, bob, tx.transaction)
+      val bobView = Blinding.divulgedTransaction(blindingInfo.disclosure, bob, tx)
       bobView.nodes.size shouldBe 2
       findNodeByIdx(bobView.nodes, 0).getOrElse(fail("node not found")) match {
         case Node.Exercise(
@@ -1122,7 +1120,7 @@ class EngineTest
 
       // clara only sees create
       val claraView =
-        Blinding.divulgedTransaction(blindingInfo.disclosure, clara, tx.transaction)
+        Blinding.divulgedTransaction(blindingInfo.disclosure, clara, tx)
 
       claraView.nodes.size shouldBe 1
       findNodeByIdx(claraView.nodes, 1).getOrElse(fail("node not found")) match {
@@ -1238,13 +1236,13 @@ class EngineTest
     "propagate the parent's signatories and actors (but not observers) when stakeholders" in {
 
       val Right((tx, _)) = runExample(fetcher1Cid, clara)
-      txFetchActors(tx.transaction) shouldBe Set(alice, clara)
+      txFetchActors(tx) shouldBe Set(alice, clara)
     }
 
     "not propagate the parent's signatories nor actors when not stakeholders" in {
 
       val Right((tx, _)) = runExample(fetcher2Cid, clara)
-      txFetchActors(tx.transaction) shouldBe Set(clara)
+      txFetchActors(tx) shouldBe Set(clara)
     }
 
     "be retained when reinterpreting single fetch nodes" in {
@@ -1255,7 +1253,7 @@ class EngineTest
 
       fetchNodes.foreach { case (_, n) =>
         val nid = NodeId(0) //we must use node-0 so the constructed tx is normalized
-        val fetchTx = VersionedTransaction(n.version, Map(nid -> n), ImmArray(nid))
+        val fetchTx = Tx(n.version, Map(nid -> n), ImmArray(nid))
         val Right((reinterpreted, _)) =
           suffixLenientEngine
             .reinterpret(
@@ -1392,7 +1390,7 @@ class EngineTest
           lookupKey,
         )
 
-      val expectedByKeyNodes = tx.transaction.nodes.collect { case (id, _: Node.LookupByKey) =>
+      val expectedByKeyNodes = tx.nodes.collect { case (id, _: Node.LookupByKey) =>
         id
       }
       val actualByKeyNodes = byKeyNodes(tx)
@@ -1419,7 +1417,7 @@ class EngineTest
         )
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
 
-      val Some((nid, lookupNode)) = firstLookupNode(tx.transaction)
+      val Some((nid, lookupNode)) = firstLookupNode(tx)
       lookupNode.result shouldBe Some(lookedUpCid)
 
       val Right((reinterpreted, _)) =
@@ -1437,7 +1435,7 @@ class EngineTest
             lookupKey,
           )
 
-      firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
+      firstLookupNode(reinterpreted).map(_._2) shouldEqual Some(lookupNode)
     }
 
     "be reinterpreted to the same node when lookup doesn't find a contract" in {
@@ -1460,7 +1458,7 @@ class EngineTest
 
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
 
-      val Some((nid, lookupNode)) = firstLookupNode(tx.transaction)
+      val Some((nid, lookupNode)) = firstLookupNode(tx)
       lookupNode.result shouldBe None
 
       val Right((reinterpreted, _)) =
@@ -1478,7 +1476,7 @@ class EngineTest
             lookupKey,
           )
 
-      firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
+      firstLookupNode(reinterpreted).map(_._2) shouldEqual Some(lookupNode)
     }
 
     "crash if use a contract key with an empty set of maintainers" in {
@@ -1573,7 +1571,7 @@ class EngineTest
           lookupKey,
         )
 
-      tx.transaction.nodes.values.headOption match {
+      tx.nodes.values.headOption match {
         case Some(Node.Fetch(_, _, _, _, _, key, _, _, _)) =>
           key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
@@ -1646,7 +1644,7 @@ class EngineTest
           lookupKey,
         )
 
-      tx.transaction.nodes
+      tx.nodes
         .collectFirst { case (id, nf: Node.Fetch) =>
           nf.key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
@@ -1760,10 +1758,10 @@ class EngineTest
     }
 
     "produce a quadratic number of nodes" in {
-      run(0).map(_._1.transaction.nodes.size) shouldBe Right(2)
-      run(1).map(_._1.transaction.nodes.size) shouldBe Right(6)
-      run(2).map(_._1.transaction.nodes.size) shouldBe Right(14)
-      run(3).map(_._1.transaction.nodes.size) shouldBe Right(30)
+      run(0).map(_._1.nodes.size) shouldBe Right(2)
+      run(1).map(_._1.nodes.size) shouldBe Right(6)
+      run(2).map(_._1.nodes.size) shouldBe Right(14)
+      run(3).map(_._1.nodes.size) shouldBe Right(30)
     }
 
     "be validable in whole" in {
@@ -1797,9 +1795,9 @@ class EngineTest
       val Right((tx, txMeta)) = run(3)
       val stx = suffix(tx)
 
-      val ImmArray(_, exeNode1) = tx.transaction.roots
+      val ImmArray(_, exeNode1) = tx.roots
       val Node.Exercise(_, _, _, _, _, _, _, _, _, children, _, _, _, _, _) =
-        tx.transaction.nodes(exeNode1)
+        tx.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 
       reinterpret(
@@ -2147,7 +2145,7 @@ object EngineTest {
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
   private def participant = Ref.ParticipantId.assertFromString("participant")
-  private def byKeyNodes(tx: VersionedTransaction) =
+  private def byKeyNodes(tx: Tx) =
     tx.nodes.collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }.toSet
 
   private val party = Party.assertFromString("Party")
@@ -2192,14 +2190,14 @@ object EngineTest {
   }
 
   private def isReplayedBy(
-      recorded: VersionedTransaction,
-      replayed: VersionedTransaction,
+      recorded: Tx,
+      replayed: Tx,
   ): Either[ReplayMismatch, Unit] = {
     // we normalize the LEFT arg before calling isReplayedBy to mimic the effect of serialization
     Validation.isReplayedBy(Normalization.normalizeTx(recorded), replayed)
   }
 
-  private def suffix(tx: VersionedTransaction) =
+  private def suffix(tx: Tx) =
     data.assertRight(tx.suffixCid(_ => dummySuffix))
 
   private[this] case class ReinterpretState(
@@ -2243,13 +2241,13 @@ object EngineTest {
       engine: Engine,
       submitters: Set[Party],
       nodes: ImmArray[NodeId],
-      tx: VersionedTransaction,
+      tx: Tx,
       txMeta: Tx.Metadata,
       ledgerEffectiveTime: Time.Timestamp,
       lookupPackages: PackageId => Option[Package],
       contracts: Map[ContractId, VersionedContractInstance] = Map.empty,
       keys: Map[GlobalKey, ContractId] = Map.empty,
-  ): Either[Error, (VersionedTransaction, Tx.Metadata)] = {
+  ): Either[Error, (Tx, Tx.Metadata)] = {
 
     val nodeSeedMap = txMeta.nodeSeeds.toSeq.toMap
 
@@ -2258,7 +2256,7 @@ object EngineTest {
         case (acc, nodeId) =>
           for {
             state <- acc
-            cmd = tx.transaction.nodes(nodeId) match {
+            cmd = tx.nodes(nodeId) match {
               case create: Node.Create =>
                 CreateCommand(create.templateId, create.arg)
               case fetch: Node.Fetch if fetch.byKey =>
@@ -2293,7 +2291,7 @@ object EngineTest {
             tr1 = suffix(tr0)
             n = state.nodes.size
             nodeRenaming = (nid: NodeId) => NodeId(nid.index + n)
-            tr = tr1.transaction.mapNodeId(nodeRenaming)
+            tr = tr1.mapNodeId(nodeRenaming)
             meta = meta0.copy(nodeSeeds = meta0.nodeSeeds.map { case (nid, seed) =>
               nodeRenaming(nid) -> seed
             })
@@ -2302,9 +2300,7 @@ object EngineTest {
 
     finalState.map(state =>
       (
-        TxVersions.asVersionedTransaction(
-          Tx(state.nodes, state.roots.toImmArray)
-        ),
+        Tx(state.nodes, state.roots.toImmArray),
         Tx.Metadata(
           submissionSeed = None,
           submissionTime = txMeta.submissionTime,

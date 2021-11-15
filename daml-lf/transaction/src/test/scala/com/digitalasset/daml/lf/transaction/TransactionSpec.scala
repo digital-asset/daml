@@ -173,7 +173,7 @@ class TransactionSpec
     def genTrans(node: Node) = {
       val nid = NodeId(1)
       val version = node.optVersion.getOrElse(TransactionVersion.minExceptions)
-      VersionedTransaction(version, HashMap(nid -> node), ImmArray(nid))
+      Transaction(version, HashMap(nid -> node), ImmArray(nid))
     }
 
     def isReplayedBy(

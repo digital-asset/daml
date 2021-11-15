@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.Node
-import com.daml.lf.transaction.{NodeId, VersionedTransaction}
+import com.daml.lf.transaction.{NodeId, Transaction}
 import com.daml.lf.value.Value.ContractId
 import com.daml.nameof.NameOf
 
@@ -55,7 +55,7 @@ object BlindingTransaction {
 
   /** Calculate blinding information for a transaction. */
   def calculateBlindingInfo(
-      tx: VersionedTransaction
+      tx: Transaction
   ): BlindingInfo = {
 
     val initialParentExerciseWitnesses: Set[Party] = Set.empty

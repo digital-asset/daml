@@ -160,8 +160,8 @@ class TransactionCoderSpec
     }
 
     "do transactions" in
-      forAll(noDanglingRefGenVersionedTransaction, minSuccessful(50)) { tx =>
-        val tx2 = VersionedTransaction(
+      forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
+        val tx2 = Transaction(
           tx.version,
           tx.nodes.transform((_, node) => normalizeNode(node)),
           tx.roots,
@@ -199,7 +199,7 @@ class TransactionCoderSpec
                 .encodeTransactionWithCustomVersion(
                   TransactionCoder.NidEncoder,
                   ValueCoder.CidEncoder,
-                  VersionedTransaction(
+                  Transaction(
                     TransactionVersion.VDev,
                     tx.nodes.view.mapValues(updateVersion(_, TransactionVersion.VDev)).toMap,
                     tx.roots,
@@ -238,7 +238,7 @@ class TransactionCoderSpec
         val versionedNode = node.updateVersion(version)
         val roots = ImmArray.ImmArraySeq.range(0, 10000).map(NodeId(_)).toImmArray
         val nodes = roots.iterator.map(nid => nid -> versionedNode).toMap
-        val tx = VersionedTransaction(
+        val tx = Transaction(
           version,
           nodes = nodes.view.mapValues(_.copy(version = version)).toMap,
           roots = roots,

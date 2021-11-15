@@ -15,7 +15,6 @@ import com.daml.lf.transaction.{
   SubmittedTransaction,
   Transaction => Tx,
   TransactionVersion => TxVersion,
-  VersionedTransaction => VersionedTx,
 }
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
@@ -376,7 +375,7 @@ private[speedy] case class PartialTransaction(
         val tx0 = Tx(nodes, roots)
         val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
         CompleteTransaction(
-          SubmittedTransaction(VersionedTx(context.childrenVersions.max, tx.nodes, tx.roots)),
+          SubmittedTransaction(Tx(context.childrenVersions.max, tx.nodes, tx.roots)),
           locationInfo(),
           seeds.zip(actionNodeSeeds.toImmArray),
         )

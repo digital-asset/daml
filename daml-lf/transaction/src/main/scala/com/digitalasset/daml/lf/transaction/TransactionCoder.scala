@@ -690,7 +690,7 @@ object TransactionCoder {
   def encodeTransaction(
       encodeNid: EncodeNid,
       encodeCid: ValueCoder.EncodeCid,
-      tx: VersionedTransaction,
+      tx: Transaction,
   ): Either[EncodeError, TransactionOuterClass.Transaction] =
     encodeTransactionWithCustomVersion(
       encodeNid,
@@ -698,7 +698,7 @@ object TransactionCoder {
       tx,
     )
 
-  /** Encode a transaction to protobuf using [[TransactionVersion]] provided by in the [[VersionedTransaction]] argument.
+  /** Encode a transaction to protobuf using [[TransactionVersion]] provided by in the [[Transaction]] argument.
     *
     * @param transaction the transaction to be encoded
     * @param encodeNid   node id encoding function
@@ -710,7 +710,7 @@ object TransactionCoder {
   private[transaction] def encodeTransactionWithCustomVersion(
       encodeNid: EncodeNid,
       encodeCid: ValueCoder.EncodeCid,
-      transaction: VersionedTransaction,
+      transaction: Transaction,
   ): Either[EncodeError, TransactionOuterClass.Transaction] = {
     val builder = TransactionOuterClass.Transaction
       .newBuilder()
@@ -761,7 +761,7 @@ object TransactionCoder {
   def decodeVersion(vs: String): Either[DecodeError, TransactionVersion] =
     TransactionVersion.fromString(vs).left.map(DecodeError)
 
-  /** Reads a [[VersionedTransaction]] from protobuf and checks if
+  /** Reads a [[Transaction]] from protobuf and checks if
     * [[TransactionVersion]] passed in the protobuf is currently supported.
     *
     * Supported transaction versions configured in [[TransactionVersion]].
@@ -777,7 +777,7 @@ object TransactionCoder {
       decodeNid: DecodeNid,
       decodeCid: ValueCoder.DecodeCid,
       protoTx: TransactionOuterClass.Transaction,
-  ): Either[DecodeError, VersionedTransaction] =
+  ): Either[DecodeError, Transaction] =
     for {
       version <- decodeVersion(protoTx.getVersion)
       tx <- decodeTransaction(
@@ -804,7 +804,7 @@ object TransactionCoder {
       decodeCid: ValueCoder.DecodeCid,
       txVersion: TransactionVersion,
       protoTx: TransactionOuterClass.Transaction,
-  ): Either[DecodeError, VersionedTransaction] = {
+  ): Either[DecodeError, Transaction] = {
     val roots = protoTx.getRootsList.asScala
       .foldLeft[Either[DecodeError, BackStack[NodeId]]](Right(BackStack.empty[NodeId])) {
         case (Right(acc), s) => decodeNid.fromString(s).map(acc :+ _)
@@ -821,7 +821,7 @@ object TransactionCoder {
     for {
       rs <- roots
       ns <- nodes
-    } yield VersionedTransaction(txVersion, ns, rs)
+    } yield Transaction(txVersion, ns, rs)
   }
 
   def toPartySet(strList: ProtocolStringList): Either[DecodeError, Set[Party]] = {

@@ -40,9 +40,7 @@ object TransactionNormalizer {
         }
 
     val filteredRoots = tx.roots.filter(keepNids.contains)
-    CommittedTransaction(
-      VersionedTransaction(tx.version, filteredNodes, filteredRoots)
-    )
+    CommittedTransaction(Transaction(tx.version, filteredNodes, filteredRoots))
   }
 
 }

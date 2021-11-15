@@ -12,7 +12,7 @@ import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError}
 import com.daml.lf.speedy.SExpr.{SExpr, SEApp, SEValue}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction, Transaction => Tx}
+import com.daml.lf.transaction.{Node, SubmittedTransaction, Transaction => Tx}
 import java.nio.file.Files
 
 import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackages}
@@ -484,7 +484,7 @@ object Engine {
       crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime)
     )
 
-  private def profileDesc(tx: VersionedTransaction): String = {
+  private def profileDesc(tx: Tx): String = {
     if (tx.roots.length == 1) {
       val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
         s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"

@@ -24,10 +24,15 @@ package object transaction {
       Right(b.result())
     }
 
-  val SubmittedTransaction = DiscriminatedSubtype[VersionedTransaction]
+  val SubmittedTransaction = DiscriminatedSubtype[Transaction]
   type SubmittedTransaction = SubmittedTransaction.T
 
-  val CommittedTransaction = DiscriminatedSubtype[VersionedTransaction]
+  val CommittedTransaction = DiscriminatedSubtype[Transaction]
   type CommittedTransaction = CommittedTransaction.T
+
+  @deprecated("use Transaction", since = "1.18.0")
+  type VersionedTransaction = Transaction
+  @deprecated("use Transaction", since = "1.18.0")
+  val VersionedTransaction = Transaction
 
 }

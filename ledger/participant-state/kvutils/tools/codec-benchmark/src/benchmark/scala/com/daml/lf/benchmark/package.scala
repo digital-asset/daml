@@ -10,7 +10,7 @@ import com.daml.lf.transaction.TransactionCoder.{
   encodeTransaction,
 }
 import com.daml.lf.transaction.TransactionOuterClass.Transaction
-import com.daml.lf.transaction.VersionedTransaction
+import com.daml.lf.transaction.Transaction
 import com.daml.lf.value.ValueCoder._
 import com.daml.lf.value.ValueOuterClass
 import com.google.protobuf.ByteString
@@ -45,7 +45,7 @@ package object benchmark {
     * [[com.daml.lf.transaction.TransactionCoder.decodeTransaction]].
     * It's the Daml-LF representation of a transaction.
     */
-  private[lf] type DecodedTransaction = VersionedTransaction
+  private[lf] type DecodedTransaction = Transaction
 
   /** This is the output of a successful call to
     * [[com.daml.lf.value.ValueCoder.decodeValue]].

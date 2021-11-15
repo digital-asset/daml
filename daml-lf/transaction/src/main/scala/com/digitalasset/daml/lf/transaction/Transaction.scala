@@ -14,63 +14,41 @@ import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
 import com.daml.scalautil.Statement.discard
 
-final case class VersionedTransaction private[lf] (
-    version: TransactionVersion,
-    nodes: Map[NodeId, Node],
-    override val roots: ImmArray[NodeId],
-) extends HasTxNodes
-    with value.CidContainer[VersionedTransaction]
-    with NoCopy {
-
-  override protected def self: this.type = this
-
-  override def mapCid(f: ContractId => ContractId): VersionedTransaction =
-    VersionedTransaction(
-      version,
-      nodes = nodes.map { case (nodeId, node) => nodeId -> node.mapCid(f) },
-      roots,
-    )
-
-  def mapNodeId(f: NodeId => NodeId): VersionedTransaction =
-    VersionedTransaction(
-      version,
-      nodes.map { case (nodeId, node) => f(nodeId) -> node.mapNodeId(f) },
-      roots.map(f),
-    )
-
-  // O(1)
-  def transaction: Transaction =
-    Transaction(nodes, roots)
-
-}
-
 /** General transaction type
   *
-  * Abstracts over NodeId type and ContractId type
-  * ContractId restricts the occurrence of contractIds
-  *
+  * @param version The version of this transaction
   * @param nodes The nodes of this transaction.
   * @param roots References to the root nodes of the transaction.
   * Users of this class may assume that all instances are well-formed, i.e., `isWellFormed.isEmpty`.
   * For performance reasons, users are not required to call `isWellFormed`.
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
   */
-final case class Transaction(
+final case class Transaction private[lf] (
+    version: TransactionVersion,
     nodes: Map[NodeId, Node],
     roots: ImmArray[NodeId],
-) extends HasTxNodes
-    with value.CidContainer[Transaction] {
+) extends value.CidContainer[Transaction] {
 
   import Transaction._
 
   override protected def self: this.type = this
+
   override def mapCid(f: ContractId => ContractId): Transaction =
-    copy(nodes = nodes.map { case (nodeId, node) => nodeId -> node.mapCid(f) })
-  def mapNodeId(f: NodeId => NodeId): Transaction =
-    copy(
-      nodes = nodes.map { case (nodeId, node) => f(nodeId) -> node.mapNodeId(f) },
-      roots = roots.map(f),
+    Transaction(
+      version,
+      nodes = nodes.map { case (nodeId, node) => nodeId -> node.mapCid(f) },
+      roots,
     )
+
+  def mapNodeId(f: NodeId => NodeId): Transaction =
+    Transaction(
+      version,
+      nodes.map { case (nodeId, node) => f(nodeId) -> node.mapNodeId(f) },
+      roots.map(f),
+    )
+
+  @deprecated("use this", since = "1.8.0")
+  def transaction: Transaction = this
 
   /** This function checks the following properties:
     *
@@ -240,28 +218,6 @@ final case class Transaction(
       }
     }
 
-  /*
-  private[lf] def foreach2(fNid: Nid => Unit, fCid: ContractI => Unit): Unit =
-    GenTransaction.foreach2(fNid, fCid)(this)
-   */
-}
-
-sealed abstract class HasTxNodes {
-
-  import Transaction.{
-    KeyInput,
-    KeyActive,
-    KeyCreate,
-    NegativeKeyLookup,
-    KeyInputError,
-    DuplicateKeys,
-    InconsistentKeys,
-  }
-
-  def nodes: Map[NodeId, Node]
-
-  def roots: ImmArray[NodeId]
-
   /** The union of the informees of a all the action nodes. */
   lazy val informees: Set[Ref.Party] =
     nodes.values.foldLeft(Set.empty[Ref.Party]) {
@@ -301,7 +257,7 @@ sealed abstract class HasTxNodes {
     *
     * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
     */
-  final def foreach(f: (NodeId, Node) => Unit): Unit = {
+  def foreach(f: (NodeId, Node) => Unit): Unit = {
 
     @tailrec
     def go(toVisit: FrontStack[NodeId]): Unit = toVisit match {
@@ -323,7 +279,7 @@ sealed abstract class HasTxNodes {
     *
     * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
     */
-  final def fold[A](z: A)(f: (A, (NodeId, Node)) => A): A = {
+  def fold[A](z: A)(f: (A, (NodeId, Node)) => A): A = {
     var acc = z
     foreach((nodeId, node) => acc = f(acc, (nodeId, node)))
     acc
@@ -335,7 +291,7 @@ sealed abstract class HasTxNodes {
     * Used to for example compute the roots of per-party projections from the
     * transaction.
     */
-  final def foldWithPathState[A, B](globalState0: A, pathState0: B)(
+  def foldWithPathState[A, B](globalState0: A, pathState0: B)(
       op: (A, B, NodeId, Node) => (A, B)
   ): A = {
     var globalState = globalState0
@@ -360,7 +316,7 @@ sealed abstract class HasTxNodes {
     globalState
   }
 
-  final def localContracts[Cid2 >: ContractId]: Map[Cid2, (NodeId, Node.Create)] =
+  def localContracts[Cid2 >: ContractId]: Map[Cid2, (NodeId, Node.Create)] =
     fold(Map.empty[Cid2, (NodeId, Node.Create)]) {
       case (acc, (nid, create: Node.Create)) =>
         acc.updated(create.coid, nid -> create)
@@ -371,7 +327,7 @@ sealed abstract class HasTxNodes {
     *  This includes transient contracts but it does not include contracts
     *  consumed in rollback nodes.
     */
-  final def consumedContracts[Cid2 >: ContractId]: Set[Cid2] =
+  def consumedContracts[Cid2 >: ContractId]: Set[Cid2] =
     foldInExecutionOrder(Set.empty[Cid2])(
       exerciseBegin = (acc, _, exe) => {
         if (exe.consuming) { (acc + exe.targetCoid, true) }
@@ -387,8 +343,8 @@ sealed abstract class HasTxNodes {
     * This includes both contracts that have been arachived and local
     * contracts whose create has been rolled back.
     */
-  final def inactiveContracts[Cid2 >: ContractId]: Set[Cid2] = {
-    final case class LedgerState(
+  def inactiveContracts[Cid2 >: ContractId]: Set[Cid2] = {
+    case class LedgerState(
         createdCids: Set[Cid2],
         inactiveCids: Set[Cid2],
     ) {
@@ -401,7 +357,7 @@ sealed abstract class HasTxNodes {
           inactiveCids = inactiveCids + cid
         )
     }
-    final case class State(
+    case class State(
         currentState: LedgerState,
         rollbackStack: List[LedgerState],
     ) {
@@ -447,7 +403,7 @@ sealed abstract class HasTxNodes {
 
   /** Returns the IDs of all input contracts that are used by this transaction.
     */
-  final def inputContracts[Cid2 >: ContractId]: Set[Cid2] =
+  def inputContracts[Cid2 >: ContractId]: Set[Cid2] =
     fold(Set.empty[Cid2]) {
       case (acc, (_, Node.Exercise(coid, _, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
         acc + coid
@@ -462,7 +418,7 @@ sealed abstract class HasTxNodes {
     * This includes the keys created, exercised, fetched, or looked up, even those
     * that refer transient contracts or that appear under a rollback node.
     */
-  final def contractKeys: Set[GlobalKey] = {
+  def contractKeys: Set[GlobalKey] = {
     fold(Set.empty[GlobalKey]) {
       case (acc, (_, node: Node.Create)) =>
         node.key.fold(acc)(key => acc + GlobalKey.assertBuild(node.templateId, key.key))
@@ -492,8 +448,8 @@ sealed abstract class HasTxNodes {
   @throws[IllegalArgumentException](
     "If a contract key contains a contract id"
   )
-  final def contractKeyInputs: Either[KeyInputError, Map[GlobalKey, KeyInput]] = {
-    final case class State(
+  def contractKeyInputs: Either[KeyInputError, Map[GlobalKey, KeyInput]] = {
+    case class State(
         keys: Map[GlobalKey, Option[Value.ContractId]],
         rollbackStack: List[Map[GlobalKey, Option[Value.ContractId]]],
         keyInputs: Map[GlobalKey, KeyInput],
@@ -611,7 +567,7 @@ sealed abstract class HasTxNodes {
     *  This includes updates to transient contracts (by mapping them to None)
     *  but it does not include any updates under rollback nodes.
     */
-  final def updatedContractKeys: Map[GlobalKey, Option[Value.ContractId]] = {
+  def updatedContractKeys: Map[GlobalKey, Option[Value.ContractId]] = {
     foldInExecutionOrder(Map.empty[GlobalKey, Option[Value.ContractId]])(
       exerciseBegin = {
         case (acc, _, exec) if exec.consuming =>
@@ -639,7 +595,7 @@ sealed abstract class HasTxNodes {
   // This method visits to all nodes of the transaction in execution order.
   // Exercise/rollback nodes are visited twice: when execution reaches them and when execution leaves their body.
   // On the first visit of an execution/rollback node, the caller can prevent traversal of the children
-  final def foreachInExecutionOrder(
+  def foreachInExecutionOrder(
       exerciseBegin: (NodeId, Node.Exercise) => Boolean,
       rollbackBegin: (NodeId, Node.Rollback) => Boolean,
       leaf: (NodeId, Node.LeafOnlyAction) => Unit,
@@ -692,7 +648,7 @@ sealed abstract class HasTxNodes {
 
   // This method visits to all nodes of the transaction in execution order.
   // Exercise nodes are visited twice: when execution reaches them and when execution leaves their body.
-  final def foldInExecutionOrder[A](z: A)(
+  def foldInExecutionOrder[A](z: A)(
       exerciseBegin: (A, NodeId, Node.Exercise) => (A, Boolean),
       rollbackBegin: (A, NodeId, Node.Rollback) => (A, Boolean),
       leaf: (A, NodeId, Node.LeafOnlyAction) => A,
@@ -719,7 +675,7 @@ sealed abstract class HasTxNodes {
   }
 
   // This method returns all node-ids reachable from the roots of a transaction.
-  final def reachableNodeIds: Set[NodeId] = {
+  def reachableNodeIds: Set[NodeId] = {
     foldInExecutionOrder[Set[NodeId]](Set.empty)(
       (acc, nid, _) => (acc + nid, true),
       (acc, nid, _) => (acc + nid, true),
@@ -729,7 +685,7 @@ sealed abstract class HasTxNodes {
     )
   }
 
-  final def guessSubmitter: Either[String, Party] =
+  def guessSubmitter: Either[String, Party] =
     rootNodes.map(_.requiredAuthorizers) match {
       case ImmArray() =>
         Left(s"Empty transaction")
@@ -748,9 +704,21 @@ object Transaction {
   @deprecated("use com.daml.transaction.GenTransaction directly", since = "1.18.0")
   type WithTxValue = Transaction
 
-  private[this] val Empty = Transaction(HashMap.empty, ImmArray.Empty)
+  private[lf] def apply(
+      nodes: Map[NodeId, Node],
+      roots: ImmArray[NodeId],
+  ): Transaction = {
+    import scala.Ordering.Implicits.infixOrderingOps
+    val version = roots.foldLeft(TransactionVersion.minVersion) { (acc, nodeId) =>
+      nodes(nodeId) match {
+        case action: Node.Action => acc max action.version
+        case _: Node.Rollback => acc max TransactionVersion.minExceptions
+      }
+    }
+    Transaction(version, nodes, roots)
+  }
 
-  private[lf] def empty: Transaction = Empty
+  private[lf] val Empty = Transaction(HashMap.empty, ImmArray.Empty)
 
   private[lf] case class NotWellFormedError(nid: NodeId, reason: NotWellFormedErrorReason)
   private[lf] sealed trait NotWellFormedErrorReason
@@ -760,7 +728,7 @@ object Transaction {
 
   // crashes if transaction's keys contain contract Ids.
   @throws[IllegalArgumentException]
-  def duplicatedContractKeys(tx: VersionedTransaction): Set[GlobalKey] = {
+  def duplicatedContractKeys(tx: Transaction): Set[GlobalKey] = {
 
     import GlobalKey.{assertBuild => globalKey}
 

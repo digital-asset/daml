@@ -106,7 +106,7 @@ private[sandbox] final class InMemoryLedger(
   private def enrichTX(tx: LedgerEntry.Transaction): LedgerEntry.Transaction =
     tx.copy(transaction =
       CommittedTransaction(
-        consumeEnricherResult(enricher.enrichVersionedTransaction(tx.transaction))
+        consumeEnricherResult(enricher.enrichTransaction(tx.transaction))
       )
     )
 

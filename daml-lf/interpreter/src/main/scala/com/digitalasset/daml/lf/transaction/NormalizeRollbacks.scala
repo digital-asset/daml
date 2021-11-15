@@ -30,7 +30,7 @@ private[lf] object NormalizeRollbacks {
     // (1) drop nodes; (2) combine nodes (3) lift nodes from a lower level to a higher level.
 
     txOriginal match {
-      case Transaction(nodesOriginal, rootsOriginal) =>
+      case Transaction(_, nodesOriginal, rootsOriginal) =>
         def traverseNodeIds[R](
             xs: List[NodeId]
         )(k: Vector[Norm] => Trampoline[R]): Trampoline[R] = {

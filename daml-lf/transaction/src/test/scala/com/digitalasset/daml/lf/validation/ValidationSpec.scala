@@ -19,7 +19,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   //
   // A 'Tweak[X]' is a family of (small) modifications to a value of type X.
   //
-  // This test file constructs tweaks for 'VersionedTransaction' (VTX).
+  // This test file constructs tweaks for 'Transaction' (VTX).
   // All tweaks are SIGNIFICANT since 'isReplayedBy' is simply structual equality
   //
   // We aim to tweak every field of every ActionNode in a TX.
@@ -47,7 +47,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private type KWM = Node.KeyWithMaintainers
   private type OKWM = Option[KWM]
   private type Exe = Node.Exercise
-  private type VTX = VersionedTransaction
+  private type TX = Transaction
 
   //--[samples]--
 
@@ -154,14 +154,14 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   //--[running tweaks]--
   // We dont aim for much coverage in the overal TX shape; we limit to either 0 or 1 level of nesting.
 
-  private def flatVTXs: Seq[VTX] =
+  private def flatVTXs: Seq[TX] =
     (someCreates ++ someFetches ++ someLookups ++ someExercises).map { node =>
       val nid = NodeId(0)
       val version = TransactionVersion.minExceptions
-      VersionedTransaction(version, HashMap(nid -> node), ImmArray(nid))
+      Transaction(version, HashMap(nid -> node), ImmArray(nid))
     }
 
-  private def nestedVTXs: Seq[VTX] =
+  private def nestedVTXs: Seq[TX] =
     for {
       exe <- someExercises
       child <- someExercises ++ someCreates ++ someLookups ++ someFetches
@@ -170,19 +170,19 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       val nid1 = NodeId(1)
       val parent = exe.copy(children = ImmArray(nid1))
       val version = TransactionVersion.minExceptions
-      VersionedTransaction(
+      Transaction(
         version,
         HashMap(nid0 -> parent, nid1 -> child),
         ImmArray(nid0),
       )
     }
 
-  private def preTweakedVTXs: Seq[VTX] = {
+  private def preTweakedVTXs: Seq[TX] = {
     // we ensure the preTweaked txs are properly normalized.
     (flatVTXs ++ nestedVTXs).map(Normalization.normalizeTx)
   }
 
-  private def runTweak(tweak: Tweak[VTX]): Seq[(VTX, VTX)] =
+  private def runTweak(tweak: Tweak[TX]): Seq[(TX, TX)] =
     for {
       txA <- preTweakedVTXs
       txB <- tweak.run(txA)
@@ -420,21 +420,16 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
 
   //--[significant tx tweaks]--
 
-  private def tweakTxNodes(tweakNode: Tweak[Node]) = Tweak[VTX] { vtx =>
-    // tweak any node in a transaction
-    vtx.transaction match {
-      case Transaction(nodeMapA, roots) =>
-        for {
-          nid <- nodeMapA.keys.toList
-          nodeB <- tweakNode.run(nodeMapA(nid))
-        } yield {
-          val nodeMapB = nodeMapA + (nid -> nodeB)
-          VersionedTransaction(vtx.version, nodeMapB, roots)
-        }
-    }
+  private def tweakTxNodes(tweakNode: Tweak[Node]) = Tweak[TX] { tx =>
+    for {
+      entry <- tx.nodes.toList
+      (nid, nodeA) = entry
+      nodeB <- tweakNode.run(nodeA)
+    } yield tx.copy(nodes = tx.nodes.updated(nid, nodeB))
+
   }
 
-  private def significantTweaks: Map[String, Tweak[VTX]] = {
+  private def significantTweaks: Map[String, Tweak[TX]] = {
     (sigCreateTweaks ++ sigFetchTweaks ++ sigLookupTweaks ++ sigExeTweaks)
       .map { case (name, tw) => (name, tweakTxNodes(tw)) }
   }
@@ -447,7 +442,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       val n = pairs.length
       assert(n > 0) // ensure tweak actualy applies to something
       s"[#$n] $name" in {
-        val testCases = Table[VTX, VTX](("txA", "txB"), pairs: _*)
+        val testCases = Table[TX, TX](("txA", "txB"), pairs: _*)
         forEvery(testCases) { case (txA, txB) =>
           Validation.isReplayedBy(txA, txB) shouldBe a[Left[_, _]]
         }

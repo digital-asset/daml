@@ -9,7 +9,7 @@ import java.sql.{Connection, ResultSet}
 
 import anorm.{BatchSql, NamedParameter}
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction.{Node, VersionedTransaction}
+import com.daml.lf.transaction.{Node, Transaction}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
@@ -28,7 +28,7 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
 
   private def loadTransactions(implicit
       connection: Connection
-  ): Iterator[(Long, VersionedTransaction)] = {
+  ): Iterator[(Long, Transaction)] = {
 
     val SQL_SELECT_LEDGER_ENTRIES =
       """SELECT
@@ -43,11 +43,11 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
     statement.setFetchSize(batchSize)
     val rows: ResultSet = statement.executeQuery(SQL_SELECT_LEDGER_ENTRIES)
 
-    new Iterator[(Long, VersionedTransaction)] {
+    new Iterator[(Long, Transaction)] {
 
       var hasNext: Boolean = rows.next()
 
-      def next(): (Long, VersionedTransaction) = {
+      def next(): (Long, Transaction) = {
         val ledgerOffset = rows.getLong("ledger_offset")
         val transactionId = Ref.LedgerString.assertFromString(rows.getString("transaction_id"))
         val transaction = TransactionSerializer
@@ -65,7 +65,7 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
   }
 
   private def updateParties(
-      transactions: Iterator[(Long, VersionedTransaction)]
+      transactions: Iterator[(Long, Transaction)]
   )(implicit conn: Connection): Unit = {
 
     val SQL_INSERT_PARTY =
@@ -95,7 +95,7 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
     }
   }
 
-  private def getParties(transaction: VersionedTransaction): Set[Ref.Party] = {
+  private def getParties(transaction: Transaction): Set[Ref.Party] = {
     transaction
       .fold[Set[Ref.Party]](Set.empty) { case (parties, (_, node)) =>
         node match {

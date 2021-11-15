@@ -18,7 +18,7 @@ class TransactionNormalizerSpec
   "normalizerTransaction" should {
 
     "only keeps Create and Exercise nodes" in {
-      forAll(noDanglingRefGenVersionedTransaction) { tx =>
+      forAll(noDanglingRefGenTransaction) { tx =>
         val normalized = TransactionNormalizer.normalize(CommittedTransaction(tx))
 
         val nidsBefore: Set[NodeId] = tx.nodes.keySet

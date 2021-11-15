@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.tools.engine.replay
 import com.daml.lf.data._
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
-import com.daml.lf.transaction.{GlobalKey, Node, NodeId, SubmittedTransaction, VersionedTransaction}
+import com.daml.lf.transaction.{GlobalKey, Node, NodeId, SubmittedTransaction, Transaction}
 import com.daml.lf.value.Value
 
 import scala.collection.mutable
@@ -18,7 +18,7 @@ private[replay] final class Adapter(
 
   private val interface = com.daml.lf.language.PackageInterface(packages)
 
-  def adapt(tx: VersionedTransaction): SubmittedTransaction =
+  def adapt(tx: Transaction): SubmittedTransaction =
     tx.foldWithPathState(TxBuilder(pkgLangVersion), Option.empty[NodeId])(
       (builder, parent, _, node) =>
         (builder, Some(parent.fold(builder.add(adapt(node)))(builder.add(adapt(node), _))))

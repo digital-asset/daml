@@ -7,7 +7,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{BackStack, ImmArray}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{Node, TransactionVersion, VersionedTransaction}
+import com.daml.lf.transaction.{Node, TransactionVersion, Transaction}
 import com.daml.lf.value.Value.{ContractId, ValueText}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -54,7 +54,7 @@ class ProjectionsSpec extends AnyWordSpec with Matchers {
       version = TransactionVersion.minVersion,
     )
 
-  def project(tx: VersionedTransaction) = {
+  def project(tx: Transaction) = {
     val bi = Blinding.blind(tx)
     Projections.computePerPartyProjectionRoots(tx, bi)
   }

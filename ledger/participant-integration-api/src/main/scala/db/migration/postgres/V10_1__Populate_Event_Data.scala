@@ -11,7 +11,7 @@ import anorm.{BatchSql, NamedParameter}
 import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node
-import com.daml.lf.transaction.VersionedTransaction
+import com.daml.lf.transaction.Transaction
 import com.daml.platform.db.migration.translation.TransactionSerializer
 import com.daml.platform.store.Conversions._
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
@@ -25,10 +25,10 @@ private[migration] class V10_1__Populate_Event_Data extends BaseJavaMigration {
     val statement = conn.createStatement()
     val rows = statement.executeQuery(SELECT_TRANSACTIONS)
 
-    new Iterator[(Ref.LedgerString, VersionedTransaction)] {
+    new Iterator[(Ref.LedgerString, Transaction)] {
       var hasNext: Boolean = rows.next()
 
-      def next(): (Ref.LedgerString, VersionedTransaction) = {
+      def next(): (Ref.LedgerString, Transaction) = {
         val transactionId = Ref.LedgerString.assertFromString(rows.getString("transaction_id"))
         val transaction = TransactionSerializer
           .deserializeTransaction(transactionId, rows.getBinaryStream("transaction"))

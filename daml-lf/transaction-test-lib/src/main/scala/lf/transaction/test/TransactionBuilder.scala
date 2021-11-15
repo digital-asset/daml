@@ -48,7 +48,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
     nodeId
   }
 
-  def build(): VersionedTransaction = ids.synchronized {
+  def build(): Transaction = ids.synchronized {
     import TransactionVersion.Ordering
     val finalNodes = nodes.transform {
       case (nid, rb: Node.Rollback) =>
@@ -65,7 +65,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
         case None => acc max TransactionVersion.minExceptions
       }
     )
-    VersionedTransaction(txVersion, finalNodes, finalRoots)
+    Transaction(txVersion, finalNodes, finalRoots)
   }
 
   def buildSubmitted(): SubmittedTransaction = SubmittedTransaction(build())
@@ -215,7 +215,7 @@ object TransactionBuilder {
 
   def newCid: ContractId = newV1Cid
 
-  def just(node: Node, nodes: Node*): VersionedTransaction = {
+  def just(node: Node, nodes: Node*): Transaction = {
     val builder = TransactionBuilder()
     val _ = builder.add(node)
     for (node <- nodes) {
@@ -230,15 +230,8 @@ object TransactionBuilder {
   def justCommitted(node: Node, nodes: Node*): CommittedTransaction =
     CommittedTransaction(just(node, nodes: _*))
 
-  // not valid transactions.
-  val Empty: VersionedTransaction =
-    VersionedTransaction(
-      TransactionVersion.minVersion, // A normalized empty tx is V10
-      HashMap.empty,
-      ImmArray.Empty,
-    )
-  val EmptySubmitted: SubmittedTransaction = SubmittedTransaction(Empty)
-  val EmptyCommitted: CommittedTransaction = CommittedTransaction(Empty)
+  val EmptySubmitted: SubmittedTransaction = SubmittedTransaction(Transaction.Empty)
+  val EmptyCommitted: CommittedTransaction = CommittedTransaction(Transaction.Empty)
 
   def assignVersion[Cid](
       v0: Value,
