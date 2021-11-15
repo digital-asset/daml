@@ -603,7 +603,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       """The correct resolution depends on the use case. If the error received pertains to a submission retried due to a timeout,
         |do nothing, as the previous command has already been accepted.
         |If the intent is to submit a new command, re-submit using a distinct command id. 
-        |""".stripMargin
+        |"""
     )
     object DuplicateCommand
         extends ErrorCode(
