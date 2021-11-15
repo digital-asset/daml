@@ -78,9 +78,11 @@ private[apiserver] final class ApiCommandService private[services] (
     submissionTracker.close()
   }
 
-  private def submitAndWaitInternal(request: SubmitAndWaitRequest)(implicit
+  private def submitAndWaitInternal[T](request: SubmitAndWaitRequest)(
+      f: (Future[Either[TrackedCompletionFailure, CompletionSuccess]], LoggingContext) => Future[T]
+  )(implicit
       loggingContext: LoggingContext
-  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
+  ): Future[T] = {
     val commands = request.getCommands
     withEnrichedLoggingContext(
       logging.submissionId(commands.submissionId),
@@ -89,72 +91,96 @@ private[apiserver] final class ApiCommandService private[services] (
       logging.actAsStrings(commands.actAs),
       logging.readAsStrings(commands.readAs),
     ) { implicit loggingContext =>
-      if (running) {
+      val response = if (running) {
         val timeout = Option(Context.current().getDeadline)
           .map(deadline => Duration.ofNanos(deadline.timeRemaining(TimeUnit.NANOSECONDS)))
         submissionTracker.track(CommandSubmission(commands, timeout))
       } else {
         handleFailure(request, loggingContext)
       }
+      f(response, loggingContext)
     }
   }
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
-    submitAndWaitInternal(request).map(
-      _.fold(
-        failure => throw CompletionResponse.toException(failure),
-        _ => Empty.defaultInstance,
+    submitAndWaitInternal(request) { case (response, loggingContext) =>
+      response.map(
+        _.fold(
+          failure =>
+            throw CompletionResponse.toException(failure, errorFactories)(
+              new DamlContextualizedErrorLogger(logger, loggingContext, None)
+            ),
+          _ => Empty.defaultInstance,
+        )
       )
-    )
-
+    }
   override def submitAndWaitForTransactionId(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionIdResponse] =
-    submitAndWaitInternal(request).map(
-      _.fold(
-        failure => throw CompletionResponse.toException(failure),
-        response => SubmitAndWaitForTransactionIdResponse(response.transactionId),
+    submitAndWaitInternal(request) { case (response, loggingContext) =>
+      response.map(
+        _.fold(
+          failure =>
+            throw CompletionResponse.toException(failure, errorFactories)(
+              new DamlContextualizedErrorLogger(logger, loggingContext, None)
+            ),
+          response => SubmitAndWaitForTransactionIdResponse(response.transactionId),
+        )
       )
-    )
+    }
 
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionResponse] =
-    submitAndWaitInternal(request).flatMap { resp =>
-      resp.fold(
-        failure => Future.failed(CompletionResponse.toException(failure)),
-        { resp =>
-          val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
-          val txRequest = GetTransactionByIdRequest(
-            request.getCommands.ledgerId,
-            resp.transactionId,
-            effectiveActAs.toList,
-          )
-          transactionServices
-            .getFlatTransactionById(txRequest)
-            .map(resp => SubmitAndWaitForTransactionResponse(resp.transaction))
-        },
-      )
+    submitAndWaitInternal(request) { case (response, loggingContext) =>
+      response.flatMap { resp =>
+        resp.fold(
+          failure =>
+            Future.failed(
+              CompletionResponse.toException(failure, errorFactories)(
+                new DamlContextualizedErrorLogger(logger, loggingContext, None)
+              )
+            ),
+          { resp =>
+            val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
+            val txRequest = GetTransactionByIdRequest(
+              request.getCommands.ledgerId,
+              resp.transactionId,
+              effectiveActAs.toList,
+            )
+            transactionServices
+              .getFlatTransactionById(txRequest)
+              .map(resp => SubmitAndWaitForTransactionResponse(resp.transaction))
+          },
+        )
+      }
     }
 
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionTreeResponse] =
-    submitAndWaitInternal(request).flatMap { resp =>
-      resp.fold(
-        failure => Future.failed(CompletionResponse.toException(failure)),
-        { resp =>
-          val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
-          val txRequest = GetTransactionByIdRequest(
-            request.getCommands.ledgerId,
-            resp.transactionId,
-            effectiveActAs.toList,
-          )
-          transactionServices
-            .getTransactionById(txRequest)
-            .map(resp => SubmitAndWaitForTransactionTreeResponse(resp.transaction))
-        },
-      )
+    submitAndWaitInternal(request) { case (response, loggingContext) =>
+      response.flatMap { resp =>
+        resp.fold(
+          failure =>
+            Future.failed(
+              CompletionResponse.toException(failure, errorFactories)(
+                new DamlContextualizedErrorLogger(logger, loggingContext, None)
+              )
+            ),
+          { resp =>
+            val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
+            val txRequest = GetTransactionByIdRequest(
+              request.getCommands.ledgerId,
+              resp.transactionId,
+              effectiveActAs.toList,
+            )
+            transactionServices
+              .getTransactionById(txRequest)
+              .map(resp => SubmitAndWaitForTransactionTreeResponse(resp.transaction))
+          },
+        )
+      }
     }
 
   private def handleFailure(

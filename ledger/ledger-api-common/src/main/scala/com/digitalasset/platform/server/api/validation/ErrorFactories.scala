@@ -4,7 +4,7 @@
 package com.daml.platform.server.api.validation
 
 import com.daml.error.ErrorCode.ApiException
-import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
+import com.daml.error.definitions.{IndexErrors, LedgerApiErrors, SubmissionErrors}
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.domain.LedgerId
@@ -30,6 +30,128 @@ import java.sql.{SQLNonTransientException, SQLTransientException}
 import java.time.Duration
 
 class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
+
+  object TrackerErrors {
+
+    object QueueSubmitFailure {
+
+      def failedToEnqueue(t: Throwable)(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): Status = {
+        errorCodesVersionSwitcher.choose(
+          v1 = {
+            val status = io.grpc.Status.ABORTED
+              .withDescription(s"Failed to enqueue: ${t.getClass.getSimpleName}: ${t.getMessage}")
+              .withCause(t)
+            val statusBuilder = GrpcStatus.toJavaBuilder(status)
+            GrpcStatus.buildStatus(Map.empty, statusBuilder)
+          },
+          v2 = LedgerApiErrors.InternalError
+            .CommandTrackerInternalError(
+              message = s"Failed to enqueue: ${t.getClass.getSimpleName}: ${t.getMessage}",
+              throwableO = Some(t),
+            )
+            .asGrpcStatusFromContext,
+        )
+      }
+
+      def failed(t: Throwable)(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): Status = {
+        errorCodesVersionSwitcher.choose(
+          v1 = {
+            val status = io.grpc.Status.ABORTED
+              .withDescription(s"Failure: ${t.getClass.getSimpleName}: ${t.getMessage}")
+              .withCause(t)
+            val statusBuilder = GrpcStatus.toJavaBuilder(status)
+            GrpcStatus.buildStatus(Map.empty, statusBuilder)
+          },
+          v2 = LedgerApiErrors.CommandErrors.CommandSubmissionFailure
+            .Reject(
+              messagePrefix = "Failure",
+              throwableO = Some(t),
+            )
+            .asGrpcStatusFromContext,
+        )
+      }
+
+      def ingressBufferFull()(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): Status = {
+        errorCodesVersionSwitcher.choose(
+          v1 = {
+            val status = io.grpc.Status.RESOURCE_EXHAUSTED
+              .withDescription("Ingress buffer is full")
+            val statusBuilder = GrpcStatus.toJavaBuilder(status)
+            GrpcStatus.buildStatus(Map.empty, statusBuilder)
+          },
+          v2 = SubmissionErrors.ParticipantBackpressure
+            .Rejection("Ingress buffer is full")
+            .asGrpcStatusFromContext,
+        )
+      }
+
+      def queueClosed()(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): Status = {
+        errorCodesVersionSwitcher.choose(
+          v1 = {
+            val status = io.grpc.Status.ABORTED.withDescription("Queue closed")
+            val statusBuilder = GrpcStatus.toJavaBuilder(status)
+            GrpcStatus.buildStatus(Map.empty, statusBuilder)
+          },
+          v2 = LedgerApiErrors.CommandErrors.CommandSubmissionFailure
+            .Reject(
+              messagePrefix = "Queue closed",
+              throwableO = None,
+            )
+            .asGrpcStatusFromContext,
+        )
+      }
+
+    }
+
+    object CompletionResponse {
+      def timeout()(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): Status = {
+        errorCodesVersionSwitcher.choose(
+          v1 = {
+            val statusBuilder =
+              GrpcStatus.toJavaBuilder(Code.ABORTED.value(), Some("Timeout"), Iterable.empty)
+            GrpcStatus.buildStatus(Map.empty, statusBuilder)
+          },
+          v2 = LedgerApiErrors.CommandErrors.CommandCompletionFailure
+            .Reject(
+              message = "Timeout"
+            )
+            .asGrpcStatusFromContext,
+        )
+      }
+
+      def noStatusInResponse()(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): Status = {
+        errorCodesVersionSwitcher.choose(
+          v1 = {
+            val statusBuilder = GrpcStatus.toJavaBuilder(
+              Code.INTERNAL.value(),
+              Some("Missing status in completion response."),
+              Iterable.empty,
+            )
+            GrpcStatus.buildStatus(Map.empty, statusBuilder)
+          },
+          v2 = LedgerApiErrors.InternalError
+            .CommandTrackerInternalError(
+              "Missing status in completion response.",
+              throwableO = None,
+            )
+            .asGrpcStatusFromContext,
+        )
+      }
+    }
+  }
+
   def sqlTransientException(exception: SQLTransientException)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
@@ -666,6 +788,11 @@ object ErrorFactories {
 
   def apply(errorCodesVersionSwitcher: ErrorCodesVersionSwitcher): ErrorFactories =
     new ErrorFactories(errorCodesVersionSwitcher)
+
+  def apply(useSelfServiceErrorCodes: Boolean): ErrorFactories =
+    new ErrorFactories(
+      new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = useSelfServiceErrorCodes)
+    )
 
   private[daml] lazy val definiteAnswers = Map(
     true -> AnyProto.pack[ErrorInfo](

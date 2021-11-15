@@ -3,9 +3,13 @@
 
 package com.daml.ledger.client.services.commands.tracker
 
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
 import com.daml.ledger.grpc.GrpcStatuses
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.any.Any
 import com.google.rpc.error_details.{ErrorInfo, RequestInfo}
 import com.google.rpc.status.Status
@@ -71,106 +75,136 @@ class CompletionResponseTest extends AnyWordSpec with Matchers {
 
     "convert to exception" should {
 
-      "convert queue completion failure" in {
-        val exception =
-          CompletionResponse.toException(QueueCompletionFailure(TimeoutResponse(commandId)))
-        exception.getStatus.getCode shouldBe Code.ABORTED
-      }
+      val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
 
-      "convert queue submit failure" in {
-        val exception =
-          CompletionResponse.toException(QueueSubmitFailure(grpc.Status.RESOURCE_EXHAUSTED))
-        exception.getStatus.getCode shouldBe Code.RESOURCE_EXHAUSTED
-      }
+      implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+      implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+        new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
-      "include default metadata for status not ok" in {
-        val exception = CompletionResponse.toException(
-          QueueCompletionFailure(
-            NotOkResponse(
-              Completion(
-                commandId = commandId,
-                status = Some(
-                  Status(
-                    Code.CANCELLED.value(),
-                    details = Seq.empty,
-                  )
-                ),
+      def testIt(useSelfServiceErrorCodes: Boolean) = {
+
+        val errorFactories = ErrorFactories(useSelfServiceErrorCodes)
+
+        s"(self service error codes: $useSelfServiceErrorCodes)" should {
+
+          "convert queue completion failure" in {
+            val exception =
+              CompletionResponse.toException(
+                QueueCompletionFailure(TimeoutResponse(commandId)),
+                errorFactories,
               )
-            )
-          )
-        )
-        val status = protobuf.StatusProto.fromThrowable(exception)
-        val packedErrorInfo = status.getDetails(0).unpack(classOf[JavaErrorInfo])
-        packedErrorInfo.getMetadataOrThrow(GrpcStatuses.DefiniteAnswerKey) shouldEqual "false"
-      }
+            exception.getStatus.getCode shouldBe Code.ABORTED
+          }
 
-      "include metadata for status not ok" in {
-        val errorInfo = ErrorInfo(
-          metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "true")
-        )
-        val exception = CompletionResponse.toException(
-          QueueCompletionFailure(
-            NotOkResponse(
-              Completion(
-                commandId = commandId,
-                status = Some(
-                  Status(
-                    Code.CANCELLED.value(),
-                    details = Seq(
-                      Any.pack(
-                        errorInfo
+          "convert queue submit failure" in {
+
+            val status = GrpcStatus.buildStatus(
+              Map.empty,
+              GrpcStatus.toJavaBuilder(grpc.Status.RESOURCE_EXHAUSTED),
+            )
+            val exception =
+              CompletionResponse.toException(
+                QueueSubmitFailure(status),
+                errorFactories,
+              )
+            exception.getStatus.getCode shouldBe Code.RESOURCE_EXHAUSTED
+          }
+
+          "include default metadata for status not ok" in {
+            val exception = CompletionResponse.toException(
+              QueueCompletionFailure(
+                NotOkResponse(
+                  Completion(
+                    commandId = commandId,
+                    status = Some(
+                      Status(
+                        Code.CANCELLED.value(),
+                        details = Seq.empty,
                       )
                     ),
                   )
-                ),
-              )
+                )
+              ),
+              errorFactories,
             )
-          )
-        )
-        val status = protobuf.StatusProto.fromThrowable(exception)
-        val packedErrorInfo = status.getDetails(0).unpack(classOf[JavaErrorInfo])
-        packedErrorInfo.getMetadataOrThrow(GrpcStatuses.DefiniteAnswerKey) shouldEqual "true"
-      }
+            val status = protobuf.StatusProto.fromThrowable(exception)
+            val packedErrorInfo = status.getDetails(0).unpack(classOf[JavaErrorInfo])
+            packedErrorInfo.getMetadataOrThrow(GrpcStatuses.DefiniteAnswerKey) shouldEqual "false"
+          }
 
-      "merge metadata for status not ok" in {
-        val errorInfo = ErrorInfo(
-          metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "true")
-        )
-        val requestInfo = RequestInfo(requestId = "aRequestId")
-        val exception = CompletionResponse.toException(
-          QueueCompletionFailure(
-            NotOkResponse(
-              Completion(
-                commandId = commandId,
-                status = Some(
-                  Status(
-                    Code.INTERNAL.value(),
-                    details = Seq(
-                      Any.pack(errorInfo),
-                      Any.pack(requestInfo),
+          "include metadata for status not ok" in {
+            val errorInfo = ErrorInfo(
+              metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "true")
+            )
+            val exception = CompletionResponse.toException(
+              QueueCompletionFailure(
+                NotOkResponse(
+                  Completion(
+                    commandId = commandId,
+                    status = Some(
+                      Status(
+                        Code.CANCELLED.value(),
+                        details = Seq(
+                          Any.pack(
+                            errorInfo
+                          )
+                        ),
+                      )
                     ),
                   )
-                ),
-              )
+                )
+              ),
+              errorFactories,
             )
-          )
-        )
+            val status = protobuf.StatusProto.fromThrowable(exception)
+            val packedErrorInfo = status.getDetails(0).unpack(classOf[JavaErrorInfo])
+            packedErrorInfo.getMetadataOrThrow(GrpcStatuses.DefiniteAnswerKey) shouldEqual "true"
+          }
 
-        val status = protobuf.StatusProto.fromThrowable(exception)
-        status.getCode shouldBe Code.INTERNAL.value()
-        val details = status.getDetailsList.asScala
-        details.size shouldBe 2
-        details.exists { detail =>
-          detail.is(classOf[JavaErrorInfo]) && detail
-            .unpack(classOf[JavaErrorInfo])
-            .getMetadataOrThrow(GrpcStatuses.DefiniteAnswerKey) == "true"
-        } shouldEqual true
-        details.exists { detail =>
-          detail.is(classOf[JavaRequestInfo]) && detail
-            .unpack(classOf[JavaRequestInfo])
-            .getRequestId == "aRequestId"
-        } shouldEqual true
+          "merge metadata for status not ok" in {
+            val errorInfo = ErrorInfo(
+              metadata = Map(GrpcStatuses.DefiniteAnswerKey -> "true")
+            )
+            val requestInfo = RequestInfo(requestId = "aRequestId")
+            val exception = CompletionResponse.toException(
+              QueueCompletionFailure(
+                NotOkResponse(
+                  Completion(
+                    commandId = commandId,
+                    status = Some(
+                      Status(
+                        Code.INTERNAL.value(),
+                        details = Seq(
+                          Any.pack(errorInfo),
+                          Any.pack(requestInfo),
+                        ),
+                      )
+                    ),
+                  )
+                )
+              ),
+              errorFactories,
+            )
+
+            val status = protobuf.StatusProto.fromThrowable(exception)
+            status.getCode shouldBe Code.INTERNAL.value()
+            val details = status.getDetailsList.asScala
+            details.size shouldBe 2
+            details.exists { detail =>
+              detail.is(classOf[JavaErrorInfo]) && detail
+                .unpack(classOf[JavaErrorInfo])
+                .getMetadataOrThrow(GrpcStatuses.DefiniteAnswerKey) == "true"
+            } shouldEqual true
+            details.exists { detail =>
+              detail.is(classOf[JavaRequestInfo]) && detail
+                .unpack(classOf[JavaRequestInfo])
+                .getRequestId == "aRequestId"
+            } shouldEqual true
+          }
+        }
       }
+      testIt(useSelfServiceErrorCodes = true)
+      testIt(useSelfServiceErrorCodes = false)
     }
   }
 }

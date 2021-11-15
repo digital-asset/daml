@@ -3,16 +3,15 @@
 
 package com.daml.ledger.client.services.commands.tracker
 
+import com.daml.error.ContextualizedErrorLogger
 import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.grpc.GrpcStatuses
-import com.google.protobuf.{Any => AnyProto}
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.rpc.status.{Status => StatusProto}
-import com.google.rpc.{ErrorInfo, Status => StatusJavaProto}
+import com.google.rpc.{Status => StatusJavaProto}
 import io.grpc.Status.Code
-import io.grpc.{Status, StatusException, protobuf}
-
-import scala.jdk.CollectionConverters._
+import io.grpc.{StatusRuntimeException, protobuf}
 
 object CompletionResponse {
 
@@ -44,7 +43,8 @@ object CompletionResponse {
   /** The submission could not be added to the execution queue.
     * @param status - gRPC status chosen based on the reason why adding to the queue failed
     */
-  private[daml] final case class QueueSubmitFailure(status: Status) extends TrackedCompletionFailure
+  private[daml] final case class QueueSubmitFailure(status: StatusJavaProto)
+      extends TrackedCompletionFailure
 
   final case class CompletionSuccess(
       completion: Completion
@@ -84,60 +84,36 @@ object CompletionResponse {
         success.completion
     }
 
-  private[daml] def toException(response: TrackedCompletionFailure): StatusException =
-    response match {
+  private[daml] def toException(response: TrackedCompletionFailure, errorFactories: ErrorFactories)(
+      implicit contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = {
+    val status = response match {
       case QueueCompletionFailure(failure) =>
         val metadata = extractMetadata(failure)
-        val statusBuilder = extractStatus(failure)
-        buildException(metadata, statusBuilder)
-      case QueueSubmitFailure(status) =>
-        val statusBuilder = GrpcStatus.toJavaBuilder(status)
-        buildException(Map.empty, statusBuilder)
+        extractStatus(failure, errorFactories, metadata)
+      case QueueSubmitFailure(status) => status
     }
+    protobuf.StatusProto.toStatusRuntimeException(status)
+  }
 
   private def extractMetadata(response: CompletionFailure): Map[String, String] = response match {
     case notOkResponse: CompletionResponse.NotOkResponse => notOkResponse.metadata
     case _ => Map.empty
   }
 
-  private def extractStatus(response: CompletionFailure): StatusJavaProto.Builder = response match {
-    case notOkResponse: CompletionResponse.NotOkResponse =>
-      GrpcStatus.toJavaBuilder(notOkResponse.grpcStatus)
-    case CompletionResponse.TimeoutResponse(_) =>
-      GrpcStatus.toJavaBuilder(Code.ABORTED.value(), Some("Timeout"), Iterable.empty)
-    case CompletionResponse.NoStatusInResponse(_) =>
-      GrpcStatus.toJavaBuilder(
-        Code.INTERNAL.value(),
-        Some("Missing status in completion response."),
-        Iterable.empty,
-      )
-  }
-
-  private def buildException(metadata: Map[String, String], status: StatusJavaProto.Builder) = {
-    val details = mergeDetails(metadata, status)
-    protobuf.StatusProto.toStatusException(
-      status
-        .clearDetails()
-        .addAllDetails(details.asJava)
-        .build()
-    )
-  }
-
-  private def mergeDetails(metadata: Map[String, String], status: StatusJavaProto.Builder) = {
-    val previousDetails = status.getDetailsList.asScala
-    val newDetails = if (previousDetails.exists(_.is(classOf[ErrorInfo]))) {
-      previousDetails.map {
-        case detail if detail.is(classOf[ErrorInfo]) =>
-          val previousErrorInfo: ErrorInfo = detail.unpack(classOf[ErrorInfo])
-          val newErrorInfo = previousErrorInfo.toBuilder.putAllMetadata(metadata.asJava).build()
-          AnyProto.pack(newErrorInfo)
-        case otherDetail => otherDetail
-      }
-    } else {
-      previousDetails :+ AnyProto.pack(
-        ErrorInfo.newBuilder().putAllMetadata(metadata.asJava).build()
-      )
+  private def extractStatus(
+      response: CompletionFailure,
+      errorFactories: ErrorFactories,
+      metadata: Map[String, String],
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusJavaProto =
+    response match {
+      case notOkResponse: CompletionResponse.NotOkResponse =>
+        val statusBuilder = GrpcStatus.toJavaBuilder(notOkResponse.grpcStatus)
+        GrpcStatus.buildStatus(metadata, statusBuilder)
+      case CompletionResponse.TimeoutResponse(_) =>
+        errorFactories.TrackerErrors.CompletionResponse.timeout()
+      case CompletionResponse.NoStatusInResponse(_) =>
+        errorFactories.TrackerErrors.CompletionResponse.noStatusInResponse()
     }
-    newDetails
-  }
+
 }

@@ -35,6 +35,42 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         )
   }
 
+  object CommandErrors extends ErrorGroup() {
+
+    @Explanation("This rejection is given when a command submission could not be processed.")
+    @Resolution("Refer to the error details and/or retry.")
+    object CommandSubmissionFailure
+        extends ErrorCode(
+          id = "COMMAND_SUBMISSION_FAILURE",
+          ErrorCategory.ContentionOnSharedResources,
+        ) {
+      case class Reject(messagePrefix: String, override val throwableO: Option[Throwable])(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = {
+              val suffix: String =
+                throwableO.fold("")(t => s": ${t.getClass.getSimpleName}: ${t.getMessage}")
+              s"$messagePrefix$suffix"
+            }
+          )
+    }
+
+    @Explanation("This rejection is given when a command completion has failed.")
+    @Resolution("Refer to the error details and/or retry.")
+    object CommandCompletionFailure
+        extends ErrorCode(
+          id = "COMMAND_COMPLETION_FAILURE",
+          ErrorCategory.ContentionOnSharedResources,
+        ) {
+      case class Reject(message: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = message
+          )
+    }
+
+  }
+
   object WriteErrors extends ErrorGroup() {
     @Explanation("This rejection is given when a configuration entry write was rejected.")
     @Resolution("Fetch newest configuration and/or retry.")
@@ -582,7 +618,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
     // TODO error codes: This is an internal error not related to the interpreter
     case class CommandTrackerInternalError(
-        message: String
+        message: String,
+        override val throwableO: Option[Throwable] = None,
     )(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends LoggingTransactionErrorImpl(cause = message)

@@ -39,7 +39,7 @@ object SubmissionErrors extends SubmissionErrorGroup {
     override def logLevel: Level = Level.WARN
 
     case class Rejection(reason: String)
-        extends TransactionErrorImpl(cause = "The participant is overloaded")
+        extends TransactionErrorImpl(cause = s"The participant is overloaded: $reason")
   }
 
   @Explanation(

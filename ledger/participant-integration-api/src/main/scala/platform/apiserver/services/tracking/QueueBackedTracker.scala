@@ -17,7 +17,7 @@ import com.daml.metrics.InstrumentedSource
 import com.daml.platform.apiserver.services.tracking.QueueBackedTracker._
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.util.Ctx
-import io.grpc.{Status => GrpcStatus}
+import com.google.rpc.Status
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
@@ -30,6 +30,7 @@ import scala.util.{Failure, Success, Try}
 private[services] final class QueueBackedTracker(
     queue: SourceQueueWithComplete[QueueBackedTracker.QueueInput],
     done: Future[Done],
+    errorFactories: ErrorFactories,
 )(implicit loggingContext: LoggingContext)
     extends Tracker {
 
@@ -39,6 +40,11 @@ private[services] final class QueueBackedTracker(
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
+    implicit val errorLogger: DamlContextualizedErrorLogger = new DamlContextualizedErrorLogger(
+      logger,
+      loggingContext,
+      None,
+    )
     logger.trace("Tracking command")
     val trackedPromise = Promise[Either[CompletionFailure, CompletionSuccess]]()
     queue
@@ -49,39 +55,25 @@ private[services] final class QueueBackedTracker(
             _.left.map(completionFailure => QueueCompletionFailure(completionFailure))
           )
         case QueueOfferResult.Failure(t) =>
-          failedQueueSubmission(
-            GrpcStatus.ABORTED
-              .withDescription(s"Failed to enqueue: ${t.getClass.getSimpleName}: ${t.getMessage}")
-              .withCause(t)
-          )
+          toQueueSubmitFailure(errorFactories.TrackerErrors.QueueSubmitFailure.failedToEnqueue(t))
         case QueueOfferResult.Dropped =>
-          failedQueueSubmission(
-            GrpcStatus.RESOURCE_EXHAUSTED
-              .withDescription("Ingress buffer is full")
-          )
+          toQueueSubmitFailure(errorFactories.TrackerErrors.QueueSubmitFailure.ingressBufferFull())
         case QueueOfferResult.QueueClosed =>
-          failedQueueSubmission(GrpcStatus.ABORTED.withDescription("Queue closed"))
+          toQueueSubmitFailure(errorFactories.TrackerErrors.QueueSubmitFailure.queueClosed())
       }
-      .recoverWith(transformQueueSubmissionExceptions)
+      .recoverWith {
+        case i: IllegalStateException
+            if i.getMessage == "You have to wait for previous offer to be resolved to send another request" =>
+          toQueueSubmitFailure(errorFactories.TrackerErrors.QueueSubmitFailure.ingressBufferFull())
+        case t =>
+          toQueueSubmitFailure(errorFactories.TrackerErrors.QueueSubmitFailure.failed(t))
+      }
   }
 
-  private def failedQueueSubmission(status: GrpcStatus) =
-    Future.successful(Left(QueueSubmitFailure(status)))
-
-  private def transformQueueSubmissionExceptions
-      : PartialFunction[Throwable, Future[Either[TrackedCompletionFailure, CompletionSuccess]]] = {
-    case i: IllegalStateException
-        if i.getMessage == "You have to wait for previous offer to be resolved to send another request" =>
-      failedQueueSubmission(
-        GrpcStatus.RESOURCE_EXHAUSTED
-          .withDescription("Ingress buffer is full")
-      )
-    case t =>
-      failedQueueSubmission(
-        GrpcStatus.ABORTED
-          .withDescription(s"Failure: ${t.getClass.getSimpleName}: ${t.getMessage}")
-          .withCause(t)
-      )
+  private def toQueueSubmitFailure(
+      e: Status
+  ): Future[Left[QueueSubmitFailure, Nothing]] = {
+    Future.successful(Left(QueueSubmitFailure(e)))
   }
 
   override def close(): Unit = {
@@ -159,7 +151,7 @@ private[services] object QueueBackedTracker {
 
     }(DirectExecutionContext)
 
-    new QueueBackedTracker(queue, done)
+    new QueueBackedTracker(queue = queue, done = done, errorFactories = errorFactories)
   }
 
   type QueueInput = Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], CommandSubmission]

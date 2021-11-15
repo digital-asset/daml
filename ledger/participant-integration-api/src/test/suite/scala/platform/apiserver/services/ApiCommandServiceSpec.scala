@@ -4,11 +4,11 @@
 package com.daml.platform.apiserver.services
 
 import com.daml.error.ErrorCodesVersionSwitcher
-
 import java.time.{Duration, Instant}
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-import com.daml.grpc.{GrpcException, GrpcStatus}
+
+import com.daml.grpc.RpcProtoExtractors
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
@@ -19,6 +19,7 @@ import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.ApiCommandServiceSpec._
 import com.daml.platform.apiserver.services.tracking.Tracker
+import com.google.rpc.Code
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.{Deadline, Status}
@@ -37,7 +38,7 @@ class ApiCommandServiceSpec
   private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  val errorCodesVersionSwitcher = mock[ErrorCodesVersionSwitcher]
+  private val errorCodesVersionSwitcher = mock[ErrorCodesVersionSwitcher]
 
   s"the command service" should {
     val completionSuccess = CompletionResponse.CompletionSuccess(
@@ -124,37 +125,44 @@ class ApiCommandServiceSpec
     }
 
     "time out if the tracker times out" in {
-      val commands = someCommands()
-      val submissionTracker = mock[Tracker]
-      when(
-        submissionTracker.track(any[CommandSubmission])(
-          any[ExecutionContext],
-          any[LoggingContext],
-        )
-      ).thenReturn(
-        Future.successful(
-          Left(
-            CompletionResponse.QueueCompletionFailure(
-              CompletionResponse.TimeoutResponse("command ID")
+
+      def testIt(switcher: ErrorCodesVersionSwitcher, expectedStatusCode: Code) = {
+        val commands = someCommands()
+        val submissionTracker = mock[Tracker]
+        when(
+          submissionTracker.track(any[CommandSubmission])(
+            any[ExecutionContext],
+            any[LoggingContext],
+          )
+        ).thenReturn(
+          Future.successful(
+            Left(
+              CompletionResponse.QueueCompletionFailure(
+                CompletionResponse.TimeoutResponse("command ID")
+              )
             )
           )
         )
-      )
 
-      openChannel(
-        new ApiCommandService(
-          UnimplementedTransactionServices,
-          submissionTracker,
-          errorCodesVersionSwitcher,
-        )
-      ).use { stub =>
-        val request = SubmitAndWaitRequest.of(Some(commands))
-        stub.submitAndWaitForTransactionId(request).failed.map { exception =>
-          exception should matchPattern { case GrpcException(GrpcStatus.ABORTED(), _) => }
-          verifyZeroInteractions(errorCodesVersionSwitcher)
-          succeed
+        openChannel(
+          new ApiCommandService(
+            UnimplementedTransactionServices,
+            submissionTracker,
+            switcher,
+          )
+        ).use { stub =>
+          val request = SubmitAndWaitRequest.of(Some(commands))
+          stub.submitAndWaitForTransactionId(request).failed.map { exception =>
+            exception should matchPattern {
+              case RpcProtoExtractors.Exception(RpcProtoExtractors.Status(`expectedStatusCode`)) =>
+            }
+            succeed
+          }
         }
       }
+
+      testIt(new ErrorCodesVersionSwitcher(false), Code.ABORTED)
+      testIt(new ErrorCodesVersionSwitcher(true), Code.ABORTED)
     }
 
     "close the supplied tracker when closed" in {

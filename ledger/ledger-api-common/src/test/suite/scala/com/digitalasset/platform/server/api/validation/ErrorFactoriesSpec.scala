@@ -79,6 +79,133 @@ class ErrorFactoriesSpec
       )
     }
 
+    "TrackerErrors" should {
+
+      val errorDetails = com.google.protobuf.Any.pack[ErrorInfo](
+        ErrorInfo
+          .newBuilder()
+          .build()
+      )
+
+      "return failedToEnqueue" in {
+        val t = new Exception("message123")
+        assertVersionedStatus(
+          _.TrackerErrors.QueueSubmitFailure.failedToEnqueue(t)(
+            contextualizedErrorLogger = contextualizedErrorLogger
+          )
+        )(
+          v1_code = Code.ABORTED,
+          v1_message = "Failed to enqueue: Exception: message123",
+          v1_details = Seq(errorDetails),
+          v2_code = Code.INTERNAL,
+          v2_message =
+            s"An error occurred. Please contact the operator and inquire about the request trace-id",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("LEDGER_API_INTERNAL_ERROR"),
+            DefaultTraceIdRequestInfo,
+          ),
+        )
+      }
+
+      "return failed" in {
+        val t = new Exception("message123")
+        assertVersionedStatus(
+          _.TrackerErrors.QueueSubmitFailure.failed(t)(
+            contextualizedErrorLogger = contextualizedErrorLogger
+          )
+        )(
+          v1_code = Code.ABORTED,
+          v1_message = "Failure: Exception: message123",
+          v1_details = Seq(errorDetails),
+          v2_code = Code.ABORTED,
+          v2_message =
+            s"COMMAND_SUBMISSION_FAILURE(2,$correlationId): Failure: Exception: message123",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("COMMAND_SUBMISSION_FAILURE"),
+            DefaultTraceIdRequestInfo,
+            ErrorDetails.RetryInfoDetail(1),
+          ),
+        )
+      }
+
+      "return ingressBufferFull" in {
+        assertVersionedStatus(
+          _.TrackerErrors.QueueSubmitFailure.ingressBufferFull()(
+            contextualizedErrorLogger = contextualizedErrorLogger
+          )
+        )(
+          v1_code = Code.RESOURCE_EXHAUSTED,
+          v1_message = "Ingress buffer is full",
+          v1_details = Seq(errorDetails),
+          v2_code = Code.ABORTED,
+          v2_message =
+            s"PARTICIPANT_BACKPRESSURE(2,trace-id): The participant is overloaded: Ingress buffer is full",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("PARTICIPANT_BACKPRESSURE"),
+            DefaultTraceIdRequestInfo,
+            ErrorDetails.RetryInfoDetail(1),
+          ),
+        )
+      }
+
+      "return queueClosed" in {
+        assertVersionedStatus(
+          _.TrackerErrors.QueueSubmitFailure.queueClosed()(
+            contextualizedErrorLogger = contextualizedErrorLogger
+          )
+        )(
+          v1_code = Code.ABORTED,
+          v1_message = "Queue closed",
+          v1_details = Seq(errorDetails),
+          v2_code = Code.ABORTED,
+          v2_message = s"COMMAND_SUBMISSION_FAILURE(2,$correlationId): Queue closed",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("COMMAND_SUBMISSION_FAILURE"),
+            DefaultTraceIdRequestInfo,
+            ErrorDetails.RetryInfoDetail(1),
+          ),
+        )
+      }
+      "return timeout" in {
+        assertVersionedStatus(
+          _.TrackerErrors.CompletionResponse.timeout()(
+            contextualizedErrorLogger = contextualizedErrorLogger
+          )
+        )(
+          v1_code = Code.ABORTED,
+          v1_message = "Timeout",
+          v1_details = Seq(errorDetails),
+          v2_code = Code.ABORTED,
+          v2_message = s"COMMAND_COMPLETION_FAILURE(2,$correlationId): Timeout",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("COMMAND_COMPLETION_FAILURE"),
+            DefaultTraceIdRequestInfo,
+            ErrorDetails.RetryInfoDetail(1),
+          ),
+        )
+      }
+      "return noStatusInResponse" in {
+        assertVersionedStatus(
+          _.TrackerErrors.CompletionResponse.noStatusInResponse()(
+            contextualizedErrorLogger = contextualizedErrorLogger
+          )
+        )(
+          v1_code = Code.INTERNAL,
+          v1_message = "Missing status in completion response.",
+          v1_details = Seq(errorDetails),
+          v2_code = Code.INTERNAL,
+          v2_message =
+            s"An error occurred. Please contact the operator and inquire about the request trace-id",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("LEDGER_API_INTERNAL_ERROR"),
+            DefaultTraceIdRequestInfo,
+          ),
+        )
+
+      }
+
+    }
+
     "return malformedPackageId" in {
       assertVersionedError(
         _.malformedPackageId(request = "request123", message = "message123")(
@@ -560,6 +687,27 @@ class ErrorFactoriesSpec
     val errorFactoriesV2 = ErrorFactories(new ErrorCodesVersionSwitcher(true))
     assertV1Error(error(errorFactoriesV1))(v1_code, v1_message, v1_details)
     assertV2Error(error(errorFactoriesV2))(v2_code, v2_message, v2_details)
+  }
+
+  private def assertVersionedStatus(
+      error: ErrorFactories => Status
+  )(
+      v1_code: Code,
+      v1_message: String,
+      v1_details: Seq[Any],
+      v2_code: Code,
+      v2_message: String,
+      v2_details: Seq[ErrorDetails.ErrorDetail],
+  ): Unit = {
+    assertVersionedError(x => io.grpc.protobuf.StatusProto.toStatusRuntimeException(error(x)))(
+      v1_code,
+      v1_message,
+      v1_details,
+      v2_code,
+      v2_message,
+      v2_details,
+    )
+
   }
 
   private def assertV1Error(
