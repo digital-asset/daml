@@ -476,18 +476,6 @@ object CommandDeduplicationBase {
     def delayForEntireDeduplicationPeriod(): Future[Unit] =
       delayBy(deduplicationDuration + extraWait)
 
-    /** Delay by [[deduplicationDuration]] - [[delta]]. Delta should be a value big enough to account for the latency required to process a transaction.
-      * By using this delay we can validate that the minimum deduplication period [[deduplicationDuration]] is respected
-      */
-    def delayToEndOfMinimumDeduplicationPeriod(delta: Duration): Future[Unit] =
-      delayBy(deduplicationDuration - delta)
-
-    /** Delay by [[delta]] + [[extraWait]]. By using [[delayToEndOfMinimumDeduplicationPeriod]] and [[delayFromEndOfMinimumDeduplicationPeriod]]
-      * with the same [[delta]] value, it mimics the behavior of [[delayForEntireDeduplicationPeriod]]
-      */
-    def delayFromEndOfMinimumDeduplicationPeriod(delta: Duration): Future[Unit] =
-      delayBy(delta + extraWait)
-
     /** Delay with [[duration]]
       */
     protected def delayBy(duration: Duration): Future[Unit]
