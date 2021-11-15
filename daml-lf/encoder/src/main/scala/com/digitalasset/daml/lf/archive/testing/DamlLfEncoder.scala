@@ -40,9 +40,7 @@ private[daml] object DamlLfEncoder extends App {
           defaultPackageId = pkgId,
           languageVersion = appArgs.languageVersion,
         )
-      remy.catcha(
-        makeDar(readSources(appArgs.inputFiles), Paths.get(appArgs.outputFile).toFile)
-      )
+      makeDar(readSources(appArgs.inputFiles), Paths.get(appArgs.outputFile).toFile)
     } catch {
       case e: EncodeError =>
         error(s"Encoding error: ${e.message}")
