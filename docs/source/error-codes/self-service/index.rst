@@ -7,6 +7,138 @@ Self-Service Error Codes (Experimental)
 .. toctree::
    :hidden:
 
+Overview
+*********
+
+
+TODO: Failure vs. error.
+
+.. _gRPC: https://grpc.github.io/grpc/core/md_doc_statuscodes.html
+
+Participant API server has been using a combination of gRPC_
+status codes and custom messages to signal erroneous or unexpected conditions.
+This approach remains unchanged in principle while self-service error codes aim at
+enhancing it by providing:
+
+- improved consistency of the returned errors across API endpoints,
+
+- richer message format with clearly distinguished machine readable parts to facilitate
+  automated error handling strategies,
+
+- complete inventory of all error codes with an explanation, suggested resolution and
+  more (as documented in this section).
+
+
+The goal is to enable users, developers and operators to act upon encountered
+errors in a self-service manner such that the need to escalate the problem
+or file a ticket occurs occurs infrequently.
+
+Feature flag
+************
+You can enable self-service error-codes by specifying ``--use-self-service-error-codes``
+from command line.
+
+By default self-service error codes are turned off.
+
+
+Anatomy of an error code
+*****************************
+
+TODO Error categories:
+
+ - what they are,
+
+ - how to make use of them,
+
+ - provide a list of all error categories.
+
+Error message
+===================
+.. code-block:: java
+
+    <ERROR_CODE_ID>(<CATEGORY_ID>,<CORRELATION_ID>:<HUMAN_READABLE_MESSAGE>
+
+The constituent parts are:
+
+  - ``<ERROR_CODE_ID>`` - a unique non empty string containing at most 63 characters:
+    upper-cased letters, underscores or digits.
+  - ``<CATEGORY_ID>`` - a small integer identifying the corresponding error categories.
+  - ``<CORRELATION_ID>`` - a string helpful at identifying originating request.
+    ``0`` if no correlation id is given. TODO: Are there limits to its size?
+     - The purpose of the correlation-id is to allow a user to clearly identify the request,
+       such that the operator can lookup any log information associated with this error.
+       TODO: Make sure that's true.
+  - ``:`` - a colon character that server as a separator for the machine and human readable parts.
+  - ``<HUMAN_READABLE_MESSAGE>`` - message targeting a human reader.
+
+A concrete example how a message might look like this:
+
+.. code-block:: java
+
+    TRANSACTION_NOT_FOUND(11,12345): Transaction not found, or not visible.
+
+Error metadata
+====================
+
+In addition error response contain the following metadata:
+- mandatory ``com.google.rpc.ErrorInfo`` containing <ERROR_CODE>,
+
+- mandatory ``com.google.rpc.RequestInfo`` containing trace id,
+
+- optional ``com.google.rpc.RetryInfo`` containing retry interval,
+
+- optional ``com.google.rpc.ResourceInfo`` containing key value pair
+  of the form: <RESOURCE_NAME>: <RESOURCE_IDENTIFIER>,
+  e.g. ""TRANSACTION_ID", "tId12345".
+  TODO: Document all possible resource names?
+
+
+Logging
+********
+
+TODO: Excerpt copied form Canton docs verbatim:
+
+
+Generally, we use the following log-levels on the server:
+
+INFO to log user errors, where the error leads to a failure of the request but the system remains healthy.
+
+WARN to log degradations of the system or point out rather unusual behaviour.
+
+ERROR to log internal errors within the system, where the system does not behave properly and immediate attention is required.
+
+
+Error categories
+******************
+
+TODO: Excerpt copied form Canton docs verbatim:
+
+The error categories allow to group errors such that application logic can be built
+in a sensible way to automatically deal with errors and decide whether to retry
+a request or escalate to the operator.
+
+
+Other
+********
+
+TODO: Read no further (in this section). Here be dragons.
+
+For participant operators: We aim to guarantee that every error returned from the Participant API:
+- is logged,
+- is logged at appropriate level,
+- error returned to the user contains metadata (trace id) by which participant operators can identify
+  related log messages.
+
+In particular self-service error codes aim at improve in the following areas:
+- Offer a complete inventory of possible Ledger API error codes as documented on this page.
+- Describe each error code byProvide meaningful Ledger error codes on which an application
+  or participant operator can act in many cases in a self-service manner.
+- Explanation, Category, Conveyance and Resolution.
+
+
+Error codes inventory
+**********************
+
 .. list-all-error-codes::
 
 
