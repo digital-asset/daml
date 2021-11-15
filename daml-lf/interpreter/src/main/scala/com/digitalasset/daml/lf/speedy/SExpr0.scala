@@ -30,9 +30,8 @@ package speedy
   *
   * Summary of which constructors are contained by: SExp0, SExpr1 and SExpr:
   *
-  * - In SExpr{0,1,} (everywhere): SEAppGeneral, SEBuiltin, SEBuiltinRecursiveDefinition,
-  *   SELabelClosure, SELet1General, SELocation,
-  *   SEScopeExercise, SETryCatch, SEVal, SEValue,
+  * - In SExpr{0,1,} (everywhere): SEAppGeneral, SEBuiltin, SELabelClosure, SELet1General,
+  *   SELocation, SEScopeExercise, SETryCatch, SEVal, SEValue,
   *
   * - In SExpr0: SEAbs, SEVar
   *
@@ -49,7 +48,6 @@ package speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SExpr.{SDefinitionRef, SCasePat}
-import com.daml.lf.speedy.{SExpr => runTime}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 private[speedy] object SExpr0 {
@@ -139,14 +137,4 @@ private[speedy] object SExpr0 {
     * extended and 'body' is evaluated.
     */
   final case class SCaseAlt(pattern: SCasePat, body: SExpr)
-
-  //
-  // List builtins (equalList) are implemented as recursive
-  // definition to save java stack
-  //
-
-  // TODO: simplify here: There is only kind of SEBuiltinRecursiveDefinition! - EqualList
-  final case class SEBuiltinRecursiveDefinition(ref: runTime.SEBuiltinRecursiveDefinition.Reference)
-      extends SExpr
-
 }

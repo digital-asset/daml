@@ -189,7 +189,6 @@ private[lf] object Anf {
       case loc: source.SELoc => convertLoc(loc)
       case source.SEValue(x) => target.SEValue(x)
       case source.SEBuiltin(x) => target.SEBuiltin(x)
-      case source.SEBuiltinRecursiveDefinition(x) => target.SEBuiltinRecursiveDefinition(x)
     }
   }
 

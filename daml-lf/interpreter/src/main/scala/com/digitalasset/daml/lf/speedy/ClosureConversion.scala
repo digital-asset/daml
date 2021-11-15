@@ -5,11 +5,7 @@ package com.daml.lf.speedy
 
 /**  Closure Conversion (Phase of the speedy compiler pipeline)
   *
-  *  This compilation phase transforms from SExpr0 to SExpr0.
-  *    SExpr0 contains expression forms which exist during the speedy compilation pipeline.
-  *
-  * TODO: introduces new expression type (SExpr1) for the result of this phase, and input to the
-  * following ANF transformation phase.
+  *  This compilation phase transforms from SExpr0 to SExpr1.
   */
 
 import com.daml.lf.speedy.{SExpr0 => source}
@@ -62,7 +58,6 @@ private[speedy] object ClosureConversion {
       case source.SEVal(ref) => target.SEVal(ref)
       case source.SEBuiltin(b) => target.SEBuiltin(b)
       case source.SEValue(v) => target.SEValue(v)
-      case source.SEBuiltinRecursiveDefinition(f) => target.SEBuiltinRecursiveDefinition(f)
       case source.SELocation(loc, body) =>
         target.SELocation(loc, closureConvert(remaps, body))
 
@@ -158,7 +153,6 @@ private[speedy] object ClosureConversion {
         case _: source.SEVal => free
         case _: source.SEBuiltin => free
         case _: source.SEValue => free
-        case _: source.SEBuiltinRecursiveDefinition => free
         case source.SELocation(_, body) =>
           go(body, bound, free)
         case source.SEAppGeneral(fun, args) =>
