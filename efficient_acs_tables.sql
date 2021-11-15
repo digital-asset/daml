@@ -77,11 +77,9 @@ CREATE TABLE participant_events_create_interned AS
         command_id,
         application_id,
         
-        COALESCE(
-            (SELECT array_agg(party_internal_id)
-              FROM unnest(submitters) witnesses(party_external_id) 
-                     INNER JOIN participant_party_interning USING (party_external_id)
-            ), array[]::integer[]
+        (SELECT array_agg(party_internal_id)
+          FROM unnest(submitters) parties(party_external_id) 
+                  INNER JOIN participant_party_interning USING (party_external_id)
         ) submitters,
 
         event_id,
@@ -90,14 +88,14 @@ CREATE TABLE participant_events_create_interned AS
 
         COALESCE(
             (SELECT array_agg(party_internal_id)
-              FROM unnest(flat_event_witnesses) witnesses(party_external_id) 
+              FROM unnest(flat_event_witnesses) parties(party_external_id) 
                      INNER JOIN participant_party_interning USING (party_external_id)
             ), array[]::integer[]
         ) flat_event_witnesses,
 
         COALESCE(
             (SELECT array_agg(party_internal_id)
-              FROM unnest(tree_event_witnesses) witnesses(party_external_id) 
+              FROM unnest(tree_event_witnesses) parties(party_external_id) 
                      INNER JOIN participant_party_interning USING (party_external_id)
             ), array[]::integer[]
         ) tree_event_witnesses,
@@ -106,14 +104,14 @@ CREATE TABLE participant_events_create_interned AS
 
         COALESCE(
             (SELECT array_agg(party_internal_id)
-              FROM unnest(create_signatories) witnesses(party_external_id) 
+              FROM unnest(create_signatories) parties(party_external_id) 
                      INNER JOIN participant_party_interning USING (party_external_id)
             ), array[]::integer[]
         ) create_signatories,
 
         COALESCE(
             (SELECT array_agg(party_internal_id)
-              FROM unnest(create_observers) witnesses(party_external_id) 
+              FROM unnest(create_observers) parties(party_external_id) 
                      INNER JOIN participant_party_interning USING (party_external_id)
             ), array[]::integer[]
         ) create_observers,
