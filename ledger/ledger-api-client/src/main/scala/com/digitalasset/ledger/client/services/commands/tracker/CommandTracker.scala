@@ -328,9 +328,7 @@ private[commands] class CommandTracker[Context](
             )
           }
           .getOrElse {
-            logger.trace(
-              "Ignoring a completion with an empty submission ID for a submission from the CommandSubmissionService."
-            )
+            logger.trace("Ignoring a completion with an empty submission ID.")
             None
           }
       }
