@@ -492,6 +492,7 @@ object CommandDeduplicationBase {
       */
     protected def delayBy(duration: Duration): Future[Unit]
   }
+
   class TimeDelayMechanism(val deduplicationDuration: Duration, val extraWait: Duration)(implicit
       ec: ExecutionContext
   ) extends DelayMechanism {
@@ -508,9 +509,9 @@ object CommandDeduplicationBase {
     override protected def delayBy(duration: Duration): Future[Unit] =
       ledger
         .time()
-        .flatMap(currentTime => {
+        .flatMap { currentTime =>
           ledger.setTime(currentTime, currentTime.plusMillis(duration.toMillis))
-        })
+        }
   }
 
   /** @param participantDeduplication If participant deduplication is enabled then we will receive synchronous rejections

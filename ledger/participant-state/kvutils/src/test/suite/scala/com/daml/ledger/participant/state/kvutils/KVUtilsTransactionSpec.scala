@@ -560,16 +560,16 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           )
         })
         transaction <- runSimpleCommand(alice, seed, command)
-        deduplicationDuration = Duration.ofHours(1)
+        expectedDeduplicationDuration = Duration.ofHours(1)
         preExecutionResult <- preExecuteTransaction(
           submitter = alice,
           transaction = transaction,
           submissionSeed = seed,
-          deduplicationDuration = deduplicationDuration,
+          deduplicationDuration = expectedDeduplicationDuration,
         ).map(_._2)
       } yield {
         preExecutionResult.successfulLogEntry.getTransactionEntry.getSubmitterInfo.getDeduplicationDuration shouldBe Conversions
-          .buildDuration(deduplicationDuration)
+          .buildDuration(expectedDeduplicationDuration)
       }
     }
   }
