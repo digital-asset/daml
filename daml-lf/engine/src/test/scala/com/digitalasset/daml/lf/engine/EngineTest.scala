@@ -2302,10 +2302,8 @@ object EngineTest {
 
     finalState.map(state =>
       (
-        VersionedTransaction(
-          state.nodes.values.map(_.optVersion.getOrElse(TxVersions.minVersion)).max,
-          state.nodes,
-          state.roots.toImmArray,
+        TxVersions.asVersionedTransaction(
+          Tx(state.nodes, state.roots.toImmArray)
         ),
         Tx.Metadata(
           submissionSeed = None,
