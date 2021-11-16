@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 
@@ -28,11 +29,17 @@ import DA.Internal.Exception ()
 #else
 import DA.Internal.Exception
 #endif
-import GHC.Types (magic)
+import GHC.Types (magic, Symbol)
 
 -- These are only used as markers by desugaring, we do not translate them to LF.
 data NonConsuming t = NonConsuming {}
 data PreConsuming t = PreConsuming {}
 data Consuming t = Consuming {}
 data PostConsuming t = PostConsuming {}
-data Implements t i = Implements
+
+class Implements t i where
+  toInterface : t -> i
+  fromInterface : i -> Optional t
+  toInterfaceContractId : ContractId t -> ContractId i
+  fromInterfaceContractId : ContractId i -> Update (Optional (ContractId t))
+  interfaceTypeRep : t -> TypeRep
