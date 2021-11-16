@@ -651,20 +651,19 @@ final class CommandServiceIT extends LedgerTestSuite {
       transactionTreeResponse <- ledger.submitAndWaitForTransactionTree(request)
     } yield {
       assert(
-        transactionIdResponse.completionOffset.exists(_.nonEmpty) &&
-          transactionIdResponse.completionOffset.contains(retrievedTransaction.offset),
+        transactionIdResponse.completionOffset.nonEmpty &&
+          transactionIdResponse.completionOffset == retrievedTransaction.offset,
         "SubmitAndWaitForTransactionId does not contain the expected completion offset",
       )
       assert(
-        transactionResponse.completionOffset.exists(_.nonEmpty) &&
-          transactionResponse.completionOffset.contains(transactionResponse.getTransaction.offset),
+        transactionResponse.completionOffset.nonEmpty &&
+          transactionResponse.completionOffset == transactionResponse.getTransaction.offset,
         "SubmitAndWaitForTransaction does not contain the expected completion offset",
       )
       assert(
-        transactionTreeResponse.completionOffset.exists(
-          _.nonEmpty
-        ) && transactionTreeResponse.completionOffset
-          .contains(transactionTreeResponse.getTransaction.offset),
+        transactionTreeResponse.completionOffset.nonEmpty
+          && transactionTreeResponse.completionOffset
+          == transactionTreeResponse.getTransaction.offset,
         "SubmitAndWaitForTransactionTree does not contain the expected completion offset",
       )
     }

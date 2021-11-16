@@ -104,7 +104,7 @@ private[apiserver] final class ApiCommandService private[services] (
     }
 
   private def offsetFromResponse(response: CompletionSuccess) =
-    response.checkpoint.flatMap(_.offset).flatMap(_.value.absolute)
+    response.checkpoint.flatMap(_.offset).flatMap(_.value.absolute).getOrElse("")
 
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest
@@ -124,7 +124,10 @@ private[apiserver] final class ApiCommandService private[services] (
             .getFlatTransactionById(txRequest)
             .map(transactionResponse =>
               SubmitAndWaitForTransactionResponse
-                .of(transactionResponse.transaction, transactionResponse.transaction.map(_.offset))
+                .of(
+                  transactionResponse.transaction,
+                  transactionResponse.transaction.map(_.offset).getOrElse(""),
+                )
             )
       }
     }
@@ -147,7 +150,7 @@ private[apiserver] final class ApiCommandService private[services] (
             .getTransactionById(txRequest)
             .map(resp =>
               SubmitAndWaitForTransactionTreeResponse
-                .of(resp.transaction, resp.transaction.map(_.offset))
+                .of(resp.transaction, resp.transaction.map(_.offset).getOrElse(""))
             )
       }
     }
