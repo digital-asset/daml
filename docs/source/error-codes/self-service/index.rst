@@ -353,20 +353,6 @@ but there is no guarantee given that additional information will be preserved ac
 
 
 
-
-Logging
----------------------------
-
-Generally, we use the following log-levels on the server:
-
- - ``INFO`` to log user errors, where the error leads to a failure of the request but the system remains healthy.
-
- - ``WARN`` to log degradations of the system or point out rather unusual behaviour.
-
- - ``ERROR`` to log internal errors within the system, where the system does not behave properly and immediate attention is required.
-
-
-
 Error Codes Inventory
 **********************
 
