@@ -103,12 +103,26 @@ object Reference {
     override def pretty: String = s"template without contract key $tyCon."
   }
 
+  final case class TemplateImplements(templateName: TypeConName, ifaceName: TypeConName)
+      extends Reference {
+    override def pretty: String = s"template $templateName implementation of interface $ifaceName"
+  }
+
   final case class TemplateChoice(tyCon: TypeConName, choiceName: ChoiceName) extends Reference {
     override def pretty: String = s"choice $choiceName in template $tyCon"
   }
 
   final case class InterfaceChoice(tyCon: TypeConName, choiceName: ChoiceName) extends Reference {
     override def pretty: String = s"choice $choiceName in interface $tyCon"
+  }
+
+  final case class InheritedChoice(
+      ifaceName: TypeConName,
+      templateName: TypeConName,
+      choiceName: ChoiceName,
+  ) extends Reference {
+    override def pretty: String =
+      s"choice $choiceName in template $templateName by interface $ifaceName"
   }
 
   final case class TemplateOrInterface(tyCon: TypeConName) extends Reference {

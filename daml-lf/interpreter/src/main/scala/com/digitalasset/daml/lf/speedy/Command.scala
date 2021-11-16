@@ -15,17 +15,48 @@ sealed abstract class Command extends Product with Serializable {
 
 object Command {
 
+  /** Create a template, not by interface */
   final case class Create(
       templateId: Identifier,
       argument: SValue,
   ) extends Command
 
+  /** Create a template, by interface */
+  final case class CreateByInterface(
+      interfaceId: Identifier,
+      templateId: Identifier,
+      argument: SValue,
+  ) extends Command
+
+  /** Exercise a template choice, not by interface */
   final case class Exercise(
       templateId: Identifier,
       contractId: SContractId,
       choiceId: ChoiceName,
       argument: SValue,
   ) extends Command
+
+  /** Exercise a template choice, by interface */
+  final case class ExerciseByInterface(
+      interfaceId: Identifier,
+      templateId: Identifier,
+      contractId: SContractId,
+      choiceId: ChoiceName,
+      argument: SValue,
+  ) extends Command
+
+  /** Exercise an interface choice */
+  final case class ExerciseInterface(
+      interfaceId: Identifier,
+      contractId: SContractId,
+      choiceId: ChoiceName,
+      argument: SValue,
+  ) extends Command {
+    // TODO https://github.com/digital-asset/daml/issues/11342
+    //   The actual template id isn't known until run time.
+    //   The interface id is the best we've got.
+    val templateId = interfaceId
+  }
 
   final case class ExerciseByKey(
       templateId: Identifier,
@@ -34,10 +65,28 @@ object Command {
       argument: SValue,
   ) extends Command
 
+  /** Fetch a template, not by interface */
   final case class Fetch(
       templateId: Identifier,
       coid: SContractId,
   ) extends Command
+
+  /** Fetch a template, by interface */
+  final case class FetchByInterface(
+      interfaceId: Identifier,
+      templateId: Identifier,
+      coid: SContractId,
+  ) extends Command
+
+  /** Fetch an interface */
+  final case class FetchInterface(
+      interfaceId: Identifier,
+      coid: SContractId,
+  ) extends Command {
+    // TODO https://github.com/digital-asset/daml/issues/11342
+    //   Same as above.
+    val templateId = interfaceId
+  }
 
   final case class FetchByKey(
       templateId: Identifier,
