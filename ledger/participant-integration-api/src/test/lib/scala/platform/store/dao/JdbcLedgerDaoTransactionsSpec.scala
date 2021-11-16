@@ -503,7 +503,13 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
       // `pageSize = 2` and the offset gaps in the `commandWithOffsetGaps` above are to make sure
       // that streaming works with event pages separated by offsets that don't have events in the store
-      ledgerDao <- createLedgerDao(pageSize = 2, eventsProcessingParallelism = 8)
+      ledgerDao <- createLedgerDao(
+        pageSize = 2,
+        eventsProcessingParallelism = 8,
+        acsIdPageSize = 2,
+        acsIdFetchingParallelism = 2,
+        acsContractFetchingParallelism = 2,
+      )
 
       response <- ledgerDao.transactionsReader
         .getFlatTransactions(
@@ -633,11 +639,20 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   ): Vector[Transaction] =
     responses.foldLeft(Vector.empty[Transaction])((b, a) => b ++ a._2.transactions.toVector)
 
-  private def createLedgerDao(pageSize: Int, eventsProcessingParallelism: Int) =
+  private def createLedgerDao(
+      pageSize: Int,
+      eventsProcessingParallelism: Int,
+      acsIdPageSize: Int,
+      acsIdFetchingParallelism: Int,
+      acsContractFetchingParallelism: Int,
+  ) =
     LoggingContext.newLoggingContext { implicit loggingContext =>
       daoOwner(
         eventsPageSize = pageSize,
         eventsProcessingParallelism = eventsProcessingParallelism,
+        acsIdPageSize = acsIdPageSize,
+        acsIdFetchingParallelism = acsIdFetchingParallelism,
+        acsContractFetchingParallelism = acsContractFetchingParallelism,
         MockitoSugar.mock[ErrorFactories],
       ).acquire()(ResourceContext(executionContext))
     }.asFuture
