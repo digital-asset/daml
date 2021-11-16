@@ -449,7 +449,7 @@ private[kvutils] object TransactionRejections {
     ): Status =
       GrpcStatus.toProto(
         LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
-          .LedgerReject(ExternallyInconsistentTransaction.DuplicateKeys.description)
+          .Reject(ExternallyInconsistentTransaction.DuplicateKeys.description)
           .asGrpcStatusFromContext
       )
 
@@ -476,7 +476,7 @@ private[kvutils] object TransactionRejections {
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
       GrpcStatus.toProto(
         LedgerApiErrors.WriteServiceRejections.SubmitterCannotActViaParticipant
-          .Reject(
+          .RejectWithSubmitterAndParticipantId(
             details,
             submitter,
             participantId,

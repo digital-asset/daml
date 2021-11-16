@@ -1,0 +1,65 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+##### Sandbox classic rejections changed #####
+
+SandboxClassicRejections#contractNotFound:
+  change:
+    - ABORTED
+    - NOT_FOUND
+  changeExplanation: "NOT_FOUND is now returned on transaction rejections on not found contract."
+  selfServiceErrorCodeId: CONTRACT_NOT_FOUND
+  services:
+    SandboxClassic.CommandCompletionService:
+      - CompletionStream
+
+SandboxClassicRejections.#inconsistent:
+  change:
+    - ABORTED
+    - FAILED_PRECONDITION
+  changeExplanation: "FAILED_PRECONDITION is now returned on transaction rejections on consistency errors."
+  selfServiceErrorCodeId: INCONSISTENT, INCONSISTENT_CONTRACT_KEY
+  services:
+    SandboxClassic.CommandCompletionService:
+      - CompletionStream
+
+SandboxClassicRejections.#dulicateContractKey:
+  change:
+    - ABORTED
+    - ALREADY_EXISTS
+  changeExplanation: "ALREADY_EXISTS is now returned on duplicate contract key transaction rejections."
+  selfServiceErrorCodeId: DUPLICATE_CONTRACT_KEY
+  services:
+    SandboxClassic.CommandCompletionService:
+      - CompletionStream
+
+SandboxClassicRejections.#disputed:
+  change:
+    - INVALID_ARGUMENT
+    - INTERNAL
+  changeExplanation: "INTERNAL is now returned on transaction rejections on system faults."
+  selfServiceErrorCodeId: DISPUTED
+  services:
+    SandboxClassic.CommandCompletionService:
+      - CompletionStream
+
+SandboxClassicRejections.#partiesNotKnownToLedger:
+  change:
+    - INVALID_ARGUMENT
+    - NOT_FOUND
+  changeExplanation: "PARTY_NOT_KNOWN_ON_LEDGER is now returned on transaction rejections on unallocated parties."
+  selfServiceErrorCodeId: PARTY_NOT_KNOWN_ON_LEDGER
+  services:
+    SandboxClassic.CommandCompletionService:
+      - CompletionStream
+
+SandboxClassicRejections.#invalidLedgerTime:
+  change:
+    - ABORTED
+    - FAILED_PRECONDITION
+  changeExplanation: "FAILED_PRECONDITION is now returned on invalid ledger time transaction rejections."
+  selfServiceErrorCodeId: INVALID_LEDGER_TIME
+  services:
+    SandboxClassic.CommandCompletionService:
+      - CompletionStream
+

@@ -535,7 +535,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         v1 = RpcStatus.of(Code.ABORTED.value(), s"Inconsistent: $reason", Seq.empty),
         v2 = GrpcStatus.toProto(
           LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
-            .InterpretationReject(reason, key)
+            .RejectWithContractKeyArg(reason, key)
             .asGrpcStatusFromContext
         ),
       )

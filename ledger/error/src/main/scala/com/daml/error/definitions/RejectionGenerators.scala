@@ -104,7 +104,7 @@ class RejectionGenerators(conformanceMode: Boolean) {
             .Error(renderedMessage)
         case LfInterpretationError.DuplicateContractKey(key) =>
           LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
-            .InterpretationReject(renderedMessage, key)
+            .RejectWithContractKeyArg(renderedMessage, key)
         case _: LfInterpretationError.UnhandledException =>
           LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError.Error(
             renderedMessage + detailMessage.fold("")(x => ". Details: " + x)

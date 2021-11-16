@@ -89,11 +89,11 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
     val reStTable = generateReStTable(
       tableLinesWithoutUnchangedErrorCodes,
       header = Array(
-        "Service method",
-        "gRPC error code (legacy errors)",
-        "gRPC error code (self-service errors)",
+        "Service endpoint",
+        "gRPC status code (before SDK 1.18)",
+        "gRPC status code (since SDK 1.18)",
         "Remarks",
-        "Sef-service error code id",
+        "Ledger API error code ID",
       ),
     )
     println(reStTable)
