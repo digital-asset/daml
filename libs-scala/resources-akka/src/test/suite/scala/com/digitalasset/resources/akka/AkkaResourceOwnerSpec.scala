@@ -3,24 +3,25 @@
 
 package com.daml.resources.akka
 
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 
 import akka.actor.{Actor, ActorSystem, Cancellable, Props}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
-import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueue}
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.{Done, NotUsed}
 import com.daml.resources.{HasExecutionContext, ResourceOwnerFactories, TestContext}
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.{Await, ExecutionContext, Future, Promise, blocking}
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Future, Promise}
 
-final class AkkaResourceOwnerSpec extends AnyWordSpec with Matchers {
-
-  import AkkaResourceOwnerSpec._
-
-  private implicit val context: TestContext = new TestContext(ExecutionContext.global)
+final class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
+  private val Factories = new ResourceOwnerFactories[TestContext]
+    with AkkaResourceOwnerFactories[TestContext] {
+    override protected implicit val hasExecutionContext: HasExecutionContext[TestContext] =
+      TestContext.`TestContext has ExecutionContext`
+  }
+  private implicit val context: TestContext = new TestContext(executionContext)
 
   "a function returning an ActorSystem" should {
     "convert to a ResourceOwner" in {
@@ -38,22 +39,19 @@ final class AkkaResourceOwnerSpec extends AnyWordSpec with Matchers {
         actor <- Factories.successful(actorSystem.actorOf(Props(new TestActor)))
       } yield (actorSystem, actor)
 
-      val actorSystemReference = new AtomicReference[ActorSystem]()
-
-      val resultFuture = resourceOwner
+      resourceOwner
         .use { case (actorSystem, actor) =>
-          actorSystemReference.set(actorSystem)
           actor ! 7
-          testPromise.future
+          testPromise.future.map { result =>
+            result should be(7)
+            actorSystem
+          }
         }
-
-      blocking {
-        val result = Await.result(resultFuture, TimeoutDuration)
-        result should be(7)
-        an[IllegalStateException] should be thrownBy actorSystemReference.get.actorOf(
-          Props(new TestActor)
-        )
-      }
+        .map { actorSystem =>
+          an[IllegalStateException] should be thrownBy actorSystem.actorOf(
+            Props(new TestActor)
+          )
+        }
     }
   }
 
@@ -64,23 +62,22 @@ final class AkkaResourceOwnerSpec extends AnyWordSpec with Matchers {
         materializer <- Factories.forMaterializer(() => Materializer(actorSystem))
       } yield materializer
 
-      val materializerReference = new AtomicReference[Materializer]()
-
-      val resultFuture = resourceOwner.use { materializer =>
-        materializerReference.set(materializer)
-        Source(1 to 10)
-          .toMat(Sink.seq)(Keep.right[NotUsed, Future[Seq[Int]]])
-          .run()(materializer)
-      }
-
-      blocking {
-        val numbers = Await.result(resultFuture, TimeoutDuration)
-        numbers should be(1 to 10)
-        an[IllegalStateException] should be thrownBy Source
-          .single(0)
-          .toMat(Sink.ignore)(Keep.right[NotUsed, Future[Done]])
-          .run()(materializerReference.get)
-      }
+      resourceOwner
+        .use { materializer =>
+          Source(1 to 10)
+            .toMat(Sink.seq)(Keep.right[NotUsed, Future[Seq[Int]]])
+            .run()(materializer)
+            .map { numbers =>
+              numbers should be(1 to 10)
+              materializer
+            }
+        }
+        .map { materializer =>
+          an[IllegalStateException] should be thrownBy Source
+            .single(0)
+            .toMat(Sink.ignore)(Keep.right[NotUsed, Future[Done]])
+            .run()(materializer)
+        }
     }
   }
 
@@ -97,15 +94,9 @@ final class AkkaResourceOwnerSpec extends AnyWordSpec with Matchers {
       }
       val resourceOwner = Factories.forCancellable(() => cancellable)
 
-      val resultFuture = resourceOwner.use { cancellable =>
-        cancellable.isCancelled should be(false)
-        Future.unit
-      }
-
-      blocking {
-        Await.ready(resultFuture, TimeoutDuration)
-        cancellable.isCancelled should be(true)
-      }
+      resourceOwner
+        .use(_ => cancellable.isCancelled should be(false))
+        .map(_ => cancellable.isCancelled should be(true))
     }
   }
 
@@ -124,28 +115,14 @@ final class AkkaResourceOwnerSpec extends AnyWordSpec with Matchers {
           )(materializer)
       } yield sourceQueue
 
-      val sourceQueueReference = new AtomicReference[SourceQueue[Int]]()
-
-      val resultFuture = resourceOwner.use { sourceQueue =>
-        sourceQueueReference.set(sourceQueue)
-        sourceQueue.offer(123)
-      }
-
-      blocking {
-        val offerResult = Await.result(resultFuture, TimeoutDuration)
-        offerResult should be(QueueOfferResult.Enqueued)
-        number.get should be(123)
-      }
+      resourceOwner
+        .use { sourceQueue =>
+          sourceQueue.offer(123)
+        }
+        .map { offerResult =>
+          offerResult should be(QueueOfferResult.Enqueued)
+          number.get should be(123)
+        }
     }
-  }
-}
-
-object AkkaResourceOwnerSpec {
-  private val TimeoutDuration = 2.seconds
-
-  private val Factories = new ResourceOwnerFactories[TestContext]
-    with AkkaResourceOwnerFactories[TestContext] {
-    override protected implicit val hasExecutionContext: HasExecutionContext[TestContext] =
-      TestContext.`TestContext has ExecutionContext`
   }
 }
