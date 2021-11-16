@@ -10,7 +10,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import java.nio.charset.StandardCharsets
 
-import com.daml.error.ErrorCategory
+import com.daml.error.{Description, ErrorCategory, Resolution, RetryStrategy}
 
 // TODO error codes: Delete it once final version of migration guide is ready.
 /** How to update self-service error codes migration guide table:
@@ -22,19 +22,126 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
   def main(args: Array[String]): Unit = {
 
     // Generate error categories table
+
+    case class ErrorCategoryDoc(
+        description: Option[String],
+        resolution: Option[String],
+        retryStrategy: Option[String],
+    )
+
+    def handleErrorCategoryAnnotations(errorCategory: ErrorCategory): ErrorCategoryDoc = {
+      import scala.reflect.runtime.{universe => ru}
+
+      val descriptionTypeName = classOf[Description].getTypeName.replace("$", ".")
+      val resolutionTypeName = classOf[Resolution].getTypeName.replace("$", ".")
+      val retryStrategyTypeName = classOf[RetryStrategy].getTypeName.replace("$", ".")
+
+      val runtimeMirror: ru.Mirror = ru.runtimeMirror(this.getClass.getClassLoader)
+
+      def isAnnotation(annotation: ru.Annotation, typeName: String): Boolean =
+        annotationTypeName(annotation) == typeName
+
+      def annotationTypeName(annotation: ru.Annotation) =
+        annotation.tree.tpe.toString
+
+      @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
+      def parseAnnotationValue(tree: ru.Tree): String = {
+        try {
+          Seq(1).map(
+            tree.children(_).asInstanceOf[ru.Literal].value.value.asInstanceOf[String]
+          ) match {
+            case s :: Nil => s.stripMargin
+            case _ => sys.exit(1)
+          }
+        } catch {
+          case x: RuntimeException =>
+            println(
+              "Failed to process description (description needs to be a constant-string. i.e. don't apply stripmargin here ...): " + tree.toString
+            )
+            throw x
+        }
+      }
+
+      val mirroredType = runtimeMirror.reflect(errorCategory)
+      val annotations: Seq[ru.Annotation] = mirroredType.symbol.annotations
+
+      var description: Option[String] = None
+      var resolution: Option[String] = None
+      var retryStrategy: Option[String] = None
+      annotations.foreach { annotation =>
+        if (isAnnotation(annotation, descriptionTypeName)) {
+          description = Option(parseAnnotationValue(annotation.tree))
+        } else if (isAnnotation(annotation, resolutionTypeName)) {
+          resolution = Option(parseAnnotationValue(annotation.tree))
+        } else if (isAnnotation(annotation, retryStrategyTypeName)) {
+          retryStrategy = Option(parseAnnotationValue(annotation.tree))
+        } else {
+          ???
+        }
+      }
+
+      ErrorCategoryDoc(
+        description = description,
+        resolution = resolution,
+        retryStrategy = retryStrategy,
+      )
+
+    }
+
     val errorCategoriesTable: Array[Array[String]] = ErrorCategory.all.map { cat: ErrorCategory =>
+      val doc = handleErrorCategoryAnnotations(cat)
+      println(doc)
       val intValue: String = cat.asInt.toString
       val grpcCode: String = cat.grpcCode.fold("N/A")(_.toString)
       val name: String = cat.getClass.getSimpleName.replace("$", "")
+      val logLevel: String = cat.logLevel.toString
 
-      Array(name, intValue, grpcCode)
+      Array(
+        name,
+        intValue,
+        grpcCode,
+        doc.description.getOrElse("").replace("\n", " "),
+        doc.resolution.getOrElse("").replace("\n", " "),
+        doc.retryStrategy.getOrElse("").replace("\n", " "),
+        logLevel,
+      )
 
     }.toArray
 
     val errorCategoryTableText = generateReStTable(
       errorCategoriesTable,
-      header = Array("Error category", "Category id", "gRPC code"),
+      header = Array(
+        "Error category",
+        "Category id",
+        "gRPC code",
+        "Description",
+        "Resolution",
+        "Retry strategy",
+        "Log level",
+      ),
     )
+
+    def genSubsectionsForErrorCategory(a: Array[String]) = {
+      s"""${a(0)}
+         |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+         |    **Category id**: ${a(1)}
+         |
+         |    **gRPC status code**: ${a(2)}
+         |
+         |    **Default log level**: ${a(6)}
+         |
+         |    **Description**: ${a(3)}
+         |
+         |    **Resolution**: ${a(4)}
+         |
+         |    **Retry strategy**: ${a(5)}""".stripMargin
+    }
+
+    println(errorCategoriesTable.map(genSubsectionsForErrorCategory).mkString("\n\n\n"))
+
+    if (args.length < 10) {
+      System.exit(0)
+    }
 
     println(errorCategoryTableText)
     println()
