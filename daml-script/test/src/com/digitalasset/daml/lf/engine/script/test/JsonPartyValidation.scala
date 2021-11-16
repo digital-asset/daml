@@ -34,7 +34,7 @@ final class JsonPartyValidation extends AnyWordSpec with Matchers {
         OneAnd(alice, Set.empty),
         Set.empty,
         token(List(alice), List()),
-      ) shouldBe Right(())
+      ) shouldBe Right(None)
     }
     "fail for no actAs party" in {
       validateSubmitParties(OneAnd(alice, Set.empty), Set.empty, token(List(), List())) shouldBe a[
@@ -46,14 +46,14 @@ final class JsonPartyValidation extends AnyWordSpec with Matchers {
         OneAnd(alice, Set.empty),
         Set.empty,
         token(List(alice, alice), List()),
-      ) shouldBe Right(())
+      ) shouldBe Right(None)
     }
     "handle duplicate actAs in submit" in {
       validateSubmitParties(
         OneAnd(alice, Set(alice)),
         Set.empty,
         token(List(alice), List()),
-      ) shouldBe Right(())
+      ) shouldBe Right(None)
     }
     "fail for missing readAs party" in {
       validateSubmitParties(
@@ -67,21 +67,21 @@ final class JsonPartyValidation extends AnyWordSpec with Matchers {
         OneAnd(alice, Set.empty),
         Set(bob),
         token(List(alice), List(bob)),
-      ) shouldBe Right(())
+      ) shouldBe Right(None)
     }
     "ignore party that is in readAs and actAs in token" in {
       validateSubmitParties(
         OneAnd(alice, Set.empty),
         Set(),
         token(List(alice), List(alice)),
-      ) shouldBe Right(())
+      ) shouldBe Right(None)
     }
     "ignore party that is in readAs and actAs in submit" in {
       validateSubmitParties(
         OneAnd(alice, Set.empty),
         Set(alice),
         token(List(alice), List()),
-      ) shouldBe Right(())
+      ) shouldBe Right(None)
     }
     "fail if party is in actAs in submit but only in readAs in token" in {
       validateSubmitParties(OneAnd(alice, Set.empty), Set(), token(List(), List(alice))) shouldBe a[
@@ -93,14 +93,28 @@ final class JsonPartyValidation extends AnyWordSpec with Matchers {
         OneAnd(alice, Set.empty),
         Set(bob),
         token(List(alice), List(bob, bob)),
-      ) shouldBe Right(())
+      ) shouldBe Right(None)
     }
     "handle duplicate readAs in submit" in {
       validateSubmitParties(
         OneAnd(alice, Set.empty),
         Set(bob, bob),
         token(List(alice), List(bob)),
-      ) shouldBe Right(())
+      ) shouldBe Right(None)
+    }
+    "return explicit party specification for constrained actAs" in {
+      validateSubmitParties(
+        OneAnd(alice, Set.empty),
+        Set.empty,
+        token(List(alice, bob), List()),
+      ) shouldBe Right(Some(SubmitParties(OneAnd(alice, Set.empty), Set.empty)))
+    }
+    "return explicit party specification for constrained readAs" in {
+      validateSubmitParties(
+        OneAnd(alice, Set.empty),
+        Set.empty,
+        token(List(alice), List(bob)),
+      ) shouldBe Right(Some(SubmitParties(OneAnd(alice, Set.empty), Set.empty)))
     }
   }
 }
