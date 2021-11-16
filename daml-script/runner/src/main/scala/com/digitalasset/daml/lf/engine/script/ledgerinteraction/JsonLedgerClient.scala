@@ -223,20 +223,20 @@ class JsonLedgerClient(
       mat: Materializer,
   ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
     for {
-      optPartySets <- validateSubmitParties(actAs, readAs)
+      partySets <- validateSubmitParties(actAs, readAs)
 
       result <- commands match {
         case Nil => Future { Right(List()) }
         case cmd :: Nil =>
           cmd match {
             case command.CreateCommand(tplId, argument) =>
-              create(tplId, argument, optPartySets)
+              create(tplId, argument, partySets)
             case command.ExerciseCommand(tplId, cid, choice, argument) =>
-              exercise(tplId, cid, choice, argument, optPartySets)
+              exercise(tplId, cid, choice, argument, partySets)
             case command.ExerciseByKeyCommand(tplId, key, choice, argument) =>
-              exerciseByKey(tplId, key, choice, argument, optPartySets)
+              exerciseByKey(tplId, key, choice, argument, partySets)
             case command.CreateAndExerciseCommand(tplId, template, choice, argument) =>
-              createAndExercise(tplId, template, choice, argument, optPartySets)
+              createAndExercise(tplId, template, choice, argument, partySets)
           }
         case _ =>
           Future.failed(
