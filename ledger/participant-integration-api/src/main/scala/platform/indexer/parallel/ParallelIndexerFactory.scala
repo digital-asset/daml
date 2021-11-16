@@ -71,9 +71,9 @@ object ParallelIndexerFactory {
                   ),
                   throwable =>
                     ContextualizedLogger
-                      .get(this.getClass)
+                      .get(getClass)
                       .error(
-                        s"ExecutionContext has failed with an exception",
+                        "ExecutionContext has failed with an exception",
                         throwable,
                       ),
                 )
