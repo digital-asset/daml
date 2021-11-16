@@ -439,6 +439,25 @@ class ErrorFactoriesSpec
       }
     }
 
+    "return a serviceIsBeingReset error" in {
+      val serviceName = "Some API Service"
+      val someLegacyStatusCode = Code.CANCELLED
+
+      assertVersionedError(_.serviceIsBeingReset(someLegacyStatusCode.value())(serviceName))(
+        v1_code = someLegacyStatusCode,
+        v1_message = s"$serviceName is currently being reset.",
+        v1_details = Seq.empty,
+        v2_code = Code.UNAVAILABLE,
+        v2_message =
+          s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): $serviceName is currently being reset.",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("SERVICE_NOT_RUNNING"),
+          expectedCorrelationIdRequestInfo,
+          ErrorDetails.RetryInfoDetail(1),
+        ),
+      )
+    }
+
     "return a missingField error" in {
       val testCases = Table(
         ("definite answer", "expected details"),

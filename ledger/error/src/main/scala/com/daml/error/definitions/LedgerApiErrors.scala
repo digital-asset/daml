@@ -226,6 +226,12 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     ) extends LoggingTransactionErrorImpl(
           cause = s"$serviceName has been shut down."
         )
+
+    case class ServiceReset(serviceName: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends LoggingTransactionErrorImpl(
+          cause = s"$serviceName is currently being reset."
+        )
   }
 
   object AuthorizationChecks extends ErrorGroup() {
