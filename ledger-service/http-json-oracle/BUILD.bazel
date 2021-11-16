@@ -5,9 +5,8 @@ load("@oracle//:index.bzl", "oracle_testing")
 load("@scala_version//:index.bzl", "scala_version_suffix")
 load(
     "//bazel_tools:scala.bzl",
-    "da_scala_binary",
     "da_scala_library",
-    "da_scala_test",
+    "da_scala_test_suite",
     "lf_scalacopts",
 )
 
@@ -15,7 +14,54 @@ hj_scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
 ]
 
-da_scala_test(
+da_scala_library(
+    name = "integration-tests-lib",
+    srcs = glob(["src/itlib/scala/**/*.scala"]),
+    plugins = [
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+    ],
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = hj_scalacopts,
+    tags = [] if oracle_testing else ["manual"],
+    runtime_deps = [
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
+    ],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//daml-lf/transaction",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger-service/db-backend",
+        "//ledger-service/fetch-contracts",
+        "//ledger-service/http-json:http-json-ee",
+        "//ledger-service/http-json:integration-tests-lib-ee",
+        "//ledger-service/http-json-cli:ee",
+        "//ledger-service/http-json-testing:ee",
+        "//ledger-service/jwt",
+        "//ledger-service/utils",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//libs-scala/db-utils",
+        "//libs-scala/oracle-testing",
+        "//libs-scala/ports",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_test_suite(
     name = "integration-tests",
     size = "large",
     srcs = glob(["src/it/scala/**/*.scala"]),
@@ -47,6 +93,7 @@ da_scala_test(
         "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
     deps = [
+        ":integration-tests-lib",
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/transaction",
