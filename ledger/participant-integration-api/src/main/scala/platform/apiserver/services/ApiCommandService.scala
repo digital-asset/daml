@@ -7,7 +7,11 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.daml.api.util.TimeProvider
-import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.{
@@ -17,7 +21,6 @@ import com.daml.ledger.api.v1.command_completion_service.{
 }
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.v1.commands.Commands
-import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionByIdRequest,
@@ -78,52 +81,34 @@ private[apiserver] final class ApiCommandService private[services] (
     submissionTracker.close()
   }
 
-  private def submitAndWaitInternal(request: SubmitAndWaitRequest)(implicit
-      loggingContext: LoggingContext
-  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
-    val commands = request.getCommands
-    withEnrichedLoggingContext(
-      logging.submissionId(commands.submissionId),
-      logging.commandId(commands.commandId),
-      logging.partyString(commands.party),
-      logging.actAsStrings(commands.actAs),
-      logging.readAsStrings(commands.readAs),
-    ) { implicit loggingContext =>
-      if (running) {
-        val timeout = Option(Context.current().getDeadline)
-          .map(deadline => Duration.ofNanos(deadline.timeRemaining(TimeUnit.NANOSECONDS)))
-        submissionTracker.track(CommandSubmission(commands, timeout))
-      } else {
-        handleFailure(request, loggingContext)
+  override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
+    withCommandsLoggingContext(request.getCommands) { case (enrichedLoggingContext, errorLogger) =>
+      submitAndWaitInternal(request)(enrichedLoggingContext, errorLogger).map {
+        case Left(failure) =>
+          throw CompletionResponse.toException(failure, errorFactories)(errorLogger)
+        case Right(_) => Empty.defaultInstance
       }
     }
-  }
-
-  override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
-    submitAndWaitInternal(request).map(
-      _.fold(
-        failure => throw CompletionResponse.toException(failure),
-        _ => Empty.defaultInstance,
-      )
-    )
 
   override def submitAndWaitForTransactionId(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionIdResponse] =
-    submitAndWaitInternal(request).map(
-      _.fold(
-        failure => throw CompletionResponse.toException(failure),
-        response => SubmitAndWaitForTransactionIdResponse(response.transactionId),
-      )
-    )
+    withCommandsLoggingContext(request.getCommands) { case (enrichedLoggingContext, errorLogger) =>
+      submitAndWaitInternal(request)(enrichedLoggingContext, errorLogger).map {
+        case Left(failure) =>
+          throw CompletionResponse.toException(failure, errorFactories)(errorLogger)
+        case Right(response) => SubmitAndWaitForTransactionIdResponse(response.transactionId)
+      }
+    }
 
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionResponse] =
-    submitAndWaitInternal(request).flatMap { resp =>
-      resp.fold(
-        failure => Future.failed(CompletionResponse.toException(failure)),
-        { resp =>
+    withCommandsLoggingContext(request.getCommands) { case (enrichedLoggingContext, errorLogger) =>
+      submitAndWaitInternal(request)(enrichedLoggingContext, errorLogger).flatMap {
+        case Left(failure) =>
+          Future.failed(CompletionResponse.toException(failure, errorFactories)(errorLogger))
+        case Right(resp) =>
           val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
           val txRequest = GetTransactionByIdRequest(
             request.getCommands.ledgerId,
@@ -133,17 +118,17 @@ private[apiserver] final class ApiCommandService private[services] (
           transactionServices
             .getFlatTransactionById(txRequest)
             .map(resp => SubmitAndWaitForTransactionResponse(resp.transaction))
-        },
-      )
+      }
     }
 
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionTreeResponse] =
-    submitAndWaitInternal(request).flatMap { resp =>
-      resp.fold(
-        failure => Future.failed(CompletionResponse.toException(failure)),
-        { resp =>
+    withCommandsLoggingContext(request.getCommands) { case (enrichedLoggingContext, errorLogger) =>
+      submitAndWaitInternal(request)(enrichedLoggingContext, errorLogger).flatMap {
+        case Left(failure) =>
+          Future.failed(CompletionResponse.toException(failure, errorFactories)(errorLogger))
+        case Right(resp) =>
           val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
           val txRequest = GetTransactionByIdRequest(
             request.getCommands.ledgerId,
@@ -153,25 +138,45 @@ private[apiserver] final class ApiCommandService private[services] (
           transactionServices
             .getTransactionById(txRequest)
             .map(resp => SubmitAndWaitForTransactionTreeResponse(resp.transaction))
-        },
-      )
+      }
     }
 
-  private def handleFailure(
-      request: SubmitAndWaitRequest,
+  private def submitAndWaitInternal(
+      request: SubmitAndWaitRequest
+  )(implicit
       loggingContext: LoggingContext,
+      errorLogger: ContextualizedErrorLogger,
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] =
-    Future
-      .failed(
-        errorFactories.serviceNotRunning("Command Service")(definiteAnswer = Some(false))(
-          new DamlContextualizedErrorLogger(
-            logger,
-            loggingContext,
-            request.commands.map(_.submissionId),
-          )
+    if (running) {
+      val timeout = Option(Context.current().getDeadline)
+        .map(deadline => Duration.ofNanos(deadline.timeRemaining(TimeUnit.NANOSECONDS)))
+      submissionTracker.track(CommandSubmission(request.getCommands, timeout))
+    } else {
+      Future
+        .failed(
+          errorFactories.serviceNotRunning("Command Service")(definiteAnswer = Some(false))
         )
+    }
+
+  private def withCommandsLoggingContext[T](commands: Commands)(
+      submitWithContext: (LoggingContext, ContextualizedErrorLogger) => Future[T]
+  )(implicit loggingContext: LoggingContext): Future[T] =
+    withEnrichedLoggingContext(
+      logging.submissionId(commands.submissionId),
+      logging.commandId(commands.commandId),
+      logging.partyString(commands.party),
+      logging.actAsStrings(commands.actAs),
+      logging.readAsStrings(commands.readAs),
+    ) { loggingContext =>
+      submitWithContext(
+        loggingContext,
+        new DamlContextualizedErrorLogger(
+          logger,
+          loggingContext,
+          Some(commands.submissionId),
+        ),
       )
-      .andThen(logger.logErrorsOnCall[Completion](loggingContext))
+    }
 }
 
 private[apiserver] object ApiCommandService {
@@ -309,5 +314,4 @@ private[apiserver] object ApiCommandService {
       }
     }
   }
-
 }

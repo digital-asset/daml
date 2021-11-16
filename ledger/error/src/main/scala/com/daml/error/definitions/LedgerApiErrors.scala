@@ -14,10 +14,50 @@ import com.daml.lf.language.{LanguageVersion, LookupError, Reference}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.{VersionRange, language}
+import org.slf4j.event.Level
 
 import java.time.{Duration, Instant}
 
 object LedgerApiErrors extends LedgerApiErrorGroup {
+  @Explanation(
+    """This error occurs when a participant rejects a command due to excessive load.
+        |Load can be caused by the following factors:
+        |1. when commands are submitted to the participant through its Ledger API,
+        |2. when the participant receives requests from other participants through a connected domain."""
+  )
+  @Resolution(
+    """Wait a bit and retry, preferably with some backoff factor.
+        |If possible, ask other participants to send fewer requests; the domain operator can enforce this by imposing a rate limit."""
+  )
+  object ParticipantBackpressure
+      extends ErrorCode(
+        id = "PARTICIPANT_BACKPRESSURE",
+        ErrorCategory.ContentionOnSharedResources,
+      ) {
+    override def logLevel: Level = Level.WARN
+
+    case class Rejection(reason: String)(implicit errorLogger: ContextualizedErrorLogger)
+        extends LoggingTransactionErrorImpl(cause = s"The participant is overloaded: $reason")
+  }
+
+  @Explanation(
+    "This rejection is given when a request processing status is not known and a time-out is reached."
+  )
+  @Resolution(
+    "Retry for transient problems. If non-transient contact the operator as the time-out limit might be too short."
+  )
+  object RequestTimeOut
+      extends ErrorCode(
+        id = "REQUEST_TIME_OUT",
+        ErrorCategory.DeadlineExceededRequestStateUnknown,
+      ) {
+    case class Reject(message: String, override val definiteAnswer: Boolean)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends LoggingTransactionErrorImpl(
+          cause = message
+        )
+  }
+
   object CommandExecution extends ErrorGroup {
     @Explanation(
       """This error occurs if the participant fails to determine the max ledger time of the used
@@ -501,7 +541,8 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       ) {
 
     case class CommandTrackerInternalError(
-        message: String
+        message: String,
+        override val throwableO: Option[Throwable] = None,
     )(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends LoggingTransactionErrorImpl(cause = message)
@@ -572,24 +613,6 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
       case class Reject(message: String)(implicit
-          loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
-            cause = message
-          )
-    }
-
-    @Explanation(
-      "This rejection is given when a request processing status is not known and a time-out is reached."
-    )
-    @Resolution(
-      "Retry for transient problems. If non-transient contact the operator as the time-out limit might be too short."
-    )
-    object RequestTimeOut
-        extends ErrorCode(
-          id = "REQUEST_TIME_OUT",
-          ErrorCategory.DeadlineExceededRequestStateUnknown,
-        ) {
-      case class Reject(message: String, override val definiteAnswer: Boolean)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
             cause = message

@@ -30,6 +30,93 @@ import java.time.Duration
 import scala.annotation.nowarn
 
 class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
+  object TrackerErrors {
+    def failedToEnqueueCommandSubmission(message: String)(t: Throwable)(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = {
+          val status = io.grpc.Status.ABORTED
+            .withDescription(s"$message: ${t.getClass.getSimpleName}: ${t.getMessage}")
+            .withCause(t)
+          val statusBuilder = GrpcStatus.toJavaBuilder(status)
+          GrpcStatus.buildStatus(Map.empty, statusBuilder)
+        },
+        v2 = LedgerApiErrors.InternalError
+          .CommandTrackerInternalError(
+            message = s"$message: ${t.getClass.getSimpleName}: ${t.getMessage}",
+            throwableO = Some(t),
+          )
+          .asGrpcStatusFromContext,
+      )
+
+    def commandServiceIngressBufferFull()(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = {
+          val status = io.grpc.Status.RESOURCE_EXHAUSTED
+            .withDescription("Ingress buffer is full")
+          val statusBuilder = GrpcStatus.toJavaBuilder(status)
+          GrpcStatus.buildStatus(Map.empty, statusBuilder)
+        },
+        v2 = LedgerApiErrors.ParticipantBackpressure
+          .Rejection("Command service ingress buffer is full")
+          .asGrpcStatusFromContext,
+      )
+
+    def commandSubmissionQueueClosed()(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = {
+          val status = io.grpc.Status.ABORTED.withDescription("Queue closed")
+          val statusBuilder = GrpcStatus.toJavaBuilder(status)
+          GrpcStatus.buildStatus(Map.empty, statusBuilder)
+        },
+        v2 = LedgerApiErrors.ServiceNotRunning
+          .Reject("Command service submission queue")
+          .asGrpcStatusFromContext,
+      )
+
+    def timedOutOnAwaitingForCommandCompletion()(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = {
+          val statusBuilder =
+            GrpcStatus.toJavaBuilder(Code.ABORTED.value(), Some("Timeout"), Iterable.empty)
+          GrpcStatus.buildStatus(Map.empty, statusBuilder)
+        },
+        v2 = LedgerApiErrors.RequestTimeOut
+          .Reject(
+            "Timed out while awaiting for a completion corresponding to a command submission.",
+            definiteAnswer = false,
+          )
+          .asGrpcStatusFromContext,
+      )
+
+    def noStatusInCompletionResponse()(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): Status = {
+      errorCodesVersionSwitcher.choose(
+        v1 = {
+          Status
+            .newBuilder()
+            .setCode(Code.INTERNAL.value())
+            .setMessage("Missing status in completion response.")
+            .build()
+        },
+        v2 = LedgerApiErrors.InternalError
+          .CommandTrackerInternalError(
+            "Missing status in completion response.",
+            throwableO = None,
+          )
+          .asGrpcStatusFromContext,
+      )
+    }
+  }
+
   def sqlTransientException(exception: SQLTransientException)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
@@ -295,7 +382,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   ): StatusRuntimeException = {
     errorCodesVersionSwitcher.choose(
       v1 = aborted(message, definiteAnswer),
-      v2 = LedgerApiErrors.AdminServices.RequestTimeOut
+      v2 = LedgerApiErrors.RequestTimeOut
         .Reject(
           message,
           // TODO error codes: How to handle None definiteAnswer?
@@ -628,6 +715,11 @@ object ErrorFactories {
 
   def apply(errorCodesVersionSwitcher: ErrorCodesVersionSwitcher): ErrorFactories =
     new ErrorFactories(errorCodesVersionSwitcher)
+
+  def apply(useSelfServiceErrorCodes: Boolean): ErrorFactories =
+    new ErrorFactories(
+      new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = useSelfServiceErrorCodes)
+    )
 
   private[daml] lazy val definiteAnswers = Map(
     true -> AnyProto.pack[ErrorInfo](
