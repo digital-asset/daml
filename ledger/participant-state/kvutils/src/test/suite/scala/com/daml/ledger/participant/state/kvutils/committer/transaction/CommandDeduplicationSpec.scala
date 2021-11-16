@@ -127,7 +127,10 @@ class CommandDeduplicationSpec
               "record time bounds" -> ((timestamp: Timestamp) =>
                 (builder: DamlCommandDedupValue.Builder) =>
                   builder.setRecordTimeBounds(
-                    buildPreExecutionDeduplicationBounds(timestamp, timestamp)
+                    buildPreExecutionDeduplicationBounds(
+                      timestamp.subtract(deduplicationDuration),
+                      timestamp,
+                    )
                   )
               ),
             )
