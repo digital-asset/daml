@@ -329,7 +329,11 @@ class JsonLedgerClient(
           s"Tried to $what as ${parties.toList.mkString(" ")} but token contains no parties."
         )
       )
-    } else if (missingParties.isEmpty) {
+    } else if (missingParties.nonEmpty) {
+      Future.failed(new RuntimeException(s"Tried to $what as [${parties.toList
+        .mkString(", ")}] but token provides claims for [${tokenParties
+        .mkString(", ")}]. Missing claims: [${missingParties.mkString(", ")}]"))
+    } else {
       import scalaz.std.string._
       if (partiesSet === tokenParties) {
         // For backwards-compatibility we only set the party set flags when needed
@@ -337,10 +341,6 @@ class JsonLedgerClient(
       } else {
         Future.successful(Some(QueryParties(parties)))
       }
-    } else {
-      Future.failed(new RuntimeException(s"Tried to $what as [${parties.toList
-        .mkString(", ")}] but token provides claims for [${tokenParties
-        .mkString(", ")}]. Missing claims: [${missingParties.mkString(", ")}]"))
     }
   }
 
