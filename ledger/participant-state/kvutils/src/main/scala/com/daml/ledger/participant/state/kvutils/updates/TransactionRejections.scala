@@ -359,17 +359,17 @@ private[kvutils] object TransactionRejections {
       ),
       V2.invalidLedgerTimeStatus(
         details,
-        ledger_time = Instant
+        ledgerTime = Instant
           .ofEpochSecond(
             ledgerTime.getSeconds,
             ledgerTime.getNanos.toLong,
           ),
-        ledger_time_lower_bound = Instant
+        ledgerTimeLowerBound = Instant
           .ofEpochSecond(
             ledgerTimeLowerBound.getSeconds,
             ledgerTimeLowerBound.getNanos.toLong,
           ),
-        ledger_time_upper_bound = Instant
+        ledgerTimeUpperBound = Instant
           .ofEpochSecond(
             ledgerTimeUpperBound.getSeconds,
             ledgerTimeUpperBound.getNanos.toLong,
@@ -591,13 +591,13 @@ private[kvutils] object TransactionRejections {
     @deprecated
     def invalidLedgerTimeStatus(
         details: String,
-        ledger_time: Instant,
-        ledger_time_lower_bound: Instant,
-        ledger_time_upper_bound: Instant,
+        ledgerTime: Instant,
+        ledgerTimeLowerBound: Instant,
+        ledgerTimeUpperBound: Instant,
     )(implicit loggingContext: ContextualizedErrorLogger): Status =
       GrpcStatus.toProto(
         LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
-          .RejectEnriched(details, ledger_time, ledger_time_lower_bound, ledger_time_upper_bound)
+          .RejectEnriched(details, ledgerTime, ledgerTimeLowerBound, ledgerTimeUpperBound)
           .asGrpcStatusFromContext
       )
 

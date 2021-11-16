@@ -58,13 +58,18 @@ object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
           ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
         ) {
       case class Reject(
-          minimum_record_time: Instant,
-          maximum_record_time: Instant,
+          minimumRecordTime: Instant,
+          maximumRecordTime: Instant,
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends KVLoggingTransactionErrorImpl(
             cause =
-              s"Invalid ledger time: Record time is outside of valid range [$minimum_record_time, $maximum_record_time]"
-          )
+              s"Invalid ledger time: Record time is outside of valid range [$minimumRecordTime, $maximumRecordTime]"
+          ) {
+        override def context: Map[String, String] = Map(
+          "minimum_record_time" -> minimumRecordTime.toString,
+          "maximum_record_time" -> maximumRecordTime.toString,
+        )
+      }
     }
 
     @Explanation(
