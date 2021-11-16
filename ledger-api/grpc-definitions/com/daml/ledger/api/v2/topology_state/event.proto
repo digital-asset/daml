@@ -1,1 +1,78 @@
 // TODO: fill with content
+
+/* 
+Design goals:
+- enable any Ledger API client to automate topology actions within
+  appropriate authorizations
+- stay close to Canton; do not reinvent the weel
+- leave room for future evoltuion by hiding details of the current implementation
+- enable VMBC to provide a sensible topology management tx stream
+
+
+
+kinds of events:
+- local participant name
+- party to participant mapping (incl. relation)
+- participant trust level
+- domain names (trust level?)
+- package to party mapping (incl. trust status)
+- ledger config (domain parameters)
+- domain vetting driven by a participant
+- waiting for required subscriptions to be established
+
+kinds of queries:
+- party-visibility filtering
+- 
+
+Open work items:
+- how to communicate domain restrictions
+- effective dating of topology transactions
+- should namespace delegations be exposed on the Ledger API?
+- checking that key management actions can really be hidden in the 
+  Ledger API event stream
+- how should the polling revocation service be incorporated?
+- how to handle domain topology state lookup requests?
+  - forward to domain and persistently cache all results?
+- relation to Bernhard's flexible topologies
+- what will VMBC serve?
+
+Future work:
+- party merging
+- same UID with different keys
+
+Deprecated:
+- party metadata -- delivered as part of Daml-level KYC
+
+
+Key management actions left out:
+- mapping participant to sets of keys per domain
+- domain entity keys
+- lifetime and purpose of keys
+- cryptographic evidence
+
+
+General information flow for event subscription:
+1. validate request
+2. compute required topology state subscriptions
+3. establish all of these subscriptions, reporting progress every heartbeat ms
+   - we might do this as part of fetching a recent snapshot-id
+4. serve snapshot
+5. subscribe to changelog
+
+
+
+Related resources:
+- Canton IDM refactor: https://docs.google.com/document/d/1pCHRMPHK17_ZcK1AL6abvqJSy5eFrd6V4iazXFblMP0/edit#
+- Canton topology mappings: 
+  - scale: https://github.com/DACH-NY/canton/blob/master/community/common/src/main/scala/com/digitalasset/canton/topology/transaction/TopologyMapping.scala
+  - proto: https://github.com/DACH-NY/canton/blob/master/community/common/src/main/protobuf/com/digitalasset/canton/protocol/v0/topology.proto
+- Admin read interface gRPC: https://github.com/DACH-NY/canton/blob/master/community/common/src/main/protobuf/com/digitalasset/canton/topology/admin/v0/topology_manager_read_service.proto
+
+
+*/
+
+
+// Step 1: what do we need for a party to participant mapping automation?
+
+
+

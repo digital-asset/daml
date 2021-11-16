@@ -42,6 +42,8 @@ Features (to be) sketched:
     - include completions
     - communicate pruning events
     - include all data required for Ledger API completeness
+    - signal pruning
+    - signal a data corruption to the application; telling it to reinitialize
 
 
 - in `events_service_multi_domain.proto`
