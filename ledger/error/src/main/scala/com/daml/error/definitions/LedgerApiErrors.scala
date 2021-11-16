@@ -21,7 +21,7 @@ import java.time.{Duration, Instant}
 object LedgerApiErrors extends LedgerApiErrorGroup {
   @Explanation(
     """This error occurs when a participant rejects a command due to excessive load.
-        |Load can be caused as follows:
+        |Load can be caused by the following factors:
         |1. when commands are submitted to the participant through its Ledger API,
         |2. when the participant receives requests from other participants through a connected domain."""
   )
