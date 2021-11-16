@@ -445,6 +445,8 @@ da_scala_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":participant-integration-api",
+        "//ledger/error",
         "@maven//:commons_io_commons_io",
+        "@maven//:io_grpc_grpc_api",
     ],
 )
