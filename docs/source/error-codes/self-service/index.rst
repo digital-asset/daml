@@ -90,9 +90,7 @@ The error categories allow to group errors such that application logic can be bu
 in a sensible way to automatically deal with errors and decide whether to retry
 a request or escalate to the operator.
 
-.. _TransientServerFailure: #transientserverfailure
-
-TransientServerFailure_
+TransientServerFailure
 ````````````````````````````````````````````````````````````````````````````````````````````````
     **Category id**: 1
 
@@ -107,9 +105,7 @@ TransientServerFailure_
     **Retry strategy**: Retry quickly in load balancer.
 
 
-.. _ContentionOnSharedResources: #contentiononsharedresources
-
-ContentionOnSharedResources_
+ContentionOnSharedResources
 ````````````````````````````````````````````````````````````````````````````````````````````````
     **Category id**: 2
 
@@ -124,9 +120,7 @@ ContentionOnSharedResources_
     **Retry strategy**: Retry quickly (indefinitely or limited), but do not retry in load balancer.
 
 
-.. _DeadlineExceededRequestStateUnknown: #deadlineexceededrequeststateunknown
-
-DeadlineExceededRequestStateUnknown_
+DeadlineExceededRequestStateUnknown
 ````````````````````````````````````````````````````````````````````````````````````````````````
     **Category id**: 3
 
@@ -141,9 +135,7 @@ DeadlineExceededRequestStateUnknown_
     **Retry strategy**: Retry for a limited number of times with deduplication.
 
 
-.. _SystemInternalAssumptionViolated: #systeminternalassumptionviolated
-
-SystemInternalAssumptionViolated_
+SystemInternalAssumptionViolated
 ````````````````````````````````````````````````````````````````````````````````````````````````
     **Category id**: 4
 
@@ -158,9 +150,7 @@ SystemInternalAssumptionViolated_
     **Retry strategy**: Retry after operator intervention.
 
 
-.. _MaliciousOrFaultyBehaviour: #maliciousorfaultybehaviour
-
-MaliciousOrFaultyBehaviour_
+MaliciousOrFaultyBehaviour
 ````````````````````````````````````````````````````````````````````````````````````````````````
     **Category id**: 5
 
@@ -175,9 +165,7 @@ MaliciousOrFaultyBehaviour_
     **Retry strategy**: Retry after operator intervention.
 
 
-.. _AuthInterceptorInvalidAuthenticationCredentials: #authinterceptorinvalidauthenticationcredentials
-
-AuthInterceptorInvalidAuthenticationCredentials_
+AuthInterceptorInvalidAuthenticationCredentials
 ````````````````````````````````````````````````````````````````````````````````````````````````
     **Category id**: 6
 
@@ -192,9 +180,7 @@ AuthInterceptorInvalidAuthenticationCredentials_
     **Retry strategy**: Retry after app operator intervention.
 
 
-.. _InsufficientPermission: #insufficientpermission
-
-InsufficientPermission_
+InsufficientPermission
 ````````````````````````````````````````````````````````````````````````````````````````````````
     **Category id**: 7
 
@@ -209,9 +195,7 @@ InsufficientPermission_
     **Retry strategy**: Retry after app operator intervention.
 
 
-.. _InvalidIndependentOfSystemState: #invalidindependentofsystemstate
-
-InvalidIndependentOfSystemState_
+InvalidIndependentOfSystemState
 ````````````````````````````````````````````````````````````````````````````````````````````````
     **Category id**: 8
 
@@ -226,9 +210,7 @@ InvalidIndependentOfSystemState_
     **Retry strategy**: Retry after app operator intervention.
 
 
-.. _InvalidGivenCurrentSystemStateOther: #invalidgivencurrentsystemstateother
-
-InvalidGivenCurrentSystemStateOther_
+InvalidGivenCurrentSystemStateOther
 ````````````````````````````````````````````````````````````````````````````````````````````````
     **Category id**: 9
 
@@ -243,9 +225,7 @@ InvalidGivenCurrentSystemStateOther_
     **Retry strategy**: Retry after app operator intervention.
 
 
-.. _InvalidGivenCurrentSystemStateResourceExists: #invalidgivencurrentsystemstateresourceexists
-
-InvalidGivenCurrentSystemStateResourceExists_
+InvalidGivenCurrentSystemStateResourceExists
 ````````````````````````````````````````````````````````````````````````````````````````````````
     **Category id**: 10
 
@@ -260,9 +240,7 @@ InvalidGivenCurrentSystemStateResourceExists_
     **Retry strategy**: Inspect resource failure and retry after resource failure has been resolved (depends on type of resource and application).
 
 
-.. _InvalidGivenCurrentSystemStateResourceMissing: #invalidgivencurrentsystemstateresourcemissing
-
-InvalidGivenCurrentSystemStateResourceMissing_
+InvalidGivenCurrentSystemStateResourceMissing
 ````````````````````````````````````````````````````````````````````````````````````````````````
     **Category id**: 11
 
@@ -277,9 +255,7 @@ InvalidGivenCurrentSystemStateResourceMissing_
     **Retry strategy**: Inspect resource failure and retry after resource failure has been resolved (depends on type of resource and application).
 
 
-.. _InvalidGivenCurrentSystemStateSeekAfterEnd: #invalidgivencurrentsystemstateseekafterend
-
-InvalidGivenCurrentSystemStateSeekAfterEnd_
+InvalidGivenCurrentSystemStateSeekAfterEnd
 ````````````````````````````````````````````````````````````````````````````````````````````````
     **Category id**: 12
 
@@ -294,9 +270,7 @@ InvalidGivenCurrentSystemStateSeekAfterEnd_
     **Retry strategy**: Retry after app operator intervention.
 
 
-.. _BackgroundProcessDegradationWarning: #backgroundprocessdegradationwarning
-
-BackgroundProcessDegradationWarning_
+BackgroundProcessDegradationWarning
 ````````````````````````````````````````````````````````````````````````````````````````````````
     **Category id**: 13
 

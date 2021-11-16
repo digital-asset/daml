@@ -122,9 +122,7 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
     )
 
     def genSubsectionsForErrorCategory(a: Array[String]) = {
-      s""".. _${a(0)}: #${a(0).toLowerCase}
-         |
-         |${a(0)}_
+      s"""${a(0)}
          |````````````````````````````````````````````````````````````````````````````````````````````````
          |    **Category id**: ${a(1)}
          |
