@@ -711,7 +711,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "DUPLICATE_CONTRACT_KEY",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
         ) {
-      case class InterpretationReject(
+      case class RejectWithContractKeyArg(
           override val cause: String,
           _key: GlobalKey,
       )(implicit
@@ -726,7 +726,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         )
       }
 
-      case class LedgerReject(override val cause: String)(implicit
+      case class Reject(override val cause: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(cause = cause)
     }
@@ -848,10 +848,15 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT",
           ErrorCategory.InsufficientPermission,
         ) {
-      case class Reject(
+      case class RejectWithSubmitterAndParticipantId(
           details: String,
-          submitter: String = "N/A",
-          participantId: String = "N/A",
+          submitter: String,
+          participantId: String,
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends LoggingTransactionErrorImpl(cause = s"Inconsistent: $details")
+
+      case class Reject(
+          details: String
       )(implicit loggingContext: ContextualizedErrorLogger)
           extends LoggingTransactionErrorImpl(cause = s"Inconsistent: $details")
     }
