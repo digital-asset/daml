@@ -12,13 +12,13 @@ import com.daml.ledger.api.benchtool.metrics.objectives.{
 
 import java.time.Duration
 
-trait MetricReporter {
+trait MetricFormatter {
   def formattedValues(values: List[MetricValue]): String
   def finalReport(streamName: String, metrics: List[Metric[_]], duration: Duration): String
 }
 
-object MetricReporter {
-  object Default extends MetricReporter {
+object MetricFormatter {
+  object Default extends MetricFormatter {
 
     def formattedValues(values: List[MetricValue]): String =
       values.map(shortMetricReport).mkString(", ")

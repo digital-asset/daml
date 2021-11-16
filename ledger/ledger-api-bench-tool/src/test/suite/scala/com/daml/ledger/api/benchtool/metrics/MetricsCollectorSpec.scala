@@ -14,7 +14,7 @@ import akka.actor.typed.{ActorRef, Behavior}
 import com.daml.ledger.api.benchtool.metrics.MetricsCollector.Message
 import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
 import com.daml.ledger.api.benchtool.metrics.{Metric, MetricValue, MetricsCollector}
-import com.daml.ledger.api.benchtool.util.MetricReporter
+import com.daml.ledger.api.benchtool.util.MetricFormatter
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import java.time.Duration
@@ -98,7 +98,7 @@ class MetricsCollectorSpec
       streamName = "testStream",
       metrics = List(TestMetric()),
       logInterval = logInterval,
-      reporter = TestReporter,
+      reporter = TestFormatter,
     )
 
   private case class TestMetricValue(value: String) extends MetricValue
@@ -110,7 +110,7 @@ class MetricsCollectorSpec
       metricValue.value == TestViolatingValue
   }
 
-  private object TestReporter extends MetricReporter {
+  private object TestFormatter extends MetricFormatter {
     override def formattedValues(values: List[MetricValue]): String =
       values
         .map { case v: TestMetricValue =>

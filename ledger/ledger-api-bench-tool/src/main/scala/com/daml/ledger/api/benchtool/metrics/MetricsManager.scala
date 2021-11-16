@@ -7,7 +7,7 @@ import akka.actor.CoordinatedShutdown
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, ActorSystem, Props, SpawnProtocol}
 import akka.util.Timeout
-import com.daml.ledger.api.benchtool.util.MetricReporter
+import com.daml.ledger.api.benchtool.util.MetricFormatter
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -50,7 +50,7 @@ object MetricsManager {
           streamName = streamName,
           metrics = metrics,
           logInterval = logInterval,
-          reporter = MetricReporter.Default,
+          reporter = MetricFormatter.Default,
           exposedMetrics = exposedMetrics,
         ),
         name = s"${streamName}-collector",

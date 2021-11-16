@@ -5,7 +5,7 @@ package com.daml.ledger.api.benchtool.metrics
 
 import akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}
 import akka.actor.typed.{ActorRef, Behavior}
-import com.daml.ledger.api.benchtool.util.{MetricReporter, TimeUtil}
+import com.daml.ledger.api.benchtool.util.{MetricFormatter, TimeUtil}
 
 import java.time.Instant
 import scala.concurrent.duration._
@@ -28,7 +28,7 @@ object MetricsCollector {
       streamName: String,
       metrics: List[Metric[T]],
       logInterval: FiniteDuration,
-      reporter: MetricReporter,
+      reporter: MetricFormatter,
       exposedMetrics: Option[ExposedMetrics[T]] = None,
   ): Behavior[Message] =
     Behaviors.withTimers { timers =>
@@ -43,7 +43,7 @@ class MetricsCollector[T](
     timers: TimerScheduler[MetricsCollector.Message],
     streamName: String,
     logInterval: FiniteDuration,
-    reporter: MetricReporter,
+    reporter: MetricFormatter,
     startTime: Instant,
     exposedMetrics: Option[ExposedMetrics[T]],
 ) {
