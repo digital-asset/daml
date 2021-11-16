@@ -5,6 +5,7 @@ package com.daml.resources.akka
 
 import akka.actor.{ActorSystem, Cancellable}
 import akka.stream.Materializer
+import akka.stream.scaladsl.{RunnableGraph, SourceQueue, SourceQueueWithComplete}
 import com.daml.resources.{AbstractResourceOwner, HasExecutionContext}
 
 trait AkkaResourceOwnerFactories[Context] {
@@ -26,4 +27,9 @@ trait AkkaResourceOwnerFactories[Context] {
 
   def forCancellable[C <: Cancellable](acquire: () => C): AbstractResourceOwner[Context, C] =
     new CancellableResourceOwner(acquire)
+
+  def forSourceQueue[T](
+      queueGraph: RunnableGraph[SourceQueueWithComplete[T]]
+  )(implicit materializer: Materializer): AbstractResourceOwner[Context, SourceQueue[T]] =
+    new SourceQueueResourceOwner[T, Context](queueGraph)
 }
