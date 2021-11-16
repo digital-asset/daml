@@ -320,7 +320,6 @@ class JsonLedgerClient(
       what: String,
   ): Future[Option[QueryParties]] = {
     val tokenParties = tokenPayload.readAs.toSet union tokenPayload.actAs.toSet
-    // Use toSet twice to convert from Party to String
     val partiesSet = parties.toSet.toSet[String]
     val missingParties = partiesSet diff tokenParties
     // First check is just for a nicer error message and would be covered by the second
@@ -333,6 +332,7 @@ class JsonLedgerClient(
     } else if (missingParties.isEmpty) {
       import scalaz.std.string._
       if (partiesSet === tokenParties) {
+        // For backwards-compatibility we only set the party set flags when needed
         Future.successful(None)
       } else {
         Future.successful(Some(QueryParties(parties)))
@@ -532,19 +532,19 @@ object JsonLedgerClient {
     val readAsSet = readAs.toSet[String]
     val tokenActAs = tokenPayload.actAs.toSet
     val tokenReadAs = tokenPayload.readAs.toSet
-    val missingActAs = actAs.toSet.map(p => p: String) diff tokenActAs
-    val missingReadAs = readAs.map(p => p: String) diff (tokenReadAs union tokenActAs)
+    val missingActAs = actAs.toSet.toSet[String] diff tokenActAs
+    val missingReadAs = readAs.toSet[String] diff (tokenReadAs union tokenActAs)
     if (tokenPayload.actAs.isEmpty) {
       Left(
         s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token contains no actAs parties."
       )
 
-    } else if (!missingActAs.isEmpty) {
+    } else if (missingActAs.nonEmpty) {
       Left(
         s"Tried to submit a command with actAs = [${actAs.toList.mkString(", ")}] but token provides claims for actAs = [${tokenPayload.actAs
           .mkString(", ")}]. Missing claims: [${missingActAs.mkString(", ")}]"
       )
-    } else if (!missingReadAs.isEmpty) {
+    } else if (missingReadAs.nonEmpty) {
       Left(
         s"Tried to submit a command with readAs = [${readAs.mkString(", ")}] but token provides claims for readAs = [${tokenPayload.readAs
           .mkString(", ")}]. Missing claims: [${missingReadAs.mkString(", ")}]"
@@ -553,7 +553,7 @@ object JsonLedgerClient {
       import scalaz.std.string._
       val onlyReadAs = readAsSet diff actAsSet
       val tokenOnlyReadAs = tokenReadAs diff tokenActAs
-      if (onlyReadAs === tokenOnlyReadAs && actAsSet == tokenActAs) {
+      if (onlyReadAs === tokenOnlyReadAs && actAsSet === tokenActAs) {
         // For backwards-compatibility we only set the party set flags when needed
         Right(None)
       } else {
