@@ -487,3 +487,55 @@ ApiSubmissionService.failedOnCommandExecution#{Package.Internal, Package.SelfCon
   services:
     SubmissionService:
       - submit
+
+failedToEnqueueCommandSubmission:
+  change:
+    - ABORTED
+    - INTERNAL
+  changeExplanation: "INTERNAL is not returned on Command Service submissions on unexpected errors."
+  selfServiceErrorCodeId: LEDGER_API_INTERNAL_ERROR
+  services:
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait
+
+commandServiceIngressBufferFull:
+  change:
+    - RESOURCE_EXHAUSTED
+    - ABORTED
+  changeExplanation: "ABORTED is now returned on Command Service submissions on backpressure."
+  selfServiceErrorCodeId: PARTICIPANT_BACKPRESSURE
+  services:
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait
+
+commandSubmissionQueueClosed:
+  change:
+    - ABORTED
+    - UNAVAILABLE
+  changeExplanation: "UNAVAILABLE is now returned on Command Service submissions on backpressure."
+  selfServiceErrorCodeId: SERVICE_NOT_RUNNING
+  services:
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait
+
+timedOutOnAwaitingForCommandCompletion:
+  change:
+    - ABORTED
+    - DEADLINE_EXCEEDED
+  changeExplanation: "DEADLINE_EXCEEDED is now returned on Command Service submissions timeouts."
+  selfServiceErrorCodeId: REQUEST_TIME_OUT
+  services:
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait
