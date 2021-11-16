@@ -37,7 +37,7 @@ The goal is to enable users, developers and operators to act on the encountered
 errors in a self-service manner, either in an automated-way or manually.
 
 Feature Flag
-=============
+---------------------------
 
 You can enable self-service error-codes by specifying ``--use-self-service-error-codes``
 from command line.
@@ -46,9 +46,10 @@ By default self-service error codes are turned off.
 
 
 Glossary
-=============
+---------------------------
 
-Error - represents an occurrence of a failure.
+Error
+        Represents an occurrence of a failure.
         Consists of:
 
         - an `error code id`,
@@ -66,22 +67,24 @@ Error - represents an occurrence of a failure.
         You can think of it as an
         instantiation of an error code.
 
-Error code - represents a class of failures.
+Error code
+             Represents a class of failures.
              Identified by its error code id (we may use `error code` and `error code id` interchangeably in this document).
              Belongs to a single error category.
 
-Error category - a broad categorization of error codes that you can base your error handling strategies on.
+Error category
+                 A broad categorization of error codes that you can base your error handling strategies on.
                  Map to exactly one `gRPC status code`_.
                  We recommended to deal with errors based on their error category.
                  However, if error category itself is too generic
                  you can act on particular error codes.
 
-Correlation id - a value whose purpose is to allow a user to clearly identify the request,
-                 such that the operator can lookup any log information associated with this error.
+Correlation id
+                  a value whose purpose is to allow a user to clearly identify the request, such that the operator can lookup any log information associated with this error.
 
 
 Error Categories
-==========================
+---------------------------
 
 The error categories allow to group errors such that application logic can be built
 in a sensible way to automatically deal with errors and decide whether to retry
@@ -119,7 +122,7 @@ a request or escalate to the operator.
 
 
 Anatomy of an Error
-==========================
+---------------------------
 
 
 Errors returned to users are represented as instances of standard StatusRuntimeException_.
@@ -128,7 +131,7 @@ represented in the `rich gRPC error model`_.
 
 
 Error Description
---------------------------
+^^^^^^^^^^^^^^^^^^^
 
 We use the `standard gRPC description`_ that additionally adheres to our custom message format:
 
@@ -152,9 +155,9 @@ The constituent parts are:
 
   - ``:`` - a colon character that serves as a separator for the machine and human readable parts.
 
-  - ``<HUMAN_READABLE_MESSAGE>`` - message targeted at a human reader.
-                                   Should never be parsed by applications, as the description might change
-                                   in future releases to improve clarity.
+  - ``<HUMAN_READABLE_MESSAGE>`` - a message targeted at a human reader.
+    Should never be parsed by applications, as the description might change
+    in future releases to improve clarity.
 
 In a concrete example an error description might look like this:
 
@@ -164,7 +167,7 @@ In a concrete example an error description might look like this:
 
 
 Additional Machine Readable Information
-----------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We use following error details:
 
@@ -186,7 +189,7 @@ but there is no guarantee given that additional information will be preserved ac
 
 
 Logging
-=============
+---------------------------
 
 Generally, we use the following log-levels on the server:
 
