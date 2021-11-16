@@ -77,7 +77,7 @@ class ApiCommandServiceSpec
         val request = SubmitAndWaitRequest.of(Some(commands))
         stub.submitAndWaitForTransactionId(request).map { response =>
           response.transactionId should be("transaction ID")
-          response.completionOffset shouldBe Some("offset")
+          response.completionOffset shouldBe "offset"
           verify(submissionTracker).track(
             eqTo(CommandSubmission(commands))
           )(any[ExecutionContext], any[LoggingContext])
