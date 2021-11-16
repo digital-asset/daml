@@ -67,8 +67,8 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
       tableLinesWithoutUnchangedErrorCodes,
       header = Array(
         "Service method",
-        "Legacy error codes",
-        "Self-service error codes",
+        "gRPC status code (legacy errors)",
+        "gRPC status code (self-service errors)",
         "Remarks",
         "Sef-service error code id",
       ),
