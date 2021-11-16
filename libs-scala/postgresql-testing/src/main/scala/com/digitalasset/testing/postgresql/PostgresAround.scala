@@ -39,7 +39,7 @@ trait PostgresAround {
     }
   }
 
-  private def connectToSharedServer(
+  protected def connectToSharedServer(
       hostName: String,
       port: Port,
       userName: String,

@@ -17,7 +17,9 @@ import spray.json._
 
 import scala.collection.compat._
 
-class QueryPayloadBenchmark extends ContractDaoBenchmark {
+trait QueryPayloadBenchmark extends ContractDaoBenchmark {
+  self: BenchmarkDbConnection =>
+
   @Param(Array("1", "10", "100"))
   var extraParties: Int = _
 
@@ -55,6 +57,7 @@ class QueryPayloadBenchmark extends ContractDaoBenchmark {
   @Setup(Level.Trial)
   override def setup(): Unit = {
     super.setup()
+    println(s"inserting template $tpid")
     surrogateTpid = insertTemplate(tpid)
 
     val parties: List[String] = party :: (0 until extraParties).map(i => s"p$i").toList
@@ -83,3 +86,6 @@ class QueryPayloadBenchmark extends ContractDaoBenchmark {
 
   discard(IterableOnce) // only needed for scala 2.12
 }
+
+class QueryPayloadBenchmarkOracle extends QueryPayloadBenchmark with OracleBenchmarkDbConn
+class QueryPayloadBenchmarkPostgres extends QueryPayloadBenchmark with PostgresBenchmarkDbConn
