@@ -448,5 +448,6 @@ da_scala_binary(
         "//ledger/error",
         "@maven//:commons_io_commons_io",
         "@maven//:io_grpc_grpc_api",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
