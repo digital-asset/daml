@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package com.daml.ledger.api.v2;
+
+import "com/daml/ledger/api/v2/contract_state/event.proto";
+
+
+message Event {
+    oneof kind {
+        contract_state.ContractStateEvent contract_state_event = 1;
+    }
+}

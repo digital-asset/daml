@@ -1,0 +1,198 @@
+syntax = "proto3";
+
+package com.daml.ledger.api.v2.contract_state;
+
+import "com/daml/ledger/api/v1/value.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+
+// Events: copied from `v1.events.proto` with light adjustments.
+////////////////////////////////////////////////////////////////
+
+
+message ContractStateEvent {
+    oneof kind {
+        TransactionCommittedEvent transaction_committed_event = 1;
+        ContractCreatedEvent contract_created_event = 2;
+        ChoiceExercisedEvent choice_exercised_event = 4;
+    }
+}
+
+// Served as the first event of a transaction.
+// TODO:
+//  - filtering conditions
+//    - option 1: Visible to the submitters and informees of the transaction.
+//    - option 2: prefixed provided the stream contains an unfiltered event referring to this transaction
+//    - other options?
+//
+// Changes relative to v1.Transaction and v1.TransactionTree:
+//    - no need for `event_by_id` and `events`, as transaction boundary is communicated by TransactionAddress
+//    - no need for `root_event_ids`, as nesting structure is specified using `descendant_event_offset_upper_bound`
+//    - no need for `offset` as that is part of the `StreamEventsResponse`
+message TransactionCommittedEvent {
+
+  // A globally unique identifier useful to correlate transactions across different participant nodes.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string transaction_id = 1;
+
+  // The ID of the command which resulted in this transaction. Missing for everyone except the submitting party.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string command_id = 2;
+
+  // The workflow ID used in command submission. Only set if the ``workflow_id`` for the command was set.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string workflow_id = 3;
+
+  // Ledger effective time.
+  // Required
+  google.protobuf.Timestamp effective_at = 4;
+
+  // TODO: potentially missing
+  // string application_id = 6;
+  // repeated string submitters = 7; 
+}
+
+// Records that a contract has been created, and choices may now be exercised on it.
+//
+// Changes relative to v1.CreatedEventd
+//  - no `event_id`, as `EventAddress` structure communicates transaction scope and nesting
+//  - include `ledger_effective_time`, as that is contract metadata relevant for state evolution
+message ContractCreatedEvent {
+    reserved 1; // was 'event_id'
+  
+    // The ID of the created contract.
+    // Must be a valid LedgerString (as described in ``value.proto``).
+    // Required
+    string contract_id = 2;
+  
+    // The template of the created contract.
+    // Required
+    com.daml.ledger.api.v1.Identifier template_id = 3;
+  
+    // The key of the created contract, if defined.
+    // Optional
+    com.daml.ledger.api.v1.Value contract_key = 7;
+  
+    // The arguments that have been used to create the contract.
+    // Required
+    com.daml.ledger.api.v1.Record create_arguments = 4;
+  
+    // The parties that are notified of this event. When a ``CreatedEvent``
+    // is returned as part of a transaction tree, this will include all
+    // the parties specified in the ``TransactionFilter`` that are informees
+    // of the event. If served as part of a flat transaction those will
+    // be limited to all parties specified in the ``TransactionFilter`` that
+    // are stakeholders of the contract (i.e. either signatories or observers).
+    // Required
+    repeated string witness_parties = 5;
+  
+    // The signatories for this contract as specified by the template.
+    // Required
+    repeated string signatories = 8;
+  
+    // The observers for this contract as specified explicitly by the template or implicitly as choice controllers.
+    // This field never contains parties that are signatories.
+    // Required
+    repeated string observers = 9;
+  
+    // The agreement text of the contract.
+    // We use StringValue to properly reflect optionality on the wire for backwards compatibility.
+    // This is necessary since the empty string is an acceptable (and in fact the default) agreement
+    // text, but also the default string in protobuf.
+    // This means a newer client works with an older sandbox seamlessly.
+    // Optional
+    google.protobuf.StringValue agreement_text = 6;
+  
+    // The time as of which this contract is present on the ledger.
+    google.protobuf.Timestamp ledger_effective_time = 10;
+  }
+
+// Records that a choice has been exercised on a target contract.
+// 
+// Changes compared to v1.ExercisedEvent
+//  - replaced child_event_ids with descendant_event_offset_upper_bound, which is stable under filtering
+//  - no `event_id`, as `EventAddress` structure communicates transaction scope and nesting
+//  - include `ledger_effective_time`, as that is contract metadata relevant for state evolution
+message ChoiceExercisedEvent {
+    reserved 1; // was 'event_id'
+  
+    // The ID of the target contract.
+    // Must be a valid LedgerString (as described in ``value.proto``).
+    // Required
+    string contract_id = 2;
+  
+    // The template of the target contract.
+    // Required
+    com.daml.ledger.api.v1.Identifier template_id = 3;
+  
+    // The choice that's been exercised on the target contract.
+    // Must be a valid NameString (as described in ``value.proto``).
+    // Optional for ARCHIVALS_ONLY
+    string choice = 5;
+  
+    // The argument the choice was made with.
+    // Optional for ARCHIVALS_ONLY
+    com.daml.ledger.api.v1.Value choice_argument = 6;
+  
+    // The parties that made the choice.
+    // Each element must be a valid PartyIdString (as described in ``value.proto``).
+    // Optional for ARCHIVALS_ONLY
+    repeated string acting_parties = 7;
+  
+    // If true, the target contract may no longer be exercised.
+    // Required
+    bool consuming = 8;
+  
+    reserved 9; // removed field
+  
+    // The parties that are notified of this event. The witnesses of an exercise
+    // node will depend on whether the exercise was consuming or not.
+    // If consuming, the witnesses are the union of the stakeholders and
+    // the actors.
+    // If not consuming, the witnesses are the union of the signatories and
+    // the actors. Note that the actors might not necessarily be observers
+    // and thus signatories. This is the case when the controllers of a
+    // choice are specified using "flexible controllers", using the
+    // ``choice ... controller`` syntax, and said controllers are not
+    // explicitly marked as observers.
+    // Each element must be a valid PartyIdString (as described in ``value.proto``).
+    // Optional for ARCHIVALS_ONLY
+    repeated string witness_parties = 10;
+  
+    reserved 11; // was repeated string child_event_ids = 11;
+  
+    // An upper bound that is larger or equal to the largest `LocalEventAddress` of any descendant event.
+    // Optional for ARCHIVALS_ONLY
+    // TODO: handle via end-marker
+    // LocalEventAddress descendant_event_offset_upper_bound = 14;
+  
+    // The result of exercising the choice
+    // Optional for ARCHIVALS_ONLY
+    com.daml.ledger.api.v1.Value exercise_result = 12;
+  
+    // The time as of which this choice is effective on the ledger.
+    // Required.
+    google.protobuf.Timestamp ledger_effective_time = 13;
+}
+
+
+// Scratchpad: Completions
+/*
+
+  message SubmissionAcceptedEvent {
+  
+  }
+  message SubmissionInfo {
+    string application_id = 1;
+    repeated string submitters = 2;
+    string command_id = 3;
+  }
+  message SubmissionRejectedEvent {
+    SubmissionInfo submission_info = 1;
+    // status code
+  }
+*/

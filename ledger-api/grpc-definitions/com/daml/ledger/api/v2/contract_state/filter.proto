@@ -1,0 +1,86 @@
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2;
+
+
+message TransactionProjection {
+  bool include_exercise_subtrees = 1;
+  EventProjection event_projection = 2;
+}
+
+message TransactionFilter {
+    // TODO: define this stub
+}
+
+// If no projection is set for a specific kind of event, then none of these events will be served.
+//
+// Use the default `EventProjection` to subscribe to just the changes of the ledger end.
+//
+// Note that the projections generally provide an opinionated set of of fields only.
+message EventProjection {
+  TransactionCommittedEventProjection transaction_committed_event_projection = 1;
+//   ContractCreatedEventProjection contract_created_event_projection = 2;
+  ChoiceExercisedEventProjection exercised_event_projection = 4;
+}
+
+// No fine-grained projection available for now.
+message TransactionCommittedEventProjection {}
+
+// No fine-grained projection available for now. 
+message ContractCreatedEventFieldSelector {
+  // TODO: think about the difference of filtering on stakeholders for "flat" Transactions
+  //       vs filtering on informees for TransactionTrees
+
+  bool include_contract_id = 2;
+
+  bool include_template_id = 3;
+
+  bool include_contract_key = 7;
+
+  bool include_create_arguments = 4;
+
+  bool include_signatories = 8;
+
+  bool include_observers = 9;
+
+  bool include_agreement_text = 6;
+
+  bool include_ledger_effective_time = 10;
+}
+
+message EventFilter {
+  // Conjunction of basic filters
+  repeated BasicFilter basic_filters = 1;
+}
+
+message BasicFilter {
+  // stakeholders include set
+  // implements interface, functions X
+  // implements interface,
+}
+
+message FilterCondition {
+//   oneof condition {
+    // HasStakeholdersCondition has_stakeholders_condition = 1;
+    // HasInformeesCondition
+//   }
+}
+
+// TODO: think about what kind of projections are required.
+message ChoiceExercisedEventProjection {
+  enum Kind { 
+    KIND_FULL = 0 ;          // corresponds to serving TransactionTrees
+    KIND_ARCHIVALS_ONLY = 1; // corresponds to serving "flat" Transactions
+  }
+
+  Kind kind = 1;
+
+  bool include_exercise_subtrees = 2;
+}
+
+
+
+
+  
+

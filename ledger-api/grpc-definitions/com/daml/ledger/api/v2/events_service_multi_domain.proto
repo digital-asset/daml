@@ -1,0 +1,48 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2;
+
+
+// Idea: works like the single-domain case, but with vector clocks
+//       as outlined below.
+
+
+// A ledger-wide address of a transaction and the state it may depend on.
+//
+// `TransactionAddress` are partially ordered as per their vector clocks.
+//
+// TODO: VMBC
+message MultiDomainTransactionAddress {
+  // For each party there MUST be at most one `PartyVectorClock`
+  repeated PartyVectorClock party_vector_clock = 1;
+}
+
+message PartyVectorClock {
+  string party = 1;
+
+  // For each domain there MUST be at most one `DomainClock`
+  repeated DomainClock domain_vector_clock = 2;
+}
+
+message DomainClock {
+  string domain = 1;
+  int64 clock_time = 2;
+}
+
+// A ledger-wide address of an event and the state it may depend on.
+// Comparisons are done in lexicographic order of the fields.
+message MultiDomainEventAddress {
+  MultiDomainTransactionAddress transaction_address = 1;
+  
+  // An index of the event within the transaction which is stable across participant nodes.
+  //
+  // Note: ledgers can decide to hide the node counts by assigning these indices using a
+  // "monotone minimal perfect hash function", cf. https://www.cc.gatech.edu/~aboldyre/papers/operev.pdf
+  int32 transaction_event_index = 2;
+}
+
