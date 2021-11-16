@@ -116,13 +116,7 @@ find p (NonEmpty head tail)
 -- | The 'deleteBy' function behaves like 'delete', but takes a
 -- user-supplied equality predicate.
 deleteBy : (a -> a -> Bool) -> a -> NonEmpty a -> [a]
-deleteBy eq a n@(NonEmpty head [])
-  | head `eq` a = []
-  | otherwise   = [head]
-deleteBy eq a (NonEmpty head (t::ts))
-  | head `eq` a = t::ts
-  | t `eq` a    = head::ts
-  | otherwise   = head :: t :: L.deleteBy eq a ts
+deleteBy eq a ts = L.deleteBy eq a (toList ts)
 
 -- | Remove the first occurence of x from the non-empty list, potentially
 -- removing all elements.
