@@ -49,6 +49,7 @@ da_scala_library(
         "//ledger/participant-state-metrics",
         "//ledger/participant-state/kvutils",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/logging-entries",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",

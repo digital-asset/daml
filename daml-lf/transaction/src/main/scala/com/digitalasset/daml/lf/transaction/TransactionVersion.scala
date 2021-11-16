@@ -26,6 +26,8 @@ object TransactionVersion {
   private[daml] implicit val Ordering: scala.Ordering[TransactionVersion] =
     scala.Ordering.by(_.index)
 
+  private[lf] val NoVersions: VersionRange[TransactionVersion] = VersionRange.slowEmpty(All)
+
   private[this] val stringMapping = All.iterator.map(v => v.protoValue -> v).toMap
 
   def fromString(vs: String): Either[String, TransactionVersion] =
@@ -67,20 +69,15 @@ object TransactionVersion {
 
   private[lf] def asVersionedTransaction(
       tx: Transaction
-  ): VersionedTransaction = {
-    import scala.Ordering.Implicits.infixOrderingOps
-
-    tx match {
-      case Transaction(nodes, roots) =>
-        val txVersion = roots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
-          nodes(nodeId).optVersion match {
-            case Some(version) => acc max version
-            case None => acc max TransactionVersion.minExceptions
-          }
-        )
-
-        VersionedTransaction(txVersion, nodes, roots)
-    }
+  ): VersionedTransaction = tx match {
+    case Transaction(nodes, roots) =>
+      val rootVersions = roots.iterator.map(nodeId =>
+        nodes(nodeId) match {
+          case action: Node.Action => action.version
+          case _: Node.Rollback => minExceptions
+        }
+      )
+      VersionedTransaction(rootVersions.max, nodes, roots)
   }
 
   val StableVersions: VersionRange[TransactionVersion] =

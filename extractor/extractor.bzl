@@ -12,6 +12,7 @@ def extractor_test(name, srcs, flaky):
         name = name,
         flaky = flaky,
         size = "medium",
+        tags = ["cpu:2"],
         srcs = srcs,
         data = [
             "//daml-lf/encoder:testing-dar-latest",

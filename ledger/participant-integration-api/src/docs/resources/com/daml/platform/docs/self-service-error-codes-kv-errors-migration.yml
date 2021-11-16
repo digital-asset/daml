@@ -1,0 +1,134 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+##### KV Error rejections changed #####
+KVErrors.#invalidRecordTime:
+  change:
+    - ABORTED
+    - FAILED_PRECONDITION
+  changeExplanation: "FAILED_PRECONDITION is now returned on invalid record time transaction rejections."
+  selfServiceErrorCodeId: INVALID_RECORD_TIME
+  services:
+    KVErrors.CommandCompletionService:
+      - CompletionStream
+
+KVErrors.#rejectionReasonNotSetStatus:
+  change:
+    - UNKNOWN
+    - INTERNAL
+  changeExplanation: "INTERNAL is now returned on transaction rejections without a status.."
+  selfServiceErrorCodeId: REJECTION_REASON_NOT_SET
+  services:
+    KVErrors.CommandCompletionService:
+      - CompletionStream
+
+KVErrors.#invalidParticipantStateStatus:
+  change:
+    - INVALID_ARGUMENT
+    - INTERNAL
+  changeExplanation: "INTERNAL is now returned on transaction rejections when an invalid participant state has been detected."
+  selfServiceErrorCodeId: INVALID_PARTICIPANT_STATE
+  services:
+    KVErrors.CommandCompletionService:
+      - CompletionStream
+
+KVErrors.#partiesNotKnown:
+  change:
+    - INVALID_ARGUMENT
+    - NOT_FOUND
+  changeExplanation: "NOT_FOUND is now returned on transaction rejections on unallocated parties."
+  selfServiceErrorCodeId: SUBMITTING_PARTY_NOT_KNOWN_ON_LEDGER, PARTY_NOT_KNOWN_ON_LEDGER
+  services:
+    KVErrors.CommandCompletionService:
+      - CompletionStream
+
+KVErrors.#causalMonotonicityViolatedStatus:
+  change:
+    - ABORTED
+    - FAILED_PRECONDITION
+  changeExplanation: "FAILED_PRECONDITION is now returned on transaction rejections on time monotonicity violations."
+  selfServiceErrorCodeId: CAUSAL_MONOTONICITY_VIOLATED
+  services:
+    KVErrors.CommandCompletionService:
+      - CompletionStream
+
+KVErrors.#recordTimeOutOfRangeStatus:
+  change:
+    - ABORTED
+    - FAILED_PRECONDITION
+  changeExplanation: "FAILED_PRECONDITION is now returned on transaction rejections on record time bounds violations."
+  selfServiceErrorCodeId: RECORD_TIME_OUT_OF_RANGE
+  services:
+    KVErrors.CommandCompletionService:
+      - CompletionStream
+
+KVErrors.#externallyDuplicateResources:
+  change:
+    - ABORTED
+    - ALREADY_EXISTS
+  changeExplanation: "ALREADY_EXISTS is now returned on duplicate resource transaction rejections."
+  selfServiceErrorCodeId: DUPLICATE_CONTRACT_KEY, DUPLICATE_COMMAND
+  services:
+    KVErrors.CommandCompletionService:
+      - CompletionStream
+
+KVErrors.#inconsistentErrors:
+  change:
+    - ABORTED
+    - FAILED_PRECONDITION
+  changeExplanation: "FAILED_PRECONDITION is now returned on consistency error transaction rejections."
+  selfServiceErrorCodeId: INCONSISTENT, INCONSISTENT_CONTRACT_KEY, INCONSISTENT_CONTRACTS
+  services:
+    KVErrors.CommandCompletionService:
+      - CompletionStream
+
+KVErrors.#missingInputStateStatus:
+  change:
+    - ABORTED
+    - INTERNAL
+  changeExplanation: "INTERNAL is now returned on submissions missing mandatory participant input."
+  selfServiceErrorCodeId: MISSING_INPUT_STATE
+  services:
+    KVErrors.CommandCompletionService:
+      - CompletionStream
+
+KVErrors.#internalConsistencyErrors:
+  change:
+    - INVALID_ARGUMENT
+    - INTERNAL
+  changeExplanation: "INTERNAL is now returned on consistency errors that should have been caught by the participant."
+  selfServiceErrorCodeId: INTERNALLY_INCONSISTENT_KEYS, INTERNALLY_DUPLICATE_KEYS
+  services:
+    KVErrors.CommandCompletionService:
+      - CompletionStream
+
+KVErrors.#validationFailureStatus:
+  change:
+    - INVALID_ARGUMENT
+    - INTERNAL
+  changeExplanation: "INTERNAL is now returned on invalid transaction submissions."
+  selfServiceErrorCodeId: VALIDATION_FAILURE
+  services:
+    KVErrors.CommandCompletionService:
+      - CompletionStream
+
+KVErrors.#invalidLedgerTimeStatus:
+  change:
+    - ABORTED
+    - FAILED_PRECONDITION
+  changeExplanation: "FAILED_PRECONDITION is now returned on a submission that has violated some constraint on ledger time."
+  selfServiceErrorCodeId: INVALID_LEDGER_TIME
+  services:
+    KVErrors.CommandCompletionService:
+      - CompletionStream
+
+KVErrors.#disputed:
+  change:
+    - INVALID_ARGUMENT
+    - INTERNAL
+  changeExplanation: "INTERNAL is now returned on an invalid transaction submission that was not detected by the participant."
+  selfServiceErrorCodeId: DISPUTED
+  services:
+    KVErrors.CommandCompletionService:
+      - CompletionStream
+

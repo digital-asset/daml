@@ -3,9 +3,9 @@
 
 package com.daml.ledger.api.benchtool
 
+import com.daml.ledger.api.benchtool.config.{Config, ConfigMaker, WorkflowConfig}
 import com.daml.ledger.api.benchtool.submission.CommandSubmitter
 import com.daml.ledger.api.benchtool.services._
-import com.daml.ledger.api.benchtool.util.SimpleFileReader
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import io.grpc.Channel
@@ -13,7 +13,6 @@ import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.{Logger, LoggerFactory}
 import pprint.PPrinter
 
-import java.io.File
 import java.util.concurrent.{
   ArrayBlockingQueue,
   Executor,
@@ -23,12 +22,14 @@ import java.util.concurrent.{
 }
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
 
 object LedgerApiBenchTool {
   def main(args: Array[String]): Unit = {
-    Cli.config(args) match {
-      case Some(config) =>
+    ConfigMaker.make(args) match {
+      case Left(error) =>
+        logger.error(s"Configuration error: ${error.details}")
+      case Right(config) =>
+        logger.info(s"Starting benchmark with configuration:\n${prettyPrint(config)}")
         val result = run(config)(ExecutionContext.Implicits.global)
           .recover { case ex =>
             println(s"Error: ${ex.getMessage}")
@@ -36,18 +37,13 @@ object LedgerApiBenchTool {
           }(scala.concurrent.ExecutionContext.Implicits.global)
         Await.result(result, atMost = Duration.Inf)
         ()
-      case _ =>
-        logger.error("Invalid configuration arguments.")
     }
   }
 
   private def run(config: Config)(implicit ec: ExecutionContext): Future[Unit] = {
-    logger.info(s"Starting benchmark with configuration:\n${prettyPrint(config)}")
-
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
-
     apiServicesOwner(config).use { apiServices =>
-      def benchmarkStep(streams: List[Config.StreamConfig]): Future[Unit] =
+      def benchmarkStep(streams: List[WorkflowConfig.StreamConfig]): Future[Unit] =
         if (streams.isEmpty) {
           Future.successful(logger.info(s"No streams defined. Skipping the benchmark step."))
         } else {
@@ -60,47 +56,34 @@ object LedgerApiBenchTool {
         }
 
       def submissionStep(
-          submissionDescriptor: Option[SubmissionDescriptor]
+          submissionConfig: Option[WorkflowConfig.SubmissionConfig]
       ): Future[Option[CommandSubmitter.SubmissionSummary]] =
-        submissionDescriptor match {
+        submissionConfig match {
           case None =>
             logger.info(s"No submission defined. Skipping.")
             Future.successful(None)
-          case Some(descriptor) =>
+          case Some(submissionConfig) =>
             CommandSubmitter(apiServices)
               .submit(
-                descriptor = descriptor,
+                config = submissionConfig,
                 maxInFlightCommands = config.maxInFlightCommands,
                 submissionBatchSize = config.submissionBatchSize,
               )
               .map(Some(_))
         }
 
-      config.contractSetDescriptorFile match {
-        case None =>
-          benchmarkStep(config.streams)
-        case Some(descriptorFile) =>
-          for {
-            descriptor <- Future.fromTry(parseDescriptor(descriptorFile))
-            _ = logger.info(prettyPrint(descriptor))
-            summary <- submissionStep(descriptor.submission)
-            streams = descriptor.streams.map(
-              DescriptorConverter.streamDescriptorToConfig(_, summary)
-            )
-            _ = logger.info(s"Converted stream configs: ${prettyPrint(streams)}")
-            _ <- benchmarkStep(streams)
-          } yield ()
-      }
+      for {
+        summary <- submissionStep(config.workflow.submission)
+        streams = config.workflow.streams.map(
+          ConfigEnricher.enrichStreamConfig(_, summary)
+        )
+        _ = logger.info(
+          s"Stream configs adapted after the submission step: ${prettyPrint(streams)}"
+        )
+        _ <- benchmarkStep(streams)
+      } yield ()
     }
   }
-
-  private def parseDescriptor(descriptorFile: File): Try[WorkflowDescriptor] =
-    SimpleFileReader.readFile(descriptorFile)(WorkflowParser.parse).flatMap {
-      case Left(err: WorkflowParser.ParserError) =>
-        Failure(new RuntimeException(s"Workflow parsing error. Details: ${err.details}"))
-      case Right(descriptor) =>
-        Success(descriptor)
-    }
 
   private def apiServicesOwner(
       config: Config

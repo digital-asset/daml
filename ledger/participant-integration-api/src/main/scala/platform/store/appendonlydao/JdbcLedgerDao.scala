@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.platform.store.appendonlydao
 
-import java.sql.Connection
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
@@ -50,6 +48,7 @@ import com.daml.platform.store.entries.{
 }
 import com.daml.platform.store.interning.StringInterning
 
+import java.sql.Connection
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -372,7 +371,9 @@ private class JdbcLedgerDao(
                     recordTime = recordTime,
                     completionInfo = state
                       .CompletionInfo(actAs, applicationId, commandId, None, submissionId),
-                    reasonTemplate = reason.toParticipantStateRejectionReason,
+                    reasonTemplate = reason.toParticipantStateRejectionReason(errorFactories)(
+                      new DamlContextualizedErrorLogger(logger, loggingContext, submissionId)
+                    ),
                   )
                 ),
               )
@@ -595,7 +596,7 @@ private class JdbcLedgerDao(
             conn,
           )
         ) {
-          throw errorFactories.offsetOutOfRange_was_invalidArgument(None)(
+          throw errorFactories.offsetOutOfRange(None)(
             "Pruning offset for all divulged contracts needs to be after the migration offset"
           )(new DamlContextualizedErrorLogger(logger, loggingContext, None))
         }
@@ -727,7 +728,13 @@ private class JdbcLedgerDao(
                 state.Update.CommandRejected(
                   recordTime = recordTime,
                   completionInfo = info,
-                  reasonTemplate = reason.toStateV2RejectionReason,
+                  reasonTemplate = reason.toStateV2RejectionReason(errorFactories)(
+                    new DamlContextualizedErrorLogger(
+                      logger,
+                      loggingContext,
+                      info.submissionId,
+                    )
+                  ),
                 )
               )
           },

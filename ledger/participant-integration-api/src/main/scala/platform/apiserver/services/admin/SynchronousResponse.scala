@@ -59,7 +59,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
               Future.failed(
                 errorFactories
                   .isTimeoutUnknown_wasAborted("Request timed out", definiteAnswer = Some(false))(
-                    new DamlContextualizedErrorLogger(logger, loggingContext, None)
+                    new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
                   )
               )
             }

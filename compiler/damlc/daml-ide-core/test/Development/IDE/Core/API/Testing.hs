@@ -147,7 +147,7 @@ pattern EventVirtualResourceNoteSet vr note <-
 runShakeTest :: Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
 runShakeTest mbScenarioService (ShakeTest m) = do
     dlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-    let options = (defaultOptions Nothing) { optDlintUsage = DlintEnabled dlintDataDir False }
+    let options = (defaultOptions Nothing) { optDlintUsage = DlintEnabled dlintDataDir False, optEnableOfInterestRule = True }
     virtualResources <- newTVarIO Map.empty
     virtualResourcesNotes <- newTVarIO Map.empty
     let eventLogger :: forall (m :: Method 'FromServer 'Notification). SMethod m -> MessageParams m -> IO ()

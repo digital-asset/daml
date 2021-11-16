@@ -9,9 +9,9 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.error.definitions.PackageServiceError
 import com.daml.error.definitions.PackageServiceError.Validation
 import com.daml.error.{
-  BaseError,
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
   ErrorCodesVersionSwitcher,
@@ -106,13 +106,13 @@ private[apiserver] final class ApiPackageManagementService private (
     for {
       dar <- darReader
         .readArchive("package-upload", stream)
-        .loggingValidation(Validation.handleLfArchiveError)
+        .handleError(Validation.handleLfArchiveError)
       packages <- dar.all
         .traverse(Decode.decodeArchive(_))
-        .loggingValidation(Validation.handleLfArchiveError)
+        .handleError(Validation.handleLfArchiveError)
       _ <- engine
         .validatePackages(packages.toMap)
-        .loggingValidation(Validation.handleLfEnginePackageError)
+        .handleError(Validation.handleLfEnginePackageError)
     } yield dar
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] =
@@ -145,11 +145,9 @@ private[apiserver] final class ApiPackageManagementService private (
     }
 
   private implicit class ErrorValidations[E, R](result: Either[E, R]) {
-    def loggingValidation(validate: E => BaseError.Impl): Try[R] =
+    def handleError(toSelfServiceErrorCode: E => PackageServiceError): Try[R] =
       result.left.map { err =>
-        val baseError = validate(err)
-        baseError.log()
-        baseError.asGrpcError
+        toSelfServiceErrorCode(err).asGrpcError
       }.toTry
   }
 }

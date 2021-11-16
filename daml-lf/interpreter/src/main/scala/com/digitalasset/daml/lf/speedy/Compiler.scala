@@ -15,6 +15,8 @@ import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{SExpr0 => s}
 import com.daml.lf.speedy.{SExpr => t}
+import com.daml.lf.speedy.ClosureConversion.closureConvert
+import com.daml.lf.speedy.ValidateCompilation.validateCompilation
 import com.daml.lf.validation.{EUnknownDefinition, Validation, ValidationError}
 import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
@@ -323,28 +325,28 @@ private[lf] final class Compiler(
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompile(cmds: ImmArray[Command]): t.SExpr =
-    validate(compilationPipeline(compileCommands(cmds)))
+    validateCompilation(compilationPipeline(compileCommands(cmds)))
 
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompileForReinterpretation(cmd: Command): t.SExpr =
-    validate(compilationPipeline(compileCommandForReinterpretation(cmd)))
+    validateCompilation(compilationPipeline(compileCommandForReinterpretation(cmd)))
 
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeCompile(expr: Expr): t.SExpr =
-    validate(compilationPipeline(compile(Env.Empty, expr)))
+    validateCompilation(compilationPipeline(compile(Env.Empty, expr)))
 
   @throws[PackageNotFound]
   @throws[CompilationError]
   def unsafeClosureConvert(sexpr: s.SExpr): t.SExpr =
-    validate(compilationPipeline(sexpr))
+    validateCompilation(compilationPipeline(sexpr))
 
   // Run the compilation pipeline phases:
   // (1) closure conversion
   // (2) transform to ANF
   private[this] def compilationPipeline(sexpr: s.SExpr): t.SExpr =
-    flattenToAnf(closureConvert(Map.empty, sexpr))
+    flattenToAnf(closureConvert(sexpr))
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -375,6 +377,7 @@ private[lf] final class Compiler(
       addDef(compileSignatories(identifier, tmpl))
       addDef(compileObservers(identifier, tmpl))
       tmpl.implements.values.foreach { impl =>
+        addDef(compileCreateByInterface(identifier, tmpl, impl.interface))
         addDef(compileImplements(identifier, impl.interface))
         impl.methods.values.foreach(method =>
           addDef(compileImplementsMethod(identifier, impl.interface, method))
@@ -392,6 +395,7 @@ private[lf] final class Compiler(
 
     module.interfaces.foreach { case (ifaceName, iface) =>
       val identifier = Identifier(pkgId, QualifiedName(module.name, ifaceName))
+      addDef(compileCreateInterface(identifier))
       addDef(compileFetchInterface(identifier))
       iface.fixedChoices.values.foreach(
         builder += compileFixedChoice(identifier, iface.param, _)
@@ -449,12 +453,6 @@ private[lf] final class Compiler(
     )
 
     result
-  }
-
-  private[this] def patternNArgs(pat: t.SCasePat): Int = pat match {
-    case _: t.SCPEnum | _: t.SCPPrimCon | t.SCPNil | t.SCPDefault | t.SCPNone => 0
-    case _: t.SCPVariant | t.SCPSome => 1
-    case t.SCPCons => 2
   }
 
   private[this] def compile(env: Env, expr0: Expr): s.SExpr =
@@ -572,12 +570,6 @@ private[lf] final class Compiler(
   @inline
   private[this] def compileBuiltin(bf: BuiltinFunction): s.SExpr =
     bf match {
-      case BEqualList =>
-        val ref: t.SEBuiltinRecursiveDefinition.Reference =
-          t.SEBuiltinRecursiveDefinition.Reference.EqualList
-        val exp: s.SExpr = s.SEBuiltinRecursiveDefinition(ref)
-        withLabelS(ref, exp)
-
       case BCoerceContractId => s.SEAbs.identity
       // Numeric Comparisons
       case BLessNumeric => SBLessNumeric
@@ -641,6 +633,7 @@ private[lf] final class Compiler(
           // List functions
           case BFoldl => SBFoldl
           case BFoldr => SBFoldr
+          case BEqualList => SBEqualList
 
           // Errors
           case BError => SBError
@@ -692,8 +685,8 @@ private[lf] final class Compiler(
           case BTextIntercalate => SBTextIntercalate
 
           // Implemented using normal SExpr
-          case BFoldl | BFoldr | BCoerceContractId | BEqual | BEqualList | BLessEq |
-              BLess | BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
+
+          case BCoerceContractId | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
               BGreaterEqNumeric | BEqualNumeric | BNumericToText | BTextMapEmpty | BGenMapEmpty =>
             throw CompilationError(s"unexpected $bf")
 
@@ -850,6 +843,8 @@ private[lf] final class Compiler(
         compileEmbedExpr(env, e)
       case UpdateCreate(tmplId, arg) =>
         t.CreateDefRef(tmplId)(compile(env, arg))
+      case UpdateCreateInterface(iface, arg) =>
+        t.CreateDefRef(iface)(compile(env, arg))
       case UpdateExercise(tmplId, chId, cidE, argE) =>
         t.ChoiceDefRef(tmplId, chId)(compile(env, cidE), compile(env, argE))
       case UpdateExerciseInterface(ifaceId, chId, cidE, argE) =>
@@ -1187,273 +1182,6 @@ private[lf] final class Compiler(
       case _ => expr
     }
 
-  /** Convert abstractions in a speedy expression into
-    * explicit closure creations.
-    * This step computes the free variables in an abstraction
-    * body, then translates the references in the body into
-    * references to the immediate top of the argument stack,
-    * and changes the abstraction into a closure creation node
-    * describing the free variables that need to be captured.
-    *
-    * For example:
-    *   SELet(..two-bindings..) in
-    *     SEAbs(2,
-    *       SEVar(4) ..             [reference to first let-bound variable]
-    *       SEVar(2))               [reference to first function-arg]
-    * =>
-    *   SELet(..two-bindings..) in
-    *     SEMakeClo(
-    *       Array(SELocS(2)),       [capture the first let-bound variable, from the stack]
-    *       2,
-    *       SELocF(0) ..            [reference the first let-bound variable via the closure]
-    *       SELocA(0))              [reference the first function arg]
-    */
-  private[this] def closureConvert(remaps: Map[Int, s.SELoc], expr: s.SExpr): s.SExpr = {
-    // remaps is a function which maps the relative offset from variables (SEVar) to their runtime location
-    // The Map must contain a binding for every variable referenced.
-    // The Map is consulted when translating variable references (SEVar) and free variables of an abstraction (SEAbs)
-    def remap(i: Int): s.SELoc =
-      remaps.get(i) match {
-        case Some(loc) => loc
-        case None =>
-          throw CompilationError(s"remap($i),remaps=$remaps")
-      }
-    expr match {
-      case s.SEVar(i) => remap(i)
-      case v: s.SEVal => v
-      case be: s.SEBuiltin => be
-      case pl: s.SEValue => pl
-      case f: s.SEBuiltinRecursiveDefinition => f
-      case s.SELocation(loc, body) =>
-        s.SELocation(loc, closureConvert(remaps, body))
-
-      case s.SEAbs(0, _) =>
-        throw CompilationError("empty SEAbs")
-
-      case s.SEAbs(arity, body) =>
-        val fvs = freeVars(body, arity).toList.sorted
-        val newRemapsF: Map[Int, s.SELoc] = fvs.zipWithIndex.map { case (orig, i) =>
-          (orig + arity) -> s.SELocF(i)
-        }.toMap
-        val newRemapsA = (1 to arity).map { case i =>
-          i -> s.SELocA(arity - i)
-        }
-        // The keys in newRemapsF and newRemapsA are disjoint
-        val newBody = closureConvert(newRemapsF ++ newRemapsA, body)
-        s.SEMakeClo(fvs.map(remap).toArray, arity, newBody)
-
-      case s.SEAppGeneral(fun, args) =>
-        val newFun = closureConvert(remaps, fun)
-        val newArgs = args.map(closureConvert(remaps, _))
-        s.SEApp(newFun, newArgs)
-
-      case s.SECase(scrut, alts) =>
-        s.SECase(
-          closureConvert(remaps, scrut),
-          alts.map { case s.SCaseAlt(pat, body) =>
-            val n = patternNArgs(pat)
-            s.SCaseAlt(
-              pat,
-              closureConvert(shift(remaps, n), body),
-            )
-          },
-        )
-
-      case s.SELet(bounds, body) =>
-        s.SELet(
-          bounds.zipWithIndex.map { case (b, i) =>
-            closureConvert(shift(remaps, i), b)
-          },
-          closureConvert(shift(remaps, bounds.length), body),
-        )
-
-      case s.SETryCatch(body, handler) =>
-        s.SETryCatch(
-          closureConvert(remaps, body),
-          closureConvert(shift(remaps, 1), handler),
-        )
-
-      case s.SEScopeExercise(body) =>
-        s.SEScopeExercise(closureConvert(remaps, body))
-
-      case s.SELabelClosure(label, expr) =>
-        s.SELabelClosure(label, closureConvert(remaps, expr))
-
-      case s.SELet1General(bound, body) =>
-        s.SELet1General(closureConvert(remaps, bound), closureConvert(shift(remaps, 1), body))
-
-      case _: s.SELoc | _: s.SEMakeClo | _: s.SEDamlException | _: s.SEImportValue =>
-        throw CompilationError(s"closureConvert: unexpected $expr")
-    }
-  }
-
-  // Modify/extend `remaps` to reflect when new values are pushed on the stack.  This
-  // happens as we traverse into SELet and SECase bodies which have bindings which at
-  // runtime will appear on the stack.
-  // We must modify `remaps` because it is keyed by indexes relative to the end of the stack.
-  // And any values in the map which are of the form SELocS must also be _shifted_
-  // because SELocS indexes are also relative to the end of the stack.
-  private[this] def shift(remaps: Map[Int, s.SELoc], n: Int): Map[Int, s.SELoc] = {
-
-    // We must update both the keys of the map (the relative-indexes from the original SEVar)
-    // And also any values in the map which are stack located (SELocS), which are also indexed relatively
-    val m1 = remaps.map { case (k, loc) => (n + k, shiftLoc(loc, n)) }
-
-    // And create mappings for the `n` new stack items
-    val m2 = (1 to n).map(i => (i, s.SELocS(i)))
-
-    m1 ++ m2
-  }
-
-  private[this] def shiftLoc(loc: s.SELoc, n: Int): s.SELoc = loc match {
-    case s.SELocS(i) => s.SELocS(i + n)
-    case s.SELocA(_) | s.SELocF(_) => loc
-  }
-
-  /** Compute the free variables in a speedy expression.
-    * The returned free variables are de bruijn indices
-    * adjusted to the stack of the caller.
-    */
-  private[this] def freeVars(expr: s.SExpr, initiallyBound: Int): Set[Int] = {
-    def go(expr: s.SExpr, bound: Int, free: Set[Int]): Set[Int] =
-      expr match {
-        case s.SEVar(i) =>
-          if (i > bound) free + (i - bound) else free /* adjust to caller's environment */
-        case _: s.SEVal => free
-        case _: s.SEBuiltin => free
-        case _: s.SEValue => free
-        case _: s.SEBuiltinRecursiveDefinition => free
-        case s.SELocation(_, body) =>
-          go(body, bound, free)
-        case s.SEAppGeneral(fun, args) =>
-          args.foldLeft(go(fun, bound, free))((acc, arg) => go(arg, bound, acc))
-        case s.SEAbs(n, body) =>
-          go(body, bound + n, free)
-        case s.SECase(scrut, alts) =>
-          alts.foldLeft(go(scrut, bound, free)) { case (acc, s.SCaseAlt(pat, body)) =>
-            go(body, bound + patternNArgs(pat), acc)
-          }
-        case s.SELet(bounds, body) =>
-          bounds.zipWithIndex.foldLeft(go(body, bound + bounds.length, free)) {
-            case (acc, (expr, idx)) => go(expr, bound + idx, acc)
-          }
-        case s.SELabelClosure(_, expr) =>
-          go(expr, bound, free)
-        case s.SETryCatch(body, handler) =>
-          go(body, bound, go(handler, 1 + bound, free))
-        case s.SEScopeExercise(body) =>
-          go(body, bound, free)
-
-        case _: s.SELoc | _: s.SEMakeClo | _: s.SEDamlException | _: s.SEImportValue |
-            _: s.SELet1General =>
-          throw CompilationError(s"freeVars: unexpected $expr")
-      }
-
-    go(expr, initiallyBound, Set.empty)
-  }
-
-  /** Validate variable references in a speedy expression */
-  // validate that we correctly captured all free-variables, and so reference to them is
-  // via the surrounding closure, instead of just finding them higher up on the stack
-  private[this] def validate(expr0: t.SExpr): t.SExpr = {
-
-    def goV(v: SValue): Unit =
-      v match {
-        case _: SPrimLit | STNat(_) | STypeRep(_) =>
-        case SList(a) => a.iterator.foreach(goV)
-        case SOptional(x) => x.foreach(goV)
-        case SMap(_, entries) =>
-          entries.foreach { case (k, v) =>
-            goV(k)
-            goV(v)
-          }
-        case SRecord(_, _, args) => args.forEach(goV)
-        case SVariant(_, _, _, value) => goV(value)
-        case SEnum(_, _, _) => ()
-        case SAny(_, v) => goV(v)
-        case _: SPAP | SToken | SStruct(_, _) =>
-          throw CompilationError("validate: unexpected s.SEValue")
-      }
-
-    def goBody(maxS: Int, maxA: Int, maxF: Int): t.SExpr => Unit = {
-
-      def goLoc(loc: t.SELoc) = loc match {
-        case t.SELocS(i) =>
-          if (i < 1 || i > maxS)
-            throw CompilationError(s"validate: SELocS: index $i out of range ($maxS..1)")
-        case t.SELocA(i) =>
-          if (i < 0 || i >= maxA)
-            throw CompilationError(s"validate: SELocA: index $i out of range (0..$maxA-1)")
-        case t.SELocF(i) =>
-          if (i < 0 || i >= maxF)
-            throw CompilationError(s"validate: SELocF: index $i out of range (0..$maxF-1)")
-      }
-
-      def go(expr: t.SExpr): Unit = expr match {
-        case loc: t.SELoc => goLoc(loc)
-        case _: t.SEVal => ()
-        case _: t.SEBuiltin => ()
-        case _: t.SEBuiltinRecursiveDefinition => ()
-        case t.SEValue(v) => goV(v)
-        case t.SEAppAtomicGeneral(fun, args) =>
-          go(fun)
-          args.foreach(go)
-        case t.SEAppAtomicSaturatedBuiltin(_, args) =>
-          args.foreach(go)
-        case t.SEAppGeneral(fun, args) =>
-          go(fun)
-          args.foreach(go)
-        case t.SEAppAtomicFun(fun, args) =>
-          go(fun)
-          args.foreach(go)
-        case t.SEMakeClo(fvs, n, body) =>
-          fvs.foreach(goLoc)
-          goBody(0, n, fvs.length)(body)
-        case t.SECaseAtomic(scrut, alts) =>
-          go(scrut)
-          alts.foreach { case t.SCaseAlt(pat, body) =>
-            val n = patternNArgs(pat)
-            goBody(maxS + n, maxA, maxF)(body)
-          }
-        case _: t.SELet1General => goLets(maxS)(expr)
-        case _: t.SELet1Builtin => goLets(maxS)(expr)
-        case _: t.SELet1BuiltinArithmetic => goLets(maxS)(expr)
-        case t.SELocation(_, body) =>
-          go(body)
-        case t.SELabelClosure(_, expr) =>
-          go(expr)
-        case t.SETryCatch(body, handler) =>
-          go(body)
-          goBody(maxS + 1, maxA, maxF)(handler)
-        case t.SEScopeExercise(body) =>
-          go(body)
-
-        case _: t.SEDamlException | _: t.SEImportValue =>
-          throw CompilationError(s"validate: unexpected $expr")
-      }
-      @tailrec
-      def goLets(maxS: Int)(expr: t.SExpr): Unit = {
-        def go = goBody(maxS, maxA, maxF)
-        expr match {
-          case t.SELet1General(rhs, body) =>
-            go(rhs)
-            goLets(maxS + 1)(body)
-          case t.SELet1Builtin(_, args, body) =>
-            args.foreach(go)
-            goLets(maxS + 1)(body)
-          case t.SELet1BuiltinArithmetic(_, args, body) =>
-            args.foreach(go)
-            goLets(maxS + 1)(body)
-          case expr =>
-            go(expr)
-        }
-      }
-      go
-    }
-    goBody(0, 0, 0)(expr0)
-    expr0
-  }
-
   @nowarn("msg=parameter value tokenPos in method compileFetchBody is never used")
   private[this] def compileFetchBody(env: Env, tmplId: Identifier, tmpl: Template)(
       cidPos: Position,
@@ -1549,33 +1277,66 @@ private[lf] final class Compiler(
     ref -> SDefinition(withLabelT(ref, unsafeCompile(method.value)))
   }
 
-  private[this] def compileCreate(
+  private[this] def compileCreateBody(
       tmplId: Identifier,
       tmpl: Template,
-  ): (t.SDefinitionRef, SDefinition) = {
+      byInterface: Option[Identifier],
+      tmplArgPos: Position,
+      env: Env,
+  ) = {
     val precondsArray =
       (Iterator(tmpl.precond) ++ (tmpl.implements.iterator.map(impl => impl._2.precond)))
         .to(ImmArray)
     val preconds = ECons(TBuiltin(BTBool), precondsArray, ENil(TBuiltin(BTBool)))
+    val env2 = env.bindExprVar(tmpl.param, tmplArgPos)
+    // We check precondition in a separated builtin to prevent
+    // further evaluation of agreement, signatories, observers and key
+    // in case of failed precondition.
+    let(env2, SBCheckPrecond(tmplId)(env2.toSEVar(tmplArgPos), compile(env2, preconds))) {
+      (_, env) =>
+        SBUCreate(tmplId, byInterface)(
+          env.toSEVar(tmplArgPos),
+          compile(env, tmpl.agreementText),
+          compile(env, tmpl.signatories),
+          compile(env, tmpl.observers),
+          compileKeyWithMaintainers(env, tmpl.key),
+        )
+    }
+  }
+
+  private[this] def compileCreate(
+      tmplId: Identifier,
+      tmpl: Template,
+  ): (t.SDefinitionRef, SDefinition) = {
     // Translates 'create Foo with <params>' into:
     // CreateDefRef(tmplId) = \ <tmplArg> <token> ->
     //   let _ = $checkPrecond(tmplId)(<tmplArg> [tmpl.precond ++ [precond | precond <- tmpl.implements]]
     //   in $create <tmplArg> [tmpl.agreementText] [tmpl.signatories] [tmpl.observers] [tmpl.key]
-    topLevelFunction2(t.CreateDefRef(tmplId)) { (tmplArgPos, _, _env) =>
-      val env = _env.bindExprVar(tmpl.param, tmplArgPos)
-      // We check precondition in a separated builtin to prevent
-      // further evaluation of agreement, signatories, observers and key
-      // in case of failed precondition.
-      let(env, SBCheckPrecond(tmplId)(env.toSEVar(tmplArgPos), compile(env, preconds))) {
-        (_, env) =>
-          SBUCreate(tmplId)(
-            env.toSEVar(tmplArgPos),
-            compile(env, tmpl.agreementText),
-            compile(env, tmpl.signatories),
-            compile(env, tmpl.observers),
-            compileKeyWithMaintainers(env, tmpl.key),
-          )
-      }
+    topLevelFunction2(t.CreateDefRef(tmplId))((tmplArgPos, _, env) =>
+      compileCreateBody(tmplId, tmpl, None, tmplArgPos, env)
+    )
+  }
+
+  private[this] def compileCreateByInterface(
+      tmplId: Identifier,
+      tmpl: Template,
+      ifaceId: Identifier,
+  ): (t.SDefinitionRef, SDefinition) = {
+    // Similar to compileCreate, but sets the 'byInterface' field in the transaction.
+    topLevelFunction2(t.CreateByInterfaceDefRef(tmplId, ifaceId))((tmplArgPos, _, env) =>
+      compileCreateBody(tmplId, tmpl, Some(ifaceId), tmplArgPos, env)
+    )
+  }
+
+  private[this] def compileCreateInterface(
+      ifaceId: Identifier
+  ): (t.SDefinitionRef, SDefinition) = {
+    topLevelFunction2(t.CreateDefRef(ifaceId)) { (tmplArgPos, tokenPos, env) =>
+      SBResolveCreateByInterface(ifaceId)(
+        env.toSEVar(tmplArgPos),
+        env.toSEVar(tmplArgPos),
+        env.toSEVar(tokenPos),
+      )
     }
   }
 

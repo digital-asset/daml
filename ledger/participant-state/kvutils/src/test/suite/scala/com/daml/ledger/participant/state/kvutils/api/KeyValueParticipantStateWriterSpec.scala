@@ -165,13 +165,13 @@ object KeyValueParticipantStateWriterSpec {
     writer
   }
 
-  private def submitterInfo(party: Ref.Party, commandId: String) =
+  private def submitterInfo(party: Ref.Party, submissionId: String) =
     SubmitterInfo(
       actAs = List(party),
       applicationId = Ref.LedgerString.assertFromString("tests"),
-      commandId = Ref.LedgerString.assertFromString(commandId),
+      commandId = Ref.LedgerString.assertFromString("someCommandId"),
       deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofDays(1)),
-      submissionId = None,
+      submissionId = Some(Ref.SubmissionId.assertFromString(submissionId)),
       ledgerConfiguration =
         Configuration(1, LedgerTimeModel.reasonableDefault, Duration.ofSeconds(1)),
     )

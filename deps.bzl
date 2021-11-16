@@ -30,8 +30,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
-rules_scala_version = "67a7ac178a73d1d5ff4c2b0663a8eda6dfcbbc56"
-rules_scala_sha256 = "95054009fd938ac7ef53a20619f94a5408d8ae74eb5b318cd150a3ecb1a6086f"
+rules_scala_version = "e4560ac332e9da731c1e50a76af2579c55836a5c"
+rules_scala_sha256 = "ccf19e8f966022eaaca64da559c6140b23409829cb315f2eff5dc3e757fb6ad8"
 
 rules_haskell_version = "673e74aea244a6a9ee1eccec719677c80348aebf"
 rules_haskell_sha256 = "73a06dc6e0d928ceeab64e2cd3159f863eb2e263ecc64d79e3952c770cd1ee51"
@@ -148,10 +148,6 @@ def daml_deps():
             sha256 = rules_scala_sha256,
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
-                # Remove once https://github.com/bazelbuild/rules_scala/pull/1261 is merged
-                "@com_github_digital_asset_daml//bazel_tools:rules_scala_suite_tags.patch",
-                # Remove once https://github.com/bazelbuild/rules_scala/pull/1313 is merged
-                "@com_github_digital_asset_daml//bazel_tools:rules_scala_java_bin_path.patch",
             ],
             patch_args = ["-p1"],
         )

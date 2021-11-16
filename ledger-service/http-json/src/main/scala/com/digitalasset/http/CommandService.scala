@@ -207,6 +207,8 @@ class CommandService(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): lav1.command_service.SubmitAndWaitRequest = {
     val commandId: lar.CommandId = meta.flatMap(_.commandId).getOrElse(uniqueCommandId())
+    val actAs = meta.flatMap(_.actAs) getOrElse jwtPayload.submitter
+    val readAs = meta.flatMap(_.readAs) getOrElse jwtPayload.readAs
     withEnrichedLoggingContext(
       label[lar.CommandId],
       "command_id" -> commandId.toString,
@@ -219,8 +221,8 @@ class CommandService(
           jwtPayload.ledgerId,
           jwtPayload.applicationId,
           commandId,
-          jwtPayload.submitter,
-          jwtPayload.readAs,
+          actAs,
+          readAs,
           command,
         )
       }

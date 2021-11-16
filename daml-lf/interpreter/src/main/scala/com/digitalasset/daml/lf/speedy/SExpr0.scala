@@ -18,36 +18,41 @@ package speedy
   *
   * 2: closure conversion
   * 3: transform to ANF
+  * 4: validate the final expression which will run on the speedy machine
   *
-  * Stages 1 and 2 are in Compiler.scala; stage 3 in Anf.scala.
-  * During Stage3 (ANF transformation), we move from this type (SExpr0) to SExpr,
-  * and so have the expression form suitable for execution on a speedy machine.
+  * Stage 1 is in Compiler.scala
+  * Stage 2 is in ClosureConversion.scala
+  * Stage 3 is in Anf.scala
+  * Stage 4 is in ValidateCompilation.scala
   *
-  * Here is a summary of the differences between SExp0 and SExpr:
+  * During Stage2 (Closure Conversion), we move from SExpr0 to SExpr1,
+  * During Stage3 (ANF transformation), we move from SExpr1 to SExpr.
   *
-  * - Constructors in both: SEAppGeneral, SEBuiltin, SEBuiltinRecursiveDefinition,
-  *   SEDamlException, SEImportValue, SELabelClosure, SELet1General, SELocA, SELocF,
-  *   SELocS, SELocation, SEMakeClo, SEScopeExercise, SETryCatch, SEVal, SEValue,
+  * Summary of which constructors are contained by: SExp0, SExpr1 and SExpr:
   *
-  * - Only in SExpr0: SEAbs, SECase, SELet, SEVar
+  * - In SExpr{0,1,} (everywhere): SEAppGeneral, SEBuiltin, SELabelClosure, SELet1General,
+  *   SELocation, SEScopeExercise, SETryCatch, SEVal, SEValue,
   *
-  * - Only in SExpr: SEAppAtomicFun, SEAppAtomicGeneral, SEAppAtomicSaturatedBuiltin,
+  * - In SExpr0: SEAbs, SEVar
+  *
+  * - In SExpr{0,1}: SECase, SELet
+  *
+  * - In SExpr{1,}: SELocA, SELocF, SELocS, SEMakeClo,
+  *
+  * - In SExpr: SEAppAtomicFun, SEAppAtomicGeneral, SEAppAtomicSaturatedBuiltin,
   *   SECaseAtomic, SELet1Builtin, SELet1BuiltinArithmetic
+  *
+  * - In SExpr (runtime only, i.e. rejected by validate): SEDamlException, SEImportValue
   */
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.language.Ast
-import com.daml.lf.value.{Value => V}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SExpr.{SDefinitionRef, SCasePat}
-import com.daml.lf.speedy.{SExpr => runTime}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 private[speedy] object SExpr0 {
 
   sealed abstract class SExpr extends Product with Serializable
-
-  sealed abstract class SExprAtomic extends SExpr
 
   /** Reference to a variable. 'index' is the 1-based de Bruijn index,
     * that is, SEVar(1) points to the nearest enclosing variable binder.
@@ -55,7 +60,7 @@ private[speedy] object SExpr0 {
     * https://en.wikipedia.org/wiki/De_Bruijn_index
     * This expression form is only allowed prior to closure conversion
     */
-  final case class SEVar(index: Int) extends SExprAtomic
+  final case class SEVar(index: Int) extends SExpr
 
   /** Reference to a value. On first lookup the evaluated expression is
     * stored in 'cached'.
@@ -63,16 +68,14 @@ private[speedy] object SExpr0 {
   final case class SEVal(ref: SDefinitionRef) extends SExpr
 
   /** Reference to a builtin function */
-  final case class SEBuiltin(b: SBuiltin) extends SExprAtomic
+  final case class SEBuiltin(b: SBuiltin) extends SExpr
 
   /** A pre-computed value, usually primitive literal, e.g. integer, text, boolean etc. */
-  final case class SEValue(v: SValue) extends SExprAtomic
+  final case class SEValue(v: SValue) extends SExpr
 
   object SEValue extends SValueContainer[SEValue]
 
-  /** Function application:
-    *    General case: 'fun' and 'args' are any kind of expression
-    */
+  /** Function application */
   final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals
 
   object SEApp {
@@ -81,10 +84,7 @@ private[speedy] object SExpr0 {
     }
   }
 
-  /** Lambda abstraction. Transformed into SEMakeClo in lambda lifting.
-    * NOTE(JM): Compilation done in two passes so that closure conversion
-    * can be written against this simplified expression type.
-    */
+  /** Lambda abstraction. Transformed to SEMakeClo during closure conversion */
   final case class SEAbs(arity: Int, body: SExpr) extends SExpr
 
   object SEAbs {
@@ -94,29 +94,6 @@ private[speedy] object SExpr0 {
 
     val identity: SEAbs = SEAbs(1, SEVar(1))
   }
-
-  /** Closure creation. Create a new closure object storing the free variables
-    * in 'body'.
-    */
-  final case class SEMakeClo(fvs: Array[SELoc], arity: Int, body: SExpr)
-      extends SExpr
-      with SomeArrayEquals
-
-  /** SELoc -- Reference to the runtime location of a variable.
-    *
-    *    This is the closure-converted form of SEVar. There are three sub-forms, with sufffix:
-    *    S/A/F, indicating [S]tack, [A]argument, or [F]ree variable captured by a closure.
-    */
-  sealed abstract class SELoc extends SExprAtomic
-
-  // SELocS -- variable is located on the stack (SELet & binding forms of SECasePat)
-  final case class SELocS(n: Int) extends SELoc
-
-  // SELocS -- variable is located in the args array of the application
-  final case class SELocA(n: Int) extends SELoc
-
-  // SELocF -- variable is located in the free-vars array of the closure being applied
-  final case class SELocF(n: Int) extends SELoc
 
   /** Pattern match. */
   final case class SECase(scrut: SExpr, alts: Array[SCaseAlt]) extends SExpr with SomeArrayEquals
@@ -150,13 +127,6 @@ private[speedy] object SExpr0 {
     */
   final case class SELabelClosure(label: Profile.Label, expr: SExpr) extends SExpr
 
-  /** We cannot crash in the engine call back.
-    * Rather, we set the control to this expression and then crash when executing.
-    */
-  final case class SEDamlException(error: interpretation.Error) extends SExpr
-
-  final case class SEImportValue(typ: Ast.Type, value: V) extends SExpr
-
   /** Exception handler */
   final case class SETryCatch(body: SExpr, handler: SExpr) extends SExpr
 
@@ -167,14 +137,4 @@ private[speedy] object SExpr0 {
     * extended and 'body' is evaluated.
     */
   final case class SCaseAlt(pattern: SCasePat, body: SExpr)
-
-  //
-  // List builtins (equalList) are implemented as recursive
-  // definition to save java stack
-  //
-
-  // TODO: simplify here: There is only kind of SEBuiltinRecursiveDefinition! - EqualList
-  final case class SEBuiltinRecursiveDefinition(ref: runTime.SEBuiltinRecursiveDefinition.Reference)
-      extends SExprAtomic
-
 }

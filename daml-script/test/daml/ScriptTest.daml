@@ -350,6 +350,8 @@ template MultiPartyContract
         actualContract <- fetch cid
         return ()
 
+deriving instance Ord MultiPartyContract
+
 multiPartySubmission : Script ()
 multiPartySubmission = do
   p1 <- allocateParty "p1"
@@ -409,3 +411,31 @@ jsonMultiPartySubmissionCreate (p1, p2) = do
 jsonMultiPartySubmissionExercise : (Party, Party, ContractId MultiPartyContract, ContractId MultiPartyContract) -> Script ()
 jsonMultiPartySubmissionExercise (p1, p2, cid, cidFetch) = do
   submitMulti [p2] [p1] (exerciseCmd cid (MPFetchOther cidFetch p2))
+
+-- Run a test with a token with actAs = [p1, p2], readAs = []
+jsonMultiPartyPartySets : (Party, Party) -> Script ()
+jsonMultiPartyPartySets (p1, p2) = do
+  -- We can use authority from both parties
+  submitMulti [p1, p2] [] $ createCmd (T p1 p2)
+  -- Despite having a multi-party token we can still do single-party submissions
+  submitMulti [p1] [] $ createCmd (T p1 p1)
+  submitMulti [p2] [] $ createCmd (T p2 p2)
+  -- A single party submission that requires authority from both fails
+  submitMultiMustFail [p1] [] $ createCmd (T p1 p2)
+  submitMultiMustFail [p2] [] $ createCmd (T p1 p2)
+  -- We can also use the parties as readAs since actAs implies readAs
+  cid <- submitMulti [p1, p2] [] $ createCmd (MultiPartyContract [p1, p2])
+  ownedByP1 <- submitMulti [p1] [] $ createCmd (MultiPartyContract [p1])
+  submitMultiMustFail [p2] [] $ exerciseCmd cid (MPFetchOther ownedByP1 p2)
+  submitMulti [p2] [p1] $ exerciseCmd cid (MPFetchOther ownedByP1 p2)
+  -- Query works for both parties
+  rs <- query @MultiPartyContract [p1, p2]
+  sort (map snd rs) === [MultiPartyContract [p1], MultiPartyContract [p1, p2]]
+  -- Query works for a single party
+  rs <- query @MultiPartyContract p2
+  sort (map snd rs) === [MultiPartyContract [p1, p2]]
+  r <- queryContractId p1 ownedByP1
+  r === Some (MultiPartyContract [p1])
+  r <- queryContractId p2 ownedByP1
+  r === None
+  pure ()

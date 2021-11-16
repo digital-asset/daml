@@ -77,10 +77,12 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
           metrics,
         ),
         batchingParallelism = batchingParallelism,
-        batcher = batcherExecutor.execute(batcher(ingestionStorageBackend.batch, metrics)),
+        batcher = batcherExecutor.execute(
+          batcher(ingestionStorageBackend.batch(_, stringInterningView), metrics)
+        ),
         ingestingParallelism = ingestionParallelism,
         ingester = ingester(ingestionStorageBackend.insertBatch, dbDispatcher, metrics),
-        tailer = tailer(ingestionStorageBackend.batch(Vector.empty)),
+        tailer = tailer(ingestionStorageBackend.batch(Vector.empty, stringInterningView)),
         tailingRateLimitPerSecond = tailingRateLimitPerSecond,
         ingestTail =
           ingestTail[DB_BATCH](parameterStorageBackend.updateLedgerEnd, dbDispatcher, metrics),
@@ -191,7 +193,11 @@ object ParallelIndexerSubscription {
         eventSeqId += 1
         dbDto.copy(event_sequential_id = eventSeqId)
 
-      case notEvent => notEvent
+      case dbDto: DbDto.CreateFilter =>
+        // we do not increase the event_seq_id here, because all the CreateFilter DbDto-s must have the same eventSeqId as the preceding EventCreate
+        dbDto.copy(event_sequential_id = eventSeqId)
+
+      case unChanged => unChanged
     }
 
     val (newLastStringInterningId, dbDtosWithStringInterning) =

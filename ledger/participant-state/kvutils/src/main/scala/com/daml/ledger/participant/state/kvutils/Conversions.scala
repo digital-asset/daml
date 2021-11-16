@@ -426,8 +426,7 @@ private[state] object Conversions {
       case Rejection.LedgerTimeOutOfRange(outOfRange) =>
         builder.setInvalidLedgerTime(
           InvalidLedgerTime
-            .newBuilder(
-            )
+            .newBuilder()
             .setDetails(outOfRange.message)
             .setLedgerTime(buildTimestamp(outOfRange.ledgerTime))
             .setLowerBound(buildTimestamp(outOfRange.lowerBound))

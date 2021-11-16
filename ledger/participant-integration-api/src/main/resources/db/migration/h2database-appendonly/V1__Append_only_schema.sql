@@ -82,6 +82,7 @@ CREATE TABLE party_entries (
     typ VARCHAR NOT NULL,
     rejection_reason VARCHAR,
     is_local BOOLEAN,
+    party_id INTEGER,
 
     CONSTRAINT check_party_entry_type
         CHECK (
@@ -92,6 +93,7 @@ CREATE TABLE party_entries (
 
 CREATE INDEX idx_party_entries ON party_entries (submission_id);
 CREATE INDEX idx_party_entries_party_and_ledger_offset ON party_entries(party, ledger_offset);
+CREATE INDEX idx_party_entries_party_id_and_ledger_offset ON party_entries(party_id, ledger_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Submissions table
@@ -155,7 +157,7 @@ CREATE TABLE participant_events_divulgence (
 
     -- * shared event information
     contract_id VARCHAR NOT NULL,
-    template_id VARCHAR,
+    template_id INTEGER,
     tree_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
     -- * contract data
@@ -170,15 +172,6 @@ CREATE INDEX participant_events_divulgence_event_offset ON participant_events_di
 
 -- sequential_id index for paging
 CREATE INDEX participant_events_divulgence_event_sequential_id ON participant_events_divulgence (event_sequential_id);
-
--- filtering by template
-CREATE INDEX participant_events_divulgence_template_id_idx ON participant_events_divulgence (template_id);
-
--- filtering by witnesses (visibility) for some queries used in the implementation of
--- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
--- Note that Potsgres has trouble using these indices effectively with our paged access.
--- We might decide to drop them.
-CREATE INDEX participant_events_divulgence_tree_event_witnesses_idx ON participant_events_divulgence (tree_event_witnesses);
 
 -- lookup divulgance events, in order of ingestion
 CREATE INDEX participant_events_divulgence_contract_id_idx ON participant_events_divulgence (contract_id, event_sequential_id);
@@ -209,7 +202,7 @@ CREATE TABLE participant_events_create (
 
     -- * shared event information
     contract_id VARCHAR NOT NULL,
-    template_id VARCHAR NOT NULL,
+    template_id INTEGER NOT NULL,
     flat_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
     tree_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
@@ -237,16 +230,6 @@ CREATE INDEX participant_events_create_event_id_idx ON participant_events_create
 
 -- lookup by transaction id
 CREATE INDEX participant_events_create_transaction_id_idx ON participant_events_create (transaction_id);
-
--- filtering by template
-CREATE INDEX participant_events_create_template_id_idx ON participant_events_create (template_id);
-
--- filtering by witnesses (visibility) for some queries used in the implementation of
--- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
--- Note that Potsgres has trouble using these indices effectively with our paged access.
--- We might decide to drop them.
-CREATE INDEX participant_events_create_flat_event_witnesses_idx ON participant_events_create (flat_event_witnesses);
-CREATE INDEX participant_events_create_tree_event_witnesses_idx ON participant_events_create (tree_event_witnesses);
 
 -- lookup by contract id
 CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create (contract_id);
@@ -280,7 +263,7 @@ CREATE TABLE participant_events_consuming_exercise (
 
     -- * shared event information
     contract_id VARCHAR NOT NULL,
-    template_id VARCHAR NOT NULL,
+    template_id INTEGER NOT NULL,
     flat_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
     tree_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
@@ -312,16 +295,6 @@ CREATE INDEX participant_events_consuming_exercise_event_id_idx ON participant_e
 -- lookup by transaction id
 CREATE INDEX participant_events_consuming_exercise_transaction_id_idx ON participant_events_consuming_exercise (transaction_id);
 
--- filtering by template
-CREATE INDEX participant_events_consuming_exercise_template_id_idx ON participant_events_consuming_exercise (template_id);
-
--- filtering by witnesses (visibility) for some queries used in the implementation of
--- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
--- Note that Potsgres has trouble using these indices effectively with our paged access.
--- We might decide to drop them.
-CREATE INDEX participant_events_consuming_exercise_flat_event_witnesses_idx ON participant_events_consuming_exercise (flat_event_witnesses);
-CREATE INDEX participant_events_consuming_exercise_tree_event_witnesses_idx ON participant_events_consuming_exercise (tree_event_witnesses);
-
 -- lookup by contract id
 CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (contract_id);
 
@@ -351,7 +324,7 @@ CREATE TABLE participant_events_non_consuming_exercise (
 
     -- * shared event information
     contract_id VARCHAR NOT NULL,
-    template_id VARCHAR NOT NULL,
+    template_id INTEGER NOT NULL,
     flat_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
     tree_event_witnesses ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
@@ -382,17 +355,6 @@ CREATE INDEX participant_events_non_consuming_exercise_event_id_idx ON participa
 
 -- lookup by transaction id
 CREATE INDEX participant_events_non_consuming_exercise_transaction_id_idx ON participant_events_non_consuming_exercise (transaction_id);
-
--- filtering by template
-CREATE INDEX participant_events_non_consuming_exercise_template_id_idx ON participant_events_non_consuming_exercise (template_id);
-
--- filtering by witnesses (visibility) for some queries used in the implementation of
--- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
--- Note that Potsgres has trouble using these indices effectively with our paged access.
--- We might decide to drop them.
--- NOTE: index name truncated because the full name exceeds the 63 characters length limit
-CREATE INDEX participant_events_non_consuming_exercise_flat_event_witnes_idx ON participant_events_non_consuming_exercise (flat_event_witnesses);
-CREATE INDEX participant_events_non_consuming_exercise_tree_event_witnes_idx ON participant_events_non_consuming_exercise (tree_event_witnesses);
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: view of all events
@@ -545,3 +507,13 @@ CREATE TABLE string_interning (
     internal_id integer PRIMARY KEY NOT NULL,
     external_string text
 );
+
+CREATE TABLE participant_events_create_filter (
+    event_sequential_id BIGINT NOT NULL,
+    template_id INTEGER NOT NULL,
+    party_id INTEGER NOT NULL
+);
+
+CREATE INDEX idx_participant_events_create_filter_party_template_seq_id_idx ON participant_events_create_filter(party_id, template_id, event_sequential_id);
+CREATE INDEX idx_participant_events_create_filter_party_seq_id_idx ON participant_events_create_filter(party_id, event_sequential_id);
+CREATE INDEX idx_participant_events_create_seq_id_idx ON participant_events_create_filter(event_sequential_id);

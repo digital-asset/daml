@@ -3,8 +3,6 @@
 
 package com.daml.ledger.api.testtool.suites
 
-import com.daml.error.ErrorCode
-import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase
 import com.daml.ledger.api.testtool.infrastructure.deduplication.CommandDeduplicationBase.{
   DeduplicationFeatures,
@@ -24,9 +22,6 @@ final class CommandDeduplicationIT(
     ledgerTimeInterval: FiniteDuration,
     staticTime: Boolean,
 ) extends CommandDeduplicationBase(timeoutScaleFactor, ledgerTimeInterval, staticTime) {
-
-  override protected def expectedDuplicateCommandErrorCode: ErrorCode =
-    LedgerApiErrors.CommandPreparation.DuplicateCommand
 
   override def runWithDeduplicationDelay(
       participants: Seq[ParticipantTestContext]

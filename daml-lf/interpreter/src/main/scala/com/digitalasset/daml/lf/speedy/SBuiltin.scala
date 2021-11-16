@@ -923,7 +923,8 @@ private[lf] object SBuiltin {
     *    -> Optional {key: key, maintainers: List Party} (template key, if present)
     *    -> ContractId arg
     */
-  final case class SBUCreate(templateId: TypeConName) extends OnLedgerBuiltin(5) {
+  final case class SBUCreate(templateId: TypeConName, byInterface: Option[TypeConName])
+      extends OnLedgerBuiltin(5) {
     override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -957,7 +958,7 @@ private[lf] object SBuiltin {
           signatories = sigs,
           stakeholders = sigs union obs,
           key = mbKey,
-          byInterface = None, // TODO https://github.com/digital-asset/daml/issues/10915
+          byInterface = byInterface,
         )
 
       machine.addLocalContract(coid, templateId, createArg, sigs, obs, mbKey)
@@ -1183,6 +1184,9 @@ private[lf] object SBuiltin {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.ctrl = SEVal(toDef(getSRecord(args, 0).id))
   }
+
+  final case class SBResolveCreateByInterface(ifaceId: TypeConName)
+      extends SBResolveVirtual(ref => CreateByInterfaceDefRef(ref, ifaceId))
 
   // Convert an interface to a given template type if possible. Since interfaces have the
   // same representation as the underlying template, we only need to perform a check
@@ -1700,6 +1704,82 @@ private[lf] object SBuiltin {
       }
       SText(xs.iterator.mkString(sep))
     }
+  }
+
+  /** EQUAL_LIST :: (a -> a -> Bool) -> [a] -> [a] -> Bool */
+  final case object SBEqualList extends SBuiltin(3) {
+
+    private val equalListBody: SExpr =
+      SECaseAtomic( // case xs of
+        SELocA(1),
+        Array(
+          SCaseAlt(
+            SCPNil, // nil ->
+            SECaseAtomic( // case ys of
+              SELocA(2),
+              Array(
+                SCaseAlt(SCPNil, SEValue.True), // nil -> True
+                SCaseAlt(SCPDefault, SEValue.False),
+              ),
+            ), // default -> False
+          ),
+          SCaseAlt( // cons x xss ->
+            SCPCons,
+            SECaseAtomic( // case ys of
+              SELocA(2),
+              Array(
+                SCaseAlt(SCPNil, SEValue.False), // nil -> False
+                SCaseAlt( // cons y yss ->
+                  SCPCons,
+                  SELet1( // let sub = (f y x) in
+                    SEAppAtomicGeneral(
+                      SELocA(0), // f
+                      Array(
+                        SELocS(2), // y
+                        SELocS(4),
+                      ),
+                    ), // x
+                    SECaseAtomic( // case (f y x) of
+                      SELocS(1),
+                      Array(
+                        SCaseAlt(
+                          SCPPrimCon(Ast.PCTrue), // True ->
+                          SEAppAtomicGeneral(
+                            SEBuiltin(SBEqualList), //single recursive occurrence
+                            Array(
+                              SELocA(0), // f
+                              SELocS(2), // yss
+                              SELocS(4),
+                            ),
+                          ), // xss
+                        ),
+                        SCaseAlt(SCPPrimCon(Ast.PCFalse), SEValue.False), // False -> False
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      )
+
+    private val closure: SValue = {
+      val frame = Array.ofDim[SValue](0) // no free vars
+      val arity = 3
+      SPAP(PClosure(Profile.LabelUnset, equalListBody, frame), new util.ArrayList[SValue](), arity)
+    }
+
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) = {
+      val f = args.get(0)
+      val xs = args.get(1)
+      val ys = args.get(2)
+      machine.enterApplication(
+        closure,
+        Array(SEValue(f), SEValue(xs), SEValue(ys)),
+      )
+    }
+
   }
 
   object SBExperimental {

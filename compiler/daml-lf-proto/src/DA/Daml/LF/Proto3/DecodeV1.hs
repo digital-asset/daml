@@ -681,6 +681,10 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
     fmap EUpdate $ UCreate
       <$> mayDecode "update_CreateTemplate" mbTycon decodeTypeConName
       <*> mayDecode "update_CreateExpr" mbExpr decodeExpr
+  LF1.UpdateSumCreateInterface (LF1.Update_CreateInterface mbTycon mbExpr) ->
+    fmap EUpdate $ UCreateInterface
+      <$> mayDecode "update_CreateInterfaceInterface" mbTycon decodeTypeConName
+      <*> mayDecode "update_CreateInterfaceExpr" mbExpr decodeExpr
   LF1.UpdateSumExercise LF1.Update_Exercise{..} ->
     fmap EUpdate $ UExercise
       <$> mayDecode "update_ExerciseTemplate" update_ExerciseTemplate decodeTypeConName

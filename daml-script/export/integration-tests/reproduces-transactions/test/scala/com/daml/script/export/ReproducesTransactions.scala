@@ -28,13 +28,13 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.testing.utils.TransactionEq
 import com.daml.lf.archive.{Dar, DarDecoder}
+import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.daml.SdkVersion
 import com.daml.fs.Utils.deleteRecursively
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptTimeMode}
-import com.daml.testing.postgresql.PostgresAroundAll
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.tag._
 import spray.json._
@@ -52,7 +52,7 @@ trait ReproducesTransactions
     with BeforeAndAfterEach
     with SuiteResourceManagementAroundAll
     with SandboxNextFixture
-    with PostgresAroundAll
+    with SandboxBackend.Postgresql
     with StrictLogging
     with TestCommands {
 
@@ -73,10 +73,6 @@ trait ReproducesTransactions
   private val damlScriptLib = BazelRunfiles.requiredResource("daml-script/daml/daml-script.dar")
   private def iouId(s: String) =
     api.Identifier(packageId, moduleName = "Iou", s)
-
-  override protected def config = super.config.copy(
-    jdbcUrl = Some(postgresDatabase.url)
-  )
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()

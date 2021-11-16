@@ -3,27 +3,31 @@
 
 package com.daml.platform.server.api.validation
 
-import java.sql.{SQLNonTransientException, SQLTransientException}
-import java.time.Duration
-
 import com.daml.error.ErrorCode.ApiException
 import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.grpc.GrpcStatuses
 import com.daml.lf.data.Ref.TransactionId
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.value.Value
 import com.daml.platform.server.api.validation.ErrorFactories.{
   addDefiniteAnswerDetails,
   definiteAnswers,
 }
-import com.daml.platform.server.api.{ValidationLogger, ApiException => NoStackTraceApiException}
+import com.daml.platform.server.api.{ApiException => NoStackTraceApiException}
 import com.google.protobuf.{Any => AnyProto}
+import com.google.rpc.status.{Status => RpcStatus}
 import com.google.rpc.{ErrorInfo, Status}
 import io.grpc.Status.Code
 import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, StatusRuntimeException}
 import scalaz.syntax.tag._
+
+import java.sql.{SQLNonTransientException, SQLTransientException}
+import java.time.Duration
+import scala.annotation.nowarn
 
 class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
   def sqlTransientException(exception: SQLTransientException)(implicit
@@ -47,27 +51,8 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           .setMessage("Transaction not found, or not visible.")
           .build()
       ),
-      v2 = LedgerApiErrors.ReadErrors.TransactionNotFound
+      v2 = LedgerApiErrors.RequestValidation.NotFound.Transaction
         .Reject(transactionId)
-        .asGrpcError,
-    )
-
-  def malformedPackageId[Request](request: Request, message: String)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger,
-      logger: ContextualizedLogger,
-      loggingContext: LoggingContext,
-  ): StatusRuntimeException =
-    errorCodesVersionSwitcher.choose(
-      v1 = ValidationLogger.logFailureWithContext(
-        request,
-        io.grpc.Status.INVALID_ARGUMENT
-          .withDescription(message)
-          .asRuntimeException(),
-      ),
-      v2 = LedgerApiErrors.ReadErrors.MalformedPackageId
-        .Reject(
-          message = message
-        )
         .asGrpcError,
     )
 
@@ -76,17 +61,23 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
       v1 = io.grpc.Status.NOT_FOUND.asRuntimeException(),
-      v2 = LedgerApiErrors.ReadErrors.PackageNotFound.Reject(packageId = packageId).asGrpcError,
+      v2 = LedgerApiErrors.RequestValidation.NotFound.Package
+        .Reject(packageId = packageId)
+        .asGrpcError,
     )
 
   def versionServiceInternalError(message: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
-      v1 = io.grpc.Status.INTERNAL
-        .withDescription(message)
-        .asRuntimeException(),
-      v2 = LedgerApiErrors.VersionServiceError.InternalError.Reject(message).asGrpcError,
+      v1 = grpcError(
+        Status
+          .newBuilder()
+          .setCode(Code.INTERNAL.value())
+          .setMessage(message)
+          .build()
+      ),
+      v2 = LedgerApiErrors.InternalError.VersionService(message).asGrpcError,
     )
 
   def duplicateCommandException(implicit
@@ -105,7 +96,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         contextualizedErrorLogger.info(exception.getMessage)
         exception
       },
-      v2 = LedgerApiErrors.CommandPreparation.DuplicateCommand.Reject().asGrpcError,
+      v2 = LedgerApiErrors.ConsistencyErrors.DuplicateCommand.Reject().asGrpcError,
     )
 
   /** @param expected Expected ledger id.
@@ -130,7 +121,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
         grpcError(statusBuilder.build())
       },
-      v2 = LedgerApiErrors.CommandValidation.LedgerIdMismatch
+      v2 = LedgerApiErrors.RequestValidation.LedgerIdMismatch
         .Reject(
           s"Ledger ID '${received.unwrap}' not found. Actual Ledger ID is '${expected.unwrap}'."
         )
@@ -154,7 +145,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
         grpcError(statusBuilder.build())
       },
-      v2 = LedgerApiErrors.CommandValidation.MissingField
+      v2 = LedgerApiErrors.RequestValidation.MissingField
         .Reject(fieldName)
         .asGrpcError,
     )
@@ -167,12 +158,8 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
-      v1 = {
-        invalidArgumentV1(definiteAnswer, message)
-      },
-      // TODO error codes: This error group is confusing for this generic error as it can be dispatched
-      //                   from call-sites that do not involve command validation (e.g. ApiTransactionService).
-      v2 = LedgerApiErrors.CommandValidation.InvalidArgument
+      v1 = invalidArgumentV1(definiteAnswer, message),
+      v2 = LedgerApiErrors.RequestValidation.InvalidArgument
         .Reject(message)
         .asGrpcError,
     )
@@ -190,27 +177,39 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
         grpcError(statusBuilder.build())
       },
-      // TODO error codes: Revisit this error: This error group is confusing for this generic error as it can be dispatched
-      //                   from call-sites that do not involve command validation (e.g. ApiTransactionService, GrpcHealthService).
-      v2 = LedgerApiErrors.CommandValidation.InvalidArgument
+      v2 = LedgerApiErrors.RequestValidation.InvalidArgument
         .Reject(message)
         .asGrpcError,
     )
 
-  // TODO error codes: Reconcile with com.daml.platform.server.api.validation.ErrorFactories.offsetOutOfRange
-  def offsetOutOfRange_was_invalidArgument(
+  def offsetOutOfRange(
       definiteAnswer: Option[Boolean]
   )(message: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
-      v1 = {
-        invalidArgumentV1(definiteAnswer, message)
-      },
-      v2 = LedgerApiErrors.ReadErrors.RequestedOffsetOutOfRange
+      v1 = invalidArgumentV1(definiteAnswer, message),
+      v2 = LedgerApiErrors.RequestValidation.OffsetOutOfRange
         .Reject(message)
         .asGrpcError,
     )
+
+  def offsetAfterLedgerEnd(offsetType: String, requestedOffset: String, ledgerEnd: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): StatusRuntimeException = {
+    errorCodesVersionSwitcher.choose(
+      v1 = grpcError(
+        Status
+          .newBuilder()
+          .setCode(Code.OUT_OF_RANGE.value())
+          .setMessage(s"$offsetType offset ($requestedOffset) is after ledger end ($ledgerEnd)")
+          .build()
+      ),
+      v2 = LedgerApiErrors.RequestValidation.OffsetAfterLedgerEnd
+        .Reject(offsetType, requestedOffset, ledgerEnd)
+        .asGrpcError,
+    )
+  }
 
   def nonHexOffset(
       definiteAnswer: Option[Boolean]
@@ -219,7 +218,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
       v1 = invalidArgumentV1(definiteAnswer, message),
-      v2 = LedgerApiErrors.NonHexOffset
+      v2 = LedgerApiErrors.RequestValidation.NonHexOffset
         .Error(
           fieldName = fieldName,
           offsetValue = offsetValue,
@@ -236,7 +235,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
       legacyInvalidField(fieldName, message, definiteAnswer),
-      LedgerApiErrors.CommandValidation.InvalidDeduplicationPeriodField
+      LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
         .Reject(message, maxDeduplicationDuration)
         .asGrpcError,
     )
@@ -253,13 +252,13 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
       v1 = legacyInvalidField(fieldName, message, definiteAnswer),
-      v2 = ledgerCommandValidationInvalidField(fieldName, message).asGrpcError,
+      v2 = ledgerRequestValidationInvalidField(fieldName, message).asGrpcError,
     )
 
-  private def ledgerCommandValidationInvalidField(fieldName: String, message: String)(implicit
+  private def ledgerRequestValidationInvalidField(fieldName: String, message: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): LedgerApiErrors.CommandValidation.InvalidField.Reject = {
-    LedgerApiErrors.CommandValidation.InvalidField
+  ): LedgerApiErrors.RequestValidation.InvalidField.Reject = {
+    LedgerApiErrors.RequestValidation.InvalidField
       .Reject(s"Invalid field $fieldName: $message")
   }
 
@@ -276,28 +275,12 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     grpcError(statusBuilder.build())
   }
 
-  def offsetOutOfRange(description: String)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): StatusRuntimeException =
-    // TODO error codes: Pass the offsets as arguments to this method and build the description here
-    errorCodesVersionSwitcher.choose(
-      v1 = grpcError(
-        Status
-          .newBuilder()
-          .setCode(Code.OUT_OF_RANGE.value())
-          .setMessage(description)
-          .build()
-      ),
-      v2 = LedgerApiErrors.ReadErrors.RequestedOffsetOutOfRange.Reject(description).asGrpcError,
-    )
-
   /** @param message A status' message.
     * @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
     * @return An exception with the [[Code.ABORTED]] status code.
     */
+  @deprecated
   def aborted(message: String, definiteAnswer: Option[Boolean]): StatusRuntimeException = {
-    // TODO error codes: This error code is not specific enough.
-    //                   Break down into more specific errors.
     val statusBuilder = Status
       .newBuilder()
       .setCode(Code.ABORTED.value())
@@ -306,12 +289,13 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     grpcError(statusBuilder.build())
   }
 
+  @nowarn("msg=deprecated")
   def isTimeoutUnknown_wasAborted(message: String, definiteAnswer: Option[Boolean])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException = {
     errorCodesVersionSwitcher.choose(
       v1 = aborted(message, definiteAnswer),
-      v2 = LedgerApiErrors.WriteErrors.RequestTimeOut
+      v2 = LedgerApiErrors.AdminServices.RequestTimeOut
         .Reject(
           message,
           // TODO error codes: How to handle None definiteAnswer?
@@ -326,16 +310,17 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   ): StatusRuntimeException = {
     errorCodesVersionSwitcher.choose(
       v1 = invalidArgumentV1(definiteAnswer, message),
-      v2 = LedgerApiErrors.WriteErrors.PackageUploadRejected.Reject(message).asGrpcError,
+      v2 = LedgerApiErrors.AdminServices.PackageUploadRejected.Reject(message).asGrpcError,
     )
   }
 
+  @nowarn("msg=deprecated")
   def configurationEntryRejected(message: String, definiteAnswer: Option[Boolean])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException = {
     errorCodesVersionSwitcher.choose(
       v1 = aborted(message, definiteAnswer),
-      v2 = LedgerApiErrors.WriteErrors.ConfigurationEntryRejected.Reject(message).asGrpcError,
+      v2 = LedgerApiErrors.AdminServices.ConfigurationEntryRejected.Reject(message).asGrpcError,
     )
   }
 
@@ -374,7 +359,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           s"$securitySafeMessage: ${exception.getMessage}"
         )
         new ApiException(
-          io.grpc.Status.INTERNAL.withDescription(securitySafeMessage),
+          io.grpc.Status.INTERNAL.withDescription(truncated(securitySafeMessage)),
           new Metadata(),
         )
       },
@@ -386,40 +371,24 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   /** @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
     * @return An exception with the [[Code.UNAVAILABLE]] status code.
     */
-  def missingLedgerConfig(definiteAnswer: Option[Boolean])(implicit
+  def missingLedgerConfig(
+      legacyGrpcStatusCode: io.grpc.Status.Code
+  )(definiteAnswer: Option[Boolean])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
       v1 = {
         val statusBuilder = Status
           .newBuilder()
-          .setCode(Code.UNAVAILABLE.value())
+          .setCode(legacyGrpcStatusCode.value())
           .setMessage("The ledger configuration is not available.")
         addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
         grpcError(statusBuilder.build())
       },
-      // TODO error codes: This error group is confusing for this generic error as it can be dispatched
-      //                   from call-sites that do not involve Daml interpreter.
-      v2 = LedgerApiErrors.InterpreterErrors.LookupErrors.LedgerConfigurationNotFound
+      v2 = LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration
         .Reject()
         .asGrpcError,
     )
-
-  // TODO error codes: Duplicate of missingLedgerConfig
-  def missingLedgerConfigUponRequest(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): StatusRuntimeException = errorCodesVersionSwitcher.choose(
-    v1 = grpcError(
-      Status
-        .newBuilder()
-        .setCode(Code.NOT_FOUND.value())
-        .setMessage("The ledger configuration is not available.")
-        .build()
-    ),
-    v2 = LedgerApiErrors.InterpreterErrors.LookupErrors.LedgerConfigurationNotFound
-      .Reject()
-      .asGrpcError,
-  )
 
   def participantPrunedDataAccessed(message: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -432,13 +401,15 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           .setMessage(message)
           .build()
       ),
-      v2 = LedgerApiErrors.ReadErrors.ParticipantPrunedDataAccessed.Reject(message).asGrpcError,
+      v2 = LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed
+        .Reject(message)
+        .asGrpcError,
     )
 
   /** @param definiteAnswer A flag that says whether it is a definite answer. Provided only in the context of command deduplication.
     * @return An exception with the [[Code.UNAVAILABLE]] status code.
     */
-  def serviceNotRunning(definiteAnswer: Option[Boolean])(implicit
+  def serviceNotRunning(serviceName: String)(definiteAnswer: Option[Boolean])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
@@ -446,12 +417,11 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         val statusBuilder = Status
           .newBuilder()
           .setCode(Code.UNAVAILABLE.value())
-          .setMessage("Service has been shut down.")
+          .setMessage(s"$serviceName has been shut down.")
         addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
         grpcError(statusBuilder.build())
       },
-      // TODO error codes: Add service name to the error cause
-      v2 = LedgerApiErrors.ServiceNotRunning.Reject().asGrpcError,
+      v2 = LedgerApiErrors.ServiceNotRunning.Reject(serviceName).asGrpcError,
     )
 
   def trackerFailure(msg: String)(implicit
@@ -468,18 +438,6 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       v2 = LedgerApiErrors.InternalError.CommandTrackerInternalError(msg).asGrpcError,
     )
 
-  /** Transforms Protobuf [[Status]] objects, possibly including metadata packed as [[ErrorInfo]] objects,
-    * into exceptions with metadata in the trailers.
-    *
-    * Asynchronous errors, i.e. failed completions, contain Protobuf [[Status]] objects themselves.
-    *
-    * @param status A Protobuf [[Status]] object.
-    * @return An exception without a stack trace.
-    */
-  def grpcError(status: Status): StatusRuntimeException = new NoStackTraceApiException(
-    StatusProto.toStatusRuntimeException(status)
-  )
-
   private def invalidArgumentV1(
       definiteAnswer: Option[Boolean],
       message: String,
@@ -490,6 +448,176 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       .setMessage(s"Invalid argument: $message")
     addDefiniteAnswerDetails(definiteAnswer, statusBuilder)
     grpcError(statusBuilder.build())
+  }
+
+  /** Transforms Protobuf [[Status]] objects, possibly including metadata packed as [[ErrorInfo]] objects,
+    * into exceptions with metadata in the trailers.
+    *
+    * Asynchronous errors, i.e. failed completions, contain Protobuf [[Status]] objects themselves.
+    *
+    * NOTE: The length of the Status message is truncated to a reasonable size for satisfying
+    *        the Netty header size limit - as the message is also incorporated in the header, bundled in the gRPC metadata.
+    * @param status A Protobuf [[Status]] object.
+    * @return An exception without a stack trace.
+    */
+  def grpcError(status: Status): StatusRuntimeException = {
+    val newStatus =
+      Status
+        .newBuilder(status)
+        .setMessage(truncated(status.getMessage))
+    new NoStackTraceApiException(
+      StatusProto.toStatusRuntimeException(newStatus.build)
+    )
+  }
+
+  private def truncated(message: String): String = {
+    val maxMessageLength =
+      1536 // An arbitrary limit that doesn't break netty serialization while being useful to human operator.
+    if (message.length > maxMessageLength) message.take(maxMessageLength) + "..." else message
+  }
+
+  object CommandRejections {
+    @deprecated
+    def partyNotKnownOnLedger(reason: String)(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): com.google.rpc.status.Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = RpcStatus
+          .of(Code.INVALID_ARGUMENT.value(), s"Parties not known on ledger: $reason", Seq.empty),
+        v2 = GrpcStatus.toProto(
+          LedgerApiErrors.WriteServiceRejections.PartyNotKnownOnLedger
+            .RejectDeprecated(reason)
+            .asGrpcStatusFromContext
+        ),
+      )
+
+    def contractsNotFound(missingContractIds: Set[String])(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): com.google.rpc.status.Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = RpcStatus.of(
+          Code.ABORTED.value(),
+          s"Inconsistent: Could not lookup contracts: ${missingContractIds.mkString("[", ", ", "]")}",
+          Seq.empty,
+        ),
+        v2 = GrpcStatus.toProto(
+          LedgerApiErrors.ConsistencyErrors.ContractNotFound
+            .MultipleContractsNotFound(missingContractIds)
+            .asGrpcStatusFromContext
+        ),
+      )
+
+    def inconsistentContractKeys(
+        lookupResult: Option[Value.ContractId],
+        currentResult: Option[Value.ContractId],
+    )(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): com.google.rpc.status.Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = RpcStatus.of(
+          Code.ABORTED.value(),
+          s"Inconsistent: Contract key lookup with different results: expected [$lookupResult], actual [$currentResult]",
+          Seq.empty,
+        ),
+        v2 = GrpcStatus.toProto(
+          LedgerApiErrors.ConsistencyErrors.InconsistentContractKey
+            .Reject(
+              s"Contract key lookup with different results: expected [$lookupResult], actual [$currentResult]"
+            )
+            .asGrpcStatusFromContext
+        ),
+      )
+
+    def duplicateContractKey(reason: String, key: GlobalKey)(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): com.google.rpc.status.Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = RpcStatus.of(Code.ABORTED.value(), s"Inconsistent: $reason", Seq.empty),
+        v2 = GrpcStatus.toProto(
+          LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
+            .RejectWithContractKeyArg(reason, key)
+            .asGrpcStatusFromContext
+        ),
+      )
+
+    def partiesNotKnownToLedger(parties: Set[String])(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): com.google.rpc.status.Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = RpcStatus
+          .of(
+            Code.INVALID_ARGUMENT.value(),
+            s"Parties not known on ledger: ${parties.mkString("[", ", ", "]")}",
+            Seq.empty,
+          ),
+        v2 = GrpcStatus.toProto(
+          LedgerApiErrors.WriteServiceRejections.PartyNotKnownOnLedger
+            .Reject(parties)
+            .asGrpcStatusFromContext
+        ),
+      )
+
+    def submitterCannotActViaParticipant(reason: String)(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): com.google.rpc.status.Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = RpcStatus.of(
+          Code.PERMISSION_DENIED.value(),
+          s"Submitted cannot act via participant: $reason",
+          Seq.empty,
+        ),
+        v2 = GrpcStatus.toProto(
+          LedgerApiErrors.WriteServiceRejections.SubmitterCannotActViaParticipant
+            .Reject(reason)
+            .asGrpcStatusFromContext
+        ),
+      )
+
+    def invalidLedgerTime(reason: String)(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): com.google.rpc.status.Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = RpcStatus.of(Code.ABORTED.value(), s"Invalid ledger time: $reason", Seq.empty),
+        v2 = GrpcStatus.toProto(
+          LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
+            .RejectSimple(reason)
+            .asGrpcStatusFromContext
+        ),
+      )
+
+    def inconsistent(reason: String)(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): com.google.rpc.status.Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = RpcStatus.of(Code.ABORTED.value(), s"Inconsistent: $reason", Seq.empty),
+        v2 = GrpcStatus.toProto(
+          LedgerApiErrors.ConsistencyErrors.Inconsistent.Reject(reason).asGrpcStatusFromContext
+        ),
+      )
+
+    object Deprecated {
+      @deprecated
+      def disputed(reason: String)(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): com.google.rpc.status.Status =
+        errorCodesVersionSwitcher.choose(
+          v1 = RpcStatus.of(Code.INVALID_ARGUMENT.value(), s"Disputed: $reason", Seq.empty),
+          v2 = GrpcStatus.toProto(
+            LedgerApiErrors.WriteServiceRejections.Disputed.Reject(reason).asGrpcStatusFromContext
+          ),
+        )
+
+      @deprecated
+      def outOfQuota(reason: String)(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ): com.google.rpc.status.Status =
+        errorCodesVersionSwitcher.choose(
+          v1 = RpcStatus.of(Code.ABORTED.value(), s"Resources exhausted: $reason", Seq.empty),
+          v2 = GrpcStatus.toProto(
+            LedgerApiErrors.WriteServiceRejections.OutOfQuota.Reject(reason).asGrpcStatusFromContext
+          ),
+        )
+    }
   }
 }
 

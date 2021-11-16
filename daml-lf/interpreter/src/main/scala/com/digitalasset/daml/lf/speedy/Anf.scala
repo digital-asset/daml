@@ -30,7 +30,7 @@ package com.daml.lf.speedy
   */
 
 import com.daml.lf.data.Trampoline.{Bounce, Land, Trampoline}
-import com.daml.lf.speedy.{SExpr0 => source}
+import com.daml.lf.speedy.{SExpr1 => source}
 import com.daml.lf.speedy.{SExpr => target}
 import com.daml.lf.speedy.Compiler.CompilationError
 
@@ -189,8 +189,6 @@ private[lf] object Anf {
       case loc: source.SELoc => convertLoc(loc)
       case source.SEValue(x) => target.SEValue(x)
       case source.SEBuiltin(x) => target.SEBuiltin(x)
-      case source.SEBuiltinRecursiveDefinition(x) => target.SEBuiltinRecursiveDefinition(x)
-      case _: source.SEVar => sys.error(s"Anf1.convertAtom, unexpected: $x")
     }
   }
 
@@ -302,8 +300,6 @@ private[lf] object Anf {
         Bounce(() => transform(depth, atom, k))
 
       case source.SEVal(x) => Bounce(() => transform(depth, target.SEVal(x), k))
-      case source.SEImportValue(ty, v) =>
-        Bounce(() => transform(depth, target.SEImportValue(ty, v), k))
 
       case source.SEAppGeneral(func, args) =>
         // It's safe to perform ANF if the func-expression has no effects when evaluated.
@@ -374,9 +370,6 @@ private[lf] object Anf {
       case source.SEScopeExercise(body0) =>
         val body: target.SExpr = flattenExp(depth, env, body0)(anf => Land(anf.wrapped)).bounce
         Bounce(() => transform(depth, target.SEScopeExercise(body), k))
-
-      case _: source.SEAbs | _: source.SEDamlException =>
-        throw CompilationError(s"flatten: unexpected: $exp")
     }
 
   private[this] def atomizeExps[A](

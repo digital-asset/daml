@@ -5,15 +5,20 @@ package com.daml.platform.store.backend.common
 
 import java.sql.Connection
 
+import com.daml.platform.store.interning.StringInterning
+
 private[backend] trait Table[FROM] {
-  def prepareData(in: Vector[FROM]): Array[Array[_]]
+  def prepareData(in: Vector[FROM], stringInterning: StringInterning): Array[Array[_]]
   def executeUpdate: Array[Array[_]] => Connection => Unit
 }
 
 private[backend] abstract class BaseTable[FROM](fields: Seq[(String, Field[FROM, _, _])])
     extends Table[FROM] {
-  override def prepareData(in: Vector[FROM]): Array[Array[_]] =
-    fields.view.map(_._2.toArray(in)).toArray
+  override def prepareData(
+      in: Vector[FROM],
+      stringInterning: StringInterning,
+  ): Array[Array[_]] =
+    fields.view.map(_._2.toArray(in, stringInterning)).toArray
 }
 
 private[backend] object Table {

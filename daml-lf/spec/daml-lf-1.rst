@@ -934,7 +934,7 @@ We now formally define *well-formed types*. ::
      Γ  ⊢  ∀ α : k . τ  :  ⋆
 
    ————————————————————————————————————————————— TyArrow
-     Γ  ⊢  'TArrow' : ⋆ → ⋆
+     Γ  ⊢  'TArrow' : ⋆ → ⋆ → ⋆
 
    ————————————————————————————————————————————— TyUnit
      Γ  ⊢  'Unit' : ⋆

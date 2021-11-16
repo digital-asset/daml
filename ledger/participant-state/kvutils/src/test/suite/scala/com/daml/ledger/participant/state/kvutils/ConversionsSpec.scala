@@ -273,7 +273,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             ),
             (
               Rejection.ExternallyInconsistentTransaction.DuplicateKeys,
-              Code.FAILED_PRECONDITION,
+              Code.ALREADY_EXISTS,
               Map.empty,
               Map.empty,
             ),

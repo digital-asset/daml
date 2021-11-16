@@ -199,10 +199,10 @@ class TransactionServiceRequestValidatorTest
             ledgerEnd,
           ),
           expectedCodeV1 = OUT_OF_RANGE,
-          expectedDescriptionV1 = "Begin offset 1001 is after ledger end 1000",
+          expectedDescriptionV1 = "Begin offset (1001) is after ledger end (1000)",
           expectedCodeV2 = OUT_OF_RANGE,
           expectedDescriptionV2 =
-            "REQUESTED_OFFSET_OUT_OF_RANGE(12,0): Begin offset 1001 is after ledger end 1000",
+            "OFFSET_AFTER_LEDGER_END(12,0): Begin offset (1001) is after ledger end (1000)",
         )
       }
 
@@ -215,10 +215,10 @@ class TransactionServiceRequestValidatorTest
             ledgerEnd,
           ),
           expectedCodeV1 = OUT_OF_RANGE,
-          expectedDescriptionV1 = "End offset 1001 is after ledger end 1000",
+          expectedDescriptionV1 = "End offset (1001) is after ledger end (1000)",
           expectedCodeV2 = OUT_OF_RANGE,
           expectedDescriptionV2 =
-            "REQUESTED_OFFSET_OUT_OF_RANGE(12,0): End offset 1001 is after ledger end 1000",
+            "OFFSET_AFTER_LEDGER_END(12,0): End offset (1001) is after ledger end (1000)",
         )
       }
 
@@ -329,10 +329,10 @@ class TransactionServiceRequestValidatorTest
             ledgerEnd,
           ),
           expectedCodeV1 = OUT_OF_RANGE,
-          expectedDescriptionV1 = "Begin offset 1001 is after ledger end 1000",
+          expectedDescriptionV1 = "Begin offset (1001) is after ledger end (1000)",
           expectedCodeV2 = OUT_OF_RANGE,
           expectedDescriptionV2 =
-            "REQUESTED_OFFSET_OUT_OF_RANGE(12,0): Begin offset 1001 is after ledger end 1000",
+            "OFFSET_AFTER_LEDGER_END(12,0): Begin offset (1001) is after ledger end (1000)",
         )
       }
 
@@ -345,10 +345,10 @@ class TransactionServiceRequestValidatorTest
             ledgerEnd,
           ),
           expectedCodeV1 = OUT_OF_RANGE,
-          expectedDescriptionV1 = "End offset 1001 is after ledger end 1000",
+          expectedDescriptionV1 = "End offset (1001) is after ledger end (1000)",
           expectedCodeV2 = OUT_OF_RANGE,
           expectedDescriptionV2 =
-            "REQUESTED_OFFSET_OUT_OF_RANGE(12,0): End offset 1001 is after ledger end 1000",
+            "OFFSET_AFTER_LEDGER_END(12,0): End offset (1001) is after ledger end (1000)",
         )
       }
     }

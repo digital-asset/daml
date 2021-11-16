@@ -101,6 +101,7 @@ private[appendonlydao] case class SequentialWriteDaoImpl[DB_BATCH](
       case e: DbDto.EventCreate => e.copy(event_sequential_id = nextEventSeqId)
       case e: DbDto.EventDivulgence => e.copy(event_sequential_id = nextEventSeqId)
       case e: DbDto.EventExercise => e.copy(event_sequential_id = nextEventSeqId)
+      case e: DbDto.CreateFilter => e.copy(event_sequential_id = lastEventSeqId)
       case notEvent => notEvent
     }.toVector
 
@@ -125,7 +126,7 @@ private[appendonlydao] case class SequentialWriteDaoImpl[DB_BATCH](
         }
 
       dbDtosWithStringInterning
-        .pipe(ingestionStorageBackend.batch)
+        .pipe(ingestionStorageBackend.batch(_, stringInterningView))
         .pipe(ingestionStorageBackend.insertBatch(connection, _))
 
       parameterStorageBackend.updateLedgerEnd(

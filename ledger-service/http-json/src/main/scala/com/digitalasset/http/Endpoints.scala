@@ -38,6 +38,7 @@ import com.daml.http.util.Collections.toNonEmptySet
 import com.daml.http.util.FutureUtil.{either, eitherT}
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.http.util.{ProtobufByteStrings, toLedgerId}
+import util.JwtParties._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
@@ -315,7 +316,7 @@ class Endpoints(
           ]
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
         resolvedRef <- eitherT(
-          resolveReference(jwt, jwtPayload, cmd.reference)
+          resolveReference(jwt, jwtPayload, cmd.meta, cmd.reference)
         ): ET[domain.ResolvedContractRef[ApiValue]]
 
         apiArg <- either(lfValueToApiValue(cmd.argument)): ET[ApiValue]
@@ -373,15 +374,25 @@ class Endpoints(
       jsVal <- withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
         logger.debug(s"/v1/fetch reqBody: $reqBody")
         for {
-          cl <-
-            decoder
-              .decodeContractLocator(reqBody, jwt, toLedgerId(jwtPayload.ledgerId))
-              .liftErr(InvalidUserInput): ET[domain.ContractLocator[LfValue]]
+          fr <-
+            either(
+              SprayJson
+                .decode[domain.FetchRequest[JsValue]](reqBody)
+                .liftErr[Error](InvalidUserInput)
+            )
+              .flatMap(
+                _.traverseLocator(
+                  decoder
+                    .decodeContractLocatorKey(_, jwt, toLedgerId(jwtPayload.ledgerId))
+                    .liftErr(InvalidUserInput)
+                )
+              ): ET[domain.FetchRequest[LfValue]]
           _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
-          _ = logger.debug(s"/v1/fetch cl: $cl")
+          _ = logger.debug(s"/v1/fetch fr: $fr")
 
+          _ <- either(ensureReadAsAllowedByJwt(fr.readAs, jwtPayload))
           ac <- eitherT(
-            handleFutureFailure(contractsService.lookup(jwt, jwtPayload, cl))
+            handleFutureFailure(contractsService.lookup(jwt, jwtPayload, fr))
           ): ET[Option[domain.ActiveContract[JsValue]]]
 
           jsVal <- either(
@@ -423,28 +434,26 @@ class Endpoints(
       it <- EitherT.eitherT(inputAndJwtPayload[JwtPayload](req))
       (jwt, jwtPayload, reqBody) = it
       res <- withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
-        val res =
-          SprayJson
+        val res = for {
+          cmd <- SprayJson
             .decode[domain.GetActiveContractsRequest](reqBody)
             .liftErr[Error](InvalidUserInput)
-            .map { cmd =>
-              withEnrichedLoggingContext(
-                LoggingContextOf.label[domain.GetActiveContractsRequest],
-                "cmd" -> cmd.toString,
-              ).run { implicit lc =>
-                logger.debug("Processing a query request")
-                contractsService
-                  .search(jwt, jwtPayload, cmd)
-                  .map(
-                    domain.SyncResponse.covariant.map(_)(
-                      _.via(handleSourceFailure)
-                        .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
-                    )
-                  )
-              }
-            }
-            .sequence
-        eitherT(res)
+          _ <- ensureReadAsAllowedByJwt(cmd.readAs, jwtPayload)
+        } yield withEnrichedLoggingContext(
+          LoggingContextOf.label[domain.GetActiveContractsRequest],
+          "cmd" -> cmd.toString,
+        ).run { implicit lc =>
+          logger.debug("Processing a query request")
+          contractsService
+            .search(jwt, jwtPayload, cmd)
+            .map(
+              domain.SyncResponse.covariant.map(_)(
+                _.via(handleSourceFailure)
+                  .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
+              )
+            )
+        }
+        eitherT(res.sequence)
       }
     } yield res
   }.run
@@ -696,13 +705,19 @@ class Endpoints(
   private def resolveReference(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
+      meta: Option[domain.CommandMeta],
       reference: domain.ContractLocator[LfValue],
   )(implicit
       lc: LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID],
       metrics: Metrics,
   ): Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
     contractsService
-      .resolveContractReference(jwt, jwtPayload.parties, reference, toLedgerId(jwtPayload.ledgerId))
+      .resolveContractReference(
+        jwt,
+        resolveRefParties(meta, jwtPayload),
+        reference,
+        toLedgerId(jwtPayload.ledgerId),
+      )
       .map { o: Option[domain.ResolvedContractRef[LfValue]] =>
         val a: Error \/ domain.ResolvedContractRef[LfValue] =
           o.toRightDisjunction(InvalidUserInput(ErrorMessages.cannotResolveTemplateId(reference)))
@@ -784,7 +799,7 @@ object Endpoints {
     } yield c
   }
 
-  private[http] val nonHttpsErrorMessage =
+  private val nonHttpsErrorMessage =
     "missing HTTPS reverse-proxy request headers; for development launch with --allow-insecure-tokens"
 
   private def partiesResponse(

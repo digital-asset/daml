@@ -76,7 +76,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.AuthorizationError,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -126,7 +126,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.AuthorizationError,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -180,7 +180,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.AuthorizationError,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         Some(Pattern.compile("of the fetched contract to be an authorizer, but authorizers were")),
         checkDefiniteAnswerMetadata = true,
       )
@@ -213,7 +213,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ABORTED,
-        LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
+        LedgerApiErrors.ConsistencyErrors.ContractNotFound,
         Some(Pattern.compile("Contract could not be found")),
         checkDefiniteAnswerMetadata = true,
       )
@@ -267,7 +267,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.AuthorizationError,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         Some(Pattern.compile("of the fetched contract to be an authorizer, but authorizers were")),
         checkDefiniteAnswerMetadata = true,
       )
@@ -300,7 +300,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound,
+        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some(Pattern.compile("dependency error: couldn't find key")),
         checkDefiniteAnswerMetadata = true,
       )
@@ -356,7 +356,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.AuthorizationError,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         Some(Pattern.compile("requires authorizers (.*) for lookup by key, but it only has")),
         checkDefiniteAnswerMetadata = true,
       )
@@ -390,7 +390,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.GenericInterpretationError,
+        LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
         Some(
           Pattern.compile(
             "Interpretation error: Error: (User abort: Assertion failed.|Unhandled exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"LookupOtherByKey value matches\" \\}\\.) [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node"
