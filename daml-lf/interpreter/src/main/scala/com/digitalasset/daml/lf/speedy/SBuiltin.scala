@@ -52,7 +52,7 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
 
   // TODO: move this into the speedy compiler code
   private[lf] def apply(args: compileTime.SExpr*): compileTime.SExpr =
-    compileTime.SEApp(compileTime.SEBuiltin(this), args.toArray)
+    compileTime.SEApp(compileTime.SEBuiltin(this), args.toList)
 
   // TODO: avoid constructing application expression at run time
   private[lf] def apply(args: runTime.SExpr*): runTime.SExpr =

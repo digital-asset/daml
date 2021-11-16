@@ -91,7 +91,7 @@ private[lf] object Compiler {
   private val SEGetTime = s.SEBuiltin(SBGetTime)
 
   private def SBCompareNumeric(b: SBuiltinPure) =
-    s.SEAbs(3, s.SEApp(s.SEBuiltin(b), Array(s.SEVar(2), s.SEVar(1))))
+    s.SEAbs(3, s.SEApp(s.SEBuiltin(b), List(s.SEVar(2), s.SEVar(1))))
   private val SBLessNumeric = SBCompareNumeric(SBLess)
   private val SBLessEqNumeric = SBCompareNumeric(SBLessEq)
   private val SBGreaterNumeric = SBCompareNumeric(SBGreater)
@@ -128,14 +128,14 @@ private[lf] object Compiler {
   }
 
   // Hand-implemented `map` uses less stack.
-  private def mapToArray[A, B: ClassTag](input: ImmArray[A])(f: A => B): Array[B] = {
+  private def mapToArray[A, B: ClassTag](input: ImmArray[A])(f: A => B): List[B] = {
     val output = Array.ofDim[B](input.length)
     var i = 0
     input.foreach { value =>
       output(i) = f(value)
       i += 1
     }
-    output
+    output.toList
   }
 
 }
@@ -263,7 +263,7 @@ private[lf] final class Compiler(
       case None => expr
     }
 
-  private[this] def app(f: s.SExpr, a: s.SExpr) = s.SEApp(f, Array(a))
+  private[this] def app(f: s.SExpr, a: s.SExpr) = s.SEApp(f, List(a))
 
   private[this] def let(env: Env, bound: s.SExpr)(f: (Position, Env) => s.SExpr): s.SELet =
     f(env.nextPosition, env.pushVar) match {
@@ -513,7 +513,7 @@ private[lf] final class Compiler(
       case ECons(_, front, tail) =>
         // TODO(JM): Consider emitting SEValue(SList(...)) for
         // constant lists?
-        val args = (front.iterator.map(compile(env, _)) ++ Seq(compile(env, tail))).toArray
+        val args = (front.iterator.map(compile(env, _)) ++ Seq(compile(env, tail))).toList
         if (front.length == 1) {
           s.SEApp(s.SEBuiltin(SBCons), args)
         } else {
@@ -742,7 +742,7 @@ private[lf] final class Compiler(
     else
       s.SEApp(
         s.SEBuiltin(SBRecCon(tApp.tycon, fields.map(_._1))),
-        fields.iterator.map(f => compile(env, f._2)).toArray,
+        fields.iterator.map(f => compile(env, f._2)).toList,
       )
 
   private[this] def compileERecUpd(env: Env, erecupd: ERecUpd): s.SExpr = {
@@ -899,7 +899,7 @@ private[lf] final class Compiler(
       case _ if args.isEmpty =>
         compile(env, expr0)
       case _ =>
-        s.SEApp(compile(env, expr0), args.toArray)
+        s.SEApp(compile(env, expr0), args)
     }
 
   private[this] def translateType(env: Env, typ: Type): Option[s.SExpr] =
@@ -1305,7 +1305,7 @@ private[lf] final class Compiler(
       (Iterator(compile(env2, tmpl.precond)) ++ implementsPrecondsIterator ++ Iterator(
         s.SEValue.EmptyList
       )).to(ImmArray)
-    val preconds = s.SEApp(s.SEBuiltin(SBConsMany(precondsArray.length - 1)), precondsArray.toArray)
+    val preconds = s.SEApp(s.SEBuiltin(SBConsMany(precondsArray.length - 1)), precondsArray.toList)
     // We check precondition in a separated builtin to prevent
     // further evaluation of agreement, signatories, observers and key
     // in case of failed precondition.

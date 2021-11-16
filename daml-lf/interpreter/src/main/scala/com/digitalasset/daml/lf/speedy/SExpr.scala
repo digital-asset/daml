@@ -408,7 +408,7 @@ object SExpr {
     def modName: ModuleName = ref.qualifiedName.module
     // TODO: move this into the speedy compiler code
     private[this] val eval = compileTime.SEVal(this)
-    def apply(args: compileTime.SExpr*) = compileTime.SEApp(eval, args.toArray)
+    def apply(args: compileTime.SExpr*) = compileTime.SEApp(eval, args.toList)
   }
 
   // references to definitions that come from the archive
