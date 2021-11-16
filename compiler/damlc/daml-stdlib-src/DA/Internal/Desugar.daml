@@ -18,6 +18,8 @@ module DA.Internal.Desugar (
     NonConsuming(..), PreConsuming(..), PostConsuming(..), Consuming(..),
     Implements(..),
     TypeRep,
+    HasMethod,
+    mkMethod,
 ) where
 
 import DA.Internal.Prelude
@@ -43,3 +45,10 @@ class Implements t i where
   toInterfaceContractId : ContractId t -> ContractId i
   fromInterfaceContractId : ContractId i -> Update (Optional (ContractId t))
   interfaceTypeRep : t -> TypeRep
+
+class HasMethod i (m : Symbol) r | i m -> r
+
+newtype Method t i (m : Symbol) r = Method { unMethod : t -> r }
+
+mkMethod : (Implements t i, HasMethod i m r) => (t -> r) -> Method t i m r
+mkMethod = Method
