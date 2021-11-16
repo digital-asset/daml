@@ -428,7 +428,8 @@ class ErrorFactoriesSpec
           v1_message = s"$serviceName has been shut down.",
           v1_details = expectedDetails,
           v2_code = Code.UNAVAILABLE,
-          v2_message = s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): $serviceName has been shut down.",
+          v2_message =
+            s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): $serviceName has been shut down.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("SERVICE_NOT_RUNNING"),
             expectedCorrelationIdRequestInfo,
