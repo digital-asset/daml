@@ -32,15 +32,18 @@ class ErrorFactoriesSpec
     with Matchers
     with TableDrivenPropertyChecks
     with MockitoSugar {
-  private val correlationId = "trace-id"
+
   private val logger = ContextualizedLogger.get(getClass)
   private val loggingContext = LoggingContext.ForTesting
 
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(logger, loggingContext, Some(correlationId))
+  private val originalCorrelationId = "cor-id-12345679"
+  private val truncatedCorrelationId = "cor-id-1"
 
-  private val DefaultTraceIdRequestInfo: ErrorDetails.RequestInfoDetail =
-    ErrorDetails.RequestInfoDetail("trace-id")
+  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+    new DamlContextualizedErrorLogger(logger, loggingContext, Some(originalCorrelationId))
+
+  private val expectedCorrelationIdRequestInfo: ErrorDetails.RequestInfoDetail =
+    ErrorDetails.RequestInfoDetail(originalCorrelationId)
 
   private val tested = ErrorFactories(mock[ErrorCodesVersionSwitcher])
 
@@ -54,10 +57,10 @@ class ErrorFactoriesSpec
       )(
         expectedCode = Code.UNAVAILABLE,
         expectedMessage =
-          s"INDEX_DB_SQL_TRANSIENT_ERROR(1,$correlationId): Processing the request failed due to a transient database error: $failureReason",
+          s"INDEX_DB_SQL_TRANSIENT_ERROR(1,$truncatedCorrelationId): Processing the request failed due to a transient database error: $failureReason",
         expectedDetails = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("INDEX_DB_SQL_TRANSIENT_ERROR"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
           ErrorDetails.RetryInfoDetail(1),
         ),
       )
@@ -71,10 +74,10 @@ class ErrorFactoriesSpec
       )(
         expectedCode = Code.INTERNAL,
         expectedMessage =
-          s"An error occurred. Please contact the operator and inquire about the request $correlationId",
+          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         expectedDetails = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("INDEX_DB_SQL_NON_TRANSIENT_ERROR"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -89,10 +92,10 @@ class ErrorFactoriesSpec
         v1_message = "message123",
         v1_details = Seq.empty,
         v2_code = Code.INVALID_ARGUMENT,
-        v2_message = s"MALFORMED_PACKAGE_ID(8,$correlationId): message123",
+        v2_message = s"MALFORMED_PACKAGE_ID(8,$truncatedCorrelationId): message123",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("MALFORMED_PACKAGE_ID"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -103,10 +106,10 @@ class ErrorFactoriesSpec
         v1_message = "",
         v1_details = Seq.empty,
         v2_code = Code.NOT_FOUND,
-        v2_message = s"PACKAGE_NOT_FOUND(11,$correlationId): Could not find package.",
+        v2_message = s"PACKAGE_NOT_FOUND(11,$truncatedCorrelationId): Could not find package.",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("PACKAGE_NOT_FOUND"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
           ErrorDetails.ResourceInfoDetail("PACKAGE", "packageId123"),
         ),
       )
@@ -119,10 +122,10 @@ class ErrorFactoriesSpec
         v1_details = Seq.empty,
         v2_code = Code.INTERNAL,
         v2_message =
-          s"An error occurred. Please contact the operator and inquire about the request trace-id",
+          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("VERSION_SERVICE_INTERNAL_ERROR"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -133,10 +136,10 @@ class ErrorFactoriesSpec
         v1_message = "message123",
         v1_details = Seq.empty,
         v2_code = Code.FAILED_PRECONDITION,
-        v2_message = s"CONFIGURATION_ENTRY_REJECTED(9,$correlationId): message123",
+        v2_message = s"CONFIGURATION_ENTRY_REJECTED(9,$truncatedCorrelationId): message123",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("CONFIGURATION_ENTRY_REJECTED"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -148,10 +151,10 @@ class ErrorFactoriesSpec
         v1_details = Seq.empty,
         v2_code = Code.NOT_FOUND,
         v2_message =
-          s"TRANSACTION_NOT_FOUND(11,$correlationId): Transaction not found, or not visible.",
+          s"TRANSACTION_NOT_FOUND(11,$truncatedCorrelationId): Transaction not found, or not visible.",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("TRANSACTION_NOT_FOUND"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
           ErrorDetails.ResourceInfoDetail("TRANSACTION_ID", "tId"),
         ),
       )
@@ -164,10 +167,10 @@ class ErrorFactoriesSpec
         v1_details = Seq(definiteAnswers(false)),
         v2_code = Code.ALREADY_EXISTS,
         v2_message =
-          s"DUPLICATE_COMMAND(10,$correlationId): A command with the given command id has already been successfully processed",
+          s"DUPLICATE_COMMAND(10,$truncatedCorrelationId): A command with the given command id has already been successfully processed",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("DUPLICATE_COMMAND"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -179,10 +182,10 @@ class ErrorFactoriesSpec
         v1_details = Seq.empty,
         v2_code = Code.PERMISSION_DENIED,
         v2_message =
-          s"An error occurred. Please contact the operator and inquire about the request $correlationId",
+          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("PERMISSION_DENIED"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -195,10 +198,10 @@ class ErrorFactoriesSpec
         v1_message = "message123",
         v1_details = Seq(definiteAnswers(false)),
         v2_code = Code.DEADLINE_EXCEEDED,
-        v2_message = s"REQUEST_TIME_OUT(3,trace-id): message123",
+        v2_message = s"REQUEST_TIME_OUT(3,$truncatedCorrelationId): message123",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("REQUEST_TIME_OUT"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
           ErrorDetails.RetryInfoDetail(1),
         ),
       )
@@ -217,10 +220,10 @@ class ErrorFactoriesSpec
         v1_details = Seq.empty,
         v2_code = Code.INVALID_ARGUMENT,
         v2_message =
-          s"NON_HEXADECIMAL_OFFSET(8,$correlationId): Offset in fieldName123 not specified in hexadecimal: offsetValue123: message123",
+          s"NON_HEXADECIMAL_OFFSET(8,$truncatedCorrelationId): Offset in fieldName123 not specified in hexadecimal: offsetValue123: message123",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("NON_HEXADECIMAL_OFFSET"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -231,10 +234,10 @@ class ErrorFactoriesSpec
         v1_message = "Invalid argument: message123",
         v1_details = Seq.empty,
         v2_code = Code.OUT_OF_RANGE,
-        v2_message = s"REQUESTED_OFFSET_OUT_OF_RANGE(12,$correlationId): message123",
+        v2_message = s"REQUESTED_OFFSET_OUT_OF_RANGE(12,$truncatedCorrelationId): message123",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("REQUESTED_OFFSET_OUT_OF_RANGE"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -246,10 +249,10 @@ class ErrorFactoriesSpec
         v1_details = Seq.empty,
         v2_code = Code.UNAUTHENTICATED,
         v2_message =
-          s"An error occurred. Please contact the operator and inquire about the request $correlationId",
+          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("UNAUTHENTICATED"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -263,10 +266,10 @@ class ErrorFactoriesSpec
         v1_details = Seq.empty,
         v2_code = Code.INTERNAL,
         v2_message =
-          s"An error occurred. Please contact the operator and inquire about the request $correlationId",
+          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("INTERNAL_AUTHORIZATION_ERROR"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -285,10 +288,10 @@ class ErrorFactoriesSpec
           v1_details = expectedDetails,
           v2_code = Code.NOT_FOUND,
           v2_message =
-            s"LEDGER_CONFIGURATION_NOT_FOUND(11,$correlationId): The ledger configuration is not available.",
+            s"LEDGER_CONFIGURATION_NOT_FOUND(11,$truncatedCorrelationId): The ledger configuration is not available.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("LEDGER_CONFIGURATION_NOT_FOUND"),
-            DefaultTraceIdRequestInfo,
+            expectedCorrelationIdRequestInfo,
           ),
         )
       }
@@ -323,10 +326,10 @@ class ErrorFactoriesSpec
         v1_details = Seq.empty,
         v2_code = Code.FAILED_PRECONDITION,
         v2_message =
-          s"INVALID_DEDUPLICATION_PERIOD(9,trace-id): The submitted command had an invalid deduplication period: $errorDetailMessage",
+          s"INVALID_DEDUPLICATION_PERIOD(9,$truncatedCorrelationId): The submitted command had an invalid deduplication period: $errorDetailMessage",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("INVALID_DEDUPLICATION_PERIOD"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -345,10 +348,10 @@ class ErrorFactoriesSpec
           v1_details = expectedDetails,
           v2_code = Code.INVALID_ARGUMENT,
           v2_message =
-            s"INVALID_FIELD(8,$correlationId): The submitted command has a field with invalid value: Invalid field my field: my message",
+            s"INVALID_FIELD(8,$truncatedCorrelationId): The submitted command has a field with invalid value: Invalid field my field: my message",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("INVALID_FIELD"),
-            DefaultTraceIdRequestInfo,
+            expectedCorrelationIdRequestInfo,
           ),
         )
       }
@@ -370,10 +373,10 @@ class ErrorFactoriesSpec
           v1_details = expectedDetails,
           v2_code = Code.NOT_FOUND,
           v2_message =
-            s"LEDGER_ID_MISMATCH(11,$correlationId): Ledger ID 'received' not found. Actual Ledger ID is 'expected'.",
+            s"LEDGER_ID_MISMATCH(11,$truncatedCorrelationId): Ledger ID 'received' not found. Actual Ledger ID is 'expected'.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("LEDGER_ID_MISMATCH"),
-            DefaultTraceIdRequestInfo,
+            expectedCorrelationIdRequestInfo,
           ),
         )
       }
@@ -393,10 +396,10 @@ class ErrorFactoriesSpec
         v1_message = "my message",
         v1_details = Seq.empty,
         v2_code = Code.OUT_OF_RANGE,
-        v2_message = s"PARTICIPANT_PRUNED_DATA_ACCESSED(12,$correlationId): my message",
+        v2_message = s"PARTICIPANT_PRUNED_DATA_ACCESSED(12,$truncatedCorrelationId): my message",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("PARTICIPANT_PRUNED_DATA_ACCESSED"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -408,10 +411,10 @@ class ErrorFactoriesSpec
         v1_details = Seq.empty,
         v2_code = Code.INTERNAL,
         v2_message =
-          s"An error occurred. Please contact the operator and inquire about the request trace-id",
+          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("LEDGER_API_INTERNAL_ERROR"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -422,10 +425,10 @@ class ErrorFactoriesSpec
         v1_message = "my message",
         v1_details = Seq.empty,
         v2_code = Code.OUT_OF_RANGE,
-        v2_message = s"REQUESTED_OFFSET_OUT_OF_RANGE(12,$correlationId): my message",
+        v2_message = s"REQUESTED_OFFSET_OUT_OF_RANGE(12,$truncatedCorrelationId): my message",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("REQUESTED_OFFSET_OUT_OF_RANGE"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -443,10 +446,11 @@ class ErrorFactoriesSpec
           v1_message = "Service has been shut down.",
           v1_details = expectedDetails,
           v2_code = Code.UNAVAILABLE,
-          v2_message = s"SERVICE_NOT_RUNNING(1,$correlationId): Service has been shut down.",
+          v2_message =
+            s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): Service has been shut down.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("SERVICE_NOT_RUNNING"),
-            DefaultTraceIdRequestInfo,
+            expectedCorrelationIdRequestInfo,
             ErrorDetails.RetryInfoDetail(1),
           ),
         )
@@ -460,10 +464,10 @@ class ErrorFactoriesSpec
         v1_details = Seq.empty,
         v2_code = Code.NOT_FOUND,
         v2_message =
-          s"LEDGER_CONFIGURATION_NOT_FOUND(11,$correlationId): The ledger configuration is not available.",
+          s"LEDGER_CONFIGURATION_NOT_FOUND(11,$truncatedCorrelationId): The ledger configuration is not available.",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("LEDGER_CONFIGURATION_NOT_FOUND"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -482,10 +486,10 @@ class ErrorFactoriesSpec
           v1_details = expectedDetails,
           v2_code = Code.INVALID_ARGUMENT,
           v2_message =
-            s"MISSING_FIELD(8,$correlationId): The submitted command is missing a mandatory field: my field",
+            s"MISSING_FIELD(8,$truncatedCorrelationId): The submitted command is missing a mandatory field: my field",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("MISSING_FIELD"),
-            DefaultTraceIdRequestInfo,
+            expectedCorrelationIdRequestInfo,
           ),
         )
       }
@@ -505,10 +509,10 @@ class ErrorFactoriesSpec
           v1_details = expectedDetails,
           v2_code = Code.INVALID_ARGUMENT,
           v2_message =
-            s"INVALID_ARGUMENT(8,$correlationId): The submitted command has invalid arguments: my message",
+            s"INVALID_ARGUMENT(8,$truncatedCorrelationId): The submitted command has invalid arguments: my message",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("INVALID_ARGUMENT"),
-            DefaultTraceIdRequestInfo,
+            expectedCorrelationIdRequestInfo,
           ),
         )
       }
@@ -528,10 +532,10 @@ class ErrorFactoriesSpec
           v1_details = expectedDetails,
           v2_code = Code.INVALID_ARGUMENT,
           v2_message =
-            s"INVALID_ARGUMENT(8,$correlationId): The submitted command has invalid arguments: my message",
+            s"INVALID_ARGUMENT(8,$truncatedCorrelationId): The submitted command has invalid arguments: my message",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("INVALID_ARGUMENT"),
-            DefaultTraceIdRequestInfo,
+            expectedCorrelationIdRequestInfo,
           ),
         )
       }

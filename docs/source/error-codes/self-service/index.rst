@@ -11,132 +11,194 @@ Overview
 *********
 
 
-TODO: Failure vs. error.
+.. _gRPC status codes: https://grpc.github.io/grpc/core/md_doc_statuscodes.html
+.. _gRPC status code: https://grpc.github.io/grpc/core/md_doc_statuscodes.html
+.. _StatusRuntimeException: https://grpc.github.io/grpc-java/javadoc/io/grpc/StatusRuntimeException.html
+.. _rich gRPC error model: https://cloud.google.com/apis/design/errors#error_details
+.. _standard gRPC description: https://grpc.github.io/grpc-java/javadoc/io/grpc/Status.html#getDescription--
 
-.. _gRPC: https://grpc.github.io/grpc/core/md_doc_statuscodes.html
 
-Participant API server has been using a combination of gRPC_
-status codes and custom messages to signal erroneous or unexpected conditions.
-This approach remains unchanged in principle while self-service error codes aim at
+The majority of the errors are a result of some request processing.
+They are logged and returned to the user as a failed gRPC request
+using the standard StatusRuntimeException_.
+As such this approach remains unchanged in principle while self-service error codes aim at
 enhancing it by providing:
 
 - improved consistency of the returned errors across API endpoints,
 
-- richer message format with clearly distinguished machine readable parts to facilitate
+- richer error payload format with clearly distinguished machine readable parts to facilitate
   automated error handling strategies,
 
 - complete inventory of all error codes with an explanation, suggested resolution and
-  more (as documented in this section).
+  other useful information.
 
 
-The goal is to enable users, developers and operators to act upon encountered
-errors in a self-service manner such that the need to escalate the problem
-or file a ticket occurs occurs infrequently.
+The goal is to enable users, developers and operators to act on the encountered
+errors in a self-service manner, either in an automated-way or manually.
 
-Feature flag
-************
+Feature Flag
+=============
+
 You can enable self-service error-codes by specifying ``--use-self-service-error-codes``
 from command line.
 
 By default self-service error codes are turned off.
 
 
-Anatomy of an error code
-*****************************
+Glossary
+=============
 
-TODO Error categories:
+Error - represents an occurrence of a failure.
+        Consists of:
 
- - what they are,
+        - an `error code id`,
 
- - how to make use of them,
+        - a `gRPC status code`_ (determined by its error category),
 
- - provide a list of all error categories.
+        - an `error category`,
 
-Error message
-===================
-.. code-block:: java
+        - a `correlation id`.
 
-    <ERROR_CODE_ID>(<CATEGORY_ID>,<CORRELATION_ID>:<HUMAN_READABLE_MESSAGE>
+        - a human readable message
 
-The constituent parts are:
+        - and optional additional metadata.
 
-  - ``<ERROR_CODE_ID>`` - a unique non empty string containing at most 63 characters:
-    upper-cased letters, underscores or digits.
-  - ``<CATEGORY_ID>`` - a small integer identifying the corresponding error categories.
-  - ``<CORRELATION_ID>`` - a string helpful at identifying originating request.
-    ``0`` if no correlation id is given. TODO: Are there limits to its size?
-     - The purpose of the correlation-id is to allow a user to clearly identify the request,
-       such that the operator can lookup any log information associated with this error.
-       TODO: Make sure that's true.
-  - ``:`` - a colon character that server as a separator for the machine and human readable parts.
-  - ``<HUMAN_READABLE_MESSAGE>`` - message targeting a human reader.
+        You can think of it as an
+        instantiation of an error code.
 
-A concrete example how a message might look like this:
+Error code - represents a class of failures.
+             Identified by its error code id (we may use `error code` and `error code id` interchangeably in this document).
+             Belongs to a single error category.
 
-.. code-block:: java
+Error category - a broad categorization of error codes that you can base your error handling strategies on.
+                 Map to exactly one `gRPC status code`_.
+                 We recommended to deal with errors based on their error category.
+                 However, if error category itself is too generic
+                 you can act on particular error codes.
 
-    TRANSACTION_NOT_FOUND(11,12345): Transaction not found, or not visible.
-
-Error metadata
-====================
-
-In addition error response contain the following metadata:
-- mandatory ``com.google.rpc.ErrorInfo`` containing <ERROR_CODE>,
-
-- mandatory ``com.google.rpc.RequestInfo`` containing trace id,
-
-- optional ``com.google.rpc.RetryInfo`` containing retry interval,
-
-- optional ``com.google.rpc.ResourceInfo`` containing key value pair
-  of the form: <RESOURCE_NAME>: <RESOURCE_IDENTIFIER>,
-  e.g. ""TRANSACTION_ID", "tId12345".
-  TODO: Document all possible resource names?
+Correlation id - a value whose purpose is to allow a user to clearly identify the request,
+                 such that the operator can lookup any log information associated with this error.
 
 
-Logging
-********
-
-TODO: Excerpt copied form Canton docs verbatim:
-
-
-Generally, we use the following log-levels on the server:
-
-INFO to log user errors, where the error leads to a failure of the request but the system remains healthy.
-
-WARN to log degradations of the system or point out rather unusual behaviour.
-
-ERROR to log internal errors within the system, where the system does not behave properly and immediate attention is required.
-
-
-Error categories
-******************
-
-TODO: Excerpt copied form Canton docs verbatim:
+Error Categories
+==========================
 
 The error categories allow to group errors such that application logic can be built
 in a sensible way to automatically deal with errors and decide whether to retry
 a request or escalate to the operator.
 
++------------------------------------------------+------------+--------------------+
+|Error category                                  |Category id |gRPC code           |
++================================================+============+====================+
+|TransientServerFailure                          |1           |UNAVAILABLE         |
++------------------------------------------------+------------+--------------------+
+|ContentionOnSharedResources                     |2           |ABORTED             |
++------------------------------------------------+------------+--------------------+
+|DeadlineExceededRequestStateUnknown             |3           |DEADLINE_EXCEEDED   |
++------------------------------------------------+------------+--------------------+
+|SystemInternalAssumptionViolated                |4           |INTERNAL            |
++------------------------------------------------+------------+--------------------+
+|MaliciousOrFaultyBehaviour                      |5           |UNKNOWN             |
++------------------------------------------------+------------+--------------------+
+|AuthInterceptorInvalidAuthenticationCredentials |6           |UNAUTHENTICATED     |
++------------------------------------------------+------------+--------------------+
+|InsufficientPermission                          |7           |PERMISSION_DENIED   |
++------------------------------------------------+------------+--------------------+
+|InvalidIndependentOfSystemState                 |8           |INVALID_ARGUMENT    |
++------------------------------------------------+------------+--------------------+
+|InvalidGivenCurrentSystemStateOther             |9           |FAILED_PRECONDITION |
++------------------------------------------------+------------+--------------------+
+|InvalidGivenCurrentSystemStateResourceExists    |10          |ALREADY_EXISTS      |
++------------------------------------------------+------------+--------------------+
+|InvalidGivenCurrentSystemStateResourceMissing   |11          |NOT_FOUND           |
++------------------------------------------------+------------+--------------------+
+|InvalidGivenCurrentSystemStateSeekAfterEnd      |12          |OUT_OF_RANGE        |
++------------------------------------------------+------------+--------------------+
+|BackgroundProcessDegradationWarning             |13          |N/A                 |
++------------------------------------------------+------------+--------------------+
 
-Other
-********
 
-TODO: Read no further (in this section). Here be dragons.
-
-For participant operators: We aim to guarantee that every error returned from the Participant API:
-- is logged,
-- is logged at appropriate level,
-- error returned to the user contains metadata (trace id) by which participant operators can identify
-  related log messages.
-
-In particular self-service error codes aim at improve in the following areas:
-- Offer a complete inventory of possible Ledger API error codes as documented on this page.
-- Describe each error code byProvide meaningful Ledger error codes on which an application
-  or participant operator can act in many cases in a self-service manner.
-- Explanation, Category, Conveyance and Resolution.
+Anatomy of an Error
+==========================
 
 
-Error codes inventory
+Errors returned to users are represented as instances of standard StatusRuntimeException_.
+As such they contain a `gRPC status code`_, a description and additional machine readable information
+represented in the `rich gRPC error model`_.
+
+
+Error Description
+--------------------------
+
+We use the `standard gRPC description`_ that additionally adheres to our custom message format:
+
+.. code-block:: java
+
+    <ERROR_CODE_ID>(<CATEGORY_ID>,<TRUNCATED_CORRELATION_ID>):<HUMAN_READABLE_MESSAGE>
+
+The constituent parts are:
+
+  - ``<ERROR_CODE_ID>`` - a unique non empty string containing at most 63 characters:
+    upper-cased letters, underscores or digits.
+    Identifies corresponding error code id.
+
+  - ``<CATEGORY_ID>`` - a small integer identifying the corresponding error category.
+
+  - ``<TRUNCATED_CORRELATION_ID>`` - a string aimed at identifying originating request.
+    Contains at most 8 characters of the original correlation id.
+    NOTE: Contains value ``0`` if no correlation id was given.
+    Full correlation id can be found in error's additional machine readable information
+    (see `Additional machine readable information`_).
+
+  - ``:`` - a colon character that serves as a separator for the machine and human readable parts.
+
+  - ``<HUMAN_READABLE_MESSAGE>`` - message targeted at a human reader.
+                                   Should never be parsed by applications, as the description might change
+                                   in future releases to improve clarity.
+
+In a concrete example an error description might look like this:
+
+.. code-block:: java
+
+    TRANSACTION_NOT_FOUND(11,12345): Transaction not found, or not visible.
+
+
+Additional Machine Readable Information
+----------------------------------------------------
+
+We use following error details:
+
+ - A mandatory ``com.google.rpc.ErrorInfo`` containing `error code id`.
+
+ - A mandatory ``com.google.rpc.RequestInfo`` containing (not-truncated) correlation id
+   (or ``0`` if correlation id is not available).
+
+ - An optional ``com.google.rpc.RetryInfo`` containing retry interval in seconds.
+
+ - An optional ``com.google.rpc.ResourceInfo`` containing information about the resource the failure is based on.
+   Any request that fails due to some well-defined resource issues (such as contract, contract-key, package, party, template, domain, etc..) will contain these.
+   Particular resources are implementation specific and vary across ledger implementations.
+
+Many errors will include more information,
+but there is no guarantee given that additional information will be preserved across versions.
+
+
+
+
+Logging
+=============
+
+Generally, we use the following log-levels on the server:
+
+ - ``INFO`` to log user errors, where the error leads to a failure of the request but the system remains healthy.
+
+ - ``WARN`` to log degradations of the system or point out rather unusual behaviour.
+
+ - ``ERROR`` to log internal errors within the system, where the system does not behave properly and immediate attention is required.
+
+
+
+Error Codes Inventory
 **********************
 
 .. list-all-error-codes::

@@ -10,6 +10,8 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import java.nio.charset.StandardCharsets
 
+import com.daml.error.ErrorCategory
+
 // TODO error codes: Delete it once final version of migration guide is ready.
 /** How to update self-service error codes migration guide table:
   * 1. Make appropriate changes to self-service-error-codes-migration.yml.
@@ -18,6 +20,27 @@ import java.nio.charset.StandardCharsets
   */
 object SelfServiceErrorCodes_MigrationGuideGen_App {
   def main(args: Array[String]): Unit = {
+
+    // Generate error categories table
+    val errorCategoriesTable: Array[Array[String]] = ErrorCategory.all.map { cat: ErrorCategory =>
+      val intValue: String = cat.asInt.toString
+      val grpcCode: String = cat.grpcCode.fold("N/A")(_.toString)
+      val name: String = cat.getClass.getSimpleName.replace("$", "")
+
+      Array(name, intValue, grpcCode)
+
+    }.toArray
+
+    val errorCategoryTableText = generateReStTable(
+      errorCategoriesTable,
+      header = Array("Error category", "Category id", "gRPC code"),
+    )
+
+    println(errorCategoryTableText)
+    println()
+    println("Error category table done")
+
+    // Generation migration table
     val changes: Seq[Change] = parseErrorsYml(
       "com/daml/platform/docs/self-service-error-codes-migration.yml"
     ).toList
