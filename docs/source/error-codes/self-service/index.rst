@@ -1,7 +1,7 @@
 .. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Self-Service Error Codes (Experimental)
+Self-Service Error Codes
 #######################################
 
 .. toctree::
@@ -11,7 +11,7 @@ Self-Service Error Codes (Experimental)
 
 
 Self-Service Error Codes Migration Guide
-########################################
+----------------------------------------
 
 The introduction of the self-service error codes means that some of the gRPC error codes returned from service endpoints change.
 Consult the sections below for details on those changes.
@@ -21,8 +21,9 @@ For example, a service method previously returning gRPC error code ``CODE_A`` ma
 ``CODE_B`` for some error condition while returning ``CODE_A`` for other conditions,
 and only an entry for the change from ``CODE_A`` in ``CODE_B`` is included in the table below.
 
-Generic Ledger API gRPC Code Changes
-------------------------------------
+Ledger API
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 The table below outlines generic gRPC error code changes pertaining to the Ledger API
 and apply to all ledger backends. For changes specific to a ledger backend, check the next subsections.
 
@@ -138,8 +139,8 @@ and apply to all ledger backends. For changes specific to a ledger backend, chec
 |TransactionService.getTransactions                |NOT_FOUND          |FAILED_PRECONDITION      |FAILED_PRECONDITION can now be returned when attempting to access the data that has already been pruned.                 |PARTICIPANT_PRUNED_DATA_ACCESSED             |
 +--------------------------------------------------+-------------------+-------------------------+-------------------------------------------------------------------------------------------------------------------------+---------------------------------------------+
 
-Sandbox Classic gRPC Code Changes
----------------------------------
+Sandbox Classic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The following gRPC error codes have changed for submission rejections in Sandbox classic.
 
@@ -159,8 +160,8 @@ The following gRPC error codes have changed for submission rejections in Sandbox
 |INVALID_ARGUMENT                |NOT_FOUND                             |PARTY_NOT_KNOWN_ON_LEDGER is now returned on transaction rejections on unallocated parties. |PARTY_NOT_KNOWN_ON_LEDGER               |
 +--------------------------------+--------------------------------------+--------------------------------------------------------------------------------------------+----------------------------------------+
 
-Key-Value-based Ledgers gRPC Code Changes
------------------------------------------
+Key-Value-based Ledgers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The following gRPC error codes have changed for submission rejections in the Ledger API backed by KV-based ledgers.
 
