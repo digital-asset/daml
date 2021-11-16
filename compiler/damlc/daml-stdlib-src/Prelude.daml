@@ -25,3 +25,4 @@ import DA.Internal.Template.Functions as X
 #endif
 import DA.Internal.Compatible as X
 import DA.Internal.Assert as X
+import DA.Internal.Desugar as X (Implements (..))
