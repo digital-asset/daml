@@ -4,6 +4,7 @@
 package com.daml.resources.akka
 
 import java.util.concurrent.atomic.AtomicBoolean
+
 import akka.actor.{Actor, ActorSystem, Cancellable, Props}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import akka.stream.scaladsl.{Keep, Sink, Source}

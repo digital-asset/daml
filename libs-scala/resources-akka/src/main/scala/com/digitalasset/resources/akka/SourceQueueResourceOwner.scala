@@ -15,10 +15,8 @@ class SourceQueueResourceOwner[T, Context: HasExecutionContext](
     materializer: Materializer
 ) extends AbstractResourceOwner[Context, SourceQueue[T]] {
   override def acquire()(implicit context: Context): Resource[Context, SourceQueue[T]] =
-    ReleasableResource(Future(queueGraph.run()))(queue =>
-      {
-        queue.complete()
-        queue.watchCompletion()
-      }.map(_ => ())
-    )
+    ReleasableResource(Future(queueGraph.run())) { queue =>
+      queue.complete()
+      queue.watchCompletion().map(_ => ())
+    }
 }
