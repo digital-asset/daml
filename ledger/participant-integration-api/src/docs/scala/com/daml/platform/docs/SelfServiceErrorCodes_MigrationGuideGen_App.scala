@@ -70,7 +70,7 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
         "gRPC status code (legacy errors)",
         "gRPC status code (self-service errors)",
         "Remarks",
-        "Sef-service error code id",
+        "Self-service error code ID",
       ),
     )
     println(reStTable)

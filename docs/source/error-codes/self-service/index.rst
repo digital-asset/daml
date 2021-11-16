@@ -16,7 +16,7 @@ Self-Service Error Codes Migration Guide
 The introduction of the self-service error codes means that some of the gRPC error codes returned from service endpoints change.
 Consult the sections below for details on those changes.
 
-Note that the tables below contain entries only for cases where a gRPC codes was changed.
+Note that the tables below contain entries only for cases where a gRPC code was changed.
 For example, a service method previously returning gRPC error code ``CODE_A`` may now return 
 ``CODE_B`` for some error condition while returning ``CODE_A`` for other conditions,
 and only an entry for the change from ``CODE_A`` in ``CODE_B`` is included in the table below.
