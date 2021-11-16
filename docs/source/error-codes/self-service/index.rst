@@ -91,7 +91,7 @@ in a sensible way to automatically deal with errors and decide whether to retry
 a request or escalate to the operator.
 
 TransientServerFailure
-````````````````````````````````````````````````````````````````````````````````````````````````
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     **Category id**: 1
 
     **gRPC status code**: UNAVAILABLE
@@ -106,7 +106,7 @@ TransientServerFailure
 
 
 ContentionOnSharedResources
-````````````````````````````````````````````````````````````````````````````````````````````````
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     **Category id**: 2
 
     **gRPC status code**: ABORTED
@@ -121,7 +121,7 @@ ContentionOnSharedResources
 
 
 DeadlineExceededRequestStateUnknown
-````````````````````````````````````````````````````````````````````````````````````````````````
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     **Category id**: 3
 
     **gRPC status code**: DEADLINE_EXCEEDED
@@ -136,7 +136,7 @@ DeadlineExceededRequestStateUnknown
 
 
 SystemInternalAssumptionViolated
-````````````````````````````````````````````````````````````````````````````````````````````````
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     **Category id**: 4
 
     **gRPC status code**: INTERNAL
@@ -151,7 +151,7 @@ SystemInternalAssumptionViolated
 
 
 MaliciousOrFaultyBehaviour
-````````````````````````````````````````````````````````````````````````````````````````````````
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     **Category id**: 5
 
     **gRPC status code**: UNKNOWN
@@ -166,7 +166,7 @@ MaliciousOrFaultyBehaviour
 
 
 AuthInterceptorInvalidAuthenticationCredentials
-````````````````````````````````````````````````````````````````````````````````````````````````
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     **Category id**: 6
 
     **gRPC status code**: UNAUTHENTICATED
@@ -181,7 +181,7 @@ AuthInterceptorInvalidAuthenticationCredentials
 
 
 InsufficientPermission
-````````````````````````````````````````````````````````````````````````````````````````````````
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     **Category id**: 7
 
     **gRPC status code**: PERMISSION_DENIED
@@ -196,7 +196,7 @@ InsufficientPermission
 
 
 InvalidIndependentOfSystemState
-````````````````````````````````````````````````````````````````````````````````````````````````
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     **Category id**: 8
 
     **gRPC status code**: INVALID_ARGUMENT
@@ -211,7 +211,7 @@ InvalidIndependentOfSystemState
 
 
 InvalidGivenCurrentSystemStateOther
-````````````````````````````````````````````````````````````````````````````````````````````````
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     **Category id**: 9
 
     **gRPC status code**: FAILED_PRECONDITION
@@ -226,7 +226,7 @@ InvalidGivenCurrentSystemStateOther
 
 
 InvalidGivenCurrentSystemStateResourceExists
-````````````````````````````````````````````````````````````````````````````````````````````````
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     **Category id**: 10
 
     **gRPC status code**: ALREADY_EXISTS
@@ -241,7 +241,7 @@ InvalidGivenCurrentSystemStateResourceExists
 
 
 InvalidGivenCurrentSystemStateResourceMissing
-````````````````````````````````````````````````````````````````````````````````````````````````
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     **Category id**: 11
 
     **gRPC status code**: NOT_FOUND
@@ -256,7 +256,7 @@ InvalidGivenCurrentSystemStateResourceMissing
 
 
 InvalidGivenCurrentSystemStateSeekAfterEnd
-````````````````````````````````````````````````````````````````````````````````````````````````
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     **Category id**: 12
 
     **gRPC status code**: OUT_OF_RANGE
@@ -271,7 +271,7 @@ InvalidGivenCurrentSystemStateSeekAfterEnd
 
 
 BackgroundProcessDegradationWarning
-````````````````````````````````````````````````````````````````````````````````````````````````
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     **Category id**: 13
 
     **gRPC status code**: N/A
@@ -317,7 +317,7 @@ The constituent parts are:
     Contains at most 8 characters of the original correlation id.
     NOTE: Contains value ``0`` if no correlation id was given.
     Full correlation id can be found in error's additional machine readable information
-    (see `Additional machine readable information`_).
+    (see `Additional Machine Readable Information`_).
 
   - ``:`` - a colon character that serves as a separator for the machine and human readable parts.
 

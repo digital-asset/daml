@@ -123,7 +123,7 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
 
     def genSubsectionsForErrorCategory(a: Array[String]) = {
       s"""${a(0)}
-         |````````````````````````````````````````````````````````````````````````````````````````````````
+         |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
          |    **Category id**: ${a(1)}
          |
          |    **gRPC status code**: ${a(2)}
