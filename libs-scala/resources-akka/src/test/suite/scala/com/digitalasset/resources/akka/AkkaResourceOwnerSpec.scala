@@ -3,26 +3,24 @@
 
 package com.daml.resources.akka
 
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
 
 import akka.actor.{Actor, ActorSystem, Cancellable, Props}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
-import akka.stream.scaladsl.{Keep, Sink, Source}
+import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueue}
 import akka.{Done, NotUsed}
 import com.daml.resources.{HasExecutionContext, ResourceOwnerFactories, TestContext}
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.wordspec.AnyWordSpec
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{Await, ExecutionContext, Future, Promise, blocking}
+import scala.concurrent.duration.DurationInt
 
-final class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
-  private val Factories = new ResourceOwnerFactories[TestContext]
-    with AkkaResourceOwnerFactories[TestContext] {
-    override protected implicit val hasExecutionContext: HasExecutionContext[TestContext] =
-      TestContext.`TestContext has ExecutionContext`
-  }
+final class AkkaResourceOwnerSpec extends AnyWordSpec with Matchers {
 
-  private implicit val context: TestContext = new TestContext(executionContext)
+  import AkkaResourceOwnerSpec._
+
+  private implicit val context: TestContext = new TestContext(ExecutionContext.global)
 
   "a function returning an ActorSystem" should {
     "convert to a ResourceOwner" in {
@@ -35,56 +33,60 @@ final class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
         }
       }
 
-      val resource = for {
-        actorSystem <- Factories
-          .forActorSystem(() => ActorSystem("TestActorSystem"))
-          .acquire()
-        actor <- Factories
-          .successful(actorSystem.actorOf(Props(new TestActor)))
-          .acquire()
+      val resourceOwner = for {
+        actorSystem <- Factories.forActorSystem(() => ActorSystem("TestActorSystem"))
+        actor <- Factories.successful(actorSystem.actorOf(Props(new TestActor)))
       } yield (actorSystem, actor)
 
-      for {
-        resourceFuture <- resource.asFuture
-        (actorSystem, actor) = resourceFuture
-        _ = actor ! 7
-        result <- testPromise.future
-        _ <- resource.release()
-      } yield {
+      val actorSystemReference = new AtomicReference[ActorSystem]()
+
+      val resultFuture = resourceOwner
+        .use { case (actorSystem, actor) =>
+          actorSystemReference.set(actorSystem)
+          actor ! 7
+          testPromise.future
+        }
+
+      blocking {
+        val result = Await.result(resultFuture, TimeoutDuration)
         result should be(7)
-        an[IllegalStateException] should be thrownBy actorSystem.actorOf(Props(new TestActor))
+        an[IllegalStateException] should be thrownBy actorSystemReference.get.actorOf(
+          Props(new TestActor)
+        )
       }
     }
   }
 
   "a function returning a Materializer" should {
     "convert to a ResourceOwner" in {
-      val resource = for {
-        actorSystem <- Factories
-          .forActorSystem(() => ActorSystem("TestActorSystem"))
-          .acquire()
-        materializer <- Factories.forMaterializer(() => Materializer(actorSystem)).acquire()
+      val resourceOwner = for {
+        actorSystem <- Factories.forActorSystem(() => ActorSystem("TestActorSystem"))
+        materializer <- Factories.forMaterializer(() => Materializer(actorSystem))
       } yield materializer
 
-      for {
-        materializer <- resource.asFuture
-        numbers <- Source(1 to 10)
+      val materializerReference = new AtomicReference[Materializer]()
+
+      val resultFuture = resourceOwner.use { materializer =>
+        materializerReference.set(materializer)
+        Source(1 to 10)
           .toMat(Sink.seq)(Keep.right[NotUsed, Future[Seq[Int]]])
           .run()(materializer)
-        _ <- resource.release()
-      } yield {
+      }
+
+      blocking {
+        val numbers = Await.result(resultFuture, TimeoutDuration)
         numbers should be(1 to 10)
         an[IllegalStateException] should be thrownBy Source
           .single(0)
           .toMat(Sink.ignore)(Keep.right[NotUsed, Future[Done]])
-          .run()(materializer)
+          .run()(materializerReference.get)
       }
     }
   }
 
   "a function returning a Cancellable" should {
     "convert to a ResourceOwner" in {
-      val cancellable: Cancellable = new Cancellable {
+      val cancellable = new Cancellable {
         private val isCancelledAtomic = new AtomicBoolean
 
         override def cancel(): Boolean =
@@ -93,13 +95,15 @@ final class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
         override def isCancelled: Boolean =
           isCancelledAtomic.get
       }
-      val resource = Factories.forCancellable(() => cancellable).acquire()
+      val resourceOwner = Factories.forCancellable(() => cancellable)
 
-      for {
-        cancellable <- resource.asFuture
-        _ = cancellable.isCancelled should be(false)
-        _ <- resource.release()
-      } yield {
+      val resultFuture = resourceOwner.use { cancellable =>
+        cancellable.isCancelled should be(false)
+        Future.unit
+      }
+
+      blocking {
+        Await.ready(resultFuture, TimeoutDuration)
         cancellable.isCancelled should be(true)
       }
     }
@@ -107,29 +111,41 @@ final class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
 
   "a function returning a SourceQueue" should {
     "convert to a ResourceOwner" in {
-      var number = 0
-      val resource = for {
+      val number = new AtomicInteger()
+      val resourceOwner = for {
         actorSystem <- Factories
           .forActorSystem(() => ActorSystem("TestActorSystem"))
-          .acquire()
-        materializer <- Factories.forMaterializer(() => Materializer(actorSystem)).acquire()
+        materializer <- Factories.forMaterializer(() => Materializer(actorSystem))
         sourceQueue <- Factories
           .forSourceQueue(
             Source
               .queue[Int](10, OverflowStrategy.backpressure)
-              .to(Sink.foreach(number = _))
+              .to(Sink.foreach(number.set))
           )(materializer)
-          .acquire()
       } yield sourceQueue
 
-      for {
-        queue <- resource.asFuture
-        offerResult <- queue.offer(123)
-        _ <- resource.release()
-      } yield {
+      val sourceQueueReference = new AtomicReference[SourceQueue[Int]]()
+
+      val resultFuture = resourceOwner.use { sourceQueue =>
+        sourceQueueReference.set(sourceQueue)
+        sourceQueue.offer(123)
+      }
+
+      blocking {
+        val offerResult = Await.result(resultFuture, TimeoutDuration)
         offerResult should be(QueueOfferResult.Enqueued)
-        number should be(123)
+        number.get should be(123)
       }
     }
+  }
+}
+
+object AkkaResourceOwnerSpec {
+  private val TimeoutDuration = 2.seconds
+
+  private val Factories = new ResourceOwnerFactories[TestContext]
+    with AkkaResourceOwnerFactories[TestContext] {
+    override protected implicit val hasExecutionContext: HasExecutionContext[TestContext] =
+      TestContext.`TestContext has ExecutionContext`
   }
 }
