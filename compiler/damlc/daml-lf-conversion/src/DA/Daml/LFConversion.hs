@@ -177,7 +177,7 @@ data Env = Env
     ,envExceptionBinds :: MS.Map TypeConName ExceptionBinds
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envImplements :: MS.Map TypeConName [GHC.TyCon]
-    ,envInterfaceInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) (GHC.Expr GHC.CoreBndr)
+    ,envInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
     ,envInterfaceChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envInterfaces :: MS.Map TypeConName GHC.TyCon
     ,envIsGenerated :: Bool
@@ -435,41 +435,50 @@ interfaceNames lfVersion tyThings
         ]
     | otherwise = MS.empty
 
-convertInterfaces :: Env -> [TyThing] -> ConvertM [Definition]
-convertInterfaces env tyThings = interfaceClasses
+convertInterfaces :: Env -> [(Var, GHC.Expr Var)] -> ConvertM [Definition]
+convertInterfaces env binds = interfaceDefs
   where
-    interfaceClasses :: ConvertM [Definition]
-    interfaceClasses = sequence
-        [ DInterface <$> convertInterface name tycon cls
-        | ATyCon t <- tyThings
-        , Just cls <- [tyConClass_maybe t]
-        , Just interface <- [T.stripPrefix "Is" (getOccText t)]
-        , let name = TypeConName [interface]
-        , Just tycon <- [MS.lookup name (envInterfaces env)]
-        ]
+    interfaceDefs :: ConvertM [Definition]
+    interfaceDefs = sequence
+      [ DInterface <$> convertInterface name tycon
+      | (name, val) <- binds
+      -- We're looking for `instance DA.Internal.Desugar.Implements I I`
+      , DFunId _ <- [idDetails name]
+      , TypeCon implementsCls [TypeCon tpl [], TypeCon ifc []] <- [varType name]
+      , NameIn DA_Internal_Desugar "Implements" <- [implementsCls]
+      , tpl == ifc
+      , let name = TypeConName [getOccText ifc]
+            tycon = ifc
+      ]
 
-    convertInterface :: LF.TypeConName -> GHC.TyCon -> Class -> ConvertM DefInterface
-    convertInterface intName tyCon cls = do
+    convertInterface :: LF.TypeConName -> GHC.TyCon -> ConvertM DefInterface
+    convertInterface intName tyCon = do
         let intLocation = convNameLoc (GHC.tyConName tyCon)
         let intParam = this
         let precond = fromMaybe (error $ "Missing precondition for interface " <> show intName)
                         $ (MS.lookup intName $ envInterfaceBinds env) >>= ibEnsure
         withRange intLocation $ do
-            intMethods <- NM.fromList <$> mapM convertMethod (drop 4 $ classMethods cls)
+            intMethods <- NM.fromList <$> convertMethods tyCon
             intFixedChoices <- convertChoices env intName emptyTemplateBinds
             intPrecondition <- useSingleMethodDict env precond (`ETmApp` EVar intParam)
             pure DefInterface {..}
 
-    convertMethod :: Var -> ConvertM InterfaceMethod
-    convertMethod method = do
-        retTy <- convertType env (varType method) >>= \case
-            TForall _ (_dict :-> _iface :-> retTy) -> pure retTy
-            ty -> unsupported "Interface method must be a function" (varType method)
-        let methodName = occNameString (getOccName (varName method))
+    convertMethods :: GHC.TyCon -> ConvertM [InterfaceMethod]
+    convertMethods tyCon = sequence $ do
+      (name, val) <- binds
+      DFunId _ <- [idDetails name]
+      TypeCon hasMethodCls
+        [ TypeCon ((== tyCon) -> True) []
+        , StrLitTy methodName
+        , retTy
+        ] <- [varType name]
+      NameIn DA_Internal_Desugar "HasMethod" <- [hasMethodCls]
+      pure $ do
+        retTy' <- convertType env retTy
         pure InterfaceMethod
           { ifmLocation = Nothing
-          , ifmName = MethodName (T.pack methodName)
-          , ifmType = retTy
+          , ifmName = MethodName methodName
+          , ifmType = retTy'
           }
 
 convertConsuming :: LF.Type -> ConvertM Consuming
@@ -497,7 +506,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
     depOrphanModules <- convertDepOrphanModules env depOrphanModules
     templates <- convertTemplateDefs env
     exceptions <- convertExceptionDefs env
-    interfaces <- convertInterfaces env (eltsUFM (cm_types x))
+    interfaces <- convertInterfaces env binds
     exports <- convertExports env (md_exports details)
     let defs =
             types
@@ -525,20 +534,37 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
           ]
         interfaceCons = interfaceNames lfVersion (eltsUFM (cm_types x))
         tplImplements = MS.fromListWith (++)
-           [ (mkTypeCon [getOccText tplTy], [ifaceTy])
-           | (name, _) <- binds
-           , "_implements_" `T.isPrefixOf` getOccText name
-           , TypeCon _ [TypeCon tplTy [], TypeCon ifaceTy []] <- [varType name]
-           ]
-        tplInterfaceInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) (GHC.Expr GHC.CoreBndr)
-        tplInterfaceInstances = MS.fromList
-           [ ((mod, mkTypeCon [iface], mkTypeCon [getOccText tpl]), val)
-           | (name, val) <- binds
-           , DFunId _ <- [idDetails name]
-           , TypeCon ifaceCls [TypeCon tpl []] <- [varType name]
-           , Just iface <- [T.stripPrefix "Is" $ getOccText ifaceCls]
-           , Just mod <- [nameModule_maybe (getName ifaceCls)]
-           ]
+          [ (mkTypeCon [getOccText tpl], [iface])
+          | (name, _val) <- binds
+          , DFunId _ <- [idDetails name]
+          , TypeCon implementsCls [TypeCon tpl [], TypeCon iface []] <- [varType name]
+          , NameIn DA_Internal_Desugar "Implements" <- [implementsCls]
+          ]
+        tplInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
+        tplInterfaceMethodInstances = MS.fromListWith (++)
+          [
+            ( (mod, mkTypeCon [getOccText iface], mkTypeCon [getOccText tpl])
+            , [(methodName, body)]
+            )
+          | (name, val) <- binds
+          , TypeCon methodNewtype
+            [ TypeCon tpl []
+            , TypeCon iface []
+            , StrLitTy methodName
+            , _methodType
+            ] <- [varType name]
+          , NameIn DA_Internal_Desugar "Method" <- [methodNewtype]
+          , Just mod <- [nameModule_maybe (getName iface)]
+          , Var (NameIn DA_Internal_Desugar "mkMethod")
+            `App` Type _tpl
+            `App` Type _iface
+            `App` Type _methodName
+            `App` Type _methodType
+            `App` _implDict
+            `App` _hasMethodDict
+            `App` body
+              <- [val]
+          ]
         choiceData = MS.fromListWith (++)
             [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
             | (name, v) <- binds
@@ -573,7 +599,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
           , envInterfaceBinds = interfaceBinds
           , envExceptionBinds = exceptionBinds
           , envImplements = tplImplements
-          , envInterfaceInstances = tplInterfaceInstances
+          , envInterfaceMethodInstances = tplInterfaceMethodInstances
           , envChoiceData = choiceData
           , envIsGenerated = isGenerated
           , envTypeVars = MS.empty
@@ -951,31 +977,26 @@ useSingleMethodDict env x _ =
     unhandled "useSingleMethodDict: not a single method type class dictionary" x
 
 convertImplements :: Env -> LF.TypeConName -> ConvertM (NM.NameMap TemplateImplements)
-convertImplements env tplTypeCon = NM.fromList <$>
-    mapM convertInterface (MS.findWithDefault [] tplTypeCon (envImplements env))
+convertImplements env tpl = NM.fromList <$>
+  mapM convertInterface (MS.findWithDefault [] tpl (envImplements env))
   where
-    convertInterface ty = do
-        ty' <- convertTyCon env ty
-        con <- case ty' of
-            TCon con -> pure con
-            _ -> unhandled "interface type" ty
-        let mod = nameModule (getName ty)
-        dictExpr <- case MS.lookup (mod, qualObject con, tplTypeCon) (envInterfaceInstances env) of
-            Just e -> pure e
-            Nothing -> unhandled ("missing interface instance for " <> show con) ()
-        fields <- convertExpr env dictExpr >>= \case
-            EStructCon fields -> pure fields
-            e -> unhandled ("Expected struct for interface dict but got " <> show e) ()
-        -- Drop superclass constraints and to/fromIface & to/fromIfaceContractId
-        -- which are always at the beginning.
-        let methodFields = drop 4 (filter (\(FieldName f, _) -> "m_" `T.isPrefixOf` f) fields)
-        let methods = NM.fromList
-                [ TemplateImplementsMethod (MethodName methodName) e
-                | (FieldName fieldName, e) <- methodFields
-                , Just methodName <- [T.stripPrefix "m_" fieldName]
-                ]
-        let inheritedChoiceNames = S.empty -- This is filled during LF post-processing (in the LF completer).
-        pure (TemplateImplements con methods inheritedChoiceNames)
+    convertInterface iface = do
+      iface' <- convertTyCon env iface
+      con <- case iface' of
+        TCon con -> pure con
+        _ -> unhandled "interface type" iface
+      let mod = nameModule (getName iface)
+      methods <- case MS.lookup (mod, qualObject con, tpl) (envInterfaceMethodInstances env) of
+        Just ms -> convertMethods ms
+        Nothing -> unhandled ("missing interface instance for " <> show con) ()
+
+      let inheritedChoiceNames = S.empty -- This is filled during LF post-processing (in the LF completer).
+      pure (TemplateImplements con methods inheritedChoiceNames)
+
+    convertMethods ms = fmap NM.fromList . sequence $
+      [ TemplateImplementsMethod (MethodName k) <$> convertExpr env v
+      | (k, v) <- ms
+      ]
 
 convertChoices :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
 convertChoices env tplTypeCon tbinds =
@@ -1137,7 +1158,7 @@ internalTypes = mkUniqSet
     ]
 
 desugarTypes :: UniqSet FastString
-desugarTypes = mkUniqSet ["Consuming", "PreConsuming", "PostConsuming", "NonConsuming", "Implements"]
+desugarTypes = mkUniqSet ["Consuming", "PreConsuming", "PostConsuming", "NonConsuming"]
 
 internalFunctions :: UniqFM (UniqSet FastString)
 internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
