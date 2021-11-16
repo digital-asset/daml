@@ -22,6 +22,7 @@ module DA.NonEmpty
   , reverse
   , find
   , delete
+  , deleteBy
   , foldl1
   , foldr1
   , foldr
