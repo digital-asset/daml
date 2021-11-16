@@ -1149,8 +1149,8 @@ abstract class AbstractHttpServiceIntegrationTest
       val exerciseJson: JsValue = encodeExercise(encoder)(iouExerciseTransferCommand(contractId))
       postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), exerciseJson)
         .flatMap { case (status, output) =>
-          status shouldBe StatusCodes.Conflict
-          assertStatus(output, StatusCodes.Conflict)
+          status shouldBe StatusCodes.NotFound
+          assertStatus(output, StatusCodes.NotFound)
           expectedOneErrorMessage(output) should include(
             s"Contract could not be found with id $contractIdString"
           )
