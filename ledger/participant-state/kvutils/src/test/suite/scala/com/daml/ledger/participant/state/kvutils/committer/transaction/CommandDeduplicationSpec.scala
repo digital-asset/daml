@@ -61,7 +61,7 @@ class CommandDeduplicationSpec
         val dedupValue = dedupValueBuilder(timestamp)
         val commitContext = createCommitContext(None, Map(aDedupKey -> dedupValue))
         commitContext.minimumRecordTime = Some(timestamp)
-        commitContext.maximumRecordTime = Some(timestamp)
+        commitContext.maximumRecordTime = Some(Timestamp.Epoch)
         timestamp -> commitContext
       }),
       "normal-execution" -> ((dedupValueBuilder: Timestamp => Option[DamlStateValue]) => {
@@ -116,7 +116,7 @@ class CommandDeduplicationSpec
           }
         }
 
-        "using deduplication duration" should {
+        "using record time" should {
           forAll(
             Table(
               "identifier" -> "time setter",
@@ -124,7 +124,7 @@ class CommandDeduplicationSpec
                 (builder: DamlCommandDedupValue.Builder) =>
                   builder.setRecordTime(buildTimestamp(timestamp))
               ),
-              "max record time" -> ((timestamp: Timestamp) =>
+              "record time bounds" -> ((timestamp: Timestamp) =>
                 (builder: DamlCommandDedupValue.Builder) =>
                   builder.setRecordTimeBounds(
                     buildPreExecutionDeduplicationBounds(timestamp, timestamp)
@@ -182,7 +182,7 @@ class CommandDeduplicationSpec
         )
         val commitContext = createCommitContext(None, Map(aDedupKey -> Some(dedupValue)))
         commitContext.minimumRecordTime = Some(timestamp.subtract(Duration.ofMillis(1)))
-        commitContext.maximumRecordTime = Some(timestamp)
+        commitContext.maximumRecordTime = Some(Timestamp.Epoch)
 
         deduplicateStepHasTransactionRejectionEntry(commitContext)
       }
@@ -205,7 +205,7 @@ class CommandDeduplicationSpec
         )
         val commitContext = createCommitContext(None, Map(aDedupKey -> Some(dedupValue)))
         commitContext.minimumRecordTime = Some(timestamp)
-        commitContext.maximumRecordTime = Some(timestamp)
+        commitContext.maximumRecordTime = Some(timestamp.add(Duration.ofSeconds(1)))
 
         val rejectionEntry = deduplicateStepHasTransactionRejectionEntry(commitContext)
         rejectionEntry.getSubmitterInfo.getDeduplicationDuration shouldBe buildDuration(
@@ -213,9 +213,11 @@ class CommandDeduplicationSpec
         )
       }
 
-      "the deduplication duration is the delta between records when this exceeds the command deduplication rejection" in {
+      "the deduplication duration is the delta between records when this exceeds the deduplication duration sent in the command" in {
         val dedupValue = newDedupValue(
-          _.setRecordTimeBounds(buildPreExecutionDeduplicationBounds(timestamp, timestamp))
+          _.setRecordTimeBounds(
+            buildPreExecutionDeduplicationBounds(timestamp, timestamp.add(Duration.ofSeconds(1)))
+          )
         )
         val commitContext = createCommitContext(None, Map(aDedupKey -> Some(dedupValue)))
         val deltaBetweenRecords = deduplicationDuration.plusMillis(1)
