@@ -58,9 +58,9 @@ Error
 
         - an `error category`,
 
-        - a `correlation id`.
+        - a `correlation id`,
 
-        - a human readable message
+        - a human readable message,
 
         - and optional additional metadata.
 
@@ -80,7 +80,9 @@ Error category
                  you can act on particular error codes.
 
 Correlation id
-                  a value whose purpose is to allow a user to clearly identify the request, such that the operator can lookup any log information associated with this error.
+                  A value whose purpose is to allow a user to clearly identify the request,
+                  such that the operator can lookup any log information associated with this error.
+                  We use request's submission id for correlation id.
 
 
 Error Categories
@@ -137,7 +139,7 @@ We use the `standard gRPC description`_ that additionally adheres to our custom 
 
 .. code-block:: java
 
-    <ERROR_CODE_ID>(<CATEGORY_ID>,<TRUNCATED_CORRELATION_ID>):<HUMAN_READABLE_MESSAGE>
+    <ERROR_CODE_ID>(<CATEGORY_ID>,<CORRELATION_ID_PREFIX>):<HUMAN_READABLE_MESSAGE>
 
 The constituent parts are:
 
@@ -147,9 +149,9 @@ The constituent parts are:
 
   - ``<CATEGORY_ID>`` - a small integer identifying the corresponding error category.
 
-  - ``<TRUNCATED_CORRELATION_ID>`` - a string aimed at identifying originating request.
-    Contains at most 8 characters of the original correlation id.
-    NOTE: Contains value ``0`` if no correlation id was given.
+  - ``<CORRELATION_ID_PREFIX>`` - a string aimed at identifying originating request.
+    Absence of one is indicated by value ``0``.
+    If present it is an 8 character long prefix of the corresponding request's submission id.
     Full correlation id can be found in error's additional machine readable information
     (see `Additional machine readable information`_).
 
