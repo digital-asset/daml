@@ -46,7 +46,7 @@ duplicateCommandException:
 ledgerIdMismatch:
   change:
     - NOT_FOUND
-    - FAILED_PRECONDITION
+    - NOT_FOUND
   changeExplanation: ""
   selfServiceErrorCodeId: LEDGER_ID_MISMATCH
   services:
