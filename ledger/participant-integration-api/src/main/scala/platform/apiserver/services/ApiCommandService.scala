@@ -163,7 +163,7 @@ private[apiserver] final class ApiCommandService private[services] (
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] =
     Future
       .failed(
-        errorFactories.serviceNotRunning(definiteAnswer = Some(false))(
+        errorFactories.serviceNotRunning("Command Service")(definiteAnswer = Some(false))(
           new DamlContextualizedErrorLogger(
             logger,
             loggingContext,

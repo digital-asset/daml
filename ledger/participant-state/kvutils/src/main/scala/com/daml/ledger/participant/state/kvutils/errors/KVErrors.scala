@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.errors
 
+import com.daml.error.definitions.ErrorGroups
+
 import java.time.Instant
 import com.daml.error.{
   ContextualizedErrorLogger,
@@ -12,14 +14,13 @@ import com.daml.error.{
   Explanation,
   Resolution,
 }
-import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LedgerApiErrorGroup
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.InternallyInconsistentTransaction
 
 @Explanation(
   "Errors that are specific to ledgers based on the KV architecture. " +
     "Note that this section will soon cover all ledgers due to an ongoing error consolidation effort."
 )
-object KVErrors extends LedgerApiErrorGroup {
+object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
 
   @Explanation("Errors that relate to the Daml concepts of time.")
   object Time extends ErrorGroup() {

@@ -38,7 +38,7 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
           ledger,
           failure,
           Status.Code.NOT_FOUND,
-          LedgerApiErrors.CommandValidation.LedgerIdMismatch,
+          LedgerApiErrors.RequestValidation.LedgerIdMismatch,
           Some(s"Ledger ID '$invalidLedgerId' not found."),
         )
       }
@@ -85,8 +85,8 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
         else Status.Code.INVALID_ARGUMENT
       val expectedError =
         if (ledger.features.selfServiceErrorCodes)
-          LedgerApiErrors.CommandValidation.InvalidDeduplicationPeriodField
-        else LedgerApiErrors.CommandValidation.InvalidField
+          LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
+        else LedgerApiErrors.RequestValidation.InvalidField
       assertGrpcErrorRegex(
         ledger,
         failure,

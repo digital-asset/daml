@@ -96,9 +96,10 @@ private[apiserver] final class ApiPackageService private (
           Future.failed[T](
             ValidationLogger.logFailure(
               request,
-              errorFactories.malformedPackageId(errorMessage)(
-                createContextualizedErrorLogger
-              ),
+              errorFactories
+                .invalidArgument(Some(true))(s"Invalid package id: $errorMessage")(
+                  createContextualizedErrorLogger
+                ),
             )
           ),
         packageId => block(packageId),

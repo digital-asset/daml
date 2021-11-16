@@ -44,7 +44,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         beta,
         failure,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.ReadErrors.TransactionNotFound,
+        LedgerApiErrors.RequestValidation.NotFound.Transaction,
         Some("Transaction not found, or not visible."),
       )
     }
@@ -64,7 +64,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.ReadErrors.TransactionNotFound,
+        LedgerApiErrors.RequestValidation.NotFound.Transaction,
         Some("Transaction not found, or not visible."),
       )
     }
@@ -100,7 +100,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.ReadErrors.TransactionNotFound,
+        LedgerApiErrors.RequestValidation.NotFound.Transaction,
         Some("Transaction not found, or not visible."),
       )
     }
@@ -120,7 +120,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.ReadErrors.TransactionNotFound,
+        LedgerApiErrors.RequestValidation.NotFound.Transaction,
         Some("Transaction not found, or not visible."),
       )
     }
@@ -158,7 +158,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         beta,
         failure,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.ReadErrors.TransactionNotFound,
+        LedgerApiErrors.RequestValidation.NotFound.Transaction,
         Some("Transaction not found, or not visible."),
       )
     }
@@ -178,7 +178,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.ReadErrors.TransactionNotFound,
+        LedgerApiErrors.RequestValidation.NotFound.Transaction,
         Some("Transaction not found, or not visible."),
       )
     }
@@ -216,7 +216,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.ReadErrors.TransactionNotFound,
+        LedgerApiErrors.RequestValidation.NotFound.Transaction,
         Some("Transaction not found, or not visible."),
       )
     }
@@ -236,7 +236,7 @@ class TransactionServiceQueryIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.ReadErrors.TransactionNotFound,
+        LedgerApiErrors.RequestValidation.NotFound.Transaction,
         Some("Transaction not found, or not visible."),
       )
     }
