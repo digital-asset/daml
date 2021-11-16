@@ -224,6 +224,7 @@ da_scala_test_suite(
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/flyway-testing",
+        "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",

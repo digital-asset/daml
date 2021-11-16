@@ -57,7 +57,6 @@ trait QueryPayloadBenchmark extends ContractDaoBenchmark {
   @Setup(Level.Trial)
   override def setup(): Unit = {
     super.setup()
-    println(s"inserting template $tpid")
     surrogateTpid = insertTemplate(tpid)
 
     val parties: List[String] = party :: (0 until extraParties).map(i => s"p$i").toList
