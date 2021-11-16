@@ -187,22 +187,6 @@ but there is no guarantee given that additional information will be preserved ac
 
 
 
-
-Logging
----------------------------
-
-Errors reported over the gRPC are also written into the logfile. The communicated information is
-consistent between those two sources. A level at which errors are logged is determined by their
-respective error categories. We use the following log-levels:
-
- - ``INFO`` to log user errors, where the error leads to a failure of the request but the system remains healthy.
-
- - ``WARN`` to log degradations of the system or point out rather unusual behaviour.
-
- - ``ERROR`` to log internal errors within the system, where the system does not behave properly and immediate attention is required.
-
-
-
 Error Codes Inventory
 **********************
 
