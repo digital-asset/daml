@@ -1063,6 +1063,9 @@ convertBind env (name, x)
     -- These are only used as markers for the LF conversion.
     | "_implements_" `T.isPrefixOf` getOccText name
     = pure []
+    -- These are moved into interface implementations so we can drop them
+    | "_method_" `T.isPrefixOf` getOccText name
+    = pure []
 
     -- Remove internal functions.
     | Just internals <- lookupUFM internalFunctions (envGHCModuleName env)
