@@ -46,6 +46,48 @@ class Implements t i where
   fromInterfaceContractId : ContractId i -> Update (Optional (ContractId t))
   interfaceTypeRep : t -> TypeRep
 
+{-
+Together, `HasMethod`, `Method` and `mkMethod` allow us to desugar the methods of
+an interface implementation in `RdrHsSyn`, while ensuring that all implementations
+have the same type.
+
+Given
+
+> interface Iface where
+>   myMethod : MyMethodType
+
+`RdrHsSyn` generates this instance of `HasMethod`
+
+> instance HasMethod Iface "myMethod" MyMethodType
+
+Meanwhile, given
+
+> template Tplt
+>   with
+>     ...
+>   where
+>     ...
+>     implements Iface where
+>       let myMethod = myMethodImpl this
+
+`RdrHsSyn` generates the following binding
+
+> _method_Tplt_Iface_myMethod = mkMethod @Tplt @Iface @"myMethod" (\this -> myMethodImpl this)
+
+Note that `RdrHsSyn` cannot give a type signature to `_method_Tplt_Iface_myMethod`, since
+the type of the method is not available in the `implements` block.
+
+Then how can we ensure that all implementations of that method have the right type?
+By wrapping the method implementation in the `Method t i m r` type using the
+`mkMethod` function with the necessary type applications, we bind the first three
+type variables `t i m` to the template, interface and method name types, respectively.
+Then, the functional dependency `i m -> r` in the `HasMethod` class guarantees
+that for the given interface type and method name, the return type `r` is fixed.
+Finally, the compiler has to unify the argument to `mkMethod` with the type
+`t -> r`, guaranteeing that all implementations have the correct type.
+-}
+
+-- Read: Interface `i` has a method named `m` with return type `r`
 class HasMethod i (m : Symbol) r | i m -> r
 
 newtype Method t i (m : Symbol) r = Method { unMethod : t -> r }
