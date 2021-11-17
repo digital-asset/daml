@@ -1170,6 +1170,9 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
     , ("GHC.Base",
         [ "getTag"
         ])
+    , ("DA.Internal.Desugar",
+        [ "mkMethod"
+        ])
     ]
 
 convertExpr :: Env -> GHC.Expr Var -> ConvertM LF.Expr
