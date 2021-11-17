@@ -26,11 +26,11 @@ import io.grpc.{Metadata, StatusRuntimeException}
 import scalaz.syntax.tag._
 
 import java.sql.{SQLNonTransientException, SQLTransientException}
-import java.time.Duration
+import java.time.{Duration, Instant}
 import scala.annotation.nowarn
 
 class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitcher) {
-  object TrackerErrors {
+  object SubmissionQueueErrors {
     def failedToEnqueueCommandSubmission(message: String)(t: Throwable)(implicit
         contextualizedErrorLogger: ContextualizedErrorLogger
     ): Status =
@@ -50,22 +50,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           .asGrpcStatusFromContext,
       )
 
-    def commandServiceIngressBufferFull()(implicit
-        contextualizedErrorLogger: ContextualizedErrorLogger
-    ): Status =
-      errorCodesVersionSwitcher.choose(
-        v1 = {
-          val status = io.grpc.Status.RESOURCE_EXHAUSTED
-            .withDescription("Ingress buffer is full")
-          val statusBuilder = GrpcStatus.toJavaBuilder(status)
-          GrpcStatus.buildStatus(Map.empty, statusBuilder)
-        },
-        v2 = LedgerApiErrors.ParticipantBackpressure
-          .Rejection("Command service ingress buffer is full")
-          .asGrpcStatusFromContext,
-      )
-
-    def commandSubmissionQueueClosed()(implicit
+    def queueClosed(queueName: String)(implicit
         contextualizedErrorLogger: ContextualizedErrorLogger
     ): Status =
       errorCodesVersionSwitcher.choose(
@@ -75,7 +60,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           GrpcStatus.buildStatus(Map.empty, statusBuilder)
         },
         v2 = LedgerApiErrors.ServiceNotRunning
-          .Reject("Command service submission queue")
+          .Reject(queueName)
           .asGrpcStatusFromContext,
       )
 
@@ -115,6 +100,21 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           .asGrpcStatusFromContext,
       )
     }
+
+    def submissionIngressBufferFull()(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): Status =
+      errorCodesVersionSwitcher.choose(
+        v1 = {
+          val status = io.grpc.Status.RESOURCE_EXHAUSTED
+            .withDescription("Ingress buffer is full")
+          val statusBuilder = GrpcStatus.toJavaBuilder(status)
+          GrpcStatus.buildStatus(Map.empty, statusBuilder)
+        },
+        v2 = LedgerApiErrors.ParticipantBackpressure
+          .Rejection("The submission ingress buffer is full")
+          .asGrpcStatusFromContext,
+      )
   }
 
   def sqlTransientException(exception: SQLTransientException)(implicit
@@ -477,6 +477,21 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         .asGrpcError,
     )
 
+  def missingLedgerConfig(
+      v1Status: RpcStatus,
+      message: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): com.google.rpc.status.Status =
+    errorCodesVersionSwitcher.choose(
+      v1 = v1Status,
+      v2 = GrpcStatus.toProto(
+        LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration
+          .RejectWithMessage(message)
+          .asGrpcStatusFromContext
+      ),
+    )
+
   def participantPrunedDataAccessed(message: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
@@ -685,6 +700,31 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
             .asGrpcStatusFromContext
         ),
       )
+
+    def invalidLedgerTime(
+        v1Status: RpcStatus,
+        ledgerTime: Instant,
+        ledgerTimeLowerBound: Instant,
+        ledgerTimeUpperBound: Instant,
+    )(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): com.google.rpc.status.Status = {
+      val details =
+        s"Ledger time $ledgerTime outside of range [$ledgerTimeLowerBound, $ledgerTimeUpperBound]"
+      errorCodesVersionSwitcher.choose(
+        v1 = v1Status,
+        v2 = GrpcStatus.toProto(
+          LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
+            .RejectEnriched(
+              details,
+              ledgerTime,
+              ledgerTimeLowerBound,
+              ledgerTimeUpperBound,
+            )
+            .asGrpcStatusFromContext
+        ),
+      )
+    }
 
     def inconsistent(reason: String)(implicit
         contextualizedErrorLogger: ContextualizedErrorLogger

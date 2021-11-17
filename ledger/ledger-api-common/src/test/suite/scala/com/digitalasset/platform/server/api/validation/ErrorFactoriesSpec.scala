@@ -90,7 +90,7 @@ class ErrorFactoriesSpec
       "return failedToEnqueueCommandSubmission" in {
         val t = new Exception("message123")
         assertVersionedStatus(
-          _.TrackerErrors.failedToEnqueueCommandSubmission("some message")(t)(
+          _.SubmissionQueueErrors.failedToEnqueueCommandSubmission("some message")(t)(
             contextualizedErrorLogger
           )
         )(
@@ -109,7 +109,7 @@ class ErrorFactoriesSpec
 
       "return ingressBufferFull" in {
         assertVersionedStatus(
-          _.TrackerErrors.commandServiceIngressBufferFull()(
+          _.SubmissionQueueErrors.submissionIngressBufferFull()(
             contextualizedErrorLogger = contextualizedErrorLogger
           )
         )(
@@ -118,7 +118,7 @@ class ErrorFactoriesSpec
           v1_details = Seq(errorDetails),
           v2_code = Code.ABORTED,
           v2_message =
-            s"PARTICIPANT_BACKPRESSURE(2,$truncatedCorrelationId): The participant is overloaded: Command service ingress buffer is full",
+            s"PARTICIPANT_BACKPRESSURE(2,$truncatedCorrelationId): The participant is overloaded: The submission ingress buffer is full",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("PARTICIPANT_BACKPRESSURE"),
             expectedCorrelationIdRequestInfo,
@@ -129,7 +129,7 @@ class ErrorFactoriesSpec
 
       "return queueClosed" in {
         assertVersionedStatus(
-          _.TrackerErrors.commandSubmissionQueueClosed()(
+          _.SubmissionQueueErrors.queueClosed("Some service")(
             contextualizedErrorLogger = contextualizedErrorLogger
           )
         )(
@@ -138,7 +138,7 @@ class ErrorFactoriesSpec
           v1_details = Seq(errorDetails),
           v2_code = Code.UNAVAILABLE,
           v2_message =
-            s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): Command service submission queue has been shut down.",
+            s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): Some service has been shut down.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("SERVICE_NOT_RUNNING"),
             expectedCorrelationIdRequestInfo,
@@ -149,7 +149,7 @@ class ErrorFactoriesSpec
 
       "return timeout" in {
         assertVersionedStatus(
-          _.TrackerErrors.timedOutOnAwaitingForCommandCompletion()(
+          _.SubmissionQueueErrors.timedOutOnAwaitingForCommandCompletion()(
             contextualizedErrorLogger = contextualizedErrorLogger
           )
         )(
@@ -168,7 +168,7 @@ class ErrorFactoriesSpec
       }
       "return noStatusInResponse" in {
         assertVersionedStatus(
-          _.TrackerErrors.noStatusInCompletionResponse()(
+          _.SubmissionQueueErrors.noStatusInCompletionResponse()(
             contextualizedErrorLogger = contextualizedErrorLogger
           )
         )(

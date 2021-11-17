@@ -6,6 +6,7 @@ package com.daml.platform.sandbox
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
@@ -37,7 +38,7 @@ private[sandbox] object LedgerResource {
   def inMemory(
       ledgerId: LedgerId,
       timeProvider: TimeProvider,
-      errorFactories: ErrorFactories,
+      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
       acs: InMemoryActiveLedgerState = InMemoryActiveLedgerState.empty,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
       entries: ImmArray[LedgerEntryOrBump] = ImmArray.Empty,
@@ -52,7 +53,7 @@ private[sandbox] object LedgerResource {
           packageStoreInit = packages,
           ledgerEntries = entries,
           engine = new Engine(),
-          errorFactories,
+          errorCodesVersionSwitcher,
         )
       )
     )
