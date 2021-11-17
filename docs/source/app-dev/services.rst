@@ -98,7 +98,7 @@ For details on how to use command deduplication, see the :ref:`Application Archi
 
 .. note::
 
-  - The ledger may extend the deduplication period specified in the request arbitrarily, up until the maximum deduplication duration specified in the :ref:`ledger configuration <ledger-configuration-service>`.
+  - The ledger may extend the deduplication period specified in the request arbitrarily, even beyond the maximum deduplication duration specified in the :ref:`ledger configuration <ledger-configuration-service>`.
     The deduplication period chosen by the ledger is the *effective deduplication period*.
 
   - Regardless, the deduplication period specified in the request is always checked against the configured maximum deduplication duration.
