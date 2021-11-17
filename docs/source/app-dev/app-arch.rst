@@ -139,14 +139,18 @@ If you want to make sure that a command is not executed twice, your application 
 Daml ledgers provide a mechanism for :ref:`command deduplication <command-submission-service-deduplication>` to help deal with this problem.
 
 For each command the application provides a command ID and an optional parameter that specifies the deduplication period. If the latter parameter is not specified in the command submission itself, the ledger will fall back to using the configured maximum deduplication period.
-The ledger will then guarantee that commands with the same :ref:`change ID <change-id>` will be ignored within the deduplication period.
+The ledger will then guarantee that commands with the same :ref:`change ID <change-id>` will generate a rejection within the effective deduplication period.
 
 To use command deduplication, you should:
 
-- Use generous values for the deduplication duration. It should be large enough such that you can assume the command was permanently lost if the deduplication period has passed and you still don’t observe any effect of the command on the ledger (i.e. you don't see a transaction with the command ID via the :ref:`transaction service <transaction-service>`).
+- Use generous values for the deduplication duration. It should be large enough such that you can assume the command was permanently lost if the effective deduplication period has passed and you still don’t observe any effect of the command on the ledger (i.e. you don't see a transaction with the command ID via the :ref:`transaction service <transaction-service>`).
 - Make sure you set command IDs deterministically, that is to say: the "same" command must use the same command ID. This is useful for the recovery procedure after an application crash/restart, in which the application inspects the state of the ledger (e.g. via the :ref:`Active contracts service <active-contract-service>`) and sends commands to the ledger. When using deterministic command IDs, any commands that had been sent before the application restart will be discarded by the ledger to avoid duplicate submissions.
-- If you are not sure whether a command was submitted successfully, just resubmit it with the same deduplication duration. If the new command was submitted within the deduplication period, the duplicate submission will safely be ignored. If the deduplication period has passed, you can assume the command was lost or rejected and a new submission is justified.
+- If you are not sure whether a command was submitted successfully, just resubmit it with the same deduplication duration. If the new command was submitted within the effective deduplication period, the duplicate submission will safely be ignored. If the effective deduplication period has passed, you can assume the command was lost or rejected and a new submission is justified.
 
+.. note:: Effective deduplication period
+
+  In case of ledgers with command deduplication across participants, the effective deduplication period may be longer than the one specified by the client.
+  To learn more, see the :ref:`Ledger API Services <command-submission-service-deduplication>` documentation.
 
 For more details on command deduplication, see the :ref:`Ledger API Services <command-submission-service-deduplication>` documentation.
 
