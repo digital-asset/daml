@@ -465,6 +465,7 @@ private final class SqlLedger(
   )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] = {
     val errorLogger =
       new DamlContextualizedErrorLogger(logger, loggingContext, submitterInfo.submissionId)
+
     enqueue { offset =>
       val transactionId = offset.toApiString
 
@@ -478,13 +479,7 @@ private final class SqlLedger(
               completionInfo = Some(submitterInfo.toCompletionInfo),
               recordTime = recordTime,
               offset = offset,
-              reason = reason.toStateRejectionReason(errorFactories)(
-                new DamlContextualizedErrorLogger(
-                  logger,
-                  loggingContext,
-                  submitterInfo.submissionId,
-                )
-              ),
+              reason = reason.toStateRejectionReason(errorFactories)(errorLogger),
             ),
           _ => {
             val divulgedContracts = Nil
