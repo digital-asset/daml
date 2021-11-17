@@ -56,6 +56,7 @@ private[appendonlydao] final class TransactionsReader(
     eventProcessingParallelism: Int,
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
+    acsReader: ACSReader,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 
@@ -64,8 +65,6 @@ private[appendonlydao] final class TransactionsReader(
     new EventsRange.EventSeqIdReader(eventStorageBackend.maxEventSequentialIdOfAnObservableEvent)
   private val getTransactions =
     new EventsTableFlatEventsRangeQueries.GetTransactions(eventStorageBackend)
-  private val getActiveContracts =
-    new EventsTableFlatEventsRangeQueries.GetActiveContracts(eventStorageBackend)
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -366,35 +365,21 @@ private[appendonlydao] final class TransactionsReader(
       Telemetry.Transactions.createSpan(activeAt)(qualifiedNameOfCurrentFunc)
     logger.debug(s"getActiveContracts($activeAt, $filter, $verbose)")
 
-    val requestedRangeF: Future[EventsRange[(Offset, Long)]] = getAcsEventSeqIdRange(activeAt)
-
-    val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
-      logger.debug(s"getActiveContracts query($range)")
-      queryNonPruned.executeSql(
-        getActiveContracts(
-          range,
-          filter,
-          pageSize,
-        )(connection),
-        activeAt,
-        pruned =>
-          s"Active contracts request after ${activeAt.toHexString} precedes pruned offset ${pruned.toHexString}",
+    Source
+      .futureSource(
+        getAcsEventSeqIdRange(activeAt)
+          .map(requestedRange => acsReader.acsStream(filter, requestedRange.endInclusive))
       )
-    }
-
-    val events: Source[EventsTable.Entry[Event], NotUsed] =
-      Source
-        .futureSource(requestedRangeF.map { requestedRange =>
-          streamEvents(
-            verbose,
-            dbMetrics.getActiveContracts,
-            query,
-            nextPageRange[Event](requestedRange.endInclusive),
-          )(requestedRange)
-        })
-        .mapMaterializedValue(_ => NotUsed)
-
-    groupContiguous(events)(by = _.transactionId)
+      .mapAsync(eventProcessingParallelism) { rawResult =>
+        Timed.future(
+          future = Future(
+            Future.traverse(rawResult)(
+              deserializeEntry(verbose)
+            )
+          ).flatMap(identity),
+          timer = dbMetrics.getActiveContracts.translationTimer,
+        )
+      }
       .mapConcat(EventsTable.Entry.toGetActiveContractsResponse)
       .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
       .wireTap(response => {
@@ -403,6 +388,7 @@ private[appendonlydao] final class TransactionsReader(
           span,
         )
       })
+      .mapMaterializedValue(_ => NotUsed)
       .watchTermination()(endSpanOnTermination(span))
   }
 
