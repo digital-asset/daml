@@ -19,9 +19,6 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     tags = ["maven_coordinates=com.daml:ports:__VERSION__"],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     visibility = [
         "//visibility:public",
     ],
@@ -34,9 +31,6 @@ da_scala_library(
         "src/main/scala/com/digitalasset/ports/LockedFreePort.scala",
     ],
     data = ["@sysctl_nix//:bin/sysctl"] if is_darwin else [],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     visibility = [
         "//visibility:public",
     ],

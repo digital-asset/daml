@@ -90,11 +90,6 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    versioned_scala_deps = {
-        "2.12": [
-            "@maven//:org_scala_lang_modules_scala_collection_compat",
-        ],
-    },
     deps = [
         ":lib",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -345,9 +340,6 @@ da_scala_test(
         "@maven//:org_scalaz_scalaz_core",
     ],
     tags = ["exclusive"],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     deps = [
         ":ledger-tests-model.jar",
         "//bazel_tools/runfiles:scala_runfiles",

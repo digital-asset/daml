@@ -30,9 +30,6 @@ da_scala_library(
 da_scala_test_suite(
     name = "test",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     deps = [
         ":grpc-reverse-proxy",
         "//libs-scala/grpc-test-utils",
