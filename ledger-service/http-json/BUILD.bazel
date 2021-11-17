@@ -599,6 +599,7 @@ da_scala_benchmark_jmh(
         "//libs-scala/doobie-slf4j",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
+        "//libs-scala/postgresql-testing",
         "//libs-scala/scala-utils",
         "@maven//:com_oracle_database_jdbc_ojdbc8",
         "@maven//:io_dropwizard_metrics_metrics_core",
