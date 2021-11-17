@@ -15,7 +15,6 @@ class MeteredStreamObserver[T](
 ) extends ObserverWithResult[T, StreamResult](logger) {
 
   override def onNext(value: T): Unit = {
-    Thread.sleep(1000)
     manager.sendNewValue(value)
     super.onNext(value)
   }
