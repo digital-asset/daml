@@ -21,7 +21,6 @@ class MeteredStreamObserver[T](
   }
 
   override def completeWith(): Future[StreamResult] = {
-    logger.debug(withStreamName(s"Asking for stream result..."))
     manager.result()
   }
 

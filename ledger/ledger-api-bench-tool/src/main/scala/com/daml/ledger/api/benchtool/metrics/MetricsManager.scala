@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
-import akka.actor.CoordinatedShutdown
+import akka.actor.{Cancellable, CoordinatedShutdown}
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, ActorSystem, Props, SpawnProtocol}
 import akka.util.Timeout
@@ -20,49 +20,52 @@ case class MetricsManager[T](
 )(implicit
     system: ActorSystem[SpawnProtocol.Command]
 ) {
-  CoordinatedShutdown(system).addTask(
-    phase = CoordinatedShutdown.PhaseBeforeServiceUnbind,
-    taskName = "report-results",
-  ) { () =>
-    logger.info(s"Shutting down infrastructure for stream: $streamName")
-    result().map(_ => akka.Done)(system.executionContext)
-  }
-
-  system.scheduler.scheduleWithFixedDelay(logInterval, logInterval)(() => {
-    implicit val timeout: Timeout = Timeout(logInterval)
-    collector
-      .ask(MetricsCollector.Message.PeriodicReportRequest)
-      .map { response =>
-        logger.info(
-          ReportFormatter.formatPeriodicReport(
-            streamName = streamName,
-            periodicReport = response,
-          )
-        )
-      }(system.executionContext)
-    ()
-  })(system.executionContext)
-
   def sendNewValue(value: T): Unit =
     collector ! MetricsCollector.Message.NewValue(value)
 
   def result[Result](): Future[StreamResult] = {
+    logger.debug(s"Requesting result of stream: $streamName")
+    periodicRequest.cancel()
     implicit val timeout: Timeout = Timeout(3.seconds)
-    val result = collector.ask(MetricsCollector.Message.FinalReportRequest)
-
-    result.map { response: MetricsCollector.Response.FinalReport =>
-      logger.info(
-        ReportFormatter.formatFinalReport(
-          streamName = streamName,
-          finalReport = response,
+    collector
+      .ask(MetricsCollector.Message.FinalReportRequest)
+      .map { response: MetricsCollector.Response.FinalReport =>
+        logger.info(
+          ReportFormatter.formatFinalReport(
+            streamName = streamName,
+            finalReport = response,
+          )
         )
-      )
-      if (response.metricsData.exists(_.violatedObjective.isDefined))
-        StreamResult.ObjectivesViolated
-      else
-        StreamResult.Ok
-    }(system.executionContext)
+        if (response.metricsData.exists(_.violatedObjective.isDefined))
+          StreamResult.ObjectivesViolated
+        else
+          StreamResult.Ok
+      }(system.executionContext)
   }
+
+  CoordinatedShutdown(system).addTask(
+    phase = CoordinatedShutdown.PhaseBeforeServiceUnbind,
+    taskName = "report-results",
+  ) { () =>
+    logger.debug(s"Shutting down infrastructure for stream: $streamName")
+    result().map(_ => akka.Done)(system.executionContext)
+  }
+
+  private val periodicRequest: Cancellable =
+    system.scheduler.scheduleWithFixedDelay(logInterval, logInterval)(() => {
+      implicit val timeout: Timeout = Timeout(logInterval)
+      collector
+        .ask(MetricsCollector.Message.PeriodicReportRequest)
+        .map { response =>
+          logger.info(
+            ReportFormatter.formatPeriodicReport(
+              streamName = streamName,
+              periodicReport = response,
+            )
+          )
+        }(system.executionContext)
+      ()
+    })(system.executionContext)
 
   private val logger = LoggerFactory.getLogger(getClass)
 }
