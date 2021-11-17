@@ -8,7 +8,7 @@ import akka.actor.typed.{ActorRef, Behavior}
 import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
 import com.daml.ledger.api.benchtool.util.TimeUtil
 
-import java.time.Instant
+import java.time.{Clock, Duration, Instant}
 
 object MetricsCollector {
 
@@ -28,44 +28,46 @@ object MetricsCollector {
         value: MetricValue,
         violatedObjective: Option[(ServiceLevelObjective[_], MetricValue)],
     )
-    final case class FinalReport(metricsData: List[MetricFinalReportData]) extends Response
+    final case class FinalReport(totalDuration: Duration, metricsData: List[MetricFinalReportData])
+        extends Response
   }
 
   def apply[T](
       metrics: List[Metric[T]],
       exposedMetrics: Option[ExposedMetrics[T]] = None,
   ): Behavior[Message] = {
-    val startTime: Instant = Instant.now()
-    new MetricsCollector[T](startTime, exposedMetrics).handlingMessages(metrics, startTime)
+    val clock = Clock.systemUTC()
+    val startTime: Instant = clock.instant()
+    new MetricsCollector[T](exposedMetrics, clock).handlingMessages(metrics, startTime, startTime)
   }
 }
 
-class MetricsCollector[T](
-    startTime: Instant,
-    exposedMetrics: Option[ExposedMetrics[T]],
-) {
+class MetricsCollector[T](exposedMetrics: Option[ExposedMetrics[T]], clock: Clock) {
   import MetricsCollector._
   import MetricsCollector.Message._
   import MetricsCollector.Response._
 
-  def handlingMessages(metrics: List[Metric[T]], lastPeriodicCheck: Instant): Behavior[Message] = {
-    Behaviors.receive { case (context, message) =>
+  def handlingMessages(
+      metrics: List[Metric[T]],
+      lastPeriodicCheck: Instant,
+      startTime: Instant,
+  ): Behavior[Message] = {
+    Behaviors.receive { case (_, message) =>
       message match {
         case newValue: NewValue[T] =>
           exposedMetrics.foreach(_.onNext(newValue.value))
-          handlingMessages(metrics.map(_.onNext(newValue.value)), lastPeriodicCheck)
+          handlingMessages(metrics.map(_.onNext(newValue.value)), lastPeriodicCheck, startTime)
 
         case request: PeriodicReportRequest =>
-          val currentTime = Instant.now()
+          val currentTime = clock.instant()
           val (newMetrics, values) = metrics
             .map(_.periodicValue(TimeUtil.durationBetween(lastPeriodicCheck, currentTime)))
             .unzip
-          context.log.info(s"RETURNING VALUES")
           request.replyTo ! Response.PeriodicReport(values)
-          handlingMessages(newMetrics, currentTime)
+          handlingMessages(newMetrics, currentTime, startTime)
 
         case request: FinalReportRequest =>
-          val duration = TimeUtil.durationBetween(startTime, Instant.now())
+          val duration = TimeUtil.durationBetween(startTime, clock.instant())
           val data: List[MetricFinalReportData] =
             metrics.map { metric =>
               MetricFinalReportData(
@@ -74,8 +76,7 @@ class MetricsCollector[T](
                 violatedObjective = metric.violatedObjective,
               )
             }
-          context.log.info(s"RETURNING FINAL DATA")
-          request.replyTo ! FinalReport(data)
+          request.replyTo ! FinalReport(duration, data)
           Behaviors.stopped
       }
     }

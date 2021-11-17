@@ -9,7 +9,7 @@ import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
 import com.daml.ledger.api.benchtool.metrics.{Metric, MetricValue, MetricsCollector}
 import org.scalatest.wordspec.AnyWordSpecLike
 
-import java.time.Duration
+import java.time.{Clock, Duration, Instant, ZoneId}
 import scala.util.Random
 
 class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
@@ -68,7 +68,10 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
     }
 
     "respond with empty final report" in {
-      val collector = spawn()
+      val now = Clock.systemUTC().instant()
+      val tenSecondsAgo = now.minusSeconds(10)
+      val clock = Clock.fixed(now, ZoneId.of("UTC"))
+      val collector = spawnWithFixedClock(clock, tenSecondsAgo, tenSecondsAgo)
       val probe = testKit.createTestProbe[Response.FinalReport]()
 
       collector ! Message.FinalReportRequest(probe.ref)
@@ -81,13 +84,17 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
               value = TestMetricValue("FINAL:"),
               violatedObjective = None,
             )
-          )
+          ),
+          totalDuration = Duration.ofSeconds(10),
         )
       )
     }
 
     "respond with correct final report" in {
-      val collector = spawn()
+      val now = Clock.systemUTC().instant()
+      val tenSecondsAgo = now.minusSeconds(10)
+      val clock = Clock.fixed(now, ZoneId.of("UTC"))
+      val collector = spawnWithFixedClock(clock, tenSecondsAgo, tenSecondsAgo)
       val probe = testKit.createTestProbe[Response.FinalReport]()
 
       collector ! Message.NewValue("mango")
@@ -103,13 +110,17 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
               value = TestMetricValue("FINAL:mango-banana-cherry"),
               violatedObjective = None,
             )
-          )
+          ),
+          totalDuration = Duration.ofSeconds(10),
         )
       )
     }
 
     "include information about violated objective in the final report" in {
-      val collector = spawn()
+      val now = Clock.systemUTC().instant()
+      val tenSecondsAgo = now.minusSeconds(10)
+      val clock = Clock.fixed(now, ZoneId.of("UTC"))
+      val collector = spawnWithFixedClock(clock, tenSecondsAgo, tenSecondsAgo)
       val probe = testKit.createTestProbe[Response.FinalReport]()
 
       collector ! Message.NewValue("mango")
@@ -130,7 +141,8 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
                 )
               ),
             )
-          )
+          ),
+          totalDuration = Duration.ofSeconds(10),
         )
       )
     }
@@ -153,11 +165,28 @@ class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLik
       name = Random.alphanumeric.take(10).mkString,
     )
 
-  private def behavior: Behavior[Message] =
+  private def spawnWithFixedClock(
+      clock: Clock,
+      startTime: Instant,
+      lastPeriodicCheck: Instant,
+  ) = {
+    val behavior = new MetricsCollector[String](None, clock).handlingMessages(
+      metrics = List(TestMetric()),
+      lastPeriodicCheck = lastPeriodicCheck,
+      startTime = startTime,
+    )
+    testKit.spawn(
+      behavior = behavior,
+      name = Random.alphanumeric.take(10).mkString,
+    )
+  }
+
+  private def behavior: Behavior[Message] = {
     MetricsCollector[String](
       metrics = List(TestMetric()),
       exposedMetrics = None,
     )
+  }
 
   private case class TestMetricValue(value: String) extends MetricValue
 

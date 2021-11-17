@@ -7,6 +7,8 @@ import akka.actor.CoordinatedShutdown
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, ActorSystem, Props, SpawnProtocol}
 import akka.util.Timeout
+import com.daml.ledger.api.benchtool.util.ReportFormatter
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -14,6 +16,7 @@ import scala.concurrent.{ExecutionContext, Future}
 case class MetricsManager[T](
     collector: ActorRef[MetricsCollector.Message],
     logInterval: FiniteDuration,
+    streamName: String,
 )(implicit
     system: ActorSystem[SpawnProtocol.Command]
 ) {
@@ -21,7 +24,7 @@ case class MetricsManager[T](
     phase = CoordinatedShutdown.PhaseBeforeServiceUnbind,
     taskName = "report-results",
   ) { () =>
-    println(s"Coordinated shutdown in progress...")
+    logger.info(s"Shutting down infrastructure for stream: $streamName")
     result().map(_ => akka.Done)(system.executionContext)
   }
 
@@ -30,7 +33,12 @@ case class MetricsManager[T](
     collector
       .ask(MetricsCollector.Message.PeriodicReportRequest)
       .map { response =>
-        println(s"LOG NICE PERIODIC REPORT: ${response}")
+        logger.info(
+          ReportFormatter.formatPeriodicReport(
+            streamName = streamName,
+            periodicReport = response,
+          )
+        )
       }(system.executionContext)
     ()
   })(system.executionContext)
@@ -43,13 +51,20 @@ case class MetricsManager[T](
     val result = collector.ask(MetricsCollector.Message.FinalReportRequest)
 
     result.map { response: MetricsCollector.Response.FinalReport =>
-      println(s"PRINTLN NICE REPORT: ${response}")
+      logger.info(
+        ReportFormatter.formatFinalReport(
+          streamName = streamName,
+          finalReport = response,
+        )
+      )
       if (response.metricsData.exists(_.violatedObjective.isDefined))
         StreamResult.ObjectivesViolated
       else
         StreamResult.Ok
     }(system.executionContext)
   }
+
+  private val logger = LoggerFactory.getLogger(getClass)
 }
 
 object MetricsManager {
@@ -80,6 +95,7 @@ object MetricsManager {
       MetricsManager[StreamElem](
         collector = collector,
         logInterval = logInterval,
+        streamName = streamName,
       )
     )
   }
