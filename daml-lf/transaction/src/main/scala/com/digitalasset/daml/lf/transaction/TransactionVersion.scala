@@ -26,8 +26,6 @@ object TransactionVersion {
   private[daml] implicit val Ordering: scala.Ordering[TransactionVersion] =
     scala.Ordering.by(_.index)
 
-  private[lf] val NoVersions: VersionRange[TransactionVersion] = VersionRange.slowEmpty(All)
-
   private[this] val stringMapping = All.iterator.map(v => v.protoValue -> v).toMap
 
   def fromString(vs: String): Either[String, TransactionVersion] =

@@ -14,40 +14,23 @@ import scala.Ordering.Implicits.infixOrderingOps
   * @tparam V either [[com.daml.lf.language.LanguageVersion]] or
   *   [[com.daml.lf.transaction.TransactionVersion]].
   */
-final case class VersionRange[V] private (
+final case class VersionRange[V](
     min: V,
     max: V,
-)(implicit ordering: Ordering[V])
-    extends data.NoCopy {
+)(implicit ordering: Ordering[V]) {
 
-  def join(that: VersionRange[V]): VersionRange[V] =
-    new VersionRange(
-      min = this.min min that.min,
-      max = this.max max that.max,
+  require(min <= max)
+
+  def intersect(that: VersionRange[V]): VersionRange[V] =
+    VersionRange(
+      min = this.min max that.min,
+      max = this.max min that.max,
     )
 
-  def join(version: V): VersionRange[V] = join(VersionRange(version))
-
-  private[lf] def map[W](f: V => W)(implicit ordering: Ordering[W]): VersionRange[W] =
+  def map[W](f: V => W)(implicit ordering: Ordering[W]) =
     VersionRange(f(min), f(max))
 
   def contains(v: V): Boolean =
     min <= v && v <= max
-}
-
-object VersionRange {
-
-  def apply[V](min: V, max: V)(implicit ordering: Ordering[V]): VersionRange[V] = {
-    assert(min <= max)
-    new VersionRange(min, max)
-  }
-
-  def apply[V](version: V)(implicit ordering: Ordering[V]): VersionRange[V] =
-    new VersionRange(version, version)
-
-  // We represent an empty Range by setting min and max to the max/min possible value
-  // O(n)
-  private[lf] def slowEmpty[V](allValues: Seq[V])(implicit ordering: Ordering[V]): VersionRange[V] =
-    new VersionRange(allValues.max, allValues.min)
 
 }
