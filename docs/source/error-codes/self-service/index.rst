@@ -501,6 +501,9 @@ The following gRPC status codes have changed for submission rejections in Sandbo
 |INVALID_ARGUMENT                   |NOT_FOUND                              |PARTY_NOT_KNOWN_ON_LEDGER is now returned on transaction rejections on unallocated parties. |PARTY_NOT_KNOWN_ON_LEDGER               |
 +-----------------------------------+---------------------------------------+--------------------------------------------------------------------------------------------+----------------------------------------+
 
+**NOTE**: Additionally, UNAVAILABLE is now returned when trying to reset the Sandbox server during an ongoing re-initialization (was FAILED_PRECONDITION).
+
+
 Daml Sandbox and VMBC
 ^^^^^^^^^^^^^^^^^^^^^
 
