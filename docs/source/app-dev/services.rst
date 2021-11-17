@@ -83,7 +83,7 @@ The command submission service deduplicates submitted commands based on their :r
 
 - Applications can provide a :ref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_duration>` for each command. If this parameter is not set, the default maximum deduplication period is used.
 - A command submission is considered a duplicate submission if the ledger API server is aware of another command within the deduplication period and with the same :ref:`change ID <change-id>`.
-- Duplicate command submissions will generate a rejection until either the effective deduplication period of the original command has passed or the original submission was rejected (i.e. the command failed and resulted in a rejected transaction), whichever comes first.
+- A command resubmission will generate a rejection until the original submission was rejected (i.e. the command failed and resulted in a rejected transaction) or until the effective deduplication period has elapsed since the completion of the original command, whichever comes first.
 - Command deduplication is only *guaranteed* to work if all commands are submitted to the same participant. Ledgers are free to perform additional command deduplication across participants. Consult the respective ledger's manual for more details.
 - A command submission will return:
 
@@ -94,7 +94,7 @@ The command submission service deduplicates submitted commands based on their :r
 
 For details on how to use command deduplication, see the :ref:`Application Architecture Guide <command-deduplication>`.
 
-.. note:: Ledgers with command deduplication across participants
+.. note::
 
   - The ledger may extend the deduplication period specified in the request arbitrarily, up until the maximum deduplication duration specified in the :ref:`ledger configuration <ledger-configuration-service>`.
     The deduplication period chosen by the ledger is the *effective deduplication period*.
