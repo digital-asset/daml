@@ -54,7 +54,13 @@ object Application {
   final case class ContractResult(_1: String, _2: Record)
 
   object TransactionResult {
-    def fromTransaction(transaction: Transaction): TransactionResult =
+    def fromTransaction(transaction: Transaction): TransactionResult = {
+      val effectiveAt = transaction.effectiveAt
+        .map(t => t.seconds * 1000000L + t.nanos.toLong / 1000000L * 1000L)
+      val effectiveAt2 = transaction.effectiveAt.map(t => t.seconds * 1000000L + t.nanos.toLong / 1000L)
+      if (effectiveAt != effectiveAt2) {
+        System.err.println(s"MISMATCH ${effectiveAt2}, $effectiveAt")
+      }
       TransactionResult(
         transaction.transactionId,
         transaction.events.map(toEventResult),
@@ -62,6 +68,7 @@ object Application {
           .map(t => t.seconds * 1000000L + t.nanos.toLong / 1000000L * 1000L)
           .get,
       )
+    }
   }
   final case class TransactionResult(
       transactionId: String,

@@ -135,7 +135,7 @@ migration_test(
     ] +
     # These tests are fairly slow so on PRs we only run them on Linux
     (["head-quick"] if is_linux else []),
-    versions = stable_versions,
+    versions = ["1.0.0", "1.6.0", "1.17.0"],
 ) if not is_windows else None
 
 migration_test(
