@@ -105,6 +105,12 @@ For details on how to use command deduplication, see the :ref:`Application Archi
 
   - A command submission is considered a duplicate submission if the ledger is aware of another command within the *effective* deduplication period and with the same :ref:`change ID <change-id>`.
 
+  - The following ledger integrations always extend the deduplication period to the configured maximum deduplication duration:
+
+    - `Daml Driver for VMware Blockchain <https://www.digitalasset.com/daml-for-vmware-blockchain/>`__
+
+    - :ref:`Daml Sandbox <sandbox-manual>`
+
 .. _command-completion-service:
 
 Command completion service
