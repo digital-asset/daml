@@ -139,10 +139,6 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
 
     println(errorCategoriesTable.map(genSubsectionsForErrorCategory).mkString("\n\n\n"))
 
-    if (args.length < 10) {
-      System.exit(0)
-    }
-
     println(errorCategoryTableText)
     println()
     println("Error category table done")
@@ -189,12 +185,40 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
     println()
     println()
 
-    val tableLinesWithoutUnchangedErrorCodes = for {
+    case class EndpointWithGrpcCode(serviceName: String, legacy_grpc_code: String)
+    val affectedMap = mutable.Map[EndpointWithGrpcCode, mutable.ArrayBuffer[Array[String]]]()
+    // Add all changed codes
+    for {
       line <- tableLines if line(1) != line(2)
-    } yield line
+    } {
+      val key = EndpointWithGrpcCode(line(0), line(1))
+      if (!affectedMap.contains(key)) {
+        affectedMap.put(key, new ArrayBuffer[Array[String]])
+      }
+      affectedMap.apply(key).addOne(line)
+    }
+
+    // Add unchanged codes if the there is a change for this (endpoint, old_code) pair
+    for {
+      line <- tableLines if line(1) == line(2)
+    } {
+      val key = EndpointWithGrpcCode(line(0), line(1))
+
+      if (affectedMap.contains(key)) {
+        affectedMap.apply(key).addOne(line)
+      }
+    }
+
+    val linesForTable: Array[Array[String]] = affectedMap.values.flatten.toArray.sortBy(line =>
+      (line(0), line(1), line(2), line(3), line(4))
+    )
+
+//    val tableLinesWithoutUnchangedErrorCodes = for {
+//      line <- tableLines if line(1) != line(2)
+//    } yield line
 
     val reStTable = generateReStTable(
-      tableLinesWithoutUnchangedErrorCodes,
+      linesForTable,
       header = Array(
         "Service endpoint",
         "gRPC status code (before SDK 1.18)",
@@ -207,7 +231,7 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
   }
 
   private def printOutAsCsvText(tableLines: Array[Array[String]]): Unit = {
-    val csvLines = for {
+    val csvLines: Array[String] = for {
       line <- tableLines
     } yield {
       line.mkString("|")
