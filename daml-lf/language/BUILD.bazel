@@ -35,9 +35,6 @@ da_scala_test(
     scalacopts = lf_scalacopts + [
         "-P:silencer:lineContentFilters=signum",
     ],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scalaz_scalaz_core"],
-    },
     deps = [
         ":language",
         "//daml-lf/data",

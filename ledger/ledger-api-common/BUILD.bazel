@@ -109,13 +109,11 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scala_lang_modules_scala_parallel_collections",
     ],
     scalacopts = [
         "-P:silencer:lineContentFilters=import scala.collection.parallel.CollectionConverters._",
     ],
-    versioned_scala_deps = {
-        "2.13": ["@maven//:org_scala_lang_modules_scala_parallel_collections"],
-    },
     deps = [
         ":ledger-api-common",
         ":ledger-api-common-scala-tests-lib",

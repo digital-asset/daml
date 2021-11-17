@@ -18,9 +18,6 @@ da_scala_library(
     ],
     scalacopts = script_scalacopts,
     tags = ["maven_coordinates=com.daml:script-converter:__VERSION__"],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/data",
