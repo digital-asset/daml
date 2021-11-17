@@ -149,7 +149,7 @@ To use command deduplication, you should:
 
 .. note:: Effective deduplication period
 
-  In case of ledgers with command deduplication across participants, the effective deduplication period may be longer than the one specified by the client.
+  In case of ledgers with command deduplication across participants, the effective deduplication period may be longer than the one specified in the command.
   To learn more, see the :ref:`Ledger API Services <command-submission-service-deduplication>` documentation.
 
 For more details on command deduplication, see the :ref:`Ledger API Services <command-submission-service-deduplication>` documentation.
