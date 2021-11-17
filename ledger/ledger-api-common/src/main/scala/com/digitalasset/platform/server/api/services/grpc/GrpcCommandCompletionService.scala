@@ -7,10 +7,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain
-import com.daml.ledger.api.messages.command.completion.{
-  CompletionStreamRequest => ValidatedCompletionStreamRequest
-}
 import com.daml.ledger.api.v1.command_completion_service._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.validation.CompletionServiceRequestValidator
@@ -19,21 +15,6 @@ import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 
 import scala.concurrent.{ExecutionContext, Future}
-
-object GrpcCommandCompletionService {
-
-  private[this] val completionStreamDefaultOffset = Some(domain.LedgerOffset.LedgerEnd)
-
-  private def fillInWithDefaults(
-      request: ValidatedCompletionStreamRequest
-  ): ValidatedCompletionStreamRequest =
-    if (request.offset.isDefined) {
-      request
-    } else {
-      request.copy(offset = completionStreamDefaultOffset)
-    }
-
-}
 
 class GrpcCommandCompletionService(
     service: CommandCompletionService,
@@ -56,7 +37,7 @@ class GrpcCommandCompletionService(
       .validateGrpcCompletionStreamRequest(request)
       .fold(
         t => Source.failed[CompletionStreamResponse](ValidationLogger.logFailure(request, t)),
-        GrpcCommandCompletionService.fillInWithDefaults _ andThen service.completionStreamSource,
+        service.completionStreamSource,
       )
   }
 

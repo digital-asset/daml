@@ -248,7 +248,8 @@ private[apiserver] object ApiCommandService {
   private object Tracking {
     final case class Key(applicationId: Ref.ApplicationId, parties: Set[Ref.Party])
 
-    private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+    private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
+
     def getTrackerKey(commands: Commands): Tracking.Key = {
       val parties = CommandsValidator.effectiveActAs(commands)
       // Safe to convert the applicationId and the parties as the command should've been already validated

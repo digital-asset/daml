@@ -127,7 +127,7 @@ class CompletionServiceRequestValidatorTest
       "return the correct error on missing party" in {
         fixture.testRequestFailure(
           testedRequest = _.validateCompletionStreamRequest(
-            completionReq.copy(parties = Set()),
+            completionReq.copy(parties = Set.empty),
             ledgerEnd,
           ),
           expectedCodeV1 = INVALID_ARGUMENT,
