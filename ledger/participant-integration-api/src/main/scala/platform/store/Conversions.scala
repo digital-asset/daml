@@ -6,6 +6,8 @@ package com.daml.platform.store
 import anorm.Column.nonNull
 import anorm._
 import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.domain
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
@@ -22,7 +24,6 @@ import scala.util.Try
 import java.io.BufferedReader
 import java.sql.{PreparedStatement, SQLNonTransientException, Types}
 import java.util.stream.Collectors
-
 import scala.annotation.nowarn
 
 // TODO append-only: split this file on cleanup, and move anorm/db conversion related stuff to the right place
@@ -425,6 +426,14 @@ private[platform] object Conversions {
         case domain.RejectionReason.InvalidLedgerTime(reason) =>
           CommandRejected.FinalReason(
             errorFactories.CommandRejections.invalidLedgerTime(reason)
+          )
+        case domain.RejectionReason.LedgerConfigNotFound(description) =>
+          CommandRejected.FinalReason(
+            GrpcStatus.toProto(
+              LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration
+                .RejectWithMessage(description)
+                .asGrpcStatusFromContext
+            )
           )
       }
   }
