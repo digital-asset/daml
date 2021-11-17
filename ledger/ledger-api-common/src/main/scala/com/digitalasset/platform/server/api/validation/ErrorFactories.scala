@@ -100,22 +100,22 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           .asGrpcStatusFromContext,
       )
     }
-
-    def submissionIngressBufferFull()(implicit
-        contextualizedErrorLogger: ContextualizedErrorLogger
-    ): Status =
-      errorCodesVersionSwitcher.choose(
-        v1 = {
-          val status = io.grpc.Status.RESOURCE_EXHAUSTED
-            .withDescription("Ingress buffer is full")
-          val statusBuilder = GrpcStatus.toJavaBuilder(status)
-          GrpcStatus.buildStatus(Map.empty, statusBuilder)
-        },
-        v2 = LedgerApiErrors.ParticipantBackpressure
-          .Rejection("The submission ingress buffer is full")
-          .asGrpcStatusFromContext,
-      )
   }
+
+  def bufferFull(message: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Status =
+    errorCodesVersionSwitcher.choose(
+      v1 = {
+        val status = io.grpc.Status.RESOURCE_EXHAUSTED
+          .withDescription("Ingress buffer is full")
+        val statusBuilder = GrpcStatus.toJavaBuilder(status)
+        GrpcStatus.buildStatus(Map.empty, statusBuilder)
+      },
+      v2 = LedgerApiErrors.ParticipantBackpressure
+        .Rejection(message)
+        .asGrpcStatusFromContext,
+    )
 
   def sqlTransientException(exception: SQLTransientException)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
