@@ -21,7 +21,7 @@ Overview
 The majority of the errors are a result of some request processing.
 They are logged and returned to the user as a failed gRPC request
 using the standard StatusRuntimeException_.
-As such this approach remains unchanged in principle while self-service error codes aim at
+As such this approach remains unchanged in principle while we aim at
 enhancing it by providing:
 
 - improved consistency of the returned errors across API endpoints,
@@ -80,7 +80,7 @@ Error category
                  you can act on particular error codes.
 
 Correlation id
-                  A value whose purpose is to allow a user to clearly identify the request,
+                  A value whose purpose is to allow the user to clearly identify the request,
                   such that the operator can lookup any log information associated with this error.
                   We use request's submission id for correlation id.
 
@@ -381,7 +381,8 @@ The table below outlines generic gRPC status code changes pertaining to the Ledg
 and apply to all ledger backends. For changes specific to a ledger backend, check the next subsections.
 
 +-----------------------------------------------+-----------------------------------+----------------------------------+-------------------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------+
-|Service endpoint                               |gRPC status code (before SDK 1.18) |gRPC status code (since SDK 1.18) |Remarks                                                                                                                  |Ledger API error code ID                                                          |
+|Service endpoint                               |gRPC status code                   |gRPC status code                  |Remarks                                                                                                                  |Ledger API error code ID                                                          |
+|                                               |(before SDK 1.18)                  |(since SDK 1.18)                  |                                                                                                                         |                                                                                  |
 +===============================================+===================================+==================================+=========================================================================================================================+==================================================================================+
 |ActiveContractsService.getActiveContracts      |NOT_FOUND                          |FAILED_PRECONDITION               |FAILED_PRECONDITION can now be returned when attempting to access the data that has already been pruned.                 |PARTICIPANT_PRUNED_DATA_ACCESSED                                                  |
 +-----------------------------------------------+-----------------------------------+----------------------------------+-------------------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------+
