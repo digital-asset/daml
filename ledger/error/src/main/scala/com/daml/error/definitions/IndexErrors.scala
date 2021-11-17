@@ -47,6 +47,23 @@ object IndexErrors extends IndexErrorGroup {
             throwableO = Some(throwable),
           )
     }
+
+    @Explanation(
+      "This error occurs if the result set returned by a query against the Index database is invalid."
+    )
+    @Resolution("Contact support.")
+    object ResultSetError
+        extends ErrorCode(
+          id = "INDEX_DB_INVALID_RESULT_SET",
+          ErrorCategory.SystemInternalAssumptionViolated,
+        )
+        with HasUnapply {
+      case class Reject(message: String)(implicit
+          val loggingContext: ContextualizedErrorLogger
+      ) extends LoggingTransactionErrorImpl(
+            cause = message
+          )
+    }
   }
 
   trait HasUnapply {

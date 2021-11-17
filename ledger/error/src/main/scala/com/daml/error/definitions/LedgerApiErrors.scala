@@ -600,6 +600,10 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     case class VersionService(message: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends LoggingTransactionErrorImpl(cause = message)
+
+    case class Buffer(message: String, override val throwableO: Option[Throwable])(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends LoggingTransactionErrorImpl(cause = message, throwableO = throwableO)
   }
 
   object AdminServices {

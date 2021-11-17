@@ -107,18 +107,16 @@ class ErrorFactoriesSpec
         )
       }
 
-      "return ingressBufferFull" in {
+      "return bufferFul" in {
         assertVersionedStatus(
-          _.SubmissionQueueErrors.submissionIngressBufferFull()(
-            contextualizedErrorLogger = contextualizedErrorLogger
-          )
+          _.bufferFull("Some buffer is full")(contextualizedErrorLogger)
         )(
           v1_code = Code.RESOURCE_EXHAUSTED,
           v1_message = "Ingress buffer is full",
           v1_details = Seq(errorDetails),
           v2_code = Code.ABORTED,
           v2_message =
-            s"PARTICIPANT_BACKPRESSURE(2,$truncatedCorrelationId): The participant is overloaded: The submission ingress buffer is full",
+            s"PARTICIPANT_BACKPRESSURE(2,$truncatedCorrelationId): The participant is overloaded: Some buffer is full",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("PARTICIPANT_BACKPRESSURE"),
             expectedCorrelationIdRequestInfo,

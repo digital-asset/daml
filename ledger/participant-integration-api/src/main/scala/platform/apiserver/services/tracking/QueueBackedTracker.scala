@@ -60,7 +60,7 @@ private[services] final class QueueBackedTracker(
               .failedToEnqueueCommandSubmission("Failed to enqueue")(t)
           )
         case QueueOfferResult.Dropped =>
-          toQueueSubmitFailure(errorFactories.SubmissionQueueErrors.submissionIngressBufferFull())
+          toQueueSubmitFailure(errorFactories.bufferFull("The submission ingress buffer is full"))
         case QueueOfferResult.QueueClosed =>
           toQueueSubmitFailure(
             errorFactories.SubmissionQueueErrors.queueClosed("Command service queue")
@@ -69,7 +69,7 @@ private[services] final class QueueBackedTracker(
       .recoverWith {
         case i: IllegalStateException
             if i.getMessage == "You have to wait for previous offer to be resolved to send another request" =>
-          toQueueSubmitFailure(errorFactories.SubmissionQueueErrors.submissionIngressBufferFull())
+          toQueueSubmitFailure(errorFactories.bufferFull("The submission ingress buffer is full"))
         case t =>
           toQueueSubmitFailure(
             errorFactories.SubmissionQueueErrors.failedToEnqueueCommandSubmission("Failed")(t)
