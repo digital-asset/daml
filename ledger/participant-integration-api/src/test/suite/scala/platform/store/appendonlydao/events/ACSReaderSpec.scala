@@ -6,6 +6,9 @@ package com.daml.platform.store.appendonlydao.events
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
+import com.codahale.metrics.MetricRegistry
+import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -19,6 +22,7 @@ class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
   private val actorSystem = ActorSystem()
   private implicit val materializer: Materializer = Materializer(actorSystem)
   private implicit val ec: ExecutionContext = actorSystem.dispatcher
+  private implicit val lc: LoggingContext = LoggingContext.ForTesting
 
   override def afterAll(): Unit = {
     Await.result(actorSystem.terminate(), Duration(10, "seconds"))
@@ -286,7 +290,8 @@ class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
       tasks = List("a", "b", "c"),
       outputBatchSize = 3,
       inputBatchSize = 2,
-    )()
+      metrics = new Metrics(new MetricRegistry),
+    )(implicitly)()
     mutableLogic("a" -> List(1, 3)) shouldBe Nil // a [1 3] b [] c []
     mutableLogic("a" -> List(5, 7)) shouldBe Nil // a [1 3 5 7] b [] c []
     mutableLogic("a" -> List(9, 11)) shouldBe Nil // a [1 3 5 7 9 11] b [] c []

@@ -63,3 +63,12 @@ SandboxClassicRejections.#invalidLedgerTime:
     SandboxClassic.CommandCompletionService:
       - CompletionStream
 
+SandboxClassic.resetService:
+  change:
+    - FAILED_PRECONDITION
+    - UNAVAILABLE
+  changeExplanation: "UNAVAILABLE is now returned when trying to reset the Sandbox server during an ongoing re-initialization."
+  selfServiceErrorCodeId: SERVICE_NOT_RUNNING
+  services:
+    SandboxClassic:
+      - Reset

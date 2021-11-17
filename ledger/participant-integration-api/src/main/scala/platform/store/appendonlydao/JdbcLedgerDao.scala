@@ -47,8 +47,10 @@ import com.daml.platform.store.entries.{
   PartyLedgerEntry,
 }
 import com.daml.platform.store.interning.StringInterning
-
 import java.sql.Connection
+
+import akka.stream.Materializer
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -69,6 +71,7 @@ private class JdbcLedgerDao(
     deduplicationStorageBackend: DeduplicationStorageBackend,
     resetStorageBackend: ResetStorageBackend,
     errorFactories: ErrorFactories,
+    materializer: Materializer,
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -654,6 +657,17 @@ private class JdbcLedgerDao(
       eventProcessingParallelism = eventsProcessingParallelism,
       metrics = metrics,
       lfValueTranslation = translation,
+      acsReader = new FilterTableACSReader(
+        dispatcher = dbDispatcher,
+        queryNonPruned = queryNonPruned,
+        eventStorageBackend = readStorageBackend.eventStorageBackend,
+        pageSize = eventsPageSize,
+        idPageSize = eventsPageSize * 20,
+        idFetchingParallelism = 2,
+        acsFetchingparallelism = 2,
+        metrics = metrics,
+        materializer = materializer,
+      ),
     )(
       servicesExecutionContext
     )
@@ -768,6 +782,7 @@ private[platform] object JdbcLedgerDao {
       storageBackendFactory: StorageBackendFactory,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
+      materializer: Materializer,
   ): LedgerReadDao =
     new MeteredLedgerReadDao(
       new JdbcLedgerDao(
@@ -787,6 +802,7 @@ private[platform] object JdbcLedgerDao {
         storageBackendFactory.createDeduplicationStorageBackend,
         storageBackendFactory.createResetStorageBackend,
         errorFactories,
+        materializer = materializer,
       ),
       metrics,
     )
@@ -805,6 +821,7 @@ private[platform] object JdbcLedgerDao {
       storageBackendFactory: StorageBackendFactory,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
+      materializer: Materializer,
   ): LedgerDao =
     new MeteredLedgerDao(
       new JdbcLedgerDao(
@@ -824,6 +841,7 @@ private[platform] object JdbcLedgerDao {
         storageBackendFactory.createDeduplicationStorageBackend,
         storageBackendFactory.createResetStorageBackend,
         errorFactories,
+        materializer = materializer,
       ),
       metrics,
     )
@@ -843,6 +861,7 @@ private[platform] object JdbcLedgerDao {
       storageBackendFactory: StorageBackendFactory,
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
+      materializer: Materializer,
   ): LedgerDao =
     new MeteredLedgerDao(
       new JdbcLedgerDao(
@@ -862,6 +881,7 @@ private[platform] object JdbcLedgerDao {
         storageBackendFactory.createDeduplicationStorageBackend,
         storageBackendFactory.createResetStorageBackend,
         errorFactories,
+        materializer,
       ),
       metrics,
     )
