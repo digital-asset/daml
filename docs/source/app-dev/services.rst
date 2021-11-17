@@ -105,6 +105,10 @@ For details on how to use command deduplication, see the :ref:`Application Archi
 
   - Command deduplication is *guaranteed* to work even if commands are submitted to different participants.
 
+  The following ledger integrations support command deduplication across participants:
+    - `Daml Driver for VMware Blockchain <https://www.digitalasset.com/daml-for-vmware-blockchain/>`__
+    - :ref:`Daml Sandbox <sandbox-manual>`
+
 .. _command-completion-service:
 
 Command completion service
