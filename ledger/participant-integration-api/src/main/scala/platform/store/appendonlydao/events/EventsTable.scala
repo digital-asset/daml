@@ -5,7 +5,7 @@ package com.daml.platform.store.appendonlydao.events
 
 import com.daml.api.util.TimestampConversion
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.error.definitions.{IndexErrors, LedgerApiErrors}
+import com.daml.error.definitions.IndexErrors
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
