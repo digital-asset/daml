@@ -54,7 +54,7 @@ class CompletionServiceRequestValidatorTest
 
   "CompletionRequestValidation" when {
 
-    "validating grpc completion requests" should {
+    "validating gRPC completion requests" should {
 
       "reject requests with empty ledger ID" in {
         fixture.testRequestFailure(
@@ -108,7 +108,7 @@ class CompletionServiceRequestValidatorTest
       }
     }
 
-    "validate domain completions requests" should {
+    "validate domain completion requests" should {
 
       "reject requests with empty ledger ID" in {
         fixture.testRequestFailure(
