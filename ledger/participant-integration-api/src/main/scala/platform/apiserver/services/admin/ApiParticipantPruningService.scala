@@ -99,7 +99,7 @@ final class ApiParticipantPruningService private (
       pruneUpTo <- checkOffsetIsHexadecimal(pruneUpToString)
     } yield (pruneUpTo, pruneUpToString))
       .fold(
-        t => Future.failed(ValidationLogger.logFailureWithContext(request, t)),
+        t => Future.failed(ValidationLogger.logFailure(request, t)),
         o => checkOffsetIsBeforeLedgerEnd(o._1, o._2),
       )
   }
@@ -174,7 +174,9 @@ final class ApiParticipantPruningService private (
         if (pruneUpToString < ledgerEnd.value) Future.successful(())
         else
           Future.failed(
-            offsetOutOfRange_was_invalidArgument(None)(
+            // TODO error codes: Relax the constraint (pruneUpToString <= ledgerEnd.value)
+            //                   and use offsetAfterLedgerEnd
+            offsetOutOfRange(None)(
               s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
             )
           )

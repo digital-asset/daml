@@ -6,7 +6,7 @@ package com.daml.resources
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{Executors, TimeUnit}
 
-import com.daml.logging.ContextualizedLogger
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.resources.ProgramResource._
 
@@ -31,7 +31,15 @@ final class ProgramResource[Context: HasExecutionContext, T](
   def run(newContext: ExecutionContext => Context): Unit = {
     newLoggingContext { implicit loggingContext =>
       val resource = {
-        implicit val context: Context = newContext(ExecutionContext.fromExecutor(executorService))
+        implicit val context: Context = newContext(
+          ExecutionContext.fromExecutor(
+            executorService,
+            throwable =>
+              LoggingContext.newLoggingContext { implicit loggingContext =>
+                logger.error("ExecutionContext has failed with an exception", throwable)
+              },
+          )
+        )
         Try(owner.acquire()).fold(exception => PureResource(Future.failed(exception)), identity)
       }
 

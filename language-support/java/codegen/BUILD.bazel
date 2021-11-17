@@ -19,6 +19,7 @@ load(
     ":codegen.bzl",
     "dar_to_java",
     "mangle_for_java",
+    "test_exclusions",
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
@@ -175,92 +176,20 @@ scala_source_jar(
 ####  Integration Tests
 ########################################################
 
-daml_compile(
-    name = "integration-tests-model-1_6",
-    srcs = glob(
-        [
-            "src/it/daml/Tests/*.daml",
-            "src/it/daml/Tests/Lib1_6.daml",
-        ],
-        exclude = [
-            "src/it/daml/Tests/NumericTest.daml",
-            "src/it/daml/Tests/GenMapTest.daml",
-        ],
-    ),
-    target = "1.6",
-)
-
-daml_compile(
-    name = "integration-tests-model-1_7",
-    srcs = glob(
-        [
-            "src/it/daml/Tests/*.daml",
-            "src/it/daml/Tests/Lib1_7.daml",
-        ],
-        exclude = [
-            "src/it/daml/Tests/GenMapTest.daml",
-        ],
-    ),
-    target = "1.7",
-)
-
-daml_compile(
-    name = "integration-tests-model-1_8",
-    srcs = glob(
-        [
-            "src/it/daml/Tests/*.daml",
-            "src/it/daml/Tests/Lib1_8.daml",
-        ],
-        exclude = [
-            "src/it/daml/Tests/GenMapTest.daml",
-        ],
-    ),
-    target = "1.8",
-)
-
-daml_compile(
-    name = "integration-tests-model-1_11",
-    srcs = glob(
-        [
-            "src/it/daml/Tests/*.daml",
-            "src/it/daml/Tests/Lib1_111.daml",
-        ],
-    ),
-    target = "1.11",
-)
-
-daml_compile(
-    name = "integration-tests-model-1_12",
-    srcs = glob(
-        [
-            "src/it/daml/Tests/*.daml",
-            "src/it/daml/Tests/Lib1_112.daml",
-        ],
-    ),
-    target = "1.12",
-)
-
-daml_compile(
-    name = "integration-tests-model-1_13",
-    srcs = glob(
-        [
-            "src/it/daml/Tests/*.daml",
-            "src/it/daml/Tests/Lib1_113.daml",
-        ],
-    ),
-    target = "1.13",
-)
-
-daml_compile(
-    name = "integration-tests-model-1_dev",
-    srcs = glob(
-        [
-            "src/it/daml/Tests/*.daml",
-            "src/it/daml/Tests/Libdev.daml",
-        ],
-    ),
-    target = "1.dev",
-)
+[
+    daml_compile(
+        name = "integration-tests-model-{}".format(mangle_for_java(ver)),
+        srcs = glob(
+            [
+                "src/it/daml/Tests/*.daml",
+                "src/it/daml/Tests/Lib{}.daml".format(mangle_for_java(ver)),
+            ],
+            exclude = test_exclusions.get(ver, []),
+        ),
+        target = ver,
+    )
+    for ver in COMPILER_LF_VERSIONS
+]
 
 daml_compile(
     name = "pkg1",

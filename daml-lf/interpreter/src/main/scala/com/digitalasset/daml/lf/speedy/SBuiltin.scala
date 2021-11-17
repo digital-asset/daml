@@ -1706,6 +1706,82 @@ private[lf] object SBuiltin {
     }
   }
 
+  /** EQUAL_LIST :: (a -> a -> Bool) -> [a] -> [a] -> Bool */
+  final case object SBEqualList extends SBuiltin(3) {
+
+    private val equalListBody: SExpr =
+      SECaseAtomic( // case xs of
+        SELocA(1),
+        Array(
+          SCaseAlt(
+            SCPNil, // nil ->
+            SECaseAtomic( // case ys of
+              SELocA(2),
+              Array(
+                SCaseAlt(SCPNil, SEValue.True), // nil -> True
+                SCaseAlt(SCPDefault, SEValue.False),
+              ),
+            ), // default -> False
+          ),
+          SCaseAlt( // cons x xss ->
+            SCPCons,
+            SECaseAtomic( // case ys of
+              SELocA(2),
+              Array(
+                SCaseAlt(SCPNil, SEValue.False), // nil -> False
+                SCaseAlt( // cons y yss ->
+                  SCPCons,
+                  SELet1( // let sub = (f y x) in
+                    SEAppAtomicGeneral(
+                      SELocA(0), // f
+                      Array(
+                        SELocS(2), // y
+                        SELocS(4),
+                      ),
+                    ), // x
+                    SECaseAtomic( // case (f y x) of
+                      SELocS(1),
+                      Array(
+                        SCaseAlt(
+                          SCPPrimCon(Ast.PCTrue), // True ->
+                          SEAppAtomicGeneral(
+                            SEBuiltin(SBEqualList), //single recursive occurrence
+                            Array(
+                              SELocA(0), // f
+                              SELocS(2), // yss
+                              SELocS(4),
+                            ),
+                          ), // xss
+                        ),
+                        SCaseAlt(SCPPrimCon(Ast.PCFalse), SEValue.False), // False -> False
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      )
+
+    private val closure: SValue = {
+      val frame = Array.ofDim[SValue](0) // no free vars
+      val arity = 3
+      SPAP(PClosure(Profile.LabelUnset, equalListBody, frame), new util.ArrayList[SValue](), arity)
+    }
+
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) = {
+      val f = args.get(0)
+      val xs = args.get(1)
+      val ys = args.get(2)
+      machine.enterApplication(
+        closure,
+        Array(SEValue(f), SEValue(xs), SEValue(ys)),
+      )
+    }
+
+  }
+
   object SBExperimental {
 
     private object SBExperimentalAnswer extends SBuiltin(1) {

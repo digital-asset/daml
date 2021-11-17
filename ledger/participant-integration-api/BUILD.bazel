@@ -81,6 +81,7 @@ compile_deps = [
     "@maven//:com_h2database_h2",
     "@maven//:org_postgresql_postgresql",
     "@maven//:com_oracle_database_jdbc_ojdbc8",
+    "@maven//:com_google_api_grpc_proto_google_common_protos",
 ]
 
 scala_compile_deps = [
@@ -312,6 +313,7 @@ da_scala_test_suite(
         "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_typesafe_config",
         "@maven//:com_zaxxer_HikariCP",
         "@maven//:commons_io_commons_io",
@@ -445,6 +447,9 @@ da_scala_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":participant-integration-api",
+        "//ledger/error",
         "@maven//:commons_io_commons_io",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )

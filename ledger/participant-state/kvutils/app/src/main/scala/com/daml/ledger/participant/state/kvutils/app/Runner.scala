@@ -18,7 +18,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
-import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.StandaloneApiServer
@@ -63,6 +63,10 @@ final class Runner[T <: ReadWriteService, Extra](
   )(implicit resourceContext: ResourceContext): Resource[Unit] = {
     val logger = ContextualizedLogger.get(this.getClass)
     import ExecutionContext.Implicits.global
+    implicit val actorSystem: ActorSystem = ActorSystem(
+      "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-")
+    )
+    implicit val materializer: Materializer = Materializer(actorSystem)
     Resource.sequenceIgnoringValues(for (jdbcUrl <- jdbcUrls) yield {
       newLoggingContext { implicit loggingContext: LoggingContext =>
         Resource.fromFuture(IndexMetadata.read(jdbcUrl, errorFactories).andThen {
@@ -102,79 +106,83 @@ final class Runner[T <: ReadWriteService, Extra](
 
         // initialize all configured participants
         _ <- Resource.sequence(config.participants.map { participantConfig =>
-          val metrics = factory.createMetrics(participantConfig, config)
-          metrics.registry.registerAll(new JvmMetricSet)
-          val lfValueTranslationCache =
-            LfValueTranslationCache.Cache.newInstrumentedInstance(
-              eventConfiguration = config.lfValueTranslationEventCache,
-              contractConfiguration = config.lfValueTranslationContractCache,
-              metrics = metrics,
-            )
-          for {
-            _ <- config.metricsReporter.fold(Resource.unit)(reporter =>
-              ResourceOwner
-                .forCloseable(() => reporter.register(metrics.registry))
-                .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
-                .acquire()
-            )
-            ledger <- factory
-              .readWriteServiceOwner(config, participantConfig, sharedEngine)
-              .acquire()
-            readService = new TimedReadService(ledger, metrics)
-            writeService = new TimedWriteService(ledger, metrics)
-            healthChecks = new HealthChecks(
-              "read" -> readService,
-              "write" -> writeService,
-            )
-            _ <- Resource.sequence(
-              config.archiveFiles.map(path =>
-                Resource.fromFuture(uploadDar(path, writeService)(resourceContext.executionContext))
+          withEnrichedLoggingContext("participantId" -> participantConfig.participantId) {
+            implicit loggingContext =>
+              val metrics = factory.createMetrics(participantConfig, config)
+              metrics.registry.registerAll(new JvmMetricSet)
+              val lfValueTranslationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
+                eventConfiguration = config.lfValueTranslationEventCache,
+                contractConfiguration = config.lfValueTranslationContractCache,
+                metrics = metrics,
               )
-            )
-            servicesExecutionContext <- ResourceOwner
-              .forExecutorService(() =>
-                new InstrumentedExecutorService(
-                  Executors.newWorkStealingPool(),
-                  metrics.registry,
-                  metrics.daml.lapi.threadpool.apiServices.toString,
+              for {
+                _ <- config.metricsReporter.fold(Resource.unit)(reporter =>
+                  ResourceOwner
+                    .forCloseable(() => reporter.register(metrics.registry))
+                    .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
+                    .acquire()
                 )
-              )
-              .map(ExecutionContext.fromExecutorService)
-              .acquire()
-            healthChecksWithIndexer <- participantConfig.mode match {
-              case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
-                new StandaloneIndexerServer(
-                  readService = readService,
-                  config = factory.indexerConfig(participantConfig, config),
-                  servicesExecutionContext = servicesExecutionContext,
-                  metrics = metrics,
-                  lfValueTranslationCache = lfValueTranslationCache,
-                ).acquire().map(indexerHealth => healthChecks + ("indexer" -> indexerHealth))
-              case ParticipantRunMode.LedgerApiServer =>
-                Resource.successful(healthChecks)
-            }
-            _ <- participantConfig.mode match {
-              case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
-                new StandaloneApiServer(
-                  ledgerId = config.ledgerId,
-                  config = factory.apiServerConfig(participantConfig, config),
-                  commandConfig = config.commandConfig,
-                  submissionConfig = config.submissionConfig,
-                  partyConfig = factory.partyConfig(config),
-                  optWriteService = Some(writeService),
-                  authService = factory.authService(config),
-                  healthChecks = healthChecksWithIndexer,
-                  metrics = metrics,
-                  timeServiceBackend = factory.timeServiceBackend(config),
-                  otherInterceptors = factory.interceptors(config),
-                  engine = sharedEngine,
-                  servicesExecutionContext = servicesExecutionContext,
-                  lfValueTranslationCache = lfValueTranslationCache,
-                ).acquire()
-              case ParticipantRunMode.Indexer =>
-                Resource.unit
-            }
-          } yield ()
+                ledger <- factory
+                  .readWriteServiceOwner(config, participantConfig, sharedEngine)
+                  .acquire()
+                readService = new TimedReadService(ledger, metrics)
+                writeService = new TimedWriteService(ledger, metrics)
+                healthChecks = new HealthChecks(
+                  "read" -> readService,
+                  "write" -> writeService,
+                )
+                _ <- Resource.sequence(
+                  config.archiveFiles.map(path =>
+                    Resource.fromFuture(
+                      uploadDar(path, writeService)(resourceContext.executionContext)
+                    )
+                  )
+                )
+                servicesExecutionContext <- ResourceOwner
+                  .forExecutorService(() =>
+                    new InstrumentedExecutorService(
+                      Executors.newWorkStealingPool(),
+                      metrics.registry,
+                      metrics.daml.lapi.threadpool.apiServices.toString,
+                    )
+                  )
+                  .map(ExecutionContext.fromExecutorService)
+                  .acquire()
+                healthChecksWithIndexer <- participantConfig.mode match {
+                  case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
+                    new StandaloneIndexerServer(
+                      readService = readService,
+                      config = factory.indexerConfig(participantConfig, config),
+                      servicesExecutionContext = servicesExecutionContext,
+                      metrics = metrics,
+                      lfValueTranslationCache = lfValueTranslationCache,
+                    ).acquire().map(indexerHealth => healthChecks + ("indexer" -> indexerHealth))
+                  case ParticipantRunMode.LedgerApiServer =>
+                    Resource.successful(healthChecks)
+                }
+                _ <- participantConfig.mode match {
+                  case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
+                    new StandaloneApiServer(
+                      ledgerId = config.ledgerId,
+                      config = factory.apiServerConfig(participantConfig, config),
+                      commandConfig = config.commandConfig,
+                      submissionConfig = config.submissionConfig,
+                      partyConfig = factory.partyConfig(config),
+                      optWriteService = Some(writeService),
+                      authService = factory.authService(config),
+                      healthChecks = healthChecksWithIndexer,
+                      metrics = metrics,
+                      timeServiceBackend = factory.timeServiceBackend(config),
+                      otherInterceptors = factory.interceptors(config),
+                      engine = sharedEngine,
+                      servicesExecutionContext = servicesExecutionContext,
+                      lfValueTranslationCache = lfValueTranslationCache,
+                    ).acquire()
+                  case ParticipantRunMode.Indexer =>
+                    Resource.unit
+                }
+              } yield ()
+          }
         })
       } yield ()
     }

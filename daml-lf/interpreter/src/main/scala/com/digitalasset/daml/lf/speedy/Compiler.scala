@@ -570,12 +570,6 @@ private[lf] final class Compiler(
   @inline
   private[this] def compileBuiltin(bf: BuiltinFunction): s.SExpr =
     bf match {
-      case BEqualList =>
-        val ref: t.SEBuiltinRecursiveDefinition.Reference =
-          t.SEBuiltinRecursiveDefinition.Reference.EqualList
-        val exp: s.SExpr = s.SEBuiltinRecursiveDefinition(ref)
-        withLabelS(ref, exp)
-
       case BCoerceContractId => s.SEAbs.identity
       // Numeric Comparisons
       case BLessNumeric => SBLessNumeric
@@ -639,6 +633,7 @@ private[lf] final class Compiler(
           // List functions
           case BFoldl => SBFoldl
           case BFoldr => SBFoldr
+          case BEqualList => SBEqualList
 
           // Errors
           case BError => SBError
@@ -690,8 +685,8 @@ private[lf] final class Compiler(
           case BTextIntercalate => SBTextIntercalate
 
           // Implemented using normal SExpr
-          case BFoldl | BFoldr | BCoerceContractId | BEqual | BEqualList | BLessEq |
-              BLess | BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
+
+          case BCoerceContractId | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
               BGreaterEqNumeric | BEqualNumeric | BNumericToText | BTextMapEmpty | BGenMapEmpty =>
             throw CompilationError(s"unexpected $bf")
 
@@ -1416,12 +1411,24 @@ private[lf] final class Compiler(
   private[this] def compileCommand(cmd: Command): s.SExpr = cmd match {
     case Command.Create(templateId, argument) =>
       t.CreateDefRef(templateId)(s.SEValue(argument))
+    case Command.CreateByInterface(interfaceId, templateId, argument) =>
+      t.CreateByInterfaceDefRef(templateId, interfaceId)(s.SEValue(argument))
     case Command.Exercise(templateId, contractId, choiceId, argument) =>
       t.ChoiceDefRef(templateId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
+    case Command.ExerciseByInterface(interfaceId, templateId @ _, contractId, choiceId, argument) =>
+      // TODO https://github.com/digital-asset/daml/issues/11703
+      //   Ensure that fetched template has expected templateId.
+      t.ChoiceDefRef(interfaceId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
+    case Command.ExerciseInterface(interfaceId, contractId, choiceId, argument) =>
+      t.ChoiceDefRef(interfaceId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
       t.ChoiceByKeyDefRef(templateId, choiceId)(s.SEValue(contractKey), s.SEValue(argument))
     case Command.Fetch(templateId, coid) =>
       t.FetchDefRef(templateId)(s.SEValue(coid))
+    case Command.FetchByInterface(interfaceId, templateId @ _, coid) =>
+      // TODO https://github.com/digital-asset/daml/issues/11703
+      //   Ensure that fetched template has expected templateId.
+      t.FetchDefRef(interfaceId)(s.SEValue(coid))
     case Command.FetchByKey(templateId, key) =>
       t.FetchByKeyDefRef(templateId)(s.SEValue(key))
     case Command.CreateAndExercise(templateId, createArg, choice, choiceArg) =>

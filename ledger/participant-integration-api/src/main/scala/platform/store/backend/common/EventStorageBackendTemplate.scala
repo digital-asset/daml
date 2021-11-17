@@ -11,15 +11,9 @@ import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.store.Conversions.{
-  contractId,
-  eventId,
-  identifier,
-  offset,
-  timestampFromMicros,
-}
+import com.daml.platform.store.Conversions.{contractId, eventId, offset, timestampFromMicros}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.daml.platform.store.appendonlydao.events.{EventsTable, Identifier, Raw}
+import com.daml.platform.store.appendonlydao.events.{EventsTable, Raw}
 import com.daml.platform.store.backend.EventStorageBackend
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.EventStorageBackend.RawTransactionEvent
@@ -43,7 +37,7 @@ abstract class EventStorageBackendTemplate(
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
-  private val selectColumnsForFlatTransactions =
+  private val baseColumnsForFlatTransactions =
     Seq(
       "event_offset",
       "transaction_id",
@@ -61,10 +55,16 @@ abstract class EventStorageBackendTemplate(
       "create_agreement_text",
       "create_key_value",
       "create_key_value_compression",
-    ).mkString(", ")
+    )
+
+  private val selectColumnsForFlatTransactions =
+    baseColumnsForFlatTransactions.mkString(", ")
+
+  private val selectColumnsForACSEvents =
+    baseColumnsForFlatTransactions.map(c => s"create_evs.$c").mkString(", ")
 
   private type SharedRow =
-    Offset ~ String ~ Int ~ Long ~ String ~ String ~ Timestamp ~ Identifier ~ Option[String] ~
+    Offset ~ String ~ Int ~ Long ~ String ~ String ~ Timestamp ~ Int ~ Option[String] ~
       Option[String] ~ Array[Int]
 
   private val sharedRow: RowParser[SharedRow] =
@@ -75,7 +75,7 @@ abstract class EventStorageBackendTemplate(
       str("event_id") ~
       str("contract_id") ~
       timestampFromMicros("ledger_effective_time") ~
-      identifier("template_id") ~
+      int("template_id") ~
       str("command_id").? ~
       str("workflow_id").? ~
       array[Int]("event_witnesses")
@@ -133,7 +133,7 @@ abstract class EventStorageBackendTemplate(
           event = Raw.FlatEvent.Created(
             eventId = eventId,
             contractId = contractId,
-            templateId = templateId,
+            templateId = stringInterning.templateId.externalize(templateId),
             createArgument = createArgument,
             createArgumentCompression = createArgumentCompression,
             createSignatories = ArraySeq.unsafeWrapArray(
@@ -168,7 +168,7 @@ abstract class EventStorageBackendTemplate(
           event = Raw.FlatEvent.Archived(
             eventId = eventId,
             contractId = contractId,
-            templateId = templateId,
+            templateId = stringInterning.templateId.externalize(templateId),
             eventWitnesses = ArraySeq.unsafeWrapArray(
               eventWitnesses.map(stringInterning.party.unsafe.externalize)
             ),
@@ -195,7 +195,7 @@ abstract class EventStorageBackendTemplate(
           event = Raw.TreeEvent.Created(
             eventId = eventId,
             contractId = contractId,
-            templateId = templateId,
+            templateId = stringInterning.templateId.externalize(templateId),
             createArgument = createArgument,
             createArgumentCompression = createArgumentCompression,
             createSignatories = ArraySeq.unsafeWrapArray(
@@ -230,7 +230,7 @@ abstract class EventStorageBackendTemplate(
           event = Raw.TreeEvent.Exercised(
             eventId = eventId,
             contractId = contractId,
-            templateId = templateId,
+            templateId = stringInterning.templateId.externalize(templateId),
             exerciseConsuming = exerciseConsuming,
             exerciseChoice = exerciseChoice,
             exerciseArgument = exerciseArgument,
@@ -358,6 +358,79 @@ abstract class EventStorageBackendTemplate(
     )(connection)
   }
 
+  override def activeContractEventIds(
+      partyFilter: Ref.Party,
+      templateIdFilter: Option[Ref.Identifier],
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long] = {
+    (
+      stringInterning.party.tryInternalize(partyFilter),
+      templateIdFilter.map(stringInterning.templateId.tryInternalize),
+    ) match {
+      case (None, _) => Vector.empty // partyFilter never seen
+      case (_, Some(None)) => Vector.empty // templateIdFilter never seen
+      case (Some(internedPartyFilter), internedTemplateIdFilterNested) =>
+        val (templateIdFilterClause, templateIdOrderingClause) =
+          internedTemplateIdFilterNested.flatten // flatten works for both None, Some(Some(x)) case, Some(None) excluded before
+          match {
+            case Some(internedTemplateId) =>
+              (
+                cSQL"AND filters.template_id = $internedTemplateId",
+                cSQL"filters.template_id,",
+              )
+            case None => (cSQL"", cSQL"")
+          }
+        SQL"""
+         SELECT filters.event_sequential_id
+         FROM
+           participant_events_create_filter filters
+         WHERE
+           filters.party_id = $internedPartyFilter
+           $templateIdFilterClause
+           AND $startExclusive < event_sequential_id
+           AND event_sequential_id <= $endInclusive
+         ORDER BY
+           filters.party_id,
+           $templateIdOrderingClause
+           filters.event_sequential_id -- deliver in index order
+         ${queryStrategy.limitClause(Some(limit))}
+       """
+          .asVectorOf(long("event_sequential_id"))(connection)
+    }
+  }
+
+  override def activeContractEventBatch(
+      eventSequentialIds: Iterable[Long],
+      allFilterParties: Set[Ref.Party],
+      endInclusive: Long,
+  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
+    val eventWitnessesClause =
+      eventStrategy
+        .filteredEventWitnessesClause("flat_event_witnesses", allFilterParties, stringInterning)
+    SQL"""
+      SELECT
+        #$selectColumnsForACSEvents,
+        $eventWitnessesClause as event_witnesses,
+        '' as command_id
+      FROM
+        participant_events_create create_evs
+      WHERE
+        create_evs.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
+        AND NOT EXISTS (  -- check not archived as of snapshot
+          SELECT 1
+          FROM participant_events_consuming_exercise consuming_evs
+          WHERE
+            create_evs.contract_id = consuming_evs.contract_id
+            AND consuming_evs.event_sequential_id <= $endInclusive
+        )
+      ORDER BY
+        create_evs.event_sequential_id -- deliver in index order
+      """
+      .asVectorOf(rawFlatEventParser)(connection)
+  }
+
   override def flatTransaction(
       transactionId: Ref.TransactionId,
       filterParams: FilterParams,
@@ -460,6 +533,10 @@ abstract class EventStorageBackendTemplate(
       }(connection, loggingContext)
     }
 
+    pruneWithLogging(queryDescription = "Create events filter table pruning") {
+      eventStrategy.pruneCreateFilters(pruneUpToInclusive)
+    }(connection, loggingContext)
+
     pruneWithLogging(queryDescription = "Create events pruning") {
       SQL"""
           -- Create events (only for contracts archived before the specified offset)
@@ -537,7 +614,7 @@ abstract class EventStorageBackendTemplate(
       str("workflow_id").? ~
       eventId("event_id") ~
       contractId("contract_id") ~
-      identifier("template_id").? ~
+      int("template_id").? ~
       timestampFromMicros("ledger_effective_time").? ~
       array[Int]("create_signatories").? ~
       array[Int]("create_observers").? ~
@@ -571,7 +648,7 @@ abstract class EventStorageBackendTemplate(
           workflowId,
           eventId,
           contractId,
-          templateId,
+          templateId.map(stringInterning.templateId.externalize),
           ledgerEffectiveTime,
           createSignatories.map(_.map(stringInterning.party.unsafe.externalize)),
           createObservers.map(_.map(stringInterning.party.unsafe.externalize)),
@@ -686,4 +763,11 @@ trait EventStrategy {
       filterParams: FilterParams,
       stringInterning: StringInterning,
   ): CompositeSql
+
+  /** Pruning participant_events_create_filter entries.
+    *
+    * @param pruneUpToInclusive create and archive events must be earlier or equal to this offset
+    * @return the executable anorm query
+    */
+  def pruneCreateFilters(pruneUpToInclusive: Offset): SimpleSql[Row]
 }

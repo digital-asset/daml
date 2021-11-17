@@ -1,12 +1,10 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.benchtool
+package com.daml.ledger.api.benchtool.config
 
-import com.daml.ledger.api.benchtool.Config.StreamConfig
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.value.Identifier
 import com.daml.metrics.MetricsReporter
 import scopt.{OptionDef, OptionParser, Read}
 
@@ -30,7 +28,7 @@ object Cli {
         config.copy(ledger = config.ledger.copy(hostname = hostname, port = port))
       }
 
-    opt[Config.StreamConfig]("consume-stream")
+    opt[WorkflowConfig.StreamConfig]("consume-stream")
       .abbr("s")
       .unbounded()
       .text(
@@ -40,16 +38,19 @@ object Cli {
         "<param1>=<value1>,<param2>=<value2>,..."
       )
       .action { case (streamConfig, config) =>
-        config.copy(streams = config.streams :+ streamConfig)
+        config
+          .copy(workflow = config.workflow.copy(streams = config.workflow.streams :+ streamConfig))
       }
 
-    opt[File]("contract-set-descriptor")
+    opt[File]("workflow-config")
       .hidden() // TODO: uncomment when production-ready
-      .abbr("d")
+      .abbr("w")
       .optional()
-      .text("A contract set descriptor file.")
-      .action { case (descriptorFile, config) =>
-        config.copy(contractSetDescriptorFile = Some(descriptorFile))
+      .text(
+        "A workflow configuration file. Parameters defined via this method take precedence over --consume-stream options."
+      )
+      .action { case (workflowConfigFile, config) =>
+        config.copy(workflowConfigFile = Some(workflowConfigFile))
       }
 
     opt[Int]("max-in-flight-commands")
@@ -109,7 +110,7 @@ object Cli {
     note(1, "Transactions/transaction trees:")
     note(2, "stream-type=<transactions|transaction-trees>", "(required)")
     note(2, "name=<stream-name>", "Stream name used to identify results (required)")
-    note(2, "filters=party1|template1|template2&party2", "(required)")
+    note(2, "filters=party1@template1@template2+party2", "(required)")
     note(2, "begin-offset=<offset>")
     note(2, "end-offset=<offset>")
     note(2, "max-delay=<seconds>", "Max record time delay objective")
@@ -134,7 +135,7 @@ object Cli {
     parser.parse(args, Config.Default)
 
   private object Reads {
-    implicit val streamConfigRead: Read[Config.StreamConfig] =
+    implicit val streamConfigRead: Read[WorkflowConfig.StreamConfig] =
       Read.mapRead[String, String].map { m =>
         def stringField(fieldName: String): Either[String, String] =
           m.get(fieldName) match {
@@ -161,25 +162,27 @@ object Cli {
         def offset(stringValue: String): LedgerOffset =
           LedgerOffset.defaultInstance.withAbsolute(stringValue)
 
-        def transactionsConfig: Either[String, StreamConfig.TransactionsStreamConfig] = for {
+        def transactionsConfig
+            : Either[String, WorkflowConfig.StreamConfig.TransactionsStreamConfig] = for {
           name <- stringField("name")
           filters <- stringField("filters").flatMap(filters)
           beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
           endOffset <- optionalStringField("end-offset").map(_.map(offset))
           maxDelaySeconds <- optionalLongField("max-delay")
           minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
-        } yield Config.StreamConfig.TransactionsStreamConfig(
+        } yield WorkflowConfig.StreamConfig.TransactionsStreamConfig(
           name = name,
           filters = filters,
           beginOffset = beginOffset,
           endOffset = endOffset,
-          objectives = Config.StreamConfig.Objectives(
+          objectives = WorkflowConfig.StreamConfig.Objectives(
             maxDelaySeconds = maxDelaySeconds,
             minConsumptionSpeed = minConsumptionSpeed,
           ),
         )
 
-        def transactionTreesConfig: Either[String, StreamConfig.TransactionTreesStreamConfig] =
+        def transactionTreesConfig
+            : Either[String, WorkflowConfig.StreamConfig.TransactionTreesStreamConfig] =
           for {
             name <- stringField("name")
             filters <- stringField("filters").flatMap(filters)
@@ -187,38 +190,40 @@ object Cli {
             endOffset <- optionalStringField("end-offset").map(_.map(offset))
             maxDelaySeconds <- optionalLongField("max-delay")
             minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
-          } yield Config.StreamConfig.TransactionTreesStreamConfig(
+          } yield WorkflowConfig.StreamConfig.TransactionTreesStreamConfig(
             name = name,
             filters = filters,
             beginOffset = beginOffset,
             endOffset = endOffset,
-            objectives = Config.StreamConfig.Objectives(
+            objectives = WorkflowConfig.StreamConfig.Objectives(
               maxDelaySeconds = maxDelaySeconds,
               minConsumptionSpeed = minConsumptionSpeed,
             ),
           )
 
-        def activeContractsConfig: Either[String, StreamConfig.ActiveContractsStreamConfig] = for {
+        def activeContractsConfig
+            : Either[String, WorkflowConfig.StreamConfig.ActiveContractsStreamConfig] = for {
           name <- stringField("name")
           filters <- stringField("filters").flatMap(filters)
-        } yield Config.StreamConfig.ActiveContractsStreamConfig(
+        } yield WorkflowConfig.StreamConfig.ActiveContractsStreamConfig(
           name = name,
           filters = filters,
         )
 
-        def completionsConfig: Either[String, StreamConfig.CompletionsStreamConfig] = for {
-          name <- stringField("name")
-          party <- stringField("party")
-          applicationId <- stringField("application-id")
-          beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
-        } yield Config.StreamConfig.CompletionsStreamConfig(
-          name = name,
-          party = party,
-          applicationId = applicationId,
-          beginOffset = beginOffset,
-        )
+        def completionsConfig: Either[String, WorkflowConfig.StreamConfig.CompletionsStreamConfig] =
+          for {
+            name <- stringField("name")
+            party <- stringField("party")
+            applicationId <- stringField("application-id")
+            beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
+          } yield WorkflowConfig.StreamConfig.CompletionsStreamConfig(
+            name = name,
+            party = party,
+            applicationId = applicationId,
+            beginOffset = beginOffset,
+          )
 
-        val config = stringField("stream-type").flatMap[String, Config.StreamConfig] {
+        val config = stringField("stream-type").flatMap[String, WorkflowConfig.StreamConfig] {
           case "transactions" => transactionsConfig
           case "transaction-trees" => transactionTreesConfig
           case "active-contracts" => activeContractsConfig
@@ -229,56 +234,33 @@ object Cli {
         config.fold(error => throw new IllegalArgumentException(error), identity)
       }
 
-    private def filters(listOfIds: String): Either[String, Map[String, Option[List[Identifier]]]] =
+    private def filters(
+        listOfIds: String
+    ): Either[String, List[WorkflowConfig.StreamConfig.PartyFilter]] =
       listOfIds
         .split('+')
         .toList
         .map(filter)
-        .foldLeft[Either[String, Map[String, List[Identifier]]]](Right(Map.empty)) {
-          case (acc, next) =>
-            for {
-              filters <- acc
-              filter <- next
-            } yield filters + filter
-        }
-        .map { filters =>
-          filters.map { case (party, templateIds) =>
-            party -> Some(templateIds).filter(_.nonEmpty)
-          }
+        .foldLeft[Either[String, List[WorkflowConfig.StreamConfig.PartyFilter]]](
+          Right(List.empty)
+        ) { case (acc, next) =>
+          for {
+            filters <- acc
+            filter <- next
+          } yield filters :+ filter
         }
 
-    private def filter(filterString: String): Either[String, (String, List[Identifier])] =
+    private def filter(
+        filterString: String
+    ): Either[String, WorkflowConfig.StreamConfig.PartyFilter] = {
       filterString
         .split('@')
         .toList match {
         case party :: templates =>
-          templates
-            .map(templateIdFromString)
-            .foldLeft[Either[String, List[Identifier]]](Right(List.empty[Identifier])) {
-              case (acc, next) =>
-                for {
-                  ids <- acc
-                  id <- next
-                } yield id :: ids
-            }
-            .map(party -> _)
+          Right(WorkflowConfig.StreamConfig.PartyFilter(party, templates))
         case _ => Left("Filter cannot be empty")
       }
-
-    private def templateIdFromString(fullyQualifiedTemplateId: String): Either[String, Identifier] =
-      fullyQualifiedTemplateId
-        .split(':')
-        .toList match {
-        case packageId :: moduleName :: entityName :: Nil =>
-          Right(
-            Identifier.defaultInstance
-              .withEntityName(entityName)
-              .withModuleName(moduleName)
-              .withPackageId(packageId)
-          )
-        case _ =>
-          Left(s"Invalid template id: $fullyQualifiedTemplateId")
-      }
+    }
 
     def endpointRead: Read[(String, Int)] = new Read[(String, Int)] {
       val arity = 1

@@ -111,7 +111,7 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
         ledger,
         error,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.CommandValidation.InvalidArgument,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
         Some("Party is too long"),
       )
     }
@@ -135,7 +135,7 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
         ledger,
         error,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.CommandValidation.InvalidArgument,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
         Some("non expected character"),
       )
     }

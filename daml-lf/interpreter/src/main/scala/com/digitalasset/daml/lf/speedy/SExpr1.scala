@@ -12,7 +12,6 @@ package speedy
 import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SExpr.{SDefinitionRef, SCasePat}
-import com.daml.lf.speedy.{SExpr => runTime}
 
 private[speedy] object SExpr1 {
 
@@ -109,8 +108,4 @@ private[speedy] object SExpr1 {
     * extended and 'body' is evaluated.
     */
   final case class SCaseAlt(pattern: SCasePat, body: SExpr)
-
-  final case class SEBuiltinRecursiveDefinition(ref: runTime.SEBuiltinRecursiveDefinition.Reference)
-      extends SExprAtomic
-
 }

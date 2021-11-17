@@ -3,10 +3,8 @@
 
 package com.daml.http
 
-import com.daml.dbutils
-import com.daml.dbutils.ConnectionPool
-import com.daml.http.PostgresIntTest.defaultJdbcConfig
-import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
+import HttpServicePostgresInt.defaultJdbcConfig
+import dbbackend.JdbcConfig
 import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -17,18 +15,4 @@ class PostgresIntTest
     with Matchers
     with Inside {
   override protected def jdbcConfig: JdbcConfig = defaultJdbcConfig(postgresDatabase.url)
-}
-
-object PostgresIntTest {
-  def defaultJdbcConfig(url: => String) = JdbcConfig(
-    dbutils.JdbcConfig(
-      driver = "org.postgresql.Driver",
-      url = url,
-      user = "test",
-      password = "",
-      tablePrefix = "some_nice_prefix_",
-      poolSize = ConnectionPool.PoolSize.Integration,
-    ),
-    dbStartupMode = DbStartupMode.CreateOnly,
-  )
 }

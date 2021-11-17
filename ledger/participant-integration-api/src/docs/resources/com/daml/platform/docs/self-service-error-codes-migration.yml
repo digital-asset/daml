@@ -13,17 +13,6 @@ transactionNotFound:
       - getTransactionByEventId
       - getTransactionById
 
-malformedPackageId:
-  change:
-    - INVALID_ARGUMENT
-    - INVALID_ARGUMENT
-  changeExplanation: ""
-  selfServiceErrorCodeId: MALFORMED_PACKAGE_ID
-  services:
-    PackageService:
-      - getPackage
-      - getPackageStatus
-
 packageNotFound:
   change:
     - NOT_FOUND
@@ -177,9 +166,9 @@ invalidArgumentWasNotFound:
 offsetOutOfRange_was_invalidArgument:
   change:
     - INVALID_ARGUMENT
-    - OUT_OF_RANGE
-  changeExplanation: "OUT_OF_RANGE can now be returned when the supplied offset was out of range."
-  selfServiceErrorCodeId: REQUESTED_OFFSET_OUT_OF_RANGE
+    - FAILED_PRECONDITION
+  changeExplanation: "FAILED_PRECONDITION can now be returned when the supplied offset was out of range."
+  selfServiceErrorCodeId: OFFSET_OUT_OF_RANGE
   services:
     TransactionService:
       - getTransactionTrees
@@ -188,12 +177,25 @@ offsetOutOfRange_was_invalidArgument:
 offsetOutOfRange_was_invalidArgument::pruning:
   change:
     - INVALID_ARGUMENT
-    - OUT_OF_RANGE
-  changeExplanation: "OUT_OF_RANGE can now be returned when the supplied pruning offset was out of range."
-  selfServiceErrorCodeId: REQUESTED_OFFSET_OUT_OF_RANGE
+    - FAILED_PRECONDITION
+  changeExplanation: "FAILED_PRECONDITION can now be returned when the supplied pruning offset is not before the ledger end."
+  selfServiceErrorCodeId: OFFSET_OUT_OF_RANGE
   services:
     ParticipantPruningService:
       - prune
+
+offsetAfterLedgerEnd:
+  change:
+    - OUT_OF_RANGE
+    - OUT_OF_RANGE
+  changeExplanation: ""
+  selfServiceErrorCodeId: OFFSET_AFTER_LEDGER_END
+  services:
+    CommandCompletionService:
+      - completionStream
+    TransactionService:
+      - getTransactions
+      - getTransactionTrees
 
 nonHexOffset:
   change:
@@ -229,19 +231,6 @@ invalidField:
       - getTransactionTrees
     CommandSubmissionService:
       - submit
-
-offsetOutOfRange:
-  change:
-    - OUT_OF_RANGE
-    - OUT_OF_RANGE
-  changeExplanation: ""
-  selfServiceErrorCodeId: REQUESTED_OFFSET_OUT_OF_RANGE
-  services:
-    CommandCompletionService:
-      - completionStream
-    TransactionService:
-      - getTransactions
-      - getTransactionTrees
 
 isTimeoutUnknown_wasAborted:
   change:
@@ -339,8 +328,8 @@ missingLedgerConfigUponRequest:
 participantPrunedDataAccessed:
   change:
     - NOT_FOUND
-    - OUT_OF_RANGE
-  changeExplanation: "OUT_OF_RANGE can now be returned when attempting to access the data that has already been pruned."
+    - FAILED_PRECONDITION
+  changeExplanation: "FAILED_PRECONDITION can now be returned when attempting to access the data that has already been pruned."
   selfServiceErrorCodeId: PARTICIPANT_PRUNED_DATA_ACCESSED
   services:
     CommandCompletionService:
@@ -499,3 +488,54 @@ ApiSubmissionService.failedOnCommandExecution#{Package.Internal, Package.SelfCon
     SubmissionService:
       - submit
 
+failedToEnqueueCommandSubmission:
+  change:
+    - ABORTED
+    - INTERNAL
+  changeExplanation: "INTERNAL is not returned on Command Service submissions on unexpected errors."
+  selfServiceErrorCodeId: LEDGER_API_INTERNAL_ERROR
+  services:
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait
+
+commandServiceIngressBufferFull:
+  change:
+    - RESOURCE_EXHAUSTED
+    - ABORTED
+  changeExplanation: "ABORTED is now returned on Command Service submissions on backpressure."
+  selfServiceErrorCodeId: PARTICIPANT_BACKPRESSURE
+  services:
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait
+
+commandSubmissionQueueClosed:
+  change:
+    - ABORTED
+    - UNAVAILABLE
+  changeExplanation: "UNAVAILABLE is now returned on Command Service submissions on backpressure."
+  selfServiceErrorCodeId: SERVICE_NOT_RUNNING
+  services:
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait
+
+timedOutOnAwaitingForCommandCompletion:
+  change:
+    - ABORTED
+    - DEADLINE_EXCEEDED
+  changeExplanation: "DEADLINE_EXCEEDED is now returned on Command Service submissions timeouts."
+  selfServiceErrorCodeId: REQUEST_TIME_OUT
+  services:
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait

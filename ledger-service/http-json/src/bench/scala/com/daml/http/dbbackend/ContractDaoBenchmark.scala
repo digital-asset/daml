@@ -9,11 +9,13 @@ import doobie.util.log.LogHandler
 import com.daml.dbutils
 import com.daml.dbutils.ConnectionPool
 import com.daml.doobie.logging.Slf4jLogHandler
+import com.daml.http.dbbackend.OracleQueries.DisableContractPayloadIndexing
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.TemplateId
 import com.daml.http.util.Logging.instanceUUIDLogCtx
 import com.daml.metrics.Metrics
 import com.daml.testing.oracle
+import com.daml.testing.postgresql.{PostgresAround, PostgresDatabase}
 import oracle.{OracleAround, User}
 import org.openjdk.jmh.annotations._
 
@@ -24,8 +26,7 @@ import spray.json.DefaultJsonProtocol._
 
 @State(Scope.Benchmark)
 abstract class ContractDaoBenchmark extends OracleAround {
-
-  private var user: User = _
+  self: BenchmarkDbConnection =>
 
   protected var dao: ContractDao = _
   protected[this] final def queries = dao.jdbcDriver.q.queries
@@ -39,21 +40,12 @@ abstract class ContractDaoBenchmark extends OracleAround {
 
   @Setup(Level.Trial)
   def setup(): Unit = {
-    connectToOracle()
-    user = createNewRandomUser()
-    val cfg = JdbcConfig(
-      dbutils.JdbcConfig(
-        "oracle.jdbc.OracleDriver",
-        oracleJdbcUrl,
-        user.name,
-        user.pwd,
-        poolSize = ConnectionPool.PoolSize.Integration,
-      )
-    )
-    val oracleDao = ContractDao(cfg)
-    dao = oracleDao
+    connectToDb()
+    val cfg = createDbJdbcConfig
+    val cDao = ContractDao(cfg)
+    dao = cDao
 
-    import oracleDao.jdbcDriver
+    import cDao.jdbcDriver
 
     dao.transact(ContractDao.initialize).unsafeRunSync()
   }
@@ -61,7 +53,7 @@ abstract class ContractDaoBenchmark extends OracleAround {
   @TearDown(Level.Trial)
   def teardown(): Unit = {
     dao.close()
-    dropUser(user.name)
+    cleanup()
   }
 
   protected def contract(
@@ -107,5 +99,71 @@ abstract class ContractDaoBenchmark extends OracleAround {
       .unsafeRunSync()
     assert(inserted == batchSize)
   }
+}
 
+trait BenchmarkDbConnection {
+  def connectToDb(): Unit
+  def createDbJdbcConfig: JdbcConfig
+  def cleanup(): Unit
+}
+
+trait OracleBenchmarkDbConn extends BenchmarkDbConnection with OracleAround {
+
+  private var user: User = _
+  private val disableContractPayloadIndexing = false
+
+  override def connectToDb() = {
+    connectToOracle()
+  }
+
+  override def createDbJdbcConfig: JdbcConfig = {
+    user = createNewRandomUser()
+    val cfg = JdbcConfig(
+      dbutils.JdbcConfig(
+        driver = "oracle.jdbc.OracleDriver",
+        url = oracleJdbcUrl,
+        user = user.name,
+        password = user.pwd,
+        poolSize = ConnectionPool.PoolSize.Integration,
+      ),
+      dbStartupMode = DbStartupMode.CreateOnly,
+      backendSpecificConf =
+        if (disableContractPayloadIndexing) Map(DisableContractPayloadIndexing -> "true")
+        else Map.empty,
+    )
+    cfg
+  }
+
+  override def cleanup(): Unit = {
+    dropUser(user.name)
+  }
+}
+
+trait PostgresBenchmarkDbConn extends BenchmarkDbConnection with PostgresAround {
+
+  @volatile
+  private var database: PostgresDatabase = _
+
+  override def connectToDb() = {
+    connectToPostgresqlServer()
+    database = createNewRandomDatabase()
+  }
+
+  override def createDbJdbcConfig: JdbcConfig = {
+    JdbcConfig(
+      dbutils.JdbcConfig(
+        driver = "org.postgresql.Driver",
+        url = database.url,
+        user = database.userName,
+        password = database.password,
+        poolSize = ConnectionPool.PoolSize.Integration,
+      ),
+      dbStartupMode = DbStartupMode.CreateOnly,
+    )
+  }
+
+  override def cleanup(): Unit = {
+    dropDatabase(database)
+    disconnectFromPostgresqlServer()
+  }
 }

@@ -112,14 +112,14 @@ private[testtool] abstract class CommandDeduplicationBase(
       _ <- submitRequestAndAssertSyncFailure(ledger)(
         requestA,
         Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.AuthorizationError,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
       )
 
       // Re-submit the invalid command (should again fail with INVALID_ARGUMENT and not with ALREADY_EXISTS)
       _ <- submitRequestAndAssertSyncFailure(ledger)(
         requestA,
         Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.AuthorizationError,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
       )
     } yield {}
   })
@@ -369,7 +369,7 @@ private[testtool] abstract class CommandDeduplicationBase(
     submitRequestAndAssertSyncFailure(ledger)(
       request,
       Code.ALREADY_EXISTS,
-      LedgerApiErrors.CommandRejections.DuplicateCommand,
+      LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
     )
 
   private def submitRequestAndAssertSyncFailure(ledger: ParticipantTestContext)(
@@ -401,7 +401,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           ledger,
           _,
           expectedCode = Code.ALREADY_EXISTS,
-          selfServiceErrorCode = LedgerApiErrors.CommandRejections.DuplicateCommand,
+          selfServiceErrorCode = LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
           exceptionMessageSubstring = None,
           checkDefiniteAnswerMetadata = true,
         )

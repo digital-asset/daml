@@ -3,6 +3,7 @@
 
 package com.daml.platform.store
 
+import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
@@ -31,6 +32,7 @@ object IndexMetadata {
   )(implicit
       resourceContext: ResourceContext,
       executionContext: ExecutionContext,
+      materializer: Materializer,
       loggingContext: LoggingContext,
   ): Future[IndexMetadata] =
     ownDao(jdbcUrl, errorFactories).use { dao =>
@@ -47,6 +49,7 @@ object IndexMetadata {
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
+      materializer: Materializer,
   ) = {
     val storageBackendFactory = StorageBackendFactory.of(DbType.jdbcType(jdbcUrl))
     val metrics = new Metrics(new MetricRegistry)
@@ -73,6 +76,7 @@ object IndexMetadata {
           ledgerEndCache = MutableLedgerEndCache(), // not used
           stringInterning =
             new StringInterningView((_, _) => _ => Future.successful(Nil)), // not used
+          materializer = materializer,
         )
       )
   }

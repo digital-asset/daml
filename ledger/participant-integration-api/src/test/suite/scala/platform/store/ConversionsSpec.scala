@@ -48,7 +48,7 @@ class ConversionsSpec extends AsyncWordSpec with Matchers {
         v1expectedCode = Status.Code.ABORTED.value(),
         v1expectedMessage = "Inconsistent: Could not lookup contracts: [cId_1, cId_2]",
         v2expectedCode = Status.Code.NOT_FOUND.value(),
-        v2expectedMessage = "CONTRACTS_NOT_FOUND(11,0): Unknown contracts: [cId_1, cId_2]",
+        v2expectedMessage = "CONTRACT_NOT_FOUND(11,0): Unknown contracts: [cId_1, cId_2]",
       )
     }
 

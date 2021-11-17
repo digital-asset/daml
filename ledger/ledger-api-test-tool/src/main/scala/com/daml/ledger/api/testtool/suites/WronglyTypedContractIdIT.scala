@@ -27,7 +27,7 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
           ledger,
           exerciseFailure,
           Code.INVALID_ARGUMENT,
-          LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError,
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
           Some("wrongly typed contract id"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -50,7 +50,7 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
           ledger,
           fetchFailure,
           Code.INVALID_ARGUMENT,
-          LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError,
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
           Some("wrongly typed contract id"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -79,7 +79,7 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
         ledger,
         failure,
         Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError,
+        LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
         Some("wrongly typed contract id"),
         checkDefiniteAnswerMetadata = true,
       )

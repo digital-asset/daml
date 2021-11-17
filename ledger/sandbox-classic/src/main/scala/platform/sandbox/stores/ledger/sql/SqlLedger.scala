@@ -327,6 +327,7 @@ private[sandbox] object SqlLedger {
         ledgerEndCache = ledgerEndCache,
         errorFactories = errorFactories,
         stringInterning = stringInterningView,
+        materializer = mat,
       )
     }
 
