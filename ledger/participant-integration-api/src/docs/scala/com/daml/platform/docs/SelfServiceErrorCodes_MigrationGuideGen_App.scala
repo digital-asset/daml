@@ -195,7 +195,7 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
       if (!affectedMap.contains(key)) {
         affectedMap.put(key, new ArrayBuffer[Array[String]])
       }
-      affectedMap.apply(key).addOne(line)
+      affectedMap.apply(key) += (line)
     }
 
     // Add unchanged codes if the there is a change for this (endpoint, old_code) pair
@@ -205,7 +205,7 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
       val key = EndpointWithGrpcCode(line(0), line(1))
 
       if (affectedMap.contains(key)) {
-        affectedMap.apply(key).addOne(line)
+        affectedMap.apply(key) += (line)
       }
     }
 
