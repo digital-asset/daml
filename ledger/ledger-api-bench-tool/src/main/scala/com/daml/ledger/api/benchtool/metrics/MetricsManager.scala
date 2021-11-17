@@ -7,12 +7,14 @@ import akka.actor.CoordinatedShutdown
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, ActorSystem, Props, SpawnProtocol}
 import akka.util.Timeout
-import com.daml.ledger.api.benchtool.util.MetricFormatter
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
-case class MetricsManager[T](collector: ActorRef[MetricsCollector.Message])(implicit
+case class MetricsManager[T](
+    collector: ActorRef[MetricsCollector.Message],
+    logInterval: FiniteDuration,
+)(implicit
     system: ActorSystem[SpawnProtocol.Command]
 ) {
   CoordinatedShutdown(system).addTask(
@@ -23,12 +25,30 @@ case class MetricsManager[T](collector: ActorRef[MetricsCollector.Message])(impl
     result().map(_ => akka.Done)(system.executionContext)
   }
 
+  system.scheduler.scheduleWithFixedDelay(logInterval, logInterval)(() => {
+    implicit val timeout: Timeout = Timeout(logInterval)
+    collector
+      .ask(MetricsCollector.Message.PeriodicReportRequest)
+      .map { response =>
+        println(s"LOG NICE PERIODIC REPORT: ${response}")
+      }(system.executionContext)
+    ()
+  })(system.executionContext)
+
   def sendNewValue(value: T): Unit =
     collector ! MetricsCollector.Message.NewValue(value)
 
-  def result[Result](): Future[MetricsCollector.Message.MetricsResult] = {
+  def result[Result](): Future[StreamResult] = {
     implicit val timeout: Timeout = Timeout(3.seconds)
-    collector.ask(MetricsCollector.Message.StreamCompleted)
+    val result = collector.ask(MetricsCollector.Message.FinalReportRequest)
+
+    result.map { response: MetricsCollector.Response.FinalReport =>
+      println(s"PRINTLN NICE REPORT: ${response}")
+      if (response.metricsData.exists(_.violatedObjective.isDefined))
+        StreamResult.ObjectivesViolated
+      else
+        StreamResult.Ok
+    }(system.executionContext)
   }
 }
 
@@ -47,10 +67,7 @@ object MetricsManager {
     val collectorActor: Future[ActorRef[MetricsCollector.Message]] = system.ask(
       SpawnProtocol.Spawn(
         behavior = MetricsCollector(
-          streamName = streamName,
           metrics = metrics,
-          logInterval = logInterval,
-          reporter = MetricFormatter.Default,
           exposedMetrics = exposedMetrics,
         ),
         name = s"${streamName}-collector",
@@ -59,6 +76,11 @@ object MetricsManager {
       )
     )
 
-    collectorActor.map(MetricsManager[StreamElem](_))
+    collectorActor.map(collector =>
+      MetricsManager[StreamElem](
+        collector = collector,
+        logInterval = logInterval,
+      )
+    )
   }
 }

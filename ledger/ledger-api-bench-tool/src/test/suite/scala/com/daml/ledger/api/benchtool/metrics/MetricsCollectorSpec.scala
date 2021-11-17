@@ -3,126 +3,169 @@
 
 package com.daml.ledger.api.benchtool
 
-import akka.actor.testkit.typed.scaladsl.{
-  BehaviorTestKit,
-  LoggingTestKit,
-  ManualTime,
-  ScalaTestWithActorTestKit,
-  TestProbe,
-}
+import akka.actor.testkit.typed.scaladsl.{BehaviorTestKit, ScalaTestWithActorTestKit}
 import akka.actor.typed.{ActorRef, Behavior}
-import com.daml.ledger.api.benchtool.metrics.MetricsCollector.Message
 import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
 import com.daml.ledger.api.benchtool.metrics.{Metric, MetricValue, MetricsCollector}
-import com.daml.ledger.api.benchtool.util.MetricFormatter
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import java.time.Duration
-import scala.concurrent.duration._
 import scala.util.Random
 
-class MetricsCollectorSpec
-    extends ScalaTestWithActorTestKit(ManualTime.config)
-    with AnyWordSpecLike {
+class MetricsCollectorSpec extends ScalaTestWithActorTestKit with AnyWordSpecLike {
+  import MetricsCollector.Message
+  import MetricsCollector.Response
 
   "The MetricsCollector" should {
-
-    val manualTime: ManualTime = ManualTime()
-
-    "log periodic report" in {
-      val logInterval = 100.millis
-      val collector = spawn(logInterval)
-
-      val first = "first"
-      val second = "second"
-
-      collector ! MetricsCollector.Message.NewValue(first)
-      collector ! MetricsCollector.Message.NewValue(second)
-
-      manualTime.timePasses(logInterval - 1.milli)
-
-      LoggingTestKit
-        .info(s"$first-$second")
-        .withOccurrences(1)
-        .expect {
-          manualTime.timePasses(10.milli)
-        }
-    }
-
-    "respond with metrics result on StreamCompleted message" in {
+    "respond with empty periodic report" in {
       val collector = spawn()
-      val probe = aTestProbe()
+      val probe = testKit.createTestProbe[Response.PeriodicReport]()
 
-      collector ! MetricsCollector.Message.StreamCompleted(probe.ref)
-      probe.expectMessage(MetricsCollector.Message.MetricsResult.Ok)
+      collector ! Message.PeriodicReportRequest(probe.ref)
+
+      probe.expectMessage(
+        Response.PeriodicReport(
+          values = List(
+            TestMetricValue("PERIODIC:")
+          )
+        )
+      )
     }
 
-    "respond with information about violated objectives" in {
+    "respond with correct periodic report" in {
       val collector = spawn()
-      val probe = aTestProbe()
+      val probe = testKit.createTestProbe[Response.PeriodicReport]()
 
-      collector ! MetricsCollector.Message.NewValue("a value")
-      collector ! MetricsCollector.Message.NewValue(TestObjective.TestViolatingValue)
-      collector ! MetricsCollector.Message.StreamCompleted(probe.ref)
+      collector ! Message.NewValue("banana")
+      collector ! Message.NewValue("mango")
+      collector ! Message.PeriodicReportRequest(probe.ref)
 
-      probe.expectMessage(MetricsCollector.Message.MetricsResult.ObjectivesViolated)
+      probe.expectMessage(
+        Response.PeriodicReport(
+          values = List(
+            TestMetricValue("PERIODIC:banana-mango")
+          )
+        )
+      )
     }
 
-    "stop when the stream completes" in {
-      val probe = aTestProbe()
-      val behaviorTestKit = BehaviorTestKit(behavior())
+    "include objective-violating values in periodic report" in {
+      val collector = spawn()
+      val probe = testKit.createTestProbe[Response.PeriodicReport]()
+
+      collector ! Message.NewValue("banana")
+      collector ! Message.NewValue(TestObjective.TestViolatingValue)
+      collector ! Message.NewValue("mango")
+      collector ! Message.PeriodicReportRequest(probe.ref)
+
+      probe.expectMessage(
+        Response.PeriodicReport(
+          values = List(
+            TestMetricValue("PERIODIC:banana-tomato-mango")
+          )
+        )
+      )
+    }
+
+    "respond with empty final report" in {
+      val collector = spawn()
+      val probe = testKit.createTestProbe[Response.FinalReport]()
+
+      collector ! Message.FinalReportRequest(probe.ref)
+
+      probe.expectMessage(
+        Response.FinalReport(
+          metricsData = List(
+            Response.MetricFinalReportData(
+              name = "Test Metric",
+              value = TestMetricValue("FINAL:"),
+              violatedObjective = None,
+            )
+          )
+        )
+      )
+    }
+
+    "respond with correct final report" in {
+      val collector = spawn()
+      val probe = testKit.createTestProbe[Response.FinalReport]()
+
+      collector ! Message.NewValue("mango")
+      collector ! Message.NewValue("banana")
+      collector ! Message.NewValue("cherry")
+      collector ! Message.FinalReportRequest(probe.ref)
+
+      probe.expectMessage(
+        Response.FinalReport(
+          metricsData = List(
+            Response.MetricFinalReportData(
+              name = "Test Metric",
+              value = TestMetricValue("FINAL:mango-banana-cherry"),
+              violatedObjective = None,
+            )
+          )
+        )
+      )
+    }
+
+    "include information about violated objective in the final report" in {
+      val collector = spawn()
+      val probe = testKit.createTestProbe[Response.FinalReport]()
+
+      collector ! Message.NewValue("mango")
+      collector ! Message.NewValue(TestObjective.TestViolatingValue)
+      collector ! Message.NewValue("cherry")
+      collector ! Message.FinalReportRequest(probe.ref)
+
+      probe.expectMessage(
+        Response.FinalReport(
+          metricsData = List(
+            Response.MetricFinalReportData(
+              name = "Test Metric",
+              value = TestMetricValue("FINAL:mango-tomato-cherry"),
+              violatedObjective = Some(
+                (
+                  TestObjective,
+                  TestMetricValue(TestObjective.TestViolatingValue),
+                )
+              ),
+            )
+          )
+        )
+      )
+    }
+
+    "stop after receiving final report request" in {
+      val probe = testKit.createTestProbe[Response.FinalReport]()
+      val behaviorTestKit = BehaviorTestKit(behavior)
 
       behaviorTestKit.isAlive shouldBe true
 
-      behaviorTestKit.run(MetricsCollector.Message.StreamCompleted(probe.ref))
+      behaviorTestKit.run(Message.FinalReportRequest(probe.ref))
 
       behaviorTestKit.isAlive shouldBe false
     }
   }
 
-  private def aTestProbe(): TestProbe[Message.MetricsResult] =
-    testKit.createTestProbe[MetricsCollector.Message.MetricsResult]()
-
-  private def spawn(
-      logInterval: FiniteDuration = 100.millis
-  ): ActorRef[MetricsCollector.Message] =
+  private def spawn(): ActorRef[Message] =
     testKit.spawn(
-      behavior = behavior(logInterval),
+      behavior = behavior,
       name = Random.alphanumeric.take(10).mkString,
     )
 
-  private def behavior(
-      logInterval: FiniteDuration = 100.millis
-  ): Behavior[MetricsCollector.Message] =
+  private def behavior: Behavior[Message] =
     MetricsCollector[String](
-      streamName = "testStream",
       metrics = List(TestMetric()),
-      logInterval = logInterval,
-      reporter = TestFormatter,
+      exposedMetrics = None,
     )
 
   private case class TestMetricValue(value: String) extends MetricValue
 
   private case object TestObjective extends ServiceLevelObjective[TestMetricValue] {
-    val TestViolatingValue = "BOOM"
+    val TestViolatingValue = "tomato"
 
     override def isViolatedBy(metricValue: TestMetricValue): Boolean =
       metricValue.value == TestViolatingValue
-  }
-
-  private object TestFormatter extends MetricFormatter {
-    override def formattedValues(values: List[MetricValue]): String =
-      values
-        .map { case v: TestMetricValue =>
-          v.value
-        }
-        .mkString(", ")
-
-    override def finalReport(
-        streamName: String,
-        metrics: List[Metric[_]],
-        duration: Duration,
-    ): String = ""
   }
 
   private case class TestMetric(
@@ -131,16 +174,18 @@ class MetricsCollectorSpec
     override type V = TestMetricValue
     override type Objective = TestObjective.type
 
+    override def name: String = "Test Metric"
+
     override def onNext(value: String): Metric[String] = {
       this.copy(processedElems = processedElems :+ value)
     }
 
     override def periodicValue(periodDuration: Duration): (Metric[String], TestMetricValue) = {
-      (this, TestMetricValue(s"PERIODIC: ${processedElems.mkString("-")}"))
+      (this, TestMetricValue(s"PERIODIC:${processedElems.mkString("-")}"))
     }
 
     override def finalValue(totalDuration: Duration): TestMetricValue = {
-      TestMetricValue(s"FINAL: ${processedElems.mkString("-")}")
+      TestMetricValue(s"FINAL:${processedElems.mkString("-")}")
     }
 
     override def violatedObjective: Option[(TestObjective.type, TestMetricValue)] =
