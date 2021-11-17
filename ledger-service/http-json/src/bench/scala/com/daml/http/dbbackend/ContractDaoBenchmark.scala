@@ -14,7 +14,6 @@ import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.daml.http.domain.TemplateId
 import com.daml.http.util.Logging.instanceUUIDLogCtx
 import com.daml.metrics.Metrics
-import com.daml.ports.Port
 import com.daml.testing.oracle
 import com.daml.testing.postgresql.{PostgresAround, PostgresDatabase}
 import oracle.{OracleAround, User}
@@ -140,30 +139,13 @@ trait OracleBenchmarkDbConn extends BenchmarkDbConnection with OracleAround {
   }
 }
 
-/*
- Running the PG benchmark requires us to explicitly set the PGPASSWORD env variable which is picked
- by the `createdb` tool when creating relevant database e.g
-
- $ PGPASSWORD=<password> bazel run //ledger-service/http-json:contractdao-bench -- -f 1 -i 1 -wi 1 -bm avgt \
- "QueryPayloadBenchmarkPostgres" -p extraParties=1,10 -p extraPayloadValues=1,10,100 -p batchSize=1000
- */
 trait PostgresBenchmarkDbConn extends BenchmarkDbConnection with PostgresAround {
 
   @volatile
   private var database: PostgresDatabase = _
 
-  private val host = sys.env.getOrElse("POSTGRESQL_HOST", "localhost")
-  private val port = Port(sys.env.get("POSTGRESQL_PORT").map(_.toInt).getOrElse(5432))
-  private val user = sys.env.getOrElse("POSTGRESQL_USERNAME", "postgres")
-  private val password = sys.env.getOrElse(
-    "PGPASSWORD",
-    throw new IllegalArgumentException(
-      s"Missing required PGPASSWORD env value, needed to run `createdb` "
-    ),
-  )
-
   override def connectToDb() = {
-    connectToSharedServer(host, port, user, password)
+    connectToPostgresqlServer()
     database = createNewRandomDatabase()
   }
 
@@ -172,8 +154,8 @@ trait PostgresBenchmarkDbConn extends BenchmarkDbConnection with PostgresAround 
       dbutils.JdbcConfig(
         driver = "org.postgresql.Driver",
         url = database.url,
-        user = user,
-        password = password,
+        user = database.userName,
+        password = database.password,
         poolSize = ConnectionPool.PoolSize.Integration,
       ),
       dbStartupMode = DbStartupMode.CreateOnly,
@@ -182,5 +164,6 @@ trait PostgresBenchmarkDbConn extends BenchmarkDbConnection with PostgresAround 
 
   override def cleanup(): Unit = {
     dropDatabase(database)
+    disconnectFromPostgresqlServer()
   }
 }
