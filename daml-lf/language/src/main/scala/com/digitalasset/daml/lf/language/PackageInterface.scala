@@ -219,6 +219,23 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
   ): Either[LookupError, TemplateChoiceSignature] =
     lookupTemplateChoice(tmpName, chName, Reference.TemplateChoice(tmpName, chName))
 
+  private[this] def lookupTemplateImplements(
+      tmpName: TypeConName,
+      ifaceName: TypeConName,
+      context: => Reference,
+  ): Either[LookupError, TemplateImplementsSignature] =
+    lookupTemplate(tmpName, context).flatMap(
+      _.implements
+        .get(ifaceName)
+        .toRight(LookupError(Reference.TemplateImplements(tmpName, ifaceName), context))
+    )
+
+  def lookupTemplateImplements(
+      tmpName: TypeConName,
+      ifaceName: TypeConName,
+  ): Either[LookupError, TemplateImplementsSignature] =
+    lookupTemplateImplements(tmpName, ifaceName, Reference.TemplateImplements(tmpName, ifaceName))
+
   private[this] def lookupInterfaceChoice(
       ifaceName: TypeConName,
       chName: ChoiceName,
@@ -235,6 +252,35 @@ private[lf] class PackageInterface(signatures: PartialFunction[PackageId, Packag
       chName: ChoiceName,
   ): Either[LookupError, TemplateChoiceSignature] =
     lookupInterfaceChoice(ifaceName, chName, Reference.InterfaceChoice(ifaceName, chName))
+
+  /* Looks up a choice inherited by a template through a specific interface.
+   * Fails if the template does not implement the interface, and/or the choice is not defined in this interface. */
+  private[lf] def lookupInheritedChoice(
+      ifaceName: TypeConName,
+      tmpName: TypeConName,
+      chName: ChoiceName,
+      context: => Reference,
+  ): Either[LookupError, TemplateChoiceSignature] =
+    lookupTemplate(tmpName, context).flatMap(template =>
+      template.inheritedChoices.get(chName) match {
+        case Some(gotIfaceName) if gotIfaceName == ifaceName =>
+          lookupInterfaceChoice(ifaceName, chName, context)
+        case _ =>
+          Left(LookupError(Reference.InheritedChoice(ifaceName, tmpName, chName), context))
+      }
+    )
+
+  private[lf] def lookupInheritedChoice(
+      ifaceName: TypeConName,
+      tmpName: TypeConName,
+      chName: ChoiceName,
+  ): Either[LookupError, TemplateChoiceSignature] =
+    lookupInheritedChoice(
+      ifaceName,
+      tmpName,
+      chName,
+      Reference.InheritedChoice(ifaceName, tmpName, chName),
+    )
 
   private[lf] def lookupTemplateOrInterface(
       identier: TypeConName,
