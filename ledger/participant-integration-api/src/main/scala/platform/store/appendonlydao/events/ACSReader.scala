@@ -4,18 +4,16 @@
 package com.daml.platform.store.appendonlydao.events
 
 import akka.NotUsed
-import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import akka.stream.scaladsl.Source
+import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.dec.DirectExecutionContext
-import com.daml.error.ContextualizedErrorLogger
-import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.LedgerApiErrorGroup
 import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.definitions.LedgerApiErrors.ParticipantBackpressure
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.EventStorageBackend
 
@@ -53,6 +51,9 @@ class FilterTableACSReader(
   )(implicit
       loggingContext: LoggingContext
   ): Source[Vector[EventsTable.Entry[Raw.FlatEvent]], NotUsed] = {
+    implicit val errorLogger: ContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
     val allFilterParties = filter.keySet
     val tasks = filter.iterator
       .flatMap {
