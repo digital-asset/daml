@@ -96,12 +96,12 @@ For details on how to use command deduplication, see the :ref:`Application Archi
 
 .. note:: Ledgers with command deduplication across participants
 
-  - The ledger server may extend the deduplication period specified in the request arbitrarily, up until the maximum deduplication duration specified in the :ref:`ledger configuration <ledger-configuration-service>`.
-    The deduplication period chosen by the ledger server is the *effective deduplication period*.
+  - The ledger may extend the deduplication period specified in the request arbitrarily, up until the maximum deduplication duration specified in the :ref:`ledger configuration <ledger-configuration-service>`.
+    The deduplication period chosen by the ledger is the *effective deduplication period*.
 
   - Regardless, the deduplication period specified in the request is always checked against the configured maximum deduplication duration.
 
-  - A command submission is considered a duplicate submission if the ledger server is aware of another command within the *effective* deduplication period and with the same :ref:`change ID <change-id>`.
+  - A command submission is considered a duplicate submission if the ledger is aware of another command within the *effective* deduplication period and with the same :ref:`change ID <change-id>`.
 
   - Command deduplication is *guaranteed* to work even if commands are submitted to different participants.
 
