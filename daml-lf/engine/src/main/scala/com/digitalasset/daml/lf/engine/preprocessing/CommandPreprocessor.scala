@@ -33,7 +33,7 @@ private[lf] final class CommandPreprocessor(
       templateId: Ref.Identifier,
       argument: Value,
   ): speedy.Command.Create = {
-    discard[Ast.TemplateSignature](handleLookup(interface.lookupTemplate(templateId)))
+    discard(handleLookup(interface.lookupTemplate(templateId)))
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
     speedy.Command.Create(templateId, arg)
   }
@@ -44,9 +44,7 @@ private[lf] final class CommandPreprocessor(
       templateId: Ref.Identifier,
       argument: Value,
   ): speedy.Command.CreateByInterface = {
-    discard[Ast.TemplateImplementsSignature](
-      handleLookup(interface.lookupTemplateImplements(templateId, interfaceId))
-    )
+    discard(handleLookup(interface.lookupTemplateImplements(templateId, interfaceId)))
     val arg = valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), argument)
     speedy.Command.CreateByInterface(interfaceId, templateId, arg)
   }
@@ -109,22 +107,6 @@ private[lf] final class CommandPreprocessor(
     ).argBinder._2
     val arg = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
     speedy.Command.ExerciseByInterface(interfaceId, templateId, cid, choiceId, arg)
-  }
-
-  /* Like unsafePreprocessExercise, but expects the choice to be inherited from the given interface. */
-  @throws[Error.Preprocessing.Error]
-  def unsafePreprocessExerciseInterface(
-      interfaceId: Ref.Identifier,
-      contractId: Value.ContractId,
-      choiceId: Ref.ChoiceName,
-      argument: Value,
-  ): speedy.Command.ExerciseInterface = {
-    val cid = valueTranslator.unsafeTranslateCid(contractId)
-    val choiceArgType = handleLookup(
-      interface.lookupInterfaceChoice(interfaceId, choiceId)
-    ).argBinder._2
-    val arg = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
-    speedy.Command.ExerciseInterface(interfaceId, cid, choiceId, arg)
   }
 
   @throws[Error.Preprocessing.Error]
@@ -198,8 +180,6 @@ private[lf] final class CommandPreprocessor(
             argument,
           ) =>
         unsafePreprocessExerciseByInterface(interfaceId, templateId, contractId, choiceId, argument)
-      case command.ExerciseInterfaceCommand(interfaceId, contractId, choiceId, argument) =>
-        unsafePreprocessExerciseInterface(interfaceId, contractId, choiceId, argument)
       case command.ExerciseByKeyCommand(templateId, contractKey, choiceId, argument) =>
         unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument)
       case command.CreateAndExerciseCommand(
@@ -214,31 +194,15 @@ private[lf] final class CommandPreprocessor(
           choiceId,
           choiceArgument,
         )
-      case command.FetchCommand(identifier, coid) =>
-        val templateOrInterface = handleLookup(interface.lookupTemplateOrInterface(identifier))
-        val cid = valueTranslator.unsafeTranslateCid(coid)
-        templateOrInterface match {
-          case Left(template @ _) =>
-            speedy.Command.Fetch(identifier, cid)
-          case Right(interface @ _) =>
-            speedy.Command.FetchInterface(identifier, cid)
-        }
-      case command.FetchTemplateCommand(templateId, coid) => {
-        discard[Ast.TemplateSignature](handleLookup(interface.lookupTemplate(templateId)))
+      case command.FetchCommand(templateId, coid) => {
+        discard(handleLookup(interface.lookupTemplate(templateId)))
         val cid = valueTranslator.unsafeTranslateCid(coid)
         speedy.Command.Fetch(templateId, cid)
       }
       case command.FetchByInterfaceCommand(interfaceId, templateId, coid) => {
-        discard[Ast.TemplateImplementsSignature](
-          handleLookup(interface.lookupTemplateImplements(templateId, interfaceId))
-        )
+        discard(handleLookup(interface.lookupTemplateImplements(templateId, interfaceId)))
         val cid = valueTranslator.unsafeTranslateCid(coid)
         speedy.Command.FetchByInterface(interfaceId, templateId, cid)
-      }
-      case command.FetchInterfaceCommand(interfaceId, coid) => {
-        discard[Ast.DefInterfaceSignature](handleLookup(interface.lookupInterface(interfaceId)))
-        val cid = valueTranslator.unsafeTranslateCid(coid)
-        speedy.Command.FetchInterface(interfaceId, cid)
       }
       case command.FetchByKeyCommand(templateId, key) =>
         val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ

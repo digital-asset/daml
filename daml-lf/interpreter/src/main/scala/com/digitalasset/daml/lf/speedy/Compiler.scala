@@ -1429,8 +1429,6 @@ private[lf] final class Compiler(
       // TODO https://github.com/digital-asset/daml/issues/11703
       //   Ensure that fetched template has expected templateId.
       t.FetchDefRef(interfaceId)(s.SEValue(coid))
-    case Command.FetchInterface(interfaceId, coid) =>
-      t.FetchDefRef(interfaceId)(s.SEValue(coid))
     case Command.FetchByKey(templateId, key) =>
       t.FetchByKeyDefRef(templateId)(s.SEValue(key))
     case Command.CreateAndExercise(templateId, createArg, choice, choiceArg) =>

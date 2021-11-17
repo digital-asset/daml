@@ -45,7 +45,9 @@ object Command {
       argument: SValue,
   ) extends Command
 
-  /** Exercise an interface choice */
+  /** Exercise an interface choice. This is used for exercising an interface
+    * on the ledger api, where the template id is unknown.
+    */
   final case class ExerciseInterface(
       interfaceId: Identifier,
       contractId: SContractId,
@@ -77,16 +79,6 @@ object Command {
       templateId: Identifier,
       coid: SContractId,
   ) extends Command
-
-  /** Fetch an interface */
-  final case class FetchInterface(
-      interfaceId: Identifier,
-      coid: SContractId,
-  ) extends Command {
-    // TODO https://github.com/digital-asset/daml/issues/11342
-    //   Same as above.
-    val templateId = interfaceId
-  }
 
   final case class FetchByKey(
       templateId: Identifier,
