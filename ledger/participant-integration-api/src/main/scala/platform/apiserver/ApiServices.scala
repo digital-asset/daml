@@ -3,6 +3,8 @@
 
 package com.daml.platform.apiserver
 
+import java.time.Duration
+
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCodesVersionSwitcher
@@ -11,7 +13,6 @@ import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.auth.services._
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.daml.ledger.client.services.commands.CommandSubmissionFlow
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v2 => state}
@@ -43,18 +44,12 @@ import com.daml.platform.configuration.{
   PartyConfiguration,
   SubmissionConfiguration,
 }
-import com.daml.platform.server.api.services.grpc.{
-  GrpcCommandCompletionService,
-  GrpcHealthService,
-  GrpcTransactionService,
-}
+import com.daml.platform.server.api.services.domain.CommandCompletionService
+import com.daml.platform.server.api.services.grpc.{GrpcHealthService, GrpcTransactionService}
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.telemetry.TelemetryContext
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
-import scalaz.syntax.tag._
-import java.time.Duration
-
-import com.daml.telemetry.TelemetryContext
 
 import scala.collection.immutable
 import scala.concurrent.duration.{Duration => ScalaDuration}
@@ -170,7 +165,7 @@ private[daml] object ApiServices {
       val apiConfigurationService =
         ApiLedgerConfigurationService.create(ledgerId, configurationService, errorsVersionsSwitcher)
 
-      val apiCompletionService =
+      val (completionService, grpcCompletionService) =
         ApiCommandCompletionService.create(
           ledgerId,
           completionsService,
@@ -197,7 +192,7 @@ private[daml] object ApiServices {
         intitializeWriteServiceBackedApiServices(
           ledgerId,
           ledgerConfigurationSubscription,
-          apiCompletionService,
+          completionService,
           apiTransactionService,
           checkOverloaded,
         )
@@ -213,7 +208,7 @@ private[daml] object ApiServices {
           new PackageServiceAuthorization(apiPackageService, authorizer),
           new LedgerConfigurationServiceAuthorization(apiConfigurationService, authorizer),
           new TransactionServiceAuthorization(apiTransactionService, authorizer),
-          new CommandCompletionServiceAuthorization(apiCompletionService, authorizer),
+          new CommandCompletionServiceAuthorization(grpcCompletionService, authorizer),
           new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),
           apiReflectionService,
           apiHealthService,
@@ -224,7 +219,7 @@ private[daml] object ApiServices {
     private def intitializeWriteServiceBackedApiServices(
         ledgerId: LedgerId,
         ledgerConfigurationSubscription: LedgerConfigurationSubscription,
-        apiCompletionService: GrpcCommandCompletionService,
+        apiCompletionService: CommandCompletionService,
         apiTransactionService: GrpcTransactionService,
         checkOverloaded: TelemetryContext => Option[state.SubmissionResult],
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
@@ -277,11 +272,7 @@ private[daml] object ApiServices {
           // Using local services skips the gRPC layer, improving performance.
           submissionFlow =
             CommandSubmissionFlow(apiSubmissionService.submit, commandConfig.maxCommandsInFlight),
-          completionServices = new ApiCommandService.CompletionServices(
-            getCompletionSource = apiCompletionService.completionStreamSource,
-            getCompletionEnd =
-              () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
-          ),
+          completionServices = apiCompletionService,
           transactionServices = new ApiCommandService.TransactionServices(
             getTransactionById = apiTransactionService.getTransactionById,
             getFlatTransactionById = apiTransactionService.getFlatTransactionById,

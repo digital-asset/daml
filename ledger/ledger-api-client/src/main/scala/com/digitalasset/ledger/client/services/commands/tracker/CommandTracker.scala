@@ -3,6 +3,8 @@
 
 package com.daml.ledger.client.services.commands.tracker
 
+import java.time.{Duration, Instant}
+
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
 import com.daml.grpc.{GrpcException, GrpcStatus}
@@ -25,7 +27,6 @@ import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status
 import org.slf4j.LoggerFactory
 
-import java.time.{Duration, Instant}
 import scala.annotation.nowarn
 import scala.collection.compat._
 import scala.collection.{immutable, mutable}
