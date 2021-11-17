@@ -25,7 +25,7 @@ class MetricRegistryOwner(
       registry <- ResourceOwner.forValue(() => new MetricRegistry).acquire()
       _ <- acquireSlfjReporter(registry)
       metricsReporter <- acquireMetricsReporter(registry)
-      _ = metricsReporter.start(reportingInterval.toSeconds, TimeUnit.SECONDS)
+      _ = metricsReporter.start(reportingInterval.toMillis, TimeUnit.MILLISECONDS)
     } yield registry
 
   private def acquireSlfjReporter(
