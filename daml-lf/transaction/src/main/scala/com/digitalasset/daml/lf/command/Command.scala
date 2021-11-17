@@ -27,6 +27,13 @@ sealed abstract class ApiCommand extends Command
   */
 final case class CreateCommand(templateId: Identifier, argument: Value) extends ApiCommand
 
+/** Create template contract, by interface */
+final case class CreateByInterfaceCommand(
+    interfaceId: Identifier,
+    templateId: Identifier,
+    argument: Value,
+) extends Command
+
 /** Command for exercising a choice on an existing contract
   *
   *  @param templateId identifier of the original contract
@@ -40,6 +47,23 @@ final case class ExerciseCommand(
     choiceId: ChoiceName,
     argument: Value,
 ) extends ApiCommand
+
+/** Exercise a template choice, not by interface. */
+final case class ExerciseTemplateCommand(
+    templateId: Identifier,
+    contractId: Value.ContractId,
+    choiceId: ChoiceName,
+    argument: Value,
+) extends Command
+
+/** Exercise a template choice, by interface. */
+final case class ExerciseByInterfaceCommand(
+    interfaceId: Identifier,
+    templateId: Identifier,
+    contractId: Value.ContractId,
+    choiceId: ChoiceName,
+    argument: Value,
+) extends Command
 
 /** Command for exercising a choice on an existing contract specified by its key
   *
@@ -70,7 +94,15 @@ final case class CreateAndExerciseCommand(
     choiceArgument: Value,
 ) extends ApiCommand
 
+/** Fetch a template, not by interface */
 final case class FetchCommand(
+    templateId: Identifier,
+    coid: Value.ContractId,
+) extends Command
+
+/** Fetch a template, by interface */
+final case class FetchByInterfaceCommand(
+    interfaceId: Identifier,
     templateId: Identifier,
     coid: Value.ContractId,
 ) extends Command
