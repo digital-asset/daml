@@ -6,7 +6,6 @@ package com.daml.platform.index
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
@@ -48,7 +47,7 @@ import com.daml.platform.store.entries.PartyLedgerEntry
 import com.daml.telemetry.{SpanAttribute, Spans}
 import scalaz.syntax.tag.ToTagOps
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 private[platform] final class LedgerBackedIndexService(
     ledger: ReadOnlyLedger,
@@ -276,7 +275,9 @@ private[platform] final class LedgerBackedIndexService(
   ): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
     ledger
       .lookupLedgerConfiguration()
-      .map(_.map { case (offset, config) => (toAbsolute(offset), config) })(DEC)
+      .map(
+        _.map { case (offset, config) => (toAbsolute(offset), config) }
+      )(ExecutionContext.parasitic)
 
   /** Looks up the current configuration, if set, and continues to stream configuration changes.
     */

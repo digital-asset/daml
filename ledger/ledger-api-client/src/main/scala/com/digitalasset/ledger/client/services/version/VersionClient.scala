@@ -6,12 +6,14 @@ package com.daml.ledger.client.services.version
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionServiceStub
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 final class VersionClient(ledgerId: LedgerId, service: VersionServiceStub) {
   private val it = new withoutledgerid.VersionClient(service)
 
-  def getApiVersion(token: Option[String] = None): Future[String] =
+  def getApiVersion(
+      token: Option[String] = None
+  )(implicit executionContext: ExecutionContext): Future[String] =
     it.getApiVersion(ledgerId, token)
 
 }

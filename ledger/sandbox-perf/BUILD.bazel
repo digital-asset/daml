@@ -41,7 +41,6 @@ da_scala_library(
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
         "//ledger/test-common:dar-files-default-lib",
-        "//libs-scala/concurrent",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",

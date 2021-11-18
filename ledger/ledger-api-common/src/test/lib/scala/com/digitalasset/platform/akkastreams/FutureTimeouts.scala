@@ -3,12 +3,11 @@
 
 package com.daml.platform.akkastreams
 import akka.actor.ActorSystem
-import com.daml.dec.DirectExecutionContext
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.{Future, Promise, TimeoutException}
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future, Promise, TimeoutException}
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
@@ -28,10 +27,10 @@ trait FutureTimeouts { self: AsyncWordSpec =>
       runnable,
     )(system.dispatcher)
 
-    f.onComplete((_: Try[Any]) => cancellable.cancel())(DirectExecutionContext)
+    f.onComplete((_: Try[Any]) => cancellable.cancel())(ExecutionContext.parasitic)
 
     recoverToSucceededIf[TimeoutException](
-      Future.firstCompletedOf[Any](List[Future[Any]](f, promise.future))(DirectExecutionContext)
+      Future.firstCompletedOf[Any](List[Future[Any]](f, promise.future))(ExecutionContext.parasitic)
     )
   }
 }

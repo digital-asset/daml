@@ -8,7 +8,6 @@ import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.dec.DirectExecutionContext
 import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
@@ -199,7 +198,7 @@ final class SandboxServer(
 
   // Only used in testing; hopefully we can get rid of it soon.
   def port: Port =
-    Await.result(portF(DirectExecutionContext), AsyncTolerance)
+    Await.result(portF(ExecutionContext.parasitic), AsyncTolerance)
 
   def portF(implicit executionContext: ExecutionContext): Future[Port] =
     apiServer.map(_.port)
@@ -489,8 +488,7 @@ final class SandboxServer(
   }
 
   override def close(): Unit = {
-    implicit val executionContext: ExecutionContext = DirectExecutionContext
-    Await.result(sandboxState.flatMap(_.release()), AsyncTolerance)
+    Await.result(sandboxState.flatMap(_.release())(ExecutionContext.parasitic), AsyncTolerance)
   }
 
   private def writePortFile(port: Port)(implicit executionContext: ExecutionContext): Future[Unit] =

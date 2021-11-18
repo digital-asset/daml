@@ -16,7 +16,6 @@ da_scala_library(
     ],
     deps = [
         "//ledger-api/rs-grpc-bridge",
-        "//libs-scala/concurrent",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_reactivestreams_reactive_streams",
     ],

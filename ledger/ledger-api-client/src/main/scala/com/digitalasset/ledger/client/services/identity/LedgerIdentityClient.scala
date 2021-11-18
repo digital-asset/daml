@@ -3,7 +3,6 @@
 
 package com.daml.ledger.client.services.identity
 
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityServiceStub
@@ -16,9 +15,10 @@ final class LedgerIdentityClient(service: LedgerIdentityServiceStub) {
 
   /** The ledgerId in use, if the check was successful.
     */
-  def satisfies(ledgerIdRequirement: LedgerIdRequirement, token: Option[String] = None)(implicit
-      ec: ExecutionContext
-  ): Future[LedgerId] =
+  def satisfies(
+      ledgerIdRequirement: LedgerIdRequirement,
+      token: Option[String] = None,
+  )(implicit executionContext: ExecutionContext): Future[LedgerId] =
     for {
       ledgerId <- getLedgerId(token)
     } yield {
@@ -30,10 +30,12 @@ final class LedgerIdentityClient(service: LedgerIdentityServiceStub) {
       LedgerId(ledgerId)
     }
 
-  def getLedgerId(token: Option[String] = None): Future[String] =
+  def getLedgerId(
+      token: Option[String] = None
+  )(implicit executionContext: ExecutionContext): Future[String] =
     LedgerClient
       .stub(service, token)
       .getLedgerIdentity(new GetLedgerIdentityRequest())
-      .map(_.ledgerId)(DirectExecutionContext)
+      .map(_.ledgerId)
 
 }

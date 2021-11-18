@@ -7,9 +7,8 @@ import akka.Done
 import akka.stream.scaladsl.{Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import com.codahale.metrics.{Counter, Timer}
-import com.daml.dec.DirectExecutionContext
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 object InstrumentedSource {
 
@@ -29,16 +28,14 @@ object InstrumentedSource {
       val result = delegate.offer(
         delayTimer.time() -> elem
       )
-      // Use the `DirectExecutionContext` to ensure that the
-      // counter is updated as closely as possible to the
-      // update of the queue, so to offer the most consistent
-      // reading possible via the counter
+      // Use the parasitic execution context to ensure that the counter is updated as closely as possible to the update
+      // of the queue, so to offer the most consistent reading possible via the counter.
       result.foreach {
         case QueueOfferResult.Enqueued =>
           lengthCounter.inc()
 
         case _ => // do nothing
-      }(DirectExecutionContext)
+      }(ExecutionContext.parasitic)
       result
     }
   }
@@ -82,7 +79,7 @@ object InstrumentedSource {
       .watchCompletion()
       .andThen { case _ =>
         capacityCounter.dec(bufferSize.toLong)
-      }(DirectExecutionContext)
+      }(ExecutionContext.parasitic)
 
     source.mapMaterializedValue(_ => instrumentedQueue).map { case (timingContext, item) =>
       timingContext.stop()

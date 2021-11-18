@@ -9,7 +9,6 @@ import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import com.daml.api.util.TimeProvider
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.domain
@@ -284,9 +283,10 @@ private[sandbox] object SqlLedger {
 
         ledgerDao
           .storePackageEntry(newLedgerEnd, packages, None)
-          .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(
-            DEC
-          )
+          .transform(
+            _ => (),
+            e => sys.error("Failed to copy initial packages: " + e.getMessage),
+          )(ExecutionContext.parasitic)
       } else {
         Future.unit
       }
@@ -383,7 +383,7 @@ private[sandbox] object SqlLedger {
         })(queue => Future.successful(queue.complete()))
 
       private def persistAll(queue: Queue[Offset => Future[Unit]]): Future[Unit] = {
-        implicit val executionContext: ExecutionContext = DEC
+        implicit val executionContext: ExecutionContext = ExecutionContext.parasitic
         val startOffset = SandboxOffset.fromOffset(dispatcher.getHead())
         // This will attempt to run the SQL queries concurrently, but there is no parallelism here,
         // so they will still run sequentially.
@@ -408,7 +408,7 @@ private[sandbox] object SqlLedger {
         .failed
         .foreach { throwable =>
           logger.error("Persistence queue has been closed with a failure.", throwable)
-        }(DEC)
+        }(ExecutionContext.parasitic)
 
   }
 }
@@ -504,7 +504,7 @@ private final class SqlLedger(
           _.map(_ => ()).recover { case NonFatal(t) =>
             logger.error(s"Failed to persist entry with offset: ${offset.toApiString}", t)
           }
-        )(DEC)
+        )(ExecutionContext.parasitic)
     }(errorLogger)
   }
 
@@ -540,7 +540,7 @@ private final class SqlLedger(
               "Failed to enqueue submission"
             )(f)
           Failure(protobuf.StatusProto.toStatusRuntimeException(failedStatus))
-      }(DEC)
+      }(ExecutionContext.parasitic)
 
   override def publishPartyAllocation(
       submissionId: Ref.SubmissionId,
@@ -562,7 +562,7 @@ private final class SqlLedger(
                   PartyDetails(party, displayName, isLocal = true),
                 ),
               )
-              .map(_ => ())(DEC)
+              .map(_ => ())(ExecutionContext.parasitic)
               .recover { case t =>
                 //recovering from the failure so the persistence stream doesn't die
                 logger.error(
@@ -570,14 +570,14 @@ private final class SqlLedger(
                   t,
                 )
                 ()
-              }(DEC)
+              }(ExecutionContext.parasitic)
 
           case _ =>
             logger.warn(
               s"Ignoring duplicate party submission with ID $party for submissionId ${Some(submissionId)}"
             )
             Future.unit
-        }(DEC)
+        }(ExecutionContext.parasitic)
     }(errorLogger)
   }
 
@@ -601,12 +601,12 @@ private final class SqlLedger(
             PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTimestamp)
           ),
         )
-        .map(_ => ())(DEC)
+        .map(_ => ())(ExecutionContext.parasitic)
         .recover { case t =>
           //recovering from the failure so the persistence stream doesn't die
           logger.error(s"Failed to persist packages with offset: ${offset.toApiString}", t)
           ()
-        }(DEC)
+        }(ExecutionContext.parasitic)
     }(errorLogger)
   }
 
@@ -636,7 +636,7 @@ private final class SqlLedger(
           // database transaction.
           // NOTE(RA): Since the new configuration can be rejected inside storeConfigurationEntry,
           // we look up the current configuration again to see if it was stored successfully.
-          implicit val ec: ExecutionContext = DEC
+          implicit val ec: ExecutionContext = ExecutionContext.parasitic
           for {
             response <- ledgerDao.storeConfigurationEntry(
               offset,
@@ -653,12 +653,12 @@ private final class SqlLedger(
         }
 
       storeF
-        .map(_ => ())(DEC)
+        .map(_ => ())(ExecutionContext.parasitic)
         .recover { case t =>
           //recovering from the failure so the persistence stream doesn't die
           logger.error(s"Failed to persist configuration with offset: $offset", t)
           ()
-        }(DEC)
+        }(ExecutionContext.parasitic)
     }(errorLogger)
   }
 }

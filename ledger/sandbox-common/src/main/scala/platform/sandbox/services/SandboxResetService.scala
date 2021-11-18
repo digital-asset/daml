@@ -4,7 +4,7 @@
 package com.daml.platform.sandbox.services
 
 import java.util.concurrent.atomic.AtomicBoolean
-import com.daml.dec.{DirectExecutionContext => DE}
+
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.domain.LedgerId
@@ -15,7 +15,7 @@ import com.google.protobuf.empty.Empty
 import io.grpc.ServerCall.Listener
 import io.grpc._
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class SandboxResetService(
     ledgerId: LedgerId,
@@ -34,7 +34,7 @@ class SandboxResetService(
   private val resetInitialized = new AtomicBoolean(false)
 
   override def bindService(): ServerServiceDefinition =
-    ResetServiceGrpc.bindService(this, DE)
+    ResetServiceGrpc.bindService(this, ExecutionContext.parasitic)
 
   override def reset(request: ResetRequest): Future[Empty] =
     authorizer.requireAdminClaims(doReset)(request)
@@ -65,7 +65,10 @@ class SandboxResetService(
         request.ledgerId,
         errorFactories.ledgerIdMismatch(ledgerId, LedgerId(request.ledgerId), None),
       )
-      .fold(Future.failed[Empty], _ => actuallyReset().map(_ => Empty())(DE))
+      .fold(
+        Future.failed[Empty],
+        _ => actuallyReset().map(_ => Empty())(ExecutionContext.parasitic),
+      )
 
   private def actuallyReset() = {
     logger.info("Initiating server reset.")

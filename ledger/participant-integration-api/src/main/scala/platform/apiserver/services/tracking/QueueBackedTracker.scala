@@ -7,7 +7,6 @@ import akka.stream.scaladsl.{Flow, Keep, Sink, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import akka.{Done, NotUsed}
 import com.codahale.metrics.{Counter, Timer}
-import com.daml.dec.DirectExecutionContext
 import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
@@ -153,8 +152,8 @@ private[services] object QueueBackedTracker {
             errorFactories.trackerFailure(msg = promiseCancellationDescription)(errorLogger)
           )
         )
-      })(DirectExecutionContext)
-    }(DirectExecutionContext)
+      })(ExecutionContext.parasitic)
+    }(ExecutionContext.parasitic)
 
     new QueueBackedTracker(queue, done, errorFactories)
   }

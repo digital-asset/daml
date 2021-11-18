@@ -5,16 +5,15 @@ package com.daml.ledger.api.testing.utils
 
 import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 
-import com.daml.dec.DirectExecutionContext
 import com.daml.logging.LoggingContext
-import org.scalatest._
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.exceptions.TestCanceledException
 import org.scalatest.time.Span
+import org.scalatest.{Assertion, Assertions, AsyncTestSuite, BeforeAndAfterAll, Succeeded}
 
 import scala.collection.immutable.Iterable
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Future, Promise, TimeoutException}
+import scala.concurrent.{ExecutionContext, Future, Promise, TimeoutException}
 import scala.util.control.{NoStackTrace, NonFatal}
 
 trait MultiFixtureBase[FixtureId, TestContext]
@@ -95,10 +94,12 @@ trait MultiFixtureBase[FixtureId, TestContext]
 
     try {
       Future
-        .firstCompletedOf(List(runTest(testFixture), timeoutPromise.future))(DirectExecutionContext)
+        .firstCompletedOf(List(runTest(testFixture), timeoutPromise.future))(
+          ExecutionContext.parasitic
+        )
         .recover { case NonFatal(throwable) =>
           failOnFixture(throwable)
-        }(DirectExecutionContext)
+        }(ExecutionContext.parasitic)
     } catch {
       case NonFatal(throwable) => failOnFixture(throwable)
     }

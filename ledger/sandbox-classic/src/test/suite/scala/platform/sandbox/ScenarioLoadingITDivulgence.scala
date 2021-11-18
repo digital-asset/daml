@@ -9,11 +9,10 @@ import com.daml.ledger.api.testing.utils.{SuiteResourceManagementAroundEach, Moc
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
 import com.daml.ledger.api.v1.transaction_filter._
 import com.daml.ledger.client.services.acs.ActiveContractSetClient
-import com.daml.dec.DirectExecutionContext
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.time.{Millis, Span}
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.{Millis, Span}
 import org.scalatest.wordspec.AnyWordSpec
 
 @SuppressWarnings(Array("org.wartremover.warts.StringPlusAny"))
@@ -39,8 +38,6 @@ class ScenarioLoadingITDivulgence
     newACClient(ledgerId())
       .getActiveContracts(transactionFilter)
       .runWith(Sink.seq)
-
-  implicit val ec = DirectExecutionContext
 
   "ScenarioLoading" when {
     "running a divulgence scenario" should {

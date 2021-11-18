@@ -5,11 +5,11 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import java.io.PrintWriter
 import java.util.concurrent.{Executors, TimeUnit}
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.{ConsoleReporter, MetricRegistry}
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataImporter,
   ProtobufBasedLedgerDataImporter,
@@ -20,13 +20,7 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.indexer.{
-  Indexer,
-  IndexerConfig,
-  IndexerStartupMode,
-  JdbcIndexer,
-  StandaloneIndexerServer,
-}
+import com.daml.platform.indexer._
 import com.daml.platform.store.LfValueTranslationCache
 
 import scala.concurrent.duration.Duration
@@ -327,7 +321,7 @@ object IntegrityChecker {
           case Failure(exception) =>
             exception.printStackTrace()
             sys.exit(1)
-        }(DirectExecutionContext)
+        }
     }
   }
 

@@ -5,10 +5,9 @@ package com.daml.platform.akkastreams.dispatcher
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.dec.DirectExecutionContext
 
 import scala.annotation.nowarn
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Defines how the progress on the ledger should be mapped to look-up operations */
 @nowarn("msg=parameter value evidence.* is never used")
@@ -44,7 +43,7 @@ object SubSource {
             readElement(index).map { t =>
               val nextIndex = readSuccessor(index)
               Some((nextIndex, (index, t)))
-            }(DirectExecutionContext)
+            }(ExecutionContext.parasitic)
           }
         }
     }

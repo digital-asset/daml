@@ -12,7 +12,6 @@ import com.daml.grpc.adapter.RunnableSequencingActor.ShutdownRequest
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
-import com.daml.dec.DirectExecutionContext
 
 /** Implements serial execution semantics by forwarding the Runnables it receives to an underlying actor.
   */
@@ -23,7 +22,7 @@ class AkkaExecutionSequencer private (private val actorRef: ActorRef)(implicit
   override def sequence(runnable: Runnable): Unit = actorRef ! runnable
 
   override def close(): Unit = {
-    closeAsync(DirectExecutionContext)
+    closeAsync(ExecutionContext.parasitic)
     ()
   }
 

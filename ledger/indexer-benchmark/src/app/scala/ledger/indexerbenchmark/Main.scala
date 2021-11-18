@@ -11,7 +11,6 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.offset.Offset
@@ -26,7 +25,7 @@ import com.daml.ledger.participant.state.v2.Update
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 object Main {
   def main(args: Array[String]): Unit =
@@ -97,8 +96,8 @@ object Main {
           data
         }
         .runWith(Sink.seq[(Offset, Update)])
-        .map(seq => seq.iterator)(DirectExecutionContext)
-        .andThen { case _ => system.terminate() }(DirectExecutionContext)
+        .map(seq => seq.iterator)(ExecutionContext.parasitic)
+        .andThen { case _ => system.terminate() }(ExecutionContext.parasitic)
     }
   }
 }

@@ -14,7 +14,6 @@ import akka.stream.testkit.{TestPublisher, TestSubscriber}
 import akka.stream.{OverflowStrategy, QueueOfferResult}
 import com.daml.api.util.TimestampConversion._
 import com.daml.concurrent.ExecutionContext
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.commands.Commands
@@ -106,7 +105,7 @@ class CommandTrackerFlowTest
         startOffset: LedgerOffset,
     )
 
-    private implicit val ec: ExecutionContext[Nothing] = DirectExecutionContext
+    private implicit val ec: ExecutionContext[Nothing] = ExecutionContext.parasitic
     private val stateRef = new AtomicReference[Promise[State]](Promise[State]())
 
     def createCompletionsSource(

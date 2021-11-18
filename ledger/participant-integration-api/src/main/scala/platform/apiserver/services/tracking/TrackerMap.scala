@@ -8,7 +8,6 @@ import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.stream.Materializer
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
@@ -27,9 +26,9 @@ import scala.util.{Failure, Success}
   * A tracker tracker, if you will.
   *
   * @param retentionPeriod The minimum duration for which to retain ready-but-idling trackers.
-  * @param getKey A function to compute the tracker key from the commands.
-  * @param newTracker A function to construct a new tracker.
-  *                   Called when there is no tracker for the given key.
+  * @param getKey          A function to compute the tracker key from the commands.
+  * @param newTracker      A function to construct a new tracker.
+  *                        Called when there is no tracker for the given key.
   */
 private[services] final class TrackerMap[Key](
     retentionPeriod: Duration,
@@ -149,9 +148,13 @@ private[services] object TrackerMap {
   }
 
   private sealed trait AsyncResourceState[+T <: AutoCloseable]
+
   private final case object Waiting extends AsyncResourceState[Nothing]
+
   private final case class Ready[T <: AutoCloseable](resource: T) extends AsyncResourceState[T]
+
   private final case object Closed extends AsyncResourceState[Nothing]
+
   private final case class Failed(exception: Throwable) extends AsyncResourceState[Nothing]
 
   /** A holder for an AutoCloseable that can be opened and closed async.
@@ -170,7 +173,7 @@ private[services] object TrackerMap {
         state.set(Ready(resource))
       case Failure(exception) =>
         state.set(Failed(exception))
-    }(DirectExecutionContext)
+    }(ExecutionContext.parasitic)
 
     private[TrackerMap] def currentState: AsyncResourceState[T] = state.get()
 
@@ -188,7 +191,7 @@ private[services] object TrackerMap {
       case Waiting =>
         try {
           Await.result(
-            future.transform(Success(_))(DirectExecutionContext),
+            future.transform(Success(_))(ExecutionContext.parasitic),
             10.seconds,
           ) match {
             case Success(resource) => resource.close()
