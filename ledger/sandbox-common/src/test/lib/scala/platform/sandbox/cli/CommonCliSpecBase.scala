@@ -355,12 +355,12 @@ abstract class CommonCliSpecBase(
 
     "parse error codes v2 flag" in {
       checkOption(
-        Array("--use-legacy-grpc-error-codes"),
-        _.copy(useLegacyErrorCodes = true),
+        Array("--grpc-status-codes-compatibility-mode"),
+        _.copy(enableSelfServiceErrorCodes = false),
       )
       checkOption(
         Array(),
-        _.copy(useLegacyErrorCodes = false),
+        _.copy(enableSelfServiceErrorCodes = true),
       )
     }
 

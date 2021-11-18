@@ -44,7 +44,7 @@ final class Runner[T <: ReadWriteService, Extra](
     override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
       val config = factory.manipulateConfig(originalConfig)
       val errorFactories = ErrorFactories(
-        new ErrorCodesVersionSwitcher(!originalConfig.useLegacyErrorCodes)
+        new ErrorCodesVersionSwitcher(originalConfig.enableSelfServiceErrorCodes)
       )
 
       config.mode match {

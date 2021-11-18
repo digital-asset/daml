@@ -171,7 +171,7 @@ conformance_test(
         "--participant=participant-id=example,port=6865",
         "--index-append-only-schema",
         "--mutable-contract-state-cache",
-        "--use-legacy-grpc-error-codes",
+        "--grpc-status-codes-compatibility-mode",
     ],
     test_tool_args = [
         "--additional=MultiPartySubmissionIT",

@@ -330,32 +330,6 @@ final class CommandServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "CSReturnStackTrace",
-    "A submission resulting in an interpretation error should return the stack trace",
-    allocate(SingleParty),
-  )(implicit ec => { case Participants(Participant(ledger, party)) =>
-    for {
-      dummy <- ledger.create(party, Dummy(party))
-      failure <- ledger
-        .exercise(party, dummy.exerciseFailingClone)
-        .mustFail("submitting a request with an interpretation error")
-    } yield {
-      assertGrpcErrorRegex(
-        ledger,
-        failure,
-        Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
-        Some(
-          Pattern.compile(
-            "Interpretation error: Error: (User abort: Assertion failed.|Unhandled exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"Assertion failed\" \\}\\.) [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node"
-          )
-        ),
-        checkDefiniteAnswerMetadata = true,
-      )
-    }
-  })
-
-  test(
     "CSDiscloseCreateToObservers",
     "Disclose create to observers",
     allocate(TwoParties, SingleParty),

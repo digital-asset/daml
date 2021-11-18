@@ -174,7 +174,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 KeyValueParticipantStateReader(
                   readerWriter,
                   metrics,
-                  enableSelfServiceErrorCodes = !config.useLegacyErrorCodes,
+                  enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
                 ),
                 metrics,
               )
@@ -225,7 +225,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     () => clock.instant(),
                     ledgerId,
                     config.participantId,
-                    new ErrorCodesVersionSwitcher(!config.useLegacyErrorCodes),
+                    new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes),
                   )
                 new SandboxResetService(
                   domain.LedgerId(ledgerId),
@@ -238,7 +238,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   },
                   authorizer,
                   errorFactories = ErrorFactories(
-                    new ErrorCodesVersionSwitcher(!config.useLegacyErrorCodes)
+                    new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
                   ),
                 )
               }
@@ -267,7 +267,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   enableMutableContractStateCache = false,
                   maxTransactionsInMemoryFanOutBufferSize = 0L,
                   enableInMemoryFanOutForLedgerApi = false,
-                  useLegacyErrorCodes = config.useLegacyErrorCodes,
+                  enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
                 ),
                 engine = engine,
                 commandConfig = config.commandConfig,

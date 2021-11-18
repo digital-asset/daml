@@ -40,8 +40,8 @@ Configuration
 -------------
 
 The new error code formats and adapted gRPC response statuses are returned by default starting with the Daml 1.18 SDK release.
-For backwards-compatibility, the legacy behavior, while deprecated, can be enabled by specifying ``--use-legacy-grpc-error-codes``
-from command line.
+Clients can still migrate to Daml SDK 1.18 and use the pre-1.18 gRPC status code response behavior by using ``--grpc-status-codes-compatibility-mode``
+as a command line option. However, this option is deprecated and will be removed in a future release.
 
 
 Glossary
