@@ -181,9 +181,8 @@ private[validation] object ExprIterable {
             interface @ _,
             methods,
             inheritedChoices @ _,
-            precond,
           ) =>
-        Iterator(precond) ++ methods.values.iterator.flatMap(iterator(_))
+        methods.values.iterator.flatMap(iterator(_))
     }
 
   private[iterable] def iterator(x: TemplateImplementsMethod): Iterator[Expr] =

@@ -50,7 +50,7 @@ template Asset
   where
     signatory issuer, owner
 
-    ensure (amount >= 5 && amount <= 6)
+    ensure (amount >= 5 && amount <= 8)
 
     implements Token1 where
       let getOwner1 = owner
@@ -95,13 +95,13 @@ main = scenario do
     create Asset with
       issuer = p
       owner = p
-      amount = 7 -- violates ensure of Asset
+      amount = 8 -- violates ensure of Asset & Token2
 
   p `submitMustFail` do
     create Asset with
       issuer = p
       owner = p
-      amount = 8 -- violates ensure of Asset & Token2
+      amount = 8 -- violates ensure of Token1
 
   p `submit` do
     create Asset with

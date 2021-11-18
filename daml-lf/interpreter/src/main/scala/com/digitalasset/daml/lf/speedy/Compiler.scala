@@ -397,6 +397,7 @@ private[lf] final class Compiler(
       val identifier = Identifier(pkgId, QualifiedName(module.name, ifaceName))
       addDef(compileCreateInterface(identifier))
       addDef(compileFetchInterface(identifier))
+      addDef(compileInterfacePrecond(identifier, iface.param, iface.precond))
       iface.fixedChoices.values.foreach(
         builder += compileFixedChoice(identifier, iface.param, _)
       )
@@ -1232,6 +1233,15 @@ private[lf] final class Compiler(
       }
     }
 
+  private[this] def compileInterfacePrecond(
+      iface: Identifier,
+      param: ExprVarName,
+      expr: Expr,
+  ) =
+    topLevelFunction1(t.InterfacePrecondDefRef(iface)) { (argPos, env) =>
+      compile(env.bindExprVar(param, argPos), expr)
+    }
+
   private[this] def compileKey(
       tmplId: Identifier,
       tmpl: Template,
@@ -1284,23 +1294,29 @@ private[lf] final class Compiler(
       tmplArgPos: Position,
       env: Env,
   ) = {
-    val precondsArray =
-      (Iterator(tmpl.precond) ++ (tmpl.implements.iterator.map(impl => impl._2.precond)))
-        .to(ImmArray)
-    val preconds = ECons(TBuiltin(BTBool), precondsArray, ENil(TBuiltin(BTBool)))
     val env2 = env.bindExprVar(tmpl.param, tmplArgPos)
+    val implementsPrecondsIterator = tmpl.implements.iterator.map[s.SExpr](impl =>
+      // This relies on interfaces having the same representation as the underlying template
+      t.InterfacePrecondDefRef(impl._1)(env2.toSEVar(tmplArgPos))
+    )
+    // TODO Clean this up as part of changing how we evaluate these
+    // https://github.com/digital-asset/daml/issues/11762
+    val precondsArray: ImmArray[s.SExpr] =
+      (Iterator(compile(env2, tmpl.precond)) ++ implementsPrecondsIterator ++ Iterator(
+        s.SEValue.EmptyList
+      )).to(ImmArray)
+    val preconds = s.SEApp(s.SEBuiltin(SBConsMany(precondsArray.length - 1)), precondsArray.toArray)
     // We check precondition in a separated builtin to prevent
     // further evaluation of agreement, signatories, observers and key
     // in case of failed precondition.
-    let(env2, SBCheckPrecond(tmplId)(env2.toSEVar(tmplArgPos), compile(env2, preconds))) {
-      (_, env) =>
-        SBUCreate(tmplId, byInterface)(
-          env.toSEVar(tmplArgPos),
-          compile(env, tmpl.agreementText),
-          compile(env, tmpl.signatories),
-          compile(env, tmpl.observers),
-          compileKeyWithMaintainers(env, tmpl.key),
-        )
+    let(env2, SBCheckPrecond(tmplId)(env2.toSEVar(tmplArgPos), preconds)) { (_, env) =>
+      SBUCreate(tmplId, byInterface)(
+        env.toSEVar(tmplArgPos),
+        compile(env, tmpl.agreementText),
+        compile(env, tmpl.signatories),
+        compile(env, tmpl.observers),
+        compileKeyWithMaintainers(env, tmpl.key),
+      )
     }
   }
 
