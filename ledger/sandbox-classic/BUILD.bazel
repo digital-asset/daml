@@ -436,7 +436,6 @@ server_conformance_test(
     lf_versions = ["legacy"],
     server_args = [
         "--contract-id-seeding=no",
-        "--grpc-status-codes-compatibility-mode",
     ],
     servers = APPEND_ONLY_SCHEMA_SERVERS,
     test_tool_args = [
@@ -460,7 +459,6 @@ server_conformance_test(
     name = "conformance-test-deprecated",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--grpc-status-codes-compatibility-mode",
     ],
     servers = DEPRECATED_SERVERS,
     test_tool_args = [
@@ -475,7 +473,6 @@ server_conformance_test(
     server_args = [
         "--static-time",
         "--contract-id-seeding=testing-weak",
-        "--grpc-status-codes-compatibility-mode",
     ],
     servers = DEPRECATED_SERVERS,
     test_tool_args = [
