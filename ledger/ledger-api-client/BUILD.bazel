@@ -49,17 +49,6 @@ da_scala_library(
     ],
 )
 
-da_scala_library(
-    name = "ledger-api-client-tests-lib",
-    srcs = glob(["src/test/{}/**/*.scala".format(scala_major_version)]),
-    versioned_scala_deps = {
-        "2.12": [
-            "@maven//:org_scalatest_scalatest_core",
-            "@maven//:org_scalactic_scalactic",
-        ],
-    },
-)
-
 da_scala_test_suite(
     name = "ledger-api-client-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
@@ -81,7 +70,6 @@ da_scala_test_suite(
     ],
     deps = [
         ":ledger-api-client",
-        ":ledger-api-client-tests-lib",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
