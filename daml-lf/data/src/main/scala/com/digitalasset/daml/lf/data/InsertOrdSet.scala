@@ -3,7 +3,9 @@
 
 package com.daml.lf.data
 
-import scala.collection.immutable.{HashSet, Queue}
+import scala.collection.{IterableFactory, IterableFactoryDefaults}
+import scala.collection.immutable.{AbstractSet, HashSet, Queue, StrictOptimizedSetOps}
+import scala.collection.mutable.ReusableBuilder
 
 /** Insert-ordered Set.
   *
@@ -14,9 +16,13 @@ import scala.collection.immutable.{HashSet, Queue}
   *  remove: O(n)
   */
 final class InsertOrdSet[T] private (_items: Queue[T], _hashSet: HashSet[T])
-    extends AbstractInsertOrdSet[T] {
+    extends AbstractSet[T]
+    with IterableFactoryDefaults[T, InsertOrdSet]
+    with StrictOptimizedSetOps[T, InsertOrdSet, InsertOrdSet[T]]
+    with Serializable {
   override def empty: InsertOrdSet[T] = InsertOrdSet.empty
   override def size: Int = _hashSet.size
+  override final def iterableFactory: IterableFactory[InsertOrdSet] = InsertOrdSet
 
   def iterator: Iterator[T] =
     _items.reverseIterator
@@ -40,16 +46,35 @@ final class InsertOrdSet[T] private (_items: Queue[T], _hashSet: HashSet[T])
     )
 }
 
-object InsertOrdSet extends InsertOrdSetCompanion {
+object InsertOrdSet extends IterableFactory[InsertOrdSet] {
+  type Factory[A] = Unit
+
+  def canBuildFrom[A]: Factory[A] = ()
+
+  def from[T](it: IterableOnce[T]): InsertOrdSet[T] = {
+    it match {
+      case s: InsertOrdSet[T] => s
+      case _ => (newBuilder[T] ++= it).result()
+    }
+  }
+
+  def newBuilder[T]: ReusableBuilder[T, InsertOrdSet[T]] = new InsertOrdSetBuilder[T]
+
   private val Empty = new InsertOrdSet(Queue.empty, HashSet.empty)
-  override def empty[T] = Empty.asInstanceOf[InsertOrdSet[T]]
+  final def empty[T] = Empty.asInstanceOf[InsertOrdSet[T]]
 
   def fromSeq[T](s: Seq[T]): InsertOrdSet[T] =
     new InsertOrdSet(Queue(s.reverse: _*), HashSet(s: _*))
 
-  // Here only for 2.12 (harmless in 2.13); placed in InsertOrdSetCompanion the
-  // implicit gets in an unwinnable fight with Set's version
-  implicit override def canBuildFrom[A]: Factory[A] =
-    super.canBuildFrom
-
+  private final class InsertOrdSetBuilder[T] extends ReusableBuilder[T, InsertOrdSet[T]] {
+    var m: InsertOrdSet[T] = empty;
+    override def clear(): Unit = {
+      m = empty;
+    }
+    override def result(): InsertOrdSet[T] = m
+    override def addOne(elem: T): this.type = {
+      m = m.incl(elem)
+      this
+    }
+  }
 }

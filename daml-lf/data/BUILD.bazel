@@ -10,14 +10,11 @@ load(
     "lf_scalacopts_stricter",
     "silencer_plugin",
 )
-load("@scala_version//:index.bzl", "scala_major_version")
 
 da_scala_library(
     name = "data",
     srcs =
-        glob(["src/main/scala/**/*.scala"]) + glob([
-            "src/main/{}/**/*.scala".format(scala_major_version),
-        ]),
+        glob(["src/main/scala/**/*.scala"]),
     plugins = [
         kind_projector_plugin,
         silencer_plugin,
