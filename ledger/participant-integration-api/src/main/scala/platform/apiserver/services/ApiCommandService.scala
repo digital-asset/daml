@@ -97,9 +97,11 @@ private[apiserver] final class ApiCommandService private[services] (
       submitAndWaitInternal(request)(enrichedLoggingContext, errorLogger).map {
         case Left(failure) =>
           throw CompletionResponse.toException(failure, errorFactories)(errorLogger)
-        case Right(response) => SubmitAndWaitForTransactionIdResponse.of(response.transactionId,
-          offsetFromResponse(response),
-        )
+        case Right(response) =>
+          SubmitAndWaitForTransactionIdResponse.of(
+            response.transactionId,
+            offsetFromResponse(response),
+          )
       }
     }
 
