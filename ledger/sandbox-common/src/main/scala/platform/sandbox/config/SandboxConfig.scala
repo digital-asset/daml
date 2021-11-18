@@ -13,10 +13,12 @@ import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.metrics.MetricsReporter
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.{CommandConfiguration, LedgerConfiguration, MetricsReporter}
+import com.daml.platform.configuration.{CommandConfiguration, LedgerConfiguration}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
+import scala.concurrent.duration._
 
 /** Defines the basic configuration for running sandbox
   */
@@ -41,7 +43,7 @@ final case class SandboxConfig(
     authService: Option[AuthService],
     seeding: Option[Seeding],
     metricsReporter: Option[MetricsReporter],
-    metricsReportingInterval: Duration,
+    metricsReportingInterval: FiniteDuration,
     eventsPageSize: Int,
     lfValueTranslationEventCacheConfiguration: SizedCache.Configuration,
     lfValueTranslationContractCacheConfiguration: SizedCache.Configuration,
@@ -95,7 +97,7 @@ object SandboxConfig {
       authService = None,
       seeding = Some(Seeding.Strong),
       metricsReporter = None,
-      metricsReportingInterval = Duration.ofSeconds(10),
+      metricsReportingInterval = 10.seconds,
       eventsPageSize = DefaultEventsPageSize,
       lfValueTranslationEventCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       lfValueTranslationContractCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,

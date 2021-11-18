@@ -16,7 +16,6 @@ import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.configuration.MetricsReporter
 import com.daml.platform.sandbox.cli.CommonCli._
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.services.time.TimeProviderType
@@ -213,14 +212,6 @@ class CommonCli(name: LedgerName) {
         )
         .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
 
-      opt[MetricsReporter]("metrics-reporter")
-        .optional()
-        .action((reporter, config) => config.copy(metricsReporter = Some(reporter)))
-
-      opt[Duration]("metrics-reporting-interval")
-        .optional()
-        .action((interval, config) => config.copy(metricsReportingInterval = interval))
-
       opt[Int]("max-commands-in-flight")
         .optional()
         .action((value, config) =>
@@ -295,6 +286,12 @@ class CommonCli(name: LedgerName) {
         .text(
           s"The timeout used for requests by management services of the Ledger API. The default is set to ${SandboxConfig.DefaultManagementServiceTimeout.getSeconds} seconds."
         )
+
+      com.daml.cliopts.Metrics.metricsReporterParse(this)(
+        (setter, config) => config.copy(metricsReporter = setter(config.metricsReporter)),
+        (setter, config) =>
+          config.copy(metricsReportingInterval = setter(config.metricsReportingInterval)),
+      )
 
       help("help").text("Print the usage text")
 

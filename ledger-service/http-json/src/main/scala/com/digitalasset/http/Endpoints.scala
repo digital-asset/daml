@@ -40,6 +40,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import com.daml.metrics.{Metrics, Timed}
 
 class Endpoints(
     allowNonHttps: Boolean,
@@ -63,7 +64,8 @@ class Endpoints(
   import Uri.Path._
 
   def all(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID],
+      metrics: Metrics,
   ): PartialFunction[HttpRequest, Future[HttpResponse]] = {
     val dispatch: PartialFunction[HttpRequest, LoggingContextOf[
       InstanceUUID with RequestID
@@ -103,16 +105,16 @@ class Endpoints(
     }
     import scalaz.std.partialFunction._, scalaz.syntax.arrow._
     (dispatch &&& { case r => r }) andThen { case (lcFhr, req) =>
-      extendWithRequestIdLogCtx(implicit lc =>
-        // TODO: Refactor this somehow into an own function
-        for {
-          _ <- Future.unit
-          _ = logger.trace(s"Incoming request on ${req.uri}")
-          t0 = System.nanoTime()
-          res <- lcFhr(lc)
-          _ = logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
-        } yield res
-      )
+      extendWithRequestIdLogCtx(implicit lc => {
+        val t0 = System.nanoTime
+        logger.trace(s"Incoming request on ${req.uri}")
+        Timed
+          .future(metrics.daml.HttpJsonApi.httpRequest, lcFhr(lc))
+          .map(res => {
+            logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
+            res
+          })
+      })
     }
   }
 

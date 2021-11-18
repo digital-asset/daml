@@ -35,6 +35,7 @@ import Liskov.<~<
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import com.daml.metrics.Metrics
 import spray.json.{JsArray, JsObject, JsValue, JsonReader}
 
 import scala.collection.compat._
@@ -386,7 +387,10 @@ class WebSocketService(
   private[http] def transactionMessageHandler[A: StreamQueryReader](
       jwt: Jwt,
       jwtPayload: JwtPayload,
-  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): Flow[Message, Message, _] =
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: Metrics,
+  ): Flow[Message, Message, _] =
     wsMessageHandler[A](jwt, jwtPayload)
       .via(applyConfig)
       .via(connCounter)
@@ -404,18 +408,26 @@ class WebSocketService(
     )
   )
   private def connCounter[A](implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: Metrics,
   ): Flow[A, A, NotUsed] =
     Flow[A]
       .watchTermination() { (_, future) =>
-        numConns.incrementAndGet
-        logger.info(s"New websocket client has connected, current number of clients:$numConns")
+        discard { numConns.incrementAndGet }
+        metrics.daml.HttpJsonApi.websocketRequest.inc()
+        logger.info(
+          s"New websocket client has connected, current number of clients:${numConns.get()}"
+        )
         future onComplete {
           case Success(_) =>
-            numConns.decrementAndGet
-            logger.info(s"Websocket client has disconnected. Current number of clients: $numConns")
+            discard { numConns.decrementAndGet }
+            metrics.daml.HttpJsonApi.websocketRequest.dec()
+            logger.info(
+              s"Websocket client has disconnected. Current number of clients: ${numConns.get()}"
+            )
           case Failure(ex) =>
-            numConns.decrementAndGet
+            discard { numConns.decrementAndGet }
+            metrics.daml.HttpJsonApi.websocketRequest.dec()
             logger.info(
               s"Websocket client interrupted on Failure: ${ex.getMessage}. remaining number of clients: $numConns"
             )

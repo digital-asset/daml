@@ -49,7 +49,6 @@ compile_deps = [
     "@maven//:com_google_guava_guava",
     "@maven//:com_zaxxer_HikariCP",
     "@maven//:io_dropwizard_metrics_metrics_core",
-    "@maven//:io_dropwizard_metrics_metrics_graphite",
     "@maven//:io_grpc_grpc_netty",
     "@maven//:io_grpc_grpc_services",
     "@maven//:io_netty_netty_handler",

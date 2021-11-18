@@ -170,5 +170,10 @@ object Cli extends StrictLogging {
       cliopts.Logging.logLevelParse(this)((f, c) => c.copy(logLevel = f(c.logLevel)))
       cliopts.Logging.logEncoderParse(this)((f, c) => c.copy(logEncoder = f(c.logEncoder)))
 
+      cliopts.Metrics.metricsReporterParse(this)(
+        (f, c) => c.copy(metricsReporter = f(c.metricsReporter)),
+        (f, c) => c.copy(metricsReportingInterval = f(c.metricsReportingInterval)),
+        hide = true,
+      )
     }
 }
