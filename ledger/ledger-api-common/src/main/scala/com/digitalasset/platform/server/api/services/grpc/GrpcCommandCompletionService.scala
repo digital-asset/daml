@@ -5,42 +5,20 @@ package com.daml.platform.server.api.services.grpc
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.api.messages.command.completion.{
-  CompletionStreamRequest => ValidatedCompletionStreamRequest
-}
 import com.daml.ledger.api.v1.command_completion_service._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.validation.{CompletionServiceRequestValidator, PartyNameChecker}
+import com.daml.ledger.api.validation.CompletionServiceRequestValidator
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object GrpcCommandCompletionService {
-
-  private[this] val completionStreamDefaultOffset = Some(domain.LedgerOffset.LedgerEnd)
-
-  private def fillInWithDefaults(
-      request: ValidatedCompletionStreamRequest
-  ): ValidatedCompletionStreamRequest =
-    if (request.offset.isDefined) {
-      request
-    } else {
-      request.copy(offset = completionStreamDefaultOffset)
-    }
-
-}
-
 class GrpcCommandCompletionService(
-    ledgerId: LedgerId,
     service: CommandCompletionService,
-    partyNameChecker: PartyNameChecker,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+    validator: CompletionServiceRequestValidator,
 )(implicit
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -48,8 +26,6 @@ class GrpcCommandCompletionService(
     loggingContext: LoggingContext,
 ) extends CommandCompletionServiceAkkaGrpc {
 
-  private val validator =
-    new CompletionServiceRequestValidator(ledgerId, partyNameChecker, errorCodesVersionSwitcher)
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
   private implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
     new DamlContextualizedErrorLogger(logger, loggingContext, None)
@@ -57,14 +33,12 @@ class GrpcCommandCompletionService(
   override def completionStreamSource(
       request: CompletionStreamRequest
   ): Source[CompletionStreamResponse, akka.NotUsed] = {
-    Source.future(service.getLedgerEnd(LedgerId(request.ledgerId))).flatMapConcat { ledgerEnd =>
-      validator
-        .validateCompletionStreamRequest(request, ledgerEnd)
-        .fold(
-          t => Source.failed[CompletionStreamResponse](ValidationLogger.logFailure(request, t)),
-          GrpcCommandCompletionService.fillInWithDefaults _ andThen service.completionStreamSource,
-        )
-    }
+    validator
+      .validateGrpcCompletionStreamRequest(request)
+      .fold(
+        t => Source.failed[CompletionStreamResponse](ValidationLogger.logFailure(request, t)),
+        service.completionStreamSource,
+      )
   }
 
   override def completionEnd(request: CompletionEndRequest): Future[CompletionEndResponse] =

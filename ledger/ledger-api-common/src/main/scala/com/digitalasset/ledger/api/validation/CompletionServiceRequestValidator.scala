@@ -30,14 +30,13 @@ class CompletionServiceRequestValidator(
   import errorFactories._
   import fieldValidations._
 
-  def validateCompletionStreamRequest(
-      request: GrpcCompletionStreamRequest,
-      ledgerEnd: LedgerOffset.Absolute,
+  def validateGrpcCompletionStreamRequest(
+      request: GrpcCompletionStreamRequest
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, CompletionStreamRequest] =
     for {
-      _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
+      validLedgerId <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       nonEmptyAppId <- requireNonEmptyString(
         request.applicationId,
         "application_id",
@@ -46,20 +45,31 @@ class CompletionServiceRequestValidator(
         .fromString(nonEmptyAppId)
         .left
         .map(invalidField("application_id", _, None))
-      nonEmptyParties <- requireNonEmpty(request.parties, "parties")
-      knownParties <- partyValidator.requireKnownParties(nonEmptyParties)
+      parties <- requireParties(request.parties.toSet)
       convertedOffset <- ledgerOffsetValidator.validateOptional(request.offset, "offset")
-      _ <- ledgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
-        "Begin",
-        convertedOffset,
-        ledgerEnd,
-      )
     } yield CompletionStreamRequest(
-      ledgerId,
+      validLedgerId,
       ApplicationId(appId),
-      knownParties,
+      parties,
       convertedOffset,
     )
+
+  def validateCompletionStreamRequest(
+      request: CompletionStreamRequest,
+      ledgerEnd: LedgerOffset.Absolute,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, CompletionStreamRequest] =
+    for {
+      _ <- matchLedgerId(ledgerId)(request.ledgerId)
+      _ <- ledgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
+        "Begin",
+        request.offset,
+        ledgerEnd,
+      )
+      _ <- requireNonEmpty(request.parties, "parties")
+      _ <- partyValidator.requireKnownParties(request.parties)
+    } yield request
 
   def validateCompletionEndRequest(
       req: CompletionEndRequest
