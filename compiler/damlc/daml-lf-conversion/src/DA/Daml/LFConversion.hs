@@ -1116,6 +1116,12 @@ convertBind env (name, x)
     | ConstraintTupleProjectionName _ _ <- name
     = pure []
 
+    -- HasMethod instances are only used for desugaring.
+    | DFunId _ <- idDetails name
+    , TypeCon hasMethodCls _ <- varType name
+    , NameIn DA_Internal_Desugar "HasMethod" <- hasMethodCls
+    = pure []
+
     -- Typeclass instance dictionaries
     | DFunId isNewtype <- idDetails name
     = withRange (convNameLoc name) $ do
@@ -1161,7 +1167,14 @@ internalTypes = mkUniqSet
     ]
 
 desugarTypes :: UniqSet FastString
-desugarTypes = mkUniqSet ["Consuming", "PreConsuming", "PostConsuming", "NonConsuming"]
+desugarTypes = mkUniqSet
+    [ "Consuming"
+    , "PreConsuming"
+    , "PostConsuming"
+    , "NonConsuming"
+    , "Method"
+    , "HasMethod"
+    ]
 
 internalFunctions :: UniqFM (UniqSet FastString)
 internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
@@ -1175,6 +1188,7 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         ])
     , ("DA.Internal.Desugar",
         [ "mkMethod"
+        , "$sel:unMethod:Method"
         ])
     ]
 
