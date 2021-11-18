@@ -67,9 +67,9 @@ object InsertOrdSet extends IterableFactory[InsertOrdSet] {
     new InsertOrdSet(Queue(s.reverse: _*), HashSet(s: _*))
 
   private final class InsertOrdSetBuilder[T] extends ReusableBuilder[T, InsertOrdSet[T]] {
-    var m: InsertOrdSet[T] = empty;
+    var m: InsertOrdSet[T] = empty
     override def clear(): Unit = {
-      m = empty;
+      m = empty
     }
     override def result(): InsertOrdSet[T] = m
     override def addOne(elem: T): this.type = {

@@ -20,7 +20,6 @@ da_scala_library(
         silencer_plugin,
     ],
     scala_deps = [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts_stricter + [
@@ -51,7 +50,6 @@ da_scala_test(
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scalaz_scalaz_scalacheck_binding",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scalacopts = lf_scalacopts + [
         "-P:silencer:lineContentFilters=import ImmArraySeq.Implicits._",
