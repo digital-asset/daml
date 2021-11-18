@@ -499,7 +499,6 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
     val builder = DamlOutOfTimeBoundsEntry.newBuilder
     timeBounds.tooEarlyUntil.foreach(value => builder.setTooEarlyUntil(buildTimestamp(value)))
     timeBounds.tooLateFrom.foreach(value => builder.setTooLateFrom(buildTimestamp(value)))
-    timeBounds.deduplicateUntil.foreach(value => builder.setDuplicateUntil(buildTimestamp(value)))
     builder.setEntry(buildLogEntry(logEntryType, definiteAnswer))
     builder.build
   }

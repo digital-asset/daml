@@ -32,7 +32,6 @@ private[kvutils] case class CommitContext(
 
   var minimumRecordTime: Option[Timestamp] = None
   var maximumRecordTime: Option[Timestamp] = None
-  var deduplicateUntil: Option[Timestamp] = None
 
   // Rejection log entry used for generating an out-of-time-bounds log entry in case of
   // pre-execution.

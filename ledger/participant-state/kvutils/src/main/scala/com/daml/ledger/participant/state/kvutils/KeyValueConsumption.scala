@@ -28,10 +28,10 @@ import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.CommittedTransaction
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
 /** Utilities for producing [[Update]] events from [[DamlLogEntry]]'s committed to a
@@ -426,6 +426,7 @@ object KeyValueConsumption {
       Some(correlationId(rejectionEntry.getSubmitterInfo)),
     )
 
+  @nowarn("msg=deprecated")
   private def parseTimeBounds(outOfTimeBoundsEntry: DamlOutOfTimeBoundsEntry): TimeBounds = {
     val duplicateUntilMaybe = parseOptionalTimestamp(
       outOfTimeBoundsEntry.hasDuplicateUntil,
