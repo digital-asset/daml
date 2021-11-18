@@ -3,18 +3,20 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import java.io.ByteArrayInputStream
 import com.codahale.metrics.Timer
+import com.daml.error.definitions.IndexErrors
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
-import com.daml.platform.store.appendonlydao.events.ContractsReader._
 import com.daml.platform.store.appendonlydao.DbDispatcher
+import com.daml.platform.store.appendonlydao.events.ContractsReader._
 import com.daml.platform.store.backend.ContractStorageBackend
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
+import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
+import java.io.ByteArrayInputStream
 import scala.concurrent.{ExecutionContext, Future}
 
 private[appendonlydao] sealed class ContractsReader(
@@ -23,6 +25,7 @@ private[appendonlydao] sealed class ContractsReader(
     metrics: Metrics,
 )(implicit ec: ExecutionContext)
     extends LedgerDaoContractsReader {
+  private val logger = ContextualizedLogger.get(getClass)
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
@@ -54,7 +57,9 @@ private[appendonlydao] sealed class ContractsReader(
 
   override def lookupContractState(contractId: ContractId, before: Long)(implicit
       loggingContext: LoggingContext
-  ): Future[Option[ContractState]] =
+  ): Future[Option[ContractState]] = {
+    implicit val errorLogger: ContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
     Timed.future(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
@@ -85,9 +90,13 @@ private[appendonlydao] sealed class ContractsReader(
               ),
             )
           case raw if raw.eventKind == 20 => ArchivedContract(raw.flatEventWitnesses)
-          case raw => throw ContractsReaderError(s"Unexpected event kind ${raw.eventKind}")
+          case raw =>
+            throw throw IndexErrors.DatabaseErrors.ResultSetError
+              .Reject(s"Unexpected event kind ${raw.eventKind}")
+              .asGrpcError
         }),
     )
+  }
 
   /** Lookup of a contract in the case the contract value is not already known */
   override def lookupActiveContractAndLoadArgument(
@@ -208,8 +217,8 @@ private[appendonlydao] object ContractsReader {
       agreementText = "",
     )
 
-  private def assertPresent[T](in: Option[T])(err: String): T =
-    in.getOrElse(throw ContractsReaderError(err))
-
-  case class ContractsReaderError(msg: String) extends RuntimeException(msg)
+  private def assertPresent[T](in: Option[T])(err: String)(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): T =
+    in.getOrElse(throw IndexErrors.DatabaseErrors.ResultSetError.Reject(err).asGrpcError)
 }

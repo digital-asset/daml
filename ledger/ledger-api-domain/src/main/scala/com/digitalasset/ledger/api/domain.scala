@@ -210,6 +210,8 @@ object domain {
     /** The ledger time of the submission violated some constraint on the ledger time. */
     final case class InvalidLedgerTime(description: String) extends RejectionReason
 
+    final case class LedgerConfigNotFound(description: String) extends RejectionReason
+
     /** The transaction relied on contracts being active that were no longer
       * active at the point where it was sequenced.
       */
