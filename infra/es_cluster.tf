@@ -41,6 +41,7 @@ locals {
   es_ports = [
     { name = "es", port = "9200" },
     { name = "kibana", port = "5601" },
+    //{ name = "cerebro", port = "9000" },
   ]
 }
 
@@ -77,7 +78,7 @@ resource "google_compute_firewall" "es-http" {
 
   allow {
     protocol = "tcp"
-    ports    = ["5601", "9200"]
+    ports    = [for p in local.es_ports : p.port]
   }
 }
 
@@ -358,12 +359,8 @@ resource "google_compute_security_policy" "es" {
   }
 }
 
-output "es_address" {
-  value = google_compute_address.es[0].address
-}
-
-output "kibana_address" {
-  value = google_compute_address.es[1].address
+output "es_addresses" {
+  value = { for idx, p in local.es_ports : p.name => google_compute_address.es[idx].address }
 }
 
 resource "google_compute_address" "es-feed" {
