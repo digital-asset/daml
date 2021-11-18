@@ -1221,7 +1221,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
   "reject ill formed type record definitions" in {
 
     def checkModule(mod: Module) = {
-      val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
+      val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, None)
       Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
     }
 
@@ -1244,7 +1244,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
   "reject ill formed type variant definitions" in {
 
     def checkModule(mod: Module) = {
-      val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
+      val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, None)
       Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
     }
 
@@ -1267,7 +1267,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
   "reject ill formed type synonym definitions" in {
 
     def checkModule(mod: Module) = {
-      val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
+      val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, None)
       Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
     }
 
