@@ -213,10 +213,6 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
       (line(0), line(1), line(2), line(3), line(4))
     )
 
-//    val tableLinesWithoutUnchangedErrorCodes = for {
-//      line <- tableLines if line(1) != line(2)
-//    } yield line
-
     val reStTable = generateReStTable(
       linesForTable,
       header = Array(
