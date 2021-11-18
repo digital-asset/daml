@@ -1986,19 +1986,23 @@ class EngineTest
 
     /* create by interface tests */
     "be able to create T1 by interface I1" in {
-      val command = CreateByInterfaceCommand(idI1, idT1, ValueRecord(None, ImmArray((None, ValueParty(party)))))
+      val command =
+        CreateByInterfaceCommand(idI1, idT1, ValueRecord(None, ImmArray((None, ValueParty(party)))))
       run(command) shouldBe a[Right[_, _]]
     }
     "be able to create T2 by interface I1" in {
-      val command = CreateByInterfaceCommand(idI1, idT2, ValueRecord(None, ImmArray((None, ValueParty(party)))))
+      val command =
+        CreateByInterfaceCommand(idI1, idT2, ValueRecord(None, ImmArray((None, ValueParty(party)))))
       run(command) shouldBe a[Right[_, _]]
     }
     "be able to create T2 by interface I2" in {
-      val command = CreateByInterfaceCommand(idI2, idT2, ValueRecord(None, ImmArray((None, ValueParty(party)))))
+      val command =
+        CreateByInterfaceCommand(idI2, idT2, ValueRecord(None, ImmArray((None, ValueParty(party)))))
       run(command) shouldBe a[Right[_, _]]
     }
     "be unable to create T1 by interface I2 (stopped in preprocessor)" in {
-      val command = CreateByInterfaceCommand(idI2, idT1, ValueRecord(None, ImmArray((None, ValueParty(party)))))
+      val command =
+        CreateByInterfaceCommand(idI2, idT1, ValueRecord(None, ImmArray((None, ValueParty(party)))))
       preprocess(command) shouldBe a[Left[_, _]]
     }
 
@@ -2048,7 +2052,7 @@ class EngineTest
         val command = ExerciseCommand(idT1, cid2, "C1", ValueRecord(None, ImmArray.empty))
         run(command) shouldBe a[Left[_, _]]
       }
-    */
+     */
     "be unable to exercise T2 (disguised as T1) by interface I2 (stopped in preprocessor)" in {
       val command = ExerciseCommand(idT1, cid2, "C2", ValueRecord(None, ImmArray.empty))
       preprocess(command) shouldBe a[Left[_, _]]
@@ -2070,32 +2074,38 @@ class EngineTest
         val command = ExerciseTemplateCommand(idT1, cid1, "C1", ValueRecord(None, ImmArray.empty))
         preprocess(command) shouldBe a[Left[_, _]]
       }
-    */
+     */
     "be able to exercise T1 own choice via exercise template" in {
-      val command = ExerciseTemplateCommand(idT1, cid1, "OwnChoice", ValueRecord(None, ImmArray.empty))
+      val command =
+        ExerciseTemplateCommand(idT1, cid1, "OwnChoice", ValueRecord(None, ImmArray.empty))
       run(command) shouldBe a[Right[_, _]]
     }
 
     /* exercise by interface tests */
     "be unable to exercise interface via 'exercise by interface' (stopped in preprocessor)" in {
-      val command = ExerciseByInterfaceCommand(idI1, idI1, cid1, "C1", ValueRecord(None, ImmArray.empty))
+      val command =
+        ExerciseByInterfaceCommand(idI1, idI1, cid1, "C1", ValueRecord(None, ImmArray.empty))
       preprocess(command) shouldBe a[Left[_, _]]
     }
 
     "be able to exercise T1 by interface I1 via 'exercise by interface'" in {
-      val command = ExerciseByInterfaceCommand(idI1, idT1, cid1, "C1", ValueRecord(None, ImmArray.empty))
+      val command =
+        ExerciseByInterfaceCommand(idI1, idT1, cid1, "C1", ValueRecord(None, ImmArray.empty))
       run(command) shouldBe a[Right[_, _]]
     }
     "be able to exercise T2 by interface I1 via 'exercise by interface'" in {
-      val command = ExerciseByInterfaceCommand(idI1, idT2, cid2, "C1", ValueRecord(None, ImmArray.empty))
+      val command =
+        ExerciseByInterfaceCommand(idI1, idT2, cid2, "C1", ValueRecord(None, ImmArray.empty))
       run(command) shouldBe a[Right[_, _]]
     }
     "be able to exercise T2 by interface I2 via 'exercise by interface'" in {
-      val command = ExerciseByInterfaceCommand(idI2, idT2, cid2, "C2", ValueRecord(None, ImmArray.empty))
+      val command =
+        ExerciseByInterfaceCommand(idI2, idT2, cid2, "C2", ValueRecord(None, ImmArray.empty))
       run(command) shouldBe a[Right[_, _]]
     }
     "be unable to exercise T1 by interface I2   (stopped in preprocessor)" in {
-      val command = ExerciseByInterfaceCommand(idI2, idT1, cid1, "C2", ValueRecord(None, ImmArray.empty))
+      val command =
+        ExerciseByInterfaceCommand(idI2, idT1, cid1, "C2", ValueRecord(None, ImmArray.empty))
       preprocess(command) shouldBe a[Left[_, _]]
     }
 
@@ -2110,18 +2120,21 @@ class EngineTest
         val command = ExerciseByInterfaceCommand(idI1, idT1, cid2, "C1", ValueRecord(None, ImmArray.empty))
         run(command) shouldBe a[Left[_, _]]
       }
-    */
+     */
     "be unable to exercise T2 (disguised as T1) by interface I2 via 'exercise by interface' (stopped in preprocessor)" in {
-      val command = ExerciseByInterfaceCommand(idI2, idT1, cid2, "C2", ValueRecord(None, ImmArray.empty))
+      val command =
+        ExerciseByInterfaceCommand(idI2, idT1, cid2, "C2", ValueRecord(None, ImmArray.empty))
       preprocess(command) shouldBe a[Left[_, _]]
     }
     "be unable to exercise T1 (disguised as T2) by interface I2 via 'exercise by interface'" in {
-      val command = ExerciseByInterfaceCommand(idI2, idT2, cid1, "C2", ValueRecord(None, ImmArray.empty))
+      val command =
+        ExerciseByInterfaceCommand(idI2, idT2, cid1, "C2", ValueRecord(None, ImmArray.empty))
       run(command) shouldBe a[Left[_, _]]
     }
 
     "be unable to exercise T2 choice by the wrong interface (stopped in preprocessor)" in {
-      val command = ExerciseByInterfaceCommand(idI1, idT2, cid2, "C2", ValueRecord(None, ImmArray.empty))
+      val command =
+        ExerciseByInterfaceCommand(idI1, idT2, cid2, "C2", ValueRecord(None, ImmArray.empty))
       preprocess(command) shouldBe a[Left[_, _]]
     }
 
@@ -2157,7 +2170,7 @@ class EngineTest
         val command = FetchByInterfaceCommand(idI1, idT1, cid2)
         run(command) shouldBe a[Left[_, _]]
       }
-    */
+     */
     "be unable to fetch T2 (disguised as T1) by interface I2 (stopped in preprocessor)" in {
       val command = FetchByInterfaceCommand(idI2, idT1, cid2)
       preprocess(command) shouldBe a[Left[_, _]]
