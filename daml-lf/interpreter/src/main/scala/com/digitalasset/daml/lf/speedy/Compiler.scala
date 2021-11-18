@@ -1238,9 +1238,9 @@ private[lf] final class Compiler(
       param: ExprVarName,
       expr: Expr,
   ) =
-    topLevelFunction1(t.InterfacePrecondDefRef(iface)) { (argPos, env) =>
+    topLevelFunction1(t.InterfacePrecondDefRef(iface))((argPos, env) =>
       compile(env.bindExprVar(param, argPos), expr)
-    }
+    )
 
   private[this] def compileKey(
       tmplId: Identifier,
