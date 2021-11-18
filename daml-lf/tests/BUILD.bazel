@@ -43,6 +43,13 @@ daml_compile(
     visibility = ["//daml-lf:__subpackages__"],
 )
 
+daml_compile(
+    name = "Interfaces",
+    srcs = ["Interfaces.daml"],
+    target = "1.dev",
+    visibility = ["//daml-lf:__subpackages__"],
+)
+
 daml_build_test(
     name = "ReinterpretTests",
     dar_dict = {
