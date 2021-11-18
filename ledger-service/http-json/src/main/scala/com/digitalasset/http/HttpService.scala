@@ -3,8 +3,6 @@
 
 package com.daml.http
 
-import java.nio.file.Path
-
 import akka.actor.{ActorSystem, Cancellable}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -22,6 +20,7 @@ import com.daml.http.json.{
 import com.daml.http.util.ApiValueToLfValueConverter
 import com.daml.http.util.FutureUtil._
 import com.daml.http.util.IdentifierConverters.apiLedgerId
+import com.daml.http.util.Logging.InstanceUUID
 import com.daml.jwt.JwtDecoder
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
@@ -35,19 +34,24 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.ports.{Port, PortFiles}
 import com.daml.scalautil.Statement.discard
 import com.daml.util.ExceptionOps._
-import com.typesafe.scalalogging.StrictLogging
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import scalaz.Scalaz._
 import scalaz._
 
+import java.nio.file.Path
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-object HttpService extends StrictLogging {
+import ch.qos.logback.classic.{Level => LogLevel}
+
+object HttpService {
+
+  private val logger = ContextualizedLogger.get(getClass)
 
   val DefaultPackageReloadInterval: FiniteDuration = FiniteDuration(5, "s")
   val DefaultMaxInboundMessageSize: Int = 4194304
@@ -78,6 +82,7 @@ object HttpService extends StrictLogging {
     val packageMaxInboundMessageSize: Option[Int]
     val maxInboundMessageSize: Int
     val healthTimeoutSeconds: Int
+    val logLevel: Option[LogLevel]
   }
 
   trait DefaultStartSettings extends StartSettings {
@@ -97,7 +102,11 @@ object HttpService extends StrictLogging {
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
   ): Future[Error \/ (ServerBinding, Option[ContractDao])] = {
+
+    logger.info("HTTP Server pre-startup")
+
     import startSettings._
 
     implicit val settings: ServerSettings = ServerSettings(asys).withTransparentHeadRequests(true)
@@ -169,7 +178,7 @@ object HttpService extends StrictLogging {
         LedgerClientJwt.getPackage(pkgManagementClient),
         uploadDarAndReloadPackages(
           LedgerClientJwt.uploadDar(pkgManagementClient),
-          () => packageService.reload(ec),
+          implicit lc => packageService.reload,
         ),
       )
 
@@ -269,7 +278,10 @@ object HttpService extends StrictLogging {
 
   def stop(
       f: Future[Error \/ (ServerBinding, Option[ContractDao])]
-  )(implicit ec: ExecutionContext): Future[Unit] = {
+  )(implicit
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): Future[Unit] = {
     logger.info("Stopping server...")
     f.collect { case \/-((a, dao)) =>
       dao.foreach(_.close())
@@ -312,7 +324,11 @@ object HttpService extends StrictLogging {
   private def schedulePackageReload(
       packageService: PackageService,
       pollInterval: FiniteDuration,
-  )(implicit asys: ActorSystem, ec: ExecutionContext): Cancellable = {
+  )(implicit
+      asys: ActorSystem,
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): Cancellable = {
     val maxWait = pollInterval * 10
 
     // scheduleWithFixedDelay will wait for the previous task to complete before triggering the next one
@@ -358,7 +374,7 @@ object HttpService extends StrictLogging {
 
   private def uploadDarAndReloadPackages(
       f: LedgerClientJwt.UploadDarFile,
-      g: () => Future[PackageService.Error \/ Unit],
+      g: LoggingContextOf[InstanceUUID] => Future[PackageService.Error \/ Unit],
   )(implicit ec: ExecutionContext): LedgerClientJwt.UploadDarFile =
-    (x, y) => f(x, y).flatMap(_ => g().flatMap(toFuture(_): Future[Unit]))
+    (x, y) => implicit lc => f(x, y)(lc).flatMap(_ => g(lc).flatMap(toFuture(_): Future[Unit]))
 }

@@ -17,11 +17,12 @@ import com.daml.http.domain.{
 import com.daml.http.util.ClientUtil.uniqueCommandId
 import com.daml.http.util.FutureUtil._
 import com.daml.http.util.IdentifierConverters.refApiIdentifier
+import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.http.util.{Commands, Transactions}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
-import com.typesafe.scalalogging.StrictLogging
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
@@ -35,8 +36,7 @@ class CommandService(
     resolveTemplateId: PackageService.ResolveTemplateId,
     submitAndWaitForTransaction: LedgerClientJwt.SubmitAndWaitForTransaction,
     submitAndWaitForTransactionTree: LedgerClientJwt.SubmitAndWaitForTransactionTree,
-)(implicit ec: ExecutionContext)
-    extends StrictLogging {
+)(implicit ec: ExecutionContext) {
 
   import CommandService._
 
@@ -44,15 +44,16 @@ class CommandService(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
       input: CreateCommand[lav1.value.Record],
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ActiveContract[lav1.value.Value]] = {
-
+    logger.trace("sending create command to ledger")
     val et: ET[ActiveContract[lav1.value.Value]] = for {
       command <- either(createCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
       response <- rightT(logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request)))
       contract <- either(exactlyOneActiveContract(response))
     } yield contract
-
     et.run
   }
 
@@ -60,8 +61,10 @@ class CommandService(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
       input: ExerciseCommand[lav1.value.Value, ExerciseCommandRef],
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
-
+    logger.trace("sending exercise command to ledger")
     val command = exerciseCommand(input)
     val request = submitAndWaitRequest(jwtPayload, input.meta, command)
 
@@ -80,8 +83,10 @@ class CommandService(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
       input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value],
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
-
+    logger.trace("sending create and exercise command to ledger")
     val et: ET[ExerciseResponse[lav1.value.Value]] = for {
       command <- either(createAndExerciseCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
@@ -95,7 +100,9 @@ class CommandService(
     et.run
   }
 
-  private def logResult[A](op: Symbol, fa: Future[A]): Future[A] = {
+  private def logResult[A](op: Symbol, fa: Future[A])(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Future[A] = {
     fa.onComplete {
       case Failure(e) => logger.error(s"$op failure", e)
       case Success(a) => logger.debug(s"$op success: $a")
@@ -245,4 +252,6 @@ object CommandService {
   private type ET[A] = EitherT[Future, Error, A]
 
   type ExerciseCommandRef = domain.ResolvedContractRef[lav1.value.Value]
+
+  private val logger = ContextualizedLogger.get(classOf[CommandService])
 }

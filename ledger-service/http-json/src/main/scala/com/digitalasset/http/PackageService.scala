@@ -8,17 +8,19 @@ import com.daml.lf.data.Ref
 import com.daml.lf.iface
 import com.daml.http.domain.{Choice, TemplateId}
 import com.daml.http.util.IdentifierConverters
+import com.daml.http.util.Logging.{InstanceUUID}
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.ledger.service.{LedgerReader, TemplateIds}
-import com.typesafe.scalalogging.StrictLogging
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.Scalaz._
 import scalaz._
 
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 
-private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadPackageStore)
-    extends StrictLogging {
+private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadPackageStore) {
+
+  private[this] val logger = ContextualizedLogger.get(getClass)
 
   import PackageService._
 
@@ -47,20 +49,24 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
     State(Set.empty, TemplateIdMap.Empty, Map.empty, Map.empty, Map.empty)
 
   // synchronized, so two threads cannot reload it concurrently
-  def reload(implicit ec: ExecutionContext): Future[Error \/ Unit] = synchronized {
-    reloadPackageStoreIfChanged(state.packageIds).map {
-      _.map {
-        case Some(diff) =>
-          this.state = this.state.append(diff)
-          logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
-          logger.debug(s"loaded diff: $diff")
-          ()
-        case None =>
-          logger.debug(s"new package IDs not found")
-          ()
+  def reload(implicit
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): Future[Error \/ Unit] =
+    synchronized {
+      reloadPackageStoreIfChanged(state.packageIds).map {
+        _.map {
+          case Some(diff) =>
+            this.state = this.state.append(diff)
+            logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
+            logger.debug(s"loaded diff: $diff")
+            ()
+          case None =>
+            logger.debug(s"new package IDs not found")
+            ()
+        }
       }
     }
-  }
 
   def packageStore: PackageStore = state.packageStore
 

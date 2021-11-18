@@ -199,6 +199,7 @@ da_scala_test_suite(
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",

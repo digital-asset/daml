@@ -166,5 +166,7 @@ object Cli extends StrictLogging {
         .optional()
         .valueName(WebsocketConfig.usage)
         .text(s"Optional websocket configuration string. ${WebsocketConfig.help}")
+
+      cliopts.Logging.loggingLevelParse(this)((f, c) => c.copy(logLevel = f(c.logLevel)))
     }
 }

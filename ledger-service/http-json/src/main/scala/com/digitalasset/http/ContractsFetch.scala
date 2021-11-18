@@ -27,11 +27,13 @@ import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue
 }
 import com.daml.http.util.IdentifierConverters.apiIdentifier
+import com.daml.http.util.Logging.{InstanceUUID}
 import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
 import com.daml.util.ExceptionOps._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.{v1 => lav1}
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
 import scalaz.Order
@@ -47,7 +49,6 @@ import scalaz.syntax.order._
 import scalaz.syntax.std.option._
 import scalaz.{-\/, OneAnd, \/, \/-}
 import spray.json.{JsNull, JsValue}
-import com.typesafe.scalalogging.StrictLogging
 import scalaz.Liskov.<~<
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -56,11 +57,12 @@ private class ContractsFetch(
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
     getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
     getTermination: LedgerClientJwt.GetTermination,
-)(implicit dblog: doobie.LogHandler, sjd: SupportedJdbcDriver)
-    extends StrictLogging {
+)(implicit dblog: doobie.LogHandler, sjd: SupportedJdbcDriver) {
 
   import ContractsFetch._
   import sjd.retrySqlStates
+
+  private[this] val logger = ContextualizedLogger.get(getClass)
 
   def fetchAndPersist(
       jwt: Jwt,
@@ -69,6 +71,7 @@ private class ContractsFetch(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
+      lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] = {
     import cats.instances.list._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps},
     cats.syntax.traverse.{toTraverseOps => ToTraverseOps}, cats.syntax.functor._, doobie.implicits._
@@ -132,6 +135,7 @@ private class ContractsFetch(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
+      lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
     import doobie.implicits._
@@ -157,7 +161,11 @@ private class ContractsFetch(
       disableAcs: Boolean,
       absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
-  )(implicit ec: ExecutionContext, mat: Materializer): ConnectionIO[BeginBookmark[domain.Offset]] =
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+      lc: LoggingContextOf[InstanceUUID],
+  ): ConnectionIO[BeginBookmark[domain.Offset]] =
     for {
       offsets <- ContractDao.lastOffset(parties, templateId)
       offset1 <- contractsFromOffsetIo(jwt, parties, templateId, offsets, disableAcs, absEnd)

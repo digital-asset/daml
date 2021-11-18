@@ -5,6 +5,7 @@ package com.daml.http
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api
 import com.daml.ledger.api.v1.package_service
@@ -19,12 +20,15 @@ import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.data.Ref
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.google.protobuf
 import scalaz.OneAnd
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object LedgerClientJwt {
+
+  private[this] val logger = ContextualizedLogger.get(getClass)
 
   type SubmitAndWaitForTransaction =
     (Jwt, SubmitAndWaitRequest) => Future[SubmitAndWaitForTransactionResponse]
@@ -51,13 +55,17 @@ object LedgerClientJwt {
     (Jwt, Option[Ref.Party], Option[String]) => Future[api.domain.PartyDetails]
 
   type ListPackages =
-    Jwt => Future[package_service.ListPackagesResponse]
+    Jwt => LoggingContextOf[InstanceUUID with RequestID] => Future[
+      package_service.ListPackagesResponse
+    ]
 
   type GetPackage =
-    (Jwt, String) => Future[package_service.GetPackageResponse]
+    (Jwt, String) => LoggingContextOf[InstanceUUID with RequestID] => Future[
+      package_service.GetPackageResponse
+    ]
 
   type UploadDarFile =
-    (Jwt, protobuf.ByteString) => Future[Unit]
+    (Jwt, protobuf.ByteString) => LoggingContextOf[InstanceUUID with RequestID] => Future[Unit]
 
   private def bearer(jwt: Jwt): Some[String] = Some(jwt.value: String)
 
@@ -137,12 +145,23 @@ object LedgerClientJwt {
       )
 
   def listPackages(client: LedgerClient): ListPackages =
-    jwt => client.packageClient.listPackages(bearer(jwt))
+    jwt =>
+      implicit lc => {
+        logger.trace("sending list packages request to ledger")
+        client.packageClient.listPackages(bearer(jwt))
+      }
 
   def getPackage(client: LedgerClient): GetPackage =
-    (jwt, packageId) => client.packageClient.getPackage(packageId, token = bearer(jwt))
+    (jwt, packageId) =>
+      implicit lc => {
+        logger.trace("sending get packages request to ledger")
+        client.packageClient.getPackage(packageId, token = bearer(jwt))
+      }
 
   def uploadDar(client: LedgerClient): UploadDarFile =
     (jwt, byteString) =>
-      client.packageManagementClient.uploadDarFile(darFile = byteString, token = bearer(jwt))
+      implicit lc => {
+        logger.trace("sending upload dar request to ledger")
+        client.packageManagementClient.uploadDarFile(darFile = byteString, token = bearer(jwt))
+      }
 }

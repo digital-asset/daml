@@ -18,7 +18,6 @@ import ContractStreamStep.LiveBegin
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.daml.jwt.domain.Jwt
-import com.typesafe.scalalogging.LazyLogging
 import com.daml.http.query.ValuePredicate
 import doobie.ConnectionIO
 import doobie.syntax.string._
@@ -34,6 +33,8 @@ import scalaz.std.vector._
 import scalaz.{-\/, Foldable, Liskov, NonEmptyList, OneAnd, Tag, \/, \/-}
 import Liskov.<~<
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
+import com.daml.http.util.Logging.{InstanceUUID, RequestID}
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import spray.json.{JsArray, JsObject, JsValue, JsonReader}
 
 import scala.collection.compat._
@@ -369,8 +370,9 @@ class WebSocketService(
     decoder: DomainJsonDecoder,
     lookupType: ValuePredicate.TypeLookup,
     wsConfig: Option[WebsocketConfig],
-)(implicit mat: Materializer, ec: ExecutionContext)
-    extends LazyLogging {
+)(implicit mat: Materializer, ec: ExecutionContext) {
+
+  private[this] val logger = ContextualizedLogger.get(getClass)
 
   import WebSocketService._
   import com.daml.scalautil.Statement.discard
@@ -384,7 +386,7 @@ class WebSocketService(
   private[http] def transactionMessageHandler[A: StreamQueryReader](
       jwt: Jwt,
       jwtPayload: JwtPayload,
-  ): Flow[Message, Message, _] =
+  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): Flow[Message, Message, _] =
     wsMessageHandler[A](jwt, jwtPayload)
       .via(applyConfig)
       .via(connCounter)
@@ -401,7 +403,9 @@ class WebSocketService(
       "org.wartremover.warts.Serializable",
     )
   )
-  private def connCounter[A]: Flow[A, A, NotUsed] =
+  private def connCounter[A](implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Flow[A, A, NotUsed] =
     Flow[A]
       .watchTermination() { (_, future) =>
         numConns.incrementAndGet
@@ -422,6 +426,8 @@ class WebSocketService(
   private def wsMessageHandler[A: StreamQueryReader](
       jwt: Jwt,
       jwtPayload: JwtPayload,
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Flow[Message, Message, NotUsed] = {
     val Q = implicitly[StreamQueryReader[A]]
     Flow[Message]
@@ -470,6 +476,8 @@ class WebSocketService(
       parties: OneAnd[Set, domain.Party],
       offPrefix: Option[domain.StartingOffset],
       request: A,
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Source[Error \/ Message, NotUsed] = {
     val Q = implicitly[StreamQuery[A]]
 

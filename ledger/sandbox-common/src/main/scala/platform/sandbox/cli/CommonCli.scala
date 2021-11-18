@@ -6,7 +6,6 @@ package com.daml.platform.sandbox.cli
 import java.io.File
 import java.time.Duration
 
-import ch.qos.logback.classic.Level
 import com.daml.buildinfo.BuildInfo
 import com.daml.jwt.JwtVerifierConfigurationCli
 import com.daml.ledger.api.auth.AuthServiceJWT
@@ -32,8 +31,6 @@ import scala.util.Try
 // leave this class. Due to the limitations of scopt, we either use nulls or use the mutable builder
 // instead.
 class CommonCli(name: LedgerName) {
-
-  private val KnownLogLevels = Set("ERROR", "WARN", "INFO", "DEBUG", "TRACE")
 
   val parser: OptionParser[SandboxConfig] =
     new OptionParser[SandboxConfig](name.unwrap.toLowerCase()) {
@@ -196,16 +193,7 @@ class CommonCli(name: LedgerName) {
         .text("This flag is deprecated -- please use --sql-backend-jdbcurl.")
         .action((url, config) => config.copy(jdbcUrl = Some(url)))
 
-      opt[String]("log-level")
-        .optional()
-        .validate(l =>
-          Either
-            .cond(KnownLogLevels.contains(l.toUpperCase), (), s"Unrecognized logging level $l")
-        )
-        .action((level, c) => c.copy(logLevel = Some(Level.toLevel(level.toUpperCase))))
-        .text(
-          "Default logging level to use. Available values are INFO, TRACE, DEBUG, WARN, and ERROR. Defaults to INFO."
-        )
+      com.daml.cliopts.Logging.loggingLevelParse(this)((f, c) => c.copy(logLevel = f(c.logLevel)))
 
       opt[Unit]("eager-package-loading")
         .optional()
