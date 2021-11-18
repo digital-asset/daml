@@ -7,22 +7,43 @@ import com.daml.platform.store.DbType
 import com.daml.platform.store.backend.h2.H2StorageBackendFactory
 import com.daml.platform.store.backend.oracle.OracleStorageBackendFactory
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackendFactory
+import com.daml.platform.store.cache.LedgerEndCache
+import com.daml.platform.store.interning.StringInterning
 
 trait StorageBackendFactory {
   def createIngestionStorageBackend: IngestionStorageBackend[_]
   def createParameterStorageBackend: ParameterStorageBackend
-  def createConfigurationStorageBackend: ConfigurationStorageBackend
-  def createPartyStorageBackend: PartyStorageBackend
-  def createPackageStorageBackend: PackageStorageBackend
+  def createConfigurationStorageBackend(ledgerEndCache: LedgerEndCache): ConfigurationStorageBackend
+  def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend
+  def createPackageStorageBackend(ledgerEndCache: LedgerEndCache): PackageStorageBackend
   def createDeduplicationStorageBackend: DeduplicationStorageBackend
-  def createCompletionStorageBackend: CompletionStorageBackend
-  def createContractStorageBackend: ContractStorageBackend
-  def createEventStorageBackend: EventStorageBackend
+  def createCompletionStorageBackend(stringInterning: StringInterning): CompletionStorageBackend
+  def createContractStorageBackend(
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
+  ): ContractStorageBackend
+  def createEventStorageBackend(
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
+  ): EventStorageBackend
   def createDataSourceStorageBackend: DataSourceStorageBackend
   def createDBLockStorageBackend: DBLockStorageBackend
   def createIntegrityStorageBackend: IntegrityStorageBackend
   def createResetStorageBackend: ResetStorageBackend
   def createStringInterningStorageBackend: StringInterningStorageBackend
+
+  final def readStorageBackend(
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
+  ): ReadStorageBackend =
+    ReadStorageBackend(
+      configurationStorageBackend = createConfigurationStorageBackend(ledgerEndCache),
+      partyStorageBackend = createPartyStorageBackend(ledgerEndCache),
+      packageStorageBackend = createPackageStorageBackend(ledgerEndCache),
+      completionStorageBackend = createCompletionStorageBackend(stringInterning),
+      contractStorageBackend = createContractStorageBackend(ledgerEndCache, stringInterning),
+      eventStorageBackend = createEventStorageBackend(ledgerEndCache, stringInterning),
+    )
 }
 
 object StorageBackendFactory {
@@ -32,18 +53,6 @@ object StorageBackendFactory {
       case DbType.Postgres => PostgresStorageBackendFactory
       case DbType.Oracle => OracleStorageBackendFactory
     }
-
-  def readStorageBackendFor(dbType: DbType): ReadStorageBackend = {
-    val factory = of(dbType)
-    ReadStorageBackend(
-      configurationStorageBackend = factory.createConfigurationStorageBackend,
-      partyStorageBackend = factory.createPartyStorageBackend,
-      packageStorageBackend = factory.createPackageStorageBackend,
-      completionStorageBackend = factory.createCompletionStorageBackend,
-      contractStorageBackend = factory.createContractStorageBackend,
-      eventStorageBackend = factory.createEventStorageBackend,
-    )
-  }
 }
 
 case class ReadStorageBackend(

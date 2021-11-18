@@ -33,7 +33,7 @@ sealed trait Event extends Product with Serializable {
 final case class CreateEvent(
     contractId: ContractId,
     templateId: Identifier,
-    contractKey: Option[KeyWithMaintainers[Value]],
+    contractKey: Option[KeyWithMaintainers],
     argument: Value,
     agreementText: String,
     signatories: Set[Party],

@@ -6,6 +6,9 @@ package com.daml.platform.store.appendonlydao.events
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
+import com.codahale.metrics.MetricRegistry
+import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -19,6 +22,7 @@ class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
   private val actorSystem = ActorSystem()
   private implicit val materializer: Materializer = Materializer(actorSystem)
   private implicit val ec: ExecutionContext = actorSystem.dispatcher
+  private implicit val lc: LoggingContext = LoggingContext.ForTesting
 
   override def afterAll(): Unit = {
     Await.result(actorSystem.terminate(), Duration(10, "seconds"))
@@ -277,5 +281,36 @@ class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
       info("Stream is also finished, with the expected results")
       succeed
     }
+  }
+
+  behavior of "mergeIdStreams"
+
+  it should "merge, deduplicate and batch a stream of 3" in {
+    val mutableLogic = FilterTableACSReader.mergeIdStreams(
+      tasks = List("a", "b", "c"),
+      outputBatchSize = 3,
+      inputBatchSize = 2,
+      metrics = new Metrics(new MetricRegistry),
+    )(implicitly)()
+    mutableLogic("a" -> List(1, 3)) shouldBe Nil // a [1 3] b [] c []
+    mutableLogic("a" -> List(5, 7)) shouldBe Nil // a [1 3 5 7] b [] c []
+    mutableLogic("a" -> List(9, 11)) shouldBe Nil // a [1 3 5 7 9 11] b [] c []
+    mutableLogic("b" -> List(2, 4)) shouldBe Nil // a [1 3 5 7 9 11] b [2 4] c []
+    mutableLogic("b" -> List(6, 8)) shouldBe Nil // a [1 3 5 7 9 11] b [2 4 6 8] c []
+    mutableLogic("b" -> List(10, 12)) shouldBe Nil // a [1 3 5 7 9 11] b [2 4 6 8 10 12] c []
+    mutableLogic("c" -> List(10, 14)) shouldBe List( // a [] b [12] c [14] stashed 10 11
+      List(1, 2, 3),
+      List(4, 5, 6),
+      List(7, 8, 9),
+    ) // stashed: 10, 11
+    mutableLogic("a" -> List(12, 13)) shouldBe List(
+      List(10, 11, 12)
+    ) // a [13] b [] c [14] stashed 10 11 12
+    mutableLogic("b" -> List(13)) shouldBe Nil // a [] c [14] stashed: 13
+    mutableLogic("c" -> List(15, 16)) shouldBe Nil // a [] c [14 15 16] stashed: 13
+    mutableLogic("a" -> Nil) shouldBe List(List(13, 14, 15)) // c [] stashed: 16
+    mutableLogic("c" -> List(16, 17)) shouldBe Nil // c [] stashed: 16 17
+    mutableLogic("c" -> List(18, 19)) shouldBe List(List(16, 17, 18)) // c [] stashed: 19
+    mutableLogic("c" -> List(20)) shouldBe List(List(19, 20))
   }
 }

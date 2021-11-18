@@ -5,16 +5,16 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test_suite",
+    "kind_projector_plugin",
     "silencer_plugin",
 )
-load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
+load("@scala_version//:index.bzl", "scala_major_version")
 
 da_scala_library(
     name = "codegen-testing",
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
-        # Plugins have to be specified as JARs.
-        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        kind_projector_plugin,
         silencer_plugin,
     ],
     scala_deps = [
@@ -53,8 +53,7 @@ da_scala_library(
     name = "codegen-testing-testing",
     srcs = testing_utils + glob(["src/test/{}/com/**/*.scala".format(scala_major_version)]),
     plugins = [
-        # Plugins have to be specified as JARs.
-        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        kind_projector_plugin,
     ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",

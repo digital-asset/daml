@@ -75,7 +75,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def newCid: ContractId = TransactionBuilder.newV1Cid
 
   def versionContract(contract: Value.ContractInstance): value.Value.VersionedContractInstance =
-    VersionedContractInstance(pkgTxVersion(contract.template.packageId), contract)
+    Versioned(pkgTxVersion(contract.template.packageId), contract)
 
   def create(
       id: ContractId,
@@ -84,8 +84,9 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       signatories: Set[Ref.Party],
       observers: Set[Ref.Party],
       key: Option[Value] = None,
+      byInterface: Option[Ref.Identifier] = None,
   ): Node.Create =
-    create(id, templateId, argument, signatories, observers, key, signatories)
+    create(id, templateId, argument, signatories, observers, key, signatories, byInterface)
 
   def create(
       id: ContractId,
@@ -95,6 +96,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       observers: Set[Ref.Party],
       key: Option[Value],
       maintainers: Set[Ref.Party],
+      byInterface: Option[Ref.Identifier],
   ): Node.Create = {
     Node.Create(
       coid = id,
@@ -104,6 +106,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       signatories = signatories,
       stakeholders = signatories | observers,
       key = key.map(Node.KeyWithMaintainers(_, maintainers)),
+      byInterface = byInterface,
       version = pkgTxVersion(templateId.packageId),
     )
   }
@@ -117,6 +120,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       result: Option[Value] = None,
       choiceObservers: Set[Ref.Party] = Set.empty,
       byKey: Boolean = true,
+      byInterface: Option[Ref.Identifier] = None,
   ): Node.Exercise =
     Node.Exercise(
       choiceObservers = choiceObservers,
@@ -132,6 +136,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       exerciseResult = result,
       key = contract.key,
       byKey = byKey,
+      byInterface = byInterface,
       version = pkgTxVersion(contract.templateId.packageId),
     )
 
@@ -144,7 +149,11 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   ): Node.Exercise =
     exercise(contract, choice, consuming, actingParties, argument, byKey = true)
 
-  def fetch(contract: Node.Create, byKey: Boolean = false): Node.Fetch =
+  def fetch(
+      contract: Node.Create,
+      byKey: Boolean = false,
+      byInterface: Option[Ref.Identifier] = None,
+  ): Node.Fetch =
     Node.Fetch(
       coid = contract.coid,
       templateId = contract.templateId,
@@ -153,6 +162,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       stakeholders = contract.stakeholders,
       key = contract.key,
       byKey = byKey,
+      byInterface = byInterface,
       version = pkgTxVersion(contract.templateId.packageId),
     )
 
@@ -177,8 +187,8 @@ object TransactionBuilder {
 
   type TxValue = value.Value.VersionedValue
 
-  type KeyWithMaintainers = Node.KeyWithMaintainers[Value]
-  type TxKeyWithMaintainers = Node.KeyWithMaintainers[TxValue]
+  type KeyWithMaintainers = Node.KeyWithMaintainers
+  type TxKeyWithMaintainers = Node.VersionedKeyWithMaintainers
 
   def apply(
       pkgLangVersion: Ref.PackageId => LanguageVersion = _ => LanguageVersion.StableVersions.max
@@ -289,7 +299,7 @@ object TransactionBuilder {
       value: Value,
       supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
   ): Either[String, TxValue] =
-    assignVersion(value, supportedVersions).map(Value.VersionedValue(_, value))
+    assignVersion(value, supportedVersions).map(Versioned(_, value))
 
   @throws[IllegalArgumentException]
   def assertAsVersionedValue(
@@ -303,7 +313,7 @@ object TransactionBuilder {
       supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
   ): Either[String, VersionedContractInstance] =
     assignVersion(contract.arg, supportedVersions)
-      .map(VersionedContractInstance(_, contract))
+      .map(Versioned(_, contract))
 
   def assertAsVersionedContract(
       contract: ContractInstance,

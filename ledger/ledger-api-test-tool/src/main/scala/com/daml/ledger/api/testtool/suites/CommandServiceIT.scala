@@ -4,8 +4,6 @@
 package com.daml.ledger.api.testtool.suites
 
 import com.daml.error.definitions.LedgerApiErrors
-
-import java.util.regex.Pattern
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -15,7 +13,6 @@ import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.client.binding.Value.encode
-import com.daml.ledger.participant.state.kvutils.errors.KVErrors
 import com.daml.ledger.test.model.Test.CallablePayout._
 import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test.DummyFactory._
@@ -23,6 +20,8 @@ import com.daml.ledger.test.model.Test.WithObservers._
 import com.daml.ledger.test.model.Test._
 import io.grpc.Status
 import scalaz.syntax.tag._
+
+import java.util.regex.Pattern
 
 final class CommandServiceIT extends LedgerTestSuite {
   test(
@@ -161,7 +160,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ALREADY_EXISTS,
-        KVErrors.DuplicateCommand,
+        LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
         None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -184,7 +183,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ALREADY_EXISTS,
-        KVErrors.DuplicateCommand,
+        LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
         None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -207,7 +206,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ALREADY_EXISTS,
-        KVErrors.DuplicateCommand,
+        LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
         None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -230,7 +229,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.ALREADY_EXISTS,
-        KVErrors.DuplicateCommand,
+        LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
         None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -254,7 +253,7 @@ final class CommandServiceIT extends LedgerTestSuite {
       ledger,
       failure,
       Status.Code.NOT_FOUND,
-      LedgerApiErrors.CommandValidation.LedgerIdMismatch,
+      LedgerApiErrors.RequestValidation.LedgerIdMismatch,
       Some(s"Ledger ID '$invalidLedgerId' not found."),
       checkDefiniteAnswerMetadata = true,
     )
@@ -277,7 +276,7 @@ final class CommandServiceIT extends LedgerTestSuite {
       ledger,
       failure,
       Status.Code.NOT_FOUND,
-      LedgerApiErrors.CommandValidation.LedgerIdMismatch,
+      LedgerApiErrors.RequestValidation.LedgerIdMismatch,
       Some(s"Ledger ID '$invalidLedgerId' not found."),
       checkDefiniteAnswerMetadata = true,
     )
@@ -300,7 +299,7 @@ final class CommandServiceIT extends LedgerTestSuite {
       ledger,
       failure,
       Status.Code.NOT_FOUND,
-      LedgerApiErrors.CommandValidation.LedgerIdMismatch,
+      LedgerApiErrors.RequestValidation.LedgerIdMismatch,
       Some(s"Ledger ID '$invalidLedgerId' not found."),
       checkDefiniteAnswerMetadata = true,
     )
@@ -323,7 +322,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.PreprocessingErrors.PreprocessingFailed,
+        LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
         Some(Pattern.compile(s"Missing record (label|field)")),
         checkDefiniteAnswerMetadata = true,
       )
@@ -345,7 +344,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.InterpreterErrors.GenericInterpretationError,
+        LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
         Some(
           Pattern.compile(
             "Interpretation error: Error: (User abort: Assertion failed.|Unhandled exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"Assertion failed\" \\}\\.) [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node"
@@ -504,7 +503,7 @@ final class CommandServiceIT extends LedgerTestSuite {
           ledger,
           e1,
           Status.Code.INVALID_ARGUMENT,
-          LedgerApiErrors.PreprocessingErrors.PreprocessingFailed,
+          LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
           Some("Cannot represent"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -512,7 +511,7 @@ final class CommandServiceIT extends LedgerTestSuite {
           ledger,
           e2,
           Status.Code.INVALID_ARGUMENT,
-          LedgerApiErrors.PreprocessingErrors.PreprocessingFailed,
+          LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
           Some("Out-of-bounds (Numeric 10)"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -520,7 +519,7 @@ final class CommandServiceIT extends LedgerTestSuite {
           ledger,
           e3,
           Status.Code.INVALID_ARGUMENT,
-          LedgerApiErrors.PreprocessingErrors.PreprocessingFailed,
+          LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
           Some("Out-of-bounds (Numeric 10)"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -575,7 +574,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.PreprocessingErrors.PreprocessingFailed,
+        LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
         Some("Expecting 1 field for record"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -601,7 +600,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.PreprocessingErrors.PreprocessingFailed,
+        LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
         Some("mismatching type"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -628,7 +627,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.PreprocessingErrors.PreprocessingFailed,
+        LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
         Some(
           Pattern.compile(
             "(unknown|Couldn't find requested) choice " + missingChoice

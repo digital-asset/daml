@@ -11,7 +11,9 @@ import scalaz.std.list._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
-class InsertBenchmark extends ContractDaoBenchmark {
+trait InsertBenchmark extends ContractDaoBenchmark {
+  self: BenchmarkDbConnection =>
+
   @Param(Array("1", "3", "5", "7", "9"))
   var batches: Int = _
 
@@ -54,3 +56,6 @@ class InsertBenchmark extends ContractDaoBenchmark {
     assert(inserted == numContracts)
   }
 }
+
+class InsertBenchmarkOracle extends InsertBenchmark with OracleBenchmarkDbConn
+class InsertBenchmarkPostgres extends InsertBenchmark with PostgresBenchmarkDbConn

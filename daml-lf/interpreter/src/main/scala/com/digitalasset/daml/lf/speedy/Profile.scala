@@ -238,6 +238,7 @@ object Profile {
       implicit val anonClosure: Allowed[AnonymousClosure.type] = allowAll
       implicit val lfDefRef: Allowed[LfDefRef] = allowAll
       implicit val createDefRef: Allowed[CreateDefRef] = allowAll
+      implicit val createByInterfaceDefRef: Allowed[CreateByInterfaceDefRef] = allowAll
       implicit val keyDefRef: Allowed[KeyDefRef] = allowAll
       implicit val signatoriesDefRef: Allowed[SignatoriesDefRef] = allowAll
       implicit val observersDefRef: Allowed[ObserversDefRef] = allowAll
@@ -250,7 +251,6 @@ object Profile {
       implicit val lookupByKeyDefRef: Allowed[LookupByKeyDefRef] = allowAll
       implicit val createAndExerciseLabel: Allowed[CreateAndExerciseLabel] = allowAll
       implicit val exceptionMessageDefRef: Allowed[ExceptionMessageDefRef] = allowAll
-      implicit val sebrdr: Allowed[SEBuiltinRecursiveDefinition.Reference] = allowAll
       implicit val scenarioLabel: Allowed[ScenarioLabel] = allowAll
       implicit val exprVarName: Allowed[Ast.ExprVarName] = allowAll
 
@@ -262,6 +262,8 @@ object Profile {
           case AnonymousClosure => "<lambda>"
           case LfDefRef(ref) => ref.qualifiedName.toString()
           case CreateDefRef(tmplRef) => s"create @${tmplRef.qualifiedName}"
+          case CreateByInterfaceDefRef(tmplRef, iface) =>
+            s"creatByInterface @${tmplRef.qualifiedName} @${iface.qualifiedName}"
           case KeyDefRef(tmplRef) => s"keyAndMaintainers @${tmplRef.qualifiedName}"
           case SignatoriesDefRef(tmplRef) => s"signatories @${tmplRef.qualifiedName}"
           case ObserversDefRef(tmplRef) => s"observers @${tmplRef.qualifiedName}"
@@ -278,7 +280,6 @@ object Profile {
           case CreateAndExerciseLabel(tmplRef, name) =>
             s"createAndExercise @${tmplRef.qualifiedName} ${name}"
           case ExceptionMessageDefRef(typeId) => s"message @${typeId.qualifiedName}"
-          case ref: SEBuiltinRecursiveDefinition.Reference => ref.toString().toLowerCase()
           case SubmitLabel => "submit"
           case SubmitMustFailLabel => "submitMustFail"
           case PassLabel => "pass"

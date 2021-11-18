@@ -195,7 +195,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       absCid: ContractId,
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers[LfValue]] = None,
+      key: Option[Node.KeyWithMaintainers] = None,
       templateId: Identifier = someTemplateId,
       contractArgument: LfValue = someContractArgument,
   ): Node.Create =
@@ -207,12 +207,13 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       signatories = signatories,
       stakeholders = stakeholders,
       key = key,
+      byInterface = None,
       version = txVersion,
     )
 
   protected final def exerciseNode(
       targetCid: ContractId,
-      key: Option[Node.KeyWithMaintainers[LfValue]] = None,
+      key: Option[Node.KeyWithMaintainers] = None,
   ): Node.Exercise =
     Node.Exercise(
       targetCoid = targetCid,
@@ -228,6 +229,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       exerciseResult = Some(someChoiceResult),
       key = key,
       byKey = false,
+      byInterface = None,
       version = txVersion,
     )
 
@@ -243,6 +245,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       stakeholders = Set(party),
       None,
       byKey = false,
+      byInterface = None,
       version = txVersion,
     )
 
@@ -325,7 +328,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected final def createTestKey(
       maintainers: Set[Party]
-  ): (Node.KeyWithMaintainers[ValueText], GlobalKey) = {
+  ): (Node.KeyWithMaintainers, GlobalKey) = {
     val aTextValue = ValueText(scala.util.Random.nextString(10))
     val keyWithMaintainers = Node.KeyWithMaintainers(aTextValue, maintainers)
     val globalKey = GlobalKey.assertBuild(someTemplateId, aTextValue)
@@ -336,7 +339,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       submittingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers[LfValue]],
+      key: Option[Node.KeyWithMaintainers],
       contractArgument: LfValue = someContractArgument,
   ): Future[(Offset, LedgerEntry.Transaction)] =
     store(
@@ -384,6 +387,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         exerciseResult = Some(someChoiceResult),
         key = None,
         byKey = false,
+        byInterface = None,
         version = txVersion,
       )
     )
@@ -396,6 +400,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         stakeholders = Set(alice),
         None,
         byKey = false,
+        byInterface = None,
         version = txVersion,
       ),
       exerciseId,
@@ -417,7 +422,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected def singleExercise(
       targetCid: ContractId,
-      key: Option[Node.KeyWithMaintainers[LfValue]] = None,
+      key: Option[Node.KeyWithMaintainers] = None,
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
     val nid = txBuilder.add(exerciseNode(targetCid, key))
@@ -710,6 +715,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         signatories = Set(party),
         stakeholders = Set(party),
         key = Some(Node.KeyWithMaintainers(someContractKey(party, key), Set(party))),
+        byInterface = None,
         version = txVersion,
       )
     )
@@ -750,6 +756,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         exerciseResult = Some(LfValue.ValueUnit),
         key = maybeKey.map(k => Node.KeyWithMaintainers(someContractKey(party, k), Set(party))),
         byKey = false,
+        byInterface = None,
         version = txVersion,
       )
     )
@@ -810,6 +817,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         stakeholders = Set(party),
         None,
         byKey = false,
+        byInterface = None,
         version = txVersion,
       )
     )

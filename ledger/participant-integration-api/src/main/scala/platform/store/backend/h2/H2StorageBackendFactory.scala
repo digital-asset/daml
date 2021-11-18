@@ -4,60 +4,53 @@
 package com.daml.platform.store.backend.h2
 
 import com.daml.platform.store.backend.common.{
+  CommonStorageBackendFactory,
   CompletionStorageBackendTemplate,
-  ConfigurationStorageBackendTemplate,
   IngestionStorageBackendTemplate,
-  IntegrityStorageBackendTemplate,
-  PackageStorageBackendTemplate,
-  ParameterStorageBackendTemplate,
   PartyStorageBackendTemplate,
-  StringInterningStorageBackendTemplate,
 }
 import com.daml.platform.store.backend.{
   CompletionStorageBackend,
-  ConfigurationStorageBackend,
   ContractStorageBackend,
   DBLockStorageBackend,
   DataSourceStorageBackend,
   DeduplicationStorageBackend,
   EventStorageBackend,
   IngestionStorageBackend,
-  IntegrityStorageBackend,
-  PackageStorageBackend,
-  ParameterStorageBackend,
   PartyStorageBackend,
   ResetStorageBackend,
   StorageBackendFactory,
-  StringInterningStorageBackend,
 }
+import com.daml.platform.store.cache.LedgerEndCache
+import com.daml.platform.store.interning.StringInterning
 
-object H2StorageBackendFactory extends StorageBackendFactory {
+object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageBackendFactory {
+
   override val createIngestionStorageBackend: IngestionStorageBackend[_] =
     new IngestionStorageBackendTemplate(H2Schema.schema)
 
-  override val createParameterStorageBackend: ParameterStorageBackend =
-    ParameterStorageBackendTemplate
-
-  override val createConfigurationStorageBackend: ConfigurationStorageBackend =
-    ConfigurationStorageBackendTemplate
-
-  override val createPartyStorageBackend: PartyStorageBackend =
-    new PartyStorageBackendTemplate(H2QueryStrategy)
-
-  override val createPackageStorageBackend: PackageStorageBackend =
-    PackageStorageBackendTemplate
+  override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
+    new PartyStorageBackendTemplate(H2QueryStrategy, ledgerEndCache)
 
   override val createDeduplicationStorageBackend: DeduplicationStorageBackend =
     H2DeduplicationStorageBackend
 
-  override val createCompletionStorageBackend: CompletionStorageBackend =
-    new CompletionStorageBackendTemplate(H2QueryStrategy)
+  override def createCompletionStorageBackend(
+      stringInterning: StringInterning
+  ): CompletionStorageBackend =
+    new CompletionStorageBackendTemplate(H2QueryStrategy, stringInterning)
 
-  override val createContractStorageBackend: ContractStorageBackend =
-    H2ContractStorageBackend
+  override def createContractStorageBackend(
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
+  ): ContractStorageBackend =
+    new H2ContractStorageBackend(ledgerEndCache, stringInterning)
 
-  override val createEventStorageBackend: EventStorageBackend =
-    H2EventStorageBackend
+  override def createEventStorageBackend(
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
+  ): EventStorageBackend =
+    new H2EventStorageBackend(ledgerEndCache, stringInterning)
 
   override val createDataSourceStorageBackend: DataSourceStorageBackend =
     H2DataSourceStorageBackend
@@ -65,12 +58,6 @@ object H2StorageBackendFactory extends StorageBackendFactory {
   override val createDBLockStorageBackend: DBLockStorageBackend =
     H2DBLockStorageBackend
 
-  override val createIntegrityStorageBackend: IntegrityStorageBackend =
-    IntegrityStorageBackendTemplate
-
   override val createResetStorageBackend: ResetStorageBackend =
     H2ResetStorageBackend
-
-  override val createStringInterningStorageBackend: StringInterningStorageBackend =
-    StringInterningStorageBackendTemplate
 }

@@ -4,7 +4,6 @@
 package com.daml.platform.server.api.validation
 
 import java.time.Duration
-
 import com.daml.api.util.DurationConversion
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.domain.LedgerId
@@ -15,7 +14,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value.ContractId
 import com.google.protobuf.duration.{Duration => DurationProto}
-import io.grpc.StatusRuntimeException
+import io.grpc.{Status, StatusRuntimeException}
 
 // TODO error codes: Remove default usage of ErrorFactories
 class FieldValidations private (errorFactories: ErrorFactories) {
@@ -144,24 +143,25 @@ class FieldValidations private (errorFactories: ErrorFactories) {
     */
   def validateDeduplicationPeriod(
       deduplicationPeriod: DeduplicationPeriodProto,
-      optMaxDeduplicationTime: Option[Duration],
+      optMaxDeduplicationDuration: Option[Duration],
       fieldName: String,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, DeduplicationPeriod] = {
 
-    optMaxDeduplicationTime.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
-      Left(missingLedgerConfig(definiteAnswer = Some(false)))
-    )(maxDeduplicationTime => {
+    optMaxDeduplicationDuration.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
+      Left(missingLedgerConfig(Status.Code.UNAVAILABLE)(definiteAnswer = Some(false)))
+    )(maxDeduplicationDuration => {
       def validateDuration(duration: Duration, exceedsMaxDurationMessage: String) = {
         if (duration.isNegative)
           Left(invalidField(fieldName, "Duration must be positive", definiteAnswer = Some(false)))
-        else if (duration.compareTo(maxDeduplicationTime) > 0)
+        else if (duration.compareTo(maxDeduplicationDuration) > 0)
           Left(
             invalidDeduplicationDuration(
               fieldName,
               exceedsMaxDurationMessage,
               definiteAnswer = Some(false),
+              maxDeduplicationDuration,
             )
           )
         else Right(duration)
@@ -171,13 +171,13 @@ class FieldValidations private (errorFactories: ErrorFactories) {
         val result = DurationConversion.fromProto(duration)
         validateDuration(
           result,
-          s"The given deduplication duration of $result exceeds the maximum deduplication time of $maxDeduplicationTime",
+          s"The given deduplication duration of $result exceeds the maximum deduplication time of $maxDeduplicationDuration",
         ).map(DeduplicationPeriod.DeduplicationDuration)
       }
 
       deduplicationPeriod match {
         case DeduplicationPeriodProto.Empty =>
-          Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationTime))
+          Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
         case DeduplicationPeriodProto.DeduplicationTime(duration) =>
           protoDurationToDurationPeriod(duration)
         case DeduplicationPeriodProto.DeduplicationDuration(duration) =>

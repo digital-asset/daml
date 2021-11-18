@@ -746,6 +746,10 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_CreateTemplate <- encodeQualTypeConName creTemplate
         update_CreateExpr <- encodeExpr creArg
         pure $ P.UpdateSumCreate P.Update_Create{..}
+    UCreateInterface{..} -> do
+        update_CreateInterfaceInterface <- encodeQualTypeConName creInterface
+        update_CreateInterfaceExpr <- encodeExpr creArg
+        pure $ P.UpdateSumCreateInterface P.Update_CreateInterface{..}
     UExercise{..} -> do
         update_ExerciseTemplate <- encodeQualTypeConName exeTemplate
         update_ExerciseChoice <- encodeName unChoiceName exeChoice
@@ -1005,20 +1009,10 @@ encodeDefInterface DefInterface{..} = do
     defInterfaceLocation <- traverse encodeSourceLoc intLocation
     defInterfaceTyconInternedDname <- encodeDottedNameId unTypeConName intName
     defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
-    defInterfaceChoices <- encodeNameMap encodeInterfaceChoice intVirtualChoices
     defInterfaceFixedChoices <- encodeNameMap encodeTemplateChoice intFixedChoices
     defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
     defInterfacePrecond <- encodeExpr intPrecondition
     pure $ P.DefInterface{..}
-
-encodeInterfaceChoice :: InterfaceChoice -> Encode P.InterfaceChoice
-encodeInterfaceChoice InterfaceChoice {..} = do
-    interfaceChoiceLocation <- traverse encodeSourceLoc ifcLocation
-    interfaceChoiceNameInternedString <- encodeNameId unChoiceName ifcName
-    let interfaceChoiceConsuming = ifcConsuming
-    interfaceChoiceArgType <- encodeType ifcArgType
-    interfaceChoiceRetType <- encodeType ifcRetType
-    pure $ P.InterfaceChoice{..}
 
 encodeInterfaceMethod :: InterfaceMethod -> Encode P.InterfaceMethod
 encodeInterfaceMethod InterfaceMethod {..} = do

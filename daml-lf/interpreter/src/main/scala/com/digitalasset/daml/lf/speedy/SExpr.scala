@@ -8,6 +8,11 @@ package speedy
   *
   * This reduces the number of binding forms by moving update and scenario
   * expressions into builtins.
+  *
+  * These are the expression forms which remain at the end of the speedy-compiler
+  * pipeline. (after ANF).
+  *
+  * These are the expressions forms which execute on the Speedy machine.
   */
 import java.util
 
@@ -19,44 +24,31 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SBuiltin._
-import com.daml.nameof.NameOf
+import com.daml.lf.speedy.{SExpr0 => compileTime}
 import com.daml.scalautil.Statement.discard
 
 /** The speedy expression:
-  * - de Bruijn indexed.
+  * - variables represented by their runtime location
   * - closure converted.
   * - multi-argument applications and abstractions.
   * - all update and scenario operations converted to builtin functions.
   */
-sealed abstract class SExpr extends Product with Serializable {
-  def execute(machine: Machine): Unit
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  override def toString: String =
-    productPrefix + productIterator.map(SExpr.prettyPrint).mkString("(", ",", ")")
-}
+
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 object SExpr {
+
+  sealed abstract class SExpr extends Product with Serializable {
+    def execute(machine: Machine): Unit
+    @SuppressWarnings(Array("org.wartremover.warts.Any"))
+    override def toString: String =
+      productPrefix + productIterator.map(prettyPrint).mkString("(", ",", ")")
+  }
 
   sealed abstract class SExprAtomic extends SExpr {
     def lookupValue(machine: Machine): SValue
 
     final def execute(machine: Machine): Unit = {
       machine.returnValue = lookupValue(machine)
-    }
-  }
-
-  /** Reference to a variable. 'index' is the 1-based de Bruijn index,
-    * that is, SEVar(1) points to the nearest enclosing variable binder.
-    * which could be an SELam, SELet, or a binding variant of SECasePat.
-    * https://en.wikipedia.org/wiki/De_Bruijn_index
-    * This expression form is only allowed prior to closure conversion
-    */
-  final case class SEVar(index: Int) extends SExprAtomic {
-    def lookupValue(machine: Machine): SValue = {
-      throw SErrorCrash(
-        NameOf.qualifiedNameOfCurrentFunc,
-        "unexpected SEVar, expected SELoc(S/A/F)",
-      )
     }
   }
 
@@ -112,6 +104,8 @@ object SExpr {
 
   /** Function application:
     *    General case: 'fun' and 'args' are any kind of expression
+    *    This case *ought* not to exist post-ANF.
+    *    Sadly, we have many code paths where this case is constructed.
     */
   final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
@@ -169,7 +163,7 @@ object SExpr {
   }
 
   object SEAppAtomic {
-    // smart constructor: detect special case of saturated builtin application
+    // smart constructor (used in Anf.scala): detect special case of saturated builtin application
     def apply(func: SExprAtomic, args: Array[SExprAtomic]): SExpr = {
       func match {
         case SEBuiltin(builtin) if builtin.arity == args.length =>
@@ -178,23 +172,6 @@ object SExpr {
           SEAppAtomicGeneral(func, args) // general case
       }
     }
-  }
-
-  /** Lambda abstraction. Transformed into SEMakeClo in lambda lifting.
-    * NOTE(JM): Compilation done in two passes so that closure conversion
-    * can be written against this simplified expression type.
-    */
-  final case class SEAbs(arity: Int, body: SExpr) extends SExpr {
-    def execute(machine: Machine): Unit =
-      throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "unexpected SEAbs, expected SEMakeClo")
-  }
-
-  object SEAbs {
-    // Helper for constructing abstraction expressions:
-    // SEAbs(1) { ... }
-    def apply(arity: Int)(body: SExpr): SExpr = SEAbs(arity, body)
-
-    val identity: SEAbs = SEAbs(1, SEVar(1))
   }
 
   /** Closure creation. Create a new closure object storing the free variables
@@ -244,30 +221,7 @@ object SExpr {
     }
   }
 
-  /** Pattern match. */
-  final case class SECase(scrut: SExpr, alts: Array[SCaseAlt]) extends SExpr with SomeArrayEquals {
-    def execute(machine: Machine): Unit = {
-      machine.pushKont(KMatch(machine, alts))
-      machine.ctrl = scrut
-    }
-
-    override def toString: String = s"SECase($scrut, ${alts.mkString("[", ",", "]")})"
-  }
-
-  object SECase {
-
-    // Helper for constructing case expressions:
-    // SECase(scrut) of(
-    //   SECaseAlt(SCPNil ,...),
-    //   SECaseAlt(SCPDefault, ...),
-    // )
-    case class PartialSECase(scrut: SExpr) {
-      def of(alts: SCaseAlt*): SExpr = SECase(scrut, alts.toArray)
-    }
-
-    def apply(scrut: SExpr) = PartialSECase(scrut)
-  }
-
+  /** (Atomic) Pattern match. */
   final case class SECaseAtomic(scrut: SExprAtomic, alts: Array[SCaseAlt])
       extends SExpr
       with SomeArrayEquals {
@@ -333,6 +287,7 @@ object SExpr {
   }
 
   object SELet1 {
+    // smart constructor (used in Anf.scala)
     def apply(rhs: SExpr, body: SExpr): SExpr = {
       rhs match {
         case SEAppAtomicSaturatedBuiltin(builtin: SBuiltinPure, args) =>
@@ -342,16 +297,6 @@ object SExpr {
         case _ => SELet1General(rhs, body)
       }
     }
-  }
-
-  /** A non-recursive, non-parallel let block.
-    * It is used as an intermediary data structure by the compiler to
-    * mitigate stack overflow issues, but are later exploded into
-    * [[SELet1General]] and [[SELet1Builtin]] by the ANF transformation.
-    */
-  final case class SELet(bounds: List[SExpr], body: SExpr) extends SExpr {
-    def execute(machine: Machine): Unit =
-      throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "not implemented")
   }
 
   /** Location annotation. When encountered the location is stored in the 'lastLocation'
@@ -382,6 +327,9 @@ object SExpr {
 
   /** We cannot crash in the engine call back.
     * Rather, we set the control to this expression and then crash when executing.
+    *
+    * The SEDamlException form is never constructed when compiling user LF.
+    * It is only constructed at runtime by certain builtin-ops.
     */
   final case class SEDamlException(error: interpretation.Error) extends SExpr {
     def execute(machine: Machine): Unit = {
@@ -389,6 +337,9 @@ object SExpr {
     }
   }
 
+  /** The SEImportValue form is never constructed when compiling user LF.
+    * It is only constructed at runtime by certain builtin-ops.
+    */
   final case class SEImportValue(typ: Ast.Type, value: V) extends SExpr {
     def execute(machine: Machine): Unit = {
       machine.importValue(typ, value)
@@ -415,7 +366,14 @@ object SExpr {
   }
 
   /** Case patterns */
-  sealed trait SCasePat
+  sealed trait SCasePat {
+
+    private[speedy] def numArgs: Int = this match {
+      case _: SCPEnum | _: SCPPrimCon | SCPNil | SCPDefault | SCPNone => 0
+      case _: SCPVariant | SCPSome => 1
+      case SCPCons => 2
+    }
+  }
 
   /** Match on a variant. On match the value is unboxed and pushed to stack. */
   final case class SCPVariant(id: Identifier, variant: Name, constructorRank: Int) extends SCasePat
@@ -448,8 +406,9 @@ object SExpr {
     def ref: DefinitionRef
     def packageId: PackageId = ref.packageId
     def modName: ModuleName = ref.qualifiedName.module
-    private[this] val eval = SEVal(this)
-    def apply(args: SExpr*) = SEApp(eval, args.toArray)
+    // TODO: move this into the speedy compiler code
+    private[this] val eval = compileTime.SEVal(this)
+    def apply(args: compileTime.SExpr*) = compileTime.SEApp(eval, args.toArray)
   }
 
   // references to definitions that come from the archive
@@ -459,6 +418,8 @@ object SExpr {
   final case class ChoiceByKeyDefRef(ref: DefinitionRef, choiceName: ChoiceName)
       extends SDefinitionRef
   final case class CreateDefRef(ref: DefinitionRef) extends SDefinitionRef
+  final case class CreateByInterfaceDefRef(ref: DefinitionRef, iface: TypeConName)
+      extends SDefinitionRef
   final case class FetchDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class FetchByKeyDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class LookupByKeyDefRef(ref: DefinitionRef) extends SDefinitionRef
@@ -481,99 +442,6 @@ object SExpr {
       ifaceId: TypeConName,
       methodName: MethodName,
   ) extends SDefinitionRef
-
-  //
-  // List builtins (equalList) are implemented as recursive
-  // definition to save java stack
-  //
-
-  final case class SEBuiltinRecursiveDefinition(ref: SEBuiltinRecursiveDefinition.Reference)
-      extends SExprAtomic {
-
-    import SEBuiltinRecursiveDefinition._
-
-    private val frame = Array.ofDim[SValue](0) // no free vars
-    val arity = 3
-
-    private def body: SExpr = ref match {
-      case Reference.EqualList => equalListBody
-    }
-
-    private def closure: SValue =
-      SPAP(PClosure(Profile.LabelUnset, body, frame), new util.ArrayList[SValue](), arity)
-
-    def lookupValue(machine: Machine): SValue = closure
-
-  }
-
-  final object SEBuiltinRecursiveDefinition {
-
-    sealed abstract class Reference
-
-    final object Reference {
-      final case object EqualList extends Reference
-    }
-
-    val EqualList: SEBuiltinRecursiveDefinition = SEBuiltinRecursiveDefinition(Reference.EqualList)
-
-    // The body of an expanded recursive-builtin will always be in ANF form.
-    // The comments show where variables are to be found at runtime.
-
-    private def equalListBody: SExpr =
-      SECaseAtomic( // case xs of
-        SELocA(1),
-        Array(
-          SCaseAlt(
-            SCPNil, // nil ->
-            SECaseAtomic( // case ys of
-              SELocA(2),
-              Array(
-                SCaseAlt(SCPNil, SEValue.True), // nil -> True
-                SCaseAlt(SCPDefault, SEValue.False),
-              ),
-            ), // default -> False
-          ),
-          SCaseAlt( // cons x xss ->
-            SCPCons,
-            SECaseAtomic( // case ys of
-              SELocA(2),
-              Array(
-                SCaseAlt(SCPNil, SEValue.False), // nil -> False
-                SCaseAlt( // cons y yss ->
-                  SCPCons,
-                  SELet1( // let sub = (f y x) in
-                    SEAppAtomicGeneral(
-                      SELocA(0), // f
-                      Array(
-                        SELocS(2), // y
-                        SELocS(4),
-                      ),
-                    ), // x
-                    SECaseAtomic( // case (f y x) of
-                      SELocS(1),
-                      Array(
-                        SCaseAlt(
-                          SCPPrimCon(PCTrue), // True ->
-                          SEAppAtomicGeneral(
-                            EqualList,
-                            Array(
-                              SELocA(0), // f
-                              SELocS(2), // yss
-                              SELocS(4),
-                            ),
-                          ), // xss
-                        ),
-                        SCaseAlt(SCPPrimCon(PCFalse), SEValue.False), // False -> False
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      )
-  }
 
   final case object AnonymousClosure
 

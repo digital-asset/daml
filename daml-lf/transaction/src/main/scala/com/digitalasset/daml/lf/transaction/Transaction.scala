@@ -12,6 +12,7 @@ import com.daml.lf.value.Value.ContractId
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
+import com.daml.scalautil.Statement.discard
 
 final case class VersionedTransaction private[lf] (
     version: TransactionVersion,
@@ -38,8 +39,8 @@ final case class VersionedTransaction private[lf] (
     )
 
   // O(1)
-  def transaction: GenTransaction =
-    GenTransaction(nodes, roots)
+  def transaction: Transaction =
+    Transaction(nodes, roots)
 
 }
 
@@ -54,18 +55,18 @@ final case class VersionedTransaction private[lf] (
   * For performance reasons, users are not required to call `isWellFormed`.
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
   */
-final case class GenTransaction(
+final case class Transaction(
     nodes: Map[NodeId, Node],
     roots: ImmArray[NodeId],
 ) extends HasTxNodes
-    with value.CidContainer[GenTransaction] {
+    with value.CidContainer[Transaction] {
 
-  import GenTransaction._
+  import Transaction._
 
   override protected def self: this.type = this
-  override def mapCid(f: ContractId => ContractId): GenTransaction =
+  override def mapCid(f: ContractId => ContractId): Transaction =
     copy(nodes = nodes.map { case (nodeId, node) => nodeId -> node.mapCid(f) })
-  def mapNodeId(f: NodeId => NodeId): GenTransaction =
+  def mapNodeId(f: NodeId => NodeId): Transaction =
     copy(
       nodes = nodes.map { case (nodeId, node) => f(nodeId) -> node.mapNodeId(f) },
       roots = roots.map(f),
@@ -134,13 +135,13 @@ final case class GenTransaction(
   /** Compares two Transactions up to renaming of Nids. You most likely want to use this rather than ==, since the
     * Nid is irrelevant to the content of the transaction.
     */
-  def equalForest(other: GenTransaction): Boolean =
+  def equalForest(other: Transaction): Boolean =
     compareForest(other)(_ == _)
 
   /** Compares two Transactions up to renaming of Nids. with the specified comparision of nodes
     * Nid is irrelevant to the content of the transaction.
     */
-  def compareForest(other: GenTransaction)(
+  def compareForest(other: Transaction)(
       compare: (Node, Node) => Boolean
   ): Boolean = {
     @tailrec
@@ -284,6 +285,17 @@ sealed abstract class HasTxNodes {
           )
       }
     )
+
+  private[lf] def byInterfaceNodes: List[Node.Action] = {
+    val builder = List.newBuilder[Node.Action]
+    foreach {
+      case (_, action: Node.Action) if action.byInterface.isDefined =>
+        discard(builder += action)
+      case _ =>
+        ()
+    }
+    builder.result()
+  }
 
   /** This function traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children).
     *
@@ -437,9 +449,9 @@ sealed abstract class HasTxNodes {
     */
   final def inputContracts[Cid2 >: ContractId]: Set[Cid2] =
     fold(Set.empty[Cid2]) {
-      case (acc, (_, Node.Exercise(coid, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.Exercise(coid, _, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
         acc + coid
-      case (acc, (_, Node.Fetch(coid, _, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.Fetch(coid, _, _, _, _, _, _, _, _))) =>
         acc + coid
       case (acc, (_, Node.LookupByKey(_, _, Some(coid), _))) =>
         acc + coid
@@ -502,7 +514,7 @@ sealed abstract class HasTxNodes {
       def assertKeyMapping(
           templateId: Identifier,
           cid: Value.ContractId,
-          optKey: Option[Node.KeyWithMaintainers[Value]],
+          optKey: Option[Node.KeyWithMaintainers],
       ): Either[KeyInputError, State] =
         optKey.fold[Either[KeyInputError, State]](Right(this)) { key =>
           val gk = GlobalKey.assertBuild(templateId, key.key)
@@ -731,13 +743,14 @@ sealed abstract class HasTxNodes {
 
 }
 
-object GenTransaction {
+object Transaction {
 
-  type WithTxValue = GenTransaction
+  @deprecated("use com.daml.transaction.GenTransaction directly", since = "1.18.0")
+  type WithTxValue = Transaction
 
-  private[this] val Empty = GenTransaction(HashMap.empty, ImmArray.Empty)
+  private[this] val Empty = Transaction(HashMap.empty, ImmArray.Empty)
 
-  private[lf] def empty: GenTransaction = Empty
+  private[lf] def empty: Transaction = Empty
 
   private[lf] case class NotWellFormedError(nid: NodeId, reason: NotWellFormedErrorReason)
   private[lf] sealed trait NotWellFormedErrorReason
@@ -762,13 +775,13 @@ object GenTransaction {
 
     tx.fold(State(Set.empty, Set.empty)) { case (state, (_, node)) =>
       node match {
-        case Node.Create(_, tmplId, _, _, _, _, Some(key), _) =>
+        case Node.Create(_, tmplId, _, _, _, _, Some(key), _, _) =>
           state.created(globalKey(tmplId, key.key))
-        case Node.Exercise(_, tmplId, _, true, _, _, _, _, _, _, _, Some(key), _, _) =>
+        case Node.Exercise(_, tmplId, _, true, _, _, _, _, _, _, _, Some(key), _, _, _) =>
           state.consumed(globalKey(tmplId, key.key))
-        case Node.Exercise(_, tmplId, _, false, _, _, _, _, _, _, _, Some(key), _, _) =>
+        case Node.Exercise(_, tmplId, _, false, _, _, _, _, _, _, _, Some(key), _, _, _) =>
           state.referenced(globalKey(tmplId, key.key))
-        case Node.Fetch(_, tmplId, _, _, _, Some(key), _, _) =>
+        case Node.Fetch(_, tmplId, _, _, _, Some(key), _, _, _) =>
           state.referenced(globalKey(tmplId, key.key))
         case Node.LookupByKey(tmplId, key, Some(_), _) =>
           state.referenced(globalKey(tmplId, key.key))
@@ -777,23 +790,14 @@ object GenTransaction {
       }
     }.duplicates
   }
-}
-
-object Transaction {
-
-  type Value = Value.VersionedValue
 
   @deprecated("use com.daml.value.Value.VersionedContractInstance", since = "1.18.0")
   type ContractInstance = Value.VersionedContractInstance
 
-  /** Transaction nodes */
+  @deprecated("use com.daml.transaction.Node.Action directly", since = "1.18.0")
   type ActionNode = Node.Action
+  @deprecated("use com.daml.transaction.Node.LeafOnlyAction directly", since = "1.18.0")
   type LeafNode = Node.LeafOnlyAction
-
-  @deprecated("use com.daml.transaction.VersionedTransaction", since = "1.18.0")
-  type Transaction = VersionedTransaction
-  @deprecated("use com.daml.transaction.VersionedTransaction", since = "1.18.0")
-  val Transaction: VersionedTransaction.type = VersionedTransaction
 
   /** Transaction meta data
     *
@@ -898,4 +902,5 @@ object Transaction {
     * was inconsistent with earlier nodes (in execution order).
     */
   final case class InconsistentKeys(key: GlobalKey) extends KeyInputError
+
 }

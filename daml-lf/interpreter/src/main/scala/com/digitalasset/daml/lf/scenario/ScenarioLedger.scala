@@ -303,7 +303,7 @@ object ScenarioLedger {
   //----------------------------------------------------------------------------
 
   def collectCoids(value: VersionedValue): Set[ContractId] =
-    collectCoids(value.value)
+    collectCoids(value.unversioned)
 
   /** Collect all contract ids appearing in a value
     */
@@ -485,7 +485,7 @@ object ScenarioLedger {
                       }
                       processNodes(mbNewCache2, idsToProcess)
 
-                    case Node.Fetch(referencedCoid, templateId @ _, _, _, _, _, _, _) =>
+                    case Node.Fetch(referencedCoid, templateId @ _, _, _, _, _, _, _, _) =>
                       val newCacheP =
                         newCache.updateLedgerNodeInfo(referencedCoid)(info =>
                           info.copy(referencedBy = info.referencedBy + eventId)

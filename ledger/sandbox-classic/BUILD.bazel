@@ -202,6 +202,7 @@ test_deps = [
     "//ledger-api/sample-service",
     "//ledger-api/testing-utils",
     "//ledger/caching",
+    "//ledger/error",
     "//ledger/participant-integration-api",
     "//ledger/participant-integration-api:participant-integration-api-tests-lib",
     "//ledger/ledger-api-auth",
@@ -344,6 +345,33 @@ server_conformance_test(
     ],
     server_args = [
         "--contract-id-seeding=testing-weak",
+    ],
+    servers = {"postgresql": SERVERS["postgresql"]},
+    test_tool_args = [
+        "--concurrent-test-runs=1",  # sandbox classic doesn't scale well with concurrent tests (almost no effect on overall run time)
+        "--timeout-scale-factor=2",  # sandbox classic is slow in general
+        "--open-world",
+        "--additional=CommandDeduplicationParallelIT",
+        "--additional=CompletionDeduplicationInfoITCommandService",
+        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=ContractIdIT:Accept",
+        "--additional=ParticipantPruningIT",
+        # Excluding tests that require using pruneAllDivulgedContracts option that is not supported by sandbox-classic
+        "--exclude=ParticipantPruningIT:PRLocalAndNonLocalRetroactiveDivulgences,ParticipantPruningIT:PRRetroactiveDivulgences,ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
+        "--exclude=ClosedWorldIT",
+    ],
+)
+
+# Full conformance test with self-service error codes (Postgres)
+server_conformance_test(
+    name = "conformance-test-self-service-error-codes",
+    lf_versions = [
+        "default",
+        "preview",
+    ],
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--use-self-service-error-codes",
     ],
     servers = {"postgresql": SERVERS["postgresql"]},
     test_tool_args = [

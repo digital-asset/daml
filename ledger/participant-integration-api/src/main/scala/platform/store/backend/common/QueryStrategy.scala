@@ -5,6 +5,7 @@ package com.daml.platform.store.backend.common
 
 import com.daml.lf.data.Ref
 import com.daml.platform.store.backend.common.ComposableQuery.{CompositeSql, SqlStringInterpolation}
+import com.daml.platform.store.interning.StringInterning
 
 trait QueryStrategy {
 
@@ -38,6 +39,7 @@ trait QueryStrategy {
   def arrayIntersectionNonEmptyClause(
       columnName: String,
       parties: Set[Ref.Party],
+      stringInterning: StringInterning,
   ): CompositeSql
 
   /** Would be used in column selectors in GROUP BY situations to see whether a boolean column had true
@@ -55,4 +57,12 @@ trait QueryStrategy {
 
   /** Boolean predicate */
   def isTrue(booleanColumnName: String): String
+
+  /** ANY SQL clause generation for a number of Long values
+    */
+  def anyOf(longs: Iterable[Long]): CompositeSql = {
+    val longArray: Array[java.lang.Long] =
+      longs.view.map(Long.box).toArray
+    cSQL"= ANY($longArray)"
+  }
 }

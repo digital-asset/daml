@@ -237,3 +237,5 @@
   type: jar-scala
 - target: //ledger/error:error
   type: jar-scala
+- target: //ledger/error/generator:lib
+  type: jar-scala

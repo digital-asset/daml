@@ -31,9 +31,6 @@ da_scala_binary(
         "@maven//:org_typelevel_cats_core",
         "@maven//:org_typelevel_cats_kernel",
     ],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     visibility = ["//visibility:public"],
     runtime_deps = [
         "//ledger/sandbox-classic",

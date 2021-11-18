@@ -55,7 +55,6 @@ import com.daml.lf.{crypto, data}
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.Empty
-import com.google.rpc.status.Status
 
 import scala.annotation.nowarn
 import scala.collection.mutable
@@ -427,8 +426,7 @@ private[state] object Conversions {
       case Rejection.LedgerTimeOutOfRange(outOfRange) =>
         builder.setInvalidLedgerTime(
           InvalidLedgerTime
-            .newBuilder(
-            )
+            .newBuilder()
             .setDetails(outOfRange.message)
             .setLedgerTime(buildTimestamp(outOfRange.ledgerTime))
             .setLowerBound(buildTimestamp(outOfRange.lowerBound))
@@ -473,7 +471,7 @@ private[state] object Conversions {
   @nowarn("msg=deprecated")
   def decodeTransactionRejectionEntry(
       entry: DamlTransactionRejectionEntry,
-      errorVersionSwitch: ValueSwitch[Status],
+      errorVersionSwitch: ValueSwitch,
   )(implicit loggingContext: ContextualizedErrorLogger): FinalReason =
     FinalReason(entry.getReasonCase match {
       case DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME =>

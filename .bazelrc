@@ -19,11 +19,6 @@ build:darwin --repository_cache=.bazel-cache/repo
 fetch:darwin --repository_cache=.bazel-cache/repo
 sync:darwin --repository_cache=.bazel-cache/repo
 
-build:scala_2_12 --repo_env=DAML_SCALA_VERSION=2.12.14
-fetch:scala_2_12 --repo_env=DAML_SCALA_VERSION=2.12.14
-query:scala_2_12 --repo_env=DAML_SCALA_VERSION=2.12.14
-sync:scala_2_12 --repo_env=DAML_SCALA_VERSION=2.12.14
-
 test:oracle --repo_env DAML_ORACLE_TESTING=true --test_env ORACLE_USERNAME --test_env ORACLE_PORT --test_env ORACLE_PWD
 
 # Improve remote cache hit rate by exluding environment variables from the

@@ -12,11 +12,15 @@ import com.daml.platform.store.backend.common.{
   EventStorageBackendTemplate,
   ParameterStorageBackendTemplate,
 }
+import com.daml.platform.store.cache.LedgerEndCache
+import com.daml.platform.store.interning.StringInterning
 
-object H2EventStorageBackend
+class H2EventStorageBackend(ledgerEndCache: LedgerEndCache, stringInterning: StringInterning)
     extends EventStorageBackendTemplate(
       queryStrategy = H2QueryStrategy,
       eventStrategy = H2EventStrategy,
+      ledgerEndCache = ledgerEndCache,
+      stringInterning = stringInterning,
       participantAllDivulgedContractsPrunedUpToInclusive =
         ParameterStorageBackendTemplate.participantAllDivulgedContractsPrunedUpToInclusive,
     ) {

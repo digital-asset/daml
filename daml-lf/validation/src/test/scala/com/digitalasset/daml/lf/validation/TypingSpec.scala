@@ -749,14 +749,14 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Template(_), Reference.Choice(_, _)),
+                  LookupError(Reference.Template(_), Reference.TemplateChoice(_, _)),
                 ) =>
           },
         E"λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:T Not e₁ e₂ e₃ ⸩" -> //
           {
             case EUnknownDefinition(
                   _,
-                  LookupError(Reference.Choice(_, _), Reference.Choice(_, _)),
+                  LookupError(Reference.TemplateChoice(_, _), Reference.TemplateChoice(_, _)),
                 ) =>
           },
         E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: σ) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //

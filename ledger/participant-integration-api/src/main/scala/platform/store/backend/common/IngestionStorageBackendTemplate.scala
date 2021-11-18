@@ -7,6 +7,7 @@ import java.sql.Connection
 
 import anorm.{SQL, SqlQuery}
 import com.daml.platform.store.backend.{DbDto, IngestionStorageBackend, ParameterStorageBackend}
+import com.daml.platform.store.interning.StringInterning
 
 private[backend] class IngestionStorageBackendTemplate(schema: Schema[DbDto])
     extends IngestionStorageBackend[AppendOnlySchema.Batch] {
@@ -24,6 +25,10 @@ private[backend] class IngestionStorageBackendTemplate(schema: Schema[DbDto])
         "DELETE FROM participant_events_non_consuming_exercise WHERE event_offset > {ledger_offset}"
       ),
       SQL("DELETE FROM party_entries WHERE ledger_offset > {ledger_offset}"),
+      SQL("DELETE FROM string_interning WHERE internal_id > {last_string_interning_id}"),
+      SQL(
+        "DELETE FROM participant_events_create_filter WHERE event_sequential_id > {last_event_sequential_id}"
+      ),
     )
 
   override def deletePartiallyIngestedData(
@@ -34,6 +39,8 @@ private[backend] class IngestionStorageBackendTemplate(schema: Schema[DbDto])
         import com.daml.platform.store.Conversions.OffsetToStatement
         query
           .on("ledger_offset" -> existingLedgerEnd.lastOffset)
+          .on("last_string_interning_id" -> existingLedgerEnd.lastStringInterningId)
+          .on("last_event_sequential_id" -> existingLedgerEnd.lastEventSeqId)
           .execute()(connection)
         ()
       }
@@ -46,6 +53,9 @@ private[backend] class IngestionStorageBackendTemplate(schema: Schema[DbDto])
   ): Unit =
     schema.executeUpdate(dbBatch, connection)
 
-  override def batch(dbDtos: Vector[DbDto]): AppendOnlySchema.Batch =
-    schema.prepareData(dbDtos)
+  override def batch(
+      dbDtos: Vector[DbDto],
+      stringInterning: StringInterning,
+  ): AppendOnlySchema.Batch =
+    schema.prepareData(dbDtos, stringInterning)
 }

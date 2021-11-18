@@ -42,7 +42,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         participant,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.CommandValidation.InvalidArgument,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
         Some("prune_up_to not specified"),
       )
     }
@@ -62,7 +62,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         participant,
         cannotPruneNonHexOffset,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.NonHexOffset,
+        LedgerApiErrors.RequestValidation.NonHexOffset,
         Some("prune_up_to needs to be a hexadecimal string and not"),
       )
     }
@@ -85,7 +85,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         participant,
         cannotPruneOffsetBeyondEnd,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.ReadErrors.RequestedOffsetOutOfRange,
+        LedgerApiErrors.RequestValidation.OffsetOutOfRange,
         Some("prune_up_to needs to be before ledger end"),
       )
     }
@@ -129,7 +129,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         participant,
         cannotReadAnymore,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.ReadErrors.ParticipantPrunedDataAccessed,
+        LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
         Some(
           Pattern.compile(
             s"(Transactions request from [0-9a-fA-F]* to [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})|(Request from [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})"
@@ -177,7 +177,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         participant,
         cannotReadAnymore,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.ReadErrors.ParticipantPrunedDataAccessed,
+        LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
         Some(
           Pattern.compile(
             s"(Transactions request from [0-9a-fA-F]* to [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})|(Request from [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})"
@@ -232,7 +232,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         participant,
         cannotReadAnymore,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.ReadErrors.ParticipantPrunedDataAccessed,
+        LedgerApiErrors.RequestValidation.ParticipantPrunedDataAccessed,
         Some(
           Pattern.compile(
             s"Command completions? request from [0-9a-fA-F]* to [0-9a-fA-F]* overlaps with pruned offset ${offsetToPruneUpTo.getAbsolute}"
@@ -304,7 +304,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
           participant,
           _,
           Status.Code.NOT_FOUND,
-          LedgerApiErrors.ReadErrors.TransactionNotFound,
+          LedgerApiErrors.RequestValidation.NotFound.Transaction,
           Some("Transaction not found, or not visible."),
         )
       )
@@ -353,7 +353,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
           participant,
           _,
           Status.Code.NOT_FOUND,
-          LedgerApiErrors.ReadErrors.TransactionNotFound,
+          LedgerApiErrors.RequestValidation.NotFound.Transaction,
           Some("Transaction not found, or not visible."),
         )
       )
@@ -398,7 +398,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
           participant,
           _,
           Status.Code.NOT_FOUND,
-          LedgerApiErrors.ReadErrors.TransactionNotFound,
+          LedgerApiErrors.RequestValidation.NotFound.Transaction,
           Some("Transaction not found, or not visible."),
         )
       )
@@ -443,7 +443,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
           participant,
           _,
           Status.Code.NOT_FOUND,
-          LedgerApiErrors.ReadErrors.TransactionNotFound,
+          LedgerApiErrors.RequestValidation.NotFound.Transaction,
           Some("Transaction not found, or not visible."),
         )
       )

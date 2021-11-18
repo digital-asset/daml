@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref.{Identifier, Name, PackageId}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.{
   IncompleteTransaction,
-  GenTransaction,
+  Transaction,
   Node,
   NodeId,
   VersionedTransaction,
@@ -44,8 +44,8 @@ final class ValueEnricher(
       versionedValue: VersionedValue,
   ): Result[VersionedValue] =
     for {
-      value <- enrichValue(typ, versionedValue.value)
-    } yield versionedValue.copy(value = value)
+      value <- enrichValue(typ, versionedValue.unversioned)
+    } yield versionedValue.map(_ => value)
 
   def enrichContract(
       contract: Value.ContractInstance
@@ -58,8 +58,8 @@ final class ValueEnricher(
       contract: Value.VersionedContractInstance
   ): Result[Value.VersionedContractInstance] =
     for {
-      arg <- enrichValue(Ast.TTyCon(contract.template), contract.arg)
-    } yield contract.copy(arg = arg)
+      arg <- enrichValue(Ast.TTyCon(contract.unversioned.template), contract.unversioned.arg)
+    } yield contract.map(_.copy(arg = arg))
 
   def enrichContract(tyCon: Identifier, value: Value): Result[Value] =
     enrichValue(Ast.TTyCon(tyCon), value)
@@ -85,7 +85,7 @@ final class ValueEnricher(
       choiceName: Name,
       value: Value,
   ): Result[Value] =
-    handleLookup(interface.lookupChoice(tyCon, choiceName))
+    handleLookup(interface.lookupTemplateChoice(tyCon, choiceName))
       .flatMap(choice => enrichValue(choice.argBinder._2, value))
 
   def enrichChoiceResult(
@@ -93,7 +93,7 @@ final class ValueEnricher(
       choiceName: Name,
       value: Value,
   ): Result[Value] =
-    handleLookup(interface.lookupChoice(tyCon, choiceName)).flatMap(choice =>
+    handleLookup(interface.lookupTemplateChoice(tyCon, choiceName)).flatMap(choice =>
       enrichValue(choice.returnType, value)
     )
 
@@ -101,25 +101,18 @@ final class ValueEnricher(
     handleLookup(interface.lookupTemplateKey(tyCon))
       .flatMap(key => enrichValue(key.typ, value))
 
-  def enrichVersionedContractKey(
-      tyCon: Identifier,
-      value: VersionedValue,
-  ): Result[VersionedValue] =
-    handleLookup(interface.lookupTemplateKey(tyCon))
-      .flatMap(key => enrichVersionedValue(key.typ, value))
-
   private val ResultNone = ResultDone(None)
 
   def enrichContractKey(
       tyCon: Identifier,
-      key: Node.KeyWithMaintainers[Value],
-  ): Result[Node.KeyWithMaintainers[Value]] =
+      key: Node.KeyWithMaintainers,
+  ): Result[Node.KeyWithMaintainers] =
     enrichContractKey(tyCon, key.key).map(normalizedKey => key.copy(key = normalizedKey))
 
   def enrichContractKey(
       tyCon: Identifier,
-      key: Option[Node.KeyWithMaintainers[Value]],
-  ): Result[Option[Node.KeyWithMaintainers[Value]]] =
+      key: Option[Node.KeyWithMaintainers],
+  ): Result[Option[Node.KeyWithMaintainers]] =
     key match {
       case Some(k) =>
         enrichContractKey(tyCon, k).map(Some(_))
@@ -129,14 +122,14 @@ final class ValueEnricher(
 
   def enrichVersionedContractKey(
       tyCon: Identifier,
-      key: Node.KeyWithMaintainers[VersionedValue],
-  ): Result[Node.KeyWithMaintainers[VersionedValue]] =
-    enrichVersionedContractKey(tyCon, key.key).map(normalizedKey => key.copy(key = normalizedKey))
+      key: Node.VersionedKeyWithMaintainers,
+  ): Result[Node.VersionedKeyWithMaintainers] =
+    enrichContractKey(tyCon, key.unversioned).map(normalizedValue => key.map(_ => normalizedValue))
 
   def enrichVersionedContractKey(
       tyCon: Identifier,
-      key: Option[Node.KeyWithMaintainers[VersionedValue]],
-  ): Result[Option[Node.KeyWithMaintainers[VersionedValue]]] =
+      key: Option[Node.VersionedKeyWithMaintainers],
+  ): Result[Option[Node.VersionedKeyWithMaintainers]] =
     key match {
       case Some(k) =>
         enrichVersionedContractKey(tyCon, k).map(Some(_))
@@ -174,7 +167,7 @@ final class ValueEnricher(
         } yield exe.copy(chosenValue = choiceArg, exerciseResult = result, key = key)
     }
 
-  def enrichTransaction(tx: GenTransaction): Result[GenTransaction] =
+  def enrichTransaction(tx: Transaction): Result[Transaction] =
     for {
       normalizedNodes <-
         tx.nodes.foldLeft[Result[Map[NodeId, Node]]](ResultDone(Map.empty)) {
@@ -184,14 +177,14 @@ final class ValueEnricher(
               normalizedNode <- enrichNode(node)
             } yield nodes.updated(nid, normalizedNode)
         }
-    } yield GenTransaction(
+    } yield Transaction(
       nodes = normalizedNodes,
       roots = tx.roots,
     )
 
   def enrichVersionedTransaction(versionedTx: VersionedTransaction): Result[VersionedTransaction] =
-    enrichTransaction(GenTransaction(versionedTx.nodes, versionedTx.roots)).map {
-      case GenTransaction(nodes, roots) =>
+    enrichTransaction(Transaction(versionedTx.nodes, versionedTx.roots)).map {
+      case Transaction(nodes, roots) =>
         VersionedTransaction(versionedTx.version, nodes, roots)
     }
 

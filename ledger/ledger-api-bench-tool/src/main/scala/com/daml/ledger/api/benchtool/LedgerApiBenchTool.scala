@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.benchtool
 
+import com.daml.ledger.api.benchtool.config.{Config, ConfigMaker, WorkflowConfig}
 import com.daml.ledger.api.benchtool.submission.CommandSubmitter
 import com.daml.ledger.api.benchtool.services._
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -10,6 +11,7 @@ import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.{Logger, LoggerFactory}
+import pprint.PPrinter
 
 import java.util.concurrent.{
   ArrayBlockingQueue,
@@ -23,8 +25,11 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 object LedgerApiBenchTool {
   def main(args: Array[String]): Unit = {
-    Cli.config(args) match {
-      case Some(config) =>
+    ConfigMaker.make(args) match {
+      case Left(error) =>
+        logger.error(s"Configuration error: ${error.details}")
+      case Right(config) =>
+        logger.info(s"Starting benchmark with configuration:\n${prettyPrint(config)}")
         val result = run(config)(ExecutionContext.Implicits.global)
           .recover { case ex =>
             println(s"Error: ${ex.getMessage}")
@@ -32,36 +37,50 @@ object LedgerApiBenchTool {
           }(scala.concurrent.ExecutionContext.Implicits.global)
         Await.result(result, atMost = Duration.Inf)
         ()
-      case _ =>
-        logger.error("Invalid configuration arguments.")
     }
   }
 
   private def run(config: Config)(implicit ec: ExecutionContext): Future[Unit] = {
-    val printer = pprint.PPrinter(200, 1000)
-    logger.info(s"Starting benchmark with configuration:\n${printer(config).toString()}")
-
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
-
     apiServicesOwner(config).use { apiServices =>
-      def testContractsGenerationStep(): Future[Unit] = config.contractSetDescriptorFile match {
-        case None =>
-          Future.successful(
-            logger.info("No contract set descriptor file provided. Skipping contracts generation.")
+      def benchmarkStep(streams: List[WorkflowConfig.StreamConfig]): Future[Unit] =
+        if (streams.isEmpty) {
+          Future.successful(logger.info(s"No streams defined. Skipping the benchmark step."))
+        } else {
+          Benchmark.run(
+            streams = streams,
+            reportingPeriod = config.reportingPeriod,
+            apiServices = apiServices,
+            metricsReporter = config.metricsReporter,
           )
-        case Some(descriptorFile) =>
-          CommandSubmitter(apiServices).submit(descriptorFile, config.maxInFlightCommands)
-      }
+        }
 
-      def benchmarkStep(): Future[Unit] = if (config.streams.isEmpty) {
-        Future.successful(logger.info(s"No streams defined. Skipping the benchmark step."))
-      } else {
-        Benchmark.run(config, apiServices)
-      }
+      def submissionStep(
+          submissionConfig: Option[WorkflowConfig.SubmissionConfig]
+      ): Future[Option[CommandSubmitter.SubmissionSummary]] =
+        submissionConfig match {
+          case None =>
+            logger.info(s"No submission defined. Skipping.")
+            Future.successful(None)
+          case Some(submissionConfig) =>
+            CommandSubmitter(apiServices)
+              .submit(
+                config = submissionConfig,
+                maxInFlightCommands = config.maxInFlightCommands,
+                submissionBatchSize = config.submissionBatchSize,
+              )
+              .map(Some(_))
+        }
 
       for {
-        _ <- testContractsGenerationStep()
-        _ <- benchmarkStep()
+        summary <- submissionStep(config.workflow.submission)
+        streams = config.workflow.streams.map(
+          ConfigEnricher.enrichStreamConfig(_, summary)
+        )
+        _ = logger.info(
+          s"Stream configs adapted after the submission step: ${prettyPrint(streams)}"
+        )
+        _ <- benchmarkStep(streams)
       } yield ()
     }
   }
@@ -120,4 +139,6 @@ object LedgerApiBenchTool {
     )
 
   private val logger: Logger = LoggerFactory.getLogger(getClass)
+  private val printer: PPrinter = pprint.PPrinter(200, 1000)
+  private def prettyPrint(x: Any): String = printer(x).toString()
 }

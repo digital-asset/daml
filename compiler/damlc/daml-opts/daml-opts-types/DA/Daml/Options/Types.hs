@@ -202,7 +202,7 @@ defaultOptions mbVersion =
         , optCppPath = Nothing
         , optIncrementalBuild = IncrementalBuild False
         , optIgnorePackageMetadata = IgnorePackageMetadata False
-        , optEnableOfInterestRule = True
+        , optEnableOfInterestRule = False
         , optAccessTokenPath = Nothing
         }
 

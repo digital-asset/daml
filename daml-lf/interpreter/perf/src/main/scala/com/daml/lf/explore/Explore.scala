@@ -6,7 +6,7 @@ package speedy
 package explore
 
 import com.daml.lf.language.PackageInterface
-import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SExpr0._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SBuiltin._
@@ -35,7 +35,7 @@ object PlaySpeedy {
     names.foreach { name =>
       val (expected, expr) = examples(name)
       val converted = compiler.unsafeClosureConvert(expr)
-      val machine = Speedy.Machine.fromPureSExpr(PureCompiledPackages.Empty, converted)
+      val machine = Machine.fromPureSExpr(PureCompiledPackages.Empty, converted)
       runMachine(name, machine, expected)
     }
   }

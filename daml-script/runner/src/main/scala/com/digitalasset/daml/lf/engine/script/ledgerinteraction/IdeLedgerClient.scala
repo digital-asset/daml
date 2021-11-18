@@ -13,14 +13,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.{SValue, TraceLog, WarningLog}
-import com.daml.lf.transaction.Node.{
-  NodeRollback,
-  NodeCreate,
-  NodeExercises,
-  NodeFetch,
-  NodeLookupByKey,
-}
-import com.daml.lf.transaction.{GlobalKey, NodeId}
+import com.daml.lf.transaction.{GlobalKey, Node, NodeId, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.script.converter.ConverterException
@@ -72,7 +65,7 @@ class IdeLedgerClient(
     val filtered = acs.collect {
       case ScenarioLedger.LookupOk(
             cid,
-            Value.VersionedContractInstance(_, tpl, arg, _),
+            Versioned(_, Value.ContractInstance(tpl, arg, _)),
             stakeholders,
           ) if tpl == templateId && parties.any(stakeholders.contains(_)) =>
         (cid, arg)
@@ -95,7 +88,7 @@ class IdeLedgerClient(
       effectiveAt = ledger.currentTime,
       cid,
     ) match {
-      case ScenarioLedger.LookupOk(_, Value.VersionedContractInstance(_, _, arg, _), stakeholders)
+      case ScenarioLedger.LookupOk(_, Versioned(_, Value.ContractInstance(_, arg, _)), stakeholders)
           if parties.any(stakeholders.contains(_)) =>
         Future.successful(Some(ScriptLedgerClient.ActiveContract(templateId, cid, arg)))
       case _ =>
@@ -176,14 +169,14 @@ class IdeLedgerClient(
             throw new IllegalArgumentException(s"Unknown root node id $id"),
           )
           node match {
-            case create: NodeCreate => ScriptLedgerClient.CreateResult(create.coid)
-            case exercise: NodeExercises =>
+            case create: Node.Create => ScriptLedgerClient.CreateResult(create.coid)
+            case exercise: Node.Exercise =>
               ScriptLedgerClient.ExerciseResult(
                 exercise.templateId,
                 exercise.choiceId,
                 exercise.exerciseResult.get,
               )
-            case _: NodeFetch | _: NodeLookupByKey | _: NodeRollback =>
+            case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback =>
               throw new IllegalArgumentException(s"Invalid root node: $node")
           }
         }
@@ -227,9 +220,9 @@ class IdeLedgerClient(
         val transaction = result.richTransaction.transaction
         def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] =
           transaction.nodes(id) match {
-            case create: NodeCreate =>
+            case create: Node.Create =>
               Some(ScriptLedgerClient.Created(create.templateId, create.coid, create.arg))
-            case exercise: NodeExercises =>
+            case exercise: Node.Exercise =>
               Some(
                 ScriptLedgerClient.Exercised(
                   exercise.templateId,
@@ -239,7 +232,7 @@ class IdeLedgerClient(
                   exercise.children.collect(Function.unlift(convEvent(_))).toList,
                 )
               )
-            case _: NodeFetch | _: NodeLookupByKey | _: NodeRollback => None
+            case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback => None
           }
         ScriptLedgerClient.TransactionTree(
           transaction.roots.collect(Function.unlift(convEvent(_))).toList

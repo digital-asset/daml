@@ -1,12 +1,8 @@
 # If you are adding someone to the rotation, remember to also give them permission
 # to access an ad-hoc machine for Windows testing. This can be done by opening a PR
 # like the following: https://github.com/DACH-NY/daml-language-ad-hoc/pull/37
-U0PNNPY05 robin-da
-UEGT3JT0Q remyhaemmerle-da
-U021DSF26BS victormueller-da
 UHHMLCNGM nickchapman-da
 UPBBGF5MZ SamirTalwar-DA
-UTUPD35SR aherrmann-da
 U02DAFHFXUN akrmn
 UEHLS0JUB cocreature
 UEHSF89AQ garyverhaegen-da
@@ -15,3 +11,6 @@ U02DCD54R28 adriaanm-da
 U7BSDJUJX S11001001
 U011H6KFYPN sofiafaro-da
 U026PEZLTPX akshayshirahatti-da
+U0PNNPY05 robin-da
+UEGT3JT0Q remyhaemmerle-da
+U021DSF26BS victormueller-da

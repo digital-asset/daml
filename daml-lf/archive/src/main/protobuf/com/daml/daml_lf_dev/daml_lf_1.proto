@@ -1187,6 +1187,14 @@ message Update {
     Expr expr = 2;
   }
 
+  // Interface Create Update
+  message CreateInterface {
+    // Interface type
+    TypeConName interface = 1;
+    // Interface argument
+    Expr expr = 2;
+  }
+
   // Exercise Update
   message Exercise {
     // Template type
@@ -1293,6 +1301,7 @@ message Update {
     TryCatch try_catch = 11; // *Available in versions >= 1.14*
     ExerciseInterface exercise_interface = 12; // *Available in versions >= 1.dev*
     FetchInterface fetch_interface = 13; // *Available in versions >= 1.dev*
+    CreateInterface create_interface = 14; // *Available in versions >= 1.dev*
   }
 }
 
@@ -1379,15 +1388,6 @@ message TemplateChoice {
 
   Location location = 8;
 }
-
-message InterfaceChoice {
-  Location location = 1;
-  int32 name_interned_string = 2;
-  bool consuming = 3;
-  Type arg_type = 4;
-  Type ret_type = 5;
-}
-
 
 // we restrict key expressions to records of projections, much like SQL
 message KeyExpr {
@@ -1529,13 +1529,12 @@ message InterfaceMethod {
 message DefInterface {
   Location location = 1;
   int32 tycon_interned_dname = 2;
-  repeated InterfaceChoice choices = 3;
-  repeated InterfaceMethod methods = 4;
+  repeated InterfaceMethod methods = 3;
 
   // Binder for interface value ("this") in fixed choices.
-  int32 param_interned_str = 5;
-  repeated TemplateChoice fixed_choices = 6;
-  Expr precond = 7;
+  int32 param_interned_str = 4;
+  repeated TemplateChoice fixed_choices = 5;
+  Expr precond = 6;
 }
 
 // Exception definition

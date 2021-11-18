@@ -4,6 +4,7 @@
 package com.daml.error
 
 import com.daml.error.ErrorCode.{ValidMetadataKeyRegex, truncateResourceForTransport}
+import com.daml.error.definitions.LoggingTransactionErrorImpl
 import com.google.rpc.Status
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
@@ -137,7 +138,15 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     // Builder methods for metadata are not exposed, so going route via creating an exception
     val ex = StatusProto.toStatusRuntimeException(status)
     // Strip stack trace from exception
-    new ErrorCode.ApiException(ex.getStatus, ex.getTrailers)
+    // TODO error codes: Define a generic mechanism (trait or method) to check if errors are logged on creation,
+    //                   instead of checking every implementation.
+    err match {
+      case _: LoggingTransactionErrorImpl =>
+        new ErrorCode.LoggingApiException(ex.getStatus, ex.getTrailers)
+      case err: BaseError.Impl if err.logOnCreation =>
+        new ErrorCode.LoggingApiException(ex.getStatus, ex.getTrailers)
+      case _ => new ErrorCode.ApiException(ex.getStatus, ex.getTrailers)
+    }
   }
 
   /** log level of the error code
@@ -218,6 +227,9 @@ object ErrorCode {
       extends StatusRuntimeException(status, metadata)
       with NoStackTrace
 
+  class LoggingApiException(status: io.grpc.Status, metadata: io.grpc.Metadata)
+      extends ApiException(status, metadata)
+
   case class StatusInfo(
       codeGrpc: io.grpc.Status.Code,
       message: String,
@@ -261,5 +273,9 @@ object ErrorCode {
 }
 
 // Use these annotations to add more information to the documentation for an error on the website
+case class Deprecation(deprecation: String) extends StaticAnnotation
 case class Explanation(explanation: String) extends StaticAnnotation
 case class Resolution(resolution: String) extends StaticAnnotation
+case class Description(description: String) extends StaticAnnotation
+case class RetryStrategy(retryStrategy: String) extends StaticAnnotation
+case class DeprecatedDocs(description: String) extends StaticAnnotation

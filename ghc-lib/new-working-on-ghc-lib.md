@@ -37,11 +37,16 @@ git checkout da-master-8.8.1
 git submodule update --init --recursive
 ```
 
-5. Made initial build (takes about 15 mins)
+5. Make initial build (takes about 15 mins)
 ```
 hadrian/build.stack.sh --configure --flavour=quickest -j
 ```
 
+Note: on macOS, you might get errors related to the Integer library GMP. Until those are fixed, adding `--integer-simple` to the flags above should allow you to build GHC.
+
+```
+hadrian/build.stack.sh --configure --flavour=quickest -j --integer-simple
+```
 
 ### Iterating on parser/desugaring in `ghc`
 

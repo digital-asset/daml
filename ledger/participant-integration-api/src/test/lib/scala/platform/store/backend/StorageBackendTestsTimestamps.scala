@@ -15,12 +15,6 @@ import scala.util.Success
 private[backend] trait StorageBackendTestsTimestamps extends Matchers with StorageBackendSpec {
   this: AsyncFlatSpec =>
 
-  private val parameterStorageBackend: ParameterStorageBackend =
-    backendFactory.createParameterStorageBackend
-  private val eventStorageBackend: EventStorageBackend = backendFactory.createEventStorageBackend
-  private val contractStorageBackend: ContractStorageBackend =
-    backendFactory.createContractStorageBackend
-
   behavior of "StorageBackend (timestamps)"
 
   import StorageBackendTestValues._
@@ -35,19 +29,19 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
       ledgerEffectiveTime = Some(let),
     )
     for {
-      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
       _ <- executeSql(ingest(Vector(create), _))
       _ <- executeSql(
-        parameterStorageBackend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(1), 1L))
+        updateLedgerEnd(offset(1), 1L)
       )
 
-      let1 <- executeSql(contractStorageBackend.maximumLedgerTime(Set(cid)))
+      let1 <- executeSql(backend.contract.maximumLedgerTime(Set(cid)))
       let2 <- executeSql(
-        withDefaultTimeZone("GMT-1")(contractStorageBackend.maximumLedgerTime(Set(cid)))
+        withDefaultTimeZone("GMT-1")(backend.contract.maximumLedgerTime(Set(cid)))
       )
       let3 <- executeSql(
-        withDefaultTimeZone("GMT+1")(contractStorageBackend.maximumLedgerTime(Set(cid)))
+        withDefaultTimeZone("GMT+1")(backend.contract.maximumLedgerTime(Set(cid)))
       )
     } yield {
       withClue("UTC") { let1 shouldBe Success(Some(let)) }
@@ -66,16 +60,16 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
       ledgerEffectiveTime = Some(let),
     )
     for {
-      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
       _ <- executeSql(ingest(Vector(create), _))
       _ <- executeSql(
-        parameterStorageBackend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(1), 1L))
+        updateLedgerEnd(offset(1), 1L)
       )
 
-      events1 <- executeSql(eventStorageBackend.rawEvents(0L, 1L))
-      events2 <- executeSql(withDefaultTimeZone("GMT-1")(eventStorageBackend.rawEvents(0L, 1L)))
-      events3 <- executeSql(withDefaultTimeZone("GMT+1")(eventStorageBackend.rawEvents(0L, 1L)))
+      events1 <- executeSql(backend.event.rawEvents(0L, 1L))
+      events2 <- executeSql(withDefaultTimeZone("GMT-1")(backend.event.rawEvents(0L, 1L)))
+      events3 <- executeSql(withDefaultTimeZone("GMT+1")(backend.event.rawEvents(0L, 1L)))
     } yield {
       withClue("UTC") { events1.head.ledgerEffectiveTime shouldBe Some(let) }
       withClue("GMT-1") { events2.head.ledgerEffectiveTime shouldBe Some(let) }

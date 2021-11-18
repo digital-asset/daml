@@ -49,7 +49,7 @@ Release notes for each release are published on the `Release Notes section of th
 Roadmap
 -------
 
-Once a month Digital Asset publishes a community update to accompany the announcement of the release candidate for the next release. The community update contains a section outlining the next priorities for development. You can find community updates on the `Daml Driven Blog <https://daml.com/daml-driven>`_, or subscribe to the mailing list or social media profiles on `https://daml.com/ <https://daml.com/>`_ to stay up to date.
+Once a month Digital Asset publishes a community update to accompany the announcement of the release candidate for the next release. The community update contains a section outlining the next priorities for development. You can find community updates on the `Daml Driven Blog <https://daml.com/blog/engineering>`_, or subscribe to the mailing list or social media profiles on `https://daml.com/ <https://daml.com/>`_ to stay up to date.
 
 .. _release_process:
 

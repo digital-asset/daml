@@ -37,6 +37,7 @@ private[sandbox] object LedgerResource {
   def inMemory(
       ledgerId: LedgerId,
       timeProvider: TimeProvider,
+      errorFactories: ErrorFactories,
       acs: InMemoryActiveLedgerState = InMemoryActiveLedgerState.empty,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
       entries: ImmArray[LedgerEntryOrBump] = ImmArray.Empty,
@@ -51,6 +52,7 @@ private[sandbox] object LedgerResource {
           packageStoreInit = packages,
           ledgerEntries = entries,
           engine = new Engine(),
+          errorFactories,
         )
       )
     )

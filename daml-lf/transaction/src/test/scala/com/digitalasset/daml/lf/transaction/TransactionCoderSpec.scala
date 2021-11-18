@@ -230,6 +230,7 @@ class TransactionCoderSpec
           signatories = Set(Party.assertFromString("alice")),
           stakeholders = Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
           key = None,
+          byInterface = None,
           version = TransactionVersion.minVersion,
         )
 
@@ -859,7 +860,7 @@ class TransactionCoderSpec
       case _ => gn
     }
 
-  def hasChoiceObserves(tx: GenTransaction): Boolean =
+  def hasChoiceObserves(tx: Transaction): Boolean =
     tx.nodes.values.exists {
       case ne: Node.Exercise => ne.choiceObservers.nonEmpty
       case _ => false
@@ -940,14 +941,14 @@ class TransactionCoderSpec
     )
 
   private[this] def normalizeKey(
-      key: Node.KeyWithMaintainers[Value],
+      key: Node.KeyWithMaintainers,
       version: TransactionVersion,
   ) = {
     key.copy(key = normalize(key.key, version))
   }
 
   private[this] def normalizeContract(contract: Value.VersionedContractInstance) =
-    contract.copy(arg = normalize(contract.arg, contract.version))
+    contract.map(_.copy(arg = normalize(contract.unversioned.arg, contract.version)))
 
   private[this] def normalize(
       value0: Value,

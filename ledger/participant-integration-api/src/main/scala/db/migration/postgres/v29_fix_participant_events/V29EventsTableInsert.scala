@@ -28,7 +28,7 @@ private[v29_fix_participant_events] object V29EventsTableInsert {
   private def serializeNullableKeyOrThrow(node: Create): Option[Array[Byte]] =
     node.versionedKey.map(k =>
       serialize(
-        value = k.key,
+        value = k.map(_.key),
         errorContext = cantSerialize(attribute = "key", forContract = node.coid),
       )
     )

@@ -3,6 +3,7 @@
 
 package com.daml.platform.store
 
+import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
@@ -14,6 +15,10 @@ import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.store.appendonlydao.{DbDispatcher, JdbcLedgerDao}
+import com.daml.platform.store.backend.StorageBackendFactory
+import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.store.interning.StringInterningView
 import scalaz.Tag
 
 import scala.concurrent.duration._
@@ -27,6 +32,7 @@ object IndexMetadata {
   )(implicit
       resourceContext: ResourceContext,
       executionContext: ExecutionContext,
+      materializer: Materializer,
       loggingContext: LoggingContext,
   ): Future[IndexMetadata] =
     ownDao(jdbcUrl, errorFactories).use { dao =>
@@ -43,23 +49,37 @@ object IndexMetadata {
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-  ) =
-    com.daml.platform.store.appendonlydao.JdbcLedgerDao.readOwner(
-      serverRole = ServerRole.ReadIndexMetadata,
-      jdbcUrl = jdbcUrl,
-      connectionPoolSize = 1,
-      connectionTimeout = 250.millis,
-      eventsPageSize = 1000,
-      eventsProcessingParallelism = 8,
-      servicesExecutionContext = executionContext,
-      metrics = new Metrics(new MetricRegistry),
-      lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-      enricher = None,
-      // No participant ID is available for the dump index meta path,
-      // and this property is not needed for the used ReadDao.
-      participantId = Ref.ParticipantId.assertFromString("1"),
-      errorFactories = errorFactories,
-    )
+      materializer: Materializer,
+  ) = {
+    val storageBackendFactory = StorageBackendFactory.of(DbType.jdbcType(jdbcUrl))
+    val metrics = new Metrics(new MetricRegistry)
+    DbDispatcher
+      .owner(
+        dataSource = storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl),
+        serverRole = ServerRole.ReadIndexMetadata,
+        connectionPoolSize = 1,
+        connectionTimeout = 250.millis,
+        metrics = metrics,
+      )
+      .map(dbDispatcher =>
+        JdbcLedgerDao.read(
+          dbDispatcher = dbDispatcher,
+          eventsPageSize = 1000,
+          eventsProcessingParallelism = 8,
+          servicesExecutionContext = executionContext,
+          metrics = metrics,
+          lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+          enricher = None,
+          participantId = Ref.ParticipantId.assertFromString("1"),
+          errorFactories = errorFactories,
+          storageBackendFactory = storageBackendFactory,
+          ledgerEndCache = MutableLedgerEndCache(), // not used
+          stringInterning =
+            new StringInterningView((_, _) => _ => Future.successful(Nil)), // not used
+          materializer = materializer,
+        )
+      )
+  }
 
   private val Empty = "<empty>"
 

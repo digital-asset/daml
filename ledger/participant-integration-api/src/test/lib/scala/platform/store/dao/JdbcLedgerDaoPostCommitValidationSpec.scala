@@ -14,10 +14,16 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.store.{DbType, LfValueTranslationCache}
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
-import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerDao}
-import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.store.appendonlydao.{
+  DbDispatcher,
+  JdbcLedgerDao,
+  LedgerDao,
+  SequentialWriteDao,
+}
+import com.daml.platform.store.backend.StorageBackendFactory
+import com.daml.platform.store.interning.StringInterningView
 import org.scalatest.LoneElement
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -35,24 +41,53 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] = {
     val metrics = new Metrics(new MetricRegistry)
-    val ledgerEndCache = MutableLedgerEndCache()
-    JdbcLedgerDao
-      .validatingWriteOwner(
+    val dbType = DbType.jdbcType(jdbcUrl)
+    val storageBackendFactory = StorageBackendFactory.of(dbType)
+    val participantId = Ref.ParticipantId.assertFromString("JdbcLedgerDaoPostCommitValidationSpec")
+    DbDispatcher
+      .owner(
+        dataSource = storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl),
         serverRole = ServerRole.Testing(getClass),
-        jdbcUrl = jdbcUrl,
-        connectionPoolSize = 16,
+        connectionPoolSize = dbType.maxSupportedWriteConnections(16),
         connectionTimeout = 250.millis,
-        eventsPageSize = eventsPageSize,
-        eventsProcessingParallelism = eventsProcessingParallelism,
-        servicesExecutionContext = executionContext,
         metrics = metrics,
-        lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-        enricher = None,
-        participantId = Ref.ParticipantId.assertFromString("JdbcLedgerDaoPostCommitValidationSpec"),
-        compressionStrategy = CompressionStrategy.none(metrics),
-        ledgerEndCache = ledgerEndCache,
-        errorFactories = errorFactories,
       )
+      .map { dbDispatcher =>
+        val stringInterningStorageBackend =
+          storageBackendFactory.createStringInterningStorageBackend
+        val stringInterningView = new StringInterningView(
+          loadPrefixedEntries = (fromExclusive, toInclusive) =>
+            implicit loggingContext =>
+              dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+                stringInterningStorageBackend.loadStringInterningEntries(fromExclusive, toInclusive)
+              }
+        )
+        JdbcLedgerDao.validatingWrite(
+          dbDispatcher = dbDispatcher,
+          sequentialWriteDao = SequentialWriteDao(
+            participantId = participantId,
+            lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+            metrics = metrics,
+            compressionStrategy = CompressionStrategy.none(metrics),
+            ledgerEndCache = ledgerEndCache,
+            stringInterningView = stringInterningView,
+            ingestionStorageBackend = storageBackendFactory.createIngestionStorageBackend,
+            parameterStorageBackend = storageBackendFactory.createParameterStorageBackend,
+          ),
+          eventsPageSize = eventsPageSize,
+          eventsProcessingParallelism = eventsProcessingParallelism,
+          servicesExecutionContext = executionContext,
+          metrics = metrics,
+          lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+          enricher = None,
+          participantId = participantId,
+          storageBackendFactory = storageBackendFactory,
+          errorFactories = errorFactories,
+          ledgerEndCache = ledgerEndCache,
+          stringInterning = stringInterningView,
+          materializer = materializer,
+        )
+      }
   }
 
   private val ok = io.grpc.Status.Code.OK.value()
@@ -73,7 +108,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       _ <- store(original)
       _ <- store(duplicate)
       to <- ledgerDao.lookupLedgerEnd()
-      completions <- getCompletions(from, to, defaultAppId, Set(alice))
+      completions <- getCompletions(from.lastOffset, to.lastOffset, defaultAppId, Set(alice))
     } yield {
       completions should contain.allOf(
         originalAttempt.commandId.get -> ok,
@@ -93,7 +128,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       (_, create) <- store(txCreateContractWithKey(alice, keyValue))
       (_, lookup) <- store(txLookupByKey(alice, keyValue, None))
       to <- ledgerDao.lookupLedgerEnd()
-      completions <- getCompletions(from, to, defaultAppId, Set(alice))
+      completions <- getCompletions(from.lastOffset, to.lastOffset, defaultAppId, Set(alice))
     } yield {
       completions should contain.allOf(
         create.commandId.get -> ok,
@@ -115,7 +150,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       (_, archive) <- store(txArchiveContract(alice, createdContractId -> Some(keyValue)))
       (_, lookup) <- store(txLookupByKey(alice, keyValue, Some(createdContractId)))
       to <- ledgerDao.lookupLedgerEnd()
-      completions <- getCompletions(from, to, defaultAppId, Set(alice))
+      completions <- getCompletions(from.lastOffset, to.lastOffset, defaultAppId, Set(alice))
     } yield {
       completions should contain.allOf(
         create.commandId.get -> ok,
@@ -138,7 +173,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       (_, archive) <- store(txArchiveContract(alice, createdContractId -> Some(keyValue)))
       (_, fetch) <- store(txFetch(alice, createdContractId))
       to <- ledgerDao.lookupLedgerEnd()
-      completions <- getCompletions(from, to, defaultAppId, Set(alice))
+      completions <- getCompletions(from.lastOffset, to.lastOffset, defaultAppId, Set(alice))
     } yield {
       completions should contain.allOf(
         create.commandId.get -> ok,
@@ -170,7 +205,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       )
       (_, fetch2) <- store(txFetch(alice, divulgedContractId))
       to <- ledgerDao.lookupLedgerEnd()
-      completions <- getCompletions(from, to, defaultAppId, Set(alice))
+      completions <- getCompletions(from.lastOffset, to.lastOffset, defaultAppId, Set(alice))
     } yield {
       completions should contain.allOf(
         fetch1.commandId.get -> aborted,

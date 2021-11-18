@@ -15,18 +15,6 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     with StorageBackendSpec {
   this: AsyncFlatSpec =>
 
-  private val parameterStorageBackend: ParameterStorageBackend =
-    backendFactory.createParameterStorageBackend
-  private val configurationStorageBackend: ConfigurationStorageBackend =
-    backendFactory.createConfigurationStorageBackend
-  private val partyStorageBackend: PartyStorageBackend = backendFactory.createPartyStorageBackend
-  private val packageStorageBackend: PackageStorageBackend =
-    backendFactory.createPackageStorageBackend
-  private val ingestionStorageBackend: IngestionStorageBackend[_] =
-    backendFactory.createIngestionStorageBackend
-  private val contractStorageBackend: ContractStorageBackend =
-    backendFactory.createContractStorageBackend
-
   behavior of "StorageBackend (initializeIngestion)"
 
   import StorageBackendTestValues._
@@ -42,6 +30,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoPackageEntry(offset(3)),
       // 4: transaction with create node
       dtoCreate(offset(4), 1L, "#4"),
+      DbDto.CreateFilter(1L, someTemplateId.toString, someParty.toString),
       dtoCompletion(offset(4)),
       // 5: transaction with exercise node and retroactive divulgence
       dtoExercise(offset(5), 2L, false, "#4"),
@@ -59,6 +48,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoPackageEntry(offset(8)),
       // 9: transaction with create node
       dtoCreate(offset(9), 4L, "#9"),
+      DbDto.CreateFilter(4L, someTemplateId.toString, someParty.toString),
       dtoCompletion(offset(9)),
       // 10: transaction with exercise node and retroactive divulgence
       dtoExercise(offset(10), 5L, false, "#9"),
@@ -71,57 +61,75 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
     for {
       // Initialize
-      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
 
       // Start the indexer (a no-op in this case)
-      end1 <- executeSql(parameterStorageBackend.ledgerEnd)
-      _ <- executeSql(ingestionStorageBackend.deletePartiallyIngestedData(end1))
+      end1 <- executeSql(backend.parameter.ledgerEnd)
+      _ <- executeSql(backend.ingestion.deletePartiallyIngestedData(end1))
 
       // Fully insert first batch of updates
       _ <- executeSql(ingest(dtos1, _))
-      _ <- executeSql(parameterStorageBackend.updateLedgerEnd(ledgerEnd(5, 3L)))
+      _ <- executeSql(updateLedgerEnd(ledgerEnd(5, 3L)))
 
       // Partially insert second batch of updates (indexer crashes before updating ledger end)
       _ <- executeSql(ingest(dtos2, _))
 
       // Check the contents
-      parties1 <- executeSql(partyStorageBackend.knownParties)
-      config1 <- executeSql(configurationStorageBackend.ledgerConfiguration)
-      packages1 <- executeSql(packageStorageBackend.lfPackages)
+      parties1 <- executeSql(backend.party.knownParties)
+      config1 <- executeSql(backend.configuration.ledgerConfiguration)
+      packages1 <- executeSql(backend.packageBackend.lfPackages)
       contract41 <- executeSql(
-        contractStorageBackend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           readers,
           ContractId.V0.assertFromString("#4"),
         )
       )
       contract91 <- executeSql(
-        contractStorageBackend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           readers,
           ContractId.V0.assertFromString("#9"),
         )
       )
+      filterIds1 <- executeSql(
+        backend.event.activeContractEventIds(
+          partyFilter = someParty,
+          templateIdFilter = None,
+          startExclusive = 0,
+          endInclusive = 1000,
+          limit = 1000,
+        )
+      )
 
       // Restart the indexer - should delete data from the partial insert above
-      end2 <- executeSql(parameterStorageBackend.ledgerEnd)
-      _ <- executeSql(ingestionStorageBackend.deletePartiallyIngestedData(end2))
+      end2 <- executeSql(backend.parameter.ledgerEnd)
+      _ <- executeSql(backend.ingestion.deletePartiallyIngestedData(end2))
 
       // Move the ledger end so that any non-deleted data would become visible
-      _ <- executeSql(parameterStorageBackend.updateLedgerEnd(ledgerEnd(10, 6L)))
+      _ <- executeSql(updateLedgerEnd(ledgerEnd(10, 6L)))
 
       // Check the contents
-      parties2 <- executeSql(partyStorageBackend.knownParties)
-      config2 <- executeSql(configurationStorageBackend.ledgerConfiguration)
-      packages2 <- executeSql(packageStorageBackend.lfPackages)
+      parties2 <- executeSql(backend.party.knownParties)
+      config2 <- executeSql(backend.configuration.ledgerConfiguration)
+      packages2 <- executeSql(backend.packageBackend.lfPackages)
       contract42 <- executeSql(
-        contractStorageBackend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           readers,
           ContractId.V0.assertFromString("#4"),
         )
       )
       contract92 <- executeSql(
-        contractStorageBackend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           readers,
           ContractId.V0.assertFromString("#9"),
+        )
+      )
+      filterIds2 <- executeSql(
+        backend.event.activeContractEventIds(
+          partyFilter = someParty,
+          templateIdFilter = None,
+          startExclusive = 0,
+          endInclusive = 1000,
+          limit = 1000,
         )
       )
     } yield {
@@ -130,12 +138,14 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       config1 shouldBe Some(offset(1) -> someConfiguration)
       contract41 should not be empty
       contract91 shouldBe None
+      filterIds1 shouldBe List(1L, 4L) // since ledger-end does not limit the range query
 
       parties2 should have length 1
       packages2 should have size 1
       config2 shouldBe Some(offset(1) -> someConfiguration)
       contract42 should not be empty
       contract92 shouldBe None
+      filterIds2 shouldBe List(1L)
     }
   }
 }

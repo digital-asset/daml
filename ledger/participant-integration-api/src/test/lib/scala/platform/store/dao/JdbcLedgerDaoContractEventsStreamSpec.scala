@@ -42,7 +42,7 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement {
       )
 
     for {
-      before <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
+      before <- ledgerDao.lookupLedgerEnd()
       (offset1, t1) <- store(
         singleCreate(cid => create(absCid = cid, contractArgument = contractArg("t1")))
       )
@@ -70,12 +70,12 @@ trait JdbcLedgerDaoContractEventsStreamSpec extends LoneElement {
         singleCreate(cid => create(absCid = cid, contractArgument = contractArg("t6")))
       )
 
-      after <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
+      after <- ledgerDao.lookupLedgerEnd()
 
       contractStateEvents <- contractEventsOf(
         ledgerDao.transactionsReader.getContractStateEvents(
-          startExclusive = before,
-          endInclusive = after,
+          startExclusive = before.lastOffset -> before.lastEventSeqId,
+          endInclusive = after.lastOffset -> after.lastEventSeqId,
         )
       )
     } yield {

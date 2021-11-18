@@ -453,6 +453,7 @@ excluded_test_tool_tests = [
                     "SemanticTests:SemanticDoubleSpendSameTx",
                     "SemanticTests:SemanticPartialSignatories",
                     "SemanticTests:SemanticAcceptOnBehalf",
+                    "DeeplyNestedValueIT",
                 ],
             },
         ],
@@ -541,6 +542,18 @@ excluded_test_tool_tests = [
                     "KVCommandDeduplicationIT:KVCommandDeduplicationDeduplicateSubmitterBasic",
                     "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationBasic",
                     "CommandDeduplicationIT",  # Latest version of the test is dependent on having the submission id populated
+                ],
+            },
+        ],
+    },
+    {
+        # Self-service error code assertions adapted
+        "end": "1.18.0-snapshot.20211102.8257.1",
+        "platform_ranges": [
+            {
+                "start": "1.18.0-snapshot.20211102.8257.1",
+                "exclusions": [
+                    "PackageManagementServiceIT",
                 ],
             },
         ],

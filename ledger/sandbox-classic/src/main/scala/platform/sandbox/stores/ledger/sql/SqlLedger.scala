@@ -40,9 +40,20 @@ import com.daml.platform.sandbox.stores.ledger.{Ledger, Rejection, SandboxOffset
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
 import com.daml.platform.store.cache.{MutableLedgerEndCache, TranslationCacheBackedContractStore}
-import com.daml.platform.store.appendonlydao.{LedgerDao, LedgerWriteDao}
+import com.daml.platform.store.appendonlydao.{
+  DbDispatcher,
+  LedgerDao,
+  LedgerWriteDao,
+  SequentialWriteDao,
+}
+import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
-import com.daml.platform.store.{BaseLedger, FlywayMigrations, LfValueTranslationCache}
+import com.daml.platform.store.interning.{
+  InternizingStringInterningView,
+  StringInterning,
+  StringInterningView,
+}
+import com.daml.platform.store.{BaseLedger, DbType, FlywayMigrations, LfValueTranslationCache}
 import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.Status
 
@@ -100,8 +111,35 @@ private[sandbox] object SqlLedger {
         _ <- Resource.fromFuture(
           new FlywayMigrations(jdbcUrl).migrate()
         )
+        dbType = DbType.jdbcType(jdbcUrl)
+        storageBackendFactory = StorageBackendFactory.of(dbType)
         ledgerEndCache = MutableLedgerEndCache()
-        dao <- ledgerDaoOwner(ledgerEndCache, servicesExecutionContext, errorFactories).acquire()
+        dbDispatcher <- DbDispatcher
+          .owner(
+            dataSource =
+              storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl),
+            serverRole = serverRole,
+            connectionPoolSize = dbType.maxSupportedWriteConnections(databaseConnectionPoolSize),
+            connectionTimeout = databaseConnectionTimeout,
+            metrics = metrics,
+          )
+          .acquire()
+        stringInterningStorageBackend = storageBackendFactory.createStringInterningStorageBackend
+        stringInterningView = new StringInterningView(
+          loadPrefixedEntries = (fromExclusive, toInclusive) =>
+            implicit loggingContext =>
+              dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+                stringInterningStorageBackend.loadStringInterningEntries(fromExclusive, toInclusive)
+              }
+        )
+        dao = ledgerDao(
+          dbDispatcher,
+          storageBackendFactory,
+          ledgerEndCache,
+          stringInterningView,
+          servicesExecutionContext,
+          errorFactories,
+        )
         _ <- startMode match {
           case SqlStartMode.ResetAndStart =>
             Resource.fromFuture(dao.reset())
@@ -111,10 +149,11 @@ private[sandbox] object SqlLedger {
         existingLedgerId <- Resource.fromFuture(dao.lookupLedgerId())
         existingParticipantId <- Resource.fromFuture(dao.lookupParticipantId())
         ledgerId <- Resource.fromFuture(initialize(dao, existingLedgerId, existingParticipantId))
-        ledgerEnd <- Resource.fromFuture(dao.lookupLedgerEndOffsetAndSequentialId())
-        _ = ledgerEndCache.set(ledgerEnd)
+        ledgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())
+        _ = ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
+        _ <- Resource.fromFuture(stringInterningView.update(ledgerEnd.lastStringInterningId))
         ledgerConfig <- Resource.fromFuture(dao.lookupLedgerConfiguration())
-        dispatcher <- dispatcherOwner(ledgerEnd._1).acquire()
+        dispatcher <- dispatcherOwner(ledgerEnd.lastOffset).acquire()
         persistenceQueue <- new PersistenceQueueOwner(dispatcher).acquire()
         // Close the dispatcher before the persistence queue.
         _ <- Resource(Future.unit)(_ => Future.successful(dispatcher.close()))
@@ -252,19 +291,30 @@ private[sandbox] object SqlLedger {
       }
     }
 
-    private def ledgerDaoOwner(
+    private def ledgerDao(
+        dbDispatcher: DbDispatcher,
+        storageBackendFactory: StorageBackendFactory,
         ledgerEndCache: MutableLedgerEndCache,
+        stringInterningView: StringInterning with InternizingStringInterningView,
         servicesExecutionContext: ExecutionContext,
         errorFactories: ErrorFactories,
-    ): ResourceOwner[LedgerDao] = {
+    ): LedgerDao = {
       val compressionStrategy =
         if (enableCompression) CompressionStrategy.allGZIP(metrics)
         else CompressionStrategy.none(metrics)
-      com.daml.platform.store.appendonlydao.JdbcLedgerDao.validatingWriteOwner(
-        serverRole = serverRole,
-        jdbcUrl = jdbcUrl,
-        connectionPoolSize = databaseConnectionPoolSize,
-        connectionTimeout = databaseConnectionTimeout,
+      val refParticipantId = Ref.ParticipantId.assertFromString(participantId.toString)
+      com.daml.platform.store.appendonlydao.JdbcLedgerDao.validatingWrite(
+        dbDispatcher = dbDispatcher,
+        sequentialWriteDao = SequentialWriteDao(
+          participantId = refParticipantId,
+          lfValueTranslationCache = lfValueTranslationCache,
+          metrics = metrics,
+          compressionStrategy = compressionStrategy,
+          ledgerEndCache = ledgerEndCache,
+          stringInterningView = stringInterningView,
+          ingestionStorageBackend = storageBackendFactory.createIngestionStorageBackend,
+          parameterStorageBackend = storageBackendFactory.createParameterStorageBackend,
+        ),
         eventsPageSize = eventsPageSize,
         eventsProcessingParallelism = eventsProcessingParallelism,
         servicesExecutionContext = servicesExecutionContext,
@@ -272,10 +322,12 @@ private[sandbox] object SqlLedger {
         lfValueTranslationCache = lfValueTranslationCache,
         validatePartyAllocation = validatePartyAllocation,
         enricher = Some(new ValueEnricher(engine)),
-        participantId = Ref.ParticipantId.assertFromString(participantId.toString),
-        compressionStrategy = compressionStrategy,
+        participantId = refParticipantId,
+        storageBackendFactory = storageBackendFactory,
         ledgerEndCache = ledgerEndCache,
         errorFactories = errorFactories,
+        stringInterning = stringInterningView,
+        materializer = mat,
       )
     }
 

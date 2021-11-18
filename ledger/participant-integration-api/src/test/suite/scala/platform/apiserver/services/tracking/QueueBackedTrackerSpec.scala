@@ -8,7 +8,7 @@ import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.{Materializer, OverflowStrategy}
 import akka.{Done, NotUsed}
-import com.daml.grpc.GrpcStatus
+import com.daml.grpc.RpcProtoExtractors
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingException}
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.completion.Completion
@@ -17,7 +17,9 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.tracking.QueueBackedTracker.QueueInput
 import com.daml.platform.apiserver.services.tracking.QueueBackedTrackerSpec._
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.rpc.status.{Status => StatusProto}
+import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{BeforeAndAfterEach, Inside}
@@ -29,7 +31,8 @@ class QueueBackedTrackerSpec
     with Matchers
     with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll
-    with Inside {
+    with Inside
+    with MockitoSugar {
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
@@ -51,7 +54,7 @@ class QueueBackedTrackerSpec
   "Tracker Implementation" when {
     "input is submitted, and the queue is available" should {
       "work successfully" in {
-        val tracker = new QueueBackedTracker(queue, Future.successful(Done))
+        val tracker = new QueueBackedTracker(queue, Future.successful(Done), mock[ErrorFactories])
         val completion1F = tracker.track(input(1))
         consumer.requestNext()
         val completion2F = tracker.track(input(2))
@@ -65,43 +68,98 @@ class QueueBackedTrackerSpec
 
     "input is submitted, and the queue is backpressuring" should {
       "return a RESOURCE_EXHAUSTED error" in {
-        val tracker = new QueueBackedTracker(queue, Future.successful(Done))
-        tracker.track(input(1))
-        tracker.track(input(2)).map { completion =>
-          completion should matchPattern {
-            case Left(CompletionResponse.QueueSubmitFailure(GrpcStatus.RESOURCE_EXHAUSTED())) =>
+
+        def testIt(useSelfServiceErrorCodes: Boolean, expectedStatusCode: com.google.rpc.Code) = {
+
+          val tracker = new QueueBackedTracker(
+            queue,
+            Future.successful(Done),
+            ErrorFactories(useSelfServiceErrorCodes),
+          )
+
+          tracker.track(input(1))
+          tracker.track(input(2)).map { completion =>
+            completion should matchPattern {
+              case Left(
+                    CompletionResponse
+                      .QueueSubmitFailure(RpcProtoExtractors.Status(`expectedStatusCode`))
+                  ) =>
+            }
           }
         }
+
+        testIt(useSelfServiceErrorCodes = false, com.google.rpc.Code.RESOURCE_EXHAUSTED)
+        testIt(useSelfServiceErrorCodes = true, com.google.rpc.Code.ABORTED)
+
       }
     }
 
     "input is submitted, and the queue has been completed" should {
       "return an ABORTED error" in {
-        val tracker = new QueueBackedTracker(queue, Future.successful(Done))
-        queue.complete()
-        tracker.track(input(2)).map { completion =>
-          completion should matchPattern {
-            case Left(CompletionResponse.QueueSubmitFailure(GrpcStatus.ABORTED())) =>
+
+        val tracker1 = new QueueBackedTracker(
+          queue,
+          Future.successful(Done),
+          ErrorFactories(useSelfServiceErrorCodes = true),
+        )
+        val tracker2 = new QueueBackedTracker(
+          queue,
+          Future.successful(Done),
+          ErrorFactories(useSelfServiceErrorCodes = false),
+        )
+
+        def testIt(tracker: QueueBackedTracker) = {
+          queue.complete()
+          tracker.track(input(2)).map { completion =>
+            completion should matchPattern {
+              case Left(
+                    CompletionResponse
+                      .QueueSubmitFailure(RpcProtoExtractors.Status(com.google.rpc.Code.ABORTED))
+                  ) =>
+            }
           }
         }
+
+        testIt(tracker1)
+        testIt(tracker2)
       }
     }
 
     "input is submitted, and the queue has failed" should {
       "return an ABORTED error" in {
-        val tracker = new QueueBackedTracker(queue, Future.successful(Done))
-        queue.fail(TestingException("The queue fails with this error."))
-        tracker.track(input(2)).map { completion =>
-          completion should matchPattern {
-            case Left(CompletionResponse.QueueSubmitFailure(GrpcStatus.ABORTED())) =>
+        val tracker1 = new QueueBackedTracker(
+          queue,
+          Future.successful(Done),
+          ErrorFactories(useSelfServiceErrorCodes = true),
+        )
+        val tracker2 = new QueueBackedTracker(
+          queue,
+          Future.successful(Done),
+          ErrorFactories(useSelfServiceErrorCodes = false),
+        )
+
+        def testIt(tracker: QueueBackedTracker) = {
+          queue.fail(TestingException("The queue fails with this error."))
+          tracker.track(input(2)).map { completion =>
+            completion should matchPattern {
+              case Left(
+                    CompletionResponse
+                      .QueueSubmitFailure(RpcProtoExtractors.Status(com.google.rpc.Code.ABORTED))
+                  ) =>
+            }
           }
         }
+
+        testIt(tracker1)
+        testIt(tracker2)
       }
     }
   }
+
 }
 
 object QueueBackedTrackerSpec {
+
   private def input(commandId: Int) = CommandSubmission(Commands(commandId = commandId.toString))
 
   private def alwaysSuccessfulQueue(bufferSize: Int)(implicit

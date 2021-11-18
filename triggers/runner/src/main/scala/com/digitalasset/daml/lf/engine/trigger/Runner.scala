@@ -30,7 +30,7 @@ import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{Compiler, Pretty, SValue, Speedy}
 import com.daml.lf.{CompiledPackages, PureCompiledPackages}
 import com.daml.logging.LoggingContextOf.{label, newLoggingContext}
 import com.daml.logging.entries.{LoggingEntry, LoggingValue}

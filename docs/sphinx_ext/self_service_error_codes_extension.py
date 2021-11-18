@@ -75,6 +75,10 @@ def process_error_code_nodes(app, doctree, fromDocName):
         node = nodes.definition_list_item()
         term_node = text_node(nodes.term, "%s" % (item["code"]))
         definition_node = nodes.definition('', text_node(nodes.paragraph, ''))
+        if item["deprecation"]:
+            definition_node += build_indented_bold_and_non_bold_node(
+                bold_text="Deprecated: ",
+                non_bold_text=item['deprecation'])
         if item["explanation"]:
             definition_node += build_indented_bold_and_non_bold_node(
                 bold_text="Explanation: ",
@@ -124,7 +128,7 @@ def process_error_code_nodes(app, doctree, fromDocName):
 
     # DFS to traverse the error code data tree from `build_hierarchical_tree_of_error_data`
     # While traversing the tree, the presentation of the error codes on the documentation is built
-    def dfs(tree, node, prefix: str) -> None:
+    def dfs(tree, node, numeric_prefix: str, topic_prefix: str) -> None:
         if 'explanation' in tree and tree['explanation']:
             node += group_explanation_to_node(tree['explanation'])
         if 'error-codes' in tree:
@@ -136,10 +140,14 @@ def process_error_code_nodes(app, doctree, fromDocName):
         for subtopic, subtree in tree.items():
             if subtopic in ['error-codes', 'explanation']:
                 continue
-            subprefix = f"{prefix}{i}."
+            subtree_node_numeric_prefix = f"{numeric_prefix}{i}."
             i += 1
-            subtree_node = text_node(n=nodes.rubric, txt = subprefix + " " + subtopic)
-            dfs(tree=subtree, node=subtree_node, prefix=subprefix)
+            topic = subtopic
+            if topic_prefix != "":
+                topic = topic_prefix + " / " + subtopic
+            subtree_node_header = subtree_node_numeric_prefix + " " + topic
+            subtree_node = text_node(n=nodes.rubric, txt = subtree_node_header)
+            dfs(tree=subtree, node=subtree_node, numeric_prefix=subtree_node_numeric_prefix, topic_prefix=topic)
             node += subtree_node
 
     for node in doctree.traverse(error_code_node):
@@ -151,7 +159,7 @@ def process_error_code_nodes(app, doctree, fromDocName):
         root = nodes.rubric(rawsource = "", text = "")
         section += root
         tree = build_hierarchical_tree_of_error_data(data=error_codes_data.values())
-        dfs(tree=tree, node=root, prefix="")
+        dfs(tree=tree, node=root, numeric_prefix="", topic_prefix="")
         node.replace_self(new=[section])
 
 

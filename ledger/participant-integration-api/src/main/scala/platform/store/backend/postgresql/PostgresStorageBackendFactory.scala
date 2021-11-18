@@ -4,61 +4,56 @@
 package com.daml.platform.store.backend.postgresql
 
 import com.daml.platform.store.backend.common.{
+  CommonStorageBackendFactory,
   CompletionStorageBackendTemplate,
-  ConfigurationStorageBackendTemplate,
   ContractStorageBackendTemplate,
   IngestionStorageBackendTemplate,
-  IntegrityStorageBackendTemplate,
-  PackageStorageBackendTemplate,
-  ParameterStorageBackendTemplate,
   PartyStorageBackendTemplate,
-  StringInterningStorageBackendTemplate,
 }
 import com.daml.platform.store.backend.{
   CompletionStorageBackend,
-  ConfigurationStorageBackend,
   ContractStorageBackend,
   DBLockStorageBackend,
   DataSourceStorageBackend,
   DeduplicationStorageBackend,
   EventStorageBackend,
   IngestionStorageBackend,
-  IntegrityStorageBackend,
-  PackageStorageBackend,
-  ParameterStorageBackend,
   PartyStorageBackend,
   ResetStorageBackend,
   StorageBackendFactory,
-  StringInterningStorageBackend,
 }
+import com.daml.platform.store.cache.LedgerEndCache
+import com.daml.platform.store.interning.StringInterning
 
-object PostgresStorageBackendFactory extends StorageBackendFactory {
+object PostgresStorageBackendFactory
+    extends StorageBackendFactory
+    with CommonStorageBackendFactory {
+
   override val createIngestionStorageBackend: IngestionStorageBackend[_] =
     new IngestionStorageBackendTemplate(PGSchema.schema)
 
-  override val createParameterStorageBackend: ParameterStorageBackend =
-    ParameterStorageBackendTemplate
-
-  override val createConfigurationStorageBackend: ConfigurationStorageBackend =
-    ConfigurationStorageBackendTemplate
-
-  override val createPartyStorageBackend: PartyStorageBackend =
-    new PartyStorageBackendTemplate(PostgresQueryStrategy)
-
-  override val createPackageStorageBackend: PackageStorageBackend =
-    PackageStorageBackendTemplate
+  override def createPartyStorageBackend(ledgerEndCache: LedgerEndCache): PartyStorageBackend =
+    new PartyStorageBackendTemplate(PostgresQueryStrategy, ledgerEndCache)
 
   override val createDeduplicationStorageBackend: DeduplicationStorageBackend =
     PostgresDeduplicationStorageBackend
 
-  override val createCompletionStorageBackend: CompletionStorageBackend =
-    new CompletionStorageBackendTemplate(PostgresQueryStrategy)
+  override def createCompletionStorageBackend(
+      stringInterning: StringInterning
+  ): CompletionStorageBackend =
+    new CompletionStorageBackendTemplate(PostgresQueryStrategy, stringInterning)
 
-  override val createContractStorageBackend: ContractStorageBackend =
-    new ContractStorageBackendTemplate(PostgresQueryStrategy)
+  override def createContractStorageBackend(
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
+  ): ContractStorageBackend =
+    new ContractStorageBackendTemplate(PostgresQueryStrategy, ledgerEndCache, stringInterning)
 
-  override val createEventStorageBackend: EventStorageBackend =
-    PostgresEventStorageBackend
+  override def createEventStorageBackend(
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
+  ): EventStorageBackend =
+    new PostgresEventStorageBackend(ledgerEndCache, stringInterning)
 
   override val createDataSourceStorageBackend: DataSourceStorageBackend =
     PostgresDataSourceStorageBackend
@@ -66,12 +61,6 @@ object PostgresStorageBackendFactory extends StorageBackendFactory {
   override val createDBLockStorageBackend: DBLockStorageBackend =
     PostgresDBLockStorageBackend
 
-  override val createIntegrityStorageBackend: IntegrityStorageBackend =
-    IntegrityStorageBackendTemplate
-
   override val createResetStorageBackend: ResetStorageBackend =
     PostgresResetStorageBackend
-
-  override val createStringInterningStorageBackend: StringInterningStorageBackend =
-    StringInterningStorageBackendTemplate
 }

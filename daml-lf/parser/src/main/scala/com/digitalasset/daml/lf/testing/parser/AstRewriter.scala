@@ -158,6 +158,8 @@ private[daml] class AstRewriter(
         UpdateBlock(bindings.map(apply), apply(body))
       case UpdateCreate(templateId, arg) =>
         UpdateCreate(apply(templateId), apply(arg))
+      case UpdateCreateInterface(interface, arg) =>
+        UpdateCreateInterface(apply(interface), apply(arg))
       case UpdateFetch(templateId, contractId) =>
         UpdateFetch(apply(templateId), apply(contractId))
       case UpdateFetchInterface(interface, contractId) =>
@@ -327,10 +329,9 @@ private[daml] class AstRewriter(
 
   def apply(x: DefInterface): DefInterface =
     x match {
-      case DefInterface(param, virtualChoices, fixedChoices, methods, precond) =>
+      case DefInterface(param, fixedChoices, methods, precond) =>
         DefInterface(
           param,
-          virtualChoices.transform((_, v) => apply(v)),
           fixedChoices.transform((_, v) => apply(v)),
           methods.transform((_, v) => apply(v)),
           apply(precond),

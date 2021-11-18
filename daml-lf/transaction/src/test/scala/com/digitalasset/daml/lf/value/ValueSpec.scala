@@ -5,6 +5,7 @@ package com.daml.lf
 package value
 
 import data.{Bytes, ImmArray, Ref}
+
 import Value._
 import Ref.{Identifier, Name}
 import test.ValueGenerators.{cidV0Gen, coidGen, idGen, nameGen}
@@ -55,20 +56,6 @@ class ValueSpec
       value.cids shouldBe Set(cid)
     }
 
-  }
-
-  "Equal" - {
-    import com.daml.lf.value.test.ValueGenerators._
-    import org.scalacheck.Arbitrary
-    type T = VersionedValue
-    implicit val arbT: Arbitrary[T] =
-      Arbitrary(versionedValueGen)
-
-    "obeys Equal laws" in checkLaws(SzP.equal.laws[T])
-
-    "results preserve natural == results" in forAll { (a: T, b: T) =>
-      scalaz.Equal[T].equal(a, b) shouldBe (a == b)
-    }
   }
 
   "ContractId" - {

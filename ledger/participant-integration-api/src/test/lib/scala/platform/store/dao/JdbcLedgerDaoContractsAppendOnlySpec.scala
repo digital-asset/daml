@@ -26,18 +26,21 @@ private[dao] trait JdbcLedgerDaoContractsAppendOnlySpec extends LoneElement with
       (_, tx) <- store(singleCreate(create(_, signatories = Set(alice))))
       contractId = nonTransient(tx).loneElement
       _ <- store(singleNonConsumingExercise(contractId))
-      (_, eventSeqIdAtCreate) <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
+      ledgerEndAtCreate <- ledgerDao.lookupLedgerEnd()
       _ <- store(txArchiveContract(alice, (contractId, None)))
-      eventSeqIdAfterArchive <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
-      queryAfterCreate <- contractsReader.lookupContractState(contractId, eventSeqIdAtCreate)
+      ledgerEndAfterArchive <- ledgerDao.lookupLedgerEnd()
+      queryAfterCreate <- contractsReader.lookupContractState(
+        contractId,
+        ledgerEndAtCreate.lastEventSeqId,
+      )
       queryAfterArchive <- contractsReader.lookupContractState(
         contractId,
-        eventSeqIdAfterArchive._2,
+        ledgerEndAfterArchive.lastEventSeqId,
       )
     } yield {
       queryAfterCreate.value match {
         case LedgerDaoContractsReader.ActiveContract(contract, stakeholders, _) =>
-          contract shouldBe someVersionedContractInstance.copy(agreementText = "")
+          contract shouldBe someVersionedContractInstance.map(_.copy(agreementText = ""))
           stakeholders should contain theSameElementsAs Set(alice)
         case LedgerDaoContractsReader.ArchivedContract(_) =>
           fail("Contract should appear as active")
@@ -64,11 +67,11 @@ private[dao] trait JdbcLedgerDaoContractsAppendOnlySpec extends LoneElement with
       key = GlobalKey.assertBuild(someTemplateId, aTextValue)
       contractId = nonTransient(tx).loneElement
       _ <- store(singleNonConsumingExercise(contractId))
-      (_, eventSeqIdAtCreate) <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
+      ledgerEndAtCreate <- ledgerDao.lookupLedgerEnd()
       _ <- store(txArchiveContract(alice, (contractId, None)))
-      (_, eventSeqIdAfterArchive) <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
-      queryAfterCreate <- contractsReader.lookupKeyState(key, eventSeqIdAtCreate)
-      queryAfterArchive <- contractsReader.lookupKeyState(key, eventSeqIdAfterArchive)
+      ledgerEndAfterArchive <- ledgerDao.lookupLedgerEnd()
+      queryAfterCreate <- contractsReader.lookupKeyState(key, ledgerEndAtCreate.lastEventSeqId)
+      queryAfterArchive <- contractsReader.lookupKeyState(key, ledgerEndAfterArchive.lastEventSeqId)
     } yield {
       queryAfterCreate match {
         case LedgerDaoContractsReader.KeyAssigned(fetchedContractId, stakeholders) =>

@@ -6,10 +6,11 @@ package com.daml.grpc
 import com.google.protobuf.any.{Any => AnyProto}
 import com.google.protobuf.{Any => AnyJavaProto}
 import com.google.rpc.status.{Status => StatusProto}
-import com.google.rpc.{Status => StatusJavaProto}
+import com.google.rpc.{ErrorInfo, Status => StatusJavaProto}
 import io.grpc.Status.Code
 import io.grpc.{Metadata, Status}
 
+import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
 object GrpcStatus {
@@ -18,6 +19,18 @@ object GrpcStatus {
 
   def unapply(status: Status): Some[(Code, Description)] =
     Some((status.getCode, Option(status.getDescription)))
+
+  def buildStatus(
+      metadata: Map[String, String],
+      status: StatusJavaProto.Builder,
+  ): StatusJavaProto = {
+    import scala.jdk.CollectionConverters._
+    val details = mergeDetails(metadata, status)
+    status
+      .clearDetails()
+      .addAllDetails(details.asJava)
+      .build()
+  }
 
   /** As [[io.grpc.Status]] and [[com.google.rpc.status.Status]] aren't isomorphic i.e. the former one
     * doesn't contain details, this function takes an additional `metadata` argument to restore them.
@@ -66,6 +79,28 @@ object GrpcStatus {
 
   private def extractDetails(statusJavaProto: StatusJavaProto): Seq[AnyProto] =
     statusJavaProto.getDetailsList.asScala.map(detail => AnyProto.fromJavaProto(detail)).toSeq
+
+  private def mergeDetails(
+      metadata: Map[String, String],
+      status: StatusJavaProto.Builder,
+  ): mutable.Seq[AnyJavaProto] = {
+    import scala.jdk.CollectionConverters._
+    val previousDetails = status.getDetailsList.asScala
+    val newDetails = if (previousDetails.exists(_.is(classOf[ErrorInfo]))) {
+      previousDetails.map {
+        case detail if detail.is(classOf[ErrorInfo]) =>
+          val previousErrorInfo: ErrorInfo = detail.unpack(classOf[ErrorInfo])
+          val newErrorInfo = previousErrorInfo.toBuilder.putAllMetadata(metadata.asJava).build()
+          AnyJavaProto.pack(newErrorInfo)
+        case otherDetail => otherDetail
+      }
+    } else {
+      previousDetails :+ AnyJavaProto.pack(
+        ErrorInfo.newBuilder().putAllMetadata(metadata.asJava).build()
+      )
+    }
+    newDetails
+  }
 
   val OK = new SpecificGrpcStatus(Code.OK)
   val CANCELLED = new SpecificGrpcStatus(Code.CANCELLED)

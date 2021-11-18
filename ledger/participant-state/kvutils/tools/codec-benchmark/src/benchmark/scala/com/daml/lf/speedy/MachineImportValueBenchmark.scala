@@ -30,7 +30,7 @@ class MachineImportValueBenchmark extends BenchmarkWithLedgerExport {
   @Setup
   override def setup(): Unit = {
     super.setup()
-    decodedValues = submissions.values.map(_.mapValue(assertDecode(_).value)).toVector
+    decodedValues = submissions.values.map(_.mapValue(assertDecode(_).unversioned)).toVector
     machine = testingMachine(submissions.compiledPackages)
   }
 

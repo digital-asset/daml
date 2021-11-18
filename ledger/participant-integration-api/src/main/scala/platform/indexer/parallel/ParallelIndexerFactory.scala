@@ -9,7 +9,7 @@ import java.util.concurrent.Executors
 import akka.stream.{KillSwitch, Materializer}
 import com.daml.ledger.participant.state.v2.ReadService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.ha.{HaConfig, HaCoordinator, Handle, NoopHaCoordinator}
@@ -17,7 +17,12 @@ import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.indexer.Indexer
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
-import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend}
+import com.daml.platform.store.backend.{
+  DBLockStorageBackend,
+  DataSourceStorageBackend,
+  StringInterningStorageBackend,
+}
+import com.daml.platform.store.interning.StringInterningView
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.duration.FiniteDuration
@@ -39,6 +44,7 @@ object ParallelIndexerFactory {
       dataSourceStorageBackend: DataSourceStorageBackend,
       initializeParallelIngestion: InitializeParallelIngestion,
       parallelIndexerSubscription: ParallelIndexerSubscription[_],
+      stringInterningStorageBackend: StringInterningStorageBackend,
       mat: Materializer,
       readService: ReadService,
   )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] =
@@ -62,7 +68,14 @@ object ParallelIndexerFactory {
                   Executors.newFixedThreadPool(
                     1,
                     new ThreadFactoryBuilder().setNameFormat(s"ha-coordinator-%d").build,
-                  )
+                  ),
+                  throwable =>
+                    ContextualizedLogger
+                      .get(getClass)
+                      .error(
+                        "ExecutionContext has failed with an exception",
+                        throwable,
+                      ),
                 )
               )
             timer <- ResourceOwner.forTimer(() => new Timer)
@@ -101,8 +114,19 @@ object ParallelIndexerFactory {
               metrics = metrics,
             )
         ) { dbDispatcher =>
+          val stringInterningView = new StringInterningView(
+            loadPrefixedEntries = (fromExclusive, toInclusive) =>
+              implicit loggingContext =>
+                dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+                  stringInterningStorageBackend.loadStringInterningEntries(
+                    fromExclusive,
+                    toInclusive,
+                  )
+                }
+          )
           initializeParallelIngestion(
             dbDispatcher = dbDispatcher,
+            updatingStringInterningView = stringInterningView,
             readService = readService,
             ec = ec,
             mat = mat,
@@ -111,6 +135,7 @@ object ParallelIndexerFactory {
               inputMapperExecutor = inputMapperExecutor,
               batcherExecutor = batcherExecutor,
               dbDispatcher = dbDispatcher,
+              stringInterningView = stringInterningView,
               materializer = mat,
             )
           )

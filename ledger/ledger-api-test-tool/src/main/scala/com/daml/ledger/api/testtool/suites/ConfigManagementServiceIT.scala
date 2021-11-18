@@ -95,7 +95,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         ledger,
         expiredMRTFailure,
         Status.Code.ABORTED,
-        LedgerApiErrors.WriteErrors.RequestTimeOut,
+        LedgerApiErrors.RequestTimeOut,
         exceptionMessageSubstring = None,
       )
     }
@@ -141,7 +141,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        LedgerApiErrors.CommandValidation.InvalidArgument,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
         exceptionMessageSubstring = None,
       )
     }
@@ -191,7 +191,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
           ledger,
           failure,
           Status.Code.INVALID_ARGUMENT,
-          LedgerApiErrors.CommandValidation.InvalidArgument,
+          LedgerApiErrors.RequestValidation.InvalidArgument,
           Some("Mismatching configuration generation"),
         )
       }.recover { case _ =>
@@ -200,7 +200,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
           ledger,
           failure,
           Status.Code.ABORTED,
-          LedgerApiErrors.WriteErrors.ConfigurationEntryRejected,
+          LedgerApiErrors.AdminServices.ConfigurationEntryRejected,
           Some("Generation mismatch"),
         )
       } match {

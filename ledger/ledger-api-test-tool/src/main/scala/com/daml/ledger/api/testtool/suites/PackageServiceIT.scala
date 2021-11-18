@@ -59,7 +59,7 @@ final class PackageServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.NOT_FOUND,
-        LedgerApiErrors.ReadErrors.PackageNotFound,
+        LedgerApiErrors.RequestValidation.NotFound.Package,
         None,
       )
     }

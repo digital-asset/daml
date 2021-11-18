@@ -9,7 +9,6 @@ import com.daml.logging.LoggingContext
 
 @deprecated("deprecated.")
 @Resolution("Turn it off and on again.")
-@deprecated("deprecated.")
 @Explanation("Things happen.")
 case object DeprecatedError
     extends ErrorCode("DEPRECATED_ERROR", ErrorCategory.SystemInternalAssumptionViolated)(

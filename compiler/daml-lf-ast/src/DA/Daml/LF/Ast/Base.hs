@@ -654,6 +654,14 @@ data Update
     , creArg      :: !Expr
       -- ^ Argument for the contract template.
     }
+  -- | Create contract instance based on interface payload.
+  | UCreateInterface
+    { creInterface :: !(Qualified TypeConName)
+      -- ^ Interface type.
+    , creArg :: !Expr
+      -- ^ Payload expression.
+    }
+
   -- | Exercise choice on a contract given a contract ID.
   | UExercise
     { exeTemplate   :: !(Qualified TypeConName)
@@ -931,7 +939,6 @@ data DefInterface = DefInterface
   { intLocation :: !(Maybe SourceLoc)
   , intName :: !TypeConName
   , intParam :: !ExprVarName
-  , intVirtualChoices :: !(NM.NameMap InterfaceChoice)
   , intFixedChoices :: !(NM.NameMap TemplateChoice)
   , intMethods :: !(NM.NameMap InterfaceMethod)
   , intPrecondition :: !Expr
@@ -996,11 +1003,6 @@ data FeatureFlags = FeatureFlags
   -}
   }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
-
-defaultFeatureFlags :: FeatureFlags
-defaultFeatureFlags = FeatureFlags
-  { forbidPartyLiterals = False
-  }
 
 -- | Feature flags for DAML 1.2.
 daml12FeatureFlags :: FeatureFlags

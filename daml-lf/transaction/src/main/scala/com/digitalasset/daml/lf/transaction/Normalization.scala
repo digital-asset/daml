@@ -17,7 +17,7 @@ class Normalization {
     * - field names are dropped from Records
     * - values are normalized recursively
     * - all values embedded in transaction nodes are normalized
-    * - version-specific normalization is applied to the 'byKey' fields of 'NodeFetch' and 'NodeExercises'
+    * - version-specific normalization is applied to the 'byKey' fields of 'Node.Fetch' and 'Node.Exercises'
     *
     * We do not normalize the node-ids in the transaction here, but rather assume that
     * aspect of normalization has already been performed (by the engine, or by
@@ -28,7 +28,7 @@ class Normalization {
     * longer need this separate normalization pass.
     */
 
-  private type KWM = Node.KeyWithMaintainers[Val]
+  private type KWM = Node.KeyWithMaintainers
   private type VTX = VersionedTransaction
 
   def normalizeTx(vtx: VTX): VTX = {

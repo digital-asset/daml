@@ -8,10 +8,11 @@ package test
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.transaction.{
-  GenTransaction,
+  Transaction,
   Node,
   NodeId,
   TransactionVersion,
+  Versioned,
   VersionedTransaction,
 }
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -252,7 +253,7 @@ object ValueGenerators {
       value <- valueGen
       minVersion = TransactionBuilder.assertAssignVersion(value)
       version <- transactionVersionGen(minVersion)
-    } yield VersionedValue(version, value)
+    } yield Versioned(version, value)
 
   private[lf] val genMaybeEmptyParties: Gen[Set[Party]] = Gen.listOf(party).map(_.toSet)
 
@@ -271,9 +272,9 @@ object ValueGenerators {
       template <- idGen
       arg <- versionedValueGen
       agreement <- Arbitrary.arbitrary[String]
-    } yield Value.VersionedContractInstance(arg.version, template, arg.value, agreement)
+    } yield arg.map(Value.ContractInstance(template, _, agreement))
 
-  val keyWithMaintainersGen: Gen[Node.KeyWithMaintainers[Value]] = {
+  val keyWithMaintainersGen: Gen[Node.KeyWithMaintainers] = {
     for {
       key <- valueGen
       maintainers <- genNonEmptyParties
@@ -316,6 +317,7 @@ object ValueGenerators {
       signatories,
       stakeholders,
       key,
+      None, // TODO https://github.com/digital-asset/daml/issues/10915
       version,
     )
   }
@@ -343,6 +345,7 @@ object ValueGenerators {
       stakeholders,
       key,
       byKey,
+      None, // TODO https://github.com/digital-asset/daml/issues/10915
       version,
     )
   }
@@ -399,6 +402,7 @@ object ValueGenerators {
       exerciseResult,
       key,
       byKey,
+      None, // TODO https://github.com/digital-asset/daml/issues/10915
       version,
     )
   }
@@ -482,11 +486,11 @@ object ValueGenerators {
     *
     * This list is complete as of transaction version 5. -SC
     */
-  val malformedGenTransaction: Gen[GenTransaction] = {
+  val malformedGenTransaction: Gen[Transaction] = {
     for {
       nodes <- Gen.listOf(danglingRefGenNode)
       roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(NodeId(_)))
-    } yield GenTransaction(nodes.toMap, roots.to(ImmArray))
+    } yield Transaction(nodes.toMap, roots.to(ImmArray))
   }
 
   /*
@@ -500,7 +504,7 @@ object ValueGenerators {
    *
    */
 
-  val noDanglingRefGenTransaction: Gen[GenTransaction] = {
+  val noDanglingRefGenTransaction: Gen[Transaction] = {
 
     def nonDanglingRefNodeGen(
         maxDepth: Int,
@@ -554,7 +558,7 @@ object ValueGenerators {
     }
 
     nonDanglingRefNodeGen(3, NodeId(0)).map { case (nodeIds, nodes) =>
-      GenTransaction(nodes, nodeIds)
+      Transaction(nodes, nodeIds)
     }
   }
 

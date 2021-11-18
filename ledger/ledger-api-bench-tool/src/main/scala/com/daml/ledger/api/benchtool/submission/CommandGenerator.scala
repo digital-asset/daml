@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.benchtool.submission
 
+import com.daml.ledger.api.benchtool.config.WorkflowConfig.SubmissionConfig
 import com.daml.ledger.api.v1.commands.Command
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Foo._
@@ -13,18 +14,18 @@ import scala.util.{Failure, Success, Try}
 
 final class CommandGenerator(
     randomnessProvider: RandomnessProvider,
-    descriptor: ContractSetDescriptor,
+    config: SubmissionConfig,
     signatory: Primitive.Party,
     observers: List[Primitive.Party],
 ) {
-  private val distribution = new Distribution(descriptor.instanceDistribution.map(_.weight))
-  private val descriptionMapping: Map[Int, ContractSetDescriptor.ContractDescription] =
-    descriptor.instanceDistribution.zipWithIndex
+  private val distribution = new Distribution(config.instanceDistribution.map(_.weight))
+  private val descriptionMapping: Map[Int, SubmissionConfig.ContractDescription] =
+    config.instanceDistribution.zipWithIndex
       .map(_.swap)
       .toMap
   private val observersWithIndices: List[(Primitive.Party, Int)] = observers.zipWithIndex
 
-  def next(): Try[Primitive.Party => Command] =
+  def next(): Try[Command] =
     (for {
       (description, observers) <- Try((pickDescription(), pickObservers()))
       payload <- Try(randomPayload(description.payloadSizeBytes))
@@ -35,7 +36,7 @@ final class CommandGenerator(
         payload = payload,
         archive = archive,
       )
-    } yield command).recoverWith { case NonFatal(ex) =>
+    } yield command(signatory)).recoverWith { case NonFatal(ex) =>
       Failure(
         CommandGenerator.CommandGeneratorError(
           msg = s"Command generation failed. Details: ${ex.getLocalizedMessage}",
@@ -44,7 +45,7 @@ final class CommandGenerator(
       )
     }
 
-  private def pickDescription(): ContractSetDescriptor.ContractDescription =
+  private def pickDescription(): SubmissionConfig.ContractDescription =
     descriptionMapping(distribution.index(randomnessProvider.randomDouble()))
 
   private def pickObservers(): List[Primitive.Party] =
@@ -52,7 +53,7 @@ final class CommandGenerator(
       .filter { case (_, index) => isObserverUsed(index) }
       .map(_._1)
 
-  private def pickArchive(description: ContractSetDescriptor.ContractDescription): Boolean =
+  private def pickArchive(description: SubmissionConfig.ContractDescription): Boolean =
     randomnessProvider.randomDouble() < description.archiveChance
 
   private def isObserverUsed(i: Int): Boolean =

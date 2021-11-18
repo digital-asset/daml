@@ -8,33 +8,16 @@ load(
     "da_scala_test_suite",
 )
 
-da_scala_binary(
-    name = "export-error-codes-json-app",
-    srcs = [],
-    main_class = "com.daml.error.generator.Main",
-    resources = glob(["src/main/resources/**/*"]),
-    visibility = ["//visibility:public"],
-    deps = [
-        "//ledger/error",
-        "//ledger/participant-integration-api",
-        "//ledger/participant-state/kvutils",
-    ],
-)
-
 da_scala_library(
     name = "error",
     srcs = glob(["src/main/scala/**/*.scala"]),
     scala_deps = [
-        "@maven//:org_typelevel_cats_core",
         "@maven//:io_spray_spray_json",
-        "@maven//:io_circe_circe_core",
     ],
     tags = ["maven_coordinates=com.daml:error:__VERSION__"],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     visibility = ["//visibility:public"],
     deps = [
+        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/language",
@@ -49,7 +32,6 @@ da_scala_library(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_protobuf",
-        "@maven//:org_reflections_reflections",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -59,7 +41,7 @@ da_scala_library(
     srcs = glob(["src/test/utils/**/*.scala"]),
     scala_deps = [],
     tags = ["maven_coordinates=com.daml:error-test-package:__VERSION__"],
-    visibility = ["//visibility:private"],
+    visibility = ["//:__subpackages__"],
     deps = [
         ":error",
         "//libs-scala/contextualized-logging",
@@ -80,9 +62,6 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
     ],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     deps = [
         ":error",
         ":error-test-utils",

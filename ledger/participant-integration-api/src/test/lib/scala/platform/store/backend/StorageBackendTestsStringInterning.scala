@@ -13,8 +13,6 @@ private[backend] trait StorageBackendTestsStringInterning
     with StorageBackendSpec {
   this: AsyncFlatSpec =>
 
-  private val stringInterningStorageBackend = backendFactory.createStringInterningStorageBackend
-
   behavior of "StorageBackend (StringInterning)"
 
   it should "store and load string-interning entries" in {
@@ -27,18 +25,18 @@ private[backend] trait StorageBackendTestsStringInterning
 
     for {
       interningIdsBeforeBegin <- executeSql(
-        stringInterningStorageBackend.loadStringInterningEntries(0, 5)
+        backend.stringInterning.loadStringInterningEntries(0, 5)
       )
       _ <- executeSql(ingest(dtos, _))
-      interningIdsFull <- executeSql(stringInterningStorageBackend.loadStringInterningEntries(0, 5))
+      interningIdsFull <- executeSql(backend.stringInterning.loadStringInterningEntries(0, 5))
       interningIdsOverFetch <- executeSql(
-        stringInterningStorageBackend.loadStringInterningEntries(0, 10)
+        backend.stringInterning.loadStringInterningEntries(0, 10)
       )
       interningIdsEmpty <- executeSql(
-        stringInterningStorageBackend.loadStringInterningEntries(5, 10)
+        backend.stringInterning.loadStringInterningEntries(5, 10)
       )
       interningIdsSubset <- executeSql(
-        stringInterningStorageBackend.loadStringInterningEntries(3, 10)
+        backend.stringInterning.loadStringInterningEntries(3, 10)
       )
     } yield {
       val expectedFullList = List(

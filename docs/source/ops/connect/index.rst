@@ -10,5 +10,5 @@ Operating Daml Connect
 .. toctree::
    :maxdepth: 3
 
-   logs-and-metrics
+   helm
    auth0

@@ -111,11 +111,6 @@ da_scala_test(
         silencer_plugin,
     ],
     scalacopts = lf_scalacopts,
-    versioned_scala_deps = {
-        "2.12": [
-            "@maven//:org_scalaz_scalaz_core",
-        ],
-    },
     deps = [
         ":transaction",
         "//daml-lf/data",

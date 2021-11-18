@@ -1,0 +1,541 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+---
+transactionNotFound:
+  change:
+    - NOT_FOUND
+    - NOT_FOUND
+  changeExplanation: ""
+  selfServiceErrorCodeId: TRANSACTION_NOT_FOUND
+  services:
+    TransactionService:
+      - getTransactionByEventId
+      - getTransactionById
+
+packageNotFound:
+  change:
+    - NOT_FOUND
+    - NOT_FOUND
+  changeExplanation: ""
+  selfServiceErrorCodeId: PACKAGE_NOT_FOUND
+  services:
+    PackageService:
+      - getPackage
+
+versionServiceInternalError:
+  change:
+    - INTERNAL
+    - INTERNAL
+  changeExplanation: ""
+  selfServiceErrorCodeId: VERSION_SERVICE_INTERNAL_ERROR
+  services:
+    VersionService:
+      - getLedgerVersion
+
+duplicateCommandException:
+  change:
+    - ALREADY_EXISTS
+    - ALREADY_EXISTS
+  changeExplanation: ""
+  selfServiceErrorCodeId: DUPLICATE_COMMAND
+  services:
+    SubmissionService:
+      - submit
+
+ledgerIdMismatch:
+  change:
+    - NOT_FOUND
+    - NOT_FOUND
+  changeExplanation: ""
+  selfServiceErrorCodeId: LEDGER_ID_MISMATCH
+  services:
+    SandboxResetService:
+      - reset
+    TimeService:
+      - getTimeSource
+      - setTime
+    CommandSubmissionService:
+      - submit
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait
+    CommandCompletionService:
+      - completionStream
+      - completionEnd
+    LedgerConfigurationService:
+      - getLedgerConfiguration
+    PackageService:
+      - listPackages
+      - getPackage
+      - getPackageStatus
+    TransactionService:
+      - getTransactions
+      - getTransactionTreesSource
+      - getLedgerEnd
+      - getTransactionById
+      - getFlatTransactionById
+      - getFlatTransactionByEventId
+      - getTransactionByEventId
+    ActiveContractsService:
+      - getActiveContracts
+
+missingField:
+  change:
+    - INVALID_ARGUMENT
+    - INVALID_ARGUMENT
+  changeExplanation: ""
+  selfServiceErrorCodeId: MISSING_FIELD
+  services:
+    CommandSubmissionService:
+      - submit
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait
+    CommandCompletionService:
+      - completionStream
+    TransactionService:
+      - getFlatTransactionById
+      - getFlatTransactionByEventId
+      - getTransactionById
+      - getTransactions
+      - getTransactionByEventId
+      - getTransactionTrees
+      - getTransactions
+    ActiveContractsService:
+      - getActiveContracts
+    ConfigManagementService:
+      - setTimeModel
+    TimeService:
+      - setTime
+
+invalidArgument:
+  change:
+    - INVALID_ARGUMENT
+    - INVALID_ARGUMENT
+  changeExplanation: ""
+  selfServiceErrorCodeId: INVALID_ARGUMENT
+  services:
+    CommandSubmissionService:
+      - submit
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait
+    CommandCompletionService:
+      - completionStream
+    TransactionService:
+      - getTransactionTrees
+      - getTransactions
+      - getTransactionById
+      - getFlatTransactionById
+      - getFlatTransactionByEventId
+      - getTransactionByEventId
+    ActiveContractsService:
+      - getActiveContracts
+    ConfigManagementService:
+      - setTimeModel
+    PackageManagementService:
+      - uploadDarFile
+    ParticipantPruningService:
+      - prune
+    PartyManagementService:
+      - allocateParty
+    TimeService:
+      - setTime
+
+invalidArgumentWasNotFound:
+  change:
+    - NOT_FOUND
+    - INVALID_ARGUMENT
+  changeExplanation: "INVALID_ARGUMENT can now be returned when the received request contains invalid values."
+  selfServiceErrorCodeId: INVALID_ARGUMENT
+  services:
+    TransactionService:
+      - getTransactionByEventId
+      - getFlatTransactionByEventId
+    GrpcHealthService:
+      - check
+      - watch
+
+offsetOutOfRange_was_invalidArgument:
+  change:
+    - INVALID_ARGUMENT
+    - FAILED_PRECONDITION
+  changeExplanation: "FAILED_PRECONDITION can now be returned when the supplied offset was out of range."
+  selfServiceErrorCodeId: OFFSET_OUT_OF_RANGE
+  services:
+    TransactionService:
+      - getTransactionTrees
+      - getTransactions
+
+offsetOutOfRange_was_invalidArgument::pruning:
+  change:
+    - INVALID_ARGUMENT
+    - FAILED_PRECONDITION
+  changeExplanation: "FAILED_PRECONDITION can now be returned when the supplied pruning offset is not before the ledger end."
+  selfServiceErrorCodeId: OFFSET_OUT_OF_RANGE
+  services:
+    ParticipantPruningService:
+      - prune
+
+offsetAfterLedgerEnd:
+  change:
+    - OUT_OF_RANGE
+    - OUT_OF_RANGE
+  changeExplanation: ""
+  selfServiceErrorCodeId: OFFSET_AFTER_LEDGER_END
+  services:
+    CommandCompletionService:
+      - completionStream
+    TransactionService:
+      - getTransactions
+      - getTransactionTrees
+
+nonHexOffset:
+  change:
+    - INVALID_ARGUMENT
+    - INVALID_ARGUMENT
+  changeExplanation: ""
+  selfServiceErrorCodeId: NON_HEXADECIMAL_OFFSET
+  services:
+    ParticipantPruningService:
+      - prune
+
+invalidField:
+  change:
+    - INVALID_ARGUMENT
+    - INVALID_ARGUMENT
+  changeExplanation: ""
+  selfServiceErrorCodeId: INVALID_FIELD
+  services:
+    CommandCompletionService:
+      - completionStream
+      - submit
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait
+    ActiveContractsService:
+      - getActiveContracts
+    TransactionService:
+      - getTransactions
+      - getFlatTransactionByEventId
+      - getTransactionByEventId
+      - getTransactionTrees
+    CommandSubmissionService:
+      - submit
+
+isTimeoutUnknown_wasAborted:
+  change:
+    - ABORTED
+    - DEADLINE_EXCEEDED
+  changeExplanation: "DEADLINE_EXCEEDED can now be returned when a time out was reached."
+  selfServiceErrorCodeId: REQUEST_TIME_OUT
+  services:
+    ConfigManagementService:
+      - setTimeModel
+    PackageManagementService:
+      - uploadDarFile
+    PartyManagementService:
+      - allocateParty
+
+packageUploadRejected:
+  change:
+    - INVALID_ARGUMENT
+    - FAILED_PRECONDITION
+  changeExplanation: "FAILED_PRECONDITION can now be returned when a package upload was rejected."
+  selfServiceErrorCodeId: PACKAGE_UPLOAD_REJECTED
+  services:
+    PackageManagementService:
+      - uploadDarFile
+
+configurationEntryRejected:
+  change:
+    - ABORTED
+    - FAILED_PRECONDITION
+  changeExplanation: "FAILED_PRECONDITION can now be returned when a configuration update was rejected."
+  selfServiceErrorCodeId: CONFIGURATION_ENTRY_REJECTED
+  services:
+    ConfigManagementService:
+      - setTimeModel
+
+permissionDenied:
+  change:
+    - PERMISSION_DENIED
+    - PERMISSION_DENIED
+  changeExplanation: ""
+  selfServiceErrorCodeId: PERMISSION_DENIED
+  services:
+    ALL:
+      - Assuming it for all endpoints
+
+unauthenticatedMissingJwtToken:
+  change:
+    - UNAUTHENTICATED
+    - UNAUTHENTICATED
+  changeExplanation: ""
+  selfServiceErrorCodeId: UNAUTHENTICATED
+  services:
+    ALL:
+      - Assuming it for all endpoints
+
+internalAuthenticationError:
+  change:
+    - INTERNAL
+    - INTERNAL
+  changeExplanation: ""
+  selfServiceErrorCodeId: INTERNAL_AUTHORIZATION_ERROR
+  services:
+    ALL:
+      - Assuming it for all endpoints
+
+missingLedgerConfig:
+  change:
+    - UNAVAILABLE
+    - NOT_FOUND
+  changeExplanation: "NOT_FOUND can now be returned when a ledger configuration was not found."
+  selfServiceErrorCodeId: LEDGER_CONFIGURATION_NOT_FOUND
+  services:
+    ConfigManagementService:
+      - setTimeModel
+    SubmissionService:
+      - submit
+    CommandSubmissionService:
+      - submit
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait
+
+missingLedgerConfigUponRequest:
+  change:
+    - NOT_FOUND
+    - NOT_FOUND
+  changeExplanation: ""
+  selfServiceErrorCodeId: LEDGER_CONFIGURATION_NOT_FOUND
+  services:
+    ConfigManagmentService:
+      - getTimeModel
+
+participantPrunedDataAccessed:
+  change:
+    - NOT_FOUND
+    - FAILED_PRECONDITION
+  changeExplanation: "FAILED_PRECONDITION can now be returned when attempting to access the data that has already been pruned."
+  selfServiceErrorCodeId: PARTICIPANT_PRUNED_DATA_ACCESSED
+  services:
+    CommandCompletionService:
+      - completionStream
+    TransactionService:
+      - getTransactions
+      - getTransactionTrees
+    ActiveContractsService:
+      - getActiveContracts
+
+serviceNotRunning:
+  change:
+    - UNAVAILABLE
+    - UNAVAILABLE
+  changeExplanation: ""
+  selfServiceErrorCodeId: SERVICE_NOT_RUNNING
+  services:
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait
+    LedgerIdentityService:
+      - getLedgerIdentity
+
+trackerFailure:
+  change:
+    - INTERNAL
+    - INTERNAL
+  changeExplanation: ""
+  selfServiceErrorCodeId: LEDGER_API_INTERNAL_ERROR
+  services:
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait
+
+ApiSubmissionService.failedOnCommandExecution#LedgerTime:
+  change:
+    - ABORTED
+    - ABORTED
+  changeExplanation: ""
+  selfServiceErrorCodeId: FAILED_TO_DETERMINE_LEDGER_TIME
+  services:
+    SubmissionService:
+      - submit
+
+ApiSubmissionService.failedOnCommandExecution#Interpretation::DamlException::DuplicateContractKey:
+  change:
+    - ABORTED
+    - ALREADY_EXISTS
+  changeExplanation: "ALREADY_EXISTS can now be returned when there was a duplicate contract key during interpretation."
+  selfServiceErrorCodeId: DUPLICATE_CONTRACT_KEY_DURING_INTERPRETATION
+  services:
+    SubmissionService:
+      - submit
+
+ApiSubmissionService.failedOnCommandExecution#Interpretation::DamlException::ContractNotFound:
+  change:
+    - ABORTED
+    - NOT_FOUND
+  changeExplanation: "NOT_FOUND can now be returned when contract key was not found during interpretation."
+  selfServiceErrorCodeId: CONTRACT_NOT_FOUND
+  services:
+    SubmissionService:
+      - submit
+
+ApiSubmissionService.failedOnCommandExecution#Interpretation::Validation::ReplayMismatch:
+  change:
+    - ABORTED
+    - INTERNAL
+  changeExplanation: "INTERNAL can now be returned when validation fails on a mismatch during relay of the submitted transaction."
+  selfServiceErrorCodeId: LEDGER_API_INTERNAL_ERROR
+  services:
+    SubmissionService:
+      - submit
+
+ApiSubmissionService.failedOnCommandExecution#Package.PackageValidationFailed:
+  change:
+    - INVALID_ARGUMENT
+    - UNKNOWN
+  changeExplanation: "UNKNOWN can now be returned when package validation fails."
+  selfServiceErrorCodeId: PACKAGE_VALIDATION_FAILED
+  services:
+    SubmissionService:
+      - submit
+
+ApiSubmissionService.failedOnCommandExecution#Package.MissingPackage:
+  change:
+    - INVALID_ARGUMENT
+    - NOT_FOUND
+  changeExplanation: "NOT_FOUND can now be returned when a Daml transaction was referring to a package which was not known to the participant."
+  selfServiceErrorCodeId: MISSING_PACKAGE
+  services:
+    SubmissionService:
+      - submit
+
+ApiSubmissionService.failedOnCommandExecution#Interpretation.ContractKeyNotFound:
+  change:
+    - INVALID_ARGUMENT
+    - NOT_FOUND
+  changeExplanation: "NOT_FOUND can now be returned when a Daml interpreter can not resolve a contract key to an active contract."
+  selfServiceErrorCodeId: CONTRACT_KEY_NOT_FOUND
+  services:
+    SubmissionService:
+      - submit
+
+ApiSubmissionService.failedOnCommandExecution#Interpretation.ContractNotActive:
+  change:
+    - INVALID_ARGUMENT
+    - NOT_FOUND
+  changeExplanation: "NOT_FOUND can now be returned when an exercise or fetch happens on a transaction-locally consumed contract."
+  selfServiceErrorCodeId: CONTRACT_NOT_ACTIVE
+  services:
+    SubmissionService:
+      - submit
+
+ApiSubmissionService.failedOnCommandExecution#{Package.AllowedLanguageVersion, non Internal Preprocessing errors, Interpretation.FailedAuthorization, other errors as long as message contains 'requires authorizers'}:
+  change:
+    - INVALID_ARGUMENT
+    - INVALID_ARGUMENT
+  changeExplanation: ""
+  selfServiceErrorCodeId: ALLOWED_LANGUAGE_VERSIONS, COMMAND_PREPROCESSING_FAILED, DAML_AUTHORIZATION_ERROR
+  services:
+    SubmissionService:
+      - submit
+
+ApiSubmissionService.failedOnCommandExecution#Interpretation::{CreateEmptyContractKeyMaintainers, FetchEmptyContractKeyMaintainers, WronglyTypedContract, NonComparableValues, ContractIdInContractKey, ValueExceedsMaxNesting, ContractIdComparability}:
+  change:
+    - INVALID_ARGUMENT
+    - INVALID_ARGUMENT
+  changeExplanation: ""
+  selfServiceErrorCodeId: DAML_INTERPRETER_INVALID_ARGUMENT
+  services:
+    SubmissionService:
+      - submit
+
+ApiSubmissionService.failedOnCommandExecution#Interpretation::{LocalContractKeyNotVisible, UnhandledException, UserError, TemplatePreconditionViolated}:
+  change:
+    - INVALID_ARGUMENT
+    - FAILED_PRECONDITION
+  changeExplanation: "FAILED_PRECONDITION can now be returned when a Daml transaction fails during interpretation."
+  selfServiceErrorCodeId: DAML_INTERPRETATION_ERROR
+  services:
+    SubmissionService:
+      - submit
+
+ApiSubmissionService.failedOnCommandExecution#{Package.Internal, Package.SelfConsistency, Preprocessing.Internal, Interpretation.Internal}:
+  change:
+    - INVALID_ARGUMENT
+    - INTERNAL
+  changeExplanation: "INTERNAL can now be returned in case of internal errors."
+  selfServiceErrorCodeId: LEDGER_API_INTERNAL_ERROR
+  services:
+    SubmissionService:
+      - submit
+
+failedToEnqueueCommandSubmission:
+  change:
+    - ABORTED
+    - INTERNAL
+  changeExplanation: "INTERNAL is not returned on Command Service submissions on unexpected errors."
+  selfServiceErrorCodeId: LEDGER_API_INTERNAL_ERROR
+  services:
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait
+
+commandServiceIngressBufferFull:
+  change:
+    - RESOURCE_EXHAUSTED
+    - ABORTED
+  changeExplanation: "ABORTED is now returned on Command Service submissions on backpressure."
+  selfServiceErrorCodeId: PARTICIPANT_BACKPRESSURE
+  services:
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait
+
+commandSubmissionQueueClosed:
+  change:
+    - ABORTED
+    - UNAVAILABLE
+  changeExplanation: "UNAVAILABLE is now returned on Command Service submissions on backpressure."
+  selfServiceErrorCodeId: SERVICE_NOT_RUNNING
+  services:
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait
+
+timedOutOnAwaitingForCommandCompletion:
+  change:
+    - ABORTED
+    - DEADLINE_EXCEEDED
+  changeExplanation: "DEADLINE_EXCEEDED is now returned on Command Service submissions timeouts."
+  selfServiceErrorCodeId: REQUEST_TIME_OUT
+  services:
+    CommandService:
+      - submitAndWaitForTransactionTree
+      - submitAndWaitForTransaction
+      - submitAndWaitForTransactionId
+      - submitAndWait

@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.platform.store.appendonlydao
 
-import java.sql.Connection
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
@@ -20,7 +18,6 @@ import com.daml.ledger.participant.state.index.v2.{
   PackageDetails,
 }
 import com.daml.ledger.participant.state.{v2 => state}
-import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.ArchiveParser
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -30,28 +27,30 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.configuration.ServerRole
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.events._
+import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{
   DeduplicationStorageBackend,
   ParameterStorageBackend,
   ReadStorageBackend,
   ResetStorageBackend,
   StorageBackendFactory,
-  UpdateToDbDto,
 }
-import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
   PartyLedgerEntry,
 }
+import com.daml.platform.store.interning.StringInterning
+import java.sql.Connection
 
-import scala.concurrent.duration._
+import akka.stream.Materializer
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -72,6 +71,7 @@ private class JdbcLedgerDao(
     deduplicationStorageBackend: DeduplicationStorageBackend,
     resetStorageBackend: ResetStorageBackend,
     errorFactories: ErrorFactories,
+    materializer: Materializer,
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -96,22 +96,13 @@ private class JdbcLedgerDao(
 
   /** Defaults to Offset.begin if ledger_end is unset
     */
-  override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset] =
+  override def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[LedgerEnd] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.getLedgerEnd)(
-        parameterStorageBackend.ledgerEndOrBeforeBegin(_).lastOffset
+        parameterStorageBackend.ledgerEndOrBeforeBegin
       )
 
   case class InvalidLedgerEnd(msg: String) extends RuntimeException(msg)
-
-  override def lookupLedgerEndOffsetAndSequentialId()(implicit
-      loggingContext: LoggingContext
-  ): Future[(Offset, Long)] =
-    dbDispatcher
-      .executeSql(metrics.daml.index.db.getLedgerEndOffsetAndSequentialId) { connection =>
-        val end = parameterStorageBackend.ledgerEndOrBeforeBegin(connection)
-        end.lastOffset -> end.lastEventSeqId
-      }
 
   override def lookupInitialLedgerEnd()(implicit
       loggingContext: LoggingContext
@@ -383,7 +374,9 @@ private class JdbcLedgerDao(
                     recordTime = recordTime,
                     completionInfo = state
                       .CompletionInfo(actAs, applicationId, commandId, None, submissionId),
-                    reasonTemplate = reason.toParticipantStateRejectionReason,
+                    reasonTemplate = reason.toParticipantStateRejectionReason(errorFactories)(
+                      new DamlContextualizedErrorLogger(logger, loggingContext, submissionId)
+                    ),
                   )
                 ),
               )
@@ -606,7 +599,7 @@ private class JdbcLedgerDao(
             conn,
           )
         ) {
-          throw errorFactories.offsetOutOfRange_was_invalidArgument(None)(
+          throw errorFactories.offsetOutOfRange(None)(
             "Pruning offset for all divulged contracts needs to be after the migration offset"
           )(new DamlContextualizedErrorLogger(logger, loggingContext, None))
         }
@@ -664,6 +657,17 @@ private class JdbcLedgerDao(
       eventProcessingParallelism = eventsProcessingParallelism,
       metrics = metrics,
       lfValueTranslation = translation,
+      acsReader = new FilterTableACSReader(
+        dispatcher = dbDispatcher,
+        queryNonPruned = queryNonPruned,
+        eventStorageBackend = readStorageBackend.eventStorageBackend,
+        pageSize = eventsPageSize,
+        idPageSize = eventsPageSize * 20,
+        idFetchingParallelism = 2,
+        acsFetchingparallelism = 2,
+        metrics = metrics,
+        materializer = materializer,
+      ),
     )(
       servicesExecutionContext
     )
@@ -738,7 +742,13 @@ private class JdbcLedgerDao(
                 state.Update.CommandRejected(
                   recordTime = recordTime,
                   completionInfo = info,
-                  reasonTemplate = reason.toStateV2RejectionReason,
+                  reasonTemplate = reason.toStateV2RejectionReason(errorFactories)(
+                    new DamlContextualizedErrorLogger(
+                      logger,
+                      loggingContext,
+                      info.submissionId,
+                    )
+                  ),
                 )
               )
           },
@@ -759,11 +769,8 @@ private[platform] object JdbcLedgerDao {
       "transactionId" -> id
   }
 
-  def readOwner(
-      serverRole: ServerRole,
-      jdbcUrl: String,
-      connectionPoolSize: Int,
-      connectionTimeout: FiniteDuration,
+  def read(
+      dbDispatcher: DbDispatcher,
       eventsPageSize: Int,
       eventsProcessingParallelism: Int,
       servicesExecutionContext: ExecutionContext,
@@ -772,181 +779,112 @@ private[platform] object JdbcLedgerDao {
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
       errorFactories: ErrorFactories,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerReadDao] =
-    owner(
-      serverRole,
-      jdbcUrl,
-      connectionPoolSize,
-      connectionTimeout,
-      eventsPageSize,
-      eventsProcessingParallelism,
-      validate = false,
-      servicesExecutionContext,
-      metrics,
-      lfValueTranslationCache,
-      enricher = enricher,
-      participantId = participantId,
-      sequentialWriteDao = NoopSequentialWriteDao,
-      errorFactories = errorFactories,
-    ).map(new MeteredLedgerReadDao(_, metrics))
-
-  def writeOwner(
-      serverRole: ServerRole,
-      jdbcUrl: String,
-      connectionPoolSize: Int,
-      connectionTimeout: FiniteDuration,
-      eventsPageSize: Int,
-      eventsProcessingParallelism: Int,
-      servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslationCache.Cache,
-      enricher: Option[ValueEnricher],
-      participantId: Ref.ParticipantId,
-      ledgerEndCache: MutableLedgerEndCache,
-      errorFactories: ErrorFactories,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
-    val dbType = DbType.jdbcType(jdbcUrl)
-    owner(
-      serverRole,
-      jdbcUrl,
-      dbType.maxSupportedWriteConnections(connectionPoolSize),
-      connectionTimeout,
-      eventsPageSize,
-      eventsProcessingParallelism,
-      validate = false,
-      servicesExecutionContext,
-      metrics,
-      lfValueTranslationCache,
-      enricher = enricher,
-      participantId = participantId,
-      sequentialWriteDao = sequentialWriteDao(
-        participantId,
-        lfValueTranslationCache,
+      storageBackendFactory: StorageBackendFactory,
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
+      materializer: Materializer,
+  ): LedgerReadDao =
+    new MeteredLedgerReadDao(
+      new JdbcLedgerDao(
+        dbDispatcher,
+        servicesExecutionContext,
+        eventsPageSize,
+        eventsProcessingParallelism,
+        false,
         metrics,
-        CompressionStrategy.none(metrics),
-        DbType.jdbcType(jdbcUrl),
-        ledgerEndCache,
-      ),
-      errorFactories = errorFactories,
-    ).map(new MeteredLedgerDao(_, metrics))
-  }
-
-  def validatingWriteOwner(
-      serverRole: ServerRole,
-      jdbcUrl: String,
-      connectionPoolSize: Int,
-      connectionTimeout: FiniteDuration,
-      eventsPageSize: Int,
-      eventsProcessingParallelism: Int,
-      servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslationCache.Cache,
-      validatePartyAllocation: Boolean = false,
-      enricher: Option[ValueEnricher],
-      participantId: Ref.ParticipantId,
-      compressionStrategy: CompressionStrategy,
-      ledgerEndCache: MutableLedgerEndCache,
-      errorFactories: ErrorFactories,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
-    val dbType = DbType.jdbcType(jdbcUrl)
-    owner(
-      serverRole,
-      jdbcUrl,
-      dbType.maxSupportedWriteConnections(connectionPoolSize),
-      connectionTimeout,
-      eventsPageSize,
-      eventsProcessingParallelism,
-      validate = true,
-      servicesExecutionContext,
-      metrics,
-      lfValueTranslationCache,
-      validatePartyAllocation,
-      enricher = enricher,
-      participantId = participantId,
-      sequentialWriteDao = sequentialWriteDao(
-        participantId,
         lfValueTranslationCache,
-        metrics,
-        compressionStrategy,
-        dbType,
-        ledgerEndCache,
+        false,
+        enricher,
+        SequentialWriteDao.noop,
+        participantId,
+        storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
+        storageBackendFactory.createParameterStorageBackend,
+        storageBackendFactory.createDeduplicationStorageBackend,
+        storageBackendFactory.createResetStorageBackend,
+        errorFactories,
+        materializer = materializer,
       ),
-      errorFactories = errorFactories,
-    ).map(new MeteredLedgerDao(_, metrics))
-  }
-
-  private def sequentialWriteDao(
-      participantId: Ref.ParticipantId,
-      lfValueTranslationCache: LfValueTranslationCache.Cache,
-      metrics: Metrics,
-      compressionStrategy: CompressionStrategy,
-      dbType: DbType,
-      ledgerEndCache: MutableLedgerEndCache,
-  ): SequentialWriteDao = {
-    val factory = StorageBackendFactory.of(dbType)
-    SequentialWriteDaoImpl(
-      ingestionStorageBackend = factory.createIngestionStorageBackend,
-      parameterStorageBackend = factory.createParameterStorageBackend,
-      updateToDbDtos = UpdateToDbDto(
-        participantId = participantId,
-        translation = new LfValueTranslation(
-          cache = lfValueTranslationCache,
-          metrics = metrics,
-          enricherO = None,
-          loadPackage = (_, _) => Future.successful(None),
-        ),
-        compressionStrategy = compressionStrategy,
-      ),
-      ledgerEndCache = ledgerEndCache,
+      metrics,
     )
-  }
 
-  private def owner(
-      serverRole: ServerRole,
-      jdbcUrl: String,
-      connectionPoolSize: Int,
-      connectionTimeout: FiniteDuration,
-      eventsPageSize: Int,
-      eventsProcessingParallelism: Int,
-      validate: Boolean,
-      servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslationCache.Cache,
-      validatePartyAllocation: Boolean = false,
-      enricher: Option[ValueEnricher],
-      participantId: Ref.ParticipantId,
+  def write(
+      dbDispatcher: DbDispatcher,
       sequentialWriteDao: SequentialWriteDao,
+      eventsPageSize: Int,
+      eventsProcessingParallelism: Int,
+      servicesExecutionContext: ExecutionContext,
+      metrics: Metrics,
+      lfValueTranslationCache: LfValueTranslationCache.Cache,
+      enricher: Option[ValueEnricher],
+      participantId: Ref.ParticipantId,
       errorFactories: ErrorFactories,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
-    val dbType = DbType.jdbcType(jdbcUrl)
-    val factory = StorageBackendFactory.of(dbType)
-    for {
-      dbDispatcher <- DbDispatcher.owner(
-        factory.createDataSourceStorageBackend.createDataSource(jdbcUrl),
-        serverRole,
-        connectionPoolSize,
-        connectionTimeout,
+      storageBackendFactory: StorageBackendFactory,
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
+      materializer: Materializer,
+  ): LedgerDao =
+    new MeteredLedgerDao(
+      new JdbcLedgerDao(
+        dbDispatcher,
+        servicesExecutionContext,
+        eventsPageSize,
+        eventsProcessingParallelism,
+        false,
         metrics,
-      )
-    } yield new JdbcLedgerDao(
-      dbDispatcher,
-      servicesExecutionContext,
-      eventsPageSize,
-      eventsProcessingParallelism,
-      validate,
+        lfValueTranslationCache,
+        false,
+        enricher,
+        sequentialWriteDao,
+        participantId,
+        storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
+        storageBackendFactory.createParameterStorageBackend,
+        storageBackendFactory.createDeduplicationStorageBackend,
+        storageBackendFactory.createResetStorageBackend,
+        errorFactories,
+        materializer = materializer,
+      ),
       metrics,
-      lfValueTranslationCache,
-      validatePartyAllocation,
-      enricher,
-      sequentialWriteDao,
-      participantId,
-      StorageBackendFactory.readStorageBackendFor(dbType),
-      factory.createParameterStorageBackend,
-      factory.createDeduplicationStorageBackend,
-      factory.createResetStorageBackend,
-      errorFactories,
     )
-  }
+
+  def validatingWrite(
+      dbDispatcher: DbDispatcher,
+      sequentialWriteDao: SequentialWriteDao,
+      eventsPageSize: Int,
+      eventsProcessingParallelism: Int,
+      servicesExecutionContext: ExecutionContext,
+      metrics: Metrics,
+      lfValueTranslationCache: LfValueTranslationCache.Cache,
+      validatePartyAllocation: Boolean = false,
+      enricher: Option[ValueEnricher],
+      participantId: Ref.ParticipantId,
+      errorFactories: ErrorFactories,
+      storageBackendFactory: StorageBackendFactory,
+      ledgerEndCache: LedgerEndCache,
+      stringInterning: StringInterning,
+      materializer: Materializer,
+  ): LedgerDao =
+    new MeteredLedgerDao(
+      new JdbcLedgerDao(
+        dbDispatcher,
+        servicesExecutionContext,
+        eventsPageSize,
+        eventsProcessingParallelism,
+        true,
+        metrics,
+        lfValueTranslationCache,
+        validatePartyAllocation,
+        enricher,
+        sequentialWriteDao,
+        participantId,
+        storageBackendFactory.readStorageBackend(ledgerEndCache, stringInterning),
+        storageBackendFactory.createParameterStorageBackend,
+        storageBackendFactory.createDeduplicationStorageBackend,
+        storageBackendFactory.createResetStorageBackend,
+        errorFactories,
+        materializer,
+      ),
+      metrics,
+    )
 
   val acceptType = "accept"
   val rejectType = "reject"

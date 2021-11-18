@@ -5,9 +5,9 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test",
+    "kind_projector_plugin",
     "lf_scalacopts",
 )
-load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
 
 scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
@@ -17,7 +17,7 @@ da_scala_library(
     name = "concurrent",
     srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
-        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        kind_projector_plugin,
     ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",

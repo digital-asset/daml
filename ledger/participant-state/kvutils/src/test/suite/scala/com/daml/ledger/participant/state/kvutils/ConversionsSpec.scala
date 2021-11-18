@@ -41,7 +41,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.protobuf.{TextFormat, Timestamp}
 import com.google.rpc.error_details.{ErrorInfo, ResourceInfo}
-import com.google.rpc.status.Status
 import io.grpc.Status.Code
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
@@ -90,7 +89,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       )
     }
 
-    "return Left with missing contract ids when extracting divulged contracts if a contract instance is missing" in {
+    "return Left with missing contract IDs when extracting divulged contracts if a contract instance is missing" in {
       val encodedBlindingInfoWithMissingContractInstance =
         correctlySortedEncodedBlindingInfo.toBuilder
           .addDivulgences(
@@ -274,7 +273,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
             ),
             (
               Rejection.ExternallyInconsistentTransaction.DuplicateKeys,
-              Code.FAILED_PRECONDITION,
+              Code.ALREADY_EXISTS,
               Map.empty,
               Map.empty,
             ),
@@ -503,7 +502,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
         DamlSubmitterInfo.newBuilder().setApplicationId("id").setCommandId("commandId")
       }
 
-      "use empty submission id" in {
+      "use empty submission ID" in {
         val completionInfo = parseCompletionInfo(
           recordTime,
           submitterInfo.build(),
@@ -511,7 +510,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
         completionInfo.submissionId shouldBe None
       }
 
-      "use defined submission id" in {
+      "use defined submission ID" in {
         val submissionId = "submissionId"
         val completionInfo = parseCompletionInfo(
           recordTime,
@@ -545,7 +544,7 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
   }
 
   private def checkErrors(
-      errorVersionSwitch: ValueSwitch[Status],
+      errorVersionSwitch: ValueSwitch,
       submitterInfo: DamlSubmitterInfo,
       rejection: Rejection,
       expectedCode: Code,
@@ -638,8 +637,8 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
       )
       .build
 
-  private lazy val v1ErrorSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes = false)
-  private lazy val v2ErrorSwitch = new ValueSwitch[Status](enableSelfServiceErrorCodes = true)
+  private lazy val v1ErrorSwitch = new ValueSwitch(enableSelfServiceErrorCodes = false)
+  private lazy val v2ErrorSwitch = new ValueSwitch(enableSelfServiceErrorCodes = true)
 
   private[this] val txVersion = TransactionVersion.StableVersions.max
 

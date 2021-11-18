@@ -3,17 +3,13 @@
 
 package com.daml
 
-import com.daml.error.utils.ErrorDetails
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
-import com.daml.ledger.api.domain.LedgerId
-import com.daml.lf.data.Ref
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.platform.server.api.validation.ErrorFactories._
+import error.utils.ErrorDetails
+import error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+import ledger.api.domain.LedgerId
+import lf.data.Ref
+import logging.{ContextualizedLogger, LoggingContext}
+import platform.server.api.validation.ErrorFactories
+import platform.server.api.validation.ErrorFactories._
 import com.google.rpc._
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
@@ -24,24 +20,30 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.sql.{SQLNonTransientException, SQLTransientException}
+import java.time.Duration
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
+@nowarn("msg=deprecated")
 class ErrorFactoriesSpec
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
     with MockitoSugar {
-  private val correlationId = "trace-id"
+
   private val logger = ContextualizedLogger.get(getClass)
   private val loggingContext = LoggingContext.ForTesting
 
+  private val originalCorrelationId = "cor-id-12345679"
+  private val truncatedCorrelationId = "cor-id-1"
+
   private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(logger, loggingContext, Some(correlationId))
+    new DamlContextualizedErrorLogger(logger, loggingContext, Some(originalCorrelationId))
 
-  private val DefaultTraceIdRequestInfo: ErrorDetails.RequestInfoDetail =
-    ErrorDetails.RequestInfoDetail("trace-id")
+  private val expectedCorrelationIdRequestInfo: ErrorDetails.RequestInfoDetail =
+    ErrorDetails.RequestInfoDetail(originalCorrelationId)
 
-  val tested = ErrorFactories(mock[ErrorCodesVersionSwitcher])
+  private val tested = ErrorFactories(mock[ErrorCodesVersionSwitcher])
 
   "ErrorFactories" should {
     "return sqlTransientException" in {
@@ -53,10 +55,10 @@ class ErrorFactoriesSpec
       )(
         expectedCode = Code.UNAVAILABLE,
         expectedMessage =
-          s"INDEX_DB_SQL_TRANSIENT_ERROR(1,$correlationId): Processing the request failed due to a transient database error: $failureReason",
+          s"INDEX_DB_SQL_TRANSIENT_ERROR(1,$truncatedCorrelationId): Processing the request failed due to a transient database error: $failureReason",
         expectedDetails = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("INDEX_DB_SQL_TRANSIENT_ERROR"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
           ErrorDetails.RetryInfoDetail(1),
         ),
       )
@@ -70,32 +72,120 @@ class ErrorFactoriesSpec
       )(
         expectedCode = Code.INTERNAL,
         expectedMessage =
-          s"An error occurred. Please contact the operator and inquire about the request $correlationId",
+          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         expectedDetails = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("INDEX_DB_SQL_NON_TRANSIENT_ERROR"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
 
-    "return malformedPackageId" in {
-      assertVersionedError(
-        _.malformedPackageId(request = "request123", message = "message123")(
-          contextualizedErrorLogger = contextualizedErrorLogger,
-          logger = logger,
-          loggingContext = loggingContext,
-        )
-      )(
-        v1_code = Code.INVALID_ARGUMENT,
-        v1_message = "message123",
-        v1_details = Seq.empty,
-        v2_code = Code.INVALID_ARGUMENT,
-        v2_message = s"MALFORMED_PACKAGE_ID(8,$correlationId): message123",
-        v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("MALFORMED_PACKAGE_ID"),
-          DefaultTraceIdRequestInfo,
-        ),
+    "TrackerErrors" should {
+      val errorDetails = com.google.protobuf.Any.pack[ErrorInfo](
+        ErrorInfo
+          .newBuilder()
+          .build()
       )
+
+      "return failedToEnqueueCommandSubmission" in {
+        val t = new Exception("message123")
+        assertVersionedStatus(
+          _.TrackerErrors.failedToEnqueueCommandSubmission("some message")(t)(
+            contextualizedErrorLogger
+          )
+        )(
+          v1_code = Code.ABORTED,
+          v1_message = "some message: Exception: message123",
+          v1_details = Seq(errorDetails),
+          v2_code = Code.INTERNAL,
+          v2_message =
+            s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("LEDGER_API_INTERNAL_ERROR"),
+            expectedCorrelationIdRequestInfo,
+          ),
+        )
+      }
+
+      "return ingressBufferFull" in {
+        assertVersionedStatus(
+          _.TrackerErrors.commandServiceIngressBufferFull()(
+            contextualizedErrorLogger = contextualizedErrorLogger
+          )
+        )(
+          v1_code = Code.RESOURCE_EXHAUSTED,
+          v1_message = "Ingress buffer is full",
+          v1_details = Seq(errorDetails),
+          v2_code = Code.ABORTED,
+          v2_message =
+            s"PARTICIPANT_BACKPRESSURE(2,$truncatedCorrelationId): The participant is overloaded: Command service ingress buffer is full",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("PARTICIPANT_BACKPRESSURE"),
+            expectedCorrelationIdRequestInfo,
+            ErrorDetails.RetryInfoDetail(1),
+          ),
+        )
+      }
+
+      "return queueClosed" in {
+        assertVersionedStatus(
+          _.TrackerErrors.commandSubmissionQueueClosed()(
+            contextualizedErrorLogger = contextualizedErrorLogger
+          )
+        )(
+          v1_code = Code.ABORTED,
+          v1_message = "Queue closed",
+          v1_details = Seq(errorDetails),
+          v2_code = Code.UNAVAILABLE,
+          v2_message =
+            s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): Command service submission queue has been shut down.",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("SERVICE_NOT_RUNNING"),
+            expectedCorrelationIdRequestInfo,
+            ErrorDetails.RetryInfoDetail(1),
+          ),
+        )
+      }
+
+      "return timeout" in {
+        assertVersionedStatus(
+          _.TrackerErrors.timedOutOnAwaitingForCommandCompletion()(
+            contextualizedErrorLogger = contextualizedErrorLogger
+          )
+        )(
+          v1_code = Code.ABORTED,
+          v1_message = "Timeout",
+          v1_details = Seq(errorDetails),
+          v2_code = Code.DEADLINE_EXCEEDED,
+          v2_message =
+            s"REQUEST_TIME_OUT(3,$truncatedCorrelationId): Timed out while awaiting for a completion corresponding to a command submission.",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("REQUEST_TIME_OUT"),
+            expectedCorrelationIdRequestInfo,
+            ErrorDetails.RetryInfoDetail(1),
+          ),
+        )
+      }
+      "return noStatusInResponse" in {
+        assertVersionedStatus(
+          _.TrackerErrors.noStatusInCompletionResponse()(
+            contextualizedErrorLogger = contextualizedErrorLogger
+          )
+        )(
+          v1_code = Code.INTERNAL,
+          v1_message = "Missing status in completion response.",
+          v1_details = Seq(),
+          v2_code = Code.INTERNAL,
+          v2_message =
+            s"An error occurred. Please contact the operator and inquire about the request cor-id-12345679",
+          v2_details = Seq[ErrorDetails.ErrorDetail](
+            ErrorDetails.ErrorInfoDetail("LEDGER_API_INTERNAL_ERROR"),
+            expectedCorrelationIdRequestInfo,
+          ),
+        )
+
+      }
+
     }
 
     "return packageNotFound" in {
@@ -104,26 +194,26 @@ class ErrorFactoriesSpec
         v1_message = "",
         v1_details = Seq.empty,
         v2_code = Code.NOT_FOUND,
-        v2_message = s"PACKAGE_NOT_FOUND(11,$correlationId): Could not find package.",
+        v2_message = s"PACKAGE_NOT_FOUND(11,$truncatedCorrelationId): Could not find package.",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("PACKAGE_NOT_FOUND"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
           ErrorDetails.ResourceInfoDetail("PACKAGE", "packageId123"),
         ),
       )
     }
 
-    "return the internalError" in {
+    "return the a versioned service internal error" in {
       assertVersionedError(_.versionServiceInternalError("message123"))(
         v1_code = Code.INTERNAL,
         v1_message = "message123",
         v1_details = Seq.empty,
         v2_code = Code.INTERNAL,
         v2_message =
-          s"An error occurred. Please contact the operator and inquire about the request trace-id",
+          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("VERSION_SERVICE_INTERNAL_ERROR"),
-          DefaultTraceIdRequestInfo,
+          ErrorDetails.ErrorInfoDetail("LEDGER_API_INTERNAL_ERROR"),
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -134,10 +224,10 @@ class ErrorFactoriesSpec
         v1_message = "message123",
         v1_details = Seq.empty,
         v2_code = Code.FAILED_PRECONDITION,
-        v2_message = s"CONFIGURATION_ENTRY_REJECTED(9,$correlationId): message123",
+        v2_message = s"CONFIGURATION_ENTRY_REJECTED(9,$truncatedCorrelationId): message123",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("CONFIGURATION_ENTRY_REJECTED"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -149,10 +239,10 @@ class ErrorFactoriesSpec
         v1_details = Seq.empty,
         v2_code = Code.NOT_FOUND,
         v2_message =
-          s"TRANSACTION_NOT_FOUND(11,$correlationId): Transaction not found, or not visible.",
+          s"TRANSACTION_NOT_FOUND(11,$truncatedCorrelationId): Transaction not found, or not visible.",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("TRANSACTION_NOT_FOUND"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
           ErrorDetails.ResourceInfoDetail("TRANSACTION_ID", "tId"),
         ),
       )
@@ -165,10 +255,10 @@ class ErrorFactoriesSpec
         v1_details = Seq(definiteAnswers(false)),
         v2_code = Code.ALREADY_EXISTS,
         v2_message =
-          s"DUPLICATE_COMMAND(10,$correlationId): A command with the given command id has already been successfully processed",
+          s"DUPLICATE_COMMAND(10,$truncatedCorrelationId): A command with the given command id has already been successfully processed",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("DUPLICATE_COMMAND"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -180,10 +270,10 @@ class ErrorFactoriesSpec
         v1_details = Seq.empty,
         v2_code = Code.PERMISSION_DENIED,
         v2_message =
-          s"An error occurred. Please contact the operator and inquire about the request $correlationId",
+          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("PERMISSION_DENIED"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -196,10 +286,10 @@ class ErrorFactoriesSpec
         v1_message = "message123",
         v1_details = Seq(definiteAnswers(false)),
         v2_code = Code.DEADLINE_EXCEEDED,
-        v2_message = s"REQUEST_TIME_OUT(3,trace-id): message123",
+        v2_message = s"REQUEST_TIME_OUT(3,$truncatedCorrelationId): message123",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("REQUEST_TIME_OUT"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
           ErrorDetails.RetryInfoDetail(1),
         ),
       )
@@ -218,24 +308,39 @@ class ErrorFactoriesSpec
         v1_details = Seq.empty,
         v2_code = Code.INVALID_ARGUMENT,
         v2_message =
-          s"NON_HEXADECIMAL_OFFSET(8,$correlationId): Offset in fieldName123 not specified in hexadecimal: offsetValue123: message123",
+          s"NON_HEXADECIMAL_OFFSET(8,$truncatedCorrelationId): Offset in fieldName123 not specified in hexadecimal: offsetValue123: message123",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("NON_HEXADECIMAL_OFFSET"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
 
-    "return a offsetOutOfRange_was_invalidArgument error" in {
-      assertVersionedError(_.offsetOutOfRange_was_invalidArgument(None)("message123"))(
+    "return an offsetAfterLedgerEnd error" in {
+      val expectedMessage = s"Absolute offset (AABBCC) is after ledger end (E)"
+      assertVersionedError(_.offsetAfterLedgerEnd("Absolute", "AABBCC", "E"))(
+        v1_code = Code.OUT_OF_RANGE,
+        v1_message = expectedMessage,
+        v1_details = Seq.empty,
+        v2_code = Code.OUT_OF_RANGE,
+        v2_message = s"OFFSET_AFTER_LEDGER_END(12,$truncatedCorrelationId): $expectedMessage",
+        v2_details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail("OFFSET_AFTER_LEDGER_END"),
+          expectedCorrelationIdRequestInfo,
+        ),
+      )
+    }
+
+    "return a offsetOutOfRange error" in {
+      assertVersionedError(_.offsetOutOfRange(None)("message123"))(
         v1_code = Code.INVALID_ARGUMENT,
         v1_message = "Invalid argument: message123",
         v1_details = Seq.empty,
-        v2_code = Code.OUT_OF_RANGE,
-        v2_message = s"REQUESTED_OFFSET_OUT_OF_RANGE(12,$correlationId): message123",
+        v2_code = Code.FAILED_PRECONDITION,
+        v2_message = s"OFFSET_OUT_OF_RANGE(9,$truncatedCorrelationId): message123",
         v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("REQUESTED_OFFSET_OUT_OF_RANGE"),
-          DefaultTraceIdRequestInfo,
+          ErrorDetails.ErrorInfoDetail("OFFSET_OUT_OF_RANGE"),
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -247,10 +352,10 @@ class ErrorFactoriesSpec
         v1_details = Seq.empty,
         v2_code = Code.UNAUTHENTICATED,
         v2_message =
-          s"An error occurred. Please contact the operator and inquire about the request $correlationId",
+          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("UNAUTHENTICATED"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -264,10 +369,10 @@ class ErrorFactoriesSpec
         v1_details = Seq.empty,
         v2_code = Code.INTERNAL,
         v2_message =
-          s"An error occurred. Please contact the operator and inquire about the request $correlationId",
+          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("INTERNAL_AUTHORIZATION_ERROR"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -279,25 +384,25 @@ class ErrorFactoriesSpec
         (Some(false), Seq(definiteAnswers(false))),
       )
 
+      val legacyErrorCode = Code.UNAVAILABLE
+
       forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        assertVersionedError(_.missingLedgerConfig(definiteAnswer))(
-          v1_code = Code.UNAVAILABLE,
+        assertVersionedError(_.missingLedgerConfig(legacyErrorCode)(definiteAnswer))(
+          v1_code = legacyErrorCode,
           v1_message = "The ledger configuration is not available.",
           v1_details = expectedDetails,
           v2_code = Code.NOT_FOUND,
           v2_message =
-            s"LEDGER_CONFIGURATION_NOT_FOUND(11,$correlationId): The ledger configuration is not available.",
+            s"LEDGER_CONFIGURATION_NOT_FOUND(11,$truncatedCorrelationId): The ledger configuration could not be retrieved.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("LEDGER_CONFIGURATION_NOT_FOUND"),
-            DefaultTraceIdRequestInfo,
+            expectedCorrelationIdRequestInfo,
           ),
         )
       }
     }
 
     "return an aborted error" in {
-      // TODO error codes: This error code is not specific enough.
-      //                   Break down into more specific errors.
       val testCases = Table(
         ("definite answer", "expected details"),
         (None, Seq.empty),
@@ -316,16 +421,18 @@ class ErrorFactoriesSpec
     "return an invalid deduplication period error" in {
       val errorDetailMessage = "message"
       val field = "field"
-      assertVersionedError(_.invalidDeduplicationDuration(field, errorDetailMessage, None))(
+      assertVersionedError(
+        _.invalidDeduplicationDuration(field, errorDetailMessage, None, Duration.ofSeconds(5))
+      )(
         v1_code = Code.INVALID_ARGUMENT,
         v1_message = s"Invalid field $field: $errorDetailMessage",
         v1_details = Seq.empty,
         v2_code = Code.FAILED_PRECONDITION,
         v2_message =
-          s"INVALID_DEDUPLICATION_PERIOD(9,trace-id): The submitted command had an invalid deduplication period: $errorDetailMessage",
+          s"INVALID_DEDUPLICATION_PERIOD(9,$truncatedCorrelationId): The submitted command had an invalid deduplication period: $errorDetailMessage",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("INVALID_DEDUPLICATION_PERIOD"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -344,10 +451,10 @@ class ErrorFactoriesSpec
           v1_details = expectedDetails,
           v2_code = Code.INVALID_ARGUMENT,
           v2_message =
-            s"INVALID_FIELD(8,$correlationId): The submitted command has a field with invalid value: Invalid field my field: my message",
+            s"INVALID_FIELD(8,$truncatedCorrelationId): The submitted command has a field with invalid value: Invalid field my field: my message",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("INVALID_FIELD"),
-            DefaultTraceIdRequestInfo,
+            expectedCorrelationIdRequestInfo,
           ),
         )
       }
@@ -369,10 +476,10 @@ class ErrorFactoriesSpec
           v1_details = expectedDetails,
           v2_code = Code.NOT_FOUND,
           v2_message =
-            s"LEDGER_ID_MISMATCH(11,$correlationId): Ledger ID 'received' not found. Actual Ledger ID is 'expected'.",
+            s"LEDGER_ID_MISMATCH(11,$truncatedCorrelationId): Ledger ID 'received' not found. Actual Ledger ID is 'expected'.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("LEDGER_ID_MISMATCH"),
-            DefaultTraceIdRequestInfo,
+            expectedCorrelationIdRequestInfo,
           ),
         )
       }
@@ -391,11 +498,11 @@ class ErrorFactoriesSpec
         v1_code = Code.NOT_FOUND,
         v1_message = "my message",
         v1_details = Seq.empty,
-        v2_code = Code.OUT_OF_RANGE,
-        v2_message = s"PARTICIPANT_PRUNED_DATA_ACCESSED(12,$correlationId): my message",
+        v2_code = Code.FAILED_PRECONDITION,
+        v2_message = s"PARTICIPANT_PRUNED_DATA_ACCESSED(9,$truncatedCorrelationId): my message",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("PARTICIPANT_PRUNED_DATA_ACCESSED"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -407,24 +514,10 @@ class ErrorFactoriesSpec
         v1_details = Seq.empty,
         v2_code = Code.INTERNAL,
         v2_message =
-          s"An error occurred. Please contact the operator and inquire about the request trace-id",
+          s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
         v2_details = Seq[ErrorDetails.ErrorDetail](
           ErrorDetails.ErrorInfoDetail("LEDGER_API_INTERNAL_ERROR"),
-          DefaultTraceIdRequestInfo,
-        ),
-      )
-    }
-
-    "return an offsetOutOfRange error" in {
-      assertVersionedError(_.offsetOutOfRange("my message"))(
-        v1_code = Code.OUT_OF_RANGE,
-        v1_message = "my message",
-        v1_details = Seq.empty,
-        v2_code = Code.OUT_OF_RANGE,
-        v2_message = s"REQUESTED_OFFSET_OUT_OF_RANGE(12,$correlationId): my message",
-        v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("REQUESTED_OFFSET_OUT_OF_RANGE"),
-          DefaultTraceIdRequestInfo,
+          expectedCorrelationIdRequestInfo,
         ),
       )
     }
@@ -435,34 +528,40 @@ class ErrorFactoriesSpec
         (None, Seq.empty),
         (Some(false), Seq(definiteAnswers(false))),
       )
+      val serviceName = "Some API Service"
 
       forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        assertVersionedError(_.serviceNotRunning(definiteAnswer))(
+        assertVersionedError(_.serviceNotRunning(serviceName)(definiteAnswer))(
           v1_code = Code.UNAVAILABLE,
-          v1_message = "Service has been shut down.",
+          v1_message = s"$serviceName has been shut down.",
           v1_details = expectedDetails,
           v2_code = Code.UNAVAILABLE,
-          v2_message = s"SERVICE_NOT_RUNNING(1,$correlationId): Service has been shut down.",
+          v2_message =
+            s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): $serviceName has been shut down.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("SERVICE_NOT_RUNNING"),
-            DefaultTraceIdRequestInfo,
+            expectedCorrelationIdRequestInfo,
             ErrorDetails.RetryInfoDetail(1),
           ),
         )
       }
     }
 
-    "return a missingLedgerConfigUponRequest error" in {
-      assertVersionedError(_.missingLedgerConfigUponRequest)(
-        v1_code = Code.NOT_FOUND,
-        v1_message = "The ledger configuration is not available.",
+    "return a serviceIsBeingReset error" in {
+      val serviceName = "Some API Service"
+      val someLegacyStatusCode = Code.CANCELLED
+
+      assertVersionedError(_.serviceIsBeingReset(someLegacyStatusCode.value())(serviceName))(
+        v1_code = someLegacyStatusCode,
+        v1_message = s"$serviceName is currently being reset.",
         v1_details = Seq.empty,
-        v2_code = Code.NOT_FOUND,
+        v2_code = Code.UNAVAILABLE,
         v2_message =
-          s"LEDGER_CONFIGURATION_NOT_FOUND(11,$correlationId): The ledger configuration is not available.",
+          s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): $serviceName is currently being reset.",
         v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("LEDGER_CONFIGURATION_NOT_FOUND"),
-          DefaultTraceIdRequestInfo,
+          ErrorDetails.ErrorInfoDetail("SERVICE_NOT_RUNNING"),
+          expectedCorrelationIdRequestInfo,
+          ErrorDetails.RetryInfoDetail(1),
         ),
       )
     }
@@ -481,10 +580,10 @@ class ErrorFactoriesSpec
           v1_details = expectedDetails,
           v2_code = Code.INVALID_ARGUMENT,
           v2_message =
-            s"MISSING_FIELD(8,$correlationId): The submitted command is missing a mandatory field: my field",
+            s"MISSING_FIELD(8,$truncatedCorrelationId): The submitted command is missing a mandatory field: my field",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("MISSING_FIELD"),
-            DefaultTraceIdRequestInfo,
+            expectedCorrelationIdRequestInfo,
           ),
         )
       }
@@ -504,10 +603,10 @@ class ErrorFactoriesSpec
           v1_details = expectedDetails,
           v2_code = Code.INVALID_ARGUMENT,
           v2_message =
-            s"INVALID_ARGUMENT(8,$correlationId): The submitted command has invalid arguments: my message",
+            s"INVALID_ARGUMENT(8,$truncatedCorrelationId): The submitted command has invalid arguments: my message",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("INVALID_ARGUMENT"),
-            DefaultTraceIdRequestInfo,
+            expectedCorrelationIdRequestInfo,
           ),
         )
       }
@@ -527,10 +626,10 @@ class ErrorFactoriesSpec
           v1_details = expectedDetails,
           v2_code = Code.INVALID_ARGUMENT,
           v2_message =
-            s"INVALID_ARGUMENT(8,$correlationId): The submitted command has invalid arguments: my message",
+            s"INVALID_ARGUMENT(8,$truncatedCorrelationId): The submitted command has invalid arguments: my message",
           v2_details = Seq[ErrorDetails.ErrorDetail](
             ErrorDetails.ErrorInfoDetail("INVALID_ARGUMENT"),
-            DefaultTraceIdRequestInfo,
+            expectedCorrelationIdRequestInfo,
           ),
         )
       }
@@ -557,6 +656,27 @@ class ErrorFactoriesSpec
     val errorFactoriesV2 = ErrorFactories(new ErrorCodesVersionSwitcher(true))
     assertV1Error(error(errorFactoriesV1))(v1_code, v1_message, v1_details)
     assertV2Error(error(errorFactoriesV2))(v2_code, v2_message, v2_details)
+  }
+
+  private def assertVersionedStatus(
+      error: ErrorFactories => Status
+  )(
+      v1_code: Code,
+      v1_message: String,
+      v1_details: Seq[Any],
+      v2_code: Code,
+      v2_message: String,
+      v2_details: Seq[ErrorDetails.ErrorDetail],
+  ): Unit = {
+    assertVersionedError(x => io.grpc.protobuf.StatusProto.toStatusRuntimeException(error(x)))(
+      v1_code,
+      v1_message,
+      v1_details,
+      v2_code,
+      v2_message,
+      v2_details,
+    )
+
   }
 
   private def assertV1Error(

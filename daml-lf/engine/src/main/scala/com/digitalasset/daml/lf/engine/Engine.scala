@@ -8,11 +8,11 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError, SExpr}
+import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError}
+import com.daml.lf.speedy.SExpr.{SExpr, SEApp, SEValue}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{SubmittedTransaction, VersionedTransaction, Transaction => Tx}
-import com.daml.lf.transaction.Node._
+import com.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction, Transaction => Tx}
 import java.nio.file.Files
 
 import com.daml.lf.language.{PackageInterface, LanguageVersion, LookupError, StablePackages}
@@ -309,7 +309,7 @@ class Engine(val config: EngineConfig = Engine.StableConfig) {
         compiledPackages = compiledPackages,
         submissionTime = submissionTime,
         initialSeeding = seeding,
-        expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
+        expr = SEApp(sexpr, Array(SEValue.Token)),
         committers = submitters,
         readAs = readAs,
         validating = validating,
@@ -489,12 +489,12 @@ object Engine {
       val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
         s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"
       tx.nodes.get(tx.roots(0)).toList.head match {
-        case _: NodeRollback => "rollback"
-        case create: NodeCreate => makeDesc("create", create.templateId, None)
-        case exercise: NodeExercises =>
+        case _: Node.Rollback => "rollback"
+        case create: Node.Create => makeDesc("create", create.templateId, None)
+        case exercise: Node.Exercise =>
           makeDesc("exercise", exercise.templateId, Some(exercise.choiceId))
-        case fetch: NodeFetch => makeDesc("fetch", fetch.templateId, None)
-        case lookup: NodeLookupByKey => makeDesc("lookup", lookup.templateId, None)
+        case fetch: Node.Fetch => makeDesc("fetch", fetch.templateId, None)
+        case lookup: Node.LookupByKey => makeDesc("lookup", lookup.templateId, None)
       }
     } else {
       s"compound:${tx.roots.length}"

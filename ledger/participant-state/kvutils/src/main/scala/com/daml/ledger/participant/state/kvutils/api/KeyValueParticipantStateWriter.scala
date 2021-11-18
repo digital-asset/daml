@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils.api
 
 import java.util.UUID
 import java.util.concurrent.{CompletableFuture, CompletionStage}
-
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
@@ -15,6 +14,8 @@ import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v2._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.logging.ContextualizedLogger
+import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext
 
@@ -25,6 +26,7 @@ class KeyValueParticipantStateWriter(
     metrics: Metrics,
 ) extends WriteService {
 
+  private val logger = ContextualizedLogger.get(getClass)
   override def isApiDeduplicationEnabled: Boolean = false
 
   private val keyValueSubmission = new KeyValueSubmission(metrics)
@@ -42,8 +44,18 @@ class KeyValueParticipantStateWriter(
         transaction,
       )
     val metadata = CommitMetadata(submission, Some(estimatedInterpretationCost))
+    val submissionId = submitterInfo.submissionId.getOrElse {
+      newLoggingContextWith(
+        "commandId" -> submitterInfo.commandId,
+        "applicationId" -> submitterInfo.applicationId,
+      ) { implicit loggingContext =>
+        logger.warn("Submission id should not be empty")
+      }
+      ""
+    }
+
     commit(
-      correlationId = submitterInfo.commandId,
+      correlationId = submissionId,
       submission = submission,
       metadata = Some(metadata),
     )

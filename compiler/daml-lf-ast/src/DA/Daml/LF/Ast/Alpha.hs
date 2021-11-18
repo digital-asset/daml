@@ -299,6 +299,10 @@ alphaUpdate env = \case
         UCreate t2 e2 -> alphaTypeCon t1 t2
             && alphaExpr' env e1 e2
         _ -> False
+    UCreateInterface t1 e1 -> \case
+        UCreateInterface t2 e2 -> alphaTypeCon t1 t2
+            && alphaExpr' env e1 e2
+        _ -> False
     UExercise t1 c1 e1a e1b -> \case
         UExercise t2 c2 e2a e2b -> alphaTypeCon t1 t2
             && c1 == c2

@@ -10,6 +10,8 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString.ordering
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.logging._
+import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.value.Value.{ContractId => LfContractId}
 import com.daml.lf.value.{Value => Lf}
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import scalaz.syntax.tag._
@@ -184,6 +186,29 @@ object domain {
   }
 
   object RejectionReason {
+    final case class ContractsNotFound(missingContractIds: Set[String]) extends RejectionReason {
+      override val description =
+        s"Unknown contracts: ${missingContractIds.mkString("[", ", ", "]")}"
+    }
+
+    final case class InconsistentContractKeys(
+        lookupResult: Option[LfContractId],
+        currentResult: Option[LfContractId],
+    ) extends RejectionReason {
+      override val description: String =
+        s"Contract key lookup with different results: expected [$lookupResult], actual [$currentResult]"
+    }
+
+    final case class DuplicateContractKey(key: GlobalKey) extends RejectionReason {
+      override val description: String = "DuplicateKey: contract key is not unique"
+    }
+
+    final case class PartiesNotKnownOnLedger(parties: Set[String]) extends RejectionReason {
+      override val description: String = "Some parties are unallocated"
+    }
+
+    /** The ledger time of the submission violated some constraint on the ledger time. */
+    final case class InvalidLedgerTime(description: String) extends RejectionReason
 
     /** The transaction relied on contracts being active that were no longer
       * active at the point where it was sequenced.
@@ -192,6 +217,8 @@ object domain {
 
     /** The Participant node did not have sufficient resource quota with the
       * to submit the transaction.
+      *
+      * NOTE: Only used in Scala flyway migration scripts
       */
     final case class OutOfQuota(description: String) extends RejectionReason
 
@@ -200,16 +227,16 @@ object domain {
       * This means that the underlying ledger and its validation logic
       * considered the transaction potentially invalid. This can be due to a bug
       * in the submission or validation logic, or due to malicious behaviour.
+      *
+      * NOTE: Only used in Scala flyway migration scripts
       */
     final case class Disputed(description: String) extends RejectionReason
 
-    final case class PartyNotKnownOnLedger(description: String) extends RejectionReason
-
+    @deprecated
     final case class SubmitterCannotActViaParticipant(description: String) extends RejectionReason
 
-    /** The ledger time of the submission violated some constraint on the ledger time.
-      */
-    final case class InvalidLedgerTime(description: String) extends RejectionReason
+    @deprecated
+    final case class PartyNotKnownOnLedger(description: String) extends RejectionReason
   }
 
   type Value = Lf

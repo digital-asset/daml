@@ -108,7 +108,7 @@ class GrpcCommandService(
   override def bindService(): ServerServiceDefinition =
     CommandServiceGrpc.bindService(this, executionContext)
 
-  private def generateSubmissionIdIfEmpty(request: SubmitAndWaitRequest): SubmitAndWaitRequest = {
+  private def generateSubmissionIdIfEmpty(request: SubmitAndWaitRequest): SubmitAndWaitRequest =
     if (request.commands.exists(_.submissionId.isEmpty)) {
       val commandsWithSubmissionId =
         request.commands.map(_.copy(submissionId = generateSubmissionId.generate()))
@@ -116,7 +116,6 @@ class GrpcCommandService(
     } else {
       request
     }
-  }
 
   private def contextualizedErrorLogger(request: SubmitAndWaitRequest)(implicit
       loggingContext: LoggingContext

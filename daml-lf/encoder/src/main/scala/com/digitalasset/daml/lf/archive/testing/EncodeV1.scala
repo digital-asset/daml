@@ -363,6 +363,10 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           )
         case UpdateCreate(templateId, arg) =>
           builder.setCreate(PLF.Update.Create.newBuilder().setTemplate(templateId).setExpr(arg))
+        case UpdateCreateInterface(interface, arg) =>
+          builder.setCreateInterface(
+            PLF.Update.CreateInterface.newBuilder().setInterface(interface).setExpr(arg)
+          )
         case UpdateFetch(templateId, contractId) =>
           builder.setFetch(PLF.Update.Fetch.newBuilder().setTemplate(templateId).setCid(contractId))
         case UpdateFetchInterface(interface, contractId) =>
@@ -725,23 +729,10 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val builder = PLF.DefInterface.newBuilder()
       builder.setTyconInternedDname(dottedNameTable.insert(dottedName))
       builder.setParamInternedStr(stringsTable.insert(interface.param))
-      builder.accumulateLeft(interface.virtualChoices.sortByKey)(_ addChoices _)
       builder.accumulateLeft(interface.fixedChoices.sortByKey)(_ addFixedChoices _)
       builder.accumulateLeft(interface.methods.sortByKey)(_ addMethods _)
       builder.setPrecond(interface.precond)
       builder.build()
-    }
-
-    private implicit def encodeInterfaceChoice(
-        nameWithChoice: (ChoiceName, InterfaceChoice)
-    ): PLF.InterfaceChoice = {
-      val (name, choice) = nameWithChoice
-      val b = PLF.InterfaceChoice.newBuilder()
-      b.setNameInternedString(stringsTable.insert(name))
-      b.setConsuming(choice.consuming)
-      b.setArgType(choice.argType)
-      b.setRetType(choice.returnType)
-      b.build()
     }
 
     private implicit def encodeInterfaceMethod(

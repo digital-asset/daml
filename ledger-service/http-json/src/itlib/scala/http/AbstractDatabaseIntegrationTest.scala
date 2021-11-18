@@ -5,7 +5,6 @@ package com.daml.http
 
 import cats.effect.IO
 import com.codahale.metrics.MetricRegistry
-import com.daml.dbutils.ConnectionPool.PoolSize
 import com.daml.http.dbbackend.{ContractDao, JdbcConfig}
 import com.daml.http.domain.TemplateId
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
@@ -29,14 +28,12 @@ abstract class AbstractDatabaseIntegrationTest extends AsyncFreeSpecLike with Be
 
   // has to be lazy because jdbcConfig is NOT initialized yet
   protected lazy val dao = dbbackend.ContractDao(
-    jdbcConfig.copy(baseConfig = jdbcConfig.baseConfig.copy(tablePrefix = "some_fancy_prefix_")),
-    poolSize = PoolSize.Integration,
+    jdbcConfig.copy(baseConfig = jdbcConfig.baseConfig.copy(tablePrefix = "some_fancy_prefix_"))
   )
 
   protected lazy val daoWithoutPrefix =
     dbbackend.ContractDao(
-      jdbcConfig.copy(baseConfig = jdbcConfig.baseConfig.copy(tablePrefix = "")),
-      poolSize = PoolSize.Integration,
+      jdbcConfig.copy(baseConfig = jdbcConfig.baseConfig.copy(tablePrefix = ""))
     )
 
   override protected def afterAll(): Unit = {

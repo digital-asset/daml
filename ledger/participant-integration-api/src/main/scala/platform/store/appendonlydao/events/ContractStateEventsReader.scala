@@ -7,7 +7,7 @@ import java.io.ByteArrayInputStream
 import com.daml.platform.store.appendonlydao.events
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 import com.daml.platform.store.LfValueTranslationCache
-import com.daml.platform.store.backend.StorageBackend.RawContractStateEvent
+import com.daml.platform.store.backend.ContractStorageBackend.RawContractStateEvent
 
 import scala.util.control.NoStackTrace
 
@@ -95,7 +95,7 @@ object ContractStateEventsReader {
         maybeCreateKeyValueCompression
       )
       keyValue = decompressAndDeserialize(createKeyValueCompression, createKeyValue)
-    } yield Key.assertBuild(templateId, keyValue.value)
+    } yield Key.assertBuild(templateId, keyValue.unversioned)
 
   private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: Array[Byte]) =
     ValueSerializer.deserializeValue(algorithm.decompress(new ByteArrayInputStream(value)))

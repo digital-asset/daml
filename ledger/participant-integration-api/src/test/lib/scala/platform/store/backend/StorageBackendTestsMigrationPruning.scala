@@ -17,12 +17,6 @@ private[backend] trait StorageBackendTestsMigrationPruning
     with StorageBackendSpec {
   this: AsyncFlatSpec =>
 
-  private val parameterStorageBackend: ParameterStorageBackend =
-    backendFactory.createParameterStorageBackend
-  private val contractStorageBackend: ContractStorageBackend =
-    backendFactory.createContractStorageBackend
-  private val eventStorageBackend: EventStorageBackend = backendFactory.createEventStorageBackend
-
   import StorageBackendTestValues._
 
   it should "prune all divulgence events if pruning offset is after migration offset" in {
@@ -34,15 +28,15 @@ private[backend] trait StorageBackendTestsMigrationPruning
     val archive = dtoExercise(offset(2), 3L, consuming = true, "#1", submitter)
 
     for {
-      _ <- executeSql(parameterStorageBackend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(Vector(create, divulgence, archive), _))
       _ <- executeSql(
-        parameterStorageBackend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 3L))
+        updateLedgerEnd(offset(2), 3L)
       )
       // Simulate that the archive happened after the migration to append-only schema
       _ <- executeSql(updateMigrationHistoryTable(ledgerSequentialIdBefore = 2))
       beforePruning <- executeSql(
-        contractStorageBackend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           Set(divulgee),
           ContractId.assertFromString("#1"),
         )
@@ -52,7 +46,7 @@ private[backend] trait StorageBackendTestsMigrationPruning
       // Trying to prune all divulged contracts before the migration should fail
       _ <-
         executeSql(
-          eventStorageBackend.isPruningOffsetValidAgainstMigration(
+          backend.event.isPruningOffsetValidAgainstMigration(
             offset(1),
             pruneAllDivulgedContracts = true,
             _,
@@ -60,21 +54,21 @@ private[backend] trait StorageBackendTestsMigrationPruning
         ).map(_ shouldBe false)
       // Validation passes the pruning offset for all divulged contracts is after the migration
       _ <- executeSql(
-        eventStorageBackend.isPruningOffsetValidAgainstMigration(
+        backend.event.isPruningOffsetValidAgainstMigration(
           offset(2),
           pruneAllDivulgedContracts = true,
           _,
         )
       ).map(_ shouldBe true)
       _ <- executeSql(
-        eventStorageBackend.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(
+        backend.event.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(
           _,
           loggingContext,
         )
       )
       // Ensure the divulged contract is not visible anymore
       afterPruning <- executeSql(
-        contractStorageBackend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           Set(divulgee),
           ContractId.assertFromString("#1"),
         )
