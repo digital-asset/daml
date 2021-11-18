@@ -133,13 +133,19 @@ private[engine] final class Preprocessor(
             case tmplId :: tmplsToProcess if tmplsAlreadySeen0(tmplId) =>
               go(Nil, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
             case tmplId :: tmplsToProcess =>
-              interface.lookupTemplate(tmplId) match {
-                case Right(template) =>
+              interface.lookupTemplateOrInterface(tmplId) match {
+                case Right(Left(template)) =>
                   val typs0 = template.choices.map(_._2.argBinder._2).toList
                   val typs1 =
                     if (tyConAlreadySeen0(tmplId)) typs0 else Ast.TTyCon(tmplId) :: typs0
                   val typs2 = template.key.fold(typs1)(_.typ :: typs1)
                   go(typs2, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
+                case Right(Right(interface)) =>
+                  val typs0 = (interface.fixedChoices.values.map(_.argBinder._2)
+                    ++ interface.methods.values.map(_.returnType)).toList
+                  val typs1 =
+                    if (tyConAlreadySeen0(tmplId)) typs0 else Ast.TTyCon(tmplId) :: typs0
+                  go(typs1, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
                 case Left(LookupError.MissingPackage(pkgId, context)) =>
                   pullPackage(pkgId, context)
                 case Left(error) =>
