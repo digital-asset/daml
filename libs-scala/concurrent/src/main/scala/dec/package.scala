@@ -9,6 +9,6 @@ package object dec {
 
   // Starting from Scala 2.13 this can deleted and replaced by `parasitic`
   val DirectExecutionContext: ExecutionContext[Nothing] =
-    ExecutionContext(DirectExecutionContextInternal)
+    ExecutionContext(scala.concurrent.ExecutionContext.parasitic)
 
 }
