@@ -11,7 +11,10 @@ import scalaz.syntax.applicative._
 import scalaz.{Applicative, Equal, Foldable, Order, Traverse}
 
 import scala.annotation.tailrec
-import scala.collection.compat.immutable.ArraySeq
+import scala.collection.StrictOptimizedSeqFactory
+import scala.collection.immutable.ArraySeq
+import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, StrictOptimizedSeqOps}
+import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 
 /** Simple immutable array. The intention is that all the operations have the "obvious"
@@ -362,7 +365,7 @@ final class ImmArray[+A] private (
 
 }
 
-object ImmArray extends ImmArrayInstances {
+object ImmArray extends scala.collection.IterableFactory[ImmArray] {
 
   val Empty: ImmArray[Nothing] = ImmArray.fromArraySeq(ArraySeq.empty)
 
@@ -407,13 +410,40 @@ object ImmArray extends ImmArrayInstances {
     orderBy(ia => toIterableForScalazInstances(ia.iterator), true)
   }
 
+  implicit def immArrayEqualInstance[A: Equal]: Equal[ImmArray[A]] =
+    ScalazEqual.withNatural(Equal[A].equalIsNatural)(_ equalz _)
+
+  override def from[A](it: IterableOnce[A]): ImmArray[A] = {
+    it match {
+      case arraySeq: ImmArray.ImmArraySeq[A] =>
+        arraySeq.toImmArray
+      case otherwise =>
+        val builder = newBuilder[A]
+        builder.sizeHint(otherwise)
+        builder
+          .addAll(otherwise)
+          .result()
+    }
+  }
+
+  override def newBuilder[A]: Builder[A, ImmArray[A]] =
+    ArraySeq
+      .newBuilder[Any]
+      .asInstanceOf[Builder[A, ArraySeq[A]]]
+      .mapResult(ImmArray.fromArraySeq(_))
+
   /** Note: we define this purely to be able to write `toSeq`.
     *
     * However, _do not_ use it for anything but defining interface where you need
     * to expose a `Seq`, and you also need to use implicits that refer to the
     * specific types, such as the traverse instance.
     */
-  final class ImmArraySeq[+A](array: ImmArray[A]) extends AbstractImmArraySeq[A](array) {
+  final class ImmArraySeq[+A](array: ImmArray[A])
+      extends AbstractSeq[A]
+      with IndexedSeq[A]
+      with IndexedSeqOps[A, ImmArraySeq, ImmArraySeq[A]]
+      with StrictOptimizedSeqOps[A, ImmArraySeq, ImmArraySeq[A]]
+      with scala.collection.IterableFactoryDefaults[A, ImmArraySeq] {
 
     // TODO make this faster by implementing as many methods as possible.
     override def iterator: Iterator[A] = array.iterator
@@ -430,10 +460,22 @@ object ImmArray extends ImmArrayInstances {
     override def slice(from: Int, to: Int): ImmArraySeq[A] =
       new ImmArraySeq(array.relaxedSlice(from, to))
 
+    override final def iterableFactory: scala.collection.SeqFactory[ImmArraySeq] = ImmArraySeq
+
+    override final def copyToArray[B >: A](xs: Array[B], dstStart: Int, dstLen: Int): Int =
+      array.copyToArray(xs, dstStart, dstLen)
+
     def toImmArray: ImmArray[A] = array
   }
 
-  object ImmArraySeq extends ImmArraySeqCompanion {
+  object ImmArraySeq extends StrictOptimizedSeqFactory[ImmArraySeq] {
+    type Factory[A] = Unit
+    final def canBuildFrom[A]: Factory[A] = ()
+    final def empty[A]: ImmArraySeq[Nothing] = Empty
+    final def from[E](it: IterableOnce[E]): ImmArraySeq[E] =
+      ImmArray.newBuilder.addAll(it).result().toSeq
+    final def newBuilder[A] = ImmArray.newBuilder.mapResult(_.toSeq)
+
     val Empty: ImmArraySeq[Nothing] = ImmArray.Empty.toSeq
     implicit val `immArraySeq Traverse instance`: Traverse[ImmArraySeq] = new Traverse[ImmArraySeq]
       with Foldable.FromFoldr[ImmArraySeq]
@@ -454,10 +496,6 @@ object ImmArray extends ImmArrayInstances {
 
     implicit def `immArraySeq Equal instance`[A: Equal]: Equal[ImmArraySeq[A]] =
       equalBy(_.toImmArray, true)
-
-    // Here only for 2.12 (harmless in 2.13); placed in ImmArraySeqCompanion the
-    // implicit gets in an unwinnable fight with IndexedSeq's version
-    override implicit def canBuildFrom[A]: Factory[A] = super.canBuildFrom
   }
 }
 
