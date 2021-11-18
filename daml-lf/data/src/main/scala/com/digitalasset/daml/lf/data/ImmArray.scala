@@ -12,7 +12,7 @@ import scalaz.{Applicative, Equal, Foldable, Order, Traverse}
 
 import scala.annotation.tailrec
 import scala.collection.StrictOptimizedSeqFactory
-import scala.collection.compat.immutable.ArraySeq
+import scala.collection.immutable.ArraySeq
 import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, StrictOptimizedSeqOps}
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
