@@ -333,12 +333,16 @@ object KeyValueConsumption {
       List.empty
     }
 
+  @nowarn("msg=deprecated")
   private[kvutils] case class TimeBounds(
       tooEarlyUntil: Option[Timestamp] = None,
       tooLateFrom: Option[Timestamp] = None,
+      @deprecated("Read-only for backwards compatibility.")
       deduplicateUntil: Option[Timestamp] = None,
   )
 
+  // Ignore deprecation warnings caused by deduplicate until, which is read-only for backwards compatibility
+  @nowarn("msg=deprecated")
   private[kvutils] def outOfTimeBoundsEntryToUpdate(
       recordTime: Timestamp,
       outOfTimeBoundsEntry: DamlOutOfTimeBoundsEntry,
