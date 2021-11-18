@@ -564,7 +564,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
             `App` _implDict
             `App` _hasMethodDict
             `App` body
-              <- [val]
+              <- [untick val]
           ]
         emptyInterfaces :: S.Set (GHC.Module, TypeConName)
         emptyInterfaces = S.fromList
