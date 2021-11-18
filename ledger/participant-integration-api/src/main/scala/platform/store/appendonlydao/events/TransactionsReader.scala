@@ -4,10 +4,10 @@
 package com.daml.platform.store.appendonlydao.events
 
 import java.sql.Connection
-
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.TraceIdentifiers
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.Event
@@ -361,6 +361,7 @@ private[appendonlydao] final class TransactionsReader(
       filter: FilterRelation,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
+    val contextualizedErrorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
     val span =
       Telemetry.Transactions.createSpan(activeAt)(qualifiedNameOfCurrentFunc)
     logger.debug(s"getActiveContracts($activeAt, $filter, $verbose)")
@@ -380,7 +381,7 @@ private[appendonlydao] final class TransactionsReader(
           timer = dbMetrics.getActiveContracts.translationTimer,
         )
       }
-      .mapConcat(EventsTable.Entry.toGetActiveContractsResponse)
+      .mapConcat(EventsTable.Entry.toGetActiveContractsResponse(_)(contextualizedErrorLogger))
       .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
       .wireTap(response => {
         Spans.addEventToSpan(
