@@ -58,9 +58,7 @@ object Application {
       TransactionResult(
         transaction.transactionId,
         transaction.events.map(toEventResult),
-        transaction.effectiveAt
-          .map(t => t.seconds * 1000000L + t.nanos.toLong / 1000000L * 1000L)
-          .get,
+        transaction.effectiveAt.map(t => t.seconds * 1000000L + t.nanos.toLong / 1000L).get,
       )
   }
   final case class TransactionResult(
