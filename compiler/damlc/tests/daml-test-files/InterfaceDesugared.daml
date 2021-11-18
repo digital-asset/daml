@@ -28,23 +28,6 @@ instance DA.Internal.Desugar.Implements Token Token where
     = GHC.Types.primitive @"UFromInterfaceContractId"
   interfaceTypeRep = GHC.Types.primitive @"$TO_TYPE_REP"
 
-_method_Token_Token_noopImpl
-  = DA.Internal.Desugar.mkMethod @Token @Token @"noopImpl" (noopImpl)
-_method_Token_Token_transferImpl
-  = DA.Internal.Desugar.mkMethod
-      @Token @Token @"transferImpl" (transferImpl)
-_method_Token_Token_splitImpl
-  = DA.Internal.Desugar.mkMethod
-      @Token @Token @"splitImpl" (splitImpl)
-_method_Token_Token_setAmount
-  = DA.Internal.Desugar.mkMethod
-      @Token @Token @"setAmount" (setAmount)
-_method_Token_Token_getAmount
-  = DA.Internal.Desugar.mkMethod
-      @Token @Token @"getAmount" (getAmount)
-_method_Token_Token_getOwner
-  = DA.Internal.Desugar.mkMethod @Token @Token @"getOwner" (getOwner)
-
 instance DA.Internal.Desugar.HasFetch Token where
   fetch = GHC.Types.primitive @"UFetchInterface"
 
