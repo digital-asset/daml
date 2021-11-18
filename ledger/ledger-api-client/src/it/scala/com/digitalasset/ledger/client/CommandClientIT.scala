@@ -184,7 +184,7 @@ final class CommandClientIT
   ): Future[(Set[String], Set[String])] =
     readExpectedElements(
       client.completionSource(submittingPartyList, checkpoint).collect {
-        case CompletionStreamElement.CompletionElement(c) => c.commandId
+        case CompletionStreamElement.CompletionElement(c, _) => c.commandId
       },
       expected,
       timeLimit,

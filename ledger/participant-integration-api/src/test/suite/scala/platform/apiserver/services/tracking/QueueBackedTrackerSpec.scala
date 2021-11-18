@@ -173,7 +173,8 @@ object QueueBackedTrackerSpec {
             commandId = in.value.commands.commandId,
             status = Some(StatusProto.defaultInstance),
             transactionId = "",
-          )
+          ),
+          None,
         )
         in.context.success(Right(completion))
         NotUsed
