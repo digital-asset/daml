@@ -5,8 +5,8 @@ package com.daml.ledger.api.testtool.infrastructure.deduplication
 
 import com.daml.error.ErrorCode
 import com.daml.error.definitions.LedgerApiErrors
-
 import java.util.UUID
+
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -21,6 +21,7 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.{Dummy, DummyWithAnnotation, TextKey, TextKeyOperations}
+import com.daml.timer.Delayed
 import io.grpc.Status.Code
 
 import scala.annotation.nowarn
@@ -70,7 +71,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           completion1 <- submitRequestAndAssertCompletionAccepted(ledger)(request, party)
           _ <- submitRequestAndAssertDeduplication(ledger)(request, party)
           // Wait until the end of first deduplication window
-          _ <- delay()
+          _ <- delay.delayForEntireDeduplicationPeriod()
 
           // Submit command (second deduplication window)
           // Note: the deduplication window is guaranteed to have passed on both
@@ -184,7 +185,7 @@ private[testtool] abstract class CommandDeduplicationBase(
           _ <- submitAndWaitRequestAndAssertDeduplication(ledger)(request)
 
           // Wait until the end of first deduplication window
-          _ <- delay()
+          _ <- delay.delayForEntireDeduplicationPeriod()
 
           // Submit command (second deduplication window)
           _ <- ledger.submitAndWait(request)
@@ -253,7 +254,7 @@ private[testtool] abstract class CommandDeduplicationBase(
                     _ <- submitAndAssertDeduplicated(secondCall)
 
                     // Wait until the end of first deduplication window
-                    _ <- delay()
+                    _ <- delay.delayForEntireDeduplicationPeriod()
 
                     // Submit command (second deduplication window)
                     _ <- submitAndAssertAccepted(thirdCall)
@@ -467,7 +468,38 @@ private[testtool] abstract class CommandDeduplicationBase(
 
 object CommandDeduplicationBase {
   trait DelayMechanism {
-    def apply(): Future[Unit]
+    val deduplicationDuration: Duration
+    val extraWait: Duration
+
+    /** Delay by the guaranteed full deduplication period. After calling this method any duplicate calls should succeed
+      */
+    def delayForEntireDeduplicationPeriod(): Future[Unit] =
+      delayBy(deduplicationDuration + extraWait)
+
+    /** Delay with [[duration]]
+      */
+    protected def delayBy(duration: Duration): Future[Unit]
+  }
+
+  class TimeDelayMechanism(val deduplicationDuration: Duration, val extraWait: Duration)(implicit
+      ec: ExecutionContext
+  ) extends DelayMechanism {
+
+    override protected def delayBy(duration: Duration): Future[Unit] = Delayed.by(duration)(())
+  }
+
+  class StaticTimeDelayMechanism(
+      ledger: ParticipantTestContext,
+      val deduplicationDuration: Duration,
+      val extraWait: Duration,
+  )(implicit ec: ExecutionContext)
+      extends DelayMechanism {
+    override protected def delayBy(duration: Duration): Future[Unit] =
+      ledger
+        .time()
+        .flatMap { currentTime =>
+          ledger.setTime(currentTime, currentTime.plusMillis(duration.toMillis))
+        }
   }
 
   /** @param participantDeduplication If participant deduplication is enabled then we will receive synchronous rejections

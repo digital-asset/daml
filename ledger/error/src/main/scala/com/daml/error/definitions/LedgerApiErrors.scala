@@ -393,6 +393,12 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) extends LoggingTransactionErrorImpl(
               cause = "The ledger configuration could not be retrieved."
             )
+
+        case class RejectWithMessage(message: String)(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends LoggingTransactionErrorImpl(
+              cause = s"The ledger configuration could not be retrieved: $message."
+            )
       }
     }
 
@@ -594,6 +600,10 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     case class VersionService(message: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends LoggingTransactionErrorImpl(cause = message)
+
+    case class Buffer(message: String, override val throwableO: Option[Throwable])(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends LoggingTransactionErrorImpl(cause = message, throwableO = throwableO)
   }
 
   object AdminServices {
@@ -770,12 +780,14 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
         ) {
       case class RejectEnriched(
-          details: String,
+          message: String,
           ledger_time: Instant,
           ledger_time_lower_bound: Instant,
           ledger_time_upper_bound: Instant,
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends LoggingTransactionErrorImpl(cause = s"Invalid ledger time: $details")
+          extends LoggingTransactionErrorImpl(
+            cause = s"Invalid ledger time: $message"
+          )
 
       case class RejectSimple(
           details: String

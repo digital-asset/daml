@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@oracle//:index.bzl", "oracle_testing")
-load("@scala_version//:index.bzl", "scala_version_suffix")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test_suite",
+    "kind_projector_plugin",
     "lf_scalacopts",
 )
 
@@ -18,7 +18,7 @@ da_scala_library(
     name = "integration-tests-lib",
     srcs = glob(["src/itlib/scala/**/*.scala"]),
     plugins = [
-        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        kind_projector_plugin,
     ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
@@ -73,7 +73,7 @@ da_scala_test_suite(
         "//ledger/test-common/test-certificates",
     ],
     plugins = [
-        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        kind_projector_plugin,
     ],
     resources = glob(["src/it/resources/**/*"]),
     scala_deps = [

@@ -6,9 +6,9 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
+    "kind_projector_plugin",
     "silencer_plugin",
 )
-load("@scala_version//:index.bzl", "scala_version_suffix")
 
 common_scalacopts = [
     "-Xelide-below",
@@ -27,8 +27,7 @@ da_scala_library(
             ],
         ),
     plugins = [
-        # Plugins have to be specified as JARs.
-        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        kind_projector_plugin,
         silencer_plugin,
     ],
     scala_deps = [

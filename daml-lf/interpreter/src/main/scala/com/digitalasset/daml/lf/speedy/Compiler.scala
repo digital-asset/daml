@@ -1411,12 +1411,24 @@ private[lf] final class Compiler(
   private[this] def compileCommand(cmd: Command): s.SExpr = cmd match {
     case Command.Create(templateId, argument) =>
       t.CreateDefRef(templateId)(s.SEValue(argument))
+    case Command.CreateByInterface(interfaceId, templateId, argument) =>
+      t.CreateByInterfaceDefRef(templateId, interfaceId)(s.SEValue(argument))
     case Command.Exercise(templateId, contractId, choiceId, argument) =>
       t.ChoiceDefRef(templateId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
+    case Command.ExerciseByInterface(interfaceId, templateId @ _, contractId, choiceId, argument) =>
+      // TODO https://github.com/digital-asset/daml/issues/11703
+      //   Ensure that fetched template has expected templateId.
+      t.ChoiceDefRef(interfaceId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
+    case Command.ExerciseInterface(interfaceId, contractId, choiceId, argument) =>
+      t.ChoiceDefRef(interfaceId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
       t.ChoiceByKeyDefRef(templateId, choiceId)(s.SEValue(contractKey), s.SEValue(argument))
     case Command.Fetch(templateId, coid) =>
       t.FetchDefRef(templateId)(s.SEValue(coid))
+    case Command.FetchByInterface(interfaceId, templateId @ _, coid) =>
+      // TODO https://github.com/digital-asset/daml/issues/11703
+      //   Ensure that fetched template has expected templateId.
+      t.FetchDefRef(interfaceId)(s.SEValue(coid))
     case Command.FetchByKey(templateId, key) =>
       t.FetchByKeyDefRef(templateId)(s.SEValue(key))
     case Command.CreateAndExercise(templateId, createArg, choice, choiceArg) =>

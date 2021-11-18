@@ -5,15 +5,15 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test_suite",
+    "kind_projector_plugin",
     "silencer_plugin",
 )
-load("@scala_version//:index.bzl", "scala_version_suffix")
 
 da_scala_library(
     name = "bindings-akka",
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
-        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        kind_projector_plugin,
         silencer_plugin,
     ],
     resources = glob(["src/main/resources/**/*"]),

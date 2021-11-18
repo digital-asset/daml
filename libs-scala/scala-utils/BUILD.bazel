@@ -5,10 +5,11 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test",
+    "kind_projector_plugin",
     "lf_scalacopts",
     "silencer_plugin",
 )
-load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
+load("@scala_version//:index.bzl", "scala_major_version")
 
 scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
@@ -20,7 +21,7 @@ da_scala_library(
         "src/main/{}/**/*.scala".format(scala_major_version),
     ]),
     plugins = [
-        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        kind_projector_plugin,
         silencer_plugin,
     ],
     scala_deps = [
@@ -40,7 +41,7 @@ da_scala_test(
     name = "test",
     srcs = glob(["src/test/scala/**/*.scala"]),
     plugins = [
-        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        kind_projector_plugin,
     ],
     scala_deps = [
         "@maven//:com_chuusai_shapeless",

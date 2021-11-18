@@ -71,7 +71,16 @@ private[preprocessing] final class TransactionPreprocessor(
         case Some(node: Node.Action) =>
           node match {
             case create: Node.Create =>
-              val cmd = commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
+              val cmd = create.byInterface match {
+                case None =>
+                  commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
+                case Some(interfaceId) =>
+                  commandPreprocessor.unsafePreprocessCreateByInterface(
+                    interfaceId,
+                    create.templateId,
+                    create.arg,
+                  )
+              }
               acc :+ cmd
             case exe: Node.Exercise =>
               val cmd = exe.key match {
@@ -83,12 +92,23 @@ private[preprocessing] final class TransactionPreprocessor(
                     exe.chosenValue,
                   )
                 case _ =>
-                  commandPreprocessor.unsafePreprocessExercise(
-                    exe.templateId,
-                    exe.targetCoid,
-                    exe.choiceId,
-                    exe.chosenValue,
-                  )
+                  exe.byInterface match {
+                    case None =>
+                      commandPreprocessor.unsafePreprocessExerciseTemplate(
+                        exe.templateId,
+                        exe.targetCoid,
+                        exe.choiceId,
+                        exe.chosenValue,
+                      )
+                    case Some(interfaceId) =>
+                      commandPreprocessor.unsafePreprocessExerciseByInterface(
+                        interfaceId,
+                        exe.templateId,
+                        exe.targetCoid,
+                        exe.choiceId,
+                        exe.chosenValue,
+                      )
+                  }
               }
               acc :+ cmd
             case _: Node.Fetch =>

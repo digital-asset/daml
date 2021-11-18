@@ -13,7 +13,9 @@ import org.openjdk.jmh.annotations._
 
 import scala.collection.compat._
 
-class QueryBenchmark extends ContractDaoBenchmark {
+trait QueryBenchmark extends ContractDaoBenchmark {
+  self: BenchmarkDbConnection =>
+
   @Param(Array("1", "5", "9"))
   var extraParties: Int = _
 
@@ -59,3 +61,6 @@ class QueryBenchmark extends ContractDaoBenchmark {
 
   discard(IterableOnce) // only needed for scala 2.12
 }
+
+class QueryBenchmarkOracle extends QueryBenchmark with OracleBenchmarkDbConn
+class QueryBenchmarkPostgres extends QueryBenchmark with PostgresBenchmarkDbConn

@@ -42,11 +42,6 @@ da_scala_test(
     scalacopts = lf_scalacopts + [
         "-P:silencer:lineContentFilters=standardInterpolator",
     ],
-    versioned_scala_deps = {
-        "2.12": [
-            "@maven//:org_scalaz_scalaz_core",
-        ],
-    },
     deps = [
         ":validation",
         "//daml-lf/data",

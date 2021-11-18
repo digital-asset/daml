@@ -110,53 +110,6 @@ jobs:
         trigger_sha: '$(trigger_sha)'
     - template: report-end.yml
 
-- job: Linux_scala_2_12
-  # We disable this for release builds. The actual release happens via the regular Linux builds
-  # and running tests on two scala versions doesn’t add any value if the tests already
-  # passed on the respective PRs that added the changes. The only difference here
-  # is the release version which should not affect things differently depending on the
-  # Scala version.
-  condition: and(succeeded(),
-                 eq(dependencies.check_for_release.outputs['out.is_release'], 'false'))
-  dependsOn:
-    - da_ghc_lib
-    - check_for_release
-    - git_sha
-  variables:
-    - name: release_sha
-      value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-    - name: release_tag
-      value: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
-    - name: trigger_sha
-      value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    - name: is_release
-      value: $[ eq(dependencies.check_for_release.outputs['out.is_release'], 'true') ]
-    - template: job-variables.yml
-  timeoutInMinutes: 360
-  pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
-  steps:
-    - template: report-start.yml
-    - checkout: self
-    - bash: |
-        set -euo pipefail
-        git checkout $(release_sha)
-      name: checkout_release
-      condition: and(succeeded(), eq(variables.is_release, 'true'))
-    - template: clean-up.yml
-    - template: build-unix.yml
-      parameters:
-        release_tag: $(release_tag)
-        name: 'linux-scala-2.12'
-        is_release: variables.is_release
-        scala_version: "2.12.14"
-    - template: upload-bazel-metrics.yml
-    - template: tell-slack-failed.yml
-      parameters:
-        trigger_sha: '$(trigger_sha)'
-    - template: report-end.yml
-
 - job: macOS
   dependsOn:
     - da_ghc_lib
@@ -509,7 +462,6 @@ jobs:
   dependsOn:
     - Linux
     - Linux_oracle
-    - Linux_scala_2_12
     - macOS
     - Windows
     - release
@@ -529,10 +481,6 @@ jobs:
     Linux_oracle.machine: $[ dependencies.Linux_oracle.outputs['start.machine'] ]
     Linux_oracle.end: $[ dependencies.Linux_oracle.outputs['end.time'] ]
     Linux_oracle.status: $[ dependencies.Linux_oracle.result ]
-    Linux_scala_2_12.start: $[ dependencies.Linux_scala_2_12.outputs['start.time'] ]
-    Linux_scala_2_12.machine: $[ dependencies.Linux_scala_2_12.outputs['start.machine'] ]
-    Linux_scala_2_12.end: $[ dependencies.Linux_scala_2_12.outputs['end.time'] ]
-    Linux_scala_2_12.status: $[ dependencies.Linux_scala_2_12.result ]
     macOS.start: $[ dependencies.macOS.outputs['start.time'] ]
     macOS.machine: $[ dependencies.macOS.outputs['start.machine'] ]
     macOS.end: $[ dependencies.macOS.outputs['end.time'] ]
@@ -582,10 +530,6 @@ jobs:
                             "machine": "$(Linux_oracle.machine)",
                             "end": "$(Linux_oracle.end)",
                             "status": "$(Linux_oracle.status)"},
-                  "Linux_scala_2_12": {"start": "$(Linux_scala_2_12.start)",
-                            "machine": "$(Linux_scala_2_12.machine)",
-                            "end": "$(Linux_scala_2_12.end)",
-                            "status": "$(Linux_scala_2_12.status)"},
                   "macOS": {"start": "$(macOS.start)",
                             "machine": "$(macOS.machine)",
                             "end": "$(macOS.end)",
@@ -643,7 +587,6 @@ jobs:
             || !("$(macOS.status)" == "Succeeded" || "$(macOS.status)" == "SucceededWithIssues")
             || "$(Windows.status)" != "Succeeded"
             || ("$(is_release)" == "false" && "$(compatibility_linux.status)" != "Succeeded")
-            || ("$(is_release)" == "false" && "$(Linux_scala_2_12.status)" != "Succeeded")
             || "$(release.status)" == "Canceled" ]]; then
             exit 1
         fi

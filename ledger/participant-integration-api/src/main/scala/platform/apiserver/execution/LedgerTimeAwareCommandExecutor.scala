@@ -86,7 +86,6 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
                 }
               }
               .recoverWith {
-
                 case MissingContracts(contracts) =>
                   if (retriesLeft > 0) {
                     metrics.daml.execution.retry.mark()

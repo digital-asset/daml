@@ -7,6 +7,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
+import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import org.scalatest.BeforeAndAfterAll
@@ -14,11 +15,11 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.collection.immutable
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 
 class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
-
+  private implicit val errorLogger: ContextualizedErrorLogger = NoLogging
   private val actorSystem = ActorSystem()
   private implicit val materializer: Materializer = Materializer(actorSystem)
   private implicit val ec: ExecutionContext = actorSystem.dispatcher
@@ -115,7 +116,7 @@ class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
       )(
         work = simple4Worker,
         initialTasks = simple4Task,
-      )(Ordering.by[(Int, Int), Int](_._2))
+      )(Ordering.by[(Int, Int), Int](_._2), errorLogger)
       .runWith(Sink.collection)
       .map(
         _.map(_._2) shouldBe simple4WorkerExpectedOrderedResult
@@ -130,7 +131,7 @@ class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
       )(
         work = simple4Worker,
         initialTasks = simple4Task,
-      )(Ordering.by[(Int, Int), Int](_._2))
+      )(Ordering.by[(Int, Int), Int](_._2), errorLogger)
       .runWith(Sink.collection)
       .map(
         _.map(_._2).toSet shouldBe simple4WorkerExpectedOrderedResult.toSet
@@ -145,7 +146,7 @@ class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
       )(
         work = simple4Worker,
         initialTasks = simple4Task,
-      )(Ordering.by[(Int, Int), Int](_._2))
+      )(Ordering.by[(Int, Int), Int](_._2), errorLogger)
       .runWith(Sink.collection)
       .map(
         _.map(_._2).toSet shouldBe simple4WorkerExpectedOrderedResult.toSet
@@ -216,7 +217,7 @@ class ACSReaderSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
         )(
           work = puppetWorker,
           initialTasks = List(puppetTask1, puppetTask6, puppetTask3, puppetTask4, puppetTask2),
-        )(Ordering.by[PuppetTask, Int](_.i))
+        )(Ordering.by[PuppetTask, Int](_.i), errorLogger)
         .runWith(Sink.collection)
     info("As stream processing starts")
     for {
