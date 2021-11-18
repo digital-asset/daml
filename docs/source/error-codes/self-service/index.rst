@@ -370,10 +370,6 @@ compatibility with previous releases for some service Ledger API endpoints.
 The table below outlines all the cases and error conditions when a Ledger API service endpoint returns a different
 gRPC status code in comparison to the pre-1.18 releases.
 
-For example, a service endpoint previously returning gRPC status code ``CODE_A`` may now return
-``CODE_B`` for some error condition while returning ``CODE_A`` for other conditions,
-and only an entry for the change from ``CODE_A`` in ``CODE_B`` is included in the table below.
-
 Ledger API
 ^^^^^^^^^^
 
