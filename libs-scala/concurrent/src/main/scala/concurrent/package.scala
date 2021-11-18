@@ -21,9 +21,9 @@ import scala.{concurrent => sc}
   * declare which ExecutionContext their operations are in.
   *
   * For Scala 2.12, you must pass `-Xsource:2.13` to scalac for methods and
-  * conversions to be automatically found.  You must also `import
-  * scalaz.syntax.bind._` or similar for Future methods like `map`, `flatMap`,
-  * and so on.
+  * conversions to be automatically found.  You must also
+  * `import scalaz.syntax.bind._` or similar for Future methods like `map`,
+  * `flatMap`, and so on.
   *
   * There are no constraints on the `EC` type variable; you need only declare
   * types you wish to use for it that are sufficient for describing the domains
@@ -111,5 +111,8 @@ package concurrent {
 
     def fromExecutorService[EC](e: ExecutorService): ExecutionContext[EC] =
       apply(sc.ExecutionContext.fromExecutorService(e))
+
+    val parasitic: ExecutionContext[Nothing] =
+      ExecutionContext(sc.ExecutionContext.parasitic)
   }
 }
