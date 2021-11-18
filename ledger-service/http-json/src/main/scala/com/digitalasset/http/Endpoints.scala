@@ -139,7 +139,8 @@ class Endpoints(
     } yield domain.OkResponse(jsVal)
 
   def exercise(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
     for {
       t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
@@ -187,7 +188,8 @@ class Endpoints(
     } yield domain.OkResponse(jsVal)
 
   def fetch(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
     for {
       input <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtPayload, JsValue)]
@@ -229,7 +231,8 @@ class Endpoints(
     }
 
   def query(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: Metrics,
   ): Future[Error \/ SearchResult[Error \/ JsValue]] =
     inputAndJwtPayload[JwtPayload](req).map {
       _.flatMap { case (jwt, jwtPayload, reqBody) =>
@@ -484,7 +487,8 @@ class Endpoints(
       jwtPayload: JwtWritePayload,
       reference: domain.ContractLocator[LfValue],
   )(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: Metrics,
   ): Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
     contractsService
       .resolveContractReference(jwt, jwtPayload.parties, reference)

@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.http.scaladsl.model.StatusCodes
 import akka.stream.scaladsl._
 import akka.stream.Materializer
+import com.codahale.metrics.Timer
 import com.daml.lf
 import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.dbbackend.ContractDao
@@ -18,12 +19,13 @@ import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
 import com.daml.http.query.ValuePredicate
 import com.daml.http.util.ApiValueToLfValueConverter
 import com.daml.http.util.FutureUtil.toFuture
-import com.daml.http.util.Logging.{InstanceUUID}
+import com.daml.http.util.Logging.InstanceUUID
 import util.{ContractStreamStep, InsertDeleteStep}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => api}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import com.daml.metrics.Metrics
 import com.daml.util.ExceptionOps._
 import scalaz.Id.Id
 import scalaz.std.option._
@@ -69,7 +71,8 @@ class ContractsService(
       parties: OneAnd[Set, domain.Party],
       contractLocator: domain.ContractLocator[LfValue],
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID],
+      metrics: Metrics,
   ): Future[Option[domain.ResolvedContractRef[LfValue]]] =
     contractLocator match {
       case domain.EnrichedContractKey(templateId, key) =>
@@ -86,7 +89,8 @@ class ContractsService(
       jwtPayload: JwtPayload,
       contractLocator: domain.ContractLocator[LfValue],
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID],
+      metrics: Metrics,
   ): Future[Option[domain.ActiveContract[JsValue]]] =
     contractLocator match {
       case domain.EnrichedContractKey(templateId, contractKey) =>
@@ -101,7 +105,8 @@ class ContractsService(
       templateId: TemplateId.OptionalPkg,
       contractKey: LfValue,
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID],
+      metrics: Metrics,
   ): Future[Option[domain.ActiveContract[JsValue]]] =
     search.toFinal
       .findByContractKey(SearchContext[Id, Option](jwt, parties, templateId), contractKey)
@@ -112,7 +117,8 @@ class ContractsService(
       templateId: Option[domain.TemplateId.OptionalPkg],
       contractId: domain.ContractId,
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID],
+      metrics: Metrics,
   ): Future[Option[domain.ActiveContract[JsValue]]] =
     search.toFinal.findByContractId(SearchContext(jwt, parties, templateId), contractId)
 
@@ -126,7 +132,8 @@ class ContractsService(
         ctx: SearchContext[Id, Option],
         contractKey: LfValue,
     )(implicit
-        lc: LoggingContextOf[InstanceUUID]
+        lc: LoggingContextOf[InstanceUUID],
+        metrics: Metrics,
     ): Future[Option[domain.ActiveContract[LfValue]]] = {
       import ctx.{jwt, parties, templateIds => templateId}
       for {
@@ -148,7 +155,8 @@ class ContractsService(
         ctx: SearchContext[Option, Option],
         contractId: domain.ContractId,
     )(implicit
-        lc: LoggingContextOf[InstanceUUID]
+        lc: LoggingContextOf[InstanceUUID],
+        metrics: Metrics,
     ): Future[Option[domain.ActiveContract[LfValue]]] = {
       import ctx.{jwt, parties, templateIds => templateId}
       for {
@@ -172,7 +180,8 @@ class ContractsService(
     }
 
     override def search(ctx: SearchContext[Set, Id], queryParams: Map[String, JsValue])(implicit
-        lc: LoggingContextOf[InstanceUUID]
+        lc: LoggingContextOf[InstanceUUID],
+        metrics: Metrics,
     ) = {
       import ctx.{jwt, parties, templateIds}
       searchInMemory(jwt, parties, templateIds, InMemoryQuery.Params(queryParams))
@@ -211,7 +220,8 @@ class ContractsService(
       jwtPayload: JwtPayload,
       request: GetActiveContractsRequest,
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID],
+      metrics: Metrics,
   ): SearchResult[Error \/ domain.ActiveContract[JsValue]] =
     search(jwt, jwtPayload.parties, request.templateIds, request.query)
 
@@ -221,7 +231,8 @@ class ContractsService(
       templateIds: OneAnd[Set, domain.TemplateId.OptionalPkg],
       queryParams: Map[String, JsValue],
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID],
+      metrics: Metrics,
   ): SearchResult[Error \/ domain.ActiveContract[JsValue]] = {
 
     val (resolvedTemplateIds, unresolvedTemplateIds) = resolveTemplateIds(templateIds)
@@ -255,7 +266,8 @@ class ContractsService(
             ctx: SearchContext[Option, Option],
             contractId: domain.ContractId,
         )(implicit
-            lc: LoggingContextOf[InstanceUUID]
+            lc: LoggingContextOf[InstanceUUID],
+            metrics: Metrics,
         ): Future[Option[domain.ActiveContract[LfV]]] = {
           import ctx.{jwt, parties, templateIds => otemplateId}
           val dbQueried = for {
@@ -263,8 +275,13 @@ class ContractsService(
             resolved <- resolveTemplateId(templateId)
           } yield unsafeRunAsync {
             import doobie.implicits._, cats.syntax.apply._
-            fetch.fetchAndPersist(jwt, parties, List(resolved)) *>
-              ContractDao.fetchById(parties, resolved, contractId)
+            timed(
+              metrics.daml.HttpJsonApi.Db.fetchByIdFetch,
+              fetch.fetchAndPersist(jwt, parties, List(resolved)),
+            ) *> timed(
+              metrics.daml.HttpJsonApi.Db.fetchByIdQuery,
+              ContractDao.fetchById(parties, resolved, contractId),
+            )
           }
           dbQueried getOrElse {
             // we need a template ID to update the database
@@ -276,15 +293,22 @@ class ContractsService(
             ctx: SearchContext[Id, Option],
             contractKey: LfValue,
         )(implicit
-            lc: LoggingContextOf[InstanceUUID]
+            lc: LoggingContextOf[InstanceUUID],
+            metrics: Metrics,
         ): Future[Option[domain.ActiveContract[LfV]]] = {
           import ctx.{jwt, parties, templateIds => templateId}
           for {
             resolved <- toFuture(resolveTemplateId(templateId))
             found <- unsafeRunAsync {
               import doobie.implicits._, cats.syntax.apply._
-              fetch.fetchAndPersist(jwt, parties, List(resolved)) *>
-                ContractDao.fetchByKey(parties, resolved, toDbCompatibleJson(contractKey))
+              timed(
+                metrics.daml.HttpJsonApi.Db.fetchByKeyFetch,
+                fetch.fetchAndPersist(jwt, parties, List(resolved)),
+              ) *>
+                timed(
+                  metrics.daml.HttpJsonApi.Db.fetchByKeyQuery,
+                  ContractDao.fetchByKey(parties, resolved, toDbCompatibleJson(contractKey)),
+                )
             }
           } yield found
         }
@@ -293,7 +317,8 @@ class ContractsService(
             ctx: SearchContext[Set, Id],
             queryParams: Map[String, JsValue],
         )(implicit
-            lc: LoggingContextOf[InstanceUUID]
+            lc: LoggingContextOf[InstanceUUID],
+            metrics: Metrics,
         ): Source[Error \/ domain.ActiveContract[LfV], NotUsed] = {
 
           // TODO use `stream` when materializing DBContracts, so we could stream ActiveContracts
@@ -306,20 +331,38 @@ class ContractsService(
         private[this] def unsafeRunAsync[A](cio: doobie.ConnectionIO[A]) =
           dao.transact(cio).unsafeToFuture()
 
+        private[this] def timed[A](
+            timer: Timer,
+            it: doobie.ConnectionIO[A],
+        ): doobie.ConnectionIO[A] = {
+          for {
+            ctx <- doobie.free.connection.pure(timer.time())
+            res <- it
+            _ = ctx.stop()
+          } yield res
+        }
+
         private[this] def searchDb_(fetch: ContractsFetch)(
             ctx: SearchContext[Set, Id],
             queryParams: Map[String, JsValue],
         )(implicit
-            lc: LoggingContextOf[InstanceUUID]
+            lc: LoggingContextOf[InstanceUUID],
+            metrics: Metrics,
         ): doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
           import cats.instances.vector._
           import cats.syntax.traverse._
           import doobie.implicits._
           import ctx.{jwt, parties, templateIds}
           for {
-            _ <- fetch.fetchAndPersist(jwt, parties, templateIds.toList)
-            cts <- templateIds.toVector
-              .traverse(tpId => searchDbOneTpId_(parties, tpId, queryParams))
+            _ <- timed(
+              metrics.daml.HttpJsonApi.Db.searchFetch,
+              fetch.fetchAndPersist(jwt, parties, templateIds.toList),
+            )
+            cts <- timed(
+              metrics.daml.HttpJsonApi.Db.searchQuery,
+              templateIds.toVector
+                .traverse(tpId => searchDbOneTpId_(parties, tpId, queryParams)),
+            )
           } yield cts.flatten
         }
 
@@ -498,7 +541,8 @@ object ContractsService {
             ctx: SearchContext[Option, Option],
             contractId: domain.ContractId,
         )(implicit
-            lc: LoggingContextOf[InstanceUUID]
+            lc: LoggingContextOf[InstanceUUID],
+            metrics: Metrics,
         ): Future[Option[domain.ActiveContract[LfV]]] =
           self
             .findByContractId(ctx, contractId)
@@ -508,7 +552,8 @@ object ContractsService {
             ctx: SearchContext[Id, Option],
             contractKey: LfValue,
         )(implicit
-            lc: LoggingContextOf[InstanceUUID]
+            lc: LoggingContextOf[InstanceUUID],
+            metrics: Metrics,
         ): Future[Option[domain.ActiveContract[LfV]]] =
           self
             .findByContractKey(ctx, contractKey)
@@ -518,7 +563,8 @@ object ContractsService {
             ctx: SearchContext[Set, Id],
             queryParams: Map[String, JsValue],
         )(implicit
-            lc: LoggingContextOf[InstanceUUID]
+            lc: LoggingContextOf[InstanceUUID],
+            metrics: Metrics,
         ): Source[Error \/ domain.ActiveContract[LfV], NotUsed] =
           self.search(ctx, queryParams) map (_ flatMap (_ traverse convert))
       }
@@ -528,21 +574,24 @@ object ContractsService {
         ctx: SearchContext[Option, Option],
         contractId: domain.ContractId,
     )(implicit
-        lc: LoggingContextOf[InstanceUUID]
+        lc: LoggingContextOf[InstanceUUID],
+        metrics: Metrics,
     ): Future[Option[domain.ActiveContract[LfV]]]
 
     def findByContractKey(
         ctx: SearchContext[Id, Option],
         contractKey: LfValue,
     )(implicit
-        lc: LoggingContextOf[InstanceUUID]
+        lc: LoggingContextOf[InstanceUUID],
+        metrics: Metrics,
     ): Future[Option[domain.ActiveContract[LfV]]]
 
     def search(
         ctx: SearchContext[Set, Id],
         queryParams: Map[String, JsValue],
     )(implicit
-        lc: LoggingContextOf[InstanceUUID]
+        lc: LoggingContextOf[InstanceUUID],
+        metrics: Metrics,
     ): Source[Error \/ domain.ActiveContract[LfV], NotUsed]
   }
 
