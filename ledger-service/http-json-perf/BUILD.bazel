@@ -5,13 +5,14 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
+    "kind_projector_plugin",
     "lf_scalacopts",
 )
 load(
     "//rules_daml:daml.bzl",
     "daml_compile",
 )
-load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
+load("@scala_version//:index.bzl", "scala_major_version")
 load(
     "//daml-lf/language:daml-lf.bzl",
     "lf_version_configuration",
@@ -33,7 +34,7 @@ perf_runtime_deps = {
         name = "http-json-perf-{}".format(edition),
         srcs = glob(["src/main/scala/**/*.scala"]),
         plugins = [
-            "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+            kind_projector_plugin,
         ],
         resources = glob(["src/main/resources/**/*"]),
         scala_deps = [
