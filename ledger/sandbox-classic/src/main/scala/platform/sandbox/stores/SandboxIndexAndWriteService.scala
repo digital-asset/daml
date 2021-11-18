@@ -130,7 +130,7 @@ private[sandbox] object SandboxIndexAndWriteService {
         templateStore,
         ledgerEntries,
         engine,
-        ErrorFactories(new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes)),
+        new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes),
       )
     owner(
       ledger = MeteredLedger(ledger, metrics),

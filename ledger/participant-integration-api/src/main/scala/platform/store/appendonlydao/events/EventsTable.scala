@@ -4,6 +4,8 @@
 package com.daml.platform.store.appendonlydao.events
 
 import com.daml.api.util.TimestampConversion
+import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.definitions.IndexErrors
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
@@ -72,6 +74,8 @@ object EventsTable {
 
     def toGetActiveContractsResponse(
         events: Vector[Entry[Event]]
+    )(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
     ): Vector[GetActiveContractsResponse] = {
       events.map {
         case entry if entry.event.isCreated =>
@@ -81,9 +85,11 @@ object EventsTable {
             activeContracts = Seq(entry.event.getCreated),
           )
         case entry =>
-          throw new IllegalStateException(
-            s"Non-create event ${entry.event.eventId} fetched as part of the active contracts"
-          )
+          throw IndexErrors.DatabaseErrors.ResultSetError
+            .Reject(
+              s"Non-create event ${entry.event.eventId} fetched as part of the active contracts"
+            )
+            .asGrpcError
       }
     }
 

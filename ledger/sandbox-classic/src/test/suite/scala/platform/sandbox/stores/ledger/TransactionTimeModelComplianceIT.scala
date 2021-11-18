@@ -26,7 +26,6 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.platform.sandbox.stores.ledger.TransactionTimeModelComplianceIT._
 import com.daml.platform.sandbox.{LedgerResource, MetricsAround}
 import com.daml.platform.server.api.validation.ErrorFactories
-import org.mockito.MockitoSugar
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.Span
@@ -45,8 +44,7 @@ class TransactionTimeModelComplianceIT
     with ScalaFutures
     with Matchers
     with OptionValues
-    with MetricsAround
-    with MockitoSugar {
+    with MetricsAround {
 
   override def timeLimit: Span = scaled(60.seconds)
 
@@ -55,15 +53,18 @@ class TransactionTimeModelComplianceIT
     Set(BackendType.InMemory, BackendType.Postgres)
 
   override protected def constructResource(index: Int, fixtureId: BackendType): Resource[Ledger] = {
+    val errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
+      enableSelfServiceErrorCodes = true
+    )
     val errorFactories = ErrorFactories(
-      new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes = false)
+      errorCodesVersionSwitcher
     )
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     fixtureId match {
       case BackendType.InMemory =>
-        LedgerResource.inMemory(ledgerId, timeProvider, errorFactories)
+        LedgerResource.inMemory(ledgerId, timeProvider, errorCodesVersionSwitcher)
       case BackendType.Postgres =>
-        LedgerResource.postgres(getClass, ledgerId, timeProvider, metrics, mock[ErrorFactories])
+        LedgerResource.postgres(getClass, ledgerId, timeProvider, metrics, errorFactories)
     }
   }
 
@@ -139,9 +140,11 @@ class TransactionTimeModelComplianceIT
     }
   }
 
-  private[this] def expectInvalidLedgerTime(completion: Completion): Assertion = {
-    completion.status.value.code shouldBe aborted
-  }
+  private[this] def expectInvalidLedgerTime(completion: Completion): Assertion =
+    completion.status.value.code shouldBe failedPrecondition
+
+  private[this] def expectLedgerConfigNotFound(completion: Completion): Assertion =
+    completion.status.value.code shouldBe notFound
 
   private[this] def expectValidTx(completion: Completion): Assertion =
     completion.status.value.code shouldBe ok
@@ -158,7 +161,7 @@ class TransactionTimeModelComplianceIT
           configuration = null,
         )
       } yield {
-        expectInvalidLedgerTime(r1)
+        expectLedgerConfigNotFound(r1)
       }
     }
     "accept transactions with ledger time that is right" in allFixtures { ledger =>
@@ -242,7 +245,6 @@ class TransactionTimeModelComplianceIT
       }
     }
   }
-
 }
 
 object TransactionTimeModelComplianceIT {
@@ -263,6 +265,6 @@ object TransactionTimeModelComplianceIT {
   }
 
   private val ok = io.grpc.Status.Code.OK.value()
-  private val aborted = io.grpc.Status.Code.ABORTED.value()
-
+  private val failedPrecondition = io.grpc.Status.Code.FAILED_PRECONDITION.value()
+  private val notFound = io.grpc.Status.Code.NOT_FOUND.value()
 }
