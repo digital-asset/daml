@@ -177,7 +177,7 @@ class InterfacesTest
         val command = ExerciseCommand(idT1, cid2, "C1", ValueRecord(None, ImmArray.empty))
         run(command) shouldBe a[Left[_, _]]
       }
-    */
+     */
     "be unable to exercise T2 (disguised as T1) by interface I2 (stopped in preprocessor)" in {
       val command = ExerciseCommand(idT1, cid2, "C2", ValueRecord(None, ImmArray.empty))
       preprocess(command) shouldBe a[Left[_, _]]
