@@ -30,6 +30,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.annotation.nowarn
+
+@nowarn("msg=deprecated")
 class CommitterSpec
     extends AnyWordSpec
     with TableDrivenPropertyChecks
@@ -47,7 +50,6 @@ class CommitterSpec
       val expectedMaxRecordTime = Timestamp.assertFromLong(200 * 1000 * 1000)
       when(mockContext.minimumRecordTime).thenReturn(Some(expectedMinRecordTime))
       when(mockContext.maximumRecordTime).thenReturn(Some(expectedMaxRecordTime))
-      when(mockContext.deduplicateUntil).thenReturn(None)
       when(mockContext.outOfTimeBoundsLogEntry).thenReturn(Some(aRejectionLogEntry))
       val expectedReadSet = Set(
         DamlStateKey.newBuilder.setContractId("1").build,
@@ -71,7 +73,6 @@ class CommitterSpec
       val mockContext = mock[CommitContext]
       when(mockContext.minimumRecordTime).thenReturn(None)
       when(mockContext.maximumRecordTime).thenReturn(None)
-      when(mockContext.deduplicateUntil).thenReturn(None)
       when(mockContext.outOfTimeBoundsLogEntry).thenReturn(Some(aRejectionLogEntry))
       when(mockContext.getOutputs).thenReturn(Map.empty)
       when(mockContext.getAccessedInputKeys).thenReturn(Set.empty[DamlStateKey])
@@ -90,10 +91,8 @@ class CommitterSpec
       when(mockContext.getAccessedInputKeys).thenReturn(Set.empty[DamlStateKey])
       val expectedMinRecordTime = Timestamp.assertFromLong(100 * 1000 * 1000)
       val expectedMaxRecordTime = Timestamp.assertFromLong(200 * 1000 * 1000)
-      val expectedDuplicateUntil = Timestamp.assertFromLong(99 * 1000 * 1000)
       when(mockContext.minimumRecordTime).thenReturn(Some(expectedMinRecordTime))
       when(mockContext.maximumRecordTime).thenReturn(Some(expectedMaxRecordTime))
-      when(mockContext.deduplicateUntil).thenReturn(Some(expectedDuplicateUntil))
       val instance = createCommitter()
       val actual = instance.preExecute(aDamlSubmission, mockContext)
 
@@ -101,9 +100,7 @@ class CommitterSpec
       val actualOutOfTimeBoundsLogEntry = actual.outOfTimeBoundsLogEntry.getOutOfTimeBoundsEntry
       actualOutOfTimeBoundsLogEntry.getTooEarlyUntil shouldBe buildTimestamp(expectedMinRecordTime)
       actualOutOfTimeBoundsLogEntry.getTooLateFrom shouldBe buildTimestamp(expectedMaxRecordTime)
-      actualOutOfTimeBoundsLogEntry.getDuplicateUntil shouldBe buildTimestamp(
-        expectedDuplicateUntil
-      )
+      actualOutOfTimeBoundsLogEntry.hasDuplicateUntil shouldBe false
       actualOutOfTimeBoundsLogEntry.hasEntry shouldBe true
       actualOutOfTimeBoundsLogEntry.getEntry shouldBe aRejectionLogEntry
     }

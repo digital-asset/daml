@@ -39,8 +39,9 @@ import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.Tables.Table
 import org.scalatest.prop.{TableFor1, TableFor4, TableFor5}
 import org.scalatest.wordspec.AnyWordSpec
-
 import java.time.Instant
+
+import scala.annotation.nowarn
 
 class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
   private val aLogEntryIdString = "test"
@@ -491,6 +492,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
     )
   }
 
+  @nowarn("msg=deprecated")
   private def buildOutOfTimeBoundsEntry(
       timeBounds: TimeBounds,
       logEntryType: DamlLogEntry.PayloadCase,
