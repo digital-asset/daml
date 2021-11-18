@@ -4,11 +4,9 @@
 package com.daml.lf.data
 
 import scalaz.Order
-
-import java.math.{BigDecimal, BigInteger}
+import java.math.{BigDecimal, BigInteger, RoundingMode}
 
 import scala.math.{BigDecimal => BigDec}
-import BigDecimal.{ROUND_DOWN, ROUND_HALF_EVEN, ROUND_UNNECESSARY}
 
 import scala.util.Try
 
@@ -109,7 +107,7 @@ abstract class NumericModule {
     * In case of overflow, returns an error message instead.
     */
   final def multiply(scale: Scale, x: Numeric, y: Numeric): Either[String, Numeric] =
-    checkForOverflow((x multiply y).setScale(scale, ROUND_HALF_EVEN))
+    checkForOverflow((x multiply y).setScale(scale, RoundingMode.HALF_EVEN))
 
   /** Divides `x` by `y`. The output has the scale `scale`. If rounding must be
     * performed, the [[https://en.wikipedia.org/wiki/Rounding#Round_half_to_even> banker's rounding convention]]
@@ -117,7 +115,7 @@ abstract class NumericModule {
     * In case of overflow, returns an error message instead.
     */
   final def divide(scale: Scale, x: Numeric, y: Numeric): Either[String, Numeric] =
-    checkForOverflow(x.divide(y, scale, ROUND_HALF_EVEN))
+    checkForOverflow(x.divide(y, scale, RoundingMode.HALF_EVEN))
 
   /** Returns the integral part of the given decimal, in other words, rounds towards 0.
     * In case the result does not fit into a long, returns an error message instead.
@@ -125,7 +123,7 @@ abstract class NumericModule {
     * ```Requires the scale of `x` and `y` are the same.```
     */
   final def toLong(x: Numeric): Either[String, Long] =
-    Try(x.setScale(0, ROUND_DOWN).longValueExact()).toEither.left.map(_ =>
+    Try(x.setScale(0, RoundingMode.DOWN).longValueExact()).toEither.left.map(_ =>
       s"(Numeric ${x.scale}) ${toString(x)} does not fit into an Int64"
     )
 
@@ -136,7 +134,7 @@ abstract class NumericModule {
     */
   final def round(targetScale: Long, x: Numeric): Either[String, Numeric] =
     if (targetScale <= x.scale && x.scale - maxPrecision < targetScale)
-      checkForOverflow(x.setScale(targetScale.toInt, ROUND_HALF_EVEN).setScale(x.scale))
+      checkForOverflow(x.setScale(targetScale.toInt, RoundingMode.HALF_EVEN).setScale(x.scale))
     else
       Left(s"Bad scale $targetScale, must be between ${x.scale - maxPrecision - 1} and ${x.scale}")
 
@@ -157,7 +155,7 @@ abstract class NumericModule {
     if (!(x.stripTrailingZeros.scale <= scale))
       Left(s"Cannot represent ${toString(x)} as (Numeric $scale) without lost of precision")
     else
-      checkForOverflow(x.setScale(scale, ROUND_UNNECESSARY))
+      checkForOverflow(x.setScale(scale, RoundingMode.UNNECESSARY))
 
   /** Like `fromBigDecimal(Int, BigDecimal)` but with a scala BigDecimal.
     */
@@ -269,7 +267,7 @@ abstract class NumericModule {
   def checkWithinBoundsAndRound(scale: Scale, x: BigDecimal): Either[String, Numeric] =
     Either.cond(
       x.precision - x.scale <= maxPrecision - scale,
-      cast(x.setScale(scale, ROUND_HALF_EVEN)),
+      cast(x.setScale(scale, RoundingMode.HALF_EVEN)),
       s"out-of-bounds (Numeric $scale) $x",
     )
 

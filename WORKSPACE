@@ -515,26 +515,6 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
-#Javadoc
-nixpkgs_package(
-    name = "jdk_nix",
-    attribute_path = "jdk8",
-    fail_not_supported = False,
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-)
-
-# To run canton
-nixpkgs_package(
-    name = "jdk11_nix",
-    attribute_path = "jdk11",
-    fail_not_supported = False,
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-)
-
 # This only makes sense on Windows so we just put dummy values in the nix fields.
 dev_env_tool(
     name = "makensis_dev_env",
@@ -592,11 +572,11 @@ load("//bazel_tools:java.bzl", "dadew_java_configure", "nixpkgs_java_configure")
 
 dadew_java_configure(
     name = "dadew_java_runtime",
-    dadew_path = "java-openjdk-8u302",
+    dadew_path = "ojdkbuild11",
 ) if is_windows else None
 
 nixpkgs_java_configure(
-    attribute_path = "jdk8.home",
+    attribute_path = "jdk11.home",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,

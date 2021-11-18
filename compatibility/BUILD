@@ -135,7 +135,14 @@ migration_test(
     ] +
     # These tests are fairly slow so on PRs we only run them on Linux
     (["head-quick"] if is_linux else []),
-    versions = stable_versions,
+    versions = [
+        version
+        for version in stable_versions
+        # We skip versions before 1.6.0. These versions had a bug where ledger
+        # effective time was stored at higher precision than it should have
+        # been. See https://github.com/digital-asset/daml/pull/11512#discussion_r751041534
+        if versions.is_at_least("1.6.0", version)
+    ],
 ) if not is_windows else None
 
 migration_test(
@@ -155,7 +162,14 @@ migration_test(
     timeout = "eternal",
     # Exclusive due to hardcoded postgres ports.
     tags = ["exclusive"],
-    versions = platform_versions,
+    versions = [
+        version
+        for version in platform_versions
+        # We skip versions before 1.6.0. These versions had a bug where ledger
+        # effective time was stored at higher precision than it should have
+        # been. See https://github.com/digital-asset/daml/pull/11512#discussion_r751041534
+        if versions.is_at_least("1.6.0", version)
+    ],
 ) if not is_windows else None
 
 [
