@@ -518,5 +518,5 @@ export const emptyMap = <K, V>(): Map<K, V> => new MapImpl<K, V>([]);
  */
 export const Map = <K, V>(kd: Serializable<K>, vd: Serializable<V>): Serializable<Map<K, V>> => ({
   decoder: jtv.array(jtv.tuple([kd.decoder, vd.decoder])).map(kvs => new MapImpl(kvs)),
-  encode: (m: Map<K, V>): unknown => m.entriesArray(),
+  encode: (m: Map<K, V>): unknown => m.entriesArray().map(e => [kd.encode(e[0]), vd.encode(e[1])]),
 });
