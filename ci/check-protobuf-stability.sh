@@ -89,34 +89,26 @@ USAGE
   exit
   ;;
 --stable)
-  # Check against the most recent stable tag.
-  #
-  # This check does not need to run on release branch commits because
-  # they are built sequentially, so no conflicts are possible and the per-PR
-  # check is enough.
-  readonly RELEASE_BRANCH_REGEX="^release/.*"
-  GIT_TAG_SCOPE=""
-  # For PRs targeting release branches, we should really check against
-  # all the most recent stable tags reachable from either the current branch or
-  # from previous release branches (say, against both 1.17.1 and 1.16.2
-  # created after the release/1.17.x branch).
-  #
-  # We rather check against the most recent stable (non-snapshot) tag reachable from the current branch,
-  # under the assumption that if a previous release branch contains a protobuf change,
-  # then it will also be present in later ones (previous/later with regards to versioning).
-  if [[ "${TARGET}" =~ ${RELEASE_BRANCH_REGEX} ]]; then
-    GIT_TAG_SCOPE="--merged"
-  fi
-  readonly LATEST_STABLE_TAG="$(git tag ${GIT_TAG_SCOPE} | grep -v "snapshot" | sort -V | tail -1)"
-  # The v1.17 stable release includes the buf config file with the default name `buf.yml`.
-  # Starting with v1.18 we have multiple buf config files.
-  if [[ $LATEST_STABLE_TAG =~ "v1.17."* ]]; then
-    BUF_CONFIG_UPDATED=false
+  if [[ $TARGET == "main" ]]; then
+    # Check against the most recent stable tag.
+    # This check runs only on main or PRs targeting main.
+    #
+    # This check does not need to run on release branch commits because
+    # they are built sequentially, so no conflicts are possible and the per-PR
+    # check is enough.
+    readonly LATEST_STABLE_TAG="$(git tag | grep -v "snapshot" | sort -V | tail -1)"
+    # The v1.17 stable release includes the buf config file with the default name `buf.yml`.
+    # Starting with v1.18 we have multiple buf config files.
+    if [[ $LATEST_STABLE_TAG =~ "v1.17."* ]]; then
+      BUF_CONFIG_UPDATED=false
+    else
+      BUF_CONFIG_UPDATED=true
+    fi
+    BUF_GIT_TARGET_TO_CHECK=".git#tag=${LATEST_STABLE_TAG}"
+    check_protos
   else
-    BUF_CONFIG_UPDATED=true
+    echo "Skipping check for protobuf compatibility because the target is '${TARGET}' and not 'main'"
   fi
-  BUF_GIT_TARGET_TO_CHECK=".git#tag=${LATEST_STABLE_TAG}"
-  check_protos
   ;;
 --target)
   # Check against the tip of the target branch.
