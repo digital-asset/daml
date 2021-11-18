@@ -11,9 +11,6 @@ da_scala_library(
     name = "grpc-server-reflection-client",
     srcs = glob(["src/main/scala/**/*.scala"]),
     tags = ["maven_coordinates=com.daml:grpc-server-reflection-client:__VERSION__"],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     visibility = [
         "//:__subpackages__",
     ],

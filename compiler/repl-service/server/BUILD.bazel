@@ -29,9 +29,6 @@ da_scala_binary(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = repl_scalacopts,
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],

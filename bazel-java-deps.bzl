@@ -19,20 +19,6 @@ load(
 )
 
 version_specific = {
-    "2.12": [
-    ],
-    "2.13": [
-        "org.scala-lang.modules:scala-parallel-collections_2.13:1.0.0",
-        # Gatling does not cross-build so this is limited to Scala 2.13.
-        "io.gatling:gatling-app:3.5.1",
-        "io.gatling:gatling-core:3.5.1",
-        "io.gatling:gatling-commons:3.5.1",
-        "io.gatling:gatling-recorder:3.5.1",
-        "io.gatling:gatling-charts:3.5.1",
-        "io.gatling.highcharts:gatling-charts-highcharts:3.5.1",
-        "io.gatling:gatling-http:3.5.1",
-        "io.gatling:gatling-http-client:3.5.1",
-    ],
 }
 
 netty_version = "4.1.67.Final"
@@ -44,8 +30,9 @@ netty_version = "4.1.67.Final"
 # <tcnative.version>2.0.42.Final</tcnative.version>
 # ```
 netty_tcnative_version = "2.0.40.Final"
-grpc_version = "1.41.0"
+grpc_version = "1.35.0"
 akka_version = "2.6.13"
+gatling_version = "3.5.1"
 
 def install_java_deps():
     maven_install(
@@ -148,6 +135,14 @@ def install_java_deps():
             "com.thesamet.scalapb:scalapb-runtime_{}:{}".format(scala_major_version, scalapb_version),
             "com.thesamet.scalapb:scalapb-runtime-grpc_{}:{}".format(scala_major_version, scalapb_version),
             # ---- end of grpc-protobuf-netty block
+            "io.gatling:gatling-app:{}".format(gatling_version),
+            "io.gatling:gatling-core:{}".format(gatling_version),
+            "io.gatling:gatling-commons:{}".format(gatling_version),
+            "io.gatling:gatling-recorder:{}".format(gatling_version),
+            "io.gatling:gatling-charts:{}".format(gatling_version),
+            "io.gatling.highcharts:gatling-charts-highcharts:{}".format(gatling_version),
+            "io.gatling:gatling-http:{}".format(gatling_version),
+            "io.gatling:gatling-http-client:{}".format(gatling_version),
             "io.reactivex.rxjava2:rxjava:2.2.1",
             "io.spray:spray-json_{}:1.3.5".format(scala_major_version),
             "javax.annotation:javax.annotation-api:1.2",
@@ -181,6 +176,7 @@ def install_java_deps():
             "org.scalacheck:scalacheck_{}:1.15.4".format(scala_major_version),
             "org.scala-lang.modules:scala-collection-compat_{}:2.3.2".format(scala_major_version),
             "org.scala-lang.modules:scala-java8-compat_{}:0.9.0".format(scala_major_version),
+            "org.scala-lang.modules:scala-parallel-collections_{}:1.0.0".format(scala_major_version),
             "org.scalameta:munit_{}:0.7.26".format(scala_major_version),
             "org.scalactic:scalactic_{}:3.2.9".format(scala_major_version),
             "org.scalatest:scalatest_{}:3.2.9".format(scala_major_version),
