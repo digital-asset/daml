@@ -178,6 +178,7 @@ data Env = Env
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envImplements :: MS.Map TypeConName [GHC.TyCon]
     ,envInterfaceMethodInstances :: MS.Map (GHC.Module, TypeConName, TypeConName) [(T.Text, GHC.Expr GHC.CoreBndr)]
+    ,envEmptyInterfaces :: S.Set (GHC.Module, TypeConName)
     ,envInterfaceChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envInterfaces :: MS.Map TypeConName GHC.TyCon
     ,envIsGenerated :: Bool
@@ -565,6 +566,28 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
             `App` body
               <- [val]
           ]
+        emptyInterfaces :: S.Set (GHC.Module, TypeConName)
+        emptyInterfaces = S.fromList
+          [ (mod, mkTypeCon [getOccText ifc])
+          | (name, val) <- binds
+          -- We're looking for `instance DA.Internal.Desugar.Implements I I`
+          , DFunId _ <- [idDetails name]
+          , TypeCon implementsCls [TypeCon tpl [], TypeCon ifc []] <- [varType name]
+          , NameIn DA_Internal_Desugar "Implements" <- [implementsCls]
+          , Just mod <- [nameModule_maybe (getName ifc)]
+          , tpl == ifc
+          -- such that there are no `instance HasMethod I _ _`
+          , null
+            [ ()
+            | (name, val) <- binds
+            , DFunId _ <- [idDetails name]
+            , TypeCon hasMethodCls
+              [ TypeCon ((== ifc) -> True) []
+              , _
+              , _
+              ] <- [varType name]
+            ]
+          ]
         choiceData = MS.fromListWith (++)
             [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
             | (name, v) <- binds
@@ -600,6 +623,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
           , envExceptionBinds = exceptionBinds
           , envImplements = tplImplements
           , envInterfaceMethodInstances = tplInterfaceMethodInstances
+          , envEmptyInterfaces = emptyInterfaces
           , envChoiceData = choiceData
           , envIsGenerated = isGenerated
           , envTypeVars = MS.empty
@@ -986,9 +1010,12 @@ convertImplements env tpl = NM.fromList <$>
         TCon con -> pure con
         _ -> unhandled "interface type" iface
       let mod = nameModule (getName iface)
-      methods <- case MS.lookup (mod, qualObject con, tpl) (envInterfaceMethodInstances env) of
-        Just ms -> convertMethods ms
-        Nothing -> unhandled ("missing interface instance for " <> show con) ()
+
+      methods <- if S.member (mod, qualObject con) (envEmptyInterfaces env)
+        then pure NM.empty
+        else case MS.lookup (mod, qualObject con, tpl) (envInterfaceMethodInstances env) of
+          Just ms -> convertMethods ms
+          Nothing -> unhandled ("missing interface instance for " <> show (con, tpl)) ()
 
       let inheritedChoiceNames = S.empty -- This is filled during LF post-processing (in the LF completer).
       pure (TemplateImplements con methods inheritedChoiceNames)
