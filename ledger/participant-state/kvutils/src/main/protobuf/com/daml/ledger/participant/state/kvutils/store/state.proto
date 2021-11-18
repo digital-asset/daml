@@ -54,7 +54,6 @@ message DamlCommandDedupKey {
 
 message DamlCommandDedupValue {
   reserved 1; // was record_time
-  reserved 3; // was submission_time
   // The time until when future commands with the same
   // deduplication key will be rejected due to a duplicate submission.
   google.protobuf.Timestamp deduplicated_until = 2;
