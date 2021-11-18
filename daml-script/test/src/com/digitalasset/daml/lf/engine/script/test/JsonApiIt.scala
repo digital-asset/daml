@@ -9,6 +9,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
 import com.daml.bazeltools.BazelRunfiles._
+import com.daml.cliopts.Logging.LogEncoder
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.HttpService
@@ -150,6 +151,7 @@ trait JsonApiFixture
                 override val accessTokenFile = Some(jsonAccessTokenFile)
                 override val allowNonHttps = true
                 override val logLevel = None
+                override val logEncoder = LogEncoder.Plain
               }
               HttpService
                 .start(config)(

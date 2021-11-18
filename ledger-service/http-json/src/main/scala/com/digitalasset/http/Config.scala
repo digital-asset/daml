@@ -18,6 +18,7 @@ import scala.concurrent.duration._
 import scala.util.Try
 
 import ch.qos.logback.classic.{Level => LogLevel}
+import com.daml.cliopts.Logging.LogEncoder
 
 // The internal transient scopt structure *and* StartSettings; external `start`
 // users should extend StartSettings or DefaultStartSettings themselves
@@ -38,6 +39,7 @@ private[http] final case class Config(
     accessTokenFile: Option[Path] = None,
     wsConfig: Option[WebsocketConfig] = None,
     logLevel: Option[LogLevel] = None, // the default is in logback.xml
+    logEncoder: LogEncoder = LogEncoder.Plain,
 ) extends HttpService.StartSettings
 
 private[http] object Config {
