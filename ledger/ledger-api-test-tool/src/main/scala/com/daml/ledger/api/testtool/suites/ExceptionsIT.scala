@@ -3,21 +3,13 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
-import com.daml.ledger.test.semantic.Exceptions.{
-  Divulger,
-  ExceptionTester,
-  Fetcher,
-  WithSimpleKey,
-  Informer,
-  WithKey,
-  WithKeyDelegate,
-  RollbackNestingHelper,
-}
+import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
+import com.daml.ledger.test.semantic.Exceptions._
 import io.grpc.Status
 
 final class ExceptionsIT extends LedgerTestSuite {
@@ -31,8 +23,10 @@ final class ExceptionsIT extends LedgerTestSuite {
       failure <- ledger.exercise(party, t.exerciseThrowUncaught(_)).mustFail("Unhandled exception")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
         Some("Unhandled exception"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -82,8 +76,10 @@ final class ExceptionsIT extends LedgerTestSuite {
         .mustFail("contract is archived")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.ABORTED,
+        LedgerApiErrors.ConsistencyErrors.ContractNotFound,
         Some("Contract could not be found"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -105,8 +101,10 @@ final class ExceptionsIT extends LedgerTestSuite {
         .mustFail("contract is archived")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.ABORTED,
+        LedgerApiErrors.ConsistencyErrors.ContractNotFound,
         Some("Contract could not be found"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -128,8 +126,10 @@ final class ExceptionsIT extends LedgerTestSuite {
         .mustFail("contract is archived")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.ABORTED,
+        LedgerApiErrors.ConsistencyErrors.ContractNotFound,
         Some("Contract could not be found"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -183,8 +183,10 @@ final class ExceptionsIT extends LedgerTestSuite {
       failure <- ledger.exercise(party, t.exerciseDuplicateKey(_)).mustFail("duplicate key")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.ABORTED,
+        LedgerApiErrors.ConsistencyErrors.DuplicateContractKey,
         Some("DuplicateKey"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -201,8 +203,10 @@ final class ExceptionsIT extends LedgerTestSuite {
       withKey <- ledger.create(party, WithSimpleKey(party))
       failure <- ledger.exercise(party, t.exerciseDuplicateKey(_)).mustFail("duplicate key")
       _ = assertGrpcError(
+        ledger,
         failure,
         Status.Code.ABORTED,
+        LedgerApiErrors.ConsistencyErrors.DuplicateContractKey,
         Some("DuplicateKey"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -224,8 +228,10 @@ final class ExceptionsIT extends LedgerTestSuite {
       failure <- ledger.exercise(party, t.exerciseFetchKey(_)).mustFail("couldn't find key")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some("couldn't find key"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -242,8 +248,10 @@ final class ExceptionsIT extends LedgerTestSuite {
       t <- ledger.create(party, ExceptionTester(party))
       failure <- ledger.exercise(party, t.exerciseFetchKey(_)).mustFail("contract not found")
       _ = assertGrpcError(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some("couldn't find key"),
         checkDefiniteAnswerMetadata = true,
       )
@@ -285,8 +293,10 @@ final class ExceptionsIT extends LedgerTestSuite {
           .exercise(aParty, fetcher.exerciseFetch(_, t))
           .mustFail("contract could not be found")
         _ = assertGrpcError(
+          aLedger,
           fetchFailure,
           Status.Code.ABORTED,
+          LedgerApiErrors.ConsistencyErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -312,8 +322,10 @@ final class ExceptionsIT extends LedgerTestSuite {
           .exercise(bParty, fetcher.exerciseFetch_(_, withKey0))
           .mustFail("contract could not be found")
         _ = assertGrpcError(
+          bLedger,
           fetchFailure,
           Status.Code.ABORTED,
+          LedgerApiErrors.ConsistencyErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -321,8 +333,10 @@ final class ExceptionsIT extends LedgerTestSuite {
           .exercise(bParty, fetcher.exerciseFetch_(_, withKey1))
           .mustFail("contract could not be found")
         _ = assertGrpcError(
+          bLedger,
           fetchFailure,
           Status.Code.ABORTED,
+          LedgerApiErrors.ConsistencyErrors.ContractNotFound,
           Some("Contract could not be found"),
           checkDefiniteAnswerMetadata = true,
         )

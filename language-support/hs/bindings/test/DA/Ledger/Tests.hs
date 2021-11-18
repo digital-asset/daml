@@ -356,7 +356,7 @@ tUploadDarFileBad withSandbox = testCase "tUploadDarFileBad" $ run withSandbox $
     lid <- getLedgerIdentity
     let bytes = BS.fromString "not-the-bytes-for-a-darfile"
     Left err <- uploadDarFileGetPid lid bytes
-    liftIO $ assertTextContains err "Invalid DAR: package-upload"
+    liftIO $ assertTextContains err "Dar file is corrupt"
 
 tUploadDarFileGood :: SandboxTest
 tUploadDarFileGood withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \_darMetadata testId -> do

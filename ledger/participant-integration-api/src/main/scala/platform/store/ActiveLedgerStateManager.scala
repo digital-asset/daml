@@ -3,15 +3,15 @@
 
 package com.daml.platform.store
 
-import java.time.Instant
-
 import com.daml.ledger.api.domain.RejectionReason
-import com.daml.ledger.api.domain.RejectionReason.{Inconsistent, InvalidLedgerTime}
+import com.daml.ledger.api.domain.RejectionReason.{ContractsNotFound, InvalidLedgerTime}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Relation.Relation
-import com.daml.lf.transaction.{CommittedTransaction, GlobalKey, NodeId, Node => N}
+import com.daml.lf.transaction.{CommittedTransaction, GlobalKey, Node, NodeId}
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Contract.ActiveContract
+
+import java.time.Instant
 
 /** A helper for updating an [[ActiveLedgerState]] with new transactions:
   * - Validates the transaction against the [[ActiveLedgerState]].
@@ -111,7 +111,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
           if (otherContractLet.isAfter(let)) {
             Some(
               InvalidLedgerTime(
-                s"Encountered contract [$cid] with LET [$otherContractLet] greater than the LET of the transaction [$let]"
+                s"Encountered contract [${cid.coid}] with LET [$otherContractLet] greater than the LET of the transaction [$let]"
               )
             )
           } else {
@@ -123,21 +123,19 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
         case None if divulgedContracts.exists(_._1 == cid) =>
           // Contract is going to be divulged in this transaction
           None
-        case None =>
-          // Contract not known
-          Some(Inconsistent(s"Could not lookup contract $cid"))
+        case None => Some(ContractsNotFound(Set(cid.coid)))
       }
 
     def handleLeaf(
         state: AddTransactionState,
         nodeId: NodeId,
-        node: N.LeafOnlyActionNode,
+        node: Node.LeafOnlyAction,
     ): AddTransactionState =
       state.currentState.als match {
         case None => state
         case Some(als) =>
           node match {
-            case nf: N.NodeFetch =>
+            case nf: Node.Fetch =>
               val nodeParties = nf.signatories
                 .union(nf.stakeholders)
                 .union(nf.actingParties)
@@ -145,7 +143,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                 errs = contractCheck(als, nf.coid).fold(state.errs)(state.errs + _),
                 parties = state.parties.union(nodeParties),
               )
-            case nc: N.NodeCreate =>
+            case nc: Node.Create =>
               val nodeParties = nc.signatories
                 .union(nc.stakeholders)
                 .union(nc.key.map(_.maintainers).getOrElse(Set.empty))
@@ -159,9 +157,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                 witnesses = disclosure(nodeId),
                 // A contract starts its life without being divulged at all.
                 divulgences = Map.empty,
-                key = nc.versionedKey.map(
-                  _.assertNoCid(coid => s"Contract ID $coid found in contract key")
-                ),
+                key = nc.versionedKey,
                 signatories = nc.signatories,
                 observers = nc.stakeholders.diff(nc.signatories),
                 agreementText = nc.agreementText,
@@ -175,13 +171,14 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                     parties = state.parties.union(nodeParties),
                   )
                 case Some(key) =>
-                  val gk = GlobalKey(activeContract.contract.template, key.key.value)
+                  val gk =
+                    GlobalKey(activeContract.contract.unversioned.template, key.unversioned.key)
                   if (als.lookupContractByKey(gk).isDefined) {
                     state.copy(
                       currentState = state.currentState.copy(
                         als = None
                       ),
-                      errs = state.errs + Inconsistent("DuplicateKey: contract key is not unique"),
+                      errs = state.errs + RejectionReason.DuplicateContractKey(gk),
                       parties = state.parties.union(nodeParties),
                     )
                   } else {
@@ -193,12 +190,9 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                     )
                   }
               }
-            case nlkup: N.NodeLookupByKey =>
+            case nlkup: Node.LookupByKey =>
               // Check that the stored lookup result matches the current result
-              val key = nlkup.key.key.ensureNoCid.fold(
-                coid => throw new IllegalStateException(s"Contract ID $coid found in contract key"),
-                identity,
-              )
+              val key = nlkup.key.key
               val gk = GlobalKey(nlkup.templateId, key)
               val nodeParties = nlkup.key.maintainers
 
@@ -212,8 +206,9 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                   )
                 } else {
                   state.copy(
-                    errs = state.errs + Inconsistent(
-                      s"Contract key lookup with different results: expected [${nlkup.result}], actual [$currentResult]"
+                    errs = state.errs + RejectionReason.InconsistentContractKeys(
+                      nlkup.result,
+                      currentResult,
                     )
                   )
                 }

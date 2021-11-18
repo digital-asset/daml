@@ -13,9 +13,6 @@ da_scala_library(
         "//:mvn_version_file",
     ],
     tags = ["maven_coordinates=com.daml:build-info:__VERSION__"],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     visibility = [
         "//:__subpackages__",
     ],

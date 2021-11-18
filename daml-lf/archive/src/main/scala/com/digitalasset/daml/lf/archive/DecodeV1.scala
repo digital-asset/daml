@@ -607,6 +607,10 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         methods = lfImpl.getMethodsList.asScala
           .map(decodeTemplateImplementsMethod)
           .map(method => (method.name, method)),
+        inheritedChoices = lfImpl.getInheritedChoiceInternedNamesList.asScala
+          .map(getInternedName(_, "TemplateImplements.inheritedChoices"))
+          .toSet,
+        precond = decodeExpr(lfImpl.getPrecond, "TemplateImplements.precond"),
       )
 
     private[this] def decodeTemplateImplementsMethod(
@@ -668,25 +672,13 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     ): DefInterface =
       DefInterface(
         param = getInternedName(lfInterface.getParamInternedStr, "DefInterface.param"),
-        virtualChoices = lfInterface.getChoicesList.asScala.view
-          .map(decodeInterfaceChoice)
-          .map(choice => choice.name -> choice),
         fixedChoices = lfInterface.getFixedChoicesList.asScala.view
           .map(decodeChoice(id, _))
           .map(choice => choice.name -> choice),
         methods = lfInterface.getMethodsList.asScala.view
           .map(decodeInterfaceMethod)
           .map(method => method.name -> method),
-      )
-
-    private[this] def decodeInterfaceChoice(
-        lfChoice: PLF.InterfaceChoice
-    ): InterfaceChoice =
-      InterfaceChoice(
-        name = getInternedName(lfChoice.getNameInternedString, "InterfaceChoice.name"),
-        consuming = lfChoice.getConsuming,
-        argType = decodeType(lfChoice.getArgType),
-        returnType = decodeType(lfChoice.getRetType),
+        precond = decodeExpr(lfInterface.getPrecond, s"$id:ensure"),
       )
 
     private[this] def decodeInterfaceMethod(
@@ -1286,6 +1278,13 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           val create = lfUpdate.getCreate
           UpdateCreate(
             templateId = decodeTypeConName(create.getTemplate),
+            arg = decodeExpr(create.getExpr, definition),
+          )
+
+        case PLF.Update.SumCase.CREATE_INTERFACE =>
+          val create = lfUpdate.getCreateInterface
+          UpdateCreateInterface(
+            interface = decodeTypeConName(create.getInterface),
             arg = decodeExpr(create.getExpr, definition),
           )
 

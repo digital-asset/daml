@@ -22,7 +22,7 @@ import doobie.free.{connection => fconn}
 import doobie.implicits._
 import doobie.util.log
 import org.slf4j.LoggerFactory
-import scalaz.{Equal, NonEmptyList, OneAnd, Order, Semigroup}
+import scalaz.{Equal, NonEmptyList, Order, Semigroup}
 import scalaz.std.set._
 import scalaz.std.vector._
 import scalaz.syntax.tag._
@@ -75,7 +75,7 @@ class ContractDao private (
 }
 
 object ContractDao {
-  import ConnectionPool.PoolSize, SurrogateTemplateIdCache.MaxEntries
+  import SurrogateTemplateIdCache.MaxEntries
   private[this] val supportedJdbcDrivers = Map[String, SupportedJdbcDriver.Available](
     "org.postgresql.Driver" -> SupportedJdbcDriver.Postgres,
     "oracle.jdbc.OracleDriver" -> SupportedJdbcDriver.Oracle,
@@ -84,10 +84,14 @@ object ContractDao {
   def supportedJdbcDriverNames(available: Set[String]): Set[String] =
     supportedJdbcDrivers.keySet intersect available
 
+  private[this] def queriesPartySet(dps: domain.PartySet): Queries.PartySet = {
+    type NES[A] = NonEmpty[Set[A]]
+    domain.Party.unsubst[NES, String](dps)
+  }
+
   def apply(
       cfg: JdbcConfig,
       tpIdCacheMaxEntries: Option[Long] = None,
-      poolSize: PoolSize = PoolSize.Production,
   )(implicit
       ec: ExecutionContext,
       metrics: Metrics,
@@ -103,9 +107,9 @@ object ContractDao {
     } yield {
       implicit val sjd: SupportedJdbcDriver.TC = sjdc
       //pool for connections awaiting database access
-      val es = Executors.newWorkStealingPool(poolSize)
+      val es = Executors.newWorkStealingPool(cfg.baseConfig.poolSize)
       val (ds, conn) =
-        ConnectionPool.connect(cfg.baseConfig, poolSize)(ExecutionContext.fromExecutor(es), cs)
+        ConnectionPool.connect(cfg.baseConfig)(ExecutionContext.fromExecutor(es), cs)
       new ContractDao(ds, conn, es)
     }
     setup.fold(msg => throw new IllegalArgumentException(msg), identity)
@@ -131,8 +135,7 @@ object ContractDao {
   def initialize(implicit log: LogHandler, sjd: SupportedJdbcDriver.TC): ConnectionIO[Unit] =
     sjd.q.queries.dropAllTablesIfExist *> sjd.q.queries.initDatabase
 
-  def lastOffset(parties: OneAnd[Set, domain.Party], templateId: domain.TemplateId.RequiredPkg)(
-      implicit
+  def lastOffset(parties: domain.PartySet, templateId: domain.TemplateId.RequiredPkg)(implicit
       log: LogHandler,
       sjd: SupportedJdbcDriver.TC,
       lc: LoggingContextOf[InstanceUUID],
@@ -141,7 +144,7 @@ object ContractDao {
     for {
       tpId <- surrogateTemplateId(templateId)
       offset <- queries
-        .lastOffset(domain.Party.unsubst(parties), tpId)
+        .lastOffset(queriesPartySet(parties), tpId)
     } yield {
       type L[a] = Map[a, domain.Offset]
       domain.Party.subst[L, String](domain.Offset.tag.subst(offset))
@@ -269,7 +272,7 @@ object ContractDao {
   }
 
   def updateOffset(
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateId: domain.TemplateId.RequiredPkg,
       newOffset: domain.Offset,
       lastOffsets: Map[domain.Party, domain.Offset],
@@ -280,10 +283,8 @@ object ContractDao {
   ): ConnectionIO[Unit] = {
     import cats.implicits._
     import sjd.q.queries
-    import scalaz.OneAnd._
-    import scalaz.std.set._
     import scalaz.syntax.foldable._
-    val partyVector = domain.Party.unsubst(parties.toVector)
+    val partyVector = domain.Party.unsubst(parties.toVector: Vector[domain.Party])
     val lastOffsetsStr: Map[String, String] =
       domain.Party.unsubst[Map[*, String], String](domain.Offset.tag.unsubst(lastOffsets))
     for {
@@ -303,7 +304,7 @@ object ContractDao {
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def selectContracts(
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateId: domain.TemplateId.RequiredPkg,
       predicate: doobie.Fragment,
   )(implicit
@@ -316,14 +317,14 @@ object ContractDao {
       tpId <- surrogateTemplateId(templateId)
 
       dbContracts <- queries
-        .selectContracts(domain.Party.unsubst(parties), tpId, predicate)
+        .selectContracts(queriesPartySet(parties), tpId, predicate)
         .to[Vector]
       domainContracts = dbContracts.map(toDomain(templateId))
     } yield domainContracts
   }
 
   private[http] def selectContractsMultiTemplate[Pos](
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       predicates: Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)],
       trackMatchIndices: MatchedQueryMarker[Pos],
   )(implicit
@@ -344,7 +345,7 @@ object ContractDao {
             for {
               dbContracts <- sjdQueries
                 .selectContractsMultiTemplate(
-                  domain.Party unsubst parties,
+                  queriesPartySet(parties),
                   queries,
                   Queries.MatchedQueryMarker.ByInt,
                 )
@@ -359,7 +360,7 @@ object ContractDao {
             for {
               dbContracts <- sjdQueries
                 .selectContractsMultiTemplate(
-                  domain.Party unsubst parties,
+                  queriesPartySet(parties),
                   queries,
                   Queries.MatchedQueryMarker.Unused,
                 )
@@ -377,7 +378,7 @@ object ContractDao {
   }
 
   private[http] def fetchById(
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateId: domain.TemplateId.RequiredPkg,
       contractId: domain.ContractId,
   )(implicit
@@ -389,7 +390,7 @@ object ContractDao {
     for {
       tpId <- surrogateTemplateId(templateId)
       dbContracts <- queries.fetchById(
-        domain.Party unsubst parties,
+        queriesPartySet(parties),
         tpId,
         domain.ContractId unwrap contractId,
       )
@@ -397,7 +398,7 @@ object ContractDao {
   }
 
   private[http] def fetchByKey(
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateId: domain.TemplateId.RequiredPkg,
       key: Hash,
   )(implicit
@@ -408,7 +409,7 @@ object ContractDao {
     import sjd.q._
     for {
       tpId <- surrogateTemplateId(templateId)
-      dbContracts <- queries.fetchByKey(domain.Party unsubst parties, tpId, key)
+      dbContracts <- queries.fetchByKey(queriesPartySet(parties), tpId, key)
     } yield dbContracts.map(toDomain(templateId))
   }
 
@@ -442,7 +443,7 @@ object ContractDao {
   }
 
   final case class StaleOffsetException(
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateId: domain.TemplateId.RequiredPkg,
       newOffset: domain.Offset,
       lastOffset: Map[domain.Party, domain.Offset],

@@ -10,10 +10,10 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction.Node.{GenNode, NodeRollback, NodeCreate, NodeExercises}
+import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.Transaction.LeafNode
 import com.daml.lf.transaction.TransactionVersion
-import com.daml.lf.transaction.{NodeId, GenTransaction}
+import com.daml.lf.transaction.{NodeId, Transaction}
 import com.daml.lf.value.{Value => V}
 
 class NormalizeRollbacksSpec extends AnyWordSpec with Matchers with Inside {
@@ -172,9 +172,7 @@ class NormalizeRollbacksSpec extends AnyWordSpec with Matchers with Inside {
 object NormalizeRollbackSpec {
 
   type Cid = V.ContractId
-  type TX = GenTransaction
-  type Node = GenNode
-  type RB = NodeRollback
+  type TX = Transaction
 
   def preOrderNidsOfTxIsIncreasingFromZero(tx: TX): Boolean = {
     def check(x1: Int, xs: List[Int]): Boolean = {
@@ -200,9 +198,9 @@ object NormalizeRollbackSpec {
     }
     def fromNode(acc: List[Int], node: Node): List[Int] = {
       node match {
-        case _: LeafNode => acc
-        case node: NodeExercises => fromNids(acc, node.children.toList)
-        case node: NodeRollback => fromNids(acc, node.children.toList)
+        case _: Node.LeafOnlyAction => acc
+        case node: Node.Exercise => fromNids(acc, node.children.toList)
+        case node: Node.Rollback => fromNids(acc, node.children.toList)
       }
     }
     fromNids(Nil, tx.roots.toList).reverse
@@ -214,23 +212,23 @@ object NormalizeRollbackSpec {
     }
   }
 
-  def forallRB(tx: TX)(pred: RB => Boolean): Boolean = {
+  def forallRB(tx: TX)(pred: Node.Rollback => Boolean): Boolean = {
     forallNode(tx) {
-      case rb: NodeRollback => pred(rb)
+      case rb: Node.Rollback => pred(rb)
       case _ => true
     }
   }
 
   def isNormalized(tx: TX): Boolean = {
     tx match {
-      case GenTransaction(nodes, _) =>
+      case Transaction(nodes, _) =>
         def isRB(node: Node): Boolean = {
           node match {
-            case _: NodeRollback => true
+            case _: Node.Rollback => true
             case _ => false
           }
         }
-        def check(rb: RB): Boolean = {
+        def check(rb: Node.Rollback): Boolean = {
           val n = rb.children.length
           (n > 0) && // Normalization rule #1
           !isRB(nodes(rb.children(0))) && // Normalization rule #2
@@ -267,24 +265,24 @@ object NormalizeRollbackSpec {
             add(dummyExerciseNode(children.to(ImmArray)))
           case Rollback(shapes) =>
             val children = shapes.map(toNid)
-            add(NodeRollback(children = children.to(ImmArray)))
+            add(Node.Rollback(children = children.to(ImmArray)))
         }
       }
       val roots: List[NodeId] = top.xs.map(toNid)
-      GenTransaction(nodes, roots.to(ImmArray))
+      Transaction(nodes, roots.to(ImmArray))
     }
 
     def ofTransaction(tx: TX): Top = {
       def ofNid(nid: NodeId): Shape = {
         tx.nodes(nid) match {
-          case create: NodeCreate =>
+          case create: Node.Create =>
             create.arg match {
               case V.ValueInt64(n) => Create(n)
               case _ => sys.error(s"unexpected create.arg: ${create.arg}")
             }
           case leaf: LeafNode => sys.error(s"Shape.ofTransaction, unexpected leaf: $leaf")
-          case node: NodeExercises => Exercise(node.children.toList.map(ofNid))
-          case node: NodeRollback => Rollback(node.children.toList.map(ofNid))
+          case node: Node.Exercise => Exercise(node.children.toList.map(ofNid))
+          case node: Node.Rollback => Rollback(node.children.toList.map(ofNid))
         }
       }
       Top(tx.roots.toList.map(nid => ofNid(nid)))
@@ -294,8 +292,8 @@ object NormalizeRollbackSpec {
   private def toCid(s: String): V.ContractId.V1 =
     V.ContractId.V1(crypto.Hash.hashPrivateKey(s))
 
-  private def dummyCreateNode(n: Long): NodeCreate =
-    NodeCreate(
+  private def dummyCreateNode(n: Long): Node.Create =
+    Node.Create(
       coid = toCid("dummyCid"),
       templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),
       arg = V.ValueInt64(n),
@@ -303,13 +301,14 @@ object NormalizeRollbackSpec {
       signatories = Set.empty,
       stakeholders = Set.empty,
       key = None,
+      byInterface = None,
       version = TransactionVersion.minVersion,
     )
 
   private def dummyExerciseNode(
       children: ImmArray[NodeId]
-  ): NodeExercises =
-    NodeExercises(
+  ): Node.Exercise =
+    Node.Exercise(
       targetCoid = toCid("dummyTargetCoid"),
       templateId = Ref.Identifier(
         Ref.PackageId.assertFromString("-dummyPkg-"),
@@ -326,6 +325,7 @@ object NormalizeRollbackSpec {
       exerciseResult = None,
       key = None,
       byKey = false,
+      byInterface = None,
       version = TransactionVersion.minVersion,
     )
 }

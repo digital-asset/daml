@@ -16,7 +16,7 @@ import com.daml.lf.command.ApiCommand
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{FrontStack, Ref, SortedLookupList}
-import com.daml.lf.transaction.Node.NodeCreate
+import com.daml.lf.transaction.Node
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{
   ContractId,
@@ -43,7 +43,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private val errorVersionSwitch =
-    new ValueSwitch[com.google.rpc.status.Status](enableSelfServiceErrorCodes = false)
+    new ValueSwitch(enableSelfServiceErrorCodes = false)
 
   private val alice = party("Alice")
   private val bob = party("Bob")
@@ -637,7 +637,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
   private def contractIdOfCreateTransaction(updates: Seq[Update]): ContractId =
     inside(updates) { case Seq(update: Update.TransactionAccepted) =>
-      inside(update.transaction.nodes.values.toSeq) { case Seq(create: NodeCreate) =>
+      inside(update.transaction.nodes.values.toSeq) { case Seq(create: Node.Create) =>
         create.coid
       }
     }

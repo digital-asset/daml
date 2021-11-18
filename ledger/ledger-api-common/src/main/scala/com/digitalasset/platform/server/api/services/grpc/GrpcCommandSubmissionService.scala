@@ -3,11 +3,8 @@
 
 package com.daml.platform.server.api.services.grpc
 
-import com.daml.error.{
-  ContextualizedErrorLogger,
-  DamlContextualizedErrorLogger,
-  ErrorCodesVersionSwitcher,
-}
+import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
   CommandSubmissionService => ApiCommandSubmissionService
@@ -36,6 +33,7 @@ class GrpcCommandSubmissionService(
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Option[Duration],
+    submissionIdGenerator: SubmissionIdGenerator,
     metrics: Metrics,
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
@@ -44,12 +42,6 @@ class GrpcCommandSubmissionService(
     with GrpcApiService {
 
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(
-      logger,
-      loggingContext,
-      None,
-    )
   private val validator = new SubmitRequestValidator(
     new CommandsValidator(ledgerId, errorCodesVersionSwitcher),
     FieldValidations(ErrorFactories(errorCodesVersionSwitcher)),
@@ -64,6 +56,12 @@ class GrpcCommandSubmissionService(
       telemetryContext.setAttribute(SpanAttribute.Submitter, commands.party)
       telemetryContext.setAttribute(SpanAttribute.WorkflowId, commands.workflowId)
     }
+    val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
+    val errorLogger = new DamlContextualizedErrorLogger(
+      logger = logger,
+      loggingContext = loggingContext,
+      correlationId = requestWithSubmissionId.commands.map(_.submissionId),
+    )
     Timed.timedAndTrackedFuture(
       metrics.daml.commands.submissions,
       metrics.daml.commands.submissionsRunning,
@@ -71,14 +69,14 @@ class GrpcCommandSubmissionService(
         .value(
           metrics.daml.commands.validation,
           validator.validate(
-            request,
+            requestWithSubmissionId,
             currentLedgerTime(),
             currentUtcTime(),
             maxDeduplicationTime(),
-          ),
+          )(errorLogger),
         )
         .fold(
-          t => Future.failed(ValidationLogger.logFailure(request, t)),
+          t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
           service.submit(_).map(_ => Empty.defaultInstance),
         ),
     )
@@ -86,4 +84,10 @@ class GrpcCommandSubmissionService(
 
   override def bindService(): ServerServiceDefinition =
     CommandSubmissionServiceGrpc.bindService(this, executionContext)
+
+  private def generateSubmissionIdIfEmpty(request: ApiSubmitRequest): ApiSubmitRequest =
+    if (request.commands.exists(_.submissionId.isEmpty))
+      request.update(_.commands.submissionId := submissionIdGenerator.generate())
+    else
+      request
 }

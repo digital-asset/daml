@@ -386,7 +386,7 @@ class ModelConformanceValidatorSpec
       signatories: Set[Ref.Party] = Set(aKeyMaintainer),
       argument: Value = aDummyValue,
       keyAndMaintainer: Option[(String, String)] = Some(aKey -> aKeyMaintainer),
-  ): TransactionBuilder.Create = {
+  ): Node.Create = {
     txBuilder.create(
       id = contractId,
       templateId = aTemplateId,

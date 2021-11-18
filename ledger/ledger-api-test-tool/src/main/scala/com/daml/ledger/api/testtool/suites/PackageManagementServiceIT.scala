@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.PackageServiceError
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -12,6 +13,7 @@ import com.daml.ledger.test.package_management.PackageManagementTest.PackageMana
 import com.google.protobuf.ByteString
 import io.grpc.Status
 
+import java.util.regex.Pattern
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -37,10 +39,12 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
     for {
       failure <- ledger.uploadDarFile(ByteString.EMPTY).mustFail("uploading an empty package")
     } yield {
-      assertGrpcError(
+      assertGrpcErrorRegex(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        Some("Invalid argument: Invalid DAR: package-upload"),
+        PackageServiceError.Reading.InvalidDar,
+        Some(Pattern.compile("Invalid DAR: package-upload|Dar file is corrupt")),
       )
     }
   })

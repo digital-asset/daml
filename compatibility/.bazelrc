@@ -19,11 +19,6 @@ build:darwin --repository_cache=.bazel-cache/repo
 fetch:darwin --repository_cache=.bazel-cache/repo
 sync:darwin --repository_cache=.bazel-cache/repo
 
-build:scala_2_12 --repo_env=DAML_SCALA_VERSION=2.12.14
-fetch:scala_2_12 --repo_env=DAML_SCALA_VERSION=2.12.14
-query:scala_2_12 --repo_env=DAML_SCALA_VERSION=2.12.14
-sync:scala_2_12 --repo_env=DAML_SCALA_VERSION=2.12.14
-
 test:oracle --repo_env DAML_ORACLE_TESTING=true --test_env ORACLE_USERNAME --test_env ORACLE_PORT --test_env ORACLE_PWD
 
 # Improve remote cache hit rate by exluding environment variables from the
@@ -61,9 +56,18 @@ build --copt -DGRPC_BAZEL_BUILD
 
 # Bazel defaults to JDK9. This makes sure we run Nix provided JDK, and
 # avoid dreaded "Unrecognized VM option 'CompactStrings'" error
-build --host_javabase=@java_home//:javabase
-build --java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
-build --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
+build:linux --javabase=@nixpkgs_java_runtime//:runtime
+build:linux --host_javabase=@nixpkgs_java_runtime//:runtime
+build:linux --java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
+build:linux --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
+build:darwin --javabase=@nixpkgs_java_runtime//:runtime
+build:darwin --host_javabase=@nixpkgs_java_runtime//:runtime
+build:darwin --java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
+build:darwin --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
+build:windows --javabase=@dadew_java_runtime//:runtime
+build:windows --host_javabase=@dadew_java_runtime//:runtime
+build:windows --java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
+build:windows --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
 
 # Do not use a distinct configuration for "host", that is, binaries used
 # at build time should be the same as release binaries.

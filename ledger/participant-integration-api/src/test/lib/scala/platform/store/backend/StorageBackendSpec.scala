@@ -12,12 +12,12 @@ import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.FlywayMigrations
+import com.daml.platform.store.appendonlydao.DbDispatcher
 import org.scalatest.{AsyncTestSuite, BeforeAndAfterEach}
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{Await, Future}
 
 private[backend] trait StorageBackendSpec
     extends AkkaBeforeAndAfterAll
@@ -49,7 +49,7 @@ private[backend] trait StorageBackendSpec
       )
       dispatcher <- DbDispatcher
         .owner(
-          dataSource = backend.createDataSource(jdbcUrl),
+          dataSource = backend.dataSource.createDataSource(jdbcUrl),
           serverRole = ServerRole.Testing(this.getClass),
           connectionPoolSize = connectionPoolSize,
           connectionTimeout = FiniteDuration(250, "millis"),
@@ -81,7 +81,13 @@ private[backend] trait StorageBackendSpec
       runningTests.incrementAndGet() == 1,
       "StorageBackendSpec tests must not run in parallel, as they all run against the same database.",
     )
-    Await.result(executeSql(backend.resetAll), 60.seconds)
+    Await.result(
+      executeSql { c =>
+        backend.reset.resetAll(c)
+        updateLedgerEndCache(c)
+      },
+      60.seconds,
+    )
   }
 
   override protected def afterEach(): Unit = {

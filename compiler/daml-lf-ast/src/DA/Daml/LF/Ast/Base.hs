@@ -16,10 +16,11 @@ import Data.Hashable
 import Data.Data
 import GHC.Generics(Generic)
 import Data.Int
-import           Control.DeepSeq
-import           Control.Lens
+import Control.DeepSeq
+import Control.Lens
 import qualified Data.NameMap as NM
-import qualified Data.Text          as T
+import qualified Data.Text as T
+import qualified Data.Set as S
 import Data.Fixed
 import qualified "template-haskell" Language.Haskell.TH as TH
 import qualified Control.Lens.TH as Lens.TH
@@ -653,6 +654,14 @@ data Update
     , creArg      :: !Expr
       -- ^ Argument for the contract template.
     }
+  -- | Create contract instance based on interface payload.
+  | UCreateInterface
+    { creInterface :: !(Qualified TypeConName)
+      -- ^ Interface type.
+    , creArg :: !Expr
+      -- ^ Payload expression.
+    }
+
   -- | Exercise choice on a contract given a contract ID.
   | UExercise
     { exeTemplate   :: !(Qualified TypeConName)
@@ -902,6 +911,9 @@ data TemplateImplements = TemplateImplements
   { tpiInterface :: !(Qualified TypeConName)
     -- ^ Interface name for implementation.
   , tpiMethods :: !(NM.NameMap TemplateImplementsMethod)
+  , tpiInheritedChoiceNames :: !(S.Set ChoiceName)
+    -- ^ Set of inherited fixed choice names.
+  , tpiPrecond :: !Expr
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -927,9 +939,9 @@ data DefInterface = DefInterface
   { intLocation :: !(Maybe SourceLoc)
   , intName :: !TypeConName
   , intParam :: !ExprVarName
-  , intVirtualChoices :: !(NM.NameMap InterfaceChoice)
   , intFixedChoices :: !(NM.NameMap TemplateChoice)
   , intMethods :: !(NM.NameMap InterfaceMethod)
+  , intPrecondition :: !Expr
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -991,11 +1003,6 @@ data FeatureFlags = FeatureFlags
   -}
   }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
-
-defaultFeatureFlags :: FeatureFlags
-defaultFeatureFlags = FeatureFlags
-  { forbidPartyLiterals = False
-  }
 
 -- | Feature flags for DAML 1.2.
 daml12FeatureFlags :: FeatureFlags

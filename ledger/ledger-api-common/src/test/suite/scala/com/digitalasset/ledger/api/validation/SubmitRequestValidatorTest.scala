@@ -19,13 +19,13 @@ import com.daml.lf.value.{Value => Lf}
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
-import io.grpc.Status.Code.{INVALID_ARGUMENT, NOT_FOUND, UNAVAILABLE}
+import io.grpc.Status.Code.{FAILED_PRECONDITION, INVALID_ARGUMENT, NOT_FOUND, UNAVAILABLE}
 import org.mockito.MockitoSugar
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
-
 import java.time.{Instant, Duration => JDuration}
+
 import scala.annotation.nowarn
 
 @nowarn("msg=deprecated")
@@ -415,9 +415,12 @@ class SubmitRequestValidatorTest
             expectedDescriptionV1 =
               s"Invalid field deduplication_period: The given deduplication duration of ${java.time.Duration
                 .ofSeconds(durationSecondsExceedingMax)} exceeds the maximum deduplication time of ${internal.maxDeduplicationDuration}",
-            expectedCodeV2 = INVALID_ARGUMENT,
-            expectedDescriptionV2 =
-              s"INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field deduplication_period: The given deduplication duration of PT24H1S exceeds the maximum deduplication time of ${internal.maxDeduplicationDuration}",
+            expectedCodeV2 = FAILED_PRECONDITION,
+            expectedDescriptionV2 = s"INVALID_DEDUPLICATION_PERIOD(9,0): The submitted command had an invalid deduplication period: The given deduplication duration of ${java.time.Duration
+              .ofSeconds(durationSecondsExceedingMax)} exceeds the maximum deduplication time of ${internal.maxDeduplicationDuration}",
+            metadataV2 = Map(
+              "max_deduplication_duration" -> internal.maxDeduplicationDuration.toString
+            ),
           )
         }
       }
@@ -445,7 +448,7 @@ class SubmitRequestValidatorTest
           expectedDescriptionV1 = "The ledger configuration is not available.",
           expectedCodeV2 = NOT_FOUND,
           expectedDescriptionV2 =
-            "LEDGER_CONFIGURATION_NOT_FOUND(11,0): The ledger configuration is not available.",
+            "LEDGER_CONFIGURATION_NOT_FOUND(11,0): The ledger configuration could not be retrieved.",
         )
       }
     }

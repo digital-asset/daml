@@ -10,11 +10,16 @@ import com.daml.http.dbbackend.Queries.SurrogateTpId
 import com.daml.http.domain.{Party, TemplateId}
 import com.daml.http.query.ValuePredicate
 import com.daml.http.util.Logging.instanceUUIDLogCtx
+import com.daml.scalautil.Statement.discard
+import com.daml.scalautil.nonempty.NonEmpty
 import org.openjdk.jmh.annotations._
-import scalaz.OneAnd
 import spray.json._
 
-class QueryPayloadBenchmark extends ContractDaoBenchmark {
+import scala.collection.compat._
+
+trait QueryPayloadBenchmark extends ContractDaoBenchmark {
+  self: BenchmarkDbConnection =>
+
   @Param(Array("1", "10", "100"))
   var extraParties: Int = _
 
@@ -70,9 +75,16 @@ class QueryPayloadBenchmark extends ContractDaoBenchmark {
     implicit val sjd: SupportedJdbcDriver.TC = dao.jdbcDriver
     val result = instanceUUIDLogCtx(implicit lc =>
       dao
-        .transact(ContractDao.selectContracts(OneAnd(Party(party), Set.empty), tpid, whereClause))
+        .transact(
+          ContractDao.selectContracts(NonEmpty.pour(Party(party)) into Set, tpid, whereClause)
+        )
         .unsafeRunSync()
     )
     assert(result.size == batchSize)
   }
+
+  discard(IterableOnce) // only needed for scala 2.12
 }
+
+class QueryPayloadBenchmarkOracle extends QueryPayloadBenchmark with OracleBenchmarkDbConn
+class QueryPayloadBenchmarkPostgres extends QueryPayloadBenchmark with PostgresBenchmarkDbConn

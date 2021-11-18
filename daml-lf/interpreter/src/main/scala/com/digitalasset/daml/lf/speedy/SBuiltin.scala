@@ -6,7 +6,6 @@ package speedy
 
 import java.util
 import java.util.regex.Pattern
-
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
@@ -14,13 +13,20 @@ import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.Speedy._
+import com.daml.lf.speedy.{SExpr0 => compileTime}
+import com.daml.lf.speedy.{SExpr => runTime}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.SValue.{SValue => SV}
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  Node,
+  Versioned,
+  Transaction => Tx,
+}
 import com.daml.lf.value.{Value => V}
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node}
 import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
@@ -43,8 +49,14 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
 
   // Helper for constructing expressions applying this builtin.
   // E.g. SBCons(SEVar(1), SEVar(2))
-  private[lf] def apply(args: SExpr*): SExpr =
-    SEApp(SEBuiltin(this), args.toArray)
+
+  // TODO: move this into the speedy compiler code
+  private[lf] def apply(args: compileTime.SExpr*): compileTime.SExpr =
+    compileTime.SEApp(compileTime.SEBuiltin(this), args.toArray)
+
+  // TODO: avoid constructing application expression at run time
+  private[lf] def apply(args: runTime.SExpr*): runTime.SExpr =
+    runTime.SEApp(runTime.SEBuiltin(this), args.toArray)
 
   /** Execute the builtin with 'arity' number of arguments in 'args'.
     * Updates the machine state accordingly.
@@ -886,7 +898,12 @@ private[lf] object SBuiltin {
     */
   final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SUnit.type = {
-      if (!getSBool(args, 1))
+      if (
+        !(getSList(args, 1).iterator.forall(_ match {
+          case SBool(b) => b
+          case otherwise => crash(s"type mismatch SBCheckPrecond: expected SBool, got $otherwise")
+        }))
+      )
         throw SErrorDamlException(
           IE.TemplatePreconditionViolated(
             templateId = templateId,
@@ -906,7 +923,8 @@ private[lf] object SBuiltin {
     *    -> Optional {key: key, maintainers: List Party} (template key, if present)
     *    -> ContractId arg
     */
-  final case class SBUCreate(templateId: TypeConName) extends OnLedgerBuiltin(5) {
+  final case class SBUCreate(templateId: TypeConName, byInterface: Option[TypeConName])
+      extends OnLedgerBuiltin(5) {
     override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -940,6 +958,7 @@ private[lf] object SBuiltin {
           signatories = sigs,
           stakeholders = sigs union obs,
           key = mbKey,
+          byInterface = byInterface,
         )
 
       machine.addLocalContract(coid, templateId, createArg, sigs, obs, mbKey)
@@ -965,6 +984,7 @@ private[lf] object SBuiltin {
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
+      byInterface: Option[TypeConName],
   ) extends OnLedgerBuiltin(4) {
 
     override protected def execute(
@@ -975,7 +995,10 @@ private[lf] object SBuiltin {
       val chosenValue = onLedger.ptx.normValue(templateId, args.get(0))
       val coid = getSContractId(args, 1)
       val cached =
-        onLedger.cachedContracts.getOrElse(coid, crash(s"Contract $coid is missing from cache"))
+        onLedger.cachedContracts.getOrElse(
+          coid,
+          crash(s"Contract ${coid.coid} is missing from cache"),
+        )
       val sigs = cached.signatories
       val templateObservers = cached.observers
       val ctrls = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
@@ -999,6 +1022,7 @@ private[lf] object SBuiltin {
           mbKey = mbKey,
           byKey = byKey,
           chosenValue = chosenValue,
+          byInterface = byInterface,
         )
       checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
@@ -1024,7 +1048,7 @@ private[lf] object SBuiltin {
           if (cached.templateId != templateId) {
             if (onLedger.ptx.localContracts.contains(coid)) {
               // This should be prevented by the type checker so it’s an internal error.
-              crash(s"contract $coid ($templateId) not found from partial transaction")
+              crash(s"contract ${coid.coid} ($templateId) not found from partial transaction")
             } else {
               // This is a user-error.
               machine.ctrl = SEDamlException(
@@ -1040,7 +1064,7 @@ private[lf] object SBuiltin {
               coid,
               templateId,
               onLedger.committers,
-              { case V.VersionedContractInstance(_, actualTmplId, arg, _) =>
+              { case Versioned(_, V.ContractInstance(actualTmplId, arg, _)) =>
                 if (actualTmplId != templateId) {
                   machine.ctrl =
                     SEDamlException(IE.WronglyTypedContract(coid, templateId, actualTmplId))
@@ -1100,7 +1124,7 @@ private[lf] object SBuiltin {
               coid,
               ifaceId,
               onLedger.committers,
-              { case V.VersionedContractInstance(_, actualTmplId, arg, _) =>
+              { case Versioned(_, V.ContractInstance(actualTmplId, arg, _)) =>
                 machine.compiledPackages.getDefinition(
                   ImplementsDefRef(actualTmplId, ifaceId)
                 ) match {
@@ -1132,10 +1156,26 @@ private[lf] object SBuiltin {
       choiceName: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
+      ifaceId: TypeConName,
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.ctrl = SEBuiltin(
-        SBUBeginExercise(getSRecord(args, 0).id, choiceName, consuming, byKey)
+        SBUBeginExercise(
+          getSRecord(args, 0).id,
+          choiceName,
+          consuming,
+          byKey,
+          byInterface = Some(ifaceId),
+        )
+      )
+  }
+
+  final case class SBResolveSBUInsertFetchNode(
+      ifaceId: TypeConName
+  ) extends SBuiltin(1) {
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
+      machine.ctrl = SEBuiltin(
+        SBUInsertFetchNode(getSRecord(args, 0).id, byKey = false, byInterface = Some(ifaceId))
       )
   }
 
@@ -1145,10 +1185,8 @@ private[lf] object SBuiltin {
       machine.ctrl = SEVal(toDef(getSRecord(args, 0).id))
   }
 
-  final case object SBResolveVirtualFetch extends SBResolveVirtual(FetchDefRef)
-
-  final case class SBResolveVirtualChoice(choiceName: ChoiceName)
-      extends SBResolveVirtual(ChoiceDefRef(_, choiceName))
+  final case class SBResolveCreateByInterface(ifaceId: TypeConName)
+      extends SBResolveVirtual(ref => CreateByInterfaceDefRef(ref, ifaceId))
 
   // Convert an interface to a given template type if possible. Since interfaces have the
   // same representation as the underlying template, we only need to perform a check
@@ -1172,7 +1210,8 @@ private[lf] object SBuiltin {
   ) extends SBuiltin(1) {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val record = getSRecord(args, 0)
-      machine.ctrl = ImplementsMethodDefRef(record.id, ifaceId, methodName)(SEValue(record))
+      machine.ctrl =
+        SEApp(SEVal(ImplementsMethodDefRef(record.id, ifaceId, methodName)), Array(SEValue(record)))
     }
   }
 
@@ -1183,8 +1222,11 @@ private[lf] object SBuiltin {
     *    -> Optional {key: key, maintainers: List Party}  (template key, if present)
     *    -> ()
     */
-  final case class SBUInsertFetchNode(templateId: TypeConName, byKey: Boolean)
-      extends OnLedgerBuiltin(1) {
+  final case class SBUInsertFetchNode(
+      templateId: TypeConName,
+      byKey: Boolean,
+      byInterface: Option[TypeConName],
+  ) extends OnLedgerBuiltin(1) {
     override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -1192,7 +1234,10 @@ private[lf] object SBuiltin {
     ): Unit = {
       val coid = getSContractId(args, 0)
       val cached =
-        onLedger.cachedContracts.getOrElse(coid, crash(s"Contract $coid is missing from cache"))
+        onLedger.cachedContracts.getOrElse(
+          coid,
+          crash(s"Contract ${coid.coid} is missing from cache"),
+        )
       val signatories = cached.signatories
       val observers = cached.observers
       val key = cached.key
@@ -1209,6 +1254,7 @@ private[lf] object SBuiltin {
         stakeholders,
         key,
         byKey,
+        byInterface,
       )
       checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
@@ -1335,7 +1381,7 @@ private[lf] object SBuiltin {
         case Some(PartialTransaction.KeyActive(coid))
             if onLedger.ptx.localContracts.contains(coid) =>
           val cachedContract = onLedger.cachedContracts
-            .getOrElse(coid, crash(s"Local contract $coid not in cachedContracts"))
+            .getOrElse(coid, crash(s"Local contract ${coid.coid} not in cachedContracts"))
           val stakeholders = cachedContract.signatories union cachedContract.observers
           onLedger.visibleToStakeholders(stakeholders) match {
             case SVisibleToStakeholders.Visible =>
@@ -1405,7 +1451,7 @@ private[lf] object SBuiltin {
       machine.ledgerMode match {
         case onLedger: OnLedger =>
           onLedger.dependsOnTime = true
-        case Speedy.OffLedger =>
+        case OffLedger =>
       }
       throw SpeedyHungry(SResultNeedTime(timestamp => machine.returnValue = STimestamp(timestamp)))
     }
@@ -1660,6 +1706,82 @@ private[lf] object SBuiltin {
     }
   }
 
+  /** EQUAL_LIST :: (a -> a -> Bool) -> [a] -> [a] -> Bool */
+  final case object SBEqualList extends SBuiltin(3) {
+
+    private val equalListBody: SExpr =
+      SECaseAtomic( // case xs of
+        SELocA(1),
+        Array(
+          SCaseAlt(
+            SCPNil, // nil ->
+            SECaseAtomic( // case ys of
+              SELocA(2),
+              Array(
+                SCaseAlt(SCPNil, SEValue.True), // nil -> True
+                SCaseAlt(SCPDefault, SEValue.False),
+              ),
+            ), // default -> False
+          ),
+          SCaseAlt( // cons x xss ->
+            SCPCons,
+            SECaseAtomic( // case ys of
+              SELocA(2),
+              Array(
+                SCaseAlt(SCPNil, SEValue.False), // nil -> False
+                SCaseAlt( // cons y yss ->
+                  SCPCons,
+                  SELet1( // let sub = (f y x) in
+                    SEAppAtomicGeneral(
+                      SELocA(0), // f
+                      Array(
+                        SELocS(2), // y
+                        SELocS(4),
+                      ),
+                    ), // x
+                    SECaseAtomic( // case (f y x) of
+                      SELocS(1),
+                      Array(
+                        SCaseAlt(
+                          SCPPrimCon(Ast.PCTrue), // True ->
+                          SEAppAtomicGeneral(
+                            SEBuiltin(SBEqualList), //single recursive occurrence
+                            Array(
+                              SELocA(0), // f
+                              SELocS(2), // yss
+                              SELocS(4),
+                            ),
+                          ), // xss
+                        ),
+                        SCaseAlt(SCPPrimCon(Ast.PCFalse), SEValue.False), // False -> False
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      )
+
+    private val closure: SValue = {
+      val frame = Array.ofDim[SValue](0) // no free vars
+      val arity = 3
+      SPAP(PClosure(Profile.LabelUnset, equalListBody, frame), new util.ArrayList[SValue](), arity)
+    }
+
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine) = {
+      val f = args.get(0)
+      val xs = args.get(1)
+      val ys = args.get(2)
+      machine.enterApplication(
+        closure,
+        Array(SEValue(f), SEValue(xs), SEValue(ys)),
+      )
+    }
+
+  }
+
   object SBExperimental {
 
     private object SBExperimentalAnswer extends SBuiltin(1) {
@@ -1674,17 +1796,21 @@ private[lf] object SBuiltin {
       }
     }
 
-    private val mapping: Map[String, SExpr] =
+    //TODO: move this into the speedy compiler code
+    private val mapping: Map[String, compileTime.SExpr] =
       List(
         "ANSWER" -> SBExperimentalAnswer,
         "TO_TYPE_REP" -> SBExperimentalToTypeRep,
         "RESOLVE_VIRTUAL_CREATE" -> new SBResolveVirtual(CreateDefRef),
         "RESOLVE_VIRTUAL_SIGNATORY" -> new SBResolveVirtual(SignatoriesDefRef),
         "RESOLVE_VIRTUAL_OBSERVER" -> new SBResolveVirtual(ObserversDefRef),
-      ).view.map { case (name, builtin) => name -> SEBuiltin(builtin) }.toMap
+      ).view.map { case (name, builtin) => name -> compileTime.SEBuiltin(builtin) }.toMap
 
-    def apply(name: String): SExpr =
-      mapping.getOrElse(name, SBError(SEValue(SText(s"experimental $name not supported."))))
+    def apply(name: String): compileTime.SExpr =
+      mapping.getOrElse(
+        name,
+        SBError(compileTime.SEValue(SText(s"experimental $name not supported."))),
+      )
 
   }
 
@@ -1732,20 +1858,15 @@ private[lf] object SBuiltin {
       templateId: TypeConName,
       location: String,
       v: SValue,
-  ): Node.KeyWithMaintainers[V] =
+  ): Node.KeyWithMaintainers =
     v match {
       case SStruct(_, vals) =>
         val key = onLedger.ptx.normValue(templateId, vals.get(keyIdx))
-        key.ensureNoCid match {
-          case Right(keyVal) =>
-            Node.KeyWithMaintainers(
-              key = keyVal,
-              maintainers =
-                extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(maintainerIdx)),
-            )
-          case Left(_) =>
-            throw SErrorDamlException(IE.ContractIdInContractKey(key))
-        }
+        key.foreachCid(_ => throw SErrorDamlException(IE.ContractIdInContractKey(key)))
+        Node.KeyWithMaintainers(
+          key = key,
+          maintainers = extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(maintainerIdx)),
+        )
       case _ => throw SErrorCrash(location, s"Invalid key with maintainers: $v")
     }
 
@@ -1754,7 +1875,7 @@ private[lf] object SBuiltin {
       templateId: TypeConName,
       where: String,
       optKey: SValue,
-  ): Option[Node.KeyWithMaintainers[V]] =
+  ): Option[Node.KeyWithMaintainers] =
     optKey match {
       case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers(onLedger, templateId, where, _))
       case v => throw SErrorCrash(where, s"Expected optional key with maintainers, got: $v")

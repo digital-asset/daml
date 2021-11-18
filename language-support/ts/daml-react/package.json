@@ -20,8 +20,10 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@daml/ledger": "0.0.0-SDKVERSION",
-    "@daml/types": "0.0.0-SDKVERSION",
-    "react": "^16.12.0"
+    "@daml/types": "0.0.0-SDKVERSION"
+  },
+  "peerDependencies": {
+    "react": "^16.12.0 || ^17.0.0"
   },
   "scripts": {
     "build": "tsc --build",
@@ -32,12 +34,12 @@
   "devDependencies": {
     "@testing-library/react-hooks": "^3.2.1",
     "@types/jest": "^26.0.23",
-    "@types/react": "^16.9.20",
+    "@types/react": "^16.9.20 || ^17.0.0",
     "@typescript-eslint/eslint-plugin": "^2.16.0",
     "@typescript-eslint/parser": "^2.16.0",
     "eslint": "^6.8.0",
     "jest": "^27.0.5",
-    "react-test-renderer": "^16.12.0",
+    "react-test-renderer": "^16.12.0 || ^17.0.0",
     "ts-jest": "^27.0.3",
     "typescript": "~3.8.3"
   }

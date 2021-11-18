@@ -152,9 +152,9 @@ conformance_test(
         "--additional=MultiPartySubmissionIT",
         "--additional=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
         "--additional=ParticipantPruningIT",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=CommandDeduplicationParallelIT",
+        "--additional=CompletionDeduplicationInfoITCommandService",
+        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=KVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         # Disable tests targeting only multi-participant setups
@@ -162,7 +162,7 @@ conformance_test(
     ],
 )
 
-# WIP Full conformance test asserting the Ledger API returning self-service error codes
+# Full conformance test asserting the Ledger API returning self-service error codes
 conformance_test(
     name = "conformance-test-self-service-error-codes",
     ports = [6865],
@@ -176,29 +176,16 @@ conformance_test(
         "--use-self-service-error-codes",
     ],
     test_tool_args = [
-        # TODO error codes: Assert all suites as from the `conformance-test`
-        "--include=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
-    ],
-)
-
-# Feature test: --daml-lf-min-version-1.14-unsafe
-# This asserts that you can use the 1.14 packages despite their dependencies on a few stable packages in older LF versions.
-conformance_test(
-    name = "conformance-test-min-1.14",
-    lf_versions = ["1.14"],
-    ports = [6865],
-    server = ":app",
-    server_args = [
-        "--contract-id-seeding=testing-weak",
-        "--participant=participant-id=example,port=6865",
-        "--daml-lf-min-version-1.14-unsafe",
-        "--max-deduplication-duration=PT5S",
-        "--mutable-contract-state-cache",
-    ],
-    test_tool_args = [
         "--additional=MultiPartySubmissionIT",
+        "--additional=ContractIdIT:RejectV0,ContractIdIT:AcceptSuffixedV1,ContractIdIT:AcceptNonSuffixedV1",
+        "--additional=ParticipantPruningIT",
+        "--additional=CommandDeduplicationParallelIT",
+        "--additional=CompletionDeduplicationInfoITCommandService",
+        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=KVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
+        # Disable tests targeting only multi-participant setups
+        "--exclude=ParticipantPruningIT:PRImmediateAndRetroactiveDivulgence",
     ],
 )
 
@@ -220,11 +207,11 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--additional=ParticipantPruningIT",
-        "--additional=AppendOnlyKVCommandDeduplicationIT",
+        "--additional=KVCommandDeduplicationIT",
         # The following two tests don't actually care about multi-participant but they do need append-only.
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=CommandDeduplicationParallelIT",
+        "--additional=CompletionDeduplicationInfoITCommandService",
+        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ConfigManagementServiceIT",
     ],
@@ -247,9 +234,9 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--additional=ParticipantPruningIT",
-        "--additional=AppendOnlyCommandDeduplicationParallelIT",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandService",
-        "--additional=AppendOnlyCompletionDeduplicationInfoITCommandSubmissionService",
+        "--additional=CommandDeduplicationParallelIT",
+        "--additional=CompletionDeduplicationInfoITCommandService",
+        "--additional=CompletionDeduplicationInfoITCommandSubmissionService",
         "--additional=KVCommandDeduplicationIT",
         "--exclude=CommandDeduplicationIT",  # It's a KV ledger so it needs the KV variant
         "--exclude=ConfigManagementServiceIT",

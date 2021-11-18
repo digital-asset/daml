@@ -9,7 +9,7 @@ import java.util.concurrent.Executors
 import akka.stream.{KillSwitch, Materializer}
 import com.daml.ledger.participant.state.v2.ReadService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.ha.{HaConfig, HaCoordinator, Handle, NoopHaCoordinator}
@@ -17,7 +17,12 @@ import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.indexer.Indexer
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
-import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend}
+import com.daml.platform.store.backend.{
+  DBLockStorageBackend,
+  DataSourceStorageBackend,
+  StringInterningStorageBackend,
+}
+import com.daml.platform.store.interning.StringInterningView
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.duration.FiniteDuration
@@ -35,9 +40,11 @@ object ParallelIndexerFactory {
       dataSourceConfig: DataSourceConfig,
       haConfig: HaConfig,
       metrics: Metrics,
-      storageBackend: DBLockStorageBackend with DataSourceStorageBackend,
+      dbLockStorageBackend: DBLockStorageBackend,
+      dataSourceStorageBackend: DataSourceStorageBackend,
       initializeParallelIngestion: InitializeParallelIngestion,
       parallelIndexerSubscription: ParallelIndexerSubscription[_],
+      stringInterningStorageBackend: StringInterningStorageBackend,
       mat: Materializer,
       readService: ReadService,
   )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] =
@@ -53,7 +60,7 @@ object ParallelIndexerFactory {
         Some(metrics.daml.parallelIndexer.batching.executor -> metrics.registry),
       )
       haCoordinator <-
-        if (storageBackend.dbLockSupported) {
+        if (dbLockStorageBackend.dbLockSupported) {
           for {
             executionContext <- ResourceOwner
               .forExecutorService(() =>
@@ -61,16 +68,23 @@ object ParallelIndexerFactory {
                   Executors.newFixedThreadPool(
                     1,
                     new ThreadFactoryBuilder().setNameFormat(s"ha-coordinator-%d").build,
-                  )
+                  ),
+                  throwable =>
+                    ContextualizedLogger
+                      .get(getClass)
+                      .error(
+                        "ExecutionContext has failed with an exception",
+                        throwable,
+                      ),
                 )
               )
             timer <- ResourceOwner.forTimer(() => new Timer)
             // this DataSource will be used to spawn the main connection where we keep the Indexer Main Lock
             // The life-cycle of such connections matches the life-cycle of a protectedExecution
-            dataSource = storageBackend.createDataSource(jdbcUrl)
+            dataSource = dataSourceStorageBackend.createDataSource(jdbcUrl, dataSourceConfig)
           } yield HaCoordinator.databaseLockBasedHaCoordinator(
             connectionFactory = () => dataSource.getConnection,
-            storageBackend = storageBackend,
+            storageBackend = dbLockStorageBackend,
             executionContext = executionContext,
             timer = timer,
             haConfig = haConfig,
@@ -85,7 +99,7 @@ object ParallelIndexerFactory {
             .owner(
               // this is the DataSource which will be wrapped by HikariCP, and which will drive the ingestion
               // therefore this needs to be configured with the connection-init-hook, what we get from HaCoordinator
-              dataSource = storageBackend.createDataSource(
+              dataSource = dataSourceStorageBackend.createDataSource(
                 jdbcUrl = jdbcUrl,
                 dataSourceConfig = dataSourceConfig,
                 connectionInitHook = Some(connectionInitializer.initialize),
@@ -100,8 +114,19 @@ object ParallelIndexerFactory {
               metrics = metrics,
             )
         ) { dbDispatcher =>
+          val stringInterningView = new StringInterningView(
+            loadPrefixedEntries = (fromExclusive, toInclusive) =>
+              implicit loggingContext =>
+                dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+                  stringInterningStorageBackend.loadStringInterningEntries(
+                    fromExclusive,
+                    toInclusive,
+                  )
+                }
+          )
           initializeParallelIngestion(
             dbDispatcher = dbDispatcher,
+            updatingStringInterningView = stringInterningView,
             readService = readService,
             ec = ec,
             mat = mat,
@@ -110,6 +135,7 @@ object ParallelIndexerFactory {
               inputMapperExecutor = inputMapperExecutor,
               batcherExecutor = batcherExecutor,
               dbDispatcher = dbDispatcher,
+              stringInterningView = stringInterningView,
               materializer = mat,
             )
           )

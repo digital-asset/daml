@@ -21,7 +21,8 @@ import com.daml.ledger.client.services.commands.SynchronousCommandClient
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.lf.data.Ref.Party
 import com.daml.platform.sandbox.SandboxRequiringAuthorization
-import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
+import com.daml.platform.sandbox.services.TestCommands
+import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.daml.timer.Delayed
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -36,7 +37,7 @@ import scala.util.{Failure, Success}
 
 final class AuthSpec
     extends AsyncFlatSpec
-    with SandboxFixture
+    with SandboxNextFixture
     with SandboxRequiringAuthorization
     with SuiteResourceManagementAroundAll
     with Matchers

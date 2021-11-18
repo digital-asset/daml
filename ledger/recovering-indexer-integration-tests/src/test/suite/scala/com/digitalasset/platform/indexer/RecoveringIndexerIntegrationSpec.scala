@@ -7,6 +7,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit.SECONDS
 import java.util.UUID
 import java.util.concurrent.Executors
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -26,12 +27,16 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
-import com.daml.platform.store.appendonlydao.{JdbcLedgerDao, LedgerDao}
-import com.daml.platform.store.LfValueTranslationCache
+import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.store.appendonlydao.{DbDispatcher, JdbcLedgerDao, LedgerReadDao}
+import com.daml.platform.store.{DbType, LfValueTranslationCache}
+import com.daml.platform.store.backend.StorageBackendFactory
+import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.store.interning.StringInterningView
 import com.daml.platform.testing.LogCollector
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.timer.RetryStrategy
-import org.mockito.ArgumentMatchers
+import org.mockito.{ArgumentMatchers, MockitoSugar}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
@@ -46,7 +51,8 @@ class RecoveringIndexerIntegrationSpec
     extends AsyncWordSpec
     with Matchers
     with TestResourceContext
-    with BeforeAndAfterEach {
+    with BeforeAndAfterEach
+    with MockitoSugar {
   private[this] var testId: UUID = _
 
   private implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
@@ -62,7 +68,7 @@ class RecoveringIndexerIntegrationSpec
   "indexer" should {
     "index the participant state" in newLoggingContext { implicit loggingContext =>
       participantServer(SimpleParticipantState)
-        .use { participantState =>
+        .use { case (participantState, materializer) =>
           for {
             _ <- participantState
               .allocateParty(
@@ -71,14 +77,7 @@ class RecoveringIndexerIntegrationSpec
                 submissionId = randomSubmissionId(),
               )
               .toScala
-            _ <- index.use { ledgerDao =>
-              eventually { (_, _) =>
-                ledgerDao
-                  .listKnownParties()
-                  .map(parties => parties.map(_.displayName))
-                  .map(_ shouldBe Seq(Some("Alice")))
-              }
-            }
+            _ <- eventuallyPartiesShouldBe("Alice")(materializer)
           } yield ()
         }
         .map { _ =>
@@ -95,7 +94,7 @@ class RecoveringIndexerIntegrationSpec
     "index the participant state, even on spurious failures" in newLoggingContext {
       implicit loggingContext =>
         participantServer(ParticipantStateThatFailsOften)
-          .use { participantState =>
+          .use { case (participantState, materializer) =>
             for {
               _ <- participantState
                 .allocateParty(
@@ -118,14 +117,7 @@ class RecoveringIndexerIntegrationSpec
                   submissionId = randomSubmissionId(),
                 )
                 .toScala
-              _ <- index.use { ledgerDao =>
-                eventually { (_, _) =>
-                  ledgerDao
-                    .listKnownParties()
-                    .map(parties => parties.map(_.displayName))
-                    .map(_ shouldBe Seq(Some("Alice"), Some("Bob"), Some("Carol")))
-                }
-              }
+              _ <- eventuallyPartiesShouldBe("Alice", "Bob", "Carol")(materializer)
             } yield ()
           }
           .map { _ =>
@@ -151,7 +143,7 @@ class RecoveringIndexerIntegrationSpec
     "stop when the kill switch is hit after a failure" in newLoggingContext {
       implicit loggingContext =>
         participantServer(ParticipantStateThatFailsOften, restartDelay = 10.seconds)
-          .use { participantState =>
+          .use { case (participantState, _) =>
             for {
               _ <- participantState
                 .allocateParty(
@@ -192,7 +184,7 @@ class RecoveringIndexerIntegrationSpec
   private def participantServer(
       newParticipantState: ParticipantStateFactory,
       restartDelay: FiniteDuration = 100.millis,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState] = {
+  )(implicit loggingContext: LoggingContext): ResourceOwner[(ParticipantState, Materializer)] = {
     val ledgerId = Ref.LedgerString.assertFromString(s"ledger-$testId")
     val participantId = Ref.ParticipantId.assertFromString(s"participant-$testId")
     val jdbcUrl =
@@ -216,25 +208,61 @@ class RecoveringIndexerIntegrationSpec
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
       )(materializer, loggingContext)
-    } yield participantState
+    } yield participantState -> materializer
   }
 
-  private def index(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
+  private def eventuallyPartiesShouldBe(partyNames: String*)(materializer: Materializer)(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit] =
+    dao(materializer).use { case (ledgerDao, ledgerEndCache) =>
+      eventually { (_, _) =>
+        for {
+          ledgerEnd <- ledgerDao.lookupLedgerEnd()
+          _ = ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
+          knownParties <- ledgerDao.listKnownParties()
+        } yield {
+          knownParties.map(_.displayName) shouldBe partyNames.map(Some(_))
+          ()
+        }
+      }
+    }
+
+  // TODO we probably do not need a full dao for this purpose: refactoring with direct usage of StorageBackend?
+  private def dao(materializer: Materializer)(implicit
+      loggingContext: LoggingContext
+  ): ResourceOwner[(LedgerReadDao, MutableLedgerEndCache)] = {
+    val mutableLedgerEndCache = MutableLedgerEndCache()
+    val stringInterning = new StringInterningView((_, _) => _ => Future.successful(Nil)) // not used
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase}-$testId;db_close_delay=-1;db_close_on_exit=false"
-    JdbcLedgerDao.writeOwner(
-      serverRole = ServerRole.Testing(getClass),
-      jdbcUrl = jdbcUrl,
-      connectionPoolSize = 16,
-      connectionTimeout = 250.millis,
-      eventsPageSize = 100,
-      eventsProcessingParallelism = 8,
-      servicesExecutionContext = executionContext,
-      metrics = new Metrics(new MetricRegistry),
-      lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-      enricher = None,
-      participantId = Ref.ParticipantId.assertFromString("RecoveringIndexerIntegrationSpec"),
-    )
+    val errorFactories: ErrorFactories = mock[ErrorFactories]
+    val storageBackendFactory = StorageBackendFactory.of(DbType.jdbcType(jdbcUrl))
+    val metrics = new Metrics(new MetricRegistry)
+    DbDispatcher
+      .owner(
+        dataSource = storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl),
+        serverRole = ServerRole.Testing(getClass),
+        connectionPoolSize = 16,
+        connectionTimeout = 250.millis,
+        metrics = metrics,
+      )
+      .map(dbDispatcher =>
+        JdbcLedgerDao.read(
+          dbDispatcher = dbDispatcher,
+          eventsPageSize = 100,
+          eventsProcessingParallelism = 8,
+          servicesExecutionContext = executionContext,
+          metrics = metrics,
+          lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+          enricher = None,
+          participantId = Ref.ParticipantId.assertFromString("RecoveringIndexerIntegrationSpec"),
+          storageBackendFactory = storageBackendFactory,
+          ledgerEndCache = mutableLedgerEndCache,
+          errorFactories = errorFactories,
+          stringInterning = stringInterning,
+          materializer = materializer,
+        ) -> mutableLedgerEndCache
+      )
   }
 }
 

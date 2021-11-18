@@ -11,8 +11,7 @@ import com.daml.ledger.api.v1.transaction_service.GetTransactionTreesResponse
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
-import com.daml.lf.transaction.NodeId
+import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
 import com.daml.platform.store.entries.LedgerEntry
@@ -58,7 +57,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         .lookupTransactionTreeById(tx.transactionId, tx.actAs.toSet)
     } yield {
       inside(result.value.transaction) { case Some(transaction) =>
-        val (nodeId, createNode: NodeCreate) =
+        val (nodeId, createNode: Node.Create) =
           tx.transaction.nodes.head
         transaction.commandId shouldBe tx.commandId.get
         transaction.offset shouldBe ApiOffset.toApiString(offset)
@@ -92,7 +91,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         .lookupTransactionTreeById(exercise.transactionId, exercise.actAs.toSet)
     } yield {
       inside(result.value.transaction) { case Some(transaction) =>
-        val (nodeId, exerciseNode: NodeExercises) =
+        val (nodeId, exerciseNode: Node.Exercise) =
           exercise.transaction.nodes.head
         transaction.commandId shouldBe exercise.commandId.get
         transaction.offset shouldBe ApiOffset.toApiString(offset)
@@ -126,11 +125,11 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     } yield {
       inside(result.value.transaction) { case Some(transaction) =>
         val (createNodeId, createNode) =
-          tx.transaction.nodes.collectFirst { case (nodeId, node: NodeCreate) =>
+          tx.transaction.nodes.collectFirst { case (nodeId, node: Node.Create) =>
             nodeId -> node
           }.get
         val (exerciseNodeId, exerciseNode) =
-          tx.transaction.nodes.collectFirst { case (nodeId, node: NodeExercises) =>
+          tx.transaction.nodes.collectFirst { case (nodeId, node: Node.Exercise) =>
             nodeId -> node
           }.get
 
@@ -249,8 +248,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       resultForAlice <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startExclusive = from,
-            endInclusive = to,
+            startExclusive = from.lastOffset,
+            endInclusive = to.lastOffset,
             requestingParties = Set(alice),
             verbose = true,
           )
@@ -258,8 +257,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       resultForBob <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startExclusive = from,
-            endInclusive = to,
+            startExclusive = from.lastOffset,
+            endInclusive = to.lastOffset,
             requestingParties = Set(bob),
             verbose = true,
           )
@@ -267,8 +266,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       resultForCharlie <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startExclusive = from,
-            endInclusive = to,
+            startExclusive = from.lastOffset,
+            endInclusive = to.lastOffset,
             requestingParties = Set(charlie),
             verbose = true,
           )
@@ -288,7 +287,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       (_, t3) <- store(singleExercise(nonTransient(t2).loneElement))
       (_, t4) <- store(fullyTransient())
       to <- ledgerDao.lookupLedgerEnd()
-    } yield (from, to, Seq(t1, t2, t3, t4))
+    } yield (from.lastOffset, to.lastOffset, Seq(t1, t2, t3, t4))
 
   private def lookupIndividually(
       transactions: Seq[LedgerEntry.Transaction],

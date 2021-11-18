@@ -23,9 +23,18 @@ class ErrorGroupSpec extends AnyFlatSpec with Matchers with BeforeAndAfter {
 
   it should "resolve correct error group names" in {
     ErrorGroupsFoo.ErrorGroupFoo1.ErrorGroupFoo2.ErrorGroupFoo3.errorClass shouldBe ErrorClass(
-      List("ErrorGroupFoo1", "ErrorGroupFoo2", "ErrorGroupFoo3")
+      List(
+        Grouping("ErrorGroupFoo1", Some(ErrorGroupsFoo.ErrorGroupFoo1)),
+        Grouping("ErrorGroupFoo2", Some(ErrorGroupsFoo.ErrorGroupFoo1.ErrorGroupFoo2)),
+        Grouping(
+          "ErrorGroupFoo3",
+          Some(ErrorGroupsFoo.ErrorGroupFoo1.ErrorGroupFoo2.ErrorGroupFoo3),
+        ),
+      )
     )
-    ErrorGroupBar.errorClass shouldBe ErrorClass(List("ErrorGroupBar"))
+    ErrorGroupBar.errorClass shouldBe ErrorClass(
+      List(Grouping("ErrorGroupBar", Some(ErrorGroupBar)))
+    )
   }
 
 }

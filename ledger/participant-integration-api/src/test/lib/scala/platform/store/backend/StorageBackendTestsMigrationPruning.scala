@@ -6,7 +6,6 @@ package com.daml.platform.store.backend
 import java.sql.Connection
 
 import com.daml.lf.data.Ref
-import com.daml.platform.server.api.ApiException
 import com.daml.platform.store.appendonlydao.events.ContractId
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -29,41 +28,50 @@ private[backend] trait StorageBackendTestsMigrationPruning
     val archive = dtoExercise(offset(2), 3L, consuming = true, "#1", submitter)
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(Vector(create, divulgence, archive), _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 3L)))
+      _ <- executeSql(
+        updateLedgerEnd(offset(2), 3L)
+      )
       // Simulate that the archive happened after the migration to append-only schema
       _ <- executeSql(updateMigrationHistoryTable(ledgerSequentialIdBefore = 2))
       beforePruning <- executeSql(
-        backend.activeContractWithoutArgument(Set(divulgee), ContractId.assertFromString("#1"))
+        backend.contract.activeContractWithoutArgument(
+          Set(divulgee),
+          ContractId.assertFromString("#1"),
+        )
       )
       // Check that the divulgee can fetch the divulged event
       _ <- Future.successful(beforePruning should not be empty)
       // Trying to prune all divulged contracts before the migration should fail
       _ <-
-        recoverToSucceededIf[ApiException](
-          executeSql(
-            backend.validatePruningOffsetAgainstMigration(
-              offset(1),
-              pruneAllDivulgedContracts = true,
-              _,
-            )
+        executeSql(
+          backend.event.isPruningOffsetValidAgainstMigration(
+            offset(1),
+            pruneAllDivulgedContracts = true,
+            _,
           )
-        )
+        ).map(_ shouldBe false)
       // Validation passes the pruning offset for all divulged contracts is after the migration
       _ <- executeSql(
-        backend.validatePruningOffsetAgainstMigration(
+        backend.event.isPruningOffsetValidAgainstMigration(
           offset(2),
           pruneAllDivulgedContracts = true,
           _,
         )
-      )
+      ).map(_ shouldBe true)
       _ <- executeSql(
-        backend.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(_, loggingContext)
+        backend.event.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(
+          _,
+          loggingContext,
+        )
       )
       // Ensure the divulged contract is not visible anymore
       afterPruning <- executeSql(
-        backend.activeContractWithoutArgument(Set(divulgee), ContractId.assertFromString("#1"))
+        backend.contract.activeContractWithoutArgument(
+          Set(divulgee),
+          ContractId.assertFromString("#1"),
+        )
       )
     } yield {
       // Pruning succeeded

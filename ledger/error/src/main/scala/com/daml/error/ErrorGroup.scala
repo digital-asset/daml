@@ -4,7 +4,7 @@
 package com.daml.error
 
 abstract class ErrorGroup()(implicit parent: ErrorClass) {
-  private val fullClassName: String = getClass.getName
+  val fullClassName: String = getClass.getName
   // Hit https://github.com/scala/bug/issues/5425?orig=1 here: we cannot use .getSimpleName in deeply nested objects
   // TODO error codes: Switch to using .getSimpleName when switching to JDK 9+
   implicit val errorClass: ErrorClass = resolveErrorClass()
@@ -21,6 +21,6 @@ abstract class ErrorGroup()(implicit parent: ErrorClass) {
           s"Could not parse full class name: '${fullClassName}' for the error class name"
         )
       )
-    parent.extend(name)
+    parent.extend(Grouping(name, Some(this)))
   }
 }

@@ -28,7 +28,7 @@ import com.daml.platform.apiserver.services.logging
 import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
-import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
+import io.grpc.{ServerServiceDefinition, Status, StatusRuntimeException}
 
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{Duration, FiniteDuration}
@@ -48,9 +48,6 @@ private[apiserver] final class ApiConfigManagementService private (
 ) extends ConfigManagementService
     with GrpcApiService {
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(logger, loggingContext, None)
-
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
   private val fieldValidations = FieldValidations(errorFactories)
 
@@ -69,8 +66,11 @@ private[apiserver] final class ApiConfigManagementService private (
         case Some((_, configuration)) =>
           Future.successful(configurationToResponse(configuration))
         case None =>
-          // TODO error codes: Duplicate of missingLedgerConfig
-          Future.failed(missingLedgerConfigUponRequest)
+          Future.failed(
+            missingLedgerConfig(Status.Code.NOT_FOUND)(Some(true))(
+              new DamlContextualizedErrorLogger(logger, loggingContext, None)
+            )
+          )
       }
       .andThen(logger.logErrorsOnCall[GetTimeModelResponse])
   }
@@ -97,12 +97,12 @@ private[apiserver] final class ApiConfigManagementService private (
         implicit val telemetryContext: TelemetryContext =
           DefaultTelemetry.contextFromGrpcThreadLocalContext()
         implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-          new DamlContextualizedErrorLogger(logger, loggingContext, None)
+          new DamlContextualizedErrorLogger(logger, loggingContext, Some(request.submissionId))
 
         val response = for {
           // Validate and convert the request parameters
           params <- validateParameters(request).fold(
-            t => Future.failed(ValidationLogger.logFailureWithContext(request, t)),
+            t => Future.failed(ValidationLogger.logFailure(request, t)),
             Future.successful,
           )
 
@@ -116,7 +116,7 @@ private[apiserver] final class ApiConfigManagementService private (
                 logger.warn(
                   "Could not get the current time model. The index does not yet have any ledger configuration."
                 )
-                Future.failed(missingLedgerConfig(None))
+                Future.failed(missingLedgerConfig(Status.Code.UNAVAILABLE)(None))
             }
           (ledgerEndBeforeRequest, currentConfig) = configuration
 
@@ -125,7 +125,7 @@ private[apiserver] final class ApiConfigManagementService private (
           _ <-
             if (request.configurationGeneration != expectedGeneration) {
               Future.failed(
-                ValidationLogger.logFailureWithContext(
+                ValidationLogger.logFailure(
                   request,
                   invalidArgument(None)(
                     s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
@@ -152,6 +152,7 @@ private[apiserver] final class ApiConfigManagementService private (
               errorFactories,
             ),
             timeToLive = JDuration.ofMillis(params.timeToLive.toMillis),
+            errorFactories = errorFactories,
           )
           entry <- synchronousResponse.submitAndWait(
             augmentedSubmissionId,
@@ -232,12 +233,14 @@ private[apiserver] object ApiConfigManagementService {
       configManagementService: IndexConfigManagementService,
       ledgerEnd: LedgerOffset.Absolute,
       errorFactories: ErrorFactories,
-  )(implicit loggingContext: LoggingContext, contextualizedErrorLogger: ContextualizedErrorLogger)
+  )(implicit loggingContext: LoggingContext)
       extends SynchronousResponse.Strategy[
         (Time.Timestamp, Configuration),
         ConfigurationEntry,
         ConfigurationEntry.Accepted,
       ] {
+
+    private val logger = ContextualizedLogger.get(getClass)
 
     override def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]] =
       Future.successful(Some(ledgerEnd))
@@ -266,7 +269,9 @@ private[apiserver] object ApiConfigManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[ConfigurationEntry, StatusRuntimeException] = {
       case domain.ConfigurationEntry.Rejected(`submissionId`, reason, _) =>
-        errorFactories.configurationEntryRejected(reason, None)
+        errorFactories.configurationEntryRejected(reason, None)(
+          new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
+        )
     }
   }
 

@@ -23,7 +23,7 @@ class SpeedyToValueBenchmark extends BenchmarkWithLedgerExport {
         forbidV0ContractId = false,
         requireV1ContractIdSuffix = false,
       )
-    speedyValues = decodedValues.map(x => assertTranslate(translator)(x.mapValue(_.value)))
+    speedyValues = decodedValues.map(x => assertTranslate(translator)(x.mapValue(_.unversioned)))
   }
 
   @Benchmark

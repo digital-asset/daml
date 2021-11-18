@@ -12,20 +12,20 @@ import com.daml.ledger.participant.state.kvutils.store.events.{
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction.VersionedTransaction
 
 import scala.jdk.CollectionConverters._
 
 private[kvutils] final class DamlTransactionEntrySummary(
     val submission: DamlTransactionEntry,
-    tx: => Tx.Transaction,
+    tx: => VersionedTransaction,
 ) {
   val ledgerEffectiveTime: Timestamp = parseTimestamp(submission.getLedgerEffectiveTime)
   val submitterInfo: DamlSubmitterInfo = submission.getSubmitterInfo
   val commandId: String = submitterInfo.getCommandId
   val submitters: List[Party] =
     submitterInfo.getSubmittersList.asScala.toList.map(Party.assertFromString)
-  lazy val transaction: Tx.Transaction = tx
+  lazy val transaction: VersionedTransaction = tx
   val submissionTime: Timestamp =
     Conversions.parseTimestamp(submission.getSubmissionTime)
   val submissionSeed: crypto.Hash =

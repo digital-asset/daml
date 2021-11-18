@@ -6,9 +6,17 @@ package com.daml.http
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import com.daml.dbutils
-import com.daml.http.dbbackend.{JdbcConfig, DbStartupMode}
+import com.daml.http.dbbackend.{DbStartupMode, JdbcConfig}
 
+object CliSpec {
+  private val poolSize = 10
+  private val minIdle = 4
+  private val connectionTimeout = 5000L
+  private val idleTimeout = 1000L
+  private val tablePrefix = "foo"
+}
 final class CliSpec extends AnyFreeSpec with Matchers {
+  import CliSpec._
 
   private def configParser(
       parameters: Seq[String],
@@ -22,11 +30,17 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       "jdbc:postgresql://localhost:5432/test?&ssl=true",
       "postgres",
       "password",
+      poolSize,
+      minIdle,
+      connectionTimeout,
+      idleTimeout,
+      tablePrefix,
     ),
     dbStartupMode = DbStartupMode.StartOnly,
   )
   val jdbcConfigString =
-    "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
+    "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password," +
+      s"poolSize=$poolSize,minIdle=$minIdle,connectionTimeout=$connectionTimeout,idleTimeout=$idleTimeout,tablePrefix=$tablePrefix"
 
   val sharedOptions =
     Seq("--ledger-host", "localhost", "--ledger-port", "6865", "--http-port", "7500")
@@ -106,7 +120,8 @@ final class CliSpec extends AnyFreeSpec with Matchers {
 
     "DbStartupMode" - {
       val jdbcConfigShared =
-        "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password"
+        "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password," +
+          s"poolSize=$poolSize,minIdle=$minIdle,connectionTimeout=$connectionTimeout,idleTimeout=$idleTimeout,tablePrefix=$tablePrefix"
 
       "should get the CreateOnly startup mode from the string" in {
         val jdbcConfigString = s"$jdbcConfigShared,start-mode=create-only"

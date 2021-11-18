@@ -1,11 +1,5 @@
 workspace(
     name = "com_github_digital_asset_daml",
-    managed_directories = {
-        "@npm": ["node_modules"],
-        "@daml_extension_deps": ["compiler/daml-extension/node_modules"],
-        "@navigator_frontend_deps": ["navigator/frontend/node_modules"],
-        "@language_support_ts_deps": ["language-support/ts/packages/node_modules"],
-    },
 )
 
 # NOTE(JM): Load external dependencies from deps.bzl.
@@ -435,13 +429,13 @@ haskell_register_ghc_nixpkgs(
         "-Wwarn",
     ],
     repositories = dev_env_nix_repos,
-    version = "8.10.4",
+    version = "8.10.7",
 )
 
 # Used by Windows
 haskell_register_ghc_bindists(
     compiler_flags = common_ghc_flags,
-    version = "8.10.4",
+    version = "8.10.7",
 ) if is_windows else None
 
 nixpkgs_package(
@@ -594,9 +588,19 @@ load("@rules_haskell//tools:repositories.bzl", "rules_haskell_worker_dependencie
 # Call this after `daml_haskell_deps` to ensure that the right `stack` is used.
 rules_haskell_worker_dependencies()
 
-load("//bazel_tools:java.bzl", "java_home_runtime")
+load("//bazel_tools:java.bzl", "dadew_java_configure", "nixpkgs_java_configure")
 
-java_home_runtime(name = "java_home")
+dadew_java_configure(
+    name = "dadew_java_runtime",
+    dadew_path = "java-openjdk-8u302",
+) if is_windows else None
+
+nixpkgs_java_configure(
+    attribute_path = "jdk8.home",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+) if not is_windows else None
 
 # rules_go used here to compile a wrapper around the protoc-gen-scala plugin
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
@@ -698,7 +702,7 @@ proto_library(
     visibility = ["//visibility:public"],
 )
 """,
-    sha256 = "a5395d89ad804e2bec21ed3b61e5ccd44dc48d69a660f62244c6b15d095b5ca0",
+    sha256 = "e2dc7ad98f2bc1a78442a3e20eeef0381be008c18bf22f0dcb56283981977e01",
     strip_prefix = "ScalaPB-{}".format(scalapb_version),
     urls = ["https://github.com/scalapb/ScalaPB/archive/refs/tags/v{}.zip".format(scalapb_version)],
 )
@@ -745,6 +749,7 @@ yarn_install(
     name = "npm",
     args = ["--frozen-lockfile"],
     package_json = "//:package.json",
+    symlink_node_modules = False,
     yarn_lock = "//:yarn.lock",
 )
 
@@ -753,6 +758,7 @@ yarn_install(
     name = "daml_extension_deps",
     args = ["--frozen-lockfile"],
     package_json = "//compiler/daml-extension:package.json",
+    symlink_node_modules = False,
     yarn_lock = "//compiler/daml-extension:yarn.lock",
 )
 
@@ -761,6 +767,7 @@ yarn_install(
     name = "navigator_frontend_deps",
     args = ["--frozen-lockfile"],
     package_json = "//navigator/frontend:package.json",
+    symlink_node_modules = False,
     yarn_lock = "//navigator/frontend:yarn.lock",
 )
 
@@ -774,6 +781,7 @@ yarn_install(
     name = "language_support_ts_deps",
     args = ["--frozen-lockfile"],
     package_json = "//language-support/ts/packages:package.json",
+    symlink_node_modules = False,
     yarn_lock = "//language-support/ts/packages:yarn.lock",
 ) if not is_windows else create_workspace(
     name = "language_support_ts_deps",
@@ -826,7 +834,7 @@ nixpkgs_package(
 load("@os_info//:os_info.bzl", "is_linux")
 cc_library(
   name = "grpc_lib",
-  srcs = [":lib/libgrpc.so", ":lib/libgrpc.so.18", ":lib/libgrpc.so.18.0.0", ":lib/libgpr.so", ":lib/libgpr.so.18", ":lib/libgpr.so.18.0.0"] if is_linux else [":lib/libgrpc.dylib", ":lib/libgpr.dylib"],
+  srcs = [":lib/libgrpc.so", ":lib/libgrpc.so.19", ":lib/libgrpc.so.19.0.0", ":lib/libgpr.so", ":lib/libgpr.so.19", ":lib/libgpr.so.19.0.0"] if is_linux else [":lib/libgrpc.dylib", ":lib/libgpr.dylib"],
   visibility = ["//visibility:public"],
   hdrs = [":include"],
   includes = ["include"],
@@ -844,7 +852,7 @@ filegroup(
 
 nixpkgs_package(
     name = "postgresql_nix",
-    attribute_path = "postgresql_9_6",
+    attribute_path = "postgresql_10",
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,

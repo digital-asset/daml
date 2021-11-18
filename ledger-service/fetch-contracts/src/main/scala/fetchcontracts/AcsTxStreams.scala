@@ -12,11 +12,7 @@ import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteSt
 import util.IdentifierConverters.apiIdentifier
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.{v1 => lav1}
-import scalaz.OneAnd._
-import scalaz.std.set._
 import scalaz.syntax.tag._
-import scalaz.syntax.foldable._
-import scalaz.OneAnd
 
 private[daml] object AcsTxStreams {
   import util.AkkaStreamsDoobie.{last, max, project2}
@@ -132,7 +128,7 @@ private[daml] object AcsTxStreams {
   }
 
   private[daml] def transactionFilter(
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateIds: List[TemplateId.RequiredPkg],
   ): lav1.transaction_filter.TransactionFilter = {
     import lav1.transaction_filter._
@@ -141,6 +137,8 @@ private[daml] object AcsTxStreams {
       if (templateIds.isEmpty) Filters.defaultInstance
       else Filters(Some(lav1.transaction_filter.InclusiveFilters(templateIds.map(apiIdentifier))))
 
-    TransactionFilter(domain.Party.unsubst(parties.toVector).map(_ -> filters).toMap)
+    TransactionFilter(
+      domain.Party.unsubst((parties: Set[domain.Party]).toVector).map(_ -> filters).toMap
+    )
   }
 }

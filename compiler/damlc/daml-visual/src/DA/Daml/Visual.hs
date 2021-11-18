@@ -136,6 +136,8 @@ startFromUpdate seen world update = case update of
     LF.UGetTime -> Set.empty
     LF.UEmbedExpr _ upEx -> startFromExpr seen world upEx
     LF.UCreate tpl _ -> Set.singleton (ACreate tpl)
+    LF.UCreateInterface{} ->
+      error "Interfaces are not supported"
     LF.UExercise tpl choice _ _ -> Set.singleton (AExercise tpl choice)
     LF.UExerciseInterface{} ->
       -- TODO https://github.com/digital-asset/daml/issues/10810

@@ -487,6 +487,7 @@ object Ast {
   final case class UpdatePure(t: Type, expr: Expr) extends Update
   final case class UpdateBlock(bindings: ImmArray[Binding], body: Expr) extends Update
   final case class UpdateCreate(templateId: TypeConName, arg: Expr) extends Update
+  final case class UpdateCreateInterface(interface: TypeConName, arg: Expr) extends Update
   final case class UpdateFetch(templateId: TypeConName, contractId: Expr) extends Update
   final case class UpdateFetchInterface(interface: TypeConName, contractId: Expr) extends Update
   final case class UpdateExercise(
@@ -639,27 +640,18 @@ object Ast {
 
   final case class GenDefInterface[E](
       param: ExprVarName, // Binder for template argument.
-      virtualChoices: Map[ChoiceName, InterfaceChoice],
       fixedChoices: Map[ChoiceName, GenTemplateChoice[E]],
       methods: Map[MethodName, InterfaceMethod],
-  ) {
-    virtualChoices.keys.foreach(name =>
-      if (fixedChoices.isDefinedAt(name))
-        throw PackageError(s"collision on interface choice name $name")
-    )
-  }
+      precond: E, // Interface creation precondition.
+  )
 
   final class GenDefInterfaceCompanion[E] {
     def apply(
         param: ExprVarName, // Binder for template argument.
-        virtualChoices: Iterable[(ChoiceName, InterfaceChoice)],
         fixedChoices: Iterable[(ChoiceName, GenTemplateChoice[E])],
         methods: Iterable[(MethodName, InterfaceMethod)],
+        precond: E,
     ): GenDefInterface[E] = {
-      val virtualChoiceMap = toMapWithoutDuplicate(
-        virtualChoices,
-        (name: ChoiceName) => throw PackageError(s"collision on interface choice name $name"),
-      )
       val fixedChoiceMap = toMapWithoutDuplicate(
         fixedChoices,
         (name: ChoiceName) => throw PackageError(s"collision on interface choice name $name"),
@@ -668,17 +660,17 @@ object Ast {
         methods,
         (name: MethodName) => throw PackageError(s"collision on interface method name $name"),
       )
-      GenDefInterface(param, virtualChoiceMap, fixedChoiceMap, methodMap)
+      GenDefInterface(param, fixedChoiceMap, methodMap, precond)
     }
     def unapply(arg: GenDefInterface[E]): Some[
       (
           ExprVarName,
-          Map[ChoiceName, InterfaceChoice],
           Map[ChoiceName, GenTemplateChoice[E]],
           Map[MethodName, InterfaceMethod],
+          E,
       )
     ] =
-      Some((arg.param, arg.virtualChoices, arg.fixedChoices, arg.methods))
+      Some((arg.param, arg.fixedChoices, arg.methods, arg.precond))
   }
 
   type DefInterface = GenDefInterface[Expr]
@@ -709,7 +701,12 @@ object Ast {
       observers: E, // Observers of the contract.
       key: Option[GenTemplateKey[E]],
       implements: Map[TypeConName, GenTemplateImplements[E]],
-  )
+  ) {
+    lazy val inheritedChoices: Map[ChoiceName, TypeConName] =
+      implements.flatMap { case (iface, impl) =>
+        impl.inheritedChoices.view.map(chName => (chName, iface))
+      }
+  }
 
   final class GenTemplateCompanion[E] private[Ast] {
 
@@ -850,31 +847,37 @@ object Ast {
   final case class GenTemplateImplements[E](
       interface: TypeConName,
       methods: Map[MethodName, GenTemplateImplementsMethod[E]],
+      inheritedChoices: Set[ChoiceName],
+      precond: E,
   )
 
   final class GenTemplateImplementsCompanion[E] private[Ast] {
     def apply(
         interface: TypeConName,
         methods: Iterable[(MethodName, GenTemplateImplementsMethod[E])],
+        inheritedChoices: Iterable[ChoiceName],
+        precond: E,
     ): GenTemplateImplements[E] = {
       val methodMap = toMapWithoutDuplicate(
         methods,
         (methodName: MethodName) =>
           throw PackageError(s"repeated method implementation $methodName"),
       )
-      new GenTemplateImplements[E](interface, methodMap)
+      new GenTemplateImplements[E](interface, methodMap, inheritedChoices.toSet, precond)
     }
 
     def apply(
         interface: TypeConName,
         methods: Map[MethodName, GenTemplateImplementsMethod[E]],
+        inheritedChoices: Set[ChoiceName],
+        precond: E,
     ): GenTemplateImplements[E] =
-      GenTemplateImplements[E](interface, methods)
+      GenTemplateImplements[E](interface, methods, inheritedChoices, precond)
 
     def unapply(
         arg: GenTemplateImplements[E]
-    ): Some[(TypeConName, Map[MethodName, GenTemplateImplementsMethod[E]])] =
-      Some((arg.interface, arg.methods))
+    ): Some[(TypeConName, Map[MethodName, GenTemplateImplementsMethod[E]], Set[ChoiceName], E)] =
+      Some((arg.interface, arg.methods, arg.inheritedChoices, arg.precond))
   }
 
   type TemplateImplements = GenTemplateImplements[Expr]

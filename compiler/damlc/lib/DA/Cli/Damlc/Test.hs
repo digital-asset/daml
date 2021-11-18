@@ -12,10 +12,10 @@ module DA.Cli.Damlc.Test (
 
 import Control.Monad.Except
 import Control.Monad.Extra
-import DA.Cli.Damlc.Base
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScenario as SS
 import qualified DA.Daml.LF.ScenarioServiceClient as SSC
+import DA.Daml.Compiler.Output
 import DA.Daml.Options.Types
 import qualified DA.Pretty
 import qualified DA.Pretty as Pretty

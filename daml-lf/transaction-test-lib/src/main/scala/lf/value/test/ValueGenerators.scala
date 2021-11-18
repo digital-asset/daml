@@ -7,21 +7,13 @@ package test
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import com.daml.lf.transaction.Node.{
-  GenNode,
-  KeyWithMaintainers,
-  NodeCreate,
-  NodeExercises,
-  NodeFetch,
-  NodeLookupByKey,
-  NodeRollback,
-}
 import com.daml.lf.transaction.{
-  GenTransaction,
+  Transaction,
+  Node,
   NodeId,
   TransactionVersion,
+  Versioned,
   VersionedTransaction,
-  Transaction => Tx,
 }
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value._
@@ -261,7 +253,7 @@ object ValueGenerators {
       value <- valueGen
       minVersion = TransactionBuilder.assertAssignVersion(value)
       version <- transactionVersionGen(minVersion)
-    } yield VersionedValue(version, value)
+    } yield Versioned(version, value)
 
   private[lf] val genMaybeEmptyParties: Gen[Set[Party]] = Gen.listOf(party).map(_.toSet)
 
@@ -280,13 +272,13 @@ object ValueGenerators {
       template <- idGen
       arg <- versionedValueGen
       agreement <- Arbitrary.arbitrary[String]
-    } yield Value.VersionedContractInstance(arg.version, template, arg.value, agreement)
+    } yield arg.map(Value.ContractInstance(template, _, agreement))
 
-  val keyWithMaintainersGen: Gen[KeyWithMaintainers[Value]] = {
+  val keyWithMaintainersGen: Gen[Node.KeyWithMaintainers] = {
     for {
       key <- valueGen
       maintainers <- genNonEmptyParties
-    } yield KeyWithMaintainers(key, maintainers)
+    } yield Node.KeyWithMaintainers(key, maintainers)
   }
 
   /** Makes create nodes that violate the rules:
@@ -294,7 +286,7 @@ object ValueGenerators {
     * 1. stakeholders may not be a superset of signatories
     * 2. key's maintainers may not be a subset of signatories
     */
-  val malformedCreateNodeGen: Gen[NodeCreate] = {
+  val malformedCreateNodeGen: Gen[Node.Create] = {
     for {
       version <- transactionVersionGen()
       node <- malformedCreateNodeGenWithVersion(version)
@@ -308,7 +300,7 @@ object ValueGenerators {
     */
   def malformedCreateNodeGenWithVersion(
       version: TransactionVersion
-  ): Gen[NodeCreate] = {
+  ): Gen[Node.Create] = {
     for {
       coid <- coidGen
       templateId <- idGen
@@ -317,7 +309,7 @@ object ValueGenerators {
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
       key <- Gen.option(keyWithMaintainersGen)
-    } yield NodeCreate(
+    } yield Node.Create(
       coid,
       templateId,
       arg,
@@ -325,17 +317,18 @@ object ValueGenerators {
       signatories,
       stakeholders,
       key,
+      None, // TODO https://github.com/digital-asset/daml/issues/10915
       version,
     )
   }
 
-  val fetchNodeGen: Gen[NodeFetch] =
+  val fetchNodeGen: Gen[Node.Fetch] =
     for {
       version <- transactionVersionGen()
       node <- fetchNodeGenWithVersion(version)
     } yield node
 
-  def fetchNodeGenWithVersion(version: TransactionVersion): Gen[NodeFetch] = {
+  def fetchNodeGenWithVersion(version: TransactionVersion): Gen[Node.Fetch] = {
     for {
       coid <- coidGen
       templateId <- idGen
@@ -344,7 +337,7 @@ object ValueGenerators {
       stakeholders <- genNonEmptyParties
       key <- Gen.option(keyWithMaintainersGen)
       byKey <- Gen.oneOf(true, false)
-    } yield NodeFetch(
+    } yield Node.Fetch(
       coid,
       templateId,
       actingParties,
@@ -352,22 +345,23 @@ object ValueGenerators {
       stakeholders,
       key,
       byKey,
+      None, // TODO https://github.com/digital-asset/daml/issues/10915
       version,
     )
   }
 
   /** Makes rollback node with some random child IDs. */
-  val danglingRefRollbackNodeGen: Gen[NodeRollback] = {
+  val danglingRefRollbackNodeGen: Gen[Node.Rollback] = {
     for {
       children <- Gen
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
         .map(_.to(ImmArray))
-    } yield NodeRollback(children)
+    } yield Node.Rollback(children)
   }
 
   /** Makes exercise nodes with the given version and some random child IDs. */
-  val danglingRefExerciseNodeGen: Gen[NodeExercises] =
+  val danglingRefExerciseNodeGen: Gen[Node.Exercise] =
     for {
       version <- transactionVersionGen()
       node <- danglingRefExerciseNodeGenWithVersion(version)
@@ -376,7 +370,7 @@ object ValueGenerators {
   /** Makes exercise nodes with the given version and some random child IDs. */
   def danglingRefExerciseNodeGenWithVersion(
       version: TransactionVersion
-  ): Gen[NodeExercises] = {
+  ): Gen[Node.Exercise] = {
     for {
       targetCoid <- coidGen
       templateId <- idGen
@@ -394,7 +388,7 @@ object ValueGenerators {
       exerciseResult <- if (version < minExceptions) valueGen.map(Some(_)) else Gen.option(valueGen)
       key <- Gen.option(keyWithMaintainersGen)
       byKey <- Gen.oneOf(true, false)
-    } yield NodeExercises(
+    } yield Node.Exercise(
       targetCoid,
       templateId,
       choiceId,
@@ -408,18 +402,19 @@ object ValueGenerators {
       exerciseResult,
       key,
       byKey,
+      None, // TODO https://github.com/digital-asset/daml/issues/10915
       version,
     )
   }
 
-  val lookupNodeGen: Gen[NodeLookupByKey] =
+  val lookupNodeGen: Gen[Node.LookupByKey] =
     for {
       version <- transactionVersionGen()
       targetCoid <- coidGen
       templateId <- idGen
       key <- keyWithMaintainersGen
       result <- Gen.option(targetCoid)
-    } yield NodeLookupByKey(
+    } yield Node.LookupByKey(
       templateId,
       key,
       result,
@@ -429,7 +424,7 @@ object ValueGenerators {
   /** Makes nodes with the problems listed under `malformedCreateNodeGen`, and
     * `malformedGenTransaction` should they be incorporated into a transaction.
     */
-  def danglingRefGenActionNode: Gen[(NodeId, Tx.ActionNode)] = {
+  def danglingRefGenActionNode: Gen[(NodeId, Node.Action)] = {
     for {
       id <- Arbitrary.arbInt.arbitrary.map(NodeId(_))
       version <- transactionVersionGen()
@@ -448,7 +443,7 @@ object ValueGenerators {
     node <- danglingRefGenNodeWithVersion(version)
   } yield node
 
-  private[this] def refGenNode(g: Gen[Tx.Node]): Gen[(NodeId, Tx.Node)] =
+  private[this] def refGenNode(g: Gen[Node]): Gen[(NodeId, Node)] =
     for {
       id <- Arbitrary.arbInt.arbitrary.map(NodeId(_))
       node <- g
@@ -458,7 +453,7 @@ object ValueGenerators {
     *    Note that this only ensures that the node can be normalized to the given version.
     *    It does not normalize the node itself.
     */
-  def danglingRefGenActionNodeWithVersion(version: TransactionVersion): Gen[(NodeId, Tx.Node)] =
+  def danglingRefGenActionNodeWithVersion(version: TransactionVersion): Gen[(NodeId, Node)] =
     refGenNode(
       Gen.oneOf(
         malformedCreateNodeGenWithVersion(version),
@@ -467,7 +462,7 @@ object ValueGenerators {
       )
     )
 
-  def danglingRefGenNodeWithVersion(version: TransactionVersion): Gen[(NodeId, Tx.Node)] = {
+  def danglingRefGenNodeWithVersion(version: TransactionVersion): Gen[(NodeId, Node)] = {
     if (version < minExceptions)
       danglingRefGenActionNodeWithVersion(version)
     else
@@ -491,11 +486,11 @@ object ValueGenerators {
     *
     * This list is complete as of transaction version 5. -SC
     */
-  val malformedGenTransaction: Gen[GenTransaction] = {
+  val malformedGenTransaction: Gen[Transaction] = {
     for {
       nodes <- Gen.listOf(danglingRefGenNode)
       roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(NodeId(_)))
-    } yield GenTransaction(nodes.toMap, roots.to(ImmArray))
+    } yield Transaction(nodes.toMap, roots.to(ImmArray))
   }
 
   /*
@@ -509,17 +504,17 @@ object ValueGenerators {
    *
    */
 
-  val noDanglingRefGenTransaction: Gen[GenTransaction] = {
+  val noDanglingRefGenTransaction: Gen[Transaction] = {
 
     def nonDanglingRefNodeGen(
         maxDepth: Int,
         nodeId: NodeId,
-    ): Gen[(ImmArray[NodeId], HashMap[NodeId, Tx.Node])] = {
+    ): Gen[(ImmArray[NodeId], HashMap[NodeId, Node])] = {
 
       val exerciseFreq = if (maxDepth <= 0) 0 else 1
       val rollbackFreq = if (maxDepth <= 0) 0 else 1
 
-      def nodeGen(nodeId: NodeId): Gen[(NodeId, HashMap[NodeId, Tx.Node])] =
+      def nodeGen(nodeId: NodeId): Gen[(NodeId, HashMap[NodeId, Node])] =
         for {
           node <- Gen.frequency(
             exerciseFreq -> danglingRefExerciseNodeGen,
@@ -528,20 +523,20 @@ object ValueGenerators {
             2 -> fetchNodeGen,
           )
           nodeWithChildren <- node match {
-            case node: NodeExercises =>
+            case node: Node.Exercise =>
               for {
                 depth <- Gen.choose(0, maxDepth - 1)
                 nodeWithChildren <- nonDanglingRefNodeGen(depth, nodeId)
                 (children, nodes) = nodeWithChildren
               } yield node.copy(children = children) -> nodes
-            case node: NodeRollback =>
+            case node: Node.Rollback =>
               for {
                 depth <- Gen.choose(0, maxDepth - 1)
                 nodeWithChildren <- nonDanglingRefNodeGen(depth, nodeId)
                 (children, nodes) = nodeWithChildren
               } yield node.copy(children = children) -> nodes
             case node =>
-              Gen.const(node -> HashMap.empty[NodeId, Tx.Node])
+              Gen.const(node -> HashMap.empty[NodeId, Node])
           }
           (node, nodes) = nodeWithChildren
         } yield nodeId -> nodes.updated(nodeId, node)
@@ -550,8 +545,8 @@ object ValueGenerators {
           parentNodeId: NodeId,
           size: Int,
           nodeIds: BackStack[NodeId] = BackStack.empty,
-          nodes: HashMap[NodeId, Tx.Node] = HashMap.empty,
-      ): Gen[(ImmArray[NodeId], HashMap[NodeId, Tx.Node])] =
+          nodes: HashMap[NodeId, Node] = HashMap.empty,
+      ): Gen[(ImmArray[NodeId], HashMap[NodeId, Node])] =
         if (size <= 0)
           Gen.const(nodeIds.toImmArray -> nodes)
         else
@@ -563,7 +558,7 @@ object ValueGenerators {
     }
 
     nonDanglingRefNodeGen(3, NodeId(0)).map { case (nodeIds, nodes) =>
-      GenTransaction(nodes, nodeIds)
+      Transaction(nodes, nodeIds)
     }
   }
 
@@ -572,7 +567,7 @@ object ValueGenerators {
       tx <- noDanglingRefGenTransaction
       txVer <- transactionVersionGen()
       nodeVersionGen = transactionVersionGen().filterNot(_ < txVer)
-      nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, GenNode])) { case (acc, (nodeId, node)) =>
+      nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, Node])) { case (acc, (nodeId, node)) =>
         for {
           hashMap <- acc
         } yield hashMap.updated(nodeId, node)

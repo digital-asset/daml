@@ -12,8 +12,7 @@ import com.daml.lf.data.LawlessTraversals._
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.{Numeric, Ref}
 import com.daml.lf.ledger.EventId
-import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}
-import com.daml.lf.transaction.NodeId
+import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.lf.value.{Value => Lf}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
@@ -44,12 +43,6 @@ object LfEngineToApi {
     Timestamp.apply(instant.getEpochSecond, instant.getNano)
   }
 
-  def lfVersionedValueToApiRecord(
-      verbose: Boolean,
-      recordValue: Lf.VersionedValue,
-  ): Either[String, api.Record] =
-    lfValueToApiRecord(verbose, recordValue.value)
-
   def lfValueToApiRecord(
       verbose: Boolean,
       recordValue: LfValue,
@@ -75,20 +68,13 @@ object LfEngineToApi {
     }
 
   }
-
-  def lfVersionedValueToApiValue(
+  def lfValueToApiValue(
       verbose: Boolean,
-      lf: Option[Lf.VersionedValue],
+      lf: Option[LfValue],
   ): Either[String, Option[api.Value]] =
     lf.fold[Either[String, Option[api.Value]]](Right(None))(
-      lfVersionedValueToApiValue(verbose, _).map(Some(_))
+      lfValueToApiValue(verbose, _).map(Some(_))
     )
-
-  def lfVersionedValueToApiValue(
-      verbose: Boolean,
-      value: Lf.VersionedValue,
-  ): Either[String, api.Value] =
-    lfValueToApiValue(verbose, value.value)
 
   def lfValueToApiValue(
       verbose: Boolean,
@@ -187,13 +173,13 @@ object LfEngineToApi {
 
   def lfContractKeyToApiValue(
       verbose: Boolean,
-      lf: KeyWithMaintainers[Lf.VersionedValue],
+      lf: Node.KeyWithMaintainers,
   ): Either[String, api.Value] =
-    lfVersionedValueToApiValue(verbose, lf.key)
+    lfValueToApiValue(verbose, lf.key)
 
   def lfContractKeyToApiValue(
       verbose: Boolean,
-      lf: Option[KeyWithMaintainers[Lf.VersionedValue]],
+      lf: Option[Node.KeyWithMaintainers],
   ): Either[String, Option[api.Value]] =
     lf.fold[Either[String, Option[api.Value]]](Right(None))(
       lfContractKeyToApiValue(verbose, _).map(Some(_))
@@ -203,11 +189,11 @@ object LfEngineToApi {
       verbose: Boolean,
       trId: Ref.LedgerString,
       nodeId: NodeId,
-      node: NodeCreate,
+      node: Node.Create,
   ): Either[String, Event] =
     for {
       arg <- lfValueToApiRecord(verbose, node.arg)
-      key <- lfContractKeyToApiValue(verbose, node.versionedKey)
+      key <- lfContractKeyToApiValue(verbose, node.key)
     } yield Event(
       Event.Event.Created(
         CreatedEvent(
@@ -227,7 +213,7 @@ object LfEngineToApi {
   def lfNodeExercisesToEvent(
       trId: Ref.LedgerString,
       nodeId: NodeId,
-      node: NodeExercises,
+      node: Node.Exercise,
   ): Either[String, Event] =
     Either.cond(
       node.consuming,
@@ -248,11 +234,11 @@ object LfEngineToApi {
       verbose: Boolean,
       eventId: EventId,
       witnessParties: Set[Ref.Party],
-      node: NodeCreate,
+      node: Node.Create,
   ): Either[String, TreeEvent] =
     for {
       arg <- lfValueToApiRecord(verbose, node.arg)
-      key <- lfContractKeyToApiValue(verbose, node.versionedKey)
+      key <- lfContractKeyToApiValue(verbose, node.key)
     } yield TreeEvent(
       TreeEvent.Kind.Created(
         CreatedEvent(
@@ -274,12 +260,12 @@ object LfEngineToApi {
       trId: Ref.LedgerString,
       eventId: EventId,
       witnessParties: Set[Ref.Party],
-      node: NodeExercises,
+      node: Node.Exercise,
       filterChildren: NodeId => Boolean,
   ): Either[String, TreeEvent] =
     for {
-      arg <- lfVersionedValueToApiValue(verbose, node.versionedChosenValue)
-      result <- lfVersionedValueToApiValue(verbose, node.versionedExerciseResult)
+      arg <- lfValueToApiValue(verbose, node.chosenValue)
+      result <- lfValueToApiValue(verbose, node.exerciseResult)
     } yield {
       TreeEvent(
         TreeEvent.Kind.Exercised(

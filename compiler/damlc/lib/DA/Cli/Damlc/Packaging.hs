@@ -40,16 +40,17 @@ import System.Process (callProcess)
 import "ghc-lib-parser" UniqSet
 
 import DA.Bazel.Runfiles
-import DA.Cli.Damlc.Base
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.DataDependencies as DataDeps
 import DA.Daml.Compiler.DecodeDar (DecodedDalf(..), decodeDalf)
+import DA.Daml.Compiler.Output
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
 import DA.Cli.Damlc.DependencyDb
 import qualified DA.Pretty
+import qualified DA.Service.Logger as Logger
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.RuleTypes.Daml
 import SdkVersion
@@ -72,7 +73,9 @@ createProjectPackageDb :: NormalizedFilePath -> Options -> MS.Map UnitId GHC.Mod
 createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefixes
   = do
     (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization projectRoot depsDir
+    loggerH <- getLogger opts "package-db"
     when needsReinitalization $ do
+      Logger.logDebug loggerH "package db is not up2date, reinitializing"
       clearPackageDb
 
 
@@ -85,7 +88,6 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       -- TODO Enforce this with useful error messages
       registerDepsInPkgDb depsDir dbPath
 
-      loggerH <- getLogger opts "generate package maps"
       mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
           (,) <$> useNoFileE GenerateStablePackages
               <*> (fst <$> useE GeneratePackageMap projectRoot)
@@ -126,7 +128,9 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       -- to avoid blowing up GHC when setting up the GHC session.
       exposedModules <- getExposedModules opts projectRoot
 
-      let (depGraph, vertexToNode) = buildLfPackageGraph dalfsFromDataDependencies stablePkgs dependenciesInPkgDb
+      Logger.logDebug loggerH "Building dependency package graph"
+
+      let (depGraph, vertexToNode) = buildLfPackageGraph (optDamlLfVersion opts) dalfsFromDataDependencies stablePkgs dependenciesInPkgDb
 
 
       validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes (dalfsFromDependencies <> dalfsFromDataDependencies))
@@ -135,6 +139,9 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       -- We do a topological sort on the transposed graph which ensures that
       -- the packages with no dependencies come first and we
       -- never process a package without first having processed its dependencies.
+
+      Logger.logDebug loggerH "Registering dependency graph"
+
       forM_ (topSort $ transposeG depGraph) $ \vertex ->
         let (pkgNode, pkgId) = vertexToNode vertex in
         -- stable packages are mapped to the current version of daml-prim/daml-stdlib
@@ -225,9 +232,12 @@ generateAndInstallIfaceFiles ::
     -> MS.Map UnitId (UniqSet GHC.ModuleName)
     -> IO ()
 generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase pkgIdStr pkgName mbPkgVersion deps dependencies exposedModules = do
-    loggerH <- getLogger opts "generate interface files"
+    let pkgContext = T.pack (unitIdString (pkgNameVersion pkgName mbPkgVersion)) <> " (" <> LF.unPackageId pkgIdStr <> ")"
+    loggerH <- getLogger opts $ "data-dependencies " <> pkgContext
+    Logger.logDebug loggerH "Writing out dummy source files"
     let src' = [ (toNormalizedFilePath' $ workDir </> fromNormalizedFilePath nfp, str) | (nfp, str) <- src]
     mapM_ writeSrc src'
+    Logger.logDebug loggerH "Compiling dummy interface files"
     -- We expose dependencies under a Pkg_$pkgId prefix so we can unambiguously refer to them
     -- while avoiding name collisions in package imports. Note that we can only do this
     -- for exposed modules. GHC gets very unhappy if you try to remap modules that are not
@@ -284,6 +294,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
             (map (GHC.mkModuleName . T.unpack) $ LF.packageModuleNames dalf)
             pkgIdStr
     BS.writeFile (dbPath </> "package.conf.d" </> cfPath) cfBs
+    Logger.logDebug loggerH $ "Recaching package db for " <> pkgContext
     recachePkgDb dbPath
 
 -- | Fake settings, we need those to make ghc-pkg happy.
@@ -407,7 +418,7 @@ getGhcPkgPath :: IO FilePath
 getGhcPkgPath =
     if isWindows
         then locateRunfiles "rules_haskell_ghc_windows_amd64/bin"
-        else locateRunfiles "ghc_nix/lib/ghc-8.10.4/bin"
+        else locateRunfiles "ghc_nix/lib/ghc-8.10.7/bin"
 
 -- | Fail with an exit failure and errror message when Nothing is returned.
 mbErr :: String -> Maybe a -> IO a
@@ -419,13 +430,14 @@ lfVersionString = DA.Pretty.renderPretty
 
 -- | The graph will have an edge from package A to package B if A depends on B.
 buildLfPackageGraph
-    :: [DecodedDalf]
+    :: LF.Version
+    -> [DecodedDalf]
     -> MS.Map (UnitId, LF.ModuleName) LF.DalfPackage
     -> MS.Map UnitId LF.DalfPackage
     -> ( Graph
        , Vertex -> (PackageNode, LF.PackageId)
        )
-buildLfPackageGraph pkgs stablePkgs dependencyPkgs = (depGraph, vertexToNode')
+buildLfPackageGraph targetLfVersion pkgs stablePkgs dependencyPkgs = (depGraph, vertexToNode')
   where
     -- mapping from package id's to unit id's. if the same package is imported with
     -- different unit id's, we would loose a unit id here.
@@ -456,12 +468,17 @@ buildLfPackageGraph pkgs stablePkgs dependencyPkgs = (depGraph, vertexToNode')
         -- We don’t care about outgoing edges.
         (node, key, _keys) -> (node, key)
 
+    dependencyInfo =
+        buildDependencyInfo
+           (map LF.dalfPackagePkg $ MS.elems dependencyPkgs)
+           (LF.initWorld (map (uncurry LF.ExternalPackage) (MS.toList packages)) targetLfVersion)
+
     config pkgId unitId = DataDeps.Config
         { configPackages = packages
         , configGetUnitId = getUnitId unitId pkgMap
         , configSelfPkgId = pkgId
         , configStablePackages = MS.fromList [ (LF.dalfPackageId dalfPkg, unitId) | ((unitId, _), dalfPkg) <- MS.toList stablePkgs ]
-        , configDependencyPackages = Set.fromList $ map LF.dalfPackageId $ MS.elems dependencyPkgs
+        , configDependencyInfo = dependencyInfo
         , configSdkPrefix = [T.pack currentSdkPrefix]
         }
 

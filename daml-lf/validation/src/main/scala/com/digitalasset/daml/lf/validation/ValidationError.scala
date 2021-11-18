@@ -417,6 +417,17 @@ final case class EModuleVersionDependencies(
   override def context: Context = NoContext
 }
 
+final case class EBadInheritedChoices(
+    context: Context,
+    iface: TypeConName,
+    template: TypeConName,
+    expected: Set[ChoiceName],
+    got: Set[ChoiceName],
+) extends ValidationError {
+  override protected def prettyInternal: String =
+    s"Inherited choices for template $template implementation of interface $iface does not match interface definition.\n Expected: $expected\n But got: $got"
+}
+
 final case class EBadInterfaceChoiceImplConsuming(
     context: Context,
     iface: TypeConName,

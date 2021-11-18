@@ -24,27 +24,23 @@ let shared = rec {
     openssl
     gnupatch
     patchelf
-    postgresql_9_6
     protobuf3_8
     python3
     toxiproxy
     zip
-    ;
+  ;
 
-    scala_2_12 = (pkgs.scala_2_12.override { }).overrideAttrs (attrs: {
-      # Something appears to be broken in nixpkgs' fixpoint which results in the
-      # test not having the version number we overwrite so it fails
-      # with a mismatch between the version in nixpkgs and the one we
-      # overwrite.
-      installCheckPhase = "";
-      nativeBuildInputs = attrs.nativeBuildInputs ++ [ pkgs.makeWrapper ];
-      installPhase = attrs.installPhase + ''
-        wrapProgram $out/bin/scala    --add-flags "-nobootcp"
-        wrapProgram $out/bin/scalac   --add-flags "-nobootcp"
-        wrapProgram $out/bin/scaladoc --add-flags "-nobootcp"
-        wrapProgram $out/bin/scalap   --add-flags "-nobootcp"
-      '';
-    });
+    postgresql_10 = if pkgs.buildPlatform.libc == "glibc"
+      then pkgs.runCommand "postgresql_10_wrapper" { buildInputs = [ pkgs.makeWrapper ]; } ''
+      mkdir -p $out/bin
+      for tool in ${pkgs.postgresql_10}/bin/*; do
+        makeWrapper $tool $out/bin/$(basename $tool) --set LOCALE_ARCHIVE ${pkgs.glibcLocales}/lib/locale/locale-archive
+      done
+      ln -s ${pkgs.postgresql_10}/include $out/include
+      ln -s ${pkgs.postgresql_10}/lib $out/lib
+      ln -s ${pkgs.postgresql_10}/share $out/share
+    '' else pkgs.postgresql_10;
+
 
     scala_2_13 = (pkgs.scala_2_13.override { }).overrideAttrs (attrs: {
       # Something appears to be broken in nixpkgs' fixpoint which results in the
@@ -68,7 +64,7 @@ let shared = rec {
     postFixup = ''touch $out/share/go/ROOT'';
   });
 
-  ghcPkgs = pkgs.haskell.packages.integer-simple.ghc8104;
+  ghcPkgs = pkgs.haskell.packages.integer-simple.ghc8107;
 
   ghc = ghcPkgs.ghc;
   # Deliberately not taken from ghcPkgs. This is a fully

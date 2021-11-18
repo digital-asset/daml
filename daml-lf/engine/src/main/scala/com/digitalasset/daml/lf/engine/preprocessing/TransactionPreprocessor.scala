@@ -68,12 +68,21 @@ private[preprocessing] final class TransactionPreprocessor(
 
     val result = tx.roots.foldLeft(BackStack.empty[speedy.Command]) { (acc, id) =>
       tx.nodes.get(id) match {
-        case Some(node: Node.GenActionNode) =>
+        case Some(node: Node.Action) =>
           node match {
-            case create: Node.NodeCreate =>
-              val cmd = commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
+            case create: Node.Create =>
+              val cmd = create.byInterface match {
+                case None =>
+                  commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
+                case Some(interfaceId) =>
+                  commandPreprocessor.unsafePreprocessCreateByInterface(
+                    interfaceId,
+                    create.templateId,
+                    create.arg,
+                  )
+              }
               acc :+ cmd
-            case exe: Node.NodeExercises =>
+            case exe: Node.Exercise =>
               val cmd = exe.key match {
                 case Some(key) if exe.byKey =>
                   commandPreprocessor.unsafePreprocessExerciseByKey(
@@ -83,20 +92,31 @@ private[preprocessing] final class TransactionPreprocessor(
                     exe.chosenValue,
                   )
                 case _ =>
-                  commandPreprocessor.unsafePreprocessExercise(
-                    exe.templateId,
-                    exe.targetCoid,
-                    exe.choiceId,
-                    exe.chosenValue,
-                  )
+                  exe.byInterface match {
+                    case None =>
+                      commandPreprocessor.unsafePreprocessExerciseTemplate(
+                        exe.templateId,
+                        exe.targetCoid,
+                        exe.choiceId,
+                        exe.chosenValue,
+                      )
+                    case Some(interfaceId) =>
+                      commandPreprocessor.unsafePreprocessExerciseByInterface(
+                        interfaceId,
+                        exe.templateId,
+                        exe.targetCoid,
+                        exe.choiceId,
+                        exe.chosenValue,
+                      )
+                  }
               }
               acc :+ cmd
-            case _: Node.NodeFetch =>
+            case _: Node.Fetch =>
               invalidRootNode(id, s"Transaction contains a fetch root node $id")
-            case _: Node.NodeLookupByKey =>
+            case _: Node.LookupByKey =>
               invalidRootNode(id, s"Transaction contains a lookup by key root node $id")
           }
-        case Some(_: Node.NodeRollback) =>
+        case Some(_: Node.Rollback) =>
           invalidRootNode(id, s"invalid transaction, root refers to a rollback node $id")
         case None =>
           invalidRootNode(id, s"invalid transaction, root refers to non-existing node $id")

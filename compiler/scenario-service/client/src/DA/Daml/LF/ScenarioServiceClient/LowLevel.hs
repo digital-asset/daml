@@ -72,6 +72,7 @@ data Options = Options
   , optJvmOptions :: [String]
   , optRequestTimeout :: TimeoutSeconds
   , optGrpcMaxMessageSize :: Maybe Int
+  , optLogDebug :: String -> IO ()
   , optLogInfo :: String -> IO ()
   , optLogError :: String -> IO ()
   , optDamlLfVersion :: LF.Version
@@ -199,7 +200,7 @@ handleCrashingScenarioService exitExpected h act =
 
 withScenarioService :: Options -> (Handle -> IO a) -> IO a
 withScenarioService opts@Options{..} f = do
-  optLogInfo "Starting scenario service..."
+  optLogDebug "Starting scenario service..."
   serverJarExists <- doesFileExist optServerJar
   unless serverJarExists $
       throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
@@ -215,10 +216,10 @@ withScenarioService opts@Options{..} f = do
     let printStderr line
             -- The last line should not be treated as an error.
             | T.strip line == "ScenarioService: stdin closed, terminating server." =
-              liftIO (optLogInfo (T.unpack ("SCENARIO SERVICE STDERR: " <> line)))
+              liftIO (optLogDebug (T.unpack ("SCENARIO SERVICE STDERR: " <> line)))
             | otherwise =
               liftIO (optLogError (T.unpack ("SCENARIO SERVICE STDERR: " <> line)))
-    let printStdout line = liftIO (optLogInfo (T.unpack ("SCENARIO SERVICE STDOUT: " <> line)))
+    let printStdout line = liftIO (optLogDebug (T.unpack ("SCENARIO SERVICE STDOUT: " <> line)))
     -- stick the error in the mvar so that we know we won't get an BlockedIndefinitedlyOnMvar exception
     portMVar <- newEmptyMVar
     let handleStdout = do
@@ -241,7 +242,7 @@ withScenarioService opts@Options{..} f = do
         -- callback or withAsync will block forever.
         flip finally (closeStdin stdinHdl) $ do
             port <- either fail pure =<< takeMVar portMVar
-            liftIO $ optLogInfo $ "Scenario service backend running on port " <> show port
+            liftIO $ optLogDebug $ "Scenario service backend running on port " <> show port
             -- Using 127.0.0.1 instead of localhost helps when our packaging logic falls over
             -- and DNS lookups break, e.g., on Alpine linux.
             let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing Nothing

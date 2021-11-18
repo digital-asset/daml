@@ -70,6 +70,8 @@ import qualified DA.Daml.LF.Proto3.Archive as LFArchive
 import DA.Daml.Package.Config (PackageSdkVersion(..))
 import DA.Daml.Project.Util (fromMaybeM)
 import qualified DA.Ledger as L
+import qualified DA.Service.Logger as Logger
+import qualified DA.Service.Logger.Impl.IO as Logger
 import qualified SdkVersion
 
 data LedgerApi
@@ -262,6 +264,7 @@ runLedgerFetchDar flags pidString saveAs = do
 -- | Reconstruct a DAR file by downloading packages from a ledger. Returns how many packages fetched.
 fetchDar :: LedgerArgs -> LF.PackageId -> FilePath -> IO Int
 fetchDar args rootPid saveAs = do
+  loggerH <- Logger.newStderrLogger Logger.Info "fetch-dar"
   pkgs <- downloadAllReachablePackages (downloadPackage args) [rootPid] []
   let rootPkg = fromMaybe (error "damlc: fetchDar: internal error") $ pkgs Map.! rootPid
   -- It's always a `Just` because we exclude no package ids.
@@ -281,7 +284,7 @@ fetchDar args rootPid saveAs = do
   let pSdkVersion = PackageSdkVersion SdkVersion.sdkVersion
   let srcRoot = error "unexpected use of srcRoot when there are no sources"
   let za = createArchive pName pVersion pSdkVersion pkgId dalf dalfDependencies srcRoot [] [] []
-  createDarFile saveAs za
+  createDarFile loggerH saveAs za
   return $ Map.size pkgs
 
 recoverPackageName :: LF.Package -> LF.PackageId -> T.Text

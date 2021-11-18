@@ -16,7 +16,7 @@ import Control.Monad.Except
 import Control.Monad.Extra (whenM, whenJust)
 import DA.Bazel.Runfiles
 import qualified DA.Cli.Args as ParseArgs
-import DA.Cli.Damlc.Base
+import DA.Cli.Options
 import DA.Cli.Damlc.BuildInfo
 import qualified DA.Cli.Damlc.InspectDar as InspectDar
 import qualified DA.Cli.Damlc.Command.Damldoc as Damldoc
@@ -24,6 +24,7 @@ import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.DependencyDb
 import DA.Cli.Damlc.Test
 import DA.Daml.Compiler.Dar
+import DA.Daml.Compiler.Output
 import qualified DA.Daml.Compiler.Repl as Repl
 import DA.Daml.Compiler.DocTest
 import DA.Daml.LF.ScenarioServiceClient (readScenarioServiceConfig, withScenarioService')
@@ -451,9 +452,7 @@ execIde telemetry (Debug debug) enableScenarioService options =
           let threshold =
                   if debug
                   then Logger.Debug
-                  -- info is used pretty extensively for debug messages in our code base so
-                  -- I've set the no debug threshold at warning
-                  else Logger.Warning
+                  else Logger.Info
           loggerH <- Logger.IO.newIOLogger
             stderr
             (Just 5000)
@@ -486,6 +485,7 @@ execIde telemetry (Debug debug) enableScenarioService options =
           dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
           options <- pure options
               { optScenarioService = enableScenarioService
+              , optEnableOfInterestRule = True
               , optSkipScenarioValidation = SkipScenarioValidation True
               -- TODO(MH): The `optionsParser` does not provide a way to skip
               -- individual options. As a stopgap we ignore the argument to
@@ -612,10 +612,10 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
   where effect = withProjectRoot' projectOpts $ \relativize -> do
             installDepsAndInitPackageDb opts initPkgDb
             withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
-                putStrLn $ "Compiling " <> T.unpack (LF.unPackageName pName) <> " to a DAR."
+                loggerH <- getLogger opts "build"
+                Logger.logInfo loggerH $ "Compiling " <> LF.unPackageName pName <> " to a DAR."
                 let warnings = checkPkgConfig pkgConfig
                 unless (null warnings) $ putStrLn $ unlines warnings
-                loggerH <- getLogger opts "package"
                 withDamlIdeState
                     opts
                       { optMbPackageName = Just pName
@@ -632,7 +632,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
                             (FromDalf False)
                     dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
                     fp <- targetFilePath relativize $ unitIdString (pkgNameVersion pName pVersion)
-                    createDarFile fp dar
+                    createDarFile loggerH fp dar
             where
                 targetFilePath rel name =
                   case mbOutFile of
@@ -751,7 +751,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
             Nothing -> do
                 hPutStrLn stderr "ERROR: Creation of DAR file failed."
                 exitFailure
-            Just dar -> createDarFile targetFilePath dar
+            Just dar -> createDarFile loggerH targetFilePath dar
     -- This is somewhat ugly but our CLI parser guarantees that this will always be present.
     -- We could parametrize CliOptions by whether the package name is optional
     -- but I don’t think that is worth the complexity of carrying around a type parameter.

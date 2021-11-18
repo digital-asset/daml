@@ -7,7 +7,7 @@ import java.util.UUID
 
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises, NodeFetch}
+import com.daml.lf.transaction.Node
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{VersionedContractInstance, ValueParty}
@@ -26,7 +26,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       val builder = TransactionBuilder()
       val contractId = builder.newCid
       builder.add(
-        NodeCreate(
+        Node.Create(
           coid = contractId,
           templateId = someTemplateId,
           arg = someContractArgument,
@@ -34,6 +34,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           signatories = Set(alice),
           stakeholders = Set(alice),
           key = None,
+          byInterface = None,
           version = TransactionVersion.minVersion,
         )
       )
@@ -43,7 +44,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       val builder = TransactionBuilder()
       val contractId = builder.newCid
       builder.add(
-        NodeCreate(
+        Node.Create(
           coid = contractId,
           someTemplateId,
           someContractArgument,
@@ -51,8 +52,9 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           signatories = Set(bob),
           stakeholders = Set(bob),
           key = Some(
-            KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
+            Node.KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
           ),
+          byInterface = None,
           version = TransactionVersion.minVersion,
         )
       )
@@ -61,7 +63,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
     val tx3 = {
       val builder = TransactionBuilder()
       val rootExercise = builder.add(
-        NodeExercises(
+        Node.Exercise(
           targetCoid = create1,
           templateId = someTemplateId,
           choiceId = someChoiceName,
@@ -77,26 +79,28 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           exerciseResult = Some(someChoiceResult),
           key = None,
           byKey = false,
+          byInterface = None,
           version = TransactionVersion.minVersion,
         )
       )
       builder.add(
-        NodeFetch(
+        Node.Fetch(
           coid = create2,
           templateId = someTemplateId,
           actingParties = Set(bob),
           signatories = Set(bob),
           stakeholders = Set(bob),
           key = Some(
-            KeyWithMaintainers(ValueParty(bob), Set(bob))
+            Node.KeyWithMaintainers(ValueParty(bob), Set(bob))
           ),
           byKey = false,
+          byInterface = None,
           version = TransactionVersion.minVersion,
         ),
         parentId = rootExercise,
       )
       val nestedExercise = builder.add(
-        NodeExercises(
+        Node.Exercise(
           targetCoid = create2,
           templateId = someTemplateId,
           choiceId = someChoiceName,
@@ -109,15 +113,16 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           children = ImmArray.Empty,
           exerciseResult = Some(someChoiceResult),
           key = Some(
-            KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
+            Node.KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
           ),
           byKey = false,
+          byInterface = None,
           version = TransactionVersion.minVersion,
         ),
         parentId = rootExercise,
       )
       builder.add(
-        NodeCreate(
+        Node.Create(
           coid = builder.newCid,
           someTemplateId,
           someContractArgument,
@@ -125,8 +130,9 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           signatories = Set(bob),
           stakeholders = Set(alice, bob),
           key = Some(
-            KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
+            Node.KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
           ),
+          byInterface = None,
           version = TransactionVersion.minVersion,
         ),
         parentId = nestedExercise,

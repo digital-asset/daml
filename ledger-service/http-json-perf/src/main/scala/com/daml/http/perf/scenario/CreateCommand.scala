@@ -19,14 +19,15 @@ class CreateCommand extends Simulation with SimulationConfig {
   }
 }"""
 
+  private val numberOfRuns = 1000
   private val request = http("CreateCommand")
     .post("/v1/create")
     .body(StringBody(jsonCommand))
 
   private val scn = scenario("CreateCommandScenario")
-    .repeat(1000)(exec(request))
+    .repeat(numberOfRuns / defaultNumUsers)(exec(request))
 
   setUp(
-    scn.inject(atOnceUsers(1))
+    scn.inject(atOnceUsers(defaultNumUsers))
   ).protocols(httpProtocol)
 }

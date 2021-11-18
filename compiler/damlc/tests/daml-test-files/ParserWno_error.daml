@@ -1,0 +1,11 @@
+-- Copyright (c) 2021, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+{-# OPTIONS_GHC -Wno-error=missing-space-after-bang #-}
+
+-- @WARN range=11:3-11:5; perhaps you want to add a space after the bang for clarity
+
+module ParserWno_error where
+
+(!) : a -> a -> ()
+_ !_ = ()

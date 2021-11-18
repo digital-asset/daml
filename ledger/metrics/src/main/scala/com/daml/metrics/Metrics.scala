@@ -378,6 +378,9 @@ final class Metrics(val registry: MetricRegistry) {
       val contractStateEventsBufferSize: Counter =
         registry.counter(Prefix :+ "contract_state_events_buffer_size")
 
+      val acsRetrievalSequentialProcessing: Timer =
+        registry.timer(Prefix :+ "acs_retrieval_sequential_processing")
+
       // FIXME Name mushing and inconsistencies here, tracked by https://github.com/digital-asset/daml/issues/5926
       object db {
         private val Prefix: MetricName = index.Prefix :+ "db"
@@ -430,9 +433,6 @@ final class Metrics(val registry: MetricRegistry) {
         val getLedgerId: DatabaseMetrics = createDbMetrics("get_ledger_id")
         val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")
         val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")
-        val getLedgerEndOffsetAndSequentialId: DatabaseMetrics = createDbMetrics(
-          "get_ledger_end_offset_and_sequential_id"
-        )
         val getInitialLedgerEnd: DatabaseMetrics = createDbMetrics("get_initial_ledger_end")
         val initializeLedgerParameters: DatabaseMetrics = createDbMetrics(
           "initialize_ledger_parameters"
@@ -518,11 +518,16 @@ final class Metrics(val registry: MetricRegistry) {
           "lookup_transaction_tree_by_id"
         )
         val getActiveContracts: DatabaseMetrics = createDbMetrics("get_active_contracts")
+        val getActiveContractIds: DatabaseMetrics = createDbMetrics("get_active_contract_ids")
+        val getActiveContractBatch: DatabaseMetrics = createDbMetrics("get_active_contract_batch")
         val getEventSeqIdRange: DatabaseMetrics = createDbMetrics("get_event_sequential_id_range")
         val getAcsEventSeqIdRange: DatabaseMetrics =
           createDbMetrics("get_acs_event_sequential_id_range")
         val getContractStateEvents: DatabaseMetrics = createDbMetrics(
           "get_contract_state_events"
+        )
+        val loadStringInterningEntries: DatabaseMetrics = createDbMetrics(
+          "loadStringInterningEntries"
         )
 
         object translation {

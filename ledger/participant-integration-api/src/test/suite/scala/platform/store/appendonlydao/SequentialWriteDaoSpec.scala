@@ -8,62 +8,99 @@ import java.sql.Connection
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.SequentialWriteDaoSpec._
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{DbDto, IngestionStorageBackend, ParameterStorageBackend}
+import com.daml.platform.store.cache.MutableLedgerEndCache
+import com.daml.platform.store.interning.{
+  DomainStringIterators,
+  InternizingStringInterningView,
+  StringInterning,
+  StringInterningDomain,
+}
 import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import sun.reflect.generics.reflectiveObjects.NotImplementedException
 
 class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
   behavior of "SequentialWriteDaoImpl"
 
   it should "store correctly in a happy path case" in {
-    val storageBackendCaptor = new StorageBackendCaptor(Some(LedgerEnd(Offset.beforeBegin, 5)))
+    val storageBackendCaptor = new StorageBackendCaptor(Some(LedgerEnd(Offset.beforeBegin, 5, 1)))
+    val ledgerEndCache = MutableLedgerEndCache()
     val testee = SequentialWriteDaoImpl(
-      storageBackend = storageBackendCaptor,
+      parameterStorageBackend = storageBackendCaptor,
+      ingestionStorageBackend = storageBackendCaptor,
       updateToDbDtos = updateToDbDtoFixture,
+      ledgerEndCache = ledgerEndCache,
+      stringInterningView = stringInterningViewFixture,
+      dbDtosToStringsForInterning = dbDtoToStringsForInterningFixture,
     )
     testee.store(someConnection, offset("01"), singlePartyFixture)
+    ledgerEndCache() shouldBe (offset("01") -> 5)
     testee.store(someConnection, offset("02"), allEventsFixture)
+    ledgerEndCache() shouldBe (offset("02") -> 8)
     testee.store(someConnection, offset("03"), None)
+    ledgerEndCache() shouldBe (offset("03") -> 8)
     testee.store(someConnection, offset("04"), partyAndCreateFixture)
+    ledgerEndCache() shouldBe (offset("04") -> 9)
 
     storageBackendCaptor.captured(0) shouldBe someParty
-    storageBackendCaptor.captured(1) shouldBe LedgerEnd(offset("01"), 5)
+    storageBackendCaptor.captured(1) shouldBe LedgerEnd(offset("01"), 5, 1)
     storageBackendCaptor.captured(2).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 6
+    storageBackendCaptor.captured(3).asInstanceOf[DbDto.CreateFilter].event_sequential_id shouldBe 6
+    storageBackendCaptor.captured(4).asInstanceOf[DbDto.CreateFilter].event_sequential_id shouldBe 6
     storageBackendCaptor
-      .captured(3)
+      .captured(5)
       .asInstanceOf[DbDto.EventExercise]
       .event_sequential_id shouldBe 7
     storageBackendCaptor
-      .captured(4)
+      .captured(6)
       .asInstanceOf[DbDto.EventDivulgence]
       .event_sequential_id shouldBe 8
-    storageBackendCaptor.captured(5) shouldBe LedgerEnd(offset("02"), 8)
-    storageBackendCaptor.captured(6) shouldBe LedgerEnd(offset("03"), 8)
-    storageBackendCaptor.captured(7) shouldBe someParty
-    storageBackendCaptor.captured(8).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 9
-    storageBackendCaptor.captured(9) shouldBe LedgerEnd(offset("04"), 9)
-    storageBackendCaptor.captured should have size 10
+    storageBackendCaptor.captured(7).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 1
+    storageBackendCaptor
+      .captured(7)
+      .asInstanceOf[DbDto.StringInterningDto]
+      .externalString shouldBe "a"
+    storageBackendCaptor.captured(8).asInstanceOf[DbDto.StringInterningDto].internalId shouldBe 2
+    storageBackendCaptor
+      .captured(8)
+      .asInstanceOf[DbDto.StringInterningDto]
+      .externalString shouldBe "b"
+    storageBackendCaptor.captured(9) shouldBe LedgerEnd(offset("02"), 8, 2)
+    storageBackendCaptor.captured(10) shouldBe LedgerEnd(offset("03"), 8, 2)
+    storageBackendCaptor.captured(11) shouldBe someParty
+    storageBackendCaptor.captured(12).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 9
+    storageBackendCaptor.captured(13) shouldBe LedgerEnd(offset("04"), 9, 2)
+    storageBackendCaptor.captured should have size 14
   }
 
   it should "start event_seq_id from 1" in {
     val storageBackendCaptor = new StorageBackendCaptor(None)
+    val ledgerEndCache = MutableLedgerEndCache()
     val testee = SequentialWriteDaoImpl(
-      storageBackend = storageBackendCaptor,
+      parameterStorageBackend = storageBackendCaptor,
+      ingestionStorageBackend = storageBackendCaptor,
       updateToDbDtos = updateToDbDtoFixture,
+      ledgerEndCache = ledgerEndCache,
+      stringInterningView = stringInterningViewFixture,
+      dbDtosToStringsForInterning = dbDtoToStringsForInterningFixture,
     )
     testee.store(someConnection, offset("03"), None)
+    ledgerEndCache() shouldBe (offset("03") -> 0)
     testee.store(someConnection, offset("04"), partyAndCreateFixture)
+    ledgerEndCache() shouldBe (offset("04") -> 1)
 
-    storageBackendCaptor.captured(0) shouldBe LedgerEnd(offset("03"), 0)
+    storageBackendCaptor.captured(0) shouldBe LedgerEnd(offset("03"), 0, 0)
     storageBackendCaptor.captured(1) shouldBe someParty
     storageBackendCaptor.captured(2).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 1
-    storageBackendCaptor.captured(3) shouldBe LedgerEnd(offset("04"), 1)
+    storageBackendCaptor.captured(3) shouldBe LedgerEnd(offset("04"), 1, 0)
     storageBackendCaptor.captured should have size 4
   }
 
@@ -73,7 +110,8 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
     var captured: Vector[Any] = Vector.empty
 
-    override def batch(dbDtos: Vector[DbDto]): Vector[DbDto] = dbDtos
+    override def batch(dbDtos: Vector[DbDto], stringInterning: StringInterning): Vector[DbDto] =
+      dbDtos
 
     override def insertBatch(connection: Connection, batch: Vector[DbDto]): Unit = synchronized {
       connection shouldBe someConnection
@@ -233,17 +271,41 @@ object SequentialWriteDaoSpec {
     partyAndCreateFixture.get.rejectionReason -> List(someParty, someEventCreated),
     allEventsFixture.get.rejectionReason -> List(
       someEventCreated,
+      DbDto.CreateFilter(0L, "", ""),
+      DbDto.CreateFilter(0L, "", ""),
       someEventExercise,
       someEventDivulgence,
     ),
   )
 
-  val updateToDbDtoFixture: Offset => state.Update => Iterator[DbDto] =
+  private val updateToDbDtoFixture: Offset => state.Update => Iterator[DbDto] =
     _ => {
       case r: state.Update.PublicPackageUploadRejected =>
         someUpdateToDbDtoFixture(r.rejectionReason).iterator
       case _ => throw new Exception
     }
+
+  private val dbDtoToStringsForInterningFixture: Iterable[DbDto] => DomainStringIterators = {
+    case iterable if iterable.size == 5 =>
+      new DomainStringIterators(Iterator.empty, List("1").iterator)
+    case _ => new DomainStringIterators(Iterator.empty, Iterator.empty)
+  }
+
+  private val stringInterningViewFixture: StringInterning with InternizingStringInterningView = {
+    new StringInterning with InternizingStringInterningView {
+      override def templateId: StringInterningDomain[Ref.Identifier] =
+        throw new NotImplementedException
+
+      override def party: StringInterningDomain[Party] = throw new NotImplementedException
+
+      override def internize(
+          domainStringIterators: DomainStringIterators
+      ): Iterable[(Int, String)] = {
+        if (domainStringIterators.templateIds.isEmpty) Nil
+        else List(1 -> "a", 2 -> "b")
+      }
+    }
+  }
 
   private val someConnection = mock[Connection]
 

@@ -4,6 +4,9 @@
 package com.daml.lf.language
 
 import com.daml.lf.data.Ref.{PackageId, PackageName}
+import com.daml.lf.VersionRange
+
+import scala.annotation.nowarn
 
 object StablePackages {
   // Based on compiler/damlc/tests/src/stable-packages.sh
@@ -121,5 +124,8 @@ object StablePackages {
       "99a2705ed38c1c26cbb8fe7acf36bbf626668e167a33335de932599219e0a235"
     ),
   )
-  val Ids: Set[PackageId] = nameToIdMap.values.toSet
+  // TODO (MK) Filter the stable packages to the ones where stablePkgVersion < version
+  @nowarn("msg=parameter value allowedLanguageVersions .* is never used")
+  def ids(allowedLanguageVersions: VersionRange[LanguageVersion]): Set[PackageId] =
+    nameToIdMap.values.toSet
 }

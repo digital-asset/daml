@@ -3,6 +3,7 @@
 
 module DA.Daml.Compiler.DataDependencies
     ( Config (..)
+    , buildDependencyInfo
     , generateSrcPkgFromLf
     , prefixDependencyModule
     ) where
@@ -23,7 +24,6 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Map.Strict as MS
 import Data.Maybe
-import Data.Either
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import Development.IDE.Types.Location
@@ -49,10 +49,18 @@ import qualified DA.Daml.LF.Ast.Type as LF
 import qualified DA.Daml.LF.Ast.Alpha as LF
 import qualified DA.Daml.LF.TypeChecker.Check as LF
 import qualified DA.Daml.LF.TypeChecker.Env as LF
+import qualified DA.Daml.LF.TypeChecker.Error as LF
 import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import DA.Daml.Options
 
 import SdkVersion
+
+panicOnError :: Either LF.Error a -> a
+panicOnError (Left e) = error $ "Internal LF type error: " <> renderPretty e
+panicOnError (Right a) = a
+
+-- | Newtype wrapper around an LF type where all type synonyms have been expanded.
+newtype ExpandedType = ExpandedType { getExpandedType :: LF.Type }
 
 data Config = Config
     { configPackages :: MS.Map LF.PackageId LF.Package
@@ -65,8 +73,8 @@ data Config = Config
     , configStablePackages :: MS.Map LF.PackageId UnitId
         -- ^ map from a package id of a stable package to the unit id
         -- of the corresponding package, i.e., daml-prim/daml-stdlib.
-    , configDependencyPackages :: Set LF.PackageId
-        -- ^ set of package ids for dependencies (not data-dependencies)
+    , configDependencyInfo :: DependencyInfo
+        -- ^ Information about dependencies (not data-dependencies)
     , configSdkPrefix :: [T.Text]
         -- ^ prefix to use for current SDK in data-dependencies
     }
@@ -79,11 +87,8 @@ data Env = Env
         -- ^ World built from dependencies, stable packages, and current package.
     , envHiddenRefMap :: HMS.HashMap Ref Bool
         -- ^ Set of references that should be hidden, not exposed.
-    , envDepClassMap :: DepClassMap
-        -- ^ Map of typeclasses from dependencies.
-    , envDepInstances :: MS.Map LF.TypeSynName [LF.Qualified LF.Type]
-        -- ^ Map of instances from dependencies.
-        -- We only store the name since the real check happens in `isDuplicate`.
+    , envDependencyInfo :: DependencyInfo
+        -- ^ Information about dependencies (as opposed to data-dependencies)
     , envMod :: LF.Module
         -- ^ The module under consideration.
     }
@@ -106,70 +111,84 @@ buildWorld Config{..} =
         self <- MS.lookup configSelfPkgId configPackages
         Just (LF.initWorldSelf extPackages self)
 
+worldLfVersion :: LF.World -> LF.Version
+worldLfVersion = LF.packageLfVersion . LF.getWorldSelf
+
 envLfVersion :: Env -> LF.Version
-envLfVersion = LF.packageLfVersion . LF.getWorldSelf . envWorld
+envLfVersion = worldLfVersion . envWorld
+
+data DependencyInfo = DependencyInfo
+  { depClassMap :: !DepClassMap
+  -- ^ Map of typeclasses from dependencies.
+  , depInstances :: !(MS.Map LF.TypeSynName [LF.Qualified ExpandedType])
+  -- ^ Map of instances from dependencies.
+  -- We only store the name since the real check happens in `isDuplicate`.
+  }
 
 -- | Type classes coming from dependencies. This maps a (module, synonym)
--- name pair to a corresponding dependency package id and synonym definition.
+-- name pair to a corresponding dependency package id and synonym type (closed over synonym variables).
 newtype DepClassMap = DepClassMap
     { unDepClassMap :: MS.Map
         (LF.ModuleName, LF.TypeSynName)
-        (LF.PackageId, LF.DefTypeSyn)
+        (LF.PackageId, ExpandedType)
     }
 
-buildDepClassMap :: Config -> DepClassMap
-buildDepClassMap Config{..} = DepClassMap $ MS.fromList
-    [ ((moduleName, synName), (packageId, dsyn))
-    | packageId <- Set.toList configDependencyPackages
-    , Just LF.Package{..} <- [MS.lookup packageId configPackages]
+buildDependencyInfo :: [LF.ExternalPackage] -> LF.World -> DependencyInfo
+buildDependencyInfo deps world =
+    DependencyInfo
+      { depClassMap = buildDepClassMap deps world
+      , depInstances = buildDepInstances deps world
+      }
+
+buildDepClassMap :: [LF.ExternalPackage] -> LF.World -> DepClassMap
+buildDepClassMap deps world = DepClassMap $ MS.fromList
+    [ ((moduleName, synName), (packageId, synTy))
+    | LF.ExternalPackage packageId LF.Package{..} <- deps
     , LF.Module{..} <- NM.toList packageModules
     , dsyn@LF.DefTypeSyn{..} <- NM.toList moduleSynonyms
+    , let synTy = panicOnError $ expandSynonyms world $ closedSynType dsyn
     ]
 
-buildDepInstances :: Config -> MS.Map LF.TypeSynName [LF.Qualified LF.Type]
-buildDepInstances Config{..} = MS.fromListWith (<>)
-    [ (clsName, [LF.Qualified (LF.PRImport packageId) moduleName (snd dvalBinder)])
-    | packageId <- Set.toList configDependencyPackages
-    , Just LF.Package{..} <- [MS.lookup packageId configPackages]
+buildDepInstances :: [LF.ExternalPackage] -> LF.World -> MS.Map LF.TypeSynName [LF.Qualified ExpandedType]
+buildDepInstances deps world = MS.fromListWith (<>)
+    [ (clsName, [LF.Qualified (LF.PRImport packageId) moduleName ty])
+    | LF.ExternalPackage packageId LF.Package{..} <- deps
     , LF.Module{..} <- NM.toList packageModules
     , dval@LF.DefValue{..} <- NM.toList moduleValues
     , Just dfun <- [getDFunSig dval]
     , let clsName = LF.qualObject $ dfhName $ dfsHead dfun
+    , let ty = panicOnError $ expandSynonyms world (snd dvalBinder)
     ]
 
-envLookupDepClass :: LF.TypeSynName -> Env -> Maybe (LF.PackageId, LF.DefTypeSyn)
+envLookupDepClass :: LF.TypeSynName -> Env -> Maybe (LF.PackageId, ExpandedType)
 envLookupDepClass synName env =
     let modName = LF.moduleName (envMod env)
-        classMap = unDepClassMap (envDepClassMap env)
+        classMap = unDepClassMap (depClassMap $ envDependencyInfo env)
     in MS.lookup (modName, synName) classMap
+
+expandSynonyms :: LF.World -> LF.Type -> Either LF.Error ExpandedType
+expandSynonyms world ty =
+    fmap ExpandedType $
+    LF.runGamma world (worldLfVersion world) $
+    LF.expandTypeSynonyms ty
 
 -- | Determine whether two type synonym definitions are similar enough to
 -- reexport one as the other. This is done by computing alpha equivalence
 -- after expanding all type synonyms.
-safeToReexport :: Env -> LF.DefTypeSyn -> LF.DefTypeSyn -> Bool
+safeToReexport :: Env -> LF.DefTypeSyn -> ExpandedType -> Bool
 safeToReexport env syn1 syn2 =
     -- this should never fail so we just call `error` if it does
-    either (error . ("Internal LF type error: " <>) . renderPretty) id $ do
-        LF.runGamma (envWorld env) (envLfVersion env) $ do
-            esyn1 <- LF.expandTypeSynonyms (closedType syn1)
-            esyn2 <- LF.expandTypeSynonyms (closedType syn2)
-            pure (LF.alphaType esyn1 esyn2)
+    LF.alphaType (getExpandedType $ panicOnError $ expandSynonyms (envWorld env) (closedSynType syn1)) (getExpandedType syn2)
 
-  where
-    -- | Turn a type synonym definition into a closed type.
-    closedType :: LF.DefTypeSyn -> LF.Type
-    closedType LF.DefTypeSyn{..} = LF.mkTForalls synParams synType
+-- | Turn a type synonym definition into a closed type.
+closedSynType :: LF.DefTypeSyn -> LF.Type
+closedSynType LF.DefTypeSyn{..} = LF.mkTForalls synParams synType
 
 -- | Check if an instance is a duplicate of another one.
 -- This is needed to filter out duplicate instances which would
 -- result in a type error.
-isDuplicate :: Env -> LF.Type -> LF.Type -> Bool
-isDuplicate env ty1 ty2 =
-    fromRight False $ do
-        LF.runGamma (envWorld env) (envLfVersion env) $ do
-            esyn1 <- LF.expandTypeSynonyms ty1
-            esyn2 <- LF.expandTypeSynonyms ty2
-            pure (LF.alphaType esyn1 esyn2)
+isDuplicate :: ExpandedType -> ExpandedType -> Bool
+isDuplicate ty1 ty2 = LF.alphaType (getExpandedType ty1) (getExpandedType ty2)
 
 data ImportOrigin = FromCurrentSdk UnitId | FromPackage LF.PackageId
     deriving (Eq, Ord)
@@ -336,16 +355,19 @@ generateSrcFromLf env = noLoc mod
             mkLIE = fmap noLoc . \case
                 LFC.ExportInfoVal name ->
                     IEVar NoExt
-                        <$> mkWrappedRdrName name
+                        <$> mkWrappedRdrName IEName name
                 LFC.ExportInfoTC name pieces fields ->
                     IEThingWith NoExt
-                        <$> mkWrappedRdrName name
+                        <$> mkWrappedRdrName IEType name
                         <*> pure NoIEWildcard
-                        <*> mapM mkWrappedRdrName pieces
+                        <*> mapM (mkWrappedRdrName IEName) pieces
                         <*> mapM mkFieldLblRdrName fields
 
-            mkWrappedRdrName :: LFC.QualName -> Gen (LIEWrappedName RdrName)
-            mkWrappedRdrName = fmap (noLoc . IEName . noLoc) . mkRdrName
+            mkWrappedRdrName ::
+                   (Located RdrName -> IEWrappedName RdrName)
+                -> LFC.QualName
+                -> Gen (LIEWrappedName RdrName)
+            mkWrappedRdrName f = fmap (noLoc . f . noLoc) . mkRdrName
 
             mkRdrName :: LFC.QualName -> Gen RdrName
             mkRdrName (LFC.QualName q) = do
@@ -505,7 +527,8 @@ generateSrcFromLf env = noLoc mod
         Just dfunSig <- [getDFunSig dval]
         guard (shouldExposeInstance dval)
         let clsName = LF.qualObject $ dfhName $ dfsHead dfunSig
-        case find (isDuplicate env (snd dvalBinder) . LF.qualObject) (MS.findWithDefault [] clsName $ envDepInstances env) of
+        let expandedTy = panicOnError $ expandSynonyms (envWorld env) $ snd dvalBinder
+        case find (isDuplicate expandedTy . LF.qualObject) (MS.findWithDefault [] clsName $ depInstances $ envDependencyInfo env) of
             Just qualInstance ->
                 -- If the instance already exists, we still
                 -- need to import it so that we can refer to it from other
@@ -839,7 +862,7 @@ convType env reexported =
             HsTyVar noExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
 
         ty1 LF.:-> ty2 -> do
-            ty1' <- convTypeLiftingConstraintTuples ty1
+            ty1' <- convTypeLiftingConstraintTuples env reexported ty1
             ty2' <- convType env reexported ty2
             pure $ if isConstraint ty1
                 then HsParTy noExt (noLoc $ HsQualTy noExt (noLoc [noLoc ty1']) (noLoc ty2'))
@@ -885,7 +908,7 @@ convType env reexported =
 
         ty@(LF.TStruct fls)
             | isConstraint ty -> do
-                fieldTys <- mapM (convTypeLiftingConstraintTuples . snd) fls
+                fieldTys <- mapM (convTypeLiftingConstraintTuples env reexported . snd) fls
                 pure $ HsTupleTy noExt HsConstraintTuple (map noLoc fieldTys)
 
             | otherwise ->
@@ -894,15 +917,22 @@ convType env reexported =
         LF.TNat n -> pure $
             HsTyLit noExt (HsNumTy NoSourceText (LF.fromTypeLevelNat n))
   where
-    convTypeLiftingConstraintTuples :: LF.Type -> Gen (HsType GhcPs)
-    convTypeLiftingConstraintTuples = \case
+    mkTuple :: Int -> Gen (HsType GhcPs)
+    mkTuple i =
+        pure $ HsTyVar noExt NotPromoted $
+        noLoc $ mkRdrUnqual $ occName $ tupleTyConName BoxedTuple i
+
+-- | We need to lift constraint tuples up to type synonyms
+-- when they occur in a function domain or in an instance context,
+-- otherwise GHC will expand them out as regular constraints.
+-- See issues https://github.com/digital-asset/daml/issues/9663,
+--            https://github.com/digital-asset/daml/issues/11455
+convTypeLiftingConstraintTuples :: Env -> MS.Map LF.TypeSynName LF.PackageId -> LF.Type -> Gen (HsType GhcPs)
+convTypeLiftingConstraintTuples env reexported = go where
+    go = \case
         ty@(LF.TStruct fls) | isConstraint ty -> do
-            -- A constraint tuple. We need to lift it up to a type synonym
-            -- when it occurs in a function domain, otherwise GHC will
-            -- expand it out as a regular constraint.
-            -- See issue https://github.com/digital-asset/daml/issues/9663
             let freeVars = map LF.unTypeVarName . Set.toList $ LF.freeVars ty
-            fieldTys <- mapM (convTypeLiftingConstraintTuples . snd) fls
+            fieldTys <- mapM (go . snd) fls
             tupleTyName <- freshTypeName env
             emitHsDecl . noLoc . TyClD noExt $ SynDecl
                 { tcdSExt = noExt
@@ -922,11 +952,6 @@ convType env reexported =
 
         ty ->
             convType env reexported ty
-
-    mkTuple :: Int -> Gen (HsType GhcPs)
-    mkTuple i =
-        pure $ HsTyVar noExt NotPromoted $
-        noLoc $ mkRdrUnqual $ occName $ tupleTyConName BoxedTuple i
 
 convBuiltInTy :: Env -> LF.BuiltinType -> Gen (HsType GhcPs)
 convBuiltInTy env =
@@ -1036,8 +1061,7 @@ generateSrcPkgFromLf envConfig pkg = do
   where
     env envMod = Env {..}
     envQualifyThisModule = False
-    envDepClassMap = buildDepClassMap envConfig
-    envDepInstances = buildDepInstances envConfig
+    envDependencyInfo = configDependencyInfo envConfig
     envWorld = buildWorld envConfig
     envHiddenRefMap = buildHiddenRefMap envConfig envWorld
     header =
@@ -1358,7 +1382,7 @@ isDFunName (LF.ExprValName t) = any (`T.isPrefixOf` t) ["$f", "$d"]
 convDFunSig :: Env -> MS.Map LF.TypeSynName LF.PackageId -> DFunSig -> Gen (HsType GhcPs)
 convDFunSig env reexported DFunSig{..} = do
     binders <- mapM (convTyVarBinder env) dfsBinders
-    context <- mapM (convType env reexported) dfsContext
+    context <- mapM (convTypeLiftingConstraintTuples env reexported) dfsContext
     let headName = rewriteClassReexport env reexported (dfhName dfsHead)
     ghcMod <- genModule env (LF.qualPackage headName) (LF.qualModule headName)
     let cls = case LF.unTypeSynName (LF.qualObject headName) of

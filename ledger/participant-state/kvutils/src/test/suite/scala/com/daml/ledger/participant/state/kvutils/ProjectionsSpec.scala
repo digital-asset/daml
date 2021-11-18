@@ -6,9 +6,8 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{BackStack, ImmArray}
 import com.daml.lf.engine.Blinding
-import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{Node, TransactionVersion}
+import com.daml.lf.transaction.{Node, TransactionVersion, VersionedTransaction}
 import com.daml.lf.value.Value.{ContractId, ValueText}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -16,7 +15,7 @@ import org.scalatest.wordspec.AnyWordSpec
 class ProjectionsSpec extends AnyWordSpec with Matchers {
 
   def makeCreateNode(cid: ContractId, signatories: Set[Party], stakeholders: Set[Party]) =
-    Node.NodeCreate(
+    Node.Create(
       coid = cid,
       templateId = Identifier.assertFromString("some-package:Foo:Bar"),
       arg = ValueText("foo"),
@@ -24,6 +23,7 @@ class ProjectionsSpec extends AnyWordSpec with Matchers {
       signatories = signatories,
       stakeholders = stakeholders,
       key = None,
+      byInterface = None,
       version = TransactionVersion.minVersion,
     )
 
@@ -33,7 +33,7 @@ class ProjectionsSpec extends AnyWordSpec with Matchers {
       signatories: Set[Party],
       stakeholders: Set[Party],
   ) =
-    Node.NodeExercises(
+    Node.Exercise(
       targetCoid = target,
       templateId = Identifier(
         PackageId.assertFromString("some-package"),
@@ -50,10 +50,11 @@ class ProjectionsSpec extends AnyWordSpec with Matchers {
       exerciseResult = None,
       key = None,
       byKey = false,
+      byInterface = None,
       version = TransactionVersion.minVersion,
     )
 
-  def project(tx: Transaction) = {
+  def project(tx: VersionedTransaction) = {
     val bi = Blinding.blind(tx)
     Projections.computePerPartyProjectionRoots(tx, bi)
   }

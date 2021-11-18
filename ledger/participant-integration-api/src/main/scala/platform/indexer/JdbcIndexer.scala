@@ -20,7 +20,11 @@ import com.daml.platform.store.DbType.{
 }
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.DataSourceStorageBackend.DataSourceConfig
-import com.daml.platform.store.backend.StorageBackend
+import com.daml.platform.store.backend.{
+  DataSourceStorageBackend,
+  ResetStorageBackend,
+  StorageBackendFactory,
+}
 import com.daml.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 
@@ -34,10 +38,18 @@ object JdbcIndexer {
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext) {
+  )(implicit materializer: Materializer) {
 
-    def initialized(resetSchema: Boolean = false): ResourceOwner[Indexer] = {
-      val storageBackend = StorageBackend.of(DbType.jdbcType(config.jdbcUrl))
+    def initialized(
+        resetSchema: Boolean = false
+    )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
+      val factory = StorageBackendFactory.of(DbType.jdbcType(config.jdbcUrl))
+      val dataSourceStorageBackend = factory.createDataSourceStorageBackend
+      val ingestionStorageBackend = factory.createIngestionStorageBackend
+      val parameterStorageBackend = factory.createParameterStorageBackend
+      val DBLockStorageBackend = factory.createDBLockStorageBackend
+      val resetStorageBackend = factory.createResetStorageBackend
+      val stringInterningStorageBackend = factory.createStringInterningStorageBackend
       val indexer = ParallelIndexerFactory(
         jdbcUrl = config.jdbcUrl,
         inputMappingParallelism = config.inputMappingParallelism,
@@ -50,19 +62,25 @@ object JdbcIndexer {
               case AsynchronousCommit => PostgresDataSourceConfig.SynchronousCommitValue.Off
               case LocalSynchronousCommit =>
                 PostgresDataSourceConfig.SynchronousCommitValue.Local
-            })
+            }),
+            tcpKeepalivesIdle = config.postgresTcpKeepalivesIdle,
+            tcpKeepalivesInterval = config.postgresTcpKeepalivesInterval,
+            tcpKeepalivesCount = config.postgresTcpKeepalivesCount,
           )
         ),
         haConfig = config.haConfig,
         metrics = metrics,
-        storageBackend = storageBackend,
+        dbLockStorageBackend = DBLockStorageBackend,
+        dataSourceStorageBackend = dataSourceStorageBackend,
         initializeParallelIngestion = InitializeParallelIngestion(
           providedParticipantId = config.participantId,
-          storageBackend = storageBackend,
+          parameterStorageBackend = parameterStorageBackend,
+          ingestionStorageBackend = ingestionStorageBackend,
           metrics = metrics,
         ),
         parallelIndexerSubscription = ParallelIndexerSubscription(
-          storageBackend = storageBackend,
+          parameterStorageBackend = parameterStorageBackend,
+          ingestionStorageBackend = ingestionStorageBackend,
           participantId = config.participantId,
           translation = new LfValueTranslation(
             cache = lfValueTranslationCache,
@@ -82,21 +100,25 @@ object JdbcIndexer {
           batchWithinMillis = config.batchWithinMillis,
           metrics = metrics,
         ),
+        stringInterningStorageBackend = stringInterningStorageBackend,
         mat = materializer,
         readService = readService,
       )
       if (resetSchema) {
-        reset(storageBackend).flatMap(_ => indexer)
+        reset(resetStorageBackend, dataSourceStorageBackend).flatMap(_ => indexer)
       } else {
         indexer
       }
     }
 
-    private def reset(storageBackend: StorageBackend[_]): ResourceOwner[Unit] =
+    private def reset(
+        resetStorageBackend: ResetStorageBackend,
+        dataSourceStorageBackend: DataSourceStorageBackend,
+    )(implicit loggingContext: LoggingContext): ResourceOwner[Unit] =
       ResourceOwner.forFuture(() =>
         Future(
-          Using.resource(storageBackend.createDataSource(config.jdbcUrl).getConnection)(
-            storageBackend.reset
+          Using.resource(dataSourceStorageBackend.createDataSource(config.jdbcUrl).getConnection)(
+            resetStorageBackend.reset
           )
         )(servicesExecutionContext)
       )

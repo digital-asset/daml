@@ -14,7 +14,8 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.script._
 import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
-import com.daml.platform.sandbox.services.SandboxFixture
+import com.daml.platform.sandbox.SandboxBackend
+import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.Suite
 import scalaz.syntax.tag._
@@ -24,7 +25,8 @@ import scala.concurrent.ExecutionContext
 
 trait SandboxAuthParticipantFixture
     extends AbstractScriptTest
-    with SandboxFixture
+    with SandboxNextFixture
+    with SandboxBackend.Postgresql
     with AkkaBeforeAndAfterAll {
   self: Suite =>
   private implicit val ec: ExecutionContext = system.dispatcher

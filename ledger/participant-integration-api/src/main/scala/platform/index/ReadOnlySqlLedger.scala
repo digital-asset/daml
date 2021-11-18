@@ -3,11 +3,11 @@
 
 package com.daml.platform.index
 
-import java.sql.SQLException
 import akka.Done
 import akka.actor.Cancellable
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink, Source}
+import com.daml.error.definitions.IndexErrors
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.offset.Offset
@@ -22,12 +22,21 @@ import com.daml.platform.PruneBuffers
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.{
+  DbDispatcher,
   JdbcLedgerDao,
   LedgerDaoTransactionsReader,
   LedgerReadDao,
 }
-import com.daml.platform.store.{BaseLedger, LfValueTranslationCache}
+import com.daml.platform.store.backend.StorageBackendFactory
+import com.daml.platform.store.cache.{LedgerEndCache, MutableLedgerEndCache}
+import com.daml.platform.store.interning.{
+  StringInterning,
+  StringInterningView,
+  UpdatingStringInterningView,
+}
+import com.daml.platform.store.{BaseLedger, DbType, LfValueTranslationCache}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 
@@ -57,20 +66,59 @@ private[platform] object ReadOnlySqlLedger {
       maxTransactionsInMemoryFanOutBufferSize: Long,
       enableInMemoryFanOutForLedgerApi: Boolean,
       participantId: Ref.ParticipantId,
+      errorFactories: ErrorFactories,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlySqlLedger] {
 
-    override def acquire()(implicit context: ResourceContext): Resource[ReadOnlySqlLedger] =
+    override def acquire()(implicit context: ResourceContext): Resource[ReadOnlySqlLedger] = {
+      val ledgerEndCache = MutableLedgerEndCache()
+      val storageBackendFactory = StorageBackendFactory.of(DbType.jdbcType(jdbcUrl))
       for {
-        ledgerDao <- ledgerDaoOwner(servicesExecutionContext).acquire()
+        dbDispatcher <- DbDispatcher
+          .owner(
+            dataSource =
+              storageBackendFactory.createDataSourceStorageBackend.createDataSource(jdbcUrl),
+            serverRole = serverRole,
+            connectionPoolSize = databaseConnectionPoolSize,
+            connectionTimeout = databaseConnectionTimeout,
+            metrics = metrics,
+          )
+          .acquire()
+        stringInterningStorageBackend = storageBackendFactory.createStringInterningStorageBackend
+        stringInterningView = new StringInterningView(
+          loadPrefixedEntries = (fromExclusive, toInclusive) =>
+            implicit loggingContext =>
+              dbDispatcher.executeSql(metrics.daml.index.db.loadStringInterningEntries) {
+                stringInterningStorageBackend.loadStringInterningEntries(
+                  fromExclusive,
+                  toInclusive,
+                )
+              }
+        )
+        ledgerDao = createLedgerDao(
+          servicesExecutionContext,
+          errorFactories,
+          ledgerEndCache,
+          stringInterningView,
+          dbDispatcher,
+          storageBackendFactory,
+        )
         ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao, initialLedgerId))
-        ledger <- ledgerOwner(ledgerDao, ledgerId).acquire()
+        ledger <- ledgerOwner(ledgerDao, ledgerId, ledgerEndCache, stringInterningView).acquire()
       } yield ledger
+    }
 
-    private def ledgerOwner(ledgerDao: LedgerReadDao, ledgerId: LedgerId) =
+    private def ledgerOwner(
+        ledgerDao: LedgerReadDao,
+        ledgerId: LedgerId,
+        ledgerEndCache: MutableLedgerEndCache,
+        updatingStringInterningView: UpdatingStringInterningView,
+    ) =
       if (enableMutableContractStateCache) {
         new ReadOnlySqlLedgerWithMutableCache.Owner(
           ledgerDao,
+          ledgerEndCache,
+          updatingStringInterningView,
           enricher,
           ledgerId,
           metrics,
@@ -83,6 +131,8 @@ private[platform] object ReadOnlySqlLedger {
       } else
         new ReadOnlySqlLedgerWithTranslationCache.Owner(
           ledgerDao,
+          ledgerEndCache,
+          updatingStringInterningView,
           ledgerId,
           lfValueTranslationCache,
         )
@@ -94,18 +144,19 @@ private[platform] object ReadOnlySqlLedger {
         executionContext: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[LedgerId] = {
-      val predicate: PartialFunction[Throwable, Boolean] = {
+      val isRetryable: PartialFunction[Throwable, Boolean] = {
         // If the index database is not yet fully initialized,
         // querying for the ledger ID will throw different errors,
         // depending on the database, and how far the initialization is.
-        case _: SQLException => true
+        case IndexErrors.DatabaseErrors.SqlTransientError(_) => true
+        case IndexErrors.DatabaseErrors.SqlNonTransientError(_) => true
         case _: LedgerIdNotFoundException => true
         case _: MismatchException.LedgerId => false
         case _ => false
       }
       val retryDelay = 100.millis
       val maxAttempts = 3000 // give up after 5min
-      RetryStrategy.constant(attempts = Some(maxAttempts), waitTime = retryDelay)(predicate) {
+      RetryStrategy.constant(attempts = Some(maxAttempts), waitTime = retryDelay)(isRetryable) {
         (attempt, _) =>
           ledgerDao
             .lookupLedgerId()
@@ -127,21 +178,28 @@ private[platform] object ReadOnlySqlLedger {
       }
     }
 
-    private def ledgerDaoOwner(
-        servicesExecutionContext: ExecutionContext
-    ): ResourceOwner[LedgerReadDao] =
-      JdbcLedgerDao.readOwner(
-        serverRole,
-        jdbcUrl,
-        databaseConnectionPoolSize,
-        databaseConnectionTimeout,
-        eventsPageSize,
-        eventsProcessingParallelism,
-        servicesExecutionContext,
-        metrics,
-        lfValueTranslationCache,
-        Some(enricher),
-        participantId,
+    private def createLedgerDao(
+        servicesExecutionContext: ExecutionContext,
+        errorFactories: ErrorFactories,
+        ledgerEndCache: LedgerEndCache,
+        stringInterning: StringInterning,
+        dbDispatcher: DbDispatcher,
+        storageBackendFactory: StorageBackendFactory,
+    ): LedgerReadDao =
+      JdbcLedgerDao.read(
+        dbDispatcher = dbDispatcher,
+        eventsPageSize = eventsPageSize,
+        eventsProcessingParallelism = eventsProcessingParallelism,
+        servicesExecutionContext = servicesExecutionContext,
+        metrics = metrics,
+        lfValueTranslationCache = lfValueTranslationCache,
+        enricher = Some(enricher),
+        participantId = participantId,
+        storageBackendFactory = storageBackendFactory,
+        ledgerEndCache = ledgerEndCache,
+        stringInterning = stringInterning,
+        errorFactories = errorFactories,
+        materializer = mat,
       )
   }
 

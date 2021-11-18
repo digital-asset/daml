@@ -125,7 +125,7 @@ package_app(
     # bin/ghc-pkg is actually a wrapper script on Unix systems so it is
     # important that we use lib/ghc-$VERSION/bin/ghc-pkg instead which is the
     # actual executable.
-    binary = "@rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@ghc_nix//:lib/ghc-8.10.4/bin/ghc-pkg",
+    binary = "@rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@ghc_nix//:lib/ghc-8.10.7/bin/ghc-pkg",
     visibility = ["//visibility:public"],
 )
 

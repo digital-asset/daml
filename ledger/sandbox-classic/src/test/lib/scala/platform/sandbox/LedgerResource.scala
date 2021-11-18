@@ -3,7 +3,6 @@
 
 package com.daml.platform.sandbox
 
-import java.util.concurrent.Executors
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
@@ -25,9 +24,11 @@ import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.daml.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.testing.postgresql.PostgresResource
 
+import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 
@@ -36,6 +37,7 @@ private[sandbox] object LedgerResource {
   def inMemory(
       ledgerId: LedgerId,
       timeProvider: TimeProvider,
+      errorFactories: ErrorFactories,
       acs: InMemoryActiveLedgerState = InMemoryActiveLedgerState.empty,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
       entries: ImmArray[LedgerEntryOrBump] = ImmArray.Empty,
@@ -50,6 +52,7 @@ private[sandbox] object LedgerResource {
           packageStoreInit = packages,
           ledgerEntries = entries,
           engine = new Engine(),
+          errorFactories,
         )
       )
     )
@@ -62,6 +65,7 @@ private[sandbox] object LedgerResource {
       ledgerId: LedgerId,
       timeProvider: TimeProvider,
       metrics: MetricRegistry,
+      errorFactories: ErrorFactories,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
   )(implicit
       resourceContext: ResourceContext,
@@ -96,6 +100,7 @@ private[sandbox] object LedgerResource {
           engine = new Engine(),
           validatePartyAllocation = false,
           enableCompression = false,
+          errorFactories = errorFactories,
         )
       } yield ledger
     )

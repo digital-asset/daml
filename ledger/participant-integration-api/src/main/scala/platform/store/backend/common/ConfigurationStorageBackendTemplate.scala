@@ -13,9 +13,11 @@ import com.daml.platform.store.Conversions.offset
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao.{acceptType, rejectType}
 import com.daml.platform.store.backend.ConfigurationStorageBackend
+import com.daml.platform.store.cache.LedgerEndCache
 import com.daml.platform.store.entries.ConfigurationEntry
 
-private[backend] trait ConfigurationStorageBackendTemplate extends ConfigurationStorageBackend {
+private[backend] class ConfigurationStorageBackendTemplate(ledgerEndCache: LedgerEndCache)
+    extends ConfigurationStorageBackend {
 
   private val SQL_GET_CONFIGURATION_ENTRIES = SQL(
     """select
@@ -26,12 +28,10 @@ private[backend] trait ConfigurationStorageBackendTemplate extends Configuration
       |    configuration_entries.configuration,
       |    configuration_entries.rejection_reason
       |  from
-      |    configuration_entries,
-      |    parameters
+      |    configuration_entries
       |  where
       |    ({startExclusive} is null or ledger_offset>{startExclusive}) and
-      |    ledger_offset <= {endInclusive} and
-      |    parameters.ledger_end >= ledger_offset
+      |    ledger_offset <= {endInclusive}
       |  order by ledger_offset asc
       |  offset {queryOffset} rows
       |  fetch next {pageSize} rows only
@@ -47,11 +47,10 @@ private[backend] trait ConfigurationStorageBackendTemplate extends Configuration
        |    configuration_entries.configuration,
        |    configuration_entries.rejection_reason
        |  from
-       |    configuration_entries,
-       |    parameters
+       |    configuration_entries
        |  where
        |    configuration_entries.typ = '$acceptType' and
-       |    parameters.ledger_end >= ledger_offset
+       |    {ledger_end_offset} >= ledger_offset
        |  order by ledger_offset desc
        |  fetch next 1 row only""".stripMargin
   )
@@ -88,7 +87,7 @@ private[backend] trait ConfigurationStorageBackendTemplate extends Configuration
 
   def ledgerConfiguration(connection: Connection): Option[(Offset, Configuration)] =
     SQL_GET_LATEST_CONFIGURATION_ENTRY
-      .on()
+      .on("ledger_end_offset" -> ledgerEndCache()._1.toHexString.toString)
       .asVectorOf(configurationEntryParser)(connection)
       .collectFirst { case (offset, ConfigurationEntry.Accepted(_, configuration)) =>
         offset -> configuration

@@ -33,9 +33,11 @@ import com.daml.platform.store.LfValueTranslationCache
 import com.daml.ports.{Port, PortFiles}
 import io.grpc.{BindableService, ServerInterceptor}
 import scalaz.{-\/, \/-}
-
 import java.io.File
 import java.time.Clock
+
+import com.daml.telemetry.TelemetryContext
+
 import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
@@ -56,6 +58,8 @@ final class StandaloneApiServer(
     engine: Engine,
     servicesExecutionContext: ExecutionContextExecutor,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
+    checkOverloaded: TelemetryContext => Option[state.SubmissionResult] =
+      _ => None, // Used for Canton rate-limiting
 )(implicit actorSystem: ActorSystem, materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ApiServer] {
 
@@ -90,6 +94,7 @@ final class StandaloneApiServer(
           enableMutableContractStateCache = config.enableMutableContractStateCache,
           maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
           enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
+          enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
         )
         .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
       errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
@@ -126,6 +131,7 @@ final class StandaloneApiServer(
         seedService = SeedService(config.seeding),
         managementServiceTimeout = config.managementServiceTimeout,
         enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+        checkOverloaded = checkOverloaded,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(

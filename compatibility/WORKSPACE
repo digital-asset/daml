@@ -100,7 +100,7 @@ filegroup(
 
 haskell_register_ghc_bindists(
     compiler_flags = [],
-    version = "8.10.4",
+    version = "8.10.7",
 ) if is_windows else None
 
 haskell_register_ghc_nixpkgs(
@@ -110,7 +110,7 @@ haskell_register_ghc_nixpkgs(
     nix_file = "@daml//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-    version = "8.10.4",
+    version = "8.10.7",
 )
 
 nixpkgs_python_configure(repository = "@nixpkgs")
@@ -157,7 +157,7 @@ dev_env_tool(
 
 nixpkgs_package(
     name = "postgresql_nix",
-    attribute_path = "postgresql_9_6",
+    attribute_path = "postgresql_10",
     build_file_content = """
 package(default_visibility = ["//visibility:public"])
 filegroup(
@@ -294,9 +294,19 @@ daml_sdk_head(
     if ver != "0.0.0"
 ]
 
-load("@daml//bazel_tools:java.bzl", "java_home_runtime")
+load("@daml//bazel_tools:java.bzl", "dadew_java_configure", "nixpkgs_java_configure")
 
-java_home_runtime(name = "java_home")
+dadew_java_configure(
+    name = "dadew_java_runtime",
+    dadew_path = "java-openjdk-8u302",
+) if is_windows else None
+
+nixpkgs_java_configure(
+    attribute_path = "jdk8.home",
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+) if not is_windows else None
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
 

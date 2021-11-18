@@ -142,7 +142,7 @@ private[index] object BuffersUpdater {
                 agreementText = createdEvent.createAgreementText.getOrElse(""),
               ),
               globalKey = createdEvent.contractKey.map(k =>
-                Key.assertBuild(createdEvent.templateId, k.value)
+                Key.assertBuild(createdEvent.templateId, k.unversioned)
               ),
               ledgerEffectiveTime = createdEvent.ledgerEffectiveTime,
               stakeholders = createdEvent.flatEventWitnesses.map(Party.assertFromString),
@@ -153,7 +153,7 @@ private[index] object BuffersUpdater {
             ContractStateEvent.Archived(
               contractId = exercisedEvent.contractId,
               globalKey = exercisedEvent.contractKey.map(k =>
-                Key.assertBuild(exercisedEvent.templateId, k.value)
+                Key.assertBuild(exercisedEvent.templateId, k.unversioned)
               ),
               stakeholders = exercisedEvent.flatEventWitnesses.map(Party.assertFromString),
               eventOffset = exercisedEvent.eventOffset,

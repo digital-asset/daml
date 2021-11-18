@@ -15,7 +15,7 @@ import com.daml.lf.crypto
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, NodeId}
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, Node, NodeId}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import org.scalatest.matchers.should.Matchers
@@ -136,7 +136,7 @@ final class StateUpdateComparisonSpec
       signatories: Set[Ref.Party] = Set(aKeyMaintainer),
       argument: Value = aDummyValue,
       keyAndMaintainer: Option[(String, String)] = Some("key" -> aKeyMaintainer),
-  ): TransactionBuilder.Create =
+  ): Node.Create =
     TransactionBuilder().create(
       id = contractId,
       templateId = "DummyModule:DummyTemplate",

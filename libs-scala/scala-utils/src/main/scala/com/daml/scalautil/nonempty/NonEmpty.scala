@@ -6,16 +6,19 @@ package com.daml.scalautil.nonempty
 import scala.collection.compat._
 import scala.collection.{immutable => imm}, imm.Map, imm.Set
 import scalaz.Id.Id
-import scalaz.{Foldable, Foldable1, Monoid, OneAnd, Semigroup, Traverse}
+import scalaz.{Foldable, Foldable1, OneAnd, Semigroup, Traverse}
 import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
 import scalaz.syntax.std.option._
+
+import com.daml.scalautil.FoldableContravariant
 import NonEmptyCollCompat._
 
 /** The visible interface of [[NonEmpty]]; use that value to access
   * these members.
   */
 sealed abstract class NonEmptyColl {
+  import NonEmptyColl.Pouring
 
   /** Use its alias [[com.daml.scalautil.nonempty.NonEmpty]]. */
   type NonEmpty[+A]
@@ -41,7 +44,16 @@ sealed abstract class NonEmptyColl {
   def equiv[F[_], A]: NonEmpty[F[A]] === NonEmptyF[F, A]
 
   /** Check whether `self` is non-empty; if so, return it as the non-empty subtype. */
-  def apply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]]
+  @deprecated("misleading apply, use `case NonEmpty(xs)` instead", since = "1.18.0")
+  final def apply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]] = unapply(self)
+
+  /** {{{
+    *  NonEmpty.pour(1, 2, 3) into List : NonEmpty[List[Int]] // with (1, 2, 3) as elements
+    * }}}
+    *
+    * The weird argument order is to support Scala 2.12.
+    */
+  final def pour[A](x: A, xs: A*): Pouring[A] = new Pouring(x, xs: _*)
 
   /** In pattern matching, think of [[NonEmpty]] as a sub-case-class of every
     * [[imm.Iterable]]; matching `case NonEmpty(ne)` ''adds'' the non-empty type
@@ -53,7 +65,7 @@ sealed abstract class NonEmptyColl {
     * The type-checker will not permit you to apply this to a value that already
     * has the [[NonEmpty]] type, so don't worry about redundant checks here.
     */
-  def unapply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]] = apply(self)
+  def unapply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]]
 }
 
 /** If you ever have to import [[NonEmptyColl]] or anything from it, your Scala
@@ -68,9 +80,21 @@ object NonEmptyColl extends NonEmptyCollInstances {
     override def subtype[A] = Liskov.refl[A]
     override def equiv[F[_], A] = Leibniz.refl
 
-    override def apply[Self](self: Self with imm.Iterable[_]) =
+    override def unapply[Self](self: Self with imm.Iterable[_]) =
       if (self.nonEmpty) Some(self) else None
     private[nonempty] override def unsafeNarrow[Self <: imm.Iterable[Any]](self: Self) = self
+  }
+
+  final class Pouring[A](hd: A, tl: A*) {
+    import NonEmpty.{unsafeNarrow => un}
+    // XXX SC this can be done more efficiently by not supporting 2.12
+    @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
+    def into[C <: imm.Iterable[A]](into: Factory[A, C]): NonEmpty[C] = un {
+      val bb = into.newBuilder
+      bb += hd
+      bb ++= tl
+      bb.result()
+    }
   }
 
   implicit final class ReshapeOps[F[_], A](private val nfa: NonEmpty[F[A]]) extends AnyVal {
@@ -147,7 +171,7 @@ sealed abstract class NonEmptyCollInstances extends NonEmptyCollInstances0 {
 
 sealed abstract class NonEmptyCollInstances0 {
   implicit def foldable1[F[_]](implicit F: Foldable[F]): Foldable1[NonEmptyF[F, *]] =
-    NonEmpty.substF(new Foldable1[F] {
+    NonEmpty.substF(new Foldable1[F] with FoldableContravariant[F, F] {
       private[this] def errEmpty(fa: F[_]) =
         throw new IllegalArgumentException(
           s"empty structure coerced to non-empty: $fa: ${fa.getClass.getSimpleName}"
@@ -165,12 +189,9 @@ sealed abstract class NonEmptyCollInstances0 {
       override def foldMapLeft1[A, B](fa: F[A])(z: A => B)(f: (B, A) => B) =
         assertNE(fa, F.foldMapLeft1Opt(fa)(z)(f))
 
-      override def foldMap[A, B: Monoid](fa: F[A])(f: A => B) = F.foldMap(fa)(f)
+      protected[this] override def Y = F
 
-      override def foldRight[A, B](fa: F[A], z: => B)(f: (A, => B) => B) = F.foldRight(fa, z)(f)
-
-      override def foldLeft[A, B](fa: F[A], z: B)(f: (B, A) => B) =
-        F.foldLeft(fa, z)(f)
+      protected[this] override def ctmap[A](xa: F[A]) = xa
     })
 
   import scala.language.implicitConversions

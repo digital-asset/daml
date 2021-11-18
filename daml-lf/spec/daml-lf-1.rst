@@ -289,7 +289,7 @@ Where:
 * The ``description`` describes the terminal being defined.
 * The ``symbols`` define how we will refer of the terminal in type rules /
   operational semantics / ....
-* The ``regexp`` is a `java regular expression
+* The ``regexp`` is a `Java regular expression
   <https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html>`_
   describing the members of the terminal. In particular, we will use
   the following conventions:
@@ -299,7 +299,7 @@ Where:
   * ``\r`` matches the carriage return ``\x0D``,
   * ``\"`` matches the double quote character ``\x22``.
   * ``\$`` match the dollar character ``\x24``.
-  * ``\.`` matches the full stop character ``\x2e\``.
+  * ``\.`` matches the full stop character ``\x2e``.
   * ``\\`` matches the backslash character ``\x5c``.
   * ``\d`` to match a digit: ``[0-9]``.
 
@@ -345,8 +345,9 @@ We first define two types of *strings*::
 
   Sequences of string characters:
           StrChars ::= StrChar                      -- StrChars
-                    |  StrChars StrChar
-                    |  EscapedStrChar StrChar
+                    |  EscapedStrChar
+                    |  StrChar StrChars
+                    |  EscapedStrChar StrChars
 
   String chars:
            StrChar  ∈  [^\n\r\"\\]                  -- StrChar
@@ -396,7 +397,7 @@ We can now define a generic notion of *identifier* and *name*::
          Name   ::= Ident                           -- Name
                  |  Name \. Ident
 
-Identifiers are standard `java identifiers
+Identifiers are standard `Java identifiers
 <https://docs.oracle.com/javase/specs/jls/se8/html/jls-3.html#jls-3.8>`_
 restricted to US-ASCII with a length of at most 1000 characters.
 Names are sequences of identifiers intercalated with dots with a total
@@ -473,7 +474,7 @@ load any non-deprecated Daml-LF version. V1 Contract IDs allocation
 scheme is described in the `V1 Contract ID allocation scheme
 specification <./contract-id.rst>`_. In the following we will say that
 a V1 contract identifier is *non-suffixed* if it is built from exactly
-66 charters. Otherwise (meaning it has between 68 and 254 charters) we
+66 characters. Otherwise (meaning it has between 68 and 254 characters) we
 will say it is *suffixed*.
 
 Literals
@@ -497,7 +498,7 @@ We now define all the literals that a program can handle::
      LitTimestamp ∈  \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(.\d{1,3})?Z
                                                      -- LitTimestamp
   UTF8 string literals:
-               t ::= String                          -- LitText
+               t ::= Str                             -- LitText
 
   Party literals:
         LitParty ::= PartyIdString                   -- LitParty
@@ -693,8 +694,7 @@ Then we can define our kinds, types, and expressions::
        |  'bind' x₁ : τ₁ ← e₁ 'in' e₂               -- UpdateBlock
        |  'create' @Mod:T e                         -- UpdateCreate
        |  'fetch' @Mod:T e                          -- UpdateFetch
-       |  'exercise' @Mod:T Ch e₁ e₂ e₃             -- UpdateExercise
-       |  'exercise_without_actors' @Mod:T Ch e₁ e₂ -- UpdateExerciseWithoutActors
+       |  'exercise' @Mod:T Ch e₁ e₂                -- UpdateExercise
        |  'exercise_by_key' @Mod:T Ch e₁ e₂         -- UpdateExerciseByKey [Daml-LF ≥ 1.11]
        |  'get_time'                                -- UpdateGetTime
        |  'fetch_by_key' @τ e                       -- UpdateFecthByKey
@@ -906,7 +906,7 @@ well-formed and will be rejected by the Daml-LF type checker.
 Well-formed types
 .................
 
-We now formally defined *well-formed types*. ::
+We now formally define *well-formed types*. ::
 
  Type context:
    Γ ::= ε                                 -- CtxEmpty
@@ -933,7 +933,7 @@ We now formally defined *well-formed types*. ::
      Γ  ⊢  ∀ α : k . τ  :  ⋆
 
    ————————————————————————————————————————————— TyArrow
-     Γ  ⊢  'TArrow' : ⋆ → ⋆
+     Γ  ⊢  'TArrow' : ⋆ → ⋆ → ⋆
 
    ————————————————————————————————————————————— TyUnit
      Γ  ⊢  'Unit' : ⋆
@@ -1248,18 +1248,9 @@ Then we define *well-formed expressions*. ::
           ↦ { …, 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' … ↦ …, … } }
         ∈ 〚Ξ〛Mod
       Γ  ⊢  e₁  :  'ContractId' Mod:T
-      Γ  ⊢  e₂  :  'List' 'Party'
-      Γ  ⊢  e₃  :  τ
-    ——————————————————————————————————————————————————————————————— UpdExercise
-      Γ  ⊢  'exercise' @Mod:T Ch e₁ e₂ e₃  : 'Update' σ
-
-      'tpl' (x : T)
-          ↦ { …, 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' … ↦ …, … } }
-        ∈ 〚Ξ〛Mod
-      Γ  ⊢  e₁  :  'ContractId' Mod:T
       Γ  ⊢  e₂  :  τ
-    ——————————————————————————————————————————————————————————————— UpdExerciseWithouActors
-      Γ  ⊢  'exercise_without_actors' @Mod:T Ch e₁ e₂  : 'Update' σ
+    ——————————————————————————————————————————————————————————————— UpdExercise
+      Γ  ⊢  'exercise' @Mod:T Ch e₁ e₂  : 'Update' σ
 
       'tpl' (x : T)
           ↦ { …, 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' … ↦ …, … }, 'key' τₖ … }
@@ -1662,7 +1653,7 @@ Exception coherence
 
 The *exception coherence* condition is literally the same as the template
 coherence condition with "template" replaced by "exception". We further require
-that no type has a template definition and an exception definition associated to
+that no type has both a template definition and an exception definition associated to
 it.
 
 
@@ -1956,14 +1947,8 @@ need to be evaluated further. ::
 
      ⊢ᵥ  e₁
      ⊢ᵥ  e₂
-     ⊢ᵥ  e₃
    ——————————————————————————————————————————————————— ValUpdateExercise
-     ⊢ᵥᵤ  'exercise' @Mod:T Ch e₁ e₂ e₃
-
-     ⊢ᵥ  e₁
-     ⊢ᵥ  e₂
-   ——————————————————————————————————————————————————— ValUpdateExerciseWithoutActors
-     ⊢ᵥᵤ  'exercise_without_actors' @Mod:T Ch e₁ e₂
+     ⊢ᵥᵤ  'exercise' @Mod:T Ch e₁ e₂
 
      ⊢ᵥ  e₁
      ⊢ᵥ  e₂
@@ -2588,42 +2573,20 @@ exact output.
 
       e₁  ⇓  Err E
     —————————————————————————————————————————————————————————————————————— EvExpUpExerciseErr1
-      'exercise' @Mod:T Ch e₁ e₂ e₃  ⇓  Err E
+      'exercise' @Mod:T Ch e₁ e₂  ⇓  Err E
 
       e₁  ⇓  Ok v₁
       e₂  ⇓  Err E
     —————————————————————————————————————————————————————————————————————— EvExpUpExerciseErr2
-      'exercise' @Mod:T Ch e₁ e₂ e₃  ⇓  Err E
+      'exercise' @Mod:T Ch e₁ e₂  ⇓  Err E
 
       e₁  ⇓  Ok v₁
       e₂  ⇓  Ok v₂
-      e₃  ⇓  Err E
-    —————————————————————————————————————————————————————————————————————— EvExpUpExerciseErr3
-      'exercise' @Mod:T Ch e₁ e₂ e₃  ⇓  Err E
-
-      e₁  ⇓  Ok v₁
-      e₂  ⇓  Ok v₂
-      e₃  ⇓  Ok v₃
     —————————————————————————————————————————————————————————————————————— EvExpUpExercise
-      'exercise' @Mod:T Ch e₁ e₂ e₃
+      'exercise' @Mod:T Ch e₁ e₂
         ⇓
-      Ok ('exercise' @Mod:T Ch v₁ v₂ v₃)
+      Ok ('exercise' @Mod:T Ch v₁ v₂)
 
-      e₁  ⇓  Err E
-    —————————————————————————————————————————————————————————————————————— EvExpUpExerciseWithoutActorsErr1
-      'exercise_without_actors' @Mod:T Ch e₁ e₂  ⇓  Err E
-
-      e₁  ⇓  Ok v₁
-      e₂  ⇓  Err E
-    —————————————————————————————————————————————————————————————————————— EvExpUpExerciseWithoutActorsErr2
-      'exercise_without_actors' @Mod:T Ch e₁ e₂  ⇓  Err E
-
-      e₁  ⇓  Ok v₁
-      e₂  ⇓  Ok v₂
-    —————————————————————————————————————————————————————————————————————— EvExpUpExerciseWithoutActors
-      'exercise_without_actors' @Mod:T Ch e₁ e₂
-        ⇓
-      Ok ('exercise_without_actors' @Mod:T Ch v₁ v₂)
 
       e₁  ⇓  Err E
     —————————————————————————————————————————————————————————————————————— EvExpUpExerciseByKeyErr1
@@ -2752,13 +2715,12 @@ Update interpretation
 ~~~~~~~~~~~~~~~~~~~~~
 
 We define the operational semantics of the update interpretation
-against the ledger model described in the `DA Ledger Model
-<https://docs.daml.com/concepts/ledger-model/index.html>`_ theory
-report.
+against the ledger model described in the `Daml Ledger Model
+<https://docs.daml.com/concepts/ledger-model/index.html>`_.
 
 
 Update semantics use the predicate ``=ₛ`` to compare two lists of
-party literals as those latter were sets.
+party literals as if the lists were sets.
 
 
 ..
@@ -3013,7 +2975,7 @@ as described by the ledger model::
 
      cid ∉ dom(st)
    —————————————————————————————————————————————————————————————————————— EvUpdExercMissing
-     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st; keys)
+     'exercise' Mod:T.Ch cid v₁ ‖ (st; keys)
        ⇓ᵤ
      (Err (Fatal "Exercise on unknown contract"), ε)
 
@@ -3022,7 +2984,7 @@ as described by the ledger model::
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'inactive')
    —————————————————————————————————————————————————————————————————————— EvUpdExercInactive
-     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀; keys₀)
+     'exercise' Mod:T.Ch cid v₁ ‖ (st₀; keys₀)
        ⇓ᵤ
      (Err (Fatal "Exercise on inactive contract"), ε)
 
@@ -3030,30 +2992,18 @@ as described by the ledger model::
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Err E
+     eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdExercActorEvalErr
-     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
-
-     'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
-     cid ∈ dom(st₀)
-     st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
-     v₁ ≠ₛ vₚ
-   —————————————————————————————————————————————————————————————————————— EvUpdExercBadActors
-     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st; keys)
-       ⇓ᵤ
-     (Err (Fatal "Exercise actors do not match"), ε)
+     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
 
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ …, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
-     v₁ =ₛ vₚ
-     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Err E
+     eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdExercObserversErr
-     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err E, ε)
 
@@ -3061,12 +3011,11 @@ as described by the ledger model::
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
-     v₁ =ₛ vₚ
-     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
-     |v₂| > 100
+     eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₒ
+     |v₁| > 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercNestingArgErr
-     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
 
@@ -3074,47 +3023,44 @@ as described by the ledger model::
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
-     v₁ =ₛ vₚ
-     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
-     |v₂| ≤ 100
-     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Err E
+     eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₒ
+     |v₁| ≤ 100
+     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₁]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdExercBodyEvalErr
-     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
-     (Err E, 'exercise' v₁ (cid, Mod:T, vₜ) ChKind ε)
+     (Err E, 'exercise' vₚ (cid, Mod:T, vₜ) ChKind ε)
 
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' 'consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
-     v₁ =ₛ vₚ
-     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
-     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
+     eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₒ
+     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₁]  ⇓  Ok uₐ
      keys₁ = keys₀ - keys₀⁻¹(cid)
      st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
      uₐ ‖ (st₁, keys₁)  ⇓ᵤ  (Err E, tr)
    —————————————————————————————————————————————————————————————————————— EvUpdExercConsumErr
-     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
-     (Err E, 'exercise' v₁ (cid, Mod:T, vₜ) 'consuming' tr)
+     (Err E, 'exercise' vₚ (cid, Mod:T, vₜ) 'consuming' tr)
 
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' 'consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
-     v₁ =ₛ vₚ
-     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
-     |v₂| ≤ 100
-     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
+     eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₒ
+     |v₁| ≤ 100
+     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₁]  ⇓  Ok uₐ
      keys₁ = keys₀ - keys₀⁻¹(cid)
      st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
      uₐ ‖ (st₁, keys₁)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₂, keys₂)
      |vₐ| > 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercConsumNestingOutErr
-     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
 
@@ -3122,48 +3068,45 @@ as described by the ledger model::
          ↦ { 'choices' { …, 'choice' 'consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
-     v₁ =ₛ vₚ
-     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
-     |v₂| ≤ 100
-     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
+     eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₒ
+     |v₁| ≤ 100
+     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₁]  ⇓  Ok uₐ
      keys₁ = keys₀ - keys₀⁻¹(cid)
      st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
      uₐ ‖ (st₁, keys₁)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₂, keys₂)
      |vₐ| ≤ 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercConsum
-     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
-     Ok (vₐ, 'exercise' v₁ (cid, Mod:T, vₜ) 'consuming' trₐ) ‖ (st₂, keys₂)
+     Ok (vₐ, 'exercise' vₚ (cid, Mod:T, vₜ) 'consuming' trₐ) ‖ (st₂, keys₂)
 
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' 'non-consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
-     v₁ =ₛ vₚ
-     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
-     |v₂| ≤ 100
-     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
+     eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₒ
+     |v₁| ≤ 100
+     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₁]  ⇓  Ok uₐ
      uₐ ‖ (st₀; keys₀)  ⇓ᵤ  (Err E, tr)
    —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsumErr
-     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
-     (Err E, 'exercise' v₁ (cid, Mod:T, vₜ) 'non-consuming' tr)
+     (Err E, 'exercise' vₚ (cid, Mod:T, vₜ) 'non-consuming' tr)
 
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' 'non-consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
-     v₁ =ₛ vₚ
-     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
-     |v₂| ≤ 100
-     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
+     eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₒ
+     |v₁| ≤ 100
+     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₁]  ⇓  Ok uₐ
      uₐ ‖ (st₀; keys₀)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₁, keys₁)
      |vₐ| > 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsumNestingOutErr
-     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
 
@@ -3171,40 +3114,16 @@ as described by the ledger model::
          ↦ { 'choices' { …, 'choice' 'non-consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₚ
-     v₁ =ₛ vₚ
-     eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
-     |v₂| ≤ 100
-     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
+     eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₒ
+     |v₁| ≤ 100
+     eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₁]  ⇓  Ok uₐ
      uₐ ‖ (st₀; keys₀)  ⇓ᵤ  Ok (vₐ, trₐ) ‖ (st₁, keys₁)
      |vₐ| ≤ 100
    —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsum
-     'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
+     'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
-     Ok (vₐ, 'exercise' v₁ (cid, Mod:T, vₜ) 'non-consuming' trₐ) ‖ (st₁, keys₁)
-
-     cid ∉ dom(st)
-   —————————————————————————————————————————————————————————————————————— EvUpdExercWithoutActorsMissing
-     'exercise_without_actors' Mod:T.Ch cid v ‖ (st, keys)
-       ⇓ᵤ
-     (Err (Fatal "Exercise on unknown contract"), ε)
-
-     'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
-     cid ∈ dom(st₀)
-     st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Err E
-   —————————————————————————————————————————————————————————————————————— EvUpdExercWithoutActorsErr
-     'exercise_without_actors' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
-
-     'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
-     cid ∈ dom(st₀)
-     st₀(cid) = (Mod:T, vₜ, 'active')
-     eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
-     'exercise' Mod:T.Ch cid vₚ v₁ ‖ (st₀, keys₀)  ⇓ᵤ  ur
-   —————————————————————————————————————————————————————————————————————— EvUpdExercWithoutActors
-     'exercise_without_actors' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)  ⇓ᵤ  ur
+     Ok (vₐ, 'exercise' vₚ (cid, Mod:T, vₜ) 'non-consuming' trₐ) ‖ (st₁, keys₁)
 
      cid ∉ dom(st)
    —————————————————————————————————————————————————————————————————————— EvUpdFetchMissing
@@ -3311,7 +3230,7 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈ 〚Ξ〛Mod
      'fetch_by_key' @Mod:T vₖ ‖ (st; keys)  ⇓ᵤ  (Ok ⟨'contractId': cid, 'contract': vₜ⟩, ε) ‖ (st'; keys')
-     'exercise_without_actor' Mod:T.Ch cid v₁ ‖ (st'; keys')  ⇓ᵤ  ur
+     'exercise' Mod:T.Ch cid v₁ ‖ (st'; keys')  ⇓ᵤ  ur
    —————————————————————————————————————————————————————————————————————— EvUpdExercByKeyExercise
      'exercise_by_key' Mod:T.Ch vₖ v₁ ‖ (st; keys)  ⇓ᵤ  ur
 

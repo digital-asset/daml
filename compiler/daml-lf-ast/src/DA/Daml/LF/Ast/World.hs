@@ -35,7 +35,6 @@ import Data.List
 import qualified Data.NameMap as NM
 import GHC.Generics
 import Data.Either.Extra (maybeToEither)
-import Control.Applicative
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Pretty ()
@@ -157,12 +156,11 @@ lookupChoice (tplRef, chName) world = do
     Just choice -> Right choice
 
 lookupInterfaceChoice :: (Qualified TypeConName, ChoiceName) -> World ->
-  Either LookupError (Either InterfaceChoice TemplateChoice)
+  Either LookupError TemplateChoice
 lookupInterfaceChoice (ifaceRef, chName) world = do
   DefInterface{..} <- lookupInterface ifaceRef world
   maybeToEither (LEChoice ifaceRef chName) $
-        Left  <$> NM.lookup chName intVirtualChoices
-    <|> Right <$> NM.lookup chName intFixedChoices
+    NM.lookup chName intFixedChoices
 
 lookupInterfaceMethod :: (Qualified TypeConName, MethodName) -> World -> Either LookupError InterfaceMethod
 lookupInterfaceMethod (ifaceRef, methodName) world = do

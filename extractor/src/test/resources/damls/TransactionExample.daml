@@ -5,6 +5,7 @@
 module TransactionExample where
 
 import DA.Date
+import Daml.Script
 
 template RightOfUseAgreement
   with
@@ -47,49 +48,49 @@ template DummyTemplateWeDontSubscribeFor
   where
     signatory party1
 
-example = scenario do
-  bob <- getParty "Bob"
-  alice <- getParty "Alice"
+example = script do
+  p1 <- allocatePartyWithHint "Example1" (PartyIdHint "Example1")
+  p2 <- allocatePartyWithHint "Example2" (PartyIdHint "Example2")
 
-  -- Alice offers Bob room at Blaha Lujza Square, Budapest
-  offer <- submit alice do
-    create RightOfUseOffer with
-      landlord = alice
-      tenant = bob
+  -- Example2 offers Example1 room at Blaha Lujza Square, Budapest
+  offer <- submit p2 do
+    createCmd RightOfUseOffer with
+      landlord = p2
+      tenant = p1
       address = "Blaha Lujza Square, Budapest"
       expirationDate = date 2020 Jan 1
 
-  -- Bob accepts the offer, which creates a RightOfUseAgreement
-  submit bob do
-    exercise offer Accept
+  -- Example1 accepts the offer, which creates a RightOfUseAgreement
+  submit p1 do
+    exerciseCmd offer Accept
 
   -- create a transient RightOfUseOffer and archive it immediately.
-  submit bob do
-    createAndExercise
+  submit p1 do
+    createAndExerciseCmd
       RightOfUseOffer with
-        landlord = bob
-        tenant = alice
+        landlord = p1
+        tenant = p2
         address = "fobar"
         expirationDate = date 2020 Jan 1
       Archive
 
-templateFilterTest = scenario do
-  bob <- getParty "Bob"
-  alice <- getParty "Alice"
+templateFilterTest = script do
+  p1 <- allocatePartyWithHint "TemplateFilterTest1" (PartyIdHint "TemplateFilterTest1")
+  p2 <- allocatePartyWithHint "TemplateFilterTest2" (PartyIdHint "TemplateFilterTest2")
 
-  submit alice do
-    create DummyTemplateWeDontSubscribeFor with
-        party1 = alice
-        party2 = bob
+  submit p2 do
+    createCmd DummyTemplateWeDontSubscribeFor with
+        party1 = p2
+        party2 = p1
 
-  -- Alice offers Bob room at Blaha Lujza Square, Budapest
-  offer <- submit alice do
-    create RightOfUseOffer with
-      landlord = alice
-      tenant = bob
+  -- TemplateFilterTest2 offers TemplateFilterTest1 room at Blaha Lujza Square, Budapest
+  offer <- submit p2 do
+    createCmd RightOfUseOffer with
+      landlord = p2
+      tenant = p1
       address = "Blaha Lujza Square, Budapest"
       expirationDate = date 2020 Jan 1
 
-  -- Bob accepts the offer, which creates a RightOfUseAgreement
-  submit bob do
-    exercise offer Accept
+  -- TemplateFilterTest1 accepts the offer, which creates a RightOfUseAgreement
+  submit p1 do
+    exerciseCmd offer Accept

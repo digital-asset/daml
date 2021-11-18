@@ -171,12 +171,23 @@ template Counter with
           create Counter {c = n, ..}
 
 interface Token where
+  getTokenOwner : Party
+  transferImpl : Party -> Update (ContractId Token)
+
   choice Transfer : ContractId Token
     with
       newOwner: Party
+    controller getTokenOwner this
+    do
+      transferImpl this newOwner
 
 interface Other where
+  getOtherOwner : Party
+  somethingImpl : Update ()
   choice Something : ()
+    controller getOtherOwner this
+    do
+      somethingImpl this
 
 template Asset with
     issuer: Party
@@ -185,13 +196,11 @@ template Asset with
     signatory issuer
     observer owner
     implements Token where
-      choice Transfer: ContractId Token with
-          newOwner : Party
-        controller owner
-        do
-          cid <- create Asset with issuer = issuer, owner = newOwner
-          pure (toTokenContractId cid)
+      let getTokenOwner = owner
+      let transferImpl = \newOwner -> do
+            cid <- create Asset with issuer = issuer, owner = newOwner
+            pure (toTokenContractId cid)
     implements Other where
-      choice Something: ()
-        controller owner
-        do pure ()
+      let getOtherOwner = owner
+      let somethingImpl = do
+            pure ()

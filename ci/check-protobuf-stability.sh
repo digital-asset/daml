@@ -42,9 +42,6 @@ function check_non_lf_protos() {
     "buf-participant-integration-api.yaml"
   )
 
-  readonly BUF_IMAGE_TMPDIR="$(mktemp -d)"
-  trap 'rm -rf ${BUF_IMAGE_TMPDIR}' EXIT
-
   echo "Checking protobufs against git target '${BUF_GIT_TARGET_TO_CHECK}'"
   for buf_module in "${BUF_MODULES_AGAINST_STABLE[@]}"; do
     # Starting with version 1.17 we split the default `buf.yaml` file into multiple config files

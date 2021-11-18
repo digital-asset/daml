@@ -4,6 +4,7 @@
 package com.daml.platform.index
 
 import java.util.concurrent.TimeUnit
+
 import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
@@ -22,8 +23,13 @@ import com.daml.platform.store.appendonlydao.{LedgerDaoTransactionsReader, Ledge
 import com.daml.platform.store.{EventSequentialId, LfValueTranslationCache}
 import com.daml.platform.store.appendonlydao.events.{BufferedTransactionsReader, LfValueTranslation}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.SignalNewLedgerHead
-import com.daml.platform.store.cache.{EventsBuffer, MutableCacheBackedContractStore}
+import com.daml.platform.store.cache.{
+  EventsBuffer,
+  MutableCacheBackedContractStore,
+  MutableLedgerEndCache,
+}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
+import com.daml.platform.store.interning.UpdatingStringInterningView
 import com.daml.scalautil.Statement.discard
 
 import scala.collection.mutable
@@ -33,6 +39,8 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 private[index] object ReadOnlySqlLedgerWithMutableCache {
   final class Owner(
       ledgerDao: LedgerReadDao,
+      ledgerEndCache: MutableLedgerEndCache,
+      updatingStringInterningView: UpdatingStringInterningView,
       enricher: ValueEnricher,
       ledgerId: LedgerId,
       metrics: Metrics,
@@ -49,16 +57,26 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         context: ResourceContext
     ): Resource[ReadOnlySqlLedgerWithMutableCache] =
       for {
-        (ledgerEndOffset, ledgerEndSequentialId) <- Resource.fromFuture(
-          ledgerDao.lookupLedgerEndOffsetAndSequentialId()
+        ledgerEnd <- Resource.fromFuture(
+          ledgerDao.lookupLedgerEnd()
+        )
+        _ = ledgerEndCache.set((ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId))
+        _ <- Resource.fromFuture(
+          updatingStringInterningView.update(ledgerEnd.lastStringInterningId)
         )
         prefetchingDispatcher <- dispatcherOffsetSeqIdOwner(
-          ledgerEndOffset,
-          ledgerEndSequentialId,
+          ledgerEnd.lastOffset,
+          ledgerEnd.lastEventSeqId,
         ).acquire()
-        generalDispatcher <- dispatcherOwner(ledgerEndOffset).acquire()
+        generalDispatcher <- dispatcherOwner(ledgerEnd.lastOffset).acquire()
         dispatcherLagMeter <- Resource.successful(
-          new DispatcherLagMeter(generalDispatcher.signalNewHead)(
+          new DispatcherLagMeter((offset, eventSeqId) => {
+            ledgerEndCache.set((offset, eventSeqId))
+            // the order here is very important: first we need to make data available for point-wise lookups
+            // and SQL queries, and only then we can make it available on the streams.
+            // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
+            generalDispatcher.signalNewHead(offset)
+          })(
             metrics.daml.execution.cache.dispatcherLag
           )
         )
@@ -66,7 +84,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
           prefetchingDispatcher,
           generalDispatcher,
           dispatcherLagMeter,
-          ledgerEndOffset -> ledgerEndSequentialId,
+          ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId,
         ).acquire()
       } yield ledger
 
@@ -141,6 +159,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
             cacheUpdatesDispatcher,
             generalDispatcher,
             dispatcherLagMeter,
+            updatingStringInterningView,
           )
         )
       } yield ledger
@@ -213,6 +232,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
             contractStateEventsDispatcher = cacheUpdatesDispatcher,
             dispatcher = generalDispatcher,
             dispatcherLagger = dispatcherLagMeter,
+            updatingStringInterningView = updatingStringInterningView,
           )
         )
       } yield ledger
@@ -231,8 +251,8 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
   ) extends SignalNewLedgerHead {
     private val ledgerHeads = mutable.Map.empty[Offset, Long]
 
-    override def apply(offset: Offset): Unit = {
-      delegate(offset)
+    override def apply(offset: Offset, sequentialEventId: Long): Unit = {
+      delegate(offset, sequentialEventId)
       ledgerHeads.synchronized {
         ledgerHeads.remove(offset).foreach { startNanos =>
           val endNanos = System.nanoTime()
@@ -264,6 +284,7 @@ private final class ReadOnlySqlLedgerWithMutableCache(
     contractStateEventsDispatcher: Dispatcher[(Offset, Long)],
     dispatcher: Dispatcher[Offset],
     dispatcherLagger: DispatcherLagMeter,
+    updatingStringInterningView: UpdatingStringInterningView,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
     extends ReadOnlySqlLedger(
       ledgerId,
@@ -281,12 +302,21 @@ private final class ReadOnlySqlLedgerWithMutableCache(
       )(() =>
         Source
           .tick(0.millis, 100.millis, ())
-          .mapAsync(1)(_ => ledgerDao.lookupLedgerEndOffsetAndSequentialId())
+          .mapAsync(1) {
+            implicit val ec: ExecutionContext = mat.executionContext
+            _ =>
+              for {
+                ledgerEnd <- ledgerDao.lookupLedgerEnd()
+                _ <- updatingStringInterningView.update(ledgerEnd.lastStringInterningId)
+              } yield ledgerEnd
+          }
       )
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .toMat(Sink.foreach { case newLedgerHead @ (offset, _) =>
-        dispatcherLagger.startTimer(offset)
-        contractStateEventsDispatcher.signalNewHead(newLedgerHead)
+      .toMat(Sink.foreach { case newLedgerHead =>
+        dispatcherLagger.startTimer(newLedgerHead.lastOffset)
+        contractStateEventsDispatcher.signalNewHead(
+          newLedgerHead.lastOffset -> newLedgerHead.lastEventSeqId
+        )
       })(
         Keep.both[UniqueKillSwitch, Future[Done]]
       )

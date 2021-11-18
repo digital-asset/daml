@@ -22,7 +22,7 @@ private[backend] trait StorageBackendTestsInitialization extends Matchers with S
 
     for {
       _ <- executeSql(
-        backend.initializeParameters(
+        backend.parameter.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = ledgerId,
             participantId = participantId,
@@ -30,7 +30,7 @@ private[backend] trait StorageBackendTestsInitialization extends Matchers with S
         )
       )
       error1 <- executeSql(
-        backend.initializeParameters(
+        backend.parameter.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = otherLedgerId,
             participantId = participantId,
@@ -38,7 +38,7 @@ private[backend] trait StorageBackendTestsInitialization extends Matchers with S
         )
       ).failed
       error2 <- executeSql(
-        backend.initializeParameters(
+        backend.parameter.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = ledgerId,
             participantId = otherParticipantId,
@@ -46,7 +46,7 @@ private[backend] trait StorageBackendTestsInitialization extends Matchers with S
         )
       ).failed
       error3 <- executeSql(
-        backend.initializeParameters(
+        backend.parameter.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = otherLedgerId,
             participantId = otherParticipantId,
@@ -54,7 +54,7 @@ private[backend] trait StorageBackendTestsInitialization extends Matchers with S
         )
       ).failed
       _ <- executeSql(
-        backend.initializeParameters(
+        backend.parameter.initializeParameters(
           ParameterStorageBackend.IdentityParams(
             ledgerId = ledgerId,
             participantId = participantId,

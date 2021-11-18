@@ -38,15 +38,20 @@ private[validation] object Collision {
       modules: Iterable[(ModuleName, Ast.Module)]
   ): Iterable[NamedEntity] =
     modules.flatMap { case (modName, module) =>
-      val namedModule = NModDef(modName, module.definitions.toList)
-      namedModule :: namedEntitiesFromMod(namedModule, module.definitions.toList)
+      val namedModule = NModDef(modName)
+      namedModule :: namedEntitiesFromMod(namedModule, module)
     }
 
   private def namedEntitiesFromMod(
       module: NModDef,
-      defns: List[(DottedName, Ast.Definition)],
+      astModule: Ast.Module,
   ): List[NamedEntity] =
-    defns.flatMap { case (defName, defn) => namedEntitiesFromDef(module, defName, defn) }
+    (astModule.definitions.toList.flatMap { case (defName, defn) =>
+      namedEntitiesFromDef(module, defName, defn)
+    } ++
+      astModule.templates.toList.flatMap { case (tplName, tpl) =>
+        namedEntitiesFromTemplate(module, tplName, tpl)
+      })
 
   private def namedEntitiesFromDef(
       module: NModDef,
@@ -54,17 +59,17 @@ private[validation] object Collision {
       defn: Ast.Definition,
   ): List[NamedEntity] =
     defn match {
-      case dDef @ Ast.DDataType(_, _, Ast.DataRecord(fields)) =>
-        val recordDef = NRecDef(module, defName, dDef)
+      case Ast.DDataType(_, _, Ast.DataRecord(fields)) =>
+        val recordDef = NRecDef(module, defName)
         recordDef :: fields.toList.map { case (name, _) => NField(recordDef, name) }
-      case dDef @ Ast.DDataType(_, _, Ast.DataVariant(variants)) =>
-        val variantDef = NVarDef(module, defName, dDef)
+      case Ast.DDataType(_, _, Ast.DataVariant(variants)) =>
+        val variantDef = NVarDef(module, defName)
         variantDef :: variants.toList.map { case (name, _) => NVarCon(variantDef, name) }
-      case dDef @ Ast.DDataType(_, _, Ast.DataEnum(values)) =>
-        val enumDef = NEnumDef(module, defName, dDef)
+      case Ast.DDataType(_, _, Ast.DataEnum(values)) =>
+        val enumDef = NEnumDef(module, defName)
         enumDef :: values.toList.map(NEnumCon(enumDef, _))
-      case iDef @ Ast.DDataType(_, _, Ast.DataInterface) =>
-        val interfaceDef = NInterface(module, defName, iDef)
+      case Ast.DDataType(_, _, Ast.DataInterface) =>
+        val interfaceDef = NInterface(module, defName)
         interfaceDef :: List.empty
       case _: Ast.DValue =>
         // ignore values
@@ -72,7 +77,15 @@ private[validation] object Collision {
       case _: Ast.DTypeSyn =>
         val synDef = NSynDef(module, defName)
         synDef :: List.empty
-
     }
 
+  private def namedEntitiesFromTemplate(
+      module: NModDef,
+      tplName: DottedName,
+      tpl: Ast.Template,
+  ): List[NamedEntity] =
+    (tpl.choices.keys.map(NChoice(module, tplName, _)) ++
+      tpl.implements.iterator.flatMap { case (iface, impl) =>
+        impl.inheritedChoices.iterator.map(NChoiceViaInterface(module, tplName, _, iface))
+      }).toList
 }

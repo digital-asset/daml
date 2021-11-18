@@ -21,6 +21,7 @@ class SandboxResetService(
     ledgerId: LedgerId,
     resetAndRestartServer: () => Future[Unit],
     authorizer: Authorizer,
+    errorFactories: ErrorFactories,
 )(implicit loggingContext: LoggingContext)
     extends ResetServiceGrpc.ResetService
     with BindableService
@@ -44,9 +45,8 @@ class SandboxResetService(
       serverCallHandler: ServerCallHandler[ReqT, RespT],
   ): Listener[ReqT] = {
     if (resetInitialized.get) {
-      throw new StatusRuntimeException(
-        Status.UNAVAILABLE.withDescription("Sandbox server is currently being reset")
-      )
+      throw errorFactories
+        .serviceIsBeingReset(Status.Code.UNAVAILABLE.value())("Sandbox server")
     }
 
     serverCallHandler.startCall(serverCall, metadata)
@@ -63,17 +63,17 @@ class SandboxResetService(
       .cond(
         ledgerId == LedgerId(request.ledgerId),
         request.ledgerId,
-        ErrorFactories.ledgerIdMismatch(ledgerId, LedgerId(request.ledgerId), None),
+        errorFactories.ledgerIdMismatch(ledgerId, LedgerId(request.ledgerId), None),
       )
       .fold(Future.failed[Empty], _ => actuallyReset().map(_ => Empty())(DE))
 
   private def actuallyReset() = {
     logger.info("Initiating server reset.")
 
-    if (!resetInitialized.compareAndSet(false, true))
-      throw new StatusRuntimeException(
-        Status.FAILED_PRECONDITION.withDescription("Sandbox server is currently being reset")
-      )
+    if (!resetInitialized.compareAndSet(false, true)) {
+      throw errorFactories
+        .serviceIsBeingReset(Status.Code.FAILED_PRECONDITION.value())("Sandbox server")
+    }
 
     logger.info(s"Stopping and starting the server.")
     resetAndRestartServer()

@@ -149,6 +149,8 @@ const newUiPage = async (): Promise<Page> => {
     throw Error('Puppeteer browser has not been launched');
   }
   const page = await browser.newPage();
+  page.on('console', message =>
+          console.log(`${message.type().substr(0, 3).toUpperCase()} ${message.text()}`))
   await page.goto(`http://localhost:${UI_PORT}`); // ignore the Response
   return page;
 }

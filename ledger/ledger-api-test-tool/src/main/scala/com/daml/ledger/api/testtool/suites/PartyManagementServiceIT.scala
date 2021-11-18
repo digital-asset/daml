@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -106,7 +107,13 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
         )
         .mustFail("allocating a party with a very long identifier")
     } yield {
-      assertGrpcError(error, Status.Code.INVALID_ARGUMENT, Some("Party is too long"))
+      assertGrpcError(
+        ledger,
+        error,
+        Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
+        Some("Party is too long"),
+      )
     }
   })
 
@@ -124,7 +131,13 @@ final class PartyManagementServiceIT extends LedgerTestSuite {
         )
         .mustFail("allocating a party with invalid characters")
     } yield {
-      assertGrpcError(error, Status.Code.INVALID_ARGUMENT, Some("non expected character"))
+      assertGrpcError(
+        ledger,
+        error,
+        Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
+        Some("non expected character"),
+      )
     }
   })
 

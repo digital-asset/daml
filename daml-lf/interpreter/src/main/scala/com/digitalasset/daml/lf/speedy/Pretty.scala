@@ -9,12 +9,11 @@ import org.typelevel.paiges.Doc._
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
 import Value._
-import com.daml.lf.transaction.Node._
 import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
 import com.daml.lf.scenario.ScenarioLedger.TransactionId
 import com.daml.lf.scenario._
-import com.daml.lf.transaction.{NodeId, TransactionVersion => TxVersion, Transaction => Tx}
+import com.daml.lf.transaction.{Node, NodeId, TransactionVersion => TxVersion}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltin._
@@ -97,31 +96,31 @@ private[lf] object Pretty {
       case NonComparableValues =>
         text("functions are not comparable")
       case ContractIdComparability(globalCid) =>
-        text(s"The global contract ID $globalCid conflicts with a local contract ID")
+        text(s"The global contract ID") & prettyContractId(globalCid) &
+          text("conflicts with a local contract ID")
       case ContractIdInContractKey(key) =>
-        text(
-          s"Contract IDs are not supported in contract keys: ${key.ensureNoCid.left.toOption.get}"
-        )
+        text("Contract IDs are not supported in contract keys:") &
+          prettyContractId(key.cids.head)
       case ValueExceedsMaxNesting =>
         text(s"Value exceeds maximum nesting value of 100")
     }
   }
 
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
-  def prettyPartialTransactionNode(node: PartialTransaction.Node): Doc =
+  def prettyPartialTransactionNode(node: Node): Doc =
     node match {
-      case NodeRollback(_) =>
+      case Node.Rollback(_) =>
         text("rollback")
-      case create: NodeCreate =>
+      case create: Node.Create =>
         "create" &: prettyContractInst(create.coinst)
-      case fetch: NodeFetch =>
+      case fetch: Node.Fetch =>
         "fetch" &: prettyContractId(fetch.coid)
-      case ex: NodeExercises =>
+      case ex: Node.Exercise =>
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
           text("with") & prettyValue(false)(ex.chosenValue)
-      case lbk: NodeLookupByKey =>
+      case lbk: Node.LookupByKey =>
         text("lookup by key") & prettyIdentifier(lbk.templateId) /
           text("key") & prettyKeyWithMaintainers(lbk.key) /
           (lbk.result match {
@@ -190,13 +189,13 @@ private[lf] object Pretty {
           prettyLoc(amf.optLocation)
     }
 
-  def prettyKeyWithMaintainers(key: KeyWithMaintainers[Value]): Doc =
+  def prettyKeyWithMaintainers(key: Node.KeyWithMaintainers): Doc =
     // the maintainers are induced from the key -- so don't clutter
     prettyValue(false)(key.key)
 
-  def prettyVersionedKeyWithMaintainers(key: KeyWithMaintainers[Tx.Value]): Doc =
+  def prettyVersionedKeyWithMaintainers(key: Node.VersionedKeyWithMaintainers): Doc =
     // the maintainers are induced from the key -- so don't clutter
-    prettyValue(false)(key.key.value)
+    prettyKeyWithMaintainers(key.unversioned)
 
   def prettyEventInfo(l: ScenarioLedger, txId: TransactionId)(nodeId: NodeId): Doc = {
     def arrowRight(d: Doc) = text("└─>") & d
@@ -204,17 +203,17 @@ private[lf] object Pretty {
     val eventId = EventId(txId.id, nodeId)
     val ni = l.ledgerData.nodeInfos(eventId)
     val ppNode = ni.node match {
-      case NodeRollback(children) =>
+      case Node.Rollback(children) =>
         text("rollback:") / stack(children.toList.map(prettyEventInfo(l, txId)))
-      case create: NodeCreate =>
+      case create: Node.Create =>
         val d = "create" &: prettyContractInst(create.coinst)
         create.versionedKey match {
           case None => d
           case Some(key) => d / text("key") & prettyVersionedKeyWithMaintainers(key)
         }
-      case ea: NodeFetch =>
+      case ea: Node.Fetch =>
         "ensure active" &: prettyContractId(ea.coid)
-      case ex: NodeExercises =>
+      case ex: Node.Exercise =>
         val children =
           if (ex.children.nonEmpty)
             text("children:") / stack(ex.children.toList.map(prettyEventInfo(l, txId)))
@@ -225,7 +224,7 @@ private[lf] object Pretty {
           text("on") & prettyContractId(ex.targetCoid) /
           (text("    ") + text("with") & prettyValue(false)(ex.chosenValue) / children)
             .nested(4)
-      case lbk: NodeLookupByKey =>
+      case lbk: Node.LookupByKey =>
         text("lookup by key") & prettyIdentifier(lbk.templateId) /
           text("key") & prettyVersionedKeyWithMaintainers(lbk.versionedKey) /
           (lbk.result match {
@@ -308,8 +307,8 @@ private[lf] object Pretty {
   def prettyIdentifier(id: Identifier): Doc =
     text(id.qualifiedName.toString) + char('@') + prettyPackageId(id.packageId)
 
-  def prettyVersionedValue(verbose: Boolean)(v: Tx.Value): Doc =
-    prettyValue(verbose)(v.value)
+  def prettyVersionedValue(verbose: Boolean)(v: VersionedValue): Doc =
+    prettyValue(verbose)(v.unversioned)
 
   // Pretty print a value. If verbose then the top-level value is printed with type constructor
   // if possible.
@@ -417,7 +416,6 @@ private[lf] object Pretty {
 
     def prettySExpr(index: Int)(e: SExpr): Doc =
       e match {
-        case SEVar(i) => char('@') + str(index - i)
         case SEVal(defId) =>
           str(defId)
         case SEValue(lit) =>
@@ -427,8 +425,7 @@ private[lf] object Pretty {
             case other => str(other)
           }
 
-        case SECaseAtomic(scrut, alts) => prettySExpr(index)(SECase(scrut, alts))
-        case SECase(scrut, alts) =>
+        case SECaseAtomic(scrut, alts) =>
           (text("case") & prettySExpr(index)(scrut) & text("of") +
             line +
             intercalate(line, alts.map(prettyAlt(index)))).nested(2)
@@ -455,8 +452,12 @@ private[lf] object Pretty {
               ) + char(
                 ']'
               )
-            case SBUCreate(ref) =>
+            case SBUCreate(ref, None) =>
               text("$create") + char('[') + text(ref.qualifiedName.toString) + char(']')
+            case SBUCreate(ref, Some(iface)) =>
+              text("$createByInterface") + char('[') + text(ref.qualifiedName.toString) + char(
+                ','
+              ) + text(iface.qualifiedName.toString) + char(']')
             case SBUFetch(ref) =>
               text("$fetch") + char('[') + text(ref.qualifiedName.toString) + char(']')
             case SBGetTime => text("$getTime")
@@ -478,11 +479,6 @@ private[lf] object Pretty {
           val prefix = prettySExpr(index)(SEBuiltin(builtin)) + text("@B(")
           intercalate(comma + lineOrSpace, args.map(prettySExpr(index)))
             .tightBracketBy(prefix, char(')'))
-        case SEAbs(n, body) =>
-          val prefix = text("(\\") +
-            intercalate(space, (index to n + index - 1).map((v: Int) => str(v))) &
-            text("-> ")
-          prettySExpr(index + n)(body).tightBracketBy(prefix, char(')'))
 
         case SELocation(loc @ _, body) =>
           prettySExpr(index)(body)
@@ -496,8 +492,8 @@ private[lf] object Pretty {
 
         case loc: SELoc => prettySELoc(loc)
 
-        case SELet(bounds, body) =>
-          // let [a, b, c] in X
+        case SELet1General(rhs, body) =>
+          val bounds = List(rhs)
           intercalate(
             comma + lineOrSpace,
             (bounds.zipWithIndex.map { case (x, n) =>
@@ -505,8 +501,7 @@ private[lf] object Pretty {
             }),
           ).tightBracketBy(text("let ["), char(']')) +
             lineOrSpace + text("in") & prettySExpr(index + bounds.length)(body)
-        case SELet1General(rhs, body) =>
-          prettySExpr(index)(SELet(List(rhs), body))
+
         case SELet1Builtin(builtin, args, body) =>
           prettySExpr(index)(SELet1General(SEAppAtomicSaturatedBuiltin(builtin, args), body))
         case SELet1BuiltinArithmetic(builtin, args, body) =>
@@ -518,7 +513,6 @@ private[lf] object Pretty {
         case SEScopeExercise(body) =>
           text("exercise") + char('(') + prettySExpr(index)(body) + text(")")
 
-        case x: SEBuiltinRecursiveDefinition => str(x)
         case x: SEImportValue => str(x)
         case x: SELabelClosure => str(x)
         case x: SEDamlException => str(x)

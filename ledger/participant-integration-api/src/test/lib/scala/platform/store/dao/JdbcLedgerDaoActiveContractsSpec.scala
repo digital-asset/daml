@@ -39,7 +39,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       activeContractsBefore <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = before,
+            activeAt = before.lastOffset,
             filter = Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
             verbose = true,
           )
@@ -47,7 +47,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       activeContractsAfter <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = after,
+            activeAt = after.lastOffset,
             filter = Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
             verbose = true,
           )
@@ -65,7 +65,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
 
   it should "serve a stable result based on the input offset" in {
     for {
-      offset <- ledgerDao.lookupLedgerEnd()
+      ledgerEnd <- ledgerDao.lookupLedgerEnd()
+      offset = ledgerEnd.lastOffset
       activeContractsBefore <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
@@ -111,7 +112,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       result <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = ledgerEnd,
+            activeAt = ledgerEnd.lastOffset,
             filter = Map(party1 -> Set(otherTemplateId)),
             verbose = true,
           )
@@ -141,7 +142,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       result <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = ledgerEnd,
+            activeAt = ledgerEnd.lastOffset,
             filter = Map(
               party1 -> Set(otherTemplateId),
               party2 -> Set(otherTemplateId),
@@ -181,7 +182,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       result <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = ledgerEnd,
+            activeAt = ledgerEnd.lastOffset,
             filter = Map(
               party1 -> Set(someTemplateId),
               party2 -> Set(otherTemplateId),
@@ -221,7 +222,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       result <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = ledgerEnd,
+            activeAt = ledgerEnd.lastOffset,
             filter = Map(
               party1 -> Set(someTemplateId),
               party2 -> Set.empty,
@@ -250,7 +251,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       end <- ledgerDao.lookupLedgerEnd()
       activeContracts <- ledgerDao.transactionsReader
         .getActiveContracts(
-          activeAt = end,
+          activeAt = end.lastOffset,
           filter = Map(alice -> Set.empty),
           verbose = true,
         )

@@ -4,6 +4,7 @@
 package com.daml.lf.speedy.iterable
 
 import com.daml.lf.speedy.{SExpr, SValue}
+import com.daml.lf.speedy.SExpr.SExpr
 import scala.jdk.CollectionConverters._
 
 // Iterates only over immediate children similar to Haskell’s
@@ -16,14 +17,11 @@ private[speedy] object SExprIterable {
     case SExpr.SEAppAtomicFun(fun, args) => Iterator(fun) ++ args.iterator
     case SExpr.SEAppAtomicGeneral(fun, args) => Iterator(fun) ++ args.iterator
     case SExpr.SEAppAtomicSaturatedBuiltin(_, args) => args.iterator
-    case SExpr.SEAbs(_, body) => Iterator(body)
     case SExpr.SEMakeClo(_, _, body) => Iterator(body)
-    case SExpr.SECase(scrut, alts) => Iterator(scrut) ++ alts.iterator.map(_.body)
     case SExpr.SECaseAtomic(scrut, alts) => Iterator(scrut) ++ alts.iterator.map(_.body)
     case SExpr.SELet1General(rhs, body) => Iterator(rhs, body)
     case SExpr.SELet1Builtin(_, args, body) => args.iterator ++ Iterator(body)
     case SExpr.SELet1BuiltinArithmetic(_, args, body) => args.iterator ++ Iterator(body)
-    case SExpr.SELet(bounds, body) => bounds.iterator ++ Iterator(body)
     case SExpr.SELocation(_, expr) => Iterator(expr)
     case SExpr.SELabelClosure(_, expr) => Iterator(expr)
     case SExpr.SEDamlException(_) => Iterator.empty
@@ -31,12 +29,10 @@ private[speedy] object SExprIterable {
     case SExpr.SETryCatch(body, handler) => Iterator(body, handler)
     case SExpr.SEScopeExercise(body) => Iterator(body)
     case SExpr.SEBuiltin(_) => Iterator.empty
-    case SExpr.SEBuiltinRecursiveDefinition(_) => Iterator.empty
     case SExpr.SELocA(_) => Iterator.empty
     case SExpr.SELocS(_) => Iterator.empty
     case SExpr.SEValue(v) => iterator(v)
     case SExpr.SELocF(_) => Iterator.empty
-    case SExpr.SEVar(_) => Iterator.empty
   }
   private def iterator(v: SValue): Iterator[SExpr] = v match {
     case SValue.SPAP(prim, actuals, _) =>

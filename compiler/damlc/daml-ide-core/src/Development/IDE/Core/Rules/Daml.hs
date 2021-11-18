@@ -96,6 +96,7 @@ import qualified DA.Daml.LF.InferSerializability as Serializability
 import qualified DA.Daml.LF.PrettyScenario as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
+import qualified DA.Daml.LF.Completer as LF
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
 import DA.Daml.UtilLF
@@ -271,7 +272,9 @@ generateRawDalfRule =
                             WhnfPackage pkg <- use_ GeneratePackageDeps file
                             pkgs <- getExternalPackages file
                             let world = LF.initWorldSelf pkgs pkg
-                            return ([], Just $ LF.simplifyModule world lfVersion v)
+                                completed = LF.completeModule world lfVersion v
+                                simplified = LF.simplifyModule world lfVersion completed
+                            return ([], Just simplified)
 
 getExternalPackages :: NormalizedFilePath -> Action [LF.ExternalPackage]
 getExternalPackages file = do
@@ -423,13 +426,14 @@ generateSerializedDalfRule options =
                                     pkgs <- getExternalPackages file
                                     let selfPkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps
                                         world = LF.initWorldSelf pkgs selfPkg
-                                    rawDalf <- pure $ LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion rawDalf
+                                        completed = LF.completeModule world lfVersion rawDalf
+                                        simplified = LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion completed
                                         -- NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
                                         -- across modules when doing incremental builds. The reason is that our Shake rules
                                         -- use ABI changes to determine whether to rebuild the module, so if an implementaion
                                         -- changes without a corresponding ABI change, we would end up with an outdated
                                         -- implementation.
-                                    case Serializability.inferModule world lfVersion rawDalf of
+                                    case Serializability.inferModule world lfVersion simplified of
                                         Left err -> pure ([ideErrorPretty file err], Nothing)
                                         Right dalf -> do
                                             let (diags, checkResult) = diagsToIdeResult file $ LF.checkModule world lfVersion dalf

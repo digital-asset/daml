@@ -4,6 +4,7 @@
 package com.daml.platform.store.backend.common
 
 import java.sql.Connection
+
 import anorm.SqlParser.{byteArray, int, long, str}
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -17,14 +18,16 @@ import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Conversions.{offset, timestampFromMicros}
 import com.daml.platform.store.backend.CompletionStorageBackend
 import com.daml.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+import com.daml.platform.store.interning.StringInterning
 import com.google.protobuf.any
 import com.google.rpc.status.{Status => StatusProto}
 
-trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
+class CompletionStorageBackendTemplate(
+    queryStrategy: QueryStrategy,
+    stringInterning: StringInterning,
+) extends CompletionStorageBackend {
 
   private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-
-  def queryStrategy: QueryStrategy
 
   override def commandCompletions(
       startExclusive: Offset,
@@ -56,7 +59,7 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
           ($startExclusive is null or completion_offset > $startExclusive) AND
           completion_offset <= $endInclusive AND
           application_id = $applicationId AND
-          ${queryStrategy.arrayIntersectionNonEmptyClause("submitters", parties)}
+          ${queryStrategy.arrayIntersectionNonEmptyClause("submitters", parties, stringInterning)}
         ORDER BY completion_offset ASC"""
       .as(completionParser.*)(connection)
   }
@@ -154,7 +157,7 @@ trait CompletionStorageBackendTemplate extends CompletionStorageBackend {
       .map(_.details)
       .getOrElse(Seq.empty)
 
-  def pruneCompletions(
+  override def pruneCompletions(
       pruneUpToInclusive: Offset
   )(connection: Connection, loggingContext: LoggingContext): Unit = {
     pruneWithLogging(queryDescription = "Command completions pruning") {

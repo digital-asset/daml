@@ -15,7 +15,6 @@ import Control.Exception.Safe (tryAny)
 import Control.Lens (toListOf)
 import Control.Monad.Extra
 import DA.Daml.Compiler.Dar
-import DA.Daml.Compiler.DecodeDar (DecodedDalf(..), decodeDalf)
 import DA.Daml.Compiler.ExtractDar (ExtractedDar(..), extractDar)
 import DA.Daml.Helper.Ledger
 import qualified DA.Daml.LF.Ast as LF
@@ -23,6 +22,7 @@ import qualified DA.Daml.LF.Ast.Optics as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
+import qualified DA.Service.Logger as Logger
 import qualified DA.Pretty
 import qualified Data.Aeson as Aeson
 import Data.Aeson (eitherDecodeFileStrict', encode)
@@ -122,6 +122,7 @@ installDependencies ::
    -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
    -> IO ()
 installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pDataDeps = do
+    logger <- getLogger opts "install-dependencies"
     deps <- expandSdkPackages (optDamlLfVersion opts) (filter (`notElem` basePackages) pDeps)
     DataDeps {dataDepsDars, dataDepsDalfs, dataDepsPkgIds, dataDepsNameVersion} <- readDataDeps pDataDeps
     (needsUpdate, newFingerprint) <-
@@ -133,20 +134,29 @@ installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pD
             thisSdkVer
             (show $ optDamlLfVersion opts)
     when needsUpdate $ do
+        Logger.logDebug logger "Dependencies are not up2date, reinstalling"
         removePathForcibly depsDir
         createDirectoryIfMissing True depsDir
         -- install dependencies
         -----------------------
+        Logger.logDebug logger "Extracting dependencies"
         depsExtracted <- mapM extractDar deps
         checkSdkVersions sdkVer depsExtracted
+        Logger.logDebug logger "Installing dependencies"
         forM_ depsExtracted $ installDar depsDir False
         -- install data-dependencies
         ----------------------------
+        Logger.logDebug logger "Extracting & installing data-dependency DARs"
         forM_ dataDepsDars $ extractDar >=> installDar depsDir True
+        Logger.logDebug logger "Extracting & installing data-dependency DALFs"
         forM_ dataDepsDalfs $ \fp -> BS.readFile fp >>= installDataDepDalf False depsDir fp
+        Logger.logDebug logger "Resolving package ids"
         resolvedPkgIds <- resolvePkgs projRoot opts dataDepsNameVersion
+        Logger.logDebug logger "Querying package ids"
         exclPkgIds <- queryPkgIds Nothing depsDir
+        Logger.logDebug logger "Fetching DALFs from ledger"
         rdalfs <- getDalfsFromLedger (optAccessTokenPath opts) (dataDepsPkgIds ++ M.elems resolvedPkgIds) exclPkgIds
+        Logger.logDebug logger "Installing dalfs from ledger"
         forM_ rdalfs $ \RemoteDalf {..} -> do
             installDataDepDalf
                 remoteDalfIsMain
@@ -154,10 +164,12 @@ installDependencies projRoot opts sdkVer@(PackageSdkVersion thisSdkVer) pDeps pD
                 (packageNameToFp $ packageNameOrId remoteDalfPkgId remoteDalfName)
                 remoteDalfBs
         -- Mark received packages as well as their transitive dependencies as data dependencies.
+        Logger.logDebug logger "Mark data-dependencies"
         markAsDataRec
             (Set.fromList [remoteDalfPkgId | RemoteDalf {remoteDalfPkgId} <- rdalfs])
             Set.empty
         -- write new fingerprint
+        Logger.logDebug logger "Updating fingerprint"
         write (depsDir </> fingerprintFile) $ encode newFingerprint
   where
     markAsDataRec :: Set.Set LF.PackageId -> Set.Set LF.PackageId -> IO ()
@@ -226,9 +238,8 @@ dalfFileNameFromEntry entry =
 
 dalfFileName :: BS.ByteString -> FilePath -> IO FilePath
 dalfFileName bs fp = do
-    DecodedDalf {decodedDalfPkg} <- either fail pure $ decodeDalf Set.empty fp bs
-    let pkgId = T.unpack $ LF.unPackageId $ LF.dalfPackageId decodedDalfPkg
-    pure $ pkgId </> takeFileName fp
+    pkgId <- either (fail . DA.Pretty.renderPretty) pure $ Archive.decodeArchivePackageId bs
+    pure $ T.unpack (LF.unPackageId pkgId) </> takeFileName fp
 
 installDataDepDalf :: Bool -> FilePath -> FilePath -> BS.ByteString -> IO ()
 installDataDepDalf isMain = installDalf ([dataDepMarker] ++ [mainMarker | isMain])

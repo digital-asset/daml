@@ -361,7 +361,8 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "data C = C Int"
             ]
         (exitCode, out, err) <- readProcessWithExitCode damlc ["build", "--project-root", projDir] ""
-        assertInfixOf "Created" out
+        out @?= ""
+        assertInfixOf "Created" err
         assertInfixOf "collision between variant A:B and module prefix A.B (from A.B.C)" err
         exitCode @?= ExitSuccess
 

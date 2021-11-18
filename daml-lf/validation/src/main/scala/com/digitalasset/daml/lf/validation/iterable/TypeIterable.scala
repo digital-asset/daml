@@ -101,6 +101,9 @@ private[validation] object TypeIterable {
       case UpdateCreate(templateId, arg) =>
         Iterator(TTyCon(templateId)) ++
           iterator(arg)
+      case UpdateCreateInterface(interface, arg) =>
+        Iterator(TTyCon(interface)) ++
+          iterator(arg)
       case UpdateFetch(templateId, contractId) =>
         Iterator(TTyCon(templateId)) ++
           iterator(contractId)
@@ -225,8 +228,9 @@ private[validation] object TypeIterable {
 
   private[validation] def iterator(impl: TemplateImplements): Iterator[Type] =
     impl match {
-      case TemplateImplements(interface, methods) =>
+      case TemplateImplements(interface, methods, inheritedChoices @ _, precond) =>
         Iterator(TTyCon(interface)) ++
+          iterator(precond) ++
           methods.values.flatMap(iterator(_))
     }
 
@@ -238,8 +242,8 @@ private[validation] object TypeIterable {
 
   private[validation] def iterator(interface: DefInterface): Iterator[Type] =
     interface match {
-      case DefInterface(_, virtualChoices, fixedChoice, methods) =>
-        virtualChoices.values.iterator.flatMap(iterator) ++
+      case DefInterface(_, fixedChoice, methods, precond) =>
+        iterator(precond) ++
           fixedChoice.values.iterator.flatMap(iterator) ++
           methods.values.iterator.flatMap(iterator)
     }

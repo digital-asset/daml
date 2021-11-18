@@ -80,36 +80,43 @@ class CommandPreprocessorSpec
 
     "reject improperly typed commands" in {
 
+      // TEST_EVIDENCE: Input Validation: well formed create command is accepted
       val validCreate = CreateCommand(
         "Mod:Record",
         ValueRecord("", ImmArray("owners" -> valueParties, "data" -> ValueInt64(42))),
       )
+      // TEST_EVIDENCE: Input Validation: well formed exercise command is accepted
       val validExe = ExerciseCommand(
         "Mod:Record",
         newCid,
         "Transfer",
         ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
       )
+      // TEST_EVIDENCE: Input Validation: well formed exercise-by-key command is accepted
       val validExeByKey = ExerciseByKeyCommand(
         "Mod:Record",
         valueParties,
         "Transfer",
         ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
       )
+      // TEST_EVIDENCE: Input Validation: well formed create-and-exercise command is accepted
       val validCreateAndExe = CreateAndExerciseCommand(
         "Mod:Record",
         ValueRecord("", ImmArray("owners" -> valueParties, "data" -> ValueInt64(42))),
         "Transfer",
         ValueRecord("", ImmArray("content" -> ValueList(FrontStack(ValueParty("Clara"))))),
       )
+      // TEST_EVIDENCE: Input Validation: well formed fetch command is accepted
       val validFetch = FetchCommand(
         "Mod:Record",
         newCid,
       )
+      // TEST_EVIDENCE: Input Validation: well formed fetch-by-key command is accepted
       val validFetchByKey = FetchByKeyCommand(
         "Mod:Record",
         valueParties,
       )
+      // TEST_EVIDENCE: Input Validation: well formed lookup command is accepted
       val validLookup = LookupByKeyCommand(
         "Mod:Record",
         valueParties,
@@ -127,16 +134,19 @@ class CommandPreprocessorSpec
 
       val errorTestCases = Table[Command, ResultOfATypeInvocation[_]](
         ("command", "error"),
+        // TEST_EVIDENCE: Input Validation: ill-formed create command is rejected
         validCreate.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validCreate.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
+        // TEST_EVIDENCE: Input Validation: ill-formed exercise command is rejected
         validExe.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validExe.copy(choiceId = "Undefined") ->
           a[Error.Preprocessing.Lookup],
         validExe.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
+        // TEST_EVIDENCE: Input Validation: ill-formed exercise-by-key command is rejected
         validExeByKey.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validExeByKey.copy(contractKey = ValueList(FrontStack(ValueInt64(42)))) ->
@@ -145,6 +155,7 @@ class CommandPreprocessorSpec
           a[Error.Preprocessing.Lookup],
         validExeByKey.copy(argument = ValueRecord("", ImmArray("content" -> ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
+        // TEST_EVIDENCE: Input Validation: ill-formed create-and-exercise command is rejected
         validCreateAndExe.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validCreateAndExe.copy(createArgument =
@@ -157,12 +168,15 @@ class CommandPreprocessorSpec
           ValueRecord("", ImmArray("content" -> ValueInt64(42)))
         ) ->
           a[Error.Preprocessing.TypeMismatch],
+        // TEST_EVIDENCE: Input Validation: ill-formed fetch command is rejected
         validFetch.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
+        // TEST_EVIDENCE: Input Validation: ill-formed fetch-by-key command is rejected
         validFetchByKey.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validFetchByKey.copy(key = ValueList(FrontStack(ValueInt64(42)))) ->
           a[Error.Preprocessing.TypeMismatch],
+        // TEST_EVIDENCE: Input Validation: ill-formed lookup command is rejected
         validLookup.copy(templateId = "Mod:Undefined") ->
           a[Error.Preprocessing.Lookup],
         validLookup.copy(contractKey = ValueList(FrontStack(ValueInt64(42)))) ->

@@ -53,6 +53,7 @@ import scala.concurrent.Future
 private[platform] final class LedgerBackedIndexService(
     ledger: ReadOnlyLedger,
     participantId: Ref.ParticipantId,
+    errorFactories: ErrorFactories,
 ) extends IndexService {
   private val logger = ContextualizedLogger.get(getClass)
 
@@ -143,8 +144,7 @@ private[platform] final class LedgerBackedIndexService(
             Source.empty
           case Some(end) if begin > end =>
             Source.failed(
-              // TODO error codes: Replace with LedgerApiErrors.ReadErrors.RequestedOffsetAfterLedgerEnd
-              ErrorFactories.invalidArgument(None)(
+              errorFactories.offsetOutOfRange(None)(
                 s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."
               )(new DamlContextualizedErrorLogger(logger, loggingContext, None))
             )

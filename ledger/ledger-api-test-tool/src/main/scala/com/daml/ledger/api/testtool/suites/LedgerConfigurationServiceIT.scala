@@ -3,6 +3,9 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import java.util.regex.Pattern
+
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -32,8 +35,10 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
           .mustFail("retrieving ledger configuration with an invalid ledger ID")
       } yield {
         assertGrpcError(
+          ledger,
           failure,
           Status.Code.NOT_FOUND,
+          LedgerApiErrors.RequestValidation.LedgerIdMismatch,
           Some(s"Ledger ID '$invalidLedgerId' not found."),
         )
       }
@@ -58,7 +63,7 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
 
   test(
     "CSLSuccessIfMaxDeduplicationTimeExceeded",
-    "Submission returns INVALID_ARGUMENT if deduplication time is too big",
+    "Submission returns expected error codes if deduplication time is too big",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger.submitRequest(party, Dummy(party).create.command)
@@ -75,7 +80,24 @@ class LedgerConfigurationServiceIT extends LedgerTestSuite {
         )
         .mustFail("submitting a command with a deduplication time that is too big")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, exceptionMessageSubstring = None)
+      val expectedCode =
+        if (ledger.features.selfServiceErrorCodes) Status.Code.FAILED_PRECONDITION
+        else Status.Code.INVALID_ARGUMENT
+      val expectedError =
+        if (ledger.features.selfServiceErrorCodes)
+          LedgerApiErrors.RequestValidation.InvalidDeduplicationPeriodField
+        else LedgerApiErrors.RequestValidation.InvalidField
+      assertGrpcErrorRegex(
+        ledger,
+        failure,
+        expectedCode,
+        expectedError,
+        Some(
+          Pattern.compile(
+            "The given deduplication .+ exceeds the maximum deduplication .+"
+          )
+        ),
+      )
     }
   })
 }

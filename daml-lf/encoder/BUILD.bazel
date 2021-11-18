@@ -48,11 +48,6 @@ da_scala_test_suite(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
-    versioned_scala_deps = {
-        "2.12": [
-            "@maven//:org_scala_lang_modules_scala_collection_compat",
-        ],
-    },
     deps = [
         ":encoder",
         "//bazel_tools/runfiles:scala_runfiles",

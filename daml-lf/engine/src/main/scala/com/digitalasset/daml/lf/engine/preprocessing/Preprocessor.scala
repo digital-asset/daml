@@ -184,7 +184,11 @@ private[engine] final class Preprocessor(
       tx: SubmittedTransaction
   ): Result[ImmArray[speedy.Command]] =
     safelyRun(
-      getDependencies(List.empty, tx.rootNodes.toList.map(_.templateId))
+      getDependencies(
+        List.empty,
+        tx.rootNodes.toList.map(_.templateId)
+          ++ tx.byInterfaceNodes.map(_.templateId),
+      )
     ) {
       transactionPreprocessor.unsafeTranslateTransactionRoots(tx)
     }

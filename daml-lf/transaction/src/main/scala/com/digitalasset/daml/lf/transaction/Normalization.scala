@@ -6,16 +6,6 @@ package transaction
 
 import com.daml.lf.value.{Value => Val}
 
-import com.daml.lf.transaction.Node.{
-  KeyWithMaintainers,
-  GenNode,
-  NodeCreate,
-  NodeFetch,
-  NodeLookupByKey,
-  NodeExercises,
-  NodeRollback,
-}
-
 class Normalization {
 
   /** This class provides methods to normalize a transaction and embedded values.
@@ -27,7 +17,7 @@ class Normalization {
     * - field names are dropped from Records
     * - values are normalized recursively
     * - all values embedded in transaction nodes are normalized
-    * - version-specific normalization is applied to the 'byKey' fields of 'NodeFetch' and 'NodeExercises'
+    * - version-specific normalization is applied to the 'byKey' fields of 'Node.Fetch' and 'Node.Exercises'
     *
     * We do not normalize the node-ids in the transaction here, but rather assume that
     * aspect of normalization has already been performed (by the engine, or by
@@ -38,8 +28,7 @@ class Normalization {
     * longer need this separate normalization pass.
     */
 
-  private type KWM = KeyWithMaintainers[Val]
-  private type Node = GenNode
+  private type KWM = Node.KeyWithMaintainers
   private type VTX = VersionedTransaction
 
   def normalizeTx(vtx: VTX): VTX = {
@@ -61,12 +50,12 @@ class Normalization {
     import scala.Ordering.Implicits.infixOrderingOps
     node match {
 
-      case old: NodeCreate =>
+      case old: Node.Create =>
         old
           .copy(arg = normValue(old.version)(old.arg))
           .copy(key = old.key.map(normKWM(old.version)))
 
-      case old: NodeFetch =>
+      case old: Node.Fetch =>
         (if (old.version >= TransactionVersion.minByKey) {
            old
          } else {
@@ -76,7 +65,7 @@ class Normalization {
             key = old.key.map(normKWM(old.version))
           )
 
-      case old: NodeExercises =>
+      case old: Node.Exercise =>
         (if (old.version >= TransactionVersion.minByKey) {
            old
          } else {
@@ -88,12 +77,12 @@ class Normalization {
             key = old.key.map(normKWM(old.version)),
           )
 
-      case old: NodeLookupByKey =>
+      case old: Node.LookupByKey =>
         old.copy(
           key = normKWM(old.version)(old.key)
         )
 
-      case old: NodeRollback => old
+      case old: Node.Rollback => old
 
     }
   }
@@ -104,8 +93,8 @@ class Normalization {
 
   private def normKWM(version: TransactionVersion)(x: KWM): KWM = {
     x match {
-      case KeyWithMaintainers(key, maintainers) =>
-        KeyWithMaintainers(normValue(version)(key), maintainers)
+      case Node.KeyWithMaintainers(key, maintainers) =>
+        Node.KeyWithMaintainers(normValue(version)(key), maintainers)
     }
   }
 

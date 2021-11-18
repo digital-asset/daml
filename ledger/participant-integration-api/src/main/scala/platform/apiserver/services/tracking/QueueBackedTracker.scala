@@ -8,6 +8,7 @@ import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import akka.{Done, NotUsed}
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.dec.DirectExecutionContext
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
@@ -17,19 +18,19 @@ import com.daml.platform.apiserver.services.tracking.QueueBackedTracker._
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.util.Ctx
 import com.google.rpc.Status
-import io.grpc.Status.Code
-import io.grpc.{Status => GrpcStatus}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /** Tracks SubmitAndWaitRequests.
+  *
   * @param queue The input queue to the tracking flow.
   */
 private[services] final class QueueBackedTracker(
     queue: SourceQueueWithComplete[QueueBackedTracker.QueueInput],
     done: Future[Done],
+    errorFactories: ErrorFactories,
 )(implicit loggingContext: LoggingContext)
     extends Tracker {
 
@@ -39,6 +40,11 @@ private[services] final class QueueBackedTracker(
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
+    implicit val errorLogger: DamlContextualizedErrorLogger = new DamlContextualizedErrorLogger(
+      logger,
+      loggingContext,
+      Some(submission.commands.submissionId),
+    )
     logger.trace("Tracking command")
     val trackedPromise = Promise[Either[CompletionFailure, CompletionSuccess]]()
     queue
@@ -49,39 +55,29 @@ private[services] final class QueueBackedTracker(
             _.left.map(completionFailure => QueueCompletionFailure(completionFailure))
           )
         case QueueOfferResult.Failure(t) =>
-          failedQueueSubmission(
-            GrpcStatus.ABORTED
-              .withDescription(s"Failed to enqueue: ${t.getClass.getSimpleName}: ${t.getMessage}")
-              .withCause(t)
+          toQueueSubmitFailure(
+            errorFactories.TrackerErrors.failedToEnqueueCommandSubmission("Failed to enqueue")(t)
           )
         case QueueOfferResult.Dropped =>
-          failedQueueSubmission(
-            GrpcStatus.RESOURCE_EXHAUSTED
-              .withDescription("Ingress buffer is full")
-          )
+          toQueueSubmitFailure(errorFactories.TrackerErrors.commandServiceIngressBufferFull())
         case QueueOfferResult.QueueClosed =>
-          failedQueueSubmission(GrpcStatus.ABORTED.withDescription("Queue closed"))
+          toQueueSubmitFailure(errorFactories.TrackerErrors.commandSubmissionQueueClosed())
       }
-      .recoverWith(transformQueueSubmissionExceptions)
+      .recoverWith {
+        case i: IllegalStateException
+            if i.getMessage == "You have to wait for previous offer to be resolved to send another request" =>
+          toQueueSubmitFailure(errorFactories.TrackerErrors.commandServiceIngressBufferFull())
+        case t =>
+          toQueueSubmitFailure(
+            errorFactories.TrackerErrors.failedToEnqueueCommandSubmission("Failed")(t)
+          )
+      }
   }
 
-  private def failedQueueSubmission(status: GrpcStatus) =
-    Future.successful(Left(QueueSubmitFailure(status)))
-
-  private def transformQueueSubmissionExceptions
-      : PartialFunction[Throwable, Future[Either[TrackedCompletionFailure, CompletionSuccess]]] = {
-    case i: IllegalStateException
-        if i.getMessage == "You have to wait for previous offer to be resolved to send another request" =>
-      failedQueueSubmission(
-        GrpcStatus.RESOURCE_EXHAUSTED
-          .withDescription("Ingress buffer is full")
-      )
-    case t =>
-      failedQueueSubmission(
-        GrpcStatus.ABORTED
-          .withDescription(s"Failure: ${t.getClass.getSimpleName}: ${t.getMessage}")
-          .withCause(t)
-      )
+  private def toQueueSubmitFailure(
+      e: Status
+  ): Future[Left[QueueSubmitFailure, Nothing]] = {
+    Future.successful(Left(QueueSubmitFailure(e)))
   }
 
   override def close(): Unit = {
@@ -94,7 +90,6 @@ private[services] final class QueueBackedTracker(
 }
 
 private[services] object QueueBackedTracker {
-
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def apply(
@@ -110,6 +105,7 @@ private[services] object QueueBackedTracker {
       capacityCounter: Counter,
       lengthCounter: Counter,
       delayTimer: Timer,
+      errorFactories: ErrorFactories,
   )(implicit materializer: Materializer, loggingContext: LoggingContext): QueueBackedTracker = {
     val ((queue, mat), done) = InstrumentedSource
       .queue[QueueInput](
@@ -144,25 +140,20 @@ private[services] object QueueBackedTracker {
           throw t // FIXME(mthvedt): we should shut down the server on internal errors.
       }
 
-      mat.trackingMat.onComplete(
+      mat.trackingMat.onComplete((aTry: Try[Map[_, Promise[_]]]) => {
         // no error expected here -- if there is one, we're at a total loss.
         // FIXME(mthvedt): we should shut down everything in this case.
-        _.get.values
-          .foreach(
-            _.failure(
-              ErrorFactories.grpcError(
-                Status
-                  .newBuilder()
-                  .setCode(Code.INTERNAL.value())
-                  .setMessage(promiseCancellationDescription)
-                  .build()
-              )
-            )
+        val promises: Iterable[Promise[_]] = aTry.get.values
+        val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, None)
+        promises.foreach(p =>
+          p.failure(
+            errorFactories.trackerFailure(msg = promiseCancellationDescription)(errorLogger)
           )
-      )(DirectExecutionContext)
+        )
+      })(DirectExecutionContext)
     }(DirectExecutionContext)
 
-    new QueueBackedTracker(queue, done)
+    new QueueBackedTracker(queue, done, errorFactories)
   }
 
   type QueueInput = Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], CommandSubmission]

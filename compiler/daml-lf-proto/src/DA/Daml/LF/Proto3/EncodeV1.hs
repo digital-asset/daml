@@ -19,6 +19,7 @@ import           Data.Either
 import           Data.Functor.Identity
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.List as L
+import qualified Data.Set as S
 import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromMaybe)
 import qualified Data.NameMap as NM
@@ -217,6 +218,9 @@ encodeList encodeElem = fmap V.fromList . mapM encodeElem
 
 encodeNameMap :: NM.Named a => (a -> Encode b) -> NM.NameMap a -> Encode (V.Vector b)
 encodeNameMap encodeElem = fmap V.fromList . mapM encodeElem . NM.toList
+
+encodeSet :: (a -> Encode b) -> S.Set a -> Encode (V.Vector b)
+encodeSet encodeElem = fmap V.fromList . mapM encodeElem . S.toList
 
 encodeQualTypeSynName' :: Qualified TypeSynName -> Encode P.TypeSynName
 encodeQualTypeSynName' (Qualified pref mname syn) = do
@@ -742,6 +746,10 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_CreateTemplate <- encodeQualTypeConName creTemplate
         update_CreateExpr <- encodeExpr creArg
         pure $ P.UpdateSumCreate P.Update_Create{..}
+    UCreateInterface{..} -> do
+        update_CreateInterfaceInterface <- encodeQualTypeConName creInterface
+        update_CreateInterfaceExpr <- encodeExpr creArg
+        pure $ P.UpdateSumCreateInterface P.Update_CreateInterface{..}
     UExercise{..} -> do
         update_ExerciseTemplate <- encodeQualTypeConName exeTemplate
         update_ExerciseChoice <- encodeName unChoiceName exeChoice
@@ -929,6 +937,8 @@ encodeTemplateImplements :: TemplateImplements -> Encode P.DefTemplate_Implement
 encodeTemplateImplements TemplateImplements{..} = do
     defTemplate_ImplementsInterface <- encodeQualTypeConName tpiInterface
     defTemplate_ImplementsMethods <- encodeNameMap encodeTemplateImplementsMethod tpiMethods
+    defTemplate_ImplementsInheritedChoiceInternedNames <- encodeSet (encodeNameId unChoiceName) tpiInheritedChoiceNames
+    defTemplate_ImplementsPrecond <- encodeExpr tpiPrecond
     pure P.DefTemplate_Implements {..}
 
 encodeTemplateImplementsMethod :: TemplateImplementsMethod -> Encode P.DefTemplate_ImplementsMethod
@@ -999,19 +1009,10 @@ encodeDefInterface DefInterface{..} = do
     defInterfaceLocation <- traverse encodeSourceLoc intLocation
     defInterfaceTyconInternedDname <- encodeDottedNameId unTypeConName intName
     defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
-    defInterfaceChoices <- encodeNameMap encodeInterfaceChoice intVirtualChoices
     defInterfaceFixedChoices <- encodeNameMap encodeTemplateChoice intFixedChoices
     defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
+    defInterfacePrecond <- encodeExpr intPrecondition
     pure $ P.DefInterface{..}
-
-encodeInterfaceChoice :: InterfaceChoice -> Encode P.InterfaceChoice
-encodeInterfaceChoice InterfaceChoice {..} = do
-    interfaceChoiceLocation <- traverse encodeSourceLoc ifcLocation
-    interfaceChoiceNameInternedString <- encodeNameId unChoiceName ifcName
-    let interfaceChoiceConsuming = ifcConsuming
-    interfaceChoiceArgType <- encodeType ifcArgType
-    interfaceChoiceRetType <- encodeType ifcRetType
-    pure $ P.InterfaceChoice{..}
 
 encodeInterfaceMethod :: InterfaceMethod -> Encode P.InterfaceMethod
 encodeInterfaceMethod InterfaceMethod {..} = do

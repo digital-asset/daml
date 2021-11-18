@@ -25,12 +25,14 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   ContractState,
   KeyState,
 }
-
 import java.util.concurrent.atomic.AtomicReference
+
+import com.daml.platform.apiserver.execution.MissingContracts
+
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
-import scala.util.{Failure, Success, Try}
+import scala.util.{Success, Try}
 
 private[platform] class MutableCacheBackedContractStore(
     metrics: Metrics,
@@ -73,41 +75,46 @@ private[platform] class MutableCacheBackedContractStore(
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
       loggingContext: LoggingContext
   ): Future[Option[Timestamp]] =
-    if (ids.isEmpty)
-      Future.failed(EmptyContractIds())
-    else {
-      Future
-        .fromTry(partitionCached(ids))
-        .flatMap {
-          case (cached, toBeFetched) if toBeFetched.isEmpty =>
-            Future.successful(Some(cached.max))
-          case (cached, toBeFetched) =>
-            contractsReader
-              .lookupMaximumLedgerTime(toBeFetched)
-              .map(_.map(m => (cached + m).max))
-        }
-    }
+    Future
+      .fromTry(partitionCached(ids))
+      .flatMap {
+        case (cached, toBeFetched) if toBeFetched.isEmpty =>
+          Future.successful(Some(cached.max))
+        case (cached, toBeFetched) =>
+          contractsReader
+            .lookupMaximumLedgerTime(toBeFetched)
+            .map(_.map(m => (cached + m).max))
+      }
 
   private def partitionCached(
       ids: Set[ContractId]
-  )(implicit loggingContext: LoggingContext) = {
+  )(implicit
+      loggingContext: LoggingContext
+  ): Try[(Set[Timestamp], Set[ContractId])] = {
     val cacheQueried = ids.map(id => id -> contractsCache.get(id))
 
     val cached = cacheQueried.view
-      .map(_._2)
-      .foldLeft(Try(Set.empty[Timestamp])) {
-        case (Success(timestamps), Some(active: Active)) =>
-          Success(timestamps + active.createLedgerEffectiveTime)
-        case (Success(_), Some(Archived(_))) => Failure(ContractNotFound(ids))
-        case (Success(_), Some(NotFound)) => Failure(ContractNotFound(ids))
-        case (Success(timestamps), None) => Success(timestamps)
-        case (failure, _) => failure
+      .foldLeft[Either[Set[ContractId], Set[Timestamp]]](Right(Set.empty[Timestamp])) {
+        // successful lookups
+        case (Right(timestamps), (_, Some(active: Active))) =>
+          Right(timestamps + active.createLedgerEffectiveTime)
+        case (Right(timestamps), (_, None)) => Right(timestamps)
+
+        // failure cases
+        case (acc, (cid, Some(Archived(_) | NotFound))) =>
+          val missingContracts = acc.left.getOrElse(Set.empty) + cid
+          Left(missingContracts)
+        case (acc @ Left(_), _) => acc
       }
 
-    cached.map { cached =>
-      val missing = cacheQueried.collect { case (id, None) => id }
-      (cached, missing)
-    }
+    cached
+      .map { cached =>
+        val missing = cacheQueried.collect { case (id, None) => id }
+        (cached, missing)
+      }
+      .left
+      .map(MissingContracts)
+      .toTry
   }
 
   private def readThroughContractsCache(contractId: ContractId)(implicit
@@ -163,7 +170,7 @@ private[platform] class MutableCacheBackedContractStore(
         // (the contract might have been divulged to the readers)
         // OR the contract was not found in the index
         //
-        logger.debug(s"Checking divulgence for contractId=$contractId and readers=$readers")
+        logger.debug(s"Checking divulgence for contractId=${contractId.coid} and readers=$readers")
         resolveDivulgenceLookup(contractStateValue, contractId, readers)
     }
 
@@ -180,7 +187,7 @@ private[platform] class MutableCacheBackedContractStore(
         contractsReader.lookupActiveContractWithCachedArgument(
           forParties,
           contractId,
-          contract.versionedArg,
+          contract.map(_.arg),
         )
       case _: Archived | NotFound =>
         // We need to fetch the contract here since the contract creation or archival
@@ -228,7 +235,8 @@ private[platform] class MutableCacheBackedContractStore(
     metrics.daml.execution.cache.indexSequentialId
       .updateValue(event.eventSequentialId)
     event match {
-      case LedgerEndMarker(eventOffset, _) => signalNewLedgerHead(eventOffset)
+      case LedgerEndMarker(eventOffset, eventSequentialId) =>
+        signalNewLedgerHead(eventOffset, eventSequentialId)
       case _ => ()
     }
   }
@@ -281,7 +289,7 @@ private[platform] class MutableCacheBackedContractStore(
             eventSequentialId,
           ) =>
         logger.debug(
-          s"State events update: Created(contractId=$contractId, globalKey=$globalKey, offset=$eventOffset, eventSequentialId=$eventSequentialId)"
+          s"State events update: Created(contractId=${contractId.coid}, globalKey=$globalKey, offset=$eventOffset, eventSequentialId=$eventSequentialId)"
         )
       case ContractStateEvent.Archived(
             contractId,
@@ -291,7 +299,7 @@ private[platform] class MutableCacheBackedContractStore(
             eventSequentialId,
           ) =>
         logger.debug(
-          s"State events update: Archived(contractId=$contractId, globalKey=$globalKey, offset=$eventOffset, eventSequentialId=$eventSequentialId)"
+          s"State events update: Archived(contractId=${contractId.coid}, globalKey=$globalKey, offset=$eventOffset, eventSequentialId=$eventSequentialId)"
         )
       case LedgerEndMarker(eventOffset, eventSequentialId) =>
         logger.debug(
@@ -303,7 +311,7 @@ private[platform] class MutableCacheBackedContractStore(
 private[platform] object MutableCacheBackedContractStore {
   type EventSequentialId = Long
   // Signal externally that the cache has caught up until the provided ledger head offset
-  type SignalNewLedgerHead = Offset => Unit
+  type SignalNewLedgerHead = (Offset, Long) => Unit
   // Subscribe to the contract state events stream starting at a specific event_offset and event_sequential_id
   type SubscribeToContractStateEvents =
     ((Offset, EventSequentialId)) => Source[ContractStateEvent, NotUsed]
@@ -378,21 +386,12 @@ private[platform] object MutableCacheBackedContractStore {
       }.map(_ => contractStore)
   }
 
-  final case class ContractNotFound(contractIds: Set[ContractId])
-      extends IllegalArgumentException(
-        s"One or more of the following contract identifiers has not been found: ${contractIds.map(_.coid).mkString(", ")}"
-      )
-
-  final case class EmptyContractIds()
-      extends IllegalArgumentException(
-        "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
-      )
-
   final case class ContractReadThroughNotFound(contractId: ContractId) extends NoStackTrace {
     override def getMessage: String =
-      s"Contract not found for contract id $contractId. Hint: this could be due racing with a concurrent archival."
+      s"Contract not found for contract id ${contractId.coid}. Hint: this could be due racing with a concurrent archival."
   }
 
+  // TODO ACS: this cache can be unified with the LedgerEndCache
   private[cache] class CacheIndex(initValue: (Offset, Long)) {
     private val offsetRef: AtomicReference[(Offset, EventSequentialId)] =
       new AtomicReference(initValue)

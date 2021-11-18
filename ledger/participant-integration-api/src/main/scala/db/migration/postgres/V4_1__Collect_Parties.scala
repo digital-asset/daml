@@ -9,14 +9,7 @@ import java.sql.{Connection, ResultSet}
 
 import anorm.{BatchSql, NamedParameter}
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction.{Transaction => Tx}
-import com.daml.lf.transaction.Node.{
-  NodeRollback,
-  NodeCreate,
-  NodeExercises,
-  NodeFetch,
-  NodeLookupByKey,
-}
+import com.daml.lf.transaction.{Node, VersionedTransaction}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
@@ -35,7 +28,7 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
 
   private def loadTransactions(implicit
       connection: Connection
-  ): Iterator[(Long, Tx.Transaction)] = {
+  ): Iterator[(Long, VersionedTransaction)] = {
 
     val SQL_SELECT_LEDGER_ENTRIES =
       """SELECT
@@ -50,11 +43,11 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
     statement.setFetchSize(batchSize)
     val rows: ResultSet = statement.executeQuery(SQL_SELECT_LEDGER_ENTRIES)
 
-    new Iterator[(Long, Tx.Transaction)] {
+    new Iterator[(Long, VersionedTransaction)] {
 
       var hasNext: Boolean = rows.next()
 
-      def next(): (Long, Tx.Transaction) = {
+      def next(): (Long, VersionedTransaction) = {
         val ledgerOffset = rows.getLong("ledger_offset")
         val transactionId = Ref.LedgerString.assertFromString(rows.getString("transaction_id"))
         val transaction = TransactionSerializer
@@ -72,7 +65,7 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
   }
 
   private def updateParties(
-      transactions: Iterator[(Long, Tx.Transaction)]
+      transactions: Iterator[(Long, VersionedTransaction)]
   )(implicit conn: Connection): Unit = {
 
     val SQL_INSERT_PARTY =
@@ -102,26 +95,26 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
     }
   }
 
-  private def getParties(transaction: Tx.Transaction): Set[Ref.Party] = {
+  private def getParties(transaction: VersionedTransaction): Set[Ref.Party] = {
     transaction
       .fold[Set[Ref.Party]](Set.empty) { case (parties, (_, node)) =>
         node match {
-          case _: NodeRollback => Set.empty
-          case nf: NodeFetch =>
+          case _: Node.Rollback => Set.empty
+          case nf: Node.Fetch =>
             parties
               .union(nf.signatories)
               .union(nf.stakeholders)
               .union(nf.actingParties)
-          case nc: NodeCreate =>
+          case nc: Node.Create =>
             parties
               .union(nc.signatories)
               .union(nc.stakeholders)
-          case ne: NodeExercises =>
+          case ne: Node.Exercise =>
             parties
               .union(ne.signatories)
               .union(ne.stakeholders)
               .union(ne.actingParties)
-          case _: NodeLookupByKey =>
+          case _: Node.LookupByKey =>
             parties
         }
       }

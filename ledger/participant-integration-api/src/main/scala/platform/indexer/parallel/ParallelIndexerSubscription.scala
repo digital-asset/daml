@@ -22,15 +22,18 @@ import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValu
 import com.daml.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.daml.platform.store.backend.{
   DbDto,
+  DbDtoToStringsForInterning,
   IngestionStorageBackend,
   ParameterStorageBackend,
   UpdateToDbDto,
 }
+import com.daml.platform.store.interning.{InternizingStringInterningView, StringInterning}
 
 import scala.concurrent.Future
 
 private[platform] case class ParallelIndexerSubscription[DB_BATCH](
-    storageBackend: IngestionStorageBackend[DB_BATCH] with ParameterStorageBackend,
+    ingestionStorageBackend: IngestionStorageBackend[DB_BATCH],
+    parameterStorageBackend: ParameterStorageBackend,
     participantId: Ref.ParticipantId,
     translation: LfValueTranslation,
     compressionStrategy: CompressionStrategy,
@@ -49,6 +52,7 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
       inputMapperExecutor: Executor,
       batcherExecutor: Executor,
       dbDispatcher: DbDispatcher,
+      stringInterningView: StringInterning with InternizingStringInterningView,
       materializer: Materializer,
   )(implicit loggingContext: LoggingContext): InitializeParallelIngestion.Initialized => Handle = {
     initialized =>
@@ -66,15 +70,22 @@ private[platform] case class ParallelIndexerSubscription[DB_BATCH](
             ),
           )
         ),
-        seqMapperZero = seqMapperZero(initialized.initialEventSeqId),
-        seqMapper = seqMapper(metrics),
+        seqMapperZero =
+          seqMapperZero(initialized.initialEventSeqId, initialized.initialStringInterningId),
+        seqMapper = seqMapper(
+          dtos => stringInterningView.internize(DbDtoToStringsForInterning(dtos)),
+          metrics,
+        ),
         batchingParallelism = batchingParallelism,
-        batcher = batcherExecutor.execute(batcher(storageBackend.batch, metrics)),
+        batcher = batcherExecutor.execute(
+          batcher(ingestionStorageBackend.batch(_, stringInterningView), metrics)
+        ),
         ingestingParallelism = ingestionParallelism,
-        ingester = ingester(storageBackend.insertBatch, dbDispatcher, metrics),
-        tailer = tailer(storageBackend.batch(Vector.empty)),
+        ingester = ingester(ingestionStorageBackend.insertBatch, dbDispatcher, metrics),
+        tailer = tailer(ingestionStorageBackend.batch(Vector.empty, stringInterningView)),
         tailingRateLimitPerSecond = tailingRateLimitPerSecond,
-        ingestTail = ingestTail[DB_BATCH](storageBackend.updateLedgerEnd, dbDispatcher, metrics),
+        ingestTail =
+          ingestTail[DB_BATCH](parameterStorageBackend.updateLedgerEnd, dbDispatcher, metrics),
       )(
         InstrumentedSource
           .bufferedSource(
@@ -100,6 +111,7 @@ object ParallelIndexerSubscription {
     *
     * @param lastOffset The latest offset available in the batch. Needed for tail ingestion.
     * @param lastSeqEventId The latest sequential-event-id in the batch, or if none present there, then the latest from before. Needed for tail ingestion.
+    * @param lastStringInterningId The latest string interning id in the batch, or if none present there, then the latest from before. Needed for tail ingestion.
     * @param lastRecordTime The latest record time in the batch, in milliseconds since Epoch. Needed for metrics population.
     * @param batch The batch of variable type.
     * @param batchSize Size of the batch measured in number of updates. Needed for metrics population.
@@ -108,6 +120,7 @@ object ParallelIndexerSubscription {
   case class Batch[+T](
       lastOffset: Offset,
       lastSeqEventId: Long,
+      lastStringInterningId: Int,
       lastRecordTime: Long,
       batch: T,
       batchSize: Int,
@@ -134,6 +147,7 @@ object ParallelIndexerSubscription {
     Batch(
       lastOffset = input.last._1._1,
       lastSeqEventId = 0, // will be filled later in the sequential step
+      lastStringInterningId = 0, // will be filled later in the sequential step
       lastRecordTime = input.last._1._2.recordTime.toInstant.toEpochMilli,
       batch = batch,
       batchSize = input.size,
@@ -142,10 +156,15 @@ object ParallelIndexerSubscription {
     )
   }
 
-  def seqMapperZero(initialSeqId: Long): Batch[Vector[DbDto]] =
+  def seqMapperZero(
+      initialSeqId: Long,
+      initialStringInterningId: Int,
+  ): Batch[Vector[DbDto]] =
     Batch(
       lastOffset = null,
-      lastSeqEventId = initialSeqId, // this is the only property of interest in the zero element
+      lastSeqEventId = initialSeqId, // this is property of interest in the zero element
+      lastStringInterningId =
+        initialStringInterningId, // this is property of interest in the zero element
       lastRecordTime = 0,
       batch = Vector.empty,
       batchSize = 0,
@@ -153,7 +172,10 @@ object ParallelIndexerSubscription {
       offsets = Vector.empty,
     )
 
-  def seqMapper(metrics: Metrics)(
+  def seqMapper(
+      internize: Iterable[DbDto] => Iterable[(Int, String)],
+      metrics: Metrics,
+  )(
       previous: Batch[Vector[DbDto]],
       current: Batch[Vector[DbDto]],
   ): Batch[Vector[DbDto]] = {
@@ -171,8 +193,21 @@ object ParallelIndexerSubscription {
         eventSeqId += 1
         dbDto.copy(event_sequential_id = eventSeqId)
 
-      case notEvent => notEvent
+      case dbDto: DbDto.CreateFilter =>
+        // we do not increase the event_seq_id here, because all the CreateFilter DbDto-s must have the same eventSeqId as the preceding EventCreate
+        dbDto.copy(event_sequential_id = eventSeqId)
+
+      case unChanged => unChanged
     }
+
+    val (newLastStringInterningId, dbDtosWithStringInterning) =
+      internize(batchWithSeqIds)
+        .map(DbDto.StringInterningDto.from) match {
+        case noNewEntries if noNewEntries.isEmpty =>
+          previous.lastStringInterningId -> batchWithSeqIds
+        case newEntries => newEntries.last.internalId -> (batchWithSeqIds ++ newEntries)
+      }
+
     val nowNanos = System.nanoTime()
     metrics.daml.parallelIndexer.inputMapping.duration.update(
       (nowNanos - current.averageStartTime) / current.batchSize,
@@ -180,7 +215,8 @@ object ParallelIndexerSubscription {
     )
     current.copy(
       lastSeqEventId = eventSeqId,
-      batch = batchWithSeqIds,
+      lastStringInterningId = newLastStringInterningId,
+      batch = dbDtosWithStringInterning,
       averageStartTime = nowNanos, // setting start time to the start of the next stage
     )
   }
@@ -227,6 +263,7 @@ object ParallelIndexerSubscription {
       Batch[DB_BATCH](
         lastOffset = curr.lastOffset,
         lastSeqEventId = curr.lastSeqEventId,
+        lastStringInterningId = curr.lastStringInterningId,
         lastRecordTime = curr.lastRecordTime,
         batch = zeroDbBatch, // not used anymore
         batchSize = 0, // not used anymore
@@ -238,6 +275,7 @@ object ParallelIndexerSubscription {
     LedgerEnd(
       lastOffset = batch.lastOffset,
       lastEventSeqId = batch.lastSeqEventId,
+      lastStringInterningId = batch.lastStringInterningId,
     )
 
   def ingestTail[DB_BATCH](

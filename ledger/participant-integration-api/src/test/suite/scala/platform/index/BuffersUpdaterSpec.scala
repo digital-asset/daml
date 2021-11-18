@@ -12,8 +12,8 @@ import ch.qos.logback.classic.Level
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.TransactionVersion
-import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueText, VersionedValue}
+import com.daml.lf.transaction.{TransactionVersion, Versioned}
+import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueText}
 import com.daml.logging.LoggingContext
 import com.daml.platform.index.BuffersUpdaterSpec.{contractStateEventMock, transactionLogUpdateMock}
 import com.daml.platform.store.EventSequentialId
@@ -203,13 +203,13 @@ final class BuffersUpdaterSpec
       val createdLedgerEffectiveTime = Timestamp.assertFromLong(987654321L)
       val createdTemplateId = Ref.Identifier.assertFromString("create:template:id")
       val createdContractKey =
-        VersionedValue(TransactionVersion.VDev, ValueInt64(1337L))
+        Versioned(TransactionVersion.VDev, ValueInt64(1337L))
       val createdFlatEventWitnesses = Set("alice", "charlie")
-      val createArgument = VersionedValue(TransactionVersion.VDev, ValueText("arg"))
+      val createArgument = Versioned(TransactionVersion.VDev, ValueText("arg"))
       val createAgreement = "agreement"
 
       val exercisedCid = ContractId.assertFromString("#exercisedCid")
-      val exercisedKey = VersionedValue(TransactionVersion.VDev, ValueInt64(8974L))
+      val exercisedKey = Versioned(TransactionVersion.VDev, ValueInt64(8974L))
       val exercisedTemplateId = Ref.Identifier.assertFromString("exercised:template:id")
       val exercisedFlatEventWitnesses = Set("bob", "dan")
       val exercisedOffset = Offset.fromByteArray(BigInt(1337L).toByteArray)
@@ -282,7 +282,7 @@ final class BuffersUpdaterSpec
             arg = createArgument,
             agreementText = createAgreement,
           ),
-          globalKey = Some(Key.assertBuild(createdTemplateId, createdContractKey.value)),
+          globalKey = Some(Key.assertBuild(createdTemplateId, createdContractKey.unversioned)),
           ledgerEffectiveTime = createdLedgerEffectiveTime,
           stakeholders = createdFlatEventWitnesses.map(Party.assertFromString),
           eventOffset = createdOffset,
@@ -290,7 +290,7 @@ final class BuffersUpdaterSpec
         ),
         ContractStateEvent.Archived(
           contractId = exercisedCid,
-          globalKey = Some(Key.assertBuild(exercisedTemplateId, exercisedKey.value)),
+          globalKey = Some(Key.assertBuild(exercisedTemplateId, exercisedKey.unversioned)),
           stakeholders = exercisedFlatEventWitnesses.map(Party.assertFromString),
           eventOffset = exercisedOffset,
           eventSequentialId = exercisedEventSequentialId,

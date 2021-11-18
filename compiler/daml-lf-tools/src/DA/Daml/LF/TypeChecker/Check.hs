@@ -584,6 +584,11 @@ checkCreate tpl arg = do
   _ :: Template <- inWorld (lookupTemplate tpl)
   checkExpr arg (TCon tpl)
 
+checkCreateInterface :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
+checkCreateInterface iface arg = do
+  _ :: DefInterface <- inWorld (lookupInterface iface)
+  checkExpr arg (TCon iface)
+
 typeOfExercise :: MonadGamma m =>
   Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
 typeOfExercise tpl chName cid arg = do
@@ -597,8 +602,8 @@ typeOfExerciseInterface :: MonadGamma m =>
 typeOfExerciseInterface tpl chName cid arg = do
   choice <- inWorld (lookupInterfaceChoice (tpl, chName))
   checkExpr cid (TContractId (TCon tpl))
-  checkExpr arg (either ifcArgType chcArgType choice)
-  pure (TUpdate (either ifcRetType chcReturnType choice))
+  checkExpr arg (chcArgType choice)
+  pure (TUpdate (chcReturnType choice))
 
 typeOfExerciseByKey :: MonadGamma m =>
   Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
@@ -645,6 +650,7 @@ typeOfUpdate = \case
   UPure typ expr -> checkPure typ expr $> TUpdate typ
   UBind binding body -> typeOfBind binding body
   UCreate tpl arg -> checkCreate tpl arg $> TUpdate (TContractId (TCon tpl))
+  UCreateInterface iface arg -> checkCreateInterface iface arg $> TUpdate (TContractId (TCon iface))
   UExercise tpl choice cid arg -> typeOfExercise tpl choice cid arg
   UExerciseInterface tpl choice cid arg -> typeOfExerciseInterface tpl choice cid arg
   UExerciseByKey tpl choice key arg -> typeOfExerciseByKey tpl choice key arg
@@ -810,20 +816,15 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
 
 -- | Check that an interface definition is well defined.
 checkIface :: MonadGamma m => Module -> DefInterface -> m ()
-checkIface m DefInterface{intName, intParam, intVirtualChoices, intFixedChoices, intMethods} = do
-  checkUnique (EDuplicateInterfaceChoiceName intName) $ NM.names intVirtualChoices `union` NM.names intFixedChoices
+checkIface m DefInterface{intName, intParam, intFixedChoices, intMethods, intPrecondition} = do
+  checkUnique (EDuplicateInterfaceChoiceName intName) $ NM.names intFixedChoices
   checkUnique (EDuplicateInterfaceMethodName intName) $ NM.names intMethods
-  forM_ intVirtualChoices checkIfaceChoice
   forM_ intMethods checkIfaceMethod
 
   let tcon = Qualified PRSelf (moduleName m) intName
   introExprVar intParam (TCon tcon) $ do
     forM_ intFixedChoices (checkTemplateChoice tcon)
-
-checkIfaceChoice :: MonadGamma m => InterfaceChoice -> m ()
-checkIfaceChoice InterfaceChoice{ifcArgType,ifcRetType} = do
-  checkType ifcArgType KStar
-  checkType ifcRetType KStar
+    checkExpr intPrecondition TBool
 
 checkIfaceMethod :: MonadGamma m => InterfaceMethod -> m ()
 checkIfaceMethod InterfaceMethod{ifmType} = do
@@ -884,38 +885,18 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
   whenJust mbKey $ checkTemplateKey param tcon
   forM_ implements $ checkIfaceImplementation tcon
 
-  -- Check template choice and interface fixed choice name collisions.
-  foldM_ checkFixedChoiceCollision (S.fromList (NM.names choices)) implements
-    -- ^ We don't use NM.namesSet here because Data.HashSet is assymptotically
-    -- slower than Data.Set when it comes to unions and checking for disjointness.
-
   where
     withPart p = withContext (ContextTemplate m t p)
-
-    checkFixedChoiceCollision :: S.Set ChoiceName -> TemplateImplements -> m (S.Set ChoiceName)
-    checkFixedChoiceCollision !accum ifaceImpl = do
-      iface <- inWorld $ lookupInterface (tpiInterface ifaceImpl)
-      let newNames = S.fromList (NM.names (intFixedChoices iface))
-      unless (S.disjoint accum newNames) $ do
-        let choiceName = head (S.toList (S.intersection accum newNames))
-        throwWithContext (EDuplicateTemplateChoiceViaInterfaces tpl choiceName)
-      pure (S.union accum newNames)
 
 checkIfaceImplementation :: MonadGamma m => Qualified TypeConName -> TemplateImplements -> m ()
 checkIfaceImplementation tplTcon TemplateImplements{..} = do
   let tplName = qualObject tplTcon
-  DefInterface {intVirtualChoices, intMethods} <- inWorld $ lookupInterface tpiInterface
+  DefInterface {intFixedChoices, intMethods} <- inWorld $ lookupInterface tpiInterface
 
-  -- check virtual choices
-  forM_ intVirtualChoices $ \InterfaceChoice {ifcName, ifcConsuming, ifcArgType, ifcRetType} -> do
-    TemplateChoice {chcConsuming, chcArgBinder, chcReturnType} <-
-      inWorld $ lookupChoice (tplTcon, ifcName)
-    unless (chcConsuming == ifcConsuming) $
-      throwWithContext $ EBadInterfaceChoiceImplConsuming ifcName ifcConsuming chcConsuming
-    unless (alphaType (snd chcArgBinder) ifcArgType) $
-      throwWithContext $ EBadInterfaceChoiceImplArgType ifcName ifcArgType (snd chcArgBinder)
-    unless (alphaType chcReturnType ifcRetType) $
-      throwWithContext $ EBadInterfaceChoiceImplRetType ifcName ifcRetType chcReturnType
+  -- check fixed choices
+  let inheritedChoices = S.fromList (NM.names intFixedChoices)
+  unless (inheritedChoices == tpiInheritedChoiceNames) $
+    throwWithContext $ EBadInheritedChoices tpiInterface (S.toList inheritedChoices) (S.toList tpiInheritedChoiceNames)
 
   -- check methods
   let missingMethods = HS.difference (NM.namesSet intMethods) (NM.namesSet tpiMethods)

@@ -31,20 +31,27 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(4), 3L)))
+      _ <- executeSql(
+        updateLedgerEnd(offset(4), 3L)
+      )
       completions0to3 <- executeSql(
-        backend.commandCompletions(Offset.beforeBegin, offset(3), applicationId, Set(party))
+        backend.completion.commandCompletions(
+          Offset.beforeBegin,
+          offset(3),
+          applicationId,
+          Set(party),
+        )
       )
       completions1to3 <- executeSql(
-        backend.commandCompletions(offset(1), offset(3), applicationId, Set(party))
+        backend.completion.commandCompletions(offset(1), offset(3), applicationId, Set(party))
       )
       completions2to3 <- executeSql(
-        backend.commandCompletions(offset(2), offset(3), applicationId, Set(party))
+        backend.completion.commandCompletions(offset(2), offset(3), applicationId, Set(party))
       )
       completions1to9 <- executeSql(
-        backend.commandCompletions(offset(1), offset(9), applicationId, Set(party))
+        backend.completion.commandCompletions(offset(1), offset(9), applicationId, Set(party))
       )
     } yield {
       completions0to3 should have length 2
@@ -64,11 +71,13 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 1L)))
+      _ <- executeSql(
+        updateLedgerEnd(offset(2), 1L)
+      )
       completions <- executeSql(
-        backend.commandCompletions(offset(1), offset(2), applicationId, Set(party))
+        backend.completion.commandCompletions(offset(1), offset(2), applicationId, Set(party))
       )
     } yield {
       completions should have length 1
@@ -88,11 +97,18 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 2L)))
+      _ <- executeSql(
+        updateLedgerEnd(offset(3), 2L)
+      )
       completions <- executeSql(
-        backend.commandCompletions(offset(1), offset(3), someApplicationId, Set(party))
+        backend.completion.commandCompletions(
+          offset(1),
+          offset(3),
+          someApplicationId,
+          Set(party),
+        )
       )
     } yield {
       completions should have length 2
@@ -119,11 +135,18 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 2L)))
+      _ <- executeSql(
+        updateLedgerEnd(offset(3), 2L)
+      )
       completions <- executeSql(
-        backend.commandCompletions(offset(1), offset(3), someApplicationId, Set(party))
+        backend.completion.commandCompletions(
+          offset(1),
+          offset(3),
+          someApplicationId,
+          Set(party),
+        )
       )
     } yield {
       completions should have length 2
@@ -161,11 +184,18 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos, _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 2L)))
+      _ <- executeSql(
+        updateLedgerEnd(offset(3), 2L)
+      )
       completions <- executeSql(
-        backend.commandCompletions(offset(1), offset(3), someApplicationId, Set(party))
+        backend.completion.commandCompletions(
+          offset(1),
+          offset(3),
+          someApplicationId,
+          Set(party),
+        )
       )
     } yield {
       completions should have length 2
@@ -200,11 +230,18 @@ private[backend] trait StorageBackendTestsCompletions
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       _ <- executeSql(ingest(dtos1, _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 1L)))
+      _ <- executeSql(
+        updateLedgerEnd(offset(2), 1L)
+      )
       result <- executeSql(
-        backend.commandCompletions(offset(1), offset(2), someApplicationId, Set(party))
+        backend.completion.commandCompletions(
+          offset(1),
+          offset(2),
+          someApplicationId,
+          Set(party),
+        )
       ).failed
     } yield {
       result shouldBe an[IllegalArgumentException]
@@ -222,9 +259,16 @@ private[backend] trait StorageBackendTestsCompletions
 
     for {
       _ <- executeSql(ingest(dtos2, _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(3), 2L)))
+      _ <- executeSql(
+        updateLedgerEnd(offset(3), 2L)
+      )
       result <- executeSql(
-        backend.commandCompletions(offset(2), offset(3), someApplicationId, Set(party))
+        backend.completion.commandCompletions(
+          offset(2),
+          offset(3),
+          someApplicationId,
+          Set(party),
+        )
       ).failed
     } yield {
       result shouldBe an[IllegalArgumentException]

@@ -19,6 +19,7 @@ private[scenario] trait SimulationConfig {
     .authorizationHeader(s"Bearer $jwt")
     .contentTypeHeader("application/json")
 
+  protected[this] val defaultNumUsers = 10
   private lazy val hostAndPort: String = System.getProperty(HostAndPortKey, "localhost:7575")
 
   protected[this] lazy val jwt: String = System.getProperty(JwtKey, aliceJwt)

@@ -64,7 +64,7 @@ object KVTest {
 
   private[kvutils] val metrics = new Metrics(new MetricRegistry)
   private[kvutils] val errorVersionSwitch =
-    new ValueSwitch[com.google.rpc.status.Status](enableSelfServiceErrorCodes = false)
+    new ValueSwitch(enableSelfServiceErrorCodes = false)
 
   private def initialTestState: KVTestState = {
     val engine = Engine.DevEngine()

@@ -453,6 +453,7 @@ excluded_test_tool_tests = [
                     "SemanticTests:SemanticDoubleSpendSameTx",
                     "SemanticTests:SemanticPartialSignatories",
                     "SemanticTests:SemanticAcceptOnBehalf",
+                    "DeeplyNestedValueIT",
                 ],
             },
         ],
@@ -477,7 +478,6 @@ excluded_test_tool_tests = [
                 "exclusions": [
                     "KVCommandDeduplicationIT:KVCommandDeduplicationDeduplicateSubmitterBasic",
                     "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationBasic",
-                    "KVCommandDeduplicationIT:KVCommandDeduplicationCommitterDeduplication",
                 ],
             },
         ],
@@ -497,7 +497,7 @@ excluded_test_tool_tests = [
     },
     {
         "start": "1.17.0-snapshot.20210915.7841.0.b4328b3d",  # The first version this test appeared
-        "end": "1.18.0-snapshot.20210928.7948.0.b4d00317",
+        "end": "1.18.0-snapshot.20211026.8179.0.e474b2d1",  # The version when this test was removed
         "platform_ranges": [
             {
                 "start": "1.18.0-snapshot.20210928.7948.1",
@@ -527,6 +527,33 @@ excluded_test_tool_tests = [
                 "start": "1.18.0-snapshot.20210928.7948.1",
                 "exclusions": [
                     "CommandDeduplicationIT:CDDeduplicateSubmitterBasic",  # Fixed in later ledger API test tools
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.18.0-snapshot.20211026.8179.0.e474b2d1",
+        "platform_ranges": [
+            {
+                "end": "1.18.0-snapshot.20211026.8179.0.e474b2d1",
+                "exclusions": [
+                    # Exclude dedup tests due to large number of changes (removed participant deduplication, switch to append-only schema, changes in deduplication duration)
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationMixedClients",
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationDeduplicateSubmitterBasic",
+                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationBasic",
+                    "CommandDeduplicationIT",  # Latest version of the test is dependent on having the submission id populated
+                ],
+            },
+        ],
+    },
+    {
+        # Self-service error code assertions adapted
+        "end": "1.18.0-snapshot.20211102.8257.1",
+        "platform_ranges": [
+            {
+                "start": "1.18.0-snapshot.20211102.8257.1",
+                "exclusions": [
+                    "PackageManagementServiceIT",
                 ],
             },
         ],

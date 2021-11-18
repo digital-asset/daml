@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
@@ -18,7 +19,7 @@ import com.google.protobuf.duration.Duration
 import io.grpc.Status
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 final class ConfigManagementServiceIT extends LedgerTestSuite {
   test(
@@ -90,7 +91,13 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         "Restoring the original time model failed",
       )
 
-      assertGrpcError(expiredMRTFailure, Status.Code.ABORTED, exceptionMessageSubstring = None)
+      assertGrpcError(
+        ledger,
+        expiredMRTFailure,
+        Status.Code.ABORTED,
+        LedgerApiErrors.RequestTimeOut,
+        exceptionMessageSubstring = None,
+      )
     }
   })
 
@@ -130,7 +137,13 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         )
         .mustFail("setting Time Model with an outdated generation")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, exceptionMessageSubstring = None)
+      assertGrpcError(
+        ledger,
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.RequestValidation.InvalidArgument,
+        exceptionMessageSubstring = None,
+      )
     }
   })
 
@@ -172,20 +185,33 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         response1.configurationGeneration + 1 == response2.configurationGeneration,
         s"New configuration's generation (${response2.configurationGeneration} should be original configurations's generation (${response1.configurationGeneration} + 1) )",
       )
-      failure match {
-        case GrpcException(GrpcStatus(Status.Code.ABORTED, _), _) =>
-          () // if the "looser" command fails after command submission (the winner completed after looser did submit the configuration change)
-
-        case GrpcException(GrpcStatus(Status.Code.INVALID_ARGUMENT, _), _) =>
-          () // if the "looser" command fails already on command submission (the winner completed before looser submission is over)
-
-        case GrpcException(GrpcStatus(notExpectedCode, _), _) =>
+      Try {
+        // if the "looser" command fails already on command submission (the winner completed before looser submission is over)
+        assertGrpcError(
+          ledger,
+          failure,
+          Status.Code.INVALID_ARGUMENT,
+          LedgerApiErrors.RequestValidation.InvalidArgument,
+          Some("Mismatching configuration generation"),
+        )
+      }.recover { case _ =>
+        // if the "looser" command fails after command submission (the winner completed after looser did submit the configuration change)
+        assertGrpcError(
+          ledger,
+          failure,
+          Status.Code.ABORTED,
+          LedgerApiErrors.AdminServices.ConfigurationEntryRejected,
+          Some("Generation mismatch"),
+        )
+      } match {
+        case Failure(GrpcException(GrpcStatus(notExpectedCode, _), _)) =>
           fail(s"One of the submissions failed with an unexpected status code: $notExpectedCode")
 
-        case notExpectedException =>
+        case Failure(notExpectedException) =>
           fail(
             s"Unexpected exception: type:${notExpectedException.getClass.getName}, message:${notExpectedException.getMessage}"
           )
+        case Success(_) => ()
       }
     }
   })

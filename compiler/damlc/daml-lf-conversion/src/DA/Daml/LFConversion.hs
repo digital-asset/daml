@@ -173,6 +173,7 @@ data Env = Env
     -- packages does not cause performance issues.
     ,envLfVersion :: LF.Version
     ,envTemplateBinds :: MS.Map TypeConName TemplateBinds
+    ,envInterfaceBinds :: MS.Map TypeConName InterfaceBinds
     ,envExceptionBinds :: MS.Map TypeConName ExceptionBinds
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envImplements :: MS.Map TypeConName [GHC.TyCon]
@@ -394,6 +395,18 @@ scrapeTemplateBinds binds = MS.filter (isJust . tbTyCon) $ MS.map ($ emptyTempla
     , hasDamlTemplateCtx tpl
     ]
 
+data InterfaceBinds = InterfaceBinds
+    { ibEnsure :: Maybe (GHC.Expr Var)
+    }
+
+scrapeInterfaceBinds :: [(Var, GHC.Expr Var)] -> MS.Map TypeConName InterfaceBinds
+scrapeInterfaceBinds binds = MS.fromList
+    [ ( mkTypeCon [getOccText (GHC.tyConName iface)]
+      , InterfaceBinds { ibEnsure = Just expr} )
+    | (HasEnsureDFunId iface, expr) <- binds
+    , hasDamlInterfaceCtx iface
+    ]
+
 data ExceptionBinds = ExceptionBinds
     { ebTyCon :: GHC.TyCon
     , ebMessage :: GHC.Expr Var
@@ -439,25 +452,13 @@ convertInterfaces env tyThings = interfaceClasses
     convertInterface intName tyCon cls = do
         let intLocation = convNameLoc (GHC.tyConName tyCon)
         let intParam = this
+        let precond = fromMaybe (error $ "Missing precondition for interface " <> show intName)
+                        $ (MS.lookup intName $ envInterfaceBinds env) >>= ibEnsure
         withRange intLocation $ do
             intMethods <- NM.fromList <$> mapM convertMethod (drop 4 $ classMethods cls)
-            intVirtualChoices <- NM.fromList <$> mapM convertVirtualChoice
-                (MS.findWithDefault [] intName (envInterfaceChoiceData env))
             intFixedChoices <- convertChoices env intName emptyTemplateBinds
+            intPrecondition <- useSingleMethodDict env precond (`ETmApp` EVar intParam)
             pure DefInterface {..}
-
-    convertVirtualChoice :: ChoiceData -> ConvertM InterfaceChoice
-    convertVirtualChoice (ChoiceData ty _expr) = do
-        TConApp _ [_ :-> _ :-> arg@(TConApp choiceTyCon _) :-> TUpdate res, consumingTy] <- convertType env ty
-        let choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choiceTyCon)
-        consuming <- convertConsuming consumingTy
-        pure InterfaceChoice
-          { ifcLocation = Nothing
-          , ifcName = choiceName
-          , ifcConsuming = consuming == Consuming
-          , ifcArgType = arg
-          , ifcRetType = res
-          }
 
     convertMethod :: Var -> ConvertM InterfaceMethod
     convertMethod method = do
@@ -551,6 +552,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
             , ty@(TypeCon _ [_, TypeCon _ [TypeCon tplTy _]]) <- [varType name]
             ]
         templateBinds = scrapeTemplateBinds binds
+        interfaceBinds = scrapeInterfaceBinds binds
         exceptionBinds
             | lfVersion `supports` featureExceptions =
                 scrapeExceptionBinds binds
@@ -568,6 +570,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x depOrphanModule
           , envInterfaces = interfaceCons
           , envInterfaceChoiceData = ifChoiceData
           , envTemplateBinds = templateBinds
+          , envInterfaceBinds = interfaceBinds
           , envExceptionBinds = exceptionBinds
           , envImplements = tplImplements
           , envInterfaceInstances = tplInterfaceInstances
@@ -971,7 +974,9 @@ convertImplements env tplTypeCon = NM.fromList <$>
                 | (FieldName fieldName, e) <- methodFields
                 , Just methodName <- [T.stripPrefix "m_" fieldName]
                 ]
-        pure (TemplateImplements con methods)
+        let inheritedChoiceNames = S.empty -- This is filled during LF post-processing (in the LF completer).
+        let precond = ETrue -- This is filled during LF post-processing (in the LF completer).
+        pure (TemplateImplements con methods inheritedChoiceNames precond)
 
 convertChoices :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
 convertChoices env tplTypeCon tbinds =

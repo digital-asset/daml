@@ -24,8 +24,8 @@ import           Data.List
 import           DA.Daml.LF.Mangling
 import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
 import qualified Data.NameMap as NM
-import qualified Data.HashSet as HS
 import qualified Data.Text as T
+import qualified Data.Set as S
 import qualified Data.Text.Lazy as TL
 import qualified Data.Vector.Extended as V
 import qualified Proto3.Suite as Proto
@@ -234,23 +234,10 @@ decodeDefInterface LF1.DefInterface {..} = do
   intLocation <- traverse decodeLocation defInterfaceLocation
   intName <- decodeDottedNameId TypeConName defInterfaceTyconInternedDname
   intParam <- decodeNameId ExprVarName defInterfaceParamInternedStr
-  intVirtualChoices <- decodeNM DuplicateChoice decodeInterfaceChoice defInterfaceChoices
   intFixedChoices <- decodeNM DuplicateChoice decodeChoice defInterfaceFixedChoices
   intMethods <- decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods
-  unless (HS.null (NM.namesSet intFixedChoices `HS.intersection` NM.namesSet intVirtualChoices)) $
-    throwError $ ParseError $ unwords
-      [ "Interface", T.unpack (T.intercalate "." (unTypeConName intName))
-      , "has collision between fixed choice and virtual choice." ]
+  intPrecondition <- mayDecode "defInterfacePrecond" defInterfacePrecond decodeExpr
   pure DefInterface {..}
-
-decodeInterfaceChoice :: LF1.InterfaceChoice -> Decode InterfaceChoice
-decodeInterfaceChoice LF1.InterfaceChoice {..} =
-  InterfaceChoice
-    <$> traverse decodeLocation interfaceChoiceLocation
-    <*> decodeNameId ChoiceName interfaceChoiceNameInternedString
-    <*> pure interfaceChoiceConsuming
-    <*> mayDecode "interfaceChoiceArgType" interfaceChoiceArgType decodeType
-    <*> mayDecode "interfaceChoiceRetType" interfaceChoiceRetType decodeType
 
 decodeInterfaceMethod :: LF1.InterfaceMethod -> Decode InterfaceMethod
 decodeInterfaceMethod LF1.InterfaceMethod {..} = InterfaceMethod
@@ -341,6 +328,8 @@ decodeDefTemplateImplements :: LF1.DefTemplate_Implements -> Decode TemplateImpl
 decodeDefTemplateImplements LF1.DefTemplate_Implements{..} = TemplateImplements
   <$> mayDecode "defTemplate_ImplementsInterface" defTemplate_ImplementsInterface decodeTypeConName
   <*> decodeNM DuplicateMethod decodeDefTemplateImplementsMethod defTemplate_ImplementsMethods
+  <*> decodeSet DuplicateChoice (decodeNameId ChoiceName) defTemplate_ImplementsInheritedChoiceInternedNames
+  <*> mayDecode "defTemplate_ImplementsPrecondition" defTemplate_ImplementsPrecond decodeExpr
 
 decodeDefTemplateImplementsMethod :: LF1.DefTemplate_ImplementsMethod -> Decode TemplateImplementsMethod
 decodeDefTemplateImplementsMethod LF1.DefTemplate_ImplementsMethod{..} = TemplateImplementsMethod
@@ -692,6 +681,10 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
     fmap EUpdate $ UCreate
       <$> mayDecode "update_CreateTemplate" mbTycon decodeTypeConName
       <*> mayDecode "update_CreateExpr" mbExpr decodeExpr
+  LF1.UpdateSumCreateInterface (LF1.Update_CreateInterface mbTycon mbExpr) ->
+    fmap EUpdate $ UCreateInterface
+      <$> mayDecode "update_CreateInterfaceInterface" mbTycon decodeTypeConName
+      <*> mayDecode "update_CreateInterfaceExpr" mbExpr decodeExpr
   LF1.UpdateSumExercise LF1.Update_Exercise{..} ->
     fmap EUpdate $ UExercise
       <$> mayDecode "update_ExerciseTemplate" update_ExerciseTemplate decodeTypeConName
@@ -969,3 +962,13 @@ decodeNM
 decodeNM mkDuplicateError decode1 xs = do
   ys <- traverse decode1 (V.toList xs)
   either (throwError . mkDuplicateError) pure $ NM.fromListEither ys
+
+decodeSet :: Ord b => (b -> Error) -> (a -> Decode b) -> V.Vector a -> Decode (S.Set b)
+decodeSet mkDuplicateError decode1 xs = do
+    ys <- traverse decode1 (V.toList xs)
+    foldM insertAndCheck S.empty ys
+  where
+      insertAndCheck !accum item =
+        if S.member item accum
+          then throwError (mkDuplicateError item)
+          else pure (S.insert item accum)

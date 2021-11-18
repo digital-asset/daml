@@ -17,8 +17,8 @@ load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "2ba61893ea07df26dcacf165a79dd6d0381a3dc8"
-GHCIDE_SHA256 = "f3a2fb693d1e6d3beda542639de027a94ae3417fe483765510eceb2ad9ea2b29"
+GHCIDE_REV = "e04b5386b3741b839eb5c3d2a2586fd2aa97229c"
+GHCIDE_SHA256 = "1d27926e0ad3c2a9536f23b454875a385ecc766ae68ce48a0ec88d0867884b46"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
@@ -178,7 +178,7 @@ genrule(
   CBITS=$$(echo $(locations :cbits) | cut -f 3 -d ' ')
   OLD_RPATH=$$($(location @patchelf_nix//:bin/patchelf) --print-rpath $$CBITS)
   GRPC_RPATH=$$(dirname $$(readlink -f $$(echo $(locations @grpc_nix//:grpc_file) | cut -f 1 -d ' ')))
-  $(location @patchelf_nix//:bin/patchelf) $$CBITS --add-needed libgrpc.so.18 --output $(location libneeded-cbits.so)
+  $(location @patchelf_nix//:bin/patchelf) $$CBITS --add-needed libgrpc.so.19 --output $(location libneeded-cbits.so)
   $(location @patchelf_nix//:bin/patchelf) $(location libneeded-cbits.so) --set-rpath "$$OLD_RPATH:$$GRPC_RPATH"
   '''
 )

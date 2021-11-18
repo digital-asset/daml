@@ -28,6 +28,7 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.testing.utils.TransactionEq
 import com.daml.lf.archive.{Dar, DarDecoder}
+import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.daml.SdkVersion
@@ -51,6 +52,7 @@ trait ReproducesTransactions
     with BeforeAndAfterEach
     with SuiteResourceManagementAroundAll
     with SandboxNextFixture
+    with SandboxBackend.Postgresql
     with StrictLogging
     with TestCommands {
 

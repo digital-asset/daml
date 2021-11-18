@@ -61,7 +61,7 @@ final class ContractIdIT extends LedgerTestSuite {
               alpha,
               err,
               Status.Code.INVALID_ARGUMENT,
-              LedgerApiErrors.PreprocessingErrors.PreprocessingFailed,
+              LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed,
               Some(s"""Illegal Contract ID "$testedCid""""),
               checkDefiniteAnswerMetadata = true,
             )
@@ -91,7 +91,7 @@ final class ContractIdIT extends LedgerTestSuite {
         // Assert V1 error code
         case Failure(GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _))
             if !alpha.features.selfServiceErrorCodes && msg.contains(
-              s"Contract could not be found with id ContractId($testedCid)"
+              s"Contract could not be found with id $testedCid"
             ) =>
           Success(())
 
@@ -101,8 +101,7 @@ final class ContractIdIT extends LedgerTestSuite {
               Try(
                 assertSelfServiceErrorCode(
                   statusRuntimeException = exception,
-                  expectedErrorCode =
-                    LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound,
+                  expectedErrorCode = LedgerApiErrors.ConsistencyErrors.ContractNotFound,
                 )
               ).isSuccess =>
           Success(())

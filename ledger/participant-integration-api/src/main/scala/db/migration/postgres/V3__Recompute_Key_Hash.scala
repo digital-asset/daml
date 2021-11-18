@@ -57,12 +57,10 @@ private[migration] class V3__Recompute_Key_Hash extends BaseJavaMigration {
           packageId = Ref.PackageId.assertFromString(rows.getString("package_id")),
           qualifiedName = Ref.QualifiedName.assertFromString(rows.getString("template_name")),
         )
-        val key = ValueSerializer
-          .deserializeValue(rows.getBinaryStream("contract_key"))
-          .assertNoCid(coid => s"Found contract ID $coid in contract key")
+        val key = ValueSerializer.deserializeValue(rows.getBinaryStream("contract_key"))
 
         hasNext = rows.next()
-        contractId -> GlobalKey(templateId, key.value)
+        contractId -> GlobalKey(templateId, key.unversioned)
       }
     }
 

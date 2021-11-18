@@ -11,7 +11,6 @@ import com.daml.lf.value.Value.ValueRecord
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
 
-// TEST_EVIDENCE: Privacy: Unit test _blinding_ computation: `Blinding.blind`.
 class BlindingSpec extends AnyFreeSpec with Matchers {
 
   import TransactionBuilder.Implicits._
@@ -30,6 +29,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
   }
 
   "blind" - {
+    // TEST_EVIDENCE: Privacy: ensure correct privacy for create node
     "create" in {
       val builder = TransactionBuilder()
       val (_, createNode) = create(builder)
@@ -40,6 +40,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
         divulgence = Map.empty,
       )
     }
+    // TEST_EVIDENCE: Privacy: ensure correct privacy for exercise node (consuming)
     "consuming exercise" in {
       val builder = TransactionBuilder()
       val (cid, createNode) = create(builder)
@@ -58,6 +59,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
         divulgence = Map(cid -> Set("ChoiceObserver")),
       )
     }
+    // TEST_EVIDENCE: Privacy: ensure correct privacy for exercise node (non-consuming)
     "non-consuming exercise" in {
       val builder = TransactionBuilder()
       val (cid, createNode) = create(builder)
@@ -77,6 +79,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       )
     }
   }
+  // TEST_EVIDENCE: Privacy: ensure correct privacy for fetch node
   "fetch" in {
     val builder = TransactionBuilder()
     val (_, createNode) = create(builder)
@@ -88,6 +91,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       divulgence = Map.empty,
     )
   }
+  // TEST_EVIDENCE: Privacy: ensure correct privacy for lookup-by-key node (found)
   "lookupByKey found" in {
     val builder = TransactionBuilder()
     val cid = builder.newCid
@@ -99,6 +103,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       observers = Seq("Carl"),
       key = Some(ValueRecord(None, ImmArray.empty)),
       maintainers = Seq("Alice"),
+      byInterface = None,
     )
     val lookup = builder.lookupByKey(create, true)
     val nodeId = builder.add(lookup)
@@ -108,6 +113,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       divulgence = Map.empty,
     )
   }
+  // TEST_EVIDENCE: Privacy: ensure correct privacy for lookup-by-key node (not-found)
   "lookupByKey not found" in {
     val builder = TransactionBuilder()
     val cid = builder.newCid
@@ -119,6 +125,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       observers = Seq("Carl"),
       key = Some(ValueRecord(None, ImmArray.empty)),
       maintainers = Seq("Alice"),
+      byInterface = None,
     )
     val lookup = builder.lookupByKey(create, false)
     val nodeId = builder.add(lookup)
@@ -129,6 +136,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
     )
   }
 
+  // TEST_EVIDENCE: Privacy: ensure correct privacy for exercise subtree
   "exercise with children" in {
     val builder = TransactionBuilder()
     val cid1 = builder.newCid
@@ -190,6 +198,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       ),
     )
   }
+  // TEST_EVIDENCE: Privacy: ensure correct privacy for rollback subtree
   "rollback" in {
     val builder = TransactionBuilder()
     val cid1 = builder.newCid

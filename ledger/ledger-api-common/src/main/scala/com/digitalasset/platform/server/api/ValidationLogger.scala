@@ -3,6 +3,7 @@
 
 package com.daml.platform.server.api
 
+import com.daml.error.ErrorCode.LoggingApiException
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 object ValidationLogger {
@@ -11,16 +12,10 @@ object ValidationLogger {
       loggingContext: LoggingContext,
   ): Throwable = {
     logger.debug(s"Request validation failed for $request. Message: ${t.getMessage}")
-    logger.info(t.getMessage)
-    t
-  }
-
-  def logFailureWithContext[Request, T <: Throwable](request: Request, t: T)(implicit
-      logger: ContextualizedLogger,
-      loggingContext: LoggingContext,
-  ): T = {
-    logger.debug(s"Request validation failed for $request. Message: ${t.getMessage}")
-    logger.info(t.getMessage)
+    t match {
+      case _: LoggingApiException => ()
+      case _ => logger.info(t.getMessage)
+    }
     t
   }
 }

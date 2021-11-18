@@ -7,6 +7,7 @@ package speedy
 import java.util
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SExpr.SExpr
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

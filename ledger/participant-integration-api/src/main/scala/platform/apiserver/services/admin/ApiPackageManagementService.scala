@@ -9,6 +9,8 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.error.definitions.PackageServiceError
+import com.daml.error.definitions.PackageServiceError.Validation
 import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
@@ -31,7 +33,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPackageManagementService._
 import com.daml.platform.apiserver.services.logging
-import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
@@ -60,11 +61,8 @@ private[apiserver] final class ApiPackageManagementService private (
     with GrpcApiService {
 
   private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-    new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
   private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
-
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(
       transactionsService,
@@ -73,6 +71,7 @@ private[apiserver] final class ApiPackageManagementService private (
       errorFactories,
     ),
     timeToLive = managementServiceTimeout,
+    errorFactories = errorFactories,
   )
 
   override def close(): Unit = ()
@@ -99,40 +98,42 @@ private[apiserver] final class ApiPackageManagementService private (
       .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])
   }
 
-  private def decodeAndValidate(stream: ZipInputStream): Try[Dar[Archive]] =
+  private def decodeAndValidate(
+      stream: ZipInputStream
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Try[Dar[Archive]] =
     for {
-      dar <- darReader.readArchive("package-upload", stream).toTry
-      packages <- dar.all.traverse(Decode.decodeArchive(_)).toTry
+      dar <- darReader
+        .readArchive("package-upload", stream)
+        .handleError(Validation.handleLfArchiveError)
+      packages <- dar.all
+        .traverse(Decode.decodeArchive(_))
+        .handleError(Validation.handleLfArchiveError)
       _ <- engine
         .validatePackages(packages.toMap)
-        .left
-        .map(e => new IllegalArgumentException(e.message))
-        .toTry
+        .handleError(Validation.handleLfEnginePackageError)
     } yield dar
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] =
     withEnrichedLoggingContext(logging.submissionId(request.submissionId)) {
       implicit loggingContext =>
         logger.info("Uploading DAR file")
+        val submissionId = submissionIdGenerator(request.submissionId)
+        val darInputStream = new ZipInputStream(request.darFile.newInput())
 
         implicit val telemetryContext: TelemetryContext =
           DefaultTelemetry.contextFromGrpcThreadLocalContext()
 
-        val submissionId = submissionIdGenerator(request.submissionId)
-        val darInputStream = new ZipInputStream(request.darFile.newInput())
+        implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+          new DamlContextualizedErrorLogger(
+            logger,
+            loggingContext,
+            Some(submissionId),
+          )
 
         val response = for {
-          dar <- decodeAndValidate(darInputStream).fold(
-            err =>
-              Future.failed(
-                ValidationLogger
-                  .logFailureWithContext(
-                    request,
-                    errorFactories.invalidArgument(None)(err.getMessage),
-                  )
-              ),
-            Future.successful,
-          )
+          dar <- Future.fromTry(decodeAndValidate(darInputStream))
           _ <- synchronousResponse.submitAndWait(submissionId, dar)
         } yield {
           for (archive <- dar.all) {
@@ -140,10 +141,15 @@ private[apiserver] final class ApiPackageManagementService private (
           }
           UploadDarFileResponse()
         }
-
         response.andThen(logger.logErrorsOnCall[UploadDarFileResponse])
     }
 
+  private implicit class ErrorValidations[E, R](result: Either[E, R]) {
+    def handleError(toSelfServiceErrorCode: E => PackageServiceError): Try[R] =
+      result.left.map { err =>
+        toSelfServiceErrorCode(err).asGrpcError
+      }.toTry
+  }
 }
 
 private[apiserver] object ApiPackageManagementService {
@@ -185,8 +191,6 @@ private[apiserver] object ApiPackageManagementService {
         PackageEntry.PackageUploadAccepted,
       ] {
     private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
-    private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
     override def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]] =
       ledgerEndService.currentLedgerEnd().map(Some(_))
@@ -209,8 +213,9 @@ private[apiserver] object ApiPackageManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[PackageEntry, StatusRuntimeException] = {
       case PackageEntry.PackageUploadRejected(`submissionId`, _, reason) =>
-        errorFactories.packageUploadRejected(reason, definiteAnswer = None)
+        errorFactories.packageUploadRejected(reason, definiteAnswer = None)(
+          new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
+        )
     }
   }
-
 }

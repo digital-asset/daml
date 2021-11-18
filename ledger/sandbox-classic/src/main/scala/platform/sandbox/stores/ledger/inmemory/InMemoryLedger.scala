@@ -5,11 +5,11 @@ package com.daml.platform.sandbox.stores.ledger.inmemory
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.domain.{
   ApplicationId,
   CommandId,
@@ -53,6 +53,7 @@ import com.daml.lf.transaction.{
 }
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.index.TransactionConversion
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.participant.util.LfEngineToApi
@@ -60,6 +61,7 @@ import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, Rejection}
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.CompletionFromTransaction
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.store.Conversions.RejectionReasonOps
@@ -86,6 +88,7 @@ private[sandbox] final class InMemoryLedger(
     packageStoreInit: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryOrBump],
     engine: Engine,
+    errorFactories: ErrorFactories,
 ) extends Ledger {
 
   private val enricher = new ValueEnricher(engine)
@@ -232,7 +235,11 @@ private[sandbox] final class InMemoryLedger(
               LedgerEntry.Rejection(recordTime, commandId, `appId`, submissionId, actAs, reason)
             ),
           ) if actAs.exists(parties) =>
-        val status = reason.toParticipantStateRejectionReason.status
+        val status = reason
+          .toParticipantStateRejectionReason(errorFactories)(
+            new DamlContextualizedErrorLogger(logger, loggingContext, submissionId)
+          )
+          .status
         offset -> CompletionFromTransaction.rejectedCompletion(
           recordTime,
           offset,
@@ -269,25 +276,27 @@ private[sandbox] final class InMemoryLedger(
         .map { contract =>
           val contractInst =
             if (verbose) {
-              consumeEnricherResult(enricher.enrichVersionedContract(contract.contract))
+              consumeEnricherResult(enricher.enrichContract(contract.contract.unversioned))
             } else {
-              contract.contract
+              contract.contract.unversioned
             }
-          val contractKey =
+          val contractKey = contract.key.map { key =>
+            val unversionedKey = key.unversioned
             if (verbose) {
               consumeEnricherResult(
-                enricher.enrichVersionedContractKey(contract.contract.template, contract.key)
+                enricher.enrichContractKey(contract.contract.unversioned.template, unversionedKey)
               )
             } else {
-              contract.key
+              unversionedKey
             }
+          }
           GetActiveContractsResponse(
             workflowId = contract.workflowId.getOrElse(""),
             activeContracts = List(
               CreatedEvent(
                 EventId(contract.transactionId, contract.nodeId).toLedgerString,
                 contract.id.coid,
-                Some(LfEngineToApi.toApiIdentifier(contract.contract.template)),
+                Some(LfEngineToApi.toApiIdentifier(contract.contract.unversioned.template)),
                 contractKey = contractKey.map(ck =>
                   LfEngineToApi.assertOrRuntimeEx(
                     "converting stored contract",
@@ -324,9 +333,7 @@ private[sandbox] final class InMemoryLedger(
       acs.activeContracts
         .get(contractId)
         .filter(ac => acs.isVisibleForDivulgees(ac.id, forParties))
-        .map { x0 =>
-          consumeEnricherResult(enricher.enrichVersionedContract(x0.contract))
-        }
+        .map(_.contract)
     })
 
   override def lookupKey(key: GlobalKey, forParties: Set[Ref.Party])(implicit
@@ -339,27 +346,19 @@ private[sandbox] final class InMemoryLedger(
   override def lookupMaximumLedgerTime(contractIds: Set[ContractId])(implicit
       loggingContext: LoggingContext
   ): Future[Option[Timestamp]] =
-    if (contractIds.isEmpty) {
-      Future.failed(
-        new IllegalArgumentException(
-          "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
-        )
-      )
-    } else {
-      Future.fromTry(Try(this.synchronized {
-        contractIds
-          .foldLeft[Option[Instant]](Some(Instant.MIN))((acc, id) => {
-            val let = acs.activeContracts
-              .getOrElse(
-                id,
-                sys.error(s"Contract $id not found while looking for maximum ledger time"),
-              )
-              .let
-            acc.map(acc => if (let.isAfter(acc)) let else acc)
-          })
-          .map(Timestamp.assertFromInstant)
-      }))
-    }
+    Future.fromTry(Try(this.synchronized {
+      contractIds
+        .foldLeft[Option[Instant]](None)((acc, id) => {
+          val let = acs.activeContracts
+            .getOrElse(
+              id,
+              throw MissingContracts(Set(id)),
+            )
+            .let
+          acc.map(acc => if (let.isAfter(acc)) let else acc)
+        })
+        .map(Timestamp.assertFromInstant)
+    }))
 
   override def publishTransaction(
       submitterInfo: state.SubmitterInfo,
@@ -414,7 +413,7 @@ private[sandbox] final class InMemoryLedger(
             List.empty,
           )
           acsRes match {
-            case Left(err) =>
+            case Left(err: Set[RejectionReason]) =>
               handleError(
                 submitterInfo,
                 RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"),

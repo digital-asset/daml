@@ -21,17 +21,17 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     val offset_2 = offset(2)
     val offset_3 = offset(4)
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
-      initialPruningOffset <- executeSql(backend.prunedUpToInclusive)
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
+      initialPruningOffset <- executeSql(backend.parameter.prunedUpToInclusive)
 
-      _ <- executeSql(backend.updatePrunedUptoInclusive(offset_1))
-      updatedPruningOffset_1 <- executeSql(backend.prunedUpToInclusive)
+      _ <- executeSql(backend.parameter.updatePrunedUptoInclusive(offset_1))
+      updatedPruningOffset_1 <- executeSql(backend.parameter.prunedUpToInclusive)
 
-      _ <- executeSql(backend.updatePrunedUptoInclusive(offset_2))
-      updatedPruningOffset_2 <- executeSql(backend.prunedUpToInclusive)
+      _ <- executeSql(backend.parameter.updatePrunedUptoInclusive(offset_2))
+      updatedPruningOffset_2 <- executeSql(backend.parameter.prunedUpToInclusive)
 
-      _ <- executeSql(backend.updatePrunedUptoInclusive(offset_3))
-      updatedPruningOffset_3 <- executeSql(backend.prunedUpToInclusive)
+      _ <- executeSql(backend.parameter.updatePrunedUptoInclusive(offset_3))
+      updatedPruningOffset_3 <- executeSql(backend.parameter.prunedUpToInclusive)
     } yield {
       initialPruningOffset shouldBe empty
       updatedPruningOffset_1 shouldBe Some(offset_1)
@@ -46,22 +46,30 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     val offset_2 = offset(2)
     val offset_3 = offset(4)
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
-      initialPruningOffset <- executeSql(backend.participantAllDivulgedContractsPrunedUpToInclusive)
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
+      initialPruningOffset <- executeSql(
+        backend.parameter.participantAllDivulgedContractsPrunedUpToInclusive
+      )
 
-      _ <- executeSql(backend.updatePrunedAllDivulgedContractsUpToInclusive(offset_1))
+      _ <- executeSql(
+        backend.parameter.updatePrunedAllDivulgedContractsUpToInclusive(offset_1)
+      )
       updatedPruningOffset_1 <- executeSql(
-        backend.participantAllDivulgedContractsPrunedUpToInclusive
+        backend.parameter.participantAllDivulgedContractsPrunedUpToInclusive
       )
 
-      _ <- executeSql(backend.updatePrunedAllDivulgedContractsUpToInclusive(offset_2))
+      _ <- executeSql(
+        backend.parameter.updatePrunedAllDivulgedContractsUpToInclusive(offset_2)
+      )
       updatedPruningOffset_2 <- executeSql(
-        backend.participantAllDivulgedContractsPrunedUpToInclusive
+        backend.parameter.participantAllDivulgedContractsPrunedUpToInclusive
       )
 
-      _ <- executeSql(backend.updatePrunedAllDivulgedContractsUpToInclusive(offset_3))
+      _ <- executeSql(
+        backend.parameter.updatePrunedAllDivulgedContractsUpToInclusive(offset_3)
+      )
       updatedPruningOffset_3 <- executeSql(
-        backend.participantAllDivulgedContractsPrunedUpToInclusive
+        backend.parameter.participantAllDivulgedContractsPrunedUpToInclusive
       )
     } yield {
       initialPruningOffset shouldBe empty
@@ -80,6 +88,8 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       contractId = "#1",
       signatory = someParty,
     )
+    val createFilter1 = DbDto.CreateFilter(1L, someTemplateId.toString, "signatory")
+    val createFilter2 = DbDto.CreateFilter(1L, someTemplateId.toString, "observer")
     val createTransactionId = dtoTransactionId(create)
     val archive = dtoExercise(
       offset = offset(2),
@@ -91,29 +101,50 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     val range = RangeParams(0L, 2L, None, None)
     val filter = FilterParams(Set(someParty), Set.empty)
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       // Ingest a create and archive event
-      _ <- executeSql(ingest(Vector(create, archive), _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 2L)))
+      _ <- executeSql(ingest(Vector(create, createFilter1, createFilter2, archive), _))
+      _ <- executeSql(
+        updateLedgerEnd(offset(2), 2L)
+      )
       // Make sure the events are visible
-      before1 <- executeSql(backend.transactionEvents(range, filter))
-      before2 <- executeSql(backend.activeContractEvents(range, filter, offset(1)))
-      before3 <- executeSql(backend.flatTransaction(createTransactionId, filter))
-      before4 <- executeSql(backend.transactionTreeEvents(range, filter))
-      before5 <- executeSql(backend.transactionTree(createTransactionId, filter))
-      before6 <- executeSql(backend.rawEvents(0, 2L))
+      before1 <- executeSql(backend.event.transactionEvents(range, filter))
+      before2 <- executeSql(backend.event.activeContractEvents(range, filter, offset(1)))
+      before3 <- executeSql(backend.event.flatTransaction(createTransactionId, filter))
+      before4 <- executeSql(backend.event.transactionTreeEvents(range, filter))
+      before5 <- executeSql(backend.event.transactionTree(createTransactionId, filter))
+      before6 <- executeSql(backend.event.rawEvents(0, 2L))
+      before7 <- executeSql(
+        backend.event
+          .activeContractEventIds(Ref.Party.assertFromString("signatory"), None, 0L, 2L, 1000)
+      )
+      before8 <- executeSql(
+        backend.event
+          .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString("signatory")), 2L)
+      )
       // Prune
       _ <- executeSql(
-        backend.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(_, loggingContext)
+        backend.event.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(
+          _,
+          loggingContext,
+        )
       )
-      _ <- executeSql(backend.updatePrunedUptoInclusive(offset(2)))
+      _ <- executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
       // Make sure the events are not visible anymore
-      after1 <- executeSql(backend.transactionEvents(range, filter))
-      after2 <- executeSql(backend.activeContractEvents(range, filter, offset(1)))
-      after3 <- executeSql(backend.flatTransaction(createTransactionId, filter))
-      after4 <- executeSql(backend.transactionTreeEvents(range, filter))
-      after5 <- executeSql(backend.transactionTree(createTransactionId, filter))
-      after6 <- executeSql(backend.rawEvents(0, 2L))
+      after1 <- executeSql(backend.event.transactionEvents(range, filter))
+      after2 <- executeSql(backend.event.activeContractEvents(range, filter, offset(1)))
+      after3 <- executeSql(backend.event.flatTransaction(createTransactionId, filter))
+      after4 <- executeSql(backend.event.transactionTreeEvents(range, filter))
+      after5 <- executeSql(backend.event.transactionTree(createTransactionId, filter))
+      after6 <- executeSql(backend.event.rawEvents(0, 2L))
+      after7 <- executeSql(
+        backend.event
+          .activeContractEventIds(Ref.Party.assertFromString("signatory"), None, 0L, 2L, 1000)
+      )
+      after8 <- executeSql(
+        backend.event
+          .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString("signatory")), 2L)
+      )
     } yield {
       before1 should not be empty
       before2 should not be empty
@@ -121,6 +152,8 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       before4 should not be empty
       before5 should not be empty
       before6 should not be empty
+      before7 should have size 1
+      before8 shouldBe empty
 
       after1 shouldBe empty
       after2 shouldBe empty
@@ -128,6 +161,8 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       after4 shouldBe empty
       after5 shouldBe empty
       after6 shouldBe empty
+      after7 shouldBe empty
+      after8 shouldBe empty
     }
   }
 
@@ -141,33 +176,56 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       contractId = "#1",
       signatory = someParty,
     )
+    val createFilter1 = DbDto.CreateFilter(1L, someTemplateId.toString, "signatory")
+    val createFilter2 = DbDto.CreateFilter(1L, someTemplateId.toString, "observer")
     val createTransactionId = dtoTransactionId(create)
     val range = RangeParams(0L, 1L, None, None)
     val filter = FilterParams(Set(someParty), Set.empty)
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       // Ingest a create and archive event
-      _ <- executeSql(ingest(Vector(partyEntry, create), _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(2), 1L)))
+      _ <- executeSql(ingest(Vector(partyEntry, create, createFilter1, createFilter2), _))
+      _ <- executeSql(
+        updateLedgerEnd(offset(2), 1L)
+      )
       // Make sure the events are visible
-      before1 <- executeSql(backend.transactionEvents(range, filter))
-      before2 <- executeSql(backend.activeContractEvents(range, filter, offset(2)))
-      before3 <- executeSql(backend.flatTransaction(createTransactionId, filter))
-      before4 <- executeSql(backend.transactionTreeEvents(range, filter))
-      before5 <- executeSql(backend.transactionTree(createTransactionId, filter))
-      before6 <- executeSql(backend.rawEvents(0, 1L))
+      before1 <- executeSql(backend.event.transactionEvents(range, filter))
+      before2 <- executeSql(backend.event.activeContractEvents(range, filter, offset(2)))
+      before3 <- executeSql(backend.event.flatTransaction(createTransactionId, filter))
+      before4 <- executeSql(backend.event.transactionTreeEvents(range, filter))
+      before5 <- executeSql(backend.event.transactionTree(createTransactionId, filter))
+      before6 <- executeSql(backend.event.rawEvents(0, 1L))
+      before7 <- executeSql(
+        backend.event
+          .activeContractEventIds(Ref.Party.assertFromString("signatory"), None, 0L, 1L, 1000)
+      )
+      before8 <- executeSql(
+        backend.event
+          .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString("signatory")), 1L)
+      )
       // Prune
       _ <- executeSql(
-        backend.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(_, loggingContext)
+        backend.event.pruneEvents(offset(2), pruneAllDivulgedContracts = true)(
+          _,
+          loggingContext,
+        )
       )
-      _ <- executeSql(backend.updatePrunedUptoInclusive(offset(2)))
+      _ <- executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
       // Make sure the events are still visible - active contracts should not be pruned
-      after1 <- executeSql(backend.transactionEvents(range, filter))
-      after2 <- executeSql(backend.activeContractEvents(range, filter, offset(2)))
-      after3 <- executeSql(backend.flatTransaction(createTransactionId, filter))
-      after4 <- executeSql(backend.transactionTreeEvents(range, filter))
-      after5 <- executeSql(backend.transactionTree(createTransactionId, filter))
-      after6 <- executeSql(backend.rawEvents(0, 1L))
+      after1 <- executeSql(backend.event.transactionEvents(range, filter))
+      after2 <- executeSql(backend.event.activeContractEvents(range, filter, offset(2)))
+      after3 <- executeSql(backend.event.flatTransaction(createTransactionId, filter))
+      after4 <- executeSql(backend.event.transactionTreeEvents(range, filter))
+      after5 <- executeSql(backend.event.transactionTree(createTransactionId, filter))
+      after6 <- executeSql(backend.event.rawEvents(0, 1L))
+      after7 <- executeSql(
+        backend.event
+          .activeContractEventIds(Ref.Party.assertFromString("signatory"), None, 0L, 1L, 1000)
+      )
+      after8 <- executeSql(
+        backend.event
+          .activeContractEventBatch(List(1L), Set(Ref.Party.assertFromString("signatory")), 1L)
+      )
     } yield {
       before1 should not be empty
       before2 should not be empty
@@ -175,6 +233,8 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       before4 should not be empty
       before5 should not be empty
       before6 should not be empty
+      before7 should have size 1
+      before8 should have size 1
 
       // TODO is it intended that the transaction lookups don't see the active contracts?
       after1 should not be empty
@@ -183,6 +243,8 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       after4 should not be empty
       after5 shouldBe empty // should not be empty
       after6 should not be empty
+      after7 should have size 1
+      after8 should have size 1
     }
   }
 
@@ -214,7 +276,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
       )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       // Ingest
       _ <- executeSql(
         ingest(
@@ -227,30 +289,35 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
           _,
         )
       )
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(4), 4L)))
+      _ <- executeSql(
+        updateLedgerEnd(offset(4), 4L)
+      )
       contract1_beforePruning <- executeSql(
-        backend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           Set(divulgee),
           ContractId.assertFromString(contract1_id),
         )
       )
       contract2_beforePruning <- executeSql(
-        backend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           Set(divulgee),
           ContractId.assertFromString(contract2_id),
         )
       )
       _ <- executeSql(
-        backend.pruneEvents(offset(3), pruneAllDivulgedContracts = true)(_, loggingContext)
+        backend.event.pruneEvents(offset(3), pruneAllDivulgedContracts = true)(
+          _,
+          loggingContext,
+        )
       )
       contract1_afterPruning <- executeSql(
-        backend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           Set(divulgee),
           ContractId.assertFromString(contract1_id),
         )
       )
       contract2_afterPruning <- executeSql(
-        backend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           Set(divulgee),
           ContractId.assertFromString(contract2_id),
         )
@@ -298,7 +365,7 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     )
 
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       // Ingest
       _ <- executeSql(
         ingest(
@@ -312,30 +379,35 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
         )
       )
       // Set the ledger end past the last ingested event so we can prune up to it inclusively
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(5), 5L)))
+      _ <- executeSql(
+        updateLedgerEnd(offset(5), 5L)
+      )
       contract1_beforePruning <- executeSql(
-        backend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           Set(divulgee),
           ContractId.assertFromString(contract1_id),
         )
       )
       contract2_beforePruning <- executeSql(
-        backend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           Set(divulgee),
           ContractId.assertFromString(contract2_id),
         )
       )
       _ <- executeSql(
-        backend.pruneEvents(offset(4), pruneAllDivulgedContracts = false)(_, loggingContext)
+        backend.event.pruneEvents(offset(4), pruneAllDivulgedContracts = false)(
+          _,
+          loggingContext,
+        )
       )
       contract1_afterPruning <- executeSql(
-        backend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           Set(divulgee),
           ContractId.assertFromString(contract1_id),
         )
       )
       contract2_afterPruning <- executeSql(
-        backend.activeContractWithoutArgument(
+        backend.contract.activeContractWithoutArgument(
           Set(divulgee),
           ContractId.assertFromString(contract2_id),
         )
@@ -362,20 +434,32 @@ private[backend] trait StorageBackendTestsPruning extends Matchers with StorageB
     )
     val applicationId = dtoApplicationId(completion)
     for {
-      _ <- executeSql(backend.initializeParameters(someIdentityParams))
+      _ <- executeSql(backend.parameter.initializeParameters(someIdentityParams))
       // Ingest a completion
       _ <- executeSql(ingest(Vector(completion), _))
-      _ <- executeSql(backend.updateLedgerEnd(ParameterStorageBackend.LedgerEnd(offset(1), 1L)))
+      _ <- executeSql(
+        updateLedgerEnd(offset(1), 1L)
+      )
       // Make sure the completion is visible
       before <- executeSql(
-        backend.commandCompletions(offset(0), offset(1), applicationId, Set(someParty))
+        backend.completion.commandCompletions(
+          offset(0),
+          offset(1),
+          applicationId,
+          Set(someParty),
+        )
       )
       // Prune
-      _ <- executeSql(backend.pruneCompletions(offset(1))(_, loggingContext))
-      _ <- executeSql(backend.updatePrunedUptoInclusive(offset(1)))
+      _ <- executeSql(backend.completion.pruneCompletions(offset(1))(_, loggingContext))
+      _ <- executeSql(backend.parameter.updatePrunedUptoInclusive(offset(1)))
       // Make sure the completion is not visible anymore
       after <- executeSql(
-        backend.commandCompletions(offset(0), offset(1), applicationId, Set(someParty))
+        backend.completion.commandCompletions(
+          offset(0),
+          offset(1),
+          applicationId,
+          Set(someParty),
+        )
       )
     } yield {
       before should not be empty

@@ -6,7 +6,7 @@ import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
 import Ledger, { Event, Stream, PartyInfo } from  '@daml/ledger';
-import { Int, emptyMap, Map, ContractId } from '@daml/types';
+import { Int, emptyMap, Map } from '@daml/types';
 import pEvent from 'p-event';
 import _ from 'lodash';
 import WebSocket from 'ws';
@@ -28,6 +28,8 @@ const ALICE_PARTY = 'Alice';
 const ALICE_TOKEN = computeToken(ALICE_PARTY);
 const BOB_PARTY = 'Bob';
 const BOB_TOKEN = computeToken(BOB_PARTY);
+const CHARLIE_PARTY = 'Charlie'
+const CHARLIE_TOKEN = computeToken(CHARLIE_PARTY)
 
 let sandboxPort: number | undefined = undefined;
 const SANDBOX_PORT_FILE = 'sandbox.port';
@@ -64,6 +66,7 @@ beforeAll(async () => {
       '--port-file', SANDBOX_PORT_FILE,
       '--ledgerid', LEDGER_ID,
       '--wall-clock-time',
+      '--log-level=INFO',
       darPath
     ],
   );
@@ -76,7 +79,7 @@ beforeAll(async () => {
     getEnv('JSON_API'),
     ['--ledger-host', 'localhost', '--ledger-port', `${sandboxPort}`,
      '--port-file', JSON_API_PORT_FILE, '--http-port', "0",
-     '--allow-insecure-tokens', '--websocket-config', 'heartBeatPer=1'],
+     '--allow-insecure-tokens', '--websocket-config=maxDuration=1,heartBeatPer=1', '--log-level=INFO'],
     ['-Dakka.http.server.request-timeout=60s'],
   )
   await waitOn({resources: [`file:${JSON_API_PORT_FILE}`]})
@@ -165,7 +168,7 @@ test('create + fetch & exercise', async () => {
   const alice5Contract = await aliceLedger.create(buildAndLint.Main.Person, alice5);
   expect(alice5Contract.payload).toEqual(alice5);
   expect(alice5Contract.key).toEqual(alice5Key);
-  expect(await aliceStream.next()).toEqual([[alice5Contract], [{created: alice5Contract}]]);
+  expect(await aliceStream.next()).toEqual([[alice5Contract], [{created: alice5Contract, matchedQueries: [0]}]]);
 
   let personContracts = await aliceLedger.query(buildAndLint.Main.Person);
   expect(personContracts).toEqual([alice5Contract]);
@@ -198,7 +201,7 @@ test('create + fetch & exercise', async () => {
   expect(alice6Contract.contractId).toEqual(result);
   expect(alice6Contract.payload).toEqual({...alice5, age: '6'});
   expect(alice6Contract.key).toEqual({...alice5Key, _2: '6'});
-  expect(await aliceStream.next()).toEqual([[alice6Contract], [{archived: alice5Archived}, {created: alice6Contract}]]);
+  expect(await aliceStream.next()).toEqual([[alice6Contract], [{archived: alice5Archived}, {created: alice6Contract, matchedQueries:[0]}]]);
 
   alice5ContractById = await aliceLedger.fetch(buildAndLint.Main.Person, alice5Contract.contractId);
   expect(alice5ContractById).toBeNull();
@@ -215,7 +218,7 @@ test('create + fetch & exercise', async () => {
   const personRawStream = aliceLedger.streamQuery(buildAndLint.Main.Person);
   const personStream = promisifyStream(personRawStream);
   const personStreamLive = pEvent(personRawStream, 'live');
-  expect(await personStream.next()).toEqual([[alice6Contract], [{created: alice6Contract}]]);
+  expect(await personStream.next()).toEqual([[alice6Contract], [{created: alice6Contract, matchedQueries:[1]}]]);
 
   // end of non-live data, first offset
   expect(await personStreamLive).toEqual([alice6Contract]);
@@ -225,7 +228,7 @@ test('create + fetch & exercise', async () => {
   const bob4Contract = await bobLedger.create(buildAndLint.Main.Person, bob4);
   expect(bob4Contract.payload).toEqual(bob4);
   expect(bob4Contract.key).toEqual(bob4Key);
-  expect(await personStream.next()).toEqual([[alice6Contract, bob4Contract], [{created: bob4Contract}]]);
+  expect(await personStream.next()).toEqual([[alice6Contract, bob4Contract], [{created: bob4Contract, matchedQueries:[1]}]]);
 
 
   // Alice changes her name.
@@ -240,9 +243,9 @@ test('create + fetch & exercise', async () => {
   expect(cooper6Contract.contractId).toEqual(result);
   expect(cooper6Contract.payload).toEqual({...alice5, name: 'Alice Cooper', age: '6'});
   expect(cooper6Contract.key).toEqual(alice6Key);
-  expect(await aliceStream.next()).toEqual([[cooper6Contract], [{archived: alice6Archived}, {created: cooper6Contract}]]);
+  expect(await aliceStream.next()).toEqual([[cooper6Contract], [{archived: alice6Archived}, {created: cooper6Contract, matchedQueries:[0]}]]);
   expect(await alice6KeyStream.next()).toEqual([cooper6Contract, [{archived: alice6Archived}, {created: cooper6Contract}]]);
-  expect(await personStream.next()).toEqual([[bob4Contract, cooper6Contract], [{archived: alice6Archived}, {created: cooper6Contract}]]);
+  expect(await personStream.next()).toEqual([[bob4Contract, cooper6Contract], [{archived: alice6Archived}, {created: cooper6Contract, matchedQueries:[1]}]]);
 
   personContracts = await aliceLedger.query(buildAndLint.Main.Person);
   expect(personContracts).toEqual([bob4Contract, cooper6Contract]);
@@ -334,6 +337,9 @@ test('create + fetch & exercise', async () => {
 
 });
 
+// TODO https://github.com/digital-asset/daml/issues/10810
+// Reenable test
+/*
 test("interfaces", async () => {
   const aliceLedger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
   const bobLedger = new Ledger({token: BOB_TOKEN, httpBaseUrl: httpBaseUrl()});
@@ -361,22 +367,23 @@ test("interfaces", async () => {
     ]
   )
 });
+*/
 
 test("createAndExercise", async () => {
   const ledger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
 
   const [result, events] = await ledger.createAndExercise(
     buildAndLint.Main.Person.Birthday,
-    {name: 'Alice', party: ALICE_PARTY, age: '5', friends: []},
+    {name: 'Alice', party: ALICE_PARTY, age: '10', friends: []},
     {});
   expect(events).toMatchObject(
     [{created: {templateId: buildAndLint.Main.Person.templateId,
                 signatories: [ALICE_PARTY],
-                payload: {name: 'Alice', age: '5'}}},
+                payload: {name: 'Alice', age: '10'}}},
      {archived: {templateId: buildAndLint.Main.Person.templateId}},
      {created: {templateId: buildAndLint.Main.Person.templateId,
                 signatories: [ALICE_PARTY],
-                payload: {name: 'Alice', age: '6'}}}]);
+                payload: {name: 'Alice', age: '11'}}}]);
   expect((events[0] as {created: {contractId: string}}).created.contractId).toEqual((events[1] as {archived: {contractId: string}}).archived.contractId);
   expect(result).toEqual((events[2] as {created: {contractId: string}}).created.contractId);
 });
@@ -605,4 +612,39 @@ test('package API', async () => {
 
   const downSuc = await ledger.getPackage(buildAndLint.packageId);
   expect(downSuc.byteLength > 0).toBe(true);
+});
+
+test('reconnect on timeout, when multiplexing is enabled', async () => {
+  const charlieLedger = new Ledger({token: CHARLIE_TOKEN, httpBaseUrl: httpBaseUrl(), multiplexQueryStreams: true});
+  const charlieRawStream = charlieLedger.streamQuery(buildAndLint.Main.Person, {party: CHARLIE_PARTY});
+  const charlieStream = promisifyStream(charlieRawStream);
+  const charlieStreamLive = pEvent(charlieRawStream, 'live');
+  expect(await charlieStreamLive).toEqual([]);
+
+  const charlieRecord1: buildAndLint.Main.Person = {
+    name: 'Charlie Chaplin',
+    party: CHARLIE_PARTY,
+    age: '10',
+    friends: [],
+  };
+
+  const charlieContract1 = await charlieLedger.create(buildAndLint.Main.Person, charlieRecord1);
+  expect(await charlieStream.next()).toEqual([[charlieContract1], [{created: charlieContract1, matchedQueries: [0]}]]);
+
+  // wait 70s to trigger a disconnect on json-api which is configured to close conn after 1 minute.
+  await new Promise(resolve => setTimeout(resolve, 70000));
+
+  const charlieRecord2: buildAndLint.Main.Person = {
+    name: 'Charlie and the chocolate factory',
+    party: CHARLIE_PARTY,
+    age: '5',
+    friends: [],
+  };
+
+  // ensure that we can write and read data post reconnect.
+  const charlieContract2 = await charlieLedger.create(buildAndLint.Main.Person, charlieRecord2);
+  expect(await charlieStream.next()).toEqual([[charlieContract1, charlieContract2], [{created: charlieContract2, matchedQueries: [0]}]]);
+
+  charlieStream.close();
+
 });

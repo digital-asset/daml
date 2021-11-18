@@ -5,14 +5,8 @@ package com.daml.lf.engine
 
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.transaction.Node.{
-  NodeRollback,
-  NodeCreate,
-  NodeExercises,
-  NodeFetch,
-  NodeLookupByKey,
-}
-import com.daml.lf.transaction.{BlindingInfo, GenTransaction, NodeId, Transaction}
+import com.daml.lf.transaction.Node
+import com.daml.lf.transaction.{BlindingInfo, Transaction, NodeId, VersionedTransaction}
 import com.daml.lf.ledger._
 import com.daml.lf.data.Relation.Relation
 
@@ -29,7 +23,7 @@ object Blinding {
     *
     *  @param tx transaction to be blinded
     */
-  def blind(tx: Transaction.Transaction): BlindingInfo =
+  def blind(tx: VersionedTransaction): BlindingInfo =
     BlindingTransaction.calculateBlindingInfo(tx)
 
   /** Returns the part of the transaction which has to be divulged to the given party.
@@ -49,8 +43,8 @@ object Blinding {
   def divulgedTransaction(
       divulgences: Relation[NodeId, Party],
       party: Party,
-      tx: GenTransaction,
-  ): GenTransaction = {
+      tx: Transaction,
+  ): Transaction = {
     val partyDivulgences = Relation.invert(divulgences)(party)
     // Note that this relies on the local divulgence to be well-formed:
     // if an exercise node is divulged to A but some of its descendants
@@ -69,18 +63,18 @@ object Blinding {
             go(filteredRoots :+ root, remainingRoots)
           } else {
             tx.nodes(root) match {
-              case nr: NodeRollback =>
+              case nr: Node.Rollback =>
                 go(filteredRoots, nr.children ++: remainingRoots)
-              case _: NodeFetch | _: NodeCreate | _: NodeLookupByKey =>
+              case _: Node.Fetch | _: Node.Create | _: Node.LookupByKey =>
                 go(filteredRoots, remainingRoots)
-              case ne: NodeExercises =>
+              case ne: Node.Exercise =>
                 go(filteredRoots, ne.children ++: remainingRoots)
             }
           }
       }
     }
 
-    GenTransaction(
+    Transaction(
       roots = go(BackStack.empty, tx.roots.toFrontStack),
       nodes = filteredNodes,
     )

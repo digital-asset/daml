@@ -13,6 +13,7 @@ import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.{
   ErrorFactories,
   FieldValidations,
@@ -93,10 +94,12 @@ private[apiserver] final class ApiPackageService private (
       .fold(
         errorMessage =>
           Future.failed[T](
-            errorFactories.malformedPackageId(request = request, message = errorMessage)(
-              createContextualizedErrorLogger,
-              logger,
-              loggingContext,
+            ValidationLogger.logFailure(
+              request,
+              errorFactories
+                .invalidArgument(Some(true))(s"Invalid package id: $errorMessage")(
+                  createContextualizedErrorLogger
+                ),
             )
           ),
         packageId => block(packageId),

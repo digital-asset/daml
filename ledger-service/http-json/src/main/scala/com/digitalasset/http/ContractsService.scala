@@ -20,12 +20,12 @@ import com.daml.fetchcontracts.util.ContractStreamStep.{Acs, LiveBegin}
 import com.daml.http.util.FutureUtil.toFuture
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt
-import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.{v1 => api}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.scalautil.ExceptionOps._
+import com.daml.scalautil.nonempty.NonEmptyReturningOps._
 import scalaz.Id.Id
 import scalaz.std.option._
 import scalaz.syntax.show._
@@ -69,7 +69,7 @@ class ContractsService(
 
   def resolveContractReference(
       jwt: Jwt,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       contractLocator: domain.ContractLocator[LfValue],
       ledgerId: LedgerApiDomain.LedgerId,
   )(implicit
@@ -91,19 +91,20 @@ class ContractsService(
   def lookup(
       jwt: Jwt,
       jwtPayload: JwtPayload,
-      contractLocator: domain.ContractLocator[LfValue],
+      req: domain.FetchRequest[LfValue],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: Metrics,
   ): Future[Option[domain.ActiveContract[JsValue]]] = {
     val ledgerId = toLedgerId(jwtPayload.ledgerId)
-    contractLocator match {
+    val readAs = req.readAs.cata(_.toSet1, jwtPayload.parties)
+    req.locator match {
       case domain.EnrichedContractKey(templateId, contractKey) =>
-        findByContractKey(jwt, jwtPayload.parties, templateId, ledgerId, contractKey)
+        findByContractKey(jwt, readAs, templateId, ledgerId, contractKey)
       case domain.EnrichedContractId(templateId, contractId) =>
         findByContractId(
           jwt,
-          jwtPayload.parties,
+          readAs,
           templateId,
           ledgerId,
           contractId,
@@ -113,7 +114,7 @@ class ContractsService(
 
   private[this] def findByContractKey(
       jwt: Jwt,
-      parties: OneAnd[Set, lar.Party],
+      parties: domain.PartySet,
       templateId: TemplateId.OptionalPkg,
       ledgerId: LedgerApiDomain.LedgerId,
       contractKey: LfValue,
@@ -133,7 +134,7 @@ class ContractsService(
 
   private[this] def findByContractId(
       jwt: Jwt,
-      parties: OneAnd[Set, lar.Party],
+      parties: domain.PartySet,
       templateId: Option[domain.TemplateId.OptionalPkg],
       ledgerId: LedgerApiDomain.LedgerId,
       contractId: domain.ContractId,
@@ -239,7 +240,7 @@ class ContractsService(
   def retrieveAll(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
   ): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
@@ -262,7 +263,7 @@ class ContractsService(
     search(
       jwt,
       toLedgerId(jwtPayload.ledgerId),
-      jwtPayload.parties,
+      request.readAs.cata((_.toSet1), jwtPayload.parties),
       request.templateIds,
       request.query,
     )
@@ -270,7 +271,7 @@ class ContractsService(
   def search(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateIds: OneAnd[Set, domain.TemplateId.OptionalPkg],
       queryParams: Map[String, JsValue],
   )(implicit
@@ -384,7 +385,7 @@ class ContractsService(
         }
 
         private[this] def searchDbOneTpId_(
-            parties: OneAnd[Set, domain.Party],
+            parties: domain.PartySet,
             templateId: domain.TemplateId.RequiredPkg,
             queryParams: Map[String, JsValue],
         )(implicit
@@ -399,7 +400,7 @@ class ContractsService(
   private[this] def searchInMemory(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateIds: Set[domain.TemplateId.RequiredPkg],
       queryParams: InMemoryQuery,
   )(implicit
@@ -441,7 +442,7 @@ class ContractsService(
   private[this] def searchInMemoryOneTpId(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateId: domain.TemplateId.RequiredPkg,
       queryParams: InMemoryQuery.P,
   )(implicit
@@ -469,7 +470,7 @@ class ContractsService(
   private[http] def liveAcsAsInsertDeleteStepSource(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, lar.Party],
+      parties: domain.PartySet,
       templateIds: List[domain.TemplateId.RequiredPkg],
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
     val txnFilter = util.Transactions.transactionFilterFor(parties, templateIds)
@@ -486,7 +487,7 @@ class ContractsService(
   private[http] def insertDeleteStepSource(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, lar.Party],
+      parties: domain.PartySet,
       templateIds: List[domain.TemplateId.RequiredPkg],
       startOffset: Option[domain.StartingOffset] = None,
       terminates: Terminates = Terminates.AtLedgerEnd,
@@ -571,7 +572,7 @@ object ContractsService {
 
   final case class SearchContext[Tids[_], Pkgs[_]](
       jwt: Jwt,
-      parties: OneAnd[Set, lar.Party],
+      parties: domain.PartySet,
       templateIds: Tids[domain.TemplateId[Pkgs[String]]],
       ledgerId: LedgerApiDomain.LedgerId,
   )

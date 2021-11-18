@@ -135,4 +135,19 @@ object DbDto {
 
   final case class CommandDeduplication(deduplication_key: String) extends DbDto
 
+  final case class StringInterningDto(
+      internalId: Int,
+      externalString: String,
+  ) extends DbDto
+
+  object StringInterningDto {
+    def from(entry: (Int, String)): StringInterningDto =
+      StringInterningDto(entry._1, entry._2)
+  }
+
+  final case class CreateFilter(
+      event_sequential_id: Long,
+      template_id: String,
+      party_id: String,
+  ) extends DbDto
 }

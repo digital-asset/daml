@@ -3,9 +3,10 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
+
 import java.util.UUID
 import java.util.regex.Pattern
-
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -72,8 +73,10 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .mustFail("submitting a contract with a missing authorizers")
     } yield {
       assertGrpcErrorRegex(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -120,8 +123,10 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .mustFail("exercising a choice with a missing authorizers")
     } yield {
       assertGrpcErrorRegex(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -172,8 +177,10 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .mustFail("exercising a choice without authorization to fetch another contract")
     } yield {
       assertGrpcErrorRegex(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         Some(Pattern.compile("of the fetched contract to be an authorizer, but authorizers were")),
         checkDefiniteAnswerMetadata = true,
       )
@@ -203,8 +210,10 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .mustFail("exercising a choice without authorization to fetch another contract")
     } yield {
       assertGrpcErrorRegex(
+        ledger,
         failure,
         Status.Code.ABORTED,
+        LedgerApiErrors.ConsistencyErrors.ContractNotFound,
         Some(Pattern.compile("Contract could not be found")),
         checkDefiniteAnswerMetadata = true,
       )
@@ -255,8 +264,10 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .mustFail("exercising a choice without authorization to fetch another contract by key")
     } yield {
       assertGrpcErrorRegex(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         Some(Pattern.compile("of the fetched contract to be an authorizer, but authorizers were")),
         checkDefiniteAnswerMetadata = true,
       )
@@ -286,8 +297,10 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .mustFail("exercising a choice without authorization to fetch another contract by key")
     } yield {
       assertGrpcErrorRegex(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound,
         Some(Pattern.compile("dependency error: couldn't find key")),
         checkDefiniteAnswerMetadata = true,
       )
@@ -340,8 +353,10 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .mustFail("exercising a choice without authorization to look up another contract by key")
     } yield {
       assertGrpcErrorRegex(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
         Some(Pattern.compile("requires authorizers (.*) for lookup by key, but it only has")),
         checkDefiniteAnswerMetadata = true,
       )
@@ -372,8 +387,10 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         .mustFail("exercising a choice without authorization to look up another contract by key")
     } yield {
       assertGrpcErrorRegex(
+        ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
         Some(
           Pattern.compile(
             "Interpretation error: Error: (User abort: Assertion failed.|Unhandled exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"LookupOtherByKey value matches\" \\}\\.) [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node"

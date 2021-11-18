@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -23,8 +24,10 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
           .mustFail("exercising on a wrong type")
       } yield {
         assertGrpcError(
+          ledger,
           exerciseFailure,
           Code.INVALID_ARGUMENT,
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
           Some("wrongly typed contract id"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -44,8 +47,10 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
           .mustFail("fetching the wrong type")
       } yield {
         assertGrpcError(
+          ledger,
           fetchFailure,
           Code.INVALID_ARGUMENT,
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
           Some("wrongly typed contract id"),
           checkDefiniteAnswerMetadata = true,
         )
@@ -71,8 +76,10 @@ final class WronglyTypedContractIdIT extends LedgerTestSuite {
         .mustFail("exercising on a wrong type")
     } yield {
       assertGrpcError(
+        ledger,
         failure,
         Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError,
         Some("wrongly typed contract id"),
         checkDefiniteAnswerMetadata = true,
       )

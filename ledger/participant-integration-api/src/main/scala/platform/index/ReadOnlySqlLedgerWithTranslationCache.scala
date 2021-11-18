@@ -15,15 +15,18 @@ import com.daml.platform.PruneBuffersNoOp
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.platform.store.appendonlydao.LedgerReadDao
-import com.daml.platform.store.cache.TranslationCacheBackedContractStore
+import com.daml.platform.store.cache.{MutableLedgerEndCache, TranslationCacheBackedContractStore}
+import com.daml.platform.store.interning.UpdatingStringInterningView
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 private[index] object ReadOnlySqlLedgerWithTranslationCache {
 
   final class Owner(
       ledgerDao: LedgerReadDao,
+      ledgerEndCache: MutableLedgerEndCache,
+      updatingStringInterningView: UpdatingStringInterningView,
       ledgerId: LedgerId,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
@@ -34,7 +37,8 @@ private[index] object ReadOnlySqlLedgerWithTranslationCache {
     ): Resource[ReadOnlySqlLedgerWithTranslationCache] =
       for {
         ledgerEnd <- Resource.fromFuture(ledgerDao.lookupLedgerEnd())
-        dispatcher <- dispatcherOwner(ledgerEnd).acquire()
+        _ = ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
+        dispatcher <- dispatcherOwner(ledgerEnd.lastOffset).acquire()
         contractsStore <- contractStoreOwner()
         ledger <- ledgerOwner(dispatcher, contractsStore).acquire()
       } yield ledger
@@ -45,8 +49,10 @@ private[index] object ReadOnlySqlLedgerWithTranslationCache {
           new ReadOnlySqlLedgerWithTranslationCache(
             ledgerId,
             ledgerDao,
+            ledgerEndCache,
             contractsStore,
             dispatcher,
+            updatingStringInterningView,
           )
         )
 
@@ -66,8 +72,10 @@ private[index] object ReadOnlySqlLedgerWithTranslationCache {
 private final class ReadOnlySqlLedgerWithTranslationCache(
     ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
+    ledgerEndCache: MutableLedgerEndCache,
     contractStore: ContractStore,
     dispatcher: Dispatcher[Offset],
+    updatingStringInterningView: UpdatingStringInterningView,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
     extends ReadOnlySqlLedger(
       ledgerId,
@@ -85,10 +93,23 @@ private final class ReadOnlySqlLedgerWithTranslationCache(
       )(() =>
         Source
           .tick(0.millis, 100.millis, ())
-          .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd())
+          .mapAsync(1) {
+            implicit val ec: ExecutionContext = mat.executionContext
+            _ =>
+              for {
+                ledgerEnd <- ledgerDao.lookupLedgerEnd()
+                _ <- updatingStringInterningView.update(ledgerEnd.lastStringInterningId)
+              } yield ledgerEnd
+          }
       )
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .toMat(Sink.foreach(dispatcher.signalNewHead))(
+      .toMat(Sink.foreach { ledgerEnd =>
+        ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
+        // the order here is very important: first we need to make data available for point-wise lookups
+        // and SQL queries, and only then we can make it available on the streams.
+        // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
+        dispatcher.signalNewHead(ledgerEnd.lastOffset)
+      })(
         Keep.both[UniqueKillSwitch, Future[Done]]
       )
       .run()

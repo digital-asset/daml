@@ -81,6 +81,8 @@ private[validation] object ExprIterable {
         bindings.iterator.map(_.bound) ++ Iterator(body)
       case UpdateCreate(templateId @ _, arg) =>
         Iterator(arg)
+      case UpdateCreateInterface(interface @ _, arg) =>
+        Iterator(arg)
       case UpdateFetch(templateId @ _, contractId) =>
         Iterator(contractId)
       case UpdateFetchInterface(interface @ _, contractId) =>
@@ -178,8 +180,10 @@ private[validation] object ExprIterable {
       case TemplateImplements(
             interface @ _,
             methods,
+            inheritedChoices @ _,
+            precond,
           ) =>
-        methods.values.iterator.flatMap(iterator(_))
+        Iterator(precond) ++ methods.values.iterator.flatMap(iterator(_))
     }
 
   private[iterable] def iterator(x: TemplateImplementsMethod): Iterator[Expr] =
@@ -203,11 +207,11 @@ private[validation] object ExprIterable {
     x match {
       case DefInterface(
             param @ _,
-            virtualChoices @ _,
             fixedChoices,
             methods @ _,
+            precond,
           ) =>
-        fixedChoices.values.iterator.flatMap(iterator(_))
+        Iterator(precond) ++ fixedChoices.values.iterator.flatMap(iterator(_))
     }
 
   def apply(expr: Expr): Iterable[Expr] =

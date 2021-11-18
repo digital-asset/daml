@@ -160,6 +160,23 @@ Please hold discussions that are relevant to Daml development and not confidenti
 
 You can also participate in the discussions at the following link: [discuss.daml.com](https://discuss.daml.com/).
 
+# Problems
+
+1. When running tests on `MacOS` you might get a system dialog like this:
+   ````
+   Do you want the application “openssl” to accept incoming network connections?
+   
+   Clicking Deny may limit the application’s behaviour. 
+   This setting can be changed in the Firewall pane of Security & Privacy preferences.
+   
+   Deny       Allow
+   ````
+   (As of 2021.10.29) this is caused by the following test `//ledger/participant-integration-api:participant-integration-api-tests_test_suite_src_test_suite_scala_platform_apiserver_tls_TlsCertificateRevocationCheckingSpec.scala`.  
+   The test can succeeds independent of whether `Deny` or `Allow`.  
+   If the dialog doesn't appear for you, you've probably already excercised one of these two choices.  
+   To check your Firewall settings go to: `System Preferences` -> `Security & Privacy` -> `Firewall` -> `Firewall Options...` (checked on macOS Big Sur 11.5.2).  
+  
+
 # Thank you!
 
 Thank you for taking the time to contribute!

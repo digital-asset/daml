@@ -4,6 +4,7 @@
 package com.daml.platform.store.appendonlydao.events
 
 import java.sql.Connection
+
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
@@ -29,7 +30,7 @@ import com.daml.platform.store.appendonlydao.{
   PaginatingAsyncStream,
 }
 import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
-import com.daml.platform.store.backend.StorageBackend
+import com.daml.platform.store.backend.{ContractStorageBackend, EventStorageBackend}
 import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.utils.Telemetry
 import com.daml.telemetry
@@ -49,21 +50,21 @@ import scala.util.{Failure, Success}
 private[appendonlydao] final class TransactionsReader(
     dispatcher: DbDispatcher,
     queryNonPruned: QueryNonPruned,
-    storageBackend: StorageBackend[_],
+    eventStorageBackend: EventStorageBackend,
+    contractStorageBackend: ContractStorageBackend,
     pageSize: Int,
     eventProcessingParallelism: Int,
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
+    acsReader: ACSReader,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 
   private val dbMetrics = metrics.daml.index.db
   private val eventSeqIdReader =
-    new EventsRange.EventSeqIdReader(storageBackend.maxEventSequentialIdOfAnObservableEvent)
+    new EventsRange.EventSeqIdReader(eventStorageBackend.maxEventSequentialIdOfAnObservableEvent)
   private val getTransactions =
-    new EventsTableFlatEventsRangeQueries.GetTransactions(storageBackend)
-  private val getActiveContracts =
-    new EventsTableFlatEventsRangeQueries.GetActiveContracts(storageBackend)
+    new EventsTableFlatEventsRangeQueries.GetTransactions(eventStorageBackend)
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -156,7 +157,7 @@ private[appendonlydao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
     dispatcher
       .executeSql(dbMetrics.lookupFlatTransactionById)(
-        storageBackend.flatTransaction(
+        eventStorageBackend.flatTransaction(
           transactionId,
           FilterParams(
             wildCardParties = requestingParties,
@@ -193,7 +194,7 @@ private[appendonlydao] final class TransactionsReader(
       queryNonPruned.executeSql(
         EventsRange.readPage(
           read = (range, limit, fetchSizeHint) =>
-            storageBackend.transactionTreeEvents(
+            eventStorageBackend.transactionTreeEvents(
               rangeParams = RangeParams(
                 startExclusive = range.startExclusive,
                 endInclusive = range.endInclusive,
@@ -256,7 +257,7 @@ private[appendonlydao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     dispatcher
       .executeSql(dbMetrics.lookupTransactionTreeById)(
-        storageBackend.transactionTree(
+        eventStorageBackend.transactionTree(
           transactionId,
           FilterParams(
             wildCardParties = requestingParties,
@@ -306,7 +307,7 @@ private[appendonlydao] final class TransactionsReader(
       .mapAsync(eventProcessingParallelism) { range =>
         dispatcher.executeSql(dbMetrics.getTransactionLogUpdates) { implicit conn =>
           queryNonPruned.executeSql(
-            query = storageBackend.rawEvents(
+            query = eventStorageBackend.rawEvents(
               startExclusive = range.startExclusive,
               endInclusive = range.endInclusive,
             )(conn),
@@ -364,35 +365,21 @@ private[appendonlydao] final class TransactionsReader(
       Telemetry.Transactions.createSpan(activeAt)(qualifiedNameOfCurrentFunc)
     logger.debug(s"getActiveContracts($activeAt, $filter, $verbose)")
 
-    val requestedRangeF: Future[EventsRange[(Offset, Long)]] = getAcsEventSeqIdRange(activeAt)
-
-    val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
-      logger.debug(s"getActiveContracts query($range)")
-      queryNonPruned.executeSql(
-        getActiveContracts(
-          range,
-          filter,
-          pageSize,
-        )(connection),
-        activeAt,
-        pruned =>
-          s"Active contracts request after ${activeAt.toHexString} precedes pruned offset ${pruned.toHexString}",
+    Source
+      .futureSource(
+        getAcsEventSeqIdRange(activeAt)
+          .map(requestedRange => acsReader.acsStream(filter, requestedRange.endInclusive))
       )
-    }
-
-    val events: Source[EventsTable.Entry[Event], NotUsed] =
-      Source
-        .futureSource(requestedRangeF.map { requestedRange =>
-          streamEvents(
-            verbose,
-            dbMetrics.getActiveContracts,
-            query,
-            nextPageRange[Event](requestedRange.endInclusive),
-          )(requestedRange)
-        })
-        .mapMaterializedValue(_ => NotUsed)
-
-    groupContiguous(events)(by = _.transactionId)
+      .mapAsync(eventProcessingParallelism) { rawResult =>
+        Timed.future(
+          future = Future(
+            Future.traverse(rawResult)(
+              deserializeEntry(verbose)
+            )
+          ).flatMap(identity),
+          timer = dbMetrics.getActiveContracts.translationTimer,
+        )
+      }
       .mapConcat(EventsTable.Entry.toGetActiveContractsResponse)
       .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
       .wireTap(response => {
@@ -401,6 +388,7 @@ private[appendonlydao] final class TransactionsReader(
           span,
         )
       })
+      .mapMaterializedValue(_ => NotUsed)
       .watchTermination()(endSpanOnTermination(span))
   }
 
@@ -436,7 +424,7 @@ private[appendonlydao] final class TransactionsReader(
       .mapAsync(eventProcessingParallelism) { range =>
         dispatcher.executeSql(dbMetrics.getContractStateEvents) { implicit conn =>
           queryNonPruned.executeSql(
-            storageBackend
+            contractStorageBackend
               .contractStateEvents(range.startExclusive, range.endInclusive)(conn),
             startExclusive._1,
             pruned =>

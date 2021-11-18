@@ -8,6 +8,7 @@ import java.time.Instant
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.api.util.TimeProvider
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.{v2 => state}
@@ -28,6 +29,7 @@ import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.daml.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
 import com.daml.platform.sandbox.stores.ledger.{Ledger, MeteredLedger}
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.LfValueTranslationCache
 import org.slf4j.LoggerFactory
 
@@ -64,6 +66,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       engine: Engine,
       enableCompression: Boolean,
+      enableSelfServiceErrorCodes: Boolean,
       validatePartyAllocation: Boolean = false,
   )(implicit
       mat: Materializer,
@@ -91,12 +94,14 @@ private[sandbox] object SandboxIndexAndWriteService {
       engine = engine,
       validatePartyAllocation = validatePartyAllocation,
       enableCompression = enableCompression,
+      errorFactories = ErrorFactories(new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes)),
     ).flatMap(ledger =>
       owner(
         ledger = MeteredLedger(ledger, metrics),
         participantId = participantId,
         timeProvider = timeProvider,
         enablePruning = true,
+        enableSelfServiceErrorCodes = enableSelfServiceErrorCodes,
       )
     )
 
@@ -111,6 +116,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       templateStore: InMemoryPackageStore,
       metrics: Metrics,
       engine: Engine,
+      enableSelfServiceErrorCodes: Boolean,
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
@@ -124,12 +130,14 @@ private[sandbox] object SandboxIndexAndWriteService {
         templateStore,
         ledgerEntries,
         engine,
+        ErrorFactories(new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes)),
       )
     owner(
       ledger = MeteredLedger(ledger, metrics),
       participantId = participantId,
       timeProvider = timeProvider,
       enablePruning = false,
+      enableSelfServiceErrorCodes = enableSelfServiceErrorCodes,
     )
   }
 
@@ -138,11 +146,16 @@ private[sandbox] object SandboxIndexAndWriteService {
       participantId: Ref.ParticipantId,
       timeProvider: TimeProvider,
       enablePruning: Boolean,
+      enableSelfServiceErrorCodes: Boolean,
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
   ): ResourceOwner[IndexAndWriteService] = {
-    val indexSvc = new LedgerBackedIndexService(ledger, participantId)
+    val indexSvc = new LedgerBackedIndexService(
+      ledger,
+      participantId,
+      ErrorFactories(new ErrorCodesVersionSwitcher(enableSelfServiceErrorCodes)),
+    )
     val writeSvc = new LedgerBackedWriteService(ledger, timeProvider, enablePruning)
 
     for {

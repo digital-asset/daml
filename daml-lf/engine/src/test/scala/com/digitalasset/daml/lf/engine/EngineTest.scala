@@ -13,14 +13,12 @@ import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.transaction.{
-  ContractKeyUniquenessMode,
   GlobalKey,
   GlobalKeyWithMaintainers,
   Node,
   NodeId,
   SubmittedTransaction,
   VersionedTransaction,
-  GenTransaction => GenTx,
   Transaction => Tx,
   TransactionVersion => TxVersions,
 }
@@ -31,7 +29,6 @@ import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.engine.Error.Interpretation
-import com.daml.lf.transaction.Node.{GenActionNode, GenNode}
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -566,7 +563,7 @@ class EngineTest
     }
 
     "mark all the exercise nodes as performed byKey" in {
-      val expectedNodes = tx.nodes.collect { case (id, _: Node.NodeExercises) =>
+      val expectedNodes = tx.nodes.collect { case (id, _: Node.Exercise) =>
         id
       }
       val actualNodes = byKeyNodes(tx)
@@ -792,8 +789,8 @@ class EngineTest
       tx.roots should have length 2
       tx.nodes.keySet.toList should have length 2
       val ImmArray(create, exercise) = tx.roots.map(tx.nodes)
-      create shouldBe a[Node.NodeCreate]
-      exercise shouldBe a[Node.NodeExercises]
+      create shouldBe a[Node.Create]
+      exercise shouldBe a[Node.Exercise]
     }
 
     "reinterpret to the same result" in {
@@ -1091,7 +1088,7 @@ class EngineTest
       val bobView = Blinding.divulgedTransaction(blindingInfo.disclosure, bob, tx.transaction)
       bobView.nodes.size shouldBe 2
       findNodeByIdx(bobView.nodes, 0).getOrElse(fail("node not found")) match {
-        case Node.NodeExercises(
+        case Node.Exercise(
               coid,
               _,
               choice,
@@ -1106,6 +1103,7 @@ class EngineTest
               _,
               _,
               _,
+              _,
             ) =>
           coid shouldBe originalCoid
           consuming shouldBe true
@@ -1116,7 +1114,7 @@ class EngineTest
       }
 
       findNodeByIdx(bobView.nodes, 1).getOrElse(fail("node not found")) match {
-        case create: Node.NodeCreate =>
+        case create: Node.Create =>
           create.templateId shouldBe templateId
           create.stakeholders shouldBe Set(alice, clara)
         case _ => fail("create event is expected")
@@ -1128,7 +1126,7 @@ class EngineTest
 
       claraView.nodes.size shouldBe 1
       findNodeByIdx(claraView.nodes, 1).getOrElse(fail("node not found")) match {
-        case create: Node.NodeCreate =>
+        case create: Node.Create =>
           create.templateId shouldBe templateId
           create.stakeholders shouldBe Set(alice, clara)
         case _ => fail("create event is expected")
@@ -1190,14 +1188,14 @@ class EngineTest
     val let = Time.Timestamp.now()
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
 
-    def actFetchActors(n: Node.GenNode): Set[Party] = {
+    def actFetchActors(n: Node): Set[Party] = {
       n match {
-        case Node.NodeFetch(_, _, actingParties, _, _, _, _, _) => actingParties
+        case Node.Fetch(_, _, actingParties, _, _, _, _, _, _) => actingParties
         case _ => Set()
       }
     }
 
-    def txFetchActors(tx: GenTx): Set[Party] =
+    def txFetchActors(tx: Tx): Set[Party] =
       tx.fold(Set[Party]()) { case (actors, (_, n)) =>
         actors union actFetchActors(n)
       }
@@ -1251,7 +1249,7 @@ class EngineTest
 
     "be retained when reinterpreting single fetch nodes" in {
       val Right((tx, txMeta)) = runExample(fetcher1Cid, clara)
-      val fetchNodes = tx.nodes.iterator.collect { case (nid, fetch: Node.NodeFetch) =>
+      val fetchNodes = tx.nodes.iterator.collect { case (nid, fetch: Node.Fetch) =>
         nid -> fetch
       }
 
@@ -1370,10 +1368,8 @@ class EngineTest
       lookerUpCid -> lookerUpInst,
     )
 
-    def firstLookupNode(
-        tx: GenTx
-    ): Option[(NodeId, Node.NodeLookupByKey)] =
-      tx.nodes.collectFirst { case (nid, nl @ Node.NodeLookupByKey(_, _, _, _)) =>
+    def firstLookupNode(tx: Tx): Option[(NodeId, Node.LookupByKey)] =
+      tx.nodes.collectFirst { case (nid, nl @ Node.LookupByKey(_, _, _, _)) =>
         nid -> nl
       }
 
@@ -1396,7 +1392,7 @@ class EngineTest
           lookupKey,
         )
 
-      val expectedByKeyNodes = tx.transaction.nodes.collect { case (id, _: Node.NodeLookupByKey) =>
+      val expectedByKeyNodes = tx.transaction.nodes.collect { case (id, _: Node.LookupByKey) =>
         id
       }
       val actualByKeyNodes = byKeyNodes(tx)
@@ -1578,7 +1574,7 @@ class EngineTest
         )
 
       tx.transaction.nodes.values.headOption match {
-        case Some(Node.NodeFetch(_, _, _, _, _, key, _, _)) =>
+        case Some(Node.Fetch(_, _, _, _, _, key, _, _, _)) =>
           key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
             case Some(Node.KeyWithMaintainers(_, maintainers)) =>
@@ -1651,7 +1647,7 @@ class EngineTest
         )
 
       tx.transaction.nodes
-        .collectFirst { case (id, nf: Node.NodeFetch) =>
+        .collectFirst { case (id, nf: Node.Fetch) =>
           nf.key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
             case Some(Node.KeyWithMaintainers(_, maintainers)) =>
@@ -1802,7 +1798,7 @@ class EngineTest
       val stx = suffix(tx)
 
       val ImmArray(_, exeNode1) = tx.transaction.roots
-      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, children, _, _, _, _) =
+      val Node.Exercise(_, _, _, _, _, _, _, _, _, children, _, _, _, _, _) =
         tx.transaction.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 
@@ -1819,533 +1815,277 @@ class EngineTest
     }
   }
 
-  "contract key" should {
-    val now = Time.Timestamp.now()
-    val submissionSeed = crypto.Hash.hashPrivateKey("contract key")
-    val txSeed = crypto.Hash.deriveTransactionSeed(submissionSeed, participant, now)
-
-    "be evaluated only when executing create" in {
-      val templateId =
-        Identifier(basicTestsPkgId, "BasicTests:ComputeContractKeyWhenExecutingCreate")
-      val createArg =
-        ValueRecord(
-          Some(templateId),
-          ImmArray((Some[Name]("owner"), ValueParty(alice))),
-        )
-      val exerciseArg =
-        ValueRecord(
-          Some(Identifier(basicTestsPkgId, "BasicTests:DontExecuteCreate")),
-          ImmArray.Empty,
-        )
-
-      val submitters = Set(alice)
-
-      val Right(cmds) = preprocessor
-        .preprocessCommands(
-          ImmArray(
-            CreateAndExerciseCommand(templateId, createArg, "DontExecuteCreate", exerciseArg)
-          )
-        )
-        .consume(_ => None, lookupPackage, lookupKey)
-
-      val result = suffixLenientEngine
-        .interpretCommands(
-          validating = false,
-          submitters = submitters,
-          readAs = Set.empty,
-          commands = cmds,
-          ledgerTime = now,
-          submissionTime = now,
-          seeding = InitialSeeding.TransactionSeed(txSeed),
-        )
-        .consume(_ => None, lookupPackage, lookupKey)
-      result shouldBe a[Right[_, _]]
-    }
-
-    "be evaluated after ensure clause" in {
-      val templateId =
-        Identifier(basicTestsPkgId, "BasicTests:ComputeContractKeyAfterEnsureClause")
-      val createArg =
-        ValueRecord(
-          Some(templateId),
-          ImmArray((Some[Name]("owner"), ValueParty(alice))),
-        )
-
-      val submitters = Set(alice)
-
-      val Right(cmds) = preprocessor
-        .preprocessCommands(ImmArray(CreateCommand(templateId, createArg)))
-        .consume(_ => None, lookupPackage, lookupKey)
-
-      val result = suffixLenientEngine
-        .interpretCommands(
-          validating = false,
-          submitters = submitters,
-          readAs = Set.empty,
-          commands = cmds,
-          ledgerTime = now,
-          submissionTime = now,
-          seeding = InitialSeeding.TransactionSeed(txSeed),
-        )
-        .consume(_ => None, lookupPackage, lookupKey)
-      result shouldBe a[Left[_, _]]
-      val Left(err) = result
-      err.message should not include ("Boom")
-      err.message should include("Template precondition violated")
-    }
-
-    "not be create if has an empty set of maintainer" in {
-      val templateId =
-        Identifier(basicTestsPkgId, "BasicTests:NoMaintainer")
-      val createArg =
-        ValueRecord(
-          Some(templateId),
-          ImmArray((Some[Name]("sig"), ValueParty(alice))),
-        )
-
-      val submitters = Set(alice)
-
-      val Right(cmds) = preprocessor
-        .preprocessCommands(ImmArray(CreateCommand(templateId, createArg)))
-        .consume(_ => None, lookupPackage, lookupKey)
-      val result = suffixLenientEngine
-        .interpretCommands(
-          validating = false,
-          submitters = submitters,
-          readAs = Set.empty,
-          commands = cmds,
-          ledgerTime = now,
-          submissionTime = now,
-          seeding = InitialSeeding.TransactionSeed(txSeed),
-        )
-        .consume(_ => None, lookupPackage, lookupKey)
-
-      inside(result) { case Left(err) =>
-        err.message should include(
-          "Update failed due to a contract key with an empty sey of maintainers"
-        )
-      }
-    }
-
-    // Note that we provide no stability for multi key semantics so
-    // these tests serve only as an indication of the current behavior
-    // but can be changed freely.
-    "multi keys" should {
-      import com.daml.lf.language.{LanguageVersion => LV}
-      val nonUckEngine = new Engine(
-        EngineConfig(
-          allowedLanguageVersions = LV.DevVersions,
-          contractKeyUniqueness = ContractKeyUniquenessMode.Off,
-          forbidV0ContractId = true,
-          requireSuffixedGlobalContractId = true,
-        )
-      )
-      val uckEngine = new Engine(
-        EngineConfig(
-          allowedLanguageVersions = LV.DevVersions,
-          contractKeyUniqueness = ContractKeyUniquenessMode.On,
-          forbidV0ContractId = true,
-          requireSuffixedGlobalContractId = true,
-        )
-      )
-      val (multiKeysPkgId, _, allMultiKeysPkgs) = loadPackage("daml-lf/tests/MultiKeys.dar")
-      val lookupPackage = allMultiKeysPkgs.get(_)
-      val keyedId = Identifier(multiKeysPkgId, "MultiKeys:Keyed")
-      val opsId = Identifier(multiKeysPkgId, "MultiKeys:KeyOperations")
-      val let = Time.Timestamp.now()
-      val submissionSeed = hash("multikeys")
-      val seeding = Engine.initialSeeding(submissionSeed, participant, let)
-
-      val cid1 = toContractId("1")
-      val cid2 = toContractId("2")
-      val keyedInst = assertAsVersionedContract(
+  "exceptions" should {
+    val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
+    val lookupPackage = allExceptionsPkgs.get(_)
+    val kId = Identifier(exceptionsPkgId, "Exceptions:K")
+    val tId = Identifier(exceptionsPkgId, "Exceptions:T")
+    val let = Time.Timestamp.now()
+    val submissionSeed = hash("rollback")
+    val seeding = Engine.initialSeeding(submissionSeed, participant, let)
+    val cid = toContractId("1")
+    val contracts = Map(
+      cid -> assertAsVersionedContract(
         ContractInstance(
-          TypeConName(multiKeysPkgId, "MultiKeys:Keyed"),
-          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          TypeConName(exceptionsPkgId, "Exceptions:K"),
+          ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
           "",
         )
       )
-      val contracts = Map(cid1 -> keyedInst, cid2 -> keyedInst)
-      val lookupContract = contracts.get(_)
-      def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-        (key.globalKey.templateId, key.globalKey.key) match {
-          case (
-                `keyedId`,
-                ValueParty(`party`),
-              ) =>
-            Some(cid1)
-          case _ =>
-            None
-        }
-      def run(engine: Engine, choice: String, argument: Value) = {
-        val cmd = CreateAndExerciseCommand(
-          opsId,
+    )
+    val lookupContract = contracts.get(_)
+    def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
+      (key.globalKey.templateId, key.globalKey.key) match {
+        case (
+              `kId`,
+              ValueRecord(_, ImmArray((_, ValueParty(`party`)), (_, ValueInt64(0)))),
+            ) =>
+          Some(cid)
+        case _ =>
+          None
+      }
+    def run(cmd: ApiCommand) = {
+      val submitters = Set(party)
+      val Right(cmds) = preprocessor
+        .preprocessCommands(ImmArray(cmd))
+        .consume(
+          lookupContract,
+          lookupPackage,
+          lookupKey,
+        )
+      suffixLenientEngine
+        .interpretCommands(
+          validating = false,
+          submitters = submitters,
+          readAs = Set.empty,
+          commands = cmds,
+          ledgerTime = let,
+          submissionTime = let,
+          seeding = seeding,
+        )
+        .consume(
+          lookupContract,
+          lookupPackage,
+          lookupKey,
+        )
+    }
+    "rolled-back archive of transient contract does not prevent consuming choice after rollback" in {
+      val command = CreateAndExerciseCommand(
+        tId,
+        ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        "RollbackArchiveTransient",
+        ValueRecord(None, ImmArray((None, ValueInt64(0)))),
+      )
+      run(command) shouldBe a[Right[_, _]]
+    }
+    "archive of transient contract in try prevents consuming choice after try if not rolled back" in {
+      val command = CreateAndExerciseCommand(
+        tId,
+        ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        "ArchiveTransient",
+        ValueRecord(None, ImmArray((None, ValueInt64(0)))),
+      )
+      run(command) shouldBe a[Left[_, _]]
+    }
+    "rolled-back archive of non-transient contract does not prevent consuming choice after rollback" in {
+      val command = CreateAndExerciseCommand(
+        tId,
+        ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        "RollbackArchiveNonTransient",
+        ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
+      )
+      run(command) shouldBe a[Right[_, _]]
+    }
+    "archive of non-transient contract in try prevents consuming choice after try if not rolled back" in {
+      val command = CreateAndExerciseCommand(
+        tId,
+        ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        "ArchiveNonTransient",
+        ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
+      )
+      run(command) shouldBe a[Left[_, _]]
+    }
+    "key updates in rollback node are rolled back" in {
+      val command = CreateAndExerciseCommand(
+        tId,
+        ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        "RollbackKey",
+        ValueRecord(None, ImmArray((None, ValueInt64(0)))),
+      )
+      run(command) shouldBe a[Right[_, _]]
+    }
+    "key updates in try are not rolled back if no exception is thrown" in {
+      val command = CreateAndExerciseCommand(
+        tId,
+        ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        "Key",
+        ValueRecord(None, ImmArray((None, ValueInt64(0)))),
+      )
+      run(command) shouldBe a[Right[_, _]]
+    }
+  }
+
+  "action node seeds" should {
+    val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
+    val lookupPackage = allExceptionsPkgs.get(_)
+    val kId = Identifier(exceptionsPkgId, "Exceptions:K")
+    val seedId = Identifier(exceptionsPkgId, "Exceptions:NodeSeeds")
+    val let = Time.Timestamp.now()
+    val submissionSeed = hash("rollback")
+    val seeding = Engine.initialSeeding(submissionSeed, participant, let)
+    val cid = toContractId("1")
+    val contracts = Map(
+      cid -> assertAsVersionedContract(
+        ContractInstance(
+          TypeConName(exceptionsPkgId, "Exceptions:K"),
+          ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
+          "",
+        )
+      )
+    )
+    val lookupContract = contracts.get(_)
+    def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
+      (key.globalKey.templateId, key.globalKey.key) match {
+        case (
+              `kId`,
+              ValueRecord(_, ImmArray((_, ValueParty(`party`)), (_, ValueInt64(0)))),
+            ) =>
+          Some(cid)
+        case _ =>
+          None
+      }
+    def run(cmd: ApiCommand) = {
+      val submitters = Set(party)
+      val Right(cmds) = preprocessor
+        .preprocessCommands(ImmArray(cmd))
+        .consume(
+          lookupContract,
+          lookupPackage,
+          lookupKey,
+        )
+      suffixLenientEngine
+        .interpretCommands(
+          validating = false,
+          submitters = submitters,
+          readAs = Set.empty,
+          commands = cmds,
+          ledgerTime = let,
+          submissionTime = let,
+          seeding = seeding,
+        )
+        .consume(
+          lookupContract,
+          lookupPackage,
+          lookupKey,
+        )
+    }
+    "Only create and exercise nodes end up in actionNodeSeeds" in {
+      val command = CreateAndExerciseCommand(
+        seedId,
+        ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        "CreateAllTypes",
+        ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
+      )
+      inside(run(command)) { case Right((tx, meta)) =>
+        tx.nodes.size shouldBe 9
+        tx.nodes(NodeId(0)) shouldBe a[Node.Create]
+        tx.nodes(NodeId(1)) shouldBe a[Node.Exercise]
+        tx.nodes(NodeId(2)) shouldBe a[Node.Fetch]
+        tx.nodes(NodeId(3)) shouldBe a[Node.LookupByKey]
+        tx.nodes(NodeId(4)) shouldBe a[Node.Create]
+        tx.nodes(NodeId(5)) shouldBe a[Node.Rollback]
+        tx.nodes(NodeId(6)) shouldBe a[Node.Fetch]
+        tx.nodes(NodeId(7)) shouldBe a[Node.LookupByKey]
+        tx.nodes(NodeId(8)) shouldBe a[Node.Create]
+        meta.nodeSeeds.map(_._1.index) shouldBe ImmArray(0, 1, 4, 8)
+      }
+    }
+  }
+
+  "global key lookups" should {
+    val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
+    val lookupPackage = allExceptionsPkgs.get(_)
+    val kId = Identifier(exceptionsPkgId, "Exceptions:K")
+    val tId = Identifier(exceptionsPkgId, "Exceptions:GlobalLookups")
+    val let = Time.Timestamp.now()
+    val submissionSeed = hash("global-keys")
+    val seeding = Engine.initialSeeding(submissionSeed, participant, let)
+    val cid = toContractId("1")
+    val contracts = Map(
+      cid -> assertAsVersionedContract(
+        ContractInstance(
+          TypeConName(exceptionsPkgId, "Exceptions:K"),
+          ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
+          "",
+        )
+      )
+    )
+    val lookupContract = contracts.get(_)
+    def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
+      (key.globalKey.templateId, key.globalKey.key) match {
+        case (
+              `kId`,
+              ValueRecord(_, ImmArray((_, ValueParty(`party`)), (_, ValueInt64(0)))),
+            ) =>
+          Some(cid)
+        case _ =>
+          None
+      }
+    def run(cmd: ApiCommand): Int = {
+      val submitters = Set(party)
+      var keyLookups = 0
+      def mockedKeyLookup(key: GlobalKeyWithMaintainers) = {
+        keyLookups += 1
+        lookupKey(key)
+      }
+      val Right(cmds) = preprocessor
+        .preprocessCommands(ImmArray(cmd))
+        .consume(
+          lookupContract,
+          lookupPackage,
+          mockedKeyLookup,
+        )
+      val result = suffixLenientEngine
+        .interpretCommands(
+          validating = false,
+          submitters = submitters,
+          readAs = Set.empty,
+          commands = cmds,
+          ledgerTime = let,
+          submissionTime = let,
+          seeding = seeding,
+        )
+        .consume(
+          lookupContract,
+          lookupPackage,
+          mockedKeyLookup,
+        )
+      inside(result) { case Right(_) =>
+        keyLookups
+      }
+    }
+    val cidArg = ValueRecord(None, ImmArray((None, ValueContractId(cid))))
+    val emptyArg = ValueRecord(None, ImmArray.empty)
+    "Lookup a global key at most once" in {
+      val cases = Table(
+        ("choice", "argument", "lookups"),
+        ("LookupTwice", emptyArg, 1),
+        ("LookupAfterCreate", emptyArg, 0),
+        ("LookupAfterCreateArchive", emptyArg, 0),
+        ("LookupAfterFetch", cidArg, 1),
+        ("LookupAfterArchive", cidArg, 1),
+        ("LookupAfterRollbackCreate", emptyArg, 0),
+        ("LookupAfterRollbackLookup", emptyArg, 1),
+        ("LookupAfterArchiveAfterRollbackLookup", cidArg, 1),
+      )
+      forAll(cases) { case (choice, argument, lookups) =>
+        val command = CreateAndExerciseCommand(
+          tId,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
           choice,
           argument,
         )
-        val Right(cmds) = preprocessor
-          .preprocessCommands(ImmArray(cmd))
-          .consume(lookupContract, lookupPackage, lookupKey)
-        engine
-          .interpretCommands(
-            validating = false,
-            submitters = Set(party),
-            readAs = Set.empty,
-            commands = cmds,
-            ledgerTime = let,
-            submissionTime = let,
-            seeding = seeding,
-          )
-          .consume(lookupContract, lookupPackage, lookupKey)
-      }
-      val emptyRecord = ValueRecord(None, ImmArray.Empty)
-      // The cid returned by a fetchByKey at the beginning
-      val keyResultCid = ValueRecord(None, ImmArray((None, ValueContractId(cid1))))
-      // The cid not returned by a fetchByKey at the beginning
-      val nonKeyResultCid = ValueRecord(None, ImmArray((None, ValueContractId(cid2))))
-      val twoCids =
-        ValueRecord(None, ImmArray((None, ValueContractId(cid1)), (None, ValueContractId(cid2))))
-      val createOverwritesLocal = ("CreateOverwritesLocal", emptyRecord)
-      val createOverwritesUnknownGlobal = ("CreateOverwritesUnknownGlobal", emptyRecord)
-      val createOverwritesKnownGlobal = ("CreateOverwritesKnownGlobal", emptyRecord)
-      val fetchDoesNotOverwriteGlobal = ("FetchDoesNotOverwriteGlobal", nonKeyResultCid)
-      val fetchDoesNotOverwriteLocal = ("FetchDoesNotOverwriteLocal", keyResultCid)
-      val localArchiveOverwritesUnknownGlobal = ("LocalArchiveOverwritesUnknownGlobal", emptyRecord)
-      val localArchiveOverwritesKnownGlobal = ("LocalArchiveOverwritesKnownGlobal", emptyRecord)
-      val globalArchiveOverwritesUnknownGlobal = ("GlobalArchiveOverwritesUnknownGlobal", twoCids)
-      val globalArchiveOverwritesKnownGlobal1 = ("GlobalArchiveOverwritesKnownGlobal1", twoCids)
-      val globalArchiveOverwritesKnownGlobal2 = ("GlobalArchiveOverwritesKnownGlobal2", twoCids)
-      val rollbackCreateNonRollbackFetchByKey = ("RollbackCreateNonRollbackFetchByKey", emptyRecord)
-      val rollbackFetchByKeyRollbackCreateNonRollbackFetchByKey =
-        ("RollbackFetchByKeyRollbackCreateNonRollbackFetchByKey", emptyRecord)
-      val rollbackFetchByKeyNonRollbackCreate = ("RollbackFetchByKeyNonRollbackCreate", emptyRecord)
-      val rollbackFetchNonRollbackCreate = ("RollbackFetchNonRollbackCreate", keyResultCid)
-      val rollbackGlobalArchiveNonRollbackCreate =
-        ("RollbackGlobalArchiveNonRollbackCreate", keyResultCid)
-      val rollbackCreateNonRollbackGlobalArchive =
-        ("RollbackCreateNonRollbackGlobalArchive", keyResultCid)
-      val rollbackGlobalArchiveUpdates =
-        ("RollbackGlobalArchiveUpdates", twoCids)
-
-      val allCases = Table(
-        ("choice", "argument"),
-        createOverwritesLocal,
-        createOverwritesUnknownGlobal,
-        createOverwritesKnownGlobal,
-        fetchDoesNotOverwriteGlobal,
-        fetchDoesNotOverwriteLocal,
-        localArchiveOverwritesUnknownGlobal,
-        localArchiveOverwritesKnownGlobal,
-        globalArchiveOverwritesUnknownGlobal,
-        globalArchiveOverwritesKnownGlobal1,
-        globalArchiveOverwritesKnownGlobal2,
-        rollbackCreateNonRollbackFetchByKey,
-        rollbackFetchByKeyRollbackCreateNonRollbackFetchByKey,
-        rollbackFetchByKeyNonRollbackCreate,
-        rollbackFetchNonRollbackCreate,
-        rollbackGlobalArchiveNonRollbackCreate,
-        rollbackCreateNonRollbackGlobalArchive,
-        rollbackGlobalArchiveUpdates,
-      )
-
-      val uckFailures = Set(
-        "CreateOverwritesLocal",
-        "CreateOverwritesKnownGlobal",
-        "LocalArchiveOverwritesKnownGlobal",
-        "RollbackCreateNonRollbackFetchByKey",
-        "RollbackFetchByKeyRollbackCreateNonRollbackFetchByKey",
-        "RollbackFetchByKeyNonRollbackCreate",
-      )
-
-      "non-uck mode" in {
-        forEvery(allCases) { case (name, arg) =>
-          run(nonUckEngine, name, arg) shouldBe a[Right[_, _]]
-        }
-      }
-      "uck mode" in {
-        forEvery(allCases) { case (name, arg) =>
-          if (uckFailures.contains(name)) {
-            run(uckEngine, name, arg) shouldBe a[Left[_, _]]
-          } else {
-            run(uckEngine, name, arg) shouldBe a[Right[_, _]]
-          }
-        }
-      }
-    }
-
-    "exceptions" should {
-      val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
-      val lookupPackage = allExceptionsPkgs.get(_)
-      val kId = Identifier(exceptionsPkgId, "Exceptions:K")
-      val tId = Identifier(exceptionsPkgId, "Exceptions:T")
-      val let = Time.Timestamp.now()
-      val submissionSeed = hash("rollback")
-      val seeding = Engine.initialSeeding(submissionSeed, participant, let)
-      val cid = toContractId("1")
-      val contracts = Map(
-        cid -> assertAsVersionedContract(
-          ContractInstance(
-            TypeConName(exceptionsPkgId, "Exceptions:K"),
-            ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
-            "",
-          )
-        )
-      )
-      val lookupContract = contracts.get(_)
-      def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-        (key.globalKey.templateId, key.globalKey.key) match {
-          case (
-                `kId`,
-                ValueRecord(_, ImmArray((_, ValueParty(`party`)), (_, ValueInt64(0)))),
-              ) =>
-            Some(cid)
-          case _ =>
-            None
-        }
-      def run(cmd: ApiCommand) = {
-        val submitters = Set(party)
-        val Right(cmds) = preprocessor
-          .preprocessCommands(ImmArray(cmd))
-          .consume(
-            lookupContract,
-            lookupPackage,
-            lookupKey,
-          )
-        suffixLenientEngine
-          .interpretCommands(
-            validating = false,
-            submitters = submitters,
-            readAs = Set.empty,
-            commands = cmds,
-            ledgerTime = let,
-            submissionTime = let,
-            seeding = seeding,
-          )
-          .consume(
-            lookupContract,
-            lookupPackage,
-            lookupKey,
-          )
-      }
-      "rolled-back archive of transient contract does not prevent consuming choice after rollback" in {
-        val command = CreateAndExerciseCommand(
-          tId,
-          ValueRecord(None, ImmArray((None, ValueParty(party)))),
-          "RollbackArchiveTransient",
-          ValueRecord(None, ImmArray((None, ValueInt64(0)))),
-        )
-        run(command) shouldBe a[Right[_, _]]
-      }
-      "archive of transient contract in try prevents consuming choice after try if not rolled back" in {
-        val command = CreateAndExerciseCommand(
-          tId,
-          ValueRecord(None, ImmArray((None, ValueParty(party)))),
-          "ArchiveTransient",
-          ValueRecord(None, ImmArray((None, ValueInt64(0)))),
-        )
-        run(command) shouldBe a[Left[_, _]]
-      }
-      "rolled-back archive of non-transient contract does not prevent consuming choice after rollback" in {
-        val command = CreateAndExerciseCommand(
-          tId,
-          ValueRecord(None, ImmArray((None, ValueParty(party)))),
-          "RollbackArchiveNonTransient",
-          ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
-        )
-        run(command) shouldBe a[Right[_, _]]
-      }
-      "archive of non-transient contract in try prevents consuming choice after try if not rolled back" in {
-        val command = CreateAndExerciseCommand(
-          tId,
-          ValueRecord(None, ImmArray((None, ValueParty(party)))),
-          "ArchiveNonTransient",
-          ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
-        )
-        run(command) shouldBe a[Left[_, _]]
-      }
-      "key updates in rollback node are rolled back" in {
-        val command = CreateAndExerciseCommand(
-          tId,
-          ValueRecord(None, ImmArray((None, ValueParty(party)))),
-          "RollbackKey",
-          ValueRecord(None, ImmArray((None, ValueInt64(0)))),
-        )
-        run(command) shouldBe a[Right[_, _]]
-      }
-      "key updates in try are not rolled back if no exception is thrown" in {
-        val command = CreateAndExerciseCommand(
-          tId,
-          ValueRecord(None, ImmArray((None, ValueParty(party)))),
-          "Key",
-          ValueRecord(None, ImmArray((None, ValueInt64(0)))),
-        )
-        run(command) shouldBe a[Right[_, _]]
-      }
-    }
-
-    "action node seeds" should {
-      val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
-      val lookupPackage = allExceptionsPkgs.get(_)
-      val kId = Identifier(exceptionsPkgId, "Exceptions:K")
-      val seedId = Identifier(exceptionsPkgId, "Exceptions:NodeSeeds")
-      val let = Time.Timestamp.now()
-      val submissionSeed = hash("rollback")
-      val seeding = Engine.initialSeeding(submissionSeed, participant, let)
-      val cid = toContractId("1")
-      val contracts = Map(
-        cid -> assertAsVersionedContract(
-          ContractInstance(
-            TypeConName(exceptionsPkgId, "Exceptions:K"),
-            ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
-            "",
-          )
-        )
-      )
-      val lookupContract = contracts.get(_)
-      def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-        (key.globalKey.templateId, key.globalKey.key) match {
-          case (
-                `kId`,
-                ValueRecord(_, ImmArray((_, ValueParty(`party`)), (_, ValueInt64(0)))),
-              ) =>
-            Some(cid)
-          case _ =>
-            None
-        }
-      def run(cmd: ApiCommand) = {
-        val submitters = Set(party)
-        val Right(cmds) = preprocessor
-          .preprocessCommands(ImmArray(cmd))
-          .consume(
-            lookupContract,
-            lookupPackage,
-            lookupKey,
-          )
-        suffixLenientEngine
-          .interpretCommands(
-            validating = false,
-            submitters = submitters,
-            readAs = Set.empty,
-            commands = cmds,
-            ledgerTime = let,
-            submissionTime = let,
-            seeding = seeding,
-          )
-          .consume(
-            lookupContract,
-            lookupPackage,
-            lookupKey,
-          )
-      }
-      "Only create and exercise nodes end up in actionNodeSeeds" in {
-        val command = CreateAndExerciseCommand(
-          seedId,
-          ValueRecord(None, ImmArray((None, ValueParty(party)))),
-          "CreateAllTypes",
-          ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
-        )
-        inside(run(command)) { case Right((tx, meta)) =>
-          tx.nodes.size shouldBe 9
-          tx.nodes(NodeId(0)) shouldBe a[Node.NodeCreate]
-          tx.nodes(NodeId(1)) shouldBe a[Node.NodeExercises]
-          tx.nodes(NodeId(2)) shouldBe a[Node.NodeFetch]
-          tx.nodes(NodeId(3)) shouldBe a[Node.NodeLookupByKey]
-          tx.nodes(NodeId(4)) shouldBe a[Node.NodeCreate]
-          tx.nodes(NodeId(5)) shouldBe a[Node.NodeRollback]
-          tx.nodes(NodeId(6)) shouldBe a[Node.NodeFetch]
-          tx.nodes(NodeId(7)) shouldBe a[Node.NodeLookupByKey]
-          tx.nodes(NodeId(8)) shouldBe a[Node.NodeCreate]
-          meta.nodeSeeds.map(_._1.index) shouldBe ImmArray(0, 1, 4, 8)
-        }
-      }
-    }
-
-    "global key lookups" should {
-      val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
-      val lookupPackage = allExceptionsPkgs.get(_)
-      val kId = Identifier(exceptionsPkgId, "Exceptions:K")
-      val tId = Identifier(exceptionsPkgId, "Exceptions:GlobalLookups")
-      val let = Time.Timestamp.now()
-      val submissionSeed = hash("global-keys")
-      val seeding = Engine.initialSeeding(submissionSeed, participant, let)
-      val cid = toContractId("1")
-      val contracts = Map(
-        cid -> assertAsVersionedContract(
-          ContractInstance(
-            TypeConName(exceptionsPkgId, "Exceptions:K"),
-            ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
-            "",
-          )
-        )
-      )
-      val lookupContract = contracts.get(_)
-      def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-        (key.globalKey.templateId, key.globalKey.key) match {
-          case (
-                `kId`,
-                ValueRecord(_, ImmArray((_, ValueParty(`party`)), (_, ValueInt64(0)))),
-              ) =>
-            Some(cid)
-          case _ =>
-            None
-        }
-      def run(cmd: ApiCommand): Int = {
-        val submitters = Set(party)
-        var keyLookups = 0
-        def mockedKeyLookup(key: GlobalKeyWithMaintainers) = {
-          keyLookups += 1
-          lookupKey(key)
-        }
-        val Right(cmds) = preprocessor
-          .preprocessCommands(ImmArray(cmd))
-          .consume(
-            lookupContract,
-            lookupPackage,
-            mockedKeyLookup,
-          )
-        val result = suffixLenientEngine
-          .interpretCommands(
-            validating = false,
-            submitters = submitters,
-            readAs = Set.empty,
-            commands = cmds,
-            ledgerTime = let,
-            submissionTime = let,
-            seeding = seeding,
-          )
-          .consume(
-            lookupContract,
-            lookupPackage,
-            mockedKeyLookup,
-          )
-        inside(result) { case Right(_) =>
-          keyLookups
-        }
-      }
-      val cidArg = ValueRecord(None, ImmArray((None, ValueContractId(cid))))
-      val emptyArg = ValueRecord(None, ImmArray.empty)
-      "Lookup a global key at most once" in {
-        val cases = Table(
-          ("choice", "argument", "lookups"),
-          ("LookupTwice", emptyArg, 1),
-          ("LookupAfterCreate", emptyArg, 0),
-          ("LookupAfterCreateArchive", emptyArg, 0),
-          ("LookupAfterFetch", cidArg, 1),
-          ("LookupAfterArchive", cidArg, 1),
-          ("LookupAfterRollbackCreate", emptyArg, 0),
-          ("LookupAfterRollbackLookup", emptyArg, 1),
-          ("LookupAfterArchiveAfterRollbackLookup", cidArg, 1),
-        )
-        forAll(cases) { case (choice, argument, lookups) =>
-          val command = CreateAndExerciseCommand(
-            tId,
-            ValueRecord(None, ImmArray((None, ValueParty(party)))),
-            choice,
-            argument,
-          )
-          run(command) shouldBe lookups
-        }
+        run(command) shouldBe lookups
       }
     }
   }
@@ -2408,7 +2148,7 @@ object EngineTest {
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
   private def participant = Ref.ParticipantId.assertFromString("participant")
   private def byKeyNodes(tx: VersionedTransaction) =
-    tx.nodes.collect { case (nodeId, node: GenActionNode) if node.byKey => nodeId }.toSet
+    tx.nodes.collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }.toSet
 
   private val party = Party.assertFromString("Party")
   private val alice = Party.assertFromString("Alice")
@@ -2441,7 +2181,7 @@ object EngineTest {
     a
   }
 
-  private def findNodeByIdx[Cid](nodes: Map[NodeId, Node.GenNode], idx: Int) =
+  private def findNodeByIdx[Cid](nodes: Map[NodeId, Node], idx: Int) =
     nodes.collectFirst { case (nodeId, node) if nodeId.index == idx => node }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -2459,22 +2199,22 @@ object EngineTest {
     Validation.isReplayedBy(Normalization.normalizeTx(recorded), replayed)
   }
 
-  private def suffix(tx: Tx.Transaction) =
+  private def suffix(tx: VersionedTransaction) =
     data.assertRight(tx.suffixCid(_ => dummySuffix))
 
   private[this] case class ReinterpretState(
       contracts: Map[ContractId, VersionedContractInstance],
       keys: Map[GlobalKey, ContractId],
-      nodes: HashMap[NodeId, GenNode] = HashMap.empty,
+      nodes: HashMap[NodeId, Node] = HashMap.empty,
       roots: BackStack[NodeId] = BackStack.empty,
       dependsOnTime: Boolean = false,
       nodeSeeds: BackStack[(NodeId, crypto.Hash)] = BackStack.empty,
   ) {
-    def commit(tr: GenTx, meta: Tx.Metadata) = {
+    def commit(tr: Tx, meta: Tx.Metadata) = {
       val (newContracts, newKeys) = tr.fold((contracts, keys)) {
-        case ((contracts, keys), (_, exe: Node.NodeExercises)) =>
+        case ((contracts, keys), (_, exe: Node.Exercise)) =>
           (contracts - exe.targetCoid, keys)
-        case ((contracts, keys), (_, create: Node.NodeCreate)) =>
+        case ((contracts, keys), (_, create: Node.Create)) =>
           (
             contracts.updated(
               create.coid,
@@ -2503,13 +2243,13 @@ object EngineTest {
       engine: Engine,
       submitters: Set[Party],
       nodes: ImmArray[NodeId],
-      tx: Tx.Transaction,
+      tx: VersionedTransaction,
       txMeta: Tx.Metadata,
       ledgerEffectiveTime: Time.Timestamp,
       lookupPackages: PackageId => Option[Package],
       contracts: Map[ContractId, VersionedContractInstance] = Map.empty,
       keys: Map[GlobalKey, ContractId] = Map.empty,
-  ): Either[Error, (Tx.Transaction, Tx.Metadata)] = {
+  ): Either[Error, (VersionedTransaction, Tx.Metadata)] = {
 
     val nodeSeedMap = txMeta.nodeSeeds.toSeq.toMap
 
@@ -2519,21 +2259,21 @@ object EngineTest {
           for {
             state <- acc
             cmd = tx.transaction.nodes(nodeId) match {
-              case create: Node.NodeCreate =>
+              case create: Node.Create =>
                 CreateCommand(create.templateId, create.arg)
-              case fetch: Node.NodeFetch if fetch.byKey =>
+              case fetch: Node.Fetch if fetch.byKey =>
                 val key = fetch.key.getOrElse(sys.error("unexpected empty contract key")).key
                 FetchByKeyCommand(fetch.templateId, key)
-              case fetch: Node.NodeFetch =>
+              case fetch: Node.Fetch =>
                 FetchCommand(fetch.templateId, fetch.coid)
-              case lookup: Node.NodeLookupByKey =>
+              case lookup: Node.LookupByKey =>
                 LookupByKeyCommand(lookup.templateId, lookup.key.key)
-              case exe: Node.NodeExercises if exe.byKey =>
+              case exe: Node.Exercise if exe.byKey =>
                 val key = exe.key.getOrElse(sys.error("unexpected empty contract key")).key
                 ExerciseByKeyCommand(exe.templateId, key, exe.choiceId, exe.chosenValue)
-              case exe: Node.NodeExercises =>
+              case exe: Node.Exercise =>
                 ExerciseCommand(exe.templateId, exe.targetCoid, exe.choiceId, exe.chosenValue)
-              case _: Node.NodeRollback =>
+              case _: Node.Rollback =>
                 sys.error("unexpected rollback node")
             }
             currentStep <- engine
@@ -2563,10 +2303,7 @@ object EngineTest {
     finalState.map(state =>
       (
         TxVersions.asVersionedTransaction(
-          GenTx(
-            state.nodes,
-            state.roots.toImmArray,
-          )
+          Tx(state.nodes, state.roots.toImmArray)
         ),
         Tx.Metadata(
           submissionSeed = None,

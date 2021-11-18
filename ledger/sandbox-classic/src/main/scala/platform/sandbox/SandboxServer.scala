@@ -41,6 +41,7 @@ import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger._
 import com.daml.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.daml.platform.sandbox.stores.{InMemoryActiveLedgerState, SandboxIndexAndWriteService}
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 import com.daml.ports.Port
@@ -333,6 +334,7 @@ final class SandboxServer(
             engine = engine,
             validatePartyAllocation = !config.implicitPartyAllocation,
             enableCompression = config.enableCompression,
+            enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
           )
         case None =>
           SandboxIndexAndWriteService.inMemory(
@@ -346,6 +348,7 @@ final class SandboxServer(
             packageStore,
             metrics,
             engine,
+            enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
           )
       }).acquire()
       ledgerId <- Resource.fromFuture(indexAndWriteService.indexService.getLedgerId())
@@ -367,6 +370,9 @@ final class SandboxServer(
         ledgerId,
         () => resetAndRestartServer(),
         authorizer,
+        errorFactories = ErrorFactories(
+          new ErrorCodesVersionSwitcher(config.enableSelfServiceErrorCodes)
+        ),
       )
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner().acquire()
       apiServicesOwner = new ApiServices.Owner(
@@ -391,6 +397,7 @@ final class SandboxServer(
         seedService = seedingService,
         managementServiceTimeout = config.managementServiceTimeout,
         enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+        checkOverloaded = _ => None,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(List(resetService)))
       apiServer <- new LedgerApiServer(

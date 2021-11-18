@@ -3,8 +3,10 @@
 
 package com.daml.ledger.api.testtool.infrastructure.deduplication
 
-import java.util.UUID
+import com.daml.error.ErrorCode
+import com.daml.error.definitions.LedgerApiErrors
 
+import java.util.UUID
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -32,7 +34,6 @@ private[testtool] abstract class CommandDeduplicationBase(
     ledgerTimeInterval: FiniteDuration,
     staticTime: Boolean,
 ) extends LedgerTestSuite {
-
   val deduplicationDuration: FiniteDuration = scaledDuration(3.seconds)
 
   val ledgerWaitInterval: FiniteDuration = ledgerTimeInterval * 2
@@ -108,10 +109,18 @@ private[testtool] abstract class CommandDeduplicationBase(
 
     for {
       // Submit an invalid command (should fail with INVALID_ARGUMENT)
-      _ <- submitRequestAndAssertSyncFailure(ledger)(requestA, Code.INVALID_ARGUMENT)
+      _ <- submitRequestAndAssertSyncFailure(ledger)(
+        requestA,
+        Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
+      )
 
       // Re-submit the invalid command (should again fail with INVALID_ARGUMENT and not with ALREADY_EXISTS)
-      _ <- submitRequestAndAssertSyncFailure(ledger)(requestA, Code.INVALID_ARGUMENT)
+      _ <- submitRequestAndAssertSyncFailure(ledger)(
+        requestA,
+        Code.INVALID_ARGUMENT,
+        LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError,
+      )
     } yield {}
   })
 
@@ -191,10 +200,9 @@ private[testtool] abstract class CommandDeduplicationBase(
     }
   )
 
-  // appendOnlySchema - without the submission id we cannot assert the received completions for parallel submissions
   // staticTime - we run calls in parallel and with static time we would need to advance the time,
   //              therefore this cannot be run in static time
-  if (deduplicationFeatures.appendOnlySchema && !staticTime)
+  if (!staticTime)
     testGivenAllParticipants(
       s"${testNamingPrefix}SimpleDeduplicationMixedClients",
       "Deduplicate commands within the deduplication time window using the command client and the command submission client",
@@ -221,7 +229,10 @@ private[testtool] abstract class CommandDeduplicationBase(
                     )
                   val submitRequest = ledger
                     .submitRequest(party, Dummy(party).create.command)
-                    .update(_.commands.commandId := submitAndWaitRequest.getCommands.commandId)
+                    .update(
+                      _.commands.commandId := submitAndWaitRequest.getCommands.commandId,
+                      _.commands.deduplicationTime := deduplicationDuration.asProtobuf,
+                    )
 
                   def submitAndAssertAccepted(submitAndWait: Boolean) = {
                     if (submitAndWait) ledger.submitAndWait(submitAndWaitRequest)
@@ -355,18 +366,25 @@ private[testtool] abstract class CommandDeduplicationBase(
       ledger: ParticipantTestContext,
       request: SubmitRequest,
   )(implicit ec: ExecutionContext): Future[Unit] =
-    submitRequestAndAssertSyncFailure(ledger)(request, Code.ALREADY_EXISTS)
+    submitRequestAndAssertSyncFailure(ledger)(
+      request,
+      Code.ALREADY_EXISTS,
+      LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
+    )
 
   private def submitRequestAndAssertSyncFailure(ledger: ParticipantTestContext)(
       request: SubmitRequest,
       code: Code,
+      selfServiceErrorCode: ErrorCode,
   )(implicit ec: ExecutionContext) = ledger
     .submit(request)
     .mustFail(s"Request expected to fail with code $code")
     .map(
       assertGrpcError(
+        ledger,
         _,
         code,
+        selfServiceErrorCode,
         exceptionMessageSubstring = None,
         checkDefiniteAnswerMetadata = true,
       )
@@ -380,8 +398,10 @@ private[testtool] abstract class CommandDeduplicationBase(
       .mustFail("Request was accepted but we were expecting it to fail with a duplicate error")
       .map(
         assertGrpcError(
+          ledger,
           _,
           expectedCode = Code.ALREADY_EXISTS,
+          selfServiceErrorCode = LedgerApiErrors.ConsistencyErrors.DuplicateCommand,
           exceptionMessageSubstring = None,
           checkDefiniteAnswerMetadata = true,
         )
@@ -414,15 +434,11 @@ private[testtool] abstract class CommandDeduplicationBase(
     val submissionId = UUID.randomUUID().toString
     submitRequest(ledger)(request.update(_.commands.submissionId := submissionId))
       .flatMap(ledgerEnd => {
-        if (deduplicationFeatures.appendOnlySchema)
-          // The [[Completion.submissionId]] is set only for append-only ledgers
-          ledger
-            .findCompletion(ledger.completionStreamRequest(ledgerEnd)(parties: _*))(
-              _.submissionId == submissionId
-            )
-            .map[Seq[Completion]](_.toList)
-        else
-          ledger.firstCompletions(ledger.completionStreamRequest(ledgerEnd)(parties: _*))
+        ledger
+          .findCompletion(ledger.completionStreamRequest(ledgerEnd)(parties: _*))(
+            _.submissionId == submissionId
+          )
+          .map[Seq[Completion]](_.toList)
       })
       .map { completions =>
         assertSingleton("Expected only one completion", completions)
@@ -455,11 +471,8 @@ object CommandDeduplicationBase {
   }
 
   /** @param participantDeduplication If participant deduplication is enabled then we will receive synchronous rejections
-    * @param appendOnlySchema          For [[Completion]], the submission id and deduplication period are filled only for append only schemas
-    *                                  Therefore, we need to assert on those fields only if it's an append only schema
     */
   case class DeduplicationFeatures(
-      participantDeduplication: Boolean,
-      appendOnlySchema: Boolean,
+      participantDeduplication: Boolean
   )
 }

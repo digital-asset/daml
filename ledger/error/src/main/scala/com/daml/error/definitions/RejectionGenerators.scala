@@ -3,24 +3,22 @@
 
 package com.daml.error.definitions
 
-import com.daml.error.{BaseError, ErrorCause, ErrorCode, ContextualizedErrorLogger}
-import com.daml.ledger.participant.state
+import com.daml.error.{BaseError, ContextualizedErrorLogger, ErrorCause, ErrorCode}
 import com.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
+import com.daml.lf.engine.{Error => LfError}
+import com.daml.lf.interpretation.{Error => LfInterpretationError}
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
 
-import scala.util.{Failure, Success, Try}
-import com.daml.lf.engine.{Error => LfError}
-import com.daml.lf.interpretation.{Error => LfInterpretationError}
-
 class RejectionGenerators(conformanceMode: Boolean) {
+  // TODO error codes: Remove conformance mode
   private val adjustErrors = Map(
-    LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound -> Code.INVALID_ARGUMENT,
-    LedgerApiErrors.InterpreterErrors.ContractNotActive -> Code.INVALID_ARGUMENT,
-    LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound -> Code.ABORTED,
-    LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound -> Code.INVALID_ARGUMENT,
-    LedgerApiErrors.InterpreterErrors.GenericInterpretationError -> Code.INVALID_ARGUMENT,
+    LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound -> Code.INVALID_ARGUMENT,
+    LedgerApiErrors.CommandExecution.Interpreter.ContractNotActive -> Code.INVALID_ARGUMENT,
+    LedgerApiErrors.ConsistencyErrors.ContractNotFound -> Code.ABORTED,
+    LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound -> Code.INVALID_ARGUMENT,
+    LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError -> Code.INVALID_ARGUMENT,
   )
 
   private def enforceConformance(ex: StatusRuntimeException): StatusRuntimeException =
@@ -49,11 +47,6 @@ class RejectionGenerators(conformanceMode: Boolean) {
   ): StatusRuntimeException =
     enforceConformance(reject.asGrpcErrorFromContext)
 
-  def duplicateCommand(implicit
-      errorLoggingContext: ContextualizedErrorLogger
-  ): StatusRuntimeException =
-    toGrpc(LedgerApiErrors.CommandPreparation.DuplicateCommand.Reject())
-
   def commandExecutorError(cause: ErrorCauseExport)(implicit
       errorLoggingContext: ContextualizedErrorLogger
   ): StatusRuntimeException = {
@@ -61,11 +54,13 @@ class RejectionGenerators(conformanceMode: Boolean) {
     def processPackageError(err: LfError.Package.Error): BaseError = err match {
       case e: Package.Internal => LedgerApiErrors.InternalError.PackageInternal(e)
       case Package.Validation(validationError) =>
-        LedgerApiErrors.Package.PackageValidationFailed.Reject(validationError.pretty)
+        LedgerApiErrors.CommandExecution.Package.PackageValidationFailed
+          .Reject(validationError.pretty)
       case Package.MissingPackage(packageId, context) =>
-        LedgerApiErrors.Package.MissingPackage.Reject(packageId, context)
+        LedgerApiErrors.RequestValidation.NotFound.Package
+          .InterpretationReject(packageId, context)
       case Package.AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions) =>
-        LedgerApiErrors.Package.AllowedLanguageVersions.Error(
+        LedgerApiErrors.CommandExecution.Package.AllowedLanguageVersions.Error(
           packageId,
           languageVersion,
           allowedLanguageVersions,
@@ -76,7 +71,7 @@ class RejectionGenerators(conformanceMode: Boolean) {
 
     def processPreprocessingError(err: LfError.Preprocessing.Error): BaseError = err match {
       case e: Preprocessing.Internal => LedgerApiErrors.InternalError.Preprocessing(e)
-      case e => LedgerApiErrors.PreprocessingErrors.PreprocessingFailed.Reject(e)
+      case e => LedgerApiErrors.CommandExecution.Preprocessing.PreprocessingFailed.Reject(e)
     }
 
     def processValidationError(err: LfError.Validation.Error): BaseError = err match {
@@ -93,55 +88,68 @@ class RejectionGenerators(conformanceMode: Boolean) {
 
       err match {
         case LfInterpretationError.ContractNotFound(cid) =>
-          LedgerApiErrors.InterpreterErrors.LookupErrors.ContractNotFound
+          LedgerApiErrors.ConsistencyErrors.ContractNotFound
             .Reject(renderedMessage, cid)
         case LfInterpretationError.ContractKeyNotFound(key) =>
-          LedgerApiErrors.InterpreterErrors.LookupErrors.ContractKeyNotFound
+          LedgerApiErrors.CommandExecution.Interpreter.LookupErrors.ContractKeyNotFound
             .Reject(renderedMessage, key)
         case _: LfInterpretationError.FailedAuthorization =>
-          LedgerApiErrors.InterpreterErrors.AuthorizationError.Reject(renderedMessage)
+          LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError
+            .Reject(renderedMessage)
         case e: LfInterpretationError.ContractNotActive =>
-          LedgerApiErrors.InterpreterErrors.ContractNotActive.Reject(renderedMessage, e)
+          LedgerApiErrors.CommandExecution.Interpreter.ContractNotActive
+            .Reject(renderedMessage, e)
         case _: LfInterpretationError.LocalContractKeyNotVisible =>
-          LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(renderedMessage)
+          LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError
+            .Error(renderedMessage)
         case LfInterpretationError.DuplicateContractKey(key) =>
-          LedgerApiErrors.InterpreterErrors.DuplicateContractKey.Reject(renderedMessage, key)
+          LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
+            .RejectWithContractKeyArg(renderedMessage, key)
         case _: LfInterpretationError.UnhandledException =>
-          LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(
+          LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError.Error(
             renderedMessage + detailMessage.fold("")(x => ". Details: " + x)
           )
         case _: LfInterpretationError.UserError =>
-          LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(renderedMessage)
+          LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError
+            .Error(renderedMessage)
         case _: LfInterpretationError.TemplatePreconditionViolated =>
-          LedgerApiErrors.InterpreterErrors.GenericInterpretationError.Error(renderedMessage)
+          LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError
+            .Error(renderedMessage)
         case _: LfInterpretationError.CreateEmptyContractKeyMaintainers =>
-          LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
-            renderedMessage
-          )
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
+            .Error(
+              renderedMessage
+            )
         case _: LfInterpretationError.FetchEmptyContractKeyMaintainers =>
-          LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
-            renderedMessage
-          )
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
+            .Error(
+              renderedMessage
+            )
         case _: LfInterpretationError.WronglyTypedContract =>
-          LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
-            renderedMessage
-          )
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
+            .Error(
+              renderedMessage
+            )
         case LfInterpretationError.NonComparableValues =>
-          LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
-            renderedMessage
-          )
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
+            .Error(
+              renderedMessage
+            )
         case _: LfInterpretationError.ContractIdInContractKey =>
-          LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
-            renderedMessage
-          )
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
+            .Error(
+              renderedMessage
+            )
         case LfInterpretationError.ValueExceedsMaxNesting =>
-          LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
-            renderedMessage
-          )
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
+            .Error(
+              renderedMessage
+            )
         case _: LfInterpretationError.ContractIdComparability =>
-          LedgerApiErrors.InterpreterErrors.InvalidArgumentInterpretationError.Error(
-            renderedMessage
-          )
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
+            .Error(
+              renderedMessage
+            )
       }
     }
 
@@ -167,7 +175,7 @@ class RejectionGenerators(conformanceMode: Boolean) {
             if e.message.contains(
               "requires authorizers"
             ) => // Keeping this around as a string match as daml is not yet generating LfError.InterpreterErrors.Validation
-          LedgerApiErrors.InterpreterErrors.AuthorizationError.Reject(e.message)
+          LedgerApiErrors.CommandExecution.Interpreter.AuthorizationError.Reject(e.message)
       }
       toGrpc(transformed)
     }
@@ -175,43 +183,10 @@ class RejectionGenerators(conformanceMode: Boolean) {
     cause match {
       case ErrorCauseExport.DamlLf(error) => processLfError(error)
       case x: ErrorCauseExport.LedgerTime =>
-        toGrpc(LedgerApiErrors.CommandPreparation.FailedToDetermineLedgerTime.Reject(x.explain))
-    }
-  }
-
-  def submissionResult(result: Try[state.v2.SubmissionResult]): Option[Try[Unit]] = {
-    result match {
-      case Success(state.v2.SubmissionResult.Acknowledged) => None
-      case Success(grpcError @ state.v2.SubmissionResult.SynchronousError(_)) =>
-        Some(Failure(grpcError.exception))
-      case Failure(_) => None
-    }
-  }
-
-  // TODO error codes: This converter is deprecated and should be removed
-  //                   Instead of using this, construct proper validation errors in callers of this method
-  //                   and only convert to StatusRuntimeExceptions when dispatched (e.g. in ApiSubmissionService)
-  def validationFailure(reject: StatusRuntimeException)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): StatusRuntimeException = {
-    val description = reject.getStatus.getDescription
-    reject.getStatus.getCode match {
-      case Code.INVALID_ARGUMENT =>
-        if (description.startsWith("Missing field:")) {
-          toGrpc(LedgerApiErrors.CommandValidation.MissingField.Reject(description))
-        } else if (description.startsWith("Invalid argument:")) {
-          toGrpc(LedgerApiErrors.CommandValidation.InvalidArgument.Reject(description))
-        } else if (description.startsWith("Invalid field:")) {
-          toGrpc(LedgerApiErrors.CommandValidation.InvalidField.Reject(description))
-        } else {
-          contextualizedErrorLogger.warn(s"Unknown invalid argument rejection: ${reject.getStatus}")
-          reject
-        }
-      case Code.NOT_FOUND if description.startsWith("Ledger ID") =>
-        toGrpc(LedgerApiErrors.CommandValidation.LedgerIdMismatch.Reject(description))
-      case _ =>
-        contextualizedErrorLogger.warn(s"Unknown rejection: ${reject.getStatus}")
-        reject
+        toGrpc(
+          LedgerApiErrors.CommandExecution.FailedToDetermineLedgerTime
+            .Reject(x.explain)
+        )
     }
   }
 }

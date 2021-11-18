@@ -12,6 +12,7 @@ import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.{GlobalKey, NodeId, SubmittedTransaction}
 import com.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.daml.lf.speedy._
+import com.daml.lf.speedy.SExpr.{SExpr, SEValue, SEApp}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.IncompleteTransaction
 import com.daml.lf.value.Value
@@ -88,7 +89,7 @@ final class ScenarioRunner(
             ScenarioLedgerApi(ledger),
             committers,
             Set.empty,
-            SExpr.SEValue(commands),
+            SEValue(commands),
             location,
             nextSeed(),
             machine.traceLog,
@@ -261,7 +262,7 @@ object ScenarioRunner {
         case ScenarioLedger.LookupContractNotFound(coid) =>
           // This should never happen, hence we don't have a specific
           // error for this.
-          throw Error.Internal(s"contract $coid not found")
+          throw Error.Internal(s"contract ${coid.coid} not found")
 
         case ScenarioLedger.LookupContractNotEffective(coid, tid, effectiveAt) =>
           throw Error.ContractNotEffective(coid, tid, effectiveAt)
@@ -428,7 +429,7 @@ object ScenarioRunner {
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,
       initialSeeding = InitialSeeding.TransactionSeed(seed),
-      expr = SExpr.SEApp(commands, Array(SExpr.SEValue(SValue.SToken))),
+      expr = SEApp(commands, Array(SEValue(SValue.SToken))),
       committers = committers,
       readAs = readAs,
       traceLog = traceLog,

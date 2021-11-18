@@ -89,7 +89,7 @@ da_scala_library(
             "//ledger/ledger-configuration",
             "//ledger/ledger-resources",
             "//ledger/participant-integration-api",
-            "//ledger/sandbox-classic:sandbox-classic-{}".format(edition),
+            "//ledger/sandbox:sandbox-{}".format(edition),
             "//ledger/sandbox-common",
             "//libs-scala/ports",
             "//libs-scala/resources",

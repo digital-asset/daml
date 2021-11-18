@@ -31,18 +31,18 @@ class SyncQueryConstantAcs extends Simulation with SimulationConfig with HasRand
 }"""))
 
   private val scn = scenario("SyncQueryScenario")
-    .repeat(5000) {
+    .repeat(5000 / defaultNumUsers) {
       // populate the ACS
       feed(Iterator.continually(Map("amount" -> randomAmount())))
         .exec(createRequest.silent)
     }
-    .repeat(500) {
+    .repeat(500 / defaultNumUsers) {
       // run queries
       feed(Iterator.continually(Map("amount" -> randomAmount())))
         .exec(queryRequest)
     }
 
   setUp(
-    scn.inject(atOnceUsers(1))
+    scn.inject(atOnceUsers(defaultNumUsers))
   ).protocols(httpProtocol)
 }

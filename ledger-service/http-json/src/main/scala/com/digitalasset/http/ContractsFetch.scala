@@ -3,6 +3,7 @@
 
 package com.daml.http
 
+import akka.NotUsed
 import akka.stream.scaladsl.{Flow, GraphDSL, Keep, RunnableGraph, Sink, Source}
 import akka.stream.{ClosedShape, FanOutShape2, Materializer}
 import com.daml.http.dbbackend.{ContractDao, SupportedJdbcDriver}
@@ -28,8 +29,6 @@ import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
-import scalaz.OneAnd._
-import scalaz.std.set._
 import scalaz.std.vector._
 import scalaz.std.list._
 import scalaz.std.option.none
@@ -39,7 +38,7 @@ import scalaz.syntax.functor._
 import scalaz.syntax.foldable._
 import scalaz.syntax.order._
 import scalaz.syntax.std.option._
-import scalaz.{OneAnd, \/}
+import scalaz.\/
 import spray.json.{JsNull, JsValue}
 
 import scala.concurrent.ExecutionContext
@@ -64,7 +63,7 @@ private class ContractsFetch(
   def fetchAndPersistBracket[A](
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateIds: List[domain.TemplateId.RequiredPkg],
   )(within: BeginBookmark[Terminates.AtAbsolute] => ConnectionIO[A])(implicit
       ec: ExecutionContext,
@@ -87,7 +86,7 @@ private class ContractsFetch(
       // has desynchronized
       lagging <- (templateIds.toSet, bb.map(_.toDomain)) match {
         case (NonEmpty(tids), AbsoluteBookmark(expectedOff)) =>
-          laggingOffsets(parties.toSet, expectedOff, tids)
+          laggingOffsets(parties, expectedOff, tids)
         case _ => fconn.pure(none[(domain.Offset, Set[domain.TemplateId.RequiredPkg])])
       }
       retriedA <- lagging.cata(
@@ -119,7 +118,7 @@ private class ContractsFetch(
   def fetchAndPersist(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
       templateIds: List[domain.TemplateId.RequiredPkg],
   )(implicit
       ec: ExecutionContext,
@@ -329,7 +328,7 @@ private class ContractsFetch(
 
         val transactInsertsDeletes = Flow
           .fromFunction(jsonifyInsertDeleteStep)
-          .conflate(_ append _)
+          .via(conflation)
           .map(insertAndDelete)
 
         idses.map(_.toInsertDelete) ~> transactInsertsDeletes ~> acsSink
@@ -408,9 +407,19 @@ private[http] object ContractsFetch {
     }.void
   }
 
+  private def conflation[D, C: InsertDeleteStep.Cid]
+      : Flow[InsertDeleteStep[D, C], InsertDeleteStep[D, C], NotUsed] = {
+    // when considering this cost, keep in mind that each deleteContracts
+    // may entail a table scan.  Backpressure indicates that DB operations
+    // are slow, the idea here is to set the DB up for success
+    val maxCost = 250L
+    Flow[InsertDeleteStep[D, C]]
+      .batchWeighted(max = maxCost, costFn = _.size.toLong, identity)(_ append _)
+  }
+
   private final case class FetchContext(
       jwt: Jwt,
       ledgerId: LedgerApiDomain.LedgerId,
-      parties: OneAnd[Set, domain.Party],
+      parties: domain.PartySet,
   )
 }
