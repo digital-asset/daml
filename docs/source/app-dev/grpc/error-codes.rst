@@ -12,15 +12,15 @@ Overview
 
 .. _gRPC status codes: https://grpc.github.io/grpc/core/md_doc_statuscodes.html
 .. _gRPC status code: https://grpc.github.io/grpc/core/md_doc_statuscodes.html
-.. _StatusRuntimeException: https://grpc.github.io/grpc-java/javadoc/io/grpc/StatusRuntimeException.html
 .. _rich gRPC error model: https://cloud.google.com/apis/design/errors#error_details
 .. _standard gRPC description: https://grpc.github.io/grpc-java/javadoc/io/grpc/Status.html#getDescription--
 
 
 The majority of the errors are a result of some request processing.
-They are logged and returned to the user as a failed gRPC request
-using the standard StatusRuntimeException_.
-As such this approach remains unchanged in principle while we aim at
+They are logged and returned to the user as a failed gRPC response
+containing the status code, an optional status message and optional metadata.
+
+This approach remains unchanged in principle while we aim at
 enhancing it by providing:
 
 - improved consistency of the returned errors across API endpoints,
