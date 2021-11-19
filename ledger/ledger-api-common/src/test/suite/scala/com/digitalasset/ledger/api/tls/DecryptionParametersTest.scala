@@ -18,7 +18,7 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
 
     // given
     val key: SecretKey = KeyGenerator.getInstance("AES").generateKey()
-    val clearText = "clearText123 "*10
+    val clearText = "clearText123 " * 10
     val clearTextBytes = clearText.getBytes
     val transformation = "AES/CBC/PKCS5Padding"
     val cipher = Cipher.getInstance(transformation)

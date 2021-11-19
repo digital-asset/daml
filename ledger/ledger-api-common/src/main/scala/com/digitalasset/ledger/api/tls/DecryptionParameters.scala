@@ -13,7 +13,7 @@ import org.apache.commons.io.IOUtils
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
 import java.util.Base64
-import scala.util.{Try,Using}
+import scala.util.{Try, Using}
 
 final class PrivateKeyDecryptionException(cause: Throwable) extends Exception(cause)
 
