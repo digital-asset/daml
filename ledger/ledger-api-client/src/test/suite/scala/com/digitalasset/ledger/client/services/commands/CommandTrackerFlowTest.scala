@@ -329,31 +329,6 @@ class CommandTrackerFlowTest
         succeed
       }
 
-      "use the command deduplication time, if provided" in {
-        val Handle(submissions, results, _, _) = runCommandTrackingFlow(allSubmissionsSuccessful)
-
-        val deduplicationTime = DurationProto.of(0, 200000000) // 200ms
-        submissions.sendNext(
-          Ctx(
-            context,
-            CommandSubmission(
-              Commands(
-                commandId = commandId,
-                submissionId = submissionId,
-                deduplicationPeriod =
-                  Commands.DeduplicationPeriod.DeduplicationTime(deduplicationTime),
-              )
-            ),
-          )
-        )
-
-        results.expectNext(
-          500.milliseconds,
-          Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
-        )
-        succeed
-      }
-
       "cap the timeout at the maximum command timeout" in {
         val Handle(submissions, results, _, _) = runCommandTrackingFlow(
           allSubmissionsSuccessful,
