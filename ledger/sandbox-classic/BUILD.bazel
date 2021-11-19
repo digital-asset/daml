@@ -464,6 +464,16 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
+        "--exclude=ContractKeysIT:CKFetchOrLookup",
+        "--exclude=ContractKeysIT:CKNoFetchUndisclosed",
+        "--exclude=ContractKeysIT:CKMaintainerScoped",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
+        # Below test suites are duplicates of the above ExceptionsIT and ContractKeysIT
+        # but with more generic assertions for the in-memory ledger
+        # TODO sandbox-classic removal: Delete these tests
+        "--additional=DeprecatedSandboxClassicMemoryContractKeysIT",
+        "--additional=DeprecatedSandboxClassicMemoryExceptionsIT",
     ],
 )
 
@@ -478,5 +488,15 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
+        "--exclude=ContractKeysIT:CKFetchOrLookup",
+        "--exclude=ContractKeysIT:CKNoFetchUndisclosed",
+        "--exclude=ContractKeysIT:CKMaintainerScoped",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
+        # Below test suites are duplicates of the above ExceptionsIT and ContractKeysIT
+        # but with more generic assertions for the in-memory ledger
+        # TODO sandbox-classic removal: Delete these tests
+        "--additional=DeprecatedSandboxClassicMemoryContractKeysIT",
+        "--additional=DeprecatedSandboxClassicMemoryExceptionsIT",
     ],
 )
