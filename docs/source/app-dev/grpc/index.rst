@@ -7,7 +7,6 @@ gRPC
 ####
 
 
-
 .. toctree::
    :hidden:
 
