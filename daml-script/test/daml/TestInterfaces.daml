@@ -50,11 +50,11 @@ template Asset
             assert (splitAmount < amount)
             cid1 <- create this with amount = splitAmount
             cid2 <- create this with amount = amount - splitAmount
-            pure (toTokenContractId cid1, toTokenContractId cid2)
+            pure (toInterfaceContractId @_ @Token cid1, toInterfaceContractId @_ @Token cid2)
 
       let transferImpl = \newOwner -> do
             cid <- create this with owner = newOwner
-            pure (toTokenContractId cid)
+            pure (toInterfaceContractId @_ @Token cid)
 
       let noopImpl = \nothing -> do
             pure ()
@@ -66,7 +66,7 @@ test = script do
       issuer = p
       owner = p
       amount = 15
-  let cidToken1 = toTokenContractId cidAsset1
+  let cidToken1 = toInterfaceContractId @_ @Token cidAsset1
 
   _ <- p `submit` exerciseCmd cidToken1 (Noop ())
 

@@ -30,23 +30,23 @@ main = scenario do
     p <- getParty "Alice"
     let template1 = Template1 p 10
         template2 = Template2 p "Hi"
-        iface1 = toIface template1
-        iface2 = toIface template2
-    fromIface @Template1 iface1 === Some template1
-    fromIface @Template2 iface1 === None
-    fromIface @Template1 iface2 === None
-    fromIface @Template2 iface2 === Some template2
+        iface1 = toInterface @_ @Iface template1
+        iface2 = toInterface @_ @Iface template2
+    fromInterface @Template1 iface1 === Some template1
+    fromInterface @Template2 iface1 === None
+    fromInterface @Template1 iface2 === None
+    fromInterface @Template2 iface2 === Some template2
 
     p `submit` do
         templateCid1 <- create template1
         templateCid2 <- create template2
-        let ifaceCid1 = toIfaceContractId templateCid1
-            ifaceCid2 = toIfaceContractId templateCid2
+        let ifaceCid1 = toInterfaceContractId @_ @Iface templateCid1
+            ifaceCid2 = toInterfaceContractId @_ @Iface templateCid2
 
-        x1 <- fromIfaceContractId @Template1 ifaceCid1
-        x2 <- fromIfaceContractId @Template2 ifaceCid1
-        x3 <- fromIfaceContractId @Template1 ifaceCid2
-        x4 <- fromIfaceContractId @Template2 ifaceCid2
+        x1 <- fromInterfaceContractId @Template1 ifaceCid1
+        x2 <- fromInterfaceContractId @Template2 ifaceCid1
+        x3 <- fromInterfaceContractId @Template1 ifaceCid2
+        x4 <- fromInterfaceContractId @Template2 ifaceCid2
 
         x1 === Some templateCid1
         x2 === None
