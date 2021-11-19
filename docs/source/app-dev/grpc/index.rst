@@ -1,8 +1,12 @@
 .. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _grpc:
+
 gRPC
 ####
+
+
 
 .. toctree::
    :hidden:
@@ -73,20 +77,26 @@ The Ledger API generally uses the gRPC standard error codes for signaling respon
 
 For more details on the gRPC standard error codes, see the `gRPC documentation <https://github.com/grpc/grpc/blob/600272c826b48420084c2ff76dfb0d34324ec296/doc/statuscodes.md>`__ .
 
-Generically, on submitted commands the ledger API responds with the following gRPC status codes:
+Generically, on submitted commands the Ledger API responds with the following gRPC status codes:
 
 ABORTED
    The platform failed to record the result of the command due to a transient server-side error or a time constraint violation. You can retry the submission. In case of a time constraint violation, please refer to the section :ref:`Dealing with time <dealing-with-time>` on how to handle commands with long processing times.
+DEADLINE_EXCEEDED (when returned by the Command Service)
+   The request might not have been processed, as its deadline expired before its completion was signalled.
 ALREADY_EXISTS
-   The command was rejected because the resource already exists or because it was sent within the deduplication period of a previous command with the same change ID.
+   The command was rejected because the resource (e.g. contract key) already exists or because it was sent within the deduplication period of a previous command with the same change ID.
+NOT_FOUND
+   The command was rejected due to a missing resources (e.g. contract key not found).
 INVALID_ARGUMENT
    The submission failed because of a client error. The platform will definitely reject resubmissions of the same command.
-OK, INTERNAL, UNKNOWN (when returned by the Command Submission Service)
-   Assume that the command was accepted, and wait for the resulting completion or a timeout from the Command Completion Service.
+FAILED_PRECONDITION
+   The command was rejected due to an interpretation error or due to a consistency error due to races.
+OK (when returned by the Command Submission Service)
+   Assume that the command was accepted and wait for the resulting completion or a timeout from the Command Completion Service.
 OK (when returned by the Command Service)
    You can be sure that the command was successful.
 INTERNAL, UNKNOWN (when returned by the Command Service)
-   Resubmit the command with the same command_id.
+   An internal system fault occurred. Contact the participant operator for the resolution.
 
 Aside from the standard gRPC status codes, the failures returned by the Ledger API are enriched with details meant to help the application
 or the application developer to handle the error autonomously (e.g. by retrying on a retryable error).

@@ -25,9 +25,7 @@ service ParticipantPruningService {
   // - ``INTERNAL``: if the participant has encountered a failure and has potentially applied pruning partially. Such cases
   //   warrant verifying the participant health before retrying the prune with the same (or a larger, valid) offset.
   //   Successful retries after such errors ensure that different components reach a consistent pruning state.
-  // - ``FAILED_PRECONDITION``: if the participant is not yet able to prune at the specified offset, but without user intervention
-  //   the offset will eventually be usable for pruning.
-  // Other GRPC errors can be returned depending on the type of condition preventing a prune:
+  // - ``FAILED_PRECONDITION``: if the participant is not yet able to prune at the specified offset.
   //
   rpc Prune (PruneRequest) returns (PruneResponse);
 

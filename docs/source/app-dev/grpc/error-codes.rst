@@ -291,8 +291,7 @@ Anatomy of an Error
 ---------------------------
 
 
-Errors returned to users are represented as instances of standard StatusRuntimeException_.
-As such they contain a `gRPC status code`_, a description and additional machine readable information
+Errors returned to users contain a `gRPC status code`_, a description and additional machine readable information
 represented in the `rich gRPC error model`_.
 
 
