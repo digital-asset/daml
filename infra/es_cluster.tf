@@ -55,7 +55,7 @@ resource "google_compute_firewall" "es-ssh" {
   }
   allow {
     protocol = "tcp"
-    ports    = ["22"]
+    ports    = ["22", "9000"]
   }
   source_ranges = [      # VPNs
     "35.194.81.56/32",   # North Virginia
