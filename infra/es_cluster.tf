@@ -31,11 +31,35 @@ locals {
       type           = "n2-highmem-2",
       xmx            = "12g",
       disk_size      = 500,
-      one            = "",
-      two            = "",
-      three          = "",
-      four           = "",
-      five           = "",
+      one            = <<ONE
+
+
+mkdir -p /etc/docker
+cat <<CONFIG > /etc/docker/daemon.json
+{
+  "log-driver": "json-file",
+  "log-opts": {"max-size": "10m", "max-file": "3"}
+}
+CONFIG
+ONE
+      two            = <<TWO
+
+mkdir -p /root/es-data
+TWO
+      three          = <<THREE
+           -v /root/es-data:/usr/share/elasticsearch/data \
+THREE
+      four           = <<FOUR
+
+docker run -d \
+           -p 9000:9000 \
+           --link es \
+           --name cerebro \
+           lmenezes/cerebro:0.9.4
+FOUR
+      five           = <<FIVE
+( exec 1> >(while IFS= read -r line; do echo "cerebro: $line"; done); docker logs -f cerebro ) &
+FIVE
     },
     {
       suffix         = "-init",
@@ -210,8 +234,8 @@ docker run -d \
            --name es \
            -p 9200:9200 \
            -p 9300:9300 \
-           -e ES_JAVA_OPTS="-Xmx${local.es_clusters[count.index].xmx} -Xms${local.es_clusters[count.index].xmx}" \${local.es_clusters[count.index].three}
-           es
+           -e ES_JAVA_OPTS="-Xmx${local.es_clusters[count.index].xmx} -Xms${local.es_clusters[count.index].xmx}" \
+${local.es_clusters[count.index].three}           es
 
 docker run -d \
            --restart on-failure \
