@@ -29,6 +29,26 @@ da_scala_binary(
     ],
 )
 
+da_scala_binary(
+    name = "generate-docs-error-code-inventory-app",
+    srcs = glob(["app/src/main/scala/**/*.scala"]),
+    main_class = "com.daml.error.generator.app.ErrorCodeInventoryDocsGen_App",
+    resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:io_circe_circe_core",
+        "@maven//:org_typelevel_cats_core",
+    ],
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        # Add the KVErrors to the classpath so they can be picked up by the generator
+        "//ledger/participant-state/kvutils",
+    ],
+    deps = [
+        "//ledger/error",
+        "//ledger/error/generator:lib",
+    ],
+)
+
 da_scala_library(
     name = "lib",
     srcs = glob(["lib/src/main/scala/**/*.scala"]),

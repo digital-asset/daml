@@ -63,6 +63,10 @@ do
         cp -L ../../bazel-bin/docs/DigitalAssetSDK.pdf $BUILD_DIR/gen/_downloads
     fi
     if [ "$arg" = "--gen" ]; then
+
+        bazel build //docs:generate-docs-error-code-inventory-into-rst-file
+        cp -L ../../bazel-bin/docs/error_codes_inventory.rst $BUILD_DIR/source/error-codes/self-service/error_codes_inventory.rst
+
         # Hoogle
         bazel build //compiler/damlc:daml-base-hoogle.txt
         mkdir -p $BUILD_DIR/gen/hoogle_db

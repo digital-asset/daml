@@ -3,7 +3,7 @@
 
 package com.daml.error.generator.app
 
-import com.daml.error.Grouping
+import com.daml.error.ErrorGroupSegment
 import com.daml.error.generator.{ErrorCodeDocumentationGenerator, ErrorDocItem, GroupDocItem}
 import io.circe.Encoder
 import io.circe.syntax._
@@ -16,14 +16,14 @@ object Main {
 
   case class Output(errorCodes: Seq[ErrorDocItem], groups: Seq[GroupDocItem])
 
-  implicit val groupingEncode: Encoder[Grouping] =
+  implicit val groupingEncode: Encoder[ErrorGroupSegment] =
     Encoder.forProduct2(
       "docName",
       "className",
-    )(i =>
+    )((grouping: ErrorGroupSegment) =>
       (
-        i.docName,
-        i.group.map(_.fullClassName),
+        grouping.docName,
+        grouping.fullClassName,
       )
     )
 
@@ -39,14 +39,14 @@ object Main {
       "resolution",
     )(i =>
       (
-        i.className,
+        i.fullClassName,
         i.category,
-        i.hierarchicalGrouping,
+        i.errorGroupPath.segments,
         i.conveyance,
         i.code,
-        i.deprecation.deprecation,
-        i.explanation.explanation,
-        i.resolution.resolution,
+        i.deprecation.fold("")(_.deprecation),
+        i.explanation.fold("")(_.explanation),
+        i.resolution.fold("")(_.resolution),
       )
     )
 
@@ -56,8 +56,8 @@ object Main {
       "explanation",
     )(i =>
       (
-        i.className,
-        i.explanation.explanation,
+        i.fullClassName,
+        i.explanation.fold("")(_.explanation),
       )
     )
 
@@ -66,10 +66,15 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     val (errorCodes, groups) = new ErrorCodeDocumentationGenerator().getDocItems
-    val outputFile = Paths.get(args(0))
     val output = Output(errorCodes, groups)
     val outputText: String = output.asJson.spaces2
-    val outputBytes = outputText.getBytes
-    val _ = Files.write(outputFile, outputBytes, StandardOpenOption.CREATE_NEW)
+
+    if (args.length >= 1) {
+      val outputFile = Paths.get(args(0))
+      Files.write(outputFile, outputText.getBytes, StandardOpenOption.CREATE_NEW): Unit
+    } else {
+      println(outputText)
+    }
+
   }
 }

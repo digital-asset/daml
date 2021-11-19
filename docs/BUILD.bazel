@@ -100,11 +100,14 @@ genrule(
         "//ledger-api/grpc-definitions:docs",
         "//:LICENSE",
         "//:NOTICES",
+        ":generate-docs-error-code-inventory-into-rst-file",
     ],
     outs = ["source.tar.gz"],
     cmd = """
         cp -rL docs/source source
 
+        mkdir -p -- source/error-codes/self-service
+        cp -- $(location //docs:generate-docs-error-code-inventory-into-rst-file) source/error-codes/self-service/error_codes_inventory.rst
         # Copy in Stdlib
         mkdir -p source/daml/stdlib
         tar xf $(location //compiler/damlc:daml-base-rst.tar.gz) \\
@@ -665,6 +668,15 @@ genrule(
     tools = ["//ledger/error/generator:export-error-codes-json-app"],
     visibility = ["//visibility:public"],
 ) if scala_major_version == "2.13" else None
+
+genrule(
+    name = "generate-docs-error-code-inventory-into-rst-file",
+    srcs = [],
+    outs = ["error_codes_inventory.rst"],
+    cmd = "$(location //ledger/error/generator:generate-docs-error-code-inventory-app) $(location error_codes_inventory.rst)",
+    tools = ["//ledger/error/generator:generate-docs-error-code-inventory-app"],
+    visibility = ["//visibility:public"],
+)
 
 exports_files([
     "source/daml-script/template-root/src/ScriptExample.daml",

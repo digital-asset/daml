@@ -358,11 +358,14 @@ but there is no guarantee given that additional information will be preserved ac
 Error Codes Inventory
 **********************
 
-.. list-all-error-codes::
+
+.. This file is generated:
+.. include:: error_codes_inventory.rst
 
 
 Error Codes Migration Guide
----------------------------
+*****************************
+
 
 The Ledger API gRPC error codes change introduced in the Daml SDK 1.18 release involves breaking
 compatibility with previous releases for some service Ledger API endpoints.
@@ -375,7 +378,7 @@ For example, a service endpoint previously returning gRPC status code ``CODE_A``
 and only an entry for the change from ``CODE_A`` in ``CODE_B`` is included in the table below.
 
 Ledger API
-^^^^^^^^^^
+---------------------------
 
 The table below outlines generic gRPC status code changes pertaining to the Ledger API
 and apply to all ledger backends. For changes specific to a ledger backend, check the next subsections.
@@ -481,7 +484,7 @@ and apply to all ledger backends. For changes specific to a ledger backend, chec
 +-----------------------------------------------+-----------------------------------+----------------------------------+-------------------------------------------------------------------------------------------------------------------------+---------------------------------------------+
 
 Sandbox (classic)
-^^^^^^^^^^^^^^^^^
+---------------------------
 
 The following gRPC status codes have changed for submission rejections in Sandbox classic.
 
@@ -507,7 +510,7 @@ The following gRPC status codes have changed for submission rejections in Sandbo
 
 
 Daml Sandbox and VMBC
-^^^^^^^^^^^^^^^^^^^^^
+---------------------------
 
 The following gRPC status codes have changed for submission rejections in the Ledger API backed by KV-based ledgers (Daml Sandbox and VMBC).
 

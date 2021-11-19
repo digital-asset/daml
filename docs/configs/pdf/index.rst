@@ -45,6 +45,7 @@ Building applications
    upgrade/index
    app-dev/authorization
    app-dev/ledger-api
+   error-codes/self-service/index
 
 Deploying to Daml ledgers
 -------------------------

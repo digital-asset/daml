@@ -9,31 +9,27 @@ import org.scalatest.matchers.should.Matchers
 
 class ErrorGroupSpec extends AnyFlatSpec with Matchers with BeforeAndAfter {
 
-  object ErrorGroupBar extends ErrorGroup()(ErrorClass.root())
+  object ErrorGroupBar extends ErrorGroup()(ErrorGroupPath.root())
 
-  object ErrorGroupsFoo {
-    private implicit val errorClass: ErrorClass = ErrorClass.root()
-
-    object ErrorGroupFoo1 extends ErrorGroup() {
-      object ErrorGroupFoo2 extends ErrorGroup() {
-        object ErrorGroupFoo3 extends ErrorGroup()
-      }
+  object ErrorGroupFoo1 extends ErrorGroup()(ErrorGroupPath.root()) {
+    object ErrorGroupFoo2 extends ErrorGroup() {
+      object ErrorGroupFoo3 extends ErrorGroup()
     }
   }
 
   it should "resolve correct error group names" in {
-    ErrorGroupsFoo.ErrorGroupFoo1.ErrorGroupFoo2.ErrorGroupFoo3.errorClass shouldBe ErrorClass(
+    ErrorGroupFoo1.ErrorGroupFoo2.ErrorGroupFoo3.errorGroupPath shouldBe ErrorGroupPath(
       List(
-        Grouping("ErrorGroupFoo1", Some(ErrorGroupsFoo.ErrorGroupFoo1)),
-        Grouping("ErrorGroupFoo2", Some(ErrorGroupsFoo.ErrorGroupFoo1.ErrorGroupFoo2)),
-        Grouping(
+        ErrorGroupSegment("ErrorGroupFoo1", ErrorGroupFoo1.fullClassName),
+        ErrorGroupSegment("ErrorGroupFoo2", ErrorGroupFoo1.ErrorGroupFoo2.fullClassName),
+        ErrorGroupSegment(
           "ErrorGroupFoo3",
-          Some(ErrorGroupsFoo.ErrorGroupFoo1.ErrorGroupFoo2.ErrorGroupFoo3),
+          ErrorGroupFoo1.ErrorGroupFoo2.ErrorGroupFoo3.fullClassName,
         ),
       )
     )
-    ErrorGroupBar.errorClass shouldBe ErrorClass(
-      List(Grouping("ErrorGroupBar", Some(ErrorGroupBar)))
+    ErrorGroupBar.errorGroupPath shouldBe ErrorGroupPath(
+      List(ErrorGroupSegment("ErrorGroupBar", ErrorGroupBar.fullClassName))
     )
   }
 

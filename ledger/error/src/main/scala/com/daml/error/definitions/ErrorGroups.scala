@@ -3,10 +3,10 @@
 
 package com.daml.error.definitions
 
-import com.daml.error.{ErrorClass, ErrorGroup}
+import com.daml.error.{ErrorGroupPath, ErrorGroup}
 
 object ErrorGroups {
-  val rootErrorClass: ErrorClass = ErrorClass.root()
+  val rootErrorClass: ErrorGroupPath = ErrorGroupPath.root()
 
   object ParticipantErrorGroup extends ErrorGroup()(rootErrorClass) {
     abstract class IndexErrorGroup extends ErrorGroup() {
