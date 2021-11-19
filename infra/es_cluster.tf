@@ -26,7 +26,7 @@ locals {
     {
       suffix         = "-green",
       ubuntu_version = "2004",
-      size           = 1,
+      size           = 5,
       init           = "[]",
       type           = "n2-highmem-2",
       xmx            = "12g",
