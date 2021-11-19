@@ -332,7 +332,7 @@ trait AbstractTriggerServiceTest
       r <- client.commandClient
         .completionSource(List(aliceAcs.unwrap), LedgerOffset(Boundary(LEDGER_BEGIN)))
         .collect({
-          case CompletionStreamElement.CompletionElement(completion)
+          case CompletionStreamElement.CompletionElement(completion, _)
               if !completion.transactionId.isEmpty =>
             completion
         })
@@ -690,8 +690,8 @@ trait AbstractTriggerServiceTestAuthMiddleware
         r <- client.commandClient
           .completionSource(List(aliceExp.unwrap), LedgerOffset(Boundary(LEDGER_BEGIN)))
           .collect({
-            case CompletionStreamElement.CompletionElement(completion)
-                if !completion.transactionId.isEmpty =>
+            case CompletionStreamElement.CompletionElement(completion, _)
+                if completion.transactionId.nonEmpty =>
               completion
           })
           .take(1)

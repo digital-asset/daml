@@ -80,16 +80,25 @@ message SubmitAndWaitForTransactionIdResponse {
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string transaction_id = 1;
+  // The format of this field is described in ``ledger_offset.proto``.
+  // Optional
+  string completion_offset = 2;
 }
 
 message SubmitAndWaitForTransactionResponse {
   // The flat transaction that resulted from the submitted command.
   // Required
   Transaction transaction = 1;
+  // The format of this field is described in ``ledger_offset.proto``.
+  // Optional
+  string completion_offset = 2;
 }
 
 message SubmitAndWaitForTransactionTreeResponse {
   // The transaction tree that resulted from the submitted command.
   // Required
   TransactionTree transaction = 1;
+  // The format of this field is described in ``ledger_offset.proto``.
+  // Optional
+  string completion_offset = 2;
 }

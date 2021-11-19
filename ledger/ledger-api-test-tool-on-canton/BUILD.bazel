@@ -58,7 +58,7 @@ conformance_test(
         "@curl_nix//:bin/curl",
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
-        "@jdk11_nix//:bin/java",
+        "@bazel_tools//tools/jdk",
     ],
     lf_versions = [
         "default",
@@ -80,6 +80,7 @@ conformance_test(
         "--exclude=ConfigManagementServiceIT,LedgerConfigurationServiceIT" +  # dynamic config management not supported by Canton
         ",ParticipantPruningIT" +  # see "conformance-test-participant-pruning" below
         ",ClosedWorldIT" +  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
+        ",CommandServiceIT:CSsubmitAndWaitCompletionOffset" +  # Canton does not fill the offsets
         # Excluding tests that require contract key uniqueness and RWArchiveVsFailedLookupByKey (finding a lookup failure after contract creation)
         ",RaceConditionIT:WWDoubleNonTransientCreate,RaceConditionIT:WWArchiveVsNonTransientCreate,RaceConditionIT:RWTransientCreateVsNonTransientCreate,RaceConditionIT:RWArchiveVsFailedLookupByKey" +
         ",RaceConditionIT:RWArchiveVsLookupByKey,RaceConditionIT:RWArchiveVsNonConsumingChoice,RaceConditionIT:RWArchiveVsFetch,RaceConditionIT:WWDoubleArchive" +
@@ -96,11 +97,11 @@ conformance_test(
         ",CompletionDeduplicationInfoITCommandSubmissionService" +
         ",CommandDeduplicationParallelIT" +
         ",ContractIdIT" +
+        ",KVCommandDeduplicationIT" +  # only for KV-utils
         ",MultiPartySubmissionIT" +
         ",ParticipantPruningIT" +
         ",TLSOnePointThreeIT" +
         ",TLSAtLeastOnePointTwoIT" +
-        ",KVCommandDeduplicationIT" +  # only for KV-utils
         ",MonotonicRecordTimeIT",  # KV-utils specific
     ],
 ) if not is_windows else None
@@ -117,7 +118,7 @@ conformance_test(
         "@curl_nix//:bin/curl",
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
-        "@jdk11_nix//:bin/java",
+        "@bazel_tools//tools/jdk",
     ],
     lf_versions = [
         "default",
@@ -152,7 +153,7 @@ conformance_test(
         "@curl_nix//:bin/curl",
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
-        "@jdk11_nix//:bin/java",
+        "@bazel_tools//tools/jdk",
     ],
     ports = [
         5011,
@@ -186,7 +187,7 @@ conformance_test(
         "@curl_nix//:bin/curl",
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
-        "@jdk11_nix//:bin/java",
+        "@bazel_tools//tools/jdk",
     ],
     lf_versions = [
         "default",

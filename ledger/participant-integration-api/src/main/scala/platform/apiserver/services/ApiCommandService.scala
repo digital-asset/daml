@@ -3,6 +3,9 @@
 
 package com.daml.platform.apiserver.services
 
+import java.time.{Duration, Instant}
+import java.util.concurrent.TimeUnit
+
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
@@ -13,20 +16,17 @@ import com.daml.error.{
   ErrorCodesVersionSwitcher,
 }
 import com.daml.ledger.api.SubmissionIdGenerator
-import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.api.v1.command_completion_service.{
-  CompletionEndResponse,
-  CompletionStreamRequest,
-  CompletionStreamResponse,
-}
+import com.daml.ledger.api.domain.{ApplicationId, LedgerId}
+import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionByIdRequest,
   GetTransactionResponse,
 }
-import com.daml.ledger.api.validation.CommandsValidator
+import com.daml.ledger.api.validation.{CommandsValidator, LedgerOffsetValidator}
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
@@ -38,6 +38,7 @@ import com.daml.ledger.client.services.commands.{
   CommandSubmission,
   CommandTrackerFlow,
 }
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -45,16 +46,14 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.services.ApiCommandService._
 import com.daml.platform.apiserver.services.tracking.{QueueBackedTracker, Tracker, TrackerMap}
+import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandService
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
 import io.grpc.Context
-import scalaz.syntax.tag._
 
-import java.time.{Duration, Instant}
-import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
@@ -97,9 +96,16 @@ private[apiserver] final class ApiCommandService private[services] (
       submitAndWaitInternal(request)(enrichedLoggingContext, errorLogger).map {
         case Left(failure) =>
           throw CompletionResponse.toException(failure, errorFactories)(errorLogger)
-        case Right(response) => SubmitAndWaitForTransactionIdResponse(response.transactionId)
+        case Right(response) =>
+          SubmitAndWaitForTransactionIdResponse.of(
+            response.transactionId,
+            offsetFromResponse(response),
+          )
       }
     }
+
+  private def offsetFromResponse(response: CompletionSuccess) =
+    response.checkpoint.flatMap(_.offset).flatMap(_.value.absolute).getOrElse("")
 
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest
@@ -117,7 +123,13 @@ private[apiserver] final class ApiCommandService private[services] (
           )
           transactionServices
             .getFlatTransactionById(txRequest)
-            .map(resp => SubmitAndWaitForTransactionResponse(resp.transaction))
+            .map(transactionResponse =>
+              SubmitAndWaitForTransactionResponse
+                .of(
+                  transactionResponse.transaction,
+                  transactionResponse.transaction.map(_.offset).getOrElse(""),
+                )
+            )
       }
     }
 
@@ -137,7 +149,10 @@ private[apiserver] final class ApiCommandService private[services] (
           )
           transactionServices
             .getTransactionById(txRequest)
-            .map(resp => SubmitAndWaitForTransactionTreeResponse(resp.transaction))
+            .map(resp =>
+              SubmitAndWaitForTransactionTreeResponse
+                .of(resp.transaction, resp.transaction.map(_.offset).getOrElse(""))
+            )
       }
     }
 
@@ -195,7 +210,7 @@ private[apiserver] object ApiCommandService {
   def create(
       configuration: Configuration,
       submissionFlow: SubmissionFlow,
-      completionServices: CompletionServices,
+      completionServices: CommandCompletionService,
       transactionServices: TransactionServices,
       timeProvider: TimeProvider,
       ledgerConfigurationSubscription: LedgerConfigurationSubscription,
@@ -206,6 +221,8 @@ private[apiserver] object ApiCommandService {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): CommandServiceGrpc.CommandService with GrpcApiService = {
+    val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
+    val ledgerOffsetValidator = new LedgerOffsetValidator(errorFactories)
     val submissionTracker = new TrackerMap.SelfCleaning(
       configuration.trackerRetentionPeriod,
       Tracking.getTrackerKey,
@@ -214,7 +231,8 @@ private[apiserver] object ApiCommandService {
         submissionFlow,
         completionServices,
         metrics,
-        ErrorFactories(errorCodesVersionSwitcher),
+        errorFactories,
+        ledgerOffsetValidator,
       ),
       trackerCleanupInterval,
     )
@@ -238,30 +256,32 @@ private[apiserver] object ApiCommandService {
       trackerRetentionPeriod: Duration,
   )
 
-  final class CompletionServices(
-      val getCompletionSource: CompletionStreamRequest => Source[CompletionStreamResponse, NotUsed],
-      val getCompletionEnd: () => Future[CompletionEndResponse],
-  )
-
   final class TransactionServices(
       val getTransactionById: GetTransactionByIdRequest => Future[GetTransactionResponse],
       val getFlatTransactionById: GetTransactionByIdRequest => Future[GetFlatTransactionResponse],
   )
 
   private object Tracking {
-    final case class Key(applicationId: String, parties: Set[String])
+    final case class Key(applicationId: Ref.ApplicationId, parties: Set[Ref.Party])
+
+    private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
     def getTrackerKey(commands: Commands): Tracking.Key = {
       val parties = CommandsValidator.effectiveActAs(commands)
-      Tracking.Key(commands.applicationId, parties)
+      // Safe to convert the applicationId and the parties as the command should've been already validated
+      Tracking.Key(
+        Ref.ApplicationId.assertFromString(commands.applicationId),
+        parties.map(Ref.Party.assertFromString),
+      )
     }
 
     def newTracker(
         configuration: Configuration,
         submissionFlow: SubmissionFlow,
-        completionServices: CompletionServices,
+        completionServices: CommandCompletionService,
         metrics: Metrics,
         errorFactories: ErrorFactories,
+        offsetValidator: LedgerOffsetValidator,
     )(
         key: Tracking.Key
     )(implicit
@@ -271,24 +291,32 @@ private[apiserver] object ApiCommandService {
     ): Future[Tracker] = {
       // Note: command completions are returned as long as at least one of the original submitters
       // is specified in the command completion request.
+      implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
+        new DamlContextualizedErrorLogger(logger, loggingContext, None)
       for {
-        ledgerEnd <- completionServices.getCompletionEnd().map(_.getOffset)
+        ledgerEnd <- completionServices.getLedgerEnd(configuration.ledgerId)
       } yield {
         val commandTrackerFlow =
           CommandTrackerFlow[Promise[Either[CompletionFailure, CompletionSuccess]], NotUsed](
             commandSubmissionFlow = submissionFlow,
             createCommandCompletionSource = offset =>
-              completionServices
-                .getCompletionSource(
-                  CompletionStreamRequest(
-                    configuration.ledgerId.unwrap,
-                    key.applicationId,
-                    key.parties.toList,
-                    Some(offset),
-                  )
-                )
-                .mapConcat(CommandCompletionSource.toStreamElements),
-            startingOffset = ledgerEnd,
+              offsetValidator
+                .validate(offset, "command_tracker_offset")
+                .fold(
+                  Source.failed,
+                  offset =>
+                    completionServices
+                      .completionStreamSource(
+                        CompletionStreamRequest(
+                          configuration.ledgerId,
+                          ApplicationId(key.applicationId),
+                          key.parties,
+                          Some(offset),
+                        )
+                      )
+                      .mapConcat(CommandCompletionSource.toStreamElements),
+                ),
+            startingOffset = LedgerOffset(LedgerOffset.Value.Absolute(ledgerEnd.value)),
             // We use the tracker retention period as the maximum command timeout, because the is
             // the maximum length of time we can guarantee that the tracker stays alive (assuming
             // the server stays up). If we set it any longer, the tracker might be shut down while

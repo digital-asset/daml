@@ -35,7 +35,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
       .submitAndWaitForTransactionId(
         alpha.submitAndWaitRequest(party, command.command)
       )
-      .transform(x => Success(x.toEither))
+      .transform(x => Success(x.map(_.transactionId).toEither))
 
   private[this] def camlCase(s: String) =
     s.split(" ").iterator.map(_.capitalize).mkString("")

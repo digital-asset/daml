@@ -306,16 +306,20 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
     implicit val context: ResourceContext = ResourceContext(system.dispatcher)
     // The owner spins up its own actor system which avoids deadlocks
     // during shutdown.
-    resource = new OwnedResource(for {
-      // We must provide a random database if none is provided.
-      // The default is to always use the same index database URL, which means that tests can
-      // share an index. As you can imagine, this causes all manner of issues, the most important
-      // of which is that the ledger and index databases will be out of sync.
-      jdbcUrl <- SandboxBackend.H2Database.owner
-        .map(info => Some(info.jdbcUrl))
-      port <- new SandboxRunner(sandboxConfig.copy(jdbcUrl = jdbcUrl))
-      channel <- GrpcClientResource.owner(port)
-    } yield (port, channel))
+    resource = new OwnedResource(
+      for {
+        // We must provide a random database if none is provided.
+        // The default is to always use the same index database URL, which means that tests can
+        // share an index. As you can imagine, this causes all manner of issues, the most important
+        // of which is that the ledger and index databases will be out of sync.
+        jdbcUrl <- SandboxBackend.H2Database.owner
+          .map(info => Some(info.jdbcUrl))
+        port <- new SandboxRunner(sandboxConfig.copy(jdbcUrl = jdbcUrl))
+        channel <- GrpcClientResource.owner(port)
+      } yield (port, channel),
+      acquisitionTimeout = 1.minute,
+      releaseTimeout = 1.minute,
+    )
     resource.setup()
   }
 

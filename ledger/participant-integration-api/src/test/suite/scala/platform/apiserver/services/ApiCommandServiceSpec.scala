@@ -9,10 +9,12 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import com.daml.grpc.RpcProtoExtractors
+import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
@@ -46,7 +48,10 @@ class ApiCommandServiceSpec
         commandId = "command ID",
         status = Some(OkStatus),
         transactionId = "transaction ID",
-      )
+      ),
+      Some(
+        Checkpoint(offset = Some(LedgerOffset(LedgerOffset.Value.Absolute("offset"))))
+      ),
     )
     "submit a request, and wait for a response" in {
       val commands = someCommands()
@@ -72,6 +77,7 @@ class ApiCommandServiceSpec
         val request = SubmitAndWaitRequest.of(Some(commands))
         stub.submitAndWaitForTransactionId(request).map { response =>
           response.transactionId should be("transaction ID")
+          response.completionOffset shouldBe "offset"
           verify(submissionTracker).track(
             eqTo(CommandSubmission(commands))
           )(any[ExecutionContext], any[LoggingContext])

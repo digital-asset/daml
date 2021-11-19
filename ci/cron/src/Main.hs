@@ -408,7 +408,7 @@ check_releases gcp_credentials bash_lib max_releases = do
     let releases = case max_releases of
                      Nothing -> releases'
                      Just n -> take n releases'
-    Data.Foldable.for_ releases (\release -> do
+    Data.Foldable.for_ releases (\release -> recoverAll retryPolicy $ \_ -> do
         let v = show $ tag release
         putStrLn $ "Checking release " <> v <> " ..."
         IO.withTempDir $ \temp_dir -> do
@@ -425,9 +425,12 @@ check_releases gcp_credentials bash_lib max_releases = do
                       gcs_cp gcred bash_lib remote_gcp local_gcp
                       check_files_match local_github local_gcp >>= \case
                           True -> putStrLn $ f <> " matches GCS backup."
-                          False -> Exit.die $ f <> " does not match GCS backup."
+                          False -> fail $ f <> " does not match GCS backup."
                   else do
-                      Exit.die $ remote_gcp <> " does not exist. Aborting.")
+                      fail $ remote_gcp <> " does not exist. Aborting.")
+  where
+     -- Retry for 10 minutes total, delay of 1s
+     retryPolicy = limitRetriesByCumulativeDelay (10 * 60 * 1000 * 1000) (constantDelay 1000_000)
 
 data CliArgs = Docs
              | Check { bash_lib :: String,

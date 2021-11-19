@@ -66,6 +66,7 @@ public final class Record extends DamlRecord {
 
   // FIXME When removing this after the deprecation period is over, make DamlTextMap.Field final
   /** @deprecated Use {@link DamlRecord.Field} instead. */
+  @Deprecated
   public static final class Field extends DamlRecord.Field {
 
     public Field(@NonNull String label, @NonNull Value value) {

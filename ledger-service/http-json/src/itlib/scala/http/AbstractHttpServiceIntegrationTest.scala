@@ -68,7 +68,7 @@ object AbstractHttpServiceIntegrationTestFuns {
 
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
     import java.security.MessageDigest
-    import javax.xml.bind.DatatypeConverter
+    import com.google.common.io.BaseEncoding
 
     val md = MessageDigest.getInstance("SHA-256")
     val is = source.runWith(StreamConverters.asInputStream())
@@ -79,7 +79,7 @@ object AbstractHttpServiceIntegrationTestFuns {
 
     dis.on(false)
 
-    DatatypeConverter.printHexBinary(md.digest()).toLowerCase
+    BaseEncoding.base16().lowerCase().encode(md.digest())
   }
 }
 
@@ -1673,7 +1673,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "query by a variant field" in withHttpService { (uri, encoder, _, _) =>
     val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
     val accountNumber = "abc123"
-    val now = TimestampConversion.instantToMicros(Instant.now)
+    val now = TimestampConversion.roundInstantToMicros(Instant.now)
     val nowStr = TimestampConversion.microsToInstant(now).toString
     val command: domain.CreateCommand[v.Record, OptionalPkg] =
       accountCreateCommand(alice, accountNumber, now)

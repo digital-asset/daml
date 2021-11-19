@@ -571,6 +571,7 @@ Java JWT 3.10.3 : MIT License
 Java Servlet API 3.1.0 : (Common Development and Distribution License 1.1 OR Sun GPL With Classpath Exception v2.0)
 JavaPoet 1.11.1 : Apache License 2.0
 Javassist 3_26_0_ga : (Mozilla Public License 1.1 OR GNU Lesser General Public License v2.1 or later OR Apache License 2.0)
+javax.annotation API 1.2 : (Common Development and Distribution License 1.1 OR Sun GPL With Classpath Exception v2.0)
 JCommander Library 1.12 : Apache License 2.0
 Jetty :: Websocket :: API 9.4.27.v20200227 : (Apache License 2.0 OR Eclipse Public License 1.0)
 Jetty :: Websocket :: Client 9.4.27.v20200227 : (Apache License 2.0 OR Eclipse Public License 1.0)
@@ -2936,7 +2937,7 @@ THIS SOFTWARE.
 ---
 
 Common Development and Distribution License 1.1
-(Java Servlet API 3.1.0, JMS API 2.0.1)
+(Java Servlet API 3.1.0, javax.annotation API 1.2, JMS API 2.0.1)
 
 COMMON DEVELOPMENT AND DISTRIBUTION LICENSE (CDDL) Version 1.1
 ==============================================================
@@ -15868,7 +15869,7 @@ PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2
 ---
 
 Sun GPL With Classpath Exception v2.0
-(Java Servlet API 3.1.0, JMS API 2.0.1)
+(Java Servlet API 3.1.0, javax.annotation API 1.2, JMS API 2.0.1)
 
 "CLASSPATH" EXCEPTION TO THE GPL VERSION 2
 ==========================================

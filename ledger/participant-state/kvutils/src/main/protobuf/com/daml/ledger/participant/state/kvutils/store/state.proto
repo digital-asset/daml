@@ -57,7 +57,8 @@ message DamlCommandDedupValue {
   oneof time {
     // The time until when future commands with the same
     // deduplication key will be rejected due to a duplicate submission.
-    google.protobuf.Timestamp deduplicated_until = 2;
+    // Read-only for backwards compatibility
+    google.protobuf.Timestamp deduplicated_until = 2 [deprecated = true];
     google.protobuf.Timestamp record_time = 3;
     PreExecutionDeduplicationBounds record_time_bounds = 4;
   }

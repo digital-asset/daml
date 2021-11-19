@@ -50,7 +50,7 @@ template Asset
   where
     signatory issuer, owner
 
-    ensure (amount >= 5 && amount <= 6)
+    ensure (amount >= 5 && amount <= 8)
 
     implements Token1 where
       let getOwner1 = owner
@@ -59,10 +59,10 @@ template Asset
             assert (splitAmount < amount)
             cid1 <- create this with amount = splitAmount
             cid2 <- create this with amount = amount - splitAmount
-            pure (toToken1ContractId cid1, toToken1ContractId cid2)
+            pure (toInterfaceContractId @_ @Token1 cid1, toInterfaceContractId @_ @Token1 cid2)
       let transferImpl = \newOwner -> do
             cid <- create this with owner = newOwner
-            pure (toToken1ContractId cid)
+            pure (toInterfaceContractId @_ @Token1 cid)
 
 
     implements Token2 where
@@ -95,13 +95,13 @@ main = scenario do
     create Asset with
       issuer = p
       owner = p
-      amount = 7 -- violates ensure of Asset
+      amount = 8 -- violates ensure of Asset & Token2
 
   p `submitMustFail` do
     create Asset with
       issuer = p
       owner = p
-      amount = 8 -- violates ensure of Asset & Token2
+      amount = 8 -- violates ensure of Token1
 
   p `submit` do
     create Asset with

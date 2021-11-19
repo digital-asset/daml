@@ -4,7 +4,6 @@
 package com.daml.ledger.participant.state.kvutils.committer.transaction
 
 import com.daml.ledger.configuration.{Configuration, LedgerTimeModel}
-import com.daml.ledger.participant.state.kvutils.Conversions.{commandDedupKey, parseTimestamp}
 import com.daml.ledger.participant.state.kvutils.committer.Committer.getCurrentConfiguration
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
 import com.daml.lf.data.Time.Timestamp
@@ -20,12 +19,9 @@ object TimeBoundBindingStep {
       val timeModel = config.timeModel
 
       if (commitContext.preExecute) {
-        val maybeDeduplicateUntil =
-          getLedgerDeduplicateUntil(transactionEntry, commitContext)
         val minimumRecordTime = transactionMinRecordTime(
           transactionEntry.submissionTime,
           transactionEntry.ledgerEffectiveTime,
-          maybeDeduplicateUntil,
           timeModel,
         )
         val maximumRecordTime = transactionMaxRecordTime(
@@ -33,7 +29,6 @@ object TimeBoundBindingStep {
           transactionEntry.ledgerEffectiveTime,
           timeModel,
         )
-        commitContext.deduplicateUntil = maybeDeduplicateUntil
         commitContext.minimumRecordTime = Some(minimumRecordTime)
         commitContext.maximumRecordTime = Some(maximumRecordTime)
       }
@@ -45,14 +40,9 @@ object TimeBoundBindingStep {
   private def transactionMinRecordTime(
       submissionTime: Timestamp,
       ledgerTime: Timestamp,
-      maybeDeduplicateUntil: Option[Timestamp],
       timeModel: LedgerTimeModel,
   ): Timestamp =
     List(
-      maybeDeduplicateUntil
-        .map(
-          _.add(Timestamp.Resolution)
-        ), // DeduplicateUntil defines a rejection window, endpoints inclusive
       Some(timeModel.minRecordTime(ledgerTime)),
       Some(timeModel.minRecordTime(submissionTime)),
     ).flatten.max
@@ -64,14 +54,4 @@ object TimeBoundBindingStep {
   ): Timestamp =
     List(timeModel.maxRecordTime(ledgerTime), timeModel.maxRecordTime(submissionTime)).min
 
-  private def getLedgerDeduplicateUntil(
-      transactionEntry: DamlTransactionEntrySummary,
-      commitContext: CommitContext,
-  ): Option[Timestamp] =
-    for {
-      dedupEntry <- commitContext.get(commandDedupKey(transactionEntry.submitterInfo))
-      dedupTimestamp <- PartialFunction.condOpt(dedupEntry.getCommandDedup.hasDeduplicatedUntil) {
-        case true => dedupEntry.getCommandDedup.getDeduplicatedUntil
-      }
-    } yield parseTimestamp(dedupTimestamp)
 }

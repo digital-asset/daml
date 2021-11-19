@@ -3,9 +3,11 @@
 
 package com.daml.platform.store.appendonlydao.events
 
+import java.sql.Connection
+
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain
-import com.daml.ledger.participant.state.{v1, v2}
+import com.daml.ledger.participant.state.v2
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{CommittedTransaction, GlobalKey}
 import com.daml.platform.apiserver.execution.MissingContracts
@@ -13,7 +15,6 @@ import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events.PostCommitValidation._
 import com.daml.platform.store.backend.{ContractStorageBackend, PartyStorageBackend}
 
-import java.sql.Connection
 import scala.util.{Failure, Success}
 
 /** Performs post-commit validation on transactions for Sandbox Classic.
@@ -182,11 +183,11 @@ private[appendonlydao] object PostCommitValidation {
     * beginning of the rollback.
     *
     * @param contracts Active contracts created in
-    *  the current transaction that have a key indexed
-    *  by a hash of their key.
-    * @param removed Hashes of contract keys that are known to
-    *  to be archived. Note that a later create with the same
-    *  key will remove the entry again.
+    *                  the current transaction that have a key indexed
+    *                  by a hash of their key.
+    * @param removed   Hashes of contract keys that are known to
+    *                  to be archived. Note that a later create with the same
+    *                  key will remove the entry again.
     */
   private final case class ActiveState(
       contracts: Map[Hash, ContractId],
@@ -210,12 +211,12 @@ private[appendonlydao] object PostCommitValidation {
     * validated one node at a time in pre-order
     * traversal for this to make sense.
     *
-    * @param currentState The current active ledger state.
-    * @param rollbackStack Stack of states at the beginning of rollback nodes so we can
-    *  restore the state at the end of the rollback. The most recent rollback
-    *  comes first.
+    * @param currentState           The current active ledger state.
+    * @param rollbackStack          Stack of states at the beginning of rollback nodes so we can
+    *                               restore the state at the end of the rollback. The most recent rollback
+    *                               comes first.
     * @param contractStorageBackend For getting committed contracts for post-commit validation purposes.
-    *  This is never changed during the traversal of the transaction.
+    *                               This is never changed during the traversal of the transaction.
     */
   private final case class State(
       private val currentState: ActiveState,
@@ -287,8 +288,6 @@ private[appendonlydao] object PostCommitValidation {
   sealed trait Rejection {
     def description: String
 
-    def toStateV1RejectionReason: v1.RejectionReason
-
     def toStateV2RejectionReason(errorFactories: ErrorFactories)(implicit
         contextualizedErrorLogger: ContextualizedErrorLogger
     ): v2.Update.CommandRejected.RejectionReasonTemplate
@@ -297,11 +296,9 @@ private[appendonlydao] object PostCommitValidation {
   object Rejection {
 
     import com.daml.platform.store.Conversions.RejectionReasonOps
+
     object MaximumLedgerTimeLookupFailure extends Rejection {
       override val description = "An unhandled failure occurred during ledger time lookup."
-
-      override def toStateV1RejectionReason: v1.RejectionReason =
-        v1.RejectionReasonV0.Disputed(description)
 
       override def toStateV2RejectionReason(errorFactories: ErrorFactories)(implicit
           contextualizedErrorLogger: ContextualizedErrorLogger
@@ -317,9 +314,6 @@ private[appendonlydao] object PostCommitValidation {
       override val description =
         s"Unknown contracts: ${missingContractIds.mkString("[", ", ", "]")}"
 
-      override def toStateV1RejectionReason: v1.RejectionReason =
-        v1.RejectionReasonV0.Inconsistent(description)
-
       override def toStateV2RejectionReason(errorFactories: ErrorFactories)(implicit
           contextualizedErrorLogger: ContextualizedErrorLogger
       ): v2.Update.CommandRejected.RejectionReasonTemplate =
@@ -332,9 +326,6 @@ private[appendonlydao] object PostCommitValidation {
     final case class DuplicateKey(key: GlobalKey) extends Rejection {
       override val description =
         "DuplicateKey: contract key is not unique"
-
-      override def toStateV1RejectionReason: v1.RejectionReason =
-        v1.RejectionReasonV0.Inconsistent(description)
 
       override def toStateV2RejectionReason(errorFactories: ErrorFactories)(implicit
           contextualizedErrorLogger: ContextualizedErrorLogger
@@ -351,9 +342,6 @@ private[appendonlydao] object PostCommitValidation {
       override lazy val description: String =
         s"Contract key lookup with different results: expected [$expectation], actual [$result]"
 
-      override def toStateV1RejectionReason: v1.RejectionReason =
-        v1.RejectionReasonV0.Inconsistent(description)
-
       override def toStateV2RejectionReason(errorFactories: ErrorFactories)(implicit
           contextualizedErrorLogger: ContextualizedErrorLogger
       ): v2.Update.CommandRejected.RejectionReasonTemplate =
@@ -369,9 +357,6 @@ private[appendonlydao] object PostCommitValidation {
       override lazy val description: String =
         s"Encountered contract with LET [$contractLedgerEffectiveTime] greater than the LET of the transaction [$transactionLedgerEffectiveTime]"
 
-      override def toStateV1RejectionReason: v1.RejectionReason =
-        v1.RejectionReasonV0.InvalidLedgerTime(description)
-
       override def toStateV2RejectionReason(errorFactories: ErrorFactories)(implicit
           contextualizedErrorLogger: ContextualizedErrorLogger
       ): v2.Update.CommandRejected.RejectionReasonTemplate =
@@ -384,9 +369,6 @@ private[appendonlydao] object PostCommitValidation {
         unallocatedParties: Set[String]
     ) extends Rejection {
       override def description: String = "Some parties are unallocated"
-
-      override def toStateV1RejectionReason: v1.RejectionReason =
-        v1.RejectionReasonV0.PartyNotKnownOnLedger(description)
 
       override def toStateV2RejectionReason(errorFactories: ErrorFactories)(implicit
           contextualizedErrorLogger: ContextualizedErrorLogger

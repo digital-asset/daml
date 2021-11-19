@@ -15,11 +15,7 @@ import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlConfigurationEntry,
   DamlTransactionEntry,
 }
-import com.daml.ledger.participant.state.kvutils.store.{
-  DamlCommandDedupValue,
-  DamlStateKey,
-  DamlStateValue,
-}
+import com.daml.ledger.participant.state.kvutils.store.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{Conversions, TestHelpers}
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
@@ -46,26 +42,15 @@ class TimeBoundsBindingStepSpec extends AnyWordSpec with Matchers {
   private val aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes =
     DamlTransactionEntrySummary(aDamlTransactionEntryWithSubmissionAndLedgerEffectiveTimes)
 
-  private val aDedupKey: DamlStateKey = Conversions
-    .commandDedupKey(aDamlTransactionEntry.getSubmitterInfo)
-  private val aDeduplicateUntil = createProtobufTimestamp(seconds = 3)
-
-  private val aDedupValue = DamlStateValue.newBuilder
-    .setCommandDedup(
-      DamlCommandDedupValue.newBuilder.setDeduplicatedUntil(toJavaProto(aDeduplicateUntil))
-    )
-    .build()
-
   private val emptyConfigurationStateValue: DamlStateValue =
     defaultConfigurationStateValueBuilder().build
 
-  private val inputWithTimeModelAndCommandDeduplication: Map[DamlStateKey, Some[DamlStateValue]] =
+  private val inputWithConfiguration: Map[DamlStateKey, Some[DamlStateValue]] =
     Map(
-      Conversions.configurationStateKey -> Some(emptyConfigurationStateValue),
-      aDedupKey -> Some(aDedupValue),
+      Conversions.configurationStateKey -> Some(emptyConfigurationStateValue)
     )
   private val inputWithTimeModelAndEmptyCommandDeduplication =
-    Map(Conversions.configurationStateKey -> Some(emptyConfigurationStateValue), aDedupKey -> None)
+    Map(Conversions.configurationStateKey -> Some(emptyConfigurationStateValue))
 
   "time bounds binding step" should {
     "continue" in {
@@ -80,7 +65,7 @@ class TimeBoundsBindingStepSpec extends AnyWordSpec with Matchers {
       }
     }
 
-    "compute and correctly set the min/max ledger time without deduplicateUntil" in {
+    "compute and correctly set the min/max ledger time" in {
       val context = contextWithTimeModelAndEmptyCommandDeduplication()
 
       step.apply(
@@ -96,35 +81,20 @@ class TimeBoundsBindingStepSpec extends AnyWordSpec with Matchers {
         protoTimestampToLf(aSubmissionTime)
           .add(theDefaultConfig.timeModel.maxSkew)
       )
-      context.deduplicateUntil shouldBe empty
     }
 
-    "set deduplicate until when available" in {
-      val context = contextWithTimeModelAndCommandDeduplication()
-      step.apply(
-        context,
-        aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes,
-      )
-      context.deduplicateUntil shouldEqual Some(
-        protoTimestampToLf(aDeduplicateUntil)
-      )
-    }
-
-    "mark config and dedup key as accessed in context" in {
+    "mark config as accessed in context" in {
       val commitContext =
-        createCommitContext(recordTime = None, inputWithTimeModelAndCommandDeduplication)
+        createCommitContext(recordTime = None, inputWithConfiguration)
 
       step.apply(commitContext, aTransactionEntrySummary)
 
-      commitContext.getAccessedInputKeys should contain allOf (configurationStateKey, aDedupKey)
+      commitContext.getAccessedInputKeys should contain(configurationStateKey)
     }
   }
 
   private def contextWithTimeModelAndEmptyCommandDeduplication() =
     createCommitContext(recordTime = None, inputs = inputWithTimeModelAndEmptyCommandDeduplication)
-
-  private def contextWithTimeModelAndCommandDeduplication() =
-    createCommitContext(recordTime = None, inputs = inputWithTimeModelAndCommandDeduplication)
 
   private def createProtobufTimestamp(seconds: Long): timestamp.Timestamp = {
     timestamp.Timestamp(seconds)

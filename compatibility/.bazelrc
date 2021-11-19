@@ -33,6 +33,14 @@ build --experimental_strict_action_env
 # in us getting a certificate for githubassets.com instead.
 startup --host_jvm_args=-Xms2g --host_jvm_args=-Xmx2g --host_jvm_args=-Djdk.tls.client.protocols=TLSv1.2
 
+# Limit the number of parallel actions spawned by Bazel to the number of
+# physical CPUs. (Assuming a CPU with hyperthreading enabled)
+build --loading_phase_threads="HOST_CPUS*.5"
+fetch --loading_phase_threads="HOST_CPUS*.5"
+query --loading_phase_threads="HOST_CPUS*.5"
+sync --loading_phase_threads="HOST_CPUS*.5"
+build --local_cpu_resources="HOST_CPUS*.5"
+
 # Enable sandboxing and caching for exclusive tests
 build --incompatible_exclusive_test_sandboxed
 
@@ -58,16 +66,16 @@ build --copt -DGRPC_BAZEL_BUILD
 # avoid dreaded "Unrecognized VM option 'CompactStrings'" error
 build:linux --javabase=@nixpkgs_java_runtime//:runtime
 build:linux --host_javabase=@nixpkgs_java_runtime//:runtime
-build:linux --java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
-build:linux --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
+build:linux --java_toolchain=@bazel_tools//tools/jdk:toolchain_java11
+build:linux --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_java11
 build:darwin --javabase=@nixpkgs_java_runtime//:runtime
 build:darwin --host_javabase=@nixpkgs_java_runtime//:runtime
-build:darwin --java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
-build:darwin --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
+build:darwin --java_toolchain=@bazel_tools//tools/jdk:toolchain_java11
+build:darwin --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_java11
 build:windows --javabase=@dadew_java_runtime//:runtime
 build:windows --host_javabase=@dadew_java_runtime//:runtime
-build:windows --java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
-build:windows --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
+build:windows --java_toolchain=@bazel_tools//tools/jdk:toolchain_java11
+build:windows --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_java11
 
 # Do not use a distinct configuration for "host", that is, binaries used
 # at build time should be the same as release binaries.

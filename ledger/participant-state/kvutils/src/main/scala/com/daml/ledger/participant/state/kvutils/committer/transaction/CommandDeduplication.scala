@@ -28,10 +28,13 @@ import com.daml.ledger.participant.state.kvutils.store.{
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.logging.LoggingContext
 
+import scala.annotation.nowarn
+
 private[transaction] object CommandDeduplication {
 
   /** Reject duplicate commands
     */
+  @nowarn("msg=deprecated")
   def deduplicateCommandStep(rejections: Rejections): Step =
     new Step {
       def apply(
