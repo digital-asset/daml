@@ -33,9 +33,10 @@ service CommandCompletionService {
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the request does not include a valid ledger id or if the ledger has been pruned before ``begin``
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id
+  // - ``FAILED_PRECONDITION``: if the ledger has been pruned after the subscription start offset
   // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
-  // - ``OUT_OF_RANGE``: if the absolute offset is not before the end of the ledger
+  // - ``OUT_OF_RANGE``: if the absolute offset is after the end of the ledger
   rpc CompletionStream (CompletionStreamRequest) returns (stream CompletionStreamResponse);
 
   // Returns the offset after the latest completion.

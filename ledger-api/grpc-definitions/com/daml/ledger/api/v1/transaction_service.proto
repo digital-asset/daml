@@ -22,8 +22,8 @@ service TransactionService {
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the request does not include a valid ledger id or if the ledger has been pruned before ``begin``
-  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields (e.g. if ``before`` is not before ``end``)
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id
+  // - ``FAILED_PRECONDITION``: if the ledger has been pruned after the subscription start offset
   // - ``OUT_OF_RANGE``: if the ``begin`` parameter value is not before the end of the ledger
   rpc GetTransactions (GetTransactionsRequest) returns (stream GetTransactionsResponse);
 
@@ -32,8 +32,8 @@ service TransactionService {
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the request does not include a valid ledger id or if the ledger has been pruned before ``begin``
-  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields (e.g. if ``before`` is not before ``end``)
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id
+  // - ``FAILED_PRECONDITION``: if the ledger has been pruned after the subscription start offset
   // - ``OUT_OF_RANGE``: if the ``begin`` parameter value is not before the end of the ledger
   rpc GetTransactionTrees (GetTransactionsRequest) returns (stream GetTransactionTreesResponse);
 
@@ -76,7 +76,7 @@ service TransactionService {
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the request does not include a valid ledger id or no such transaction exists
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id
   rpc GetLedgerEnd (GetLedgerEndRequest) returns (GetLedgerEndResponse);
 
 }
