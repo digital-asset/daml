@@ -66,14 +66,16 @@ For information on how Daml types and contracts are represented by the Ledger AP
 Error handling
 **************
 
-For the standard error codes that the server or the client might return, see the `gRPC documentation <https://github.com/grpc/grpc/blob/600272c826b48420084c2ff76dfb0d34324ec296/doc/statuscodes.md>`__ .
+The Ledger API generally uses the gRPC standard error codes for signaling response failures to client applications.
 
-For submitted commands, there are these response codes:
+For more details on the gRPC standard error codes, see the `gRPC documentation <https://github.com/grpc/grpc/blob/600272c826b48420084c2ff76dfb0d34324ec296/doc/statuscodes.md>`__ .
+
+Generically, on submitted commands the ledger API responds with the following gRPC status codes:
 
 ABORTED
    The platform failed to record the result of the command due to a transient server-side error or a time constraint violation. You can retry the submission. In case of a time constraint violation, please refer to the section :ref:`Dealing with time <dealing-with-time>` on how to handle commands with long processing times.
 ALREADY_EXISTS
-   The command was rejected because it was sent within the deduplication period of a previous command with the same change ID.
+   The command was rejected because the resource already exists or because it was sent within the deduplication period of a previous command with the same change ID.
 INVALID_ARGUMENT
    The submission failed because of a client error. The platform will definitely reject resubmissions of the same command.
 OK, INTERNAL, UNKNOWN (when returned by the Command Submission Service)
@@ -82,3 +84,7 @@ OK (when returned by the Command Service)
    You can be sure that the command was successful.
 INTERNAL, UNKNOWN (when returned by the Command Service)
    Resubmit the command with the same command_id.
+
+Aside from the standard gRPC status codes, the failures returned by the Ledger API are enriched with details meant to help the application
+or the application developer to handle the error autonomously (e.g. by retrying on a retryable error).
+For more details on the rich error details see the :doc:`/error-codes/self-service/index`
