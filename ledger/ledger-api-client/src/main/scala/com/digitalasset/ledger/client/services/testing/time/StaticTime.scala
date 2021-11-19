@@ -89,11 +89,11 @@ object StaticTime {
 
           val ignore = b.add(Sink.ignore)
 
-            // format: OFF
-            instantSource ~> killSwitch ~> updateClock ~> broadcastTimes.in
-            broadcastTimes.out(0) ~> sinkHead
-            broadcastTimes.out(1) ~> ignore
-            // format: ON
+          // format: OFF
+          instantSource ~> killSwitch ~> updateClock ~> broadcastTimes.in
+                                                        broadcastTimes.out(0) ~> sinkHead
+                                                        broadcastTimes.out(1) ~> ignore
+          // format: ON
 
           ClosedShape
         }
