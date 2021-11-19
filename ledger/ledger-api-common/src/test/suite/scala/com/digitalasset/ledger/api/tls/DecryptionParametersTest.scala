@@ -42,41 +42,20 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
       new String(actual) shouldBe clearText
     }
 
-    "decrypt a file" in {
+    "decrypt a file" in
+      testFileDecoding("-verbatim", cipherText)
+
+    "decrypt a file in base64" in
+      testFileDecoding("-base64", Base64.getEncoder.encode(cipherText))
+
+    "decrypt a file in MIME base64" in
+      testFileDecoding("-mime-base64", Base64.getMimeEncoder.encode(cipherText))
+
+    def testFileDecoding(fileSuffix: String, content: Array[Byte]) = {
       // given
-      val tmpFilePath = Files.createTempFile("cipher-text", ".enc")
-      Files.write(tmpFilePath, cipherText)
-      assume(Files.readAllBytes(tmpFilePath) sameElements cipherText)
-
-      // when
-      val actual: Array[Byte] = tested.decrypt(tmpFilePath.toFile)
-
-      // then
-      actual shouldBe clearTextBytes
-      new String(actual) shouldBe clearText
-    }
-
-    "decrypt a file in base64" in {
-      // given
-      val tmpFilePath = Files.createTempFile("cipher-text-base64", ".enc")
-      val base64Text = Base64.getEncoder.encode(cipherText)
-      Files.write(tmpFilePath, base64Text)
-      assume(Files.readAllBytes(tmpFilePath) sameElements base64Text)
-
-      // when
-      val actual: Array[Byte] = tested.decrypt(tmpFilePath.toFile)
-
-      // then
-      actual shouldBe clearTextBytes
-      new String(actual) shouldBe clearText
-    }
-
-    "decrypt a file in MIME base64" in { //MIME format introduces \n\r every 76 characters
-      // given
-      val tmpFilePath = Files.createTempFile("cipher-text-mime-base64", ".enc")
-      val base64Text = Base64.getMimeEncoder.encode(cipherText)
-      Files.write(tmpFilePath, base64Text)
-      assume(Files.readAllBytes(tmpFilePath) sameElements base64Text)
+      val tmpFilePath = Files.createTempFile(s"cipher-text$fileSuffix", ".enc")
+      Files.write(tmpFilePath, content)
+      assume(Files.readAllBytes(tmpFilePath) sameElements content)
 
       // when
       val actual: Array[Byte] = tested.decrypt(tmpFilePath.toFile)
