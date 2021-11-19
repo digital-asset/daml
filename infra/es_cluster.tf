@@ -17,15 +17,25 @@ locals {
       type           = "n2-highmem-2",
       xmx            = "12g",
       disk_size      = 300,
+      one            = "",
+      two            = "",
+      three          = "",
+      four           = "",
+      five           = "",
     },
     {
       suffix         = "-green",
       ubuntu_version = "2004",
       size           = 0,
       init           = "[]",
-      type           = "n2-highcpu-16",
+      type           = "n2-highmem-2",
       xmx            = "12g",
-      disk_size      = 300,
+      disk_size      = 500,
+      one            = "",
+      two            = "",
+      three          = "",
+      four           = "",
+      five           = "",
     },
     {
       suffix         = "-init",
@@ -35,6 +45,11 @@ locals {
       type           = "e2-standard-2",
       xmx            = "6g",
       disk_size      = 200,
+      one            = "",
+      two            = "",
+      three          = "",
+      four           = "",
+      five           = "",
     },
   ]
 
@@ -148,7 +163,7 @@ apt-get -y upgrade
 ### stackdriver
 curl -sSL https://dl.google.com/cloudagents/install-logging-agent.sh | bash
 
-## Install Docker
+## Install Docker${local.es_clusters[count.index].one}
 apt-get install -y \
   apt-transport-https \
   ca-certificates \
@@ -188,14 +203,14 @@ FROM docker.elastic.co/elasticsearch/elasticsearch:7.13.2
 RUN bin/elasticsearch-plugin install --batch discovery-gce
 COPY es.yml /usr/share/elasticsearch/config/elasticsearch.yml
 EOF
-
+${local.es_clusters[count.index].two}
 docker build -t es .
 docker run -d \
            --restart on-failure \
            --name es \
            -p 9200:9200 \
            -p 9300:9300 \
-           -e ES_JAVA_OPTS="-Xmx${local.es_clusters[count.index].xmx} -Xms${local.es_clusters[count.index].xmx}" \
+           -e ES_JAVA_OPTS="-Xmx${local.es_clusters[count.index].xmx} -Xms${local.es_clusters[count.index].xmx}" \${local.es_clusters[count.index].three}
            es
 
 docker run -d \
@@ -205,12 +220,12 @@ docker run -d \
            --link es:elasticsearch \
            -e TELEMETRY_ENABLED=false \
            docker.elastic.co/kibana/kibana:7.13.2
-
+${local.es_clusters[count.index].four}
 ## Getting container output directly to the GCP console
 
 ( exec 1> >(while IFS= read -r line; do echo "elastic: $line"; done); docker logs -f es ) &
 ( exec 1> >(while IFS= read -r line; do echo "kibana: $line"; done); docker logs -f kibana ) &
-
+${local.es_clusters[count.index].five}
 for job in $(jobs -p); do
     wait $job
 done
