@@ -45,6 +45,7 @@ ONE
       two            = <<TWO
 
 mkdir -p /root/es-data
+chown 1000:0 /root/es-data
 TWO
       three          = <<THREE
            -v /root/es-data:/usr/share/elasticsearch/data \
