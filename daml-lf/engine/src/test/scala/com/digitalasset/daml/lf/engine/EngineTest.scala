@@ -2106,12 +2106,7 @@ class EngineTest
     val pkgId = Ref.PackageId.assertFromString("-pkg-")
 
     def pkg(version: LV) =
-      language.Ast.Package(
-        Iterable.empty,
-        Iterable.empty,
-        version,
-        None,
-      )
+      language.Ast.Package(Map.empty, Set.empty, version, None)
 
     "reject disallow packages" in {
       val negativeTestCases = Table(

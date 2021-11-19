@@ -474,13 +474,13 @@ private[validation] object Typing {
 
     def checkIfaceImplementation(tplTcon: TypeConName, impl: TemplateImplements): Unit = {
       val DefInterfaceSignature(_, fixedChoices, methods, _) =
-        handleLookup(ctx, interface.lookupInterface(impl.interface))
+        handleLookup(ctx, interface.lookupInterface(impl.interfaceId))
 
-      val fixedChoiceSet = fixedChoices.keys.toSet
+      val fixedChoiceSet = fixedChoices.keySet
       if (impl.inheritedChoices != fixedChoiceSet) {
         throw EBadInheritedChoices(
           ctx,
-          impl.interface,
+          impl.interfaceId,
           tplTcon,
           fixedChoiceSet,
           impl.inheritedChoices,
@@ -489,12 +489,12 @@ private[validation] object Typing {
 
       methods.values.foreach { (method: InterfaceMethod) =>
         if (!impl.methods.contains(method.name))
-          throw EMissingInterfaceMethod(ctx, tplTcon, impl.interface, method.name)
+          throw EMissingInterfaceMethod(ctx, tplTcon, impl.interfaceId, method.name)
       }
       impl.methods.values.foreach { (tplMethod: TemplateImplementsMethod) =>
         methods.get(tplMethod.name) match {
           case None =>
-            throw EUnknownInterfaceMethod(ctx, tplTcon, impl.interface, tplMethod.name)
+            throw EUnknownInterfaceMethod(ctx, tplTcon, impl.interfaceId, tplMethod.name)
           case Some(method) =>
             checkExpr(tplMethod.value, TFun(TTyCon(tplTcon), method.returnType))
         }
@@ -502,8 +502,7 @@ private[validation] object Typing {
     }
 
     def checkDefException(excepName: TypeConName, defException: DefException): Unit = {
-      val DefException(message) = defException
-      checkExpr(message, TTyCon(excepName) ->: TText)
+      checkExpr(defException.message, TTyCon(excepName) ->: TText)
       ()
     }
 

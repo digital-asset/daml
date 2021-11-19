@@ -170,7 +170,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
   "Package metadata should be extracted if present" in {
     def pkg(metadata: Option[Ast.PackageMetadata]) =
       Ast.Package(
-        modules = Seq.empty,
+        modules = Map.empty,
         directDeps = Set.empty,
         languageVersion = LanguageVersion.default,
         metadata = metadata,
