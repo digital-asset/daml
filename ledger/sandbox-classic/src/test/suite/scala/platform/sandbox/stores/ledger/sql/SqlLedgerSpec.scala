@@ -3,14 +3,12 @@
 
 package com.daml.platform.sandbox.stores.ledger.sql
 
-import java.io.File
-import java.time.{Duration, Instant}
-
 import akka.stream.scaladsl.Sink
 import ch.qos.logback.classic.Level
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -41,8 +39,6 @@ import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import com.daml.timer.RetryStrategy
-import com.google.protobuf.any.{Any => AnyProto}
-import com.google.rpc.error_details.ErrorInfo
 import io.grpc.Status
 import org.mockito.MockitoSugar
 import org.scalatest.Inside
@@ -51,6 +47,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Minute, Seconds, Span}
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.io.File
+import java.time.{Duration, Instant}
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
@@ -293,6 +291,7 @@ final class SqlLedgerSpec
 
     "reject a transaction if no configuration is found" in {
       val now = Time.Timestamp.now()
+      val submissionId = "12345678"
       for {
         sqlLedger <- createSqlLedger()
         start = sqlLedger.ledgerEnd()
@@ -302,7 +301,7 @@ final class SqlLedgerSpec
             applicationId = applicationId,
             commandId = commandId1,
             deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofHours(1)),
-            submissionId = None,
+            submissionId = Some(Ref.SubmissionId.assertFromString(submissionId)),
             ledgerConfiguration = Configuration.reasonableInitialConfiguration,
           ),
           transactionMeta = emptyTransactionMeta(seedService, ledgerEffectiveTime = now),
@@ -321,20 +320,9 @@ final class SqlLedgerSpec
         completion._1 should be > start
         inside(completion._2.completions) {
           case Seq(Completion(`commandId1`, Some(status), _, _, _, _, _)) =>
-            status.code should be(Status.Code.ABORTED.value)
+            status.code should be(Status.Code.NOT_FOUND.value)
             status.message should be(
-              "No ledger configuration available, cannot validate ledger time"
-            )
-            status.details should be(
-              Seq(
-                AnyProto.pack(
-                  ErrorInfo.of(
-                    reason = "NO_LEDGER_CONFIGURATION",
-                    domain = "com.daml.on.sql",
-                    metadata = Map.empty,
-                  )
-                )
-              )
+              s"LEDGER_CONFIGURATION_NOT_FOUND(11,$submissionId): The ledger configuration could not be retrieved: Cannot validate ledger time."
             )
         }
       }
@@ -350,6 +338,8 @@ final class SqlLedgerSpec
       val configuration = Configuration.reasonableInitialConfiguration.copy(
         timeModel = LedgerTimeModel.reasonableDefault.copy(minSkew = minSkew, maxSkew = maxSkew)
       )
+
+      val submissionId = "12345678"
 
       val transactionLedgerEffectiveTime = now.add(Duration.ofMinutes(5))
       for {
@@ -371,7 +361,7 @@ final class SqlLedgerSpec
             applicationId = applicationId,
             commandId = commandId1,
             deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofHours(1)),
-            submissionId = None,
+            submissionId = Some(Ref.SubmissionId.assertFromString(submissionId)),
             ledgerConfiguration = configuration,
           ),
           transactionMeta =
@@ -391,24 +381,9 @@ final class SqlLedgerSpec
         completion._1 should be > start
         inside(completion._2.completions) {
           case Seq(Completion(`commandId1`, Some(status), _, _, _, _, _)) =>
-            status.code should be(Status.Code.ABORTED.value)
+            status.code should be(Status.Code.FAILED_PRECONDITION.value)
             status.message should be(
-              s"Ledger time 2021-09-01T18:05:00Z outside of range [2021-09-01T17:59:50Z, 2021-09-01T18:00:30Z]"
-            )
-            status.details should be(
-              Seq(
-                AnyProto.pack(
-                  ErrorInfo.of(
-                    reason = "INVALID_LEDGER_TIME",
-                    domain = "com.daml.on.sql",
-                    metadata = Map(
-                      "ledgerTime" -> transactionLedgerEffectiveTime.toInstant.toString,
-                      "lowerBound" -> nowInstant.minus(minSkew).toString,
-                      "upperBound" -> nowInstant.plus(maxSkew).toString,
-                    ),
-                  )
-                )
-              )
+              s"INVALID_LEDGER_TIME(9,$submissionId): Invalid ledger time: Ledger time 2021-09-01T18:05:00Z outside of range [2021-09-01T17:59:50Z, 2021-09-01T18:00:30Z]"
             )
         }
       }
@@ -472,7 +447,7 @@ final class SqlLedgerSpec
         engine = new Engine(),
         validatePartyAllocation = false,
         enableCompression = false,
-        errorFactories = mock[ErrorFactories],
+        errorFactories = ErrorFactories(new ErrorCodesVersionSwitcher(true)),
       ).acquire()(ResourceContext(system.dispatcher))
     createdLedgers += ledger
     ledger.asFuture

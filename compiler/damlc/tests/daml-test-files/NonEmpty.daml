@@ -46,3 +46,11 @@ testDelete = scenario do
   delete 1 (NonEmpty 0 [2, 1]) === [0, 2]
   delete 1 (NonEmpty 0 [1, 2, 1]) === [0, 2, 1]
 
+
+testDeleteBy = scenario do
+    deleteBy eq 1 (NonEmpty 0 []) === [0]
+    deleteBy eq 1 (NonEmpty 1 []) === []
+    deleteBy (/=) 1 (NonEmpty 0 [1]) === [1]
+  where
+    -- Get dlint to stop complaining.
+    eq = (==)

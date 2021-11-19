@@ -4,9 +4,12 @@
 package com.daml.platform.store.appendonlydao.events
 
 import akka.NotUsed
-import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import akka.stream.scaladsl.Source
+import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.dec.DirectExecutionContext
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.error.definitions.LedgerApiErrors.ParticipantBackpressure
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -48,6 +51,9 @@ class FilterTableACSReader(
   )(implicit
       loggingContext: LoggingContext
   ): Source[Vector[EventsTable.Entry[Raw.FlatEvent]], NotUsed] = {
+    implicit val errorLogger: ContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, None)
+
     val allFilterParties = filter.keySet
     val tasks = filter.iterator
       .flatMap {
@@ -163,7 +169,9 @@ private[events] object FilterTableACSReader {
   )(
       work: TASK => Future[(RESULT, Option[TASK])],
       initialTasks: Iterable[TASK],
-  ): Source[(TASK, RESULT), NotUsed] = if (initialTasks.isEmpty) Source.empty
+  )(implicit errorLogger: ContextualizedErrorLogger): Source[(TASK, RESULT), NotUsed] = if (
+    initialTasks.isEmpty
+  ) Source.empty
   else {
     val (signalQueue, signalSource) = Source
       .queue[Unit](initialTasks.size)
@@ -186,7 +194,7 @@ private[events] object FilterTableACSReader {
   class QueueState[TASK: Ordering](
       signalQueue: BoundedSourceQueue[Unit],
       initialTasks: Iterable[TASK],
-  ) {
+  )(implicit errorLogger: ContextualizedErrorLogger) {
     private val priorityQueue =
       new mutable.PriorityQueue[TASK]()(implicitly[Ordering[TASK]].reverse)
     private var runningTasks: Int = 0
@@ -214,9 +222,19 @@ private[events] object FilterTableACSReader {
       signalQueue.offer(()) match {
         case QueueOfferResult.Enqueued => ()
         case QueueOfferResult.Dropped =>
-          throw new Exception("Cannot enqueue signal: dropped. Queue bufferSize not big enough.")
-        case QueueOfferResult.Failure(_) => () // stream already failed
-        case QueueOfferResult.QueueClosed => () // stream already closed
+          throw ParticipantBackpressure
+            .Rejection(
+              "Cannot enqueue signal: dropped. ACS reader queue bufferSize not big enough."
+            )
+            .asGrpcError
+        case QueueOfferResult.Failure(f) =>
+          throw LedgerApiErrors.InternalError
+            .Buffer("Failed to enqueue in ACS reader queue state: Internal failure", Some(f))
+            .asGrpcError
+        case QueueOfferResult.QueueClosed =>
+          throw LedgerApiErrors.InternalError
+            .Buffer("Failed to enqueue in ACS reader queue state: Queue closed", None)
+            .asGrpcError
       }
     }
   }

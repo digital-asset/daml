@@ -10,9 +10,6 @@ option java_outer_classname = "PartyManagementServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
-// Status: experimental interface, will change before it is deemed production
-// ready
-//
 // Inspect the party management state of a ledger participant and modify the
 // parts that are modifiable. We use 'backing participant' to refer to this
 // specific participant in the methods of this API.
@@ -54,6 +51,7 @@ service PartyManagementService {
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   // - ``UNIMPLEMENTED``: if synchronous party allocation is not supported by the backing participant
+  // - ``DEADLINE_EXCEEDED``: if the request times out
   // - ``INVALID_ARGUMENT``: if the provided hint and/or display name is invalid on the given ledger (see below).
   // daml-on-sql: suggestion's uniqueness is checked and call rejected if the identifier is already present
   // daml-on-kv-ledger: suggestion's uniqueness is checked by the validators in

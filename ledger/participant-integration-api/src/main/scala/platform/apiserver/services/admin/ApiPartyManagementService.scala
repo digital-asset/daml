@@ -200,8 +200,6 @@ private[apiserver] object ApiPartyManagementService {
         PartyEntry.AllocationAccepted,
       ] {
     private val logger = ContextualizedLogger.get(getClass)
-    private implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-      new DamlContextualizedErrorLogger(logger, loggingContext, None)
 
     override def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]] =
       ledgerEndService.currentLedgerEnd().map(Some(_))
@@ -227,8 +225,9 @@ private[apiserver] object ApiPartyManagementService {
         submissionId: Ref.SubmissionId
     ): PartialFunction[PartyEntry, StatusRuntimeException] = {
       case PartyEntry.AllocationRejected(`submissionId`, reason) =>
-        errorFactories.invalidArgument(None)(reason)
+        errorFactories.invalidArgument(None)(reason)(
+          new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
+        )
     }
   }
-
 }

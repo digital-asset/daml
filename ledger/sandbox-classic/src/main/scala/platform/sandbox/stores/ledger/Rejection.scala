@@ -3,18 +3,24 @@
 
 package com.daml.platform.sandbox.stores.ledger
 
+import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain
 import com.daml.ledger.configuration.LedgerTimeModel
 import com.daml.ledger.participant.state.{v2 => state}
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.any.{Any => AnyProto}
 import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.Status
 
 sealed trait Rejection {
-  def toDomainRejectionReason: domain.RejectionReason
+  def toDomainRejectionReason(
+      errorCodesVersionSwitcher: ErrorCodesVersionSwitcher
+  ): domain.RejectionReason
 
-  def toStateRejectionReason: state.Update.CommandRejected.RejectionReasonTemplate
+  def toStateRejectionReason(errorFactories: ErrorFactories)(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): state.Update.CommandRejected.RejectionReasonTemplate
 }
 
 object Rejection {
@@ -24,49 +30,70 @@ object Rejection {
     private val description: String =
       "No ledger configuration available, cannot validate ledger time"
 
-    override lazy val toDomainRejectionReason: domain.RejectionReason =
-      domain.RejectionReason.InvalidLedgerTime(description)
+    override def toDomainRejectionReason(
+        errorCodesVersionSwitcher: ErrorCodesVersionSwitcher
+    ): domain.RejectionReason =
+      errorCodesVersionSwitcher.choose[domain.RejectionReason](
+        // The V1 rejection reason is not precise enough but changing it in-place involves breaking compatibility.
+        // Instead use the error codes version switcher to correct the rejection from now on
+        v1 = domain.RejectionReason.InvalidLedgerTime(description),
+        v2 = domain.RejectionReason.LedgerConfigNotFound(description),
+      )
 
-    override lazy val toStateRejectionReason: state.Update.CommandRejected.RejectionReasonTemplate =
+    override def toStateRejectionReason(errorFactories: ErrorFactories)(implicit
+        errorLogger: ContextualizedErrorLogger
+    ): state.Update.CommandRejected.RejectionReasonTemplate =
       state.Update.CommandRejected.FinalReason(
-        RpcStatus.of(
-          code = Status.Code.ABORTED.value(),
-          message = description,
-          details = Seq(
-            AnyProto.pack(
-              ErrorInfo.of(
-                reason = "NO_LEDGER_CONFIGURATION",
-                domain = ErrorDomain,
-                metadata = Map.empty,
+        errorFactories.missingLedgerConfig(
+          RpcStatus.of(
+            code = Status.Code.ABORTED.value(),
+            message = description,
+            details = Seq(
+              AnyProto.pack(
+                ErrorInfo.of(
+                  reason = "NO_LEDGER_CONFIGURATION",
+                  domain = ErrorDomain,
+                  metadata = Map.empty,
+                )
               )
-            )
+            ),
           ),
+          "Cannot validate ledger time",
         )
       )
   }
 
   final case class InvalidLedgerTime(outOfRange: LedgerTimeModel.OutOfRange) extends Rejection {
-    override lazy val toDomainRejectionReason: domain.RejectionReason =
+    override def toDomainRejectionReason(
+        errorCodesVersionSwitcher: ErrorCodesVersionSwitcher
+    ): domain.RejectionReason =
       domain.RejectionReason.InvalidLedgerTime(outOfRange.message)
 
-    override lazy val toStateRejectionReason: state.Update.CommandRejected.RejectionReasonTemplate =
+    override def toStateRejectionReason(errorFactories: ErrorFactories)(implicit
+        errorLogger: ContextualizedErrorLogger
+    ): state.Update.CommandRejected.RejectionReasonTemplate =
       state.Update.CommandRejected.FinalReason(
-        RpcStatus.of(
-          code = Status.Code.ABORTED.value(),
-          message = outOfRange.message,
-          details = Seq(
-            AnyProto.pack(
-              ErrorInfo.of(
-                reason = "INVALID_LEDGER_TIME",
-                domain = ErrorDomain,
-                metadata = Map(
-                  "ledgerTime" -> outOfRange.ledgerTime.toString,
-                  "lowerBound" -> outOfRange.lowerBound.toString,
-                  "upperBound" -> outOfRange.upperBound.toString,
-                ),
+        errorFactories.CommandRejections.invalidLedgerTime(
+          RpcStatus.of(
+            code = Status.Code.ABORTED.value(),
+            message = outOfRange.message,
+            details = Seq(
+              AnyProto.pack(
+                ErrorInfo.of(
+                  reason = "INVALID_LEDGER_TIME",
+                  domain = ErrorDomain,
+                  metadata = Map(
+                    "ledgerTime" -> outOfRange.ledgerTime.toString,
+                    "lowerBound" -> outOfRange.lowerBound.toString,
+                    "upperBound" -> outOfRange.upperBound.toString,
+                  ),
+                )
               )
-            )
+            ),
           ),
+          outOfRange.ledgerTime.toInstant,
+          outOfRange.lowerBound.toInstant,
+          outOfRange.upperBound.toInstant,
         )
       )
   }

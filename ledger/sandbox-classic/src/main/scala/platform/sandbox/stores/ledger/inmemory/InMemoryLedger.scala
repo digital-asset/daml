@@ -9,7 +9,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.DamlContextualizedErrorLogger
+import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
 import com.daml.ledger.api.domain.{
   ApplicationId,
   CommandId,
@@ -88,10 +88,11 @@ private[sandbox] final class InMemoryLedger(
     packageStoreInit: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryOrBump],
     engine: Engine,
-    errorFactories: ErrorFactories,
+    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 ) extends Ledger {
 
   private val enricher = new ValueEnricher(engine)
+  private val errorFactories = ErrorFactories(errorCodesVersionSwitcher)
 
   private def consumeEnricherResult[V](res: Result[V]): V = {
     LfEngineToApi.assertOrRuntimeEx(
@@ -393,7 +394,8 @@ private[sandbox] final class InMemoryLedger(
     val recordTime = timeProvider.getCurrentTimestamp
     checkTimeModel(ledgerTime, recordTime)
       .fold(
-        rejection => handleError(submitterInfo, rejection.toDomainRejectionReason),
+        rejection =>
+          handleError(submitterInfo, rejection.toDomainRejectionReason(errorCodesVersionSwitcher)),
         _ => {
           val (committedTransaction, disclosureForIndex, divulgence) =
             Ledger
@@ -762,5 +764,4 @@ private[sandbox] object InMemoryLedger {
       deduplicationKey: String,
       deduplicateUntil: Instant,
   )
-
 }

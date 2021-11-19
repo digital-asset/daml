@@ -3,8 +3,6 @@
 
 package com.daml.platform.sandbox.stores.ledger.sql
 
-import java.util.concurrent.atomic.AtomicReference
-
 import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
@@ -12,6 +10,8 @@ import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import com.daml.api.util.TimeProvider
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.dec.{DirectExecutionContext => DEC}
+import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
+import com.daml.grpc.GrpcStatus
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
@@ -39,7 +39,6 @@ import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, Rejection, SandboxOffset}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.events.CompressionStrategy
-import com.daml.platform.store.cache.{MutableLedgerEndCache, TranslationCacheBackedContractStore}
 import com.daml.platform.store.appendonlydao.{
   DbDispatcher,
   LedgerDao,
@@ -47,6 +46,7 @@ import com.daml.platform.store.appendonlydao.{
   SequentialWriteDao,
 }
 import com.daml.platform.store.backend.StorageBackendFactory
+import com.daml.platform.store.cache.{MutableLedgerEndCache, TranslationCacheBackedContractStore}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interning.{
   InternizingStringInterningView,
@@ -54,9 +54,9 @@ import com.daml.platform.store.interning.{
   StringInterningView,
 }
 import com.daml.platform.store.{BaseLedger, DbType, FlywayMigrations, LfValueTranslationCache}
-import com.google.rpc.status.{Status => RpcStatus}
-import io.grpc.Status
+import io.grpc.protobuf
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.collection.immutable.Queue
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -168,6 +168,7 @@ private[sandbox] object SqlLedger {
           contractStore,
           dispatcher,
           persistenceQueue,
+          errorFactories,
         ).acquire()
       } yield ledger
 
@@ -345,6 +346,7 @@ private[sandbox] object SqlLedger {
         contractStore: ContractStore,
         dispatcher: Dispatcher[Offset],
         persistenceQueue: PersistenceQueue,
+        errorFactories: ErrorFactories,
     ): ResourceOwner[SqlLedger] =
       ResourceOwner.forCloseable(() =>
         new SqlLedger(
@@ -356,6 +358,7 @@ private[sandbox] object SqlLedger {
           timeProvider,
           persistenceQueue,
           transactionCommitter,
+          errorFactories,
         )
       )
 
@@ -419,6 +422,7 @@ private final class SqlLedger(
     timeProvider: TimeProvider,
     persistenceQueue: PersistenceQueue,
     transactionCommitter: TransactionCommitter,
+    errorFactories: ErrorFactories,
 ) extends BaseLedger(
       ledgerId,
       ledgerDao,
@@ -458,7 +462,10 @@ private final class SqlLedger(
       submitterInfo: state.SubmitterInfo,
       transactionMeta: state.TransactionMeta,
       transaction: SubmittedTransaction,
-  )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] =
+  )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] = {
+    val errorLogger =
+      new DamlContextualizedErrorLogger(logger, loggingContext, submitterInfo.submissionId)
+
     enqueue { offset =>
       val transactionId = offset.toApiString
 
@@ -472,7 +479,7 @@ private final class SqlLedger(
               completionInfo = Some(submitterInfo.toCompletionInfo),
               recordTime = recordTime,
               offset = offset,
-              reason = reason.toStateRejectionReason,
+              reason = reason.toStateRejectionReason(errorFactories)(errorLogger),
             ),
           _ => {
             val divulgedContracts = Nil
@@ -498,10 +505,12 @@ private final class SqlLedger(
             logger.error(s"Failed to persist entry with offset: ${offset.toApiString}", t)
           }
         )(DEC)
+    }(errorLogger)
+  }
 
-    }
-
-  private def enqueue(persist: Offset => Future[Unit]): Future[state.SubmissionResult] =
+  private def enqueue(
+      persist: Offset => Future[Unit]
+  )(implicit errorLogger: ContextualizedErrorLogger): Future[state.SubmissionResult] =
     persistenceQueue
       .offer(persist)
       .transform {
@@ -510,17 +519,27 @@ private final class SqlLedger(
         case Success(Dropped) =>
           Success(
             state.SubmissionResult.SynchronousError(
-              RpcStatus.of(
-                Status.Code.RESOURCE_EXHAUSTED.value(),
-                "System is overloaded, please try again later",
-                Seq.empty,
+              GrpcStatus.toProto(
+                errorFactories.bufferFull("The submission ingress buffer is full")
               )
             )
           )
         case Success(QueueClosed) =>
-          Failure(new IllegalStateException("queue closed"))
-        case Success(QueueOfferResult.Failure(e)) => Failure(e)
-        case Failure(f) => Failure(f)
+          val failedStatus =
+            errorFactories.SubmissionQueueErrors.queueClosed("SQL Ledger submission queue")
+          Failure(protobuf.StatusProto.toStatusRuntimeException(failedStatus))
+        case Success(QueueOfferResult.Failure(e)) =>
+          val failedStatus =
+            errorFactories.SubmissionQueueErrors.failedToEnqueueCommandSubmission(
+              "Failed to enqueue submission"
+            )(e)
+          Failure(protobuf.StatusProto.toStatusRuntimeException(failedStatus))
+        case Failure(f) =>
+          val failedStatus =
+            errorFactories.SubmissionQueueErrors.failedToEnqueueCommandSubmission(
+              "Failed to enqueue submission"
+            )(f)
+          Failure(protobuf.StatusProto.toStatusRuntimeException(failedStatus))
       }(DEC)
 
   override def publishPartyAllocation(
@@ -528,6 +547,7 @@ private final class SqlLedger(
       party: Ref.Party,
       displayName: Option[String],
   )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] = {
+    val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
     enqueue { offset =>
       ledgerDao
         .getParties(Seq(party))
@@ -558,7 +578,7 @@ private final class SqlLedger(
             )
             Future.unit
         }(DEC)
-    }
+    }(errorLogger)
   }
 
   override def uploadPackages(
@@ -567,6 +587,8 @@ private final class SqlLedger(
       sourceDescription: Option[String],
       payload: List[Archive],
   )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] = {
+    val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
+
     val packages = payload.map(archive =>
       (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription))
     )
@@ -585,14 +607,15 @@ private final class SqlLedger(
           logger.error(s"Failed to persist packages with offset: ${offset.toApiString}", t)
           ()
         }(DEC)
-    }
+    }(errorLogger)
   }
 
   override def publishConfiguration(
       maxRecordTime: Time.Timestamp,
       submissionId: String,
       config: Configuration,
-  )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] =
+  )(implicit loggingContext: LoggingContext): Future[state.SubmissionResult] = {
+    val errorLogger = new DamlContextualizedErrorLogger(logger, loggingContext, Some(submissionId))
     enqueue { offset =>
       val recordTime = timeProvider.getCurrentTimestamp
 
@@ -636,5 +659,6 @@ private final class SqlLedger(
           logger.error(s"Failed to persist configuration with offset: $offset", t)
           ()
         }(DEC)
-    }
+    }(errorLogger)
+  }
 }
