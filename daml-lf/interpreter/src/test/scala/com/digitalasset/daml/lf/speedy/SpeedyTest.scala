@@ -154,21 +154,17 @@ class SpeedyTest extends AnyWordSpec with Matchers {
       module Test {
         record @serializable T1 = { party: Party } ;
         template (record : T1) = {
-          precondition True,
-          signatories Cons @Party [(Test:T1 {party} record)] (Nil @Party),
-          observers Nil @Party,
-          agreement "Agreement",
-          choices {
-          }
+          precondition True;
+          signatories Cons @Party [(Test:T1 {party} record)] (Nil @Party);
+          observers Nil @Party;
+          agreement "Agreement";
         } ;
         record @serializable T2 = { party: Party } ;
         template (record : T2) = {
-          precondition True,
-          signatories Cons @Party [(Test:T2 {party} record)] (Nil @Party),
-          observers Nil @Party,
-          agreement "Agreement",
-          choices {
-          }
+          precondition True;
+          signatories Cons @Party [(Test:T2 {party} record)] (Nil @Party);
+          observers Nil @Party;
+          agreement "Agreement";
         } ;
         record T3 (a: *) = { party: Party } ;
      }

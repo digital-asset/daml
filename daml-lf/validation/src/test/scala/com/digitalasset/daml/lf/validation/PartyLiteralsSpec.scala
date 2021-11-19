@@ -36,15 +36,13 @@ class PartyLiteralsSpec extends AnyWordSpec with TableDrivenPropertyChecks with 
 
             record R = { party: Party };
             template (this : R) =  {
-                precondition True,
-                signatories Cons @Party [party] (Nil @Party),
-                observers Cons @Party [party] (Nil @Party),
-                agreement "Agreement",
-                choices {
-                  choice Ch (self) (i : Unit) : Unit, controllers party to
-                    upure @Unit ()
-                }
-            } ;
+                precondition True;
+                signatories Cons @Party [party] (Nil @Party);
+                observers Cons @Party [party] (Nil @Party);
+                agreement "Agreement";
+                choice Ch (self) (i : Unit) : Unit, controllers party to
+                  upure @Unit ();
+            };
           }
 
           module PositiveTestCase1 {
@@ -60,70 +58,60 @@ class PartyLiteralsSpec extends AnyWordSpec with TableDrivenPropertyChecks with 
           module PositiveTestCase3 {
             record R = { party: Party };
             template (this : R) =  {
-                precondition EQUAL_PARTY party 'Alice',        // disallowed party literal 'Alice'
-                signatories Cons @Party [party] (Nil @Party),
-                observers Cons @Party [party] (Nil @Party),
-                agreement "Agreement",
-                choices {
-                  choice Ch (self) (i : Mod:R): Unit, controllers party to
-                    upure @Unit ()
-                }
+                precondition EQUAL_PARTY party 'Alice';        // disallowed party literal 'Alice'
+                signatories Cons @Party [party] (Nil @Party);
+                observers Cons @Party [party] (Nil @Party);
+                agreement "Agreement";
+                choice Ch (self) (i : Mod:R): Unit, controllers party to
+                  upure @Unit ();
             } ;
           }
 
           module PositiveTestCase4 {
             record R = { party: Party };
             template (this : R) =  {
-                precondition True,
-                signatories Cons @Party ['Alice'] (Nil @Party),  // disallowed party literal 'Alice'
-                observers Cons @Party [party] (Nil @Party),
-                agreement "Agreement",
-                choices {
-                  choice Ch (self) (i : Mod:R): Unit, controllers party to
-                    upure @Unit ()
-                }
+                precondition True;
+                signatories Cons @Party ['Alice'] (Nil @Party);  // disallowed party literal 'Alice'
+                observers Cons @Party [party] (Nil @Party);
+                agreement "Agreement";
+                choice Ch (self) (i : Mod:R): Unit, controllers party to
+                  upure @Unit ();
             } ;
           }
 
           module PositiveTestCase5 {
             record R = { party: Party };
             template (this : R) =  {
-                precondition True,
-                signatories Cons @Party [party] (Nil @Party),
-                observers Cons @Party ['Alice'] (Nil @Party),    // disallowed party literal 'Alice'
-                agreement "Agreement",
-                choices {
-                  choice Ch (self) (i : Mod:R): Unit, controllers 'Alice' to
-                    upure @Unit ()
-                }
+                precondition True;
+                signatories Cons @Party [party] (Nil @Party);
+                observers Cons @Party ['Alice'] (Nil @Party);    // disallowed party literal 'Alice'
+                agreement "Agreement";
+                choice Ch (self) (i : Mod:R): Unit, controllers 'Alice' to
+                  upure @Unit ();
             } ;
           }
 
           module PositiveTestCase6 {
               record R = { party: Party };
               template (this : R) =  {
-                  precondition True,
-                  signatories Cons @Party [party] (Nil @Party),
-                  observers Cons @Party [party] (Nil @Party),
-                  agreement PARTY_TO_TEXT 'Alice',               // disallowed party literal 'Alice'
-                  choices {
-                    choice Ch (self) (i : Mod:R): Unit, controllers 'Alice' to
-                      upure @Unit ()
-                  }
+                  precondition True;
+                  signatories Cons @Party [party] (Nil @Party);
+                  observers Cons @Party [party] (Nil @Party);
+                  agreement PARTY_TO_TEXT 'Alice';               // disallowed party literal 'Alice'
+                  choice Ch (self) (i : Mod:R): Unit, controllers 'Alice' to
+                    upure @Unit ();
               } ;
             }
 
           module PositiveTestCase7 {
             record R = { party: Party };
             template (this : R) =  {
-                precondition True,
-                signatories Cons @Party [party] (Nil @Party),
-                observers Cons @Party [party] (Nil @Party),
-                agreement "Agreement",
-                choices {
-                  choice Ch (self) (i : Mod:R): Party, controllers party to
-                     upure @Party 'Alice'                        // disallowed party literal 'Alice'
-                }
+                precondition True;
+                signatories Cons @Party [party] (Nil @Party);
+                observers Cons @Party [party] (Nil @Party);
+                agreement "Agreement";
+                choice Ch (self) (i : Mod:R): Party, controllers party to
+                   upure @Party 'Alice';                       // disallowed party literal 'Alice'
             } ;
           }
 

@@ -9,12 +9,10 @@ module GenMapMod {
   } ;
 
   template (this : Box) =  {
-    precondition True,
-    signatories (PartyMod:one (GenMapMod:Box {party} this)),
-    observers (Nil @Party),
-    agreement "Agreement GenMapMod:Box",
-    choices {
-    }
+    precondition True;
+    signatories (PartyMod:one (GenMapMod:Box {party} this));
+    observers (Nil @Party);
+    agreement "Agreement GenMapMod:Box";
   };
 
   val insert :

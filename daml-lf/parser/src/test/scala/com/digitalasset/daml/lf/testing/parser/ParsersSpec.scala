@@ -530,24 +530,22 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           record @serializable Person = { person: Party, name: Text } ;
 
           template (this : Person) =  {
-            precondition True,
-            signatories Cons @Party [person] (Nil @Party),
-            observers Cons @Party ['Alice'] (Nil @Party),
-            agreement "Agreement",
-            choices {
-              choice Sleep (self) (u:Unit) : ContractId Mod:Person
-                , controllers Cons @Party [person] (Nil @Party)
-                to upure @(ContractId Mod:Person) self,
-              choice @nonConsuming Nap (self) (i : Int64): Int64
-                , controllers Cons @Party [person] (Nil @Party)
-                , observers Nil @Party
-                to upure @Int64 i,
-              choice @nonConsuming PowerNap (self) (i : Int64): Int64
-                , controllers Cons @Party [person] (Nil @Party)
-                , observers Cons @Party [person] (Nil @Party)
-                to upure @Int64 i
-            },
-            key @Party (Mod:Person {name} this) (\ (p: Party) -> p)
+            precondition True;
+            signatories Cons @Party [person] (Nil @Party);
+            observers Cons @Party ['Alice'] (Nil @Party);
+            agreement "Agreement";
+            choice Sleep (self) (u:Unit) : ContractId Mod:Person
+              , controllers Cons @Party [person] (Nil @Party)
+              to upure @(ContractId Mod:Person) self;
+            choice @nonConsuming Nap (self) (i : Int64): Int64
+              , controllers Cons @Party [person] (Nil @Party)
+              , observers Nil @Party
+              to upure @Int64 i;
+            choice @nonConsuming PowerNap (self) (i : Int64): Int64
+              , controllers Cons @Party [person] (Nil @Party)
+              , observers Cons @Party [person] (Nil @Party)
+              to upure @Int64 i;
+            key @Party (Mod:Person {name} this) (\ (p: Party) -> p);
           } ;
         }
       """
@@ -625,11 +623,10 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             record @serializable R = { } ;
 
             template (this : R) =  {
-              precondition True,
-              signatories Nil @Unit,
-              observers Nil @Unit,
-              agreement "Agreement",
-              choices { }
+              precondition True;
+              signatories Nil @Unit;
+              observers Nil @Unit;
+              agreement "Agreement";
             } ;
           }
         """

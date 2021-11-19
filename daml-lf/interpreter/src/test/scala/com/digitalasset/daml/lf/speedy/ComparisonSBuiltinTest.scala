@@ -46,11 +46,10 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
           record @serializable Template = { };
  
           template (this : Template) =  {
-             precondition True,
-             signatories (Nil @Party),
-             observers (Nil @Party),
-             agreement "Agreement for Mod:Template",
-             choices { }
+             precondition True;
+             signatories (Nil @Party);
+             observers (Nil @Party);
+             agreement "Agreement for Mod:Template";
           };
         }
 

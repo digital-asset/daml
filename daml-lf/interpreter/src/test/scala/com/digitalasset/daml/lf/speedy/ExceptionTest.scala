@@ -503,19 +503,17 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
         record @serializable T1 = { party: Party, info: Int64 } ;
         template (record : T1) = {
-          precondition True,
-          signatories Cons @Party [M:T1 {party} record] (Nil @Party),
-          observers Nil @Party,
-          agreement "Agreement",
-          choices {
-            choice MyChoice (self) (i : Unit) : Unit
-            , controllers Cons @Party [M:T1 {party} record] (Nil @Party)
+          precondition True;
+          signatories Cons @Party [M:T1 {party} record] (Nil @Party);
+          observers Nil @Party;
+          agreement "Agreement";
+          choice MyChoice (self) (i : Unit) : Unit, 
+            controllers Cons @Party [M:T1 {party} record] (Nil @Party)
             to
               ubind
                 x1: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 400 };
                 x2: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 500 }
-              in upure @Unit ()
-          }
+              in upure @Unit ();
         };
 
         val causeRollback : Party -> Update Unit = \(party: Party) ->
@@ -568,11 +566,10 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       module OldM {
         record @serializable OldT = { party: Party } ;
         template (record : OldT) = {
-          precondition True,
-          signatories Cons @Party [OldM:OldT {party} record] (Nil @Party),
-          observers Nil @Party,
-          agreement "Agreement",
-          choices {}
+          precondition True;
+          signatories Cons @Party [OldM:OldT {party} record] (Nil @Party);
+          observers Nil @Party;
+          agreement "Agreement";
         };
       } """
     }
@@ -590,39 +587,34 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
         record @serializable NewT = { party: Party } ;
         template (record : NewT) = {
-          precondition True,
-          signatories Cons @Party [NewM:NewT {party} record] (Nil @Party),
-          observers Nil @Party,
-          agreement "Agreement",
-          choices {
-
-            choice MyChoiceCreateJustNew (self) (i : Unit) : Unit
-            , controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
+          precondition True;
+          signatories Cons @Party [NewM:NewT {party} record] (Nil @Party);
+          observers Nil @Party;
+          agreement "Agreement";
+          choice MyChoiceCreateJustNew (self) (i : Unit) : Unit,
+            controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
             to
               ubind
                 new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
                 new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record }
-              in upure @Unit (),
-
-            choice MyChoiceCreateOldAndNew (self) (i : Unit) : Unit
-            , controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
+              in upure @Unit ();
+          choice MyChoiceCreateOldAndNew (self) (i : Unit) : Unit,
+            controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
             to
               ubind
                 new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
                 old: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = NewM:NewT {party} record };
                 new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record }
-              in upure @Unit (),
-
-            choice MyChoiceCreateOldAndNewThenThrow (self) (i : Unit) : Unit
-            , controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
+              in upure @Unit ();
+          choice MyChoiceCreateOldAndNewThenThrow (self) (i : Unit) : Unit,
+            controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
             to
               ubind
                 new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
                 old: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = NewM:NewT {party} record };
                 new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
                 u: Unit <- throw @(Update Unit) @NewM:AnException (NewM:AnException {})
-              in upure @Unit ()
-          }
+              in upure @Unit ();
         };
 
         val causeRollback : Party -> Update Unit = \(party: Party) ->
