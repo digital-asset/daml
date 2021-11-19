@@ -4,11 +4,11 @@
 package com
 package daml.ledger.api.testtool.suites
 
-import daml.error.definitions.LedgerApiErrors
-import daml.ledger.api.testtool.infrastructure.Allocation._
-import daml.ledger.api.testtool.infrastructure.Assertions._
-import daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import daml.ledger.test.semantic.Exceptions._
+import com.daml.error.definitions.LedgerApiErrors
+import com.daml.ledger.api.testtool.infrastructure.Allocation._
+import com.daml.ledger.api.testtool.infrastructure.Assertions._
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.test.semantic.Exceptions._
 
 import io.grpc.Status
 
