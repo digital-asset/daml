@@ -6,12 +6,10 @@ module PartyMod {
   record @serializable Box = { x: Party, party: Party } ;
 
   template (this : Box) =  {
-    precondition True,
-    signatories (PartyMod:one (PartyMod:Box {party} this)),
-    observers (Nil @Party),
-    agreement "Agreement for PartyMod:Box",
-    choices {
-    }
+    precondition True;
+    signatories (PartyMod:one (PartyMod:Box {party} this));
+    observers (Nil @Party);
+    agreement "Agreement for PartyMod:Box";
   };
 
   val @noPartyLiterals one: Party -> List Party =
