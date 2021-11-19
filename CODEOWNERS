@@ -17,16 +17,16 @@ azure-cron.yml      @garyverhaegen-da
 /release.sh         @garyverhaegen-da
 
 # Blackduck
-NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
+NOTICES     @garyverhaegen-da @cocreature @dasormeter
 
 # Language
-/compiler/           @cocreature
-/libs-haskell/       @cocreature
-/daml-assistant/    @sofiafaro-da  @cocreature
-/daml-script/       @cocreature  @aherrmann-da @stefanobaghino-da
-/triggers/          @cocreature  @aherrmann-da @stefanobaghino-da
+/compiler/          @cocreature
+/libs-haskell/      @cocreature
+/daml-assistant/    @sofiafaro-da @cocreature
+/daml-script/       @cocreature
+/triggers/          @cocreature
 /ghc-lib/           @cocreature
-/compatibility/     @garyverhaegen-da @aherrmann-da @cocreature
+/compatibility/     @garyverhaegen-da @cocreature
 
 # Runtime
 /daml-lf/ @remyhaemmerle-da @cocreature
