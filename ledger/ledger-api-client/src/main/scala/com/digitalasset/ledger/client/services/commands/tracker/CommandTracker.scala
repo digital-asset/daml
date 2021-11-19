@@ -255,22 +255,8 @@ private[commands] class CommandTracker[Context](
           ) with NoStackTrace
         }
         val commandTimeout = submission.value.timeout match {
-          // The command submission timeout takes precedence.
           case Some(timeout) => durationOrdering.min(timeout, maximumCommandTimeout)
-          case None =>
-            commands.deduplicationPeriod match {
-              // We keep supporting the `deduplication_time` field as the command timeout,
-              // for historical reasons.
-              case Commands.DeduplicationPeriod.DeduplicationTime(deduplicationTimeProto) =>
-                val deduplicationTime = Duration.ofSeconds(
-                  deduplicationTimeProto.seconds,
-                  deduplicationTimeProto.nanos.toLong,
-                )
-                durationOrdering.min(deduplicationTime, maximumCommandTimeout)
-              // All other deduplication periods do not influence the command timeout.
-              case _ =>
-                maximumCommandTimeout
-            }
+          case None => maximumCommandTimeout
         }
         val trackingData = TrackingData(
           commandId = commandId,
