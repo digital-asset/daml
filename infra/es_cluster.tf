@@ -52,7 +52,7 @@ locals {
   es_ports = [
     { name = "es", port = "9200" },
     { name = "kibana", port = "5601" },
-    //{ name = "cerebro", port = "9000" },
+    { name = "cerebro", port = "9000" },
   ]
 }
 
