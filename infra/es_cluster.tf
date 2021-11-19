@@ -28,11 +28,6 @@ locals {
       type           = "n2-highmem-2",
       xmx            = "12g",
       disk_size      = 300,
-      one            = "",
-      two            = "",
-      three          = "",
-      four           = "",
-      five           = "",
     },
     {
       suffix         = "-green",
@@ -42,36 +37,6 @@ locals {
       type           = "n2-highmem-2",
       xmx            = "12g",
       disk_size      = 500,
-      one            = <<ONE
-
-
-mkdir -p /etc/docker
-cat <<CONFIG > /etc/docker/daemon.json
-{
-  "log-driver": "json-file",
-  "log-opts": {"max-size": "10m", "max-file": "3"}
-}
-CONFIG
-ONE
-      two            = <<TWO
-
-mkdir -p /root/es-data
-chown 1000:0 /root/es-data
-TWO
-      three          = <<THREE
-           -v /root/es-data:/usr/share/elasticsearch/data \
-THREE
-      four           = <<FOUR
-
-docker run -d \
-           -p 9000:9000 \
-           --link es \
-           --name cerebro \
-           lmenezes/cerebro:0.9.4
-FOUR
-      five           = <<FIVE
-( exec 1> >(while IFS= read -r line; do echo "cerebro: $line"; done); docker logs -f cerebro ) &
-FIVE
     },
     {
       suffix         = "-init",
@@ -81,11 +46,6 @@ FIVE
       type           = "e2-standard-2",
       xmx            = "6g",
       disk_size      = 200,
-      one            = "",
-      two            = "",
-      three          = "",
-      four           = "",
-      five           = "",
     },
   ]
 
@@ -199,7 +159,16 @@ apt-get -y upgrade
 ### stackdriver
 curl -sSL https://dl.google.com/cloudagents/install-logging-agent.sh | bash
 
-## Install Docker${local.es_clusters[count.index].one}
+## Install Docker
+
+mkdir -p /etc/docker
+cat <<CONFIG > /etc/docker/daemon.json
+{
+  "log-driver": "json-file",
+  "log-opts": {"max-size": "10m", "max-file": "3"}
+}
+CONFIG
+
 apt-get install -y \
   apt-transport-https \
   ca-certificates \
@@ -239,7 +208,10 @@ FROM docker.elastic.co/elasticsearch/elasticsearch:7.13.2
 RUN bin/elasticsearch-plugin install --batch discovery-gce
 COPY es.yml /usr/share/elasticsearch/config/elasticsearch.yml
 EOF
-${local.es_clusters[count.index].two}
+
+mkdir -p /root/es-data
+chown 1000:0 /root/es-data
+
 docker build -t es .
 docker run -d \
            --restart on-failure \
@@ -247,7 +219,8 @@ docker run -d \
            -p 9200:9200 \
            -p 9300:9300 \
            -e ES_JAVA_OPTS="-Xmx${local.es_clusters[count.index].xmx} -Xms${local.es_clusters[count.index].xmx}" \
-${local.es_clusters[count.index].three}           es
+           -v /root/es-data:/usr/share/elasticsearch/data \
+           es
 
 docker run -d \
            --restart on-failure \
@@ -256,12 +229,19 @@ docker run -d \
            --link es:elasticsearch \
            -e TELEMETRY_ENABLED=false \
            docker.elastic.co/kibana/kibana:7.13.2
-${local.es_clusters[count.index].four}
+
+docker run -d \
+           -p 9000:9000 \
+           --link es \
+           --name cerebro \
+           lmenezes/cerebro:0.9.4
+
 ## Getting container output directly to the GCP console
 
 ( exec 1> >(while IFS= read -r line; do echo "elastic: $line"; done); docker logs -f es ) &
 ( exec 1> >(while IFS= read -r line; do echo "kibana: $line"; done); docker logs -f kibana ) &
-${local.es_clusters[count.index].five}
+( exec 1> >(while IFS= read -r line; do echo "cerebro: $line"; done); docker logs -f cerebro ) &
+
 for job in $(jobs -p); do
     wait $job
 done
