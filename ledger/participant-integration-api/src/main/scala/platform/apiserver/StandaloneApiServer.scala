@@ -98,7 +98,7 @@ final class StandaloneApiServer(
         )
         .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
       errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
-        enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes
+        config.enableSelfServiceErrorCodes
       )
       authorizer = new Authorizer(
         Clock.systemUTC.instant _,

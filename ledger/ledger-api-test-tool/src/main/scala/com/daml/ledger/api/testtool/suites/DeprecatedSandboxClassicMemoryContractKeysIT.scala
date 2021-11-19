@@ -17,12 +17,14 @@ import io.grpc.Status
 
 import java.util.regex.Pattern
 
-// This test suite contains tests with assertions adapted specifically Sandbox classic with in-memory ledger backend (deprecated).
-// It asserts a more generic `INCONSISTENT` error code instead of `INCONSISTENT_CONTRACT_KEY` or `DUPLICATE_CONTRACT_KEY`
+// This test suite contains some tests duplicated from ContractKeysIT,
+// but with assertions adapted specifically for Sandbox classic with in-memory ledger backend (deprecated).
+// The changed assertions assert a more generic `INCONSISTENT` error code
+// instead of `INCONSISTENT_CONTRACT_KEY` or `DUPLICATE_CONTRACT_KEY`.
 // TODO sandbox-classic removal: Remove this tests
 final class DeprecatedSandboxClassicMemoryContractKeysIT extends LedgerTestSuite {
   test(
-    "CKFetchOrLookup",
+    "DCKFetchOrLookup",
     "Divulged contracts cannot be fetched or looked up by key by non-stakeholders",
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, owner), Participant(beta, delegate)) =>
@@ -74,7 +76,7 @@ final class DeprecatedSandboxClassicMemoryContractKeysIT extends LedgerTestSuite
   })
 
   test(
-    "CKNoFetchUndisclosed",
+    "DCKNoFetchUndisclosed",
     "Contract Keys should reject fetching an undisclosed contract",
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, owner), Participant(beta, delegate)) =>
@@ -133,7 +135,7 @@ final class DeprecatedSandboxClassicMemoryContractKeysIT extends LedgerTestSuite
   })
 
   test(
-    "CKMaintainerScoped",
+    "DCKMaintainerScoped",
     "Contract keys should be scoped by maintainer",
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>

@@ -59,7 +59,7 @@ final class ConfigSpec
 
   behavior of "Runner"
 
-  it should "parse error codes v2 flag" in {
+  it should "disable self service error codes when compatibility gRPC error codes flag is set" in {
     val actual = configParser(
       Seq(
         dumpIndexMetadataCommand,
@@ -71,7 +71,7 @@ final class ConfigSpec
     actual.value.enableSelfServiceErrorCodes shouldBe false
   }
 
-  it should "disable error codes v2 flag by default" in {
+  it should "enable self-service error codes by default" in {
     val actual = configParser(
       Seq(
         dumpIndexMetadataCommand,

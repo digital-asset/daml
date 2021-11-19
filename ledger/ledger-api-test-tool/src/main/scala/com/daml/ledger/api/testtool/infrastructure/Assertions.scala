@@ -91,7 +91,6 @@ object Assertions {
         )
       case exception @ GrpcException(GrpcStatus(code, maybeMessage), _)
           if !participant.features.selfServiceErrorCodes =>
-        println(exception.getMessage)
         if (code != expectedCode) fail(s"Expected code [$expectedCode], but got [$code].")
         (optPattern, maybeMessage) match {
           case (Some(pattern), Some(message)) => assertMatches(message, pattern)

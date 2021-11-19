@@ -353,7 +353,7 @@ abstract class CommonCliSpecBase(
       )
     }
 
-    "parse error codes v2 flag" in {
+    "parse gRPC error codes compatibility mode flag" in {
       checkOption(
         Array("--grpc-status-codes-compatibility-mode"),
         _.copy(enableSelfServiceErrorCodes = false),

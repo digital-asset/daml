@@ -12,13 +12,15 @@ import com.daml.ledger.test.semantic.Exceptions._
 
 import io.grpc.Status
 
-// This test suite contains tests with assertions adapted specifically Sandbox classic with in-memory ledger backend (deprecated).
-// It asserts a more generic `INCONSISTENT` error code instead of `INCONSISTENT_CONTRACT_KEY` or `DUPLICATE_CONTRACT_KEY`
+// This test suite contains some tests duplicated from ExceptionsIT,
+// but with assertions adapted specifically for Sandbox classic with in-memory ledger backend (deprecated).
+// The changed assertions assert a more generic `INCONSISTENT` error code
+// instead of `INCONSISTENT_CONTRACT_KEY` or `DUPLICATE_CONTRACT_KEY`.
 // TODO sandbox-classic removal: Remove this tests
 final class DeprecatedSandboxClassicMemoryExceptionsIT extends LedgerTestSuite {
 
   test(
-    "ExRollbackDuplicateKeyCreated",
+    "DExRollbackDuplicateKeyCreated",
     "Rollback fails once contract with same key is created",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
@@ -40,7 +42,7 @@ final class DeprecatedSandboxClassicMemoryExceptionsIT extends LedgerTestSuite {
   })
 
   test(
-    "ExRollbackDuplicateKeyArchived",
+    "DExRollbackDuplicateKeyArchived",
     "Rollback succeeds once contract with same key is archived",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
