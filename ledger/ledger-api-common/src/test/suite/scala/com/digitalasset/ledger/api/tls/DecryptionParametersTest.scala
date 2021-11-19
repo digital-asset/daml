@@ -6,10 +6,11 @@ package com.daml.ledger.api.tls
 import java.io.ByteArrayInputStream
 import java.nio.file.Files
 import javax.crypto.{Cipher, KeyGenerator, SecretKey}
-
 import org.apache.commons.codec.binary.Hex
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+
+import java.util.Base64
 
 class DecryptionParametersTest extends AnyWordSpec with Matchers {
 
@@ -17,7 +18,7 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
 
     // given
     val key: SecretKey = KeyGenerator.getInstance("AES").generateKey()
-    val clearText = "clearText123"
+    val clearText = "clearText123 "*10
     val clearTextBytes = clearText.getBytes
     val transformation = "AES/CBC/PKCS5Padding"
     val cipher = Cipher.getInstance(transformation)
@@ -46,6 +47,36 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
       val tmpFilePath = Files.createTempFile("cipher-text", ".enc")
       Files.write(tmpFilePath, cipherText)
       assume(Files.readAllBytes(tmpFilePath) sameElements cipherText)
+
+      // when
+      val actual: Array[Byte] = tested.decrypt(tmpFilePath.toFile)
+
+      // then
+      actual shouldBe clearTextBytes
+      new String(actual) shouldBe clearText
+    }
+
+    "decrypt a file in base64" in {
+      // given
+      val tmpFilePath = Files.createTempFile("cipher-text-base64", ".enc")
+      val base64Text = Base64.getEncoder.encode(cipherText)
+      Files.write(tmpFilePath, base64Text)
+      assume(Files.readAllBytes(tmpFilePath) sameElements base64Text)
+
+      // when
+      val actual: Array[Byte] = tested.decrypt(tmpFilePath.toFile)
+
+      // then
+      actual shouldBe clearTextBytes
+      new String(actual) shouldBe clearText
+    }
+
+    "decrypt a file in MIME base64" in { //MIME format introduces \n\r every 76 characters
+      // given
+      val tmpFilePath = Files.createTempFile("cipher-text-mime-base64", ".enc")
+      val base64Text = Base64.getMimeEncoder.encode(cipherText)
+      Files.write(tmpFilePath, base64Text)
+      assume(Files.readAllBytes(tmpFilePath) sameElements base64Text)
 
       // when
       val actual: Array[Byte] = tested.decrypt(tmpFilePath.toFile)

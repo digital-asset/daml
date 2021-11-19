@@ -8,12 +8,12 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import javax.crypto.Cipher
 import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
-
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.io.IOUtils
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
-import scala.util.Using
+import java.util.Base64
+import scala.util.{Try,Using}
 
 final class PrivateKeyDecryptionException(cause: Throwable) extends Exception(cause)
 
@@ -46,7 +46,8 @@ case class DecryptionParameters(
     val cipher = Cipher.getInstance(transformation)
     val ivParameterSpec = new IvParameterSpec(iv)
     cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParameterSpec)
-    cipher.doFinal(encrypted)
+    val digested = Try(Base64.getMimeDecoder.decode(encrypted)).getOrElse(encrypted)
+    cipher.doFinal(digested)
   }
 }
 
