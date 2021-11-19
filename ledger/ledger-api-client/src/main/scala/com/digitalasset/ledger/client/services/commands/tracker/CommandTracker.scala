@@ -3,10 +3,12 @@
 
 package com.daml.ledger.client.services.commands.tracker
 
+import java.time.{Duration, Instant}
+
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
 import com.daml.grpc.{GrpcException, GrpcStatus}
-import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.tracker.CommandTracker._
@@ -24,9 +26,6 @@ import com.google.protobuf.empty.Empty
 import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status
 import org.slf4j.LoggerFactory
-import java.time.{Duration, Instant}
-
-import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 
 import scala.annotation.nowarn
 import scala.collection.compat._
