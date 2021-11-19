@@ -52,9 +52,6 @@ TEMPLATES_DIR=$BUILD_DIR/source/_templates
 mkdir -p $TEMPLATES_DIR
 tar -zxf $BAZEL_BIN/templates/templates-tarball.tar.gz -C $TEMPLATES_DIR --strip-components=1
 
-# Error codes: create JSON file with error codes information
-bazel build //docs:generate-error-codes-json
-
 for arg in "$@"
 do
     if [ "$arg" = "--pdf" ]; then
