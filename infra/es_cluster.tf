@@ -5,6 +5,17 @@ resource "google_compute_network" "es" {
   name = "es-network"
 }
 
+/*
+Instruct ES to move all data out of blue nodes:
+PUT _cluster/settings
+{
+  "transient" : {
+    "cluster.routing.allocation.exclude._ip" : "es-blue-*"
+  }
+}
+use null to reset
+*/
+
 locals {
   es_ssh  = 1
   es_feed = 0
@@ -12,7 +23,7 @@ locals {
     {
       suffix         = "-blue",
       ubuntu_version = "2004",
-      size           = 7,
+      size           = 0,
       init           = "[]",
       type           = "n2-highmem-2",
       xmx            = "12g",
