@@ -26,7 +26,7 @@ for production use today.
      - `VMware <https://vmware.com/>`__
    * - `Daml on Corda <#>`__
      - `Corda <https://www.corda.net/>`__
-     - `Multiple. Contact Digital Asset <https://digitalasset.com/contact/>`__
+     - `Multiple. Contact Digital Asset <https://digitalasset.com/contact-us>`__
    * - `Sextant for Daml <https://blockchaintp.com/sextant/daml/>`__
      - `Amazon Aurora <https://aws.amazon.com/rds/aurora/>`__
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__
@@ -81,7 +81,7 @@ The following table lists the ledgers that are implementing support for running 
      - More Information
    * - `FISCO BCOS <http://www.fisco-bcos.org/>`__
      - `WeBank <https://fintech.webank.com/en/>`__
-     - `Press release, April 2020 <https://hub.digitalasset.com/press-release/topic/fisco-bcos>`__
+     - `Press release, April 2020 <https://blog.digitalasset.com/press-release/webank-daml>`__
    * - `Canton <https://www.canton.io/>`__
      - `Digital Asset <https://digitalasset.com/>`__ reference implementation
      - `canton.io <https://www.canton.io/>`__
