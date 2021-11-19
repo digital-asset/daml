@@ -269,7 +269,6 @@ conformance_test(
     server_args = [
         "--contract-id-seeding=testing-weak",
         "--port=6865",
-        "--max-deduplication-duration=PT5S",
     ],
     test_tool_args = [
         "--open-world",
@@ -306,7 +305,6 @@ conformance_test(
         "--port=6865",
         "--contract-id-seeding=testing-weak",
         "--static-time",
-        "--max-deduplication-duration=PT5S",
     ],
     test_tool_args = [
         "--static-time",
