@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
-import com.daml.error.definitions.PackageServiceError
+import com.daml.error.definitions.LoggingPackageServiceError
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -43,7 +43,7 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
         ledger,
         failure,
         Status.Code.INVALID_ARGUMENT,
-        PackageServiceError.Reading.InvalidDar,
+        LoggingPackageServiceError.Reading.InvalidDar,
         Some(Pattern.compile("Invalid DAR: package-upload|Dar file is corrupt")),
       )
     }

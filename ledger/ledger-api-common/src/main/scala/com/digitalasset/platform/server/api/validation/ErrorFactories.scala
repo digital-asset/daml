@@ -485,11 +485,9 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
   ): com.google.rpc.status.Status =
     errorCodesVersionSwitcher.choose(
       v1 = v1Status,
-      v2 = GrpcStatus.toProto(
-        LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration
-          .RejectWithMessage(message)
-          .asGrpcStatusFromContext
-      ),
+      v2 = LedgerApiErrors.RequestValidation.NotFound.LedgerConfiguration
+        .RejectWithMessage(message)
+        .rpcStatus,
     )
 
   def participantPrunedDataAccessed(message: String)(implicit
@@ -600,11 +598,9 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       errorCodesVersionSwitcher.choose(
         v1 = RpcStatus
           .of(Code.INVALID_ARGUMENT.value(), s"Parties not known on ledger: $reason", Seq.empty),
-        v2 = GrpcStatus.toProto(
-          LedgerApiErrors.WriteServiceRejections.PartyNotKnownOnLedger
-            .RejectDeprecated(reason)
-            .asGrpcStatusFromContext
-        ),
+        v2 = LedgerApiErrors.WriteServiceRejections.PartyNotKnownOnLedger
+          .RejectDeprecated(reason)
+          .rpcStatus,
       )
 
     def contractsNotFound(missingContractIds: Set[String])(implicit
@@ -616,11 +612,9 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           s"Inconsistent: Could not lookup contracts: ${missingContractIds.mkString("[", ", ", "]")}",
           Seq.empty,
         ),
-        v2 = GrpcStatus.toProto(
-          LedgerApiErrors.ConsistencyErrors.ContractNotFound
-            .MultipleContractsNotFound(missingContractIds)
-            .asGrpcStatusFromContext
-        ),
+        v2 = LedgerApiErrors.ConsistencyErrors.ContractNotFound
+          .MultipleContractsNotFound(missingContractIds)
+          .rpcStatus,
       )
 
     def inconsistentContractKeys(
@@ -635,13 +629,11 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           s"Inconsistent: Contract key lookup with different results: expected [$lookupResult], actual [$currentResult]",
           Seq.empty,
         ),
-        v2 = GrpcStatus.toProto(
-          LedgerApiErrors.ConsistencyErrors.InconsistentContractKey
-            .Reject(
-              s"Contract key lookup with different results: expected [$lookupResult], actual [$currentResult]"
-            )
-            .asGrpcStatusFromContext
-        ),
+        v2 = LedgerApiErrors.ConsistencyErrors.InconsistentContractKey
+          .Reject(
+            s"Contract key lookup with different results: expected [$lookupResult], actual [$currentResult]"
+          )
+          .rpcStatus,
       )
 
     def duplicateContractKey(reason: String, key: GlobalKey)(implicit
@@ -649,11 +641,9 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     ): com.google.rpc.status.Status =
       errorCodesVersionSwitcher.choose(
         v1 = RpcStatus.of(Code.ABORTED.value(), s"Inconsistent: $reason", Seq.empty),
-        v2 = GrpcStatus.toProto(
-          LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
-            .RejectWithContractKeyArg(reason, key)
-            .asGrpcStatusFromContext
-        ),
+        v2 = LedgerApiErrors.ConsistencyErrors.DuplicateContractKey
+          .RejectWithContractKeyArg(reason, key)
+          .rpcStatus,
       )
 
     def partiesNotKnownToLedger(parties: Set[String])(implicit
@@ -666,11 +656,9 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
             s"Parties not known on ledger: ${parties.mkString("[", ", ", "]")}",
             Seq.empty,
           ),
-        v2 = GrpcStatus.toProto(
-          LedgerApiErrors.WriteServiceRejections.PartyNotKnownOnLedger
-            .Reject(parties)
-            .asGrpcStatusFromContext
-        ),
+        v2 = LedgerApiErrors.WriteServiceRejections.PartyNotKnownOnLedger
+          .Reject(parties)
+          .rpcStatus,
       )
 
     def submitterCannotActViaParticipant(reason: String)(implicit
@@ -682,11 +670,9 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
           s"Submitted cannot act via participant: $reason",
           Seq.empty,
         ),
-        v2 = GrpcStatus.toProto(
-          LedgerApiErrors.WriteServiceRejections.SubmitterCannotActViaParticipant
-            .Reject(reason)
-            .asGrpcStatusFromContext
-        ),
+        v2 = LedgerApiErrors.WriteServiceRejections.SubmitterCannotActViaParticipant
+          .Reject(reason)
+          .rpcStatus,
       )
 
     def invalidLedgerTime(reason: String)(implicit
@@ -694,11 +680,9 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     ): com.google.rpc.status.Status =
       errorCodesVersionSwitcher.choose(
         v1 = RpcStatus.of(Code.ABORTED.value(), s"Invalid ledger time: $reason", Seq.empty),
-        v2 = GrpcStatus.toProto(
-          LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
-            .RejectSimple(reason)
-            .asGrpcStatusFromContext
-        ),
+        v2 = LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
+          .RejectSimple(reason)
+          .rpcStatus,
       )
 
     def invalidLedgerTime(
@@ -713,16 +697,14 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         s"Ledger time $ledgerTime outside of range [$ledgerTimeLowerBound, $ledgerTimeUpperBound]"
       errorCodesVersionSwitcher.choose(
         v1 = v1Status,
-        v2 = GrpcStatus.toProto(
-          LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
-            .RejectEnriched(
-              details,
-              ledgerTime,
-              ledgerTimeLowerBound,
-              ledgerTimeUpperBound,
-            )
-            .asGrpcStatusFromContext
-        ),
+        v2 = LedgerApiErrors.ConsistencyErrors.InvalidLedgerTime
+          .RejectEnriched(
+            details,
+            ledgerTime,
+            ledgerTimeLowerBound,
+            ledgerTimeUpperBound,
+          )
+          .rpcStatus,
       )
     }
 
@@ -731,9 +713,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     ): com.google.rpc.status.Status =
       errorCodesVersionSwitcher.choose(
         v1 = RpcStatus.of(Code.ABORTED.value(), s"Inconsistent: $reason", Seq.empty),
-        v2 = GrpcStatus.toProto(
-          LedgerApiErrors.ConsistencyErrors.Inconsistent.Reject(reason).asGrpcStatusFromContext
-        ),
+        v2 = LedgerApiErrors.ConsistencyErrors.Inconsistent.Reject(reason).rpcStatus,
       )
 
     object Deprecated {
@@ -743,9 +723,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       ): com.google.rpc.status.Status =
         errorCodesVersionSwitcher.choose(
           v1 = RpcStatus.of(Code.INVALID_ARGUMENT.value(), s"Disputed: $reason", Seq.empty),
-          v2 = GrpcStatus.toProto(
-            LedgerApiErrors.WriteServiceRejections.Disputed.Reject(reason).asGrpcStatusFromContext
-          ),
+          v2 = LedgerApiErrors.WriteServiceRejections.Disputed.Reject(reason).rpcStatus,
         )
 
       @deprecated
@@ -754,9 +732,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       ): com.google.rpc.status.Status =
         errorCodesVersionSwitcher.choose(
           v1 = RpcStatus.of(Code.ABORTED.value(), s"Resources exhausted: $reason", Seq.empty),
-          v2 = GrpcStatus.toProto(
-            LedgerApiErrors.WriteServiceRejections.OutOfQuota.Reject(reason).asGrpcStatusFromContext
-          ),
+          v2 = LedgerApiErrors.WriteServiceRejections.OutOfQuota.Reject(reason).rpcStatus,
         )
     }
   }

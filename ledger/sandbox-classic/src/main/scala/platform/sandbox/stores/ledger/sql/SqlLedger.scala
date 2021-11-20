@@ -519,9 +519,7 @@ private final class SqlLedger(
         case Success(Dropped) =>
           Success(
             state.SubmissionResult.SynchronousError(
-              GrpcStatus.toProto(
-                errorFactories.bufferFull("The submission ingress buffer is full")
-              )
+              errorFactories.bufferFull("The submission ingress buffer is full")
             )
           )
         case Success(QueueClosed) =>

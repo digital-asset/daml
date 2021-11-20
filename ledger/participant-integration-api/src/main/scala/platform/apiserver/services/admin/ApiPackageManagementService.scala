@@ -9,8 +9,8 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.definitions.PackageServiceError
-import com.daml.error.definitions.PackageServiceError.Validation
+import com.daml.error.definitions.LoggingPackageServiceError
+import com.daml.error.definitions.LoggingPackageServiceError.Validation
 import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
@@ -145,7 +145,7 @@ private[apiserver] final class ApiPackageManagementService private (
     }
 
   private implicit class ErrorValidations[E, R](result: Either[E, R]) {
-    def handleError(toSelfServiceErrorCode: E => PackageServiceError): Try[R] =
+    def handleError(toSelfServiceErrorCode: E => LoggingPackageServiceError): Try[R] =
       result.left.map { err =>
         toSelfServiceErrorCode(err).asGrpcError
       }.toTry
