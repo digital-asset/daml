@@ -186,6 +186,7 @@ da_haskell_test(
         "//language-support/ts/codegen:daml2js",
         "//language-support/ts/daml-ledger:npm_package",
         "//language-support/ts/daml-types:npm_package",
+        "@damlc_legacy",
         "@davl//:released/davl-upgrade-v4-v5.dar",
         "@davl//:released/davl-v4.dar",
         "@davl//:released/davl-v5.dar",

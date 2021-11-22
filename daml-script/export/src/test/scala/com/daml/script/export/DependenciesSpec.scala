@@ -19,18 +19,18 @@ class DependenciesSpec extends AnyFreeSpec with Matchers {
       targetLfVersion(Seq.empty) shouldBe None
     }
     "single DALF" in {
-      targetLfVersion(Seq(v1_11)) shouldBe Some(v1_11)
+      targetLfVersion(Seq(v1_14)) shouldBe Some(v1_14)
     }
     "multiple DALFs" in {
-      targetLfVersion(Seq(v1_8, v1_11, v1_12)) shouldBe Some(v1_12)
+      targetLfVersion(Seq(v1_14, v1_dev)) shouldBe Some(v1_dev)
     }
-    "should be at least 1.7" in {
-      targetLfVersion(Seq(v1_6)) shouldBe Some(v1_7)
+    "should be at least 1.14" in {
+      targetLfVersion(Seq(v1_6)) shouldBe Some(v1_14)
     }
   }
   "targetFlag" - {
-    "1.12" in {
-      targetFlag(v1_12) shouldBe "--target=1.12"
+    "1.14" in {
+      targetFlag(v1_14) shouldBe "--target=1.14"
     }
     "1.dev" in {
       targetFlag(v1_dev) shouldBe "--target=1.dev"

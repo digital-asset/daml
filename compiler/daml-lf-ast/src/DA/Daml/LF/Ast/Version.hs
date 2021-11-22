@@ -57,10 +57,10 @@ versionDev :: Version
 versionDev = V1 PointDev
 
 supportedOutputVersions :: [Version]
-supportedOutputVersions = [version1_6, version1_7, version1_8, version1_11, version1_12, version1_13, version1_14, versionDev]
+supportedOutputVersions = [version1_14, versionDev]
 
 supportedInputVersions :: [Version]
-supportedInputVersions = supportedOutputVersions
+supportedInputVersions = [version1_6, version1_7, version1_8, version1_11, version1_12, version1_13] ++ supportedOutputVersions
 
 
 data Feature = Feature
