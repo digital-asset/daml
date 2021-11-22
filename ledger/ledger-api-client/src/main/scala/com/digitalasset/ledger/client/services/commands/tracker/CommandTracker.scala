@@ -16,11 +16,7 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
 }
-import com.daml.ledger.client.services.commands.{
-  CommandSubmission,
-  CompletionStreamElement,
-  tracker,
-}
+import com.daml.ledger.client.services.commands.{CompletionStreamElement, tracker}
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 import com.google.rpc.status.{Status => StatusProto}
@@ -52,20 +48,20 @@ import scala.util.{Failure, Success, Try}
   * </li></ul>
   * We also have an output for offsets, so the most recent offsets can be reused for recovery.
   */
-private[commands] class CommandTracker[Context](
+private[commands] class CommandTracker[Context, Submission: Trackable](
     maximumCommandTimeout: Duration,
     timeoutDetectionPeriod: FiniteDuration,
 ) extends GraphStageWithMaterializedValue[
-      CommandTrackerShape[Context],
+      CommandTrackerShape[Context, Submission],
       Future[Map[TrackedCommandKey, Context]],
     ] {
 
   private val logger = LoggerFactory.getLogger(this.getClass.getName)
 
-  val submitRequestIn: Inlet[Ctx[Context, CommandSubmission]] =
-    Inlet[Ctx[Context, CommandSubmission]]("submitRequestIn")
-  val submitRequestOut: Outlet[Ctx[(Context, TrackedCommandKey), CommandSubmission]] =
-    Outlet[Ctx[(Context, TrackedCommandKey), CommandSubmission]]("submitRequestOut")
+  val submitRequestIn: Inlet[Ctx[Context, Submission]] =
+    Inlet[Ctx[Context, Submission]]("submitRequestIn")
+  val submitRequestOut: Outlet[Ctx[(Context, TrackedCommandKey), Submission]] =
+    Outlet[Ctx[(Context, TrackedCommandKey), Submission]]("submitRequestOut")
   val commandResultIn
       : Inlet[Either[Ctx[(Context, TrackedCommandKey), Try[Empty]], CompletionStreamElement]] =
     Inlet[Either[Ctx[(Context, TrackedCommandKey), Try[Empty]], CompletionStreamElement]](
@@ -118,10 +114,12 @@ private[commands] class CommandTracker[Context](
         new InHandler {
           override def onPush(): Unit = {
             val submitRequest = grab(submitRequestIn)
-            registerSubmission(submitRequest)
-            val commands = submitRequest.value.commands
-            val submissionId = commands.submissionId
-            val commandId = commands.commandId
+            val trackerCommandInput =
+              submitRequest.map(implicitly[Trackable[Submission]].trackingCommandInput)
+            registerSubmission(trackerCommandInput)
+            val trackerInput = trackerCommandInput.value
+            val submissionId = trackerInput.submissionId
+            val commandId = trackerInput.commandId
             logger.trace(s"Submitted command $commandId in submission $submissionId.")
             push(
               submitRequestOut,
@@ -237,10 +235,10 @@ private[commands] class CommandTracker[Context](
       }
 
       @nowarn("msg=deprecated")
-      private def registerSubmission(submission: Ctx[Context, CommandSubmission]): Unit = {
-        val commands = submission.value.commands
-        val submissionId = commands.submissionId
-        val commandId = commands.commandId
+      private def registerSubmission(submission: Ctx[Context, TrackerCommandInput]): Unit = {
+        val trackingInput = submission.value
+        val submissionId = trackingInput.submissionId
+        val commandId = trackingInput.commandId
         logger.trace(s"Begin tracking of command $commandId for submission $submissionId.")
         if (submissionId.isEmpty) {
           throw new IllegalArgumentException(
@@ -365,7 +363,7 @@ private[commands] class CommandTracker[Context](
     logic -> promise.future
   }
 
-  override def shape: CommandTrackerShape[Context] =
+  override def shape: CommandTrackerShape[Context, Submission] =
     CommandTrackerShape(submitRequestIn, submitRequestOut, commandResultIn, resultOut, offsetOut)
 
 }

@@ -669,7 +669,7 @@ class CommandTrackerFlowTest
     val completionsMock = new CompletionStreamMock()
 
     val trackingFlow =
-      CommandTrackerFlow[Int, NotUsed](
+      CommandTrackerFlow[Int, NotUsed, CommandSubmission](
         commandSubmissionFlow = submissionFlow,
         createCommandCompletionSource = completionsMock.createCompletionsSource,
         startingOffset = LedgerOffset(Boundary(LEDGER_BEGIN)),

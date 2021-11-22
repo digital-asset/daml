@@ -38,7 +38,7 @@ class QueueBackedTrackerSpec
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private var consumer: TestSubscriber.Probe[NotUsed] = _
-  private var queue: SourceQueueWithComplete[QueueBackedTracker.QueueInput] = _
+  private var queue: SourceQueueWithComplete[QueueBackedTracker.QueueInput[CommandSubmission]] = _
 
   override protected def beforeEach(): Unit = {
     val (q, sink) = alwaysSuccessfulQueue(bufferSize = 1)
@@ -108,7 +108,7 @@ class QueueBackedTrackerSpec
           ErrorFactories(useSelfServiceErrorCodes = false),
         )
 
-        def testIt(tracker: QueueBackedTracker) = {
+        def testIt(tracker: QueueBackedTracker[CommandSubmission]) = {
           queue.complete()
           tracker.track(input(2)).map { completion =>
             completion should matchPattern {
@@ -138,7 +138,7 @@ class QueueBackedTrackerSpec
           ErrorFactories(useSelfServiceErrorCodes = false),
         )
 
-        def testIt(tracker: QueueBackedTracker) = {
+        def testIt(tracker: QueueBackedTracker[CommandSubmission]) = {
           queue.fail(TestingException("The queue fails with this error."))
           tracker.track(input(2)).map { completion =>
             completion should matchPattern {
@@ -164,9 +164,9 @@ object QueueBackedTrackerSpec {
 
   private def alwaysSuccessfulQueue(bufferSize: Int)(implicit
       materializer: Materializer
-  ): (SourceQueueWithComplete[QueueInput], TestSubscriber.Probe[NotUsed]) =
+  ): (SourceQueueWithComplete[QueueInput[CommandSubmission]], TestSubscriber.Probe[NotUsed]) =
     Source
-      .queue[QueueInput](bufferSize, OverflowStrategy.dropNew)
+      .queue[QueueInput[CommandSubmission]](bufferSize, OverflowStrategy.dropNew)
       .map { in =>
         val completion = CompletionResponse.CompletionSuccess(
           Completion(

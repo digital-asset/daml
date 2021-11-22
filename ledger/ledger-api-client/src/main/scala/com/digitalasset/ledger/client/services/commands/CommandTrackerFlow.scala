@@ -13,7 +13,11 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
 }
-import com.daml.ledger.client.services.commands.tracker.{CommandTracker, TrackedCommandKey}
+import com.daml.ledger.client.services.commands.tracker.{
+  CommandTracker,
+  Trackable,
+  TrackedCommandKey,
+}
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 import org.slf4j.LoggerFactory
@@ -35,9 +39,9 @@ object CommandTrackerFlow {
       trackingMat: Future[immutable.Map[TrackedCommandKey, Context]],
   )
 
-  def apply[Context, SubmissionMat](
+  def apply[Context, SubmissionMat, Submission: Trackable](
       commandSubmissionFlow: Flow[
-        Ctx[(Context, TrackedCommandKey), CommandSubmission],
+        Ctx[(Context, TrackedCommandKey), Submission],
         Ctx[(Context, TrackedCommandKey), Try[
           Empty
         ]],
@@ -48,7 +52,7 @@ object CommandTrackerFlow {
       maximumCommandTimeout: Duration,
       backOffDuration: FiniteDuration = 1.second,
       timeoutDetectionPeriod: FiniteDuration = 1.second,
-  ): Flow[Ctx[Context, CommandSubmission], Ctx[
+  ): Flow[Ctx[Context, Submission], Ctx[
     Context,
     Either[CompletionFailure, CompletionSuccess],
   ], Materialized[
@@ -56,7 +60,8 @@ object CommandTrackerFlow {
     Context,
   ]] = {
 
-    val trackerExternal = new CommandTracker[Context](maximumCommandTimeout, timeoutDetectionPeriod)
+    val trackerExternal =
+      new CommandTracker[Context, Submission](maximumCommandTimeout, timeoutDetectionPeriod)
 
     Flow.fromGraph(GraphDSL.create(commandSubmissionFlow, trackerExternal)(Materialized.apply) {
       implicit builder => (submissionFlow, tracker) =>

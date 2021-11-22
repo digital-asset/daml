@@ -9,8 +9,6 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.stream.Materializer
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.api.v1.commands.Commands
-import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionSuccess,
   TrackedCompletionFailure,
@@ -31,12 +29,12 @@ import scala.util.{Failure, Success}
   * @param newTracker A function to construct a new tracker.
   *                   Called when there is no tracker for the given key.
   */
-private[services] final class TrackerMap[Key](
+private[services] final class TrackerMap[Key, Submission](
     retentionPeriod: Duration,
-    getKey: Commands => Key,
-    newTracker: Key => Future[Tracker],
+    getKey: Submission => Key,
+    newTracker: Key => Future[Tracker[Submission]],
 )(implicit loggingContext: LoggingContext)
-    extends Tracker
+    extends Tracker[Submission]
     with AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -44,7 +42,7 @@ private[services] final class TrackerMap[Key](
   private val lock = new Object()
 
   @volatile private var trackerBySubmitter =
-    HashMap.empty[Key, TrackerMap.AsyncResource[TrackerWithLastSubmission]]
+    HashMap.empty[Key, TrackerMap.AsyncResource[TrackerWithLastSubmission[Submission]]]
 
   private val retentionNanos =
     try {
@@ -57,12 +55,12 @@ private[services] final class TrackerMap[Key](
     }
 
   override def track(
-      submission: CommandSubmission
+      submission: Submission
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] = {
-    val key = getKey(submission.commands)
+    val key = getKey(submission)
     // double-checked locking
     trackerBySubmitter
       .getOrElse(
@@ -76,7 +74,9 @@ private[services] final class TrackerMap[Key](
 
   private def registerNewTracker(
       key: Key
-  )(implicit executionContext: ExecutionContext): AsyncResource[TrackerWithLastSubmission] = {
+  )(implicit
+      executionContext: ExecutionContext
+  ): AsyncResource[TrackerWithLastSubmission[Submission]] = {
     val resource = new AsyncResource(
       newTracker(key)
         .andThen {
@@ -120,22 +120,22 @@ private[services] final class TrackerMap[Key](
 }
 
 private[services] object TrackerMap {
-  final class SelfCleaning[Key](
+  final class SelfCleaning[Key, Submission](
       retentionPeriod: Duration,
-      getKey: Commands => Key,
-      newTracker: Key => Future[Tracker],
+      getKey: Submission => Key,
+      newTracker: Key => Future[Tracker[Submission]],
       cleanupInterval: FiniteDuration,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-  ) extends Tracker {
-    private val delegate = new TrackerMap(retentionPeriod, getKey, newTracker)
+  ) extends Tracker[Submission] {
+    private val delegate = new TrackerMap[Key, Submission](retentionPeriod, getKey, newTracker)
     private val trackerCleanupJob = materializer.system.scheduler
       .scheduleAtFixedRate(cleanupInterval, cleanupInterval)(() => delegate.cleanup())
 
     override def track(
-        submission: CommandSubmission
+        submission: Submission
     )(implicit
         executionContext: ExecutionContext,
         loggingContext: LoggingContext,
@@ -202,13 +202,15 @@ private[services] object TrackerMap {
     }
   }
 
-  private final class TrackerWithLastSubmission(delegate: Tracker) extends Tracker {
+  private final class TrackerWithLastSubmission[Submission](
+      delegate: Tracker[Submission]
+  ) extends Tracker[Submission] {
     @volatile private var lastSubmission = System.nanoTime()
 
     def getLastSubmission: Long = lastSubmission
 
     override def track(
-        submission: CommandSubmission
+        submission: Submission
     )(implicit
         executionContext: ExecutionContext,
         loggingContext: LoggingContext,

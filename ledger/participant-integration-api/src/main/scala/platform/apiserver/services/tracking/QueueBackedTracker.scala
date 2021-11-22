@@ -9,9 +9,10 @@ import akka.{Done, NotUsed}
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.dec.DirectExecutionContext
 import com.daml.error.DamlContextualizedErrorLogger
-import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse._
+import com.daml.ledger.client.services.commands.tracker.Trackable
+import com.daml.ledger.client.services.commands.tracker.Trackable.TrackableOps
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.InstrumentedSource
 import com.daml.platform.apiserver.services.tracking.QueueBackedTracker._
@@ -27,15 +28,15 @@ import scala.util.{Failure, Success, Try}
   *
   * @param queue The input queue to the tracking flow.
   */
-private[services] final class QueueBackedTracker(
-    queue: SourceQueueWithComplete[QueueBackedTracker.QueueInput],
+private[services] final class QueueBackedTracker[Submission: Trackable](
+    queue: SourceQueueWithComplete[QueueBackedTracker.QueueInput[Submission]],
     done: Future[Done],
     errorFactories: ErrorFactories,
 )(implicit loggingContext: LoggingContext)
-    extends Tracker {
+    extends Tracker[Submission] {
 
   override def track(
-      submission: CommandSubmission
+      submission: Submission
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -43,7 +44,7 @@ private[services] final class QueueBackedTracker(
     implicit val errorLogger: DamlContextualizedErrorLogger = new DamlContextualizedErrorLogger(
       logger,
       loggingContext,
-      Some(submission.commands.submissionId),
+      Some(submission.trackingInput.submissionId),
     )
     logger.trace("Tracking command")
     val trackedPromise = Promise[Either[CompletionFailure, CompletionSuccess]]()
@@ -95,9 +96,9 @@ private[services] final class QueueBackedTracker(
 private[services] object QueueBackedTracker {
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  def apply(
+  def apply[Submission: Trackable](
       tracker: Flow[
-        Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], CommandSubmission],
+        Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], Submission],
         Ctx[
           Promise[Either[CompletionFailure, CompletionSuccess]],
           Either[CompletionFailure, CompletionSuccess],
@@ -109,9 +110,12 @@ private[services] object QueueBackedTracker {
       lengthCounter: Counter,
       delayTimer: Timer,
       errorFactories: ErrorFactories,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): QueueBackedTracker = {
+  )(implicit
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ): QueueBackedTracker[Submission] = {
     val ((queue, mat), done) = InstrumentedSource
-      .queue[QueueInput](
+      .queue[QueueInput[Submission]](
         inputBufferSize,
         OverflowStrategy.dropNew,
         capacityCounter,
@@ -159,5 +163,6 @@ private[services] object QueueBackedTracker {
     new QueueBackedTracker(queue, done, errorFactories)
   }
 
-  type QueueInput = Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], CommandSubmission]
+  type QueueInput[Submission] =
+    Ctx[Promise[Either[CompletionFailure, CompletionSuccess]], Submission]
 }
