@@ -20,10 +20,10 @@ object Main {
     Encoder.forProduct2(
       "docName",
       "className",
-    )((grouping: Grouping) =>
+    )(i =>
       (
-        grouping.docName,
-        grouping.fullClassName,
+        i.docName,
+        i.fullClassName,
       )
     )
 

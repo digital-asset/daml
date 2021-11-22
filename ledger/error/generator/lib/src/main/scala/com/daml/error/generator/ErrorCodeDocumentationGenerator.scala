@@ -65,7 +65,7 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
     ErrorDocItem(
       className = error.getClass.getName,
       category = simpleClassName(error.category),
-      hierarchicalGrouping = error.errorGroupPath,
+      hierarchicalGrouping = error.parent,
       conveyance = error.errorConveyanceDocString,
       code = error.id,
       deprecation = deprecation,
@@ -79,7 +79,7 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
       getGroupDocumentationAnnotations(group)
 
     GroupDocItem(
-      errorGroupPath = group.errorClass,
+      errorClass = group.errorClass,
       className = group.fullClassName,
       explanation = explanation,
     )

@@ -9,10 +9,10 @@ import com.daml.error.{ErrorClass, Explanation}
   *
   * @param className The group class name (see [[com.daml.error.ErrorGroup]]).
   * @param explanation The detailed error explanation.
-  * @param errorGroupPath Hierarchical grouping of this error group.
+  * @param errorClass Hierarchical grouping of this error group.
   */
 case class GroupDocItem(
     className: String,
     explanation: Option[Explanation],
-    errorGroupPath: ErrorClass,
+    errorClass: ErrorClass,
 )

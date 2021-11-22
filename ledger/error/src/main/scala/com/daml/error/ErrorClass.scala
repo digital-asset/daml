@@ -21,8 +21,8 @@ case class Grouping(
 /** Used to hierarchically structure error codes in the official documentation.
   */
 case class ErrorClass(groupings: List[Grouping]) {
-  def extend(last: Grouping): ErrorClass =
-    ErrorClass(groupings :+ last)
+  def extend(grouping: Grouping): ErrorClass =
+    ErrorClass(groupings :+ grouping)
 }
 
 object ErrorClass {
