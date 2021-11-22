@@ -95,7 +95,7 @@ The ``daml codegen js`` command then takes this file as argument to produce a nu
     daml build
     daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js
 
-Now we have a TypeScript interface (types and companion objects) to our Daml model, which we'll use in our UI code next.
+We now have a TypeScript interface (types and companion objects) to our Daml model, which we'll use in our UI code next.
 
 The UI
 ======
