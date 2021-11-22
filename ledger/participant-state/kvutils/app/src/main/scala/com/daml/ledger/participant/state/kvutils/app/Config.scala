@@ -587,7 +587,7 @@ object Config {
         opt[Unit]("use-pre-1.18-error-codes")
           .optional()
           .text(
-            "Enables gRPC error code compatibility mode to the pre-1.18 behaviour. This option is deprecated and will be removed in future release versions."
+            "Enables gRPC error code compatibility mode to the pre-1.18 behaviour. This option is deprecated and will be removed in a future release."
           )
           .action((_, config: Config[Extra]) => config.copy(enableSelfServiceErrorCodes = false))
       }

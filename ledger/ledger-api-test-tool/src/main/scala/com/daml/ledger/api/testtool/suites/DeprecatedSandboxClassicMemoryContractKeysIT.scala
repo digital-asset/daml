@@ -21,7 +21,7 @@ import java.util.regex.Pattern
 // but with assertions adapted specifically for Sandbox classic with in-memory ledger backend (deprecated).
 // The changed assertions assert a more generic `INCONSISTENT` error code
 // instead of `INCONSISTENT_CONTRACT_KEY` or `DUPLICATE_CONTRACT_KEY`.
-// TODO sandbox-classic removal: Remove this tests
+// TODO sandbox-classic removal: Remove these tests
 final class DeprecatedSandboxClassicMemoryContractKeysIT extends LedgerTestSuite {
   test(
     "DCKFetchOrLookup",
