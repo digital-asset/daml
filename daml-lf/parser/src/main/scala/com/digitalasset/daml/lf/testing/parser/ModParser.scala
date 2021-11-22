@@ -31,6 +31,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       case ExcepDef(name, defn) =>
         discard(exceptions += name -> defn)
       case IfaceDef(name, iface) =>
+        discard(definitions += name -> DDataType.Interface)
         discard(interfaces += name -> iface)
     }
     (definitions.result(), templates.result(), exceptions.result(), interfaces.result())

@@ -796,7 +796,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         List(
           Module(
             name = modName,
-            definitions = Map.empty,
+            definitions = Map(person -> DDataType.Interface),
             templates = Map.empty,
             exceptions = Map.empty,
             interfaces = Map(person -> interface),
