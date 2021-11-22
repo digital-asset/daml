@@ -22,7 +22,7 @@ object ErrorCodeInventoryDocsGenApp {
 
       val groupSegmentsToExplanationMap: Map[List[Grouping], Option[String]] =
         groupDocItems.map { groupDocItem: GroupDocItem =>
-          groupDocItem.errorGroupPath.segments -> groupDocItem.explanation.map(_.explanation)
+          groupDocItem.errorGroupPath.groupings -> groupDocItem.explanation.map(_.explanation)
         }.toMap
 
       val errorCodes: Seq[ErrorCodeValue] = errorDocItems.map { (errorDocItem: ErrorDocItem) =>
@@ -91,7 +91,7 @@ class ErrorGroupTree(
       getExplanation: (List[Grouping]) => Option[String],
   ): Unit = {
     insert(
-      remaining = errorCode.errorGroupPath.segments,
+      remaining = errorCode.errorGroupPath.groupings,
       path = Nil,
       errorCode = errorCode,
       getExplanation = getExplanation,

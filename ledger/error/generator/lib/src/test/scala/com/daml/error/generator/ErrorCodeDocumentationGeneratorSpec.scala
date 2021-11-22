@@ -51,7 +51,7 @@ class ErrorCodeDocumentationGeneratorSpec extends AnyFlatSpec with Matchers {
         className = NotSoSeriousError.getClass.getTypeName,
         category = "TransientServerFailure",
         hierarchicalGrouping =
-          List(ErrorGroupSegment("Some grouping", None), Grouping("MildErrors", Some(MildErrors))),
+          List(Grouping("Some grouping", None), Grouping("MildErrors", Some(MildErrors))),
         conveyance =
           "This error is logged with log-level INFO on the server side.\nThis error is exposed on the API with grpc-status UNAVAILABLE including a detailed error message",
         code = "TEST_ROUTINE_FAILURE_PLEASE_IGNORE",

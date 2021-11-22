@@ -14,15 +14,15 @@ case class Grouping(
 ) {
   require(
     docName.trim.nonEmpty,
-    s"ErrorGroupSegment.docName must be non mmpty and must contain not only whitespace characters, but was: |${docName}|!",
+    s"Grouping.docName must be non empty and must contain not only whitespace characters, but was: |${docName}|!",
   )
 }
 
 /** Used to hierarchically structure error codes in the official documentation.
   */
-case class ErrorClass(segments: List[Grouping]) {
+case class ErrorClass(groupings: List[Grouping]) {
   def extend(last: Grouping): ErrorClass =
-    ErrorClass(segments :+ last)
+    ErrorClass(groupings :+ last)
 }
 
 object ErrorClass {

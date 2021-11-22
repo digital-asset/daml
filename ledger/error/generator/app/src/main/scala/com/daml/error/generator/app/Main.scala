@@ -41,7 +41,7 @@ object Main {
       (
         i.className,
         i.category,
-        i.hierarchicalGrouping.segments,
+        i.hierarchicalGrouping.groupings,
         i.conveyance,
         i.code,
         i.deprecation.fold("")(_.deprecation),
@@ -56,7 +56,7 @@ object Main {
       "explanation",
     )(i =>
       (
-        i.fullClassName,
+        i.className,
         i.explanation.fold("")(_.explanation),
       )
     )
