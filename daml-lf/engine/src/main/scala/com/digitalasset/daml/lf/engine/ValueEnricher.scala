@@ -85,17 +85,16 @@ final class ValueEnricher(
       choiceName: Name,
       value: Value,
   ): Result[Value] =
-    handleLookup(interface.lookupTemplateChoice(tyCon, choiceName))
-      .flatMap(choice => enrichValue(choice.argBinder._2, value))
+    handleLookup(interface.lookupChoice(tyCon, choiceName))
+      .flatMap(choiceInfo => enrichValue(choiceInfo.choice.argBinder._2, value))
 
   def enrichChoiceResult(
       tyCon: Identifier,
       choiceName: Name,
       value: Value,
   ): Result[Value] =
-    handleLookup(interface.lookupTemplateChoice(tyCon, choiceName)).flatMap(choice =>
-      enrichValue(choice.returnType, value)
-    )
+    handleLookup(interface.lookupChoice(tyCon, choiceName))
+      .flatMap(choiceInfo => enrichValue(choiceInfo.choice.returnType, value))
 
   def enrichContractKey(tyCon: Identifier, value: Value): Result[Value] =
     handleLookup(interface.lookupTemplateKey(tyCon))
