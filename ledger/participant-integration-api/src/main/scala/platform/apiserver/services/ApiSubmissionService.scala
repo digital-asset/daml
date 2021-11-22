@@ -3,15 +3,18 @@
 
 package com.daml.platform.apiserver.services
 
+import java.time.{Duration, Instant}
+import java.util.UUID
+
 import com.daml.api.util.TimeProvider
 import com.daml.error.ErrorCode.LoggingApiException
+import com.daml.error.definitions.{ErrorCauseExport, RejectionGenerators}
 import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,
   ErrorCause,
   ErrorCodesVersionSwitcher,
 }
-import com.daml.error.definitions.{ErrorCauseExport, RejectionGenerators}
 import com.daml.ledger.api.domain.{LedgerId, SubmissionId, Commands => ApiCommands}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.{DeduplicationPeriod, SubmissionIdGenerator}
@@ -25,7 +28,7 @@ import com.daml.lf.interpretation.{Error => InterpretationError}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.SeedService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
@@ -34,17 +37,16 @@ import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.telemetry.TelemetryContext
+import com.daml.telemetry.{SpanAttribute, TelemetryContext}
 import com.daml.timer.Delayed
 import io.grpc.{Status, StatusRuntimeException}
 
-import java.time.{Duration, Instant}
-import java.util.UUID
 import scala.annotation.nowarn
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
+import scalaz.syntax.tag._
 
 private[apiserver] object ApiSubmissionService {
 
@@ -65,32 +67,33 @@ private[apiserver] object ApiSubmissionService {
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-  ): GrpcCommandSubmissionService with GrpcApiService =
-    new GrpcCommandSubmissionService(
-      service = new ApiSubmissionService(
-        writeService,
-        submissionService,
-        partyManagementService,
-        timeProvider,
-        timeProviderType,
-        ledgerConfigurationSubscription,
-        seedService,
-        commandExecutor,
-        checkOverloaded,
-        configuration,
-        metrics,
-        errorCodesVersionSwitcher,
-      ),
+  ): (CommandSubmissionService, GrpcCommandSubmissionService with GrpcApiService) = {
+    val internalService = new ApiSubmissionService(
+      writeService,
+      submissionService,
+      partyManagementService,
+      timeProvider,
+      timeProviderType,
+      ledgerConfigurationSubscription,
+      seedService,
+      commandExecutor,
+      checkOverloaded,
+      configuration,
+      metrics,
+      errorCodesVersionSwitcher,
+    )
+    internalService -> new GrpcCommandSubmissionService(
+      service = internalService,
       ledgerId = ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
-      maxDeduplicationTime = () =>
-        ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
+      maxDeduplicationTime =
+        () => ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
       submissionIdGenerator = SubmissionIdGenerator.Random,
       metrics = metrics,
       errorCodesVersionSwitcher = errorCodesVersionSwitcher,
     )
-
+  }
   final case class Configuration(
       implicitPartyAllocation: Boolean,
       enableDeduplication: Boolean,
@@ -120,40 +123,52 @@ private[apiserver] final class ApiSubmissionService private[services] (
 
   override def submit(
       request: SubmitRequest
-  )(implicit telemetryContext: TelemetryContext): Future[Unit] =
-    withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
-      logger.info("Submitting transaction")
-      logger.trace(s"Commands: ${request.commands.commands.commands}")
+  )(implicit telemetryContext: TelemetryContext): Future[Unit] = {
+    val commands = request.commands
+    telemetryContext.setAttribute(SpanAttribute.ApplicationId, commands.applicationId.unwrap)
+    telemetryContext.setAttribute(SpanAttribute.CommandId, commands.commandId.unwrap)
+    telemetryContext.setAttribute(SpanAttribute.Submitter, request.submitter)
+    commands.workflowId
+      .map(_.unwrap)
+      .foreach(telemetryContext.setAttribute(SpanAttribute.WorkflowId, _))
+    Timed.timedAndTrackedFuture(
+      metrics.daml.commands.submissions,
+      metrics.daml.commands.submissionsRunning,
+      withEnrichedLoggingContext(logging.commands(commands)) { implicit loggingContext =>
+        logger.info("Submitting transaction")
+        logger.trace(s"Commands: ${commands.commands.commands}")
 
-      implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
-        new DamlContextualizedErrorLogger(
-          logger,
-          loggingContext,
-          request.commands.submissionId.map(SubmissionId.unwrap),
-        )
-
-      val evaluatedCommand = ledgerConfigurationSubscription
-        .latestConfiguration() match {
-        case Some(ledgerConfiguration) =>
-          if (writeService.isApiDeduplicationEnabled && configuration.enableDeduplication) {
-            deduplicateAndRecordOnLedger(
-              seedService.nextSeed(),
-              request.commands,
-              ledgerConfiguration,
-            )
-          } else {
-            evaluateAndSubmit(seedService.nextSeed(), request.commands, ledgerConfiguration)
-              .transform(handleSubmissionResult)
-          }
-        case None =>
-          Future.failed(
-            errorFactories.missingLedgerConfig(Status.Code.UNAVAILABLE)(definiteAnswer =
-              Some(false)
-            )
+        implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+          new DamlContextualizedErrorLogger(
+            logger,
+            loggingContext,
+            commands.submissionId.map(SubmissionId.unwrap),
           )
-      }
-      evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])
-    }
+
+        val evaluatedCommand = ledgerConfigurationSubscription
+          .latestConfiguration() match {
+          case Some(ledgerConfiguration) =>
+            if (writeService.isApiDeduplicationEnabled && configuration.enableDeduplication) {
+              deduplicateAndRecordOnLedger(
+                seedService.nextSeed(),
+                commands,
+                ledgerConfiguration,
+              )
+            } else {
+              evaluateAndSubmit(seedService.nextSeed(), commands, ledgerConfiguration)
+                .transform(handleSubmissionResult)
+            }
+          case None =>
+            Future.failed(
+              errorFactories.missingLedgerConfig(Status.Code.UNAVAILABLE)(definiteAnswer =
+                Some(false)
+              )
+            )
+        }
+        evaluatedCommand.andThen(logger.logErrorsOnCall[Unit])
+      },
+    )
+  }
 
   private def deduplicateAndRecordOnLedger(
       seed: crypto.Hash,

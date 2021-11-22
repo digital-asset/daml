@@ -3,13 +3,13 @@
 
 package com.daml.ledger.api.validation
 
+import java.time.{Duration, Instant}
+
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.messages.command.submission
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.platform.server.api.validation.FieldValidations
 import io.grpc.StatusRuntimeException
-
-import java.time.{Duration, Instant}
 
 class SubmitRequestValidator(
     commandsValidator: CommandsValidator,
@@ -32,6 +32,6 @@ class SubmitRequestValidator(
         currentUtcTime,
         maxDeduplicationTime,
       )
-    } yield submission.SubmitRequest(validatedCommands)
+    } yield submission.SubmitRequest(validatedCommands, commands.party)
 
 }

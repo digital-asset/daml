@@ -5,4 +5,4 @@ package com.daml.ledger.api.messages.command.submission
 
 import com.daml.ledger.api.domain
 
-case class SubmitRequest(commands: domain.Commands)
+case class SubmitRequest(commands: domain.Commands, submitter: String)
