@@ -42,6 +42,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eFromAnyException |
       eToTextTypeConName |
       eThrow |
+      eCallInterface |
       (id ^? builtinFunctions) ^^ EBuiltin |
       experimental |
       caseOf |
@@ -324,7 +325,12 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "BIGNUMERIC_TO_TEXT" -> BBigNumericToText,
   )
 
-  private lazy val experimental: Parser[Expr] =
+  private lazy val eCallInterface: Parser[ECallInterface] =
+    Id("icall") ~! `@` ~> fullIdentifier ~ id ~ expr0 ^^ { case ifaceId ~ name ~ body =>
+      ECallInterface(interfaceId = ifaceId, methodName = name, value = body)
+    }
+
+  private lazy val experimental: Parser[EExperimental] =
     Id("experimental") ~>! id ~ typeParser.typ ^^ { case id ~ typ => EExperimental(id, typ) }
 
   /* Scenarios */
