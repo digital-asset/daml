@@ -3,8 +3,8 @@
 
 package com.daml.platform.apiserver.services.tracking
 
-import akka.stream.scaladsl.{Flow, Keep, Sink, SourceQueueWithComplete}
-import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
+import akka.stream.scaladsl.{Flow, Keep, Sink}
+import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import akka.{Done, NotUsed}
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.dec.DirectExecutionContext
@@ -28,7 +28,7 @@ import scala.util.{Failure, Success, Try}
   * @param queue The input queue to the tracking flow.
   */
 private[services] final class QueueBackedTracker(
-    queue: SourceQueueWithComplete[QueueBackedTracker.QueueInput],
+    queue: BoundedSourceQueue[QueueBackedTracker.QueueInput],
     done: Future[Done],
     errorFactories: ErrorFactories,
 )(implicit loggingContext: LoggingContext)
@@ -47,34 +47,23 @@ private[services] final class QueueBackedTracker(
     )
     logger.trace("Tracking command")
     val trackedPromise = Promise[Either[CompletionFailure, CompletionSuccess]]()
-    queue
-      .offer(Ctx(trackedPromise, submission))
-      .flatMap[Either[TrackedCompletionFailure, CompletionSuccess]] {
-        case QueueOfferResult.Enqueued =>
-          trackedPromise.future.map(
-            _.left.map(completionFailure => QueueCompletionFailure(completionFailure))
-          )
-        case QueueOfferResult.Failure(t) =>
-          toQueueSubmitFailure(
-            errorFactories.SubmissionQueueErrors
-              .failedToEnqueueCommandSubmission("Failed to enqueue")(t)
-          )
-        case QueueOfferResult.Dropped =>
-          toQueueSubmitFailure(errorFactories.bufferFull("The submission ingress buffer is full"))
-        case QueueOfferResult.QueueClosed =>
-          toQueueSubmitFailure(
-            errorFactories.SubmissionQueueErrors.queueClosed("Command service queue")
-          )
-      }
-      .recoverWith {
-        case i: IllegalStateException
-            if i.getMessage == "You have to wait for previous offer to be resolved to send another request" =>
-          toQueueSubmitFailure(errorFactories.bufferFull("The submission ingress buffer is full"))
-        case t =>
-          toQueueSubmitFailure(
-            errorFactories.SubmissionQueueErrors.failedToEnqueueCommandSubmission("Failed")(t)
-          )
-      }
+    queue.offer(Ctx(trackedPromise, submission)) match {
+      case QueueOfferResult.Enqueued =>
+        trackedPromise.future.map(
+          _.left.map(completionFailure => QueueCompletionFailure(completionFailure))
+        )
+      case QueueOfferResult.Failure(t) =>
+        toQueueSubmitFailure(
+          errorFactories.SubmissionQueueErrors
+            .failedToEnqueueCommandSubmission("Failed to enqueue")(t)
+        )
+      case QueueOfferResult.Dropped =>
+        toQueueSubmitFailure(errorFactories.bufferFull("The submission ingress buffer is full"))
+      case QueueOfferResult.QueueClosed =>
+        toQueueSubmitFailure(
+          errorFactories.SubmissionQueueErrors.queueClosed("Command service queue")
+        )
+    }
   }
 
   private def toQueueSubmitFailure(
@@ -86,7 +75,6 @@ private[services] final class QueueBackedTracker(
   override def close(): Unit = {
     logger.debug("Shutting down tracking component.")
     queue.complete()
-    Await.result(queue.watchCompletion(), 30.seconds)
     Await.result(done, 30.seconds)
     ()
   }
@@ -113,7 +101,6 @@ private[services] object QueueBackedTracker {
     val ((queue, mat), done) = InstrumentedSource
       .queue[QueueInput](
         inputBufferSize,
-        OverflowStrategy.dropNew,
         capacityCounter,
         lengthCounter,
         delayTimer,

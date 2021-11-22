@@ -3,10 +3,10 @@
 
 package com.daml.platform.apiserver.services.tracking
 
-import akka.stream.scaladsl.{Keep, Source, SourceQueueWithComplete}
+import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
-import akka.stream.{Materializer, OverflowStrategy}
+import akka.stream.{BoundedSourceQueue, Materializer}
 import akka.{Done, NotUsed}
 import com.daml.grpc.RpcProtoExtractors
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingException}
@@ -38,7 +38,7 @@ class QueueBackedTrackerSpec
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private var consumer: TestSubscriber.Probe[NotUsed] = _
-  private var queue: SourceQueueWithComplete[QueueBackedTracker.QueueInput] = _
+  private var queue: BoundedSourceQueue[QueueBackedTracker.QueueInput] = _
 
   override protected def beforeEach(): Unit = {
     val (q, sink) = alwaysSuccessfulQueue(bufferSize = 1)
@@ -164,9 +164,9 @@ object QueueBackedTrackerSpec {
 
   private def alwaysSuccessfulQueue(bufferSize: Int)(implicit
       materializer: Materializer
-  ): (SourceQueueWithComplete[QueueInput], TestSubscriber.Probe[NotUsed]) =
+  ): (BoundedSourceQueue[QueueInput], TestSubscriber.Probe[NotUsed]) =
     Source
-      .queue[QueueInput](bufferSize, OverflowStrategy.dropNew)
+      .queue[QueueInput](bufferSize)
       .map { in =>
         val completion = CompletionResponse.CompletionSuccess(
           Completion(

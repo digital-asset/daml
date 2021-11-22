@@ -7,7 +7,7 @@ import scala.util.chaining._
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import akka.stream.{OverflowStrategy, QueueOfferResult}
+import akka.stream.QueueOfferResult
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.metrics.InstrumentedSourceSpec.SamplingCounter
@@ -21,44 +21,7 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
 
   behavior of "InstrumentedSource.queue"
 
-  it should "correctly enqueue and track the buffer saturation" in {
-
-    val bufferSize = 500
-
-    val capacityCounter = new Counter()
-    val maxBuffered = new InstrumentedSourceSpec.MaxValueCounter()
-    val delayTimer = new Timer()
-
-    val (source, sink) =
-      InstrumentedSource
-        .queue[Int](
-          bufferSize,
-          OverflowStrategy.backpressure,
-          capacityCounter,
-          maxBuffered,
-          delayTimer,
-        )
-        .toMat(Sink.seq)(Keep.both)
-        .run()
-
-    // The values in the queue are not relevant, hence the random generation
-    val input = Seq.fill(bufferSize)(util.Random.nextInt())
-
-    for {
-      results <- Future.sequence(input.map(source.offer))
-      _ = capacityCounter.getCount shouldEqual bufferSize
-      _ = source.complete()
-      output <- sink
-    } yield {
-      all(results) shouldBe QueueOfferResult.Enqueued
-      output shouldEqual input
-      maxBuffered.getCount shouldEqual bufferSize
-      capacityCounter.getCount shouldEqual 0
-      maxBuffered.decrements.get shouldEqual bufferSize
-    }
-  }
-
-  it should "correctly measure queue delay" in {
+  it should "correctly enqueue and measure queue delay" in {
     val capacityCounter = new Counter()
     val maxBuffered = new InstrumentedSourceSpec.MaxValueCounter()
     val delayTimer = new Timer()
@@ -66,7 +29,7 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
 
     val (source, sink) =
       InstrumentedSource
-        .queue[Int](16, OverflowStrategy.backpressure, capacityCounter, maxBuffered, delayTimer)
+        .queue[Int](bufferSize, capacityCounter, maxBuffered, delayTimer)
         .mapAsync(1) { x =>
           akka.pattern.after(5.millis, system.scheduler)(Future(x))
         }
@@ -75,11 +38,9 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
 
     val input = Seq.fill(bufferSize)(util.Random.nextInt())
 
-    for {
-      result <- Future.sequence(input.map(source.offer))
-      _ = source.complete()
-      output <- sink
-    } yield {
+    val result = input.map(source.offer)
+    source.complete()
+    sink.map { output =>
       all(result) shouldBe QueueOfferResult.Enqueued
       output shouldEqual input
       delayTimer.getCount shouldEqual bufferSize
@@ -87,7 +48,7 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
     }
   }
 
-  it should "track the buffer saturation correctly when dropping items" in {
+  it should "track the buffer saturation correctly" in {
 
     val bufferSize = 500
 
@@ -107,7 +68,7 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
 
     val (source, termination) =
       InstrumentedSource
-        .queue[Int](bufferSize, OverflowStrategy.dropNew, capacityCounter, maxBuffered, delayTimer)
+        .queue[Int](bufferSize, capacityCounter, maxBuffered, delayTimer)
         .mapAsync(1)(_ => stop.future) // Block until completed to overflow queue.
         .watchTermination()(Keep.both)
         .toMat(Sink.ignore)(Keep.left)
@@ -118,28 +79,25 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
     val inputSize = bufferSize * 2
     val input = Seq.fill(inputSize)(util.Random.nextInt())
 
-    for {
-      results <- Future.sequence(input.map(source.offer))
-      _ = capacityCounter.getCount shouldEqual bufferSize
-      _ = stop.success(())
-      _ = source.complete()
-      _ <- termination
-    } yield {
-      val enqueued = results.count {
-        case QueueOfferResult.Enqueued => true
-        case _ => false
-      }
-      val dropped = results.count {
-        case QueueOfferResult.Dropped => true
-        case _ => false
-      }
+    val results = input.map(source.offer)
+    capacityCounter.getCount shouldEqual bufferSize
+    stop.success(())
+    source.complete()
+    val enqueued = results.count {
+      case QueueOfferResult.Enqueued => true
+      case _ => false
+    }
+    val dropped = results.count {
+      case QueueOfferResult.Dropped => true
+      case _ => false
+    }
+    termination.map { _ =>
       inputSize shouldEqual (enqueued + dropped)
       assert(enqueued >= bufferSize)
       assert(dropped <= bufferSize)
       assert(maxBuffered.getCount >= lowAcceptanceThreshold)
       assert(maxBuffered.getCount <= highAcceptanceThreshold)
       capacityCounter.getCount shouldEqual 0
-
     }
   }
 
