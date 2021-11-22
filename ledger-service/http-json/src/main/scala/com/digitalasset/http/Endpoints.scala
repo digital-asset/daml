@@ -428,7 +428,8 @@ class Endpoints(
   } yield res
 
   def query(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: Metrics,
   ): Future[Error \/ SearchResult[Error \/ JsValue]] = {
     for {
       it <- EitherT.eitherT(inputAndJwtPayload[JwtPayload](req))
