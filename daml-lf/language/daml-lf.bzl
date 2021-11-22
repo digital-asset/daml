@@ -68,9 +68,6 @@ COMPILER_LF_VERSIONS = [ver for ver in ENCODER_LF_VERSIONS if ver not in LEGACY_
 
 ALL_COMPILER_LF_VERSIONS = LEGACY_COMPILER_LF_VERSIONS + COMPILER_LF_VERSIONS
 
-# We need Any in DAML Script so we require DAML-LF >= 1.7
-SCRIPT_LF_VERSIONS = [ver for ver in COMPILER_LF_VERSIONS if ver != "1.6"]
-
 LF_VERSION_PACKAGE_DIGITALASSET = {
     "1.6": "digitalasset",
     "1.7": "digitalasset",
