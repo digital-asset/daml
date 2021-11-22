@@ -33,6 +33,6 @@ class SubmitAndWaitRequestValidator(
         currentUtcTime,
         maxDeduplicationTime,
       )
-    } yield submission.SubmitRequest(validatedCommands)
+    } yield submission.SubmitRequest(validatedCommands, commands.party)
 
 }

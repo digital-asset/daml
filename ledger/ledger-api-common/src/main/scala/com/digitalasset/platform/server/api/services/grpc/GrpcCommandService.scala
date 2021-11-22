@@ -3,41 +3,38 @@
 
 package com.daml.platform.server.api.services.grpc
 
-import com.daml.error.{DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
+import java.time.{Duration, Instant}
+import java.util.concurrent.TimeUnit
+
+import com.daml.error.DamlContextualizedErrorLogger
 import com.daml.ledger.api.SubmissionIdGenerator
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_service._
-import com.daml.ledger.api.validation.{CommandsValidator, SubmitAndWaitRequestValidator}
+import com.daml.ledger.api.validation.SubmitAndWaitRequestValidator
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
+import com.daml.platform.server.api.services.domain
 import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import com.google.protobuf.empty.Empty
-import io.grpc.ServerServiceDefinition
+import io.grpc.{Context, ServerServiceDefinition}
 
-import java.time.{Duration, Instant}
 import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcCommandService(
-    protected val service: CommandService with AutoCloseable,
+    protected val service: domain.CommandService with AutoCloseable,
     val ledgerId: LedgerId,
-    errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
+    generateSubmissionId: SubmissionIdGenerator,
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Option[Duration],
-    generateSubmissionId: SubmissionIdGenerator,
+    validator: SubmitAndWaitRequestValidator,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends CommandService
     with GrpcApiService
     with ProxyCloseable {
 
   protected implicit val logger: ContextualizedLogger = ContextualizedLogger.get(getClass)
-
-  private[this] val validator = new SubmitAndWaitRequestValidator(
-    new CommandsValidator(ledgerId, errorCodesVersionSwitcher),
-    FieldValidations(ErrorFactories(errorCodesVersionSwitcher)),
-  )
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] = {
     val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
@@ -50,7 +47,10 @@ class GrpcCommandService(
       )(contextualizedErrorLogger(requestWithSubmissionId))
       .fold(
         t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
-        _ => service.submitAndWait(requestWithSubmissionId),
+        request =>
+          service.submitAndWait(request, timeout()).map { _ =>
+            Empty.defaultInstance
+          },
       )
   }
 
@@ -67,7 +67,7 @@ class GrpcCommandService(
       )(contextualizedErrorLogger(requestWithSubmissionId))
       .fold(
         t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
-        _ => service.submitAndWaitForTransactionId(requestWithSubmissionId),
+        request => service.submitAndWait(request, timeout()),
       )
   }
 
@@ -84,7 +84,7 @@ class GrpcCommandService(
       )(contextualizedErrorLogger(requestWithSubmissionId))
       .fold(
         t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
-        _ => service.submitAndWaitForTransaction(requestWithSubmissionId),
+        request => service.submitAndWaitForTransaction(request, timeout()),
       )
   }
 
@@ -101,7 +101,7 @@ class GrpcCommandService(
       )(contextualizedErrorLogger(requestWithSubmissionId))
       .fold(
         t => Future.failed(ValidationLogger.logFailure(requestWithSubmissionId, t)),
-        _ => service.submitAndWaitForTransactionTree(requestWithSubmissionId),
+        request => service.submitAndWaitForTransactionTree(request, timeout()),
       )
   }
 
@@ -121,4 +121,7 @@ class GrpcCommandService(
       loggingContext: LoggingContext
   ) =
     new DamlContextualizedErrorLogger(logger, loggingContext, request.commands.map(_.submissionId))
+
+  private def timeout() = Option(Context.current().getDeadline)
+    .map(deadline => Duration.ofNanos(deadline.timeRemaining(TimeUnit.NANOSECONDS)))
 }

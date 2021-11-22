@@ -48,6 +48,7 @@ import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.{GrpcHealthService, GrpcTransactionService}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.telemetry.TelemetryContext
+import com.google.protobuf.empty.Empty
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 
@@ -240,7 +241,7 @@ private[daml] object ApiServices {
           metrics,
         )
 
-        val apiSubmissionService = ApiSubmissionService.create(
+        val (internalApiSubmissionService, grpcApiSubmissionService) = ApiSubmissionService.create(
           ledgerId,
           writeService,
           submissionService,
@@ -270,8 +271,15 @@ private[daml] object ApiServices {
             commandConfig.trackerRetentionPeriod,
           ),
           // Using local services skips the gRPC layer, improving performance.
-          submissionFlow =
-            CommandSubmissionFlow(apiSubmissionService.submit, commandConfig.maxCommandsInFlight),
+          submissionFlow = CommandSubmissionFlow(
+            implicit telemetryContext =>
+              internalSubmit => {
+                internalApiSubmissionService
+                  .submit(internalSubmit.request)
+                  .map(_ => Empty.defaultInstance)
+              },
+            commandConfig.maxCommandsInFlight,
+          ),
           completionServices = apiCompletionService,
           transactionServices = new ApiCommandService.TransactionServices(
             getTransactionById = apiTransactionService.getTransactionById,
@@ -315,7 +323,7 @@ private[daml] object ApiServices {
           )
 
         List(
-          new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),
+          new CommandSubmissionServiceAuthorization(grpcApiSubmissionService, authorizer),
           new CommandServiceAuthorization(apiCommandService, authorizer),
           new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
           new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
