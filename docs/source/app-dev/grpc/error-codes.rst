@@ -365,8 +365,8 @@ compatibility with previous releases for some service Ledger API endpoints.
 The table below outlines all the cases and error conditions when a Ledger API service endpoint returns a different
 gRPC status code in comparison to the pre-1.18 releases.
 
-Ledger API
-^^^^^^^^^^
+Common Ledger API changes
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The table below outlines generic gRPC status code changes pertaining to the Ledger API
 and apply to all ledger backends. For changes specific to a ledger backend, check the next subsections.
