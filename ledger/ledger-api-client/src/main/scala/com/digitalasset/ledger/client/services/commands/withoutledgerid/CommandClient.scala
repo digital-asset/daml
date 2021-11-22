@@ -72,9 +72,9 @@ private[daml] final class CommandClient(
       submitRequest: SubmitRequest,
       token: Option[String] = None,
   ): Future[Empty] =
-    submit(token)(submitRequest)
+    submit(token, submitRequest)
 
-  private def submit(token: Option[String])(submitRequest: SubmitRequest): Future[Empty] = {
+  private def submit(token: Option[String], submitRequest: SubmitRequest): Future[Empty] = {
     logger.debug(
       "Invoking grpc-submission on commandId={}",
       submitRequest.commands.map(_.commandId).getOrElse("no-command-id"),
@@ -152,11 +152,12 @@ private[daml] final class CommandClient(
           CommandUpdaterFlow[Context](config, submissionIdGenerator, applicationId, ledgerIdToUse)
         )
         .viaMat(
-          CommandTrackerFlow[Context, NotUsed](
-            commandSubmissionFlow = CommandSubmissionFlow[(Context, TrackedCommandKey)](
-              submit(token),
-              config.maxParallelSubmissions,
-            ),
+          CommandTrackerFlow[Context, NotUsed, CommandSubmission](
+            commandSubmissionFlow =
+              CommandSubmissionFlow[(Context, TrackedCommandKey), CommandSubmission](
+                telemetryContext => telemetryContext.runInOpenTelemetryScope(submit(token, _)),
+                config.maxParallelSubmissions,
+              ),
             createCommandCompletionSource =
               offset => completionSource(parties, offset, ledgerIdToUse, token),
             startingOffset = ledgerEnd.getOffset,
@@ -199,7 +200,12 @@ private[daml] final class CommandClient(
   ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, Try[Empty]], NotUsed] = {
     Flow[Ctx[Context, CommandSubmission]]
       .via(CommandUpdaterFlow[Context](config, submissionIdGenerator, applicationId, ledgerIdToUse))
-      .via(CommandSubmissionFlow[Context](submit(token), config.maxParallelSubmissions))
+      .via(
+        CommandSubmissionFlow[Context, CommandSubmission](
+          telemetry => telemetry.runInOpenTelemetryScope(submit(token, _)),
+          config.maxParallelSubmissions,
+        )
+      )
   }
 
   def getCompletionEnd(
@@ -211,4 +217,10 @@ private[daml] final class CommandClient(
       .completionEnd(
         CompletionEndRequest(ledgerIdToUse.unwrap)
       )
+
+  private def submit(token: Option[String], commandSubmission: CommandSubmission): Future[Empty] = {
+    val submitRequest = SubmitRequest.of(Some(commandSubmission.commands))
+    submit(token, submitRequest)
+  }
+
 }

@@ -6,7 +6,7 @@ package com.daml.ledger.client.services.commands
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.telemetry.TelemetryContext
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 
@@ -15,26 +15,23 @@ import scala.util.{Success, Try}
 
 object CommandSubmissionFlow {
 
-  def apply[Context](
-      submit: SubmitRequest => Future[Empty],
+  def apply[Context, Submission](
+      submit: TelemetryContext => Submission => Future[Empty],
       maxInFlight: Int,
-  ): Flow[Ctx[Context, CommandSubmission], Ctx[Context, Try[Empty]], NotUsed] = {
-    Flow[Ctx[Context, CommandSubmission]]
-      .log("submission at client", _.value.commands.commandId)
+  ): Flow[Ctx[Context, Submission], Ctx[Context, Try[Empty]], NotUsed] = {
+    Flow[Ctx[Context, Submission]]
+      //.log("submission at client", _.value.commands.commandId)
       .mapAsyncUnordered(maxInFlight) { case Ctx(context, submission, telemetryContext) =>
-        telemetryContext
-          .runInOpenTelemetryScope {
-            submit(SubmitRequest.of(Some(submission.commands)))
-              .transform { tryResponse =>
-                Success(
-                  Ctx(
-                    context,
-                    tryResponse,
-                    telemetryContext,
-                  )
-                )
-              }(DirectExecutionContext)
-          }
+        submit(telemetryContext)(submission)
+          .transform { tryResponse =>
+            Success(
+              Ctx(
+                context,
+                tryResponse,
+                telemetryContext,
+              )
+            )
+          }(DirectExecutionContext)
       }
   }
 
