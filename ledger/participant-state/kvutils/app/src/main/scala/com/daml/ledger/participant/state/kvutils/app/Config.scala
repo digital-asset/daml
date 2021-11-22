@@ -584,7 +584,7 @@ object Config {
           else success
         )
 
-        opt[Unit]("grpc-status-codes-compatibility-mode")
+        opt[Unit]("use-pre-1.18-error-codes")
           .optional()
           .text(
             "Enables gRPC error code compatibility mode to the pre-1.18 behaviour. This option is deprecated and will be removed in future release versions."

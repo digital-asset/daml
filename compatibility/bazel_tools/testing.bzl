@@ -846,11 +846,11 @@ def sdk_platform_test(sdk_version, platform_version):
     # Error codes are enabled by default after 1.18.0-snapshot.20211117.8399.0.a05a40ae.
     # Before this SDK version, ledger-api-test-tool cannot correctly assert the self-service error codes.
     # For this reason, all platforms newer than 1.18.0-snapshot.20211117.8399.0.a05a40ae will run against
-    # old ledger-api-test-tools in compatibility mode (i.e. `--grpc-status-codes-compatibility-mode`)
+    # old ledger-api-test-tools in compatibility mode (i.e. `--use-pre-1.18-error-codes`)
     error_codes_version_enabled_by_default = "1.18.0-snapshot.20211117.8399.0.a05a40ae"
     if versions.is_at_most(error_codes_version_enabled_by_default, sdk_version):
-        extra_sandbox_next_args += ["--grpc-status-codes-compatibility-mode"]
-        extra_sandbox_classic_args += ["--grpc-status-codes-compatibility-mode"]
+        extra_sandbox_next_args += ["--use-pre-1.18-error-codes"]
+        extra_sandbox_classic_args += ["--use-pre-1.18-error-codes"]
 
     # ledger-api-test-tool test-cases
     name = "ledger-api-test-tool-{sdk_version}-platform-{platform_version}".format(

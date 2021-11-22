@@ -64,7 +64,7 @@ final class ConfigSpec
       Seq(
         dumpIndexMetadataCommand,
         "some-jdbc-url",
-        "--grpc-status-codes-compatibility-mode",
+        "--use-pre-1.18-error-codes",
       )
     )
 

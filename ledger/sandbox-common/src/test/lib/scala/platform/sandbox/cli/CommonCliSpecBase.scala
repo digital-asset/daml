@@ -355,7 +355,7 @@ abstract class CommonCliSpecBase(
 
     "parse gRPC error codes compatibility mode flag" in {
       checkOption(
-        Array("--grpc-status-codes-compatibility-mode"),
+        Array("--use-pre-1.18-error-codes"),
         _.copy(enableSelfServiceErrorCodes = false),
       )
       checkOption(

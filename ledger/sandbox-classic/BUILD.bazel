@@ -374,7 +374,7 @@ server_conformance_test(
     ],
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--grpc-status-codes-compatibility-mode",
+        "--use-pre-1.18-error-codes",
     ],
     servers = {"postgresql": SERVERS["postgresql"]},
     test_tool_args = [
