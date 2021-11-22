@@ -9,6 +9,7 @@ import java.time.Instant
 import anorm.SqlParser.int
 import anorm.{BatchSql, NamedParameter, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.PartyDetails
+import com.daml.platform.apiserver.execution.MissingContracts
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.JdbcLedgerDao
@@ -114,9 +115,6 @@ private[events] object ContractsTable {
       "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
     )
 
-  private def notFound(contractIds: Set[ContractId]): Throwable =
-    new IllegalArgumentException(
-      s"One or more of the following contract identifiers has not been found: ${contractIds.map(_.coid).mkString(", ")}"
-    )
+  private def notFound(contractIds: Set[ContractId]): Throwable = MissingContracts(contractIds)
 
 }
