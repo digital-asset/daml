@@ -407,10 +407,6 @@ alias(
             "src/it/scala/**/*.scala",
             "src/it/edition/{}/**/*.scala".format(edition),
         ]),
-        args = [
-            "-l",
-            "skip_scala_2_12",
-        ] if scala_major_version == "2.12" else [],
         data = [
             ":Account.dar",
             ":User.dar",
