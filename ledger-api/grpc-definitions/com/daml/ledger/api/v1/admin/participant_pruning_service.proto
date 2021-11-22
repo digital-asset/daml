@@ -9,6 +9,9 @@ option java_outer_classname = "ParticipantPruningServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
+// Status: experimental interface, will change before it is deemed production
+// ready
+
 // Prunes/truncates the "oldest" transactions from the participant (the participant Ledger Api Server plus any other
 // participant-local state) by removing a portion of the ledger in such a way that the set of future, allowed
 // commands are not affected.

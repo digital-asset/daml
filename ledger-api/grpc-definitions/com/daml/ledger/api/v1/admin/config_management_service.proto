@@ -12,6 +12,9 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
+// Status: experimental interface, will change before it is deemed production
+// ready
+//
 // The ledger configuration management service provides methods for the ledger administrator
 // to change the current ledger configuration. The services provides methods to modify
 // different aspects of the configuration.
