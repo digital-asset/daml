@@ -131,21 +131,6 @@ class CommandDeduplicationSpec
           .build()
       }
 
-      "set the submission time in the committer context" in {
-        val (context, transactionEntrySummary) =
-          buildContextAndTransaction(
-            submissionTime,
-            _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration)),
-          )
-        setDeduplicationEntryStep(context, transactionEntrySummary)
-        context
-          .get(Conversions.commandDedupKey(transactionEntrySummary.submitterInfo))
-          .map(
-            _.getCommandDedup.getSubmissionTime
-          )
-          .value shouldBe submissionTime
-      }
-
       "throw an error for unsupported deduplication periods" in {
         forAll(
           Table[DamlSubmitterInfo.Builder => DamlSubmitterInfo.Builder](

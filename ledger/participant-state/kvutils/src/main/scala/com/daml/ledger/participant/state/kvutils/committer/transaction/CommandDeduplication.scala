@@ -86,7 +86,6 @@ private[transaction] object CommandDeduplication {
         )
         val commandDedupBuilder = DamlCommandDedupValue.newBuilder
           .setDeduplicatedUntil(deduplicateUntil)
-          .setSubmissionTime(Conversions.buildTimestamp(transactionEntry.submissionTime))
         // Set a deduplication entry.
         commitContext.set(
           commandDedupKey(transactionEntry.submitterInfo),
