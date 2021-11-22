@@ -40,7 +40,7 @@ How the Daml Ledger API is affected
 -----------------------------------
 
 - Active data streams from the Daml Participant may abort and need to be re-established by the Daml application from a later offset than pruned, even if they are already streaming past it.
-- Requesting information at offsets that predate pruning, including from the ledger's start, will result in a ``NOT_FOUND`` gRPC error.
+- Requesting information at offsets that predate pruning, including from the ledger's start, will result in a ``FAILED_PRECONDITION`` gRPC error.
   - As a consequence, after pruning, a Daml application must bootstrap from the Active Contract Service and a recent offset [3]_.
 
 Submission validation and Daml Ledger API endpoints that write to the ledger are generally not affected by pruning; an exception is that in-progress calls could abort while awaiting completion.
