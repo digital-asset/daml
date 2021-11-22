@@ -9,8 +9,7 @@ import com.daml.logging.LoggingContext
 @Explanation("Groups mild errors together")
 object MildErrors
     extends ErrorGroup()(
-      parent =
-        ErrorGroupPath.root().extend(ErrorGroupSegment("Some grouping", "full.class.Name123"))
+      parent = ErrorClass.root().extend(Grouping("Some grouping", "full.class.Name123"))
     ) {
 
   @Explanation("Test: Things like this always happen.")

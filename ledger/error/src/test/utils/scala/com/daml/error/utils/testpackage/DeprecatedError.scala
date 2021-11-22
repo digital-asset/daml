@@ -4,7 +4,7 @@
 package com.daml.error.utils.testpackage
 
 import com.daml.error.{Explanation, Resolution}
-import com.daml.error.{BaseError, ErrorCategory, ErrorGroupPath, ErrorCode}
+import com.daml.error.{BaseError, ErrorCategory, ErrorClass, ErrorCode}
 import com.daml.logging.LoggingContext
 
 @deprecated("deprecated.")
@@ -12,7 +12,7 @@ import com.daml.logging.LoggingContext
 @Explanation("Things happen.")
 case object DeprecatedError
     extends ErrorCode("DEPRECATED_ERROR", ErrorCategory.SystemInternalAssumptionViolated)(
-      ErrorGroupPath.root()
+      ErrorClass.root()
     ) {
   case class Error(cause: String)(implicit val loggingContext: LoggingContext) extends BaseError {
 

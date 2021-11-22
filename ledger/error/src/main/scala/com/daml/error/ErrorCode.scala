@@ -41,7 +41,7 @@ import scala.util.matching.Regex
   * }
   */
 abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
-    val errorGroupPath: ErrorGroupPath
+    val errorGroupPath: ErrorClass
 ) {
 
   require(id.nonEmpty, "error-id must be non empty")

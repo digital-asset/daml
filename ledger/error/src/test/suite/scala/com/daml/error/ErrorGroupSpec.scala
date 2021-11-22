@@ -9,27 +9,27 @@ import org.scalatest.matchers.should.Matchers
 
 class ErrorGroupSpec extends AnyFlatSpec with Matchers with BeforeAndAfter {
 
-  object ErrorGroupBar extends ErrorGroup()(ErrorGroupPath.root())
+  object ErrorGroupBar extends ErrorGroup()(ErrorClass.root())
 
-  object ErrorGroupFoo1 extends ErrorGroup()(ErrorGroupPath.root()) {
+  object ErrorGroupFoo1 extends ErrorGroup()(ErrorClass.root()) {
     object ErrorGroupFoo2 extends ErrorGroup() {
       object ErrorGroupFoo3 extends ErrorGroup()
     }
   }
 
   it should "resolve correct error group names" in {
-    ErrorGroupFoo1.ErrorGroupFoo2.ErrorGroupFoo3.errorGroupPath shouldBe ErrorGroupPath(
+    ErrorGroupFoo1.ErrorGroupFoo2.ErrorGroupFoo3.errorGroupPath shouldBe ErrorClass(
       List(
-        ErrorGroupSegment("ErrorGroupFoo1", ErrorGroupFoo1.fullClassName),
-        ErrorGroupSegment("ErrorGroupFoo2", ErrorGroupFoo1.ErrorGroupFoo2.fullClassName),
-        ErrorGroupSegment(
+        Grouping("ErrorGroupFoo1", ErrorGroupFoo1.fullClassName),
+        Grouping("ErrorGroupFoo2", ErrorGroupFoo1.ErrorGroupFoo2.fullClassName),
+        Grouping(
           "ErrorGroupFoo3",
           ErrorGroupFoo1.ErrorGroupFoo2.ErrorGroupFoo3.fullClassName,
         ),
       )
     )
-    ErrorGroupBar.errorGroupPath shouldBe ErrorGroupPath(
-      List(ErrorGroupSegment("ErrorGroupBar", ErrorGroupBar.fullClassName))
+    ErrorGroupBar.errorGroupPath shouldBe ErrorClass(
+      List(Grouping("ErrorGroupBar", ErrorGroupBar.fullClassName))
     )
   }
 

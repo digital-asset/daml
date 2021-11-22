@@ -6,7 +6,7 @@ package com.daml.error.generator
 import com.daml.error.utils.testpackage.subpackage.MildErrors
 import com.daml.error.utils.testpackage.subpackage.MildErrors.NotSoSeriousError
 import com.daml.error.utils.testpackage.{DeprecatedError, SeriousError}
-import com.daml.error.{Deprecation, Explanation, ErrorGroupSegment, Resolution}
+import com.daml.error.{Deprecation, Explanation, Grouping, Resolution}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

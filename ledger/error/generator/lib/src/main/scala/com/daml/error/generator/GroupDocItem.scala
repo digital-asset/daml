@@ -3,7 +3,7 @@
 
 package com.daml.error.generator
 
-import com.daml.error.{ErrorGroupPath, Explanation}
+import com.daml.error.{ErrorClass, Explanation}
 
 /** Contains error presentation data to be used for documentation rendering on the website.
   *
@@ -14,5 +14,5 @@ import com.daml.error.{ErrorGroupPath, Explanation}
 case class GroupDocItem(
     fullClassName: String,
     explanation: Option[Explanation],
-    errorGroupPath: ErrorGroupPath,
+    errorGroupPath: ErrorClass,
 )

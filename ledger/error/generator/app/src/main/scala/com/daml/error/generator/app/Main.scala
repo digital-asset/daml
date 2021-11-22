@@ -3,7 +3,7 @@
 
 package com.daml.error.generator.app
 
-import com.daml.error.ErrorGroupSegment
+import com.daml.error.Grouping
 import com.daml.error.generator.{ErrorCodeDocumentationGenerator, ErrorDocItem, GroupDocItem}
 import io.circe.Encoder
 import io.circe.syntax._
@@ -16,11 +16,11 @@ object Main {
 
   case class Output(errorCodes: Seq[ErrorDocItem], groups: Seq[GroupDocItem])
 
-  implicit val groupingEncode: Encoder[ErrorGroupSegment] =
+  implicit val groupingEncode: Encoder[Grouping] =
     Encoder.forProduct2(
       "docName",
       "className",
-    )((grouping: ErrorGroupSegment) =>
+    )((grouping: Grouping) =>
       (
         grouping.docName,
         grouping.fullClassName,
@@ -39,9 +39,9 @@ object Main {
       "resolution",
     )(i =>
       (
-        i.fullClassName,
+        i.className,
         i.category,
-        i.errorGroupPath.segments,
+        i.hierarchicalGrouping.segments,
         i.conveyance,
         i.code,
         i.deprecation.fold("")(_.deprecation),
