@@ -1,7 +1,7 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@os_info//:os_info.bzl", "is_linux", "is_windows")
+load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools:testing.bzl", "create_daml_app_codegen", "create_daml_app_dar", "daml_lf_compatible", "sdk_platform_test")
 load(
     "//bazel_tools/daml_script:daml_script.bzl",
@@ -132,9 +132,7 @@ migration_test(
     # Exclusive due to hardcoded postgres ports.
     tags = [
         "exclusive",
-    ] +
-    # These tests are fairly slow so on PRs we only run them on Linux
-    (["head-quick"] if is_linux else []),
+    ],
     versions = [
         version
         for version in stable_versions
