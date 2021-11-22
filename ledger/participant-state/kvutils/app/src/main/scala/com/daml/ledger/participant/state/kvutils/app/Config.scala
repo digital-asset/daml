@@ -87,7 +87,7 @@ object Config {
       enableInMemoryFanOutForLedgerApi = false,
       maxDeduplicationDuration = None,
       extra = extra,
-      enableSelfServiceErrorCodes = false,
+      enableSelfServiceErrorCodes = true,
     )
 
   def ownerWithoutExtras(name: String, args: collection.Seq[String]): ResourceOwner[Config[Unit]] =
@@ -584,11 +584,12 @@ object Config {
           else success
         )
 
-        opt[Unit]("use-self-service-error-codes")
+        opt[Unit]("use-pre-1.18-error-codes")
           .optional()
-          .hidden()
-          .text("Enable self-service error codes.")
-          .action((_, config) => config.copy(enableSelfServiceErrorCodes = true))
+          .text(
+            "Enables gRPC error code compatibility mode to the pre-1.18 behaviour. This option is deprecated and will be removed in a future release."
+          )
+          .action((_, config: Config[Extra]) => config.copy(enableSelfServiceErrorCodes = false))
       }
     extraOptions(parser)
     parser

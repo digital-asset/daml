@@ -36,13 +36,12 @@ enhancing it by providing:
 The goal is to enable users, developers and operators to act on the encountered
 errors in a self-service manner, either in an automated-way or manually.
 
-Feature Flag
----------------------------
+Configuration
+-------------
 
-You can enable self-service error-codes by specifying ``--use-self-service-error-codes``
-from command line.
-
-By default self-service error codes are turned off.
+The new error code formats and adapted gRPC response statuses are returned by default starting with the Daml 1.18 SDK release.
+Clients can still migrate to Daml SDK 1.18 and use the pre-1.18 gRPC status code response behavior by using ``--use-pre-1.18-error-codes``
+as a command line option. However, this option is deprecated and will be removed in a future release.
 
 
 Glossary

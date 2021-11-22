@@ -493,7 +493,7 @@ final class CommandClientIT
             ),
           )
 
-        assertCommandFailsWithCode(command, Code.ABORTED, "error")
+        assertCommandFailsWithCode(command, Code.NOT_FOUND, "CONTRACT_NOT_FOUND")
       }
     }
   }

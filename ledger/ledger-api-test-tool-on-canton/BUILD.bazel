@@ -87,7 +87,6 @@ conformance_test(
         ",ContractKeysIT:CKFetchOrLookup,ContractKeysIT:CKNoFetchUndisclosed,ContractKeysIT:CKMaintainerScoped" +
         ",ExceptionsIT,ExceptionRaceConditionIT" +  # need UCK mode - added below
         ",DeeplyNestedValueIT" +  # FIXME: Too deeply nested values flake with a time out (half of the time)
-        ",CommandServiceIT:CSReturnStackTrace" +  # FIXME: Ensure canton returns stack trace
         ",CommandDeduplicationIT:ParticipantCommandDeduplicationSimpleDeduplicationBasic" +  # sync vs async error (part of canton #6301)
         ",CommandDeduplicationIT:ParticipantCommandDeduplicationDeduplicateSubmitterBasic" +
         ",CommandDeduplicationIT:ParticipantCommandDeduplicationSimpleDeduplicationMixedClients" +

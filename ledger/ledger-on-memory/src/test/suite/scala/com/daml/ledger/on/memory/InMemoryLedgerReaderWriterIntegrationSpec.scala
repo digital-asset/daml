@@ -60,6 +60,6 @@ class InMemoryLedgerReaderWriterIntegrationSpec
       readerWriter,
       readerWriter,
       metrics,
-      enableSelfServiceErrorCodes = false,
+      enableSelfServiceErrorCodes = true,
     )
 }
