@@ -64,7 +64,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     val internedTypes = decodeInternedTypes(env0, lfPackage)
     val env = env0.copy(internedTypes = internedTypes)
 
-    Package(
+    Package.build(
       modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_)),
       directDeps = dependencyTracker.getDependencies,
       languageVersion = languageVersion,
@@ -289,7 +289,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         }
       }
 
-      Module(
+      Module.build(
         moduleName,
         defs,
         templates,
@@ -583,16 +583,14 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         lfTempl.getParamInternedStr,
         "DefTemplate.param.param",
       )
-      Template(
+      Template.build(
         param = paramName,
         precond = if (lfTempl.hasPrecond) decodeExpr(lfTempl.getPrecond, s"$tpl:ensure") else ETrue,
         signatories = decodeExpr(lfTempl.getSignatories, s"$tpl.signatory"),
         agreementText = decodeExpr(lfTempl.getAgreement, s"$tpl:agreement"),
-        choices = lfTempl.getChoicesList.asScala
-          .map(decodeChoice(tpl, _))
-          .map(ch => (ch.name, ch)),
+        choices = lfTempl.getChoicesList.asScala.view.map(decodeChoice(tpl, _)),
         observers = decodeExpr(lfTempl.getObservers, s"$tpl:observer"),
-        implements = lfImplements.map(decodeTemplateImplements).map(impl => (impl.interface, impl)),
+        implements = lfImplements.view.map(decodeTemplateImplements),
         key =
           if (lfTempl.hasKey) Some(decodeTemplateKey(tpl, lfTempl.getKey, paramName))
           else None,
@@ -602,22 +600,19 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     private[this] def decodeTemplateImplements(
         lfImpl: PLF.DefTemplate.Implements
     ): TemplateImplements =
-      TemplateImplements(
-        interface = decodeTypeConName(lfImpl.getInterface),
-        methods = lfImpl.getMethodsList.asScala
-          .map(decodeTemplateImplementsMethod)
-          .map(method => (method.name, method)),
-        inheritedChoices = lfImpl.getInheritedChoiceInternedNamesList.asScala
-          .map(getInternedName(_, "TemplateImplements.inheritedChoices"))
-          .toSet,
-        precond = decodeExpr(lfImpl.getPrecond, "TemplateImplements.precond"),
+      TemplateImplements.build(
+        interfaceId = decodeTypeConName(lfImpl.getInterface),
+        methods = lfImpl.getMethodsList.asScala.view.map(decodeTemplateImplementsMethod),
+        inheritedChoices = lfImpl.getInheritedChoiceInternedNamesList.asScala.view
+          .map(getInternedName(_, "TemplateImplements.inheritedChoices")),
       )
 
     private[this] def decodeTemplateImplementsMethod(
         lfMethod: PLF.DefTemplate.ImplementsMethod
     ): TemplateImplementsMethod =
       TemplateImplementsMethod(
-        name = getInternedName(lfMethod.getMethodInternedName, "TemplateImplementsMethod.name"),
+        methodName =
+          getInternedName(lfMethod.getMethodInternedName, "TemplateImplementsMethod.name"),
         value = decodeExpr(lfMethod.getValue, "TemplateImplementsMethod.value"),
       )
 
@@ -670,14 +665,10 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         id: DottedName,
         lfInterface: PLF.DefInterface,
     ): DefInterface =
-      DefInterface(
+      DefInterface.build(
         param = getInternedName(lfInterface.getParamInternedStr, "DefInterface.param"),
-        fixedChoices = lfInterface.getFixedChoicesList.asScala.view
-          .map(decodeChoice(id, _))
-          .map(choice => choice.name -> choice),
-        methods = lfInterface.getMethodsList.asScala.view
-          .map(decodeInterfaceMethod)
-          .map(method => method.name -> method),
+        fixedChoices = lfInterface.getFixedChoicesList.asScala.view.map(decodeChoice(id, _)),
+        methods = lfInterface.getMethodsList.asScala.view.map(decodeInterfaceMethod),
         precond = decodeExpr(lfInterface.getPrecond, s"$id:ensure"),
       )
 
@@ -1127,8 +1118,8 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           assertSince(LV.Features.interfaces, "Expr.to_interface")
           val toInterface = lfExpr.getToInterface
           EToInterface(
-            iface = decodeTypeConName(toInterface.getInterfaceType),
-            tpl = decodeTypeConName(toInterface.getTemplateType),
+            interfaceId = decodeTypeConName(toInterface.getInterfaceType),
+            templateId = decodeTypeConName(toInterface.getTemplateType),
             value = decodeExpr(toInterface.getTemplateExpr, definition),
           )
 
@@ -1136,8 +1127,8 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           assertSince(LV.Features.interfaces, "Expr.from_interface")
           val fromInterface = lfExpr.getFromInterface
           EFromInterface(
-            iface = decodeTypeConName(fromInterface.getInterfaceType),
-            tpl = decodeTypeConName(fromInterface.getTemplateType),
+            interfaceId = decodeTypeConName(fromInterface.getInterfaceType),
+            templateId = decodeTypeConName(fromInterface.getTemplateType),
             value = decodeExpr(fromInterface.getInterfaceExpr, definition),
           )
 
@@ -1145,8 +1136,9 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           assertSince(LV.Features.interfaces, "Expr.call_interface")
           val callInterface = lfExpr.getCallInterface
           ECallInterface(
-            iface = decodeTypeConName(callInterface.getInterfaceType),
-            method = getInternedName(callInterface.getMethodInternedName, "ECallInterface.method"),
+            interfaceId = decodeTypeConName(callInterface.getInterfaceType),
+            methodName =
+              getInternedName(callInterface.getMethodInternedName, "ECallInterface.method"),
             value = decodeExpr(callInterface.getInterfaceExpr, definition),
           )
 
@@ -1284,7 +1276,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         case PLF.Update.SumCase.CREATE_INTERFACE =>
           val create = lfUpdate.getCreateInterface
           UpdateCreateInterface(
-            interface = decodeTypeConName(create.getInterface),
+            interfaceId = decodeTypeConName(create.getInterface),
             arg = decodeExpr(create.getExpr, definition),
           )
 
@@ -1308,7 +1300,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           assertSince(LV.Features.interfaces, "exerciseInterface")
           val exercise = lfUpdate.getExerciseInterface
           UpdateExerciseInterface(
-            interface = decodeTypeConName(exercise.getInterface),
+            interfaceId = decodeTypeConName(exercise.getInterface),
             choice = handleInternedName(exercise.getChoiceInternedStr),
             cidE = decodeExpr(exercise.getCid, definition),
             argE = decodeExpr(exercise.getArg, definition),
@@ -1341,7 +1333,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           assertSince(LV.Features.interfaces, "fetchInterface")
           val fetch = lfUpdate.getFetchInterface
           UpdateFetchInterface(
-            interface = decodeTypeConName(fetch.getInterface),
+            interfaceId = decodeTypeConName(fetch.getInterface),
             contractId = decodeExpr(fetch.getCid, definition),
           )
 

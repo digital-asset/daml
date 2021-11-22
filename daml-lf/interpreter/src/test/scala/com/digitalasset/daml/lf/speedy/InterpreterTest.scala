@@ -188,9 +188,9 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
       PureCompiledPackages.assertBuild(
         Map(
           dummyPkg ->
-            Package(
+            Package.build(
               List(
-                Module(
+                Module.build(
                   name = modName,
                   definitions = Map(
                     DottedName.assertFromString("bar") ->
@@ -211,14 +211,14 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
     val pkgs3 = PureCompiledPackages.assertBuild(
       Map(
         dummyPkg ->
-          Package(
+          Package.build(
             List(
               Module(
                 name = modName,
                 definitions = Map.empty,
                 templates = Map.empty,
                 exceptions = Map.empty,
-                interfaces = List.empty,
+                interfaces = Map.empty,
                 featureFlags = FeatureFlags.default,
               )
             ),

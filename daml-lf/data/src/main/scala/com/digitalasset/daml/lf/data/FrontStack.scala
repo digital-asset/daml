@@ -3,10 +3,11 @@
 
 package com.daml.lf.data
 
-import ScalazEqual.{orderBy, toIterableForScalazInstances}
-import scalaz.{Applicative, Order, Traverse}
+import ScalazEqual.{equalBy, orderBy, toIterableForScalazInstances}
+import scalaz.{Applicative, Equal, Order, Traverse}
 
 import scala.annotation.tailrec
+import scala.collection.mutable
 import scala.util.hashing.MurmurHash3
 
 /** A stack which allows to cons, prepend, and pop in constant time, and generate an ImmArray in linear time.
@@ -139,7 +140,7 @@ final class FrontStack[+A] private (fq: FrontStack.FQ[A], val length: Int) {
   override def toString: String = "FrontStack(" + iterator.map(_.toString).mkString(",") + ")"
 }
 
-object FrontStack extends FrontStackInstances {
+object FrontStack extends scala.collection.IterableFactory[FrontStack] {
   val Empty: FrontStack[Nothing] = new FrontStack(FQEmpty, 0)
 
   def empty[A]: FrontStack[A] = FrontStack.Empty
@@ -147,7 +148,17 @@ object FrontStack extends FrontStackInstances {
   def from[A](xs: ImmArray[A]): FrontStack[A] =
     if (xs.isEmpty) Empty else new FrontStack(FQPrepend(xs, FQEmpty), length = xs.length)
 
+  override def from[A](it: IterableOnce[A]): FrontStack[A] =
+    FrontStack.from(ImmArray.from(it))
+
   def unapply[T](xs: FrontStack[T]): Boolean = xs.isEmpty
+
+  override def newBuilder[A]: mutable.Builder[A, FrontStack[A]] =
+    ImmArray.newBuilder.mapResult(arr => FrontStack.from(arr))
+  implicit def equalInstance[A: Equal]: Equal[FrontStack[A]] = {
+    import scalaz.std.iterable._
+    equalBy(fs => toIterableForScalazInstances(fs.iterator), true)
+  }
 
   implicit val `FrontStack covariant`: Traverse[FrontStack] = new Traverse[FrontStack] {
     override def traverseImpl[G[_]: Applicative, A, B](

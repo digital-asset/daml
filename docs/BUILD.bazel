@@ -195,7 +195,7 @@ genrule(
             "@sphinx_nix//:bin/sphinx-build",
             "@imagemagick_nix//:bin/convert",
         ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
-) if scala_major_version == "2.13" and not is_windows else None
+) if not is_windows else None
 
 genrule(
     name = "docs-no-pdf",
@@ -317,7 +317,7 @@ genrule(
         "//bazel_tools/sh:mktgz",
         "//docs:generate-error-codes-json",
     ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
-) if scala_major_version == "2.13" and not is_windows else None
+) if not is_windows else None
 
 genrule(
     name = "redirects",
@@ -384,7 +384,7 @@ genrule(
     stamp = 1,
     tags = ["pdfdocs"],
     tools = ["//bazel_tools/sh:mktgz"],
-) if scala_major_version == "2.13" and not is_windows else None
+) if not is_windows else None
 
 filegroup(
     name = "daml-assistant-iou-setup",
@@ -664,7 +664,7 @@ genrule(
     cmd = "$(location //ledger/error/generator:export-error-codes-json-app) $(location error_codes_export.json)",
     tools = ["//ledger/error/generator:export-error-codes-json-app"],
     visibility = ["//visibility:public"],
-) if scala_major_version == "2.13" else None
+)
 
 exports_files([
     "source/daml-script/template-root/src/ScriptExample.daml",

@@ -15,9 +15,6 @@ da_scala_library(
         "@maven//:org_scalactic_scalactic",
     ],
     tags = ["maven_coordinates=com.daml:grpc-test-utils:__VERSION__"],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     visibility = [
         "//:__subpackages__",
     ],

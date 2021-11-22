@@ -40,11 +40,10 @@ class PackageInterfaceSpec
 
           record @serializable Contract = {};
           template (this : Contract) =  {
-              precondition True,
-              signatories Nil @Party,
-              observers Nil @Party,
-              agreement "Agreement",
-              choices { }
+              precondition True;
+              signatories Nil @Party;
+              observers Nil @Party;
+              agreement "Agreement";
             };
 
        }

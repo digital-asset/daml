@@ -19,7 +19,7 @@ final class GetTransactionByEventIdAuthIT extends ReadOnlyServiceCallAuthTests {
   override def serviceCallName: String = "TransactionService#GetTransactionByEventId"
 
   override def successfulBehavior: Future[Any] => Future[Assertion] =
-    expectFailure(_: Future[Any], Status.Code.NOT_FOUND)
+    expectFailure(_: Future[Any], Status.Code.INVALID_ARGUMENT)
 
   private lazy val request =
     new GetTransactionByEventIdRequest(unwrappedLedgerId, UUID.randomUUID.toString, List(mainActor))

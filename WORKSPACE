@@ -101,6 +101,18 @@ dev_env_nix_repos = {
     "nixpkgs": "@nixpkgs",
 }
 
+load("//bazel_tools:damlc_legacy.bzl", "damlc_legacy")
+
+damlc_legacy(
+    name = "damlc_legacy",
+    sha256 = {
+        "linux": "dd1c7f2d34f3eac631c7edc1637c9b3e93c341561d41828b4f0d8e897effa90f",
+        "windows": "f458b8d2612887915372aad61766120e34c0fdc6a65eb37cdb1a8efc58e14de3",
+        "macos": "63141d7168e883c0b8c212dca6198f5463f82aa82bbbc51d8805ce7e474300e4",
+    },
+    version = "1.18.0-snapshot.20211117.8399.0.a05a40ae",
+)
+
 # Bazel cannot automatically determine which files a Nix target depends on.
 # rules_nixpkgs offers the nix_file_deps attribute for that purpose. It should
 # list all files that a target depends on. This allows Bazel to rebuild the
@@ -515,26 +527,6 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
-#Javadoc
-nixpkgs_package(
-    name = "jdk_nix",
-    attribute_path = "jdk8",
-    fail_not_supported = False,
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-)
-
-# To run canton
-nixpkgs_package(
-    name = "jdk11_nix",
-    attribute_path = "jdk11",
-    fail_not_supported = False,
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-)
-
 # This only makes sense on Windows so we just put dummy values in the nix fields.
 dev_env_tool(
     name = "makensis_dev_env",
@@ -592,11 +584,11 @@ load("//bazel_tools:java.bzl", "dadew_java_configure", "nixpkgs_java_configure")
 
 dadew_java_configure(
     name = "dadew_java_runtime",
-    dadew_path = "java-openjdk-8u302",
+    dadew_path = "ojdkbuild11",
 ) if is_windows else None
 
 nixpkgs_java_configure(
-    attribute_path = "jdk8.home",
+    attribute_path = "jdk11.home",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
@@ -852,7 +844,7 @@ filegroup(
 
 nixpkgs_package(
     name = "postgresql_nix",
-    attribute_path = "postgresql_9_6",
+    attribute_path = "postgresql_10",
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,

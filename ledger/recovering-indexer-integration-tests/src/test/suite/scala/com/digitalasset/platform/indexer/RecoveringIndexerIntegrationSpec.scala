@@ -308,7 +308,7 @@ object RecoveringIndexerIntegrationSpec {
         readerWriter,
         readerWriter,
         metrics,
-        enableSelfServiceErrorCodes = false,
+        enableSelfServiceErrorCodes = true,
       )
     }
   }

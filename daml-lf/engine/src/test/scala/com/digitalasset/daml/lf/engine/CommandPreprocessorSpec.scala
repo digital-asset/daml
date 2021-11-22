@@ -37,33 +37,29 @@ class CommandPreprocessorSpec
           record @serializable Record = { owners: List Party, data : Int64 };
 
           template (this : Record) = {
-            precondition True,
-            signatories Mod:Record {owners} this,
-            observers Mod:Record {owners} this,
-            agreement "Agreement",
-            choices {
-              choice Transfer (self) (box: Mod:Box (List Party)) : ContractId Mod:Record,
-                  controllers Mod:Record {owners} this,
-                  observers Nil @Party
-                to create @Mod:Record Mod:Record { owners = Mod:Box @(List Party) {content} box, data = Mod:Record {data} this }
-            },
-            key @(List Party) (Mod:Record {owners} this) (\ (parties: List Party) -> parties)
+            precondition True;
+            signatories Mod:Record {owners} this;
+            observers Mod:Record {owners} this;
+            agreement "Agreement";
+            choice Transfer (self) (box: Mod:Box (List Party)) : ContractId Mod:Record,
+                controllers Mod:Record {owners} this,
+                observers Nil @Party
+              to create @Mod:Record Mod:Record { owners = Mod:Box @(List Party) {content} box, data = Mod:Record {data} this } ;
+            key @(List Party) (Mod:Record {owners} this) (\ (parties: List Party) -> parties);
           };
 
           record @serializable RecordRef = { owners: List Party, cid: (ContractId Mod:Record) };
 
           template (this : RecordRef) = {
-            precondition True,
-            signatories Mod:RecordRef {owners} this,
-            observers Mod:RecordRef {owners} this,
-            agreement "Agreement",
-            choices {
-              choice Change (self) (newCid: ContractId Mod:Record) : ContractId Mod:RecordRef,
-                  controllers Mod:RecordRef {owners} this,
-                  observers Nil @Party
-                to create @Mod:RecordRef Mod:RecordRef { owners = Mod:RecordRef {owners} this, cid = newCid }
-            },
-            key @(List Party) (Mod:RecordRef {owners} this) (\ (parties: List Party) -> parties)
+            precondition True;
+            signatories Mod:RecordRef {owners} this;
+            observers Mod:RecordRef {owners} this;
+            agreement "Agreement";
+            choice Change (self) (newCid: ContractId Mod:Record) : ContractId Mod:RecordRef,
+                controllers Mod:RecordRef {owners} this,
+                observers Nil @Party
+              to create @Mod:RecordRef Mod:RecordRef { owners = Mod:RecordRef {owners} this, cid = newCid };
+            key @(List Party) (Mod:RecordRef {owners} this) (\ (parties: List Party) -> parties);
           };
 
         }

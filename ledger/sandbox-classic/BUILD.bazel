@@ -80,12 +80,14 @@ alias(
             "//libs-scala/build-info",
             "//libs-scala/concurrent",
             "//libs-scala/contextualized-logging",
+            "//libs-scala/grpc-utils",
             "//libs-scala/logging-entries",
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/resources-akka",
             "//libs-scala/resources-grpc",
             "@maven//:ch_qos_logback_logback_classic",
+            "@maven//:com_google_api_grpc_proto_google_common_protos",
             "@maven//:com_typesafe_config",
             "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:org_slf4j_slf4j_api",
@@ -151,6 +153,7 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/caching",
+        "//ledger/error",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-auth-client",
         "//ledger/ledger-api-client",
@@ -362,16 +365,16 @@ server_conformance_test(
     ],
 )
 
-# Full conformance test with self-service error codes (Postgres)
+# Full conformance test with legacy error codes (Postgres)
 server_conformance_test(
-    name = "conformance-test-self-service-error-codes",
+    name = "conformance-test-legacy-error-codes",
     lf_versions = [
         "default",
         "preview",
     ],
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--use-self-service-error-codes",
+        "--use-pre-1.18-error-codes",
     ],
     servers = {"postgresql": SERVERS["postgresql"]},
     test_tool_args = [
@@ -461,6 +464,16 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
+        "--exclude=ContractKeysIT:CKFetchOrLookup",
+        "--exclude=ContractKeysIT:CKNoFetchUndisclosed",
+        "--exclude=ContractKeysIT:CKMaintainerScoped",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
+        # Below test suites are duplicates of the above ExceptionsIT and ContractKeysIT
+        # but with more generic assertions for the in-memory ledger
+        # TODO sandbox-classic removal: Delete these tests
+        "--additional=DeprecatedSandboxClassicMemoryContractKeysIT",
+        "--additional=DeprecatedSandboxClassicMemoryExceptionsIT",
     ],
 )
 
@@ -475,5 +488,15 @@ server_conformance_test(
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
+        "--exclude=ContractKeysIT:CKFetchOrLookup",
+        "--exclude=ContractKeysIT:CKNoFetchUndisclosed",
+        "--exclude=ContractKeysIT:CKMaintainerScoped",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyCreated",
+        "--exclude=ExceptionsIT:ExRollbackDuplicateKeyArchived",
+        # Below test suites are duplicates of the above ExceptionsIT and ContractKeysIT
+        # but with more generic assertions for the in-memory ledger
+        # TODO sandbox-classic removal: Delete these tests
+        "--additional=DeprecatedSandboxClassicMemoryContractKeysIT",
+        "--additional=DeprecatedSandboxClassicMemoryExceptionsIT",
     ],
 )

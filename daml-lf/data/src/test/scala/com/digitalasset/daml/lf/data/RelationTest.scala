@@ -9,8 +9,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.propspec.AnyPropSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
-import scala.collection.compat._
-
 final class RelationTest extends AnyPropSpec with Matchers with ScalaCheckPropertyChecks {
 
   import Relation.Relation._

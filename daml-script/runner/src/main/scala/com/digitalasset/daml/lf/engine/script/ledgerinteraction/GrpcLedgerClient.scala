@@ -113,6 +113,21 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     }
   }
 
+  // TODO (MK) https://github.com/digital-asset/daml/issues/11737
+  private val catchableStatusCodes =
+    Set(
+      Status.Code.NOT_FOUND,
+      Status.Code.INVALID_ARGUMENT,
+      Status.Code.FAILED_PRECONDITION,
+      Status.Code.ALREADY_EXISTS,
+    )
+
+  private def isSubmitMustFailError(status: StatusRuntimeException): Boolean = {
+    val code = status.getStatus.getCode
+    // We handle ABORTED for backwards compatibility with pre-1.18 error codes.
+    catchableStatusCodes.contains(code) || code == Status.Code.ABORTED
+  }
+
   override def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
@@ -167,10 +182,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       .submitAndWaitForTransactionTree(request)
       .map(Right(_))
       .recoverWith({
-        case s: StatusRuntimeException
-            // This is used for submit must fail so we only catch ABORTED and INVALID_ARGUMENT.
-            // Errors like PERMISSION_DENIED are not caught.
-            if s.getStatus.getCode == Status.Code.ABORTED || s.getStatus.getCode == Status.Code.INVALID_ARGUMENT =>
+        case s: StatusRuntimeException if isSubmitMustFailError(s) =>
           Future.successful(Left(s))
 
       })

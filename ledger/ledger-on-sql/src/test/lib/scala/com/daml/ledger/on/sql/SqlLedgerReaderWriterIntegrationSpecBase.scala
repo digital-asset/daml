@@ -40,7 +40,7 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
         readerWriter,
         readerWriter,
         metrics,
-        enableSelfServiceErrorCodes = false,
+        enableSelfServiceErrorCodes = true,
       )
     )
 }

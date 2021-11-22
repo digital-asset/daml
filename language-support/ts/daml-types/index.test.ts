@@ -71,6 +71,15 @@ describe('@daml/types', () => {
       expect(m2.get(k)).toEqual(makeArr(m2.values())[makeArr(m2.keys()).findIndex((l) => _.isEqual(k, l))]);
     }
   });
+  it('nested genmap', () => {
+    const {encode, decoder} = Map(Text, Map(Text, Text));
+    const decoded: Map<Text, Map<Text, Text>> =
+      emptyMap<Text, Map<Text, Text>>().set("a", emptyMap<Text, Text>().set("b", "c"));
+    const decode = (u: unknown): Map<Text, Map<Text, Text>> => decoder.runWithException(u);
+    const encoded = [["a", [["b", "c"]]]];
+    expect(encode(decoded)).toEqual(encoded);
+    expect(decode(encoded)).toEqual(decoded);
+  });
 });
 
 test('memo', () => {

@@ -177,6 +177,7 @@ default_compile_arguments = {
 }
 
 silencer_plugin = "@maven//:com_github_ghik_silencer_plugin_{}".format(scala_version_suffix)
+kind_projector_plugin = "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix)
 
 default_initial_heap_size = "128m"
 default_max_heap_size = "1g"

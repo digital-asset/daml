@@ -3,10 +3,12 @@
 
 package com.daml.ledger.client.services.commands.tracker
 
+import java.time.{Duration, Instant}
+
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
 import com.daml.grpc.{GrpcException, GrpcStatus}
-import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.v1.command_completion_service.Checkpoint
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.client.services.commands.tracker.CommandTracker._
@@ -25,7 +27,6 @@ import com.google.rpc.status.{Status => StatusProto}
 import io.grpc.Status
 import org.slf4j.LoggerFactory
 
-import java.time.{Duration, Instant}
 import scala.annotation.nowarn
 import scala.collection.compat._
 import scala.collection.{immutable, mutable}
@@ -162,8 +163,8 @@ private[commands] class CommandTracker[Context](
               case Left(submitResponse) =>
                 pushResultOrPullCommandResultIn(handleSubmitResponse(submitResponse))
 
-              case Right(CompletionStreamElement.CompletionElement(completion)) =>
-                pushResultOrPullCommandResultIn(getResponseForCompletion(completion))
+              case Right(CompletionStreamElement.CompletionElement(completion, checkpoint)) =>
+                pushResultOrPullCommandResultIn(getResponseForCompletion(completion, checkpoint))
 
               case Right(CompletionStreamElement.CheckpointElement(checkpoint)) =>
                 if (!hasBeenPulled(commandResultIn)) pull(commandResultIn)
@@ -253,22 +254,8 @@ private[commands] class CommandTracker[Context](
           ) with NoStackTrace
         }
         val commandTimeout = submission.value.timeout match {
-          // The command submission timeout takes precedence.
           case Some(timeout) => durationOrdering.min(timeout, maximumCommandTimeout)
-          case None =>
-            commands.deduplicationPeriod match {
-              // We keep supporting the `deduplication_time` field as the command timeout,
-              // for historical reasons.
-              case Commands.DeduplicationPeriod.DeduplicationTime(deduplicationTimeProto) =>
-                val deduplicationTime = Duration.ofSeconds(
-                  deduplicationTimeProto.seconds,
-                  deduplicationTimeProto.nanos.toLong,
-                )
-                durationOrdering.min(deduplicationTime, maximumCommandTimeout)
-              // All other deduplication periods do not influence the command timeout.
-              case _ =>
-                maximumCommandTimeout
-            }
+          case None => maximumCommandTimeout
         }
         val trackingData = TrackingData(
           commandId = commandId,
@@ -306,7 +293,8 @@ private[commands] class CommandTracker[Context](
       }
 
       private def getResponseForCompletion(
-          completion: Completion
+          completion: Completion,
+          checkpoint: Option[Checkpoint],
       ): Option[ContextualizedCompletionResponse[Context]] = {
         val commandId = completion.commandId
         val maybeSubmissionId = Option(completion.submissionId).filter(_.nonEmpty)
@@ -324,7 +312,10 @@ private[commands] class CommandTracker[Context](
             val key = TrackedCommandKey(submissionId, completion.commandId)
             val trackedCommandForCompletion = pendingCommands.remove(key)
             trackedCommandForCompletion.map(trackingData =>
-              Ctx(trackingData.context, tracker.CompletionResponse(completion))
+              Ctx(
+                trackingData.context,
+                tracker.CompletionResponse(completion = completion, checkpoint = checkpoint),
+              )
             )
           }
           .getOrElse {
@@ -346,11 +337,12 @@ private[commands] class CommandTracker[Context](
             Ctx(
               t.context,
               tracker.CompletionResponse(
-                Completion(
+                completion = Completion(
                   commandKey.commandId,
                   Some(status),
                   submissionId = commandKey.submissionId,
-                )
+                ),
+                checkpoint = None,
               ),
             )
           }

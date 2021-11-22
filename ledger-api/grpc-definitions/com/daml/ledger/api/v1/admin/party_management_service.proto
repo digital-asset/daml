@@ -54,6 +54,7 @@ service PartyManagementService {
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   // - ``UNIMPLEMENTED``: if synchronous party allocation is not supported by the backing participant
+  // - ``DEADLINE_EXCEEDED``: if the request times out
   // - ``INVALID_ARGUMENT``: if the provided hint and/or display name is invalid on the given ledger (see below).
   // daml-on-sql: suggestion's uniqueness is checked and call rejected if the identifier is already present
   // daml-on-kv-ledger: suggestion's uniqueness is checked by the validators in

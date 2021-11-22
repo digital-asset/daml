@@ -80,11 +80,10 @@ templateExpr f (Template loc tpl param precond signatories observers agreement c
   <*> (NM.traverse . templateImplementsExpr) f implements
 
 templateImplementsExpr :: Traversal' TemplateImplements Expr
-templateImplementsExpr f (TemplateImplements iface methods inheritedChoiceNames precond) =
+templateImplementsExpr f (TemplateImplements iface methods inheritedChoiceNames) =
   TemplateImplements iface
     <$> (NM.traverse . templateImplementsMethodExpr) f methods
     <*> pure inheritedChoiceNames
-    <*> f precond
 
 templateImplementsMethodExpr :: Traversal' TemplateImplementsMethod Expr
 templateImplementsMethodExpr f (TemplateImplementsMethod name body) =

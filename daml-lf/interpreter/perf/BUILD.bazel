@@ -36,7 +36,9 @@ da_scala_binary(
         ":JsonParser.dar.pp",
     ],
     main_class = "com.daml.lf.speedy.explore.ExploreDar",
-    versioned_scala_deps = {"2.13": ["@maven//:org_scalaz_scalaz_core"]},
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
@@ -60,7 +62,9 @@ da_scala_binary(
         ":Examples.dar.pp",
     ],
     main_class = "com.daml.lf.speedy.explore.SpeedTestNfib",
-    versioned_scala_deps = {"2.13": ["@maven//:org_scalaz_scalaz_core"]},
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
@@ -89,7 +93,9 @@ da_scala_binary(
         ":JsonParser.dar.pp",
     ],
     main_class = "com.daml.lf.speedy.explore.SpeedTestJsonParser",
-    versioned_scala_deps = {"2.13": ["@maven//:org_scalaz_scalaz_core"]},
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],

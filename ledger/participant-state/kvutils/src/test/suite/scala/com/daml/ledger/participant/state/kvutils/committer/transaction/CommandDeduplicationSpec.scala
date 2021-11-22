@@ -4,31 +4,39 @@
 package com.daml.ledger.participant.state.kvutils.committer.transaction
 
 import java.time
+import java.time.Duration
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.configuration.Configuration
-import com.daml.ledger.participant.state.kvutils.Conversions.{buildDuration, buildTimestamp}
+import com.daml.ledger.participant.state.kvutils.Conversions.{
+  buildDuration,
+  buildTimestamp,
+  parseTimestamp,
+}
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepStop}
 import com.daml.ledger.participant.state.kvutils.store.events.{
   DamlConfigurationEntry,
   DamlSubmitterInfo,
+  DamlTransactionRejectionEntry,
 }
-import com.daml.ledger.participant.state.kvutils.store.{DamlCommandDedupValue, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.store.{
+  DamlCommandDedupValue,
+  DamlStateValue,
+  PreExecutionDeduplicationBounds,
+}
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf
 import org.mockito.MockitoSugar
-import org.scalatest.Inside.inside
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.annotation.nowarn
-import scala.util.Random
 
 @nowarn("msg=deprecated")
 class CommandDeduplicationSpec
@@ -44,165 +52,309 @@ class CommandDeduplicationSpec
   private val rejections = new Rejections(metrics)
   private val deduplicateCommandStep = CommandDeduplication.deduplicateCommandStep(rejections)
   private val setDeduplicationEntryStep =
-    CommandDeduplication.setDeduplicationEntryStep(theDefaultConfig)
+    CommandDeduplication.setDeduplicationEntryStep()
+  private val timestamp: Timestamp = Timestamp.now()
 
   "deduplicateCommand" should {
-    "continue if record time is not available" in {
-      val context = createCommitContext(recordTime = None)
+    Map(
+      "pre-execution" -> ((dedupValueBuilder: Timestamp => Option[DamlStateValue]) => {
+        val dedupValue = dedupValueBuilder(timestamp)
+        val commitContext = createCommitContext(None, Map(aDedupKey -> dedupValue))
+        commitContext.minimumRecordTime = Some(timestamp)
+        commitContext.maximumRecordTime = Some(Timestamp.Epoch)
+        timestamp -> commitContext
+      }),
+      "normal-execution" -> ((dedupValueBuilder: Timestamp => Option[DamlStateValue]) => {
+        val dedupValue = dedupValueBuilder(timestamp)
+        val commitContext = createCommitContext(Some(timestamp), Map(aDedupKey -> dedupValue))
+        timestamp -> commitContext
+      }),
+    ).foreach { case (key, contextBuilder) =>
+      key should {
+        "continue if no deduplication entry could be found" in {
+          val (_, context) = contextBuilder(_ => None)
 
-      val actual =
-        deduplicateCommandStep(context, aTransactionEntrySummary)
-
-      actual match {
-        case StepContinue(_) => succeed
-        case StepStop(_) => fail()
-      }
-    }
-
-    "continue if record time is available but no deduplication entry could be found" in {
-      val inputs = Map(aDedupKey -> None)
-      val context =
-        createCommitContext(recordTime = Some(aRecordTime), inputs = inputs)
-
-      val actual = deduplicateCommandStep(context, aTransactionEntrySummary)
-
-      actual match {
-        case StepContinue(_) => succeed
-        case StepStop(_) => fail()
-      }
-    }
-
-    "continue if record time is after deduplication time in case a deduplication entry is found" in {
-      val dedupValue = newDedupValue(aRecordTime)
-      val inputs = Map(aDedupKey -> Some(dedupValue))
-      val context =
-        createCommitContext(recordTime = Some(aRecordTime.addMicros(1)), inputs = inputs)
-
-      val actual = deduplicateCommandStep(context, aTransactionEntrySummary)
-
-      actual match {
-        case StepContinue(_) => succeed
-        case StepStop(_) => fail()
-      }
-    }
-
-    "produce rejection log entry in case record time is on or before deduplication time" in {
-      for (
-        (recordTime, deduplicationTime) <- Iterable(
-          (aRecordTime, aRecordTime),
-          (aRecordTime, aRecordTime.addMicros(1)),
-        )
-      ) {
-        val dedupValue = newDedupValue(deduplicationTime)
-        val inputs = Map(aDedupKey -> Some(dedupValue))
-        val context =
-          createCommitContext(recordTime = Some(recordTime), inputs = inputs)
-
-        val actual = deduplicateCommandStep(context, aTransactionEntrySummary)
-
-        actual match {
-          case StepContinue(_) => fail()
-          case StepStop(actualLogEntry) =>
-            actualLogEntry.hasTransactionRejectionEntry shouldBe true
+          deduplicationStepContinues(context)
         }
-      }
-    }
 
-    "setting dedup context" should {
-      val deduplicateUntil = protobuf.Timestamp.newBuilder().setSeconds(30).build()
-      val submissionTime = protobuf.Timestamp.newBuilder().setSeconds(60).build()
-      val deduplicationDuration = time.Duration.ofSeconds(3)
+        "continue if deduplication entry has no value set" in {
+          val (_, context) = contextBuilder(_ => Some(newDedupValue(identity)))
 
-      "calculate deduplicate until based on deduplication duration" in {
-        val (context, transactionEntrySummary) =
-          buildContextAndTransaction(
-            submissionTime,
-            _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration)),
-          )
-        setDeduplicationEntryStep(context, transactionEntrySummary)
-        contextDeduplicateUntil(
-          context,
-          transactionEntrySummary,
-        ).value shouldBe protobuf.Timestamp
-          .newBuilder()
-          .setSeconds(
-            submissionTime.getSeconds + deduplicationDuration.getSeconds + theDefaultConfig.timeModel.minSkew.getSeconds
-          )
-          .build()
-      }
+          deduplicationStepContinues(context)
+        }
 
-      "set the submission time in the committer context" in {
-        val (context, transactionEntrySummary) =
-          buildContextAndTransaction(
-            submissionTime,
-            _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration)),
-          )
-        setDeduplicationEntryStep(context, transactionEntrySummary)
-        context
-          .get(Conversions.commandDedupKey(transactionEntrySummary.submitterInfo))
-          .map(
-            _.getCommandDedup.getSubmissionTime
-          )
-          .value shouldBe submissionTime
-      }
+        "using deduplicate until" should {
 
-      "throw an error for unsupported deduplication periods" in {
-        forAll(
-          Table[DamlSubmitterInfo.Builder => DamlSubmitterInfo.Builder](
-            "deduplication setter",
-            _.clearDeduplicationPeriod(),
-            _.setDeduplicationOffset("offset"),
-            _.setDeduplicateUntil(deduplicateUntil),
-          )
-        ) { deduplicationSetter =>
-          {
-            val (context, transactionEntrySummary) =
-              buildContextAndTransaction(submissionTime, deduplicationSetter)
-            a[Err.InvalidSubmission] shouldBe thrownBy(
-              setDeduplicationEntryStep(context, transactionEntrySummary)
+          "continue if record time is after deduplication time in case a deduplication entry is found" in {
+            val (_, context) = contextBuilder(timestamp =>
+              Some(
+                newDedupValue(
+                  _.setDeduplicatedUntil(buildTimestamp(timestamp.subtract(Duration.ofSeconds(1))))
+                )
+              )
             )
+
+            deduplicationStepContinues(context)
+          }
+
+          "produce rejection log entry in case record time is on or before deduplication time" in {
+            for (
+              durationToAdd <- Iterable(
+                Duration.ZERO,
+                Duration.ofSeconds(1),
+              )
+            ) {
+              val (_, context) = contextBuilder(timestamp =>
+                Some(
+                  newDedupValue(
+                    _.setDeduplicatedUntil(buildTimestamp(timestamp.add(durationToAdd)))
+                  )
+                )
+              )
+              deduplicateStepHasTransactionRejectionEntry(context)
+            }
+          }
+        }
+
+        "using record time" should {
+          forAll(
+            Table(
+              "identifier" -> "time setter",
+              "record time" -> ((timestamp: Timestamp) =>
+                (builder: DamlCommandDedupValue.Builder) =>
+                  builder.setRecordTime(buildTimestamp(timestamp))
+              ),
+              "record time bounds" -> ((timestamp: Timestamp) =>
+                (builder: DamlCommandDedupValue.Builder) =>
+                  builder.setRecordTimeBounds(
+                    buildPreExecutionDeduplicationBounds(
+                      timestamp.subtract(deduplicationDuration),
+                      timestamp,
+                    )
+                  )
+              ),
+            )
+          ) { case (identifier, timeSetter) =>
+            identifier should {
+              "continue if record time is after deduplication time in case a deduplication entry is found" in {
+                val (_, context) = contextBuilder(timestamp =>
+                  Some(
+                    newDedupValue(
+                      timeSetter(timestamp.subtract(deduplicationDuration.plusMillis(1)))
+                    )
+                  )
+                )
+
+                deduplicationStepContinues(context)
+              }
+
+              "produce rejection log entry in case transaction timestamp is on or before deduplication time" in {
+                for (
+                  durationToSubstractFromDeduplicationDuration <- Iterable(
+                    Duration.ZERO,
+                    Duration.ofSeconds(1),
+                  )
+                ) {
+                  val (_, context) = contextBuilder(timestamp =>
+                    Some(
+                      newDedupValue(
+                        timeSetter(
+                          timestamp.subtract(
+                            deduplicationDuration.minus(
+                              durationToSubstractFromDeduplicationDuration
+                            )
+                          )
+                        )
+                      )
+                    )
+                  )
+                  deduplicateStepHasTransactionRejectionEntry(context)
+                }
+              }
+            }
           }
         }
       }
     }
 
-    "overwriteDeduplicationPeriodWithMaxDuration" should {
-      "set max deduplication duration as deduplication period" in {
-        val maxDeduplicationDuration = time.Duration.ofSeconds(Random.nextLong())
-        val config = theDefaultConfig.copy(maxDeduplicationTime = maxDeduplicationDuration)
-        val commitContext = createCommitContext(
-          None,
-          Map(
-            Conversions.configurationStateKey -> None
-          ),
+    "using pre-execution" should {
+
+      "produce rejection log entry when there's an overlap between previous transaction max-record-time and current transaction min-record-time" in {
+        val dedupValue = newDedupValue(
+          _.setRecordTimeBounds(buildPreExecutionDeduplicationBounds(timestamp, timestamp))
         )
-        val result =
-          CommandDeduplication.overwriteDeduplicationPeriodWithMaxDurationStep(config)(
-            commitContext,
-            aTransactionEntrySummary,
+        val commitContext = createCommitContext(None, Map(aDedupKey -> Some(dedupValue)))
+        commitContext.minimumRecordTime = Some(timestamp.subtract(Duration.ofMillis(1)))
+        commitContext.maximumRecordTime = Some(Timestamp.Epoch)
+
+        deduplicateStepHasTransactionRejectionEntry(commitContext)
+      }
+
+      "set the out of time bounds log entry during rejections" in {
+        val dedupValue = newDedupValue(
+          _.setRecordTimeBounds(buildPreExecutionDeduplicationBounds(timestamp, timestamp))
+        )
+        val commitContext = createCommitContext(None, Map(aDedupKey -> Some(dedupValue)))
+        commitContext.minimumRecordTime = Some(timestamp)
+        commitContext.maximumRecordTime = Some(timestamp)
+
+        deduplicateStepHasTransactionRejectionEntry(commitContext)
+        commitContext.outOfTimeBoundsLogEntry shouldBe 'defined
+      }
+
+      "return the command deduplication duration as deduplication duration when this exceeds the max delta between record times" in {
+        val dedupValue = newDedupValue(
+          _.setRecordTimeBounds(buildPreExecutionDeduplicationBounds(timestamp, timestamp))
+        )
+        val commitContext = createCommitContext(None, Map(aDedupKey -> Some(dedupValue)))
+        commitContext.minimumRecordTime = Some(timestamp)
+        commitContext.maximumRecordTime = Some(timestamp.add(Duration.ofSeconds(1)))
+
+        val rejectionEntry = deduplicateStepHasTransactionRejectionEntry(commitContext)
+        rejectionEntry.getSubmitterInfo.getDeduplicationDuration shouldBe buildDuration(
+          deduplicationDuration
+        )
+      }
+
+      "the deduplication duration is the delta between records when this exceeds the deduplication duration sent in the command" in {
+        val dedupValue = newDedupValue(
+          _.setRecordTimeBounds(
+            buildPreExecutionDeduplicationBounds(timestamp, timestamp.add(Duration.ofSeconds(1)))
           )
-        inside(result) { case StepContinue(entry) =>
-          entry.submitterInfo.getDeduplicationDuration shouldBe buildDuration(
-            maxDeduplicationDuration
+        )
+        val commitContext = createCommitContext(None, Map(aDedupKey -> Some(dedupValue)))
+        val deltaBetweenRecords = deduplicationDuration.plusMillis(1)
+        commitContext.minimumRecordTime = Some(timestamp)
+        commitContext.maximumRecordTime = Some(timestamp.add(deltaBetweenRecords))
+
+        val rejectionEntry = deduplicateStepHasTransactionRejectionEntry(commitContext)
+        rejectionEntry.getSubmitterInfo.getDeduplicationDuration shouldBe buildDuration(
+          deltaBetweenRecords
+        )
+      }
+
+    }
+  }
+
+  "setting dedup context" should {
+    val deduplicateUntil = protobuf.Timestamp.newBuilder().setSeconds(30).build()
+    val submissionTime = protobuf.Timestamp.newBuilder().setSeconds(60).build()
+    val deduplicationDuration = time.Duration.ofSeconds(3)
+
+    "set the time bounds for deduplication based on the committer context values" in {
+      val (context, transactionEntrySummary) =
+        buildContextAndTransaction(
+          submissionTime,
+          _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration)),
+        )
+      val minimumRecordTime = timestamp
+      val maximumRecordTime = minimumRecordTime.subtract(Duration.ofSeconds(1))
+      context.maximumRecordTime = Some(maximumRecordTime)
+      context.minimumRecordTime = Some(minimumRecordTime)
+      setDeduplicationEntryStep(context, transactionEntrySummary)
+      val setTimeBounds = deduplicateValueStoredInContext(context, transactionEntrySummary)
+        .map(
+          _.getRecordTimeBounds
+        )
+        .value
+      setTimeBounds shouldBe PreExecutionDeduplicationBounds
+        .newBuilder()
+        .setMinRecordTime(buildTimestamp(minimumRecordTime))
+        .setMaxRecordTime(buildTimestamp(maximumRecordTime))
+        .build()
+    }
+
+    "set the record time in the committer context values" in {
+      val recordTime = timestamp
+      val (context, transactionEntrySummary) =
+        buildContextAndTransaction(
+          submissionTime,
+          _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration)),
+          Some(recordTime),
+        )
+      context.maximumRecordTime = Some(recordTime)
+      setDeduplicationEntryStep(context, transactionEntrySummary)
+      parseTimestamp(
+        deduplicateValueStoredInContext(context, transactionEntrySummary)
+          .map(
+            _.getRecordTime
+          )
+          .value
+      ) shouldBe recordTime
+    }
+
+    "throw an error for missing record time bounds" in {
+      val (context, transactionEntrySummary) =
+        buildContextAndTransaction(
+          submissionTime,
+          _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration)),
+        )
+      context.minimumRecordTime = Some(timestamp)
+      a[Err.InternalError] shouldBe thrownBy(
+        setDeduplicationEntryStep(context, transactionEntrySummary)
+      )
+      context.maximumRecordTime = Some(timestamp)
+      context.minimumRecordTime = None
+      a[Err.InternalError] shouldBe thrownBy(
+        setDeduplicationEntryStep(context, transactionEntrySummary)
+      )
+    }
+
+    "throw an error for unsupported deduplication periods" in {
+      forAll(
+        Table[DamlSubmitterInfo.Builder => DamlSubmitterInfo.Builder](
+          "deduplication setter",
+          _.clearDeduplicationPeriod(),
+          _.setDeduplicationOffset("offset"),
+          _.setDeduplicateUntil(deduplicateUntil),
+        )
+      ) { deduplicationSetter =>
+        {
+          val (context, transactionEntrySummary) =
+            buildContextAndTransaction(submissionTime, deduplicationSetter)
+          a[Err.InvalidSubmission] shouldBe thrownBy(
+            setDeduplicationEntryStep(context, transactionEntrySummary)
           )
         }
       }
     }
   }
 
-  private def newDedupValue(deduplicationTime: Timestamp): DamlStateValue =
-    DamlStateValue.newBuilder
-      .setCommandDedup(
-        DamlCommandDedupValue.newBuilder.setDeduplicatedUntil(buildTimestamp(deduplicationTime))
-      )
-      .build
+  private def deduplicateStepHasTransactionRejectionEntry(
+      context: CommitContext
+  ): DamlTransactionRejectionEntry = {
+    val actual = deduplicateCommandStep(context, aTransactionEntrySummary)
+    actual match {
+      case StepContinue(_) => fail()
+      case StepStop(actualLogEntry) =>
+        actualLogEntry.hasTransactionRejectionEntry shouldBe true
+        actualLogEntry.getTransactionRejectionEntry
+    }
+  }
+
+  private def deduplicationStepContinues(context: CommitContext) = {
+    val actual = deduplicateCommandStep(context, aTransactionEntrySummary)
+
+    actual match {
+      case StepContinue(_) => succeed
+      case StepStop(_) => fail()
+    }
+  }
 }
 
 object CommandDeduplicationSpec {
 
-  private val aDamlTransactionEntry = createEmptyTransactionEntry(List("aSubmitter"))
+  private val deduplicationDuration = Duration.ofSeconds(3)
+  private val aDamlTransactionEntry = {
+    val transaction = createEmptyTransactionEntry(List("aSubmitter"))
+    transaction.toBuilder
+      .setSubmitterInfo(
+        transaction.getSubmitterInfo.toBuilder
+          .setDeduplicationDuration(buildDuration(deduplicationDuration))
+      )
+      .build()
+  }
   private val aTransactionEntrySummary = DamlTransactionEntrySummary(aDamlTransactionEntry)
-  private val aRecordTime = Timestamp(100)
   private val aDedupKey = Conversions
     .commandDedupKey(aTransactionEntrySummary.submitterInfo)
   private val aDamlConfigurationStateValue = DamlStateValue.newBuilder
@@ -212,18 +364,26 @@ object CommandDeduplicationSpec {
     )
     .build
 
+  private def buildPreExecutionDeduplicationBounds(
+      minRecordTime: Timestamp,
+      maxRecordTime: Timestamp,
+  ) = PreExecutionDeduplicationBounds
+    .newBuilder()
+    .setMaxRecordTime(buildTimestamp(maxRecordTime))
+    .setMinRecordTime(buildTimestamp(minRecordTime))
+
   private def buildContextAndTransaction(
       submissionTime: protobuf.Timestamp,
       submitterInfoAugmenter: DamlSubmitterInfo.Builder => DamlSubmitterInfo.Builder,
+      recordTime: Option[Timestamp] = None,
   ) = {
-    val context = createCommitContext(None)
+    val context = createCommitContext(recordTime)
     context.set(Conversions.configurationStateKey, aDamlConfigurationStateValue)
     val transactionEntrySummary = DamlTransactionEntrySummary(
       aDamlTransactionEntry.toBuilder
         .setSubmitterInfo(
           submitterInfoAugmenter(
-            DamlSubmitterInfo
-              .newBuilder()
+            aDamlTransactionEntry.getSubmitterInfo.toBuilder
           )
         )
         .setSubmissionTime(submissionTime)
@@ -232,12 +392,21 @@ object CommandDeduplicationSpec {
     context -> transactionEntrySummary
   }
 
-  private def contextDeduplicateUntil(
+  private def deduplicateValueStoredInContext(
       context: CommitContext,
       transactionEntrySummary: DamlTransactionEntrySummary,
   ) = context
     .get(Conversions.commandDedupKey(transactionEntrySummary.submitterInfo))
     .map(
-      _.getCommandDedup.getDeduplicatedUntil
+      _.getCommandDedup
     )
+
+  private def newDedupValue(
+      valueBuilder: DamlCommandDedupValue.Builder => DamlCommandDedupValue.Builder
+  ): DamlStateValue =
+    DamlStateValue.newBuilder
+      .setCommandDedup(
+        valueBuilder(DamlCommandDedupValue.newBuilder)
+      )
+      .build
 }

@@ -4,15 +4,15 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "kind_projector_plugin",
     "lf_scalacopts_stricter",
 )
-load("@scala_version//:index.bzl", "scala_version_suffix")
 
 da_scala_library(
     name = "data-scalacheck",
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
-        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        kind_projector_plugin,
     ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",

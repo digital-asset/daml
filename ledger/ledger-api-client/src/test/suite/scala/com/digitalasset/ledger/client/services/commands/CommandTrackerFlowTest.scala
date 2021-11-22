@@ -29,7 +29,6 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
 }
 import com.daml.ledger.client.services.commands.tracker.{CompletionResponse, TrackedCommandKey}
 import com.daml.util.Ctx
-import com.google.protobuf.duration.{Duration => DurationProto}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code._
@@ -257,7 +256,9 @@ class CommandTrackerFlowTest
 
         results.expectNoMessage(3.seconds)
 
-        completionStreamMock.send(CompletionStreamElement.CompletionElement(abortedCompletion))
+        completionStreamMock.send(
+          CompletionStreamElement.CompletionElement(abortedCompletion, None)
+        )
         results.requestNext().value shouldEqual Left(
           failureCompletion(Code.ABORTED)
         )
@@ -272,7 +273,9 @@ class CommandTrackerFlowTest
 
         submissions.sendNext(submission)
 
-        completionStreamMock.send(CompletionStreamElement.CompletionElement(abortedCompletion))
+        completionStreamMock.send(
+          CompletionStreamElement.CompletionElement(abortedCompletion, None)
+        )
         results.requestNext().value shouldEqual Left(
           failureCompletion(Code.ABORTED)
         )
@@ -320,31 +323,6 @@ class CommandTrackerFlowTest
 
         results.expectNext(
           1.second,
-          Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
-        )
-        succeed
-      }
-
-      "use the command deduplication time, if provided" in {
-        val Handle(submissions, results, _, _) = runCommandTrackingFlow(allSubmissionsSuccessful)
-
-        val deduplicationTime = DurationProto.of(0, 200000000) // 200ms
-        submissions.sendNext(
-          Ctx(
-            context,
-            CommandSubmission(
-              Commands(
-                commandId = commandId,
-                submissionId = submissionId,
-                deduplicationPeriod =
-                  Commands.DeduplicationPeriod.DeduplicationTime(deduplicationTime),
-              )
-            ),
-          )
-        )
-
-        results.expectNext(
-          500.milliseconds,
           Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
         )
         succeed
@@ -479,7 +457,7 @@ class CommandTrackerFlowTest
             Some(status),
             submissionId = submissionId,
           )
-        completionStreamMock.send(CompletionStreamElement.CompletionElement(failedCompletion))
+        completionStreamMock.send(CompletionStreamElement.CompletionElement(failedCompletion, None))
 
         results.expectNext(
           Ctx(
@@ -640,7 +618,8 @@ class CommandTrackerFlowTest
       submissionId: String = submissionId,
   ) =
     CompletionResponse.CompletionSuccess(
-      Completion(commandId, Some(successStatus), submissionId = submissionId)
+      Completion(commandId, Some(successStatus), submissionId = submissionId),
+      None,
     )
 
   private def failureCompletion(
@@ -653,7 +632,8 @@ class CommandTrackerFlowTest
         commandId = commandId,
         status = Some(StatusProto(code.value, message)),
         submissionId = submissionId,
-      )
+      ),
+      None,
     )
 
   private def commandWithIds(submissionId: String, commandId: String) = {
@@ -665,7 +645,8 @@ class CommandTrackerFlowTest
 
   private def successfulStreamCompletion(submissionId: String, commandId: String) =
     CompletionStreamElement.CompletionElement(
-      Completion(commandId, Some(successStatus), submissionId = submissionId)
+      Completion(commandId, Some(successStatus), submissionId = submissionId),
+      None,
     )
 
   private def checkPoint(ledgerOffset: LedgerOffset) =

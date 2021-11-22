@@ -157,7 +157,7 @@ dev_env_tool(
 
 nixpkgs_package(
     name = "postgresql_nix",
-    attribute_path = "postgresql_9_6",
+    attribute_path = "postgresql_10",
     build_file_content = """
 package(default_visibility = ["//visibility:public"])
 filegroup(
@@ -298,11 +298,11 @@ load("@daml//bazel_tools:java.bzl", "dadew_java_configure", "nixpkgs_java_config
 
 dadew_java_configure(
     name = "dadew_java_runtime",
-    dadew_path = "java-openjdk-8u302",
+    dadew_path = "ojdkbuild11",
 ) if is_windows else None
 
 nixpkgs_java_configure(
-    attribute_path = "jdk8.home",
+    attribute_path = "jdk11.home",
     nix_file = "@daml//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,

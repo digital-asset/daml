@@ -332,6 +332,10 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           EFromAnyException(E, e"anyException"),
         "throw @Unit @Mod:E exception" ->
           EThrow(TUnit, E, e"exception"),
+        "icall @Mod:I method body" ->
+          ECallInterface(I.tycon, n"method", e"body"),
+        "icall @'-pkgId-':Mod:I method body" ->
+          ECallInterface(I.tycon, n"method", e"body"),
       )
 
       forEvery(testCases)((stringToParse, expectedExp) =>
@@ -475,7 +479,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
 
       parseModules(p) shouldBe Right(
         List(
-          Module(
+          Module.build(
             name = modName,
             definitions = List(
               DottedName.assertFromSegments(ImmArray("Tree", "Node").toSeq) -> recDef,
@@ -510,10 +514,10 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         List(
           Module(
             name = modName,
-            definitions = List(DottedName.assertFromString("fact") -> valDef),
-            templates = List.empty,
-            exceptions = List.empty,
-            interfaces = List.empty,
+            definitions = Map(DottedName.assertFromString("fact") -> valDef),
+            templates = Map.empty,
+            exceptions = Map.empty,
+            interfaces = Map.empty,
             featureFlags = FeatureFlags.default,
           )
         )
@@ -530,27 +534,37 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           record @serializable Person = { person: Party, name: Text } ;
 
           template (this : Person) =  {
-            precondition True,
-            signatories Cons @Party [person] (Nil @Party),
-            observers Cons @Party ['Alice'] (Nil @Party),
-            agreement "Agreement",
-            choices {
-              choice Sleep (self) (u:Unit) : ContractId Mod:Person
-                , controllers Cons @Party [person] (Nil @Party)
-                to upure @(ContractId Mod:Person) self,
-              choice @nonConsuming Nap (self) (i : Int64): Int64
-                , controllers Cons @Party [person] (Nil @Party)
-                , observers Nil @Party
-                to upure @Int64 i,
-              choice @nonConsuming PowerNap (self) (i : Int64): Int64
-                , controllers Cons @Party [person] (Nil @Party)
-                , observers Cons @Party [person] (Nil @Party)
-                to upure @Int64 i
-            },
-            key @Party (Mod:Person {name} this) (\ (p: Party) -> p)
+            precondition True;
+            signatories Cons @Party [person] (Nil @Party);
+            observers Cons @Party ['Alice'] (Nil @Party);
+            agreement "Agreement";
+            choice Sleep (self) (u:Unit) : ContractId Mod:Person
+              , controllers Cons @Party [person] (Nil @Party)
+              to upure @(ContractId Mod:Person) self;
+            choice @nonConsuming Nap (self) (i : Int64): Int64
+              , controllers Cons @Party [person] (Nil @Party)
+              , observers Nil @Party
+              to upure @Int64 i;
+            choice @nonConsuming PowerNap (self) (i : Int64): Int64
+              , controllers Cons @Party [person] (Nil @Party)
+              , observers Cons @Party [person] (Nil @Party)
+              to upure @Int64 i;
+            implements Mod1:Human {
+              method age = 42;
+              method alive = True;
+              choice Feed;
+              choice Rest;
+            };
+            implements '-pkgId-':Mod2:Referenceable { 
+              method uuid = "123e4567-e89b-12d3-a456-426614174000";
+            };
+            key @Party (Mod:Person {name} this) (\ (p: Party) -> p);
           } ;
         }
       """
+
+      val TTyCon(human) = t"Mod1:Human"
+      val TTyCon(referenceable) = t"Mod2:Referenceable"
 
       val template =
         Template(
@@ -559,40 +573,63 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           signatories = e"Cons @Party [person] (Nil @Party)",
           agreementText = e""" "Agreement" """,
           choices = Map(
-            n"Sleep" -> TemplateChoice(
-              name = n"Sleep",
-              consuming = true,
-              controllers = e"Cons @Party [person] (Nil @Party)",
-              choiceObservers = None,
-              selfBinder = n"self",
-              argBinder = n"u" -> TUnit,
-              returnType = t"ContractId Mod:Person",
-              update = e"upure @(ContractId Mod:Person) self",
-            ),
-            n"Nap" -> TemplateChoice(
-              name = n"Nap",
-              consuming = false,
-              controllers = e"Cons @Party [person] (Nil @Party)",
-              choiceObservers = Some(e"Nil @Party"),
-              selfBinder = n"self",
-              argBinder = n"i" -> TInt64,
-              returnType = t"Int64",
-              update = e"upure @Int64 i",
-            ),
-            n"PowerNap" -> TemplateChoice(
-              name = n"PowerNap",
-              consuming = false,
-              controllers = e"Cons @Party [person] (Nil @Party)",
-              choiceObservers = Some(e"Cons @Party [person] (Nil @Party)"),
-              selfBinder = n"self",
-              argBinder = n"i" -> TInt64,
-              returnType = t"Int64",
-              update = e"upure @Int64 i",
-            ),
+            n"Sleep" ->
+              TemplateChoice(
+                name = n"Sleep",
+                consuming = true,
+                controllers = e"Cons @Party [person] (Nil @Party)",
+                choiceObservers = None,
+                selfBinder = n"self",
+                argBinder = n"u" -> TUnit,
+                returnType = t"ContractId Mod:Person",
+                update = e"upure @(ContractId Mod:Person) self",
+              ),
+            n"Nap" ->
+              TemplateChoice(
+                name = n"Nap",
+                consuming = false,
+                controllers = e"Cons @Party [person] (Nil @Party)",
+                choiceObservers = Some(e"Nil @Party"),
+                selfBinder = n"self",
+                argBinder = n"i" -> TInt64,
+                returnType = t"Int64",
+                update = e"upure @Int64 i",
+              ),
+            n"PowerNap" ->
+              TemplateChoice(
+                name = n"PowerNap",
+                consuming = false,
+                controllers = e"Cons @Party [person] (Nil @Party)",
+                choiceObservers = Some(e"Cons @Party [person] (Nil @Party)"),
+                selfBinder = n"self",
+                argBinder = n"i" -> TInt64,
+                returnType = t"Int64",
+                update = e"upure @Int64 i",
+              ),
           ),
           observers = e"Cons @Party ['Alice'] (Nil @Party)",
           key = Some(TemplateKey(t"Party", e"(Mod:Person {name} this)", e"""\ (p: Party) -> p""")),
-          implements = List.empty,
+          implements = Map(
+            human ->
+              TemplateImplements(
+                human,
+                Map(
+                  n"age" -> TemplateImplementsMethod(n"age", e"42"),
+                  n"alive" -> TemplateImplementsMethod(n"alive", e"True"),
+                ),
+                Set(n"Feed", n"Rest"),
+              ),
+            referenceable -> TemplateImplements(
+              referenceable,
+              Map(
+                n"uuid" -> TemplateImplementsMethod(
+                  n"uuid",
+                  e""""123e4567-e89b-12d3-a456-426614174000"""",
+                )
+              ),
+              Set.empty,
+            ),
+          ),
         )
 
       val recDef = DDataType(
@@ -605,10 +642,10 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         List(
           Module(
             name = modName,
-            definitions = List(name -> recDef),
-            templates = List(name -> template),
-            exceptions = List.empty,
-            interfaces = List.empty,
+            definitions = Map(name -> recDef),
+            templates = Map(name -> template),
+            exceptions = Map.empty,
+            interfaces = Map.empty,
             featureFlags = FeatureFlags.default,
           )
         )
@@ -625,22 +662,21 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             record @serializable R = { } ;
 
             template (this : R) =  {
-              precondition True,
-              signatories Nil @Unit,
-              observers Nil @Unit,
-              agreement "Agreement",
-              choices { }
+              precondition True;
+              signatories Nil @Unit;
+              observers Nil @Unit;
+              agreement "Agreement";
             } ;
           }
         """
 
       val template =
-        Template(
+        Template.build(
           param = n"this",
           precond = e"True",
           signatories = e"Nil @Unit",
           agreementText = e""" "Agreement" """,
-          choices = Map.empty,
+          choices = List.empty,
           observers = e"Nil @Unit",
           key = None,
           implements = List.empty,
@@ -656,22 +692,21 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         List(
           Module(
             name = modName,
-            definitions = List(name -> recDef),
-            templates = List(name -> template),
-            exceptions = List.empty,
-            interfaces = List.empty,
+            definitions = Map(name -> recDef),
+            templates = Map(name -> template),
+            exceptions = Map.empty,
+            interfaces = Map.empty,
             featureFlags = FeatureFlags.default,
           )
         )
       )
 
     }
-  }
 
-  "parses exception definition" in {
+    "parses exception definition" in {
 
-    val p =
-      """
+      val p =
+        """
           module Mod {
 
             record @serializable Exception = { message: Text } ;
@@ -682,44 +717,112 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           }
       """
 
-    val recDef = DDataType(
-      true,
-      ImmArray.Empty,
-      DataRecord(ImmArray(n"message" -> TText)),
-    )
-    val name = DottedName.assertFromString("Exception")
-    val exception = DefException(e"""\(e: Mod:Exception) -> Mod:Exception {message} e""")
-    parseModules(p) shouldBe Right(
-      List(
-        Module(
-          name = modName,
-          definitions = List(name -> recDef),
-          templates = List.empty,
-          exceptions = List(name -> exception),
-          interfaces = List.empty,
-          featureFlags = FeatureFlags.default,
+      val recDef = DDataType(
+        true,
+        ImmArray.Empty,
+        DataRecord(ImmArray(n"message" -> TText)),
+      )
+      val name = DottedName.assertFromString("Exception")
+      val exception = DefException(e"""\(e: Mod:Exception) -> Mod:Exception {message} e""")
+      parseModules(p) shouldBe Right(
+        List(
+          Module(
+            name = modName,
+            definitions = Map(name -> recDef),
+            templates = Map.empty,
+            exceptions = Map(name -> exception),
+            interfaces = Map.empty,
+            featureFlags = FeatureFlags.default,
+          )
         )
       )
-    )
+    }
 
-  }
+    "parses interface definition" in {
 
-  "parses location annotations" in {
-    e"loc(Mod, def, 0, 1, 2, 3) f" shouldEqual
-      ELocation(
-        Location(
-          defaultPackageId,
-          ModuleName.assertFromString("Mod"),
-          "def",
-          (0, 1),
-          (2, 3),
-        ),
-        EVar(n"f"),
+      val p = """
+       module Mod {
+       
+          interface (this: Person) = {
+            precondition False;
+            method asParty: Party;
+            method getName: Text;
+            choice Sleep (self) (u:Unit) : ContractId Mod:Person
+              , controllers Cons @Party [icall @Mod:Person asParty this] (Nil @Party)
+              to upure @(ContractId Mod:Person) self;
+            choice @nonConsuming Nap (self) (i : Int64): Int64
+              , controllers Cons @Party [icall @Mod:Person asParty this] (Nil @Party)
+              , observers Nil @Party
+              to upure @Int64 i;
+          } ;
+       }
+      
+      """
+
+      val interface =
+        DefInterface(
+          param = n"this",
+          precond = e"False",
+          methods = Map(
+            n"asParty" -> InterfaceMethod(n"asParty", t"Party"),
+            n"getName" -> InterfaceMethod(n"getName", t"Text"),
+          ),
+          fixedChoices = Map(
+            n"Sleep" -> TemplateChoice(
+              name = n"Sleep",
+              consuming = true,
+              controllers = e"Cons @Party [icall @Mod:Person asParty this] (Nil @Party)",
+              choiceObservers = None,
+              selfBinder = n"self",
+              argBinder = n"u" -> TUnit,
+              returnType = t"ContractId Mod:Person",
+              update = e"upure @(ContractId Mod:Person) self",
+            ),
+            n"Nap" -> TemplateChoice(
+              name = n"Nap",
+              consuming = false,
+              controllers = e"Cons @Party [icall @Mod:Person asParty this] (Nil @Party)",
+              choiceObservers = Some(e"Nil @Party"),
+              selfBinder = n"self",
+              argBinder = n"i" -> TInt64,
+              returnType = t"Int64",
+              update = e"upure @Int64 i",
+            ),
+          ),
+        )
+
+      val person = DottedName.assertFromString("Person")
+      parseModules(p) shouldBe Right(
+        List(
+          Module(
+            name = modName,
+            definitions = Map(person -> DDataType.Interface),
+            templates = Map.empty,
+            exceptions = Map.empty,
+            interfaces = Map(person -> interface),
+            featureFlags = FeatureFlags.default,
+          )
+        )
       )
-  }
+    }
 
-  "rejects bad location annotations" in {
-    a[ParsingError] should be thrownBy e"loc(Mod, def, 0, 1, 2, 3) f g"
+    "parses location annotations" in {
+      e"loc(Mod, def, 0, 1, 2, 3) f" shouldEqual
+        ELocation(
+          Location(
+            defaultPackageId,
+            ModuleName.assertFromString("Mod"),
+            "def",
+            (0, 1),
+            (2, 3),
+          ),
+          EVar(n"f"),
+        )
+    }
+
+    "rejects bad location annotations" in {
+      a[ParsingError] should be thrownBy e"loc(Mod, def, 0, 1, 2, 3) f g"
+    }
   }
 
   private val keywords = Table(
@@ -752,6 +855,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
   private val T: TTyCon = TTyCon(qualify("T"))
   private val R: TTyCon = TTyCon(qualify("R"))
   private val E: TTyCon = TTyCon(qualify("E"))
+  private val I: TTyCon = TTyCon(qualify("I"))
   private val RIntBool = TypeConApp(R.tycon, ImmArray(t"Int64", t"Bool"))
   private val α: TVar = TVar(n"a")
   private val β: TVar = TVar(n"b")

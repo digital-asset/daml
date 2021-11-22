@@ -440,6 +440,7 @@ da_haskell_test(
     srcs = ["src/DA/Test/DataDependencies.hs"],
     data = [
         "//compiler/damlc",
+        "@damlc_legacy",
         "//compiler/damlc/tests:generate-simple-dalf",
         "//daml-lf/repl",
         "@davl-v3//:released/davl-v3.dar",

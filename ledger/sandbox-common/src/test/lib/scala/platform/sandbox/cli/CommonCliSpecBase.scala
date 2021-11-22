@@ -353,14 +353,14 @@ abstract class CommonCliSpecBase(
       )
     }
 
-    "parse error codes v2 flag" in {
+    "parse gRPC error codes compatibility mode flag" in {
       checkOption(
-        Array("--use-self-service-error-codes"),
-        _.copy(enableSelfServiceErrorCodes = true),
+        Array("--use-pre-1.18-error-codes"),
+        _.copy(enableSelfServiceErrorCodes = false),
       )
       checkOption(
         Array(),
-        _.copy(enableSelfServiceErrorCodes = false),
+        _.copy(enableSelfServiceErrorCodes = true),
       )
     }
 

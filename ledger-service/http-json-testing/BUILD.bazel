@@ -4,10 +4,10 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "kind_projector_plugin",
     "lf_scalacopts",
     "silencer_plugin",
 )
-load("@scala_version//:index.bzl", "scala_version_suffix")
 
 hj_scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
@@ -18,7 +18,7 @@ hj_scalacopts = lf_scalacopts + [
         name = "{}".format(edition),
         srcs = glob(["src/main/scala/**/*.scala"]),
         plugins = [
-            "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+            kind_projector_plugin,
             silencer_plugin,
         ],
         scala_deps = [

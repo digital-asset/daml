@@ -41,21 +41,19 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
             record @serializable Person = { person: Party, name: Text } ;
 
             template (this : Person) =  {
-              precondition True,
-              signatories Cons @Party [Mod:Person {person} this] (Nil @Party),
-              observers Cons @Party [Mod:Person {person} this] (Nil @Party),
-              agreement "Agreement",
-              choices {
-                choice Sleep (self) (u: Unit) : Unit, 
-                    controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
-                    observers Nil @Party
-                  to upure @Unit (),
-                choice @nonConsuming Nap (self) (i : Int64): Int64, 
-                    controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
-                    observers Cons @Party [Mod:Person {person} this] (Nil @Party)
-                to upure @Int64 i
-              },
-              key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party))
+              precondition True;
+              signatories Cons @Party [Mod:Person {person} this] (Nil @Party);
+              observers Cons @Party [Mod:Person {person} this] (Nil @Party);
+              agreement "Agreement";
+              choice Sleep (self) (u: Unit) : Unit, 
+                  controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
+                  observers Nil @Party
+                to upure @Unit ();
+              choice @nonConsuming Nap (self) (i : Int64): Int64, 
+                  controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
+                  observers Cons @Party [Mod:Person {person} this] (Nil @Party)
+              to upure @Int64 i;
+              key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party));
             };
 
            variant Tree (a : * ) = Leaf : Unit | Node : Mod:Tree.Node a ;

@@ -53,9 +53,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ports.Port
-import org.scalatest.Tag
-
-object SkipScala212 extends Tag("skip_scala_2_12")
 
 object AbstractHttpServiceIntegrationTestFuns {
   private[http] val dar1 = requiredResource(ModelTestDar.path)
@@ -68,7 +65,7 @@ object AbstractHttpServiceIntegrationTestFuns {
 
   def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
     import java.security.MessageDigest
-    import javax.xml.bind.DatatypeConverter
+    import com.google.common.io.BaseEncoding
 
     val md = MessageDigest.getInstance("SHA-256")
     val is = source.runWith(StreamConverters.asInputStream())
@@ -79,7 +76,7 @@ object AbstractHttpServiceIntegrationTestFuns {
 
     dis.on(false)
 
-    DatatypeConverter.printHexBinary(md.digest()).toLowerCase
+    BaseEncoding.base16().lowerCase().encode(md.digest())
   }
 }
 
@@ -1149,8 +1146,8 @@ abstract class AbstractHttpServiceIntegrationTest
       val exerciseJson: JsValue = encodeExercise(encoder)(iouExerciseTransferCommand(contractId))
       postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), exerciseJson)
         .flatMap { case (status, output) =>
-          status shouldBe StatusCodes.Conflict
-          assertStatus(output, StatusCodes.Conflict)
+          status shouldBe StatusCodes.NotFound
+          assertStatus(output, StatusCodes.NotFound)
           expectedOneErrorMessage(output) should include(
             s"Contract could not be found with id $contractIdString"
           )
@@ -1673,7 +1670,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "query by a variant field" in withHttpService { (uri, encoder, _, _) =>
     val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")
     val accountNumber = "abc123"
-    val now = TimestampConversion.instantToMicros(Instant.now)
+    val now = TimestampConversion.roundInstantToMicros(Instant.now)
     val nowStr = TimestampConversion.microsToInstant(now).toString
     val command: domain.CreateCommand[v.Record, OptionalPkg] =
       accountCreateCommand(alice, accountNumber, now)
@@ -1787,7 +1784,7 @@ abstract class AbstractHttpServiceIntegrationTest
       } yield succeed
   }
 
-  "archiving a large number of contracts should succeed" taggedAs (SkipScala212) in withHttpServiceAndClient(
+  "archiving a large number of contracts should succeed" in withHttpServiceAndClient(
     StartSettings.DefaultMaxInboundMessageSize * 10
   ) { (uri, encoder, _, _, _) =>
     val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")

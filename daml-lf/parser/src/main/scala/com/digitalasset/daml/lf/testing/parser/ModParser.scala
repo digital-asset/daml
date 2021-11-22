@@ -4,39 +4,42 @@
 package com.daml.lf
 package testing.parser
 
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref.{ChoiceName, DottedName, Name}
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
 import com.daml.lf.testing.parser.Parsers._
 import com.daml.lf.testing.parser.Token._
+import com.daml.scalautil.Statement.discard
 
 private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   import ModParser._
 
   private[parser] val exprParser: ExprParser[P] = new ExprParser(parameters)
-  import exprParser.typeParser.{argTyp, typ, typeBinder}
+  import exprParser.typeParser.{argTyp, fullIdentifier, typ, typeBinder}
   import exprParser.{expr, expr0}
 
   private def split(defs: Seq[Def]) = {
-    val definitions = Seq.newBuilder[(DottedName, Definition)]
-    val templates = Seq.newBuilder[(DottedName, Template)]
-    val exceptions = Seq.newBuilder[(DottedName, DefException)]
-    defs.foreach {
+    val definitions = Seq.newBuilder[(Ref.DottedName, Definition)]
+    val templates = Seq.newBuilder[(Ref.DottedName, Template)]
+    val exceptions = Seq.newBuilder[(Ref.DottedName, DefException)]
+    val interfaces = Seq.newBuilder[(Ref.DottedName, DefInterface)]
+    defs.foreach[Unit] {
       case DataDef(name, defn) =>
-        definitions += name -> defn
+        discard(definitions += name -> defn)
       case TemplDef(name, defn) =>
-        templates += name -> defn
+        discard(templates += name -> defn)
       case ExcepDef(name, defn) =>
-        exceptions += name -> defn
-      case _ =>
+        discard(exceptions += name -> defn)
+      case IfaceDef(name, iface) =>
+        discard(definitions += name -> DDataType.Interface)
+        discard(interfaces += name -> iface)
     }
-    (definitions.result(), templates.result(), exceptions.result())
+    (definitions.result(), templates.result(), exceptions.result(), interfaces.result())
   }
 
   lazy val pkg: Parser[Package] =
     opt(metadata) ~ rep(mod) ^^ { case metadata ~ modules =>
-      Package(modules, Set.empty, parameters.languageVersion, metadata)
+      Package.build(modules, List.empty, parameters.languageVersion, metadata)
     }
 
   private lazy val metadata: Parser[PackageMetadata] =
@@ -47,15 +50,15 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   lazy val mod: Parser[Module] =
     Id("module") ~! tags(modTags) ~ dottedName ~ `{` ~ rep(definition <~ `;`) <~ `}` ^^ {
       case _ ~ modTag ~ modName ~ _ ~ defs =>
-        val (definitions, templates, exceptions) = split(defs)
+        val (definitions, templates, exceptions, interfaces) = split(defs)
         val flags = FeatureFlags(forbidPartyLiterals = modTag(noPartyLitsTag))
-        Module(modName, definitions, templates, exceptions, List.empty, flags)
+        Module.build(modName, definitions, templates, exceptions, interfaces, flags)
     }
 
   private lazy val definition: Parser[Def] =
-    synDefinition | recDefinition | variantDefinition | enumDefinition | valDefinition | templateDefinition | exceptionDefinition
+    synDefinition | recDefinition | variantDefinition | enumDefinition | valDefinition | templateDefinition | exceptionDefinition | interfaceDefinition
 
-  private def tags(allowed: Set[Name]): Parser[Set[Name]] = Parser { in =>
+  private def tags(allowed: Set[Ref.Name]): Parser[Set[Ref.Name]] = Parser { in =>
     val parser = rep(`@` ~> id) ^^ { tags =>
       tags.foreach { t =>
         if (!allowed(t))
@@ -69,7 +72,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
     parser(in)
   }
 
-  private lazy val binder: Parser[(Name, Type)] =
+  private lazy val binder: Parser[(Ref.Name, Type)] =
     id ~ `:` ~ typ ^^ { case id ~ _ ~ typ => id -> typ }
 
   private lazy val synDefinition: Parser[DataDef] =
@@ -120,14 +123,30 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       TemplateKey(t, body, maintainers)
     }
 
+  private lazy val method: Parser[TemplateImplementsMethod] =
+    Id("method") ~>! id ~ `=` ~ expr ^^ { case (name ~ _ ~ value) =>
+      TemplateImplementsMethod(name, value)
+    }
+
+  private lazy val inheritedChoice: Parser[Ref.Name] =
+    Id("choice") ~>! id
+
+  private lazy val implements: Parser[TemplateImplements] =
+    Id("implements") ~>! fullIdentifier ~ (`{` ~>
+      rep(method <~ `;`) ~ rep(inheritedChoice <~ `;`)
+      <~ `}`) ^^ { case ifaceId ~ (methods ~ inheritedChoices) =>
+      TemplateImplements.build(ifaceId, methods, inheritedChoices)
+    }
+
   private lazy val templateDefinition: Parser[TemplDef] =
     (Id("template") ~ `(` ~> id ~ `:` ~ dottedName ~ `)` ~ `=` ~ `{` ~
-      (Id("precondition") ~> expr) ~
-      (`,` ~> Id("signatories") ~> expr) ~
-      (`,` ~> Id("observers") ~> expr) ~
-      (`,` ~> Id("agreement") ~> expr) ~
-      (`,` ~> Id("choices") ~ `{` ~> repsep(templateChoice, `,`) <~ `}`) ~
-      opt(`,` ~> Id("key") ~> templateKey) <~
+      (Id("precondition") ~> expr <~ `;`) ~
+      (Id("signatories") ~> expr <~ `;`) ~
+      (Id("observers") ~> expr <~ `;`) ~
+      (Id("agreement") ~> expr <~ `;`) ~
+      rep(templateChoice <~ `;`) ~
+      rep(implements <~ `;`) ~
+      opt(Id("key") ~> templateKey <~ `;`) <~
       `}`) ^^ {
       case x ~ _ ~ tycon ~ _ ~ _ ~ _ ~
           precon ~
@@ -135,10 +154,20 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
           observers ~
           agreement ~
           choices ~
+          implements ~
           key =>
         TemplDef(
           tycon,
-          Template(x, precon, signatories, agreement, choices, observers, key, List.empty),
+          Template.build(
+            param = x,
+            precond = precon,
+            signatories = signatories,
+            agreementText = agreement,
+            choices = choices,
+            observers = observers,
+            key = key,
+            implements = implements,
+          ),
         )
     }
 
@@ -147,20 +176,20 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       case tycon ~ _ ~ _ ~ message => ExcepDef(tycon, DefException(message))
     }
 
-  private lazy val choiceParam: Parser[(Name, Type)] =
+  private lazy val choiceParam: Parser[(Ref.Name, Type)] =
     `(` ~> id ~ `:` ~ typ <~ `)` ^^ { case name ~ _ ~ typ => name -> typ }
 
-  private lazy val selfBinder: Parser[Name] =
+  private lazy val selfBinder: Parser[Ref.Name] =
     `(` ~> id <~ `)`
 
-  private lazy val templateChoice: Parser[(ChoiceName, TemplateChoice)] =
+  private lazy val templateChoice: Parser[TemplateChoice] =
     Id("choice") ~> tags(templateChoiceTags) ~ id ~ selfBinder ~ choiceParam ~
       (`:` ~> typ) ~
       (`,` ~> Id("controllers") ~> expr) ~
       opt(`,` ~> Id("observers") ~> expr) ~
       (`to` ~> expr) ^^ {
         case choiceTags ~ name ~ self ~ param ~ retTyp ~ controllers ~ choiceObservers ~ update =>
-          name -> TemplateChoice(
+          TemplateChoice(
             name,
             !choiceTags(nonConsumingTag),
             controllers,
@@ -172,10 +201,31 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
           )
       }
 
-  private val serializableTag = Name.assertFromString("serializable")
-  private val noPartyLitsTag = Name.assertFromString("noPartyLiterals")
-  private val isTestTag = Name.assertFromString("isTest")
-  private val nonConsumingTag = Name.assertFromString("nonConsuming")
+  private val interfaceDefinition: Parser[IfaceDef] =
+    Id("interface") ~ `(` ~> id ~ `:` ~ dottedName ~ `)` ~ `=` ~ `{` ~
+      (Id("precondition") ~> expr <~ `;`) ~
+      rep(interfaceMethod <~ `;`) ~
+      rep(templateChoice <~ `;`) <~
+      `}` ^^ {
+        case x ~ _ ~ tycon ~ _ ~ _ ~ _ ~
+            precond ~
+            methods ~
+            choices =>
+          IfaceDef(
+            tycon,
+            DefInterface.build(x, choices, methods, precond),
+          )
+      }
+
+  private val interfaceMethod: Parser[InterfaceMethod] =
+    Id("method") ~>! id ~ `:` ~ typ ^^ { case name ~ _ ~ typ =>
+      InterfaceMethod(name, typ)
+    }
+
+  private val serializableTag = Ref.Name.assertFromString("serializable")
+  private val noPartyLitsTag = Ref.Name.assertFromString("noPartyLiterals")
+  private val isTestTag = Ref.Name.assertFromString("isTest")
+  private val nonConsumingTag = Ref.Name.assertFromString("nonConsuming")
 
   private val dataDefTags = Set(serializableTag)
   private val templateChoiceTags = Set(nonConsumingTag)
@@ -188,8 +238,9 @@ object ModParser {
 
   private sealed trait Def extends Product with Serializable
 
-  private final case class DataDef(name: DottedName, defn: Definition) extends Def
-  private final case class TemplDef(name: DottedName, defn: Template) extends Def
-  private final case class ExcepDef(name: DottedName, defn: DefException) extends Def
+  private final case class DataDef(name: Ref.DottedName, defn: Definition) extends Def
+  private final case class TemplDef(name: Ref.DottedName, defn: Template) extends Def
+  private final case class ExcepDef(name: Ref.DottedName, defn: DefException) extends Def
+  private final case class IfaceDef(name: Ref.DottedName, iface: DefInterface) extends Def
 
 }

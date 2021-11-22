@@ -544,7 +544,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       }
     }
 
-    "use max deduplication duration as deduplication period" in KVTest.runTestWithSimplePackage(
+    "return the provided deduplication period" in KVTest.runTestWithSimplePackage(
       alice,
       bob,
       eve,
@@ -560,15 +560,16 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           )
         })
         transaction <- runSimpleCommand(alice, seed, command)
+        expectedDeduplicationDuration = Duration.ofHours(1)
         preExecutionResult <- preExecuteTransaction(
           submitter = alice,
           transaction = transaction,
           submissionSeed = seed,
-          deduplicationDuration = Duration.ofHours(1),
+          deduplicationDuration = expectedDeduplicationDuration,
         ).map(_._2)
       } yield {
         preExecutionResult.successfulLogEntry.getTransactionEntry.getSubmitterInfo.getDeduplicationDuration shouldBe Conversions
-          .buildDuration(maxDeduplicationDuration)
+          .buildDuration(expectedDeduplicationDuration)
       }
     }
   }

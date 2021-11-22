@@ -6,12 +6,10 @@ module DecimalMod {
   record @serializable Box = { x: Numeric 10, party: Party  } ;
 
   template (this : Box) =  {
-    precondition True,
-    signatories (PartyMod:one (DecimalMod:Box {party} this)),
-    observers (Nil @Party),
-    agreement "Agreement for DecimalMod:Box",
-    choices {
-    }
+    precondition True;
+    signatories (PartyMod:one (DecimalMod:Box {party} this));
+    observers (Nil @Party);
+    agreement "Agreement for DecimalMod:Box";
   };
 
   val build0: DecimalMod:Box = DecimalMod:Box {

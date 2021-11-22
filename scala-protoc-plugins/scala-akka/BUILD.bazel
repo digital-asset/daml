@@ -12,9 +12,6 @@ da_scala_binary(
         "@maven//:com_thesamet_scalapb_protoc_bridge",
         "@maven//:com_thesamet_scalapb_protoc_gen",
     ],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     visibility = ["//visibility:public"],
     deps = [
         "@maven//:com_google_protobuf_protobuf_java",
@@ -57,7 +54,7 @@ go_binary(
     name = "protoc-gen-scala-akka",
     data = [
         ":compiler_plugin_deploy.jar",
-        "@bazel_tools//tools/jdk:jre",
+        "@bazel_tools//tools/jdk",
     ],
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],

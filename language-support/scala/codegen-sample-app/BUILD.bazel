@@ -5,6 +5,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test",
+    "kind_projector_plugin",
     "silencer_plugin",
 )
 load(
@@ -16,7 +17,6 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "lf_version_configuration",
 )
-load("@scala_version//:index.bzl", "scala_version_suffix")
 
 daml_compile(
     name = "MyMain",
@@ -45,7 +45,7 @@ da_scala_library(
     name = "daml-lf-codegen-sample-app",
     srcs = [":MyMain.srcjar"] + glob(["src/main/**/*.scala"]),
     plugins = [
-        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        kind_projector_plugin,
         silencer_plugin,
     ],
     scala_deps = [

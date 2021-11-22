@@ -68,7 +68,6 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest_wordspec",
     ],
     deps = [
-        "@maven//:org_scalatest_scalatest_compatible",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/transaction",
@@ -82,8 +81,10 @@ da_scala_test(
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/tools",
         "//libs-scala/contextualized-logging",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_mockito_mockito_core",
-    ] + (["@maven//:com_google_protobuf_protobuf_java"] if scala_major_version == "2.13" else []),
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
 )
 
 da_scala_binary(

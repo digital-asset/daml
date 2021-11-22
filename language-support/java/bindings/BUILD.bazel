@@ -38,6 +38,7 @@ java_library(
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_grpc_grpc_stub",
+        "@maven//:javax_annotation_javax_annotation_api",
     ],
 )
 
@@ -74,6 +75,7 @@ da_java_library(
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_grpc_grpc_stub",
+        "@maven//:javax_annotation_javax_annotation_api",
         "@maven//:org_checkerframework_checker",
     ],
 )
@@ -90,9 +92,6 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
     ],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     visibility = [
         "//ledger-service/http-json:__subpackages__",
     ],

@@ -6,8 +6,7 @@ set -e
 set -u
 set -o pipefail
 
-# Canton requires JDK11 in production to avoid ForkJoinPool deadlocks on older JDKs so we run it with JDK11.
-JAVA="$(rlocation jdk11_nix/bin/java)"
+JAVA="$(rlocation local_jdk/bin/java)"
 
 CANTON_COMMAND=(
   "$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/canton_deploy.jar)"

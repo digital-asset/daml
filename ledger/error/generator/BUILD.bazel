@@ -33,9 +33,6 @@ da_scala_library(
     name = "lib",
     srcs = glob(["lib/src/main/scala/**/*.scala"]),
     tags = ["maven_coordinates=com.daml:error-generator-lib:__VERSION__"],
-    versioned_scala_deps = {
-        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
-    },
     visibility = ["//visibility:public"],
     deps = [
         "//ledger/error",
@@ -66,4 +63,4 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
-) if scala_major_version == "2.13" else None
+)

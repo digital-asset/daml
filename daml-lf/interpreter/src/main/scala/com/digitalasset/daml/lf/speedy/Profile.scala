@@ -251,6 +251,7 @@ object Profile {
       implicit val lookupByKeyDefRef: Allowed[LookupByKeyDefRef] = allowAll
       implicit val createAndExerciseLabel: Allowed[CreateAndExerciseLabel] = allowAll
       implicit val exceptionMessageDefRef: Allowed[ExceptionMessageDefRef] = allowAll
+      implicit val interfacePrecondDefRef: Allowed[InterfacePrecondDefRef] = allowAll
       implicit val scenarioLabel: Allowed[ScenarioLabel] = allowAll
       implicit val exprVarName: Allowed[Ast.ExprVarName] = allowAll
 

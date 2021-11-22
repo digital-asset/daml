@@ -216,10 +216,11 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
     val template = BranchingSignatories(whichSign = false, signTrue = alice, signFalse = bob)
     val create = beta.submitAndWaitRequest(bob, template.create.command)
     for {
-      transaction <- beta.submitAndWaitForTransaction(create)
+      transactionResponse <- beta.submitAndWaitForTransaction(create)
       _ <- synchronize(alpha, beta)
       aliceTransactions <- alpha.flatTransactions(alice)
     } yield {
+      val transaction = transactionResponse.getTransaction
       val branchingContractId = createdEvents(transaction)
         .map(_.contractId)
         .headOption
@@ -278,10 +279,11 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
       BranchingControllers(giver = alice, whichCtrl = false, ctrlTrue = bob, ctrlFalse = eve)
     val create = alpha.submitAndWaitRequest(alice, template.create.command)
     for {
-      transaction <- alpha.submitAndWaitForTransaction(create)
+      transactionResponse <- alpha.submitAndWaitForTransaction(create)
       _ <- synchronize(alpha, beta)
       transactions <- beta.flatTransactions(bob)
     } yield {
+      val transaction = transactionResponse.getTransaction
       assert(
         !transactions.exists(_.transactionId != transaction.transactionId),
         s"The transaction ${transaction.transactionId} should not have been disclosed.",
@@ -298,7 +300,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
       val template = WithObservers(alice, Primitive.List(observers: _*))
       val create = alpha.submitAndWaitRequest(alice, template.create.command)
       for {
-        transactionId <- alpha.submitAndWaitForTransactionId(create)
+        transactionId <- alpha.submitAndWaitForTransactionId(create).map(_.transactionId)
         _ <- eventually {
           for {
             transactions <- beta.flatTransactions(observers: _*)

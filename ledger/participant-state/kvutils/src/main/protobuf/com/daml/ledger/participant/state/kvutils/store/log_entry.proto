@@ -81,7 +81,8 @@ message DamlLogEntryId {
 message DamlOutOfTimeBoundsEntry {
   // We don't expect entry.recordTime to be present.
   DamlLogEntry entry = 1;
-  google.protobuf.Timestamp duplicate_until = 2;
+  // Read-only for backwards compatibility, will not be set for new entries
+  google.protobuf.Timestamp duplicate_until = 2 [deprecated = true];
   google.protobuf.Timestamp too_early_until = 3;
   google.protobuf.Timestamp too_late_from = 4;
 }

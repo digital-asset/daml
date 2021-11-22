@@ -30,6 +30,7 @@ main = withTempDir $ \yarnCache -> do
     setEnv "YARN_CACHE_FOLDER" yarnCache True
     yarnPath : args <- getArgs
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
+    damlcLegacy <- locateRunfiles ("damlc_legacy" </> "damlc_legacy")
     daml2js <- locateRunfiles (mainWorkspace </> "language-support" </> "ts" </> "codegen" </> exe "daml2js")
     yarn <- locateRunfiles (mainWorkspace </> yarnPath)
     davl <- locateRunfiles ("davl" </> "released")
@@ -37,7 +38,7 @@ main = withTempDir $ \yarnCache -> do
     withArgs args $ withEnv
         [ ("PATH", Just $ intercalate [searchPathSeparator] $ takeDirectory yarn : oldPath)
         , ("TASTY_NUM_THREADS", Just "1")
-        ] $ defaultMain (tests yarn damlc daml2js davl)
+        ] $ defaultMain (tests yarn damlc damlcLegacy daml2js davl)
 
 -- It may help to keep in mind for the following tests, this quick
 -- refresher on the layout of a simple project:
@@ -64,8 +65,8 @@ main = withTempDir $ \yarnCache -> do
 --       ...
 --     daml-types  <-- referred to by the "resolutions" field in package.json
 
-tests :: FilePath -> FilePath -> FilePath -> FilePath -> TestTree
-tests yarn damlc daml2js davl = testGroup "daml2js tests"
+tests :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> TestTree
+tests yarn damlc damlcLegacy daml2js davl = testGroup "daml2js tests"
   [
     testCaseSteps "Different package, same name test" $ \step -> withTempDir $ \here -> do
       let grover = here </> "grover"
@@ -107,7 +108,7 @@ tests yarn damlc daml2js davl = testGroup "daml2js tests"
           "module Grover where data Grover = Grover"
         writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"] (Just LF.version1_7)
         step "daml build..."
-        buildProject []
+        buildProjectLegacy []
       let superGrover = here </> "super-grover"
           superGroverDaml = superGrover </> "daml"
           superGroverDar = superGrover </> ".daml" </> "dist" </> "super-grover-1.0.dar"
@@ -117,7 +118,7 @@ tests yarn damlc daml2js davl = testGroup "daml2js tests"
           "module Grover where data Grover = Grover"
         writeDamlYaml "super-grover" ["Grover"] ["daml-prim", "daml-stdlib"] (Just LF.version1_7)
         step "daml build..."
-        buildProject []
+        buildProjectLegacy []
       withCurrentDirectory here $ do
         step "daml2js..."
         setupYarnEnvironment
@@ -249,6 +250,9 @@ tests yarn damlc daml2js davl = testGroup "daml2js tests"
 
     buildProject :: [String] -> IO ()
     buildProject args = callProcessSilent damlc (["build"] ++ args)
+
+    buildProjectLegacy :: [String] -> IO ()
+    buildProjectLegacy args = callProcessSilent damlcLegacy (["build"] ++ args)
 
     daml2jsProject :: [FilePath] -> FilePath -> IO ()
     daml2jsProject dars outDir = callProcessSilent daml2js $ dars ++ ["-o", outDir]

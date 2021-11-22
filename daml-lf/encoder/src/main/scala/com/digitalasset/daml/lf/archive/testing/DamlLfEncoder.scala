@@ -70,7 +70,7 @@ private[daml] object DamlLfEncoder extends App {
       } else None
 
     val pkg =
-      Ast.Package(modules, Set.empty[PackageId], parserParameters.languageVersion, metadata)
+      Ast.Package.build(modules, Set.empty[PackageId], parserParameters.languageVersion, metadata)
     val pkgs = PackageInterface(Map(pkgId -> pkg))
 
     Validation.checkPackage(pkgs, pkgId, pkg).left.foreach(e => error(e.pretty))

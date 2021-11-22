@@ -913,7 +913,6 @@ data TemplateImplements = TemplateImplements
   , tpiMethods :: !(NM.NameMap TemplateImplementsMethod)
   , tpiInheritedChoiceNames :: !(S.Set ChoiceName)
     -- ^ Set of inherited fixed choice names.
-  , tpiPrecond :: !Expr
   }
   deriving (Eq, Data, Generic, NFData, Show)
 

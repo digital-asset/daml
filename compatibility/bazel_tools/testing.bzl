@@ -535,12 +535,10 @@ excluded_test_tool_tests = [
         "start": "1.18.0-snapshot.20211026.8179.0.e474b2d1",
         "platform_ranges": [
             {
-                "end": "1.18.0-snapshot.20211026.8179.0.e474b2d1",
+                "end": "1.18.0-snapshot.20211117.8399.1",
                 "exclusions": [
                     # Exclude dedup tests due to large number of changes (removed participant deduplication, switch to append-only schema, changes in deduplication duration)
-                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationMixedClients",
-                    "KVCommandDeduplicationIT:KVCommandDeduplicationDeduplicateSubmitterBasic",
-                    "KVCommandDeduplicationIT:KVCommandDeduplicationSimpleDeduplicationBasic",
+                    "KVCommandDeduplicationIT",
                     "CommandDeduplicationIT",  # Latest version of the test is dependent on having the submission id populated
                 ],
             },
@@ -554,6 +552,18 @@ excluded_test_tool_tests = [
                 "start": "1.18.0-snapshot.20211102.8257.1",
                 "exclusions": [
                     "PackageManagementServiceIT",
+                ],
+            },
+        ],
+    },
+    {
+        # Completion offset included in the CommandService responses
+        "start": "1.18.0-snapshot.20211111.8349.0.d938a44c",
+        "platform_ranges": [
+            {
+                "end": "1.18.0-snapshot.20211111.8349.0.d938a44c ",
+                "exclusions": [
+                    "CommandServiceIT:CSsubmitAndWaitCompletionOffset",
                 ],
             },
         ],
@@ -822,6 +832,7 @@ def sdk_platform_test(sdk_version, platform_version):
     # --implicit-party-allocation=false only exists in SDK >= 1.2.0 so
     # for older versions we still have to disable ClosedWorldIT
     (extra_sandbox_next_args, extra_sandbox_next_exclusions) = (["--implicit-party-allocation=false"], []) if versions.is_at_least("1.2.0", platform_version) else ([], ["--exclude=ClosedWorldIT"])
+    extra_sandbox_classic_args = []
 
     if versions.is_at_least("1.17.0", platform_version):
         extra_sandbox_next_args += ["--max-deduplication-duration=PT5S"]
@@ -831,6 +842,15 @@ def sdk_platform_test(sdk_version, platform_version):
     kv_dedup_version = "1.17.0-snapshot.20210910.7786.0.976ca400"
     if versions.is_at_least(kv_dedup_version, sdk_version) and versions.is_at_least(kv_dedup_version, platform_version):
         extra_sandbox_next_exclusions += ["--exclude=CommandDeduplicationIT", "--additional=KVCommandDeduplicationIT"]
+
+    # Error codes are enabled by default after 1.18.0-snapshot.20211117.8399.0.a05a40ae.
+    # Before this SDK version, ledger-api-test-tool cannot correctly assert the self-service error codes.
+    # For this reason, all platforms newer than 1.18.0-snapshot.20211117.8399.0.a05a40ae will run against
+    # old ledger-api-test-tools in compatibility mode (i.e. `--use-pre-1.18-error-codes`)
+    error_codes_version_enabled_by_default = "1.18.0-snapshot.20211117.8399.0.a05a40ae"
+    if versions.is_at_most(error_codes_version_enabled_by_default, sdk_version):
+        extra_sandbox_next_args += ["--use-pre-1.18-error-codes"]
+        extra_sandbox_classic_args += ["--use-pre-1.18-error-codes"]
 
     # ledger-api-test-tool test-cases
     name = "ledger-api-test-tool-{sdk_version}-platform-{platform_version}".format(
@@ -866,7 +886,7 @@ def sdk_platform_test(sdk_version, platform_version):
         runner = "@//bazel_tools/client_server:runner",
         runner_args = ["6865"],
         server = sandbox,
-        server_args = sandbox_classic_args,
+        server_args = sandbox_classic_args + extra_sandbox_classic_args,
         server_files = ["$(rootpaths {dar_files})".format(
             dar_files = dar_files,
         )],
@@ -902,7 +922,7 @@ def sdk_platform_test(sdk_version, platform_version):
         runner = "@//bazel_tools/client_server:runner",
         runner_args = ["6865"],
         server = ":sandbox-with-postgres-{}".format(platform_version),
-        server_args = [platform_version] + sandbox_classic_args,
+        server_args = [platform_version] + sandbox_classic_args + extra_sandbox_classic_args,
         server_files = ["$(rootpaths {dar_files})".format(
             dar_files = dar_files,
         )],

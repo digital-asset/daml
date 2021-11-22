@@ -241,7 +241,7 @@ class ReplService(
   ): Unit = {
     val lfVer = LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor(req.getMinor))
     val mod = archive.moduleDecoder(lfVer, homePackageId).assertFromByteString(req.getDamlLf1)
-    val pkg = Package((mainModules + (mod.name -> mod)).values, Seq(), lfVer, None)
+    val pkg = Package(mainModules.updated(mod.name, mod), Set.empty, lfVer, None)
     // TODO[AH] Provide daml-script package id from REPL client.
     val Some(scriptPackageId) = this.signatures.collectFirst {
       case (pkgId, pkg) if pkg.modules.contains(DottedName.assertFromString("Daml.Script")) => pkgId

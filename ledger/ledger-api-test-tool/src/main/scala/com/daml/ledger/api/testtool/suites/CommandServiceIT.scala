@@ -47,7 +47,8 @@ final class CommandServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
     for {
-      transactionId <- ledger.submitAndWaitForTransactionId(request)
+      transactionIdResponse <- ledger.submitAndWaitForTransactionId(request)
+      transactionId = transactionIdResponse.transactionId
       retrievedTransaction <- ledger.transactionTreeById(transactionId, party)
       transactions <- ledger.flatTransactions(party)
     } yield {
@@ -57,6 +58,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         transactions.size == 1,
         s"$party should see only one transaction but sees ${transactions.size}",
       )
+
       val events = transactions.head.events
 
       assert(events.size == 1, s"$party should see only one event but sees ${events.size}")
@@ -95,15 +97,12 @@ final class CommandServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
     for {
-      transaction <- ledger.submitAndWaitForTransaction(request)
+      transactionResponse <- ledger.submitAndWaitForTransaction(request)
     } yield {
+      val transaction = transactionResponse.getTransaction
       assert(
         transaction.transactionId.nonEmpty,
         "The transaction identifier was empty but shouldn't.",
-      )
-      assert(
-        transaction.events.size == 1,
-        s"The returned transaction should contain 1 event, but contained ${transaction.events.size}",
       )
       val event = transaction.events.head
       assert(
@@ -124,8 +123,9 @@ final class CommandServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
     for {
-      transactionTree <- ledger.submitAndWaitForTransactionTree(request)
+      transactionTreeResponse <- ledger.submitAndWaitForTransactionTree(request)
     } yield {
+      val transactionTree = transactionTreeResponse.getTransaction
       assert(
         transactionTree.transactionId.nonEmpty,
         "The transaction identifier was empty but shouldn't.",
@@ -329,6 +329,9 @@ final class CommandServiceIT extends LedgerTestSuite {
     }
   })
 
+  // TODO fix this test: This test is not asserting that an interpretation error is returning a stack trace.
+  //                     Furthermore, stack traces are not returned as of 1.18.
+  //                     Instead more detailed error messages with the failed transaction are provided.
   test(
     "CSReturnStackTrace",
     "A submission resulting in an interpretation error should return the stack trace",
@@ -347,7 +350,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         LedgerApiErrors.CommandExecution.Interpreter.GenericInterpretationError,
         Some(
           Pattern.compile(
-            "Interpretation error: Error: (User abort: Assertion failed.|Unhandled exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"Assertion failed\" \\}\\.) [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node"
+            "Interpretation error: Error: (User abort: Assertion failed.?|Unhandled exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"Assertion failed\" \\}\\. [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node)"
           )
         ),
         checkDefiniteAnswerMetadata = true,
@@ -634,6 +637,37 @@ final class CommandServiceIT extends LedgerTestSuite {
           )
         ),
         checkDefiniteAnswerMetadata = true,
+      )
+    }
+  })
+
+  test(
+    "CSsubmitAndWaitCompletionOffset",
+    "SubmitAndWait methods return the completion offset in the response",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    def request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+    for {
+      transactionIdResponse <- ledger.submitAndWaitForTransactionId(request)
+      retrievedTransaction <- ledger.transactionTreeById(transactionIdResponse.transactionId, party)
+      transactionResponse <- ledger.submitAndWaitForTransaction(request)
+      transactionTreeResponse <- ledger.submitAndWaitForTransactionTree(request)
+    } yield {
+      assert(
+        transactionIdResponse.completionOffset.nonEmpty &&
+          transactionIdResponse.completionOffset == retrievedTransaction.offset,
+        "SubmitAndWaitForTransactionId does not contain the expected completion offset",
+      )
+      assert(
+        transactionResponse.completionOffset.nonEmpty &&
+          transactionResponse.completionOffset == transactionResponse.getTransaction.offset,
+        "SubmitAndWaitForTransaction does not contain the expected completion offset",
+      )
+      assert(
+        transactionTreeResponse.completionOffset.nonEmpty
+          && transactionTreeResponse.completionOffset
+          == transactionTreeResponse.getTransaction.offset,
+        "SubmitAndWaitForTransactionTree does not contain the expected completion offset",
       )
     }
   })
