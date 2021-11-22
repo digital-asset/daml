@@ -6,7 +6,7 @@ transactionNotFound:
   change:
     - NOT_FOUND
     - NOT_FOUND
-  changeExplanation: ""
+  changeExplanation: "Transaction was not found."
   selfServiceErrorCodeId: TRANSACTION_NOT_FOUND
   services:
     TransactionService:
@@ -47,7 +47,7 @@ ledgerIdMismatch:
   change:
     - NOT_FOUND
     - NOT_FOUND
-  changeExplanation: ""
+  changeExplanation: "The ledger id from the request does match the participant's ledger id."
   selfServiceErrorCodeId: LEDGER_ID_MISMATCH
   services:
     SandboxResetService:
@@ -86,7 +86,7 @@ missingField:
   change:
     - INVALID_ARGUMENT
     - INVALID_ARGUMENT
-  changeExplanation: ""
+  changeExplanation: "A field is missing in the request."
   selfServiceErrorCodeId: MISSING_FIELD
   services:
     CommandSubmissionService:
@@ -117,7 +117,7 @@ invalidArgument:
   change:
     - INVALID_ARGUMENT
     - INVALID_ARGUMENT
-  changeExplanation: ""
+  changeExplanation: "Generic error for invalid arguments in the request."
   selfServiceErrorCodeId: INVALID_ARGUMENT
   services:
     CommandSubmissionService:
@@ -201,7 +201,7 @@ nonHexOffset:
   change:
     - INVALID_ARGUMENT
     - INVALID_ARGUMENT
-  changeExplanation: ""
+  changeExplanation: "The offset is not in hexadecimal format."
   selfServiceErrorCodeId: NON_HEXADECIMAL_OFFSET
   services:
     ParticipantPruningService:
@@ -211,7 +211,7 @@ invalidField:
   change:
     - INVALID_ARGUMENT
     - INVALID_ARGUMENT
-  changeExplanation: ""
+  changeExplanation: "Invalid field detected in the request."
   selfServiceErrorCodeId: INVALID_FIELD
   services:
     CommandCompletionService:
@@ -344,7 +344,7 @@ serviceNotRunning:
   change:
     - UNAVAILABLE
     - UNAVAILABLE
-  changeExplanation: ""
+  changeExplanation: "A service is not running."
   selfServiceErrorCodeId: SERVICE_NOT_RUNNING
   services:
     CommandService:
@@ -372,7 +372,7 @@ ApiSubmissionService.failedOnCommandExecution#LedgerTime:
   change:
     - ABORTED
     - ABORTED
-  changeExplanation: ""
+  changeExplanation: "Failed to determine ledger time."
   selfServiceErrorCodeId: FAILED_TO_DETERMINE_LEDGER_TIME
   services:
     SubmissionService:
@@ -452,7 +452,7 @@ ApiSubmissionService.failedOnCommandExecution#{Package.AllowedLanguageVersion, n
   change:
     - INVALID_ARGUMENT
     - INVALID_ARGUMENT
-  changeExplanation: ""
+  changeExplanation: "Invalid argument detected before command execution."
   selfServiceErrorCodeId: ALLOWED_LANGUAGE_VERSIONS, COMMAND_PREPROCESSING_FAILED, DAML_AUTHORIZATION_ERROR
   services:
     SubmissionService:
@@ -462,7 +462,7 @@ ApiSubmissionService.failedOnCommandExecution#Interpretation::{CreateEmptyContra
   change:
     - INVALID_ARGUMENT
     - INVALID_ARGUMENT
-  changeExplanation: ""
+  changeExplanation: "Invalid argument detected by the Daml interpreter."
   selfServiceErrorCodeId: DAML_INTERPRETER_INVALID_ARGUMENT
   services:
     SubmissionService:
