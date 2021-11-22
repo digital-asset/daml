@@ -73,9 +73,9 @@ For information on how Daml types and contracts are represented by the Ledger AP
 Error handling
 **************
 
-The Ledger API generally uses the gRPC standard error codes for signaling response failures to client applications.
+The Ledger API generally uses the gRPC standard status codes for signaling response failures to client applications.
 
-For more details on the gRPC standard error codes, see the `gRPC documentation <https://github.com/grpc/grpc/blob/600272c826b48420084c2ff76dfb0d34324ec296/doc/statuscodes.md>`__ .
+For more details on the gRPC standard status codes, see the `gRPC documentation <https://github.com/grpc/grpc/blob/600272c826b48420084c2ff76dfb0d34324ec296/doc/statuscodes.md>`__ .
 
 Generically, on submitted commands the Ledger API responds with the following gRPC status codes:
 
