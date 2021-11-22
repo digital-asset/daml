@@ -197,7 +197,7 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
     , testInteraction' "server error"
           [ input "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"alice_doubly_allocated\")"
           , input "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"alice_doubly_allocated\")"
-          , matchOutput "io.grpc.StatusRuntimeException: INVALID_ARGUMENT: Invalid argument: Party already exists"
+          , matchOutput "^.*INVALID_ARGUMENT\\(8,alice_do\\): The submitted command has invalid arguments: Party already exists$"
           , input "debug 1"
           , matchServiceOutput "^.*: 1"
           ]

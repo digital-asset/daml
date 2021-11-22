@@ -474,7 +474,7 @@ object ApiSubmissionServiceSpec {
       commandExecutor: CommandExecutor = null,
       deduplicationEnabled: Boolean = true,
       mockIndexSubmissionService: IndexSubmissionService = mock[IndexSubmissionService],
-      useSelfServiceErrorCodes: Boolean = false,
+      useSelfServiceErrorCodes: Boolean = true,
       checkOverloaded: TelemetryContext => Option[SubmissionResult] = _ => None,
   )(implicit
       executionContext: ExecutionContext,

@@ -485,7 +485,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
 
           offset2 should be(offsetBuilder.of(2))
           inside(update2) { case CommandRejected(_, _, FinalReason(status)) =>
-            status.code should be(Code.INVALID_ARGUMENT.value)
+            status.code should be(Code.NOT_FOUND.value)
           }
 
           offset3 should be(offsetBuilder.of(3))
