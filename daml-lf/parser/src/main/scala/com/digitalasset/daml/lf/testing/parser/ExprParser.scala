@@ -326,7 +326,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   )
 
   private lazy val eCallInterface: Parser[ECallInterface] =
-    Id("icall") ~>! fullIdentifier ~ id ~ expr0 ^^ { case ifaceId ~ name ~ body =>
+    Id("icall") ~! `@` ~> fullIdentifier ~ id ~ expr0 ^^ { case ifaceId ~ name ~ body =>
       ECallInterface(interfaceId = ifaceId, methodName = name, value = body)
     }
 
