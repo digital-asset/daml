@@ -10,7 +10,7 @@ import akka.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.error.definitions.LoggingPackageServiceError
-import com.daml.error.definitions.LoggingPackageServiceError.Validation
+import com.daml.error.definitions.PackageServiceError.Validation
 import com.daml.error.{
   ContextualizedErrorLogger,
   DamlContextualizedErrorLogger,

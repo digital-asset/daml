@@ -21,7 +21,7 @@ abstract class LoggingPackageServiceError(
   final override def logOnCreation: Boolean = true
 }
 
-object LoggingPackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
+object PackageServiceError extends LedgerApiErrors.PackageServiceErrorGroup {
   object Reading extends ErrorGroup {
     @Explanation(
       """This error indicates that the supplied dar file name did not meet the requirements to be stored in the persistence store."""
@@ -139,30 +139,30 @@ object LoggingPackageServiceError extends LedgerApiErrors.PackageServiceErrorGro
     )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): LoggingPackageServiceError =
       lfArchiveError match {
         case LfArchiveError.InvalidDar(entries, cause) =>
-          LoggingPackageServiceError.Reading.InvalidDar
+          PackageServiceError.Reading.InvalidDar
             .Error(entries.entries.keys.toSeq, cause)
         case LfArchiveError.InvalidZipEntry(name, entries) =>
-          LoggingPackageServiceError.Reading.InvalidZipEntry
+          PackageServiceError.Reading.InvalidZipEntry
             .Error(name, entries.entries.keys.toSeq)
         case LfArchiveError.InvalidLegacyDar(entries) =>
-          LoggingPackageServiceError.Reading.InvalidLegacyDar.Error(entries.entries.keys.toSeq)
+          PackageServiceError.Reading.InvalidLegacyDar.Error(entries.entries.keys.toSeq)
         case LfArchiveError.ZipBomb =>
-          LoggingPackageServiceError.Reading.ZipBomb.Error(LfArchiveError.ZipBomb.getMessage)
+          PackageServiceError.Reading.ZipBomb.Error(LfArchiveError.ZipBomb.getMessage)
         case e: LfArchiveError =>
-          LoggingPackageServiceError.Reading.ParseError.Error(e.msg)
+          PackageServiceError.Reading.ParseError.Error(e.msg)
         case e =>
-          LoggingPackageServiceError.InternalError.Unhandled(e)
+          PackageServiceError.InternalError.Unhandled(e)
       }
 
     def handleLfEnginePackageError(err: Error.Package.Error)(implicit
         loggingContext: ContextualizedErrorLogger
     ): LoggingPackageServiceError = err match {
       case Error.Package.Internal(nameOfFunc, msg) =>
-        LoggingPackageServiceError.InternalError.Validation(nameOfFunc, msg)
+        PackageServiceError.InternalError.Validation(nameOfFunc, msg)
       case Error.Package.Validation(validationError) =>
         ValidationError.Error(validationError)
       case Error.Package.MissingPackage(packageId, _) =>
-        LoggingPackageServiceError.InternalError.Error(Set(packageId))
+        PackageServiceError.InternalError.Error(Set(packageId))
       case Error.Package
             .AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions) =>
         AllowedLanguageMismatchError(
