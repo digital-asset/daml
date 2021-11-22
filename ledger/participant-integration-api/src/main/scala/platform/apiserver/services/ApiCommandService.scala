@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver.services
 
 import java.time.{Duration, Instant}
-import java.util.concurrent.TimeUnit
 
 import akka.NotUsed
 import akka.stream.Materializer
@@ -16,43 +15,46 @@ import com.daml.error.{
   ErrorCodesVersionSwitcher,
 }
 import com.daml.ledger.api.SubmissionIdGenerator
-import com.daml.ledger.api.domain.{ApplicationId, LedgerId}
+import com.daml.ledger.api.domain.{ApplicationId, Commands, LedgerId, SubmissionId}
 import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
+import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.v1.command_service._
-import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionByIdRequest,
   GetTransactionResponse,
 }
-import com.daml.ledger.api.validation.{CommandsValidator, LedgerOffsetValidator}
+import com.daml.ledger.api.validation.{
+  CommandsValidator,
+  LedgerOffsetValidator,
+  SubmitAndWaitRequestValidator,
+}
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
   CompletionSuccess,
-  TrackedCompletionFailure,
 }
 import com.daml.ledger.client.services.commands.tracker.{CompletionResponse, TrackedCommandKey}
-import com.daml.ledger.client.services.commands.{
-  CommandCompletionSource,
-  CommandSubmission,
-  CommandTrackerFlow,
-}
+import com.daml.ledger.client.services.commands.{CommandCompletionSource, CommandTrackerFlow}
 import com.daml.lf.data.Ref
-import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.configuration.LedgerConfigurationSubscription
 import com.daml.platform.apiserver.services.ApiCommandService._
-import com.daml.platform.apiserver.services.tracking.{QueueBackedTracker, Tracker, TrackerMap}
-import com.daml.platform.server.api.services.domain.CommandCompletionService
+import com.daml.platform.apiserver.services.tracking.{
+  InternalCommandSubmission,
+  QueueBackedTracker,
+  Tracker,
+  TrackerMap,
+}
+import com.daml.platform.server.api.services.domain.{CommandCompletionService, CommandService}
 import com.daml.platform.server.api.services.grpc.GrpcCommandService
-import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
-import io.grpc.Context
+import scalaz.syntax.tag._
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -60,12 +62,12 @@ import scala.util.Try
 
 private[apiserver] final class ApiCommandService private[services] (
     transactionServices: TransactionServices,
-    submissionTracker: Tracker,
+    submissionTracker: Tracker[InternalCommandSubmission],
     errorCodesVersionSwitcher: ErrorCodesVersionSwitcher,
 )(implicit
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
-) extends CommandServiceGrpc.CommandService
+) extends CommandService
     with AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -80,118 +82,97 @@ private[apiserver] final class ApiCommandService private[services] (
     submissionTracker.close()
   }
 
-  override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
-    withCommandsLoggingContext(request.getCommands) { case (enrichedLoggingContext, errorLogger) =>
-      submitAndWaitInternal(request)(enrichedLoggingContext, errorLogger).map {
-        case Left(failure) =>
-          throw CompletionResponse.toException(failure, errorFactories)(errorLogger)
-        case Right(_) => Empty.defaultInstance
-      }
-    }
-
-  override def submitAndWaitForTransactionId(
-      request: SubmitAndWaitRequest
+  override def submitAndWait(
+      request: SubmitRequest,
+      trackingTimeout: Option[Duration],
   ): Future[SubmitAndWaitForTransactionIdResponse] =
-    withCommandsLoggingContext(request.getCommands) { case (enrichedLoggingContext, errorLogger) =>
-      submitAndWaitInternal(request)(enrichedLoggingContext, errorLogger).map {
-        case Left(failure) =>
-          throw CompletionResponse.toException(failure, errorFactories)(errorLogger)
-        case Right(response) =>
-          SubmitAndWaitForTransactionIdResponse.of(
-            response.transactionId,
-            offsetFromResponse(response),
-          )
-      }
-    }
+    submitAndWaitInternal(request, trackingTimeout).map(response =>
+      SubmitAndWaitForTransactionIdResponse.of(
+        response.transactionId,
+        offsetFromResponse(response),
+      )
+    )
 
   private def offsetFromResponse(response: CompletionSuccess) =
     response.checkpoint.flatMap(_.offset).flatMap(_.value.absolute).getOrElse("")
 
   override def submitAndWaitForTransaction(
-      request: SubmitAndWaitRequest
+      request: SubmitRequest,
+      trackingTimeout: Option[Duration],
   ): Future[SubmitAndWaitForTransactionResponse] =
-    withCommandsLoggingContext(request.getCommands) { case (enrichedLoggingContext, errorLogger) =>
-      submitAndWaitInternal(request)(enrichedLoggingContext, errorLogger).flatMap {
-        case Left(failure) =>
-          Future.failed(CompletionResponse.toException(failure, errorFactories)(errorLogger))
-        case Right(resp) =>
-          val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
-          val txRequest = GetTransactionByIdRequest(
-            request.getCommands.ledgerId,
-            resp.transactionId,
-            effectiveActAs.toList,
-          )
-          transactionServices
-            .getFlatTransactionById(txRequest)
-            .map(transactionResponse =>
-              SubmitAndWaitForTransactionResponse
-                .of(
-                  transactionResponse.transaction,
-                  transactionResponse.transaction.map(_.offset).getOrElse(""),
-                )
+    submitAndWaitInternal(request, trackingTimeout).flatMap { resp =>
+      val txRequest = GetTransactionByIdRequest(
+        request.commands.ledgerId.unwrap,
+        resp.transactionId,
+        request.commands.actAs.toSeq,
+      )
+      transactionServices
+        .getFlatTransactionById(txRequest)
+        .map(transactionResponse =>
+          SubmitAndWaitForTransactionResponse
+            .of(
+              transactionResponse.transaction,
+              transactionResponse.transaction.map(_.offset).getOrElse(""),
             )
-      }
+        )
     }
 
   override def submitAndWaitForTransactionTree(
-      request: SubmitAndWaitRequest
+      request: SubmitRequest,
+      trackingTimeout: Option[Duration],
   ): Future[SubmitAndWaitForTransactionTreeResponse] =
-    withCommandsLoggingContext(request.getCommands) { case (enrichedLoggingContext, errorLogger) =>
-      submitAndWaitInternal(request)(enrichedLoggingContext, errorLogger).flatMap {
-        case Left(failure) =>
-          Future.failed(CompletionResponse.toException(failure, errorFactories)(errorLogger))
-        case Right(resp) =>
-          val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
-          val txRequest = GetTransactionByIdRequest(
-            request.getCommands.ledgerId,
-            resp.transactionId,
-            effectiveActAs.toList,
-          )
-          transactionServices
-            .getTransactionById(txRequest)
-            .map(resp =>
-              SubmitAndWaitForTransactionTreeResponse
-                .of(resp.transaction, resp.transaction.map(_.offset).getOrElse(""))
-            )
-      }
+    submitAndWaitInternal(request, trackingTimeout).flatMap { resp =>
+      val txRequest = GetTransactionByIdRequest(
+        request.commands.ledgerId.unwrap,
+        resp.transactionId,
+        request.commands.actAs.toList,
+      )
+      transactionServices
+        .getTransactionById(txRequest)
+        .map(resp =>
+          SubmitAndWaitForTransactionTreeResponse
+            .of(resp.transaction, resp.transaction.map(_.offset).getOrElse(""))
+        )
     }
 
   private def submitAndWaitInternal(
-      request: SubmitAndWaitRequest
+      request: SubmitRequest,
+      trackingTimeout: Option[Duration],
   )(implicit
-      loggingContext: LoggingContext,
-      errorLogger: ContextualizedErrorLogger,
-  ): Future[Either[TrackedCompletionFailure, CompletionSuccess]] =
+      loggingContext: LoggingContext
+  ): Future[CompletionSuccess] = {
+    implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+      new DamlContextualizedErrorLogger(
+        logger,
+        loggingContext,
+        request.commands.submissionId.map(SubmissionId.unwrap),
+      )
     if (running) {
-      val timeout = Option(Context.current().getDeadline)
-        .map(deadline => Duration.ofNanos(deadline.timeRemaining(TimeUnit.NANOSECONDS)))
-      submissionTracker.track(CommandSubmission(request.getCommands, timeout))
+      submissionTracker
+        .track(InternalCommandSubmission(request, trackingTimeout))
+        .map(
+          _.fold(
+            failure => {
+              val contextualizedErrorLogger: ContextualizedErrorLogger =
+                new DamlContextualizedErrorLogger(
+                  logger,
+                  loggingContext,
+                  request.commands.submissionId.map(SubmissionId.unwrap),
+                )
+              throw CompletionResponse.toException(failure, errorFactories)(
+                contextualizedErrorLogger
+              )
+            },
+            identity,
+          )
+        )
     } else {
       Future
         .failed(
           errorFactories.serviceNotRunning("Command Service")(definiteAnswer = Some(false))
         )
     }
-
-  private def withCommandsLoggingContext[T](commands: Commands)(
-      submitWithContext: (LoggingContext, ContextualizedErrorLogger) => Future[T]
-  )(implicit loggingContext: LoggingContext): Future[T] =
-    withEnrichedLoggingContext(
-      logging.submissionId(commands.submissionId),
-      logging.commandId(commands.commandId),
-      logging.partyString(commands.party),
-      logging.actAsStrings(commands.actAs),
-      logging.readAsStrings(commands.readAs),
-    ) { loggingContext =>
-      submitWithContext(
-        loggingContext,
-        new DamlContextualizedErrorLogger(
-          logger,
-          loggingContext,
-          Some(commands.submissionId),
-        ),
-      )
-    }
+  }
 }
 
 private[apiserver] object ApiCommandService {
@@ -201,7 +182,7 @@ private[apiserver] object ApiCommandService {
   type SubmissionFlow = Flow[
     Ctx[
       (Promise[Either[CompletionFailure, CompletionSuccess]], TrackedCommandKey),
-      CommandSubmission,
+      InternalCommandSubmission,
     ],
     Ctx[(Promise[Either[CompletionFailure, CompletionSuccess]], TrackedCommandKey), Try[Empty]],
     NotUsed,
@@ -225,7 +206,8 @@ private[apiserver] object ApiCommandService {
     val ledgerOffsetValidator = new LedgerOffsetValidator(errorFactories)
     val submissionTracker = new TrackerMap.SelfCleaning(
       configuration.trackerRetentionPeriod,
-      Tracking.getTrackerKey,
+      (internalSubmission: InternalCommandSubmission) =>
+        Tracking.getTrackerKey(internalSubmission.request.commands),
       Tracking.newTracker(
         configuration,
         submissionFlow,
@@ -236,16 +218,25 @@ private[apiserver] object ApiCommandService {
       ),
       trackerCleanupInterval,
     )
+    val commandsValidator = new CommandsValidator(
+      configuration.ledgerId,
+      errorCodesVersionSwitcher,
+    )
+    val fieldValidations = FieldValidations(ErrorFactories(errorCodesVersionSwitcher))
+    val validator = new SubmitAndWaitRequestValidator(commandsValidator, fieldValidations)
     new GrpcCommandService(
-      service =
-        new ApiCommandService(transactionServices, submissionTracker, errorCodesVersionSwitcher),
+      service = new ApiCommandService(
+        transactionServices,
+        submissionTracker,
+        errorCodesVersionSwitcher,
+      ),
       ledgerId = configuration.ledgerId,
-      errorCodesVersionSwitcher = errorCodesVersionSwitcher,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () =>
         ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationTime),
       generateSubmissionId = SubmissionIdGenerator.Random,
+      validator = validator,
     )
   }
 
@@ -267,11 +258,9 @@ private[apiserver] object ApiCommandService {
     private val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
     def getTrackerKey(commands: Commands): Tracking.Key = {
-      val parties = CommandsValidator.effectiveActAs(commands)
-      // Safe to convert the applicationId and the parties as the command should've been already validated
       Tracking.Key(
-        Ref.ApplicationId.assertFromString(commands.applicationId),
-        parties.map(Ref.Party.assertFromString),
+        commands.applicationId.unwrap,
+        commands.actAs,
       )
     }
 
@@ -288,7 +277,7 @@ private[apiserver] object ApiCommandService {
         materializer: Materializer,
         executionContext: ExecutionContext,
         loggingContext: LoggingContext,
-    ): Future[Tracker] = {
+    ): Future[Tracker[InternalCommandSubmission]] = {
       // Note: command completions are returned as long as at least one of the original submitters
       // is specified in the command completion request.
       implicit val contextualizedErrorLogger: DamlContextualizedErrorLogger =
@@ -297,7 +286,9 @@ private[apiserver] object ApiCommandService {
         ledgerEnd <- completionServices.getLedgerEnd(configuration.ledgerId)
       } yield {
         val commandTrackerFlow =
-          CommandTrackerFlow[Promise[Either[CompletionFailure, CompletionSuccess]], NotUsed](
+          CommandTrackerFlow[Promise[
+            Either[CompletionFailure, CompletionSuccess]
+          ], NotUsed, InternalCommandSubmission](
             commandSubmissionFlow = submissionFlow,
             createCommandCompletionSource = offset =>
               offsetValidator

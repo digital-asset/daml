@@ -3,33 +3,30 @@
 
 package com.daml.platform.apiserver.services
 
-import com.daml.error.ErrorCodesVersionSwitcher
-import java.time.{Duration, Instant}
-import java.util.UUID
-import java.util.concurrent.TimeUnit
+import java.time.Duration
 
+import com.daml.error.ErrorCodesVersionSwitcher
 import com.daml.grpc.RpcProtoExtractors
+import com.daml.ledger.api.DeduplicationPeriod
+import com.daml.ledger.api.domain.{ApplicationId, CommandId, Commands, LedgerId}
+import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.v1.command_completion_service.Checkpoint
-import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
-import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
-import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.client.services.commands.CommandSubmission
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
+import com.daml.lf.command
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.ApiCommandServiceSpec._
-import com.daml.platform.apiserver.services.tracking.Tracker
+import com.daml.platform.apiserver.services.tracking.{InternalCommandSubmission, Tracker}
 import com.google.rpc.Code
 import com.google.rpc.status.{Status => StatusProto}
-import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
-import io.grpc.{Deadline, Status}
+import io.grpc.Status
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
 class ApiCommandServiceSpec
@@ -37,7 +34,6 @@ class ApiCommandServiceSpec
     with Matchers
     with MockitoSugar
     with ArgumentMatchersSugar {
-  private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private val errorCodesVersionSwitcher = mock[ErrorCodesVersionSwitcher]
@@ -55,9 +51,9 @@ class ApiCommandServiceSpec
     )
     "submit a request, and wait for a response" in {
       val commands = someCommands()
-      val submissionTracker = mock[Tracker]
+      val submissionTracker = mock[Tracker[InternalCommandSubmission]]
       when(
-        submissionTracker.track(any[CommandSubmission])(
+        submissionTracker.track(any[InternalCommandSubmission])(
           any[ExecutionContext],
           any[LoggingContext],
         )
@@ -67,75 +63,29 @@ class ApiCommandServiceSpec
         )
       )
 
-      openChannel(
-        new ApiCommandService(
-          UnimplementedTransactionServices,
-          submissionTracker,
-          errorCodesVersionSwitcher,
-        )
-      ).use { stub =>
-        val request = SubmitAndWaitRequest.of(Some(commands))
-        stub.submitAndWaitForTransactionId(request).map { response =>
-          response.transactionId should be("transaction ID")
-          response.completionOffset shouldBe "offset"
-          verify(submissionTracker).track(
-            eqTo(CommandSubmission(commands))
-          )(any[ExecutionContext], any[LoggingContext])
-          verifyZeroInteractions(errorCodesVersionSwitcher)
-          succeed
-        }
-      }
-    }
-
-    "pass the provided deadline to the tracker as a timeout" in {
-      val now = Instant.parse("2021-09-01T12:00:00Z")
-      val deadlineTicker = new Deadline.Ticker {
-        override def nanoTime(): Long =
-          now.getEpochSecond * TimeUnit.SECONDS.toNanos(1) + now.getNano
-      }
-
-      val commands = someCommands()
-      val submissionTracker = mock[Tracker]
-      when(
-        submissionTracker.track(any[CommandSubmission])(
-          any[ExecutionContext],
-          any[LoggingContext],
-        )
-      ).thenReturn(
-        Future.successful(
-          Right(completionSuccess)
-        )
+      val service = new ApiCommandService(
+        UnimplementedTransactionServices,
+        submissionTracker,
+        errorCodesVersionSwitcher,
       )
-
-      openChannel(
-        new ApiCommandService(
-          UnimplementedTransactionServices,
-          submissionTracker,
-          errorCodesVersionSwitcher,
-        ),
-        deadlineTicker,
-      ).use { stub =>
-        val request = SubmitAndWaitRequest.of(Some(commands))
-        stub
-          .withDeadline(Deadline.after(30, TimeUnit.SECONDS, deadlineTicker))
-          .submitAndWaitForTransactionId(request)
-          .map { response =>
-            response.transactionId should be("transaction ID")
-            verify(submissionTracker).track(
-              eqTo(CommandSubmission(commands, timeout = Some(Duration.ofSeconds(30))))
-            )(any[ExecutionContext], any[LoggingContext])
-            verifyZeroInteractions(errorCodesVersionSwitcher)
-            succeed
-          }
+      val request = SubmitRequest(commands, "")
+      service.submitAndWait(request, None).map { response =>
+        response.transactionId should be("transaction ID")
+        response.completionOffset shouldBe "offset"
+        verify(submissionTracker).track(
+          eqTo(InternalCommandSubmission(request))
+        )(any[ExecutionContext], any[LoggingContext])
+        verifyZeroInteractions(errorCodesVersionSwitcher)
+        succeed
       }
     }
 
     "time out if the tracker times out" in {
       def testTrackerTimeout(switcher: ErrorCodesVersionSwitcher, expectedStatusCode: Code) = {
         val commands = someCommands()
-        val submissionTracker = mock[Tracker]
+        val submissionTracker = mock[Tracker[InternalCommandSubmission]]
         when(
-          submissionTracker.track(any[CommandSubmission])(
+          submissionTracker.track(any[InternalCommandSubmission])(
             any[ExecutionContext],
             any[LoggingContext],
           )
@@ -148,20 +98,17 @@ class ApiCommandServiceSpec
             )
           )
         )
-
-        openChannel(
+        val service =
           new ApiCommandService(
             UnimplementedTransactionServices,
             submissionTracker,
             switcher,
           )
-        ).use { stub =>
-          val request = SubmitAndWaitRequest.of(Some(commands))
-          stub.submitAndWaitForTransactionId(request).failed.map {
-            case RpcProtoExtractors.Exception(RpcProtoExtractors.Status(`expectedStatusCode`)) =>
-              succeed
-            case unexpected => fail(s"Unexpected exception", unexpected)
-          }
+        val request = SubmitRequest(commands, "")
+        service.submitAndWaitForTransaction(request, None).failed.map {
+          case RpcProtoExtractors.Exception(RpcProtoExtractors.Status(`expectedStatusCode`)) =>
+            succeed
+          case unexpected => fail(s"Unexpected exception", unexpected)
         }
       }
 
@@ -176,7 +123,7 @@ class ApiCommandServiceSpec
     }
 
     "close the supplied tracker when closed" in {
-      val submissionTracker = mock[Tracker]
+      val submissionTracker = mock[Tracker[InternalCommandSubmission]]
       val service = new ApiCommandService(
         UnimplementedTransactionServices,
         submissionTracker,
@@ -203,29 +150,20 @@ object ApiCommandServiceSpec {
   private val OkStatus = StatusProto.of(Status.Code.OK.value, "", Seq.empty)
 
   private def someCommands() = Commands(
-    ledgerId = "ledger ID",
-    commandId = "command ID",
-    commands = Seq(
-      Command.of(Command.Command.Create(CreateCommand()))
+    ledgerId = LedgerId("ledger ID"),
+    commandId = CommandId(Ref.CommandId.assertFromString("command ID")),
+    workflowId = None,
+    applicationId = ApplicationId(Ref.ApplicationId.assertFromString("app ID")),
+    submissionId = None,
+    actAs = Set.empty,
+    readAs = Set.empty,
+    submittedAt = Timestamp.now(),
+    deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ofSeconds(1)),
+    commands = command.Commands(
+      ImmArray.empty,
+      Timestamp.now(),
+      "",
     ),
   )
 
-  private def openChannel(
-      service: ApiCommandService,
-      deadlineTicker: Deadline.Ticker = Deadline.getSystemTicker,
-  ): ResourceOwner[CommandServiceGrpc.CommandServiceStub] =
-    for {
-      name <- ResourceOwner.forValue(() => UUID.randomUUID().toString)
-      _ <- ResourceOwner.forServer(
-        InProcessServerBuilder
-          .forName(name)
-          .deadlineTicker(deadlineTicker)
-          .addService(() => CommandService.bindService(service, ExecutionContext.global)),
-        shutdownTimeout = 10.seconds,
-      )
-      channel <- ResourceOwner.forChannel(
-        InProcessChannelBuilder.forName(name),
-        shutdownTimeout = 10.seconds,
-      )
-    } yield CommandServiceGrpc.stub(channel)
 }
