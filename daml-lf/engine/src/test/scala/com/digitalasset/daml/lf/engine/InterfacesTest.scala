@@ -192,14 +192,10 @@ class InterfacesTest
       val command = ExerciseTemplateCommand(idI1, cid1, "C1", ValueRecord(None, ImmArray.empty))
       preprocess(command) shouldBe a[Left[_, _]]
     }
-    // TODO https://github.com/digital-asset/daml/issues/11558
-    //   Fix lookupTemplateChoice to not return inherited choices.
-    /*
-      "be unable to exercise T1 inherited choice via exercise template (stopped in preprocessor)" in {
-        val command = ExerciseTemplateCommand(idT1, cid1, "C1", ValueRecord(None, ImmArray.empty))
-        preprocess(command) shouldBe a[Left[_, _]]
-      }
-     */
+    "be unable to exercise T1 inherited choice via exercise template (stopped in preprocessor)" in {
+      val command = ExerciseTemplateCommand(idT1, cid1, "C1", ValueRecord(None, ImmArray.empty))
+      preprocess(command) shouldBe a[Left[_, _]]
+    }
     "be able to exercise T1 own choice via exercise template" in {
       val command =
         ExerciseTemplateCommand(idT1, cid1, "OwnChoice", ValueRecord(None, ImmArray.empty))
