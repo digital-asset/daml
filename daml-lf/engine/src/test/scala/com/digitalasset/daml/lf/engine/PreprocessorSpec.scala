@@ -11,7 +11,7 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class CommandPreprocessorSpec extends AnyWordSpec with Inside with Matchers {
+class PreprocessorSpec extends AnyWordSpec with Inside with Matchers {
 
   import com.daml.lf.testing.parser.Implicits._
   import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
@@ -26,12 +26,11 @@ class CommandPreprocessorSpec extends AnyWordSpec with Inside with Matchers {
           record @serializable Record = { owners: List Party, data : Int64 };
 
           template (this : Record) = {
-            precondition True,
-            signatories Mod:Record {owners} this,
-            observers Mod:Record {owners} this,
-            agreement "Agreement",
-            choices {  },
-            key @(List Party) (Mod:Record {owners} this) (\ (parties: List Party) -> parties)
+            precondition True;
+            signatories Mod:Record {owners} this;
+            observers Mod:Record {owners} this;
+            agreement "Agreement";
+            key @(List Party) (Mod:Record {owners} this) (\ (parties: List Party) -> parties);
           };
 
         }

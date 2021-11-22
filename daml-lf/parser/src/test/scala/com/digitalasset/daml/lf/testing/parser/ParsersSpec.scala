@@ -475,7 +475,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
 
       parseModules(p) shouldBe Right(
         List(
-          Module(
+          Module.build(
             name = modName,
             definitions = List(
               DottedName.assertFromSegments(ImmArray("Tree", "Node").toSeq) -> recDef,
@@ -510,10 +510,10 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         List(
           Module(
             name = modName,
-            definitions = List(DottedName.assertFromString("fact") -> valDef),
-            templates = List.empty,
-            exceptions = List.empty,
-            interfaces = List.empty,
+            definitions = Map(DottedName.assertFromString("fact") -> valDef),
+            templates = Map.empty,
+            exceptions = Map.empty,
+            interfaces = Map.empty,
             featureFlags = FeatureFlags.default,
           )
         )
@@ -530,36 +530,34 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           record @serializable Person = { person: Party, name: Text } ;
 
           template (this : Person) =  {
-            precondition True,
-            signatories Cons @Party [person] (Nil @Party),
-            observers Cons @Party ['Alice'] (Nil @Party),
-            agreement "Agreement",
-            choices {
-              choice Sleep (self) (u:Unit) : ContractId Mod:Person
-                , controllers Cons @Party [person] (Nil @Party)
-                to upure @(ContractId Mod:Person) self,
-              choice @nonConsuming Nap (self) (i : Int64): Int64
-                , controllers Cons @Party [person] (Nil @Party)
-                , observers Nil @Party
-                to upure @Int64 i,
-              choice @nonConsuming PowerNap (self) (i : Int64): Int64
-                , controllers Cons @Party [person] (Nil @Party)
-                , observers Cons @Party [person] (Nil @Party)
-                to upure @Int64 i
-            },
-            key @Party (Mod:Person {name} this) (\ (p: Party) -> p)
+            precondition True;
+            signatories Cons @Party [person] (Nil @Party);
+            observers Cons @Party ['Alice'] (Nil @Party);
+            agreement "Agreement";
+            choice Sleep (self) (u:Unit) : ContractId Mod:Person
+              , controllers Cons @Party [person] (Nil @Party)
+              to upure @(ContractId Mod:Person) self;
+            choice @nonConsuming Nap (self) (i : Int64): Int64
+              , controllers Cons @Party [person] (Nil @Party)
+              , observers Nil @Party
+              to upure @Int64 i;
+            choice @nonConsuming PowerNap (self) (i : Int64): Int64
+              , controllers Cons @Party [person] (Nil @Party)
+              , observers Cons @Party [person] (Nil @Party)
+              to upure @Int64 i;
+            key @Party (Mod:Person {name} this) (\ (p: Party) -> p);
           } ;
         }
       """
 
       val template =
-        Template(
+        Template.build(
           param = n"this",
           precond = e"True",
           signatories = e"Cons @Party [person] (Nil @Party)",
           agreementText = e""" "Agreement" """,
-          choices = Map(
-            n"Sleep" -> TemplateChoice(
+          choices = List(
+            TemplateChoice(
               name = n"Sleep",
               consuming = true,
               controllers = e"Cons @Party [person] (Nil @Party)",
@@ -569,7 +567,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               returnType = t"ContractId Mod:Person",
               update = e"upure @(ContractId Mod:Person) self",
             ),
-            n"Nap" -> TemplateChoice(
+            TemplateChoice(
               name = n"Nap",
               consuming = false,
               controllers = e"Cons @Party [person] (Nil @Party)",
@@ -579,7 +577,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               returnType = t"Int64",
               update = e"upure @Int64 i",
             ),
-            n"PowerNap" -> TemplateChoice(
+            TemplateChoice(
               name = n"PowerNap",
               consuming = false,
               controllers = e"Cons @Party [person] (Nil @Party)",
@@ -605,10 +603,10 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         List(
           Module(
             name = modName,
-            definitions = List(name -> recDef),
-            templates = List(name -> template),
-            exceptions = List.empty,
-            interfaces = List.empty,
+            definitions = Map(name -> recDef),
+            templates = Map(name -> template),
+            exceptions = Map.empty,
+            interfaces = Map.empty,
             featureFlags = FeatureFlags.default,
           )
         )
@@ -625,22 +623,21 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             record @serializable R = { } ;
 
             template (this : R) =  {
-              precondition True,
-              signatories Nil @Unit,
-              observers Nil @Unit,
-              agreement "Agreement",
-              choices { }
+              precondition True;
+              signatories Nil @Unit;
+              observers Nil @Unit;
+              agreement "Agreement";
             } ;
           }
         """
 
       val template =
-        Template(
+        Template.build(
           param = n"this",
           precond = e"True",
           signatories = e"Nil @Unit",
           agreementText = e""" "Agreement" """,
-          choices = Map.empty,
+          choices = List.empty,
           observers = e"Nil @Unit",
           key = None,
           implements = List.empty,
@@ -656,10 +653,10 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         List(
           Module(
             name = modName,
-            definitions = List(name -> recDef),
-            templates = List(name -> template),
-            exceptions = List.empty,
-            interfaces = List.empty,
+            definitions = Map(name -> recDef),
+            templates = Map(name -> template),
+            exceptions = Map.empty,
+            interfaces = Map.empty,
             featureFlags = FeatureFlags.default,
           )
         )
@@ -693,10 +690,10 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
       List(
         Module(
           name = modName,
-          definitions = List(name -> recDef),
-          templates = List.empty,
-          exceptions = List(name -> exception),
-          interfaces = List.empty,
+          definitions = Map(name -> recDef),
+          templates = Map.empty,
+          exceptions = Map(name -> exception),
+          interfaces = Map.empty,
           featureFlags = FeatureFlags.default,
         )
       )

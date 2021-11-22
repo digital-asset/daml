@@ -156,13 +156,16 @@ object Ast {
   final case class EFromAnyException(typ: Type, value: Expr) extends Expr
 
   /** Convert template payload to interface it implements */
-  final case class EToInterface(iface: TypeConName, tpl: TypeConName, value: Expr) extends Expr
+  final case class EToInterface(interfaceId: TypeConName, templateId: TypeConName, value: Expr)
+      extends Expr
 
   /** Convert interface back to template payload if possible */
-  final case class EFromInterface(iface: TypeConName, tpl: TypeConName, value: Expr) extends Expr
+  final case class EFromInterface(interfaceId: TypeConName, templateId: TypeConName, value: Expr)
+      extends Expr
 
   /** Invoke an interface method */
-  final case class ECallInterface(iface: TypeConName, method: MethodName, value: Expr) extends Expr
+  final case class ECallInterface(interfaceId: TypeConName, methodName: MethodName, value: Expr)
+      extends Expr
 
   //
   // Kinds
@@ -487,9 +490,9 @@ object Ast {
   final case class UpdatePure(t: Type, expr: Expr) extends Update
   final case class UpdateBlock(bindings: ImmArray[Binding], body: Expr) extends Update
   final case class UpdateCreate(templateId: TypeConName, arg: Expr) extends Update
-  final case class UpdateCreateInterface(interface: TypeConName, arg: Expr) extends Update
+  final case class UpdateCreateInterface(interfaceId: TypeConName, arg: Expr) extends Update
   final case class UpdateFetch(templateId: TypeConName, contractId: Expr) extends Update
-  final case class UpdateFetchInterface(interface: TypeConName, contractId: Expr) extends Update
+  final case class UpdateFetchInterface(interfaceId: TypeConName, contractId: Expr) extends Update
   final case class UpdateExercise(
       templateId: TypeConName,
       choice: ChoiceName,
@@ -497,7 +500,7 @@ object Ast {
       argE: Expr,
   ) extends Update
   final case class UpdateExerciseInterface(
-      interface: TypeConName,
+      interfaceId: TypeConName,
       choice: ChoiceName,
       cidE: Expr,
       argE: Expr,
@@ -587,7 +590,7 @@ object Ast {
 
   final class GenDValueCompanion[E] private[Ast] {
     def apply(typ: Type, noPartyLiterals: Boolean, body: E, isTest: Boolean): GenDValue[E] =
-      GenDValue(typ, noPartyLiterals, body, isTest)
+      GenDValue(typ = typ, noPartyLiterals = noPartyLiterals, body = body, isTest = isTest)
 
     def unapply(arg: GenDValue[E]): Some[(Type, Boolean, E, Boolean)] =
       Some((arg.typ, arg.noPartyLiterals, arg.body, arg.isTest))
@@ -626,7 +629,7 @@ object Ast {
 
   final class GenTemplateKeyCompanion[E] private[Ast] {
     def apply(typ: Type, body: E, maintainers: E): GenTemplateKey[E] =
-      GenTemplateKey(typ, body, maintainers)
+      GenTemplateKey(typ = typ, body = body, maintainers = maintainers)
 
     def unapply(arg: GenTemplateKey[E]): Some[(Type, E, E)] =
       Some((arg.typ, arg.body, arg.maintainers))
@@ -646,22 +649,32 @@ object Ast {
   )
 
   final class GenDefInterfaceCompanion[E] {
-    def apply(
+    @throws[PackageError]
+    def build(
         param: ExprVarName, // Binder for template argument.
-        fixedChoices: Iterable[(ChoiceName, GenTemplateChoice[E])],
-        methods: Iterable[(MethodName, InterfaceMethod)],
+        fixedChoices: Iterable[GenTemplateChoice[E]],
+        methods: Iterable[InterfaceMethod],
         precond: E,
     ): GenDefInterface[E] = {
       val fixedChoiceMap = toMapWithoutDuplicate(
-        fixedChoices,
-        (name: ChoiceName) => throw PackageError(s"collision on interface choice name $name"),
+        fixedChoices.view.map(c => c.name -> c),
+        (name: ChoiceName) => PackageError(s"collision on interface choice name $name"),
       )
       val methodMap = toMapWithoutDuplicate(
-        methods,
-        (name: MethodName) => throw PackageError(s"collision on interface method name $name"),
+        methods.view.map(c => c.name -> c),
+        (name: MethodName) => PackageError(s"collision on interface method name $name"),
       )
       GenDefInterface(param, fixedChoiceMap, methodMap, precond)
     }
+
+    def apply(
+        param: ExprVarName,
+        fixedChoices: Map[ChoiceName, GenTemplateChoice[E]],
+        methods: Map[MethodName, InterfaceMethod],
+        precond: E,
+    ): GenDefInterface[E] =
+      GenDefInterface(param, fixedChoices, methods, precond)
+
     def unapply(arg: GenDefInterface[E]): Some[
       (
           ExprVarName,
@@ -709,53 +722,54 @@ object Ast {
   }
 
   final class GenTemplateCompanion[E] private[Ast] {
+    @throws[PackageError]
+    def build(
+        param: ExprVarName,
+        precond: E,
+        signatories: E,
+        agreementText: E,
+        choices: Iterable[GenTemplateChoice[E]],
+        observers: E,
+        key: Option[GenTemplateKey[E]],
+        implements: Iterable[GenTemplateImplements[E]],
+    ): GenTemplate[E] =
+      GenTemplate[E](
+        param = param,
+        precond = precond,
+        signatories = signatories,
+        agreementText = agreementText,
+        choices = toMapWithoutDuplicate(
+          choices.view.map(c => c.name -> c),
+          (choiceName: ChoiceName) => PackageError(s"collision on choice name $choiceName"),
+        ),
+        observers = observers,
+        key = key,
+        implements = toMapWithoutDuplicate(
+          implements.map(i => i.interfaceId -> i),
+          (ifaceId: TypeConName) =>
+            PackageError(s"repeated interface implementation ${ifaceId.toString}"),
+        ),
+      )
 
     def apply(
         param: ExprVarName,
         precond: E,
         signatories: E,
         agreementText: E,
-        choices: Iterable[(ChoiceName, GenTemplateChoice[E])],
+        choices: Map[ChoiceName, GenTemplateChoice[E]],
         observers: E,
         key: Option[GenTemplateKey[E]],
-        implements: Iterable[(TypeConName, GenTemplateImplements[E])],
-    ): GenTemplate[E] = {
-
-      val choiceMap = toMapWithoutDuplicate(
-        choices,
-        (choiceName: ChoiceName) => throw PackageError(s"collision on choice name $choiceName"),
-      )
-
-      val implementsMap = toMapWithoutDuplicate(
-        implements,
-        (ifaceName: TypeConName) =>
-          throw PackageError(s"repeated interface implementation ${ifaceName.toString}"),
-      )
-
-      GenTemplate[E](
-        param,
-        precond,
-        signatories,
-        agreementText,
-        choiceMap,
-        observers,
-        key,
-        implementsMap,
-      )
-    }
-
-    def apply(arg: GenTemplate[E]): Option[
-      (
-          ExprVarName,
-          E,
-          E,
-          E,
-          Map[ChoiceName, GenTemplateChoice[E]],
-          E,
-          Option[GenTemplateKey[E]],
-          Map[TypeConName, GenTemplateImplements[E]],
-      )
-    ] = GenTemplate.unapply(arg)
+        implements: Map[TypeConName, GenTemplateImplements[E]],
+    ) = GenTemplate(
+      param = param,
+      precond = precond,
+      signatories = signatories,
+      agreementText = agreementText,
+      choices = choices,
+      observers = observers,
+      key = key,
+      implements = implements,
+    )
 
     def unapply(arg: GenTemplate[E]): Some[
       (
@@ -811,14 +825,14 @@ object Ast {
         update: E,
     ): GenTemplateChoice[E] =
       GenTemplateChoice(
-        name,
-        consuming,
-        controllers,
-        choiceObservers,
-        selfBinder,
-        argBinder,
-        returnType,
-        update,
+        name = name,
+        consuming = consuming,
+        controllers = controllers,
+        choiceObservers = choiceObservers,
+        selfBinder = selfBinder,
+        argBinder = argBinder,
+        returnType = returnType,
+        update = update,
       )
 
     def unapply(
@@ -845,36 +859,41 @@ object Ast {
   val TemplateChoiceSignature = new GenTemplateChoiceCompanion[Unit]
 
   final case class GenTemplateImplements[E](
-      interface: TypeConName,
+      interfaceId: TypeConName,
       methods: Map[MethodName, GenTemplateImplementsMethod[E]],
       inheritedChoices: Set[ChoiceName],
   )
 
   final class GenTemplateImplementsCompanion[E] private[Ast] {
-    def apply(
-        interface: TypeConName,
-        methods: Iterable[(MethodName, GenTemplateImplementsMethod[E])],
+    @throws[PackageError]
+    def build(
+        interfaceId: TypeConName,
+        methods: Iterable[GenTemplateImplementsMethod[E]],
         inheritedChoices: Iterable[ChoiceName],
-    ): GenTemplateImplements[E] = {
-      val methodMap = toMapWithoutDuplicate(
-        methods,
-        (methodName: MethodName) =>
-          throw PackageError(s"repeated method implementation $methodName"),
+    ): GenTemplateImplements[E] =
+      new GenTemplateImplements[E](
+        interfaceId = interfaceId,
+        methods = toMapWithoutDuplicate(
+          methods.map(m => m.name -> m),
+          (name: MethodName) => PackageError(s"repeated method implementation $name"),
+        ),
+        inheritedChoices = toSetWithoutDuplicate(
+          inheritedChoices,
+          (name: ChoiceName) => PackageError(s"repeated inherited Choices $name"),
+        ),
       )
-      new GenTemplateImplements[E](interface, methodMap, inheritedChoices.toSet)
-    }
 
     def apply(
-        interface: TypeConName,
+        interfaceId: TypeConName,
         methods: Map[MethodName, GenTemplateImplementsMethod[E]],
         inheritedChoices: Set[ChoiceName],
     ): GenTemplateImplements[E] =
-      GenTemplateImplements[E](interface, methods, inheritedChoices)
+      GenTemplateImplements[E](interfaceId, methods, inheritedChoices)
 
     def unapply(
         arg: GenTemplateImplements[E]
     ): Some[(TypeConName, Map[MethodName, GenTemplateImplementsMethod[E]], Set[ChoiceName])] =
-      Some((arg.interface, arg.methods, arg.inheritedChoices))
+      Some((arg.interfaceId, arg.methods, arg.inheritedChoices))
   }
 
   type TemplateImplements = GenTemplateImplements[Expr]
@@ -889,11 +908,8 @@ object Ast {
   )
 
   final class GenTemplateImplementsMethodCompanion[E] {
-    def apply(
-        name: MethodName,
-        value: E,
-    ): GenTemplateImplementsMethod[E] =
-      GenTemplateImplementsMethod[E](name, value)
+    def apply(methodName: MethodName, value: E): GenTemplateImplementsMethod[E] =
+      GenTemplateImplementsMethod[E](methodName, value)
 
     def unapply(
         arg: GenTemplateImplementsMethod[E]
@@ -911,10 +927,10 @@ object Ast {
 
   final class GenDefExceptionCompanion[E] private[Ast] {
     def apply(message: E): GenDefException[E] =
-      GenDefException(message)
+      GenDefException(message = message)
 
     def unapply(arg: GenDefException[E]): Some[E] =
-      Some((arg.message))
+      Some(arg.message)
   }
 
   type DefException = GenDefException[Expr]
@@ -964,53 +980,73 @@ object Ast {
 
   private[this] def toMapWithoutDuplicate[Key, Value](
       xs: Iterable[(Key, Value)],
-      error: Key => Nothing,
+      error: Key => PackageError,
   ): Map[Key, Value] =
-    xs.foldLeft[Map[Key, Value]](Map.empty[Key, Value]) { case (acc, (key, value)) =>
-      if (acc.contains(key)) {
-        error(key)
-      } else {
+    xs.foldLeft(Map.empty[Key, Value]) { case (acc, (key, value)) =>
+      if (acc.contains(key))
+        throw error(key)
+      else
         acc.updated(key, value)
-      }
     }
 
-  final class GenModuleCompanion[E] private[Ast] {
+  private[this] def toSetWithoutDuplicate[X](
+      xs: Iterable[X],
+      error: X => PackageError,
+  ): Set[X] =
+    xs.foldLeft(Set.empty[X])((acc, x) =>
+      if (acc.contains(x))
+        throw error(x)
+      else
+        acc + x
+    )
 
-    def apply(
+  final class GenModuleCompanion[E] private[Ast] {
+    @throws[PackageError]
+    def build(
         name: ModuleName,
         definitions: Iterable[(DottedName, GenDefinition[E])],
         templates: Iterable[(DottedName, GenTemplate[E])],
         exceptions: Iterable[(DottedName, GenDefException[E])],
         interfaces: Iterable[(DottedName, GenDefInterface[E])],
         featureFlags: FeatureFlags,
-    ): GenModule[E] = {
-
-      val definitionMap =
-        toMapWithoutDuplicate(
+    ): GenModule[E] =
+      GenModule(
+        name = name,
+        definitions = toMapWithoutDuplicate(
           definitions,
-          (name: DottedName) => throw PackageError(s"Collision on definition name ${name.toString}"),
-        )
-
-      val templateMap =
-        toMapWithoutDuplicate(
+          (name: DottedName) => PackageError(s"Collision on definition name ${name.toString}"),
+        ),
+        templates = toMapWithoutDuplicate(
           templates,
-          (name: DottedName) => throw PackageError(s"Collision on template name ${name.toString}"),
-        )
-
-      val exceptionMap =
-        toMapWithoutDuplicate(
+          (name: DottedName) => PackageError(s"Collision on template name ${name.toString}"),
+        ),
+        exceptions = toMapWithoutDuplicate(
           exceptions,
-          (name: DottedName) => throw PackageError(s"Collision on exception name ${name.toString}"),
-        )
-
-      val interfaceMap =
-        toMapWithoutDuplicate(
+          (name: DottedName) => PackageError(s"Collision on exception name ${name.toString}"),
+        ),
+        interfaces = toMapWithoutDuplicate(
           interfaces,
-          (name: DottedName) => throw PackageError(s"Collision on interface name ${name.toString}"),
-        )
+          (name: DottedName) => PackageError(s"Collision on interface name ${name.toString}"),
+        ),
+        featureFlags = featureFlags,
+      )
 
-      GenModule(name, definitionMap, templateMap, exceptionMap, interfaceMap, featureFlags)
-    }
+    def apply(
+        name: ModuleName,
+        definitions: Map[DottedName, GenDefinition[E]],
+        templates: Map[DottedName, GenTemplate[E]],
+        exceptions: Map[DottedName, GenDefException[E]],
+        interfaces: Map[DottedName, GenDefInterface[E]],
+        featureFlags: FeatureFlags,
+    ) =
+      GenModule(
+        name = name,
+        definitions = definitions,
+        templates = templates,
+        exceptions = exceptions,
+        interfaces = interfaces,
+        featureFlags = featureFlags,
+      )
 
     def unapply(arg: GenModule[E]): Some[
       (
@@ -1042,34 +1078,33 @@ object Ast {
   )
 
   final class GenPackageCompanion[E] private[Ast] {
-
-    def apply(
+    @throws[PackageError]
+    def build(
         modules: Iterable[GenModule[E]],
         directDeps: Iterable[PackageId],
         languageVersion: LanguageVersion,
         metadata: Option[PackageMetadata],
-    ): GenPackage[E] = {
-      val modulesWithNames = modules.map(m => m.name -> m)
-      val moduleMap =
-        toMapWithoutDuplicate(
-          modulesWithNames,
-          (modName: ModuleName) =>
-            throw PackageError(s"Collision on module name ${modName.toString}"),
-        )
-      this(moduleMap, directDeps.toSet, languageVersion, metadata)
-    }
-
+    ): GenPackage[E] =
+      GenPackage(
+        modules = toMapWithoutDuplicate(
+          modules.view.map(m => m.name -> m),
+          (modName: ModuleName) => PackageError(s"Collision on module name ${modName.toString}"),
+        ),
+        directDeps = directDeps.toSet,
+        languageVersion = languageVersion,
+        metadata = metadata,
+      )
     def apply(
         modules: Map[ModuleName, GenModule[E]],
         directDeps: Set[PackageId],
         languageVersion: LanguageVersion,
         metadata: Option[PackageMetadata],
-    ) =
+    ): GenPackage[E] =
       GenPackage(
-        modules: Map[ModuleName, GenModule[E]],
-        directDeps: Set[PackageId],
-        languageVersion: LanguageVersion,
-        metadata: Option[PackageMetadata],
+        modules = modules,
+        directDeps = directDeps,
+        languageVersion = languageVersion,
+        metadata = metadata,
       )
 
     def unapply(arg: GenPackage[E]): Some[
@@ -1079,7 +1114,17 @@ object Ast {
           LanguageVersion,
           Option[PackageMetadata],
       )
-    ] = Some((arg.modules, arg.directDeps, arg.languageVersion, arg.metadata))
+    ] = {
+      Some(
+        (
+          arg.modules,
+          arg.directDeps,
+          arg.languageVersion,
+          arg.metadata,
+        )
+      )
+    }
+
   }
 
   type Package = GenPackage[Expr]

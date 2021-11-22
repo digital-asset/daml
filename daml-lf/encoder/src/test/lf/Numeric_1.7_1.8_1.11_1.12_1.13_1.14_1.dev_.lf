@@ -12,12 +12,10 @@ module NumericMod {
   };
 
   template (this : Box) =  {
-    precondition True,
-    signatories (PartyMod:one (NumericMod:Box {party} this)),
-    observers (Nil @Party),
-    agreement "Agreement for NumericMod:Box",
-    choices {
-    }
+    precondition True;
+    signatories (PartyMod:one (NumericMod:Box {party} this));
+    observers (Nil @Party);
+    agreement "Agreement for NumericMod:Box";
   };
 
   val build0: NumericMod:Box = NumericMod:Box {

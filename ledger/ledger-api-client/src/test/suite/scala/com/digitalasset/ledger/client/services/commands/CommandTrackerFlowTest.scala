@@ -29,7 +29,6 @@ import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
 }
 import com.daml.ledger.client.services.commands.tracker.{CompletionResponse, TrackedCommandKey}
 import com.daml.util.Ctx
-import com.google.protobuf.duration.{Duration => DurationProto}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code._
@@ -324,31 +323,6 @@ class CommandTrackerFlowTest
 
         results.expectNext(
           1.second,
-          Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
-        )
-        succeed
-      }
-
-      "use the command deduplication time, if provided" in {
-        val Handle(submissions, results, _, _) = runCommandTrackingFlow(allSubmissionsSuccessful)
-
-        val deduplicationTime = DurationProto.of(0, 200000000) // 200ms
-        submissions.sendNext(
-          Ctx(
-            context,
-            CommandSubmission(
-              Commands(
-                commandId = commandId,
-                submissionId = submissionId,
-                deduplicationPeriod =
-                  Commands.DeduplicationPeriod.DeduplicationTime(deduplicationTime),
-              )
-            ),
-          )
-        )
-
-        results.expectNext(
-          500.milliseconds,
           Ctx(context, Left(CompletionResponse.TimeoutResponse(commandId))),
         )
         succeed

@@ -18,24 +18,24 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   private def defaultVersion = LanguageVersion.defaultV1
 
-  "Package.apply" should {
+  "Package.build" should {
 
     "catch module name collisions" in {
 
-      Package(
+      Package.build(
         List(
-          Module(modName1, List.empty, List.empty, List.empty, List.empty, FeatureFlags.default),
-          Module(modName2, List.empty, List.empty, List.empty, List.empty, FeatureFlags.default),
+          Module(modName1, Map.empty, Map.empty, Map.empty, Map.empty, FeatureFlags.default),
+          Module(modName2, Map.empty, Map.empty, Map.empty, Map.empty, FeatureFlags.default),
         ),
         Set.empty,
         defaultVersion,
         None,
       )
       a[PackageError] shouldBe thrownBy(
-        Package(
+        Package.build(
           List(
-            Module(modName1, List.empty, List.empty, List.empty, List.empty, FeatureFlags.default),
-            Module(modName1, List.empty, List.empty, List.empty, List.empty, FeatureFlags.default),
+            Module(modName1, Map.empty, Map.empty, Map.empty, Map.empty, FeatureFlags.default),
+            Module(modName1, Map.empty, Map.empty, Map.empty, Map.empty, FeatureFlags.default),
           ),
           Set.empty,
           defaultVersion,
@@ -47,7 +47,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   }
 
-  "Module.apply" should {
+  "Module.build" should {
 
     val template = Template(
       param = Name.assertFromString("x"),
@@ -57,7 +57,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       choices = Map.empty,
       observers = eParties,
       key = None,
-      implements = List.empty,
+      implements = Map.empty,
     )
     def exception = DefException(
       message = eText
@@ -70,7 +70,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
     "catch definition name collisions" in {
 
-      Module.apply(
+      Module.build(
         name = modName1,
         definitions = List(
           defName("def1") -> recordDef,
@@ -85,7 +85,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       )
 
       a[PackageError] shouldBe thrownBy(
-        Module.apply(
+        Module.build(
           name = modName1,
           definitions = List(
             defName("def1") -> recordDef,
@@ -104,7 +104,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
     "catch template collisions" in {
 
-      Module.apply(
+      Module.build(
         name = modName1,
         definitions = List(
           defName("defName1") -> recordDef,
@@ -119,7 +119,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       )
 
       a[PackageError] shouldBe thrownBy(
-        Module.apply(
+        Module.build(
           name = modName1,
           definitions = List(
             defName("defName1") -> recordDef,
@@ -137,7 +137,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
     }
 
     "catch exception collisions" in {
-      Module.apply(
+      Module.build(
         name = modName1,
         definitions = List(
           defName("defName1") -> recordDef,
@@ -152,7 +152,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       )
 
       a[PackageError] shouldBe thrownBy(
-        Module.apply(
+        Module.build(
           name = modName1,
           definitions = List(
             defName("defName1") -> recordDef,
@@ -170,7 +170,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
     }
 
     "catch collisions between exception and template" in {
-      Module.apply(
+      Module.build(
         name = modName1,
         definitions = List(
           defName("defName1") -> recordDef,
@@ -187,7 +187,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       )
 
       a[PackageError] shouldBe thrownBy(
-        Module.apply(
+        Module.build(
           name = modName1,
           definitions = List(
             defName("defName1") -> recordDef,
@@ -207,14 +207,12 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   }
 
-  "Template.apply" should {
+  "Template.build" should {
 
     def builder(name: ChoiceName, typ: Type, expr: Expr) = TemplateChoice(
       name = name,
       consuming = true,
       controllers = eParties,
-      // TODO https://github.com/digital-asset/daml/issues/7709
-      //  need test for the Some case
       choiceObservers = None,
       selfBinder = Name.assertFromString("self"),
       argBinder = Name.assertFromString("arg") -> TUnit,
@@ -225,17 +223,22 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
     val List(choice1, choice2, choice3) =
       List("choice1", "choice2", "choice3").map(Name.assertFromString)
 
+    "catch implements interface repetition " ignore {
+      // TODO https://github.com/digital-asset/daml/issues/10917
+      // implement
+    }
+
     "catch choice name collisions" in {
 
-      Template(
+      Template.build(
         param = Name.assertFromString("x"),
         precond = ETrue,
         signatories = eParties,
         agreementText = eText,
         choices = List(
-          choice1 -> builder(choice1, TUnit, EUnit),
-          choice2 -> builder(choice2, TBool, ETrue),
-          choice3 -> builder(choice3, TText, eText),
+          builder(choice1, TUnit, EUnit),
+          builder(choice2, TBool, ETrue),
+          builder(choice3, TText, eText),
         ),
         observers = eParties,
         key = None,
@@ -243,21 +246,32 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       )
 
       a[PackageError] shouldBe thrownBy(
-        Template(
+        Template.build(
           param = Name.assertFromString("x"),
           precond = ETrue,
           signatories = eParties,
           agreementText = eText,
           choices = List(
-            choice1 -> builder(choice1, TUnit, EUnit),
-            choice2 -> builder(choice2, TBool, ETrue),
-            choice1 -> builder(choice1, TText, eText),
+            builder(choice1, TUnit, EUnit),
+            builder(choice2, TBool, ETrue),
+            builder(choice1, TText, eText),
           ),
           observers = eParties,
           key = None,
           implements = List.empty,
         )
       )
+    }
+  }
+
+  "GenDefInterface.build " should {
+    "catch duplicate choices" ignore {
+      // TODO https://github.com/digital-asset/daml/issues/10917
+      // implement
+    }
+    "catch duplicate method" ignore {
+      // TODO https://github.com/digital-asset/daml/issues/10917
+      // implement
     }
   }
 

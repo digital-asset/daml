@@ -8,12 +8,10 @@ module EnumMod {
   record @serializable Box = { x: EnumMod:Color, party: Party } ;
 
   template (this : Box) =  {
-    precondition True,
-    signatories (PartyMod:one (EnumMod:Box {party} this)),
-    observers (Nil @Party),
-    agreement "Agreement for EnumMod:Box",
-    choices {
-    }
+    precondition True;
+    signatories (PartyMod:one (EnumMod:Box {party} this));
+    observers (Nil @Party);
+    agreement "Agreement for EnumMod:Box";
   };
 
   val createColoredContract: EnumMod:Color -> Scenario (ContractId EnumMod:Box) = \ (color: EnumMod:Color) ->

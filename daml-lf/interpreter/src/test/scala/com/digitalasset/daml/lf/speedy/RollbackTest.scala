@@ -24,9 +24,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
-  import ExceptionTest._
+  import RollbackTest._
 
   implicit val defaultParserParameters: ParserParameters[this.type] = {
     ParserParameters(
@@ -74,33 +74,29 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
         record @serializable T1 = { party: Party, info: Int64 } ;
         template (record : T1) = {
-          precondition True,
-          signatories Cons @Party [M:T1 {party} record] (Nil @Party),
-          observers Nil @Party,
-          agreement "Agreement",
-          choices {
-            choice Ch1 (self) (i : Unit) : Unit
-            , controllers Cons @Party [M:T1 {party} record] (Nil @Party)
+          precondition True;
+          signatories Cons @Party [M:T1 {party} record] (Nil @Party);
+          observers Nil @Party;
+          agreement "Agreement";
+          choice Ch1 (self) (i : Unit) : Unit,
+            controllers Cons @Party [M:T1 {party} record] (Nil @Party)
             to
               ubind
                 x1: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 400 };
                 x2: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 500 }
-              in upure @Unit (),
-
-            choice Ch2 (self) (i : Unit) : Unit
-            , controllers Cons @Party [M:T1 {party} record] (Nil @Party)
+              in upure @Unit ();
+          choice Ch2 (self) (i : Unit) : Unit,
+            controllers Cons @Party [M:T1 {party} record] (Nil @Party)
             to
               ubind
                 x1: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 400 };
                 u: Unit <- throw @(Update Unit) @M:MyException (M:MyException {message = "oops"});
                 x2: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 500 }
-              in upure @Unit (),
-
-            choice ChControllerThrow (self) (i : Unit) : Unit
-            , controllers (throw @(List Party) @M:MyException (M:MyException {message = "oops"}))
+              in upure @Unit ();
+          choice ChControllerThrow (self) (i : Unit) : Unit,
+            controllers (throw @(List Party) @M:MyException (M:MyException {message = "oops"}))
             to
-              upure @Unit ()
-          }
+              upure @Unit ();
         };
 
         val create0 : Party -> Update Unit = \(party: Party) ->
@@ -252,7 +248,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
 }
 
-object ExceptionTest {
+object RollbackTest {
 
   sealed trait Tree //minimal transaction tree, for purposes of writing test expectation
   final case class C(x: Long) extends Tree //Create Node

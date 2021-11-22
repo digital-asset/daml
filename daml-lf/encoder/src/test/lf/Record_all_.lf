@@ -8,12 +8,10 @@ module RecordMod {
   record @serializable Box = { x: RecordMod:Pair Int64 (Numeric 10), party: Party } ;
 
   template (this : Box) =  {
-    precondition True,
-    signatories (PartyMod:one (RecordMod:Box {party} this)),
-    observers (Nil @Party),
-    agreement "Agreement for RecordMod:Box",
-    choices {
-    }
+    precondition True;
+    signatories (PartyMod:one (RecordMod:Box {party} this));
+    observers (Nil @Party);
+    agreement "Agreement for RecordMod:Box";
   };
 
   val createContract:

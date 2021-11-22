@@ -377,10 +377,10 @@ private[lf] final class Compiler(
       addDef(compileSignatories(identifier, tmpl))
       addDef(compileObservers(identifier, tmpl))
       tmpl.implements.values.foreach { impl =>
-        addDef(compileCreateByInterface(identifier, tmpl, impl.interface))
-        addDef(compileImplements(identifier, impl.interface))
+        addDef(compileCreateByInterface(identifier, tmpl, impl.interfaceId))
+        addDef(compileImplements(identifier, impl.interfaceId))
         impl.methods.values.foreach(method =>
-          addDef(compileImplementsMethod(identifier, impl.interface, method))
+          addDef(compileImplementsMethod(identifier, impl.interfaceId, method))
         )
       }
 

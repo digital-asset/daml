@@ -27,19 +27,17 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
           record @serializable T = { party: Party };
 
           template (this : T) =  {
-            precondition True,
-            signatories Cons @Party [M:T {party} this] (Nil @Party),
-            observers Nil @Party,
-            agreement "",
-            choices {
-              choice Ch1 (self) (i : Unit) : Unit
-              , controllers Cons @Party [M:T {party} this] (Nil @Party)
+            precondition True;
+            signatories Cons @Party [M:T {party} this] (Nil @Party);
+            observers Nil @Party;
+            agreement "";
+            choice Ch1 (self) (i : Unit) : Unit,
+              controllers Cons @Party [M:T {party} this] (Nil @Party)
               to
                 ubind
                   x1: ContractId M:T <- create @M:T M:T { party = M:T {party} this };
                   x2: ContractId M:T <- create @M:T M:T { party = M:T {party} this }
-                in upure @Unit ()
-            }
+                in upure @Unit ();
           };
 
           val exp1 : Party -> Update Unit = \(party: Party) ->

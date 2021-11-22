@@ -187,10 +187,7 @@ private[validation] object ExprIterable {
 
   private[iterable] def iterator(x: TemplateImplementsMethod): Iterator[Expr] =
     x match {
-      case TemplateImplementsMethod(
-            name @ _,
-            value,
-          ) =>
+      case TemplateImplementsMethod(name @ _, value) =>
         Iterator(value)
     }
 

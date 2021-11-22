@@ -50,18 +50,16 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
               Mod:keyParties (Mod:Contract {key} contract);
 
           template (this : Contract) =  {
-             precondition True,
-             signatories Mod:contractParties this,
-             observers Mod:contractParties this,
-             agreement "Agreement",
-             choices {
-               choice @nonConsuming Noop (self) (r: Mod:Record) : Mod:Record,
-                 controllers
-                   Mod:contractParties this
-                 to
-                   upure @Mod:Record r
-             },
-             key @Mod:Key (Mod:Contract {key} this) Mod:keyParties
+             precondition True;
+             signatories Mod:contractParties this;
+             observers Mod:contractParties this;
+             agreement "Agreement";
+             choice @nonConsuming Noop (self) (r: Mod:Record) : Mod:Record,
+               controllers
+                 Mod:contractParties this
+               to
+                 upure @Mod:Record r;
+             key @Mod:Key (Mod:Contract {key} this) Mod:keyParties;
           };
         }
 

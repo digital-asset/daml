@@ -191,6 +191,8 @@ clsx 1.1.1 : MIT License
 cmark-gfm 0.2.2 : BSD 3-clause "New" or "Revised" License
 cmdargs 0.10.21 : BSD 3-clause "New" or "Revised" License
 CoffeeScript 2.5.1 : MIT License
+color-name 1.1.3 : MIT License
+color-name 1.1.4 : MIT License
 color-string 1.5.5 : MIT License
 colors.js 1.1.2 : MIT License
 colors.js v1.4.0 : MIT License
@@ -616,8 +618,6 @@ jwt 0.10.0 : MIT License
 kan-extensions 5.2.2 : BSD 3-clause "New" or "Revised" License
 kind-of 6.0.3 : MIT License
 kind-projector 0.13.0 : MIT License
-kk-color-name 1.1.3 : MIT License
-kk-color-name 1.1.4 : MIT License
 labeled-stream-splicer 2.0.2 : MIT License
 language-c 0.9.0.1 : BSD 3-clause "New" or "Revised" License
 lens-aeson 1.1.1 : MIT License
@@ -12462,7 +12462,7 @@ SOFTWARE
 ---
 
 MIT License
-(kk-color-name 1.1.3, kk-color-name 1.1.4)
+(color-name 1.1.3, color-name 1.1.4)
 
 The MIT License (MIT)
 
