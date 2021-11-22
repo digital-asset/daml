@@ -86,7 +86,7 @@ The user interface for our app is written in `TypeScript <https://www.typescript
 TypeScript is a variant of JavaScript that provides more support during development through its type system.
 
 In order to build an application on top of Daml, we need a way to refer to our Daml templates and choices in TypeScript.
-We do this using a Daml to TypeScript code generation tool in the SDK.
+We do this by using a Daml to TypeScript code generation tool in the SDK.
 
 To run code generation, we first need to compile the Daml model to an archive format (a ``.dar`` file).
 The ``daml codegen js`` command then takes this file as argument to produce a number of TypeScript packages in the output folder.
