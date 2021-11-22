@@ -1,11 +1,5 @@
 workspace(
     name = "com_github_digital_asset_daml",
-    managed_directories = {
-        "@npm": ["node_modules"],
-        "@daml_extension_deps": ["compiler/daml-extension/node_modules"],
-        "@navigator_frontend_deps": ["navigator/frontend/node_modules"],
-        "@language_support_ts_deps": ["language-support/ts/packages/node_modules"],
-    },
 )
 
 # NOTE(JM): Load external dependencies from deps.bzl.
@@ -820,6 +814,7 @@ yarn_install(
     name = "npm",
     args = ["--frozen-lockfile"],
     package_json = "//:package.json",
+    symlink_node_modules = False,
     yarn_lock = "//:yarn.lock",
 )
 
@@ -828,6 +823,7 @@ yarn_install(
     name = "daml_extension_deps",
     args = ["--frozen-lockfile"],
     package_json = "//compiler/daml-extension:package.json",
+    symlink_node_modules = False,
     yarn_lock = "//compiler/daml-extension:yarn.lock",
 )
 
@@ -836,6 +832,7 @@ yarn_install(
     name = "navigator_frontend_deps",
     args = ["--frozen-lockfile"],
     package_json = "//navigator/frontend:package.json",
+    symlink_node_modules = False,
     yarn_lock = "//navigator/frontend:yarn.lock",
 )
 
@@ -849,6 +846,7 @@ yarn_install(
     name = "language_support_ts_deps",
     args = ["--frozen-lockfile"],
     package_json = "//language-support/ts/packages:package.json",
+    symlink_node_modules = False,
     yarn_lock = "//language-support/ts/packages:yarn.lock",
 ) if not is_windows else create_workspace(
     name = "language_support_ts_deps",
