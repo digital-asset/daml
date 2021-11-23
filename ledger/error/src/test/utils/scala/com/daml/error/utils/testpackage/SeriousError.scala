@@ -13,7 +13,11 @@ case object SeriousError
     extends ErrorCode("BLUE_SCREEN", ErrorCategory.SystemInternalAssumptionViolated)(
       ErrorClass.root()
     ) {
-  case class Error(cause: String, override val context: Map[String, String] = Map.empty)(implicit
+  case class Error(
+      cause: String,
+      override val context: Map[String, String] = Map.empty,
+      override val definiteAnswerO: Option[Boolean] = Some(true),
+  )(implicit
       val loggingContext: LoggingContext
   ) extends BaseError {
 

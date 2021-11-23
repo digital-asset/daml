@@ -50,16 +50,18 @@ class ErrorFactoriesSpec
       val failureReason = "some db transient failure"
       val someSqlTransientException = new SQLTransientException(failureReason)
       assertV2Error(
-        SelfServiceErrorCodeFactories
-          .sqlTransientException(someSqlTransientException)
+        SelfServiceErrorCodeFactories.sqlTransientException(someSqlTransientException)
       )(
         expectedCode = Code.UNAVAILABLE,
         expectedMessage =
           s"INDEX_DB_SQL_TRANSIENT_ERROR(1,$truncatedCorrelationId): Processing the request failed due to a transient database error: $failureReason",
         expectedDetails = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("INDEX_DB_SQL_TRANSIENT_ERROR"),
           expectedCorrelationIdRequestInfo,
           ErrorDetails.RetryInfoDetail(1),
+          ErrorDetails.ErrorInfoDetail(
+            "INDEX_DB_SQL_TRANSIENT_ERROR",
+            Map("category" -> "1", "definite_answer" -> "false"),
+          ),
         ),
       )
     }
@@ -78,11 +80,7 @@ class ErrorFactoriesSpec
     }
 
     "TrackerErrors" should {
-      val errorDetails = com.google.protobuf.Any.pack[ErrorInfo](
-        ErrorInfo
-          .newBuilder()
-          .build()
-      )
+      val errorDetails = com.google.protobuf.Any.pack[ErrorInfo](ErrorInfo.newBuilder().build())
 
       "return failedToEnqueueCommandSubmission" in {
         val t = new Exception("message123")
@@ -112,7 +110,14 @@ class ErrorFactoriesSpec
           v2_message =
             s"PARTICIPANT_BACKPRESSURE(2,$truncatedCorrelationId): The participant is overloaded: Some buffer is full",
           v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail("PARTICIPANT_BACKPRESSURE"),
+            ErrorDetails.ErrorInfoDetail(
+              "PARTICIPANT_BACKPRESSURE",
+              Map(
+                "category" -> "2",
+                "definite_answer" -> "false",
+                "reason" -> "Some buffer is full",
+              ),
+            ),
             expectedCorrelationIdRequestInfo,
             ErrorDetails.RetryInfoDetail(1),
           ),
@@ -132,7 +137,14 @@ class ErrorFactoriesSpec
           v2_message =
             s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): Some service has been shut down.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail("SERVICE_NOT_RUNNING"),
+            ErrorDetails.ErrorInfoDetail(
+              "SERVICE_NOT_RUNNING",
+              Map(
+                "category" -> "1",
+                "definite_answer" -> "false",
+                "service_name" -> "Some service",
+              ),
+            ),
             expectedCorrelationIdRequestInfo,
             ErrorDetails.RetryInfoDetail(1),
           ),
@@ -152,7 +164,10 @@ class ErrorFactoriesSpec
           v2_message =
             s"REQUEST_TIME_OUT(3,$truncatedCorrelationId): Timed out while awaiting for a completion corresponding to a command submission.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail("REQUEST_TIME_OUT"),
+            ErrorDetails.ErrorInfoDetail(
+              "REQUEST_TIME_OUT",
+              Map("category" -> "3", "definite_answer" -> "false"),
+            ),
             expectedCorrelationIdRequestInfo,
             ErrorDetails.RetryInfoDetail(1),
           ),
@@ -185,7 +200,10 @@ class ErrorFactoriesSpec
         v2_code = Code.NOT_FOUND,
         v2_message = s"PACKAGE_NOT_FOUND(11,$truncatedCorrelationId): Could not find package.",
         v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("PACKAGE_NOT_FOUND"),
+          ErrorDetails.ErrorInfoDetail(
+            "PACKAGE_NOT_FOUND",
+            Map("category" -> "11", "definite_answer" -> "false"),
+          ),
           expectedCorrelationIdRequestInfo,
           ErrorDetails.ResourceInfoDetail("PACKAGE", "packageId123"),
         ),
@@ -212,7 +230,10 @@ class ErrorFactoriesSpec
         v2_code = Code.FAILED_PRECONDITION,
         v2_message = s"CONFIGURATION_ENTRY_REJECTED(9,$truncatedCorrelationId): message123",
         v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("CONFIGURATION_ENTRY_REJECTED"),
+          ErrorDetails.ErrorInfoDetail(
+            "CONFIGURATION_ENTRY_REJECTED",
+            Map("category" -> "9", "definite_answer" -> "false"),
+          ),
           expectedCorrelationIdRequestInfo,
         ),
       )
@@ -227,7 +248,10 @@ class ErrorFactoriesSpec
         v2_message =
           s"TRANSACTION_NOT_FOUND(11,$truncatedCorrelationId): Transaction not found, or not visible.",
         v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("TRANSACTION_NOT_FOUND"),
+          ErrorDetails.ErrorInfoDetail(
+            "TRANSACTION_NOT_FOUND",
+            Map("category" -> "11", "definite_answer" -> "false"),
+          ),
           expectedCorrelationIdRequestInfo,
           ErrorDetails.ResourceInfoDetail("TRANSACTION_ID", "tId"),
         ),
@@ -243,7 +267,10 @@ class ErrorFactoriesSpec
         v2_message =
           s"DUPLICATE_COMMAND(10,$truncatedCorrelationId): A command with the given command id has already been successfully processed",
         v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("DUPLICATE_COMMAND"),
+          ErrorDetails.ErrorInfoDetail(
+            "DUPLICATE_COMMAND",
+            Map("category" -> "10", "definite_answer" -> "false"),
+          ),
           expectedCorrelationIdRequestInfo,
         ),
       )
@@ -271,7 +298,10 @@ class ErrorFactoriesSpec
         v2_code = Code.DEADLINE_EXCEEDED,
         v2_message = s"REQUEST_TIME_OUT(3,$truncatedCorrelationId): message123",
         v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("REQUEST_TIME_OUT"),
+          ErrorDetails.ErrorInfoDetail(
+            "REQUEST_TIME_OUT",
+            Map("category" -> "3", "definite_answer" -> "false"),
+          ),
           expectedCorrelationIdRequestInfo,
           ErrorDetails.RetryInfoDetail(1),
         ),
@@ -293,7 +323,7 @@ class ErrorFactoriesSpec
         v2_message =
           s"NON_HEXADECIMAL_OFFSET(8,$truncatedCorrelationId): Offset in fieldName123 not specified in hexadecimal: offsetValue123: message123",
         v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("NON_HEXADECIMAL_OFFSET"),
+          ErrorDetails.ErrorInfoDetail("NON_HEXADECIMAL_OFFSET", Map("category" -> "8")),
           expectedCorrelationIdRequestInfo,
         ),
       )
@@ -308,7 +338,10 @@ class ErrorFactoriesSpec
         v2_code = Code.OUT_OF_RANGE,
         v2_message = s"OFFSET_AFTER_LEDGER_END(12,$truncatedCorrelationId): $expectedMessage",
         v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("OFFSET_AFTER_LEDGER_END"),
+          ErrorDetails.ErrorInfoDetail(
+            "OFFSET_AFTER_LEDGER_END",
+            Map("category" -> "12", "definite_answer" -> "false"),
+          ),
           expectedCorrelationIdRequestInfo,
         ),
       )
@@ -322,7 +355,10 @@ class ErrorFactoriesSpec
         v2_code = Code.FAILED_PRECONDITION,
         v2_message = s"OFFSET_OUT_OF_RANGE(9,$truncatedCorrelationId): message123",
         v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("OFFSET_OUT_OF_RANGE"),
+          ErrorDetails.ErrorInfoDetail(
+            "OFFSET_OUT_OF_RANGE",
+            Map("category" -> "9", "definite_answer" -> "false"),
+          ),
           expectedCorrelationIdRequestInfo,
         ),
       )
@@ -372,7 +408,10 @@ class ErrorFactoriesSpec
           v2_message =
             s"LEDGER_CONFIGURATION_NOT_FOUND(11,$truncatedCorrelationId): The ledger configuration could not be retrieved.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail("LEDGER_CONFIGURATION_NOT_FOUND"),
+            ErrorDetails.ErrorInfoDetail(
+              "LEDGER_CONFIGURATION_NOT_FOUND",
+              Map("category" -> "11", "definite_answer" -> "false"),
+            ),
             expectedCorrelationIdRequestInfo,
           ),
         )
@@ -398,8 +437,9 @@ class ErrorFactoriesSpec
     "return an invalid deduplication period error" in {
       val errorDetailMessage = "message"
       val field = "field"
+      val maxDeduplicationDuration = Duration.ofSeconds(5)
       assertVersionedError(
-        _.invalidDeduplicationDuration(field, errorDetailMessage, None, Duration.ofSeconds(5))
+        _.invalidDeduplicationDuration(field, errorDetailMessage, None, maxDeduplicationDuration)
       )(
         v1_code = Code.INVALID_ARGUMENT,
         v1_message = s"Invalid field $field: $errorDetailMessage",
@@ -408,7 +448,14 @@ class ErrorFactoriesSpec
         v2_message =
           s"INVALID_DEDUPLICATION_PERIOD(9,$truncatedCorrelationId): The submitted command had an invalid deduplication period: $errorDetailMessage",
         v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("INVALID_DEDUPLICATION_PERIOD"),
+          ErrorDetails.ErrorInfoDetail(
+            "INVALID_DEDUPLICATION_PERIOD",
+            Map(
+              "category" -> "9",
+              "definite_answer" -> "false",
+              "max_deduplication_duration" -> maxDeduplicationDuration.toString,
+            ),
+          ),
           expectedCorrelationIdRequestInfo,
         ),
       )
@@ -421,16 +468,20 @@ class ErrorFactoriesSpec
         (Some(false), Seq(definiteAnswers(false))),
       )
 
+      val fieldName = "my field"
       forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        assertVersionedError(_.invalidField("my field", "my message", definiteAnswer))(
+        assertVersionedError(_.invalidField(fieldName, "my message", definiteAnswer))(
           v1_code = Code.INVALID_ARGUMENT,
-          v1_message = "Invalid field my field: my message",
+          v1_message = "Invalid field " + fieldName + ": my message",
           v1_details = expectedDetails,
           v2_code = Code.INVALID_ARGUMENT,
           v2_message =
-            s"INVALID_FIELD(8,$truncatedCorrelationId): The submitted command has a field with invalid value: Invalid field my field: my message",
+            s"INVALID_FIELD(8,$truncatedCorrelationId): The submitted command has a field with invalid value: Invalid field $fieldName: my message",
           v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail("INVALID_FIELD"),
+            ErrorDetails.ErrorInfoDetail(
+              "INVALID_FIELD",
+              Map("category" -> "8", "definite_answer" -> "false"),
+            ),
             expectedCorrelationIdRequestInfo,
           ),
         )
@@ -455,7 +506,10 @@ class ErrorFactoriesSpec
           v2_message =
             s"LEDGER_ID_MISMATCH(11,$truncatedCorrelationId): Ledger ID 'received' not found. Actual Ledger ID is 'expected'.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail("LEDGER_ID_MISMATCH"),
+            ErrorDetails.ErrorInfoDetail(
+              "LEDGER_ID_MISMATCH",
+              Map("category" -> "11", "definite_answer" -> "true"),
+            ),
             expectedCorrelationIdRequestInfo,
           ),
         )
@@ -478,7 +532,10 @@ class ErrorFactoriesSpec
         v2_code = Code.FAILED_PRECONDITION,
         v2_message = s"PARTICIPANT_PRUNED_DATA_ACCESSED(9,$truncatedCorrelationId): my message",
         v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("PARTICIPANT_PRUNED_DATA_ACCESSED"),
+          ErrorDetails.ErrorInfoDetail(
+            "PARTICIPANT_PRUNED_DATA_ACCESSED",
+            Map("category" -> "9", "definite_answer" -> "false"),
+          ),
           expectedCorrelationIdRequestInfo,
         ),
       )
@@ -513,7 +570,10 @@ class ErrorFactoriesSpec
           v2_message =
             s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): $serviceName has been shut down.",
           v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail("SERVICE_NOT_RUNNING"),
+            ErrorDetails.ErrorInfoDetail(
+              "SERVICE_NOT_RUNNING",
+              Map("category" -> "1", "definite_answer" -> "false", "service_name" -> serviceName),
+            ),
             expectedCorrelationIdRequestInfo,
             ErrorDetails.RetryInfoDetail(1),
           ),
@@ -533,7 +593,10 @@ class ErrorFactoriesSpec
         v2_message =
           s"SERVICE_NOT_RUNNING(1,$truncatedCorrelationId): $serviceName is currently being reset.",
         v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("SERVICE_NOT_RUNNING"),
+          ErrorDetails.ErrorInfoDetail(
+            "SERVICE_NOT_RUNNING",
+            Map("category" -> "1", "definite_answer" -> "false", "service_name" -> serviceName),
+          ),
           expectedCorrelationIdRequestInfo,
           ErrorDetails.RetryInfoDetail(1),
         ),
@@ -541,6 +604,8 @@ class ErrorFactoriesSpec
     }
 
     "return a missingField error" in {
+      val fieldName = "my field"
+
       val testCases = Table(
         ("definite answer", "expected details"),
         (None, Seq.empty),
@@ -548,15 +613,18 @@ class ErrorFactoriesSpec
       )
 
       forEvery(testCases) { (definiteAnswer, expectedDetails) =>
-        assertVersionedError(_.missingField("my field", definiteAnswer))(
+        assertVersionedError(_.missingField(fieldName, definiteAnswer))(
           v1_code = Code.INVALID_ARGUMENT,
-          v1_message = "Missing field: my field",
+          v1_message = "Missing field: " + fieldName,
           v1_details = expectedDetails,
           v2_code = Code.INVALID_ARGUMENT,
           v2_message =
-            s"MISSING_FIELD(8,$truncatedCorrelationId): The submitted command is missing a mandatory field: my field",
+            s"MISSING_FIELD(8,$truncatedCorrelationId): The submitted command is missing a mandatory field: $fieldName",
           v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail("MISSING_FIELD"),
+            ErrorDetails.ErrorInfoDetail(
+              "MISSING_FIELD",
+              Map("category" -> "8", "definite_answer" -> "false", "field_name" -> fieldName),
+            ),
             expectedCorrelationIdRequestInfo,
           ),
         )
@@ -579,7 +647,10 @@ class ErrorFactoriesSpec
           v2_message =
             s"INVALID_ARGUMENT(8,$truncatedCorrelationId): The submitted command has invalid arguments: my message",
           v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail("INVALID_ARGUMENT"),
+            ErrorDetails.ErrorInfoDetail(
+              "INVALID_ARGUMENT",
+              Map("category" -> "8", "definite_answer" -> "false"),
+            ),
             expectedCorrelationIdRequestInfo,
           ),
         )
@@ -602,7 +673,10 @@ class ErrorFactoriesSpec
           v2_message =
             s"INVALID_ARGUMENT(8,$truncatedCorrelationId): The submitted command has invalid arguments: my message",
           v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail("INVALID_ARGUMENT"),
+            ErrorDetails.ErrorInfoDetail(
+              "INVALID_ARGUMENT",
+              Map("category" -> "8", "definite_answer" -> "false"),
+            ),
             expectedCorrelationIdRequestInfo,
           ),
         )

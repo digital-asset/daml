@@ -54,10 +54,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         id = "REQUEST_TIME_OUT",
         ErrorCategory.DeadlineExceededRequestStateUnknown,
       ) {
-    case class Reject(message: String, override val definiteAnswer: Boolean)(implicit
+    case class Reject(_message: String, _definiteAnswer: Boolean)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends LoggingTransactionErrorImpl(
-          cause = message
+          cause = _message,
+          definiteAnswer = _definiteAnswer,
         )
   }
 
@@ -275,17 +276,23 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         id = "SERVICE_NOT_RUNNING",
         ErrorCategory.TransientServerFailure,
       ) {
-    case class Reject(serviceName: String)(implicit
+    case class Reject(_serviceName: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends LoggingTransactionErrorImpl(
-          cause = s"$serviceName has been shut down."
-        )
+          cause = s"${_serviceName} has been shut down."
+        ) {
+      override def context: Map[String, String] =
+        super.context ++ Map("service_name" -> _serviceName)
+    }
 
-    case class ServiceReset(serviceName: String)(implicit
+    case class ServiceReset(_serviceName: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends LoggingTransactionErrorImpl(
-          cause = s"$serviceName is currently being reset."
-        )
+          cause = s"${_serviceName} is currently being reset."
+        ) {
+      override def context: Map[String, String] =
+        super.context ++ Map("service_name" -> _serviceName)
+    }
   }
 
   @Explanation("Authentication errors.")
@@ -355,14 +362,14 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             id = "PACKAGE_NOT_FOUND",
             ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
           ) {
-        case class Reject(packageId: String)(implicit
+        case class Reject(_packageId: String)(implicit
             loggingContext: ContextualizedErrorLogger
         ) extends LoggingTransactionErrorImpl(
               cause = "Could not find package."
             ) {
 
           override def resources: Seq[(ErrorResource, String)] = {
-            super.resources :+ ((ErrorResource.DalfPackage, packageId))
+            super.resources :+ ((ErrorResource.DalfPackage, _packageId))
           }
         }
 
@@ -388,10 +395,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
           ) {
 
-        case class Reject(transactionId: String)(implicit loggingContext: ContextualizedErrorLogger)
-            extends LoggingTransactionErrorImpl(cause = "Transaction not found, or not visible.") {
+        case class Reject(_transactionId: String)(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends LoggingTransactionErrorImpl(cause = "Transaction not found, or not visible.") {
           override def resources: Seq[(ErrorResource, String)] = Seq(
-            (ErrorResource.TransactionId, transactionId)
+            (ErrorResource.TransactionId, _transactionId)
           )
         }
       }
@@ -412,10 +420,10 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
               cause = "The ledger configuration could not be retrieved."
             )
 
-        case class RejectWithMessage(message: String)(implicit
+        case class RejectWithMessage(_message: String)(implicit
             loggingContext: ContextualizedErrorLogger
         ) extends LoggingTransactionErrorImpl(
-              cause = s"The ledger configuration could not be retrieved: $message."
+              cause = s"The ledger configuration could not be retrieved: ${_message}."
             )
       }
     }
@@ -427,11 +435,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "PARTICIPANT_PRUNED_DATA_ACCESSED",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      case class Reject(message: String)(implicit
+      case class Reject(override val cause: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
-            cause = message
-          )
+      ) extends LoggingTransactionErrorImpl(cause = cause)
     }
 
     @Explanation(
@@ -443,10 +449,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "OFFSET_AFTER_LEDGER_END",
           ErrorCategory.InvalidGivenCurrentSystemStateSeekAfterEnd,
         ) {
-      case class Reject(offsetType: String, requestedOffset: String, ledgerEnd: String)(implicit
+      case class Reject(_offsetType: String, _requestedOffset: String, _ledgerEnd: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = s"$offsetType offset ($requestedOffset) is after ledger end ($ledgerEnd)"
+            cause =
+              s"${_offsetType} offset (${_requestedOffset}) is after ledger end (${_ledgerEnd})"
           )
     }
 
@@ -459,9 +466,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "OFFSET_OUT_OF_RANGE",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      case class Reject(message: String)(implicit
+      case class Reject(_message: String)(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(cause = message)
+      ) extends LoggingTransactionErrorImpl(cause = _message)
     }
 
     @Explanation(
@@ -488,11 +495,14 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     @Resolution("Inspect the reason given and correct your application.")
     object MissingField
         extends ErrorCode(id = "MISSING_FIELD", ErrorCategory.InvalidIndependentOfSystemState) {
-      case class Reject(missingField: String)(implicit
+      case class Reject(_missingField: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = s"The submitted command is missing a mandatory field: $missingField"
-          )
+            cause = s"The submitted command is missing a mandatory field: ${_missingField}"
+          ) {
+        override def context: Map[String, String] =
+          super.context ++ Map("field_name" -> _missingField)
+      }
     }
 
     @Explanation(
@@ -550,14 +560,14 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       case class Error(
-          fieldName: String,
-          offsetValue: String,
-          message: String,
+          _fieldName: String,
+          _offsetValue: String,
+          _message: String,
       )(implicit
           override val loggingContext: ContextualizedErrorLogger
       ) extends BaseError.Impl(
             cause =
-              s"Offset in ${fieldName} not specified in hexadecimal: ${offsetValue}: ${message}"
+              s"Offset in ${_fieldName} not specified in hexadecimal: ${_offsetValue}: ${_message}"
           )
     }
   }
@@ -633,10 +643,10 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "CONFIGURATION_ENTRY_REJECTED",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      case class Reject(message: String)(implicit
+      case class Reject(_message: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = message
+            cause = _message
           )
     }
 
@@ -647,10 +657,10 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "PACKAGE_UPLOAD_REJECTED",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      case class Reject(message: String)(implicit
+      case class Reject(_message: String)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = message
+            cause = _message
           )
     }
   }
@@ -673,15 +683,16 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         ) {
 
       case class Reject(
-          override val definiteAnswer: Boolean = false,
-          existingCommandSubmissionId: Option[String],
+          _definiteAnswer: Boolean = false,
+          _existingCommandSubmissionId: Option[String],
       )(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = "A command with the given command id has already been successfully processed"
+            cause = "A command with the given command id has already been successfully processed",
+        definiteAnswer = _definiteAnswer
           ) {
         override def context: Map[String, String] =
-          super.context ++ existingCommandSubmissionId.map("existing_submission_id" -> _).toList
+          super.context ++ _existingCommandSubmissionId.map("existing_submission_id" -> _).toList
       }
     }
 
@@ -731,13 +742,13 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
 
-      case class MultipleContractsNotFound(notFoundContractIds: Set[String])(implicit
+      case class MultipleContractsNotFound(_notFoundContractIds: Set[String])(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
-            cause = s"Unknown contracts: ${notFoundContractIds.mkString("[", ", ", "]")}"
+            cause = s"Unknown contracts: ${_notFoundContractIds.mkString("[", ", ", "]")}"
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
-          (ErrorResource.ContractId, notFoundContractIds.mkString("[", ", ", "]"))
+          (ErrorResource.ContractId, _notFoundContractIds.mkString("[", ", ", "]"))
         )
       }
 
@@ -808,19 +819,17 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
         ) {
       case class RejectEnriched(
-          message: String,
+          override val cause: String,
           ledger_time: Instant,
           ledger_time_lower_bound: Instant,
           ledger_time_upper_bound: Instant,
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends LoggingTransactionErrorImpl(
-            cause = s"Invalid ledger time: $message"
-          )
+          extends LoggingTransactionErrorImpl(cause = cause)
 
       case class RejectSimple(
-          details: String
+          override val cause: String
       )(implicit loggingContext: ContextualizedErrorLogger)
-          extends LoggingTransactionErrorImpl(cause = s"Invalid ledger time: $details")
+          extends LoggingTransactionErrorImpl(cause = cause)
     }
   }
 
@@ -860,12 +869,12 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           id = "PARTY_NOT_KNOWN_ON_LEDGER",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-      case class Reject(parties: Set[String])(implicit
+      case class Reject(_parties: Set[String])(implicit
           loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(cause = s"Parties not known on ledger: ${parties
+      ) extends LoggingTransactionErrorImpl(cause = s"Parties not known on ledger: ${_parties
             .mkString("[", ",", "]")}") {
         override def resources: Seq[(ErrorResource, String)] =
-          parties.map((ErrorResource.Party, _)).toSeq
+          _parties.map((ErrorResource.Party, _)).toSeq
       }
 
       @deprecated

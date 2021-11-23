@@ -71,14 +71,15 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     if (!code.category.securitySensitive) {
       contextMap.foreach { case (k, v) => errInfoBld.putMetadata(k, v) }
       errInfoBld.setReason(id)
+
+      // TODO error codes: Resolve dependency and use constant
+      //    val definiteAnswerKey = com.daml.ledger.grpc.GrpcStatuses.DefiniteAnswerKey
+      val definiteAnswerKey = "definite_answer"
+      err.definiteAnswerO.foreach { definiteAnswer =>
+        errInfoBld.putMetadata(definiteAnswerKey, definiteAnswer.toString)
+      }
     }
 
-    // TODO error codes: Resolve dependency and use constant
-    //    val definiteAnswerKey = com.daml.ledger.grpc.GrpcStatuses.DefiniteAnswerKey
-    val definiteAnswerKey = "definite_answer"
-    err.definiteAnswerO.foreach { definiteAnswer =>
-      errInfoBld.putMetadata(definiteAnswerKey, definiteAnswer.toString)
-    }
     val errInfo = com.google.protobuf.Any.pack(errInfoBld.build())
 
     // Build retry info

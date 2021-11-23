@@ -15,7 +15,8 @@ object ErrorDetails {
   sealed trait ErrorDetail extends Product with Serializable
 
   final case class ResourceInfoDetail(name: String, typ: String) extends ErrorDetail
-  final case class ErrorInfoDetail(reason: String) extends ErrorDetail
+  final case class ErrorInfoDetail(reason: String, metadata: Map[String, String] = Map.empty)
+      extends ErrorDetail
   final case class RetryInfoDetail(retryDelayInSeconds: Long) extends ErrorDetail
   final case class RequestInfoDetail(requestId: String) extends ErrorDetail
 
@@ -27,7 +28,9 @@ object ErrorDetails {
     case any if any.is(classOf[ErrorInfo]) =>
       val v = any.unpack(classOf[ErrorInfo])
       val reason = v.getReason
-      if (reason.nonEmpty) List(ErrorInfoDetail(reason)) else Nil
+      if (reason.nonEmpty || v.getMetadataCount > 0)
+        List(ErrorInfoDetail(reason, v.getMetadataMap.asScala.toMap))
+      else Nil
 
     case any if any.is(classOf[RetryInfo]) =>
       val v = any.unpack(classOf[RetryInfo])
@@ -47,7 +50,7 @@ object ErrorDetails {
     ErrorDetails
       .from(rpcStatus.getDetailsList.asScala.toSeq)
       .exists {
-        case ErrorInfoDetail(reason) => reason == errorCode.id
+        case ErrorInfoDetail(reason, _) => reason == errorCode.id
         case _ => false
       }
   }
