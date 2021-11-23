@@ -336,6 +336,14 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           ECallInterface(I.tycon, n"method", e"body"),
         "icall @'-pkgId-':Mod:I method body" ->
           ECallInterface(I.tycon, n"method", e"body"),
+        "to_interface @Mod:T @Mod:I body" ->
+          EToInterface(T.tycon, I.tycon, e"body"),
+        "to_interface @'-pkgId-':Mod:T @'-pkgId-':Mod:I body" ->
+          EToInterface(T.tycon, I.tycon, e"body"),
+        "from_interface @Mod:T @Mod:I body" ->
+          EFromInterface(T.tycon, I.tycon, e"body"),
+        "from_interface @'-pkgId-':Mod:T @'-pkgId-':Mod:I body" ->
+          EFromInterface(T.tycon, I.tycon, e"body"),
       )
 
       forEvery(testCases)((stringToParse, expectedExp) =>
@@ -416,10 +424,16 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           ),
         "create @Mod:T e" ->
           UpdateCreate(T.tycon, e"e"),
+        "create_by_interface @Mod:I e" ->
+          UpdateCreateInterface(I.tycon, e"e"),
         "fetch @Mod:T e" ->
           UpdateFetch(T.tycon, e"e"),
+        "fetch_by_interface @Mod:I e" ->
+          UpdateFetchInterface(I.tycon, e"e"),
         "exercise @Mod:T Choice cid arg" ->
           UpdateExercise(T.tycon, n"Choice", e"cid", e"arg"),
+        "exercise_by_interface @Mod:I Choice cid arg" ->
+          UpdateExerciseInterface(I.tycon, n"Choice", e"cid", e"arg"),
         "exercise_by_key @Mod:T Choice key arg" ->
           UpdateExerciseByKey(T.tycon, n"Choice", e"key", e"arg"),
         "fetch_by_key @Mod:T e" ->
@@ -845,6 +859,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
     "from_any_exception",
     "throw",
     "catch",
+    "to_interface",
+    "from_interface",
   )
 
   private val modName = DottedName.assertFromString("Mod")
@@ -852,11 +868,11 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
   private def qualify(s: String) =
     Identifier(defaultPackageId, QualifiedName(modName, DottedName.assertFromString(s)))
 
-  private val T: TTyCon = TTyCon(qualify("T"))
-  private val R: TTyCon = TTyCon(qualify("R"))
   private val E: TTyCon = TTyCon(qualify("E"))
   private val I: TTyCon = TTyCon(qualify("I"))
+  private val R: TTyCon = TTyCon(qualify("R"))
   private val RIntBool = TypeConApp(R.tycon, ImmArray(t"Int64", t"Bool"))
+  private val T: TTyCon = TTyCon(qualify("T"))
   private val α: TVar = TVar(n"a")
   private val β: TVar = TVar(n"b")
 
