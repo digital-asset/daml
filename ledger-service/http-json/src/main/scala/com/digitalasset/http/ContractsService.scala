@@ -40,6 +40,7 @@ import com.daml.ledger.api.{domain => LedgerApiDomain}
 import scalaz.std.scalaFuture._
 
 import com.codahale.metrics.Timer
+import doobie.free.{connection => fconn}
 
 class ContractsService(
     resolveTemplateId: PackageService.ResolveTemplateId,
@@ -394,9 +395,10 @@ class ContractsService(
             it: doobie.ConnectionIO[A],
         ): doobie.ConnectionIO[A] = {
           for {
-            ctx <- doobie.free.connection.pure(timer.time())
+            _ <- fconn.pure(())
+            ctx <- fconn.pure(timer.time())
             res <- it
-            _ = ctx.stop()
+            _ <- fconn.pure(ctx.stop())
           } yield res
         }
 
