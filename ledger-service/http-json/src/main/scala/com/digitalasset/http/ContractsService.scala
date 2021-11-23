@@ -37,6 +37,7 @@ import spray.json.JsValue
 
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
+import doobie.free.{connection => fconn}
 
 class ContractsService(
     resolveTemplateId: PackageService.ResolveTemplateId,
@@ -336,9 +337,10 @@ class ContractsService(
             it: doobie.ConnectionIO[A],
         ): doobie.ConnectionIO[A] = {
           for {
-            ctx <- doobie.free.connection.pure(timer.time())
+            _ <- fconn.pure(())
+            ctx <- fconn.pure(timer.time())
             res <- it
-            _ = ctx.stop()
+            _ <- fconn.pure(ctx.stop())
           } yield res
         }
 
