@@ -51,6 +51,9 @@ private[parser] object Token {
   case object `from_any_exception` extends Token
   case object `throw` extends Token
   case object `catch` extends Token
+  case object `to_interface` extends Token
+  case object `from_interface` extends Token
+  case object `icall` extends Token
 
   final case class Id(s: String) extends Token
   final case class ContractId(s: String) extends Token

@@ -43,6 +43,8 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eToTextTypeConName |
       eThrow |
       eCallInterface |
+      eToInterface |
+      eFromInterface |
       (id ^? builtinFunctions) ^^ EBuiltin |
       experimental |
       caseOf |
@@ -221,6 +223,18 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   private lazy val eToTextTypeConName: Parser[Expr] =
     `type_rep` ~>! argTyp ^^ ETypeRep
 
+  private lazy val eToInterface: Parser[Expr] =
+    `to_interface` ~! `@` ~> fullIdentifier ~ `@` ~ fullIdentifier ~ expr0 ^^ {
+      case ifaceId ~ _ ~ tmplId ~ e =>
+        EToInterface(ifaceId, tmplId, e)
+    }
+
+  private lazy val eFromInterface: Parser[Expr] =
+    `from_interface` ~! `@` ~> fullIdentifier ~ `@` ~ fullIdentifier ~ expr0 ^^ {
+      case ifaceId ~ _ ~ tmplId ~ e =>
+        EFromInterface(ifaceId, tmplId, e)
+    }
+
   private lazy val pattern: Parser[CasePat] =
     primCon ^^ CPPrimCon |
       (`nil` ^^^ CPNil) |
@@ -326,7 +340,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   )
 
   private lazy val eCallInterface: Parser[ECallInterface] =
-    Id("icall") ~! `@` ~> fullIdentifier ~ id ~ expr0 ^^ { case ifaceId ~ name ~ body =>
+    `icall` ~! `@` ~> fullIdentifier ~ id ~ expr0 ^^ { case ifaceId ~ name ~ body =>
       ECallInterface(interfaceId = ifaceId, methodName = name, value = body)
     }
 
@@ -396,14 +410,30 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       UpdateCreate(t, e)
     }
 
+  private lazy val updateCreateInterface =
+    Id("create_by_interface") ~! `@` ~> fullIdentifier ~ expr0 ^^ { case iface ~ e =>
+      UpdateCreateInterface(iface, e)
+    }
+
   private lazy val updateFetch =
     Id("fetch") ~! `@` ~> fullIdentifier ~ expr0 ^^ { case t ~ e =>
       UpdateFetch(t, e)
     }
 
+  private lazy val updateFetchInterface =
+    Id("fetch_by_interface") ~! `@` ~> fullIdentifier ~ expr0 ^^ { case iface ~ e =>
+      UpdateFetchInterface(iface, e)
+    }
+
   private lazy val updateExercise =
     Id("exercise") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ { case t ~ choice ~ cid ~ arg =>
       UpdateExercise(t, choice, cid, arg)
+    }
+
+  private lazy val updateExerciseInterface =
+    Id("exercise_by_interface") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
+      case iface ~ choice ~ cid ~ arg =>
+        UpdateExerciseInterface(iface, choice, cid, arg)
     }
 
   private lazy val updateExerciseByKey =
@@ -438,8 +468,11 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     updatePure |
       updateBlock |
       updateCreate |
+      updateCreateInterface |
       updateFetch |
+      updateFetchInterface |
       updateExercise |
+      updateExerciseInterface |
       updateExerciseByKey |
       updateFetchByKey |
       updateLookupByKey |
