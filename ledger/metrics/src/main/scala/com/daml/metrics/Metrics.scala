@@ -576,6 +576,16 @@ final class Metrics(val registry: MetricRegistry) {
 
       val httpRequest: Timer = registry.timer(Prefix :+ "http_request")
       val websocketRequest: Counter = registry.counter(Prefix :+ "websocket_request")
+
+      object Db {
+        private val Prefix: MetricName = HttpJsonApi.Prefix :+ "db"
+        val fetchByIdFetch: Timer = registry.timer(Prefix :+ "fetch_by_id_fetch")
+        val fetchByIdQuery: Timer = registry.timer(Prefix :+ "fetch_by_id_query")
+        val fetchByKeyFetch: Timer = registry.timer(Prefix :+ "fetch_by_key_fetch")
+        val fetchByKeyQuery: Timer = registry.timer(Prefix :+ "fetch_by_key_query")
+        val searchFetch: Timer = registry.timer(Prefix :+ "search_fetch")
+        val searchQuery: Timer = registry.timer(Prefix :+ "search_query")
+      }
     }
   }
 }
