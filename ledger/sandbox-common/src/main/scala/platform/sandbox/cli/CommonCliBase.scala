@@ -343,11 +343,12 @@ class CommonCliBase(name: LedgerName) {
           "Maximum command deduplication duration."
         )
 
-      opt[Unit]("use-self-service-error-codes")
+      opt[Unit]("use-pre-1.18-error-codes")
         .optional()
-        .hidden()
-        .text("Enable self-service error codes.")
-        .action((_, config) => config.copy(enableSelfServiceErrorCodes = true))
+        .text(
+          "Enables gRPC error code compatibility mode to the pre-1.18 behaviour. This option is deprecated and will be removed in future release versions."
+        )
+        .action((_, config: SandboxConfig) => config.copy(enableSelfServiceErrorCodes = false))
 
       com.daml.cliopts.Metrics.metricsReporterParse(this)(
         (setter, config) => config.copy(metricsReporter = setter(config.metricsReporter)),
