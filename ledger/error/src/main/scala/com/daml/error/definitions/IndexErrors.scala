@@ -3,10 +3,9 @@
 
 package com.daml.error.definitions
 
+import com.daml.error.ErrorCode.LoggingApiException
 import com.daml.error._
 import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.IndexErrorGroup
-import com.daml.error.utils.ErrorDetails
-import io.grpc.StatusRuntimeException
 
 @Explanation("Errors raised by the Participant Index persistence layer.")
 object IndexErrors extends IndexErrorGroup {
@@ -19,11 +18,10 @@ object IndexErrors extends IndexErrorGroup {
         extends ErrorCode(
           id = "INDEX_DB_SQL_TRANSIENT_ERROR",
           ErrorCategory.TransientServerFailure,
-        )
-        with HasUnapply {
+        ) {
       case class Reject(throwable: Throwable)(implicit
           val loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DbError(
             cause =
               s"Processing the request failed due to a transient database error: ${throwable.getMessage}",
             throwableO = Some(throwable),
@@ -38,11 +36,10 @@ object IndexErrors extends IndexErrorGroup {
         extends ErrorCode(
           id = "INDEX_DB_SQL_NON_TRANSIENT_ERROR",
           ErrorCategory.SystemInternalAssumptionViolated,
-        )
-        with HasUnapply {
+        ) {
       case class Reject(throwable: Throwable)(implicit
           val loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DbError(
             cause =
               s"Processing the request failed due to a non-transient database error: ${throwable.getMessage}",
             throwableO = Some(throwable),
@@ -57,21 +54,34 @@ object IndexErrors extends IndexErrorGroup {
         extends ErrorCode(
           id = "INDEX_DB_INVALID_RESULT_SET",
           ErrorCategory.SystemInternalAssumptionViolated,
-        )
-        with HasUnapply {
+        ) {
       case class Reject(message: String)(implicit
           val loggingContext: ContextualizedErrorLogger
-      ) extends LoggingTransactionErrorImpl(
+      ) extends DbError(
             cause = message
           )
     }
   }
 
-  trait HasUnapply {
-    this: ErrorCode =>
-    // TODO error codes: Create a generic unapply for ErrorCode that returns the ErrorCode instance
-    //                   and match against that one.
-    def unapply(exception: StatusRuntimeException): Option[Unit] =
-      if (ErrorDetails.isErrorCode(exception)(errorCode = this)) Some(()) else None
+  // Decorator that returns a specialized StatusRuntimeException (IndexDbException)
+  // that can be used for precise matching of persistence exceptions (e.g. for index initialization failures that need retrying).
+  // Without this specialization, internal errors just appear as StatusRuntimeExceptions (see INDEX_DB_SQL_NON_TRANSIENT_ERROR)
+  // without any marker, impeding us to assert whether they are emitted by the persistence layer or not.
+  abstract class DbError(
+      override val cause: String,
+      override val throwableO: Option[Throwable] = None,
+  )(implicit
+      code: ErrorCode,
+      loggingContext: ContextualizedErrorLogger,
+  ) extends LoggingTransactionErrorImpl(cause, throwableO) {
+    override def asGrpcErrorFromContext(implicit
+        contextualizedErrorLogger: ContextualizedErrorLogger
+    ): IndexDbException = {
+      val err = super.asGrpcErrorFromContext(contextualizedErrorLogger)
+      IndexDbException(err.getStatus, err.getTrailers)
+    }
   }
+
+  case class IndexDbException(status: io.grpc.Status, metadata: io.grpc.Metadata)
+      extends LoggingApiException(status, metadata)
 }

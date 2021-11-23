@@ -184,7 +184,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         exception
       },
       v2 = LedgerApiErrors.ConsistencyErrors.DuplicateCommand
-        .Reject(existingCommandSubmissionId = existingSubmissionId)
+        .Reject(_existingCommandSubmissionId = existingSubmissionId)
         .asGrpcError,
     )
 

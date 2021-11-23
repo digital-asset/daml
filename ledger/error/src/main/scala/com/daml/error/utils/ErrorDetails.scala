@@ -3,11 +3,8 @@
 
 package com.daml.error.utils
 
-import com.daml.error.ErrorCode
 import com.google.protobuf
 import com.google.rpc.{ErrorInfo, RequestInfo, ResourceInfo, RetryInfo}
-import io.grpc.StatusRuntimeException
-import io.grpc.protobuf.StatusProto
 
 import scala.jdk.CollectionConverters._
 
@@ -38,17 +35,5 @@ object ErrorDetails {
       RequestInfoDetail(v.getRequestId)
 
     case any => throw new IllegalStateException(s"Could not unpack value of: |$any|")
-  }
-
-  def isErrorCode(exception: StatusRuntimeException)(errorCode: ErrorCode): Boolean = {
-    val rpcStatus =
-      StatusProto.fromStatusAndTrailers(exception.getStatus, exception.getTrailers)
-
-    ErrorDetails
-      .from(rpcStatus.getDetailsList.asScala.toSeq)
-      .exists {
-        case ErrorInfoDetail(reason, _) => reason == errorCode.id
-        case _ => false
-      }
   }
 }

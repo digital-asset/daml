@@ -689,7 +689,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
             cause = "A command with the given command id has already been successfully processed",
-        definiteAnswer = _definiteAnswer
+            definiteAnswer = _definiteAnswer,
           ) {
         override def context: Map[String, String] =
           super.context ++ _existingCommandSubmissionId.map("existing_submission_id" -> _).toList
