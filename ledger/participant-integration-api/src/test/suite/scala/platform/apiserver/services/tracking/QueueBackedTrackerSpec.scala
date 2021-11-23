@@ -6,7 +6,7 @@ package com.daml.platform.apiserver.services.tracking
 import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
-import akka.stream.{BoundedSourceQueue, Materializer}
+import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import akka.{Done, NotUsed}
 import com.daml.grpc.RpcProtoExtractors
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingException}
@@ -168,6 +168,39 @@ class QueueBackedTrackerSpec
                 ) =>
           }
         }
+      }
+    }
+
+    "input is submitted, and the offer method has thrown an exception" should {
+      "return an INTERNAL error" in {
+        def testIt(useSelfServiceErrorCodes: Boolean) = {
+          val fakeQueue = new BoundedSourceQueue[QueueInput] {
+            override def offer(elem: QueueInput): QueueOfferResult =
+              throw new IllegalArgumentException("test")
+
+            override def complete(): Unit = ()
+
+            override def fail(ex: Throwable): Unit = ()
+          }
+          val tracker = new QueueBackedTracker(
+            fakeQueue,
+            Future.successful(Done),
+            ErrorFactories(useSelfServiceErrorCodes),
+          )
+
+          tracker.track(input(1))
+          tracker.track(input(2)).map { completion =>
+            completion should matchPattern {
+              case Left(
+                    CompletionResponse
+                      .QueueSubmitFailure(RpcProtoExtractors.Status(com.google.rpc.Code.INTERNAL))
+                  ) =>
+            }
+          }
+        }
+
+        testIt(useSelfServiceErrorCodes = false)
+        testIt(useSelfServiceErrorCodes = true)
       }
     }
   }

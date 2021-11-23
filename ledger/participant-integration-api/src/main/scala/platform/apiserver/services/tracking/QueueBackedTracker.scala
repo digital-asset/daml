@@ -47,21 +47,25 @@ private[services] final class QueueBackedTracker(
     )
     logger.trace("Tracking command")
     val trackedPromise = Promise[Either[CompletionFailure, CompletionSuccess]]()
-    queue.offer(Ctx(trackedPromise, submission)) match {
-      case QueueOfferResult.Enqueued =>
+    Try(queue.offer(Ctx(trackedPromise, submission))) match {
+      case Success(QueueOfferResult.Enqueued) =>
         trackedPromise.future.map(
           _.left.map(completionFailure => QueueCompletionFailure(completionFailure))
         )
-      case QueueOfferResult.Failure(t) =>
+      case Success(QueueOfferResult.Failure(t)) =>
         toQueueSubmitFailure(
           errorFactories.SubmissionQueueErrors
             .failedToEnqueueCommandSubmission("Failed to enqueue")(t)
         )
-      case QueueOfferResult.Dropped =>
+      case Success(QueueOfferResult.Dropped) =>
         toQueueSubmitFailure(errorFactories.bufferFull("The submission ingress buffer is full"))
-      case QueueOfferResult.QueueClosed =>
+      case Success(QueueOfferResult.QueueClosed) =>
         toQueueSubmitFailure(
           errorFactories.SubmissionQueueErrors.queueClosed("Command service queue")
+        )
+      case Failure(t) =>
+        toQueueSubmitFailure(
+          errorFactories.SubmissionQueueErrors.failedToEnqueueCommandSubmission("Failed")(t)
         )
     }
   }
