@@ -10,6 +10,7 @@ import javax.crypto.Cipher
 import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.io.IOUtils
+import org.slf4j.LoggerFactory
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
 import java.util.Base64
@@ -30,6 +31,8 @@ case class DecryptionParameters(
     initializationVectorInHex: String,
 ) {
 
+  private val logger = LoggerFactory.getLogger(getClass)
+
   def decrypt(encrypted: File): Array[Byte] = {
     val bytes = Files.readAllBytes(encrypted.toPath)
     decrypt(bytes)
@@ -39,12 +42,20 @@ case class DecryptionParameters(
     transformation.split("/")(0)
   }
 
+  // According to MIME's section of java.util.Base64 javadoc "All line separators or other
+  // characters not found in the base64 alphabet table are ignored in decoding operation."
+  // For this reason a buffer needs to be screened whether it contains only the allowed
+  // Base64 characters before attempting to decode it.
   private def decodeBase64OrGetVerbatim(encrypted: Array[Byte]): Array[Byte] = {
-    val potentialBase64Char =
+    val allowedBase64Char =
       "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz/+=\n\r".getBytes()
-    encrypted.find(!potentialBase64Char.contains(_)) match {
-      case None => Try(Base64.getMimeDecoder.decode(encrypted)).getOrElse(encrypted)
-      case _ => encrypted
+    encrypted.find(!allowedBase64Char.contains(_)) match {
+      case None =>
+        logger.debug(s"Encrypted key contains only MIME Base64 characters. Attempting to decode")
+        Try(Base64.getMimeDecoder.decode(encrypted)).getOrElse(encrypted)
+      case _ =>
+        logger.debug(s"Encrypted key contains non MIME Base64 characters. Using it verbatim")
+        encrypted
     }
   }
 
