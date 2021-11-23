@@ -906,10 +906,14 @@ private[validation] object Typing {
         chName: ChoiceName,
         cid: Expr,
         arg: Expr,
+        guard: Option[Expr],
     ): Type = {
       checkExpr(cid, TContractId(TTyCon(tpl)))
       val choice = handleLookup(ctx, interface.lookupInterfaceChoice(tpl, chName))
       checkExpr(arg, choice.argBinder._2)
+      guard.foreach(guardExpr =>
+        checkExpr(guardExpr, TFun(TTyCon(tpl), TBool))
+      )
       TUpdate(choice.returnType)
     }
 
@@ -963,8 +967,8 @@ private[validation] object Typing {
         typeOfCreateInterface(iface, arg)
       case UpdateExercise(tpl, choice, cid, arg) =>
         typeOfExercise(tpl, choice, cid, arg)
-      case UpdateExerciseInterface(tpl, choice, cid, arg) =>
-        typeOfExerciseInterface(tpl, choice, cid, arg)
+      case UpdateExerciseInterface(tpl, choice, cid, arg, guard) =>
+        typeOfExerciseInterface(tpl, choice, cid, arg, guard)
       case UpdateExerciseByKey(tpl, choice, key, arg) =>
         typeOfExerciseByKey(tpl, choice, key, arg)
       case UpdateFetch(tpl, cid) =>

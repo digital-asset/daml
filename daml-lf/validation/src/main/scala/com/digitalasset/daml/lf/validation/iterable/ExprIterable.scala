@@ -89,8 +89,8 @@ private[validation] object ExprIterable {
         Iterator(contractId)
       case UpdateExercise(templateId @ _, choice @ _, cid, arg) =>
         Iterator(cid, arg)
-      case UpdateExerciseInterface(interface @ _, choice @ _, cid, arg) =>
-        Iterator(cid, arg)
+      case UpdateExerciseInterface(interface @ _, choice @ _, cid, arg, guard) =>
+        Iterator(cid, arg) ++ guard.iterator
       case UpdateExerciseByKey(templateId @ _, choice @ _, key, arg) =>
         Iterator(key, arg)
       case UpdateGetTime => Iterator.empty

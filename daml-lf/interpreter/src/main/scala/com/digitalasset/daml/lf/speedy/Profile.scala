@@ -245,6 +245,7 @@ object Profile {
       implicit val implementsDefRef: Allowed[ImplementsDefRef] = allowAll
       implicit val implementsMethodDefRef: Allowed[ImplementsMethodDefRef] = allowAll
       implicit val choiceDefRef: Allowed[ChoiceDefRef] = allowAll
+      implicit val guardedChoiceDefRef: Allowed[GuardedChoiceDefRef] = allowAll
       implicit val fetchDefRef: Allowed[FetchDefRef] = allowAll
       implicit val choiceByKeyDefRef: Allowed[ChoiceByKeyDefRef] = allowAll
       implicit val fetchByKeyDefRef: Allowed[FetchByKeyDefRef] = allowAll
@@ -273,6 +274,7 @@ object Profile {
           case ImplementsMethodDefRef(tmplRef, ifaceId, methodName) =>
             s"implementsMethod @${tmplRef.qualifiedName} @${ifaceId.qualifiedName} ${methodName}"
           case ChoiceDefRef(tmplRef, name) => s"exercise @${tmplRef.qualifiedName} ${name}"
+          case GuardedChoiceDefRef(tmplRef, name) => s"guarded exercise @${tmplRef.qualifiedName} ${name}"
           case FetchDefRef(tmplRef) => s"fetch @${tmplRef.qualifiedName}"
           case ChoiceByKeyDefRef(tmplRef, name) =>
             s"exerciseByKey @${tmplRef.qualifiedName} ${name}"

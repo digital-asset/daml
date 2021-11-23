@@ -166,8 +166,8 @@ private[daml] class AstRewriter(
         UpdateFetchInterface(apply(interface), apply(contractId))
       case UpdateExercise(templateId, choice, cid, arg) =>
         UpdateExercise(apply(templateId), choice, cid, apply(arg))
-      case UpdateExerciseInterface(interface, choice, cid, arg) =>
-        UpdateExerciseInterface(apply(interface), choice, cid, apply(arg))
+      case UpdateExerciseInterface(interface, choice, cid, arg, guard) =>
+        UpdateExerciseInterface(apply(interface), choice, cid, apply(arg), guard.map(apply))
       case UpdateExerciseByKey(templateId, choice, key, arg) =>
         UpdateExerciseByKey(apply(templateId), choice, apply(key), apply(arg))
       case UpdateGetTime => x

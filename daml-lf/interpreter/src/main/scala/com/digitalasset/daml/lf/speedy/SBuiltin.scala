@@ -1152,6 +1152,33 @@ private[lf] object SBuiltin {
     }
   }
 
+  final case class SBApplyChoiceGuard(
+      choiceName: ChoiceName,
+      byInterface: Option[TypeConName],
+  ) extends SBuiltin(3) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Unit = {
+      val guard = args.get(0)
+      val payload = getSRecord(args, 1)
+      val coid = getSContractId(args, 2)
+      val templateId = payload.id
+
+      machine.ctrl = SEApp(SEValue(guard), Array(SEValue(payload)))
+      machine.pushKont(KCheckChoiceGuard(machine, coid, templateId, choiceName, byInterface))
+    }
+  }
+
+  final case class SBGuardTemplateId(
+    templateId: TypeConName
+  ) extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBool = {
+      val record = getSRecord(args, 0)
+      SBool(record.id == templateId)
+    }
+  }
+
   final case class SBResolveSBUBeginExercise(
       choiceName: ChoiceName,
       consuming: Boolean,

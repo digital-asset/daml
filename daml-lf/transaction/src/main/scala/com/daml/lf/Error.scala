@@ -4,7 +4,7 @@
 package com.daml.lf
 package interpretation
 
-import com.daml.lf.data.Ref.{Location, Party, TypeConName}
+import com.daml.lf.data.Ref.{Location, Party, TypeConName, ChoiceName}
 import com.daml.lf.transaction.{GlobalKey, NodeId}
 import com.daml.lf.language.Ast
 import com.daml.lf.value.Value
@@ -108,5 +108,13 @@ object Error {
   final case class ContractIdInContractKey(key: Value) extends Error
 
   final case object ValueExceedsMaxNesting extends Error
+
+  /** A choice guard returned false, invalidating some expectation. */
+  final case class ChoiceGuardFailed (
+      coid: ContractId,
+      templateId: TypeConName,
+      choiceName: ChoiceName,
+      byInterface: Option[TypeConName],
+  ) extends Error
 
 }

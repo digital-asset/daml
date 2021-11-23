@@ -1332,6 +1332,31 @@ private[lf] object Speedy {
     }
   }
 
+  private[speedy] final case class KCheckChoiceGuard (
+    machine: Machine,
+    coid: V.ContractId,
+    templateId: TypeConName,
+    choiceName: ChoiceName,
+    byInterface: Option[TypeConName],
+  ) extends Kont {
+    def abort[E](): E =
+      throw SErrorDamlException(interpretation.Error.ChoiceGuardFailed(
+        coid, templateId, choiceName, byInterface
+      ))
+
+    def execute(v: SValue) = {
+      v match {
+        case SValue.SBool(b) =>
+          if (b)
+            machine.returnValue = SValue.SUnit
+          else
+            abort()
+        case _ =>
+          throw SErrorCrash("KCheckChoiceGuard", "Expected SBool value.")
+      }
+    }
+  }
+
   /** unwindToHandler is called when an exception is thrown by the builtin SBThrow or
     * re-thrown by the builtin SBTryHandler. If a catch-handler is found, we initiate
     * execution of the handler code (which might decide to re-throw). Otherwise we call
@@ -1351,6 +1376,14 @@ private[lf] object Speedy {
               onLedger.ptx = onLedger.ptx.abortExercises
             }
             unwind()
+          case k: KCheckChoiceGuard => {
+            // TODO https://github.com/digital-asset/daml/issues/11703
+            //   Insert fetch node and keep unwinding stack, instead of aborting.
+            machine.kontStack.clear()
+            machine.env.clear()
+            machine.envBase = 0
+            k.abort()
+          }
           case _ =>
             unwind()
         }
