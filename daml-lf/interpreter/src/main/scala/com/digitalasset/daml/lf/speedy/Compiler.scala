@@ -861,7 +861,11 @@ private[lf] final class Compiler(
       case UpdateExerciseInterface(ifaceId, chId, cidE, argE, None) =>
         t.ChoiceDefRef(ifaceId, chId)(compile(env, cidE), compile(env, argE))
       case UpdateExerciseInterface(ifaceId, chId, cidE, argE, Some(guardE)) =>
-        t.GuardedChoiceDefRef(ifaceId, chId)(compile(env, cidE), compile(env, argE), compile(env, guardE))
+        t.GuardedChoiceDefRef(ifaceId, chId)(
+          compile(env, cidE),
+          compile(env, argE),
+          compile(env, guardE),
+        )
       case UpdateExerciseByKey(tmplId, chId, keyE, argE) =>
         t.ChoiceByKeyDefRef(tmplId, chId)(compile(env, keyE), compile(env, argE))
       case UpdateGetTime =>
@@ -1092,7 +1096,7 @@ private[lf] final class Compiler(
 
   // Apply choice guard (if given) and abort transaction if false.
   // Otherwise continue with exercise.
-  private[this] def withChoiceGuard (
+  private[this] def withChoiceGuard(
       env: Env,
       guardPos: Option[Position],
       payloadPos: Position,
@@ -1103,9 +1107,14 @@ private[lf] final class Compiler(
     guardPos match {
       case None => body(env)
       case Some(guardPos) =>
-        let(env, SBApplyChoiceGuard(choiceName, byInterface)
-          (env.toSEVar(guardPos), env.toSEVar(payloadPos), env.toSEVar(cidPos))
-        ) {(_, _env) => body(_env)}
+        let(
+          env,
+          SBApplyChoiceGuard(choiceName, byInterface)(
+            env.toSEVar(guardPos),
+            env.toSEVar(payloadPos),
+            env.toSEVar(cidPos),
+          ),
+        ) { (_, _env) => body(_env) }
     }
   }
 
@@ -1124,7 +1133,7 @@ private[lf] final class Compiler(
   ) =
     let(env, SBUFetchInterface(ifaceId)(env.toSEVar(cidPos))) { (payloadPos, _env) =>
       val env = _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
-      withChoiceGuard (
+      withChoiceGuard(
         env = env,
         guardPos = guardPos,
         payloadPos = payloadPos,
@@ -1134,7 +1143,12 @@ private[lf] final class Compiler(
       ) { env =>
         let(
           env,
-          SBResolveSBUBeginExercise(choice.name, choice.consuming, byKey = false, ifaceId = ifaceId)(
+          SBResolveSBUBeginExercise(
+            choice.name,
+            choice.consuming,
+            byKey = false,
+            ifaceId = ifaceId,
+          )(
             env.toSEVar(payloadPos),
             env.toSEVar(choiceArgPos),
             env.toSEVar(cidPos),
@@ -1162,7 +1176,7 @@ private[lf] final class Compiler(
           choiceArgPos,
           cidPos,
           tokenPos,
-          None
+          None,
         )
     }
 
@@ -1489,7 +1503,11 @@ private[lf] final class Compiler(
     case Command.Exercise(templateId, contractId, choiceId, argument) =>
       t.ChoiceDefRef(templateId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
     case Command.ExerciseByInterface(interfaceId, templateId, contractId, choiceId, argument) =>
-      t.GuardedChoiceDefRef(interfaceId, choiceId)(s.SEValue(contractId), s.SEValue(argument), s.SEBuiltin(SBGuardTemplateId(templateId)))
+      t.GuardedChoiceDefRef(interfaceId, choiceId)(
+        s.SEValue(contractId),
+        s.SEValue(argument),
+        s.SEBuiltin(SBGuardTemplateId(templateId)),
+      )
     case Command.ExerciseInterface(interfaceId, contractId, choiceId, argument) =>
       t.ChoiceDefRef(interfaceId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>

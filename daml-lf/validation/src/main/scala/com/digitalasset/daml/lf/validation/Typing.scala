@@ -911,9 +911,7 @@ private[validation] object Typing {
       checkExpr(cid, TContractId(TTyCon(tpl)))
       val choice = handleLookup(ctx, interface.lookupInterfaceChoice(tpl, chName))
       checkExpr(arg, choice.argBinder._2)
-      guard.foreach(guardExpr =>
-        checkExpr(guardExpr, TFun(TTyCon(tpl), TBool))
-      )
+      guard.foreach(guardExpr => checkExpr(guardExpr, TFun(TTyCon(tpl), TBool)))
       TUpdate(choice.returnType)
     }
 

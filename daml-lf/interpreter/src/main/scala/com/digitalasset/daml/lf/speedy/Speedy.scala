@@ -1332,17 +1332,22 @@ private[lf] object Speedy {
     }
   }
 
-  private[speedy] final case class KCheckChoiceGuard (
-    machine: Machine,
-    coid: V.ContractId,
-    templateId: TypeConName,
-    choiceName: ChoiceName,
-    byInterface: Option[TypeConName],
+  private[speedy] final case class KCheckChoiceGuard(
+      machine: Machine,
+      coid: V.ContractId,
+      templateId: TypeConName,
+      choiceName: ChoiceName,
+      byInterface: Option[TypeConName],
   ) extends Kont {
     def abort[E](): E =
-      throw SErrorDamlException(interpretation.Error.ChoiceGuardFailed(
-        coid, templateId, choiceName, byInterface
-      ))
+      throw SErrorDamlException(
+        interpretation.Error.ChoiceGuardFailed(
+          coid,
+          templateId,
+          choiceName,
+          byInterface,
+        )
+      )
 
     def execute(v: SValue) = {
       v match {

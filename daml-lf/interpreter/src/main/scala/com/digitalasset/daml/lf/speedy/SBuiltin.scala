@@ -1171,7 +1171,7 @@ private[lf] object SBuiltin {
   }
 
   final case class SBGuardTemplateId(
-    templateId: TypeConName
+      templateId: TypeConName
   ) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SBool = {
       val record = getSRecord(args, 0)

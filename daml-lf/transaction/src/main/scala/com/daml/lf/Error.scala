@@ -110,7 +110,7 @@ object Error {
   final case object ValueExceedsMaxNesting extends Error
 
   /** A choice guard returned false, invalidating some expectation. */
-  final case class ChoiceGuardFailed (
+  final case class ChoiceGuardFailed(
       coid: ContractId,
       templateId: TypeConName,
       choiceName: ChoiceName,

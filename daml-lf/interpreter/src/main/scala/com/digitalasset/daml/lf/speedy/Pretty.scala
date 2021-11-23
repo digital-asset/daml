@@ -105,12 +105,12 @@ private[lf] object Pretty {
         text(s"Value exceeds maximum nesting value of 100")
       case ChoiceGuardFailed(cid, templateId, choiceName, byInterface) => (
         text(s"Choice guard failed for") & prettyTypeConName(templateId) &
-        text(s"contract") & prettyContractId(cid) &
-        text(s"when exercising choice $choiceName") &
-        (byInterface match {
-          case None => text("by template")
-          case Some(interfaceId) => text("by interface") & prettyTypeConName(interfaceId)
-        })
+          text(s"contract") & prettyContractId(cid) &
+          text(s"when exercising choice $choiceName") &
+          (byInterface match {
+            case None => text("by template")
+            case Some(interfaceId) => text("by interface") & prettyTypeConName(interfaceId)
+          })
       )
     }
   }

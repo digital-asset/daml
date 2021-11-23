@@ -274,7 +274,8 @@ object Profile {
           case ImplementsMethodDefRef(tmplRef, ifaceId, methodName) =>
             s"implementsMethod @${tmplRef.qualifiedName} @${ifaceId.qualifiedName} ${methodName}"
           case ChoiceDefRef(tmplRef, name) => s"exercise @${tmplRef.qualifiedName} ${name}"
-          case GuardedChoiceDefRef(tmplRef, name) => s"guarded exercise @${tmplRef.qualifiedName} ${name}"
+          case GuardedChoiceDefRef(tmplRef, name) =>
+            s"guarded exercise @${tmplRef.qualifiedName} ${name}"
           case FetchDefRef(tmplRef) => s"fetch @${tmplRef.qualifiedName}"
           case ChoiceByKeyDefRef(tmplRef, name) =>
             s"exerciseByKey @${tmplRef.qualifiedName} ${name}"

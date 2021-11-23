@@ -227,11 +227,13 @@ class InterfacesTest
     }
 
     "be unable to exercise T1 (disguised as T2) by interface I1 via 'exercise by interface'" in {
-      val command = ExerciseByInterfaceCommand(idI1, idT2, cid1, "C1", ValueRecord(None, ImmArray.empty))
+      val command =
+        ExerciseByInterfaceCommand(idI1, idT2, cid1, "C1", ValueRecord(None, ImmArray.empty))
       run(command) shouldBe a[Left[_, _]]
     }
     "be unable to exercise T2 (disguised as T1) by interface I1 via 'exercise by interface'" in {
-      val command = ExerciseByInterfaceCommand(idI1, idT1, cid2, "C1", ValueRecord(None, ImmArray.empty))
+      val command =
+        ExerciseByInterfaceCommand(idI1, idT1, cid2, "C1", ValueRecord(None, ImmArray.empty))
       run(command) shouldBe a[Left[_, _]]
     }
     "be unable to exercise T2 (disguised as T1) by interface I2 via 'exercise by interface' (stopped in preprocessor)" in {
