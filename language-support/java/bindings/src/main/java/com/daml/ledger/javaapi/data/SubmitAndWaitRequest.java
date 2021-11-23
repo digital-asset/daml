@@ -42,6 +42,33 @@ public class SubmitAndWaitRequest {
       @NonNull String workflowId,
       @NonNull String applicationId,
       @NonNull String commandId,
+      @NonNull String submissionId,
+      @NonNull String party,
+      @NonNull Optional<Instant> minLedgerTimeAbsolute,
+      @NonNull Optional<Duration> minLedgerTimeRelative,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull Command> commands) {
+    return CommandServiceOuterClass.SubmitAndWaitRequest.newBuilder()
+        .setCommands(
+            SubmitCommandsRequest.toProto(
+                ledgerId,
+                workflowId,
+                applicationId,
+                commandId,
+                submissionId,
+                party,
+                minLedgerTimeAbsolute,
+                minLedgerTimeRelative,
+                deduplicationTime,
+                commands))
+        .build();
+  }
+
+  public static CommandServiceOuterClass.SubmitAndWaitRequest toProto(
+      @NonNull String ledgerId,
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
       @NonNull List<@NonNull String> actAs,
       @NonNull List<@NonNull String> readAs,
       @NonNull Optional<Instant> minLedgerTimeAbsolute,
@@ -55,6 +82,35 @@ public class SubmitAndWaitRequest {
                 workflowId,
                 applicationId,
                 commandId,
+                actAs,
+                readAs,
+                minLedgerTimeAbsolute,
+                minLedgerTimeRelative,
+                deduplicationTime,
+                commands))
+        .build();
+  }
+
+  public static CommandServiceOuterClass.SubmitAndWaitRequest toProto(
+      @NonNull String ledgerId,
+      @NonNull String workflowId,
+      @NonNull String applicationId,
+      @NonNull String commandId,
+      @NonNull String submissionId,
+      @NonNull List<@NonNull String> actAs,
+      @NonNull List<@NonNull String> readAs,
+      @NonNull Optional<Instant> minLedgerTimeAbsolute,
+      @NonNull Optional<Duration> minLedgerTimeRelative,
+      @NonNull Optional<Duration> deduplicationTime,
+      @NonNull List<@NonNull Command> commands) {
+    return CommandServiceOuterClass.SubmitAndWaitRequest.newBuilder()
+        .setCommands(
+            SubmitCommandsRequest.toProto(
+                ledgerId,
+                workflowId,
+                applicationId,
+                commandId,
+                submissionId,
                 actAs,
                 readAs,
                 minLedgerTimeAbsolute,
