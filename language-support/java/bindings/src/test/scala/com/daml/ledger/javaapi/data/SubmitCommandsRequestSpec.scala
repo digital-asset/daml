@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data
 
-import java.time.Duration
+import java.time.{Duration, Instant}
 import java.util.Optional
 
 import com.daml.ledger.api.v1.CommandsOuterClass
@@ -27,10 +27,10 @@ final class SubmitCommandsRequestSpec extends AnyFlatSpec with Matchers {
           "applicationId",
           "commandId",
           "Alice",
-          Optional.empty(),
-          Optional.empty(),
-          Optional.empty(),
-          List.empty.asJava,
+          Optional.empty[Instant](),
+          Optional.empty[Duration](),
+          Optional.empty[Duration](),
+          List.empty[Command].asJava,
         )
 
       proto.getSubmissionId shouldBe ""
@@ -51,10 +51,10 @@ final class SubmitCommandsRequestSpec extends AnyFlatSpec with Matchers {
           "commandId",
           "submissionId",
           "Alice",
-          Optional.empty(),
-          Optional.empty(),
-          Optional.empty(),
-          List.empty.asJava,
+          Optional.empty[Instant](),
+          Optional.empty[Duration](),
+          Optional.empty[Duration](),
+          List.empty[Command].asJava,
         )
 
       proto.getSubmissionId shouldBe "submissionId"
@@ -73,9 +73,9 @@ final class SubmitCommandsRequestSpec extends AnyFlatSpec with Matchers {
           "commandId",
           List("Alice").asJava,
           List.empty[String].asJava,
-          Optional.empty(),
-          Optional.empty(),
-          Optional.empty(),
+          Optional.empty[Instant](),
+          Optional.empty[Duration](),
+          Optional.empty[Duration](),
           List.empty[Command].asJava,
         )
 
@@ -97,11 +97,11 @@ final class SubmitCommandsRequestSpec extends AnyFlatSpec with Matchers {
           "commandId",
           "submissionId",
           List("Alice").asJava,
-          List.empty.asJava,
-          Optional.empty(),
-          Optional.empty(),
-          Optional.empty(),
-          List.empty.asJava,
+          List.empty[String].asJava,
+          Optional.empty[Instant](),
+          Optional.empty[Duration](),
+          Optional.empty[Duration](),
+          List.empty[Command].asJava,
         )
 
       proto.getSubmissionId shouldBe "submissionId"
@@ -126,10 +126,10 @@ final class SubmitCommandsRequestSpec extends AnyFlatSpec with Matchers {
           "applicationId",
           "commandId",
           "Alice",
-          Optional.empty(),
-          Optional.empty(),
+          Optional.empty[Instant](),
+          Optional.empty[Duration](),
           Optional.of(duration),
-          List.empty.asJava,
+          List.empty[Command].asJava,
         )
 
       // We are sticking on the now deprecated deduplicationTime on purpose for backward compatibility
@@ -156,10 +156,10 @@ final class SubmitCommandsRequestSpec extends AnyFlatSpec with Matchers {
           "commandId",
           "submissionId",
           "Alice",
-          Optional.empty(),
-          Optional.empty(),
+          Optional.empty[Instant](),
+          Optional.empty[Duration](),
           Optional.of(duration),
-          List.empty.asJava,
+          List.empty[Command].asJava,
         )
 
       // We are sticking on the now deprecated deduplicationTime on purpose for backward compatibility
@@ -184,8 +184,8 @@ final class SubmitCommandsRequestSpec extends AnyFlatSpec with Matchers {
           "commandId",
           List("Alice").asJava,
           List.empty[String].asJava,
-          Optional.empty(),
-          Optional.empty(),
+          Optional.empty[Instant](),
+          Optional.empty[Duration](),
           Optional.of(duration),
           List.empty[Command].asJava,
         )
@@ -214,11 +214,11 @@ final class SubmitCommandsRequestSpec extends AnyFlatSpec with Matchers {
           "commandId",
           "submissionId",
           List("Alice").asJava,
-          List.empty.asJava,
-          Optional.empty(),
-          Optional.empty(),
+          List.empty[String].asJava,
+          Optional.empty[Instant](),
+          Optional.empty[Duration](),
           Optional.of(duration),
-          List.empty.asJava,
+          List.empty[Command].asJava,
         )
 
       // We are sticking on the now deprecated deduplicationTime on purpose for backward compatibility
@@ -247,10 +247,10 @@ final class SubmitCommandsRequestSpec extends AnyFlatSpec with Matchers {
           "applicationId",
           "commandId",
           "Alice",
-          Optional.empty(),
-          Optional.empty(),
-          Optional.empty(),
-          List.empty.asJava,
+          Optional.empty[Instant](),
+          Optional.empty[Duration](),
+          Optional.empty[Duration](),
+          List.empty[Command].asJava,
         )
 
       // We are sticking on the now deprecated deduplicationTime on purpose for backward compatibility
@@ -275,10 +275,10 @@ final class SubmitCommandsRequestSpec extends AnyFlatSpec with Matchers {
           "commandId",
           "submissionId",
           "Alice",
-          Optional.empty(),
-          Optional.empty(),
-          Optional.empty(),
-          List.empty.asJava,
+          Optional.empty[Instant](),
+          Optional.empty[Duration](),
+          Optional.empty[Duration](),
+          List.empty[Command].asJava,
         )
 
       // We are sticking on the now deprecated deduplicationTime on purpose for backward compatibility
@@ -301,10 +301,10 @@ final class SubmitCommandsRequestSpec extends AnyFlatSpec with Matchers {
           "commandId",
           List("Alice").asJava,
           List.empty[String].asJava,
-          Optional.empty(),
-          Optional.empty(),
-          Optional.empty(),
-          List.empty.asJava,
+          Optional.empty[Instant](),
+          Optional.empty[Duration](),
+          Optional.empty[Duration](),
+          List.empty[Command].asJava,
         )
 
       // We are sticking on the now deprecated deduplicationTime on purpose for backward compatibility
@@ -329,11 +329,11 @@ final class SubmitCommandsRequestSpec extends AnyFlatSpec with Matchers {
           "commandId",
           "submissionId",
           List("Alice").asJava,
-          List.empty.asJava,
-          Optional.empty(),
-          Optional.empty(),
-          Optional.empty(),
-          List.empty.asJava,
+          List.empty[String].asJava,
+          Optional.empty[Instant](),
+          Optional.empty[Duration](),
+          Optional.empty[Duration](),
+          List.empty[Command].asJava,
         )
 
       // We are sticking on the now deprecated deduplicationTime on purpose for backward compatibility
@@ -363,10 +363,10 @@ final class SubmitCommandsRequestSpec extends AnyFlatSpec with Matchers {
             "applicationId",
             "commandId",
             "Alice",
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            List.empty.asJava,
+            Optional.empty[Instant](),
+            Optional.empty[Duration](),
+            Optional.empty[Duration](),
+            List.empty[Command].asJava,
           )
         )
         .setDeduplicationDuration(
