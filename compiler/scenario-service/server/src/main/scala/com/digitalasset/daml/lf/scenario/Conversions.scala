@@ -182,6 +182,10 @@ final class Conversions(
                 builder.setComparableValueError(proto.Empty.newBuilder)
               case ValueExceedsMaxNesting =>
                 builder.setValueExceedsMaxNesting(proto.Empty.newBuilder)
+              case _: ChoiceGuardFailed =>
+                // TODO https://github.com/digital-asset/daml/issues/11703
+                //   Implement this.
+                builder.setCrash(s"ChoiceGuardFailed unhandled in scenario service")
             }
         }
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>

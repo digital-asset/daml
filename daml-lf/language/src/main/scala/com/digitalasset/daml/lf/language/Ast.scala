@@ -510,6 +510,8 @@ object Ast {
       // returns false, the transaction is aborted. If the guard raises an exception,
       // a fetch node is generated (instead of an exercise node) and the exception is
       // propagated upwards.
+      // TODO https://github.com/digital-asset/daml/issues/11703
+      //   Actually insert fetch nodes and propagate exception, instead of aborting tx.
   ) extends Update
   final case class UpdateExerciseByKey(
       templateId: TypeConName,

@@ -912,6 +912,8 @@ private[validation] object Typing {
       val choice = handleLookup(ctx, interface.lookupInterfaceChoice(tpl, chName))
       checkExpr(arg, choice.argBinder._2)
       guard.foreach(guardExpr => checkExpr(guardExpr, TFun(TTyCon(tpl), TBool)))
+      // TODO https://github.com/digital-asset/daml/issues/11703
+      //   Verify that guard typechecks correctly in typechecker tests.
       TUpdate(choice.returnType)
     }
 
