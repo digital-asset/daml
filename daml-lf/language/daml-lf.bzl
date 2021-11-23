@@ -59,12 +59,14 @@ PROTO_LF_VERSIONS = LF_VERSIONS
 # The subset of LF versions accepted by //daml-lf/encoder
 ENCODER_LF_VERSIONS = ["1.dev" if ver == "dev" else ver for ver in LF_VERSIONS]
 
+# We support older LF versions using an older compiler binary
+LEGACY_COMPILER_LF_VERSIONS = ["1.6", "1.7", "1.8", "1.11", "1.12", "1.13"]
+
 # The subset of LF versions accepted by the compiler in the syntax
 # expected by the --target option.
-COMPILER_LF_VERSIONS = ENCODER_LF_VERSIONS
+COMPILER_LF_VERSIONS = [ver for ver in ENCODER_LF_VERSIONS if ver not in LEGACY_COMPILER_LF_VERSIONS]
 
-# We need Any in DAML Script so we require DAML-LF >= 1.7
-SCRIPT_LF_VERSIONS = [ver for ver in COMPILER_LF_VERSIONS if ver != "1.6"]
+ALL_COMPILER_LF_VERSIONS = LEGACY_COMPILER_LF_VERSIONS + COMPILER_LF_VERSIONS
 
 LF_VERSION_PACKAGE_DIGITALASSET = {
     "1.6": "digitalasset",

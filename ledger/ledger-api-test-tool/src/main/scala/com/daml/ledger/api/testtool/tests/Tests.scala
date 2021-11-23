@@ -78,6 +78,9 @@ object Tests {
       new MonotonicRecordTimeIT,
       new TLSOnePointThreeIT,
       new TLSAtLeastOnePointTwoIT,
+      // TODO sandbox-classic removal: Remove
+      new DeprecatedSandboxClassicMemoryContractKeysIT,
+      new DeprecatedSandboxClassicMemoryExceptionsIT,
     )
 
   val retired: Vector[LedgerTestSuite] =

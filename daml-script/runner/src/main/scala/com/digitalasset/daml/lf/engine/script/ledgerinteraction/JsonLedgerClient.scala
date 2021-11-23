@@ -93,7 +93,7 @@ class JsonLedgerClient(
           resp.entity.dataBytes
             .runFold(ByteString.empty)((b, a) => b ++ a)
             .map(_.utf8String)
-            .map(body => ErrorResponse(status = resp.status, errors = List(body)))
+            .map(body => NonJsonErrorResponse(status = resp.status, body = body))
         }
       )
   }
@@ -130,6 +130,8 @@ class JsonLedgerClient(
     request[A, B](path, a).flatMap {
       case ErrorResponse(errors, status) =>
         Future.failed(FailedJsonApiRequest(path, Some(a.toJson), status, errors))
+      case NonJsonErrorResponse(status, body) =>
+        Future.failed(FailedJsonApiRequest(path, Some(a.toJson), status, List(body)))
       case SuccessResponse(result, _) => Future.successful(result)
     }
 
@@ -137,6 +139,8 @@ class JsonLedgerClient(
     request[A](path).flatMap {
       case ErrorResponse(errors, status) =>
         Future.failed(FailedJsonApiRequest(path, None, status, errors))
+      case NonJsonErrorResponse(status, body) =>
+        Future.failed(FailedJsonApiRequest(path, None, status, List(body)))
       case SuccessResponse(result, _) => Future.successful(result)
     }
 
@@ -463,7 +467,7 @@ class JsonLedgerClient(
 
   private[this] val SubmissionFailures: Set[StatusCode] = {
     import StatusCodes._
-    Set(InternalServerError, BadRequest, Conflict)
+    Set(InternalServerError, BadRequest, Conflict, NotFound)
   }
 
   def commandRequest[In, Out](endpoint: String, argument: In, partySets: Option[SubmitParties])(
@@ -491,6 +495,15 @@ class JsonLedgerClient(
             Some(argumentWithPartySets),
             status,
             errors,
+          )
+        )
+      case NonJsonErrorResponse(status, body) =>
+        Future.failed(
+          new FailedJsonApiRequest(
+            uri.path./("v1")./(endpoint),
+            Some(argumentWithPartySets),
+            status,
+            List(body),
           )
         )
       case SuccessResponse(result, _) => Future.successful(Right(result))
@@ -566,6 +579,7 @@ object JsonLedgerClient {
     def status: StatusCode
   }
   final case class ErrorResponse[A](errors: List[String], status: StatusCode) extends Response[A]
+  final case class NonJsonErrorResponse[A](status: StatusCode, body: String) extends Response[A]
   final case class SuccessResponse[A](result: A, status: StatusCode) extends Response[A]
 
   final case class QueryArgs(templateId: Identifier)

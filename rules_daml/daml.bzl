@@ -3,9 +3,9 @@
 
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
 
 _damlc = attr.label(
-    allow_single_file = True,
     default = Label("//compiler/damlc:damlc-compile-only"),
     executable = True,
     cfg = "host",
@@ -78,7 +78,7 @@ def _daml_build_impl(ctx):
     daml_yaml = ctx.file.daml_yaml
     srcs = ctx.files.srcs
     dar_dict = ctx.attr.dar_dict
-    damlc = ctx.file._damlc
+    damlc = ctx.executable.damlc
     input_dars = [file_of_target(k) for k in dar_dict.keys()]
     output_dar = ctx.outputs.dar
     posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
@@ -149,7 +149,7 @@ _daml_build = rule(
             doc = "Options passed to GHC.",
             default = ["--ghc-option=-Werror", "--ghc-option=-Wwarn", "--log-level=WARNING"],
         ),
-        "_damlc": _damlc,
+        "damlc": _damlc,
     },
     toolchains = ["@rules_sh//sh/posix:toolchain_type"],
 )
@@ -249,6 +249,12 @@ _default_project_version = "1.0.0"
 
 default_damlc_opts = ["--ghc-option=-Werror", "--ghc-option=-Wwarn", "--log-level=WARNING"]
 
+def damlc_for_target(target):
+    if not target or target in COMPILER_LF_VERSIONS:
+        return "//compiler/damlc:damlc-compile-only"
+    else:
+        return "@damlc_legacy//:damlc_legacy"
+
 def daml_compile(
         name,
         srcs,
@@ -276,6 +282,7 @@ def daml_compile(
         dar_dict = {},
         dar = name + ".dar",
         ghc_options = ghc_options,
+        damlc = damlc_for_target(target),
         **kwargs
     )
     _inspect_dar(

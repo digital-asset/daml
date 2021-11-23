@@ -77,14 +77,14 @@ tmpdir=$$(mktemp -d)
 trap "rm -rf $$tmpdir" EXIT
 DAMLC=$$(canonicalize_rlocation $(rootpath //compiler/damlc))
 unzip $$(canonicalize_rlocation $(rootpath :lf16-export.zip)) -d $$tmpdir
-cp -L $$(canonicalize_rlocation $(rootpath //daml-script/daml:daml-script-1.7.dar)) $$tmpdir/
-sed -i.bak 's/daml-script/daml-script-1.7.dar/' $$tmpdir/daml.yaml
+cp -L $$(canonicalize_rlocation $(rootpath //daml-script/daml:daml-script-1.14.dar)) $$tmpdir/
+sed -i.bak 's/daml-script/daml-script-1.14.dar/' $$tmpdir/daml.yaml
 cat $$tmpdir/daml.yaml
 DAML_PROJECT=$$tmpdir $$DAMLC build
 """,
     data = [
         ":lf16-export.zip",
         "//compiler/damlc",
-        "//daml-script/daml:daml-script-1.7.dar",
+        "//daml-script/daml:daml-script-1.14.dar",
     ],
 )

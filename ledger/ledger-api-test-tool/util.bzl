@@ -9,10 +9,14 @@ load(
 exceptions_suites = [
     "src/main/scala/com/daml/ledger/api/testtool/suites/ExceptionsIT.scala",
     "src/main/scala/com/daml/ledger/api/testtool/suites/ExceptionRaceConditionIT.scala",
+    # TODO sandbox-classic removal: remove the line below
+    "src/main/scala/com/daml/ledger/api/testtool/suites/DeprecatedSandboxClassicMemoryExceptionsIT.scala",
 ]
 exceptions_dummy_suites = [
     "src/main/scala/com/daml/ledger/api/testtool/dummy/ExceptionsIT.scala",
     "src/main/scala/com/daml/ledger/api/testtool/dummy/ExceptionRaceConditionIT.scala",
+    # TODO sandbox-classic removal: remove the line below
+    "src/main/scala/com/daml/ledger/api/testtool/dummy/DeprecatedSandboxClassicMemoryExceptionsIT.scala",
 ]
 
 def suites_sources(version):

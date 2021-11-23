@@ -195,7 +195,7 @@ color-name 1.1.3 : MIT License
 color-name 1.1.4 : MIT License
 color-string 1.5.5 : MIT License
 colors.js 1.1.2 : MIT License
-colors.js v1.4.0 : MIT License
+colors.js 1.4.0 : MIT License
 colour 2.3.5 : MIT License
 com.google.api.grpc:proto-google-common-protos 2.0.1 : Apache License 2.0
 combine-source-map 0.8.0 : MIT License
@@ -1375,197 +1375,6 @@ third-party archives.
   distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
   KIND, either express or implied. See the License for the specific language
   governing permissions and limitations under the License.
-
----
-
-Basic Proprietary Commercial License
-(Oracle Database JDBC Drivers 19.8.0.0)
-
-END-USER LICENSE AGREEMENT FOR ACME SOFTWARE
-============================================
-
-IMPORTANT READ CAREFULLY: This ACME End-User License Agreement ("EULA") is a
-legal agreement between you (either an individual or a single entity) and ACME
-Corporation for the ACME software product identified above, which includes
-computer software and may include associated media, printed materials, and
-"online" or electronic documentation ("SOFTWARE PRODUCT"). The SOFTWARE PRODUCT
-also includes any updates and supplements to the original SOFTWARE PRODUCT
-provided to you by ACME. Any software provided along with the SOFTWARE PRODUCT
-that is associated with a separate end-user license agreement is licensed to you
-under the terms of that license agreement. By installing, copying, downloading,
-accessing, or otherwise using the SOFTWARE PRODUCT, you agree to be bound by the
-terms of this EULA. If you do not agree to the terms of this EULA, do not install
-or use the SOFTWARE PRODUCT; you may, however, return it to your place of
-purchase for a full refund.
-
-
-SOFTWARE PRODUCT LICENSE
-------------------------
-
-The SOFTWARE PRODUCT is protected by copyright laws and international copyright
-treaties, as well as other intellectual property laws and treaties. The SOFTWARE
-PRODUCT is licensed, not sold.
-
-  1. GRANT OF LICENSE. This EULA grants you the following rights:
-
-      * Applications Software. You may install, use, access, display, run, or
-        otherwise interact with ("RUN") one copy of the SOFTWARE PRODUCT, or any
-        prior version for the same operating system, on a single computer,
-        workstation, terminal, handheld PC, pager, "smart phone," or other
-        digital electronic device ("COMPUTER"). The primary user of the COMPUTER
-        on which the SOFTWARE PRODUCT is installed may make a second copy for his
-        or her exclusive use on a portable computer.
-
-      * Reservation of Rights. All rights not expressly granted are reserved by
-        ACME.
-
-  2. DESCRIPTION OF OTHER RIGHTS AND LIMITATIONS.
-
-      * Not for Resale Software. If the SOFTWARE PRODUCT is labeled "Not For
-        Resale" or "NFR," then, notwithstanding other sections of this EULA, your
-        use of the SOFTWARE PRODUCT is limited to use for demonstration, test, or
-        evaluation purposes and you may not resell, or otherwise transfer for
-        value, the SOFTWARE PRODUCT.
-
-      * Limitations on Reverse Engineering, Decompilation, and Disassembly. You
-        may not reverse engineer, decompile, or disassemble the SOFTWARE PRODUCT,
-        except and only to the extent that such activity is expressly permitted
-        by applicable law.
-
-      * Separation of Components. The SOFTWARE PRODUCT is licensed as a single
-        product. Its component parts may not be separated for use on more than
-        one COMPUTER.
-
-      * Trademarks. This EULA does not grant you any rights in connection with
-        any trademarks or service marks of ACME.
-
-      * Rental. You may not rent, lease, or lend the SOFTWARE PRODUCT.
-
-      * Support Services. ACME may provide you with support services related to
-        the SOFTWARE PRODUCT ("Support Services"). Use of Support Services is
-        governed by the ACME policies and programs described in the user manual,
-        in "online" documentation, and/or in other ACME-provided materials. Any
-        supplemental software code provided to you as part of the Support
-        Services shall be considered part of the SOFTWARE PRODUCT and subject to
-        the terms and conditions of this EULA.
-
-      * Software Transfer. The initial licensee of the SOFTWARE PRODUCT may make
-        a one-time permanent transfer of this EULA and SOFTWARE PRODUCT only
-        directly to an end user. This transfer must include all of the SOFTWARE
-        PRODUCT (including all component parts, the media and printed materials,
-        any upgrades, this EULA, and, if applicable, the Certificate of
-        Authenticity). Such transfer may not be by way of consignment or any
-        other indirect transfer. The transferee of such one-time transfer must
-        agree to comply with the terms of this EULA, including the obligation not
-        to further transfer this EULA and SOFTWARE PRODUCT.
-
-      * Termination. Without prejudice to any other rights, ACME may terminate
-        this EULA if you fail to comply with the terms and conditions of this
-        EULA. In such event, you must destroy all copies of the SOFTWARE PRODUCT
-        and all of its component parts.
-
-  3. COPYRIGHT. All title and copyrights in and to the SOFTWARE PRODUCT
-    (including but not limited to any images, photographs, animations, video,
-    audio, music, text, and "applets" incorporated into the SOFTWARE PRODUCT),
-    the accompanying printed materials, and any copies of the SOFTWARE PRODUCT
-    are owned by ACME or its suppliers. All title and intellectual property
-    rights in and to the content that may be accessed through use of the SOFTWARE
-    PRODUCT is the property of the respective content owner and may be protected
-    by applicable copyright or other intellectual property laws and treaties.
-    This EULA grants you no rights to use such content. If this SOFTWARE PRODUCT
-    contains documentation that is provided only in electronic form, you may
-    print one copy of such electronic documentation. You may not copy the printed
-    materials accompanying the SOFTWARE PRODUCT.
-
-  4. BACKUP COPY. After installation of one copy of the SOFTWARE PRODUCT pursuant
-    to this EULA, you may keep the original media on which the SOFTWARE PRODUCT
-    was provided by ACME solely for backup or archival purposes. If the original
-    media is required to use the SOFTWARE PRODUCT on the COMPUTER, you may make
-    one copy of the SOFTWARE PRODUCT solely for backup or archival purposes.
-    Except as expressly provided in this EULA, you may not otherwise make copies
-    of the SOFTWARE PRODUCT or the printed materials accompanying the SOFTWARE
-    PRODUCT.
-
-  5. U.S. GOVERNMENT RESTRICTED RIGHTS. All SOFTWARE PRODUCT provided to the U.S.
-    Government pursuant to solicitations issued on or after December 1, 1995 is
-    provided with the commercial rights and restrictions described elsewhere
-    herein. All SOFTWARE PRODUCT provided to the U.S. Government pursuant to
-    solicitations issued prior to December 1, 1995 is provided with RESTRICTED
-    RIGHTS as provided for in FAR, 48 CFR 52.227-14 (JUNE 1987) or FAR, 48 CFR
-    252.227-7013 (OCT 1988), as applicable.
-
-  6. EXPORT RESTRICTIONS. This SOFTWARE PRODUCT has been classified by the US
-    Government as exportable under License Exception TSU. Therefore the following
-    terms apply: You agree that you will not export or re-export the SOFTWARE
-    PRODUCT, any part thereof, or any process or service that is the direct
-    product of the SOFTWARE PRODUCT (the foregoing collectively referred to as
-    the Restricted Components), to any country, person or entity subject to U.S.
-    export restrictions. You specifically agree not to export or re-export any of
-    the Restricted Components (i) to any country to which the U.S. has embargoed
-    or restricted the export of goods or services, which currently include, but
-    are not necessarily limited to Cuba, Iran, Iraq, Libya, North Korea, Sudan
-    and Syria, or to any national of any such country, wherever located, who
-    intends to transmit or transport the Restricted Components back to such
-    country; (ii) to any person or entity who you know or have reason to know
-    will utilize the Restricted Components in the design, development or
-    production of nuclear, chemical or biological weapons; or (iii) to any person
-    or entity who has been prohibited from participating in U.S. export
-    transactions by any federal agency of the U.S. government. You warrant and
-    represent that neither the Bureau of Export Administration nor any other U.S.
-    federal agency has suspended, revoked or denied your export privileges.
-
-
-MISCELLANEOUS
--------------
-
-This EULA is governed by the laws of the Commonwealth of Massachusetts and the
-United States of America.
-
-
-LIMITED WARRANTY
-----------------
-
-ACME warrants that (a) the SOFTWARE PRODUCT will perform substantially in
-accordance with the accompanying written materials for a period of ninety (90)
-days from the date of receipt, and (b) any Support Services provided by ACME
-shall be substantially as described in applicable written materials provided to
-you by ACME, and ACME support engineers will make commercially reasonable efforts
-to solve any problem issues. Some states and jurisdictions do not allow
-limitations on duration of an implied warranty, so the above limitation may not
-apply to you.
-
-
-CUSTOMER REMEDIES. ACMEs and its suppliersentire liability and your exclusive
-remedy shall be, at ACMEs option, either (a) return of the price paid, if any, or
-(b) repair or replacement of the SOFTWARE PRODUCT that does not meet ACMEs
-Limited Warranty and which is returned to ACME with a copy of your receipt. This
-Limited Warranty is void if failure of the SOFTWARE PRODUCT has resulted from
-accident, abuse, or misapplication. Any replacement SOFTWARE PRODUCT will be
-warranted for the remainder of the original warranty period or thirty (30) days,
-whichever is longer.
-
-NO OTHER WARRANTIES. TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, ACME AND
-ITS SUPPLIERS DISCLAIM ALL OTHER WARRANTIES AND CONDITIONS, EITHER EXPRESS OR
-IMPLIED, INCLUDING, BUT NOT LIMITED TO, IMPLIED WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT, WITH REGARD TO THE
-SOFTWARE PRODUCT, AND THE PROVISION OF OR FAILURE TO PROVIDE SUPPORT SERVICES.
-THIS LIMITED WARRANTY GIVES YOU SPECIFIC LEGAL RIGHTS. YOU MAY HAVE OTHERS, WHICH
-VARY FROM STATE/JURISDICTION TO STATE/JURISDICTION.
- 
-LIMITATION OF LIABILITY. To the maximum extent permitted by applicable law, in no
-event shall ACME or its suppliers be liable for any special, incidental,
-indirect, or consequential damages whatsoever (including, without limitation,
-damages for loss of business profits, business interruption, loss of business
-information, or any other pecuniary loss) arising out of the use of or inability
-to use the SOFTWARE PRODUCT or the provision of or failure to provide Support
-Services, even if ACME has been advised of the possibility of such damages. In
-any case, ACMEs entire liability under any provision of this EULA shall be
-limited to the greater of the amount actually paid by you for the SOFTWARE
-PRODUCT or U.S. $5.00; provided, however, if you have entered into a ACME Support
-Services Agreement, ACMEs entire liability regarding Support Services shall be
-governed by the terms of that agreement. Because some states and jurisdictions do
-not allow the exclusion or limitation of liability, the above limitation may not
-apply to you.
 
 ---
 
@@ -2828,44 +2637,6 @@ Redistribution and use in source and binary forms, with or without modification,
 ---
 
 BSD 3-clause "New" or "Revised" License
-(haskell-src-exts 1.23.1)
-
-modified BSD license:
-
-Copyright (c) 2005, Niklas Broberg
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
-
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
-
-    * Redistributions in binary form must reproduce the above
-      copyright notice, this list of conditions and the following
-      disclaimer in the documentation and/or other materials provided
-      with the distribution.
-
-    * The names of its contributors may not be used to endorse or 
-      promote products derived from this software without specific prior 
-      written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
-
----
-
-BSD 3-clause "New" or "Revised" License
 (silently 1.2.5.1)
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -2915,6 +2686,44 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 ---
 
+BSD 3-clause "New" or "Revised" License
+(haskell-src-exts 1.23.1)
+
+modified BSD license:
+
+Copyright (c) 2005, Niklas Broberg
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+    * The names of its contributors may not be used to endorse or 
+      promote products derived from this software without specific prior 
+      written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
+
+---
+
 BSD Zero Clause License
 (tslib 1.14.1, tslib 2.2.0)
 
@@ -2933,6 +2742,197 @@ INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
 OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
+
+---
+
+Basic Proprietary Commercial License
+(Oracle Database JDBC Drivers 19.8.0.0)
+
+END-USER LICENSE AGREEMENT FOR ACME SOFTWARE
+============================================
+
+IMPORTANT READ CAREFULLY: This ACME End-User License Agreement ("EULA") is a
+legal agreement between you (either an individual or a single entity) and ACME
+Corporation for the ACME software product identified above, which includes
+computer software and may include associated media, printed materials, and
+"online" or electronic documentation ("SOFTWARE PRODUCT"). The SOFTWARE PRODUCT
+also includes any updates and supplements to the original SOFTWARE PRODUCT
+provided to you by ACME. Any software provided along with the SOFTWARE PRODUCT
+that is associated with a separate end-user license agreement is licensed to you
+under the terms of that license agreement. By installing, copying, downloading,
+accessing, or otherwise using the SOFTWARE PRODUCT, you agree to be bound by the
+terms of this EULA. If you do not agree to the terms of this EULA, do not install
+or use the SOFTWARE PRODUCT; you may, however, return it to your place of
+purchase for a full refund.
+
+
+SOFTWARE PRODUCT LICENSE
+------------------------
+
+The SOFTWARE PRODUCT is protected by copyright laws and international copyright
+treaties, as well as other intellectual property laws and treaties. The SOFTWARE
+PRODUCT is licensed, not sold.
+
+  1. GRANT OF LICENSE. This EULA grants you the following rights:
+
+      * Applications Software. You may install, use, access, display, run, or
+        otherwise interact with ("RUN") one copy of the SOFTWARE PRODUCT, or any
+        prior version for the same operating system, on a single computer,
+        workstation, terminal, handheld PC, pager, "smart phone," or other
+        digital electronic device ("COMPUTER"). The primary user of the COMPUTER
+        on which the SOFTWARE PRODUCT is installed may make a second copy for his
+        or her exclusive use on a portable computer.
+
+      * Reservation of Rights. All rights not expressly granted are reserved by
+        ACME.
+
+  2. DESCRIPTION OF OTHER RIGHTS AND LIMITATIONS.
+
+      * Not for Resale Software. If the SOFTWARE PRODUCT is labeled "Not For
+        Resale" or "NFR," then, notwithstanding other sections of this EULA, your
+        use of the SOFTWARE PRODUCT is limited to use for demonstration, test, or
+        evaluation purposes and you may not resell, or otherwise transfer for
+        value, the SOFTWARE PRODUCT.
+
+      * Limitations on Reverse Engineering, Decompilation, and Disassembly. You
+        may not reverse engineer, decompile, or disassemble the SOFTWARE PRODUCT,
+        except and only to the extent that such activity is expressly permitted
+        by applicable law.
+
+      * Separation of Components. The SOFTWARE PRODUCT is licensed as a single
+        product. Its component parts may not be separated for use on more than
+        one COMPUTER.
+
+      * Trademarks. This EULA does not grant you any rights in connection with
+        any trademarks or service marks of ACME.
+
+      * Rental. You may not rent, lease, or lend the SOFTWARE PRODUCT.
+
+      * Support Services. ACME may provide you with support services related to
+        the SOFTWARE PRODUCT ("Support Services"). Use of Support Services is
+        governed by the ACME policies and programs described in the user manual,
+        in "online" documentation, and/or in other ACME-provided materials. Any
+        supplemental software code provided to you as part of the Support
+        Services shall be considered part of the SOFTWARE PRODUCT and subject to
+        the terms and conditions of this EULA.
+
+      * Software Transfer. The initial licensee of the SOFTWARE PRODUCT may make
+        a one-time permanent transfer of this EULA and SOFTWARE PRODUCT only
+        directly to an end user. This transfer must include all of the SOFTWARE
+        PRODUCT (including all component parts, the media and printed materials,
+        any upgrades, this EULA, and, if applicable, the Certificate of
+        Authenticity). Such transfer may not be by way of consignment or any
+        other indirect transfer. The transferee of such one-time transfer must
+        agree to comply with the terms of this EULA, including the obligation not
+        to further transfer this EULA and SOFTWARE PRODUCT.
+
+      * Termination. Without prejudice to any other rights, ACME may terminate
+        this EULA if you fail to comply with the terms and conditions of this
+        EULA. In such event, you must destroy all copies of the SOFTWARE PRODUCT
+        and all of its component parts.
+
+  3. COPYRIGHT. All title and copyrights in and to the SOFTWARE PRODUCT
+    (including but not limited to any images, photographs, animations, video,
+    audio, music, text, and "applets" incorporated into the SOFTWARE PRODUCT),
+    the accompanying printed materials, and any copies of the SOFTWARE PRODUCT
+    are owned by ACME or its suppliers. All title and intellectual property
+    rights in and to the content that may be accessed through use of the SOFTWARE
+    PRODUCT is the property of the respective content owner and may be protected
+    by applicable copyright or other intellectual property laws and treaties.
+    This EULA grants you no rights to use such content. If this SOFTWARE PRODUCT
+    contains documentation that is provided only in electronic form, you may
+    print one copy of such electronic documentation. You may not copy the printed
+    materials accompanying the SOFTWARE PRODUCT.
+
+  4. BACKUP COPY. After installation of one copy of the SOFTWARE PRODUCT pursuant
+    to this EULA, you may keep the original media on which the SOFTWARE PRODUCT
+    was provided by ACME solely for backup or archival purposes. If the original
+    media is required to use the SOFTWARE PRODUCT on the COMPUTER, you may make
+    one copy of the SOFTWARE PRODUCT solely for backup or archival purposes.
+    Except as expressly provided in this EULA, you may not otherwise make copies
+    of the SOFTWARE PRODUCT or the printed materials accompanying the SOFTWARE
+    PRODUCT.
+
+  5. U.S. GOVERNMENT RESTRICTED RIGHTS. All SOFTWARE PRODUCT provided to the U.S.
+    Government pursuant to solicitations issued on or after December 1, 1995 is
+    provided with the commercial rights and restrictions described elsewhere
+    herein. All SOFTWARE PRODUCT provided to the U.S. Government pursuant to
+    solicitations issued prior to December 1, 1995 is provided with RESTRICTED
+    RIGHTS as provided for in FAR, 48 CFR 52.227-14 (JUNE 1987) or FAR, 48 CFR
+    252.227-7013 (OCT 1988), as applicable.
+
+  6. EXPORT RESTRICTIONS. This SOFTWARE PRODUCT has been classified by the US
+    Government as exportable under License Exception TSU. Therefore the following
+    terms apply: You agree that you will not export or re-export the SOFTWARE
+    PRODUCT, any part thereof, or any process or service that is the direct
+    product of the SOFTWARE PRODUCT (the foregoing collectively referred to as
+    the Restricted Components), to any country, person or entity subject to U.S.
+    export restrictions. You specifically agree not to export or re-export any of
+    the Restricted Components (i) to any country to which the U.S. has embargoed
+    or restricted the export of goods or services, which currently include, but
+    are not necessarily limited to Cuba, Iran, Iraq, Libya, North Korea, Sudan
+    and Syria, or to any national of any such country, wherever located, who
+    intends to transmit or transport the Restricted Components back to such
+    country; (ii) to any person or entity who you know or have reason to know
+    will utilize the Restricted Components in the design, development or
+    production of nuclear, chemical or biological weapons; or (iii) to any person
+    or entity who has been prohibited from participating in U.S. export
+    transactions by any federal agency of the U.S. government. You warrant and
+    represent that neither the Bureau of Export Administration nor any other U.S.
+    federal agency has suspended, revoked or denied your export privileges.
+
+
+MISCELLANEOUS
+-------------
+
+This EULA is governed by the laws of the Commonwealth of Massachusetts and the
+United States of America.
+
+
+LIMITED WARRANTY
+----------------
+
+ACME warrants that (a) the SOFTWARE PRODUCT will perform substantially in
+accordance with the accompanying written materials for a period of ninety (90)
+days from the date of receipt, and (b) any Support Services provided by ACME
+shall be substantially as described in applicable written materials provided to
+you by ACME, and ACME support engineers will make commercially reasonable efforts
+to solve any problem issues. Some states and jurisdictions do not allow
+limitations on duration of an implied warranty, so the above limitation may not
+apply to you.
+
+
+CUSTOMER REMEDIES. ACMEs and its suppliersentire liability and your exclusive
+remedy shall be, at ACMEs option, either (a) return of the price paid, if any, or
+(b) repair or replacement of the SOFTWARE PRODUCT that does not meet ACMEs
+Limited Warranty and which is returned to ACME with a copy of your receipt. This
+Limited Warranty is void if failure of the SOFTWARE PRODUCT has resulted from
+accident, abuse, or misapplication. Any replacement SOFTWARE PRODUCT will be
+warranted for the remainder of the original warranty period or thirty (30) days,
+whichever is longer.
+
+NO OTHER WARRANTIES. TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, ACME AND
+ITS SUPPLIERS DISCLAIM ALL OTHER WARRANTIES AND CONDITIONS, EITHER EXPRESS OR
+IMPLIED, INCLUDING, BUT NOT LIMITED TO, IMPLIED WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT, WITH REGARD TO THE
+SOFTWARE PRODUCT, AND THE PROVISION OF OR FAILURE TO PROVIDE SUPPORT SERVICES.
+THIS LIMITED WARRANTY GIVES YOU SPECIFIC LEGAL RIGHTS. YOU MAY HAVE OTHERS, WHICH
+VARY FROM STATE/JURISDICTION TO STATE/JURISDICTION.
+ 
+LIMITATION OF LIABILITY. To the maximum extent permitted by applicable law, in no
+event shall ACME or its suppliers be liable for any special, incidental,
+indirect, or consequential damages whatsoever (including, without limitation,
+damages for loss of business profits, business interruption, loss of business
+information, or any other pecuniary loss) arising out of the use of or inability
+to use the SOFTWARE PRODUCT or the provision of or failure to provide Support
+Services, even if ACME has been advised of the possibility of such damages. In
+any case, ACMEs entire liability under any provision of this EULA shall be
+limited to the greater of the amount actually paid by you for the SOFTWARE
+PRODUCT or U.S. $5.00; provided, however, if you have entered into a ACME Support
+Services Agreement, ACMEs entire liability regarding Support Services shall be
+governed by the terms of that agreement. Because some states and jurisdictions do
+not allow the exclusion or limitation of liability, the above limitation may not
+apply to you.
 
 ---
 
@@ -6268,41 +6268,6 @@ Permission to use, copy, modify, and/or distribute this software for any
 
 ---
 
-libxml2 License
-(timers-browserify 1.4.2, timers-browserify 2.0.2)
-
-libxml2 License
-===============
-
-Except where otherwise noted in the source code (e.g. the files hash.c, list.c
-and the trio files, which are covered by a similar licence but with different
-Copyright notices) all the files are:
-
-Copyright (C) 1998-2003 Daniel Veillard. All Rights Reserved.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in the
-Software without restriction, including without limitation the rights to use,
-copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
-Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE DANIEL
-VEILLARD BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH
-THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-Except as contained in this notice, the name of Daniel Veillard shall not be used
-in advertising or otherwise to promote the sale, use or other dealings in this
-Software without prior written authorization from him.
-
----
-
 MIT License
 (nodejs/string_decoder 1.1.1, nodejs/string_decoder v1.3.0, readable-stream 3.6.0, readable-stream v2.3.7)
 
@@ -6366,32 +6331,6 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
-
----
-
-MIT License
-(node-dateformat 3.0.3)
-
-(c) 2007-2009 Steven Levithan <stevenlevithan.com>
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 
 ---
 
@@ -6544,32 +6483,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(eventemitter2 0.4.14)
-
-(The MIT License)
-
-Copyright (c) 2011 hij1nx <http://www.twitter.com/hij1nx>
-
-Permission is hereby granted, free of charge, to any person obtaining a copy 
-of this software and associated documentation files (the 'Software'), to deal 
-in the Software without restriction, including without limitation the rights 
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
-copies of the Software, and to permit persons to whom the Software is furnished
-to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
-AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION 
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
-
----
-
-MIT License
 (Commander.js 2.19.0, Commander.js v2.20.3)
 
 (The MIT License)
@@ -6594,6 +6507,32 @@ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
 CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
+
+---
+
+MIT License
+(eventemitter2 0.4.14)
+
+(The MIT License)
+
+Copyright (c) 2011 hij1nx <http://www.twitter.com/hij1nx>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy 
+of this software and associated documentation files (the 'Software'), to deal 
+in the Software without restriction, including without limitation the rights 
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+copies of the Software, and to permit persons to whom the Software is furnished
+to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION 
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 
 ---
 
@@ -7408,7 +7347,33 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(colors.js 1.1.2, colors.js v1.4.0)
+(node-dateformat 3.0.3)
+
+(c) 2007-2009 Steven Levithan <stevenlevithan.com>
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
+
+---
+
+MIT License
+(colors.js 1.1.2, colors.js 1.4.0)
 
 - Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
 
@@ -7585,6 +7550,43 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
+(combine-source-map 0.8.0)
+
+Comment: Remove due to being already packaged
+
+Files: *
+Copyright: 2013-2017 Thorsten Lorenz <thlorenz@gmx.de> (http://thlorenz.com)
+License: Expat
+
+Files: debian/*
+Copyright: 2017 Bastien Roucariès <rouca@debian.org>
+License: Expat
+
+License: Expat
+
+Permission is hereby granted, free of charge, to any person
+ obtaining a copy of this software and associated documentation files
+ (the "Software"), to deal in the Software without restriction,
+ including without limitation the rights to use, copy, modify, merge,
+ publish, distribute, sublicense, and/or sell copies of the Software,
+ and to permit persons to whom the Software is furnished to do so,
+ subject to the following conditions:
+ .
+ The above copyright notice and this permission notice shall be
+ included in all copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE
+
+---
+
+MIT License
 (ForbesLindesay/umd 3.0.3)
 
 Comment: compiled js will be regerated at compile time
@@ -7622,39 +7624,77 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(combine-source-map 0.8.0)
+(randexp 0.4.6, ret 0.1.15)
 
-Comment: Remove due to being already packaged
+Copyright (C) 2011 by Roly Fentanes
 
-Files: *
-Copyright: 2013-2017 Thorsten Lorenz <thlorenz@gmx.de> (http://thlorenz.com)
-License: Expat
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-Files: debian/*
-Copyright: 2017 Bastien Roucariès <rouca@debian.org>
-License: Expat
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
-License: Expat
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE
 
-Permission is hereby granted, free of charge, to any person
- obtaining a copy of this software and associated documentation files
- (the "Software"), to deal in the Software without restriction,
- including without limitation the rights to use, copy, modify, merge,
- publish, distribute, sublicense, and/or sell copies of the Software,
- and to permit persons to whom the Software is furnished to do so,
- subject to the following conditions:
- .
- The above copyright notice and this permission notice shall be
- included in all copies or substantial portions of the Software.
- .
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- SOFTWARE
+---
+
+MIT License
+(whitequark/ipaddr.js v1.9.1)
+
+Copyright (C) 2011-2017 whitequark <whitequark@whitequark.org>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE
+
+---
+
+MIT License
+(acorn-walk 7.2.0)
+
+Copyright (C) 2012-2018 by various contributors (see AUTHORS)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE
 
 ---
 
@@ -7898,31 +7938,6 @@ OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(randexp 0.4.6, ret 0.1.15)
-
-Copyright (C) 2011 by Roly Fentanes
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE
-
----
-
-MIT License
 (combined-stream 1.0.8)
 
 Copyright (c) 2011 Debuggable Limited <felix@debuggable.com>
@@ -8023,31 +8038,6 @@ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
-
----
-
-MIT License
-(whitequark/ipaddr.js v1.9.1)
-
-Copyright (C) 2011-2017 whitequark <whitequark@whitequark.org>
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE
 
 ---
 
@@ -8289,31 +8279,6 @@ OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(acorn-walk 7.2.0)
-
-Copyright (C) 2012-2018 by various contributors (see AUTHORS)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE
-
----
-
-MIT License
 (base-compat 0.11.2)
 
 Copyright (c) 2012-2018 Simon Hengel <sol@typeful.net> and Ryan Scott <ryan.gl.scott@gmail.com>
@@ -8393,31 +8358,6 @@ furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE
-
----
-
-MIT License
-(connect-livereload 0.6.1)
-
-Copyright (c) 2013 intesso
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is furnished
-to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -8605,6 +8545,31 @@ HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE
+
+---
+
+MIT License
+(connect-livereload 0.6.1)
+
+Copyright (c) 2013 intesso
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is furnished
+to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE
 
 ---
 
@@ -9980,31 +9945,6 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(nodeca/pako 1.0.11)
-
-License: expat
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
- of this software and associated documentation files (the "Software"), to deal
- in the Software without restriction, including without limitation the rights
- to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- copies of the Software, and to permit persons to whom the Software is
- furnished to do so, subject to the following conditions:
- .
- The above copyright notice and this permission notice shall be included in
- all copies or substantial portions of the Software.
- .
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- THE SOFTWARE
-
----
-
-MIT License
 (RequireJS 2.3.6)
 
 License: MIT
@@ -10028,6 +9968,31 @@ Permission is hereby granted, free of charge, to any person obtaining
  ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE
+
+---
+
+MIT License
+(nodeca/pako 1.0.11)
+
+License: expat
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+ .
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ THE SOFTWARE
 
 ---
 
@@ -10123,33 +10088,6 @@ Permission is hereby granted, free of charge, to any person obtaining a copy
 ---
 
 MIT License
-(node-browserify 17.0.0)
-
-MIT License
-
-Copyright (c) 2010 James Halliday
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE
-
----
-
-MIT License
 (Acorn 7.4.1)
 
 MIT License
@@ -10173,6 +10111,33 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE
+
+---
+
+MIT License
+(node-browserify 17.0.0)
+
+MIT License
+
+Copyright (c) 2010 James Halliday
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE
 
 ---
 
@@ -10419,33 +10384,6 @@ SOFTWARE
 ---
 
 MIT License
-(randombytes 1.0.4, randombytes 2.1.0)
-
-MIT License
-
-Copyright (c) 2017 crypto-browserify
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE
-
----
-
-MIT License
 (array.prototype.flat 1.2.4)
 
 MIT License
@@ -10478,6 +10416,33 @@ MIT License
 MIT License
 
 Copyright (c) 2017 Fedor Indutny
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE
+
+---
+
+MIT License
+(randombytes 1.0.4, randombytes 2.1.0)
+
+MIT License
+
+Copyright (c) 2017 crypto-browserify
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -10882,6 +10847,34 @@ Permission is hereby granted, free of charge, to any person obtaining a
 ---
 
 MIT License
+(node-http2 4.0.1)
+
+The MIT License
+
+Copyright (C) 2013 Gábor Molnár <gabor@molnar.es>, Google Inc
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
+
+---
+
+MIT License
 (Mockito v3.6.28)
 
 The MIT License
@@ -10991,34 +10984,6 @@ OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR 
 ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE 
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
-
----
-
-MIT License
-(node-http2 4.0.1)
-
-The MIT License
-
-Copyright (C) 2013 Gábor Molnár <gabor@molnar.es>, Google Inc
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-'Software'), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 
 ---
@@ -11199,6 +11164,33 @@ SOFTWARE
 ---
 
 MIT License
+(define-properties v1.1.3, object-keys 1.1.1)
+
+The MIT License (MIT)
+
+Copyright (C) 2013 Jordan Harband
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE
+
+---
+
+MIT License
 (mime 1.6.0)
 
 The MIT License (MIT)
@@ -11259,33 +11251,6 @@ MIT License
 The MIT License (MIT)
 
 Copyright (c) 2013 Jonathan Ong me@jongleberry.com
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE
-
----
-
-MIT License
-(define-properties v1.1.3, object-keys 1.1.1)
-
-The MIT License (MIT)
-
-Copyright (C) 2013 Jordan Harband
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -12080,33 +12045,6 @@ THE SOFTWARE
 ---
 
 MIT License
-(browserify-aes 1.2.0)
-
-The MIT License (MIT)
-
-Copyright (c) 2014-2017 browserify-aes contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE
-
----
-
-MIT License
 (browserify-cipher 1.0.1)
 
 The MIT License (MIT)
@@ -12139,6 +12077,33 @@ MIT License
 The MIT License (MIT)
 
 Copyright (c) 2014-2017 Calvin Metcalf, Fedor Indutny & contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE
+
+---
+
+MIT License
+(browserify-aes 1.2.0)
+
+The MIT License (MIT)
+
+Copyright (c) 2014-2017 browserify-aes contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -13718,6 +13683,44 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
+(xtend 4.0.2)
+
+Upstream-Contact: https://github.com/Raynos/xtend/issues
+Source: https://github.com/Raynos/xtend
+
+Files: *
+Copyright: 2016 Raynos <raynos2@gmail.com>
+License: Expat
+
+Files: debian/*
+Copyright: 2016 Sarath M S <debian@sarathms.me>
+License: Expat
+
+License: Expat
+
+Permission is hereby granted, free of charge, to any person
+ obtaining a copy of this software and associated documentation files
+ (the "Software"), to deal in the Software without restriction,
+ including without limitation the rights to use, copy, modify, merge,
+ publish, distribute, sublicense, and/or sell copies of the Software,
+ and to permit persons to whom the Software is furnished to do so,
+ subject to the following conditions:
+ .
+ The above copyright notice and this permission notice shall be
+ included in all copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE
+
+---
+
+MIT License
 (ripemd160 2.0.2)
 
 Upstream-Contact: https://github.com/crypto-browserify/ripemd160/issues
@@ -14396,44 +14399,6 @@ License: Expat
 
 Files: debian/*
 Copyright: 2016-2018 Julien Puydt <julien.puydt@laposte.net>
-License: Expat
-
-License: Expat
-
-Permission is hereby granted, free of charge, to any person
- obtaining a copy of this software and associated documentation files
- (the "Software"), to deal in the Software without restriction,
- including without limitation the rights to use, copy, modify, merge,
- publish, distribute, sublicense, and/or sell copies of the Software,
- and to permit persons to whom the Software is furnished to do so,
- subject to the following conditions:
- .
- The above copyright notice and this permission notice shall be
- included in all copies or substantial portions of the Software.
- .
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- SOFTWARE
-
----
-
-MIT License
-(xtend 4.0.2)
-
-Upstream-Contact: https://github.com/Raynos/xtend/issues
-Source: https://github.com/Raynos/xtend
-
-Files: *
-Copyright: 2016 Raynos <raynos2@gmail.com>
-License: Expat
-
-Files: debian/*
-Copyright: 2016 Sarath M S <debian@sarathms.me>
 License: Expat
 
 License: Expat
@@ -16224,4 +16189,39 @@ proprietary programs. If your program is a subroutine library, you may consider
 it more useful to permit linking proprietary applications with the library. If
 this is what you want to do, use the GNU Library General Public License instead
 of this License.
+
+---
+
+libxml2 License
+(timers-browserify 1.4.2, timers-browserify 2.0.2)
+
+libxml2 License
+===============
+
+Except where otherwise noted in the source code (e.g. the files hash.c, list.c
+and the trio files, which are covered by a similar licence but with different
+Copyright notices) all the files are:
+
+Copyright (C) 1998-2003 Daniel Veillard. All Rights Reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in the
+Software without restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE DANIEL
+VEILLARD BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH
+THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Except as contained in this notice, the name of Daniel Veillard shall not be used
+in advertising or otherwise to promote the sale, use or other dealings in this
+Software without prior written authorization from him.
 

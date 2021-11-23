@@ -4,24 +4,21 @@
 Error Codes
 ###########
 
-.. toctree::
-   :hidden:
-
 Overview
 *********
 
 
 .. _gRPC status codes: https://grpc.github.io/grpc/core/md_doc_statuscodes.html
 .. _gRPC status code: https://grpc.github.io/grpc/core/md_doc_statuscodes.html
-.. _StatusRuntimeException: https://grpc.github.io/grpc-java/javadoc/io/grpc/StatusRuntimeException.html
 .. _rich gRPC error model: https://cloud.google.com/apis/design/errors#error_details
 .. _standard gRPC description: https://grpc.github.io/grpc-java/javadoc/io/grpc/Status.html#getDescription--
 
 
 The majority of the errors are a result of some request processing.
-They are logged and returned to the user as a failed gRPC request
-using the standard StatusRuntimeException_.
-As such this approach remains unchanged in principle while we aim at
+They are logged and returned to the user as a failed gRPC response
+containing the status code, an optional status message and optional metadata.
+
+This approach remains unchanged in principle while we aim at
 enhancing it by providing:
 
 - improved consistency of the returned errors across API endpoints,
@@ -36,13 +33,12 @@ enhancing it by providing:
 The goal is to enable users, developers and operators to act on the encountered
 errors in a self-service manner, either in an automated-way or manually.
 
-Feature Flag
----------------------------
+Configuration
+-------------
 
-You can enable self-service error-codes by specifying ``--use-self-service-error-codes``
-from command line.
-
-By default self-service error codes are turned off.
+The new error code formats and adapted gRPC response statuses are returned by default starting with the Daml 1.18 SDK release.
+Clients can still migrate to Daml SDK 1.18 and use the pre-1.18 gRPC status code response behavior by using ``--use-pre-1.18-error-codes``
+as a command line option. However, this option is deprecated and will be removed in a future release.
 
 
 Glossary
@@ -293,8 +289,7 @@ Anatomy of an Error
 ---------------------------
 
 
-Errors returned to users are represented as instances of standard StatusRuntimeException_.
-As such they contain a `gRPC status code`_, a description and additional machine readable information
+Errors returned to users contain a `gRPC status code`_, a description and additional machine readable information
 represented in the `rich gRPC error model`_.
 
 
@@ -373,7 +368,7 @@ compatibility with previous releases for some service Ledger API endpoints.
 The table below outlines all the cases and error conditions when a Ledger API service endpoint returns a different
 gRPC status code in comparison to the pre-1.18 releases.
 
-Ledger API
+Common Ledger API changes
 ---------------------------
 
 The table below outlines generic gRPC status code changes pertaining to the Ledger API

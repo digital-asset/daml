@@ -53,9 +53,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ports.Port
-import org.scalatest.Tag
-
-object SkipScala212 extends Tag("skip_scala_2_12")
 
 object AbstractHttpServiceIntegrationTestFuns {
   private[http] val dar1 = requiredResource(ModelTestDar.path)
@@ -1149,8 +1146,8 @@ abstract class AbstractHttpServiceIntegrationTest
       val exerciseJson: JsValue = encodeExercise(encoder)(iouExerciseTransferCommand(contractId))
       postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), exerciseJson)
         .flatMap { case (status, output) =>
-          status shouldBe StatusCodes.Conflict
-          assertStatus(output, StatusCodes.Conflict)
+          status shouldBe StatusCodes.NotFound
+          assertStatus(output, StatusCodes.NotFound)
           expectedOneErrorMessage(output) should include(
             s"Contract could not be found with id $contractIdString"
           )
@@ -1787,7 +1784,7 @@ abstract class AbstractHttpServiceIntegrationTest
       } yield succeed
   }
 
-  "archiving a large number of contracts should succeed" taggedAs (SkipScala212) in withHttpServiceAndClient(
+  "archiving a large number of contracts should succeed" in withHttpServiceAndClient(
     StartSettings.DefaultMaxInboundMessageSize * 10
   ) { (uri, encoder, _, _, _) =>
     val (alice, headers) = getUniquePartyAndAuthHeaders("Alice")

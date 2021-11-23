@@ -22,5 +22,5 @@ submit commands =
         let CommandSubmissionService rpc = service
         let request = SubmitRequest (Just (lowerCommands commands))
         rpc (ClientNormalRequest request timeout mdm)
-            >>= unwrapWithInvalidArgument
+            >>= unwrapWithCommandSubmissionFailure
             <&> fmap (\Empty{} -> ())
