@@ -8,6 +8,7 @@ import com.daml.error.definitions.ErrorGroups.ParticipantErrorGroup.IndexErrorGr
 import com.daml.error.utils.ErrorDetails
 import io.grpc.StatusRuntimeException
 
+@Explanation("This error group contains errors raised by the Participant Index persistence layer.")
 object IndexErrors extends IndexErrorGroup {
   object DatabaseErrors extends DatabaseErrorGroup {
     @Explanation(
