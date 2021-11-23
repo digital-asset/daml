@@ -71,13 +71,13 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
                 if (maxUsedTime.forall(_ <= commands.commands.ledgerEffectiveTime)) {
                   Future.successful(Right(cer))
                 } else if (!cer.dependsOnLedgerTime) {
-                  logger.debug(
+                  logger.info(
                     s"Advancing ledger effective time for the output from ${commands.commands.ledgerEffectiveTime} to $maxUsedTime"
                   )
                   Future.successful(Right(advanceOutputTime(cer, maxUsedTime)))
                 } else if (retriesLeft > 0) {
                   metrics.daml.execution.retry.mark()
-                  logger.debug(
+                  logger.info(
                     s"Restarting the computation with new ledger effective time $maxUsedTime"
                   )
                   val advancedCommands = advanceInputTime(commands, maxUsedTime)
@@ -98,7 +98,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
                     loop(commands, submissionSeed, ledgerConfiguration, retriesLeft - 1)
                   } else {
                     logger.info(
-                      s"Lookup of maximum ledger time failed after ${maxRetries - retriesLeft}. Used contracts: ${usedContractIds
+                      s"Lookup of maximum ledger time failed after ${maxRetries - retriesLeft} retries. Missing contracts: ${contracts
                         .mkString("[", ", ", "]")}."
                     )
                     Future.successful(Left(ErrorCause.LedgerTime(maxRetries)))
