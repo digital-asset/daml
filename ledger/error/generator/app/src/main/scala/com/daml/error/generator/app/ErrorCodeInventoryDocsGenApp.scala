@@ -108,7 +108,7 @@ class ErrorGroupTree(
     remaining match {
       case Nil =>
         assert(!errorCodes.contains(errorCode.code), s"Code: ${errorCode.code} is already present!")
-        errorCodes.put(errorCode.code, errorCode): Unit
+        val _ = errorCodes.put(errorCode.code, errorCode)
       case headGroup :: tail =>
         val newPath = path :+ headGroup
         if (!children.contains(headGroup)) {
@@ -149,19 +149,19 @@ object ErrorGroupTree {
       val textBuffer: mutable.ArrayBuffer[String] = new ArrayBuffer[String]()
 
       // Add group text
-      textBuffer.addOne(s"""${groupHierarchicalIndex.mkString(".")}. ${newPath.mkString(" / ")}
+      textBuffer += (s"""${groupHierarchicalIndex.mkString(".")}. ${newPath.mkString(" / ")}
            |-------------------------------------------------------------------------------------------------------------------
            |
            |${tree.explanation.getOrElse("")}
            |""".stripMargin)
       // Add error codes in this group
-      textBuffer.addAll(
+      textBuffer ++= (
         tree
           .sortedErrorCodes()
           .map(handleErrorCode)
       )
       // Recurse to sub-groups
-      textBuffer.addAll(
+      textBuffer ++= (
         tree
           .sortedSubGroups()
           .zipWithIndex

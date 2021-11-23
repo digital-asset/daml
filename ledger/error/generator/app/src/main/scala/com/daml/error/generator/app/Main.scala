@@ -71,7 +71,7 @@ object Main {
 
     if (args.length >= 1) {
       val outputFile = Paths.get(args(0))
-      Files.write(outputFile, outputText.getBytes, StandardOpenOption.CREATE_NEW): Unit
+      val _ = Files.write(outputFile, outputText.getBytes, StandardOpenOption.CREATE_NEW)
     } else {
       println(outputText)
     }
