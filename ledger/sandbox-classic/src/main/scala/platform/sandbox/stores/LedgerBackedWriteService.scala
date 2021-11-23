@@ -36,7 +36,7 @@ private[stores] final class LedgerBackedWriteService(
       transactionMeta: state.TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext, loggingContext: LoggingContext): CompletionStage[state.SubmissionResult] =
     withEnrichedLoggingContext(
       "actAs" -> submitterInfo.actAs,
       "applicationId" -> submitterInfo.applicationId,

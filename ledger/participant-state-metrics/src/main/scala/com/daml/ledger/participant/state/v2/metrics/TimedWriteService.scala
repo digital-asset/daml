@@ -18,6 +18,7 @@ import com.daml.ledger.participant.state.v2.{
 }
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
+import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.telemetry.TelemetryContext
 
@@ -28,7 +29,10 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit
+      telemetryContext: TelemetryContext,
+      loggingContext: LoggingContext,
+  ): CompletionStage[SubmissionResult] =
     Timed.timedAndTrackedCompletionStage(
       metrics.daml.services.write.submitTransaction,
       metrics.daml.services.write.submitTransactionRunning,

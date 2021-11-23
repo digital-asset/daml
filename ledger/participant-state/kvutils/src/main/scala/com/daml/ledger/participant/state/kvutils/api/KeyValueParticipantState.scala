@@ -67,7 +67,10 @@ class KeyValueParticipantState(
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit
+      telemetryContext: TelemetryContext,
+      loggingContext: LoggingContext,
+  ): CompletionStage[SubmissionResult] =
     writerAdapter.submitTransaction(
       submitterInfo,
       transactionMeta,
