@@ -242,7 +242,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   ),
                 )
               }
-              apiServer <- new StandaloneApiServer(
+              apiServer <- StandaloneApiServer(
                 ledgerId = ledgerId,
                 config = ApiServerConfig(
                   participantId = config.participantId,

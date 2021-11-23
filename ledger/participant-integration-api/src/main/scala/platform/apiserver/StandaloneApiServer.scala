@@ -14,7 +14,7 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.{v2 => state}
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ValueEnricher}
@@ -36,45 +36,118 @@ import scalaz.{-\/, \/-}
 import java.io.File
 import java.time.Clock
 
+import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.telemetry.TelemetryContext
 
 import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
 
-final class StandaloneApiServer(
-    ledgerId: LedgerId,
-    config: ApiServerConfig,
-    commandConfig: CommandConfiguration,
-    partyConfig: PartyConfiguration,
-    submissionConfig: SubmissionConfiguration,
-    optWriteService: Option[state.WriteService],
-    authService: AuthService,
-    healthChecks: HealthChecks,
-    metrics: Metrics,
-    timeServiceBackend: Option[TimeServiceBackend] = None,
-    otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
-    otherInterceptors: List[ServerInterceptor] = List.empty,
-    engine: Engine,
-    servicesExecutionContext: ExecutionContextExecutor,
-    lfValueTranslationCache: LfValueTranslationCache.Cache,
-    checkOverloaded: TelemetryContext => Option[state.SubmissionResult] =
-      _ => None, // Used for Canton rate-limiting
-)(implicit actorSystem: ActorSystem, materializer: Materializer, loggingContext: LoggingContext)
-    extends ResourceOwner[ApiServer] {
-
+object StandaloneApiServer {
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  // Name of this participant,
-  val participantId: Ref.ParticipantId = config.participantId
+  def apply(
+      ledgerId: LedgerId,
+      config: ApiServerConfig,
+      commandConfig: CommandConfiguration,
+      partyConfig: PartyConfiguration,
+      submissionConfig: SubmissionConfiguration,
+      optWriteService: Option[state.WriteService],
+      authService: AuthService,
+      healthChecks: HealthChecks,
+      metrics: Metrics,
+      timeServiceBackend: Option[TimeServiceBackend] = None,
+      otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
+      otherInterceptors: List[ServerInterceptor] = List.empty,
+      engine: Engine,
+      servicesExecutionContext: ExecutionContextExecutor,
+      lfValueTranslationCache: LfValueTranslationCache.Cache,
+      checkOverloaded: TelemetryContext => Option[state.SubmissionResult] =
+        _ => None, // Used for Canton rate-limiting
+  )(implicit
+      actorSystem: ActorSystem,
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[ApiServer] = {
+    for {
+      indexService <- this.indexService(
+        ledgerId = ledgerId,
+        config = config,
+        metrics = metrics,
+        engine = engine,
+        servicesExecutionContext = servicesExecutionContext,
+        lfValueTranslationCache = lfValueTranslationCache,
+      )
+      apiServer <- from(
+        indexService = indexService,
+        ledgerId = ledgerId,
+        config = config,
+        commandConfig = commandConfig,
+        partyConfig = partyConfig,
+        submissionConfig = submissionConfig,
+        optWriteService = optWriteService,
+        authService = authService,
+        healthChecks = healthChecks,
+        metrics = metrics,
+        timeServiceBackend = timeServiceBackend,
+        otherServices = otherServices,
+        otherInterceptors = otherInterceptors,
+        engine = engine,
+        servicesExecutionContext = servicesExecutionContext,
+        checkOverloaded = checkOverloaded,
+      )
+    } yield apiServer
+  }
 
-  override def acquire()(implicit context: ResourceContext): Resource[ApiServer] = {
-    val packageStore = loadDamlPackages()
-    preloadPackages(packageStore)
-
+  def indexService(
+      ledgerId: LedgerId,
+      config: ApiServerConfig,
+      metrics: Metrics,
+      engine: Engine,
+      servicesExecutionContext: ExecutionContextExecutor,
+      lfValueTranslationCache: LfValueTranslationCache.Cache,
+  )(implicit
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[IndexService] = {
+    val participantId: Ref.ParticipantId = config.participantId
     val valueEnricher = new ValueEnricher(engine)
 
-    val owner = for {
+    def preloadPackages(packageContainer: InMemoryPackageStore): Unit = {
+      for {
+        (pkgId, _) <- packageContainer.listLfPackagesSync()
+        pkg <- packageContainer.getLfPackageSync(pkgId)
+      } {
+        engine
+          .preloadPackage(pkgId, pkg)
+          .consume(
+            { _ =>
+              sys.error("Unexpected request of contract")
+            },
+            packageContainer.getLfPackageSync,
+            { _ =>
+              sys.error("Unexpected request of contract key")
+            },
+          )
+        ()
+      }
+    }
+
+    def loadDamlPackages(): InMemoryPackageStore = {
+      // TODO is it sensible to have all the initial packages to be known since the epoch?
+      config.archiveFiles
+        .foldLeft[Either[(String, File), InMemoryPackageStore]](Right(InMemoryPackageStore.empty)) {
+          case (storeE, f) =>
+            storeE.flatMap(_.withDarFile(Timestamp.now(), None, f).left.map(_ -> f))
+        }
+        .fold({ case (err, file) => sys.error(s"Could not load package $file: $err") }, identity)
+    }
+
+    for {
+      _ <- ResourceOwner.forValue(() => {
+        val packageStore = loadDamlPackages()
+        preloadPackages(packageStore)
+      })
       indexService <- JdbcIndex
         .owner(
           serverRole = ServerRole.ApiServer,
@@ -97,16 +170,58 @@ final class StandaloneApiServer(
           enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
         )
         .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
-      errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
-        config.enableSelfServiceErrorCodes
-      )
-      authorizer = new Authorizer(
-        Clock.systemUTC.instant _,
-        ledgerId,
-        participantId,
-        errorCodesVersionSwitcher,
-      )
-      healthChecksWithIndexService = healthChecks + ("index" -> indexService)
+    } yield indexService
+  }
+
+  def from(
+      indexService: IndexService,
+      ledgerId: LedgerId,
+      config: ApiServerConfig,
+      commandConfig: CommandConfiguration,
+      partyConfig: PartyConfiguration,
+      submissionConfig: SubmissionConfiguration,
+      optWriteService: Option[state.WriteService],
+      authService: AuthService,
+      healthChecks: HealthChecks,
+      metrics: Metrics,
+      timeServiceBackend: Option[TimeServiceBackend] = None,
+      otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
+      otherInterceptors: List[ServerInterceptor] = List.empty,
+      engine: Engine,
+      servicesExecutionContext: ExecutionContextExecutor,
+      checkOverloaded: TelemetryContext => Option[state.SubmissionResult] =
+        _ => None, // Used for Canton rate-limiting
+  )(implicit
+      actorSystem: ActorSystem,
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[ApiServer] = {
+    val participantId: Ref.ParticipantId = config.participantId
+
+    def writePortFile(port: Port): Try[Unit] = {
+      config.portFile match {
+        case Some(path) =>
+          PortFiles.write(path, port) match {
+            case -\/(err) => Failure(new RuntimeException(err.toString))
+            case \/-(()) => Success(())
+          }
+        case None =>
+          Success(())
+      }
+    }
+
+    val errorCodesVersionSwitcher = new ErrorCodesVersionSwitcher(
+      config.enableSelfServiceErrorCodes
+    )
+    val authorizer = new Authorizer(
+      Clock.systemUTC.instant _,
+      ledgerId,
+      participantId,
+      errorCodesVersionSwitcher,
+    )
+    val healthChecksWithIndexService = healthChecks + ("index" -> indexService)
+
+    for {
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
       apiServicesOwner = new ApiServices.Owner(
         participantId = participantId,
@@ -142,7 +257,7 @@ final class StandaloneApiServer(
         config.tlsConfig,
         AuthorizationInterceptor(
           authService,
-          executionContext,
+          materializer.executionContext,
           errorCodesVersionSwitcher,
         ) :: otherInterceptors,
         servicesExecutionContext,
@@ -155,49 +270,6 @@ final class StandaloneApiServer(
       )
       apiServer
     }
-
-    owner.acquire()
   }
 
-  private def preloadPackages(packageContainer: InMemoryPackageStore): Unit = {
-    for {
-      (pkgId, _) <- packageContainer.listLfPackagesSync()
-      pkg <- packageContainer.getLfPackageSync(pkgId)
-    } {
-      engine
-        .preloadPackage(pkgId, pkg)
-        .consume(
-          { _ =>
-            sys.error("Unexpected request of contract")
-          },
-          packageContainer.getLfPackageSync,
-          { _ =>
-            sys.error("Unexpected request of contract key")
-          },
-        )
-      ()
-    }
-  }
-
-  private def loadDamlPackages(): InMemoryPackageStore = {
-    // TODO is it sensible to have all the initial packages to be known since the epoch?
-    config.archiveFiles
-      .foldLeft[Either[(String, File), InMemoryPackageStore]](Right(InMemoryPackageStore.empty)) {
-        case (storeE, f) =>
-          storeE.flatMap(_.withDarFile(Timestamp.now(), None, f).left.map(_ -> f))
-      }
-      .fold({ case (err, file) => sys.error(s"Could not load package $file: $err") }, identity)
-  }
-
-  private def writePortFile(port: Port): Try[Unit] = {
-    config.portFile match {
-      case Some(path) =>
-        PortFiles.write(path, port) match {
-          case -\/(err) => Failure(new RuntimeException(err.toString))
-          case \/-(()) => Success(())
-        }
-      case None =>
-        Success(())
-    }
-  }
 }
