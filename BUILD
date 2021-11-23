@@ -271,3 +271,14 @@ da_haskell_repl(
         "//language-support/ts/codegen:daml2js",
     ],
 )
+
+load("@bazel_gazelle//:def.bzl", "gazelle")
+
+gazelle(
+    name = "gazelle-update-repos",
+    args = [
+        "-from_file=go.mod",
+        "-to_macro=go_deps.bzl%go_deps"
+    ],
+    command = "update-repos",
+)

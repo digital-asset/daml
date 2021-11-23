@@ -154,15 +154,15 @@ def daml_deps():
             patch_args = ["-p1"],
         )
 
-    if "com_google_protobuf" not in native.existing_rules():
-        http_archive(
-            name = "com_google_protobuf",
-            sha256 = "528927e398f4e290001886894dac17c5c6a2e5548f3fb68004cfb01af901b53a",
-            # changing this version needs to be in sync with protobuf-java and grpc dependencies in bazel-java-bdeps.bzl
-            strip_prefix = "protobuf-3.17.3",
-            urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.17.3.zip"],
-            patch_args = ["-p1"],
-        )
+    # if "com_google_protobuf" not in native.existing_rules():
+    #     http_archive(
+    #         name = "com_google_protobuf",
+    #         sha256 = "528927e398f4e290001886894dac17c5c6a2e5548f3fb68004cfb01af901b53a",
+    #         # changing this version needs to be in sync with protobuf-java and grpc dependencies in bazel-java-bdeps.bzl
+    #         strip_prefix = "protobuf-3.17.3",
+    #         urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.17.3.zip"],
+    #         patch_args = ["-p1"],
+    #     )
 
     if "bazel_gazelle" not in native.existing_rules():
         http_archive(
@@ -239,14 +239,6 @@ def daml_deps():
             sha256 = "841ae424eec3f322d411eb49d949622cc84787cb4189a30698fa9adadb98deac",
             strip_prefix = "bazel_jar_jar-20dbf71f09b1c1c2a8575a42005a968b38805519",
             urls = ["https://github.com/johnynek/bazel_jar_jar/archive/20dbf71f09b1c1c2a8575a42005a968b38805519.zip"],  # Latest commit SHA as at 2019/02/13
-        )
-
-    if "com_github_googleapis_googleapis" not in native.existing_rules():
-        http_archive(
-            name = "com_github_googleapis_googleapis",
-            strip_prefix = "googleapis-a9d8182ce540d418af825e3b21558e8413f29e66",
-            urls = ["https://github.com/googleapis/googleapis/archive/a9d8182ce540d418af825e3b21558e8413f29e66.tar.gz"],
-            sha256 = "75fcdf65a2423ca81d8f76e039e57b432378c10aa11f2fae41ec39d9d777d2f2",
         )
 
     if "com_github_bazelbuild_remote_apis" not in native.existing_rules():
