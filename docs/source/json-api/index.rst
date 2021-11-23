@@ -220,9 +220,9 @@ The **JSON API** can return one of the following HTTP status codes:
 - 403 - Forbidden, insufficient permissions
 - 404 - Not Found
 - 409 - Conflict, contract ID or key missing or duplicated
-- 429 - Too Many Requests, ledger server has hit configured limit of in-flight commands
 - 500 - Internal Server Error
 - 503 - Service Unavailable, ledger server is not running yet or has been shut down
+- 504 - Gateway Timeout, transaction failed to receive its completion within the predefined timeout
 
 When the Ledger API returns an error code, the JSON API maps it to one of the above codes according to `the official gRPC to HTTP code mapping <https://cloud.google.com/apis/design/errors#generating_errors>`_.
 
@@ -231,7 +231,7 @@ If a client's HTTP GET or POST request reaches an API endpoint, the correspondin
 .. code-block:: none
 
     {
-        "status": <400 | 401 | 403 | 404 | 409 | 429 | 500 | 503>,
+        "status": <400 | 401 | 403 | 404 | 409 | 500 | 503 | 504>,
         "errors": <JSON array of strings>, | "result": <JSON object or array>,
         ["warnings": <JSON object> ]
     }
