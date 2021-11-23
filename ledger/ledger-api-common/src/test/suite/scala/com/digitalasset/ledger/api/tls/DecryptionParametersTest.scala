@@ -6,10 +6,11 @@ package com.daml.ledger.api.tls
 import java.io.ByteArrayInputStream
 import java.nio.file.Files
 import javax.crypto.{Cipher, KeyGenerator, SecretKey}
-
 import org.apache.commons.codec.binary.Hex
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+
+import java.util.Base64
 
 class DecryptionParametersTest extends AnyWordSpec with Matchers {
 
@@ -17,7 +18,7 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
 
     // given
     val key: SecretKey = KeyGenerator.getInstance("AES").generateKey()
-    val clearText = "clearText123"
+    val clearText = "clearText123 " * 10
     val clearTextBytes = clearText.getBytes
     val transformation = "AES/CBC/PKCS5Padding"
     val cipher = Cipher.getInstance(transformation)
@@ -41,11 +42,20 @@ class DecryptionParametersTest extends AnyWordSpec with Matchers {
       new String(actual) shouldBe clearText
     }
 
-    "decrypt a file" in {
+    "decrypt a file" in
+      testFileDecoding("-verbatim", cipherText)
+
+    "decrypt a file in base64" in
+      testFileDecoding("-base64", Base64.getEncoder.encode(cipherText))
+
+    "decrypt a file in MIME base64" in
+      testFileDecoding("-mime-base64", Base64.getMimeEncoder.encode(cipherText))
+
+    def testFileDecoding(fileSuffix: String, content: Array[Byte]) = {
       // given
-      val tmpFilePath = Files.createTempFile("cipher-text", ".enc")
-      Files.write(tmpFilePath, cipherText)
-      assume(Files.readAllBytes(tmpFilePath) sameElements cipherText)
+      val tmpFilePath = Files.createTempFile(s"cipher-text$fileSuffix", ".enc")
+      Files.write(tmpFilePath, content)
+      assume(Files.readAllBytes(tmpFilePath) sameElements content)
 
       // when
       val actual: Array[Byte] = tested.decrypt(tmpFilePath.toFile)
