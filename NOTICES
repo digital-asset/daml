@@ -195,7 +195,7 @@ color-name 1.1.3 : MIT License
 color-name 1.1.4 : MIT License
 color-string 1.5.5 : MIT License
 colors.js 1.1.2 : MIT License
-colors.js v1.4.0 : MIT License
+colors.js 1.4.0 : MIT License
 colour 2.3.5 : MIT License
 com.google.api.grpc:proto-google-common-protos 2.0.1 : Apache License 2.0
 combine-source-map 0.8.0 : MIT License
@@ -7373,7 +7373,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(colors.js 1.1.2, colors.js v1.4.0)
+(colors.js 1.1.2, colors.js 1.4.0)
 
 - Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
 
