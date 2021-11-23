@@ -630,7 +630,7 @@ go_wrap_sdk(
 
 go_rules_dependencies()
 
-go_register_toolchains()
+go_register_toolchains() if not is_windows else go_register_toolchains(version = "1.16.9")
 
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
 
