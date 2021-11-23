@@ -15,7 +15,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
-  "Checker.checkKind" should {
+  "checkKind" should {
     // TEST_EVIDENCE: Input Validation: ill-formed kinds are rejected
     "reject invalid kinds" in {
 
@@ -42,7 +42,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
     }
   }
 
-  "Checker.kindOf" should {
+  "kindOf" should {
 
     // TEST_EVIDENCE: Input Validation: ensure builtin operators have the correct type
     "infers the proper kind for builtin types (but ContractId)" in {
@@ -102,7 +102,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
     }
   }
 
-  "Checker.typeOf" should {
+  "typeOf" should {
 
     // TEST_EVIDENCE: Input Validation: ensure expression forms have the correct type
 
@@ -258,6 +258,15 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         // Forall shadowing
         E"(Λ (τ : ⋆) (τ : ⋆). λ (e₁ : τ)  → 0) @Int64 @Text" ->
           T"Text -> Int64",
+        // EToInterface
+        E"λ (t: Mod:Ti) → (( to_interface @Mod:I @Mod:Ti t ))" ->
+          T"Mod:Ti → Mod:I",
+        // EFromInterface
+        E"λ (i: Mod:I) → (( from_interface @Mod:I @Mod:Ti i ))" ->
+          T"Mod:I → Option Mod:Ti",
+        // ECallInterface
+        E"λ (i: Mod:I) → (( icall @Mod:I getParties i ))" ->
+          T"Mod:I → List Party",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
@@ -330,7 +339,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       }
     }
 
-    //TODO add a check for exerciseInterface/checkInterface.
     "infers proper type for Update" in {
       val testCases = Table(
         "expression" ->
@@ -342,12 +350,18 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           T"∀ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). Update τ₁ → Update τ₂ → (τ₁ → τ₂ → Update τ) → (( Update τ ))",
         E"λ (e: Mod:T) → (( create @Mod:T e))" ->
           T"Mod:T → (( Update (ContractId Mod:T) ))",
+        E"λ (e: Mod:I) → (( create_by_interface @Mod:I e))" ->
+          T"Mod:I → (( Update (ContractId Mod:I) ))",
         E"λ (e₁: ContractId Mod:T) (e₂: Int64) → (( exercise @Mod:T Ch e₁ e₂ ))" ->
           T"ContractId Mod:T → Int64 → (( Update Decimal ))",
+        E"λ (e₁: ContractId Mod:I) (e₂: Int64) → (( exercise_by_interface @Mod:I ChIface e₁ e₂ ))" ->
+          T"ContractId Mod:I → Int64 → (( Update Decimal ))",
         E"λ (e₁: Party) (e₂: Int64) → (( exercise_by_key @Mod:T Ch e₁ e₂ ))" ->
           T"Party → Int64 → (( Update Decimal ))",
         E"λ (e: ContractId Mod:T) → (( fetch @Mod:T e ))" ->
           T"ContractId Mod:T → (( Update Mod:T ))",
+        E"λ (e: ContractId Mod:I) → (( fetch_by_interface @Mod:I e ))" ->
+          T"ContractId Mod:I → (( Update Mod:I ))",
         E"λ (e: Party) → (( fetch_by_key @Mod:T e ))" ->
           T"Party → (( Update (⟨ contract: Mod:T, contractId: ContractId Mod:T ⟩) ))",
         E"λ (e: Party) →  (( lookup_by_key @Mod:T 'Bob' ))" ->
@@ -744,6 +758,16 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           },
         E"Λ (σ : ⋆). λ (e: σ) → ⸨ create @Mod:T e ⸩" -> //
           { case _: ETypeMismatch => },
+        // UpdCreateInterface
+        E"λ (e: Mod:U) → ⸨ create_by_interface @Mod:U nothing ⸩" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError(Reference.Interface(_), Reference.Interface(_)),
+                ) =>
+          },
+        E"Λ (σ : ⋆). λ (e: σ) → ⸨ create_by_interface @Mod:I e ⸩" -> //
+          { case _: ETypeMismatch => },
         // UpdExercise
         E"λ (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:U Ch nothing e₂ e₃ ⸩" -> //
           {
@@ -767,7 +791,50 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: ETypeMismatch => },
         E"Λ (σ : ⋆).λ (e₁: ContractId σ) (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
           { case _: ETypeMismatch => },
-        // FecthByKey & lookupByKey
+        // UpdExerciseInterface
+        E"λ (e₁: ContractId Mod:U) (e₂: List Party) (e₃: Int64) → ⸨ exercise_by_interface @Mod:U Ch e₁ e₂ e₃ ⸩" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError(Reference.Interface(_), Reference.InterfaceChoice(_, _)),
+                ) =>
+          },
+        E"λ (e₁: ContractId Mod:I) (e₂: List Party) (e₃: Int64) → ⸨ exercise_by_interface @Mod:I Not e₁ e₂ e₃ ⸩" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError(Reference.TemplateChoice(_, _), Reference.InterfaceChoice(_, _)),
+                ) =>
+          },
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: List Party) (e₃: σ) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ e₃ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: List σ) (e₃: Int64) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ e₃ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: σ) (e₃: Int64) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ e₃ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ : ⋆).λ (e₁: ContractId σ) (e₂: List Party) (e₃: Int64) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ e₃ ⸩" -> //
+          { case _: ETypeMismatch => },
+        // UpdFetch
+        E"λ (e: ContractId Mod:U) → ⸨ fetch @Mod:U e ⸩" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError(Reference.Template(_), Reference.Template(_)),
+                ) =>
+          },
+        E"Λ (σ : ⋆). λ (e: σ) → ⸨ fetch @Mod:T e ⸩" -> //
+          { case _: ETypeMismatch => },
+        // UpdFetchInterface
+        E"λ (e: ContractId Mod:U) → ⸨ fetch_by_interface @Mod:U e ⸩" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError(Reference.Interface(_), Reference.Interface(_)),
+                ) =>
+          },
+        E"Λ (σ : ⋆). λ (e: σ) → ⸨ fetch_by_interface @Mod:I e ⸩" -> //
+          { case _: ETypeMismatch => },
+        // UpFecthByKey & lookupByKey
         E"""⸨ fetch_by_key @Mod:U "Bob" ⸩""" -> //
           {
             case EUnknownDefinition(
@@ -779,19 +846,51 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: ETypeMismatch => },
         E"""⸨ lookup_by_key @Mod:T "Bob" ⸩""" -> //
           { case _: ETypeMismatch => },
-        // UpdFetch
-        E"Λ (σ: ⋆). λ (e: ContractId Mod:U) → ⸨ fetch @Mod:U e ⸩" -> //
+        // ScenarioEmbedExpr
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → ⸨ uembed_expr @τ e ⸩" -> //
+          { case _: ETypeMismatch => },
+        // EToInterface
+        E"""λ (t: Mod:Ti) → ⸨ to_interface @Mod:T @Mod:Ti t  ⸩""" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError(Reference.Interface(_), Reference.Interface(_)),
+                ) =>
+          },
+        E"""λ (t: Mod:Ti) → ⸨ to_interface @Mod:I @Mod:T t  ⸩""" -> //
+          { case ETemplateDoesNotImplementInterface(_, _, _) => },
+        E"""λ (t: Mod:T) → ⸨ to_interface @Mod:I @Mod:Ti t  ⸩""" -> //
+          { case _: ETypeMismatch => },
+        // EFromInterface
+        E"""λ (i: Mod:I) → ⸨ from_interface @Mod:I @Mod:I i ⸩""" -> //
           {
             case EUnknownDefinition(
                   _,
                   LookupError(Reference.Template(_), Reference.Template(_)),
                 ) =>
           },
-        E"Λ (σ : ⋆). λ (e: σ) → ⸨ fetch @Mod:T e ⸩" -> //
+        E"λ (i: Mod:I) → ⸨ from_interface @Mod:I @Mod:T i ⸩" -> //
+          { case ETemplateDoesNotImplementInterface(_, _, _) => },
+        E"λ (i: Mod:J) → ⸨ from_interface @Mod:I @Mod:Ti i ⸩" -> //
           { case _: ETypeMismatch => },
-        // ScenarioEmbedExpr
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → ⸨ uembed_expr @τ e ⸩" -> //
+        // ECallInterface
+        E"λ (i: Mod:U) → ⸨  icall @Mod:U getParties i ⸩" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError(Reference.Interface(_), Reference.Method(_, _)),
+                ) =>
+          },
+        E"λ (i: Mod:I) → ⸨  icall @Mod:I getParty i ⸩" -> //
+          {
+            case EUnknownDefinition(
+                  _,
+                  LookupError(Reference.Method(_, _), Reference.Method(_, _)),
+                ) =>
+          },
+        E"Λ (σ : ⋆). λ (e: σ) → ⸨ icall @Mod:I getParties e ⸩" -> //
           { case _: ETypeMismatch => },
+        //
       )
 
       val ELocation(expectedLocation, EVar("something")) = E"⸨ something ⸩"
@@ -809,9 +908,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       }
     }
 
-    //TODO add check for interface definitions.
-    //TODO add check for interface implementations.
-
     // TEST_EVIDENCE: Input Validation: ill-formed templates are rejected
     "reject ill formed template definition" in {
 
@@ -819,13 +915,16 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         p"""
 
           module Mod {
-            record @serializable U = {};
-            record @serializable Box (a :*) = { value: a };
+            record @serializable Key = {person: Text, party: Party};
+
+            interface (this: I) = {
+              precondition True;
+              method getParties: List Party;
+            };
           }
 
-          module NegativeTestCase {
+          module NegativeTestCaseKey {
             record @serializable T = {person: Party, name: Text};
-            record @serializable TBis = {person: Text, party: Party};
 
             template (this : T) =  {
               precondition True;
@@ -843,13 +942,83 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                   , controllers Cons @Party ['Alice'] (Nil @Party)
                   , observers Cons @Party ['Alice'] (Nil @Party)
                   to upure @Unit ();
-              key @NegativeTestCase:TBis
-                  (NegativeTestCase:TBis { person = (NegativeTestCase:T {name} this), party = (NegativeTestCase:T {person} this) })
-                  (\ (key: NegativeTestCase:TBis) -> Cons @Party [(NegativeTestCase:TBis {party} key), 'Alice'] (Nil @Party)  );
+              key @Mod:Key
+                  (Mod:Key { person = (NegativeTestCaseKey:T {name} this), party = (NegativeTestCaseKey:T {person} this) })
+                  (\ (key: Mod:Key) -> Cons @Party [(Mod:Key {party} key), 'Alice'] (Nil @Party)  );
+            } ;
+          }
+          
+          module NegativeTestCaseInterface {
+            record @serializable T = {person: Party, name: Text};
+
+            template (this : T) =  {
+              precondition True;
+              signatories Cons @Party ['Bob'] (Nil @Party);
+              observers Cons @Party ['Alice'] (Nil @Party);
+              agreement "Agreement";
+              choice Ch1 (self) (i : Unit) : Unit
+                  , controllers Cons @Party ['Alice'] (Nil @Party)
+                  to upure @Unit ();
+              choice Ch2 (self) (i : Unit) : Unit
+                  , controllers Cons @Party ['Alice'] (Nil @Party)
+                  , observers Nil @Party
+                  to upure @Unit ();
+              choice Ch3 (self) (i : Unit) : Unit
+                  , controllers Cons @Party ['Alice'] (Nil @Party)
+                  , observers Cons @Party ['Alice'] (Nil @Party)
+                  to upure @Unit ();
+              implements Mod:I {
+                method getParties = \(self: NegativeTestCaseInterface:T) -> Cons @Party [NegativeTestCaseInterface:T {person} self] (Nil @Party);
+              };
             } ;
           }
 
-          module PositiveTestCase1 {
+          module PositiveTestCase_TemplateTypeShouldBeStar {
+            record @serializable T (a: *) = {x: a};
+
+            // in the next line, T should be of type *.
+            template (this : T) =  {
+              precondition True;
+              signatories Cons @Party ['Bob'] (Nil @Party);
+              observers Cons @Party ['Alice'] (Nil @Party);
+              agreement "Agreement";
+            };
+          }
+
+          module PositiveTestCase_TemplateTypeShouldBeRecord {
+            variant @serializable V = P : Party;
+
+            // in the next line, V should be of record.
+            template (this : V) =  {
+              precondition True;
+              signatories Cons @Party ['Bob'] (Nil @Party);
+              observers Cons @Party ['Alice'] (Nil @Party);
+              agreement "Agreement";
+            };
+          }
+
+           module PositiveTestCase_TemplateTypeShouldExists{
+             // template without data type
+             template (this : T) =  {
+              precondition True;
+              signatories Cons @Party ['Bob'] (Nil @Party);
+              observers Cons @Party ['Alice'] (Nil @Party);
+              agreement "Agreement";
+            } ;
+          }
+
+          module PositiveTestCase_PreconditionShouldBeBoolean{
+             record @serializable T = {person: Party, name: Text};
+              
+             template (this : T) =  {
+              precondition ();                               // precondition should be a boolean
+              signatories Cons @Party ['Bob'] (Nil @Party);
+              observers Cons @Party ['Alice'] (Nil @Party);
+              agreement "Agreement";
+            } ;
+          }
+
+          module PositiveTestCase_SignatoriesShouldBeListParty {
             record @serializable T = {};
 
             template (this : T) =  {
@@ -861,7 +1030,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             } ;
           }
 
-          module PositiveTestCase2 {
+          module PositiveTestCase_ObserversShouldBeListParty {
             record @serializable T = {};
 
             template (this : T) =  {
@@ -902,7 +1071,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             } ;
           }
 
-          module PositiveTestCase3 {
+          module PositiveTestCase_AgreementShouldBeText {
             record @serializable T = {};
 
             template (this : T) =  {
@@ -940,89 +1109,193 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             } ;
           }
 
-      module PositiveTestCase6 {
-        record @serializable T = {person: Party, name: Text};
-        record @serializable TBis = {person: Text, party: Party};
+          module PositiveTestCase_KeyBodyShouldBeProperType {
+            record @serializable T = {person: Party, name: Text};
+            record @serializable Key = {person: Text, party: Party};
+         
+            template (this : T) =  {
+              precondition True;
+              signatories Cons @Party ['Bob'] (Nil @Party);
+              observers Cons @Party ['Alice'] (Nil @Party);
+              agreement "Agreement";
+              choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
+              key @Mod:Key
+                // In the next line, the declared type do not match body
+                (PositiveTestCase_KeyBodyShouldBeProperType:Key { 
+                  person = (PositiveTestCase_KeyBodyShouldBeProperType:T {name} this), 
+                  party = (PositiveTestCase_KeyBodyShouldBeProperType:T {person} this) 
+                })
+                (\ (key: Mod:Key) -> Cons @Party [(Mod:Key {party} key), 'Alice'] (Nil @Party)  );
+              } ;
+          }
+         
+         
+           module PositiveTestCase_MaintainersShouldBeProperType {
+            record @serializable T = {person: Party, name: Text};
+            record @serializable Key = {person: Text, party: Party};
+         
+            template (this : T) =  {
+              precondition True;
+              signatories Cons @Party ['Bob'] (Nil @Party);
+              observers Cons @Party ['Alice'] (Nil @Party);
+              agreement "Agreement";
+              choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
+              key @Mod:Key
+                // In the next line, the declared type do not match body
+                (Mod:Key { 
+                  person = (PositiveTestCase_MaintainersShouldBeProperType:T {name} this), 
+                  party = (PositiveTestCase_MaintainersShouldBeProperType:T {person} this) 
+                })
+                (\ (key: PositiveTestCase_MaintainersShouldBeProperType:Key) -> 
+                  Cons @Party [(PositiveTestCase_MaintainersShouldBeProperType:Key {party} key), 'Alice'] (Nil @Party)  );
+              } ;
+          }
+         
+           module PositiveTestCase_MaintainersShouldBeListParty {
+            record @serializable T = {person: Party, name: Text};
+            record @serializable Key = {person: Text, party: Party};
+         
+            template (this : T) =  {
+              precondition True;
+              signatories Cons @Party ['Bob'] (Nil @Party);
+              observers Cons @Party ['Alice'] (Nil @Party);
+              agreement "Agreement";
+              choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
+              key @Mod:Key
+                // In the next line, the declared type do not match body
+                (Mod:Key { 
+                  person = (PositiveTestCase_MaintainersShouldBeListParty:T {name} this), 
+                  party = (PositiveTestCase_MaintainersShouldBeListParty:T {person} this) 
+                })
+                (\ (key: Mod:Key) -> ()  );
+              } ;
+          }
+         
+          module PositiveTestCase_MaintainersShouldNotUseThis {
+            record @serializable T = {person: Party, name: Text};
+            record @serializable TBis = {person: Text, party: Party};
+         
+            template (this : T) =  {
+              precondition True;
+              signatories Cons @Party ['Bob'] (Nil @Party);
+              observers Cons @Party ['Alice'] (Nil @Party);
+              agreement "Agreement";
+              choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
+              key @PositiveTestCase_MaintainersShouldNotUseThis:TBis
+                (PositiveTestCase_MaintainersShouldNotUseThis:TBis { 
+                  person = (PositiveTestCase_MaintainersShouldNotUseThis:T {name} this), 
+                  party = (PositiveTestCase_MaintainersShouldNotUseThis:T {person} this) 
+                })
+                // In the next line, cannot use `this`
+                (\ (key: PositiveTestCase_MaintainersShouldNotUseThis:TBis) -> 
+                  Cons @Party [(PositiveTestCase_MaintainersShouldNotUseThis:T {person} this), 'Alice'] (Nil @Party)  );
+            };
+          }
+     
+          module PositiveCase_InterfaceMethodShouldBeProperType {
+            record @serializable T = {person: Party, name: Text};
 
-        template (this : T) =  {
-          precondition True;
-          signatories Cons @Party ['Bob'] (Nil @Party);
-          observers Cons @Party ['Alice'] (Nil @Party);
-          agreement "Agreement";
-          choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
-          key @PositiveTestCase6:TBis
-            // In the next line, the declared type do not match body
-            (NegativeTestCase:TBis { person = (PositiveTestCase6:T {name} this), party = (PositiveTestCase6:T {person} this) })
-            (\ (key: PositiveTestCase6:TBis) -> Cons @Party [(PositiveTestCase6:TBis {party} key), 'Alice'] (Nil @Party)  );
-        } ;
-      }
+            template (this : T) =  {
+              precondition True;
+              signatories Cons @Party ['Bob'] (Nil @Party);
+              observers Cons @Party ['Alice'] (Nil @Party);
+              agreement "Agreement";
+              choice Ch (self) (i : Unit) : Unit
+                  , controllers Cons @Party ['Alice'] (Nil @Party)
+                  to upure @Unit ();
+              implements Mod:I {
+                method getParties = \(self: PositiveCase_InterfaceMethodShouldBeProperType:T) -> (); // should Be of type 
+              };
+            };
+          }
+        
+          module PositiveCase_ImplementsShouldOverrideAllMethods {
+            record @serializable T = {person: Party, name: Text};
 
+            template (this : T) =  {
+              precondition True;
+              signatories Cons @Party ['Bob'] (Nil @Party);
+              observers Cons @Party ['Alice'] (Nil @Party);
+              agreement "Agreement";
+              choice Ch (self) (i : Unit) : Unit
+                  , controllers Cons @Party ['Alice'] (Nil @Party)
+                  to upure @Unit ();
+              implements Mod:I {
+              };
+            };
+          }
+          
+          module PositiveCase_ImplementsShouldOverrideOnlyMethods {
+            record @serializable T = {person: Party, name: Text};
 
-      module PositiveTestCase7 {
-        record @serializable T = {person: Party, name: Text};
-        record @serializable TBis = {person: Text, party: Party};
+            template (this : T) =  {
+              precondition True;
+              signatories Cons @Party ['Bob'] (Nil @Party);
+              observers Cons @Party ['Alice'] (Nil @Party);
+              agreement "Agreement";
+              choice Ch (self) (i : Unit) : Unit
+                  , controllers Cons @Party ['Alice'] (Nil @Party)
+                  to upure @Unit ();
+              implements Mod:I {
+                method getParties = \(self: PositiveCase_ImplementsShouldOverrideOnlyMethods:T) -> 
+                  Cons @Party [(PositiveCase_ImplementsShouldOverrideOnlyMethods:T {person} this), 'Alice'] (Nil @Party);
+                method getName = \(self: PositiveCase_ImplementsShouldOverrideOnlyMethods:T) -> 
+                  PositiveCase_ImplementsShouldOverrideOnlyMethods:T {name} this;   
+              };
+            };
+          }
+        
+          module PositiveCase_KeyAndInterface {
+            record @serializable T = {person: Party, name: Text};
 
-        template (this : T) =  {
-          precondition True;
-          signatories Cons @Party ['Bob'] (Nil @Party);
-          observers Cons @Party ['Alice'] (Nil @Party);
-          agreement "Agreement";
-          choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
-          key @PositiveTestCase7:TBis
-            (PositiveTestCase7:TBis { person = (PositiveTestCase7:T {name} this), party = (PositiveTestCase7:T {person} this) })
-            // in the next line, expect PositiveTestCase7:TBis -> List Party
-            (\ (key: NegativeTestCase:TBis) -> Cons @Party [(PositiveTestCase7:TBis {party} key), 'Alice'] (Nil @Party)  );
-        } ;
-      }
+            template (this : T) =  {
+              precondition True;
+              signatories Cons @Party ['Bob'] (Nil @Party);
+              observers Cons @Party ['Alice'] (Nil @Party);
+              agreement "Agreement";
+              choice Ch (self) (i : Unit) : Unit
+                  , controllers Cons @Party ['Alice'] (Nil @Party)
+                  to upure @Unit ();
+              implements Mod:I {
+                method getParties = \(self: PositiveCase_KeyAndInterface:T) -> 
+                  Cons @Party [PositiveCase_KeyAndInterface:T {person} self] (Nil @Party);
+              };
+              key @Mod:Key
+                  (Mod:Key { 
+                    person = (PositiveCase_KeyAndInterface:T {name} this),
+                    party = (PositiveCase_KeyAndInterface:T {person} this) 
+                  })
+                  (\ (key: Mod:Key) -> Cons @Party [(Mod:Key {party} key), 'Alice'] (Nil @Party)  );
+            };
+          }
 
-      module PositiveTestCase8 {
-        record @serializable T = {person: Party, name: Text};
-        record @serializable TBis = {person: Text, party: Party};
-
-        template (this : T) =  {
-          precondition True;
-          signatories Cons @Party ['Bob'] (Nil @Party);
-          observers Cons @Party ['Alice'] (Nil @Party);
-          agreement "Agreement";
-          choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ();
-          key @PositiveTestCase8:TBis
-            (PositiveTestCase8:TBis { person = (PositiveTestCase8:T {name} this), party = (PositiveTestCase8:T {person} this) })
-            // In the next line, cannot use `this`
-            (\ (key: PositiveTestCase8:TBis) -> Cons @Party [(PositiveTestCase8:T {person} this), 'Alice'] (Nil @Party)  );
-        } ;
-      }
-
-      module PositiveTestCase9 {
-        record @serializable T (a: *) = {x: a};
-
-        // in the next line, T must have kind *.
-        template (this : T) =  {
-          precondition True;
-          signatories Cons @Party ['Bob'] (Nil @Party);
-          observers Cons @Party ['Alice'] (Nil @Party);
-          agreement "Agreement";
-        } ;
-      }
-
-      module PositiveTestCase10{
-         // template without data type
-         template (this : T) =  {
-          precondition True;
-          signatories Cons @Party ['Bob'] (Nil @Party);
-          observers Cons @Party ['Alice'] (Nil @Party);
-          agreement "Agreement";
-        } ;
-      }
+      
       """
+
+      val negativeCases = Table(
+        "moduleName",
+        "NegativeTestCaseKey",
+        "NegativeTestCaseInterface",
+      )
+
+      val nonTemplateTypeCases = Table(
+        "moduleName",
+        "PositiveTestCase_TemplateTypeShouldBeStar",
+        "PositiveTestCase_TemplateTypeShouldBeRecord",
+      )
+
       val typeMismatchCases = Table(
         "moduleName",
-        "PositiveTestCase1",
-        "PositiveTestCase2",
+        "PositiveTestCase_PreconditionShouldBeBoolean",
+        "PositiveTestCase_SignatoriesShouldBeListParty",
+        "PositiveTestCase_ObserversShouldBeListParty",
         "PositiveTestCase_ControllersMustBeListParty",
         "PositiveTestCase_ChoiceObserversMustBeListParty",
-        "PositiveTestCase3",
-        "PositiveTestCase6",
-        "PositiveTestCase7",
+        "PositiveTestCase_AgreementShouldBeText",
+        "PositiveTestCase_KeyBodyShouldBeProperType",
+        "PositiveTestCase_MaintainersShouldBeProperType",
+        "PositiveTestCase_MaintainersShouldBeListParty",
+        "PositiveCase_InterfaceMethodShouldBeProperType",
       )
 
       val kindMismatchCases = Table(
@@ -1031,31 +1304,150 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         "PositiveTestCase5",
       )
 
-      def checkModule(pkg: Package, modName: String) = Typing.checkModule(
-        PackageInterface(Map(defaultPackageId -> pkg)),
+      val pkgIface = PackageInterface(Map(defaultPackageId -> pkg))
+
+      def checkModule(modName: String): Unit = Typing.checkModule(
+        pkgIface,
         defaultPackageId,
         pkg.modules(DottedName.assertFromString(modName)),
       )
 
+      forEvery(negativeCases)(mod => checkModule(mod) shouldBe ())
+      forEvery(nonTemplateTypeCases)(mod =>
+        an[EExpectedTemplatableType] shouldBe thrownBy(checkModule(mod))
+      )
+      an[EUnknownDefinition] shouldBe thrownBy(
+        checkModule("PositiveTestCase_TemplateTypeShouldExists")
+      )
+      forEvery(typeMismatchCases)(mod => an[ETypeMismatch] shouldBe thrownBy(checkModule(mod)))
+      forEvery(kindMismatchCases)(mod => an[EKindMismatch] shouldBe thrownBy(checkModule(mod)))
+      an[EUnknownExprVar] shouldBe thrownBy(
+        checkModule("PositiveTestCase_MaintainersShouldNotUseThis")
+      )
+
+      an[EMissingInterfaceMethod] shouldBe thrownBy(
+        checkModule("PositiveCase_ImplementsShouldOverrideAllMethods")
+      )
+      an[EUnknownInterfaceMethod] shouldBe thrownBy(
+        checkModule("PositiveCase_ImplementsShouldOverrideOnlyMethods")
+      )
+      an[ETemplateWithKeyAndInterface] shouldBe thrownBy(
+        checkModule("PositiveCase_KeyAndInterface")
+      )
+    }
+
+    // TEST_EVIDENCE: Input Validation: ill-formed interfaces are rejected
+    "reject ill formed interface definition" ignore {
+
+      val pkg =
+        p"""
+          module NegativeTestCase {
+            interface (this : I) =  {
+              precondition True;
+              method getParties: List Party;
+              choice Ch1 (self) (i : Unit) : Unit,
+                  controllers Cons @Party ['Alice'] (Nil @Party)
+                to upure @Unit ();
+              choice Ch2 (self) (i : Unit) : Unit,
+                 controllers icall @NegativeTestCase:I getParties this,
+                 observers Nil @Party
+               to upure @Unit ();
+              choice Ch3 (self) (i : Unit) : Unit,
+                  controllers icall @NegativeTestCase:I getParties this,
+                  observers icall @NegativeTestCase:I getParties this
+                to upure @Unit ();
+            } ;
+          }
+
+          module PositiveTestCase_PreconditionShouldBeBoolean {
+            interface (this : I) =  {
+              precondition (); // Precondition should be a boolean              
+            } ;
+          }
+
+          module PositiveTestCase_ControllersShouldBeListParty {
+            interface (this : I) =  {
+              precondition True;
+              choice Ch (self) (i : Unit) : Unit,
+                  controllers ()                                  // should be of type (List Party)
+                to upure @Unit ();             
+            } ;
+          }
+
+          module PositiveTestCase_ChoiceObserversShouldBeListParty {
+             interface (this : I) =  {
+              precondition True;
+              method getParties: List Party;
+              choice Ch (self) (i : Unit) : Unit,
+                  controllers (icall @NegativeTestCase:I getParties this),
+                  observers ()                                  // should be of type (List Party)
+                to upure @Unit ();
+            } ;
+          }
+
+          module PositiveTestCase_ChoiceArgumentTypeShouldBeStar {
+             interface (this : I) =  {
+              precondition True;
+              method getParties: List Party;
+              choice Ch (self) (i : List) : Unit,   // the type of i (here List) should be of kind * (here it is * -> *)
+                  controllers (icall @NegativeTestCase:I getParties this)
+                to upure @Unit ();
+            } ;
+          }
+
+          module PositiveTestCase_ChoiceResultTypeShouldBeStar {
+             interface (this : I) =  {
+              precondition True;
+              method getParties: List Party;
+              choice Ch (self) (i : Unit) : List,   // the return type (here List) should be of kind * (here it is * -> *)
+                  controllers (icall @NegativeTestCase:I getParties this)
+                to upure @(List) (/\ (tau : *). Nil @tau);
+            } ;
+          }
+      """
+
+      val typeMismatchCases = Table(
+        "moduleName",
+        "PositiveTestCase_PreconditionShouldBeBoolean",
+        "PositiveTestCase_ControllersShouldBeListParty",
+        "PositiveTestCase_ChoiceObserversShouldBeListParty",
+      )
+
+      val kindMismatchCases = Table(
+        "moduleName",
+        "PositiveTestCase_ChoiceArgumentTypeShouldBeStar",
+        "PositiveTestCase_ChoiceResultTypeShouldBeStar",
+      )
+
+      val pkgInterface = PackageInterface(Map(defaultPackageId -> pkg))
+
+      def checkModule(pkg: Package, modName: String) =
+        Typing.checkModule(
+          pkgInterface,
+          defaultPackageId,
+          pkg.modules(DottedName.assertFromString(modName)),
+        )
+
       checkModule(pkg, "NegativeTestCase")
-      forAll(typeMismatchCases)(module =>
+      "NegativeTestCase" shouldBe "NegativeTestCase"
+      forEvery(typeMismatchCases)(module =>
         an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, module))
-      ) // and
-      forAll(kindMismatchCases)(module =>
+      )
+      forEvery(kindMismatchCases)(module =>
         an[EKindMismatch] shouldBe thrownBy(checkModule(pkg, module))
       )
-      an[EUnknownExprVar] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase8"))
-      an[EExpectedTemplatableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase9"))
-      an[EUnknownDefinition] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase10"))
+
     }
 
   }
 
-  // TEST_EVIDENCE: Input Validation: ill-formed exception definitions are rejected
-  "reject ill formed exception definitions" in {
+  "checkModule" should {
 
-    val pkg =
-      p"""
+    // TEST_EVIDENCE: Input Validation: ill-formed exception definitions are rejected
+    "reject ill formed exception definitions" in {
+
+      val pkg =
+        p"""
 
           module Mod {
             record @serializable Exception = { message: Text };
@@ -1102,23 +1494,23 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
       """
 
-    def checkModule(pkg: Package, modName: String) = Typing.checkModule(
-      PackageInterface(Map(defaultPackageId -> pkg)),
-      defaultPackageId,
-      pkg.modules(DottedName.assertFromString(modName)),
-    )
+      def checkModule(pkg: Package, modName: String) = Typing.checkModule(
+        PackageInterface(Map(defaultPackageId -> pkg)),
+        defaultPackageId,
+        pkg.modules(DottedName.assertFromString(modName)),
+      )
 
-    checkModule(pkg, "NegativeTestCase")
-    an[EExpectedExceptionableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase1"))
-    an[EExpectedExceptionableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase2"))
-    an[EUnknownDefinition] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase3"))
-    an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase4"))
-  }
+      checkModule(pkg, "NegativeTestCase")
+      an[EExpectedExceptionableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase1"))
+      an[EExpectedExceptionableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase2"))
+      an[EUnknownDefinition] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase3"))
+      an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase4"))
+    }
 
-  "accepts regression test #3777" in {
-    // This is a regression test for https://github.com/digital-asset/daml/issues/3777
-    def pkg =
-      p"""
+    "accepts regression test #3777" in {
+      // This is a regression test for https://github.com/digital-asset/daml/issues/3777
+      def pkg =
+        p"""
         module TypeVarShadowing2 {
 
          val bar : forall b1 b2 a1 a2. (b1 -> b2) -> (a1 -> a2) -> a1 -> a2 =
@@ -1131,149 +1523,152 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         }
       """
 
-    val mod = pkg.modules(DottedName.assertFromString("TypeVarShadowing2"))
-    Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
-  }
-
-  "expand type synonyms correctly" in {
-    val testCases = Table(
-      "expression" ->
-        "expected type",
-      E"(( λ (e : |Mod:SynInt|) → () )) " ->
-        T"(( Int64 → Unit ))",
-      E"(( λ (e : |Mod:SynSynInt|) → () )) " ->
-        T"(( Int64 → Unit ))",
-      E"(( λ (e : |Mod:SynIdentity Int64|) → () )) " ->
-        T"(( Int64 → Unit ))",
-      E"(( λ (e : |Mod:SynIdentity |Mod:SynIdentity Int64||) → () )) " ->
-        T"(( Int64 → Unit ))",
-      E"(( λ (e : |Mod:SynList Date|) → () )) " ->
-        T"(( List Date → Unit ))",
-      E"(( λ (e : |Mod:SynSelfFunc Text|) → () )) " ->
-        T"(( (Text → Text) → Unit ))",
-      E"(( λ (e : |Mod:SynFunc Text Date|) → () )) " ->
-        T"(( (Text → Date) → Unit ))",
-      E"(( λ (e : |Mod:SynPair Text Date|) → () )) " ->
-        T"(( <one:Text, two: Date> → Unit ))",
-      E"(( λ (e : forall (a:*) . a) → () )) " ->
-        T"(( (forall (a:*) . a) → Unit ))",
-      E"(( λ (e : |Mod:SynIdentity (forall (a:*) . a)|) → () )) " ->
-        T"(( (forall (a:*) . a) → Unit ))",
-      E"(( λ (e : forall (a:*) . |Mod:SynIdentity a|) → () )) " ->
-        T"(( (forall (a:*) . a) → Unit ))",
-      E"(( λ (e : |Mod:SynHigh List|) → () )) " ->
-        T"(( List Int64 → Unit ))",
-      E"(( λ (e : |Mod:SynHigh2 GenMap Party|) → () )) " ->
-        T"(( (GenMap Party Party) → Unit ))",
-    )
-
-    forEvery(testCases) { (exp: Expr, expectedType: Type) =>
-      env.expandTypeSynonyms(env.typeOf(exp)) shouldBe expectedType
-    }
-  }
-
-  // TEST_EVIDENCE: Input Validation: ill-formed type synonyms applications are rejected
-  "reject ill formed type synonym application" in {
-    val testCases = Table(
-      "badly formed type synonym application",
-      E"(( λ (e : |Mod:MissingSyn|) → () )) ",
-      E"(( λ (e : |Mod:SynInt Text|) → () )) ",
-      E"(( λ (e : |Mod:SynIdentity|) → () )) ",
-      E"(( λ (e : |Mod:SynIdentity Text Text|) → () )) ",
-      E"(( λ (e : |Mod:SynPair Text|) → () )) ",
-      E"(( λ (e : |Mod:SynPair Text Text Text|) → () )) ",
-      E"(( λ (e : |Mod:SynIdentity List|) → () )) ",
-      E"(( λ (e : |Mod:SynHigh Text|) → () )) ",
-      E"(( λ (e : |Mod:SynHigh GenMap|) → () )) ",
-      E"(( λ (e : |Mod:SynHigh2 List Party|) → () )) ",
-    )
-
-    forEvery(testCases) { exp =>
-      a[ValidationError] should be thrownBy env.typeOf(exp)
-    }
-  }
-
-  // TEST_EVIDENCE: Input Validation: ill-formed records are rejected
-  "reject ill formed type record definitions" in {
-
-    def checkModule(mod: Module) = {
-      val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, None)
+      val mod = pkg.modules(DottedName.assertFromString("TypeVarShadowing2"))
       Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
     }
 
-    val negativeTestCases = Table(
-      "valid module",
-      m"""module Mod { record R (a: * -> *) (b: * -> *) = { }; }""",
-    )
+    "expand type synonyms correctly" in {
+      val testCases = Table(
+        "expression" ->
+          "expected type",
+        E"(( λ (e : |Mod:SynInt|) → () )) " ->
+          T"(( Int64 → Unit ))",
+        E"(( λ (e : |Mod:SynSynInt|) → () )) " ->
+          T"(( Int64 → Unit ))",
+        E"(( λ (e : |Mod:SynIdentity Int64|) → () )) " ->
+          T"(( Int64 → Unit ))",
+        E"(( λ (e : |Mod:SynIdentity |Mod:SynIdentity Int64||) → () )) " ->
+          T"(( Int64 → Unit ))",
+        E"(( λ (e : |Mod:SynList Date|) → () )) " ->
+          T"(( List Date → Unit ))",
+        E"(( λ (e : |Mod:SynSelfFunc Text|) → () )) " ->
+          T"(( (Text → Text) → Unit ))",
+        E"(( λ (e : |Mod:SynFunc Text Date|) → () )) " ->
+          T"(( (Text → Date) → Unit ))",
+        E"(( λ (e : |Mod:SynPair Text Date|) → () )) " ->
+          T"(( <one:Text, two: Date> → Unit ))",
+        E"(( λ (e : forall (a:*) . a) → () )) " ->
+          T"(( (forall (a:*) . a) → Unit ))",
+        E"(( λ (e : |Mod:SynIdentity (forall (a:*) . a)|) → () )) " ->
+          T"(( (forall (a:*) . a) → Unit ))",
+        E"(( λ (e : forall (a:*) . |Mod:SynIdentity a|) → () )) " ->
+          T"(( (forall (a:*) . a) → Unit ))",
+        E"(( λ (e : |Mod:SynHigh List|) → () )) " ->
+          T"(( List Int64 → Unit ))",
+        E"(( λ (e : |Mod:SynHigh2 GenMap Party|) → () )) " ->
+          T"(( (GenMap Party Party) → Unit ))",
+      )
 
-    val positiveTestCases = Table(
-      "invalid module",
-      m"""module Mod { record R (a: * -> nat) (b: * -> *) = { }; }""",
-      m"""module Mod { record R (a: * -> *) (b: * -> nat) = { }; }""",
-    )
-
-    forEvery(negativeTestCases)(mod => checkModule(mod))
-    forEvery(positiveTestCases)(mod => a[ValidationError] should be thrownBy checkModule(mod))
-  }
-
-  // TEST_EVIDENCE: Input Validation: ill-formed variants are rejected
-  "reject ill formed type variant definitions" in {
-
-    def checkModule(mod: Module) = {
-      val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, None)
-      Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
+      forEvery(testCases) { (exp: Expr, expectedType: Type) =>
+        env.expandTypeSynonyms(env.typeOf(exp)) shouldBe expectedType
+      }
     }
 
-    val negativeTestCases = Table(
-      "valid module",
-      m"""module Mod { variant V (a: * -> *) (b: * -> *) = ; }""",
-    )
+    // TEST_EVIDENCE: Input Validation: ill-formed type synonyms applications are rejected
+    "reject ill formed type synonym application" in {
+      val testCases = Table(
+        "badly formed type synonym application",
+        E"(( λ (e : |Mod:MissingSyn|) → () )) ",
+        E"(( λ (e : |Mod:SynInt Text|) → () )) ",
+        E"(( λ (e : |Mod:SynIdentity|) → () )) ",
+        E"(( λ (e : |Mod:SynIdentity Text Text|) → () )) ",
+        E"(( λ (e : |Mod:SynPair Text|) → () )) ",
+        E"(( λ (e : |Mod:SynPair Text Text Text|) → () )) ",
+        E"(( λ (e : |Mod:SynIdentity List|) → () )) ",
+        E"(( λ (e : |Mod:SynHigh Text|) → () )) ",
+        E"(( λ (e : |Mod:SynHigh GenMap|) → () )) ",
+        E"(( λ (e : |Mod:SynHigh2 List Party|) → () )) ",
+      )
 
-    val positiveTestCases = Table(
-      "invalid module",
-      m"""module Mod { variant V (a: * -> nat) (b: * -> *) = ; }""",
-      m"""module Mod { variant V (a: * -> *) (b: * -> nat) = ; }""",
-    )
-
-    forEvery(negativeTestCases)(mod => checkModule(mod))
-    forEvery(positiveTestCases)(mod => a[ValidationError] should be thrownBy checkModule(mod))
-  }
-
-  // TEST_EVIDENCE: Input Validation: ill-formed type synonyms definitions are rejected
-  "reject ill formed type synonym definitions" in {
-
-    def checkModule(mod: Module) = {
-      val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, None)
-      Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
+      forEvery(testCases) { exp =>
+        a[ValidationError] should be thrownBy env.typeOf(exp)
+      }
     }
 
-    val negativeTestCases = Table(
-      "valid module",
-      m"""module Mod { synonym S = Int64 ; }""",
-      m"""module Mod { synonym S a = a ; }""",
-      m"""module Mod { synonym S a b = a ; }""",
-      m"""module Mod { synonym S (f: *) = f ; }""",
-      m"""module Mod { synonym S (f: * -> *) = f Int64; }""",
-      m"""module Mod { synonym S (f: * -> *) = Unit ; }""",
-    )
+    // TEST_EVIDENCE: Input Validation: ill-formed records are rejected
+    "reject ill formed type record definitions" in {
 
-    val positiveTestCases = Table(
-      "invalid module",
-      m"""module Mod { synonym S = a ; }""",
-      m"""module Mod { synonym S a = b ; }""",
-      m"""module Mod { synonym S a a = a ; }""",
-      m"""module Mod { synonym S = List ; }""",
-      m"""module Mod { synonym S (f: * -> *) = f ; }""",
-      m"""module Mod { synonym S (f: *) = f Int64; }""",
-      m"""module Mod { synonym S (f: * -> nat) = Unit ; }""",
-    )
+      def checkModule(mod: Module) = {
+        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, None)
+        Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
+      }
 
-    forEvery(negativeTestCases)(mod => checkModule(mod))
-    forEvery(positiveTestCases)(mod => a[ValidationError] should be thrownBy checkModule(mod))
+      val negativeTestCases = Table(
+        "valid module",
+        m"""module Mod { record R (a: * -> *) (b: * -> *) = { }; }""",
+      )
+
+      val positiveTestCases = Table(
+        "invalid module",
+        m"""module Mod { record R (a: * -> nat) (b: * -> *) = { }; }""",
+        m"""module Mod { record R (a: * -> *) (b: * -> nat) = { }; }""",
+      )
+
+      forEvery(negativeTestCases)(mod => checkModule(mod))
+      forEvery(positiveTestCases)(mod => a[ValidationError] should be thrownBy checkModule(mod))
+    }
+
+    // TEST_EVIDENCE: Input Validation: ill-formed variants are rejected
+    "reject ill formed type variant definitions" in {
+
+      def checkModule(mod: Module) = {
+        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, None)
+        Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
+      }
+
+      val negativeTestCases = Table(
+        "valid module",
+        m"""module Mod { variant V (a: * -> *) (b: * -> *) = ; }""",
+      )
+
+      val positiveTestCases = Table(
+        "invalid module",
+        m"""module Mod { variant V (a: * -> nat) (b: * -> *) = ; }""",
+        m"""module Mod { variant V (a: * -> *) (b: * -> nat) = ; }""",
+      )
+
+      forEvery(negativeTestCases)(mod => checkModule(mod))
+      forEvery(positiveTestCases)(mod => a[ValidationError] should be thrownBy checkModule(mod))
+    }
+
+    // TEST_EVIDENCE: Input Validation: ill-formed type synonyms definitions are rejected
+    "reject ill formed type synonym definitions" in {
+
+      def checkModule(mod: Module) = {
+        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, None)
+        Typing.checkModule(PackageInterface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
+      }
+
+      val negativeTestCases = Table(
+        "valid module",
+        m"""module Mod { synonym S = Int64 ; }""",
+        m"""module Mod { synonym S a = a ; }""",
+        m"""module Mod { synonym S a b = a ; }""",
+        m"""module Mod { synonym S (f: *) = f ; }""",
+        m"""module Mod { synonym S (f: * -> *) = f Int64; }""",
+        m"""module Mod { synonym S (f: * -> *) = Unit ; }""",
+      )
+
+      val positiveTestCases = Table(
+        "invalid module",
+        m"""module Mod { synonym S = a ; }""",
+        m"""module Mod { synonym S a = b ; }""",
+        m"""module Mod { synonym S a a = a ; }""",
+        m"""module Mod { synonym S = List ; }""",
+        m"""module Mod { synonym S (f: * -> *) = f ; }""",
+        m"""module Mod { synonym S (f: *) = f Int64; }""",
+        m"""module Mod { synonym S (f: * -> nat) = Unit ; }""",
+      )
+
+      forEvery(negativeTestCases)(mod => checkModule(mod))
+      forEvery(positiveTestCases)(mod => a[ValidationError] should be thrownBy checkModule(mod))
+    }
+
   }
 
-  private val pkg =
-    p"""
+  private[this] val env = {
+    val pkg =
+      p"""
        module Mod {
          record R (a: *) = { f1: Int64, f2: List a } ;
 
@@ -1301,7 +1696,31 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
            agreement "Agreement";
            choice Ch (self) (x: Int64) : Decimal, controllers 'Bob' to upure @INT64 (DECIMAL_TO_INT64 x);
            key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party ['Alice', p] (Nil @Party));
-         } ;
+         };
+
+         interface (this : I) = {
+              precondition True;
+              method getParties: List Party;
+              choice ChIface (self) (x: Int64) : Decimal,
+                  controllers 'Bob' 
+                to upure @INT64 (DECIMAL_TO_INT64 x);
+         };
+         
+          interface (this : J) = {
+              precondition True;
+         };
+         
+         record @serializable Ti = { person: Party, name: Text };
+         template (this : Ti) = {
+           precondition True;
+           signatories Cons @Party ['Bob'] Nil @Party;
+           observers Cons @Party ['Alice'] (Nil @Party);
+           agreement "Agreement";
+           choice ChTmpl (self) (x: Int64) : Decimal, controllers 'Bob' to upure @INT64 (DECIMAL_TO_INT64 x);
+           implements Mod:I {
+              method getParties = Cons @Party [(Mod:Ti {person} this)] (Nil @Party);
+           };
+         };
 
          record @serializable U = { person: Party, name: Text };
 
@@ -1312,8 +1731,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
        }
      """
-
-  private val env =
     Typing.Env(LV.default, PackageInterface(Map(defaultPackageId -> pkg)), NoContext)
+  }
 
 }

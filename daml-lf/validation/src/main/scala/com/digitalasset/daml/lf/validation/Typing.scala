@@ -451,17 +451,17 @@ private[validation] object Typing {
         ()
       }
       implementations.values.foreach(env.checkIfaceImplementation(tplName, _))
+      if (mbKey.isDefined && implementations.nonEmpty)
+        throw ETemplateWithKeyAndInterface(ctx, tplName)
     }
 
     def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
         case DefInterface(param, fixedChoices, methods, precond) =>
-          fixedChoices.values.foreach(
-            introExprVar(param, TTyCon(ifaceName)).checkChoice(ifaceName, _)
-          )
-          methods.values.foreach(checkIfaceMethod)
           val env = introExprVar(param, TTyCon(ifaceName))
           env.checkExpr(precond, TBool)
+          methods.values.foreach(checkIfaceMethod)
+          fixedChoices.values.foreach(env.checkChoice(ifaceName, _))
       }
 
     def checkIfaceMethod(method: InterfaceMethod): Unit = {

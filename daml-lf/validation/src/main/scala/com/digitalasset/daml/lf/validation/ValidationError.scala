@@ -157,6 +157,8 @@ abstract class ValidationError extends java.lang.RuntimeException with Product w
   def pretty: String = s"validation error in ${context.pretty}: $prettyInternal"
   override def getMessage: String = pretty
   protected def prettyInternal: String
+
+  override def toString: String = remy.catcha(s"ValidationError($pretty)")
 }
 final case class ENatKindRightOfArrow(context: Context, kind: Kind) extends ValidationError {
   protected def prettyInternal: String = s"invalid kind ${kind.pretty}"
@@ -496,4 +498,12 @@ final case class ETemplateDoesNotImplementInterface(
 ) extends ValidationError {
   override protected def prettyInternal: String =
     s"Template $template does not implement interface $iface"
+}
+
+final case class ETemplateWithKeyAndInterface(
+    context: Context,
+    template: TypeConName,
+) extends ValidationError {
+  override protected def prettyInternal: String =
+    s"Template $template with and key and interface interface implementation"
 }
