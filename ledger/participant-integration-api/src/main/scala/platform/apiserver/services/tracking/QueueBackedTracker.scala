@@ -52,10 +52,10 @@ private[services] final class QueueBackedTracker(
         trackedPromise.future.map(
           _.left.map(completionFailure => QueueCompletionFailure(completionFailure))
         )
-      case Success(QueueOfferResult.Failure(t)) =>
+      case Success(QueueOfferResult.Failure(throwable)) =>
         toQueueSubmitFailure(
           errorFactories.SubmissionQueueErrors
-            .failedToEnqueueCommandSubmission("Failed to enqueue")(t)
+            .failedToEnqueueCommandSubmission("Failed to enqueue")(throwable)
         )
       case Success(QueueOfferResult.Dropped) =>
         toQueueSubmitFailure(errorFactories.bufferFull("The submission ingress buffer is full"))
@@ -63,9 +63,11 @@ private[services] final class QueueBackedTracker(
         toQueueSubmitFailure(
           errorFactories.SubmissionQueueErrors.queueClosed("Command service queue")
         )
-      case Failure(t) =>
+      case Failure(throwable) =>
         toQueueSubmitFailure(
-          errorFactories.SubmissionQueueErrors.failedToEnqueueCommandSubmission("Failed")(t)
+          errorFactories.SubmissionQueueErrors.failedToEnqueueCommandSubmission(
+            "Unexpected `BoundedSourceQueue.offer` exception"
+          )(throwable)
         )
     }
   }
