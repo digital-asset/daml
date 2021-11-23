@@ -62,7 +62,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   }
 
   @Explanation(
-    "Errors raised during the command execution phase in command submission evaluation."
+    "Errors raised during the command execution phase of the command submission evaluation."
   )
   object CommandExecution extends ErrorGroup {
     @Explanation(
@@ -136,7 +136,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
 
     @Explanation(
-      "Errors raised during command conversion from Daml LF to Speedy representation."
+      "Errors raised during command conversion to the internal data representation."
     )
     object Preprocessing extends ErrorGroup {
       @Explanation("""This error occurs if a command fails during interpreter pre-processing.""")
@@ -157,7 +157,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
 
     @Explanation(
-      "Errors raised during the command interpretation phase in command submission evaluation."
+      "Errors raised during the command interpretation phase of the command submission evaluation."
     )
     object Interpreter extends ErrorGroup {
       @Explanation("""This error occurs if a Daml transaction fails during interpretation.""")
@@ -218,7 +218,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
       }
 
-      @Explanation("Errors raised during command interpretation lookup.")
+      @Explanation("Errors raised in lookups during the command interpretation phase.")
       object LookupErrors extends ErrorGroup {
         @Explanation(
           """This error occurs if the Daml engine interpreter cannot resolve a contract key to an active contract. This
@@ -656,7 +656,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   }
 
   @Explanation(
-    "This error group contains potential consistency errors raised due to race conditions during command submission or returned as submission rejections by the backing ledger."
+    "Potential consistency errors raised due to race conditions during command submission or returned as submission rejections by the backing ledger."
   )
   object ConsistencyErrors extends ErrorGroup {
     @Explanation("A command with the given command id has already been successfully processed.")
@@ -819,7 +819,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   }
 
   @Explanation(
-    "Generic submission rejection errors returned by the backing ledger write service."
+    "Generic submission rejection errors returned by the backing ledger's write service."
   )
   object WriteServiceRejections extends ErrorGroup {
     @Explanation("The submitting party has not been allocated.")
