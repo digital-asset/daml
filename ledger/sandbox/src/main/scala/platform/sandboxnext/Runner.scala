@@ -242,33 +242,43 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   ),
                 )
               }
-              apiServer <- new StandaloneApiServer(
+              apiServerConfig = ApiServerConfig(
+                participantId = config.participantId,
+                archiveFiles = if (isReset) List.empty else config.damlPackages,
+                // Re-use the same port when resetting the server.
+                port = currentPort.getOrElse(config.port),
+                address = config.address,
+                jdbcUrl = indexJdbcUrl,
+                databaseConnectionPoolSize = config.databaseConnectionPoolSize,
+                databaseConnectionTimeout = config.databaseConnectionTimeout,
+                tlsConfig = config.tlsConfig,
+                maxInboundMessageSize = config.maxInboundMessageSize,
+                initialLedgerConfiguration = Some(config.initialLedgerConfiguration),
+                configurationLoadTimeout = config.configurationLoadTimeout,
+                eventsPageSize = config.eventsPageSize,
+                portFile = config.portFile,
+                // TODO append-only: augment the following defaults for enabling the features for sandbox next
+                seeding = config.seeding.get,
+                managementServiceTimeout = config.managementServiceTimeout,
+                maxContractStateCacheSize = 0L,
+                maxContractKeyStateCacheSize = 0L,
+                enableMutableContractStateCache = false,
+                maxTransactionsInMemoryFanOutBufferSize = 0L,
+                enableInMemoryFanOutForLedgerApi = false,
+                enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+              )
+              indexService <- StandaloneIndexService(
                 ledgerId = ledgerId,
-                config = ApiServerConfig(
-                  participantId = config.participantId,
-                  archiveFiles = if (isReset) List.empty else config.damlPackages,
-                  // Re-use the same port when resetting the server.
-                  port = currentPort.getOrElse(config.port),
-                  address = config.address,
-                  jdbcUrl = indexJdbcUrl,
-                  databaseConnectionPoolSize = config.databaseConnectionPoolSize,
-                  databaseConnectionTimeout = config.databaseConnectionTimeout,
-                  tlsConfig = config.tlsConfig,
-                  maxInboundMessageSize = config.maxInboundMessageSize,
-                  initialLedgerConfiguration = Some(config.initialLedgerConfiguration),
-                  configurationLoadTimeout = config.configurationLoadTimeout,
-                  eventsPageSize = config.eventsPageSize,
-                  portFile = config.portFile,
-                  // TODO append-only: augment the following defaults for enabling the features for sandbox next
-                  seeding = config.seeding.get,
-                  managementServiceTimeout = config.managementServiceTimeout,
-                  maxContractStateCacheSize = 0L,
-                  maxContractKeyStateCacheSize = 0L,
-                  enableMutableContractStateCache = false,
-                  maxTransactionsInMemoryFanOutBufferSize = 0L,
-                  enableInMemoryFanOutForLedgerApi = false,
-                  enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
-                ),
+                config = apiServerConfig,
+                metrics = metrics,
+                engine = engine,
+                servicesExecutionContext = servicesExecutionContext,
+                lfValueTranslationCache = lfValueTranslationCache,
+              )
+              apiServer <- StandaloneApiServer(
+                indexService = indexService,
+                ledgerId = ledgerId,
+                config = apiServerConfig,
                 engine = engine,
                 commandConfig = config.commandConfig,
                 partyConfig = PartyConfiguration.default.copy(
@@ -283,7 +293,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 otherServices = List(resetService),
                 otherInterceptors = List(resetService),
                 servicesExecutionContext = servicesExecutionContext,
-                lfValueTranslationCache = lfValueTranslationCache,
               )
               _ = apiServerServicesClosed.completeWith(apiServer.servicesClosed())
             } yield {
