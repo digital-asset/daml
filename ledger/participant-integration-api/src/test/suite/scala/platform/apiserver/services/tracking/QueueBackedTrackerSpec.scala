@@ -25,6 +25,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{BeforeAndAfterEach, Inside}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 class QueueBackedTrackerSpec
     extends AsyncWordSpec
@@ -48,7 +49,8 @@ class QueueBackedTrackerSpec
 
   override protected def afterEach(): Unit = {
     consumer.cancel()
-    queue.complete()
+    Try(queue.complete())
+    ()
   }
 
   "Tracker Implementation" when {
