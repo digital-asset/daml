@@ -19,22 +19,23 @@ object ErrorDetails {
   final case class RetryInfoDetail(retryDelayInSeconds: Long) extends ErrorDetail
   final case class RequestInfoDetail(requestId: String) extends ErrorDetail
 
-  def from(anys: Seq[protobuf.Any]): Seq[ErrorDetail] = anys.toList.map {
+  def from(anys: Seq[protobuf.Any]): Seq[ErrorDetail] = anys.toList.flatMap {
     case any if any.is(classOf[ResourceInfo]) =>
       val v = any.unpack(classOf[ResourceInfo])
-      ResourceInfoDetail(v.getResourceType, v.getResourceName)
+      List(ResourceInfoDetail(v.getResourceType, v.getResourceName))
 
     case any if any.is(classOf[ErrorInfo]) =>
       val v = any.unpack(classOf[ErrorInfo])
-      ErrorInfoDetail(v.getReason)
+      val reason = v.getReason
+      if (reason.nonEmpty) List(ErrorInfoDetail(reason)) else Nil
 
     case any if any.is(classOf[RetryInfo]) =>
       val v = any.unpack(classOf[RetryInfo])
-      RetryInfoDetail(v.getRetryDelay.getSeconds)
+      List(RetryInfoDetail(v.getRetryDelay.getSeconds))
 
     case any if any.is(classOf[RequestInfo]) =>
       val v = any.unpack(classOf[RequestInfo])
-      RequestInfoDetail(v.getRequestId)
+      List(RequestInfoDetail(v.getRequestId))
 
     case any => throw new IllegalStateException(s"Could not unpack value of: |$any|")
   }

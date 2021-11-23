@@ -67,9 +67,10 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
       getStatusInfo(err)
 
     // Provide error id and context via ErrorInfo
-    val errInfoBld = com.google.rpc.ErrorInfo.newBuilder().setReason(id)
+    val errInfoBld = com.google.rpc.ErrorInfo.newBuilder()
     if (!code.category.securitySensitive) {
       contextMap.foreach { case (k, v) => errInfoBld.putMetadata(k, v) }
+      errInfoBld.setReason(id)
     }
 
     // TODO error codes: Resolve dependency and use constant

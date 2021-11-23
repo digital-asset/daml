@@ -73,10 +73,7 @@ class ErrorFactoriesSpec
         expectedCode = Code.INTERNAL,
         expectedMessage =
           s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
-        expectedDetails = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("INDEX_DB_SQL_NON_TRANSIENT_ERROR"),
-          expectedCorrelationIdRequestInfo,
-        ),
+        expectedDetails = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
       )
     }
 
@@ -100,10 +97,7 @@ class ErrorFactoriesSpec
           v2_code = Code.INTERNAL,
           v2_message =
             s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
-          v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail("LEDGER_API_INTERNAL_ERROR"),
-            expectedCorrelationIdRequestInfo,
-          ),
+          v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
         )
       }
 
@@ -176,10 +170,7 @@ class ErrorFactoriesSpec
           v2_code = Code.INTERNAL,
           v2_message =
             s"An error occurred. Please contact the operator and inquire about the request cor-id-12345679",
-          v2_details = Seq[ErrorDetails.ErrorDetail](
-            ErrorDetails.ErrorInfoDetail("LEDGER_API_INTERNAL_ERROR"),
-            expectedCorrelationIdRequestInfo,
-          ),
+          v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
         )
 
       }
@@ -209,10 +200,7 @@ class ErrorFactoriesSpec
         v2_code = Code.INTERNAL,
         v2_message =
           s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
-        v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("LEDGER_API_INTERNAL_ERROR"),
-          expectedCorrelationIdRequestInfo,
-        ),
+        v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
       )
     }
 
@@ -269,10 +257,7 @@ class ErrorFactoriesSpec
         v2_code = Code.PERMISSION_DENIED,
         v2_message =
           s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
-        v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("PERMISSION_DENIED"),
-          expectedCorrelationIdRequestInfo,
-        ),
+        v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
       )
     }
 
@@ -351,10 +336,7 @@ class ErrorFactoriesSpec
         v2_code = Code.UNAUTHENTICATED,
         v2_message =
           s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
-        v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("UNAUTHENTICATED"),
-          expectedCorrelationIdRequestInfo,
-        ),
+        v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
       )
     }
 
@@ -368,10 +350,7 @@ class ErrorFactoriesSpec
         v2_code = Code.INTERNAL,
         v2_message =
           s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
-        v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("INTERNAL_AUTHORIZATION_ERROR"),
-          expectedCorrelationIdRequestInfo,
-        ),
+        v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
       )
     }
 
@@ -513,10 +492,7 @@ class ErrorFactoriesSpec
         v2_code = Code.INTERNAL,
         v2_message =
           s"An error occurred. Please contact the operator and inquire about the request $originalCorrelationId",
-        v2_details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail("LEDGER_API_INTERNAL_ERROR"),
-          expectedCorrelationIdRequestInfo,
-        ),
+        v2_details = Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo),
       )
     }
 
