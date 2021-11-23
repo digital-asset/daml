@@ -126,14 +126,11 @@ genrule(
     srcs = [
         "README.rst",
         "//docs:theme",
-        "//docs:sphinx_ext/self_service_error_codes_extension.py",
         "//docs:configs/html/conf.py",
         "//docs:configs/static/pygments_daml_lexer.py",
         "//docs:configs/static/typescript.py",
         "//docs:scripts/check-closing-quotes.sh",
         "//docs:scripts/check-closing-quotes.sh.allow",
-        "//docs:generate-error-codes-json",
-        "//docs:error_codes_export.json",
     ],
     outs = ["html.tar.gz"],
     cmd = """
@@ -142,8 +139,6 @@ genrule(
 
         mkdir -p build/docs/configs/html
         cp $(location //docs:configs/html/conf.py) build/docs/configs/html/conf.py
-        mkdir -p build/docs/sphinx_ext
-        cp $(location //docs:sphinx_ext/self_service_error_codes_extension.py) build/docs/sphinx_ext/self_service_error_codes_extension.py
         mkdir -p build/docs/configs/static
         cp $(location //docs:configs/static/pygments_daml_lexer.py) build/docs/configs/static/pygments_daml_lexer.py
         cp $(location //docs:configs/static/typescript.py) build/docs/configs/static/typescript.py
@@ -175,7 +170,7 @@ genrule(
         # the PDF documentation due to issues with the FreeSerif font in the
         # fontspec package. So, for now we ignore `FutureWarning`.
         SPHINX_BUILD_EXIT_CODE=0
-        SPHINX_BUILD_OUTPUT=$$(../$(location @sphinx_nix//:bin/sphinx-build) -D error_codes_json_export=../$(location //docs:error_codes_export.json) -c docs/configs/html docs/source html 2>&1) || SPHINX_BUILD_EXIT_CODE=$$?
+        SPHINX_BUILD_OUTPUT=$$(../$(location @sphinx_nix//:bin/sphinx-build) -c docs/configs/html docs/source html 2>&1) || SPHINX_BUILD_EXIT_CODE=$$?
         if [ "$$SPHINX_BUILD_EXIT_CODE" -ne 0 ]; then
             >&2 echo "## SPHINX-BUILD OUTPUT:"
             >&2 echo "$$SPHINX_BUILD_OUTPUT"
