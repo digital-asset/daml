@@ -132,7 +132,7 @@ class ConversionsSpec extends AsyncWordSpec with Matchers {
         v1expectedCode = Status.Code.ABORTED.value(),
         v1expectedMessage = "Invalid ledger time: Too late.",
         v2expectedCode = Status.Code.FAILED_PRECONDITION.value(),
-        v2expectedMessage = "INVALID_LEDGER_TIME(9,0): Invalid ledger time: Too late.",
+        v2expectedMessage = "INVALID_LEDGER_TIME(9,0): Too late.",
       )
     }
   }
