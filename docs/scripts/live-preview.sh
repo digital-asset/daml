@@ -62,7 +62,7 @@ do
     if [ "$arg" = "--gen" ]; then
 
         bazel build //docs:generate-docs-error-code-inventory-into-rst-file
-        cp -L ../../bazel-bin/docs/error_codes_inventory.rst $BUILD_DIR/source/error-codes/self-service/error_codes_inventory.rst
+        cp -L ../../bazel-bin/docs/error_codes_inventory.rst $BUILD_DIR/source/app-dev/grpc/error_codes_inventory.rst
 
         # Hoogle
         bazel build //compiler/damlc:daml-base-hoogle.txt

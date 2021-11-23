@@ -186,9 +186,9 @@ object ErrorGroupTree {
 
   private def handleErrorCode(e: ErrorCodeValue): String = {
     val deprecationText = e.deprecationO.fold("")(d => s"""
-         |    **Depreciation**: ${d}
+         |    **Deprecation**: ${d}
          |    """.stripMargin)
-    s"""Error code: ${e.code}
+    s"""${e.code}
        |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |    $deprecationText
        |    **Explanation**: ${e.explanation}

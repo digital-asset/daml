@@ -106,7 +106,7 @@ genrule(
         cp -rL docs/source source
 
         mkdir -p -- source/error-codes/self-service
-        cp -- $(location //docs:generate-docs-error-code-inventory-into-rst-file) source/error-codes/self-service/error_codes_inventory.rst
+        cp -- $(location //docs:generate-docs-error-code-inventory-into-rst-file) source/app-dev/grpc/error_codes_inventory.rst
         # Copy in Stdlib
         mkdir -p source/daml/stdlib
         tar xf $(location //compiler/damlc:daml-base-rst.tar.gz) \\
