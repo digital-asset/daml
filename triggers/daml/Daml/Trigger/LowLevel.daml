@@ -87,7 +87,7 @@ newtype EventId = EventId Text
   deriving (Show, Eq)
 
 newtype CommandId = CommandId Text
-  deriving (Show, Eq, Ord, MapKey)
+  deriving (Show, Eq, Ord)
 
 data Transaction = Transaction
  { transactionId : TransactionId
