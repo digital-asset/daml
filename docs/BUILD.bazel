@@ -18,7 +18,6 @@ exports_files(
         "source/tools/export/output-root/Export.daml",
         "source/tools/export/output-root/args.json",
         "source/tools/export/output-root/daml.yaml",
-        "sphinx_ext/self_service_error_codes_extension.py",
     ],
 )
 
@@ -100,11 +99,14 @@ genrule(
         "//ledger-api/grpc-definitions:docs",
         "//:LICENSE",
         "//:NOTICES",
+        ":generate-docs-error-code-inventory-into-rst-file",
     ],
     outs = ["source.tar.gz"],
     cmd = """
         cp -rL docs/source source
 
+        mkdir -p -- source/error-codes/self-service
+        cp -- $(location //docs:generate-docs-error-code-inventory-into-rst-file) source/app-dev/grpc/error_codes_inventory.rst
         # Copy in Stdlib
         mkdir -p source/daml/stdlib
         tar xf $(location //compiler/damlc:daml-base-rst.tar.gz) \\
@@ -200,7 +202,6 @@ genrule(
 genrule(
     name = "docs-no-pdf",
     srcs = glob([
-        "sphinx_ext/**",
         "configs/html/**",
         "configs/static/pygments_daml_lexer.py",
         "configs/static/typescript.py",
@@ -208,7 +209,6 @@ genrule(
         ":sources",
         ":theme",
         ":hoogle_db.tar.gz",
-        "//docs:generate-error-codes-json",
         "//language-support/java:javadoc",
         "//language-support/ts/daml-react:docs",
         "//language-support/ts/daml-ledger:docs",
@@ -219,7 +219,6 @@ genrule(
         "@daml-cheat-sheet//:site",
         ":scripts/check-closing-quotes.sh",
         ":scripts/check-closing-quotes.sh.allow",
-        "//docs:error_codes_export.json",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -271,7 +270,7 @@ genrule(
         # the PDF documentation due to issues with the FreeSerif font in the
         # fontspec package. So, for now we ignore `FutureWarning`.
         SPHINX_BUILD_EXIT_CODE=0
-        SPHINX_BUILD_OUTPUT=$$(../$(location @sphinx_nix//:bin/sphinx-build) -D error_codes_json_export=../$(location //docs:error_codes_export.json) -c docs/configs/html docs/source html 2>&1) || SPHINX_BUILD_EXIT_CODE=$$?
+        SPHINX_BUILD_OUTPUT=$$(../$(location @sphinx_nix//:bin/sphinx-build) -c docs/configs/html docs/source html 2>&1) || SPHINX_BUILD_EXIT_CODE=$$?
         if [ "$$SPHINX_BUILD_EXIT_CODE" -ne 0 ]; then
             >&2 echo "## SPHINX-BUILD OUTPUT:"
             >&2 echo "$$SPHINX_BUILD_OUTPUT"
@@ -315,7 +314,6 @@ genrule(
     tools = [
         "@sphinx_nix//:bin/sphinx-build",
         "//bazel_tools/sh:mktgz",
-        "//docs:generate-error-codes-json",
     ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
 ) if scala_major_version == "2.13" and not is_windows else None
 
@@ -665,6 +663,15 @@ genrule(
     tools = ["//ledger/error/generator:export-error-codes-json-app"],
     visibility = ["//visibility:public"],
 ) if scala_major_version == "2.13" else None
+
+genrule(
+    name = "generate-docs-error-code-inventory-into-rst-file",
+    srcs = [],
+    outs = ["error_codes_inventory.rst"],
+    cmd = "$(location //ledger/error/generator:generate-docs-error-code-inventory-app) $(location error_codes_inventory.rst)",
+    tools = ["//ledger/error/generator:generate-docs-error-code-inventory-app"],
+    visibility = ["//visibility:public"],
+)
 
 exports_files([
     "source/daml-script/template-root/src/ScriptExample.daml",

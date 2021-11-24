@@ -7,11 +7,6 @@ gRPC
 ####
 
 
-.. toctree::
-   :hidden:
-
-   error-codes
-
 If you want to write an application for the ledger API in other languages, you'll need to use `gRPC <https://grpc.io>`__ directly.
 
 If you're not familiar with gRPC and protobuf, we strongly recommend following the `gRPC quickstart <https://grpc.io/docs/quickstart/>`__ and `gRPC tutorials <https://grpc.io/docs/tutorials/>`__. This documentation is written assuming you already have an understanding of gRPC.
@@ -100,3 +95,9 @@ INTERNAL, UNKNOWN (when returned by the Command Service)
 Aside from the standard gRPC status codes, the failures returned by the Ledger API are enriched with details meant to help the application
 or the application developer to handle the error autonomously (e.g. by retrying on a retryable error).
 For more details on the rich error details see the :doc:`error-codes`
+
+
+.. toctree::
+   :hidden:
+
+   error-codes
