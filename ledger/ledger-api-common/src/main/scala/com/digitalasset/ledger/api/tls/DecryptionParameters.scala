@@ -94,10 +94,10 @@ object DecryptionParameters {
       "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz/+=\n\r".getBytes(StandardCharsets.UTF_8)
     encrypted.find(!allowedBase64Char.contains(_)) match {
       case None =>
-        logger.error(s"Encrypted key contains only MIME Base64 characters. Attempting to decode")
+        logger.debug(s"Encrypted key contains only MIME Base64 characters. Attempting to decode")
         Try(Base64.getMimeDecoder.decode(encrypted)).getOrElse(encrypted)
       case _ =>
-        logger.error(s"Encrypted key contains non MIME Base64 characters. Using it verbatim")
+        logger.debug(s"Encrypted key contains non MIME Base64 characters. Using it verbatim")
         encrypted
     }
   }
