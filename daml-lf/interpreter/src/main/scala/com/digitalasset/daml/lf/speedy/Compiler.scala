@@ -1506,7 +1506,7 @@ private[lf] final class Compiler(
       t.GuardedChoiceDefRef(interfaceId, choiceId)(
         s.SEValue(contractId),
         s.SEValue(argument),
-        s.SBGuardTemplateId(templateId)(s.SEValue(contractId)),
+        SBGuardTemplateId(templateId)(s.SEValue(contractId)),
       )
     case Command.ExerciseInterface(interfaceId, contractId, choiceId, argument) =>
       t.ChoiceDefRef(interfaceId, choiceId)(s.SEValue(contractId), s.SEValue(argument))

@@ -433,7 +433,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "exercise @Mod:T Choice cid arg" ->
           UpdateExercise(T.tycon, n"Choice", e"cid", e"arg"),
         "exercise_by_interface @Mod:I Choice cid arg" ->
-          UpdateExerciseInterface(I.tycon, n"Choice", e"cid", e"arg"),
+          UpdateExerciseInterface(I.tycon, n"Choice", e"cid", e"arg", None),
         "exercise_by_key @Mod:T Choice key arg" ->
           UpdateExerciseByKey(T.tycon, n"Choice", e"key", e"arg"),
         "fetch_by_key @Mod:T e" ->
@@ -569,7 +569,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               choice Feed;
               choice Rest;
             };
-            implements '-pkgId-':Mod2:Referenceable { 
+            implements '-pkgId-':Mod2:Referenceable {
               method uuid = "123e4567-e89b-12d3-a456-426614174000";
             };
             key @Party (Mod:Person {name} this) (\ (p: Party) -> p);
@@ -756,7 +756,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
 
       val p = """
        module Mod {
-       
+
           interface (this: Person) = {
             precondition False;
             method asParty: Party;
@@ -770,7 +770,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               to upure @Int64 i;
           } ;
        }
-      
+
       """
 
       val interface =

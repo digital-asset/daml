@@ -1172,14 +1172,17 @@ private[lf] object SBuiltin {
 
   final case class SBGuardTemplateId(
       templateId: TypeConName
-  ) extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBool = {
+  ) extends SBuiltin(2) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Unit = {
       val coid = getSContractId(args, 0)
       val record = getSRecord(args, 1)
       if (record.id != templateId)
-        throw IE.WronglyTypedContract(coid, templateId, record.id)
+        machine.ctrl = SEDamlException(IE.WronglyTypedContract(coid, templateId, record.id))
       else
-        SBool(true)
+        machine.returnValue = SBool(true)
     }
   }
 
