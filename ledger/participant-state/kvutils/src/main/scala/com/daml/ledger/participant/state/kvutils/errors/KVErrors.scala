@@ -17,8 +17,7 @@ import com.daml.error.{
 import com.daml.ledger.participant.state.kvutils.committer.transaction.Rejection.InternallyInconsistentTransaction
 
 @Explanation(
-  "Errors that are specific to ledgers based on the KV architecture. " +
-    "Note that this section will soon cover all ledgers due to an ongoing error consolidation effort."
+  "Errors that are specific to ledgers based on the KV architecture: Daml Sandbox and VMBC."
 )
 object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
 

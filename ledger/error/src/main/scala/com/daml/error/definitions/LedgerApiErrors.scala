@@ -18,6 +18,9 @@ import org.slf4j.event.Level
 
 import java.time.{Duration, Instant}
 
+@Explanation(
+  "Errors raised by or forwarded by the Ledger API."
+)
 object LedgerApiErrors extends LedgerApiErrorGroup {
   @Explanation(
     """This error occurs when a participant rejects a command due to excessive load.
@@ -58,6 +61,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         )
   }
 
+  @Explanation(
+    "Errors raised during the command execution phase of the command submission evaluation."
+  )
   object CommandExecution extends ErrorGroup {
     @Explanation(
       """This error occurs if the participant fails to determine the max ledger time of the used
@@ -80,6 +86,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           )
     }
 
+    @Explanation("Command execution errors raised due to invalid packages.")
     object Package extends ErrorGroup() {
       @Explanation(
         """This error indicates that the uploaded DAR is based on an unsupported language version."""
@@ -128,6 +135,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       }
     }
 
+    @Explanation(
+      "Errors raised during command conversion to the internal data representation."
+    )
     object Preprocessing extends ErrorGroup {
       @Explanation("""This error occurs if a command fails during interpreter pre-processing.""")
       @Resolution("Inspect error details and correct your application.")
@@ -146,6 +156,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       }
     }
 
+    @Explanation(
+      "Errors raised during the command interpretation phase of the command submission evaluation."
+    )
     object Interpreter extends ErrorGroup {
       @Explanation("""This error occurs if a Daml transaction fails during interpretation.""")
       @Resolution("This error type occurs if there is an application error.")
@@ -205,6 +218,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
 
       }
 
+      @Explanation("Errors raised in lookups during the command interpretation phase.")
       object LookupErrors extends ErrorGroup {
         @Explanation(
           """This error occurs if the Daml engine interpreter cannot resolve a contract key to an active contract. This
@@ -274,6 +288,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         )
   }
 
+  @Explanation("Authentication errors.")
   object AuthorizationChecks extends ErrorGroup() {
     @Explanation(
       """This rejection is given if the submitted command does not contain a JWT token on a participant enforcing JWT authentication."""
@@ -326,6 +341,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
   }
 
+  @Explanation(
+    "Validation errors raised when evaluating requests in the Ledger API."
+  )
   object RequestValidation extends ErrorGroup {
     object NotFound extends ErrorGroup() {
       @Explanation(
@@ -606,6 +624,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     ) extends LoggingTransactionErrorImpl(cause = message, throwableO = throwableO)
   }
 
+  @Explanation("Errors raised by Ledger API admin services.")
   object AdminServices {
     @Explanation("This rejection is given when a new configuration is rejected.")
     @Resolution("Fetch newest configuration and/or retry.")
@@ -636,6 +655,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
   }
 
+  @Explanation(
+    "Potential consistency errors raised due to race conditions during command submission or returned as submission rejections by the backing ledger."
+  )
   object ConsistencyErrors extends ErrorGroup {
     @Explanation("A command with the given command id has already been successfully processed.")
     @Resolution(
@@ -796,6 +818,9 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     }
   }
 
+  @Explanation(
+    "Generic submission rejection errors returned by the backing ledger's write service."
+  )
   object WriteServiceRejections extends ErrorGroup {
     @Explanation("The submitting party has not been allocated.")
     @Resolution(
