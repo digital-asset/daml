@@ -265,7 +265,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         E"λ (i: Mod:I) → (( from_interface @Mod:I @Mod:Ti i ))" ->
           T"Mod:I → Option Mod:Ti",
         // ECallInterface
-        E"λ (i: Mod:I) → (( icall @Mod:I getParties i ))" ->
+        E"λ (i: Mod:I) → (( call_method @Mod:I getParties i ))" ->
           T"Mod:I → List Party",
       )
 
@@ -893,21 +893,21 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         E"λ (i: Mod:J) → ⸨ from_interface @Mod:I @Mod:Ti i ⸩" -> //
           { case _: ETypeMismatch => },
         // ECallInterface
-        E"λ (i: Mod:U) → ⸨  icall @Mod:U getParties i ⸩" -> //
+        E"λ (i: Mod:U) → ⸨  call_method @Mod:U getParties i ⸩" -> //
           {
             case EUnknownDefinition(
                   _,
                   LookupError(Reference.Interface(_), Reference.Method(_, _)),
                 ) =>
           },
-        E"λ (i: Mod:I) → ⸨  icall @Mod:I getParty i ⸩" -> //
+        E"λ (i: Mod:I) → ⸨  call_method @Mod:I getParty i ⸩" -> //
           {
             case EUnknownDefinition(
                   _,
                   LookupError(Reference.Method(_, _), Reference.Method(_, _)),
                 ) =>
           },
-        E"Λ (σ : ⋆). λ (e: σ) → ⸨ icall @Mod:I getParties e ⸩" -> //
+        E"Λ (σ : ⋆). λ (e: σ) → ⸨ call_method @Mod:I getParties e ⸩" -> //
           { case _: ETypeMismatch => },
         //
       )
@@ -1312,12 +1312,12 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                   controllers Cons @Party ['Alice'] (Nil @Party)
                 to upure @Unit ();
               choice Ch2 (self) (i : Unit) : Unit,
-                 controllers icall @NegativeTestCase:I getParties this,
+                 controllers call_method @NegativeTestCase:I getParties this,
                  observers Nil @Party
                to upure @Unit ();
               choice Ch3 (self) (i : Unit) : Unit,
-                  controllers icall @NegativeTestCase:I getParties this,
-                  observers icall @NegativeTestCase:I getParties this
+                  controllers call_method @NegativeTestCase:I getParties this,
+                  observers call_method @NegativeTestCase:I getParties this
                 to upure @Unit ();
             } ;
           }
@@ -1342,7 +1342,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               precondition True;
               method getParties: List Party;
               choice Ch (self) (i : Unit) : Unit,
-                  controllers (icall @NegativeTestCase:I getParties this),
+                  controllers (call_method @NegativeTestCase:I getParties this),
                   observers ()                                  // should be of type (List Party)
                 to upure @Unit ();
             } ;
@@ -1353,7 +1353,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               precondition True;
               method getParties: List Party;
               choice Ch (self) (i : List) : Unit,   // the type of i (here List) should be of kind * (here it is * -> *)
-                  controllers (icall @NegativeTestCase:I getParties this)
+                  controllers (call_method @NegativeTestCase:I getParties this)
                 to upure @Unit ();
             } ;
           }
@@ -1363,7 +1363,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               precondition True;
               method getParties: List Party;
               choice Ch (self) (i : Unit) : List,   // the return type (here List) should be of kind * (here it is * -> *)
-                  controllers (icall @NegativeTestCase:I getParties this)
+                  controllers (call_method @NegativeTestCase:I getParties this)
                 to upure @(List) (/\ (tau : *). Nil @tau);
             } ;
           }

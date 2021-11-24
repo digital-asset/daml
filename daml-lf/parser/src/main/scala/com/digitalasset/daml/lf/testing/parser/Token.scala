@@ -53,7 +53,7 @@ private[parser] object Token {
   case object `catch` extends Token
   case object `to_interface` extends Token
   case object `from_interface` extends Token
-  case object `icall` extends Token
+  case object `call_method` extends Token
 
   final case class Id(s: String) extends Token
   final case class ContractId(s: String) extends Token
