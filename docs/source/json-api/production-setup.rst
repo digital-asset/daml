@@ -58,7 +58,7 @@ created, it's safe to always use ``start-mode=start-only``.
 .. note:: The full list of query store configuration flags supported can be seen by running ``daml json-api --help``.
 
 Data continuity
-===============
+---------------
 
 The query store is a cache, which means that it's perfectly fine to drop it as
 the data it contains it's a subset of what can be safely recovered from the ledger.
