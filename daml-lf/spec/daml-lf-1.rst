@@ -1231,7 +1231,7 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpFromAnyException [Daml-LF ≥ 1.14]
       Γ  ⊢  'from_any_exception' @τ e  :  'Optional' τ
 
-      τ₁  ↠  τ₁'     Γ  ⊢  τ'  :  ⋆      Γ  ⊢  e  :  τ'
+      τ  ↠  τ'     Γ  ⊢  τ'  :  ⋆      Γ  ⊢  e  :  τ'
     ——————————————————————————————————————————————————————————————— UpdPure
       Γ  ⊢  'pure' @τ e  :  'Update' τ'
 
@@ -1297,7 +1297,7 @@ Then we define *well-formed expressions*. ::
 
       Γ  ⊢  τ  : ⋆      Γ  ⊢  e  :  τ
     ——————————————————————————————————————————————————————————————— ScnPure
-      Γ  ⊢  'spure' e  :  'Scenario' τ
+      Γ  ⊢  'spure' @τ e  :  'Scenario' τ
 
       τ₁  ↠  τ₁'   Γ  ⊢  τ₁'  : ⋆       Γ  ⊢  e₁  :  'Scenario' τ₁'
       x₁ : τ₁' · Γ  ⊢  e₂  :  'Scenario' τ₂
@@ -1929,7 +1929,7 @@ need to be evaluated further. ::
    Update Values           │ ⊢ᵥᵤ  u │
                            └────────┘
 
-     ⊢ᵥᵤ  e
+     ⊢ᵥ  e
    ——————————————————————————————————————————————————— ValUpdatePure
      ⊢ᵥᵤ  'pure' @τ e
 
@@ -2794,7 +2794,7 @@ as described by the ledger model::
                                     └──────────────┘
 
    —————————————————————————————————————————————————————————————————————— EvUpdPure
-     'pure' v ‖ (st, keys)  ⇓ᵤ  (Ok v, ε) ‖ (st, keys)
+     'pure' @τ v ‖ (st, keys)  ⇓ᵤ  (Ok v, ε) ‖ (st, keys)
 
      u₁ ‖ S₀  ⇓ᵤ  (Err E, tr)
    —————————————————————————————————————————————————————————————————————— EvUpdBindErr1
@@ -2973,17 +2973,7 @@ as described by the ledger model::
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
-     st(cid) = (Mod':T', vₜ, 'inactive')
-     Mod:T ≠ Mod':T'
-   —————————————————————————————————————————————————————————————————————— EvUpdExercWrongTemplate
-     'exercise' Mod:T.Ch cid v₁ ‖ (st; keys₀)
-       ⇓ᵤ
-     (Err (Fatal "Exercise on contract of wrong template"), ε)
-
-     'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
-     cid ∈ dom(st₀)
-     st₀(cid) = (Mod:T, vₜ, 'inactive')
+     st₀(cid) = (Mod':T', vₜ, 'inactive')
    —————————————————————————————————————————————————————————————————————— EvUpdExercInactive
      'exercise' Mod:T.Ch cid v₁ ‖ (st₀; keys₀)
        ⇓ᵤ
@@ -2992,7 +2982,7 @@ as described by the ledger model::
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
-     st₀(cid) = (Mod:T, vₜ, 'active')
+     st₀(cid) = (Mod':T', vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdExercActorEvalErr
      'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
@@ -3000,7 +2990,7 @@ as described by the ledger model::
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ …, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
-     st₀(cid) = (Mod:T, vₜ, 'active')
+     st₀(cid) = (Mod':T', vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
      eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdExercObserversErr
@@ -3011,7 +3001,7 @@ as described by the ledger model::
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
-     st₀(cid) = (Mod:T, vₜ, 'active')
+     st₀(cid) = (Mod':T', vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
      eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₒ
      |v₁| > 100
@@ -3019,6 +3009,19 @@ as described by the ledger model::
      'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
+
+     'tpl' (x : T)
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod':T', vₜ, 'active')
+     eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
+     eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₒ
+     |v₁| ≤ 100
+     Mod:T ≠ Mod':T'
+   —————————————————————————————————————————————————————————————————————— EvUpdExercWrongTemplate
+     'exercise' Mod:T.Ch cid v₁ ‖ (st; keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Exercise on contract of wrong template"), ε)
 
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
@@ -3134,20 +3137,20 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
      cid ∈ dom(st)
+     st(cid) = (Mod:T', vₜ, 'inactive')
+   —————————————————————————————————————————————————————————————————————— EvUpdFetchInactive
+     'fetch' @Mod:T cid ‖ (st; keys)
+       ⇓ᵤ
+     (Err (Fatal "Fetch on inactive contract"), ε)
+
+     'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
+     cid ∈ dom(st)
      st(cid) = (Mod':T', vₜ, 'inactive')
      Mod:T ≠ Mod':T'
    —————————————————————————————————————————————————————————————————————— EvUpdFetchWrongTemplate
      'fetch' @Mod:T cid ‖ (st; keys)
        ⇓ᵤ
      (Err (Fatal "Fetch on contract of wrong template"), ε)
-
-     'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
-     cid ∈ dom(st)
-     st(cid) = (Mod:T, vₜ, 'inactive')
-   —————————————————————————————————————————————————————————————————————— EvUpdFetchInactive
-     'fetch' @Mod:T cid ‖ (st; keys)
-       ⇓ᵤ
-     (Err (Fatal "Fetch on inactive contract"), ε)
 
      'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
      cid ∈ dom(st)
