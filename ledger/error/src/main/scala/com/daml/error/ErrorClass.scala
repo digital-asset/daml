@@ -3,18 +3,22 @@
 
 package com.daml.error
 
-/** A grouping of errors.
+/** A component of [[ErrorClass]]
   *
   * @param docName The name that will appear in the generated documentation for the grouping.
-  * @param group   If the grouping is defined by an [[ErrorGroup]], the associated instance.
+  * @param fullClassName Full class name of the corresponding [[ErrorGroup]].
   */
 case class Grouping(
     docName: String,
-    group: Option[ErrorGroup],
-)
+    fullClassName: String,
+) {
+  require(
+    docName.trim.nonEmpty,
+    s"Grouping.docName must be non empty and must contain not only whitespace characters, but was: |${docName}|!",
+  )
+}
 
-/** The classes [[ErrorClass]] and [[ErrorGroup]] are used to hierarchically structure error codes (their
-  * hierarchical structure affects how they are displayed on the website)
+/** Used to hierarchically structure error codes in the official documentation.
   */
 case class ErrorClass(groupings: List[Grouping]) {
   def extend(grouping: Grouping): ErrorClass =

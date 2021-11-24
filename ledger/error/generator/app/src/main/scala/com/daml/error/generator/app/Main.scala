@@ -23,7 +23,7 @@ object Main {
     )(i =>
       (
         i.docName,
-        i.group.map(_.fullClassName),
+        i.fullClassName,
       )
     )
 
@@ -41,12 +41,12 @@ object Main {
       (
         i.className,
         i.category,
-        i.hierarchicalGrouping,
+        i.hierarchicalGrouping.groupings,
         i.conveyance,
         i.code,
-        i.deprecation.deprecation,
-        i.explanation.explanation,
-        i.resolution.resolution,
+        i.deprecation.fold("")(_.deprecation),
+        i.explanation.fold("")(_.explanation),
+        i.resolution.fold("")(_.resolution),
       )
     )
 
@@ -57,7 +57,7 @@ object Main {
     )(i =>
       (
         i.className,
-        i.explanation.explanation,
+        i.explanation.fold("")(_.explanation),
       )
     )
 
@@ -66,10 +66,15 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     val (errorCodes, groups) = new ErrorCodeDocumentationGenerator().getDocItems
-    val outputFile = Paths.get(args(0))
     val output = Output(errorCodes, groups)
     val outputText: String = output.asJson.spaces2
-    val outputBytes = outputText.getBytes
-    val _ = Files.write(outputFile, outputBytes, StandardOpenOption.CREATE_NEW)
+
+    if (args.length >= 1) {
+      val outputFile = Paths.get(args(0))
+      val _ = Files.write(outputFile, outputText.getBytes, StandardOpenOption.CREATE_NEW)
+    } else {
+      println(outputText)
+    }
+
   }
 }

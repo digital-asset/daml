@@ -3,7 +3,7 @@
 
 package com.daml.error.generator
 
-import com.daml.error.{Deprecation, Explanation, Grouping, Resolution}
+import com.daml.error.{Deprecation, ErrorClass, Explanation, Resolution}
 
 /** Contains error presentation data to be used for documentation rendering on the website.
   *
@@ -19,10 +19,10 @@ import com.daml.error.{Deprecation, Explanation, Grouping, Resolution}
 case class ErrorDocItem(
     className: String, // TODO error codes: Rename to `errorCodeName` or `errorCodeClassName` to prevent confusion
     category: String,
-    hierarchicalGrouping: List[Grouping],
-    conveyance: String,
+    hierarchicalGrouping: ErrorClass,
+    conveyance: Option[String],
     code: String,
-    deprecation: Deprecation,
-    explanation: Explanation,
-    resolution: Resolution,
+    deprecation: Option[Deprecation],
+    explanation: Option[Explanation],
+    resolution: Option[Resolution],
 )
