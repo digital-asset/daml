@@ -1496,15 +1496,15 @@ private[lf] final class Compiler(
     }
 
   private[this] def compileExerciseByInterface(
-    interfaceId: TypeConName,
-    templateId: TypeConName,
-    contractId: SValue,
-    choiceId: ChoiceName,
-    argument: SValue,
+      interfaceId: TypeConName,
+      templateId: TypeConName,
+      contractId: SValue,
+      choiceId: ChoiceName,
+      argument: SValue,
   ): s.SExpr =
     unaryFunction(Env.Empty) { (tokenPos, env) =>
       let(env, SBGuardTemplateId(templateId)(s.SEValue(contractId))) { (guardPos, env) =>
-        t.GuardedChoiceDefRef(interfaceId, choiceId) (
+        t.GuardedChoiceDefRef(interfaceId, choiceId)(
           s.SEValue(contractId),
           s.SEValue(argument),
           env.toSEVar(guardPos),
