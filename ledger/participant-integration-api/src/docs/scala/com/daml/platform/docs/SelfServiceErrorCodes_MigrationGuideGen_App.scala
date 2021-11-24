@@ -161,7 +161,10 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
 
     case class Cell(lines: mutable.ArrayBuffer[String]) {
       def maxLength(): Int = {
-        lines.map(_.length).maxOption.getOrElse(0)
+        if (lines.isEmpty)
+          0
+        else
+          lines.map(_.length).max
       }
 
       def height(): Int = {
@@ -174,8 +177,12 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
           s"Cell ${this} has more lines than the max lines expected: ${targetHeight}!",
         )
         val newLines = (1 to (targetHeight - this.height())).map(_ => padRightF("", targetLength))
-        lines.mapInPlace(line => padRightF(line, targetLength))
-        lines.addAll(newLines)
+        var i = 0
+        while (i < lines.length) {
+          lines(i) = padRightF(lines(i), targetLength)
+          i += 1
+        }
+        lines ++ newLines
         this
       }
     }
@@ -189,7 +196,9 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
       .map(line =>
         line.map { cell: String =>
           val linesInCell: Array[String] = cell.split("\n")
-          Cell(lines = mutable.ArrayBuffer.from(linesInCell))
+          val buffer = new mutable.ArrayBuffer[String]
+          buffer ++= linesInCell
+          Cell(lines = buffer)
         }
       )
 
@@ -200,25 +209,13 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
         .map(column => column.map(_.maxLength()).max)
         .map(_ + 1)
 
-    val totalLineWidthExclusiveOfOuterBorders = columnMaxLengths.sum + (columnMaxLengths.length - 1)
-
     val textTableRows: Array[String] = table.map { row =>
-      if (row.length == 1) {
-        // If row has only one element it is the endpoint name that will span full table width.
-        row.head
-          .padRight(targetLength = totalLineWidthExclusiveOfOuterBorders, row.head.height())
-          .lines
-          .map(l => s"|${l}|")
-          .mkString("\n")
-      } else {
-        val maxHeightInThisRow = row.map(_.height()).max
-        val paddedCells: Array[Cell] = row.zipWithIndex
-          .map { case (cell, index) =>
-            cell.padRight(columnMaxLengths(index), maxHeightInThisRow)
-          }
-        cellRowToTextRows(paddedCells)
-      }
-
+      val maxHeightInThisRow = row.map(_.height()).max
+      val paddedCells: Array[Cell] = row.zipWithIndex
+        .map { case (cell, index) =>
+          cell.padRight(columnMaxLengths(index), maxHeightInThisRow)
+        }
+      cellRowToTextRows(paddedCells)
     }
 
     val textTableRowSeparator = columnMaxLengths.map("-" * _).mkString("+", "+", "+")
