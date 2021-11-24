@@ -274,18 +274,14 @@ class InterfacesTest
       val command = FetchByInterfaceCommand(idI2, idT2, cid1)
       run(command) shouldBe a[Left[_, _]]
     }
-    // TODO https://github.com/digital-asset/daml/issues/11703
-    //   Enable these tests.
-    /*
-      "be unable to fetch T1 (disguised as T2) via interface I1" in {
-        val command = FetchByInterfaceCommand(idI1, idT2, cid1)
-        run(command) shouldBe a[Left[_, _]]
-      }
-      "be unable to fetch T2 (disguised as T1) via interface I1" in {
-        val command = FetchByInterfaceCommand(idI1, idT1, cid2)
-        run(command) shouldBe a[Left[_, _]]
-      }
-     */
+    "be unable to fetch T1 (disguised as T2) via interface I1" in {
+      val command = FetchByInterfaceCommand(idI1, idT2, cid1)
+      run(command) shouldBe a[Left[_, _]]
+    }
+    "be unable to fetch T2 (disguised as T1) via interface I1" in {
+      val command = FetchByInterfaceCommand(idI1, idT1, cid2)
+      run(command) shouldBe a[Left[_, _]]
+    }
     "be unable to fetch T2 (disguised as T1) by interface I2 (stopped in preprocessor)" in {
       val command = FetchByInterfaceCommand(idI2, idT1, cid2)
       preprocess(command) shouldBe a[Left[_, _]]

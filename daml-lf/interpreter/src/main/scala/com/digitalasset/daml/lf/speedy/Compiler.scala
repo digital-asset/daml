@@ -1513,6 +1513,21 @@ private[lf] final class Compiler(
       }
     }
 
+  private[this] def compileFetchByInterface(
+      interfaceId: TypeConName,
+      templateId: TypeConName,
+      contractId: SValue,
+  ): s.SExpr =
+    unaryFunction(Env.Empty) { (tokenPos, env) =>
+      let(env, t.FetchDefRef(interfaceId)(s.SEValue(contractId), env.toSEVar(tokenPos))) {
+        (payloadPos, env) =>
+          let(env, SBGuardTemplateId(templateId)(s.SEValue(contractId), env.toSEVar(payloadPos))) {
+            (_, env) =>
+              env.toSEVar(payloadPos)
+          }
+      }
+    }
+
   private[this] def compileCommand(cmd: Command): s.SExpr = cmd match {
     case Command.Create(templateId, argument) =>
       t.CreateDefRef(templateId)(s.SEValue(argument))
@@ -1528,10 +1543,8 @@ private[lf] final class Compiler(
       t.ChoiceByKeyDefRef(templateId, choiceId)(s.SEValue(contractKey), s.SEValue(argument))
     case Command.Fetch(templateId, coid) =>
       t.FetchDefRef(templateId)(s.SEValue(coid))
-    case Command.FetchByInterface(interfaceId, templateId @ _, coid) =>
-      // TODO https://github.com/digital-asset/daml/issues/11703
-      //   Ensure that fetched template has expected templateId.
-      t.FetchDefRef(interfaceId)(s.SEValue(coid))
+    case Command.FetchByInterface(interfaceId, templateId, coid) =>
+      compileFetchByInterface(interfaceId, templateId, coid)
     case Command.FetchByKey(templateId, key) =>
       t.FetchByKeyDefRef(templateId)(s.SEValue(key))
     case Command.CreateAndExercise(templateId, createArg, choice, choiceArg) =>
