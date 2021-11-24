@@ -19,9 +19,10 @@ To edit documentation:
 
 Not all of our docs are in rst files: some get generated. They are:
 
-- the ledger API proto docs
-- the Daml standard library reference
-- the Java bindings reference
+- the ledger API proto docs,
+- the Daml standard library reference,
+- the Java bindings reference,
+- error codes inventory.
 
 To edit those docs, edit the content inside the code source.
 
@@ -31,10 +32,11 @@ To preview the full docs, as deployed to docs.daml.com, run `scripts/preview.sh`
 
 To live-preview the docs, run `scripts/live-preview.sh`. The script accepts two flags:
 
-- `--pdf` includes the PDF documentation
-- `--gen` includes the generated documentation
+- `--pdf` includes the PDF documentation,
+- `--gen` includes the generated documentation.
 
-Note that neither PDF, nor generated docs will benefit from live updates. To update generated docs or PDF docs, quit the preview script with CTRL+C and start it again.
+Note that neither PDF, nor generated docs will benefit from live updates. 
+To update generated docs or PDF docs, quit the preview script with CTRL+C and start it again.
 
 ### Style conventions
 

@@ -1,4 +1,5 @@
 .vscode/settings.json
 /source/app-dev/grpc/proto-docs.rst
+/source/app-dev/grpc/error-codes-inventory.rst
 __pycache__/
 /build/
