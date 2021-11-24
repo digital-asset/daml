@@ -1495,6 +1495,24 @@ private[lf] final class Compiler(
       }
     }
 
+  private[this] def compileExerciseByInterface(
+    interfaceId: TypeConName,
+    templateId: TypeConName,
+    contractId: SValue,
+    choiceId: ChoiceName,
+    argument: SValue,
+  ): s.SExpr =
+    unaryFunction(Env.Empty) { (tokenPos, env) =>
+      let(env, SBGuardTemplateId(templateId)(s.SEValue(contractId))) { (guardPos, env) =>
+        t.GuardedChoiceDefRef(interfaceId, choiceId) (
+          s.SEValue(contractId),
+          s.SEValue(argument),
+          env.toSEVar(guardPos),
+          env.toSEVar(tokenPos),
+        )
+      }
+    }
+
   private[this] def compileCommand(cmd: Command): s.SExpr = cmd match {
     case Command.Create(templateId, argument) =>
       t.CreateDefRef(templateId)(s.SEValue(argument))
@@ -1503,11 +1521,7 @@ private[lf] final class Compiler(
     case Command.Exercise(templateId, contractId, choiceId, argument) =>
       t.ChoiceDefRef(templateId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
     case Command.ExerciseByInterface(interfaceId, templateId, contractId, choiceId, argument) =>
-      t.GuardedChoiceDefRef(interfaceId, choiceId)(
-        s.SEValue(contractId),
-        s.SEValue(argument),
-        SBGuardTemplateId(templateId)(s.SEValue(contractId)),
-      )
+      compileExerciseByInterface(interfaceId, templateId, contractId, choiceId, argument)
     case Command.ExerciseInterface(interfaceId, contractId, choiceId, argument) =>
       t.ChoiceDefRef(interfaceId, choiceId)(s.SEValue(contractId), s.SEValue(argument))
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
