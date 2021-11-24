@@ -497,11 +497,3 @@ final case class ETemplateDoesNotImplementInterface(
   override protected def prettyInternal: String =
     s"Template $template does not implement interface $iface"
 }
-
-final case class ETemplateWithKeyAndInterface(
-    context: Context,
-    template: TypeConName,
-) extends ValidationError {
-  override protected def prettyInternal: String =
-    s"Template $template with and key and interface interface implementation"
-}
