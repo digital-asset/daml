@@ -1382,8 +1382,9 @@ private[lf] object Speedy {
             }
             unwind()
           case k: KCheckChoiceGuard => {
-            // TODO https://github.com/digital-asset/daml/issues/11703
-            //   Insert fetch node and keep unwinding stack, instead of aborting.
+            // We must abort, because the transaction has failed in a way that is
+            // unrecoverable (it depends on the state of an input contract that
+            // we may not have the authority to fetch).
             machine.kontStack.clear()
             machine.env.clear()
             machine.envBase = 0

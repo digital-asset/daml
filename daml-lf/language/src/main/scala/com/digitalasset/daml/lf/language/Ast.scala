@@ -507,11 +507,8 @@ object Ast {
       guardE: Option[Expr],
       // `guardE` is an optional expression of type Interface -> Bool which is evaluated
       // after fetching the contract but before running the exercise body. If the guard
-      // returns false, the transaction is aborted. If the guard raises an exception,
-      // a fetch node is generated (instead of an exercise node) and the exception is
-      // propagated upwards.
-      // TODO https://github.com/digital-asset/daml/issues/11703
-      //   Actually insert fetch nodes and propagate exception, instead of aborting tx.
+      // returns false, or an exception is raised during evaluation, the transaction is
+      // aborted.
   ) extends Update
   final case class UpdateExerciseByKey(
       templateId: TypeConName,
