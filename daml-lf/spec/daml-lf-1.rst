@@ -2983,6 +2983,16 @@ as described by the ledger model::
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod':T', vₜ, 'active')
+     Mod:T ≠ Mod':T'
+   —————————————————————————————————————————————————————————————————————— EvUpdExercWrongTemplate
+     'exercise' Mod:T.Ch cid v₁ ‖ (st; keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Exercise on contract of wrong template"), ε)
+
+     'tpl' (x : T)
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+     cid ∈ dom(st₀)
+     st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdExercActorEvalErr
      'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)  ⇓ᵤ  (Err E, ε)
@@ -2990,7 +3000,7 @@ as described by the ledger model::
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ …, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
-     st₀(cid) = (Mod':T', vₜ, 'active')
+     st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
      eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Err E
    —————————————————————————————————————————————————————————————————————— EvUpdExercObserversErr
@@ -3001,7 +3011,7 @@ as described by the ledger model::
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
-     st₀(cid) = (Mod':T', vₜ, 'active')
+     st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
      eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₒ
      |v₁| > 100
@@ -3009,19 +3019,6 @@ as described by the ledger model::
      'exercise' Mod:T.Ch cid v₁ ‖ (st₀, keys₀)
        ⇓ᵤ
      (Err (Fatal "Value exceeds maximum nesting value"), ε)
-
-     'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
-     cid ∈ dom(st₀)
-     st₀(cid) = (Mod':T', vₜ, 'active')
-     eₚ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₚ
-     eₒ[x ↦ vₜ, z ↦ v₁]  ⇓  Ok vₒ
-     |v₁| ≤ 100
-     Mod:T ≠ Mod':T'
-   —————————————————————————————————————————————————————————————————————— EvUpdExercWrongTemplate
-     'exercise' Mod:T.Ch cid v₁ ‖ (st; keys₀)
-       ⇓ᵤ
-     (Err (Fatal "Exercise on contract of wrong template"), ε)
 
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
