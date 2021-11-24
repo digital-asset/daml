@@ -45,7 +45,7 @@ private[parser] object Lexer extends RegexParsers {
     "catch" -> `catch`,
     "to_interface" -> `to_interface`,
     "from_interface" -> `from_interface`,
-    "icall" -> `icall`,
+    "call_method" -> `call_method`,
   )
 
   val token: Parser[Token] =

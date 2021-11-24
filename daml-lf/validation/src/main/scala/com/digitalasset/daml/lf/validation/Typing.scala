@@ -456,12 +456,10 @@ private[validation] object Typing {
     def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
         case DefInterface(param, fixedChoices, methods, precond) =>
-          fixedChoices.values.foreach(
-            introExprVar(param, TTyCon(ifaceName)).checkChoice(ifaceName, _)
-          )
-          methods.values.foreach(checkIfaceMethod)
           val env = introExprVar(param, TTyCon(ifaceName))
           env.checkExpr(precond, TBool)
+          methods.values.foreach(checkIfaceMethod)
+          fixedChoices.values.foreach(env.checkChoice(ifaceName, _))
       }
 
     def checkIfaceMethod(method: InterfaceMethod): Unit = {

@@ -332,9 +332,9 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           EFromAnyException(E, e"anyException"),
         "throw @Unit @Mod:E exception" ->
           EThrow(TUnit, E, e"exception"),
-        "icall @Mod:I method body" ->
+        "call_method @Mod:I method body" ->
           ECallInterface(I.tycon, n"method", e"body"),
-        "icall @'-pkgId-':Mod:I method body" ->
+        "call_method @'-pkgId-':Mod:I method body" ->
           ECallInterface(I.tycon, n"method", e"body"),
         "to_interface @Mod:T @Mod:I body" ->
           EToInterface(T.tycon, I.tycon, e"body"),
@@ -762,10 +762,10 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             method asParty: Party;
             method getName: Text;
             choice Sleep (self) (u:Unit) : ContractId Mod:Person
-              , controllers Cons @Party [icall @Mod:Person asParty this] (Nil @Party)
+              , controllers Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)
               to upure @(ContractId Mod:Person) self;
             choice @nonConsuming Nap (self) (i : Int64): Int64
-              , controllers Cons @Party [icall @Mod:Person asParty this] (Nil @Party)
+              , controllers Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)
               , observers Nil @Party
               to upure @Int64 i;
           } ;
@@ -785,7 +785,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             n"Sleep" -> TemplateChoice(
               name = n"Sleep",
               consuming = true,
-              controllers = e"Cons @Party [icall @Mod:Person asParty this] (Nil @Party)",
+              controllers = e"Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)",
               choiceObservers = None,
               selfBinder = n"self",
               argBinder = n"u" -> TUnit,
@@ -795,7 +795,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             n"Nap" -> TemplateChoice(
               name = n"Nap",
               consuming = false,
-              controllers = e"Cons @Party [icall @Mod:Person asParty this] (Nil @Party)",
+              controllers = e"Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)",
               choiceObservers = Some(e"Nil @Party"),
               selfBinder = n"self",
               argBinder = n"i" -> TInt64,
