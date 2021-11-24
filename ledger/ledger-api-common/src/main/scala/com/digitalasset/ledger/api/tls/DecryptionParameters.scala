@@ -8,12 +8,12 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import javax.crypto.Cipher
 import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
-
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.io.IOUtils
 import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
-import scala.util.Using
+import java.util.Base64
+import scala.util.{Try, Using}
 
 final class PrivateKeyDecryptionException(cause: Throwable) extends Exception(cause)
 
@@ -39,6 +39,15 @@ case class DecryptionParameters(
     transformation.split("/")(0)
   }
 
+  private def decodeBase64OrGetVerbatim(encrypted: Array[Byte]): Array[Byte] = {
+    val potentialBase64Char =
+      "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz/+=\n\r".getBytes()
+    encrypted.find(!potentialBase64Char.contains(_)) match {
+      case None => Try(Base64.getMimeDecoder.decode(encrypted)).getOrElse(encrypted)
+      case _ => encrypted
+    }
+  }
+
   private[tls] def decrypt(encrypted: Array[Byte]): Array[Byte] = {
     val key: Array[Byte] = Hex.decodeHex(keyInHex)
     val secretKey = new SecretKeySpec(key, algorithm)
@@ -46,7 +55,8 @@ case class DecryptionParameters(
     val cipher = Cipher.getInstance(transformation)
     val ivParameterSpec = new IvParameterSpec(iv)
     cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParameterSpec)
-    cipher.doFinal(encrypted)
+    val binary = decodeBase64OrGetVerbatim(encrypted)
+    cipher.doFinal(binary)
   }
 }
 
