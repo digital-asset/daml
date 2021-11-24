@@ -637,8 +637,9 @@ fromTreeGo (CreatedIndex index) events =
   case mapOptional fromCreated events of
     [] -> error "No created events for the requested template id found"
     contractIds ->
-      let msg = "CreatedIndex out of bound" in
-      fromSomeNote msg $ contractIds !! index.offset
+      case contractIds !! index.offset of
+        Left _ -> error "CreatedIndex out of bound"
+        Right cid -> cid
   where
     fromCreated : Template t => TreeEvent -> Optional (ContractId t)
     fromCreated (CreatedEvent created) = fromAnyContractId created.contractId
@@ -647,9 +648,9 @@ fromTreeGo (ExercisedIndex index) events =
   case mapOptional fromExercised events of
     [] -> error $ "No exercised events for choice " <> index.choice <> " found"
     childEventsList ->
-      let msg = "ExercisedIndex on choice " <> index.choice <> " out of bound"
-          childEvents = fromSomeNote msg $ childEventsList !! index.offset in
-      fromTreeGo index.child childEvents
+      case childEventsList !! index.offset of
+        Left _ -> error ("ExercisedIndex on choice " <> index.choice <> " out of bound")
+        Right childEvents -> fromTreeGo index.child childEvents
   where
     fromExercised : TreeEvent -> Optional [TreeEvent]
     fromExercised (CreatedEvent _) = None
