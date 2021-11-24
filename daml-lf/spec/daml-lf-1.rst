@@ -1,7 +1,7 @@
 .. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Copyright © 2020, `Digital Asset (Switzerland) GmbH
+Copyright © 2021, `Digital Asset (Switzerland) GmbH
 <https://www.digitalasset.com/>`_ and/or its affiliates.  All rights
 reserved.
 
@@ -1231,9 +1231,9 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpFromAnyException [Daml-LF ≥ 1.14]
       Γ  ⊢  'from_any_exception' @τ e  :  'Optional' τ
 
-      Γ  ⊢  τ  :  ⋆      Γ  ⊢  e  :  τ
+      τ₁  ↠  τ₁'     Γ  ⊢  τ'  :  ⋆      Γ  ⊢  e  :  τ'
     ——————————————————————————————————————————————————————————————— UpdPure
-      Γ  ⊢  'pure' e  :  'Update' τ
+      Γ  ⊢  'pure' @τ e  :  'Update' τ'
 
       τ₁  ↠  τ₁'   Γ  ⊢  τ₁'  : ⋆       Γ  ⊢  e₁  :  'Update' τ₁'
       x₁ : τ₁' · Γ  ⊢  e₂  :  'Update' τ₂
@@ -1921,7 +1921,7 @@ need to be evaluated further. ::
    ——————————————————————————————————————————————————— ValScenario
      ⊢ᵥ  s
 
-   ——————————————————————————————————————————————————— ValUnBondedMathContext
+   ——————————————————————————————————————————————————— ValUnboundedMathContext
      ⊢ᵥ  LitRoundingMode
 
 
@@ -1929,11 +1929,11 @@ need to be evaluated further. ::
    Update Values           │ ⊢ᵥᵤ  u │
                            └────────┘
 
-     ⊢ᵥ  e
+     ⊢ᵥᵤ  e
    ——————————————————————————————————————————————————— ValUpdatePure
      ⊢ᵥᵤ  'pure' @τ e
 
-     ⊢ᵥ  e₁
+     ⊢ᵥᵤ  e₁
    ——————————————————————————————————————————————————— ValUpdateBind
      ⊢ᵥᵤ  'bind' x₁ : τ₁ ← e₁ 'in' e₂
 
@@ -2247,17 +2247,8 @@ Expression evaluation
 Daml-LF evaluation is only defined on closed, well-typed expressions.
 
 Note that the evaluation of the body of a value definition is lazy. It
-happens only when needed and cached to avoid repeated computations. We
-formalize this using an *evaluation environment* that associates to
-each value reference the result of the evaluation of the corresponding
-definition (See rules ``EvExpVal`` and ``EvExpValCached``.). The
-evaluation environment is updated each time a value reference is
-encountered for the first time.
-
-Note that we do not specify if and how the evaluation environment is
-preserved between different evaluations happening in the ledger. We
-only guarantee that within a single evaluation each value definition
-is evaluated at most once.
+happens only when needed. The evaluation semantics itself does not cache
+values to avoid recomputations, but actual implementations may do so.
 
 The output of any Daml-LF built-in function ``F`` fully applied to
 types ``@τ₁ … @τₘ`` and values ``v₁ … vₙ`` is deterministic. In the
@@ -2982,6 +2973,16 @@ as described by the ledger model::
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
+     st(cid) = (Mod':T', vₜ, 'inactive')
+     Mod:T ≠ Mod':T'
+   —————————————————————————————————————————————————————————————————————— EvUpdExercWrongTemplate
+     'exercise' Mod:T.Ch cid v₁ ‖ (st; keys₀)
+       ⇓ᵤ
+     (Err (Fatal "Exercise on contract of wrong template"), ε)
+
+     'tpl' (x : T)
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+     cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'inactive')
    —————————————————————————————————————————————————————————————————————— EvUpdExercInactive
      'exercise' Mod:T.Ch cid v₁ ‖ (st₀; keys₀)
@@ -3129,7 +3130,16 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdFetchMissing
      'fetch' @Mod:T cid ‖ (st; keys)
        ⇓ᵤ
-     (Err (Fatal "Exercise on unknown contract"), ε)
+     (Err (Fatal "Fetch on unknown contract"), ε)
+
+     'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
+     cid ∈ dom(st)
+     st(cid) = (Mod':T', vₜ, 'inactive')
+     Mod:T ≠ Mod':T'
+   —————————————————————————————————————————————————————————————————————— EvUpdFetchWrongTemplate
+     'fetch' @Mod:T cid ‖ (st; keys)
+       ⇓ᵤ
+     (Err (Fatal "Fetch on contract of wrong template"), ε)
 
      'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
      cid ∈ dom(st)
@@ -3137,7 +3147,7 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdFetchInactive
      'fetch' @Mod:T cid ‖ (st; keys)
        ⇓ᵤ
-     (Err (Fatal "Exercise on inactive contract"), ε)
+     (Err (Fatal "Fetch on inactive contract"), ε)
 
      'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
      cid ∈ dom(st)
