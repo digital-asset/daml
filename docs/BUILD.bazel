@@ -106,7 +106,7 @@ genrule(
         cp -rL docs/source source
 
         mkdir -p -- source/error-codes/self-service
-        cp -- $(location //docs:generate-docs-error-code-inventory-into-rst-file) source/app-dev/grpc/error_codes_inventory.rst
+        cp -L -- $(location //docs:generate-docs-error-code-inventory-into-rst-file) source/app-dev/grpc/error-codes-inventory.rst
         # Copy in Stdlib
         mkdir -p source/daml/stdlib
         tar xf $(location //compiler/damlc:daml-base-rst.tar.gz) \\
@@ -667,8 +667,8 @@ genrule(
 genrule(
     name = "generate-docs-error-code-inventory-into-rst-file",
     srcs = [],
-    outs = ["error_codes_inventory.rst"],
-    cmd = "$(location //ledger/error/generator:generate-docs-error-code-inventory-app) $(location error_codes_inventory.rst)",
+    outs = ["error-codes-inventory.rst"],
+    cmd = "$(location //ledger/error/generator:generate-docs-error-code-inventory-app) $(location error-codes-inventory.rst)",
     tools = ["//ledger/error/generator:generate-docs-error-code-inventory-app"],
     visibility = ["//visibility:public"],
 )

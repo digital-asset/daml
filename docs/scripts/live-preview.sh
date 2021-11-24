@@ -21,6 +21,7 @@ cleanup()
   rm -rf ../source/getting-started/code
   rm -rf ../source/daml/stdlib
   rm -f ../source/app-dev/grpc/proto-docs.rst
+  rm -f ../source/app-dev/grpc/error-codes-inventory.rst
   rm -f ../source/LICENSE
   rm -f ../source/NOTICES
   echo "Done cleanup ... quitting."
@@ -61,8 +62,12 @@ do
     fi
     if [ "$arg" = "--gen" ]; then
 
+        # NOTE:
+        # $BUILD_DIR/source is a symlink into the versioned controlled directory with source .rst files.
+        # When generating files into that directory make sure to remove them before this script ends.
+
         bazel build //docs:generate-docs-error-code-inventory-into-rst-file
-        cp -L ../../bazel-bin/docs/error_codes_inventory.rst $BUILD_DIR/source/app-dev/grpc/error_codes_inventory.rst
+        cp -L ../../bazel-bin/docs/error-codes-inventory.rst $BUILD_DIR/source/app-dev/grpc/error-codes-inventory.rst
 
         # Hoogle
         bazel build //compiler/damlc:daml-base-hoogle.txt
@@ -80,6 +85,7 @@ do
 
         #StdLib
         bazel build //compiler/damlc:daml-base-rst.tar.gz
+        mkdir -p ../source/daml/stdlib
         tar xf ../../bazel-bin/compiler/damlc/daml-base-rst.tar.gz \
             --strip-components 1 -C ../source/daml/stdlib
     fi
@@ -89,4 +95,4 @@ DATE=$(date +"%Y-%m-%d")
 echo { \"$DATE\" : \"$DATE\" } >  $BUILD_DIR/gen/versions.json
 
 pipenv install
-pipenv run sphinx-autobuild -D error_codes_json_export=../../bazel-bin/docs/error_codes_export.json -c $BUILD_DIR/configs/html $BUILD_DIR/source $BUILD_DIR/gen
+pipenv run sphinx-autobuild -c $BUILD_DIR/configs/html $BUILD_DIR/source $BUILD_DIR/gen

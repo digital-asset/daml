@@ -355,7 +355,7 @@ Error Codes Inventory
 
 
 .. This file is generated:
-.. include:: error_codes_inventory.rst
+.. include:: error-codes-inventory.rst
 
 
 Error Codes Migration Guide
