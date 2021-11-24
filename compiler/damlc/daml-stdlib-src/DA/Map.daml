@@ -1,17 +1,6 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE CPP #-}
-
-
-#ifndef DAML_GENMAP
-
--- | HIDE
-module DA.Map where
-
-#else
-
-
 -- | Note: This is only supported in DAML-LF 1.11 or later.
 --
 -- This module exports the generic map type `Map k v` and associated
@@ -240,5 +229,3 @@ instance Ord k => Foldable.Foldable (Map k) where
 
 instance Ord k => Traversable.Traversable (Map k) where
   mapA f x = fmap fromList $ mapA (\(k, v) -> fmap (k,) $ f v) $ toList x
-
-#endif
