@@ -23,66 +23,66 @@ import DA.List hiding (foldBalanced1, head, tail, init, last, foldl1, foldr1,
 
 import qualified DA.List
 
-head : ActionFail m => [a] -> m a
+head : CanAbort m => [a] -> m a
 head (x::_) = pure x
-head [] = fail "head: empty list"
+head [] = abort "head: empty list"
 
-tail : ActionFail m => [a] -> m [a]
+tail : CanAbort m => [a] -> m [a]
 tail (_::xs) = pure xs
-tail [] = fail "tail: empty list"
+tail [] = abort "tail: empty list"
 
-last : ActionFail m => [a] -> m a
+last : CanAbort m => [a] -> m a
 last = foldl1 (flip const)
 
-init : ActionFail m => [a] -> m [a]
+init : CanAbort m => [a] -> m [a]
 init [_]     = pure []
 init (x::xs) = do i <- init xs; pure (x :: i)
-init []      = fail "init: empty list"
+init []      = abort "init: empty list"
 
 infixl 9 !!
-(!!) : ActionFail m => [a] -> Int -> m a
-_ !! i | i < 0 = fail "(!!): negative index"
-[] !! _ = fail "(!!): index too large"
+(!!) : CanAbort m => [a] -> Int -> m a
+_ !! i | i < 0 = abort "(!!): negative index"
+[] !! _ = abort "(!!): index too large"
 (x::_) !! 0 = pure x
 (_::xs) !! i = xs !! (i-1)
 
-foldl1 : ActionFail m => (a -> a -> a) -> [a] -> m a
+foldl1 : CanAbort m => (a -> a -> a) -> [a] -> m a
 foldl1 f (x::xs) = pure (foldl f x xs)
-foldl1 _  [] = fail "foldl1: empty list"
+foldl1 _  [] = abort "foldl1: empty list"
 
-foldr1 : ActionFail m => (a -> a -> a) -> [a] -> m a
-foldr1 f [] = fail "foldr1: empty list"
+foldr1 : CanAbort m => (a -> a -> a) -> [a] -> m a
+foldr1 f [] = abort "foldr1: empty list"
 foldr1 f xs = foldl1 (flip f) (reverse xs)
 
-foldBalanced1 : ActionFail m => (a -> a -> a) -> [a] -> m a
-foldBalanced1 _ [] = fail "foldBalanced1: empty list"
+foldBalanced1 : CanAbort m => (a -> a -> a) -> [a] -> m a
+foldBalanced1 _ [] = abort "foldBalanced1: empty list"
 foldBalanced1 _ [x] = pure x
 foldBalanced1 f xs = foldBalanced1 f (combinePairs f xs)
 
 -- | `minimumBy f xs` returns the first element `x` of `xs` for which `f x y`
 -- is either `LT` or `EQ` for all other `y` in `xs`. The result is
 -- wrapped in a monadic context, with a failure if `xs` is empty.
-minimumBy : (ActionFail m) => (a -> a -> Ordering) -> [a] -> m a
-minimumBy _ [] = fail "minimumBy: empty list"
+minimumBy : (CanAbort m) => (a -> a -> Ordering) -> [a] -> m a
+minimumBy _ [] = abort "minimumBy: empty list"
 minimumBy f xs = pure $ DA.List.minimumBy f xs
 
 -- | `maximumBy f xs` returns the first element `x` of `xs` for which `f x y`
 -- is either `GT` or `EQ` for all other `y` in `xs`. The result is
 -- wrapped in a monadic context, with a failure if `xs` is empty.
-maximumBy : (ActionFail m) => (a -> a -> Ordering) -> [a] -> m a
-maximumBy _ [] = fail "maximumBy: empty list"
+maximumBy : (CanAbort m) => (a -> a -> Ordering) -> [a] -> m a
+maximumBy _ [] = abort "maximumBy: empty list"
 maximumBy f xs = pure $ DA.List.maximumBy f xs
 
 -- | `minimumOn f xs` returns the first element `x` of `xs` for which `f x`
 -- is smaller than or equal to any other `f y` for `y` in `xs`. The result is
 -- wrapped in a monadic context, with a failure if `xs` is empty.
-minimumOn : (ActionFail m, Ord k) => (a -> k) -> [a] -> m a
-minimumOn _ [] = fail "minimumOn: empty list"
+minimumOn : (CanAbort m, Ord k) => (a -> k) -> [a] -> m a
+minimumOn _ [] = abort "minimumOn: empty list"
 minimumOn f xs = pure $ DA.List.minimumOn f xs
 
 -- | `maximumOn f xs` returns the first element `x` of `xs` for which `f x`
 -- is greater than or equal to any other `f y` for `y` in `xs`. The result is
 -- wrapped in a monadic context, with a failure if `xs` is empty.
-maximumOn : (ActionFail m, Ord k) => (a -> k) -> [a] -> m a
-maximumOn _ [] = fail "maximumOn: empty list"
+maximumOn : (CanAbort m, Ord k) => (a -> k) -> [a] -> m a
+maximumOn _ [] = abort "maximumOn: empty list"
 maximumOn f xs = pure $ DA.List.maximumOn f xs

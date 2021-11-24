@@ -9,9 +9,9 @@ where
 
 import DA.Optional hiding (fromSome, fromSomeNote)
 
-fromSome : ActionFail m => Optional a -> m a
+fromSome : CanAbort m => Optional a -> m a
 fromSome = fromSomeNote "fromSome: None"
 
-fromSomeNote : ActionFail m => Text -> Optional a -> m a
+fromSomeNote : CanAbort m => Text -> Optional a -> m a
 fromSomeNote _ (Some x) = pure x
-fromSomeNote n None = fail n
+fromSomeNote n None = abort n

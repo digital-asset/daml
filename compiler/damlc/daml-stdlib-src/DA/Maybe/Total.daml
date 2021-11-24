@@ -12,9 +12,9 @@ import DA.Maybe hiding (fromJust, fromJustNote)
 import DA.Optional.Total
 
 {-# DEPRECATED fromJust "Daml 1.2 compatibility helper, use 'fromSome' from 'DA.Optional.Total' instead of 'fromJust'" #-}
-fromJust : ActionFail m => Optional a -> m a
+fromJust : CanAbort m => Optional a -> m a
 fromJust = fromSome
 
 {-# DEPRECATED fromJustNote "Daml 1.2 compatibility helper, use 'fromSomeNote' from 'DA.Optional.Total' instead of 'fromJustNote'" #-}
-fromJustNote : ActionFail m => Text -> Optional a -> m a
+fromJustNote : CanAbort m => Text -> Optional a -> m a
 fromJustNote = fromSomeNote
