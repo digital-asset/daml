@@ -363,6 +363,7 @@ object KeyValueConsumption {
             recordTime,
             rejectionEntry,
             errorVersionSwitch,
+            None, // Not available for historical entries
           )(contextualizedErrorLogger(loggingContext, rejectionEntry))
         )
 

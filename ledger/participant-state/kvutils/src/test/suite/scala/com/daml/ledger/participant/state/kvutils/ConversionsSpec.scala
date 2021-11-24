@@ -445,9 +445,9 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
                 Map.empty,
               ),
               (
-                _.setDuplicateCommand(Duplicate.newBuilder()),
+                _.setDuplicateCommand(Duplicate.newBuilder().setSubmissionId("not_used")),
                 Code.ALREADY_EXISTS,
-                Map.empty,
+                Map(),
               ),
               (
                 _.setSubmitterCannotActViaParticipant(
@@ -494,6 +494,23 @@ class ConversionsSpec extends AnyWordSpec with Matchers with OptionValues {
           }
         }
       }
+    }
+
+    "decode duplicate command v2" in {
+      val finalReason = Conversions
+        .decodeTransactionRejectionEntry(
+          DamlTransactionRejectionEntry
+            .newBuilder()
+            .setDuplicateCommand(Duplicate.newBuilder().setSubmissionId("submissionId"))
+            .build(),
+          v2ErrorSwitch,
+        )
+      finalReason.code shouldBe Code.ALREADY_EXISTS.value()
+      finalReason.definiteAnswer shouldBe false
+      val actualDetails = finalReasonDetails(finalReason)
+      actualDetails should contain allElementsOf Map(
+        "existing_submission_id" -> "submissionId"
+      )
     }
 
     "decode completion info" should {

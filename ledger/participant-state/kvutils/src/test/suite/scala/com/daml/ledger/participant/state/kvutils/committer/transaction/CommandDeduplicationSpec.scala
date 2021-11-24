@@ -171,6 +171,20 @@ class CommandDeduplicationSpec
                   deduplicateStepHasTransactionRejectionEntry(context)
                 }
               }
+
+              "include the submission id in the rejection" in {
+                val submissionId = "submissionId"
+                val (_, context) = contextBuilder(timestamp =>
+                  Some(
+                    newDedupValue(builder =>
+                      timeSetter(timestamp)(builder.setSubmissionId(submissionId))
+                    )
+                  )
+                )
+                val rejection = deduplicateStepHasTransactionRejectionEntry(context)
+                rejection.getDuplicateCommand.getSubmissionId shouldBe submissionId
+              }
+
             }
           }
         }
@@ -281,6 +295,23 @@ class CommandDeduplicationSpec
           )
           .value
       ) shouldBe recordTime
+    }
+
+    "set the submission id in the dedup value" in {
+      val submissionId = "submissionId"
+      val (context, transactionEntrySummary) =
+        buildContextAndTransaction(
+          submissionTime,
+          _.setDeduplicationDuration(Conversions.buildDuration(deduplicationDuration))
+            .setSubmissionId(submissionId),
+          Some(timestamp),
+        )
+      setDeduplicationEntryStep(context, transactionEntrySummary)
+      deduplicateValueStoredInContext(context, transactionEntrySummary)
+        .map(
+          _.getSubmissionId
+        )
+        .value shouldBe submissionId
     }
 
     "throw an error for missing record time bounds" in {

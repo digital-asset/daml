@@ -68,7 +68,7 @@ private[transaction] object CommandDeduplication {
               maybeDedupValue,
             )
           } else {
-            duplicateRejection(commitContext, transactionEntry.submitterInfo)
+            duplicateRejection(commitContext, transactionEntry.submitterInfo, maybeDedupValue)
           }
         }
       }
@@ -156,22 +156,28 @@ private[transaction] object CommandDeduplication {
                   buildDuration(rejectionDeduplicationDuration)
                 )
                 .build,
+              maybeDedupValue,
             )
           case None =>
-            duplicateRejection(commitContext, transactionEntry.submitterInfo)
+            duplicateRejection(commitContext, transactionEntry.submitterInfo, maybeDedupValue)
         }
       }
 
       private def duplicateRejection(
           commitContext: CommitContext,
           submitterInfo: DamlSubmitterInfo,
+          dedupValue: Option[DamlCommandDedupValue],
       )(implicit loggingContext: LoggingContext) = {
         rejections.reject(
           DamlTransactionRejectionEntry.newBuilder
             .setSubmitterInfo(submitterInfo)
             // No duplicate rejection is a definite answer as the deduplication entry will eventually expire.
             .setDefiniteAnswer(false)
-            .setDuplicateCommand(Duplicate.newBuilder.setDetails("")),
+            .setDuplicateCommand(
+              Duplicate.newBuilder
+                .setDetails("")
+                .setSubmissionId(dedupValue.map(_.getSubmissionId).getOrElse(""))
+            ),
           "the command is a duplicate",
           commitContext.recordTime,
         )
@@ -186,7 +192,9 @@ private[transaction] object CommandDeduplication {
         if (!transactionEntry.submitterInfo.hasDeduplicationDuration) {
           throw Err.InvalidSubmission("Deduplication duration is not set.")
         }
-        val commandDedupBuilder = DamlCommandDedupValue.newBuilder
+        val commandDedupBuilder = DamlCommandDedupValue.newBuilder.setSubmissionId(
+          transactionEntry.submitterInfo.getSubmissionId
+        )
         commitContext.recordTime
           .map(Conversions.buildTimestamp) match {
           case Some(recordTime) =>
