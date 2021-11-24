@@ -211,7 +211,7 @@ jobs:
     branch: $[ dependencies.compat_versions_pr.outputs['out.branch'] ]
   steps:
   - checkout: none
-  - template: bash-lib.yml
+  - template: ci/bash-lib.yml
     parameters:
       var_name: bash-lib
   - bash: |
