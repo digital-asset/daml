@@ -208,5 +208,20 @@ object KVErrors extends ErrorGroup()(ErrorGroups.rootErrorClass) {
           super.context ++ metadata // Only in logs as the category is security sensitive
       }
     }
+
+    @Explanation("An unexpected error occurred while submitting a command to the ledger.")
+    @Resolution("Contact support.")
+    object SubmissionFailed
+        extends ErrorCode(
+          id = "SUBMISSION_FAILED",
+          ErrorCategory.SystemInternalAssumptionViolated,
+        ) {
+      case class Reject(
+          details: String
+      )(implicit loggingContext: ContextualizedErrorLogger)
+          extends KVLoggingTransactionErrorImpl(
+            cause = s"Submission failure: $details"
+          )
+    }
   }
 }
