@@ -639,15 +639,33 @@ gazelle_dependencies()
 # protoc-gen-doc repo
 go_repository(
     name = "com_github_pseudomuto_protoc_gen_doc",
-    commit = "0c4d666cfe1175663cf067963396a0b9b34f543f",
+    commit = "ae63e7aba9ef91669b2bc76634b33feead0e4f1a",
     importpath = "github.com/pseudomuto/protoc-gen-doc",
 )
 
 # protokit repo
 go_repository(
     name = "com_github_pseudomuto_protokit",
-    commit = "7037620bf27b13fcdc10b1b17ddef82540db670b",
+    commit = "c63c13958542d70af1d1ef7826d30b25cd5bf6e9",
     importpath = "github.com/pseudomuto/protokit",
+)
+
+go_repository(
+    name = "com_github_masterminds_sprig",
+    commit = "6b2a58267f6a8b1dc8e2eb5519b984008fa85e8c",
+    importpath = "github.com/masterminds/sprig",
+)
+
+go_repository(
+    name = "com_github_mwitkow_go_proto_validators",
+    commit = "0950a79900071e9f3f5979b78078c599376422fd",
+    importpath = "github.com/mwitkow/go-proto-validators",
+)
+
+go_repository(
+    name = "com_github_google_uuid",
+    commit = "0e4e31197428a347842d152773b4cace4645ca25",
+    importpath = "github.com/google/uuid",
 )
 
 load("//:bazel-java-deps.bzl", "install_java_deps")
