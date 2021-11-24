@@ -35,6 +35,8 @@ trait WritePackagesService {
     *   describing where it got the package from, e.g., when, where, or by whom
     *   the packages were uploaded.
     * @param archives           Daml-LF archives to be uploaded to the ledger.
+    *    All archives must be valid, i.e., they must successfully decode and pass
+    *    Daml engine validation.
     * @param telemetryContext   An implicit context for tracing.
     *
     * @return an async result of a [[SubmissionResult]]
