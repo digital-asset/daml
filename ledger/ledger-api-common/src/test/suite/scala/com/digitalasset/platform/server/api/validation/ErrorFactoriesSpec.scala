@@ -247,7 +247,7 @@ class ErrorFactoriesSpec
     }
 
     "return the DuplicateCommandException" in {
-      assertVersionedError(_.duplicateCommandException)(
+      assertVersionedError(_.duplicateCommandException(None))(
         v1_code = Code.ALREADY_EXISTS,
         v1_message = "Duplicate command",
         v1_details = Seq(definiteAnswers(false)),

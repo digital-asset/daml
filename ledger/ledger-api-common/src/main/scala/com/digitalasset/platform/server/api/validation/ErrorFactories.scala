@@ -167,7 +167,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       v2 = LedgerApiErrors.InternalError.VersionService(message).asGrpcError,
     )
 
-  def duplicateCommandException(implicit
+  def duplicateCommandException(existingSubmissionId: Option[String])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): StatusRuntimeException =
     errorCodesVersionSwitcher.choose(
@@ -183,7 +183,9 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         contextualizedErrorLogger.info(exception.getMessage)
         exception
       },
-      v2 = LedgerApiErrors.ConsistencyErrors.DuplicateCommand.Reject().asGrpcError,
+      v2 = LedgerApiErrors.ConsistencyErrors.DuplicateCommand
+        .Reject(existingCommandSubmissionId = existingSubmissionId)
+        .asGrpcError,
     )
 
   /** @param expected Expected ledger id.

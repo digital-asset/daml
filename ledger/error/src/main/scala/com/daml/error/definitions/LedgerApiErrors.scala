@@ -650,11 +650,17 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
           ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
         ) {
 
-      case class Reject(override val definiteAnswer: Boolean = false)(implicit
+      case class Reject(
+          override val definiteAnswer: Boolean = false,
+          existingCommandSubmissionId: Option[String],
+      )(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends LoggingTransactionErrorImpl(
             cause = "A command with the given command id has already been successfully processed"
-          )
+          ) {
+        override def context: Map[String, String] =
+          super.context ++ existingCommandSubmissionId.map("existing_submission_id" -> _).toList
+      }
     }
 
     @Explanation("An input contract has been archived by a concurrent transaction submission.")
