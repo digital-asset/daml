@@ -3,10 +3,10 @@
 
 package com.daml.resources.akka
 
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
+import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.{Actor, ActorSystem, Cancellable, Props}
-import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
+import akka.stream.{Materializer, QueueOfferResult}
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.{Done, NotUsed}
 import com.daml.resources.{HasExecutionContext, ResourceOwnerFactories, TestContext}
@@ -100,28 +100,25 @@ final class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
     }
   }
 
-  "a function returning a SourceQueue" should {
+  "a function returning a BoundedSourceQueue" should {
     "convert to a ResourceOwner" in {
-      val number = new AtomicInteger()
+      val numberPromise = Promise[Int]()
       val resourceOwner = for {
         actorSystem <- Factories
           .forActorSystem(() => ActorSystem("TestActorSystem"))
         materializer <- Factories.forMaterializer(() => Materializer(actorSystem))
         sourceQueue <- Factories
-          .forSourceQueue(
+          .forBoundedSourceQueue(
             Source
-              .queue[Int](10, OverflowStrategy.backpressure)
-              .to(Sink.foreach(number.set))
+              .queue[Int](10)
+              .to(Sink.foreach(numberPromise.success))
           )(materializer)
       } yield sourceQueue
 
       resourceOwner
         .use { sourceQueue =>
-          sourceQueue.offer(123)
-        }
-        .map { offerResult =>
-          offerResult should be(QueueOfferResult.Enqueued)
-          number.get should be(123)
+          sourceQueue.offer(123) should be(QueueOfferResult.Enqueued)
+          numberPromise.future.map(_ should be(123))
         }
     }
   }
