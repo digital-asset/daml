@@ -23,7 +23,7 @@ def da_scala_dar_resources_library(
             # 1. Compile daml files
             daml_compile_name = "%s-tests-%s" % (daml_dir_name, lf_version)
             daml_compile_kwargs = {
-                "project_name": "%s-tests" % daml_dir_name,
+                "project_name": "%s-tests" % daml_dir_name.replace("_", "-"),
                 "srcs": native.glob(["%s/%s/*.daml" % (daml_root_dir, daml_dir_name)]),
                 "target": lf_version,
             }
