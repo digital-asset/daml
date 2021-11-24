@@ -380,7 +380,9 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           b.setCid(cid)
           b.setArg(arg)
           builder.setExercise(b)
-        case UpdateExerciseInterface(interface, choice, cid, arg) =>
+        case UpdateExerciseInterface(interface, choice, cid, arg, guard @ _) =>
+          // TODO https://github.com/digital-asset/daml/issues/11703
+          //   Encode guard.
           val b = PLF.Update.ExerciseInterface.newBuilder()
           b.setInterface(interface)
           setInternedString(choice, b.setChoiceInternedStr)

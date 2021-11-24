@@ -433,7 +433,9 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   private lazy val updateExerciseInterface =
     Id("exercise_by_interface") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
       case iface ~ choice ~ cid ~ arg =>
-        UpdateExerciseInterface(iface, choice, cid, arg)
+        UpdateExerciseInterface(iface, choice, cid, arg, None)
+      // TODO https://github.com/digital-asset/daml/issues/11703
+      //   Implement choice guard argument.
     }
 
   private lazy val updateExerciseByKey =
