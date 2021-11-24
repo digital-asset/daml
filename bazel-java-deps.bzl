@@ -30,7 +30,7 @@ netty_version = "4.1.67.Final"
 # <tcnative.version>2.0.42.Final</tcnative.version>
 # ```
 netty_tcnative_version = "2.0.40.Final"
-grpc_version = "1.35.0"
+grpc_version = "1.41.0"
 akka_version = "2.6.13"
 gatling_version = "3.5.1"
 
