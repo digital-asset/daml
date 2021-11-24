@@ -30,14 +30,14 @@ package speedy
   *
   * Summary of which constructors are contained by: SExp0, SExpr1 and SExpr:
   *
-  * - In SExpr{0,1,} (everywhere): SEAppGeneral, SEBuiltin, SELabelClosure, SELet1General,
+  * - In SExpr{0,1,} (everywhere): SEAppGeneral, SEBuiltin, SELabelClosure,
   *   SELocation, SEScopeExercise, SETryCatch, SEVal, SEValue,
   *
   * - In SExpr0: SEAbs, SEVar
   *
   * - In SExpr{0,1}: SECase, SELet
   *
-  * - In SExpr{1,}: SELocA, SELocF, SELocS, SEMakeClo,
+  * - In SExpr{1,}: SELocA, SELocF, SELocS, SEMakeClo, SELet1General,
   *
   * - In SExpr: SEAppAtomicFun, SEAppAtomicGeneral, SEAppAtomicSaturatedBuiltin,
   *   SECaseAtomic, SELet1Builtin, SELet1BuiltinArithmetic
@@ -76,13 +76,7 @@ private[speedy] object SExpr0 {
   object SEValue extends SValueContainer[SEValue]
 
   /** Function application */
-  final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals
-
-  object SEApp {
-    def apply(fun: SExpr, args: Array[SExpr]): SExpr = {
-      SEAppGeneral(fun, args)
-    }
-  }
+  final case class SEApp(fun: SExpr, args: List[SExpr]) extends SExpr
 
   /** Lambda abstraction. Transformed to SEMakeClo during closure conversion */
   final case class SEAbs(arity: Int, body: SExpr) extends SExpr
@@ -96,13 +90,7 @@ private[speedy] object SExpr0 {
   }
 
   /** Pattern match. */
-  final case class SECase(scrut: SExpr, alts: Array[SCaseAlt]) extends SExpr with SomeArrayEquals
-
-  /** A let-expression with a single RHS
-    * This form only exists *during* the ANF transformation, but not when the ANF
-    * transformation is finished.
-    */
-  final case class SELet1General(rhs: SExpr, body: SExpr) extends SExpr with SomeArrayEquals
+  final case class SECase(scrut: SExpr, alts: List[SCaseAlt]) extends SExpr
 
   /** A non-recursive, non-parallel let block.
     * It is used as an intermediary data structure by the compiler to
