@@ -175,7 +175,6 @@ scala_source_jar(
 [
     daml_compile(
         name = "integration-tests-model-{}".format(mangle_for_java(ver)),
-        project_name = "integration-tests-model",
         srcs = glob(
             [
                 "src/it/daml/Tests/*.daml",
@@ -183,6 +182,7 @@ scala_source_jar(
             ],
             exclude = test_exclusions.get(ver, []),
         ),
+        project_name = "integration-tests-model",
         target = ver,
     )
     for ver in LF_VERSIONS
