@@ -16,6 +16,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.backend.EventStorageBackend
+import com.daml.platform.store.utils.ConcurrencyLimiter
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -40,6 +41,7 @@ class FilterTableACSReader(
     acsFetchingparallelism: Int,
     metrics: Metrics,
     materializer: Materializer,
+    idQuerylimiter: ConcurrencyLimiter[Vector[Long]],
 ) extends ACSReader {
   import FilterTableACSReader._
 
@@ -69,15 +71,18 @@ class FilterTableACSReader(
       materializer = materializer,
     )(
       query =>
-        dispatcher
-          .executeSql(metrics.daml.index.db.getActiveContractIds)(
-            eventStorageBackend.activeContractEventIds(
-              partyFilter = query.filter.party,
-              templateIdFilter = query.filter.templateId,
-              startExclusive = query.fromExclusiveEventSeqId,
-              endInclusive = activeAt._2,
-              limit = idPageSize,
-            )
+        idQuerylimiter
+          .execute(() =>
+            dispatcher
+              .executeSql(metrics.daml.index.db.getActiveContractIds)(
+                eventStorageBackend.activeContractEventIds(
+                  partyFilter = query.filter.party,
+                  templateIdFilter = query.filter.templateId,
+                  startExclusive = query.fromExclusiveEventSeqId,
+                  endInclusive = activeAt._2,
+                  limit = idPageSize,
+                )
+              )
           )
           .map { result =>
             val newTasks =

@@ -47,6 +47,7 @@ import com.daml.platform.store.entries.{
   PartyLedgerEntry,
 }
 import com.daml.platform.store.interning.StringInterning
+import com.daml.platform.store.utils.QueueBasedConcurrencyLimiter
 import java.sql.Connection
 
 import akka.stream.Materializer
@@ -670,6 +671,8 @@ private class JdbcLedgerDao(
         acsFetchingparallelism = acsContractFetchingParallelism,
         metrics = metrics,
         materializer = materializer,
+        // TODO: properly parametrize the parallelism. Currently using 8, because the default connection pool size is 16.
+        idQuerylimiter = new QueueBasedConcurrencyLimiter[Vector[Long]](8, servicesExecutionContext),
       ),
     )(
       servicesExecutionContext
