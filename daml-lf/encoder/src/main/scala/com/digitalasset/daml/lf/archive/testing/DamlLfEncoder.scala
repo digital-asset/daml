@@ -41,7 +41,11 @@ private[daml] object DamlLfEncoder extends App {
           languageVersion = appArgs.languageVersion,
         )
 
-      makeDar(readSources(appArgs.inputFiles), Paths.get(appArgs.outputFile).toFile)
+      makeDar(
+        readSources(appArgs.inputFiles),
+        Paths.get(appArgs.outputFile).toFile,
+        validation = appArgs.validation,
+      )
 
     } catch {
       case e: EncodeError =>
@@ -54,7 +58,8 @@ private[daml] object DamlLfEncoder extends App {
     files.view.flatMap(file => Source.fromFile(Paths.get(file).toFile, "UTF8")).mkString
 
   private def makeArchive(
-      source: String
+      source: String,
+      validation: Boolean,
   )(implicit parserParameters: ParserParameters[this.type]) = {
 
     val modules = parseModules[this.type](source).fold(error, identity)
@@ -73,15 +78,16 @@ private[daml] object DamlLfEncoder extends App {
       Ast.Package.build(modules, Set.empty[PackageId], parserParameters.languageVersion, metadata)
     val pkgs = PackageInterface(Map(pkgId -> pkg))
 
-    Validation.checkPackage(pkgs, pkgId, pkg).left.foreach(e => error(e.pretty))
+    if (validation)
+      Validation.checkPackage(pkgs, pkgId, pkg).left.foreach(e => error(e.pretty))
 
     encodeArchive(pkgId -> pkg, parserParameters.languageVersion)
   }
 
-  private def makeDar(source: String, file: File)(implicit
+  private def makeDar(source: String, file: File, validation: Boolean)(implicit
       parserParameters: ParserParameters[this.type]
   ) = {
-    val archive = makeArchive(source)
+    val archive = makeArchive(source, validation = validation)
     DarWriter.encode(
       SdkVersion.sdkVersion,
       Dar(("archive.dalf", archive.toByteArray), List()),
@@ -93,38 +99,35 @@ private[daml] object DamlLfEncoder extends App {
       inputFiles: List[String],
       outputFile: String,
       languageVersion: LanguageVersion,
+      validation: Boolean,
   )
 
   private def parseArgs() = {
-    val nAgrs = args.length
-
     @tailrec
-    def go(
-        appArgs: Arguments = Arguments(List.empty, "", LanguageVersion.default),
-        i: Int = 0,
-    ): Arguments =
-      if (i == nAgrs) {
-        if (appArgs.outputFile.isEmpty)
-          error("output file not set")
-        if (appArgs.inputFiles.isEmpty)
-          error("no input files set")
-        else
-          appArgs
-      } else
-        args(i) match {
-          case "--target" if i + 1 < nAgrs =>
-            go(appArgs.copy(languageVersion = LanguageVersion.assertFromString(args(i + 1))), i + 2)
-          case "--output" if i + 1 < nAgrs =>
-            go(appArgs.copy(outputFile = args(i + 1)), i + 2)
-          case _ if i + 1 >= nAgrs =>
-            error(
-              s"usage: encoder_binary inputFile1 ... inputFileN --output outputFile [--target version]"
-            )
-          case x =>
-            go(appArgs.copy(inputFiles = x :: appArgs.inputFiles), i + 1)
-        }
+    def go(appArgs: Arguments, args: List[String]): Arguments =
+      args match {
+        case "--target" :: version :: tail =>
+          go(appArgs.copy(languageVersion = LanguageVersion.assertFromString(version)), tail)
+        case "--output" :: file :: tail =>
+          go(appArgs.copy(outputFile = file), tail)
+        case "--skip-validation" :: tail =>
+          go(appArgs.copy(validation = false), tail)
+        case option :: _ if option.startsWith("-") =>
+          error(
+            s"usage: encoder_binary inputFile1 ... inputFileN --output outputFile [--target version]"
+          )
+        case Nil =>
+          if (appArgs.outputFile.isEmpty)
+            error("output file not set")
+          if (appArgs.inputFiles.isEmpty)
+            error("no input files set")
+          else
+            appArgs
+        case x :: tail =>
+          go(appArgs.copy(inputFiles = x :: appArgs.inputFiles), tail)
+      }
 
-    go()
+    go(Arguments(List.empty, "", LanguageVersion.default, true), args.toList)
   }
 
   main()
