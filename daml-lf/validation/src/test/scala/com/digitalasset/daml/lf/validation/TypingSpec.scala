@@ -17,7 +17,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
   "checkKind" should {
     // TEST_EVIDENCE: Input Validation: ill-formed kinds are rejected
-    "reject invalid kinds" ignore {
+    "reject invalid kinds" in {
 
       val negativeTestCases = Table(
         "kinds",
@@ -431,7 +431,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
       val testCases = Table[Expr, PartialFunction[ValidationError, _]](
         "non-well formed expression" -> "error",
-        /*
         // ExpDefVar
         E"⸨ x ⸩" -> //
           { case _: EUnknownExprVar => },
@@ -768,32 +767,28 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                 ) =>
           },
         E"Λ (σ : ⋆). λ (e: σ) → ⸨ create_by_interface @Mod:I e ⸩" -> //
-          { case _: ETypeMismatch => }, */
+          { case _: ETypeMismatch => },
         // UpdExercise
-        E"λ (e₁: ContractId Mod:U) (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:U Ch e₁ e₂ e₃ ⸩" -> //
+        E"λ (e₁: ContractId Mod:U) (e₂: Int64) → ⸨ exercise @Mod:U Ch e₁ e₂ ⸩" -> //
           {
             case EUnknownDefinition(
                   _,
                   LookupError(Reference.Template(_), Reference.TemplateChoice(_, _)),
                 ) =>
           },
-        E"λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:T ChTmpl e₁ e₂ e₃ ⸩" -> //
+        E"λ (e₁: ContractId Mod:T) (e₂: Int64) → ⸨ exercise @Mod:T ChTmpl e₁ e₂⸩" -> //
           {
             case EUnknownDefinition(
                   _,
                   LookupError(Reference.TemplateChoice(_, _), Reference.TemplateChoice(_, _)),
                 ) =>
           },
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: σ) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: σ) → ⸨ exercise @Mod:T Ch e₁ e₂ ⸩" -> //
           { case _: ETypeMismatch => },
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: List σ) (e₃: Int64) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
+        E"Λ (σ : ⋆).λ (e₁: ContractId σ) (e₂: Int64) → ⸨ exercise @Mod:T Ch e₁ e₂ ⸩" -> //
           { case _: ETypeMismatch => },
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: σ) (e₃: Int64) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
-          { case _: ETypeMismatch => },
-        E"Λ (σ : ⋆).λ (e₁: ContractId σ) (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
-          { case _: ETypeMismatch => },
-        // This verifies that template choice cannot be exercise by interface
-        E"λ (e₁: ContractId Mod:I) (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:I ChTmpl e₁ e₂ e₃ ⸩" -> {
+        // This verifies that template choice cannot be exercised by interface
+        E"λ (e₁: ContractId Mod:I) (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:I ChTmpl e₁ e₂ ⸩" -> {
           case EUnknownDefinition(
                 _,
                 LookupError(Reference.Template(_), Reference.TemplateChoice(_, _)),
@@ -805,30 +800,28 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             assert(env.interface.lookupTemplateChoice(conTi, n"ChTmpl").isRight)
         },
         // UpdExerciseInterface
-        E"λ (e₁: ContractId Mod:U) (e₂: List Party) (e₃: Int64) → ⸨ exercise_by_interface @Mod:U ChIface e₁ e₂ e₃ ⸩" -> //
+        E"λ (e₁: ContractId Mod:U) (e₂: Int64) → ⸨ exercise_by_interface @Mod:U ChIface e₁ e₂ ⸩" -> //
           {
             case EUnknownDefinition(
                   _,
                   LookupError(Reference.Interface(_), Reference.InterfaceChoice(_, _)),
                 ) =>
           },
-        E"λ (e₁: ContractId Mod:I) (e₂: List Party) (e₃: Int64) → ⸨ exercise_by_interface @Mod:I Not e₁ e₂ e₃ ⸩" -> //
+        E"λ (e₁: ContractId Mod:I) (e₂: Int64) → ⸨ exercise_by_interface @Mod:I Not e₁ e₂ ⸩" -> //
           {
             case EUnknownDefinition(
                   _,
                   LookupError(Reference.TemplateChoice(_, _), Reference.InterfaceChoice(_, _)),
                 ) =>
           },
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: List Party) (e₃: σ) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ e₃ ⸩" -> //
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: σ) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ ⸩" -> //
           { case _: ETypeMismatch => },
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: List σ) (e₃: Int64) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ e₃ ⸩" -> //
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: Int64) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ ⸩" -> //
           { case _: ETypeMismatch => },
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:I) (e₂: σ) (e₃: Int64) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ e₃ ⸩" -> //
-          { case _: ETypeMismatch => },
-        E"Λ (σ : ⋆).λ (e₁: ContractId σ) (e₂: List Party) (e₃: Int64) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ e₃ ⸩" -> //
+        E"Λ (σ : ⋆).λ (e₁: ContractId σ) (e₂: Int64) → ⸨ exercise_by_interface @Mod:T ChIface e₁ e₂ ⸩" -> //
           { case _: ETypeMismatch => },
         // This verifies that interface choice cannot be exercise by template
-        E"""λ (e₁: ContractId Mod:Ti) (e: Mod:Ti) (e₂: List Party) (e₃: Int64) → ⸨ exercise_by_interface @Mod:Ti ChIface e₁ e₂ e₃ ⸩""" -> //
+        E"""λ (e₁: ContractId Mod:Ti) (e: Mod:Ti) (e₂: Int64) → ⸨ exercise_by_interface @Mod:Ti ChIface e₁ e₂ ⸩""" -> //
           {
             case EUnknownDefinition(
                   _,
@@ -949,32 +942,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
             };
           }
 
-          module NegativeTestCaseKey {
-            record @serializable T = {person: Party, name: Text};
-
-            template (this : T) =  {
-              precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Alice'] (Nil @Party);
-              agreement "Agreement";
-              choice Ch1 (self) (i : Unit) : Unit
-                  , controllers Cons @Party ['Alice'] (Nil @Party)
-                  to upure @Unit ();
-              choice Ch2 (self) (i : Unit) : Unit
-                  , controllers Cons @Party ['Alice'] (Nil @Party)
-                  , observers Nil @Party
-                  to upure @Unit ();
-              choice Ch3 (self) (i : Unit) : Unit
-                  , controllers Cons @Party ['Alice'] (Nil @Party)
-                  , observers Cons @Party ['Alice'] (Nil @Party)
-                  to upure @Unit ();
-              key @Mod:Key
-                  (Mod:Key { person = (NegativeTestCaseKey:T {name} this), party = (NegativeTestCaseKey:T {person} this) })
-                  (\ (key: Mod:Key) -> Cons @Party [(Mod:Key {party} key), 'Alice'] (Nil @Party)  );
-            } ;
-          }
-          
-          module NegativeTestCaseInterface {
+          module NegativeTestCase {
             record @serializable T = {person: Party, name: Text};
 
             template (this : T) =  {
@@ -994,10 +962,14 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
                   , observers Cons @Party ['Alice'] (Nil @Party)
                   to upure @Unit ();
               implements Mod:I {
-                method getParties = \(self: NegativeTestCaseInterface:T) -> Cons @Party [NegativeTestCaseInterface:T {person} self] (Nil @Party);
+                method getParties = \(self: NegativeTestCase:T) -> Cons @Party [NegativeTestCase:T {person} self] (Nil @Party);
               };
+              key @Mod:Key
+                  (Mod:Key { person = (NegativeTestCase:T {name} this), party = (NegativeTestCase:T {person} this) })
+                  (\ (key: Mod:Key) -> Cons @Party [(Mod:Key {party} key), 'Alice'] (Nil @Party)  );
             } ;
           }
+
 
           module PositiveTestCase_TemplateTypeShouldBeStar {
             record @serializable T (a: *) = {x: a};
@@ -1270,39 +1242,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
               };
             };
           }
-        
-          module PositiveCase_KeyAndInterface {
-            record @serializable T = {person: Party, name: Text};
-
-            template (this : T) =  {
-              precondition True;
-              signatories Cons @Party ['Bob'] (Nil @Party);
-              observers Cons @Party ['Alice'] (Nil @Party);
-              agreement "Agreement";
-              choice Ch (self) (i : Unit) : Unit
-                  , controllers Cons @Party ['Alice'] (Nil @Party)
-                  to upure @Unit ();
-              implements Mod:I {
-                method getParties = \(self: PositiveCase_KeyAndInterface:T) -> 
-                  Cons @Party [PositiveCase_KeyAndInterface:T {person} self] (Nil @Party);
-              };
-              key @Mod:Key
-                  (Mod:Key { 
-                    person = (PositiveCase_KeyAndInterface:T {name} this),
-                    party = (PositiveCase_KeyAndInterface:T {person} this) 
-                  })
-                  (\ (key: Mod:Key) -> Cons @Party [(Mod:Key {party} key), 'Alice'] (Nil @Party)  );
-            };
-          }
-
-      
       """
-
-      val negativeCases = Table(
-        "moduleName",
-        "NegativeTestCaseKey",
-        "NegativeTestCaseInterface",
-      )
 
       val nonTemplateTypeCases = Table(
         "moduleName",
@@ -1338,7 +1278,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         pkg.modules(DottedName.assertFromString(modName)),
       )
 
-      forEvery(negativeCases)(mod => checkModule(mod) shouldBe ())
+      checkModule("NegativeTestCase") shouldBe ()
       forEvery(nonTemplateTypeCases)(mod =>
         an[EExpectedTemplatableType] shouldBe thrownBy(checkModule(mod))
       )
@@ -1356,9 +1296,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       )
       an[EUnknownInterfaceMethod] shouldBe thrownBy(
         checkModule("PositiveCase_ImplementsShouldOverrideOnlyMethods")
-      )
-      an[ETemplateWithKeyAndInterface] shouldBe thrownBy(
-        checkModule("PositiveCase_KeyAndInterface")
       )
     }
 

@@ -451,8 +451,6 @@ private[validation] object Typing {
         ()
       }
       implementations.values.foreach(env.checkIfaceImplementation(tplName, _))
-      if (mbKey.isDefined && implementations.nonEmpty)
-        throw ETemplateWithKeyAndInterface(ctx, tplName)
     }
 
     def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
