@@ -158,6 +158,21 @@ steps:
     next_in_rotation_github() {
       next_in_rotation | awk '{print $2}'
     }
+    trigger_azure() (
+      token=$1
+      option=$2
+      target=$3
+      build=$4
+      az extension add --name azure-devops
+      trap 'az devops logout' EXIT
+      echo $token \
+        | az devops login --org "https://dev.azure.com/digitalasset"
+      az pipelines build queue \
+        $option $target \
+        --definition-name $build \
+        --org "https://dev.azure.com/digitalasset" \
+        --project daml
+    )
 
     END
     echo "##vso[task.setvariable variable=${{parameters.var_name}}]$TMP"
