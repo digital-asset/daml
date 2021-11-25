@@ -65,8 +65,8 @@ rules_jvm_external_version = "3.3"
 rules_jvm_external_sha256 = "d85951a92c0908c80bd8551002d66cb23c3434409c814179c0ff026b53544dab"
 rules_go_version = "0.29.0"
 rules_go_sha256 = "2b1641428dff9018f9e85c0384f03ec6c10660d935b750e3fa1492a281a53b0f"
-bazel_gazelle_version = "0.24.0"
-bazel_gazelle_sha256 = "de69a09dc70417580aabf20a28619bb3ef60d038470c7cf8442fafcf627c21cb"
+bazel_gazelle_version = "67a3e22af6547f43bb9b8e4dd0bad5f354ad4e60"
+bazel_gazelle_sha256 = "c71b12d890d1e299e012bfa6f08dc3d9e57281a0955dc28a1e9c16769d556203"
 rules_bazel_common_version = "9e3880428c1837db9fb13335ed390b7e33e346a7"
 rules_bazel_common_sha256 = "48a209fed9575c9d108eaf11fb77f7fe6178a90135e4d60cac6f70c2603aa53a"
 
@@ -123,6 +123,31 @@ def daml_deps():
             sha256 = zlib_sha256,
         )
 
+    if "go_googleapis" not in native.existing_rules():
+        # The Haskell gRPC bindings require access to the status.proto source file.
+        # This import of go_googleapis is taken from rules_go and extended with the status.proto patch.
+        http_archive(
+            name = "go_googleapis",
+            # master, as of 2021-10-06
+            urls = [
+                "https://mirror.bazel.build/github.com/googleapis/googleapis/archive/409e134ffaacc243052b08e6fb8e2d458014ed37.zip",
+                "https://github.com/googleapis/googleapis/archive/409e134ffaacc243052b08e6fb8e2d458014ed37.zip",
+            ],
+            sha256 = "a85c6a00e9cf0f004992ebea1d10688e3beea9f8e1a5a04ee53f367e72ee85af",
+            strip_prefix = "googleapis-409e134ffaacc243052b08e6fb8e2d458014ed37",
+            patches = [
+                # releaser:patch-cmd find . -name BUILD.bazel -delete
+                "@io_bazel_rules_go//third_party:go_googleapis-deletebuild.patch",
+                # set gazelle directives; change workspace name
+                "@io_bazel_rules_go//third_party:go_googleapis-directives.patch",
+                # releaser:patch-cmd gazelle -repo_root .
+                "@io_bazel_rules_go//third_party:go_googleapis-gazelle.patch",
+                # The Haskell gRPC bindings require access to the status.proto source file.
+                "//bazel_tools:googleapis-status-proto.patch",
+            ],
+            patch_args = ["-E", "-p1"],
+        )
+
     if "io_bazel_rules_go" not in native.existing_rules():
         http_archive(
             name = "io_bazel_rules_go",
@@ -154,23 +179,13 @@ def daml_deps():
             patch_args = ["-p1"],
         )
 
-    if "com_google_protobuf" not in native.existing_rules():
-        http_archive(
-            name = "com_google_protobuf",
-            sha256 = "528927e398f4e290001886894dac17c5c6a2e5548f3fb68004cfb01af901b53a",
-            # changing this version needs to be in sync with protobuf-java and grpc dependencies in bazel-java-bdeps.bzl
-            strip_prefix = "protobuf-3.17.3",
-            urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.17.3.zip"],
-            patch_args = ["-p1"],
-        )
-
     if "bazel_gazelle" not in native.existing_rules():
         http_archive(
             name = "bazel_gazelle",
             urls = [
-                "https://storage.googleapis.com/bazel-mirror/github.com/bazelbuild/bazel-gazelle/releases/download/v{version}/bazel-gazelle-v{version}.tar.gz".format(version = bazel_gazelle_version),
-                "https://github.com/bazelbuild/bazel-gazelle/releases/download/v{version}/bazel-gazelle-v{version}.tar.gz".format(version = bazel_gazelle_version),
+                "https://github.com/bazelbuild/bazel-gazelle/archive/{version}/bazel-gazelle-{version}.tar.gz".format(version = bazel_gazelle_version),
             ],
+            strip_prefix = "bazel-gazelle-{version}".format(version = bazel_gazelle_version),
             sha256 = bazel_gazelle_sha256,
         )
 
@@ -239,14 +254,6 @@ def daml_deps():
             sha256 = "841ae424eec3f322d411eb49d949622cc84787cb4189a30698fa9adadb98deac",
             strip_prefix = "bazel_jar_jar-20dbf71f09b1c1c2a8575a42005a968b38805519",
             urls = ["https://github.com/johnynek/bazel_jar_jar/archive/20dbf71f09b1c1c2a8575a42005a968b38805519.zip"],  # Latest commit SHA as at 2019/02/13
-        )
-
-    if "com_github_googleapis_googleapis" not in native.existing_rules():
-        http_archive(
-            name = "com_github_googleapis_googleapis",
-            strip_prefix = "googleapis-a9d8182ce540d418af825e3b21558e8413f29e66",
-            urls = ["https://github.com/googleapis/googleapis/archive/a9d8182ce540d418af825e3b21558e8413f29e66.tar.gz"],
-            sha256 = "75fcdf65a2423ca81d8f76e039e57b432378c10aa11f2fae41ec39d9d777d2f2",
         )
 
     if "com_github_bazelbuild_remote_apis" not in native.existing_rules():

@@ -21,14 +21,6 @@ switched_rules_by_language(
 
 rules_haskell_dependencies()
 
-load("@com_github_googleapis_googleapis//:repository_rules.bzl", "switched_rules_by_language")
-
-switched_rules_by_language(
-    name = "com_google_googleapis_imports",
-    grpc = True,
-    java = True,
-)
-
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
@@ -628,26 +620,25 @@ go_wrap_sdk(
     root_file = "@go_nix//:share/go/ROOT",
 ) if not is_windows else None
 
+# gazelle:repo bazel_gazelle
+load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
+load("//:go_deps.bzl", "go_deps")
+
+# gazelle:repository_macro go_deps.bzl%go_deps
+go_deps()
+
 go_rules_dependencies()
 
 go_register_toolchains() if not is_windows else go_register_toolchains(version = "1.16.9")
 
-load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
-
 gazelle_dependencies()
 
-# protoc-gen-doc repo
-go_repository(
-    name = "com_github_pseudomuto_protoc_gen_doc",
-    commit = "0c4d666cfe1175663cf067963396a0b9b34f543f",
-    importpath = "github.com/pseudomuto/protoc-gen-doc",
-)
+load("@go_googleapis//:repository_rules.bzl", "switched_rules_by_language")
 
-# protokit repo
-go_repository(
-    name = "com_github_pseudomuto_protokit",
-    commit = "7037620bf27b13fcdc10b1b17ddef82540db670b",
-    importpath = "github.com/pseudomuto/protokit",
+switched_rules_by_language(
+    name = "com_google_googleapis_imports",
+    grpc = True,
+    java = True,
 )
 
 load("//:bazel-java-deps.bzl", "install_java_deps")
