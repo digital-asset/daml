@@ -211,9 +211,11 @@ jobs:
     branch: $[ dependencies.compat_versions_pr.outputs['out.branch'] ]
   steps:
   - checkout: none
+  - template: ci/bash-lib.yml
+    parameters:
+      var_name: bash-lib
   - bash: |
       set -euo pipefail
-      az extension add --name azure-devops
-      echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
-      az pipelines build queue --branch $(branch) --definition-name "digital-asset.daml-daily-compat" --org "https://dev.azure.com/digitalasset" --project daml
-      az pipelines build queue --branch $(branch) --definition-name "PRs" --org "https://dev.azure.com/digitalasset" --project daml
+      source $(bash-lib)
+      trigger_azure $(System.AccessToken) --branch $(branch) PRs
+      trigger_azure $(System.AccessToken) --branch $(branch) digital-asset.daml-daily-compat

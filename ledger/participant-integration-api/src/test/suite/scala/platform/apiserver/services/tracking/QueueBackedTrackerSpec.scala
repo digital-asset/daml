@@ -3,10 +3,10 @@
 
 package com.daml.platform.apiserver.services.tracking
 
-import akka.stream.scaladsl.{Keep, Source, SourceQueueWithComplete}
+import akka.stream.scaladsl.{Keep, Source}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
-import akka.stream.{Materializer, OverflowStrategy}
+import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import akka.{Done, NotUsed}
 import com.daml.grpc.RpcProtoExtractors
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, TestingException}
@@ -25,6 +25,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{BeforeAndAfterEach, Inside}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 class QueueBackedTrackerSpec
     extends AsyncWordSpec
@@ -38,7 +39,7 @@ class QueueBackedTrackerSpec
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private var consumer: TestSubscriber.Probe[NotUsed] = _
-  private var queue: SourceQueueWithComplete[QueueBackedTracker.QueueInput] = _
+  private var queue: BoundedSourceQueue[QueueBackedTracker.QueueInput] = _
 
   override protected def beforeEach(): Unit = {
     val (q, sink) = alwaysSuccessfulQueue(bufferSize = 1)
@@ -48,7 +49,8 @@ class QueueBackedTrackerSpec
 
   override protected def afterEach(): Unit = {
     consumer.cancel()
-    queue.complete()
+    Try(queue.complete())
+    ()
   }
 
   "Tracker Implementation" when {
@@ -95,63 +97,110 @@ class QueueBackedTrackerSpec
     }
 
     "input is submitted, and the queue has been completed" should {
-      "return an ABORTED error" in {
-
-        val tracker1 = new QueueBackedTracker(
+      "return an UNAVAILABLE error with self-service error codes enabled" in {
+        val tracker = new QueueBackedTracker(
           queue,
           Future.successful(Done),
           ErrorFactories(useSelfServiceErrorCodes = true),
         )
-        val tracker2 = new QueueBackedTracker(
+        queue.complete()
+        tracker.track(input(2)).map { completion =>
+          completion should matchPattern {
+            case Left(
+                  CompletionResponse
+                    .QueueSubmitFailure(RpcProtoExtractors.Status(com.google.rpc.Code.UNAVAILABLE))
+                ) =>
+          }
+        }
+      }
+
+      "return an ABORTED error with self-service error codes disabled" in {
+        val tracker = new QueueBackedTracker(
           queue,
           Future.successful(Done),
           ErrorFactories(useSelfServiceErrorCodes = false),
         )
 
-        def testIt(tracker: QueueBackedTracker) = {
-          queue.complete()
-          tracker.track(input(2)).map { completion =>
-            completion should matchPattern {
-              case Left(
-                    CompletionResponse
-                      .QueueSubmitFailure(RpcProtoExtractors.Status(com.google.rpc.Code.ABORTED))
-                  ) =>
-            }
+        queue.complete()
+        tracker.track(input(2)).map { completion =>
+          completion should matchPattern {
+            case Left(
+                  CompletionResponse
+                    .QueueSubmitFailure(RpcProtoExtractors.Status(com.google.rpc.Code.ABORTED))
+                ) =>
           }
         }
-
-        testIt(tracker1)
-        testIt(tracker2)
       }
     }
 
     "input is submitted, and the queue has failed" should {
-      "return an ABORTED error" in {
-        val tracker1 = new QueueBackedTracker(
+      "return an INTERNAL error with self-service error codes enabled" in {
+        val tracker = new QueueBackedTracker(
           queue,
           Future.successful(Done),
           ErrorFactories(useSelfServiceErrorCodes = true),
         )
-        val tracker2 = new QueueBackedTracker(
+
+        queue.fail(TestingException("The queue fails with this error."))
+        tracker.track(input(2)).map { completion =>
+          completion should matchPattern {
+            case Left(
+                  CompletionResponse
+                    .QueueSubmitFailure(RpcProtoExtractors.Status(com.google.rpc.Code.INTERNAL))
+                ) =>
+          }
+        }
+      }
+
+      "return an ABORTED error with self-service error codes disabled" in {
+        val tracker = new QueueBackedTracker(
           queue,
           Future.successful(Done),
           ErrorFactories(useSelfServiceErrorCodes = false),
         )
 
-        def testIt(tracker: QueueBackedTracker) = {
-          queue.fail(TestingException("The queue fails with this error."))
+        queue.fail(TestingException("The queue fails with this error."))
+        tracker.track(input(2)).map { completion =>
+          completion should matchPattern {
+            case Left(
+                  CompletionResponse
+                    .QueueSubmitFailure(RpcProtoExtractors.Status(com.google.rpc.Code.ABORTED))
+                ) =>
+          }
+        }
+      }
+    }
+
+    "input is submitted, and the offer method has thrown an exception" should {
+      "return an INTERNAL error" in {
+        def testIt(useSelfServiceErrorCodes: Boolean) = {
+          val fakeQueue = new BoundedSourceQueue[QueueInput] {
+            override def offer(elem: QueueInput): QueueOfferResult =
+              throw new IllegalArgumentException("test")
+
+            override def complete(): Unit = ()
+
+            override def fail(ex: Throwable): Unit = ()
+          }
+          val tracker = new QueueBackedTracker(
+            fakeQueue,
+            Future.successful(Done),
+            ErrorFactories(useSelfServiceErrorCodes),
+          )
+
+          tracker.track(input(1))
           tracker.track(input(2)).map { completion =>
             completion should matchPattern {
               case Left(
                     CompletionResponse
-                      .QueueSubmitFailure(RpcProtoExtractors.Status(com.google.rpc.Code.ABORTED))
+                      .QueueSubmitFailure(RpcProtoExtractors.Status(com.google.rpc.Code.INTERNAL))
                   ) =>
             }
           }
         }
 
-        testIt(tracker1)
-        testIt(tracker2)
+        testIt(useSelfServiceErrorCodes = false)
+        testIt(useSelfServiceErrorCodes = true)
       }
     }
   }
@@ -164,9 +213,9 @@ object QueueBackedTrackerSpec {
 
   private def alwaysSuccessfulQueue(bufferSize: Int)(implicit
       materializer: Materializer
-  ): (SourceQueueWithComplete[QueueInput], TestSubscriber.Probe[NotUsed]) =
+  ): (BoundedSourceQueue[QueueInput], TestSubscriber.Probe[NotUsed]) =
     Source
-      .queue[QueueInput](bufferSize, OverflowStrategy.dropNew)
+      .queue[QueueInput](bufferSize)
       .map { in =>
         val completion = CompletionResponse.CompletionSuccess(
           Completion(

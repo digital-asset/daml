@@ -129,7 +129,7 @@ class AnfTest extends AnyWordSpec with Matchers {
 
   "error applied to 1 arg" should {
     "be transformed to ANF as expected" in {
-      val original = slam(1, source.SEApp(source.SEBuiltin(SBError), Array(sarg0)))
+      val original = slam(1, source.SEApp(source.SEBuiltin(SBError), List(sarg0)))
       val expected = lam(1, target.SEAppAtomicSaturatedBuiltin(SBError, Array(arg0)))
       testTransform(original, expected)
     }
@@ -137,7 +137,7 @@ class AnfTest extends AnyWordSpec with Matchers {
 
   "error (over) applied to 2 arg" should {
     "be transformed to ANF as expected" in {
-      val original = slam(2, source.SEApp(source.SEBuiltin(SBError), Array(sarg0, sarg1)))
+      val original = slam(2, source.SEApp(source.SEBuiltin(SBError), List(sarg0, sarg1)))
       val expected = lam(2, target.SEAppAtomicFun(target.SEBuiltin(SBError), Array(arg0, arg1)))
       testTransform(original, expected)
     }
@@ -270,19 +270,19 @@ class AnfTest extends AnyWordSpec with Matchers {
 
   // We have different expression types before/after the ANF transform, so we different constructors.
   // Use "s" (for "source") as a prefix to distinguish.
-  private def slam(n: Int, body: source.SExpr): source.SExpr = source.SEMakeClo(Array(), n, body)
+  private def slam(n: Int, body: source.SExpr): source.SExpr = source.SEMakeClo(List(), n, body)
   private def sclo1(fv: source.SELoc, n: Int, body: source.SExpr): source.SExpr =
-    source.SEMakeClo(Array(fv), n, body)
+    source.SEMakeClo(List(fv), n, body)
   private def sapp(func: source.SExpr, arg: source.SExpr): source.SExpr =
-    source.SEAppGeneral(func, Array(arg))
+    source.SEApp(func, List(arg))
   private def sbinop(op: SBuiltinPure, x: source.SExpr, y: source.SExpr): source.SExpr =
-    source.SEApp(source.SEBuiltin(op), Array(x, y))
+    source.SEApp(source.SEBuiltin(op), List(x, y))
   private def sbinop(op: SBuiltinArithmetic, x: source.SExpr, y: source.SExpr): source.SExpr =
-    source.SEApp(source.SEBuiltin(op), Array(x, y))
+    source.SEApp(source.SEBuiltin(op), List(x, y))
   private def sapp2(func: source.SExpr, arg1: source.SExpr, arg2: source.SExpr): source.SExpr =
-    source.SEAppGeneral(func, Array(arg1, arg2))
+    source.SEApp(func, List(arg1, arg2))
   private def site(i: source.SExpr, t: source.SExpr, e: source.SExpr): source.SExpr =
-    source.SECase(i, Array(source.SCaseAlt(patTrue, t), source.SCaseAlt(patFalse, e)))
+    source.SECase(i, List(source.SCaseAlt(patTrue, t), source.SCaseAlt(patFalse, e)))
   private def sarg0 = source.SELocA(0)
   private def sarg1 = source.SELocA(1)
   private def sarg2 = source.SELocA(2)

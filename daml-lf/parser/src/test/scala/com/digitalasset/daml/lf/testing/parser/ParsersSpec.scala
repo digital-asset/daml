@@ -332,9 +332,9 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           EFromAnyException(E, e"anyException"),
         "throw @Unit @Mod:E exception" ->
           EThrow(TUnit, E, e"exception"),
-        "icall @Mod:I method body" ->
+        "call_method @Mod:I method body" ->
           ECallInterface(I.tycon, n"method", e"body"),
-        "icall @'-pkgId-':Mod:I method body" ->
+        "call_method @'-pkgId-':Mod:I method body" ->
           ECallInterface(I.tycon, n"method", e"body"),
         "to_interface @Mod:T @Mod:I body" ->
           EToInterface(T.tycon, I.tycon, e"body"),
@@ -433,7 +433,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "exercise @Mod:T Choice cid arg" ->
           UpdateExercise(T.tycon, n"Choice", e"cid", e"arg"),
         "exercise_by_interface @Mod:I Choice cid arg" ->
-          UpdateExerciseInterface(I.tycon, n"Choice", e"cid", e"arg"),
+          UpdateExerciseInterface(I.tycon, n"Choice", e"cid", e"arg", None),
         "exercise_by_key @Mod:T Choice key arg" ->
           UpdateExerciseByKey(T.tycon, n"Choice", e"key", e"arg"),
         "fetch_by_key @Mod:T e" ->
@@ -569,7 +569,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               choice Feed;
               choice Rest;
             };
-            implements '-pkgId-':Mod2:Referenceable { 
+            implements '-pkgId-':Mod2:Referenceable {
               method uuid = "123e4567-e89b-12d3-a456-426614174000";
             };
             key @Party (Mod:Person {name} this) (\ (p: Party) -> p);
@@ -756,21 +756,21 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
 
       val p = """
        module Mod {
-       
+
           interface (this: Person) = {
             precondition False;
             method asParty: Party;
             method getName: Text;
             choice Sleep (self) (u:Unit) : ContractId Mod:Person
-              , controllers Cons @Party [icall @Mod:Person asParty this] (Nil @Party)
+              , controllers Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)
               to upure @(ContractId Mod:Person) self;
             choice @nonConsuming Nap (self) (i : Int64): Int64
-              , controllers Cons @Party [icall @Mod:Person asParty this] (Nil @Party)
+              , controllers Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)
               , observers Nil @Party
               to upure @Int64 i;
           } ;
        }
-      
+
       """
 
       val interface =
@@ -785,7 +785,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             n"Sleep" -> TemplateChoice(
               name = n"Sleep",
               consuming = true,
-              controllers = e"Cons @Party [icall @Mod:Person asParty this] (Nil @Party)",
+              controllers = e"Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)",
               choiceObservers = None,
               selfBinder = n"self",
               argBinder = n"u" -> TUnit,
@@ -795,7 +795,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             n"Nap" -> TemplateChoice(
               name = n"Nap",
               consuming = false,
-              controllers = e"Cons @Party [icall @Mod:Person asParty this] (Nil @Party)",
+              controllers = e"Cons @Party [call_method @Mod:Person asParty this] (Nil @Party)",
               choiceObservers = Some(e"Nil @Party"),
               selfBinder = n"self",
               argBinder = n"i" -> TInt64,

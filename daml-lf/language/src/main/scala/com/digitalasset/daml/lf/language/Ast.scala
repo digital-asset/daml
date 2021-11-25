@@ -504,6 +504,11 @@ object Ast {
       choice: ChoiceName,
       cidE: Expr,
       argE: Expr,
+      guardE: Option[Expr],
+      // `guardE` is an optional expression of type Interface -> Bool which is evaluated
+      // after fetching the contract but before running the exercise body. If the guard
+      // returns false, or an exception is raised during evaluation, the transaction is
+      // aborted.
   ) extends Update
   final case class UpdateExerciseByKey(
       templateId: TypeConName,

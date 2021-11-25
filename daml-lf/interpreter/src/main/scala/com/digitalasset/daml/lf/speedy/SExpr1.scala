@@ -35,20 +35,13 @@ private[speedy] object SExpr1 {
   /** Function application:
     *    General case: 'fun' and 'args' are any kind of expression
     */
-  final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals
 
-  object SEApp {
-    def apply(fun: SExpr, args: Array[SExpr]): SExpr = {
-      SEAppGeneral(fun, args)
-    }
-  }
+  final case class SEApp(fun: SExpr, args: List[SExpr]) extends SExpr
 
   /** Closure creation. Create a new closure object storing the free variables
     * in 'body'.
     */
-  final case class SEMakeClo(fvs: Array[SELoc], arity: Int, body: SExpr)
-      extends SExpr
-      with SomeArrayEquals
+  final case class SEMakeClo(fvs: List[SELoc], arity: Int, body: SExpr) extends SExpr
 
   /** SELoc -- Reference to the runtime location of a variable.
     *
@@ -67,7 +60,7 @@ private[speedy] object SExpr1 {
   final case class SELocF(n: Int) extends SELoc
 
   /** Pattern match. */
-  final case class SECase(scrut: SExpr, alts: Array[SCaseAlt]) extends SExpr with SomeArrayEquals
+  final case class SECase(scrut: SExpr, alts: List[SCaseAlt]) extends SExpr
 
   /** A let-expression with a single RHS
     * This form only exists *during* the ANF transformation, but not when the ANF

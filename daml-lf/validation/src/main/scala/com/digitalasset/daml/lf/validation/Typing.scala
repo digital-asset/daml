@@ -456,12 +456,10 @@ private[validation] object Typing {
     def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
       iface match {
         case DefInterface(param, fixedChoices, methods, precond) =>
-          fixedChoices.values.foreach(
-            introExprVar(param, TTyCon(ifaceName)).checkChoice(ifaceName, _)
-          )
-          methods.values.foreach(checkIfaceMethod)
           val env = introExprVar(param, TTyCon(ifaceName))
           env.checkExpr(precond, TBool)
+          methods.values.foreach(checkIfaceMethod)
+          fixedChoices.values.foreach(env.checkChoice(ifaceName, _))
       }
 
     def checkIfaceMethod(method: InterfaceMethod): Unit = {
@@ -906,10 +904,14 @@ private[validation] object Typing {
         chName: ChoiceName,
         cid: Expr,
         arg: Expr,
+        guard: Option[Expr],
     ): Type = {
       checkExpr(cid, TContractId(TTyCon(tpl)))
       val choice = handleLookup(ctx, interface.lookupInterfaceChoice(tpl, chName))
       checkExpr(arg, choice.argBinder._2)
+      guard.foreach(guardExpr => checkExpr(guardExpr, TFun(TTyCon(tpl), TBool)))
+      // TODO https://github.com/digital-asset/daml/issues/11703
+      //   Verify that guard typechecks correctly in typechecker tests.
       TUpdate(choice.returnType)
     }
 
@@ -963,8 +965,8 @@ private[validation] object Typing {
         typeOfCreateInterface(iface, arg)
       case UpdateExercise(tpl, choice, cid, arg) =>
         typeOfExercise(tpl, choice, cid, arg)
-      case UpdateExerciseInterface(tpl, choice, cid, arg) =>
-        typeOfExerciseInterface(tpl, choice, cid, arg)
+      case UpdateExerciseInterface(tpl, choice, cid, arg, guard) =>
+        typeOfExerciseInterface(tpl, choice, cid, arg, guard)
       case UpdateExerciseByKey(tpl, choice, key, arg) =>
         typeOfExerciseByKey(tpl, choice, key, arg)
       case UpdateFetch(tpl, cid) =>

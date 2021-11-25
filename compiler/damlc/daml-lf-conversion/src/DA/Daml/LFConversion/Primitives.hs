@@ -422,7 +422,7 @@ convertPrim version "EToAnyContractKey"
 
 convertPrim _ "ESignatoryInterface" (TCon interface :-> TList TParty) =
     ETmLam (mkVar "this", TCon interface) $
-    EExperimental "RESOLVE_VIRTUAL_SIGNATORIES"
+    EExperimental "RESOLVE_VIRTUAL_SIGNATORY"
         (TCon interface :-> TCon interface :-> TList TParty)
         `ETmApp` EVar (mkVar "this") `ETmApp` EVar (mkVar "this")
 

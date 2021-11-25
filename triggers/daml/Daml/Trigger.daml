@@ -52,13 +52,8 @@ import DA.Action
 import DA.Action.State (execState)
 import DA.Foldable (any)
 import DA.Functor ((<&>))
-#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 import DA.Map (Map)
 import qualified DA.Map as Map
-#else
-import DA.Next.Map (Map)
-import qualified DA.Next.Map as Map
-#endif
 import DA.Optional
 
 import Daml.Trigger.Internal
@@ -71,11 +66,8 @@ import qualified Daml.Trigger.LowLevel as LowLevel
 getContracts : forall a. Template a => ACS -> [(ContractId a, a)]
 getContracts acs@(ACS tpls _) = mapOptional fromAny
                                 $ filter (\(cid, _) -> not $ cid `elem` allPending)
-#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
                                 $ optional [] Map.toList
-                                $ Map.lookup (templateTypeRep @a)
-#endif
-                                  tpls
+                                $ Map.lookup (templateTypeRep @a) tpls
   where
     fromAny (cid, tpl) = (,) <$> fromAnyContractId cid <*> fromAnyTemplate tpl
     allPending = getPendingContracts acs
@@ -86,11 +78,7 @@ getPendingContracts (ACS _ pending) = concatMap snd $ Map.toList pending
 getContractById : forall a. Template a => ContractId a -> ACS -> Optional a
 getContractById id (ACS tpls pending) = do
   let aid = toAnyContractId id
-#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
       implSpecific = Map.lookup aid <=< Map.lookup (templateTypeRep @a)
-#else
-      implSpecific = fmap snd . find ((aid ==) . fst)
-#endif
   aa <- implSpecific tpls
   a <- fromAnyTemplate aa
   if any (elem aid) pending then None else Some a

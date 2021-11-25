@@ -67,8 +67,6 @@ damlStdlibTypes ver
         ]
     types = map (bimap LF.ModuleName LF.TypeConName)
         [ (["DA", "Random"], ["Minstd"])
-        , (["DA", "Next", "Set"], ["Set"])
-        , (["DA", "Next", "Map"], ["Map"])
         , (["DA", "Generics"], ["DecidedStrictness"])
         , (["DA", "Generics"], ["SourceStrictness"])
         , (["DA", "Generics"], ["SourceUnpackedness"])
@@ -80,4 +78,3 @@ damlStdlibTypes ver
         , (["DA", "Generics"], ["U1"])
         , (["DA", "Stack"], ["SrcLoc"])
         ]
-

@@ -7,7 +7,7 @@ import akka.Done
 import akka.actor.Cancellable
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import com.daml.error.definitions.IndexErrors
+import com.daml.error.definitions.IndexErrors.IndexDbException
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.offset.Offset
@@ -147,12 +147,11 @@ private[platform] object ReadOnlySqlLedger {
         executionContext: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[LedgerId] = {
+      // If the index database is not yet fully initialized,
+      // querying for the ledger ID will throw different errors,
+      // depending on the database, and how far the initialization is.
       val isRetryable: PartialFunction[Throwable, Boolean] = {
-        // If the index database is not yet fully initialized,
-        // querying for the ledger ID will throw different errors,
-        // depending on the database, and how far the initialization is.
-        case IndexErrors.DatabaseErrors.SqlTransientError(_) => true
-        case IndexErrors.DatabaseErrors.SqlNonTransientError(_) => true
+        case _: IndexDbException => true
         case _: LedgerIdNotFoundException => true
         case _: MismatchException.LedgerId => false
         case _ => false

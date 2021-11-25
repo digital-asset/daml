@@ -52,7 +52,7 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
 
   // TODO: move this into the speedy compiler code
   private[lf] def apply(args: compileTime.SExpr*): compileTime.SExpr =
-    compileTime.SEApp(compileTime.SEBuiltin(this), args.toArray)
+    compileTime.SEApp(compileTime.SEBuiltin(this), args.toList)
 
   // TODO: avoid constructing application expression at run time
   private[lf] def apply(args: runTime.SExpr*): runTime.SExpr =
@@ -1149,6 +1149,40 @@ private[lf] object SBuiltin {
             )
           )
       }
+    }
+  }
+
+  final case class SBApplyChoiceGuard(
+      choiceName: ChoiceName,
+      byInterface: Option[TypeConName],
+  ) extends SBuiltin(3) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Unit = {
+      val guard = args.get(0)
+      val payload = getSRecord(args, 1)
+      val coid = getSContractId(args, 2)
+      val templateId = payload.id
+
+      machine.ctrl = SEApp(SEValue(guard), Array(SEValue(payload)))
+      machine.pushKont(KCheckChoiceGuard(machine, coid, templateId, choiceName, byInterface))
+    }
+  }
+
+  final case class SBGuardTemplateId(
+      templateId: TypeConName
+  ) extends SBuiltin(2) {
+    override private[speedy] def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+    ): Unit = {
+      val coid = getSContractId(args, 0)
+      val record = getSRecord(args, 1)
+      if (record.id != templateId)
+        machine.ctrl = SEDamlException(IE.WronglyTypedContract(coid, templateId, record.id))
+      else
+        machine.returnValue = SBool(true)
     }
   }
 

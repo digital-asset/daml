@@ -34,7 +34,7 @@ The goal is to enable users, developers and operators to act on the encountered
 errors in a self-service manner, either in an automated-way or manually.
 
 Configuration
--------------
+======================================
 
 The new error code formats and adapted gRPC response statuses are returned by default starting with the Daml 1.18 SDK release.
 Clients can still migrate to Daml SDK 1.18 and use the pre-1.18 gRPC status code response behavior by using ``--use-pre-1.18-error-codes``
@@ -42,7 +42,7 @@ as a command line option. However, this option is deprecated and will be removed
 
 
 Glossary
----------------------------
+======================================
 
 Error
         Represents an occurrence of a failure.
@@ -82,14 +82,14 @@ Correlation id
 
 
 Error Categories
----------------------------
+======================================
 
 The error categories allow to group errors such that application logic can be built
 in a sensible way to automatically deal with errors and decide whether to retry
 a request or escalate to the operator.
 
 TransientServerFailure
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------------------------------------------------------------------------------
     **Category id**: 1
 
     **gRPC status code**: UNAVAILABLE
@@ -104,7 +104,7 @@ TransientServerFailure
 
 
 ContentionOnSharedResources
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------------------------------------------------------------------------------
     **Category id**: 2
 
     **gRPC status code**: ABORTED
@@ -119,7 +119,7 @@ ContentionOnSharedResources
 
 
 DeadlineExceededRequestStateUnknown
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------------------------------------------------------------------------------
     **Category id**: 3
 
     **gRPC status code**: DEADLINE_EXCEEDED
@@ -134,7 +134,7 @@ DeadlineExceededRequestStateUnknown
 
 
 SystemInternalAssumptionViolated
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------------------------------------------------------------------------------
     **Category id**: 4
 
     **gRPC status code**: INTERNAL
@@ -149,7 +149,7 @@ SystemInternalAssumptionViolated
 
 
 MaliciousOrFaultyBehaviour
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------------------------------------------------------------------------------
     **Category id**: 5
 
     **gRPC status code**: UNKNOWN
@@ -164,7 +164,7 @@ MaliciousOrFaultyBehaviour
 
 
 AuthInterceptorInvalidAuthenticationCredentials
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------------------------------------------------------------------------------
     **Category id**: 6
 
     **gRPC status code**: UNAUTHENTICATED
@@ -179,7 +179,7 @@ AuthInterceptorInvalidAuthenticationCredentials
 
 
 InsufficientPermission
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------------------------------------------------------------------------------
     **Category id**: 7
 
     **gRPC status code**: PERMISSION_DENIED
@@ -194,7 +194,7 @@ InsufficientPermission
 
 
 InvalidIndependentOfSystemState
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------------------------------------------------------------------------------
     **Category id**: 8
 
     **gRPC status code**: INVALID_ARGUMENT
@@ -209,7 +209,7 @@ InvalidIndependentOfSystemState
 
 
 InvalidGivenCurrentSystemStateOther
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------------------------------------------------------------------------------
     **Category id**: 9
 
     **gRPC status code**: FAILED_PRECONDITION
@@ -224,7 +224,7 @@ InvalidGivenCurrentSystemStateOther
 
 
 InvalidGivenCurrentSystemStateResourceExists
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------------------------------------------------------------------------------
     **Category id**: 10
 
     **gRPC status code**: ALREADY_EXISTS
@@ -239,7 +239,7 @@ InvalidGivenCurrentSystemStateResourceExists
 
 
 InvalidGivenCurrentSystemStateResourceMissing
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------------------------------------------------------------------------------
     **Category id**: 11
 
     **gRPC status code**: NOT_FOUND
@@ -254,7 +254,7 @@ InvalidGivenCurrentSystemStateResourceMissing
 
 
 InvalidGivenCurrentSystemStateSeekAfterEnd
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------------------------------------------------------------------------------
     **Category id**: 12
 
     **gRPC status code**: OUT_OF_RANGE
@@ -269,7 +269,7 @@ InvalidGivenCurrentSystemStateSeekAfterEnd
 
 
 BackgroundProcessDegradationWarning
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------------------------------------------------------------------------------------
     **Category id**: 13
 
     **gRPC status code**: N/A
@@ -286,7 +286,7 @@ BackgroundProcessDegradationWarning
 
 
 Anatomy of an Error
----------------------------
+======================================
 
 
 Errors returned to users contain a `gRPC status code`_, a description and additional machine readable information
@@ -294,7 +294,7 @@ represented in the `rich gRPC error model`_.
 
 
 Error Description
-^^^^^^^^^^^^^^^^^^^
+--------------------------------------
 
 We use the `standard gRPC description`_ that additionally adheres to our custom message format:
 
@@ -330,7 +330,7 @@ In a concrete example an error description might look like this:
 
 
 Additional Machine Readable Information
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------------------------------------------------------
 
 We use following error details:
 
@@ -355,7 +355,7 @@ Error Codes Inventory
 
 
 .. This file is generated:
-.. include:: error_codes_inventory.rst
+.. include:: error-codes-inventory.rst
 
 
 Error Codes Migration Guide
@@ -369,7 +369,7 @@ The table below outlines all the cases and error conditions when a Ledger API se
 gRPC status code in comparison to the pre-1.18 releases.
 
 Common Ledger API changes
----------------------------
+======================================
 
 The table below outlines generic gRPC status code changes pertaining to the Ledger API
 and apply to all ledger backends. For changes specific to a ledger backend, check the next subsections.
@@ -379,7 +379,7 @@ and apply to all ledger backends. For changes specific to a ledger backend, chec
 .. include:: status-codes-migration-table-ledger-api.rst
 
 Sandbox (classic)
----------------------------
+======================================
 
 The following gRPC status codes have changed for submission rejections in Sandbox classic.
 
@@ -405,7 +405,7 @@ The following gRPC status codes have changed for submission rejections in Sandbo
 
 
 Daml Sandbox and VMBC
----------------------------
+======================================
 
 The following gRPC status codes have changed for submission rejections in the Ledger API backed by KV-based ledgers (Daml Sandbox and VMBC).
 

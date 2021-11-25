@@ -34,7 +34,7 @@ abstract class ObserverWithResult[T, Result](logger: Logger) extends StreamObser
       ex.getMessage.contains("Server is shutting down")
 
   override def onCompleted(): Unit = {
-    logger.info(withStreamName(s"Completed."))
+    logger.info(withStreamName(s"Stream completed."))
     promise.completeWith(completeWith())
   }
 

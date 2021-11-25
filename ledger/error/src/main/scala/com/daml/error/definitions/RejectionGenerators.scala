@@ -150,6 +150,11 @@ class RejectionGenerators(conformanceMode: Boolean) {
             .Error(
               renderedMessage
             )
+        case _: LfInterpretationError.ChoiceGuardFailed =>
+          LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
+            .Error(
+              renderedMessage
+            )
       }
     }
 

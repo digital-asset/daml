@@ -1,8 +1,0 @@
--- Copyright (c) 2021, Digital Asset (Switzerland) GmbH and/or its affiliates.
--- All rights reserved.
-
--- @SINCE-LF 1.11
--- @WARN DA.Next.Map is deprecated. Please use DA.Map instead.
-module NextMapDeprecated where
-import DA.Next.Map ()
-

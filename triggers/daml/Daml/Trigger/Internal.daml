@@ -24,14 +24,9 @@ module Daml.Trigger.Internal
 
 import DA.Action.State
 import DA.Functor ((<&>))
-#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 import DA.Map (Map)
 import qualified DA.Map as Map
 import DA.Optional (fromOptional)
-#else
-import DA.Next.Map (Map)
-import qualified DA.Next.Map as Map
-#endif
 
 import Daml.Trigger.LowLevel hiding (Trigger)
 
@@ -42,13 +37,7 @@ import Daml.Trigger.LowLevel hiding (Trigger)
 
 -- This will change to a Map once we have proper maps in Daml-LF
 data ACS = ACS
-  { activeContracts :
-#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
-      Map.Map TemplateTypeRep
-        (Map.Map AnyContractId AnyTemplate)
-#else
-      [(AnyContractId, AnyTemplate)]
-#endif
+  { activeContracts : Map.Map TemplateTypeRep (Map.Map AnyContractId AnyTemplate)
   , pendingContracts : Map CommandId [AnyContractId]
   }
 
@@ -113,44 +102,27 @@ addCommands m (Commands cid cmds) = Map.insert cid cmds m
 
 -- | HIDE
 insertTpl : AnyContractId -> AnyTemplate -> ACS -> ACS
-#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 insertTpl cid tpl acs = acs { activeContracts = Map.alter addct cid.templateId acs.activeContracts }
   where addct = Some . Map.insert cid tpl . fromOptional mempty
-#else
-insertTpl cid tpl acs = acs { activeContracts = (cid, tpl) :: acs.activeContracts }
-#endif
 
 -- | HIDE
-#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 groupActiveContracts :
   [(AnyContractId, AnyTemplate)] -> Map.Map TemplateTypeRep (Map.Map AnyContractId AnyTemplate)
 groupActiveContracts = foldr (\v@(cid, _) -> Map.alter (addct v) cid.templateId) Map.empty
   where addct (cid, tpl) = Some . Map.insert cid tpl . fromOptional mempty
-#else
-groupActiveContracts : forall a. a -> a
-groupActiveContracts a = a
-#endif
 
 -- | HIDE
 deleteTpl : AnyContractId -> ACS -> ACS
-#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 deleteTpl cid acs = acs { activeContracts = Map.alter rmct cid.templateId acs.activeContracts }
   where rmct om = do
           m <- om
           let m' = Map.delete cid m
           if Map.null m' then None else Some m'
-#else
-deleteTpl cid acs = acs { activeContracts = filter (\(cid', _) -> cid /= cid') acs.activeContracts }
-#endif
 
 -- | HIDE
 lookupTpl : Template a => AnyContractId -> ACS -> Optional a
 lookupTpl cid acs = do
-#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
   tpl <- Map.lookup cid =<< Map.lookup cid.templateId acs.activeContracts
-#else
-  (_, tpl) <- find ((cid ==) . fst) acs.activeContracts
-#endif
   fromAnyTemplate tpl
 
 -- | HIDE

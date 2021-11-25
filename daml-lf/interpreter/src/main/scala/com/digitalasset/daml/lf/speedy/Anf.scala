@@ -301,7 +301,7 @@ private[lf] object Anf {
 
       case source.SEVal(x) => Bounce(() => transform(depth, target.SEVal(x), k))
 
-      case source.SEAppGeneral(func, args) =>
+      case source.SEApp(func, args) =>
         // It's safe to perform ANF if the func-expression has no effects when evaluated.
         val safeFunc =
           func match {
@@ -311,22 +311,22 @@ private[lf] object Anf {
           }
         // It's also safe to perform ANF for applications of a single argument.
         if (safeFunc || args.size == 1) {
-          transformMultiApp[A](depth, env, func, args, k)(transform)
+          transformMultiApp[A](depth, env, func, args.toArray, k)(transform)
         } else {
-          transformMultiAppSafely[A](depth, env, func, args, k)(transform)
+          transformMultiAppSafely[A](depth, env, func, args.toArray, k)(transform)
         }
 
       case source.SEMakeClo(fvs0, arity, body0) =>
         val fvs = fvs0.map((loc) => makeRelativeL(depth)(makeAbsoluteL(env, loc)))
         val body = flattenToAnfInternal(body0).wrapped
-        Bounce(() => transform(depth, target.SEMakeClo(fvs, arity, body), k))
+        Bounce(() => transform(depth, target.SEMakeClo(fvs.toArray, arity, body), k))
 
       case source.SECase(scrut, alts0) => {
         Bounce(() =>
           atomizeExp(depth, env, scrut, k) { (depth, scrut, txK) =>
             val scrut1 = makeRelativeA(depth)(scrut)
             Bounce(() =>
-              flattenAlts(depth, env, alts0) { alts =>
+              flattenAlts(depth, env, alts0.toArray) { alts =>
                 Bounce(() => transform(depth, target.SECaseAtomic(scrut1, alts), txK))
               }
             )

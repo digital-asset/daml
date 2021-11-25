@@ -6,9 +6,9 @@ package com.daml.ledger.api.benchtool
 import com.daml.ledger.api.benchtool.config.WorkflowConfig.StreamConfig
 import com.daml.ledger.api.benchtool.metrics.{
   MetricRegistryOwner,
-  MetricsCollector,
   MetricsSet,
   StreamMetrics,
+  StreamResult,
 }
 import com.daml.ledger.api.benchtool.services.LedgerApiServices
 import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
@@ -110,7 +110,7 @@ object Benchmark {
         }
         .transform {
           case Success(results) =>
-            if (results.contains(MetricsCollector.Message.MetricsResult.ObjectivesViolated))
+            if (results.contains(StreamResult.ObjectivesViolated))
               Failure(new RuntimeException("Metrics objectives not met."))
             else Success(())
           case Failure(ex) =>

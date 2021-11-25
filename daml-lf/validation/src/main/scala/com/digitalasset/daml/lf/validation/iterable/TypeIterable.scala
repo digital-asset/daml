@@ -114,10 +114,11 @@ private[validation] object TypeIterable {
         Iterator(TTyCon(templateId)) ++
           iterator(cid) ++
           iterator(arg)
-      case UpdateExerciseInterface(interface, choice @ _, cid, arg) =>
+      case UpdateExerciseInterface(interface, choice @ _, cid, arg, guard) =>
         Iterator(TTyCon(interface)) ++
           iterator(cid) ++
-          iterator(arg)
+          iterator(arg) ++
+          guard.iterator.flatMap(iterator)
       case UpdateExerciseByKey(templateId, choice @ _, key, arg) =>
         Iterator(TTyCon(templateId)) ++
           iterator(key) ++

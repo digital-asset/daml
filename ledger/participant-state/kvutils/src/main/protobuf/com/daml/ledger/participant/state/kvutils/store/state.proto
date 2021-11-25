@@ -62,6 +62,7 @@ message DamlCommandDedupValue {
     google.protobuf.Timestamp record_time = 3;
     PreExecutionDeduplicationBounds record_time_bounds = 4;
   }
+  string submission_id = 5;
 }
 message PreExecutionDeduplicationBounds {
   // record_time is not available during pre-execution

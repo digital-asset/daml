@@ -170,3 +170,22 @@ jobs:
             tell_slack "<@${user}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has completed with status $(build_status) (changelog: $(changelog_status))." \
                        "$(Slack.team-daml-ci)"
         fi
+
+- job: self_service_compat_test
+  pool:
+    vmImage: ubuntu-20.04
+  steps:
+  - checkout: self
+  - template: bash-lib.yml
+    parameters:
+      var_name: bash-lib
+  - bash: |
+      set -euo pipefail
+      source $(bash-lib)
+      COMMIT=$(git rev-parse HEAD^2)
+      REQUEST=$(git log -n1 --format="%(trailers:key=run-full-compat,valueonly)" $COMMIT)
+      if [ $REQUEST == true ]; then
+        trigger_azure $AZURE_TOKEN --commit-id $COMMIT digital-asset.daml-daily-compat
+      fi
+    env:
+      AZURE_TOKEN: $(System.AccessToken)

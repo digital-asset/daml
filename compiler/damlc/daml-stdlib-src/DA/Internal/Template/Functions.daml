@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -13,16 +12,12 @@
 -- | MOVE Prelude Daml-LF primitives, just templates/contracts
 module DA.Internal.Template.Functions where
 
-#ifdef DAML_ANY_TYPE
 import DA.Internal.Any
-#endif
 import DA.Internal.LF
 import DA.Internal.Prelude
 import DA.Internal.Template
 
-#ifdef DAML_GENMAP && DAML_ANY_TYPE
 import GHC.Types (primitive)
-#endif
 
 type TemplateOrInterface t =
   ( HasTemplateTypeRep t
@@ -227,28 +222,19 @@ instance IsParties (Optional Party) where
   toParties None = []
   toParties (Some p) = [p]
 
-#ifdef DAML_GENERIC_COMPARISON && DAML_ANY_TYPE
-
 instance Eq AnyTemplate where
   (==) = primitive @"BEEqual"
-
 instance Eq AnyChoice where
   (==) = primitive @"BEEqual"
-
 instance Eq AnyContractKey where
   (==) = primitive @"BEEqual"
 
 instance Ord AnyTemplate where
   (<=) = primitive @"BELessEq"
-
 instance Ord AnyChoice where
   (<=) = primitive @"BELessEq"
-
 instance Ord AnyContractKey where
   (<=) = primitive @"BELessEq"
-#endif
-
-#ifdef DAML_TYPE_REP
 
 -- | Generate a unique textual representation of the template id.
 templateTypeRep : forall t. HasTemplateTypeRep t => TemplateTypeRep
@@ -257,11 +243,7 @@ templateTypeRep = TemplateTypeRep (_templateTypeRep ([] : [t]))
 instance Eq TemplateTypeRep where
   TemplateTypeRep a == TemplateTypeRep b = a == b
 
-#ifdef DAML_GENERIC_COMPARISON
 deriving instance Ord TemplateTypeRep
-#endif
-
-#ifdef DAML_ANY_TYPE
 
 -- | Wrap the template in `AnyTemplate`.
 --
@@ -325,8 +307,6 @@ fromAnyContractKey (AnyContractKey any rep)
   | Some k <- _fromAnyContractKey ([] : [t]) any
   , templateTypeRep @t == rep = Some k
   | otherwise = None
-#endif
-#endif
 
 deriving instance Eq Archive
 deriving instance Show Archive

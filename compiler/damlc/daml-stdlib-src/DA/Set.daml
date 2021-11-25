@@ -4,13 +4,6 @@
 {-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-#ifndef DAML_GENMAP
-
--- | HIDE
-module DA.Set where
-
-#else
-
 -- | Note: This is only supported in DAML-LF 1.11 or later.
 --
 -- This module exports the generic set type `Set k` and associated
@@ -159,4 +152,3 @@ instance Foldable.Foldable Set where
   foldMap f xs = Foldable.foldMap f (DA.Set.toList xs)
   length = size
   null = DA.Set.null
-#endif

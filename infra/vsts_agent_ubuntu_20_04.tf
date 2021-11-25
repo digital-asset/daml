@@ -16,7 +16,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-ubuntu_20_04
   name               = "vsts-agent-ubuntu-20-04"
   base_instance_name = "vsts-agent-ubuntu-20-04"
   region             = "us-east1"
-  target_size        = 20
+  target_size        = 30
 
   version {
     name              = "vsts-agent-ubuntu-20-04"

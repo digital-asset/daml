@@ -383,7 +383,7 @@ final class SqlLedgerSpec
           case Seq(Completion(`commandId1`, Some(status), _, _, _, _, _)) =>
             status.code should be(Status.Code.FAILED_PRECONDITION.value)
             status.message should be(
-              s"INVALID_LEDGER_TIME(9,$submissionId): Invalid ledger time: Ledger time 2021-09-01T18:05:00Z outside of range [2021-09-01T17:59:50Z, 2021-09-01T18:00:30Z]"
+              s"INVALID_LEDGER_TIME(9,$submissionId): Ledger time 2021-09-01T18:05:00Z outside of range [2021-09-01T17:59:50Z, 2021-09-01T18:00:30Z]"
             )
         }
       }
