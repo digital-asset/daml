@@ -48,7 +48,10 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       submissionId: Ref.SubmissionId,
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult] =
     Timed.completionStage(
       metrics.daml.services.write.uploadPackages,
       delegate.uploadPackages(submissionId, archives, sourceDescription),
@@ -58,7 +61,10 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       hint: Option[Ref.Party],
       displayName: Option[String],
       submissionId: Ref.SubmissionId,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult] =
     Timed.completionStage(
       metrics.daml.services.write.allocateParty,
       delegate.allocateParty(hint, displayName, submissionId),
@@ -68,7 +74,10 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       maxRecordTime: Time.Timestamp,
       submissionId: Ref.SubmissionId,
       config: Configuration,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult] =
     Timed.completionStage(
       metrics.daml.services.write.submitConfiguration,
       delegate.submitConfiguration(maxRecordTime, submissionId, config),

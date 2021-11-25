@@ -102,7 +102,7 @@ class ApiSubmissionServiceSpec
         any[Option[Ref.Party]],
         any[Option[Ref.Party]],
         any[Ref.SubmissionId],
-      )(any[TelemetryContext])
+      )(any[LoggingContext], any[TelemetryContext])
     ).thenReturn(completedFuture(state.SubmissionResult.Acknowledged))
 
     val service =
@@ -118,7 +118,7 @@ class ApiSubmissionServiceSpec
           eqTo(Some(Ref.Party.assertFromString(party))),
           eqTo(Some(party)),
           any[Ref.SubmissionId],
-        )(any[TelemetryContext])
+        )(any[LoggingContext], any[TelemetryContext])
       }
       verifyNoMoreInteractions(writeService)
       succeed
@@ -137,7 +137,7 @@ class ApiSubmissionServiceSpec
         any[Option[Ref.Party]],
         any[Option[Ref.Party]],
         any[Ref.SubmissionId],
-      )(any[TelemetryContext])
+      )(any[LoggingContext], any[TelemetryContext])
     ).thenReturn(completedFuture(state.SubmissionResult.Acknowledged))
 
     val service =
@@ -151,7 +151,7 @@ class ApiSubmissionServiceSpec
         any[Option[Ref.Party]],
         any[Option[String]],
         any[Ref.SubmissionId],
-      )(any[TelemetryContext])
+      )(any[LoggingContext], any[TelemetryContext])
       succeed
     }
   }
@@ -173,7 +173,7 @@ class ApiSubmissionServiceSpec
         any[Option[Ref.Party]],
         any[Option[String]],
         any[Ref.SubmissionId],
-      )(any[TelemetryContext])
+      )(any[LoggingContext], any[TelemetryContext])
       succeed
     }
   }
@@ -192,7 +192,7 @@ class ApiSubmissionServiceSpec
         eqTo(Some(typedParty)),
         eqTo(Some(party)),
         any[Ref.SubmissionId],
-      )(any[TelemetryContext])
+      )(any[LoggingContext], any[TelemetryContext])
     ).thenReturn(completedFuture(submissionFailure))
     when(partyManagementService.getParties(Seq(typedParty)))
       .thenReturn(Future(List.empty[PartyDetails]))

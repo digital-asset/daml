@@ -7,6 +7,7 @@ import java.io.File
 import java.time.{Clock, Instant}
 import java.util.UUID
 import java.util.concurrent.Executors
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
@@ -32,7 +33,7 @@ import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.LanguageVersion
-import com.daml.logging.ContextualizedLogger
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.MetricsReporting
 import com.daml.platform.apiserver._
@@ -325,7 +326,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     }
 
   private def uploadDar(from: File, to: WritePackagesService)(implicit
-      executionContext: ExecutionContext
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
   ): Future[Unit] = DefaultTelemetry.runFutureInSpan(SpanName.RunnerUploadDar, SpanKind.Internal) {
     implicit telemetryContext =>
       val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)
