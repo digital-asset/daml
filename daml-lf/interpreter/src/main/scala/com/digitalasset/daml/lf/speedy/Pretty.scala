@@ -81,6 +81,12 @@ private[lf] object Pretty {
           ) & prettyTypeConName(
             actual
           )
+      case ContractDoesntImplementInterface(interfaceId, coid, templateId) =>
+        text("Update failed due to contract") & prettyContractId(coid) & text(
+          "not implementing an interface"
+        ) /
+          text("Expected contract to implement interface") & prettyTypeConName(interfaceId) &
+          text("but contract has type") & prettyTypeConName(templateId)
       case CreateEmptyContractKeyMaintainers(tid, arg, key) =>
         text("Update failed due to a contract key with an empty sey of maintainers when creating") &
           prettyTypeConName(tid) & text("with") & prettyValue(true)(arg) /

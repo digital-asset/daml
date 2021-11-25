@@ -1113,9 +1113,11 @@ private[lf] object SBuiltin {
               machine.returnValue = cached.value
             case None =>
               machine.ctrl = SEDamlException(
-                // TODO https://github.com/digital-asset/daml/issues/10810:
-                //   Create a more specific exception.
-                IE.WronglyTypedContract(coid, ifaceId, cached.templateId)
+                IE.ContractDoesntImplementInterface(
+                  interfaceId = ifaceId,
+                  coid = coid,
+                  templateId = cached.templateId,
+                )
               )
           }
         case None =>
@@ -1140,10 +1142,13 @@ private[lf] object SBuiltin {
                       ),
                     )
                   case None =>
-                    machine.ctrl =
-                      // TODO https://github.com/digital-asset/daml/issues/10810:
-                      //   Create a more specific exception.
-                      SEDamlException(IE.WronglyTypedContract(coid, ifaceId, actualTmplId))
+                    machine.ctrl = SEDamlException(
+                      IE.ContractDoesntImplementInterface(
+                        interfaceId = ifaceId,
+                        coid = coid,
+                        templateId = actualTmplId,
+                      )
+                    )
                 }
               },
             )
