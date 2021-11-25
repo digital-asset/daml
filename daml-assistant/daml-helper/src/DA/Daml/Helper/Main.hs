@@ -85,6 +85,10 @@ data Command
     | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
     | PackagesList {flags :: LedgerFlags}
+    | CantonSandbox
+      { ports :: CantonPorts
+      , remainingArguments :: [String]
+      }
 
 data AppTemplate
   = AppTemplateDefault
@@ -106,6 +110,7 @@ commandParser = subparser $ fold
     , command "run-platform-jar" (info runPlatformJarCmd forwardOptions)
     , command "codegen" (info (codegenCmd <**> helper) forwardOptions)
     , command "packages" (info (packagesCmd <**> helper) packagesCmdInfo)
+    , command "canton-sandbox" (info (cantonSandboxCmd <**> helper) cantonSandboxCmdInfo)
     ]
   where
 
@@ -428,6 +433,18 @@ commandParser = subparser $ fold
         , help "Timeout of gRPC operations in seconds. Defaults to 60s. Must be > 0."
         ]
 
+    cantonSandboxCmd = CantonSandbox
+      <$> (CantonPorts
+             <$> option auto (long "port" <> value 6865)
+             <*> option auto (long "admin-api-port" <> value 6866)
+             <*> option auto (long "domain-public-port" <> value 6867)
+             <*> option auto (long "domain-admin-port" <> value 6868)
+          )
+      <*> many (argument str (metavar "ARG"))
+
+    cantonSandboxCmdInfo =
+        forwardOptions
+
 runCommand :: Command -> IO ()
 runCommand = \case
     DamlStudio {..} -> runDamlStudio replaceExtension remainingArguments
@@ -481,3 +498,4 @@ runCommand = \case
     LedgerExport {..} -> runLedgerExport flags remainingArguments
     LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
     Codegen {..} -> runCodegen lang remainingArguments
+    CantonSandbox {..} -> runCantonSandbox ports remainingArguments
