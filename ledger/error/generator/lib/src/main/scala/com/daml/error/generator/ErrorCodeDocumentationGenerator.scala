@@ -4,26 +4,21 @@
 package com.daml.error.generator
 
 import java.lang.reflect.Modifier
-import com.daml.error.{DeprecatedDocs, Deprecation, ErrorCode, ErrorGroup, Explanation, Resolution}
-import com.daml.error.generator.ErrorCodeDocumentationGenerator.{
-  acceptedTypeNames,
-  deprecatedDocsTypeName,
-  deprecatedTypeName,
-  explanationTypeName,
-  resolutionTypeName,
-  runtimeMirror,
-}
+
+import com.daml.error._
 import org.reflections.Reflections
 
-import scala.reflect.runtime.{universe => ru}
 import scala.jdk.CollectionConverters._
 import scala.reflect.runtime.universe.typeOf
+import scala.reflect.runtime.{universe => ru}
 
 /** Utility that indexes all error code implementations.
   *
   * @param prefixes The classpath prefixes that should be scanned for finding subtypes of [[ErrorCode]].
   */
 class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml")) {
+
+  import ErrorCodeDocumentationGenerator._
 
   def getDocItems: (Seq[ErrorDocItem], Seq[GroupDocItem]) = {
     val errorCodes = getInstances[ErrorCode]
@@ -89,7 +84,7 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
     any.getClass.getSimpleName.replace("$", "")
 
   private case class ErrorDocumentationAnnotations(
-      deprecation: Option[Deprecation],
+      deprecation: Option[DeprecatedDocs],
       explanation: Option[Explanation],
       resolution: Option[Resolution],
   )
@@ -118,7 +113,7 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
   }
 
   private case class GetAnnotationsState(
-      deprecation: Option[Deprecation],
+      deprecation: Option[DeprecatedDocs],
       explanation: Option[Explanation],
       resolution: Option[Resolution],
   )
@@ -156,7 +151,7 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
       val updatedResolutionString =
         updateString(existingResolution.map(_.resolution), updatedResolution, "resolution")
       GetAnnotationsState(
-        updatedDeprecationString.map(Deprecation),
+        updatedDeprecationString.map(DeprecatedDocs),
         updatedExplanationString.map(Explanation),
         updatedResolutionString.map(Resolution),
       )
@@ -176,11 +171,55 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
           state
         } else
           sys.error(
-            s"Unexpected annotation detected (${annotations.map(annotationTypeName)} but the only supported ones are $acceptedTypeNames)."
+            s"Unexpected annotation detected (${annotations.map(annotationTypeName)} but the only supported ones are $acceptedTypeNamesAnnotationsForErrorCodes)."
           )
     }
 
     ErrorDocumentationAnnotations(doc.deprecation, doc.explanation, doc.resolution)
+  }
+
+}
+
+object ErrorCodeDocumentationGenerator {
+
+  private val runtimeMirror: ru.Mirror = ru.runtimeMirror(getClass.getClassLoader)
+
+  private val deprecatedTypeName = classOf[deprecated].getTypeName.replace("scala.", "")
+  private val deprecatedDocsTypeName = classOf[DeprecatedDocs].getTypeName.replace("$", ".")
+  private val explanationTypeName = classOf[Explanation].getTypeName.replace("$", ".")
+  private val resolutionTypeName = classOf[Resolution].getTypeName.replace("$", ".")
+  private val descriptionTypeName = classOf[Description].getTypeName.replace("$", ".")
+  private val retryStrategyTypeName = classOf[RetryStrategy].getTypeName.replace("$", ".")
+
+  private val acceptedTypeNamesAnnotationsForErrorCodes =
+    Set(deprecatedTypeName, deprecatedDocsTypeName, explanationTypeName, resolutionTypeName)
+  private val acceptedTypeNamesAnnotationsForErrorCategories =
+    Set(descriptionTypeName, resolutionTypeName, retryStrategyTypeName)
+
+  def getErrorCategoryAnnotations(errorCategory: ErrorCategory): ErrorCategoryAnnotations = {
+    val mirroredType = runtimeMirror.reflect(errorCategory)
+    val annotations: Seq[ru.Annotation] = mirroredType.symbol.annotations
+
+    annotations.foldLeft(ErrorCategoryAnnotations.empty) { (acc, annotation) =>
+      val typeName = annotationTypeName(annotation)
+      if (acceptedTypeNamesAnnotationsForErrorCategories.contains(typeName)) {
+        val parsedValue = Option(parseAnnotationValue(annotation.tree))
+        if (typeName == descriptionTypeName) {
+          require(acc.description.isEmpty, "Duplicate description found!")
+          acc.copy(description = parsedValue)
+        } else if (typeName == resolutionTypeName) {
+          require(acc.resolution.isEmpty, "Duplicate resolution found!")
+          acc.copy(resolution = parsedValue)
+        } else if (typeName == retryStrategyTypeName) {
+          require(acc.retryStrategy.isEmpty, "Duplicate retryStrategy found!")
+          acc.copy(retryStrategy = parsedValue)
+        } else {
+          throw new IllegalStateException(s"Unexpected annotations of name: $typeName")
+        }
+      } else {
+        acc
+      }
+    }
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
@@ -204,17 +243,4 @@ class ErrorCodeDocumentationGenerator(prefixes: Array[String] = Array("com.daml"
 
   private def annotationTypeName(annotation: ru.Annotation) =
     annotation.tree.tpe.toString
-}
-
-private object ErrorCodeDocumentationGenerator {
-
-  private val runtimeMirror: ru.Mirror = ru.runtimeMirror(getClass.getClassLoader)
-
-  private val deprecatedTypeName = classOf[deprecated].getTypeName.replace("scala.", "")
-  private val deprecatedDocsTypeName = classOf[DeprecatedDocs].getTypeName.replace("$", ".")
-  private val explanationTypeName = classOf[Explanation].getTypeName.replace("$", ".")
-  private val resolutionTypeName = classOf[Resolution].getTypeName.replace("$", ".")
-
-  private val acceptedTypeNames =
-    Set(deprecatedTypeName, deprecatedDocsTypeName, explanationTypeName, resolutionTypeName)
 }

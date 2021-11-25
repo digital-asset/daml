@@ -7,7 +7,7 @@ import ch.qos.logback.classic.Level
 import com.daml.error.ErrorCategory.TransientServerFailure
 import com.daml.error.utils.ErrorDetails
 import com.daml.error.utils.testpackage.SeriousError
-import com.daml.error.utils.testpackage.subpackage.MildErrors.NotSoSeriousError
+import com.daml.error.utils.testpackage.subpackage.MildErrorsParent.MildErrors.NotSoSeriousError
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.testing.LogCollector
 import io.grpc.protobuf.StatusProto

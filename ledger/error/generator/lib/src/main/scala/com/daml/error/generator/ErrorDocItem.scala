@@ -3,7 +3,7 @@
 
 package com.daml.error.generator
 
-import com.daml.error.{Deprecation, ErrorClass, Explanation, Resolution}
+import com.daml.error.{DeprecatedDocs, ErrorClass, Explanation, Resolution}
 
 /** Contains error presentation data to be used for documentation rendering on the website.
   *
@@ -22,7 +22,7 @@ case class ErrorDocItem(
     hierarchicalGrouping: ErrorClass,
     conveyance: Option[String],
     code: String,
-    deprecation: Option[Deprecation],
+    deprecation: Option[DeprecatedDocs],
     explanation: Option[Explanation],
     resolution: Option[Resolution],
 )
