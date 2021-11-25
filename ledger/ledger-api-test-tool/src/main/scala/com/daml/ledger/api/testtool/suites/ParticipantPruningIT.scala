@@ -25,7 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class ParticipantPruningIT extends LedgerTestSuite {
 
   private val batchesToPopulate =
-    74 // One point of populating the ledger with a lot of events is to help advance canton's safe-pruning offsets
+    25 // One point of populating the ledger with a lot of events is to help advance canton's safe-pruning offsets
   private val lastItemToPruneIndex = batchesToPopulate
 
   test(
