@@ -3,8 +3,8 @@
 
 module Test where
 
-import qualified DA.Next.Set as S
-import DA.Next.Set (Set)
+import qualified DA.Set as S
+import DA.Set (Set)
 
 template BasicKey
   with

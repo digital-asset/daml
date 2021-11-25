@@ -40,8 +40,6 @@ import DA.Math
 import DA.Maybe.Total
 import DA.Maybe
 import DA.Monoid
-import DA.Next.Map
-import DA.Next.Set
 import DA.NonEmpty
 import DA.Numeric
 import DA.Optional.Total
