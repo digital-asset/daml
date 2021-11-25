@@ -32,14 +32,16 @@ private[speedy] object ClosureConversion {
 
       def shift(n: Int): Env = {
         def shiftLoc(loc: target.SELoc, n: Int): target.SELoc = loc match {
-          case target.SELocS(i) => target.SELocS(i + n)
-          case target.SELocA(_) | target.SELocF(_) => loc
+          case target.SELocS(rel,abs) => target.SELocS(rel + n, abs) //NICK: abs unchanged. nice
+          case target.SELocA(_) => loc
+          case target.SELocF(_) => loc
         }
         // We must update both the keys of the map (the relative-indexes from the original SEVar)
         // And also any values in the map which are stack located (SELocS), which are also indexed relatively
         val m1 = mapping.map { case (k, loc) => (n + k, shiftLoc(loc, n)) }
         // And create mappings for the `n` new stack items
-        val m2 = (1 to n).view.map(i => (i, target.SELocS(i)))
+        val absDummy = 42 //NICK
+        val m2 = (1 to n).view.map(rel => (rel, target.SELocS(rel,absDummy)))
         Env(m1 ++ m2)
       }
     }

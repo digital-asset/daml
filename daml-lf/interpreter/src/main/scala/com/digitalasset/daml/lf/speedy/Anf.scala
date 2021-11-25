@@ -178,7 +178,7 @@ private[lf] object Anf {
 
   private def convertLoc(x: source.SELoc): target.SELoc = {
     x match {
-      case source.SELocS(x) => target.SELocS(x)
+      case source.SELocS(rel, abs@_) => target.SELocS(rel) //NICK
       case source.SELocA(x) => target.SELocA(x)
       case source.SELocF(x) => target.SELocF(x)
     }
@@ -193,7 +193,7 @@ private[lf] object Anf {
   }
 
   private[this] def makeAbsoluteA(env: Env, atom: source.SExprAtomic): AbsAtom = atom match {
-    case source.SELocS(rel) => Right(makeAbsoluteB(env, rel))
+    case source.SELocS(rel, abs@_) => Right(makeAbsoluteB(env, rel)) //NICK
     case x => Left(convertAtom(x))
   }
 
@@ -206,7 +206,7 @@ private[lf] object Anf {
   private[this] type AbsLoc = Either[source.SELoc, AbsBinding]
 
   private[this] def makeAbsoluteL(env: Env, loc: source.SELoc): AbsLoc = loc match {
-    case source.SELocS(rel) => Right(makeAbsoluteB(env, rel))
+    case source.SELocS(rel, abs@_) => Right(makeAbsoluteB(env, rel)) //NICK
     case x: source.SELocA => Left(x)
     case x: source.SELocF => Left(x)
   }
