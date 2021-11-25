@@ -123,14 +123,14 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
               "(before SDK 1.18)",
             "gRPC status code\n" +
               "(since SDK 1.18)",
-            "Remarks",
+            "Remarks\n  ",
             "Ledger API \n" +
               "error code id",
           ),
         )
         s"""|
             |$endpoint
-            |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            |------------------------------------------------------------------------------------------------------------------
             |""".stripMargin + "\n" + tableText
 
       }
@@ -412,7 +412,7 @@ object SelfServiceErrorCodes_MigrationGuideGen_App {
 
     def genSubsectionsForErrorCategory(a: Array[String]) = {
       s"""${a(0)}
-         |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+         |------------------------------------------------------------------------------------------------------------------
          |    **Category id**: ${a(1)}
          |
          |    **gRPC status code**: ${a(2)}

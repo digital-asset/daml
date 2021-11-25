@@ -95,9 +95,3 @@ INTERNAL, UNKNOWN (when returned by the Command Service)
 Aside from the standard gRPC status codes, the failures returned by the Ledger API are enriched with details meant to help the application
 or the application developer to handle the error autonomously (e.g. by retrying on a retryable error).
 For more details on the rich error details see the :doc:`error-codes`
-
-
-.. toctree::
-   :hidden:
-
-   error-codes
