@@ -90,6 +90,8 @@ main = scenario do
     _ <- exercise cidToken1 (Noop ())
     (cidToken2, cidToken3) <- exercise cidToken1 (Split 10)
     token2 <- fetch cidToken2
+    -- Party is duplicated because p is both observer & issuer
+    signatory token2 === [p, p]
     getAmount token2 === 10
     case fromInterface @_ @Token token2 of
       None -> abort "expected Asset"
