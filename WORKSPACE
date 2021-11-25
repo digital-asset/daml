@@ -21,14 +21,6 @@ switched_rules_by_language(
 
 rules_haskell_dependencies()
 
-# load("@go_googleapis//:repository_rules.bzl", "switched_rules_by_language")
-
-# switched_rules_by_language(
-#     name = "com_google_googleapis_imports",
-#     grpc = True,
-#     java = True,
-# )
-
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
@@ -640,6 +632,14 @@ go_rules_dependencies()
 go_register_toolchains() if not is_windows else go_register_toolchains(version = "1.16.9")
 
 gazelle_dependencies()
+
+load("@go_googleapis//:repository_rules.bzl", "switched_rules_by_language")
+
+switched_rules_by_language(
+    name = "com_google_googleapis_imports",
+    grpc = True,
+    java = True,
+)
 
 load("//:bazel-java-deps.bzl", "install_java_deps")
 
