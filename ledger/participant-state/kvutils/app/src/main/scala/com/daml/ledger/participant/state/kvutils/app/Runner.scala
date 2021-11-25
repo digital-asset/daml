@@ -21,7 +21,7 @@ import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.JvmMetricSet
-import com.daml.platform.apiserver.StandaloneApiServer
+import com.daml.platform.apiserver.{StandaloneApiServer, StandaloneIndexService}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
@@ -160,11 +160,21 @@ final class Runner[T <: ReadWriteService, Extra](
                   case ParticipantRunMode.LedgerApiServer =>
                     Resource.successful(healthChecks)
                 }
+                apiServerConfig = factory.apiServerConfig(participantConfig, config)
+                indexService <- StandaloneIndexService(
+                  ledgerId = config.ledgerId,
+                  config = apiServerConfig,
+                  metrics = metrics,
+                  engine = sharedEngine,
+                  servicesExecutionContext = servicesExecutionContext,
+                  lfValueTranslationCache = lfValueTranslationCache,
+                ).acquire()
                 _ <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
-                    new StandaloneApiServer(
+                    StandaloneApiServer(
+                      indexService = indexService,
                       ledgerId = config.ledgerId,
-                      config = factory.apiServerConfig(participantConfig, config),
+                      config = apiServerConfig,
                       commandConfig = config.commandConfig,
                       submissionConfig = config.submissionConfig,
                       partyConfig = factory.partyConfig(config),
@@ -176,7 +186,6 @@ final class Runner[T <: ReadWriteService, Extra](
                       otherInterceptors = factory.interceptors(config),
                       engine = sharedEngine,
                       servicesExecutionContext = servicesExecutionContext,
-                      lfValueTranslationCache = lfValueTranslationCache,
                     ).acquire()
                   case ParticipantRunMode.Indexer =>
                     Resource.unit

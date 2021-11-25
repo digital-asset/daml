@@ -57,6 +57,7 @@ alias(
             "//ledger/metrics",
             "//ledger/participant-integration-api",
             "//ledger/participant-state",
+            "//ledger/participant-state-index",
             "//ledger/participant-state-metrics",
             "//ledger/participant-state/kvutils",
             "//ledger/sandbox-common:sandbox-common-{}".format(edition),
