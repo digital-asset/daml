@@ -198,6 +198,13 @@ da_scala_binary(
     ],
 )
 
+SNASPSHOT_VERSIONS = [
+    "1.11",
+    "1.12",
+    "1.13",
+    "1.14",
+]
+
 [
     sh_test(
         name = "proto_breaking_changes_%s_test" % version,
@@ -215,12 +222,7 @@ da_scala_binary(
             "@buf//:bin/buf",
         ],
     )
-    for version in [
-        "1.11",
-        "1.12",
-        "1.13",
-        "1.14",
-    ]
+    for version in SNASPSHOT_VERSIONS
 ] if not is_windows else []
 
 sh_test(
@@ -228,11 +230,6 @@ sh_test(
     srcs = ["proto_check_hash.sh"],
     data = [
         ":daml_lf_%s_archive_proto_srcs" % version
-        for version in [
-            "1.11",
-            "1.12",
-            "1.13",
-            "1.14",
-        ]
+        for version in SNASPSHOT_VERSIONS
     ],
 ) if not is_windows else []
