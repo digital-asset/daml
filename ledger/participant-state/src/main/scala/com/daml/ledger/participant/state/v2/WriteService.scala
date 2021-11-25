@@ -95,8 +95,6 @@ trait WriteService
     *                                    daml-lf/spec/contract-id.rst.
     * @param estimatedInterpretationCost Estimated cost of interpretation that may be used for
     *                                    handling submitted transactions differently.
-    * @param telemetryContext            Implicit context for tracing.
-    * @param loggingContext            Implicit context for logging.
     */
   def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -104,8 +102,8 @@ trait WriteService
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
   )(implicit
-      telemetryContext: TelemetryContext,
       loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
   ): CompletionStage[SubmissionResult]
 
   /** Indicates whether command deduplication should be enabled when using this [[WriteService]]

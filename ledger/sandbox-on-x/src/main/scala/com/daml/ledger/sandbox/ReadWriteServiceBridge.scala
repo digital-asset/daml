@@ -57,8 +57,8 @@ case class ReadWriteServiceBridge(
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
   )(implicit
-      telemetryContext: TelemetryContext,
       loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
   ): CompletionStage[SubmissionResult] =
     submit(
       Submission.Transaction(

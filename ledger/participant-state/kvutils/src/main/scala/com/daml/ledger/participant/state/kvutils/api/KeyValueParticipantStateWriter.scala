@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v2._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
-import com.daml.logging.LoggingContext.newLoggingContextWith
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext
@@ -38,8 +38,8 @@ class KeyValueParticipantStateWriter(
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
   )(implicit
-      telemetryContext: TelemetryContext,
       loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
   ): CompletionStage[SubmissionResult] = {
     val submission =
       keyValueSubmission.transactionToSubmission(
@@ -49,7 +49,7 @@ class KeyValueParticipantStateWriter(
       )
     val metadata = CommitMetadata(submission, Some(estimatedInterpretationCost))
     val submissionId = submitterInfo.submissionId.getOrElse {
-      newLoggingContextWith(
+      withEnrichedLoggingContext(
         "commandId" -> submitterInfo.commandId,
         "applicationId" -> submitterInfo.applicationId,
       ) { implicit loggingContext =>

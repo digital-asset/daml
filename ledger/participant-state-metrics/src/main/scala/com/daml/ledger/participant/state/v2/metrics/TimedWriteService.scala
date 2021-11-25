@@ -30,8 +30,8 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
   )(implicit
-      telemetryContext: TelemetryContext,
       loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
   ): CompletionStage[SubmissionResult] =
     Timed.timedAndTrackedCompletionStage(
       metrics.daml.services.write.submitTransaction,
