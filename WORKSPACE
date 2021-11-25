@@ -908,3 +908,24 @@ dev_env_tool(
     ],
     win_tool = "msys2",
 )
+
+nixpkgs_package(
+    name = "buf",
+    attribute_path = "buf",
+    fail_not_supported = False,
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "buf_dev_env",
+    nix_include = ["bin/buf"],
+    nix_label = "@buf",
+    nix_paths = ["bin/buf"],
+    tools = ["buf"],
+    win_include = ["mingw64/bin"],
+    win_include_as = {"mingw64/bin": "bin"},
+    win_paths = ["bin/buf.exe"],
+    win_tool = "msys2",
+)

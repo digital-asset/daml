@@ -6,6 +6,7 @@
 }:
 let shared = rec {
   inherit (pkgs)
+    buf
     coreutils
     curl
     docker
