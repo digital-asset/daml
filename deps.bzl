@@ -179,16 +179,6 @@ def daml_deps():
             patch_args = ["-p1"],
         )
 
-    # if "com_google_protobuf" not in native.existing_rules():
-    #     http_archive(
-    #         name = "com_google_protobuf",
-    #         sha256 = "528927e398f4e290001886894dac17c5c6a2e5548f3fb68004cfb01af901b53a",
-    #         # changing this version needs to be in sync with protobuf-java and grpc dependencies in bazel-java-bdeps.bzl
-    #         strip_prefix = "protobuf-3.17.3",
-    #         urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.17.3.zip"],
-    #         patch_args = ["-p1"],
-    #     )
-
     if "bazel_gazelle" not in native.existing_rules():
         http_archive(
             name = "bazel_gazelle",
