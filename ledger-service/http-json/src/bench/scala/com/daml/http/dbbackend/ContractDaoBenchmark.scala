@@ -94,11 +94,16 @@ abstract class ContractDaoBenchmark extends OracleAround {
         val n = offset + i
         contract(n, signatory, tpid, payload)
       }.toList
-    val inserted = dao
-      .transact(queries.insertContracts[List, JsValue, JsValue](contracts))
-      .unsafeRunSync()
+    val inserted = insertContracts(contracts)
     assert(inserted == batchSize)
   }
+
+  protected def insertContracts[F[_]: cats.Foldable: scalaz.Functor](
+      contracts: F[DBContract[SurrogateTpId, JsValue, JsValue, Seq[String]]]
+  ) =
+    dao
+      .transact(queries.insertContracts[F, JsValue, JsValue](contracts))
+      .unsafeRunSync()
 }
 
 trait BenchmarkDbConnection {

@@ -10,11 +10,15 @@ import com.daml.scalautil.Statement.discard
 import com.daml.scalautil.nonempty.NonEmpty
 import doobie.implicits._
 import org.openjdk.jmh.annotations._
+import scalaz.std.vector._
 
 import scala.collection.compat._
 
 trait QueryBenchmark extends ContractDaoBenchmark {
   self: BenchmarkDbConnection =>
+
+  @Param(Array("5000"))
+  var tableSize: Int = _
 
   @Param(Array("1", "5", "9"))
   var extraParties: Int = _
@@ -34,29 +38,37 @@ trait QueryBenchmark extends ContractDaoBenchmark {
     val surrogateTpids = surrogateTpid :: (0 until extraTemplates)
       .map(i => insertTemplate(TemplateId("-pkg-", "M", s"T$i")))
       .toList
+    def tpidCycle = Iterator continually surrogateTpids flatMap (_.iterator)
 
     val parties: List[String] = party :: (0 until extraParties).map(i => s"p$i").toList
+    val contractsPerParty = tableSize / (extraParties + 1)
 
     var offset = 0
-    parties.foreach { p =>
-      surrogateTpids.foreach { t =>
-        insertBatch(p, t, offset)
-        offset += batchSize
+
+    parties.iterator
+      .flatMap(p => tpidCycle.take(contractsPerParty).map((p, _)))
+      .grouped(batchSize)
+      .foreach { batch =>
+        val inserted =
+          insertContracts(batch.view.zipWithIndex.map { case ((p, t), i) =>
+            contract(offset + i, p, t)
+          }.toVector)
+        assert(inserted == batch.size)
+        offset += batch.size
       }
-    }
   }
 
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime))
   def run(): Unit = {
     implicit val driver: SupportedJdbcDriver.TC = dao.jdbcDriver
-    val result = instanceUUIDLogCtx(implicit lc =>
+    val /*result*/ _ = instanceUUIDLogCtx(implicit lc =>
       dao
         .transact(
           ContractDao.selectContracts(NonEmpty.pour(Party(party)) into Set, tpid, fr"1 = 1")
         )
         .unsafeRunSync()
     )
-    assert(result.size == batchSize)
+    // assert(result.size == batchSize)
   }
 
   discard(IterableOnce) // only needed for scala 2.12
