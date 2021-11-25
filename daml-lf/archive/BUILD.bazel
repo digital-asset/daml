@@ -227,9 +227,12 @@ sh_test(
     name = "proto_immutability_test",
     srcs = ["proto_check_hash.sh"],
     data = [
-        ":daml_lf_1.11_archive_proto_srcs",
-        ":daml_lf_1.12_archive_proto_srcs",
-        ":daml_lf_1.13_archive_proto_srcs",
-        ":daml_lf_1.14_archive_proto_srcs",
+        ":daml_lf_%s_archive_proto_srcs" % version
+        for version in [
+            "1.11",
+            "1.12",
+            "1.13",
+            "1.14",
+        ]
     ],
 ) if not is_windows else []
