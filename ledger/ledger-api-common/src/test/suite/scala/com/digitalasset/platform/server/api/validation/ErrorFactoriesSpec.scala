@@ -3,13 +3,20 @@
 
 package com.daml
 
-import error.utils.ErrorDetails
-import error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger, ErrorCodesVersionSwitcher}
-import ledger.api.domain.LedgerId
-import lf.data.Ref
-import logging.{ContextualizedLogger, LoggingContext}
-import platform.server.api.validation.ErrorFactories
-import platform.server.api.validation.ErrorFactories._
+import java.sql.{SQLNonTransientException, SQLTransientException}
+import java.time.Duration
+
+import com.daml.error.utils.ErrorDetails
+import com.daml.error.{
+  ContextualizedErrorLogger,
+  DamlContextualizedErrorLogger,
+  ErrorCodesVersionSwitcher,
+}
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.lf.data.Ref
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.server.api.validation.ErrorFactories._
 import com.google.rpc._
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
@@ -19,8 +26,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.sql.{SQLNonTransientException, SQLTransientException}
-import java.time.Duration
 import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
@@ -439,7 +444,12 @@ class ErrorFactoriesSpec
       val field = "field"
       val maxDeduplicationDuration = Duration.ofSeconds(5)
       assertVersionedError(
-        _.invalidDeduplicationDuration(field, errorDetailMessage, None, maxDeduplicationDuration)
+        _.invalidDeduplicationDuration(
+          field,
+          errorDetailMessage,
+          None,
+          Some(maxDeduplicationDuration),
+        )
       )(
         v1_code = Code.INVALID_ARGUMENT,
         v1_message = s"Invalid field $field: $errorDetailMessage",

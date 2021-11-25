@@ -1,0 +1,10 @@
+package com.daml.ledger.participant.state.kvutils.deduplication
+
+sealed trait DeduplicationConversionFailure
+
+object DeduplicationConversionFailure {
+  case object CompletionAtOffsetNotFound extends DeduplicationConversionFailure
+  case object CompletionOffsetNotMatching extends DeduplicationConversionFailure
+  case object CompletionRecordTimeNotAvailable extends DeduplicationConversionFailure
+  case object CompletionCheckpointNotAvailable extends DeduplicationConversionFailure
+}
