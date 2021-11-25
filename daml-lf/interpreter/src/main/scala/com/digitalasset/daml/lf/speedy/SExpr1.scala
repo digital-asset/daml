@@ -51,7 +51,7 @@ private[speedy] object SExpr1 {
   sealed abstract class SELoc extends SExprAtomic
 
   // SELocS -- variable is located on the stack (SELet & binding forms of SECasePat)
-  final case class SELocS(relBad: Int, absGood: Int) extends SELoc
+  final case class SELocAbsoluteS(n: Int) extends SELoc
 
   // SELocS -- variable is located in the args array of the application
   final case class SELocA(n: Int) extends SELoc
