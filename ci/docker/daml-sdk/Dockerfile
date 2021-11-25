@@ -1,4 +1,4 @@
-FROM adoptopenjdk:8-jdk-hotspot
+FROM adoptopenjdk:11-jdk-hotspot
 ARG VERSION
 # This is needed to get the DNS requests
 # from Haskell binaries to succeed.
