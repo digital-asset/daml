@@ -19,7 +19,11 @@ object MildErrors
         "TEST_ROUTINE_FAILURE_PLEASE_IGNORE",
         ErrorCategory.TransientServerFailure,
       ) {
-    case class Error(someErrArg: String)(implicit val loggingContext: LoggingContext)
+    case class Error(
+        someErrArg: String,
+        override val context: Map[String, String],
+        override val definiteAnswerO: Option[Boolean] = Some(true),
+    )(implicit val loggingContext: LoggingContext)
         extends BaseError {
 
       override def code: ErrorCode = NotSoSeriousError.code

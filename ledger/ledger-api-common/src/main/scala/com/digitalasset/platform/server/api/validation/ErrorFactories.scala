@@ -76,7 +76,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         v2 = LedgerApiErrors.RequestTimeOut
           .Reject(
             "Timed out while awaiting for a completion corresponding to a command submission.",
-            definiteAnswer = false,
+            _definiteAnswer = false,
           )
           .asGrpcStatusFromContext,
       )
@@ -149,7 +149,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     errorCodesVersionSwitcher.choose(
       v1 = io.grpc.Status.NOT_FOUND.asRuntimeException(),
       v2 = LedgerApiErrors.RequestValidation.NotFound.Package
-        .Reject(packageId = packageId)
+        .Reject(_packageId = packageId)
         .asGrpcError,
     )
 
@@ -184,7 +184,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
         exception
       },
       v2 = LedgerApiErrors.ConsistencyErrors.DuplicateCommand
-        .Reject(existingCommandSubmissionId = existingSubmissionId)
+        .Reject(_existingCommandSubmissionId = existingSubmissionId)
         .asGrpcError,
     )
 
@@ -309,9 +309,9 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
       v1 = invalidArgumentV1(definiteAnswer, message),
       v2 = LedgerApiErrors.RequestValidation.NonHexOffset
         .Error(
-          fieldName = fieldName,
-          offsetValue = offsetValue,
-          message = message,
+          _fieldName = fieldName,
+          _offsetValue = offsetValue,
+          _message = message,
         )
         .asGrpcError,
     )
@@ -385,11 +385,7 @@ class ErrorFactories private (errorCodesVersionSwitcher: ErrorCodesVersionSwitch
     errorCodesVersionSwitcher.choose(
       v1 = aborted(message, definiteAnswer),
       v2 = LedgerApiErrors.RequestTimeOut
-        .Reject(
-          message,
-          // TODO error codes: How to handle None definiteAnswer?
-          definiteAnswer.getOrElse(false),
-        )
+        .Reject(message, definiteAnswer.getOrElse(false))
         .asGrpcError,
     )
   }

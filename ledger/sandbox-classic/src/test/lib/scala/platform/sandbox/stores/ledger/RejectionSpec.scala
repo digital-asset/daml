@@ -59,7 +59,6 @@ class RejectionSpec extends AnyWordSpec with Matchers {
       errorInfo shouldBe com.google.rpc.error_details.ErrorInfo(
         reason = "LEDGER_CONFIGURATION_NOT_FOUND",
         metadata = Map(
-          "message" -> "Cannot validate ledger time",
           "category" -> "11",
           "definite_answer" -> "false",
         ),
@@ -104,7 +103,7 @@ class RejectionSpec extends AnyWordSpec with Matchers {
         Rejection.InvalidLedgerTime(outOfRange).toStateRejectionReason(errorFactoriesV2)
 
       actualRejectionReason.code shouldBe Status.Code.FAILED_PRECONDITION.value()
-      actualRejectionReason.message shouldBe "INVALID_LEDGER_TIME(9,12345678): Invalid ledger time: Ledger time 2021-07-20T09:30:00Z outside of range [2021-07-20T09:00:00Z, 2021-07-20T09:10:00Z]"
+      actualRejectionReason.message shouldBe "INVALID_LEDGER_TIME(9,12345678): Ledger time 2021-07-20T09:30:00Z outside of range [2021-07-20T09:00:00Z, 2021-07-20T09:10:00Z]"
 
       val (errorInfo, requestInfo) = extractDetails(actualRejectionReason.status.details)
 
@@ -115,7 +114,6 @@ class RejectionSpec extends AnyWordSpec with Matchers {
           "ledger_time_lower_bound" -> "2021-07-20T09:00:00Z",
           "ledger_time_upper_bound" -> "2021-07-20T09:10:00Z",
           "category" -> "9",
-          "message" -> "Ledger time 2021-07-20T09:30:00Z outside of range [2021-07-20T09:00:00Z, 2021-07-20T09:10:00Z]",
           "definite_answer" -> "false",
         ),
       )
