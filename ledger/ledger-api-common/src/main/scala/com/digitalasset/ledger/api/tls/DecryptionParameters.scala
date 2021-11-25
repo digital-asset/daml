@@ -89,9 +89,11 @@ object DecryptionParameters {
   // characters not found in the base64 alphabet table are ignored in decoding operation."
   // For this reason a buffer needs to be screened whether it contains only the allowed
   // Base64 characters before attempting to decode it.
-  private [tls] def decodeBase64OrGetVerbatim(encrypted: Array[Byte]): Array[Byte] = {
+  private[tls] def decodeBase64OrGetVerbatim(encrypted: Array[Byte]): Array[Byte] = {
     val allowedBase64Char =
-      "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz/+=\n\r".getBytes(StandardCharsets.UTF_8)
+      "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz/+=\n\r".getBytes(
+        StandardCharsets.UTF_8
+      )
     encrypted.find(!allowedBase64Char.contains(_)) match {
       case None =>
         logger.debug(s"Encrypted key contains only MIME Base64 characters. Attempting to decode")
