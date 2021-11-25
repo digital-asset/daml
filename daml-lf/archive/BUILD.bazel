@@ -203,7 +203,7 @@ da_scala_binary(
         name = "proto_breaking_changes_%s_test" % version,
         srcs = ["proto_breaking_changes.sh"],
         args = [
-            "$(location @buf_dev_env//:bin/buf)",
+            "$(location @buf//:bin/buf)",
             "%s" % mangle_for_java(version),
         ],
         data = [
@@ -212,7 +212,7 @@ da_scala_binary(
             "src/main/protobuf/com/daml/daml_lf_dev",
             ":daml_lf_%s_archive_proto_srcs" % version,
             ":daml_lf_dev_archive_proto_srcs",
-            "@buf_dev_env//:bin/buf",
+            "@buf//:bin/buf",
         ],
     )
     for version in [
@@ -231,6 +231,5 @@ sh_test(
         ":daml_lf_1.12_archive_proto_srcs",
         ":daml_lf_1.13_archive_proto_srcs",
         ":daml_lf_1.14_archive_proto_srcs",
-        "@buf_dev_env//:bin/buf",
     ],
-)
+) if not is_windows else []
