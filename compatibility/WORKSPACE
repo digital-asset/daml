@@ -363,4 +363,4 @@ scala_repositories(
 
 load("@io_bazel_rules_scala//scala:toolchains.bzl", "scala_register_toolchains")
 
-scala_register_toolchains()
+register_toolchains("@daml//bazel_tools/scala:toolchain")

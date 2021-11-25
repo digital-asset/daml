@@ -30,8 +30,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
-rules_scala_version = "e4560ac332e9da731c1e50a76af2579c55836a5c"
-rules_scala_sha256 = "ccf19e8f966022eaaca64da559c6140b23409829cb315f2eff5dc3e757fb6ad8"
+rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
+rules_scala_sha256 = "a8faef92f59a4f1428ed9a93c7c313a996466a66ad64c119fc49b5c7dea98c59"
 
 rules_haskell_version = "673e74aea244a6a9ee1eccec719677c80348aebf"
 rules_haskell_sha256 = "73a06dc6e0d928ceeab64e2cd3159f863eb2e263ecc64d79e3952c770cd1ee51"
