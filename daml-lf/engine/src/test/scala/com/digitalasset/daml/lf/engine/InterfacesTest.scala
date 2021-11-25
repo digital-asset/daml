@@ -19,6 +19,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
+import interpretation.{Error => IE}
 
 import scala.language.implicitConversions
 
@@ -220,7 +221,7 @@ class InterfacesTest
         ExerciseByInterfaceCommand(idI2, idT2, cid2, "C2", ValueRecord(None, ImmArray.empty))
       run(command) shouldBe a[Right[_, _]]
     }
-    "be unable to exercise T1 by interface I2   (stopped in preprocessor)" in {
+    "be unable to exercise T1 by interface I2 via 'exercise by interface' (stopped in preprocessor)" in {
       val command =
         ExerciseByInterfaceCommand(idI2, idT1, cid1, "C2", ValueRecord(None, ImmArray.empty))
       preprocess(command) shouldBe a[Left[_, _]]
@@ -229,12 +230,22 @@ class InterfacesTest
     "be unable to exercise T1 (disguised as T2) by interface I1 via 'exercise by interface'" in {
       val command =
         ExerciseByInterfaceCommand(idI1, idT2, cid1, "C1", ValueRecord(None, ImmArray.empty))
-      run(command) shouldBe a[Left[_, _]]
+      run(command) match {
+        case Left(Error.Interpretation(err, _)) =>
+          err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid1, idT2, idT1))
+        case result =>
+          fail(s"Expected Left(Error.Interpretation(err, _)), not $result")
+      }
     }
     "be unable to exercise T2 (disguised as T1) by interface I1 via 'exercise by interface'" in {
       val command =
         ExerciseByInterfaceCommand(idI1, idT1, cid2, "C1", ValueRecord(None, ImmArray.empty))
-      run(command) shouldBe a[Left[_, _]]
+      run(command) match {
+        case Left(Error.Interpretation(err, _)) =>
+          err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid2, idT1, idT2))
+        case result =>
+          fail(s"Expected Left(Error.Interpretation(err, _)), not $result")
+      }
     }
     "be unable to exercise T2 (disguised as T1) by interface I2 via 'exercise by interface' (stopped in preprocessor)" in {
       val command =
@@ -276,11 +287,21 @@ class InterfacesTest
     }
     "be unable to fetch T1 (disguised as T2) via interface I1" in {
       val command = FetchByInterfaceCommand(idI1, idT2, cid1)
-      run(command) shouldBe a[Left[_, _]]
+      run(command) match {
+        case Left(Error.Interpretation(err, _)) =>
+          err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid1, idT2, idT1))
+        case result =>
+          fail(s"Expected Left(Error.Interpretation(err, _)), not $result")
+      }
     }
     "be unable to fetch T2 (disguised as T1) via interface I1" in {
       val command = FetchByInterfaceCommand(idI1, idT1, cid2)
-      run(command) shouldBe a[Left[_, _]]
+      run(command) match {
+        case Left(Error.Interpretation(err, _)) =>
+          err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid2, idT1, idT2))
+        case result =>
+          fail(s"Expected Left(Error.Interpretation(err, _)), not $result")
+      }
     }
     "be unable to fetch T2 (disguised as T1) by interface I2 (stopped in preprocessor)" in {
       val command = FetchByInterfaceCommand(idI2, idT1, cid2)
