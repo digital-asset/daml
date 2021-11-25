@@ -37,12 +37,10 @@ import DA.List.BuiltinOrder
 import DA.Logic
 import DA.Map
 import DA.Math
-import DA.Maybe.Total
 import DA.Maybe
 import DA.Monoid
 import DA.NonEmpty
 import DA.Numeric
-import DA.Optional.Total
 import DA.Optional
 import DA.Random
 import DA.Record
