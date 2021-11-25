@@ -123,6 +123,31 @@ def daml_deps():
             sha256 = zlib_sha256,
         )
 
+    if "go_googleapis" not in native.existing_rules():
+        # The Haskell gRPC bindings require access to the status.proto source file.
+        # This import of go_googleapis is taken from rules_go and extended with the status.proto patch.
+        http_archive(
+            name = "go_googleapis",
+            # master, as of 2021-10-06
+            urls = [
+                "https://mirror.bazel.build/github.com/googleapis/googleapis/archive/409e134ffaacc243052b08e6fb8e2d458014ed37.zip",
+                "https://github.com/googleapis/googleapis/archive/409e134ffaacc243052b08e6fb8e2d458014ed37.zip",
+            ],
+            sha256 = "a85c6a00e9cf0f004992ebea1d10688e3beea9f8e1a5a04ee53f367e72ee85af",
+            strip_prefix = "googleapis-409e134ffaacc243052b08e6fb8e2d458014ed37",
+            patches = [
+                # releaser:patch-cmd find . -name BUILD.bazel -delete
+                "@io_bazel_rules_go//third_party:go_googleapis-deletebuild.patch",
+                # set gazelle directives; change workspace name
+                "@io_bazel_rules_go//third_party:go_googleapis-directives.patch",
+                # releaser:patch-cmd gazelle -repo_root .
+                "@io_bazel_rules_go//third_party:go_googleapis-gazelle.patch",
+                # The Haskell gRPC bindings require access to the status.proto source file.
+                "//bazel_tools:googleapis-status-proto.patch",
+            ],
+            patch_args = ["-E", "-p1"],
+        )
+
     if "io_bazel_rules_go" not in native.existing_rules():
         http_archive(
             name = "io_bazel_rules_go",
