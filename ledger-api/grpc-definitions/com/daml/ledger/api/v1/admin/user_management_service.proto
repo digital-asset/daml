@@ -1,0 +1,175 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1.admin;
+
+option java_outer_classname = "UserManagementServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+
+import "google/protobuf/empty.proto";
+
+
+// Experimental API to manage users and their rights for interacting with the Ledger API
+// served by a participant node.
+//
+// The API roughly follows the Google API style guidelines for resource-oriented design
+// (https://cloud.google.com/apis/design/resources) with the following simplifications to
+// ease its implementation:
+//
+// 1. List methods do not (yet) support pagination,
+//    as we expect to have fewer than 10k users and 1k rights per user.
+//
+// 2. Resources are not named as per the Google API style guide,
+//    as this would be in contrast with the other Ledger API services.
+//
+// Authorization rules for the services RPCs are specified on the `RpcNameRequest`
+// messages as boolean expressions over these facts:
+// - ``HasRight(r)``: true iff the authenticated user has right `r`
+// - ``IsAuthenticatedUser(u)``: true iff ``u`` is equal to the name of the authenticated user
+//
+service UserManagementService {
+
+    // Create a new user, failing if it already exists.
+    rpc CreateUser (CreateUserRequest) returns (User);
+
+    // Get the user data of a specific user or the authenticated user.
+    rpc GetUser (GetUserRequest) returns (User);
+
+    // Delete an existing user and all its rights.
+    rpc DeleteUser (DeleteUserRequest) returns (google.protobuf.Empty);
+
+    // List the all existing users.
+    rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
+
+    // Grant rights to a user.
+    rpc GrantUserRights (GrantUserRightsRequest) returns (GrantUserRightsResponse);
+
+    // Revoke rights from a user.
+    rpc RevokeUserRights (RevokeUserRightsRequest) returns (RevokeUserRightsResponse);
+
+    // List the set of all rights granted to a user.
+    rpc ListUserRights (ListUserRightsRequest) returns (ListUserRightsResponse);
+}
+
+
+// Users and rights
+///////////////////
+
+// Users are are used to manage the rights given to authenticated Ledger API clients.
+// They are stored and managed per participant node.
+//
+// TLS client certificates authenticate the user specified by the certificates common name.
+// JWT tokens authenticate the user specified by the JWT tokens 'sub' (subject) claim.
+message User {
+    // The user identifier, which must be a non-empty string of at most 64
+    // characters matching the regexp [a-z0-9-_.], i.e. lower-case characters, digits,
+    // dashes or dots. Double-dots, double-dashes, and double-underscores are not allowed.
+    string id = 1;
+
+    // The primary party as which this user reads and acts by default on the ledger
+    // _provided_ it has the corresponding ``CanReadAs(primary_party)`` or 
+    // ``CanActAs(primary_party)`` rights.
+    string primary_party = 2;
+}
+
+// A right granted to a user.
+message Right {
+    // The user is allowed to administrate the participant node.
+    message ParticipantAdmin {}
+
+    // The user can authorize commands for the given party.
+    message CanActAs {
+        string party = 1;
+    }
+
+    // The user can read ledger data visible to the given party.
+    message CanReadAs {
+        string party = 1;
+    }
+
+    oneof kind {
+        ParticipantAdmin participant_admin = 1;
+        CanActAs can_act_as = 2;
+        CanReadAs can_read_as = 3;
+    }
+}
+
+
+// RPC requests and responses
+/////////////////////////////
+
+// Required authorization: ``HasRight(ParticipantAdmin)``
+message CreateUserRequest {
+    // The user to create.
+    User user = 1;
+
+    // The rights to be assigned to the user upon creation,
+    // which SHOULD include appropriate rights for the ``user.primary_party``.
+    repeated Right rights = 2;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedUser(user_id)``
+message GetUserRequest {
+    // The user whose data we want to retrieve.
+    // If set to empty string (the default), then the data for the authenticated user will be retrieved.
+    string user_id = 1;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin)``
+message DeleteUserRequest {
+    string user_id = 1;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin)``
+message ListUsersRequest {
+    // TODO: add pagination, cf. https://cloud.google.com/apis/design/design_patterns#list_pagination
+}
+
+message ListUsersResponse {
+    repeated User users = 1;
+}
+
+// Add the rights to the set of rights granted to the user.
+//
+// Required authorization: ``HasRight(ParticipantAdmin)``
+message GrantUserRightsRequest {
+    string user_id = 1;
+
+    repeated Right rights = 2;
+}
+
+message GrantUserRightsResponse {
+    // The rights that were newly granted by the request.
+    repeated Right newly_granted_rights = 1;
+}
+
+// Remove the rights from the set of rights granted to the user.
+//
+// Required authorization: ``HasRight(ParticipantAdmin)``
+message RevokeUserRightsRequest {
+    string user_id = 1;
+
+    repeated Right rights = 2;
+}
+
+message RevokeUserRightsResponse {
+    // The rights that were actually revoked by the request.
+    repeated Right newly_revoked_rights = 1;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedUser(user_id)``
+message ListUserRightsRequest {
+    // The user for which to list the rights.
+    // If set to empty string (the default), then the rights for the authenticated user will be listed.
+    string user_id = 1;
+
+    // TODO: add pagination, cf. https://cloud.google.com/apis/design/design_patterns#list_pagination
+}
+
+message ListUserRightsResponse {
+    repeated Right rights = 1;
+}
+
