@@ -30,6 +30,7 @@ import scalaz.{-\/, \/-}
 import java.time.Clock
 
 import com.daml.ledger.participant.state.index.v2.IndexService
+import com.daml.platform.index.UserManagementServiceStub
 import com.daml.telemetry.TelemetryContext
 
 import scala.collection.immutable
@@ -113,6 +114,7 @@ object StandaloneApiServer {
         managementServiceTimeout = config.managementServiceTimeout,
         enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
         checkOverloaded = checkOverloaded,
+        userManagementService = UserManagementServiceStub,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(

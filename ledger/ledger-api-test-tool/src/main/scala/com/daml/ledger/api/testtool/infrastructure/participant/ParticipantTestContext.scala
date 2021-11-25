@@ -39,6 +39,7 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   ListKnownPartiesRequest,
   PartyDetails,
 }
+import com.daml.ledger.api.v1.admin.user_management_service.UserManagementServiceGrpc.UserManagementService
 import com.daml.ledger.api.v1.command_completion_service.{
   Checkpoint,
   CompletionEndRequest,
@@ -784,6 +785,9 @@ private[testtool] final class ParticipantTestContext private[participant] (
         }
       _ <- waitForParties(participantsUnderTest, parties.toSet)
     } yield parties
+
+  def userManagement: UserManagementService =
+    services.userManagement // TODO perhaps remove and create granular accessors
 
   private def reservePartyNames(n: Int): Future[Vector[Party]] =
     Future.successful(Vector.fill(n)(Party(nextPartyHintId())))

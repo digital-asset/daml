@@ -46,11 +46,13 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 import com.daml.ports.Port
 import scalaz.syntax.tag._
-
 import java.io.File
 import java.nio.file.Files
 import java.time.Instant
 import java.util.concurrent.Executors
+
+import com.daml.platform.index.UserManagementServiceStub
+
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
@@ -401,6 +403,7 @@ final class SandboxServer(
         managementServiceTimeout = config.managementServiceTimeout,
         enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
         checkOverloaded = _ => None,
+        userManagementService = UserManagementServiceStub,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(List(resetService)))
       apiServer <- new LedgerApiServer(
