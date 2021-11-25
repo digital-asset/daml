@@ -12,7 +12,8 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 import "google/protobuf/empty.proto";
 
 
-// Manage users and their rights for interacting with the Ledger API served by a participant node.
+// Experimental API to manage users and their rights for interacting with the Ledger API
+// served by a participant node.
 //
 // The API roughly follows the Google API style guidelines for resource-oriented design
 // (https://cloud.google.com/apis/design/resources) with the following simplifications to
@@ -43,11 +44,11 @@ service UserManagementService {
     // List the all existing users.
     rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
 
-    // Grant a right to a user. Idempotent if the user already has the right.
-    rpc CreateUserRight (CreateUserRightRequest) returns (Right);
+    // Grant rights to a user.
+    rpc GrantUserRights (GrantUserRightsRequest) returns (GrantUserRightsResponse);
 
-    // Revoke a right from a user. Fails if the user does not have the right.
-    rpc DeleteUserRight (DeleteUserRightRequest) returns (google.protobuf.Empty);
+    // Revoke rights from a user.
+    rpc RevokeUserRights (RevokeUserRightsRequest) returns (RevokeUserRightsResponse);
 
     // List the set of all rights granted to a user.
     rpc ListUserRights (ListUserRightsRequest) returns (ListUserRightsResponse);
@@ -69,7 +70,7 @@ message User {
     string id = 1;
 
     // The primary party as which this user reads and acts by default on the ledger
-    // provided it has the corresponding ``CanReadAs(primary_party)`` or 
+    // _provided_ it has the corresponding ``CanReadAs(primary_party)`` or 
     // ``CanActAs(primary_party)`` rights.
     string primary_party = 2;
 }
@@ -102,9 +103,12 @@ message Right {
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
 message CreateUserRequest {
-    // The user to create, which is granted exactly
-    // the ``CanActAs(user.primary_party)`` right upon creation.
+    // The user to create.
     User user = 1;
+
+    // The rights to be assigned to the user upon creation,
+    // which SHOULD include appropriate rights for the ``user.primary_party``.
+    repeated Right rights = 2;
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedUser(user_id)``
@@ -128,28 +132,38 @@ message ListUsersResponse {
     repeated User users = 1;
 }
 
-// Add the right to the set of rights given to the user.
-// Idempotent if the user already has the right.
+// Add the rights to the set of rights granted to the user.
 //
 // Required authorization: ``HasRight(ParticipantAdmin)``
-message CreateUserRightRequest {
+message GrantUserRightsRequest {
     string user_id = 1;
-    Right right = 2;
+
+    repeated Right rights = 2;
 }
 
-// Remove the right from the set of rights granted to the user.
-// Fails if the user does not have the right.
+message GrantUserRightsResponse {
+    // The rights that were newly granted by the request.
+    repeated Right newly_granted_rights = 1;
+}
+
+// Remove the rights from the set of rights granted to the user.
 //
 // Required authorization: ``HasRight(ParticipantAdmin)``
-message DeleteUserRightRequest {
+message RevokeUserRightsRequest {
     string user_id = 1;
-    Right right = 2;
+
+    repeated Right rights = 2;
+}
+
+message RevokeUserRightsResponse {
+    // The rights that were actually revoked by the request.
+    repeated Right newly_revoked_rights = 1;
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedUser(user_id)``
 message ListUserRightsRequest {
     // The user for which to list the rights.
-    // If set to empty string (the default), then the rights for the authenticated user will be shown.
+    // If set to empty string (the default), then the rights for the authenticated user will be listed.
     string user_id = 1;
 
     // TODO: add pagination, cf. https://cloud.google.com/apis/design/design_patterns#list_pagination
