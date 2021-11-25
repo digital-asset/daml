@@ -132,13 +132,6 @@ da_scala_test_suite(
     data = [
         ":DarReaderTest.dalf",
         ":DarReaderTest.dar",
-        ":daml_lf_1.11_archive_proto_srcs",
-        ":daml_lf_1.12_archive_proto_srcs",
-        ":daml_lf_1.13_archive_proto_srcs",
-        ":daml_lf_1.14_archive_proto_srcs",
-        ":daml_lf_1.6_archive_proto_srcs",
-        ":daml_lf_1.7_archive_proto_srcs",
-        ":daml_lf_1.8_archive_proto_srcs",
     ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
@@ -152,13 +145,6 @@ da_scala_test_suite(
     ],
     scalacopts = lf_scalacopts,
     deps = [
-        ":daml_lf_1.11_archive_proto_java",
-        ":daml_lf_1.12_archive_proto_java",
-        ":daml_lf_1.13_archive_proto_java",
-        ":daml_lf_1.14_archive_proto_java",
-        ":daml_lf_1.6_archive_proto_java",
-        ":daml_lf_1.7_archive_proto_java",
-        ":daml_lf_1.8_archive_proto_java",
         ":daml_lf_archive_reader",
         ":daml_lf_dev_archive_proto_java",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -211,3 +197,39 @@ da_scala_binary(
         "//daml-lf/language",
     ],
 )
+
+SNASPSHOT_VERSIONS = [
+    "1.11",
+    "1.12",
+    "1.13",
+    "1.14",
+]
+
+[
+    sh_test(
+        name = "proto_breaking_changes_%s_test" % version,
+        srcs = ["proto_breaking_changes.sh"],
+        args = [
+            "$(location @buf//:bin/buf)",
+            "%s" % mangle_for_java(version),
+        ],
+        data = [
+            "buf.yaml",
+            "proto_breaking_changes.sh",
+            "src/main/protobuf/com/daml/daml_lf_dev",
+            ":daml_lf_%s_archive_proto_srcs" % version,
+            ":daml_lf_dev_archive_proto_srcs",
+            "@buf//:bin/buf",
+        ],
+    )
+    for version in SNASPSHOT_VERSIONS
+] if not is_windows else []
+
+sh_test(
+    name = "proto_immutability_test",
+    srcs = ["proto_check_hash.sh"],
+    data = [
+        ":daml_lf_%s_archive_proto_srcs" % version
+        for version in SNASPSHOT_VERSIONS
+    ],
+) if not is_windows else []
