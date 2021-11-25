@@ -162,8 +162,13 @@ private[lf] object Anf {
     */
   private[this] case class AbsBinding(abs: DepthA)
 
-  private[this] def makeAbsoluteB(env: Env, rel: Int): AbsBinding = {
+  private[this] def makeAbsoluteB(env: Env, rel: Int, abs: Int): AbsBinding = {
     val oldAbs = env.oldDepth.incr(-rel)
+    if (DepthE(abs) != oldAbs) {
+      sys.error(
+        s"**MISMATCH in new abs calculation: abs=$abs VS oldAbs=$oldAbs [subs: rel:$rel, oldDepth:${env.oldDepth}]"
+      )
+    }
     env.absMap.get(oldAbs) match {
       case None => throw CompilationError(s"makeAbsoluteB(env=$env,rel=$rel)")
       case Some(abs) => AbsBinding(abs)
@@ -178,7 +183,7 @@ private[lf] object Anf {
 
   private def convertLoc(x: source.SELoc): target.SELoc = {
     x match {
-      case source.SELocS(rel, abs@_) => target.SELocS(rel) //NICK
+      case source.SELocS(rel @ _, abs @ _) => sys.error("Anf.convertLoc/SELocS, unreachable code")
       case source.SELocA(x) => target.SELocA(x)
       case source.SELocF(x) => target.SELocF(x)
     }
@@ -193,7 +198,7 @@ private[lf] object Anf {
   }
 
   private[this] def makeAbsoluteA(env: Env, atom: source.SExprAtomic): AbsAtom = atom match {
-    case source.SELocS(rel, abs@_) => Right(makeAbsoluteB(env, rel)) //NICK
+    case source.SELocS(rel, abs) => Right(makeAbsoluteB(env, rel, abs))
     case x => Left(convertAtom(x))
   }
 
@@ -206,7 +211,7 @@ private[lf] object Anf {
   private[this] type AbsLoc = Either[source.SELoc, AbsBinding]
 
   private[this] def makeAbsoluteL(env: Env, loc: source.SELoc): AbsLoc = loc match {
-    case source.SELocS(rel, abs@_) => Right(makeAbsoluteB(env, rel)) //NICK
+    case source.SELocS(rel, abs) => Right(makeAbsoluteB(env, rel, abs))
     case x: source.SELocA => Left(x)
     case x: source.SELocF => Left(x)
   }
