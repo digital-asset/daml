@@ -22,14 +22,14 @@ proto_jars(
     maven_group = "com.daml",
     visibility = ["//visibility:public"],
     deps = [
-        "@go_googleapis//google/rpc:errdetails_proto",
-        "@go_googleapis//google/rpc:status_proto",
         "@com_google_protobuf//:any_proto",
         "@com_google_protobuf//:descriptor_proto",
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
         "@com_google_protobuf//:timestamp_proto",
         "@com_google_protobuf//:wrappers_proto",
+        "@go_googleapis//google/rpc:errdetails_proto",
+        "@go_googleapis//google/rpc:status_proto",
     ],
 )
 
