@@ -5,7 +5,7 @@ package com.daml.lf
 package engine
 package script
 
-import com.daml.ledger.api.domain.PartyDetails
+import com.daml.ledger.api.domain.{PartyDetails, User, UserRight}
 import com.daml.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.daml.ledger.api.v1.value
 import com.daml.ledger.api.validation.NoLoggingValueValidator
@@ -28,6 +28,7 @@ import com.daml.script.converter.ConverterException
 import io.grpc.StatusRuntimeException
 import scalaz.std.list._
 import scalaz.std.either._
+import scalaz.std.option._
 import scalaz.std.vector._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, OneAnd, \/-}
@@ -532,6 +533,22 @@ object Converter {
     case v => Left(s"Expected SInt64 but got $v")
   }
 
+  def toList[A](v: SValue, convertElem: SValue => Either[String, A]): Either[String, List[A]] =
+    v match {
+      case SList(xs) =>
+        xs.toImmArray.toList.traverse(convertElem)
+      case _ => Left(s"Expected SList but got $v")
+    }
+
+  def toOptional[A](
+      v: SValue,
+      convertElem: SValue => Either[String, A],
+  ): Either[String, Option[A]] =
+    v match {
+      case SOptional(v) => v.traverse(convertElem)
+      case _ => Left(s"Expected SOptional but got $v")
+    }
+
   private case class SrcLoc(
       pkgId: PackageId,
       module: ModuleName,
@@ -642,6 +659,57 @@ object Converter {
       )
     )
   }
+
+  def fromOptional[A](x: Option[A], f: A => Either[String, SValue]): Either[String, SOptional] =
+    x.traverse(f).map(SOptional(_))
+
+  def fromUser(scriptIds: ScriptIds, user: User): Either[String, SValue] =
+    Right(
+      record(
+        scriptIds.damlScript("User"),
+        ("id", SText(user.id)),
+        ("primaryParty", SOptional(user.primaryParty.map(SParty(_)))),
+      )
+    )
+
+  def toUser(v: SValue): Either[String, User] =
+    v match {
+      case SRecord(_, _, vals) if vals.size == 2 =>
+        for {
+          id <- toUserId(vals.get(0))
+          primaryParty <- toOptional(vals.get(1), toParty)
+        } yield User(id, primaryParty)
+      case _ => Left(s"Expected User but got $v")
+    }
+
+  def toUserId(v: SValue): Either[String, UserId] =
+    // TODO https://github.com/digital-asset/daml/issues/11997
+    // Produce a sensible error for invalid user ids.
+    toText(v).flatMap(UserId.fromString(_))
+
+  def fromUserRight(
+      scriptIds: ScriptIds,
+      right: UserRight,
+  ): Either[String, SValue] = {
+    def toRight(constructor: String, rank: Int, value: SValue): SValue =
+      SVariant(scriptIds.damlScript("UserRight"), Name.assertFromString(constructor), rank, value)
+    Right(right match {
+      case UserRight.ParticipantAdmin => toRight("ParticipantAdmin", 0, SUnit)
+      case UserRight.CanActAs(p) => toRight("CanActAs", 1, SParty(p))
+      case UserRight.CanReadAs(p) => toRight("CanReadAs", 2, SParty(p))
+    })
+  }
+
+  def toUserRight(v: SValue): Either[String, UserRight] =
+    v match {
+      case SVariant(_, "ParticipantAdmin", _, SUnit) =>
+        Right(UserRight.ParticipantAdmin)
+      case SVariant(_, "CanReadAs", _, v) =>
+        toParty(v).map(UserRight.CanReadAs(_))
+      case SVariant(_, "CanActAs", _, v) =>
+        toParty(v).map(UserRight.CanActAs(_))
+      case _ => Left(s"Expected ParticipantAdmin, CanReadAs or CanActAs but got $v")
+    }
 
   def toIfaceType(
       ctx: QualifiedName,
