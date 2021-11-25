@@ -278,7 +278,9 @@ gazelle(
     name = "gazelle-update-repos",
     args = [
         "-from_file=go.mod",
-        "-to_macro=go_deps.bzl%go_deps"
+        "-to_macro=go_deps.bzl%go_deps",
+        "-prune",
+        "-build_file_proto_mode=disable",
     ],
     command = "update-repos",
 )
