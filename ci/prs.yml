@@ -186,7 +186,8 @@ jobs:
       COMMIT=$(git rev-parse HEAD^2)
       REQUEST=$(git log -n1 --format="%(trailers:key=run-full-compat,valueonly)" $COMMIT)
       if [ $REQUEST == true ]; then
-        trigger_azure $AZURE_TOKEN --commit-id $COMMIT digital-asset.daml-daily-compat
+        # Unfortunately recovering the actual branch name is tricky
+        trigger_azure $AZURE_TOKEN digital-asset.daml-daily-compat --commit-id $COMMIT --branch not-main
       fi
     env:
       AZURE_TOKEN: $(System.AccessToken)

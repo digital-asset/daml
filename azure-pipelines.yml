@@ -217,5 +217,5 @@ jobs:
   - bash: |
       set -euo pipefail
       source $(bash-lib)
-      trigger_azure $(System.AccessToken) --branch $(branch) PRs
-      trigger_azure $(System.AccessToken) --branch $(branch) digital-asset.daml-daily-compat
+      trigger_azure $(System.AccessToken) PRs --branch $(branch)
+      trigger_azure $(System.AccessToken) digital-asset.daml-daily-compat --branch $(branch)
