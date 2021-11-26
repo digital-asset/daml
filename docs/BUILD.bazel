@@ -99,14 +99,15 @@ genrule(
         "//ledger-api/grpc-definitions:docs",
         "//:LICENSE",
         "//:NOTICES",
-        ":generate-docs-error-code-inventory-into-rst-file",
+        ":generate-docs-error-codes-inventory-into-rst-file",
+        ":generate-docs-error-categories-inventory-into-rst-file",
     ],
     outs = ["source.tar.gz"],
     cmd = """
         cp -rL docs/source source
 
-        mkdir -p -- source/error-codes/self-service
-        cp -L -- $(location //docs:generate-docs-error-code-inventory-into-rst-file) source/app-dev/grpc/error-codes-inventory.rst
+        cp -L -- $(location //docs:generate-docs-error-codes-inventory-into-rst-file)      source/app-dev/grpc/error-codes-inventory.rst
+        cp -L -- $(location //docs:generate-docs-error-categories-inventory-into-rst-file) source/app-dev/grpc/error-categories-inventory.rst
         # Copy in Stdlib
         mkdir -p source/daml/stdlib
         tar xf $(location //compiler/damlc:daml-base-rst.tar.gz) \\
@@ -665,11 +666,20 @@ genrule(
 )
 
 genrule(
-    name = "generate-docs-error-code-inventory-into-rst-file",
+    name = "generate-docs-error-codes-inventory-into-rst-file",
     srcs = [],
     outs = ["error-codes-inventory.rst"],
-    cmd = "$(location //ledger/error/generator:generate-docs-error-code-inventory-app) $(location error-codes-inventory.rst)",
-    tools = ["//ledger/error/generator:generate-docs-error-code-inventory-app"],
+    cmd = "$(location //ledger/error/generator:generate-docs-error-codes-inventory-app) $(location error-codes-inventory.rst)",
+    tools = ["//ledger/error/generator:generate-docs-error-codes-inventory-app"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "generate-docs-error-categories-inventory-into-rst-file",
+    srcs = [],
+    outs = ["error-categories-inventory.rst"],
+    cmd = "$(location //ledger/error/generator:generate-docs-error-categories-inventory-app) $(location error-categories-inventory.rst)",
+    tools = ["//ledger/error/generator:generate-docs-error-categories-inventory-app"],
     visibility = ["//visibility:public"],
 )
 

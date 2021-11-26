@@ -22,6 +22,7 @@ cleanup()
   rm -rf ../source/daml/stdlib
   rm -f ../source/app-dev/grpc/proto-docs.rst
   rm -f ../source/app-dev/grpc/error-codes-inventory.rst
+  rm -f ../source/app-dev/grpc/error-categories-inventory.rst
   rm -f ../source/LICENSE
   rm -f ../source/NOTICES
   echo "Done cleanup ... quitting."
@@ -66,8 +67,11 @@ do
         # $BUILD_DIR/source is a symlink into the versioned controlled directory with source .rst files.
         # When generating files into that directory make sure to remove them before this script ends.
 
-        bazel build //docs:generate-docs-error-code-inventory-into-rst-file
+        # Error codes and error categories
+        bazel build //docs:generate-docs-error-codes-inventory-into-rst-file
         cp -L ../../bazel-bin/docs/error-codes-inventory.rst $BUILD_DIR/source/app-dev/grpc/error-codes-inventory.rst
+        bazel build //docs:generate-docs-error-categories-inventory-into-rst-file
+        cp -L ../../bazel-bin/docs/error-categories-inventory.rst $BUILD_DIR/source/app-dev/grpc/error-categories-inventory.rst
 
         # Hoogle
         bazel build //compiler/damlc:daml-base-hoogle.txt

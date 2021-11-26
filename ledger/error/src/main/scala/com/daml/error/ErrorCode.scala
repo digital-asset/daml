@@ -275,9 +275,8 @@ object ErrorCode {
 }
 
 // Use these annotations to add more information to the documentation for an error on the website
-case class Deprecation(deprecation: String) extends StaticAnnotation
 case class Explanation(explanation: String) extends StaticAnnotation
 case class Resolution(resolution: String) extends StaticAnnotation
 case class Description(description: String) extends StaticAnnotation
 case class RetryStrategy(retryStrategy: String) extends StaticAnnotation
-case class DeprecatedDocs(description: String) extends StaticAnnotation
+case class DeprecatedDocs(deprecation: String) extends StaticAnnotation
