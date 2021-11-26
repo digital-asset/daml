@@ -3,10 +3,12 @@
 
 package com.daml.ledger.api.validation
 
+import java.time.{Duration, Instant}
+
 import com.daml.api.util.{DurationConversion, TimestampConversion}
 import com.daml.error.{ContextualizedErrorLogger, ErrorCodesVersionSwitcher}
-import com.daml.ledger.api.{DeduplicationPeriod, domain}
 import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.commands
 import com.daml.ledger.api.v1.commands.Command.Command.{
   Create => ProtoCreate,
   CreateAndExercise => ProtoCreateAndExercise,
@@ -16,6 +18,7 @@ import com.daml.ledger.api.v1.commands.Command.Command.{
 }
 import com.daml.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
 import com.daml.ledger.api.validation.CommandsValidator.{Submitters, effectiveSubmitters}
+import com.daml.ledger.api.{DeduplicationPeriod, domain}
 import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.value.{Value => Lf}
@@ -26,9 +29,6 @@ import com.daml.platform.server.api.validation.{
 }
 import io.grpc.{Status, StatusRuntimeException}
 import scalaz.syntax.tag._
-import java.time.{Duration, Instant}
-
-import com.daml.ledger.api.v1.commands
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable
@@ -43,8 +43,8 @@ final class CommandsValidator(
   private val valueValidator = new ValueValidator(errorFactories, fieldValidations)
   private val deduplicationPeriodValidator = new DeduplicationPeriodValidator(errorFactories)
 
-  import fieldValidations._
   import errorFactories._
+  import fieldValidations._
   import valueValidator._
 
   def validateCommands(
