@@ -273,7 +273,7 @@ trait AbstractTriggerServiceTest
         (client, public) <- for {
           client <- sandboxClient(
             ApiTypes.ApplicationId("exp-app-id"),
-            actAs = List(ApiTypes.Party(aliceExp.unwrap)),
+            actAs = List(ApiTypes.Party(alice.unwrap)),
             admin = true,
           )
 
