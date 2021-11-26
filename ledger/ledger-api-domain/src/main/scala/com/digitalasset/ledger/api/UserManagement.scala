@@ -9,13 +9,13 @@ object UserManagement {
 
   case class User(
       id: String,
-      primaryParty: Ref.Party,
+      primaryParty: Option[Ref.Party],
   )
 
-  trait Right
+  sealed trait Right
   object Right {
-    case object ParticipantAdmin extends Right
-    case class CanActAs(party: Ref.Party) extends Right
-    case class CanReadAs(party: Ref.Party) extends Right
+    final case object ParticipantAdmin extends Right
+    final case class CanActAs(party: Ref.Party) extends Right
+    final case class CanReadAs(party: Ref.Party) extends Right
   }
 }

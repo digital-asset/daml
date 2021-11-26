@@ -17,7 +17,7 @@ object UserManagementServiceStub extends UserManagementService {
     Future.successful(true)
 
   override def getUser(id: String): Future[UserManagement.User] =
-    Future.successful(UserManagement.User(id, Ref.Party.assertFromString(s"party-for-$id")))
+    Future.successful(UserManagement.User(id, Some(Ref.Party.assertFromString(s"party-for-$id"))))
 
   override def deleteUser(id: String): Future[Unit] =
     Future.unit

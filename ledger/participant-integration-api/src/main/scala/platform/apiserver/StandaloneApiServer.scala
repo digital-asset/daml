@@ -3,6 +3,8 @@
 
 package com.daml.platform.apiserver
 
+import java.time.Clock
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
@@ -12,6 +14,7 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.configuration.LedgerId
+import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.{v2 => state}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
@@ -23,15 +26,12 @@ import com.daml.platform.configuration.{
   PartyConfiguration,
   SubmissionConfiguration,
 }
+import com.daml.platform.index.InMemoryUserManagementService
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{Port, PortFiles}
+import com.daml.telemetry.TelemetryContext
 import io.grpc.{BindableService, ServerInterceptor}
 import scalaz.{-\/, \/-}
-import java.time.Clock
-
-import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.platform.index.UserManagementServiceStub
-import com.daml.telemetry.TelemetryContext
 
 import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
@@ -114,7 +114,7 @@ object StandaloneApiServer {
         managementServiceTimeout = config.managementServiceTimeout,
         enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
         checkOverloaded = checkOverloaded,
-        userManagementService = UserManagementServiceStub,
+        userManagementService = new InMemoryUserManagementService,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(

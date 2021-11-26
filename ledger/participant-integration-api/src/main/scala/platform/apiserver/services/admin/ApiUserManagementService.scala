@@ -37,7 +37,7 @@ private[apiserver] final class ApiUserManagementService(
     userManagementService.createUser(
       user = UserManagement.User(
         id = request.user.get.id,
-        primaryParty = Ref.Party.assertFromString(request.user.get.primaryParty),
+        primaryParty = Some(Ref.Party.assertFromString(request.user.get.primaryParty)),
       ),
       rights = request.rights.view.map(fromApiRight).toSet,
     ) flatMap {
@@ -85,7 +85,7 @@ object ApiUserManagementService {
   def toApiUser(user: UserManagement.User): User =
     User(
       id = user.id,
-      primaryParty = user.primaryParty,
+      primaryParty = user.primaryParty.getOrElse(""),
     )
 
   val toApiRight: UserManagement.Right => Right = {
