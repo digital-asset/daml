@@ -404,9 +404,7 @@ object ScriptF {
       val t0 = System.nanoTime
       var nanosLeft = totalNanos
       while (nanosLeft > 0) {
-        val milis = nanosLeft / 1000000
-        val nanos = (nanosLeft % 1000000).toInt
-        Thread.sleep(milis, nanos);
+        java.util.concurrent.TimeUnit.NANOSECONDS.sleep(nanosLeft)
         val t1 = System.nanoTime
         nanosLeft = totalNanos - (t1 - t0)
       }
