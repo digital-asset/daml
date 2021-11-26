@@ -29,7 +29,6 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
@@ -205,7 +204,7 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
       startExclusive: LedgerOffset,
       endInclusive: LedgerOffset,
       applicationId: ApplicationId,
-      parties: Set[Party],
+      parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] =
     delegate.getCompletions(startExclusive, endInclusive, applicationId, parties)
 
