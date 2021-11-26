@@ -259,51 +259,52 @@ trait AbstractTriggerServiceTest
     } yield succeed
   }
 
-  it should "start a trigger using readAs after uploading it" in withTriggerService(List(dar)) {
-    uri: Uri =>
-      val visibleToPublicId = Identifier(testPkgId, "ReadAs", "VisibleToPublic")
-      def visibleToPublic(party: String): CreateCommand =
-        CreateCommand(
-          templateId = Some(visibleToPublicId),
-          createArguments = Some(
-            Record(fields = Seq(RecordField("public", Some(Value().withParty(party)))))
-          ),
-        )
-      for {
-        (client, public) <- for {
-          client <- sandboxClient(
-            ApiTypes.ApplicationId("exp-app-id"),
-            actAs = List(ApiTypes.Party(alice.unwrap)),
-            admin = true,
-          )
-
-          public <- client.partyManagementClient.allocateParty(Some("public"), Some("public"), None)
-          clientWeWant <- sandboxClient(
-            ApiTypes.ApplicationId("exp-app-id"),
-            actAs = List(ApiTypes.Party(alice.unwrap), ApiTypes.Party(public.party.toString)),
-          )
-        } yield (clientWeWant, Party(public.party.toString))
-
-        _ <- submitCmd(
-          client,
-          public.unwrap,
-          Command().withCreate(visibleToPublic(public.unwrap)),
+  it should "successfully start a trigger that uses multi-read-as" in withTriggerService(
+    List(dar)
+  ) { uri: Uri =>
+    val visibleToPublicId = Identifier(testPkgId, "ReadAs", "VisibleToPublic")
+    def visibleToPublic(party: String): CreateCommand =
+      CreateCommand(
+        templateId = Some(visibleToPublicId),
+        createArguments = Some(
+          Record(fields = Seq(RecordField("public", Some(Value().withParty(party)))))
+        ),
+      )
+    for {
+      (client, public) <- for {
+        client <- sandboxClient(
+          ApiTypes.ApplicationId("exp-app-id"),
+          actAs = List(ApiTypes.Party(alice.unwrap)),
+          admin = true,
         )
 
-        // Start the trigger
-        resp <- startTrigger(
-          uri,
-          s"$testPkgId:ReadAs:test",
-          alice,
-          Some(ApplicationId("exp-app-id")),
-          readAs = Set(public),
+        public <- client.partyManagementClient.allocateParty(Some("public"), Some("public"), None)
+        clientWeWant <- sandboxClient(
+          ApiTypes.ApplicationId("exp-app-id"),
+          actAs = List(ApiTypes.Party(alice.unwrap), ApiTypes.Party(public.party.toString)),
         )
+      } yield (clientWeWant, Party(public.party.toString))
 
-        triggerId <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, alice, Vector(triggerId))
-        _ <- assertTriggerStatus(triggerId, _.last == "running")
+      _ <- submitCmd(
+        client,
+        public.unwrap,
+        Command().withCreate(visibleToPublic(public.unwrap)),
+      )
 
-      } yield succeed
+      // Start the trigger
+      resp <- startTrigger(
+        uri,
+        s"$testPkgId:ReadAs:test",
+        alice,
+        Some(ApplicationId("exp-app-id")),
+        readAs = Set(public),
+      )
+
+      triggerId <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(triggerId))
+      _ <- assertTriggerStatus(triggerId, _.last == "running")
+
+    } yield succeed
   }
 
   it should "start multiple triggers and list them by party" in withTriggerService(List(dar)) {

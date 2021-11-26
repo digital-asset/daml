@@ -312,6 +312,7 @@ class Server(
                   AuthRequest.Claims(
                     actAs = List(params.party),
                     applicationId = Some(config.applicationId),
+                    readAs = config.readAs.toList,
                   )
                 authorize(claims) { auth =>
                   extractExecutionContext { implicit ec =>
