@@ -66,12 +66,30 @@ authorizationHeaders :: RequestHeaders
 authorizationHeaders = [("Authorization", "Bearer " <> T.encodeUtf8 hardcodedToken)]
 
 withDamlServiceIn :: FilePath -> String -> [String] -> IO a -> IO a
-withDamlServiceIn path command args act = withDevNull $ \_devNull -> do
+withDamlServiceIn path command args act =
+    withDamlServiceIn' Nothing path command args act
+
+withDamlServiceIn' :: Maybe (String -> Bool) -> FilePath -> String -> [String] -> IO a -> IO a
+withDamlServiceIn' mbStdoutPred path command args act = do
     let proc' = (shell $ unwords $ ["daml", command] <> args)
           { create_group = True
+          , std_out = CreatePipe
           , cwd = Just path
           }
-    withCreateProcess proc' $ \_ _ _ ph -> do
+    withCreateProcess proc' $ \_ mbStdout _ ph -> do
+        Just stdoutH <- pure mbStdout
+        block <- do
+            barrier <- newEmptyMVar
+            let (processLine, block) = case mbStdoutPred of
+                    Nothing -> (const $ pure (), pure ())
+                    Just pred -> (\l -> when (pred l) (putMVar barrier ()), takeMVar barrier)
+            void $ forkIO $ forever $ do
+                -- We need to read the output either way to avoid the buffer filling up.
+                line <- hGetLine stdoutH
+                print line
+                processLine line
+            pure block
+        block
         r <- act
         interruptProcessGroupOf ph
         pure r
@@ -824,7 +842,8 @@ cantonTests = testGroup "daml canton-sandbox"
       domainPublicApiPort <- getFreePort
       domainAdminApiPort <- getFreePort
       step "Staring Canton sandbox"
-      withDamlServiceIn (dir </> "skeleton") "canton-sandbox"
+      let pred = Just ("Canton sandbox started" `isInfixOf`)
+      withDamlServiceIn' pred (dir </> "skeleton") "canton-sandbox"
         [ "--port", show ledgerApiPort
         , "--admin-api-port", show adminApiPort
         , "--domain-public-port", show domainPublicApiPort
