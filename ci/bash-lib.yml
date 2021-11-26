@@ -160,18 +160,18 @@ steps:
     }
     trigger_azure() (
       token=$1
-      option=$2
-      target=$3
-      build=$4
+      shift
+      build=$1
+      shift
       az extension add --name azure-devops
       trap 'az devops logout' EXIT
       echo $token \
         | az devops login --org "https://dev.azure.com/digitalasset"
       az pipelines build queue \
-        $option $target \
         --definition-name $build \
         --org "https://dev.azure.com/digitalasset" \
-        --project daml
+        --project daml \
+        $@
     )
 
     END
