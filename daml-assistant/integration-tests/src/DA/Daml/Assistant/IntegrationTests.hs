@@ -66,10 +66,9 @@ authorizationHeaders :: RequestHeaders
 authorizationHeaders = [("Authorization", "Bearer " <> T.encodeUtf8 hardcodedToken)]
 
 withDamlServiceIn :: FilePath -> String -> [String] -> IO a -> IO a
-withDamlServiceIn path command args act = withDevNull $ \devNull -> do
+withDamlServiceIn path command args act = withDevNull $ \_devNull -> do
     let proc' = (shell $ unwords $ ["daml", command] <> args)
-          { std_out = UseHandle devNull
-          , create_group = True
+          { create_group = True
           , cwd = Just path
           }
     withCreateProcess proc' $ \_ _ _ ph -> do

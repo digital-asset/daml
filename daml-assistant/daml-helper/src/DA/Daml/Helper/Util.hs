@@ -256,7 +256,7 @@ runCantonSandbox ports remainingArgs = do
           [ "sandbox.domains.connect_local(local)"
           , "println(\"Canton sandbox started\")"
           ]
-        runJar cantonJar Nothing ("daemon" : "-c" : config : "--bootstrap" : bootstrap : remainingArgs)
+        runJar cantonJar Nothing ("daemon" : "-c" : config : "--bootstrap" : bootstrap : "--debug" : remainingArgs)
 
 data CantonPorts = CantonPorts
   { ledgerApi :: Int
