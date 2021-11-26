@@ -26,13 +26,11 @@ supported by the Daml-LF archive. Currently we have two major versions:
 
 The component contains also an arbitrary number of snapshots of the
 protobuf definitions as they were as the time a particular version of
-Daml-LF was frozen. For versions <= 1.8, those snapshots are kept in the directories
-`src/protobuf/com/digitalasset/daml_lf_x_y/`, where `x.y` is a
-already frozen Daml-LF version.  For newer versions, the directory is
-`src/protobuf/com/daml/daml_lf_x_y/`. A snapshot for version `x.y` can be
-used to read any Daml-LF version from `1.0` to `x.y` without suffering
-breaking changes (at the generated code level) often introduced in the
-current version.
+Daml-LF was frozen. Those snapshots are kept in the directories
+`src/protobuf/com/daml/daml_lf_x_y/`, where `x.y` is an already frozen 
+Daml-LF version.  A snapshot for version `x.y` can be used to read any
+Daml-LF version from `1.6` to `x.y` without suffering breaking changes 
+(at the generated code level) often introduced in the current version.
 
 ## Building
 
@@ -42,7 +40,7 @@ definition, a Haskell one, and several Java ones:
 ```
 $ bazel build //daml-lf/archive:daml_lf_archive_haskell_proto
 $ bazel build //daml-lf/archive:daml_lf_dev_archive_proto_java
-$ bazel build //daml-lf/archive:daml_lf_1_6_archive_proto_java
+$ bazel build //daml-lf/archive:daml_lf_1_14_archive_proto_java
 ```
 
 ## Editing the `.proto` definitions

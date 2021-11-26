@@ -3,30 +3,6 @@
 
 - target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
   type: jar-scala
-- target: //daml-lf/archive:daml_lf_1.6_archive_proto_jar
-  type: jar-lib
-- target: //daml-lf/archive:daml_lf_1.6_archive_proto_java
-  type: jar-proto
-- target: //daml-lf/archive:daml_lf_1.7_archive_proto_jar
-  type: jar-lib
-- target: //daml-lf/archive:daml_lf_1.7_archive_proto_java
-  type: jar-proto
-- target: //daml-lf/archive:daml_lf_1.8_archive_proto_jar
-  type: jar-lib
-- target: //daml-lf/archive:daml_lf_1.8_archive_proto_java
-  type: jar-proto
-- target: //daml-lf/archive:daml_lf_1.11_archive_proto_jar
-  type: jar-lib
-- target: //daml-lf/archive:daml_lf_1.11_archive_proto_java
-  type: jar-proto
-- target: //daml-lf/archive:daml_lf_1.12_archive_proto_jar
-  type: jar-lib
-- target: //daml-lf/archive:daml_lf_1.12_archive_proto_java
-  type: jar-proto
-- target: //daml-lf/archive:daml_lf_1.13_archive_proto_jar
-  type: jar-lib
-- target: //daml-lf/archive:daml_lf_1.13_archive_proto_java
-  type: jar-proto
 - target: //daml-lf/archive:daml_lf_1.14_archive_proto_jar
   type: jar-lib
 - target: //daml-lf/archive:daml_lf_1.14_archive_proto_java

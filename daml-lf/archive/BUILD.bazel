@@ -14,7 +14,7 @@ load(
     "lf_scalacopts_stricter",
     "silencer_plugin",
 )
-load("//daml-lf/language:daml-lf.bzl", "LF_MAJOR_VERSIONS", "PROTO_LF_VERSIONS", "lf_version_package", "mangle_for_java")
+load("//daml-lf/language:daml-lf.bzl", "LF_MAJOR_VERSIONS", "PROTO_LF_VERSIONS", "mangle_for_java", "versions")
 load(
     "//rules_daml:daml.bzl",
     "daml_compile",
@@ -29,8 +29,7 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
         filegroup(
             name = "daml_lf_%s_archive_proto_srcs" % version,
             srcs = glob([
-                "src/{directory}/protobuf/com/{package}/daml_lf_{version}/*.proto".format(
-                    package = package,
+                "src/{directory}/protobuf/com/daml/daml_lf_{version}/*.proto".format(
                     version = mangled_version,
                     directory = directory,
                 ),
@@ -39,12 +38,7 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
         proto_jars(
             name = "daml_lf_%s_archive_proto" % version,
             srcs = [":daml_lf_%s_archive_proto_srcs" % version],
-            javadoc_root_packages = [
-                "com.{package}.daml_lf_{version}".format(
-                    package = package,
-                    version = mangled_version,
-                ),
-            ],
+            javadoc_root_packages = ["com.daml.daml_lf_%s" % mangled_version],
             maven_artifact_prefix = "daml-lf-%s-archive" % version,
             maven_group = "com.daml",
             strip_import_prefix = "src/%s/protobuf" % directory,
@@ -52,7 +46,6 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
         ),
     ]
     for version in PROTO_LF_VERSIONS
-    for package in [lf_version_package(version)]
     for mangled_version in [mangle_for_java(version)]
     for directory in ["main" if version == "dev" else "stable"]
 ]
@@ -169,10 +162,7 @@ da_scala_test_suite(
     ],
     scalacopts = lf_scalacopts,
     deps = [
-        ":daml_lf_1.11_archive_proto_java",
-        ":daml_lf_1.6_archive_proto_java",
-        ":daml_lf_1.7_archive_proto_java",
-        ":daml_lf_1.8_archive_proto_java",
+        ":daml_lf_1.14_archive_proto_java",
         ":daml_lf_archive_reader",
         ":daml_lf_dev_archive_proto_java",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -198,12 +188,7 @@ da_scala_binary(
     ],
 )
 
-SNASPSHOT_VERSIONS = [
-    "1.11",
-    "1.12",
-    "1.13",
-    "1.14",
-]
+SNASPSHOT_VERSIONS = [ver for ver in PROTO_LF_VERSIONS if ver != "dev"]
 
 [
     sh_test(
