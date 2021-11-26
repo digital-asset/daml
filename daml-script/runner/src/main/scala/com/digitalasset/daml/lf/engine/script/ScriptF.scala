@@ -394,10 +394,20 @@ object ScriptF {
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = Future {
-      val sleepMillis = micros / 1000
-      val sleepNanos = (micros % 1000) * 1000
-      Thread.sleep(sleepMillis, sleepNanos.toInt)
+      sleepAtLeast(micros * 1000)
       SEApp(SEValue(continue), Array(SEValue(SUnit)))
+    }
+
+    private def sleepAtLeast(totalNanos: Long) = {
+      // Thread.sleep can wake up earlier so we loop it to guarantee a minimum
+      // sleep time
+      val t0 = System.nanoTime
+      var nanosLeft = totalNanos
+      while (nanosLeft > 0) {
+        java.util.concurrent.TimeUnit.NANOSECONDS.sleep(nanosLeft)
+        val t1 = System.nanoTime
+        nanosLeft = totalNanos - (t1 - t0)
+      }
     }
   }
 
