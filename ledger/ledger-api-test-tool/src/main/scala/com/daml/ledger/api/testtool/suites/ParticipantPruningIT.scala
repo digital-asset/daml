@@ -638,7 +638,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
     runConcurrently = false, // pruning call may interact with other tests
     // Higher timeout - The test generates a significant number of events
-    timeoutScale = 4.0,
+    timeoutScale = 8.0,
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     for {
       divulgence <- createDivulgence(alice, bob, alpha, beta)
@@ -662,7 +662,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
     runConcurrently = false, // pruning call may interact with other tests
     // Higher timeout - The test generates a significant number of events
-    timeoutScale = 4.0,
+    timeoutScale = 8.0,
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     for {
       divulgence <- createDivulgence(alice, bob, alpha, beta)
@@ -688,7 +688,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     allocate(SingleParty, SingleParty),
     runConcurrently = false, // pruning call may interact with other tests
     // Higher timeout - The test generates a significant number of events
-    timeoutScale = 4.0,
+    timeoutScale = 8.0,
   )(implicit ec => { case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
     for {
       divulgence <- createDivulgence(alice, bob, alpha, beta)
