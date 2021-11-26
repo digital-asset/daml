@@ -174,25 +174,12 @@ private[lf] object Anf {
 
   private[this] type AbsAtom = Either[target.SExprAtomic, AbsBinding]
 
-  private def convertLoc(x: source.SELoc): target.SELoc = {
-    x match {
-      case source.SELocAbsoluteS(_) => sys.error("Anf.convertLoc/SELocAbsoluteS, unreachable code")
-      case source.SELocA(x) => target.SELocA(x)
-      case source.SELocF(x) => target.SELocF(x)
-    }
-  }
-
-  private def convertAtom(x: source.SExprAtomic): target.SExprAtomic = {
-    x match {
-      case loc: source.SELoc => convertLoc(loc)
-      case source.SEValue(x) => target.SEValue(x)
-      case source.SEBuiltin(x) => target.SEBuiltin(x)
-    }
-  }
-
   private[this] def makeAbsoluteA(env: Env, atom: source.SExprAtomic): AbsAtom = atom match {
     case source.SELocAbsoluteS(abs) => Right(makeAbsoluteB(env, abs))
-    case x => Left(convertAtom(x))
+    case source.SELocA(x) => Left(target.SELocA(x))
+    case source.SELocF(x) => Left(target.SELocF(x))
+    case source.SEValue(x) => Left(target.SEValue(x))
+    case source.SEBuiltin(x) => Left(target.SEBuiltin(x))
   }
 
   private[this] def makeRelativeA(depth: DepthA)(atom: AbsAtom): target.SExprAtomic = atom match {
@@ -211,7 +198,8 @@ private[lf] object Anf {
 
   private[this] def makeRelativeL(depth: DepthA)(loc: AbsLoc): target.SELoc = loc match {
     case Left(x: source.SELocAbsoluteS) => throw CompilationError(s"makeRelativeL: unexpected: $x")
-    case Left(loc) => convertLoc(loc)
+    case Left(source.SELocA(x)) => target.SELocA(x)
+    case Left(source.SELocF(x)) => target.SELocF(x)
     case Right(binding) => target.SELocS(makeRelativeB(depth, binding))
   }
 
