@@ -58,7 +58,7 @@ genrule(
       cp -L $(location //daml-script/daml:daml-script-1.dev.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
-name: script-test-1dev
+name: script-test-v1dev
 version: 0.0.1
 source: daml
 build-options:

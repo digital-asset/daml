@@ -68,15 +68,15 @@ parseProjectConfig project = do
     pSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
     Right PackageConfigFields {..}
 
-checkPkgConfig :: PackageConfigFields -> [String]
+checkPkgConfig :: PackageConfigFields -> [T.Text]
 checkPkgConfig PackageConfigFields {pName, pVersion} =
-  [ unlines $
-  ["WARNING: Package names should have the format " <> T.unpack packageNameRegex <> "."]
+  [ T.unlines $
+  ["Invalid package name: " <> T.pack (show pName) <> ". Package names should have the format " <> packageNameRegex <> "."]
   ++ errDescription
   | not $ LF.unPackageName pName =~ packageNameRegex
   ] ++
-  [ unlines $
-  ["WARNING: Package versions should have the format " <> T.unpack versionRegex <> "."]
+  [ T.unlines $
+  ["Invalid package version: " <> T.pack (show pVersion) <> ". Package versions should have the format " <> versionRegex <> "."]
   ++ errDescription
   | Just version <- [pVersion]
   , not $ LF.unPackageVersion version =~ versionRegex
