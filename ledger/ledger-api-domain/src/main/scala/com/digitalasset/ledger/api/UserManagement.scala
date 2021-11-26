@@ -12,10 +12,10 @@ object UserManagement {
       primaryParty: Option[Ref.Party],
   )
 
-  sealed trait Right
-  object Right {
-    final case object ParticipantAdmin extends Right
-    final case class CanActAs(party: Ref.Party) extends Right
-    final case class CanReadAs(party: Ref.Party) extends Right
+  sealed trait UserRight
+  object UserRight {
+    final case object ParticipantAdmin extends UserRight
+    final case class CanActAs(party: Ref.Party) extends UserRight
+    final case class CanReadAs(party: Ref.Party) extends UserRight
   }
 }

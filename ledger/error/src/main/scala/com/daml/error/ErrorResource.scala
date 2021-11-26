@@ -40,4 +40,7 @@ object ErrorResource {
   object Party extends ErrorResource {
     def asString: String = "PARTY"
   }
+  object User extends ErrorResource {
+    def asString: String = "USER"
+  }
 }

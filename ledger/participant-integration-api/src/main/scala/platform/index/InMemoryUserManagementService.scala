@@ -5,6 +5,7 @@ package com.daml.platform.index
 
 import com.daml.ledger.api.UserManagement._
 import com.daml.ledger.participant.state.index.v2.UserManagementService
+import com.daml.ledger.participant.state.index.v2.UserManagementService._
 
 import scala.concurrent.Future
 
@@ -13,68 +14,73 @@ class InMemoryUserManagementService extends UserManagementService {
 
   @volatile private var state: Map[String, UserInfo] = Map(AdminUser.toStateEntry)
 
-  override def createUser(user: User, rights: Set[Right]): Future[Boolean] = synchronized {
+  override def createUser(user: User, rights: Set[UserRight]): Future[Result[Unit]] = synchronized {
     state.get(user.id) match {
-      case Some(_) => Future.successful(false)
+      case Some(_) => Future.successful(Left(UserExists(user.id)))
       case None =>
         state = state + UserInfo(user, rights).toStateEntry
-        Future.successful(true)
+        Future.successful(Right(()))
     }
   }
 
-  override def getUser(id: String): Future[User] =
-    state.get(id) match {
-      case Some(userInfo) => Future.successful(userInfo.user)
-      case None => Future.failed(new Exception(s"user '$id' not found"))
-    }
+  override def getUser(id: String): Future[Result[User]] =
+    Future.successful(
+      state.get(id) match {
+        case Some(userInfo) => Right(userInfo.user)
+        case None => Left(UserNotFound(id))
+      }
+    )
 
-  override def deleteUser(id: String): Future[Unit] = synchronized {
-    state.get(id) match {
+  override def deleteUser(id: String): Future[Result[Unit]] = synchronized {
+    Future.successful(state.get(id) match {
       case Some(_) =>
         state = state - id
-        Future.unit
+        Right(())
       case None =>
-        Future.failed(new Exception(s"user '$id' not found"))
-    }
+        Left(UserNotFound(id))
+    })
   }
 
-  override def grantRights(id: String, rights: Set[Right]): Future[Set[Right]] = synchronized {
-    state.get(id) match {
-      case Some(userInfo) =>
-        val newRights = rights
-          .filterNot(userInfo.rights)
-        state = state + userInfo.copy(rights = userInfo.rights ++ newRights).toStateEntry
-        Future.successful(newRights)
-      case None =>
-        Future.failed(new Exception(s"user '$id' not found"))
+  override def grantRights(id: String, rights: Set[UserRight]): Future[Result[Set[UserRight]]] =
+    synchronized {
+      state.get(id) match {
+        case Some(userInfo) =>
+          val newRights = rights
+            .filterNot(userInfo.rights)
+          state = state + userInfo.copy(rights = userInfo.rights ++ newRights).toStateEntry
+          Future.successful(Right(newRights))
+        case None =>
+          Future.successful(Left(UserNotFound(id)))
+      }
     }
-  }
 
-  override def revokeRights(id: String, rights: Set[Right]): Future[Set[Right]] = synchronized {
-    state.get(id) match {
-      case Some(userInfo) =>
-        val newRevokeRights = rights
-          .filter(userInfo.rights)
-        state = state + userInfo.copy(rights = userInfo.rights -- newRevokeRights).toStateEntry
-        Future.successful(newRevokeRights)
-      case None =>
-        Future.failed(new Exception(s"user '$id' not found"))
+  override def revokeRights(id: String, rights: Set[UserRight]): Future[Result[Set[UserRight]]] =
+    synchronized {
+      state.get(id) match {
+        case Some(userInfo) =>
+          val newRevokeRights = rights
+            .filter(userInfo.rights)
+          state = state + userInfo.copy(rights = userInfo.rights -- newRevokeRights).toStateEntry
+          Future.successful(Right(newRevokeRights))
+        case None =>
+          Future.successful(Left(UserNotFound(id)))
+      }
     }
-  }
 
-  override def listUserRights(id: String): Future[Set[Right]] =
+  override def listUserRights(id: String): Future[Result[Set[UserRight]]] =
     state.get(id) match {
-      case Some(userInfo) => Future.successful(userInfo.rights)
-      case None => Future.failed(new Exception(s"user '$id' not found"))
+      case Some(userInfo) => Future.successful(Right(userInfo.rights))
+      case None => Future.successful(Left(UserNotFound(id)))
     }
+
 }
 
 object InMemoryUserManagementService {
-  case class UserInfo(user: User, rights: Set[Right]) {
+  case class UserInfo(user: User, rights: Set[UserRight]) {
     def toStateEntry: (String, UserInfo) = user.id -> this
   }
   private val AdminUser = UserInfo(
     user = User("admin", None),
-    rights = Set(Right.ParticipantAdmin),
+    rights = Set(UserRight.ParticipantAdmin),
   )
 }

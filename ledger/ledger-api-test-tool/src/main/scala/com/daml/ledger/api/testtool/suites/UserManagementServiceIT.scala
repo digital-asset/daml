@@ -25,7 +25,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     for {
       // TODO: actually exercise all RPCs
       createResult <- ledger.userManagement.createUser(CreateUserRequest(Some(User("a", "b")), Nil))
-      getUserResult <- ledger.userManagement.getUser(GetUserRequest("a"))
+      getUserResult <- ledger.userManagement.getUser(GetUserRequest("b"))
       grantResult <- ledger.userManagement.grantUserRights(
         GrantUserRightsRequest(
           "a",
@@ -55,7 +55,7 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       )
       assert(
         listRightsResult.rights.toSet == Set(
-          Permission(Permission.Kind.ParticipantAdmin(Permission.ParticipantAdmin())),
+          Permission(Permission.Kind.ParticipantAdmin(Permission.ParticipantAdmin()))
 //          Permission(Permission.Kind.CanActAs(Permission.CanActAs("acting-party"))),
 //          Permission(Permission.Kind.CanReadAs(Permission.CanReadAs("reader-party"))),
         )

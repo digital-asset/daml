@@ -5,6 +5,8 @@ package com.daml.ledger.participant.state.index.v2
 
 import scala.concurrent.Future
 
+import com.daml.ledger.api.UserManagement._
+
 /* TODO for PoC:
 
 - self-service errors to aid tool developers with debugging
@@ -15,19 +17,26 @@ import scala.concurrent.Future
 
  */
 
-
 trait UserManagementService {
-  import com.daml.ledger.api.UserManagement._
+  import UserManagementService._
 
-  def createUser(user: User, rights: Set[Right]): Future[Boolean]
+  def createUser(user: User, rights: Set[UserRight]): Future[Result[Unit]]
 
-  def getUser(id: String): Future[User]
+  def getUser(id: String): Future[Result[User]]
 
-  def deleteUser(id: String): Future[Unit]
+  def deleteUser(id: String): Future[Result[Unit]]
 
-  def grantRights(id: String, rights: Set[Right]): Future[Set[Right]]
+  def grantRights(id: String, rights: Set[UserRight]): Future[Result[Set[UserRight]]]
 
-  def revokeRights(id: String, rights: Set[Right]): Future[Set[Right]]
+  def revokeRights(id: String, rights: Set[UserRight]): Future[Result[Set[UserRight]]]
 
-  def listUserRights(id: String): Future[Set[Right]]
+  def listUserRights(id: String): Future[Result[Set[UserRight]]]
+}
+
+object UserManagementService {
+  type Result[T] = Either[Error, T]
+
+  sealed trait Error
+  final case class UserNotFound(userId: String) extends Error
+  final case class UserExists(userId: String) extends Error
 }

@@ -51,7 +51,7 @@ import java.nio.file.Files
 import java.time.Instant
 import java.util.concurrent.Executors
 
-import com.daml.platform.index.UserManagementServiceStub
+import com.daml.platform.index.InMemoryUserManagementService
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -403,7 +403,7 @@ final class SandboxServer(
         managementServiceTimeout = config.managementServiceTimeout,
         enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
         checkOverloaded = _ => None,
-        userManagementService = UserManagementServiceStub,
+        userManagementService = new InMemoryUserManagementService,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(List(resetService)))
       apiServer <- new LedgerApiServer(
