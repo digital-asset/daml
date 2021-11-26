@@ -300,6 +300,7 @@ genrule(
       cp -L $(location :test-model/TestTrigger.daml) $$TMP_DIR/daml
       cp -L $(location :test-model/ErrorTrigger.daml) $$TMP_DIR/daml
       cp -L $(location :test-model/LowLevelErrorTrigger.daml) $$TMP_DIR/daml
+      cp -L $(location :test-model/ReadAs.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR
       cat << EOF > $$TMP_DIR/daml.yaml
