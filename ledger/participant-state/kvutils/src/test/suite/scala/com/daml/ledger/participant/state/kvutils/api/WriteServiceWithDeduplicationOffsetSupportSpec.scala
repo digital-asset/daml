@@ -27,6 +27,7 @@ import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versio
 import com.daml.logging.LoggingContext
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
+import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -39,7 +40,8 @@ class WriteServiceWithDeduplicationOffsetSupportSpec
     with Matchers
     with AkkaBeforeAndAfterAll
     with TestLoggers
-    with ArgumentMatchersSugar {
+    with ArgumentMatchersSugar
+    with BeforeAndAfterEach {
   implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
   private val mockWriteService: WriteService = mock[WriteService]
   private val mockDeduplicationPeriodService: DeduplicationPeriodService =
@@ -48,6 +50,8 @@ class WriteServiceWithDeduplicationOffsetSupportSpec
     mockWriteService,
     mockDeduplicationPeriodService,
   )
+
+  override protected def afterEach(): Unit = reset(mockWriteService, mockDeduplicationPeriodService)
 
   "use the returned deduplication period" in {
     val submitterInfo = SubmitterInfo(
