@@ -18,24 +18,30 @@ module DA.Daml.Helper.Util
   , damlSdkJarFolder
   , withJar
   , runJar
+  , runCantonSandbox
   , getLogbackArg
   , waitForConnectionOnPort
   , waitForHttpServer
   , tokenFor
+  , CantonPorts(..)
   ) where
 
 import Control.Exception.Safe
 import Control.Monad.Extra
 import Control.Monad.Loops (untilJust)
+import qualified Data.Aeson as Aeson
+import qualified Data.ByteString.Lazy as BSL
 import Data.Foldable
 import Data.Maybe
 import qualified Data.Text as T
+import qualified Data.Text.Extended as T
 import qualified Network.HTTP.Simple as HTTP
 import qualified Network.HTTP.Types as HTTP
 import Network.Socket
 import System.Directory
 import System.FilePath
 import System.IO
+import System.IO.Extra (withTempFile)
 import System.Info.Extra
 import System.Process (showCommandForUser, terminateProcess)
 import System.Process.Typed
@@ -238,3 +244,47 @@ tokenFor parties ledgerId applicationId =
                   ])
             ]
       }
+
+runCantonSandbox :: CantonPorts -> [String] -> IO ()
+runCantonSandbox ports remainingArgs = do
+    sdkPath <- getSdkPath
+    let cantonJar = sdkPath </> "canton" </> "canton.jar"
+    withTempFile $ \config ->
+      withTempFile $ \bootstrap -> do
+        BSL.writeFile config (cantonConfig ports)
+        T.writeFileUtf8 bootstrap $ T.unlines
+          [ "sandbox.domains.connect_local(local)"
+          , "println(\"Canton sandbox started\")"
+          ]
+        runJar cantonJar Nothing ("daemon" : "-c" : config : "--bootstrap" : bootstrap : remainingArgs)
+
+data CantonPorts = CantonPorts
+  { ledgerApi :: Int
+  , adminApi :: Int
+  , domainPublicApi :: Int
+  , domainAdminApi :: Int
+  }
+
+cantonConfig :: CantonPorts -> BSL.ByteString
+cantonConfig CantonPorts{..} =
+    Aeson.encode $ Aeson.object
+      [ "canton" Aeson..= Aeson.object
+          [ "participants" Aeson..= Aeson.object
+              [ "sandbox" Aeson..= Aeson.object
+                  [ storage
+                  , "admin-api" Aeson..= port adminApi
+                  , "ledger-api" Aeson..= port ledgerApi
+                  ]
+              ]
+          , "domains" Aeson..= Aeson.object
+              [ "local" Aeson..= Aeson.object
+                [ storage
+                , "public-api" Aeson..= port domainPublicApi
+                , "admin-api" Aeson..= port domainAdminApi
+                ]
+              ]
+          ]
+      ]
+  where
+    port p = Aeson.object [ "port" Aeson..= p ]
+    storage = "storage" Aeson..= Aeson.object [ "type" Aeson..= ("memory" :: T.Text) ]
