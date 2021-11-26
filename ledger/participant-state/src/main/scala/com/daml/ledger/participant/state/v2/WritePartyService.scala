@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.v2
 import java.util.concurrent.CompletionStage
 
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 import com.daml.telemetry.TelemetryContext
 
 /** An interface for on-boarding parties via a participant. */
@@ -28,7 +29,6 @@ trait WritePartyService {
     * @param hint             A party identifier suggestion
     * @param displayName      A human readable name of the new party
     * @param submissionId     Client picked submission identifier for matching the responses with the request.
-    * @param telemetryContext An implicit context for tracing.
     *
     * @return an async result of a SubmissionResult
     */
@@ -36,5 +36,8 @@ trait WritePartyService {
       hint: Option[Ref.Party],
       displayName: Option[String],
       submissionId: Ref.SubmissionId,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult]
 }

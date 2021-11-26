@@ -134,7 +134,10 @@ final class Runner[T <: ReadWriteService, Extra](
                 _ <- Resource.sequence(
                   config.archiveFiles.map(path =>
                     Resource.fromFuture(
-                      uploadDar(path, writeService)(resourceContext.executionContext)
+                      uploadDar(path, writeService)(
+                        loggingContext,
+                        resourceContext.executionContext,
+                      )
                     )
                   )
                 )
@@ -198,7 +201,8 @@ final class Runner[T <: ReadWriteService, Extra](
   }
 
   private def uploadDar(from: Path, to: WritePackagesService)(implicit
-      executionContext: ExecutionContext
+      loggingContext: LoggingContext,
+      executionContext: ExecutionContext,
   ): Future[Unit] = DefaultTelemetry.runFutureInSpan(SpanName.RunnerUploadDar, SpanKind.Internal) {
     implicit telemetryContext =>
       val submissionId = Ref.SubmissionId.assertFromString(UUID.randomUUID().toString)

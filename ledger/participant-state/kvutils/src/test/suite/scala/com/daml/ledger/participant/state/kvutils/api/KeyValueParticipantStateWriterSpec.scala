@@ -37,6 +37,7 @@ class KeyValueParticipantStateWriterSpec
     with ArgumentMatchersSugar {
 
   import KeyValueParticipantStateWriterSpec._
+  private implicit val loggingContext = com.daml.logging.LoggingContext.ForTesting
 
   "participant state writer" should {
     "submit a transaction" in {

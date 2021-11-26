@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils.api
 
 import java.util.UUID
 import java.util.concurrent.{CompletableFuture, CompletionStage}
+
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
@@ -14,8 +15,8 @@ import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v2._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.SubmittedTransaction
-import com.daml.logging.ContextualizedLogger
-import com.daml.logging.LoggingContext.newLoggingContextWith
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext
 
@@ -36,7 +37,10 @@ class KeyValueParticipantStateWriter(
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult] = {
     val submission =
       keyValueSubmission.transactionToSubmission(
         submitterInfo,
@@ -45,7 +49,7 @@ class KeyValueParticipantStateWriter(
       )
     val metadata = CommitMetadata(submission, Some(estimatedInterpretationCost))
     val submissionId = submitterInfo.submissionId.getOrElse {
-      newLoggingContextWith(
+      withEnrichedLoggingContext(
         "commandId" -> submitterInfo.commandId,
         "applicationId" -> submitterInfo.applicationId,
       ) { implicit loggingContext =>
@@ -65,7 +69,10 @@ class KeyValueParticipantStateWriter(
       submissionId: Ref.SubmissionId,
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult] = {
     val submission = keyValueSubmission
       .archivesToSubmission(
         submissionId,
@@ -80,7 +87,10 @@ class KeyValueParticipantStateWriter(
       maxRecordTime: Time.Timestamp,
       submissionId: Ref.SubmissionId,
       config: Configuration,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult] = {
     val submission =
       keyValueSubmission
         .configurationToSubmission(maxRecordTime, submissionId, writer.participantId, config)
@@ -91,7 +101,10 @@ class KeyValueParticipantStateWriter(
       hint: Option[Ref.Party],
       displayName: Option[String],
       submissionId: Ref.SubmissionId,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult] = {
     val party = hint.getOrElse(generateRandomParty())
     val submission =
       keyValueSubmission.partyToSubmission(

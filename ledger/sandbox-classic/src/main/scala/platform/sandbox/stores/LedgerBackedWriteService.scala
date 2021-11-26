@@ -25,8 +25,6 @@ private[stores] final class LedgerBackedWriteService(
     ledger: Ledger,
     timeProvider: TimeProvider,
     enablePruning: Boolean,
-)(implicit
-    loggingContext: LoggingContext
 ) extends state.WriteService {
 
   override def currentHealth(): HealthStatus = ledger.currentHealth()
@@ -36,7 +34,10 @@ private[stores] final class LedgerBackedWriteService(
       transactionMeta: state.TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[state.SubmissionResult] =
     withEnrichedLoggingContext(
       "actAs" -> submitterInfo.actAs,
       "applicationId" -> submitterInfo.applicationId,
@@ -55,7 +56,10 @@ private[stores] final class LedgerBackedWriteService(
       hint: Option[Ref.Party],
       displayName: Option[String],
       submissionId: Ref.SubmissionId,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] = {
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[state.SubmissionResult] = {
     val party = hint.getOrElse(PartyIdGenerator.generateRandomId())
     withEnrichedLoggingContext(
       "party" -> party,
@@ -70,7 +74,10 @@ private[stores] final class LedgerBackedWriteService(
       submissionId: Ref.SubmissionId,
       payload: List[DamlLf.Archive],
       sourceDescription: Option[String],
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[state.SubmissionResult] =
     withEnrichedLoggingContext(
       "submissionId" -> submissionId,
       "description" -> sourceDescription,
@@ -91,7 +98,10 @@ private[stores] final class LedgerBackedWriteService(
       maxRecordTime: Time.Timestamp,
       submissionId: Ref.SubmissionId,
       config: Configuration,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[state.SubmissionResult] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[state.SubmissionResult] =
     withEnrichedLoggingContext(
       "maxRecordTime" -> maxRecordTime.toInstant,
       "submissionId" -> submissionId,

@@ -56,7 +56,10 @@ case class ReadWriteServiceBridge(
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult] =
     submit(
       Submission.Transaction(
         submitterInfo = submitterInfo,
@@ -70,7 +73,10 @@ case class ReadWriteServiceBridge(
       maxRecordTime: Time.Timestamp,
       submissionId: Ref.SubmissionId,
       config: Configuration,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult] =
     submit(
       Submission.Config(
         maxRecordTime = maxRecordTime,
@@ -85,7 +91,10 @@ case class ReadWriteServiceBridge(
       hint: Option[Ref.Party],
       displayName: Option[String],
       submissionId: Ref.SubmissionId,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult] =
     submit(
       Submission.AllocateParty(
         hint = hint,
@@ -98,7 +107,10 @@ case class ReadWriteServiceBridge(
       submissionId: Ref.SubmissionId,
       archives: List[Archive],
       sourceDescription: Option[String],
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult] =
     submit(
       Submission.UploadPackages(
         submissionId = submissionId,

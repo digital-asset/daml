@@ -67,7 +67,10 @@ class KeyValueParticipantState(
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult] =
     writerAdapter.submitTransaction(
       submitterInfo,
       transactionMeta,
@@ -79,21 +82,30 @@ class KeyValueParticipantState(
       maxRecordTime: Time.Timestamp,
       submissionId: Ref.SubmissionId,
       config: Configuration,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult] =
     writerAdapter.submitConfiguration(maxRecordTime, submissionId, config)
 
   override def uploadPackages(
       submissionId: Ref.SubmissionId,
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult] =
     writerAdapter.uploadPackages(submissionId, archives, sourceDescription)
 
   override def allocateParty(
       hint: Option[Ref.Party],
       displayName: Option[String],
       submissionId: Ref.SubmissionId,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult] =
     writerAdapter.allocateParty(hint, displayName, submissionId)
 
   override def prune(

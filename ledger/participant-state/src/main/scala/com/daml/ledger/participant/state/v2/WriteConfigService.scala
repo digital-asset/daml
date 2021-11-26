@@ -8,6 +8,7 @@ import java.util.concurrent.CompletionStage
 import com.daml.ledger.configuration.Configuration
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext
 import com.daml.telemetry.TelemetryContext
 
 trait WriteConfigService {
@@ -26,12 +27,14 @@ trait WriteConfigService {
     * @param maxRecordTime: The maximum record time after which the request is rejected.
     * @param submissionId: Client picked submission identifier for matching the responses with the request.
     * @param config: The new ledger configuration.
-    * @param telemetryContext: An implicit context for tracing.
     * @return an async result of a SubmissionResult
     */
   def submitConfiguration(
       maxRecordTime: Timestamp,
       submissionId: Ref.SubmissionId,
       config: Configuration,
-  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): CompletionStage[SubmissionResult]
 }
