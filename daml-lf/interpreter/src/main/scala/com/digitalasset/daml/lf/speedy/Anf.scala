@@ -155,17 +155,15 @@ private[lf] object Anf {
     *    it absolute because an offset doesn't change as new bindings are pushed onto the
     *    stack.
     *
-    *    Note the contrast with the expression form `ELocS` which contains a relative offset
-    *    from the end of the stack. This relative-position is used in both the original
-    *    expression which we traverse AND the new ANF expression we are constructing. The
+    *    Happily, the source expressions use absolute stack offsets in `SELocAbsoluteS`.
+    *    In contrast to the target expressions which use relative offsets in `SELocS`. The
     *    relative-offset to a binding varies as new bindings are pushed on the stack.
     */
   private[this] case class AbsBinding(abs: DepthA)
 
-  private[this] def makeAbsoluteB(env: Env, rel: Int): AbsBinding = {
-    val oldAbs = env.oldDepth.incr(-rel)
-    env.absMap.get(oldAbs) match {
-      case None => throw CompilationError(s"makeAbsoluteB(env=$env,rel=$rel)")
+  private[this] def makeAbsoluteB(env: Env, abs: Int): AbsBinding = {
+    env.absMap.get(DepthE(abs)) match {
+      case None => throw CompilationError(s"makeAbsoluteB(env=$env,abs=$abs)")
       case Some(abs) => AbsBinding(abs)
     }
   }
@@ -178,7 +176,7 @@ private[lf] object Anf {
 
   private def convertLoc(x: source.SELoc): target.SELoc = {
     x match {
-      case source.SELocS(x) => target.SELocS(x)
+      case source.SELocAbsoluteS(_) => sys.error("Anf.convertLoc/SELocAbsoluteS, unreachable code")
       case source.SELocA(x) => target.SELocA(x)
       case source.SELocF(x) => target.SELocF(x)
     }
@@ -193,7 +191,7 @@ private[lf] object Anf {
   }
 
   private[this] def makeAbsoluteA(env: Env, atom: source.SExprAtomic): AbsAtom = atom match {
-    case source.SELocS(rel) => Right(makeAbsoluteB(env, rel))
+    case source.SELocAbsoluteS(abs) => Right(makeAbsoluteB(env, abs))
     case x => Left(convertAtom(x))
   }
 
@@ -206,13 +204,13 @@ private[lf] object Anf {
   private[this] type AbsLoc = Either[source.SELoc, AbsBinding]
 
   private[this] def makeAbsoluteL(env: Env, loc: source.SELoc): AbsLoc = loc match {
-    case source.SELocS(rel) => Right(makeAbsoluteB(env, rel))
+    case source.SELocAbsoluteS(abs) => Right(makeAbsoluteB(env, abs))
     case x: source.SELocA => Left(x)
     case x: source.SELocF => Left(x)
   }
 
   private[this] def makeRelativeL(depth: DepthA)(loc: AbsLoc): target.SELoc = loc match {
-    case Left(x: source.SELocS) => throw CompilationError(s"makeRelativeL: unexpected: $x")
+    case Left(x: source.SELocAbsoluteS) => throw CompilationError(s"makeRelativeL: unexpected: $x")
     case Left(loc) => convertLoc(loc)
     case Right(binding) => target.SELocS(makeRelativeB(depth, binding))
   }
