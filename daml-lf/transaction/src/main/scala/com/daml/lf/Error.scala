@@ -92,7 +92,7 @@ object Error {
   /** We tried to fetch / exercise a contract by interface, but
     * the contract does not implement this interface.
     */
-  final case class ContractDoesntImplementInterface(
+  final case class ContractDoesNotImplementInterface(
       interfaceId: TypeConName,
       coid: ContractId,
       templateId: TypeConName,

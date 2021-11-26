@@ -1113,7 +1113,7 @@ private[lf] object SBuiltin {
               machine.returnValue = cached.value
             case None =>
               machine.ctrl = SEDamlException(
-                IE.ContractDoesntImplementInterface(
+                IE.ContractDoesNotImplementInterface(
                   interfaceId = ifaceId,
                   coid = coid,
                   templateId = cached.templateId,
@@ -1143,7 +1143,7 @@ private[lf] object SBuiltin {
                     )
                   case None =>
                     machine.ctrl = SEDamlException(
-                      IE.ContractDoesntImplementInterface(
+                      IE.ContractDoesNotImplementInterface(
                         interfaceId = ifaceId,
                         coid = coid,
                         templateId = actualTmplId,

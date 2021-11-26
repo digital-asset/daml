@@ -130,7 +130,7 @@ class RejectionGenerators(conformanceMode: Boolean) {
             .Error(
               renderedMessage
             )
-        case _: LfInterpretationError.ContractDoesntImplementInterface =>
+        case _: LfInterpretationError.ContractDoesNotImplementInterface =>
           LedgerApiErrors.CommandExecution.Interpreter.InvalidArgumentInterpretationError
             .Error(
               renderedMessage

@@ -81,7 +81,7 @@ private[lf] object Pretty {
           ) & prettyTypeConName(
             actual
           )
-      case ContractDoesntImplementInterface(interfaceId, coid, templateId) =>
+      case ContractDoesNotImplementInterface(interfaceId, coid, templateId) =>
         text("Update failed due to contract") & prettyContractId(coid) & text(
           "not implementing an interface"
         ) /
