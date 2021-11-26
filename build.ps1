@@ -59,4 +59,4 @@ bazel shutdown
 # It isn’t clear where exactly those errors are coming from.
 bazel fetch @nodejs_dev_env//...
 
-bazel test --runs_per_test=50 //daml-assistant/integration-tests:integration-tests --test_arg -p --test_arg "daml canton-sandbox" -t-
+bazel test --runs_per_test=1 --test_output=streamed //daml-assistant/integration-tests:integration-tests --test_arg -p --test_arg "daml canton-sandbox" -t-
