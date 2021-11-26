@@ -40,7 +40,7 @@ class WriteServiceWithDeduplicationOffsetSupportSpec
     with AkkaBeforeAndAfterAll
     with TestLoggers
     with ArgumentMatchersSugar {
-  implicit val telemetryContext: NoOpTelemetryContext.type = NoOpTelemetryContext
+  implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
   private val mockWriteService: WriteService = mock[WriteService]
   private val mockDeduplicationPeriodService: DeduplicationPeriodService =
     mock[DeduplicationPeriodService]
