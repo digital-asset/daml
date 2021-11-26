@@ -7,15 +7,6 @@ import scala.concurrent.Future
 
 import com.daml.ledger.api.UserManagement._
 
-/* TODO for PoC:
-
-- self-service errors to aid tool developers with debugging
-- hook-up to authentication service
-
-
-
-
- */
 
 trait UserManagementService {
   import UserManagementService._
