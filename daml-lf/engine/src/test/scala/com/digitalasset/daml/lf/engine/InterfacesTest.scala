@@ -17,6 +17,7 @@ import com.daml.lf.command._
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
+import org.scalatest.Inside._
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
 import interpretation.{Error => IE}
@@ -147,13 +148,10 @@ class InterfacesTest
     }
     "be unable to exercise interface I2 on a T1 contract" in {
       val command = ExerciseCommand(idI2, cid1, "C2", ValueRecord(None, ImmArray.empty))
-      run(command) match {
-        case Left(Error.Interpretation(err, _)) =>
-          err shouldBe Error.Interpretation.DamlException(
-            IE.ContractDoesntImplementInterface(idI2, cid1, idT1)
-          )
-        case result =>
-          fail(s"Expected Left(Error.Interpretation(err, _)), not $result")
+      inside(run(command)) { case Left(Error.Interpretation(err, _)) =>
+        err shouldBe Error.Interpretation.DamlException(
+          IE.ContractDoesntImplementInterface(idI2, cid1, idT1)
+        )
       }
     }
 
@@ -176,20 +174,14 @@ class InterfacesTest
 
     "be unable to exercise T1 (disguised as T2) by interface I1" in {
       val command = ExerciseCommand(idT2, cid1, "C1", ValueRecord(None, ImmArray.empty))
-      run(command) match {
-        case Left(Error.Interpretation(err, _)) =>
-          err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid1, idT2, idT1))
-        case result =>
-          fail(s"Expected Left(Error.Interpretation(err, _)), not $result")
+      inside(run(command)) { case Left(Error.Interpretation(err, _)) =>
+        err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid1, idT2, idT1))
       }
     }
     "be unable to exercise T2 (disguised as T1) by interface I1" in {
       val command = ExerciseCommand(idT1, cid2, "C1", ValueRecord(None, ImmArray.empty))
-      run(command) match {
-        case Left(Error.Interpretation(err, _)) =>
-          err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid2, idT1, idT2))
-        case result =>
-          fail(s"Expected Left(Error.Interpretation(err, _)), not $result")
+      inside(run(command)) { case Left(Error.Interpretation(err, _)) =>
+        err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid2, idT1, idT2))
       }
     }
     "be unable to exercise T2 (disguised as T1) by interface I2 (stopped in preprocessor)" in {
@@ -198,15 +190,12 @@ class InterfacesTest
     }
     "be unable to exercise T1 (disguised as T2) by interface I2 " in {
       val command = ExerciseCommand(idT2, cid1, "C2", ValueRecord(None, ImmArray.empty))
-      run(command) match {
-        case Left(Error.Interpretation(err, _)) =>
-          // TODO https://github.com/digital-asset/daml/issues/11703
-          //   This should really be a WronglyTypedContract error.
-          err shouldBe Error.Interpretation.DamlException(
-            IE.ContractDoesntImplementInterface(idI2, cid1, idT1)
-          )
-        case result =>
-          fail(s"Expected Left(Error.Interpretation(err, _)), not $result")
+      inside(run(command)) { case Left(Error.Interpretation(err, _)) =>
+        // TODO https://github.com/digital-asset/daml/issues/11703
+        //   This should really be a WronglyTypedContract error.
+        err shouldBe Error.Interpretation.DamlException(
+          IE.ContractDoesntImplementInterface(idI2, cid1, idT1)
+        )
       }
     }
 
@@ -256,21 +245,15 @@ class InterfacesTest
     "be unable to exercise T1 (disguised as T2) by interface I1 via 'exercise by interface'" in {
       val command =
         ExerciseByInterfaceCommand(idI1, idT2, cid1, "C1", ValueRecord(None, ImmArray.empty))
-      run(command) match {
-        case Left(Error.Interpretation(err, _)) =>
-          err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid1, idT2, idT1))
-        case result =>
-          fail(s"Expected Left(Error.Interpretation(err, _)), not $result")
+      inside(run(command)) { case Left(Error.Interpretation(err, _)) =>
+        err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid1, idT2, idT1))
       }
     }
     "be unable to exercise T2 (disguised as T1) by interface I1 via 'exercise by interface'" in {
       val command =
         ExerciseByInterfaceCommand(idI1, idT1, cid2, "C1", ValueRecord(None, ImmArray.empty))
-      run(command) match {
-        case Left(Error.Interpretation(err, _)) =>
-          err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid2, idT1, idT2))
-        case result =>
-          fail(s"Expected Left(Error.Interpretation(err, _)), not $result")
+      inside(run(command)) { case Left(Error.Interpretation(err, _)) =>
+        err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid2, idT1, idT2))
       }
     }
     "be unable to exercise T2 (disguised as T1) by interface I2 via 'exercise by interface' (stopped in preprocessor)" in {
@@ -281,15 +264,12 @@ class InterfacesTest
     "be unable to exercise T1 (disguised as T2) by interface I2 via 'exercise by interface'" in {
       val command =
         ExerciseByInterfaceCommand(idI2, idT2, cid1, "C2", ValueRecord(None, ImmArray.empty))
-      run(command) match {
-        case Left(Error.Interpretation(err, _)) =>
-          // TODO https://github.com/digital-asset/daml/issues/11703
-          //   This should really be a WronglyTypedContract error.
-          err shouldBe Error.Interpretation.DamlException(
-            IE.ContractDoesntImplementInterface(idI2, cid1, idT1)
-          )
-        case result =>
-          fail(s"Expected Left(Error.Interpretation(err, _)), not $result")
+      inside(run(command)) { case Left(Error.Interpretation(err, _)) =>
+        // TODO https://github.com/digital-asset/daml/issues/11703
+        //   This should really be a WronglyTypedContract error.
+        err shouldBe Error.Interpretation.DamlException(
+          IE.ContractDoesntImplementInterface(idI2, cid1, idT1)
+        )
       }
     }
 
@@ -318,33 +298,24 @@ class InterfacesTest
     }
     "be unable to fetch T1 (disguised as T2) via interface I2" in {
       val command = FetchByInterfaceCommand(idI2, idT2, cid1)
-      run(command) match {
-        case Left(Error.Interpretation(err, _)) =>
-          // TODO https://github.com/digital-asset/daml/issues/11703
-          //   This should really be a WronglyTypedContract error.
-          err shouldBe Error.Interpretation.DamlException(
-            IE.ContractDoesntImplementInterface(idI2, cid1, idT1)
-          )
-        case result =>
-          fail(s"Expected Left(Error.Interpretation(err, _)), not $result")
+      inside(run(command)) { case Left(Error.Interpretation(err, _)) =>
+        // TODO https://github.com/digital-asset/daml/issues/11703
+        //   This should really be a WronglyTypedContract error.
+        err shouldBe Error.Interpretation.DamlException(
+          IE.ContractDoesntImplementInterface(idI2, cid1, idT1)
+        )
       }
     }
     "be unable to fetch T1 (disguised as T2) via interface I1" in {
       val command = FetchByInterfaceCommand(idI1, idT2, cid1)
-      run(command) match {
-        case Left(Error.Interpretation(err, _)) =>
-          err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid1, idT2, idT1))
-        case result =>
-          fail(s"Expected Left(Error.Interpretation(err, _)), not $result")
+      inside(run(command)) { case Left(Error.Interpretation(err, _)) =>
+        err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid1, idT2, idT1))
       }
     }
     "be unable to fetch T2 (disguised as T1) via interface I1" in {
       val command = FetchByInterfaceCommand(idI1, idT1, cid2)
-      run(command) match {
-        case Left(Error.Interpretation(err, _)) =>
-          err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid2, idT1, idT2))
-        case result =>
-          fail(s"Expected Left(Error.Interpretation(err, _)), not $result")
+      inside(run(command)) { case Left(Error.Interpretation(err, _)) =>
+        err shouldBe Error.Interpretation.DamlException(IE.WronglyTypedContract(cid2, idT1, idT2))
       }
     }
     "be unable to fetch T2 (disguised as T1) by interface I2 (stopped in preprocessor)" in {
