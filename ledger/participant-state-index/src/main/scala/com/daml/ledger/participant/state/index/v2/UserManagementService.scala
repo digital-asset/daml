@@ -5,6 +5,17 @@ package com.daml.ledger.participant.state.index.v2
 
 import scala.concurrent.Future
 
+/* TODO for PoC:
+
+- self-service errors to aid tool developers with debugging
+- hook-up to authentication service
+
+
+
+
+ */
+
+
 trait UserManagementService {
   import com.daml.ledger.api.UserManagement._
 

@@ -25,7 +25,7 @@ class InMemoryUserManagementService extends UserManagementService {
   override def getUser(id: String): Future[User] =
     state.get(id) match {
       case Some(userInfo) => Future.successful(userInfo.user)
-      case None => Future.failed(new Exception("not found"))
+      case None => Future.failed(new Exception(s"user '$id' not found"))
     }
 
   override def deleteUser(id: String): Future[Unit] = synchronized {
@@ -34,7 +34,7 @@ class InMemoryUserManagementService extends UserManagementService {
         state = state - id
         Future.unit
       case None =>
-        Future.failed(new Exception("not found"))
+        Future.failed(new Exception(s"user '$id' not found"))
     }
   }
 
@@ -46,7 +46,7 @@ class InMemoryUserManagementService extends UserManagementService {
         state = state + userInfo.copy(rights = userInfo.rights ++ newRights).toStateEntry
         Future.successful(newRights)
       case None =>
-        Future.failed(new Exception("not found"))
+        Future.failed(new Exception(s"user '$id' not found"))
     }
   }
 
@@ -58,14 +58,14 @@ class InMemoryUserManagementService extends UserManagementService {
         state = state + userInfo.copy(rights = userInfo.rights -- newRevokeRights).toStateEntry
         Future.successful(newRevokeRights)
       case None =>
-        Future.failed(new Exception("not found"))
+        Future.failed(new Exception(s"user '$id' not found"))
     }
   }
 
   override def listUserRights(id: String): Future[Set[Right]] =
     state.get(id) match {
       case Some(userInfo) => Future.successful(userInfo.rights)
-      case None => Future.failed(new Exception("not found"))
+      case None => Future.failed(new Exception(s"user '$id' not found"))
     }
 }
 
@@ -73,7 +73,7 @@ object InMemoryUserManagementService {
   case class UserInfo(user: User, rights: Set[Right]) {
     def toStateEntry: (String, UserInfo) = user.id -> this
   }
-  val AdminUser = UserInfo(
+  private val AdminUser = UserInfo(
     user = User("admin", None),
     rights = Set(Right.ParticipantAdmin),
   )

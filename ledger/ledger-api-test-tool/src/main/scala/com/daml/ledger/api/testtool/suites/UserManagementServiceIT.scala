@@ -18,13 +18,13 @@ import com.daml.ledger.api.v1.admin.user_management_service.{
 
 final class UserManagementServiceIT extends LedgerTestSuite {
   test(
-    "StubFunc",
-    "Full round-trip of the stub",
+    "AllRpcs_SuccessAndFail",
+    "Exercise every rpc once with success and once with a failure",
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger)) =>
     for {
+      // TODO: actually exercise all RPCs
       createResult <- ledger.userManagement.createUser(CreateUserRequest(Some(User("a", "b")), Nil))
-      _ <- ledger.userManagement.deleteUser(DeleteUserRequest("a"))
       getUserResult <- ledger.userManagement.getUser(GetUserRequest("a"))
       grantResult <- ledger.userManagement.grantUserRights(
         GrantUserRightsRequest(
@@ -32,16 +32,17 @@ final class UserManagementServiceIT extends LedgerTestSuite {
           List(Permission(Permission.Kind.ParticipantAdmin(Permission.ParticipantAdmin()))),
         )
       )
+      listRightsResult <- ledger.userManagement.listUserRights(ListUserRightsRequest("a"))
       revokeResult <- ledger.userManagement.revokeUserRights(
         RevokeUserRightsRequest(
           "a",
           List(Permission(Permission.Kind.ParticipantAdmin(Permission.ParticipantAdmin()))),
         )
       )
-      listRightsResult <- ledger.userManagement.listUserRights(ListUserRightsRequest("a"))
+      _ <- ledger.userManagement.deleteUser(DeleteUserRequest("a"))
     } yield {
       assert(createResult == User("a", "b"))
-      assert(getUserResult == User("a", "party-for-a"))
+      assert(getUserResult == User("a", "b"))
       assert(
         grantResult.newlyGrantedRights == List(
           Permission(Permission.Kind.ParticipantAdmin(Permission.ParticipantAdmin()))
@@ -55,8 +56,8 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       assert(
         listRightsResult.rights.toSet == Set(
           Permission(Permission.Kind.ParticipantAdmin(Permission.ParticipantAdmin())),
-          Permission(Permission.Kind.CanActAs(Permission.CanActAs("acting-party"))),
-          Permission(Permission.Kind.CanReadAs(Permission.CanReadAs("reader-party"))),
+//          Permission(Permission.Kind.CanActAs(Permission.CanActAs("acting-party"))),
+//          Permission(Permission.Kind.CanReadAs(Permission.CanReadAs("reader-party"))),
         )
       )
     }
