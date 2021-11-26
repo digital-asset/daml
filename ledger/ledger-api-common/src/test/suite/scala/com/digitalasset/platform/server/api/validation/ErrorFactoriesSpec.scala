@@ -445,10 +445,10 @@ class ErrorFactoriesSpec
       val maxDeduplicationDuration = Duration.ofSeconds(5)
       assertVersionedError(
         _.invalidDeduplicationDuration(
-          field,
-          errorDetailMessage,
-          None,
-          Some(maxDeduplicationDuration),
+          fieldName = field,
+          message = errorDetailMessage,
+          definiteAnswer = None,
+          maxDeduplicationDuration = Some(maxDeduplicationDuration),
         )
       )(
         v1_code = Code.INVALID_ARGUMENT,
