@@ -63,8 +63,8 @@ alias(
                 "//visibility:public",
             ],
             deps = [
+                "//daml-lf/archive:daml_lf_1.dev_archive_proto_java",
                 "//daml-lf/archive:daml_lf_archive_reader",
-                "//daml-lf/archive:daml_lf_dev_archive_proto_java",
                 "//ledger-api/grpc-definitions:ledger_api_proto_scala",
                 "//ledger/test-common:dar-files-%s-lib" % target,
                 "//libs-scala/timer-utils",

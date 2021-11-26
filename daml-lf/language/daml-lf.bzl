@@ -17,11 +17,11 @@ def _cmp(a, b):
         return -1
 
 def _cmp_lf_version(a, b):
-    if (a == "1.dev" or a == "dev") and (b == "1.dev" or b == "dev"):
+    if a == "1.dev" and b == "1.dev":
         return 0
-    elif (a == "1.dev" or a == "dev"):
+    elif a == "1.dev":
         return 1
-    elif (b == "1.dev" or b == "dev"):
+    elif b == "1.dev":
         return -1
     else:
         aVer = _to_major_minor(a)
@@ -88,22 +88,17 @@ LF_VERSIONS = [
     "1.12",
     "1.13",
     "1.14",
-    "dev",
+    "1.dev",
 ]
 
 # All LF versions for which we have protobufs.
 PROTO_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.gte(ver, "1.14")]
-
-# The subset of LF versions accepted by //daml-lf/encoder
-ENCODER_LF_VERSIONS = ["1.dev" if ver == "dev" else ver for ver in LF_VERSIONS]
 
 # We support older LF versions using an older compiler binary
 LEGACY_COMPILER_LF_VERSIONS = [ver for ver in LF_VERSIONS if versions.lte(ver, "1.13")]
 
 # The subset of LF versions accepted by the compiler in the syntax
 # expected by the --target option.
-COMPILER_LF_VERSIONS = [ver for ver in ENCODER_LF_VERSIONS if ver not in LEGACY_COMPILER_LF_VERSIONS]
-
-ALL_COMPILER_LF_VERSIONS = LEGACY_COMPILER_LF_VERSIONS + COMPILER_LF_VERSIONS
+COMPILER_LF_VERSIONS = [ver for ver in LF_VERSIONS if ver not in LEGACY_COMPILER_LF_VERSIONS]
 
 LF_MAJOR_VERSIONS = ["1"]
