@@ -558,10 +558,10 @@ excluded_test_tool_tests = [
     },
     {
         # Completion offset included in the CommandService responses
-        "start": "1.18.0-snapshot.20211111.8349.0.d938a44c",
+        "start": "1.18.0-snapshot.20211117.8399.1",
         "platform_ranges": [
             {
-                "end": "1.18.0-snapshot.20211111.8349.0.d938a44c ",
+                "end": "1.18.0-snapshot.20211117.8399.1",
                 "exclusions": [
                     "CommandServiceIT:CSsubmitAndWaitCompletionOffset",
                 ],
