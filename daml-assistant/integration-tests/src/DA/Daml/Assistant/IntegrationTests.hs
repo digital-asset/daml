@@ -832,6 +832,9 @@ cantonTests = testGroup "daml canton-sandbox"
         , "--domain-admin-port", show domainAdminApiPort
         ] $ do
         waitForConnectionOnPort (threadDelay 500000) (fromIntegral ledgerApiPort)
+        waitForConnectionOnPort (threadDelay 500000) (fromIntegral adminApiPort)
+        waitForConnectionOnPort (threadDelay 500000) (fromIntegral domainPublicApiPort)
+        waitForConnectionOnPort (threadDelay 500000) (fromIntegral domainAdminApiPort)
         step "Uploading DAR"
         callCommandSilentIn (dir </> "skeleton") $ unwords
           ["daml ledger upload-dar --host=localhost --port=" <> show ledgerApiPort, ".daml/dist/skeleton-0.0.1.dar"]
