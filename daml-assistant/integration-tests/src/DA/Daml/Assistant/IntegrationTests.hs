@@ -86,7 +86,7 @@ withDamlServiceIn' mbStdoutPred path command args act = do
             void $ forkIO $ forever $ do
                 -- We need to read the output either way to avoid the buffer filling up.
                 line <- hGetLine stdoutH
-                print line
+                putStrLn line
                 processLine line
             pure block
         block
