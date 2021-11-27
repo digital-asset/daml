@@ -10,7 +10,7 @@ project to Bazel.
 
 [bazel_jvm_guide]: ./BAZEL-JVM.md
 
-## Setup
+## Setup a new ci test
 
 This section goes through the required steps for a basic but fully functioning
 setup of the Bazel build system for work on the Daml repository. Additional setup
