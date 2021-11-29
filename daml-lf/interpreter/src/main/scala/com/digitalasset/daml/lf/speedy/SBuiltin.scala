@@ -1104,7 +1104,7 @@ private[lf] object SBuiltin {
         onLedger: OnLedger,
     ): Unit = {
       val coid = getSContractId(args, 0)
-      val expectedTemplateId = getSOptional(args, 1).map(typeRep =>
+      val expectedTemplateIdOpt = getSOptional(args, 1).map(typeRep =>
         typeRep match {
           case STypeRep(Ast.TTyCon(tpl)) => tpl
           case STypeRep(_) =>
@@ -1113,29 +1113,33 @@ private[lf] object SBuiltin {
             crash(s"expected a typerep in SBUFetchInterface")
         }
       )
-      def checkTemplateId(actualTemplateId: TypeConName): Unit = {
-        expectedTemplateId.foreach(expectedTemplateId =>
-          if (actualTemplateId != expectedTemplateId) {
-            throw SErrorDamlException(
-              IE.WronglyTypedContract(coid, expectedTemplateId, actualTemplateId)
-            )
-          }
-        )
-        if (machine.compiledPackages.getDefinition(ImplementsDefRef(actualTemplateId, ifaceId)).isEmpty) {
-          throw SErrorDamlException(
+
+      def checkTemplateId(actualTemplateId: TypeConName)(onSuccess: => Unit): Unit = {
+        // NOTE(Sofia): We can't throw directly here, because this is run
+        // in the SpeedyHungry callback. See the comment on SEDamlException.
+        val expectedTemplateId = expectedTemplateIdOpt.getOrElse(actualTemplateId)
+        if (actualTemplateId != expectedTemplateId) {
+          machine.ctrl = SEDamlException(
+            IE.WronglyTypedContract(coid, expectedTemplateId, actualTemplateId)
+          )
+        } else if (machine.compiledPackages.getDefinition(ImplementsDefRef(actualTemplateId, ifaceId)).isEmpty) {
+          machine.ctrl = SEDamlException(
             IE.ContractDoesNotImplementInterface(
               interfaceId = ifaceId,
               coid = coid,
               templateId = actualTemplateId,
             )
           )
+        } else {
+          onSuccess
         }
       }
 
       onLedger.cachedContracts.get(coid) match {
         case Some(cached) => {
-          checkTemplateId(cached.templateId)
-          machine.returnValue = cached.value
+          checkTemplateId(cached.templateId) {
+            machine.returnValue = cached.value
+          }
         }
         case None =>
           throw SpeedyHungry(
@@ -1144,17 +1148,18 @@ private[lf] object SBuiltin {
               ifaceId,
               onLedger.committers,
               { case Versioned(_, V.ContractInstance(actualTmplId, arg, _)) =>
-                checkTemplateId(actualTmplId)
-                machine.pushKont(KCacheContract(machine, actualTmplId, coid))
-                machine.ctrl = SELet1(
-                  SEImportValue(Ast.TTyCon(actualTmplId), arg),
-                  cachedContractStruct(
-                    SELocS(1),
-                    SEApp(SEVal(SignatoriesDefRef(actualTmplId)), Array(SELocS(1))),
-                    SEApp(SEVal(ObserversDefRef(actualTmplId)), Array(SELocS(1))),
-                    SEApp(SEVal(KeyDefRef(actualTmplId)), Array(SELocS(1))),
-                  ),
-                )
+                checkTemplateId(actualTmplId) {
+                  machine.pushKont(KCacheContract(machine, actualTmplId, coid))
+                  machine.ctrl = SELet1(
+                    SEImportValue(Ast.TTyCon(actualTmplId), arg),
+                    cachedContractStruct(
+                      SELocS(1),
+                      SEApp(SEVal(SignatoriesDefRef(actualTmplId)), Array(SELocS(1))),
+                      SEApp(SEVal(ObserversDefRef(actualTmplId)), Array(SELocS(1))),
+                      SEApp(SEVal(KeyDefRef(actualTmplId)), Array(SELocS(1))),
+                    ),
+                  )
+                }
               },
             )
           )
