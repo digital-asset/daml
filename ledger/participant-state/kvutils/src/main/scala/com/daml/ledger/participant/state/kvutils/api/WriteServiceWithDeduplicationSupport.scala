@@ -29,7 +29,7 @@ import com.daml.telemetry.TelemetryContext
 import scala.concurrent.ExecutionContext
 import scala.jdk.FutureConverters._
 
-class WriteServiceWithDeduplicationOffsetSupport(
+class WriteServiceWithDeduplicationSupport(
     delegate: WriteService,
     deduplicationPeriodService: DeduplicationPeriodService,
 )(implicit mat: Materializer, ec: ExecutionContext)

@@ -34,7 +34,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters._
 
-class WriteServiceWithDeduplicationOffsetSupportSpec
+class WriteServiceWithDeduplicationSupportSpec
     extends AsyncWordSpec
     with MockitoSugar
     with Matchers
@@ -46,7 +46,7 @@ class WriteServiceWithDeduplicationOffsetSupportSpec
   private val mockWriteService: WriteService = mock[WriteService]
   private val mockDeduplicationPeriodService: DeduplicationPeriodService =
     mock[DeduplicationPeriodService]
-  val service = new WriteServiceWithDeduplicationOffsetSupport(
+  val service = new WriteServiceWithDeduplicationSupport(
     mockWriteService,
     mockDeduplicationPeriodService,
   )
