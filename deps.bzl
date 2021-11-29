@@ -314,18 +314,6 @@ def daml_deps():
             executable = True,
         )
 
-    if "davl" not in native.existing_rules():
-        http_archive(
-            name = "davl",
-            strip_prefix = "davl-{}".format(davl_version),
-            urls = ["https://github.com/digital-asset/davl/archive/{}.tar.gz".format(davl_version)],
-            sha256 = davl_sha256,
-            build_file_content = """
-package(default_visibility = ["//visibility:public"])
-exports_files(["released/davl-v4.dar", "released/davl-v5.dar", "released/davl-upgrade-v3-v4.dar", "released/davl-upgrade-v4-v5.dar"])
-            """,
-        )
-
     if "daml-cheat-sheet" not in native.existing_rules():
         http_archive(
             name = "daml-cheat-sheet",

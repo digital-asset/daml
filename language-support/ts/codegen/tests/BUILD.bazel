@@ -177,19 +177,12 @@ da_haskell_test(
     name = "daml2js",
     size = "large",
     srcs = ["src/DA/Test/Daml2js.hs"],
-    args = [
-        "$(location //:yarn)",
-    ],
     data = [
         "//:yarn",
         "//compiler/damlc",
         "//language-support/ts/codegen:daml2js",
         "//language-support/ts/daml-ledger:npm_package",
         "//language-support/ts/daml-types:npm_package",
-        "@damlc_legacy",
-        "@davl//:released/davl-upgrade-v4-v5.dar",
-        "@davl//:released/davl-v4.dar",
-        "@davl//:released/davl-v5.dar",
     ],
     hackage_deps = [
         "aeson",
