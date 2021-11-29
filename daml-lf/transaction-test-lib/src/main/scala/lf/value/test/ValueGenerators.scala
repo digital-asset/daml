@@ -84,7 +84,8 @@ object ValueGenerators {
       firstChars ++ "1234567890"
     for {
       h <- Gen.oneOf(firstChars)
-      t <- Gen.listOf(Gen.oneOf(mainChars))
+      suffixLength <- Gen.choose(0, 999)
+      t <- Gen.listOfN(suffixLength, Gen.oneOf(mainChars)) //Name is max 999 characters
     } yield Name.assertFromString((h :: t).mkString)
   }
 
@@ -101,7 +102,7 @@ object ValueGenerators {
       .map(Time.Timestamp.assertFromLong)
 
   // generate a variant with arbitrary value
-  private def variantGen(nesting: Int): Gen[ValueVariant] =
+  def variantGen: Gen[ValueVariant] =
     for {
       id <- idGen
       variantName <- nameGen
@@ -111,12 +112,10 @@ object ValueGenerators {
           if (withoutLabels) (_: Identifier) => None
           else (variantId: Identifier) => Some(variantId)
         )
-      value <- Gen.lzy(valueGen(nesting))
+      value <- valueGen
     } yield ValueVariant(toOption(id), variantName, value)
 
-  def variantGen: Gen[ValueVariant] = variantGen(0)
-
-  private def recordGen(nesting: Int): Gen[ValueRecord] =
+  def recordGen: Gen[ValueRecord] =
     for {
       id <- idGen
       toOption <- Gen
@@ -127,40 +126,30 @@ object ValueGenerators {
         )
       labelledValues <- Gen.listOf(
         nameGen.flatMap(label =>
-          Gen.lzy(valueGen(nesting)).map(x => if (label.isEmpty) (None, x) else (Some(label), x))
+          valueGen.map(x => if (label.isEmpty) (None, x) else (Some(label), x))
         )
       )
     } yield ValueRecord(toOption(id), labelledValues.to(ImmArray))
 
-  def recordGen: Gen[ValueRecord] = recordGen(0)
+  def valueOptionalGen: Gen[ValueOptional] =
+    Gen.option(valueGen).map(v => ValueOptional(v))
 
-  private def valueOptionalGen(nesting: Int): Gen[ValueOptional] =
-    Gen.option(valueGen(nesting)).map(v => ValueOptional(v))
-
-  def valueOptionalGen: Gen[ValueOptional] = valueOptionalGen(0)
-
-  private def valueListGen(nesting: Int): Gen[ValueList] =
+  def valueListGen: Gen[ValueList] =
     for {
-      values <- Gen.listOf(Gen.lzy(valueGen(nesting)))
+      values <- Gen.listOf(valueGen)
     } yield ValueList(values.to(FrontStack))
 
-  def valueListGen: Gen[ValueList] = valueListGen(0)
-
-  private def valueMapGen(nesting: Int) =
+  def valueMapGen: Gen[ValueTextMap] =
     for {
       list <- Gen.listOf(for {
-        k <- Gen.asciiPrintableStr; v <- Gen.lzy(valueGen(nesting))
+        k <- Gen.asciiPrintableStr; v <- valueGen
       } yield k -> v)
     } yield ValueTextMap(SortedLookupList(Map(list: _*)))
 
-  def valueMapGen: Gen[ValueTextMap] = valueMapGen(0)
-
-  private def valueGenMapGen(nesting: Int) =
+  def valueGenMapGen: Gen[ValueGenMap] =
     Gen
-      .listOf(Gen.zip(Gen.lzy(valueGen(nesting)), Gen.lzy(valueGen(nesting))))
+      .listOf(Gen.zip(valueGen, valueGen))
       .map(list => ValueGenMap(list.to(ImmArray)))
-
-  def valueGenMapGen: Gen[ValueGenMap] = valueGenMapGen(0)
 
   private val genHash: Gen[crypto.Hash] =
     Gen
@@ -201,34 +190,40 @@ object ValueGenerators {
   def coidValueGen: Gen[ValueContractId] =
     coidGen.map(ValueContractId(_))
 
-  private def valueGen(nesting: Int): Gen[Value] = {
-    Gen.sized(sz => {
-      val newNesting = nesting + 1
-      val nested = List(
-        (sz / 2 + 1, Gen.resize(sz / 5, valueListGen(newNesting))),
-        (sz / 2 + 1, Gen.resize(sz / 5, variantGen(newNesting))),
-        (sz / 2 + 1, Gen.resize(sz / 5, recordGen(newNesting))),
-        (sz / 2 + 1, Gen.resize(sz / 5, valueOptionalGen(newNesting))),
-        (sz / 2 + 1, Gen.resize(sz / 5, valueMapGen(newNesting))),
-      )
-      val flat = List(
-        (sz + 1, dateGen.map(ValueDate)),
-        (sz + 1, Gen.alphaStr.map(ValueText)),
-        (sz + 1, unscaledNumGen.map(ValueNumeric)),
-        (sz + 1, numGen(Decimal.scale).map(ValueNumeric)),
-        (sz + 1, Arbitrary.arbLong.arbitrary.map(ValueInt64)),
-        (sz + 1, Gen.alphaStr.map(ValueText)),
-        (sz + 1, timestampGen.map(ValueTimestamp)),
-        (sz + 1, coidValueGen),
-        (sz + 1, party.map(ValueParty)),
-        (sz + 1, Gen.oneOf(ValueTrue, ValueFalse)),
-      )
-      val all =
-        if (nesting >= MAXIMUM_NESTING) { List() }
-        else { nested } ++
-          flat
-      Gen.frequency(all: _*)
-    })
+  private def nestedGen = Gen.oneOf(
+    valueListGen,
+    variantGen,
+    recordGen,
+    valueOptionalGen,
+    valueMapGen,
+  )
+
+  private def flatGen = Gen.oneOf(
+    dateGen.map(ValueDate),
+    Gen.alphaStr.map(ValueText),
+    unscaledNumGen.map(ValueNumeric),
+    numGen(Decimal.scale).map(ValueNumeric),
+    arbitrary[Long].map(ValueInt64),
+    Gen.alphaStr.map(ValueText),
+    timestampGen.map(ValueTimestamp),
+    coidValueGen,
+    party.map(ValueParty),
+    Gen.oneOf(ValueTrue, ValueFalse),
+  )
+
+  def valueGen: Gen[Value] = Gen.lzy {
+    Gen.sized { size =>
+      for {
+        s <- Gen.choose(0, size)
+        value <-
+          if (s < 1) flatGen
+          else
+            Gen.frequency(
+              5 -> flatGen,
+              1 -> Gen.resize(size / (s + 1), nestedGen),
+            )
+      } yield value
+    }
   }
 
   private val simpleChars =
@@ -245,8 +240,6 @@ object ValueGenerators {
       .nonEmptyListOf(Gen.oneOf(simpleChars))
       .map(s => Party.assertFromString(s.take(255).mkString))
   }
-
-  def valueGen: Gen[Value] = valueGen(0)
 
   def versionedValueGen: Gen[VersionedValue] =
     for {
