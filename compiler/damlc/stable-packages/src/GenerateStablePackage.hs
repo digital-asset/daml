@@ -11,7 +11,7 @@ import Options.Applicative
 import qualified Data.Text as T
 
 import DA.Daml.LF.Ast
-import DA.Daml.LF.Proto3.Archive
+import DA.Daml.LF.Proto3.Archive.Encode
 import DA.Daml.StablePackages
 
 data Opts = Opts

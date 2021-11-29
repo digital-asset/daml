@@ -41,7 +41,7 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-proto:daml-lf-proto-encode",
         "//compiler/repl-service/protos:repl_service_haskell_proto",
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",

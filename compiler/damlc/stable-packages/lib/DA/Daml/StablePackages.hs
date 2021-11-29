@@ -14,7 +14,7 @@ import qualified Data.NameMap as NM
 import qualified Data.Text as T
 
 import DA.Daml.LF.Ast
-import DA.Daml.LF.Proto3.Archive
+import DA.Daml.LF.Proto3.Archive.Encode
 import DA.Daml.UtilLF
 
 allStablePackages :: [Package]

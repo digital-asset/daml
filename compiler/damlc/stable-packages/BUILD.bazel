@@ -15,7 +15,7 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-proto:daml-lf-proto-encode",
         "//compiler/damlc/daml-lf-util",
         "//libs-haskell/da-hs-base",
     ],
@@ -36,7 +36,7 @@ da_haskell_binary(
     deps = [
         ":stable-packages-lib",
         "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-proto:daml-lf-proto-encode",
         "//libs-haskell/da-hs-base",
     ],
 )
