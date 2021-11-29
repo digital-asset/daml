@@ -21,6 +21,7 @@ import Control.Monad.Reader
 import Data.Int
 import Text.Read
 import           Data.List
+import    DA.Daml.StablePackagesList
 import           DA.Daml.LF.Mangling
 import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
 import qualified Data.NameMap as NM
@@ -170,8 +171,8 @@ decodePackageRef (LF1.PackageRef pref) =
 -- Decodings of everything else
 ------------------------------------------------------------------------
 
-decodeVersion :: T.Text -> Either Error Version
-decodeVersion minorText = do
+decodeVersion :: Maybe LF.PackageId -> T.Text -> Either Error Version
+decodeVersion mbPkgId minorText = do
   let unsupported :: Either Error a
       unsupported = throwError (UnsupportedMinorVersion minorText)
   -- we translate "no version" to minor version 0, since we introduced
@@ -183,16 +184,19 @@ decodeVersion minorText = do
     | Just minor <- LF.parseMinorVersion (T.unpack minorText) -> pure minor
     | otherwise -> unsupported
   let version = V1 minor
-  if version `elem` LF.supportedInputVersions then pure version else unsupported
+  if  isStablePackage || version `elem` LF.supportedInputVersions then pure version else unsupported
+  where
+    isStablePackage = maybe False (`elem` stablePackages) mbPkgId
 
 decodeInternedDottedName :: LF1.InternedDottedName -> Decode ([T.Text], Either String [UnmangledIdentifier])
 decodeInternedDottedName (LF1.InternedDottedName ids) = do
     (mangled, unmangledOrErr) <- unzip <$> mapM lookupString (V.toList ids)
     pure (mangled, sequence unmangledOrErr)
 
-decodePackage :: TL.Text -> LF.PackageRef -> LF1.Package -> Either Error Package
-decodePackage minorText selfPackageRef (LF1.Package mods internedStringsV internedDottedNamesV metadata internedTypesV) = do
-  version <- decodeVersion (decodeString minorText)
+-- The package id is optional since we also call this function from decodeScenarioModule
+decodePackage :: Maybe LF.PackageId -> TL.Text -> LF.PackageRef -> LF1.Package -> Either Error Package
+decodePackage mbPkgId minorText selfPackageRef (LF1.Package mods internedStringsV internedDottedNamesV metadata internedTypesV) = do
+  version <- decodeVersion mbPkgId (decodeString minorText)
   let internedStrings = V.map decodeMangledString internedStringsV
   let internedDottedNames = V.empty
   let internedTypes = V.empty
@@ -213,7 +217,7 @@ decodePackageMetadata LF1.PackageMetadata{..} = do
 
 decodeScenarioModule :: TL.Text -> LF1.Package -> Either Error Module
 decodeScenarioModule minorText protoPkg = do
-    Package { packageModules = modules } <- decodePackage minorText PRSelf protoPkg
+    Package { packageModules = modules } <- decodePackage Nothing minorText PRSelf protoPkg
     pure $ head $ NM.toList modules
 
 decodeModule :: LF1.Module -> Decode Module

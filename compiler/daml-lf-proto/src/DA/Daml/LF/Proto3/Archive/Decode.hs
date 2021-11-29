@@ -55,7 +55,7 @@ decodePackage mode packageId payloadBytes = do
             DecodeAsMain -> LF.PRSelf
             DecodeAsDependency -> LF.PRImport packageId
     payload <- over _Left (ProtobufError . show) $ Proto.fromByteString payloadBytes
-    over _Left (ProtobufError. show) $ Decode.decodePayload selfPackageRef payload
+    over _Left (ProtobufError. show) $ Decode.decodePayload packageId selfPackageRef payload
 
 -- | Decode an LF archive header, returning the package-id and the payload
 decodeArchiveHeader :: BS.ByteString -> Either ArchiveError (LF.PackageId, BS.ByteString)

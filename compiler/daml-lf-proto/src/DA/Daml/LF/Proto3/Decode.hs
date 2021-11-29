@@ -7,13 +7,13 @@ module DA.Daml.LF.Proto3.Decode
   ) where
 
 import Com.Daml.DamlLfDev.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
-import DA.Daml.LF.Ast (Package, PackageRef)
+import DA.Daml.LF.Ast (Package, PackageId, PackageRef)
 import DA.Daml.LF.Proto3.Error
 import qualified DA.Daml.LF.Proto3.DecodeV1 as DecodeV1
 
-decodePayload :: PackageRef -> ArchivePayload -> Either Error Package
-decodePayload selfPackageRef payload = case archivePayloadSum payload of
-    Just (ArchivePayloadSumDamlLf1 package) -> DecodeV1.decodePackage minor selfPackageRef package
+decodePayload :: PackageId -> PackageRef -> ArchivePayload -> Either Error Package
+decodePayload pkgId selfPackageRef payload = case archivePayloadSum payload of
+    Just (ArchivePayloadSumDamlLf1 package) -> DecodeV1.decodePackage (Just pkgId) minor selfPackageRef package
     Nothing -> Left $ ParseError "Empty payload"
     where
         minor = archivePayloadMinor payload

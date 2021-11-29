@@ -9,10 +9,8 @@ module DA.Daml.UtilLF (
     ) where
 
 import           DA.Daml.LF.Ast
-import qualified DA.Daml.LF.Proto3.Archive  as Archive
 import           DA.Pretty (renderPretty)
 
-import qualified Data.ByteString.Char8      as BS
 import Data.Maybe
 import qualified Data.NameMap               as NM
 import qualified Data.Text                  as T
@@ -81,10 +79,6 @@ fromTCon t = error $ "fromTCon failed, " ++ show t
 -- constructor @T@ and the variant constructor @C@.
 synthesizeVariantRecord :: VariantConName -> TypeConName -> TypeConName
 synthesizeVariantRecord (VariantConName dcon) (TypeConName tcon) = TypeConName (tcon ++ [dcon])
-
-writeFileLf :: FilePath -> Package -> IO ()
-writeFileLf outFile lfPackage = do
-    BS.writeFile outFile $ Archive.encodeArchive lfPackage
 
 -- | Fails if there are any duplicate module names
 buildPackage :: HasCallStack => Maybe PackageName -> Maybe PackageVersion -> Version -> [Module] -> Package

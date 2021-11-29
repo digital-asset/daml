@@ -231,7 +231,7 @@ $$DAMLC validate-dar $$(canonicalize_rlocation $(rootpath {dar}))
         **kwargs
     )
 
-def _inspect_dar(base):
+def _inspect_dar(base, damlc):
     name = base + "-inspect"
     dar = base + ".dar"
     pp = base + ".dar.pp"
@@ -239,10 +239,16 @@ def _inspect_dar(base):
         name = name,
         srcs = [
             dar,
-            "//compiler/damlc:damlc-compile-only",
+            damlc,
         ],
         outs = [pp],
-        cmd = "$(location //compiler/damlc:damlc-compile-only) inspect $(location :" + dar + ") > $@",
+        cmd = """
+set -eou pipefail
+# For some reason the sh_binary resolves to two locations,
+# we just take the first one.
+LOCS=($(locations {damlc}))
+DAMLC=$${{LOCS[0]}}
+$$DAMLC inspect $(location :{dar}) > $@""".format(damlc = damlc, dar = dar),
     )
 
 _default_project_version = "1.0.0"
@@ -287,6 +293,7 @@ def daml_compile(
     )
     _inspect_dar(
         base = name,
+        damlc = damlc_for_target(target),
     )
 
 def daml_compile_with_dalf(
