@@ -21,16 +21,18 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-class DeduplicationPeriodConverterSpec
+class CompletionBasedDeduplicationPeriodConverterSpec
     extends AsyncWordSpec
     with Matchers
     with MockitoSugar
     with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll
     with TestLoggers {
+
   private val ledgerId = LedgerId("id")
   private val indexCompletionsService: IndexCompletionsService = mock[IndexCompletionsService]
-  private val service = new DeduplicationPeriodConverter(ledgerId, indexCompletionsService)
+  private val deduplicationPeriodConverter =
+    new CompletionBasedDeduplicationPeriodConverter(ledgerId, indexCompletionsService)
   private val offset = Ref.LedgerString.assertFromString("offset")
   private val applicationId = ApplicationId(Ref.ApplicationId.assertFromString("id"))
   private val parties = Set.empty[Ref.Party]
@@ -51,7 +53,7 @@ class DeduplicationPeriodConverterSpec
       )
     )
     completionServiceReturnsResponse(response)
-    service
+    deduplicationPeriodConverter
       .convertOffsetToDuration(
         offset,
         applicationId,
@@ -65,7 +67,7 @@ class DeduplicationPeriodConverterSpec
 
   "return failure when there is an empty response" in {
     completionServiceReturnsResponse(Source.empty)
-    service
+    deduplicationPeriodConverter
       .convertOffsetToDuration(
         offset,
         applicationId,
@@ -79,7 +81,7 @@ class DeduplicationPeriodConverterSpec
 
   "return failure when the checkpoint is missing" in {
     completionServiceReturnsResponse(Source.single(emptyResponse))
-    service
+    deduplicationPeriodConverter
       .convertOffsetToDuration(
         offset,
         applicationId,
@@ -101,7 +103,7 @@ class DeduplicationPeriodConverterSpec
         )
       )
     )
-    service
+    deduplicationPeriodConverter
       .convertOffsetToDuration(
         offset,
         applicationId,
@@ -119,7 +121,7 @@ class DeduplicationPeriodConverterSpec
         emptyResponse.update(_.checkpoint := Checkpoint.defaultInstance)
       )
     )
-    service
+    deduplicationPeriodConverter
       .convertOffsetToDuration(
         offset,
         applicationId,
@@ -141,7 +143,7 @@ class DeduplicationPeriodConverterSpec
         )
       )
     )
-    service
+    deduplicationPeriodConverter
       .convertOffsetToDuration(
         offset,
         applicationId,

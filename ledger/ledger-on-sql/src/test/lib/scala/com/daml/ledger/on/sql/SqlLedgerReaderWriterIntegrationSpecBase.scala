@@ -7,6 +7,7 @@ import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.participant.state.kvutils.deduplication.NotSupportedDeduplicationPeriodConverter
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
@@ -41,6 +42,7 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
         readerWriter,
         metrics,
         enableSelfServiceErrorCodes = true,
+        NotSupportedDeduplicationPeriodConverter,
       )
     )
 }

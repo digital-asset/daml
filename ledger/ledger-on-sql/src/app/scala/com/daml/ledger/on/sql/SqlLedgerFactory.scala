@@ -5,6 +5,8 @@ package com.daml.ledger.on.sql
 
 import akka.stream.Materializer
 import com.daml.caching
+import com.daml.ledger.api.domain
+import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.kvutils.app.{
   Config,
@@ -13,10 +15,13 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ReadWriteService,
 }
 import com.daml.ledger.participant.state.kvutils.caching._
+import com.daml.ledger.participant.state.kvutils.deduplication.CompletionBasedDeduplicationPeriodConverter
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import scopt.OptionParser
+
+import scala.concurrent.ExecutionContext
 
 object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
   override val defaultExtraConfig: ExtraConfig = ExtraConfig(
@@ -45,18 +50,24 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
+      completionService: IndexCompletionsService,
   )(implicit
       materializer: Materializer,
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ResourceOwner[ReadWriteService] =
-    new Owner(config, participantConfig, engine)
+    new Owner(config, participantConfig, engine, completionService)
 
   class Owner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-  )(implicit loggingContext: LoggingContext)
-      extends ResourceOwner[KeyValueParticipantState] {
+      completionService: IndexCompletionsService,
+  )(implicit
+      materializer: Materializer,
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ) extends ResourceOwner[KeyValueParticipantState] {
     override def acquire()(implicit
         context: ResourceContext
     ): Resource[KeyValueParticipantState] = {
@@ -84,6 +95,10 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
             readerWriter,
             metrics,
             enableSelfServiceErrorCodes = config.enableSelfServiceErrorCodes,
+            new CompletionBasedDeduplicationPeriodConverter(
+              domain.LedgerId(config.ledgerId),
+              completionService,
+            ),
           )
         )
     }

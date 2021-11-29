@@ -4,11 +4,14 @@
 package com.daml.ledger.sandbox
 
 import akka.stream.Materializer
+import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, ParticipantConfig}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import scopt.OptionParser
+
+import scala.concurrent.ExecutionContext
 
 case class BridgeConfig(maxDedupSeconds: Int, submissionBufferSize: Int)
 
@@ -17,8 +20,10 @@ object BridgeLedgerFactory extends LedgerFactory[ReadWriteServiceBridge, BridgeC
       config: Config[BridgeConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
+      completionService: IndexCompletionsService,
   )(implicit
       materializer: Materializer,
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ResourceOwner[ReadWriteServiceBridge] =
     ResourceOwner.forCloseable(() =>

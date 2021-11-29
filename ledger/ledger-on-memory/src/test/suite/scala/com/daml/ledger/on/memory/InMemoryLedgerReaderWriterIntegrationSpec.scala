@@ -9,6 +9,7 @@ import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.participant.state.kvutils.deduplication.NotSupportedDeduplicationPeriodConverter
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.lf.data.Ref
@@ -61,5 +62,6 @@ class InMemoryLedgerReaderWriterIntegrationSpec
       readerWriter,
       metrics,
       enableSelfServiceErrorCodes = true,
+      NotSupportedDeduplicationPeriodConverter,
     )
 }

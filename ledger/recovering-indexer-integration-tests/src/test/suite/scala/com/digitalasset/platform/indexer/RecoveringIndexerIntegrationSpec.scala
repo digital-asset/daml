@@ -17,6 +17,7 @@ import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.on.memory
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.participant.state.kvutils.deduplication.NotSupportedDeduplicationPeriodConverter
 import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.ledger.validator.StateKeySerializationStrategy
@@ -29,15 +30,15 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.appendonlydao.{DbDispatcher, JdbcLedgerDao, LedgerReadDao}
-import com.daml.platform.store.{DbType, LfValueTranslationCache}
 import com.daml.platform.store.backend.StorageBackendFactory
 import com.daml.platform.store.cache.MutableLedgerEndCache
 import com.daml.platform.store.interning.StringInterningView
+import com.daml.platform.store.{DbType, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.timer.RetryStrategy
-import org.mockito.{ArgumentMatchers, MockitoSugar}
 import org.mockito.Mockito._
+import org.mockito.{ArgumentMatchers, MockitoSugar}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -195,7 +196,11 @@ class RecoveringIndexerIntegrationSpec
       servicesExecutionContext <- ResourceOwner
         .forExecutorService(() => Executors.newWorkStealingPool())
         .map(ExecutionContext.fromExecutorService)
-      participantState <- newParticipantState(ledgerId, participantId)(materializer, loggingContext)
+      participantState <- newParticipantState(ledgerId, participantId)(
+        materializer,
+        servicesExecutionContext,
+        loggingContext,
+      )
       _ <- new StandaloneIndexerServer(
         readService = participantState,
         config = IndexerConfig(
@@ -281,6 +286,7 @@ object RecoveringIndexerIntegrationSpec {
   private trait ParticipantStateFactory {
     def apply(ledgerId: LedgerId, participantId: Ref.ParticipantId)(implicit
         materializer: Materializer,
+        executionContext: ExecutionContext,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState]
   }
@@ -288,6 +294,7 @@ object RecoveringIndexerIntegrationSpec {
   private object SimpleParticipantState extends ParticipantStateFactory {
     override def apply(ledgerId: LedgerId, participantId: Ref.ParticipantId)(implicit
         materializer: Materializer,
+        executionContext: ExecutionContext,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] = {
       val metrics = new Metrics(new MetricRegistry)
@@ -312,6 +319,7 @@ object RecoveringIndexerIntegrationSpec {
         readerWriter,
         metrics,
         enableSelfServiceErrorCodes = true,
+        NotSupportedDeduplicationPeriodConverter,
       )
     }
   }
@@ -319,6 +327,7 @@ object RecoveringIndexerIntegrationSpec {
   private object ParticipantStateThatFailsOften extends ParticipantStateFactory {
     override def apply(ledgerId: LedgerId, participantId: Ref.ParticipantId)(implicit
         materializer: Materializer,
+        executionContext: ExecutionContext,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] =
       SimpleParticipantState(ledgerId, participantId)

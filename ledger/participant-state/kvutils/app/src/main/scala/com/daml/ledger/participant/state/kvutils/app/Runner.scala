@@ -122,8 +122,31 @@ final class Runner[T <: ReadWriteService, Extra](
                     .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
                     .acquire()
                 )
+                servicesExecutionContext <- ResourceOwner
+                  .forExecutorService(() =>
+                    new InstrumentedExecutorService(
+                      Executors.newWorkStealingPool(),
+                      metrics.registry,
+                      metrics.daml.lapi.threadpool.apiServices.toString,
+                    )
+                  )
+                  .map(ExecutionContext.fromExecutorService)
+                  .acquire()
+                apiServerConfig = factory.apiServerConfig(participantConfig, config)
+                indexService <- StandaloneIndexService(
+                  ledgerId = config.ledgerId,
+                  config = apiServerConfig,
+                  metrics = metrics,
+                  engine = sharedEngine,
+                  servicesExecutionContext = servicesExecutionContext,
+                  lfValueTranslationCache = lfValueTranslationCache,
+                ).acquire()
                 ledger <- factory
-                  .readWriteServiceOwner(config, participantConfig, sharedEngine)
+                  .readWriteServiceOwner(config, participantConfig, sharedEngine, indexService)(
+                    materializer,
+                    servicesExecutionContext,
+                    loggingContext,
+                  )
                   .acquire()
                 readService = new TimedReadService(ledger, metrics)
                 writeService = new TimedWriteService(ledger, metrics)
@@ -141,16 +164,6 @@ final class Runner[T <: ReadWriteService, Extra](
                     )
                   )
                 )
-                servicesExecutionContext <- ResourceOwner
-                  .forExecutorService(() =>
-                    new InstrumentedExecutorService(
-                      Executors.newWorkStealingPool(),
-                      metrics.registry,
-                      metrics.daml.lapi.threadpool.apiServices.toString,
-                    )
-                  )
-                  .map(ExecutionContext.fromExecutorService)
-                  .acquire()
                 healthChecksWithIndexer <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
                     new StandaloneIndexerServer(
@@ -163,15 +176,6 @@ final class Runner[T <: ReadWriteService, Extra](
                   case ParticipantRunMode.LedgerApiServer =>
                     Resource.successful(healthChecks)
                 }
-                apiServerConfig = factory.apiServerConfig(participantConfig, config)
-                indexService <- StandaloneIndexService(
-                  ledgerId = config.ledgerId,
-                  config = apiServerConfig,
-                  metrics = metrics,
-                  engine = sharedEngine,
-                  servicesExecutionContext = servicesExecutionContext,
-                  lfValueTranslationCache = lfValueTranslationCache,
-                ).acquire()
                 _ <- participantConfig.mode match {
                   case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
                     StandaloneApiServer(
