@@ -164,6 +164,10 @@ final class Conversions(
                     .setContractRef(mkContractRef(coid, actual))
                     .setExpected(convertIdentifier(expected))
                 )
+              case _: ContractDoesNotImplementInterface =>
+                // TODO https://github.com/digital-asset/daml/issues/10810
+                //   Implement this.
+                builder.setCrash(s"ContractDoesNotImplementInterface unhandled in scenario service")
               case FailedAuthorization(nid, fa) =>
                 builder.setScenarioCommitError(
                   proto.CommitError.newBuilder
