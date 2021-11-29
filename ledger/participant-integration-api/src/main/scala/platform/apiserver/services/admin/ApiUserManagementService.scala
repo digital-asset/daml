@@ -12,7 +12,6 @@ import com.daml.ledger.participant.state.index.v2.UserManagementService._
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -58,11 +57,11 @@ private[apiserver] final class ApiUserManagementService(
       .flatMap(handleResult("get user"))
       .map(toApiUser)
 
-  override def deleteUser(request: DeleteUserRequest): Future[Empty] =
+  override def deleteUser(request: DeleteUserRequest): Future[DeleteUserResponse] =
     userManagementService
       .deleteUser(request.userId)
       .flatMap(handleResult("delete user"))
-      .map(_ => Empty())
+      .map(_ => DeleteUserResponse())
 
   override def listUsers(request: ListUsersRequest): Future[ListUsersResponse] =
     Future.successful(ListUsersResponse(Nil)) // TODO TBD as ListUsersRequest defined
