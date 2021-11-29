@@ -133,6 +133,27 @@ class AuthServiceJWTCodecSpec
         result.map(_.party) shouldBe Success(Some("Alice"))
       }
 
+      "support standard JWT claims" in {
+        val serialized =
+          """{
+            |  "aud": "someParticipantId",
+            |  "sub": "someUserId",
+            |  "exp": 100
+            |}
+          """.stripMargin
+        val expected = AuthServiceJWTPayload(
+          ledgerId = None,
+          participantId = Some("someParticipantId"),
+          applicationId = Some("someUserId"),
+          exp = Some(Instant.ofEpochSecond(100)),
+          admin = false,
+          actAs = List.empty,
+          readAs = List.empty,
+        )
+        val result = parse(serialized)
+        result shouldBe Success(expected)
+      }
+
       "have stable default values" in {
         val serialized = "{}"
         val expected = AuthServiceJWTPayload(

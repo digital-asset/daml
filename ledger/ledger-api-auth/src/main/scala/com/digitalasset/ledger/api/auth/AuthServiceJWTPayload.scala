@@ -93,6 +93,10 @@ object AuthServiceJWTCodec {
   private[this] final val propExp: String = "exp"
   private[this] final val propParty: String = "party" // Legacy JSON API payload
 
+  // The presence of any of these properties signals that a custom JWT token is being used.
+  private[this] final val customProperties =
+    Array(propLedgerId, propParticipantId, propApplicationId, propReadAs, propActAs)
+
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
   // ------------------------------------------------------------------------------------------------------------------
@@ -136,18 +140,32 @@ object AuthServiceJWTCodec {
 
   def readPayload(value: JsValue): AuthServiceJWTPayload = value match {
     case JsObject(fields) if !fields.contains(oidcNamespace) =>
-      // Legacy format
-      logger.warn(s"Token ${value.compactPrint} is using a deprecated JWT payload format")
-      AuthServiceJWTPayload(
-        ledgerId = readOptionalString(propLedgerId, fields),
-        participantId = readOptionalString(propParticipantId, fields),
-        applicationId = readOptionalString(propApplicationId, fields),
-        exp = readInstant(propExp, fields),
-        admin = readOptionalBoolean(propAdmin, fields).getOrElse(false),
-        actAs =
-          readOptionalStringList(propActAs, fields) ++ readOptionalString(propParty, fields).toList,
-        readAs = readOptionalStringList(propReadAs, fields),
-      )
+      if (customProperties.exists(fields.contains)) {
+        // Legacy format
+        logger.warn(s"Token ${value.compactPrint} is using a deprecated JWT payload format")
+        AuthServiceJWTPayload(
+          ledgerId = readOptionalString(propLedgerId, fields),
+          participantId = readOptionalString(propParticipantId, fields),
+          applicationId = readOptionalString(propApplicationId, fields),
+          exp = readInstant(propExp, fields),
+          admin = readOptionalBoolean(propAdmin, fields).getOrElse(false),
+          actAs =
+            readOptionalStringList(propActAs, fields) ++ readOptionalString(propParty, fields).toList,
+          readAs = readOptionalStringList(propReadAs, fields),
+        )
+      } else {
+        // FIXME: consider whether this is really the right place
+        AuthServiceJWTPayload(
+          ledgerId = None,
+          // FIXME: allow for an array of audiences
+          participantId = readOptionalString("aud", fields),
+          applicationId = readOptionalString("sub", fields),
+          exp = readInstant("exp", fields),
+          admin = false,
+          actAs = List.empty,
+          readAs = List.empty
+        )
+      }
     case JsObject(fields) =>
       // New format: OIDC compliant
       val customClaims = fields
