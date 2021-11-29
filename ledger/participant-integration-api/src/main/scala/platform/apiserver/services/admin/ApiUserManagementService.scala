@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.services.admin
 
-import com.daml.error.definitions.UserManagementServiceError
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.error.{ContextualizedErrorLogger, DamlContextualizedErrorLogger}
 import com.daml.ledger.api.UserManagement
 import com.daml.ledger.api.v1.admin.user_management_service._
@@ -49,19 +49,19 @@ private[apiserver] final class ApiUserManagementService(
         ),
         rights = request.rights.view.map(fromApiRight).toSet,
       )
-      .flatMap(handleResult)
+      .flatMap(handleResult("create user"))
       .map(_ => request.user.get)
 
   override def getUser(request: GetUserRequest): Future[User] =
     userManagementService
       .getUser(request.userId)
-      .flatMap(handleResult)
+      .flatMap(handleResult("get user"))
       .map(toApiUser)
 
   override def deleteUser(request: DeleteUserRequest): Future[Empty] =
     userManagementService
       .deleteUser(request.userId)
-      .flatMap(handleResult)
+      .flatMap(handleResult("delete user"))
       .map(_ => Empty())
 
   override def listUsers(request: ListUsersRequest): Future[ListUsersResponse] =
@@ -73,7 +73,7 @@ private[apiserver] final class ApiUserManagementService(
         id = request.userId,
         rights = request.rights.view.map(fromApiRight).toSet,
       )
-      .flatMap(handleResult)
+      .flatMap(handleResult("grant user rights"))
       .map(_.view.map(toApiRight).toList)
       .map(GrantUserRightsResponse(_))
 
@@ -85,27 +85,27 @@ private[apiserver] final class ApiUserManagementService(
         id = request.userId,
         rights = request.rights.view.map(fromApiRight).toSet,
       )
-      .flatMap(handleResult)
+      .flatMap(handleResult("revoke user rights"))
       .map(_.view.map(toApiRight).toList)
       .map(RevokeUserRightsResponse(_))
 
   override def listUserRights(request: ListUserRightsRequest): Future[ListUserRightsResponse] =
     userManagementService
       .listUserRights(request.userId)
-      .flatMap(handleResult)
+      .flatMap(handleResult("list user rights"))
       .map(_.view.map(toApiRight).toList)
       .map(ListUserRightsResponse(_))
 
-  def handleResult[T](result: Result[T]): Future[T] =
+  def handleResult[T](operation: String)(result: Result[T]): Future[T] =
     result match {
       case Left(UserNotFound(id)) =>
         Future.failed(
-          UserManagementServiceError.Reading.UserNotFound.Reject("dummy cause", id).asGrpcError
+          LedgerApiErrors.AdminServices.UserNotFound.Reject(operation, id).asGrpcError
         )
       case Left(UserExists(id)) =>
         Future.failed(
-          UserManagementServiceError.Reading.UserNotFound.Reject("dummy cause", id).asGrpcError
-        ) // FIXME this is a user exists
+          LedgerApiErrors.AdminServices.UserAlreadyExists.Reject(operation, id).asGrpcError
+        )
       case scala.util.Right(t) => Future.successful(t)
     }
 }

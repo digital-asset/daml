@@ -3,18 +3,12 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.error.definitions.LedgerApiErrors
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
+import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.api.v1.admin.user_management_service.{
-  CreateUserRequest,
-  DeleteUserRequest,
-  GetUserRequest,
-  GrantUserRightsRequest,
-  ListUserRightsRequest,
-  RevokeUserRightsRequest,
-  User,
-  Right => Permission,
-}
+import com.daml.ledger.api.v1.admin.user_management_service.{CreateUserRequest, DeleteUserRequest, GetUserRequest, GrantUserRightsRequest, ListUserRightsRequest, RevokeUserRightsRequest, User, Right => Permission}
+import io.grpc.Status
 
 final class UserManagementServiceIT extends LedgerTestSuite {
   test(
@@ -25,7 +19,15 @@ final class UserManagementServiceIT extends LedgerTestSuite {
     for {
       // TODO: actually exercise all RPCs
       createResult <- ledger.userManagement.createUser(CreateUserRequest(Some(User("a", "b")), Nil))
-      getUserResult <- ledger.userManagement.getUser(GetUserRequest("b"))
+      createAgainError <- ledger.userManagement
+        .createUser(CreateUserRequest(Some(User("a", "b")), Nil))
+        .mustFail("allocating a duplicate user")
+
+      getUserResult <- ledger.userManagement.getUser(GetUserRequest("aXXX"))
+      getUserError <- ledger.userManagement
+        .getUser(GetUserRequest("b"))
+        .mustFail("retrieving non-existent user")
+
       grantResult <- ledger.userManagement.grantUserRights(
         GrantUserRightsRequest(
           "a",
@@ -41,6 +43,20 @@ final class UserManagementServiceIT extends LedgerTestSuite {
       )
       _ <- ledger.userManagement.deleteUser(DeleteUserRequest("a"))
     } yield {
+      assertGrpcError(
+        ledger,
+        createAgainError,
+        Status.Code.NOT_FOUND,
+        LedgerApiErrors.AdminServices.UserAlreadyExists,
+        None,
+      )
+      assertGrpcError(
+        ledger,
+        getUserError,
+        Status.Code.NOT_FOUND,
+        LedgerApiErrors.AdminServices.UserNotFound,
+        None,
+      )
       assert(createResult == User("a", "b"))
       assert(getUserResult == User("a", "b"))
       assert(
