@@ -74,14 +74,6 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
         ("Let1", let1),
         ("TryCatch2", tryCatch2),
         ("Labelclosure", labelClosure),
-      )
-    }
-
-    // These 'quadratic' testcases pertain to recursion-points under a binder.
-    val testCases2 = {
-      Table[String, SExpr => SExpr](
-        ("name", "recursion-point"),
-        ("Abs", abs1),
         ("Alt1", alt1),
         ("Alt2", alt2),
         ("Let2", let2),
@@ -90,20 +82,15 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
       )
     }
 
-    {
-      // All tests. Shallow enough for pre-stack-safe closure-conversion code to pass.
-      val depth = 100
-      s"depth = $depth" - {
-        forEvery(testCases1 ++ testCases2) { (name: String, recursionPoint: SExpr => SExpr) =>
-          name in {
-            runTest(depth, recursionPoint)
-          }
-        }
-      }
+    // These 'quadratic' testcases pertain to recursion-points under a binder.
+    val testCases2 = {
+      Table[String, SExpr => SExpr](
+        ("name", "recursion-point"),
+        ("Abs", abs1),
+      )
     }
 
     {
-      // Only first set. At this depth we can be really sure that we are stack-safe.
       val depth = 100000
       s"depth = $depth" - {
         forEvery(testCases1) { (name: String, recursionPoint: SExpr => SExpr) =>
@@ -115,22 +102,10 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
     }
 
     {
-      // Only 2nd set. This depth is not really deep enough to ensure stack-safety, but
-      // much deeper and the quadratic-or-worse time-complexity starts to seriously slow
-      // down the test run.
-      // TODO: fix quadratic time issue to allow these tests to be run at depth 100000.
-      val depth = 1000
-      s"depth = $depth" - {
-        forEvery(testCases2) { (name: String, recursionPoint: SExpr => SExpr) =>
-          name in {
-            runTest(depth, recursionPoint)
-          }
-        }
-      }
-    }
-    {
-      // Run the 2nd set at 2000 as well as 1000, to really see the quadratic effect on timing
-      val depth = 2000
+      // TODO: There remains a quadratic issue with the freeVars calculation (#11830).
+      // This affects only Abs testcase. It takes 12s when run to a larger depth of 100k.
+      // So we only run to 10k.
+      val depth = 10000
       s"depth = $depth" - {
         forEvery(testCases2) { (name: String, recursionPoint: SExpr => SExpr) =>
           name in {
