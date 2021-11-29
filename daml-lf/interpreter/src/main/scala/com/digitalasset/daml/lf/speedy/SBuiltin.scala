@@ -1122,7 +1122,11 @@ private[lf] object SBuiltin {
           machine.ctrl = SEDamlException(
             IE.WronglyTypedContract(coid, expectedTemplateId, actualTemplateId)
           )
-        } else if (machine.compiledPackages.getDefinition(ImplementsDefRef(actualTemplateId, ifaceId)).isEmpty) {
+        } else if (
+          machine.compiledPackages
+            .getDefinition(ImplementsDefRef(actualTemplateId, ifaceId))
+            .isEmpty
+        ) {
           machine.ctrl = SEDamlException(
             IE.ContractDoesNotImplementInterface(
               interfaceId = ifaceId,
@@ -1187,7 +1191,7 @@ private[lf] object SBuiltin {
 
   final case object SBGuardConstTrue extends SBuiltinPure(1) {
     override private[speedy] def executePure(
-      args: util.ArrayList[SValue],
+        args: util.ArrayList[SValue]
     ): SBool = {
       discard(getSRecord(args, 0))
       SBool(true)

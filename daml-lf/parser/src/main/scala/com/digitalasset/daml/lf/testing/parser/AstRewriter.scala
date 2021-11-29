@@ -167,7 +167,14 @@ private[daml] class AstRewriter(
       case UpdateExercise(templateId, choice, cid, arg) =>
         UpdateExercise(apply(templateId), choice, cid, apply(arg))
       case UpdateExerciseInterface(interface, choice, cid, arg, typeRep, guard) =>
-        UpdateExerciseInterface(apply(interface), choice, cid, apply(arg), apply(typeRep), apply(guard))
+        UpdateExerciseInterface(
+          apply(interface),
+          choice,
+          cid,
+          apply(arg),
+          apply(typeRep),
+          apply(guard),
+        )
       case UpdateExerciseByKey(templateId, choice, key, arg) =>
         UpdateExerciseByKey(apply(templateId), choice, apply(key), apply(arg))
       case UpdateGetTime => x

@@ -331,7 +331,9 @@ private[lf] final class Compiler(
   )(
       body: (Position, Position, Position, Position, Position, Env) => s.SExpr
   ): (SDefRef, SDefinition) =
-    topLevelFunction(ref)(s.SEAbs(5, body(Position1, Position2, Position3, Position4, Position5, Env5)))
+    topLevelFunction(ref)(
+      s.SEAbs(5, body(Position1, Position2, Position3, Position4, Position5, Env5))
+    )
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -1109,35 +1111,39 @@ private[lf] final class Compiler(
       typeRepPos: Position,
       guardPos: Position,
   ) =
-    let(env, SBUFetchInterface(ifaceId)(env.toSEVar(cidPos), env.toSEVar(typeRepPos))) { (payloadPos, _env) =>
-      val env = _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
-      let(env, SBApplyChoiceGuard(choice.name, Some(ifaceId))(
-        env.toSEVar(guardPos),
-        env.toSEVar(payloadPos),
-        env.toSEVar(cidPos),
-      )) { (_, env) =>
+    let(env, SBUFetchInterface(ifaceId)(env.toSEVar(cidPos), env.toSEVar(typeRepPos))) {
+      (payloadPos, _env) =>
+        val env = _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
         let(
           env,
-          SBResolveSBUBeginExercise(
-            choice.name,
-            choice.consuming,
-            byKey = false,
-            ifaceId = ifaceId,
-          )(
+          SBApplyChoiceGuard(choice.name, Some(ifaceId))(
+            env.toSEVar(guardPos),
             env.toSEVar(payloadPos),
-            env.toSEVar(choiceArgPos),
             env.toSEVar(cidPos),
-            compile(env, choice.controllers),
-            choice.choiceObservers match {
-              case Some(observers) => compile(env, observers)
-              case None => s.SEValue.EmptyList
-            },
           ),
-        ) { (_, _env) =>
-          val env = _env.bindExprVar(choice.selfBinder, cidPos)
-          s.SEScopeExercise(app(compile(env, choice.update), env.toSEVar(tokenPos)))
+        ) { (_, env) =>
+          let(
+            env,
+            SBResolveSBUBeginExercise(
+              choice.name,
+              choice.consuming,
+              byKey = false,
+              ifaceId = ifaceId,
+            )(
+              env.toSEVar(payloadPos),
+              env.toSEVar(choiceArgPos),
+              env.toSEVar(cidPos),
+              compile(env, choice.controllers),
+              choice.choiceObservers match {
+                case Some(observers) => compile(env, observers)
+                case None => s.SEValue.EmptyList
+              },
+            ),
+          ) { (_, _env) =>
+            val env = _env.bindExprVar(choice.selfBinder, cidPos)
+            s.SEScopeExercise(app(compile(env, choice.update), env.toSEVar(tokenPos)))
+          }
         }
-      }
     }
 
   private[this] def compileInterfaceChoice(
@@ -1275,13 +1281,14 @@ private[lf] final class Compiler(
       cidPos: Position,
       typeRepPos: Position,
   ) =
-    let(env, SBUFetchInterface(ifaceId)(env.toSEVar(cidPos), env.toSEVar(typeRepPos))) { (payloadPos, env) =>
-      let(
-        env,
-        SBResolveSBUInsertFetchNode(ifaceId)(env.toSEVar(payloadPos), env.toSEVar(cidPos)),
-      ) { (_, env) =>
-        env.toSEVar(payloadPos)
-      }
+    let(env, SBUFetchInterface(ifaceId)(env.toSEVar(cidPos), env.toSEVar(typeRepPos))) {
+      (payloadPos, env) =>
+        let(
+          env,
+          SBResolveSBUInsertFetchNode(ifaceId)(env.toSEVar(payloadPos), env.toSEVar(cidPos)),
+        ) { (_, env) =>
+          env.toSEVar(payloadPos)
+        }
     }
 
   private[this] def compileFetchInterface(
