@@ -38,6 +38,11 @@ private[backend] case class InitHookDataSourceProxy(
     } catch {
       case t: Throwable =>
         logger.warn(s"Init hook execution failed", t)
+        try {
+          connection.close() // releasing resources in case of initialisation issues
+        } catch {
+          case _: Throwable => () // catching all resource-releasing exceptions
+        }
         throw t
     }
     logger.info(s"Init hook execution finished successfully, connection ready")
