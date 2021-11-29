@@ -237,16 +237,18 @@ final class CommandsValidator(
     )(maxDeduplicationDuration => {
       val convertedDeduplicationPeriod = deduplicationPeriod match {
         case commands.Commands.DeduplicationPeriod.Empty =>
-          DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration)
+          maxDeduplicationDuration
         case commands.Commands.DeduplicationPeriod.DeduplicationTime(duration) =>
-          DeduplicationPeriod.DeduplicationDuration(DurationConversion.fromProto(duration))
+          DurationConversion.fromProto(duration)
         case commands.Commands.DeduplicationPeriod.DeduplicationDuration(duration) =>
-          DeduplicationPeriod.DeduplicationDuration(DurationConversion.fromProto(duration))
+          DurationConversion.fromProto(duration)
       }
-      deduplicationPeriodValidator.validate(
-        convertedDeduplicationPeriod,
-        maxDeduplicationDuration,
-      )
+      deduplicationPeriodValidator
+        .validateDuration(
+          convertedDeduplicationPeriod,
+          maxDeduplicationDuration,
+        )
+        .map(DeduplicationPeriod.DeduplicationDuration)
     })
 }
 
