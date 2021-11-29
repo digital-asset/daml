@@ -56,7 +56,7 @@ class WriteServiceWithDeduplicationSupport(
         submitterInfo.actAs.toSet,
         transactionMeta.submissionTime.toInstant,
       )
-      .flatMap(supportedDeduplicationPeriod => {
+      .flatMap { supportedDeduplicationPeriod =>
         val submitterInfoWithSupportedDeduplicationPeriod =
           submitterInfo.copy(deduplicationPeriod = supportedDeduplicationPeriod)
         delegate
@@ -67,9 +67,8 @@ class WriteServiceWithDeduplicationSupport(
             estimatedInterpretationCost,
           )
           .asScala
-      })
+      }
       .asJava
-
   }
 
   override def currentHealth(): HealthStatus = delegate.currentHealth()

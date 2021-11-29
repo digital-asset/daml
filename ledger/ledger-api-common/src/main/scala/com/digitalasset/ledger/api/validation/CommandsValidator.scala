@@ -231,8 +231,7 @@ final class CommandsValidator(
       optMaxDeduplicationDuration: Option[Duration],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, DeduplicationPeriod] = {
-
+  ): Either[StatusRuntimeException, DeduplicationPeriod] =
     optMaxDeduplicationDuration.fold[Either[StatusRuntimeException, DeduplicationPeriod]](
       Left(missingLedgerConfig(Status.Code.UNAVAILABLE)(definiteAnswer = Some(false)))
     )(maxDeduplicationDuration => {
@@ -249,7 +248,6 @@ final class CommandsValidator(
         maxDeduplicationDuration,
       )
     })
-  }
 }
 
 object CommandsValidator {

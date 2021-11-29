@@ -36,9 +36,7 @@ class DeduplicationPeriodConverterSpec
   private val parties = Set.empty[Ref.Party]
   private val emptyResponse = CompletionStreamResponse()
 
-  override protected def afterEach(): Unit = {
-    reset(indexCompletionsService)
-  }
+  override protected def afterEach(): Unit = reset(indexCompletionsService)
 
   "return expected duration" in {
     val submittedAt = Instant.now()
@@ -60,9 +58,9 @@ class DeduplicationPeriodConverterSpec
         parties,
         submittedAt,
       )
-      .map(result => {
+      .map { result =>
         result shouldBe Right(Duration.ofSeconds(1))
-      })
+      }
   }
 
   "return failure when there is an empty response" in {
@@ -74,9 +72,9 @@ class DeduplicationPeriodConverterSpec
         parties,
         Instant.now(),
       )
-      .map(result => {
+      .map { result =>
         result shouldBe Left(DeduplicationConversionFailure.CompletionAtOffsetNotFound)
-      })
+      }
   }
 
   "return failure when the checkpoint is missing" in {
@@ -88,9 +86,9 @@ class DeduplicationPeriodConverterSpec
         parties,
         Instant.now(),
       )
-      .map(result => {
+      .map { result =>
         result shouldBe Left(DeduplicationConversionFailure.CompletionCheckpointNotAvailable)
-      })
+      }
   }
 
   "return failure when the checkpoint misses the record time" in {
@@ -110,9 +108,9 @@ class DeduplicationPeriodConverterSpec
         parties,
         Instant.now(),
       )
-      .map(result => {
+      .map { result =>
         result shouldBe Left(DeduplicationConversionFailure.CompletionRecordTimeNotAvailable)
-      })
+      }
   }
 
   "return failure when the offset is missing" in {
@@ -128,9 +126,9 @@ class DeduplicationPeriodConverterSpec
         parties,
         Instant.now(),
       )
-      .map(result => {
+      .map { result =>
         result shouldBe Left(DeduplicationConversionFailure.CompletionOffsetNotMatching)
-      })
+      }
   }
 
   "return failure when the offset has a different value" in {
@@ -150,23 +148,21 @@ class DeduplicationPeriodConverterSpec
         parties,
         Instant.now(),
       )
-      .map(result => {
+      .map { result =>
         result shouldBe Left(DeduplicationConversionFailure.CompletionOffsetNotMatching)
-      })
+      }
   }
 
   private def completionServiceReturnsResponse(
       response: Source[CompletionStreamResponse, NotUsed]
-  ) = {
-    when(
-      indexCompletionsService.getCompletions(
-        LedgerOffset.Absolute(offset),
-        LedgerOffset.Absolute(offset),
-        applicationId,
-        parties,
-      )(loggingContext)
-    ).thenReturn(
-      response
-    )
-  }
+  ) = when(
+    indexCompletionsService.getCompletions(
+      LedgerOffset.Absolute(offset),
+      LedgerOffset.Absolute(offset),
+      applicationId,
+      parties,
+    )(loggingContext)
+  ).thenReturn(
+    response
+  )
 }

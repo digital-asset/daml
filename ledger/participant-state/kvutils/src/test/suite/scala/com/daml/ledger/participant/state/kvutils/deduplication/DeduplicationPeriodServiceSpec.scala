@@ -46,9 +46,7 @@ class DeduplicationPeriodServiceSpec
     Offset.fromHexString(Hash.hashPrivateKey("offset").toHexString)
   private val offset = deduplicationPeriodOffset.toHexString
 
-  override protected def afterEach(): Unit = {
-    reset(periodConverter, periodValidator, errorFactories)
-  }
+  override protected def afterEach(): Unit = reset(periodConverter, periodValidator, errorFactories)
 
   "using deduplication duration" should {
     "validate and return it" in {
@@ -172,14 +170,12 @@ class DeduplicationPeriodServiceSpec
 
   private def callServiceWithDeduplicationPeriod(
       offsetPeriod: DeduplicationPeriod
-  ) = {
-    service
-      .supportedDeduplicationPeriod(
-        deduplicationPeriod = offsetPeriod,
-        maxDeduplicationDuration,
-        applicationId,
-        Set.empty,
-        submittedAt,
-      )
-  }
+  ) = service
+    .supportedDeduplicationPeriod(
+      deduplicationPeriod = offsetPeriod,
+      maxDeduplicationDuration,
+      applicationId,
+      Set.empty,
+      submittedAt,
+    )
 }

@@ -55,6 +55,7 @@ class DeduplicationPeriodConverter(
       case None => Left(DeduplicationConversionFailure.CompletionAtOffsetNotFound)
     }
   }
+
   private def completionAtOffset(
       request: CompletionRequest
   )(implicit
